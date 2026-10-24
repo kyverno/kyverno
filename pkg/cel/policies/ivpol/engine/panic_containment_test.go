@@ -2,14 +2,18 @@ package engine
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
+	"gomodules.xyz/jsonpatch/v2"
 	v1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/utils/ptr"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
@@ -20,34 +24,44 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/google/go-containerregistry/pkg/name"
-	remote "github.com/google/go-containerregistry/pkg/v1/remote"
-
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 )
 
-// panickingImageContext panics when asked for one specific image and returns
-// empty image data for any other image. It stands in for any Go panic raised
-// while a policy evaluates outside cel-go (here at the image fetch boundary),
-// which cel-go's own recover does not cover.
-type panickingImageContext struct {
-	panicOn string
+// panickingCompiledPolicy is a stub CompiledPolicy whose Evaluate panics.
+// It exercises the recover in evaluatePolicies directly without running into
+// cel-go's internal recover, which intercepts panics raised inside CEL functions.
+type panickingCompiledPolicy struct {
+	panicMsg string
 }
 
-func (panickingImageContext) AddImages(context.Context, []string, []remote.Option, []name.Option) error {
+func (p panickingCompiledPolicy) Evaluate(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, apiruntime.Object, bool, func() (map[string]any, error), libs.Context) (*iveval.EvaluationResult, error) {
+	panic(p.panicMsg)
+}
+
+func (p panickingCompiledPolicy) EnforceRequired([]string, *imageverify.ImageVerificationResults) error {
 	return nil
 }
 
-func (c panickingImageContext) Get(_ context.Context, image string, _ []remote.Option, _ []name.Option) (*imagedataloader.ImageData, error) {
-	if image == c.panicOn {
-		panic(fmt.Sprintf("injected panic while fetching %s", image))
-	}
-	return &imagedataloader.ImageData{}, nil
+// Tracing reports false: the stub is never compiled for decision tracing.
+func (p panickingCompiledPolicy) Tracing() bool { return false }
+
+func (p panickingCompiledPolicy) MutateDigest(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, apiruntime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration, libs.Context) ([]jsonpatch.JsonPatchOperation, error) {
+	return nil, nil
+}
+
+type panickingCompiler struct {
+	panicMsg string
+}
+
+func (c panickingCompiler) Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1beta1.PolicyException) (iveval.CompiledPolicy, field.ErrorList) {
+	return panickingCompiledPolicy{panicMsg: c.panicMsg}, nil
 }
 
 // globIvpol is a pods-only ImageValidatingPolicy that matches images by glob,
@@ -92,10 +106,26 @@ const twoImagePod = `{
 // only. With one goroutine per policy, an unrecovered panic in any of them
 // terminates the whole admission controller.
 func Test_ImageVerifyEngine_PanicInOnePolicyDoesNotCrashController(t *testing.T) {
-	provider := multiPolicyProvider(
-		globIvpol("ivpol-panics", "ghcr.io/a/*"),
-		globIvpol("ivpol-healthy", "ghcr.io/b/*"),
-	)
+	panickingPolicy := globIvpol("ivpol-panics", "ghcr.io/a/*")
+	healthyPolicy := globIvpol("ivpol-healthy", "ghcr.io/b/*")
+
+	healthyCompiled, errs := iveval.NewCompiler(nil).Compile(healthyPolicy, nil)
+	require.Empty(t, errs)
+
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
+		return []Policy{
+			{
+				Policy:         panickingPolicy,
+				CompiledPolicy: panickingCompiledPolicy{panicMsg: "injected panic while fetching ghcr.io/a/app:v1"},
+				Actions:        sets.New(admissionregistrationv1.Deny),
+			},
+			{
+				Policy:         healthyPolicy,
+				CompiledPolicy: healthyCompiled,
+				Actions:        sets.New(admissionregistrationv1.Deny),
+			},
+		}, nil
+	})
 
 	req := engine.EngineRequest{
 		Request: v1.AdmissionRequest{
@@ -110,9 +140,6 @@ func Test_ImageVerifyEngine_PanicInOnePolicyDoesNotCrashController(t *testing.T)
 	}
 
 	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
-	eng.newImageContext = func() (imagedataloader.ImageContext, error) {
-		return panickingImageContext{panicOn: "ghcr.io/a/app:v1"}, nil
-	}
 
 	old := libs.LibraryContext
 	libs.LibraryContext = libs.NewFakeContextProvider()
@@ -148,13 +175,11 @@ func Test_ImageVerifyEngine_PanicInOnePolicyDoesNotCrashController(t *testing.T)
 // (evaluateExtractedIv) run in the same per-policy goroutine, so a panic there
 // is contained the same way.
 func Test_ImageVerifyEngine_PanicInExtractionModePolicyIsContained(t *testing.T) {
-	provider, err := NewProvider(iveval.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{buildExtractionModeRequestPolicy()}, nil)
+	pol := buildExtractionModeRequestPolicy()
+	provider, err := NewProvider(panickingCompiler{panicMsg: "injected panic while fetching ghcr.io/a/app:v1"}, []policiesv1beta1.ImageValidatingPolicyLike{pol}, nil)
 	require.NoError(t, err)
 	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
 	const image = "ghcr.io/a/app:v1"
-	eng.newImageContext = func() (imagedataloader.ImageContext, error) {
-		return panickingImageContext{panicOn: image}, nil
-	}
 
 	raw, err := jobSetWithImage(image).MarshalJSON()
 	require.NoError(t, err)

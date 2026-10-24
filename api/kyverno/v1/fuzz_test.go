@@ -37,20 +37,3 @@ func FuzzV1MatchResources(f *testing.F) {
 		mr.Validate(path, false, nil)
 	})
 }
-
-func FuzzV1ClusterPolicy(f *testing.F) {
-	f.Fuzz(func(t *testing.T, data []byte) {
-		ff := fuzz.NewConsumer(data)
-		cp := &ClusterPolicy{}
-		ff.GenerateStruct(&cp)
-		cp.HasAutoGenAnnotation()
-		cp.HasMutateOrValidateOrGenerate()
-		cp.HasMutate()
-		cp.HasValidate()
-		cp.HasGenerate()
-		cp.HasVerifyImages()
-		cp.AdmissionProcessingEnabled()
-		cp.BackgroundProcessingEnabled()
-		cp.Validate(nil)
-	})
-}

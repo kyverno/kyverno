@@ -31,8 +31,15 @@ type TracedProgram struct {
 }
 
 // tracingProgram builds the explain-only twin of a program: same AST, with state tracking on.
+// It goes through NewProgram like every other program, so the twin's own evaluation is priced
+// and charged: it runs the expression a second time and that work is as real as the first. An
+// expression that calls a function that must not run twice (see NotRepeatable) gets no twin, so
+// TraceDetails has nothing to re-run and the trace shows only its result.
 func tracingProgram(env *cel.Env, ast *cel.Ast) (cel.Program, error) {
-	return env.Program(ast, cel.EvalOptions(cel.OptTrackState))
+	if NotRepeatable(ast) != "" {
+		return nil, nil
+	}
+	return NewProgram(env, ast, cel.EvalOptions(cel.OptTrackState))
 }
 
 // TraceDetails re-runs traced on the same activation to collect the per-node values for a trace.
@@ -44,6 +51,12 @@ func tracingProgram(env *cel.Env, ast *cel.Ast) (cel.Program, error) {
 // which trace.Build handles by showing only the result.
 func TraceDetails(ctx context.Context, traced cel.Program, activation any, decidedErr error) *cel.EvalDetails {
 	if traced == nil {
+		return nil
+	}
+	// The twin carries the same per-program limit, but re-running an expression the limit
+	// already refused doubles the work for an explanation that cannot be produced. A
+	// cost-limit refusal reaches here wrapped by NewProgram, so match on the class.
+	if IsResourceError(decidedErr) {
 		return nil
 	}
 	var cancelled interpreter.EvalCancelledError
@@ -65,15 +78,15 @@ func compileMatchCondition(path *field.Path, env *cel.Env, matchCondition admiss
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
-		ast, issues := env.Compile(matchCondition.Expression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, matchCondition.Expression)
+		if err != nil {
 			return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.BoolType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
 			return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
 		}
@@ -146,12 +159,12 @@ func compileVariable(path *field.Path, env *cel.Env, VariablesProvider *Variable
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
-		ast, issues := env.Compile(variable.Expression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, variable.Expression)
+		if err != nil {
 			return TracedProgram{}, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 		}
 		VariablesProvider.RegisterField(variable.Name, ast.OutputType())
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return TracedProgram{}, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 		}
@@ -213,38 +226,61 @@ func CompileVariables(path *field.Path, env *cel.Env, VariablesProvider *Variabl
 }
 
 func CompileMutation(path *field.Path, env *cel.Env, expression string, returnType *types.Type) (cel.Program, field.ErrorList) {
+	traced, errs := compileMutation(path, env, expression, returnType, false)
+	return traced.Program, errs
+}
+
+// compileMutation always builds the normal program; with trace it also builds the explain-only
+// tracking twin and keeps the AST (see TracedProgram).
+func compileMutation(path *field.Path, env *cel.Env, expression string, returnType *types.Type, trace bool) (TracedProgram, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
-		ast, issues := env.Compile(expression)
-		if err := issues.Err(); err != nil {
-			return nil, append(allErrs, field.Invalid(path, expression, err.Error()))
+		ast, err := Compile(env, expression)
+		if err != nil {
+			return TracedProgram{}, append(allErrs, field.Invalid(path, expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(returnType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", returnType.TypeName())
-			return nil, append(allErrs, field.Invalid(path, expression, msg))
+			return TracedProgram{}, append(allErrs, field.Invalid(path, expression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
-			return nil, append(allErrs, field.Invalid(path, expression, err.Error()))
+			return TracedProgram{}, append(allErrs, field.Invalid(path, expression, err.Error()))
 		}
-		return prog, allErrs
+		compiled := TracedProgram{Program: prog}
+		if trace {
+			if compiled.Traced, err = tracingProgram(env, ast); err != nil {
+				return TracedProgram{}, append(allErrs, field.Invalid(path, expression, err.Error()))
+			}
+			compiled.AST = ast
+		}
+		return compiled, allErrs
 	}
+}
+
+// CompileMutationWithTrace is the tracing-aware entry point for a mutation expression
+// (ApplyConfiguration or JSONPatch). With trace false it is exactly CompileMutation and Traced and
+// AST are nil. With trace true Program is still the normal program that decides; Traced is its
+// explain-only tracking twin and AST is retained, so trace.Build can turn a later evaluation into
+// a per-node breakdown of the mutation (see TracedProgram).
+func CompileMutationWithTrace(path *field.Path, env *cel.Env, expression string, returnType *types.Type, trace bool) (TracedProgram, field.ErrorList) {
+	return compileMutation(path, env, expression, returnType, trace)
 }
 
 func CompileAuditAnnotation(path *field.Path, env *cel.Env, auditAnnotation admissionregistrationv1.AuditAnnotation) (cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("valueExpression")
-		ast, issues := env.Compile(auditAnnotation.ValueExpression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, auditAnnotation.ValueExpression)
+		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.StringType) && !ast.OutputType().IsExactType(types.NullType) {
 			msg := fmt.Sprintf("output is expected to be either of type %s or %s", types.StringType.TypeName(), types.NullType.TypeName())
 			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
 		}
@@ -272,15 +308,15 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 	compiled := Validation{Message: rule.Message}
 	{
 		path := path.Child("expression")
-		ast, issues := env.Compile(rule.Expression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, rule.Expression)
+		if err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.BoolType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, msg))
 		}
-		program, err := env.Program(ast)
+		program, err := NewProgram(env, ast)
 		if err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 		}
@@ -295,15 +331,15 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 	}
 	if rule.MessageExpression != "" {
 		path := path.Child("messageExpression")
-		ast, issues := env.Compile(rule.MessageExpression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, rule.MessageExpression)
+		if err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.StringType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.StringType.TypeName())
 			return Validation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, msg))
 		}
-		program, err := env.Program(ast)
+		program, err := NewProgram(env, ast)
 		if err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
 		}
@@ -324,15 +360,15 @@ func CompileMatchImageReference(path *field.Path, env *cel.Env, match v1beta1.Ma
 	}
 	if match.Expression != "" {
 		path := path.Child("expression")
-		ast, issues := env.Compile(match.Expression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, match.Expression)
+		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, match.Expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.BoolType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
 			return nil, append(allErrs, field.Invalid(path, match.Expression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, match.Expression, err.Error()))
 		}
@@ -361,20 +397,51 @@ func CompileGeneration(path *field.Path, env *cel.Env, generation policiesv1beta
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
-		ast, issues := env.Compile(generation.Expression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, generation.Expression)
+		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.BoolType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
 			return nil, append(allErrs, field.Invalid(path, generation.Expression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
 		}
 		return prog, allErrs
 	}
+}
+
+// CompileGenerationWithTrace is the tracing-aware twin of CompileGeneration. With trace false
+// it compiles exactly as CompileGeneration does and Traced and AST are nil. With trace true
+// Program is still built exactly as without tracing and is the one that decides; Traced is its
+// explain-only tracking twin and AST is retained (see TracedProgram). CompileGeneration itself is
+// left unchanged.
+func CompileGenerationWithTrace(path *field.Path, env *cel.Env, generation policiesv1beta1.Generation, trace bool) (TracedProgram, field.ErrorList) {
+	if !trace {
+		prog, errs := CompileGeneration(path, env, generation)
+		return TracedProgram{Program: prog}, errs
+	}
+	var allErrs field.ErrorList
+	path = path.Child("expression")
+	ast, err := Compile(env, generation.Expression)
+	if err != nil {
+		return TracedProgram{}, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
+	}
+	if !ast.OutputType().IsExactType(types.BoolType) {
+		msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
+		return TracedProgram{}, append(allErrs, field.Invalid(path, generation.Expression, msg))
+	}
+	prog, err := NewProgram(env, ast)
+	if err != nil {
+		return TracedProgram{}, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
+	}
+	traced, err := tracingProgram(env, ast)
+	if err != nil {
+		return TracedProgram{}, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
+	}
+	return TracedProgram{Program: prog, Traced: traced, AST: ast}, allErrs
 }
 
 func CompileGenerations(path *field.Path, env *cel.Env, generations ...policiesv1beta1.Generation) (result []cel.Program, allErrs field.ErrorList) {

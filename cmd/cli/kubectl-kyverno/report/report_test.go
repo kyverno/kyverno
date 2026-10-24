@@ -1,10 +1,12 @@
 package report
 
 import (
+	"encoding/json"
+	"os"
 	"reflect"
 	"testing"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -12,13 +14,78 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"sigs.k8s.io/yaml"
 )
 
-func TestComputeClusterReports(t *testing.T) {
-	results, err := policy.Load(nil, "", true, "../_testdata/policies/cpol-pod-requirements.yaml")
+// loadLegacyPolicyFixture decodes a legacy kyverno.io ClusterPolicy/Policy fixture directly
+// (report generation itself isn't legacy-specific -- these fixtures exercise ComputePolicyReports'
+// handling of a kyvernov1.PolicyInterface-backed EngineResponse, independent of how the CLI loader
+// now unconditionally rejects loading such a policy).
+func loadLegacyPolicyFixture(t *testing.T, path string) kyvernov1.PolicyInterface {
+	t.Helper()
+	raw, err := os.ReadFile(path)
 	assert.NilError(t, err)
-	assert.Equal(t, len(results.Policies), 1)
-	policy := results.Policies[0]
+	var typeMeta metav1.TypeMeta
+	assert.NilError(t, yaml.Unmarshal(raw, &typeMeta))
+	if typeMeta.Kind == "Policy" {
+		var p kyvernov1.Policy
+		assert.NilError(t, yaml.Unmarshal(raw, &p))
+		return &p
+	}
+	var p kyvernov1.ClusterPolicy
+	assert.NilError(t, yaml.Unmarshal(raw, &p))
+	return &p
+}
+
+func TestComputePolicyReportsDecode(t *testing.T) {
+	scheme := runtime.NewScheme()
+	assert.NilError(t, openreportsv1alpha1.Install(scheme))
+	decoder := serializer.NewCodecFactory(scheme).UniversalDeserializer()
+	for _, tc := range []struct {
+		name    string
+		fixture string
+		kind    string
+	}{
+		{"cluster", "cpol-pod-requirements.yaml", "ClusterReport"},
+		{"namespaced", "pol-pod-requirements.yaml", "Report"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := loadLegacyPolicyFixture(t, "../_testdata/policies/"+tc.fixture)
+			response := engineapi.EngineResponse{}.WithPolicy(engineapi.NewKyvernoPolicy(p))
+			response.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RulePass("check", engineapi.Validation, "passed", nil))
+			clustered, namespaced := ComputePolicyReports(false, response)
+			assert.Equal(t, len(clustered)+len(namespaced), 1)
+			var report interface{}
+			if len(clustered) == 1 {
+				report = clustered[0]
+			} else {
+				report = namespaced[0]
+			}
+			for _, format := range []struct {
+				name    string
+				marshal func(interface{}) ([]byte, error)
+			}{
+				{"json", json.Marshal},
+				{"yaml", yaml.Marshal},
+			} {
+				t.Run(format.name, func(t *testing.T) {
+					data, err := format.marshal(report)
+					assert.NilError(t, err)
+					decoded, gvk, err := decoder.Decode(data, nil, nil)
+					assert.NilError(t, err)
+					assert.Equal(t, *gvk, openreportsv1alpha1.SchemeGroupVersion.WithKind(tc.kind))
+					assert.Equal(t, decoded.(metav1.Object).GetName(), p.GetName())
+					assert.Equal(t, decoded.(metav1.Object).GetNamespace(), p.GetNamespace())
+				})
+			}
+		})
+	}
+}
+
+func TestComputeClusterReports(t *testing.T) {
+	policy := loadLegacyPolicyFixture(t, "../_testdata/policies/cpol-pod-requirements.yaml")
 	er := engineapi.EngineResponse{}
 	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
 	er.PolicyResponse.Add(
@@ -51,10 +118,7 @@ func TestComputeClusterReports(t *testing.T) {
 }
 
 func TestComputePolicyReports(t *testing.T) {
-	results, err := policy.Load(nil, "", true, "../_testdata/policies/pol-pod-requirements.yaml")
-	assert.NilError(t, err)
-	assert.Equal(t, len(results.Policies), 1)
-	policy := results.Policies[0]
+	policy := loadLegacyPolicyFixture(t, "../_testdata/policies/pol-pod-requirements.yaml")
 	er := engineapi.EngineResponse{}
 	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
 	er.PolicyResponse.Add(
@@ -79,7 +143,7 @@ func TestComputePolicyReports(t *testing.T) {
 		report := namespaced[0]
 		assert.Equal(t, report.GetName(), policy.GetName())
 		assert.Equal(t, report.GetNamespace(), policy.GetNamespace())
-		assert.Equal(t, report.Kind, "PolicyReport")
+		assert.Equal(t, report.Kind, "Report")
 		assert.Equal(t, len(report.Results), 2)
 		assert.Equal(t, report.Results[0].Severity, openreportsv1alpha1.ResultSeverity(openreports.SeverityMedium))
 		assert.Equal(t, report.Results[0].Category, "Pod Security Standards (Restricted)")
@@ -88,10 +152,7 @@ func TestComputePolicyReports(t *testing.T) {
 }
 
 func TestComputeReportResultsPerPolicyOld(t *testing.T) {
-	loaderResults, err := policy.Load(nil, "", true, "../_testdata/policies/cpol-pod-requirements.yaml")
-	assert.NilError(t, err)
-	assert.Equal(t, len(loaderResults.Policies), 1)
-	policy := loaderResults.Policies[0]
+	policy := loadLegacyPolicyFixture(t, "../_testdata/policies/cpol-pod-requirements.yaml")
 	er := engineapi.EngineResponse{}
 	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
 	er.PolicyResponse.Add(
@@ -168,10 +229,7 @@ func TestMergeClusterReport(t *testing.T) {
 }
 
 func TestComputeReportResult(t *testing.T) {
-	results, err := policy.Load(nil, "", true, "../_testdata/policies/cpol-pod-requirements.yaml")
-	assert.NilError(t, err)
-	assert.Equal(t, len(results.Policies), 1)
-	policy := results.Policies[0]
+	policy := loadLegacyPolicyFixture(t, "../_testdata/policies/cpol-pod-requirements.yaml")
 	tests := []struct {
 		name           string
 		auditWarn      bool
@@ -293,10 +351,7 @@ func TestComputeReportResult(t *testing.T) {
 }
 
 func TestPSSComputeReportResult(t *testing.T) {
-	results, err := policy.Load(nil, "", true, "../_testdata/policies/restricted.yaml")
-	assert.NilError(t, err)
-	assert.Equal(t, len(results.Policies), 1)
-	policy := results.Policies[0]
+	policy := loadLegacyPolicyFixture(t, "../_testdata/policies/restricted.yaml")
 	tests := []struct {
 		name           string
 		auditWarn      bool
@@ -357,10 +412,7 @@ func TestComputeReportResultsPerPolicy(t *testing.T) {
 }
 
 func TestNamespacedPolicyReportGeneration(t *testing.T) {
-	results, err := policy.Load(nil, "", true, "../_testdata/policies/namespace-policy.yaml")
-	assert.NilError(t, err)
-	assert.Equal(t, len(results.Policies), 1)
-	policy := results.Policies[0]
+	policy := loadLegacyPolicyFixture(t, "../_testdata/policies/namespace-policy.yaml")
 
 	er := engineapi.EngineResponse{}
 	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
@@ -381,5 +433,5 @@ func TestNamespacedPolicyReportGeneration(t *testing.T) {
 
 	report := namespaced[0]
 	assert.Equal(t, report.GetNamespace(), policy.GetNamespace())
-	assert.Equal(t, report.Kind, "PolicyReport")
+	assert.Equal(t, report.Kind, "Report")
 }

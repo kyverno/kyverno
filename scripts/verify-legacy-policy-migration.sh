@@ -534,7 +534,10 @@ wait_for_patch_denied() {
   done
 }
 
-# The optional 5th argument is a namespace; see wait_for_patch_denied.
+# The optional 5th argument is a namespace; see wait_for_patch_denied. Kept for any caller
+# that still needs to assert a metadata-only write succeeds (none do post-1.20: the write-time
+# gate denies every update on a legacy kind except delete and the finalizer-removal carve-out,
+# so a label/annotation-only patch is denied too, see wait_for_annotate_denied below).
 wait_for_annotate_allowed() {
   local desc="$1" resource="$2" name="$3" annotation="$4" namespace="${5:-}"
   local ns_flag=""
@@ -551,6 +554,36 @@ wait_for_annotate_allowed() {
     if [ "${waited}" -ge "${timeout}" ]; then
       cat "${WORK_DIR}/last-apply.log" >&2
       fail "${desc}: expected annotate to succeed, but it kept failing for ${timeout}s"
+    fi
+    sleep "${interval}"
+  done
+}
+
+# 1.20 tightened semantics (design decision 3): no-op re-applies and metadata-only changes are
+# no longer silently allowed through on a legacy kind, only delete and a strict finalizer-removal
+# update are. A metadata/annotation-only patch must now be denied with the standard message, the
+# same as a spec patch. The optional 6th argument is a namespace; see wait_for_patch_denied.
+wait_for_annotate_denied() {
+  local desc="$1" resource="$2" name="$3" annotation="$4" expected_substr="$5" namespace="${6:-}"
+  local ns_flag=""
+  if [ -n "${namespace}" ]; then
+    ns_flag="-n ${namespace}"
+  fi
+  local waited=0 timeout=120 interval=3
+  while true; do
+    # shellcheck disable=SC2086 # ns_flag must expand to zero args when empty, not one empty arg.
+    if ! kubectl annotate ${ns_flag} "${resource}" "${name}" "${annotation}" --overwrite >"${WORK_DIR}/last-apply.log" 2>&1; then
+      if grep -qF -- "${expected_substr}" "${WORK_DIR}/last-apply.log"; then
+        return 0
+      fi
+      :
+    else
+      fail "${desc}: the metadata-only annotate was accepted - 1.20 denies every legacy update except delete and finalizer-removal, so a metadata-only patch must be denied too."
+    fi
+    waited=$((waited + interval))
+    if [ "${waited}" -ge "${timeout}" ]; then
+      cat "${WORK_DIR}/last-apply.log" >&2
+      fail "${desc}: expected annotate to be denied for '${expected_substr}' within ${timeout}s (see the last captured output above)"
     fi
     sleep "${interval}"
   done
@@ -1169,26 +1202,33 @@ webhook_rules_cover_legacy_kinds "A2 baseline"
 wait_for_webhook_configs_reconciled "A2 baseline" ""
 snapshot_legacy_webhook_rules "baseline"
 
-log "A3: upgrading to the LOCAL chart with upgrade.allowLegacyPolicies=true (default write-block left ON)"
+log "A3: upgrading to the LOCAL chart with upgrade.acknowledgeLegacyPoliciesNotEnforced=true (default write-block left ON)"
 PRE_A3_IMAGES="$(controller_deployment_images)"
 [ -n "${PRE_A3_IMAGES}" ] && [ "${PRE_A3_IMAGES}" != "[]" ] && [ "${PRE_A3_IMAGES}" != "null" ] \
   || fail "A3: could not read the controller deployment images before the change, so the image gate below cannot tell a real rollout from a failed read"
-run_local_upgrade "--set upgrade.allowLegacyPolicies=true" "${WORK_DIR}/a3-upgrade.log" \
+run_local_upgrade "--set upgrade.acknowledgeLegacyPoliciesNotEnforced=true" "${WORK_DIR}/a3-upgrade.log" \
   || { cat "${WORK_DIR}/a3-upgrade.log" >&2; fail "A3: opt-out upgrade to the local chart was expected to succeed"; }
 wait_for_controller_images_changed "A3" "${PRE_A3_IMAGES}"
 wait_kyverno_ready
 
 log "A4: post-upgrade assertions"
-# Before anything is asserted: a surviving 1.19 pod would satisfy the
-# enforcement checks below, proving the old build still works rather than
-# the new one.
+# Before anything is asserted: a surviving 1.19 pod would still enforce the
+# legacy policies and deny the pod below, reporting a 1.20 regression that is
+# really just the old build answering.
 wait_for_no_stale_controller_pods "A4"
 POST_UPGRADE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
 if [ "${POST_UPGRADE_CLUSTERPOLICY_HASH}" != "${BASELINE_CLUSTERPOLICY_HASH}" ]; then
   fail "A4: the pre-existing ClusterPolicy's spec changed across the opt-out upgrade"
 fi
-wait_for_deny "A4 ClusterPolicy enforcement still active post-upgrade" "${WORK_DIR}/violating-pod.yaml" "${CP_DENY_MSG}"
-wait_for_deny "A4 Policy enforcement still active post-upgrade" "${WORK_DIR}/violating-pod.yaml" "${POLICY_DENY_MSG}"
+# 1.20 removed execution of legacy kyverno.io policy content, so the pod A1
+# proved was denied on 1.19 must now be admitted - by both the ClusterPolicy
+# and the Policy, neither of which runs any more. The policies themselves are
+# still stored and byte-identical (hash and count assertions above): only
+# their execution is gone, which is exactly the grace-window guarantee.
+wait_for_allow "A4 legacy ClusterPolicy and Policy no longer enforce post-upgrade" "${WORK_DIR}/violating-pod.yaml"
+# Delete it immediately: A5 rolls back to 1.19 and re-applies this same
+# manifest expecting a denial, which a surviving pod would mask.
+kubectl delete -f "${WORK_DIR}/violating-pod.yaml" --ignore-not-found >/dev/null
 
 cat <<EOF > "${WORK_DIR}/new-legacy-policy.yaml"
 apiVersion: kyverno.io/v1
@@ -1200,12 +1240,12 @@ spec:
 EOF
 # Reuses wait_for_deny for the create-block check - it only cares that
 # "kubectl apply -f" is expected to be denied, not the manifest's kind.
-wait_for_deny "A4 create blocked" "${WORK_DIR}/new-legacy-policy.yaml" "no longer accepted for create"
+wait_for_deny "A4 create blocked" "${WORK_DIR}/new-legacy-policy.yaml" "removed execution"
 
 SPEC_PATCH='{"spec":{"rules":[{"name":"check-label","match":{"resources":{"kinds":["Pod"],"namespaces":["'"${TEST_NAMESPACE}"'"]}},"validate":{"message":"changed","pattern":{"metadata":{"labels":{"app":"?*"}}}}}]}}'
-wait_for_patch_denied "A4 spec-update blocked" "clusterpolicy" "${CLUSTERPOLICY_NAME}" "${SPEC_PATCH}" "no longer accepted"
+wait_for_patch_denied "A4 spec-update blocked" "clusterpolicy" "${CLUSTERPOLICY_NAME}" "${SPEC_PATCH}" "removed execution"
 
-wait_for_annotate_allowed "A4 metadata patch allowed" "clusterpolicy" "${CLUSTERPOLICY_NAME}" "legacy-policy-migration-verify/probe=1"
+wait_for_annotate_denied "A4 metadata patch denied" "clusterpolicy" "${CLUSTERPOLICY_NAME}" "legacy-policy-migration-verify/probe=1" "removed execution"
 # kubectl get returns the served version, not the storage version - this
 # only proves v1 is still served. Storage-version stability is checked
 # separately by the CRD snapshot comparison below.
@@ -1223,17 +1263,18 @@ POST_UPGRADE_POLICY_HASH="$(namespaced_spec_hash policies.kyverno.io "${POLICY_N
 [ "${POST_UPGRADE_POLICY_HASH}" = "${BASELINE_POLICY_HASH}" ] \
   || fail "A4: the pre-existing Policy's spec changed across the opt-out upgrade"
 
-wait_for_deny "A4 policy create blocked" "${WORK_DIR}/new-policy.yaml" "no longer accepted for create"
+wait_for_deny "A4 policy create blocked" "${WORK_DIR}/new-policy.yaml" "removed execution"
 
 POLICY_SPEC_PATCH='{"spec":{"rules":[{"name":"check-label","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"changed","pattern":{"metadata":{"labels":{"app":"?*"}}}}}]}}'
-wait_for_patch_denied "A4 policy spec-update blocked" "policies.kyverno.io" "${POLICY_NAME}" "${POLICY_SPEC_PATCH}" "no longer accepted" "${TEST_NAMESPACE}"
+wait_for_patch_denied "A4 policy spec-update blocked" "policies.kyverno.io" "${POLICY_NAME}" "${POLICY_SPEC_PATCH}" "removed execution" "${TEST_NAMESPACE}"
 
-wait_for_annotate_allowed "A4 policy metadata patch allowed" "policies.kyverno.io" "${POLICY_NAME}" "legacy-policy-migration-verify/probe=1" "${TEST_NAMESPACE}"
+wait_for_annotate_denied "A4 policy metadata patch denied" "policies.kyverno.io" "${POLICY_NAME}" "legacy-policy-migration-verify/probe=1" "removed execution" "${TEST_NAMESPACE}"
 
 # --- A4, other two handlers -------------------------------------------------
 # Same three assertions, against the other two ShouldBlock call sites. The
 # CleanupPolicy/ClusterCleanupPolicy pair matters most: the cleanup
-# controller is a separate binary with its own --blockLegacyPolicyAPIs.
+# controller is a separate binary with its own independent wiring of the
+# unconditional write-time block.
 log "A4: asserting the CleanupPolicy, ClusterCleanupPolicy, and PolicyException handlers block writes too"
 
 POST_UPGRADE_CLEANUP_POLICY_HASH="$(namespaced_spec_hash cleanuppolicy "${CLEANUP_POLICY_NAME}")"
@@ -1246,20 +1287,20 @@ POST_UPGRADE_POLEX_HASH="$(namespaced_spec_hash policyexceptions.kyverno.io "${P
 [ "${POST_UPGRADE_POLEX_HASH}" = "${BASELINE_POLEX_HASH}" ] \
   || fail "A4: the pre-existing PolicyException's spec changed across the opt-out upgrade"
 
-wait_for_deny "A4 cleanup policy create blocked" "${WORK_DIR}/new-cleanup-policy.yaml" "no longer accepted for create"
-wait_for_deny "A4 cluster cleanup policy create blocked" "${WORK_DIR}/new-clustercleanup-policy.yaml" "no longer accepted for create"
-wait_for_deny "A4 policy exception create blocked" "${WORK_DIR}/new-polex.yaml" "no longer accepted for create"
+wait_for_deny "A4 cleanup policy create blocked" "${WORK_DIR}/new-cleanup-policy.yaml" "removed execution"
+wait_for_deny "A4 cluster cleanup policy create blocked" "${WORK_DIR}/new-clustercleanup-policy.yaml" "removed execution"
+wait_for_deny "A4 policy exception create blocked" "${WORK_DIR}/new-polex.yaml" "removed execution"
 
 CLEANUP_SPEC_PATCH='{"spec":{"schedule":"0 0 2 1 *"}}'
-wait_for_patch_denied "A4 cleanup policy spec-update blocked" "cleanuppolicy" "${CLEANUP_POLICY_NAME}" "${CLEANUP_SPEC_PATCH}" "no longer accepted" "${TEST_NAMESPACE}"
+wait_for_patch_denied "A4 cleanup policy spec-update blocked" "cleanuppolicy" "${CLEANUP_POLICY_NAME}" "${CLEANUP_SPEC_PATCH}" "removed execution" "${TEST_NAMESPACE}"
 CLUSTERCLEANUP_SPEC_PATCH='{"spec":{"schedule":"0 0 2 1 *"}}'
-wait_for_patch_denied "A4 cluster cleanup policy spec-update blocked" "clustercleanuppolicies.kyverno.io" "${CLUSTERCLEANUP_POLICY_NAME}" "${CLUSTERCLEANUP_SPEC_PATCH}" "no longer accepted"
+wait_for_patch_denied "A4 cluster cleanup policy spec-update blocked" "clustercleanuppolicies.kyverno.io" "${CLUSTERCLEANUP_POLICY_NAME}" "${CLUSTERCLEANUP_SPEC_PATCH}" "removed execution"
 POLEX_SPEC_PATCH='{"spec":{"exceptions":[{"policyName":"legacy-policy-migration-verify-changed","ruleNames":["*"]}]}}'
-wait_for_patch_denied "A4 policy exception spec-update blocked" "policyexceptions.kyverno.io" "${POLEX_NAME}" "${POLEX_SPEC_PATCH}" "no longer accepted" "${TEST_NAMESPACE}"
+wait_for_patch_denied "A4 policy exception spec-update blocked" "policyexceptions.kyverno.io" "${POLEX_NAME}" "${POLEX_SPEC_PATCH}" "removed execution" "${TEST_NAMESPACE}"
 
-wait_for_annotate_allowed "A4 cleanup policy metadata patch allowed" "cleanuppolicy" "${CLEANUP_POLICY_NAME}" "legacy-policy-migration-verify/probe=1" "${TEST_NAMESPACE}"
-wait_for_annotate_allowed "A4 cluster cleanup policy metadata patch allowed" "clustercleanuppolicies.kyverno.io" "${CLUSTERCLEANUP_POLICY_NAME}" "legacy-policy-migration-verify/probe=1"
-wait_for_annotate_allowed "A4 policy exception metadata patch allowed" "policyexceptions.kyverno.io" "${POLEX_NAME}" "legacy-policy-migration-verify/probe=1" "${TEST_NAMESPACE}"
+wait_for_annotate_denied "A4 cleanup policy metadata patch denied" "cleanuppolicy" "${CLEANUP_POLICY_NAME}" "legacy-policy-migration-verify/probe=1" "removed execution" "${TEST_NAMESPACE}"
+wait_for_annotate_denied "A4 cluster cleanup policy metadata patch denied" "clustercleanuppolicies.kyverno.io" "${CLUSTERCLEANUP_POLICY_NAME}" "legacy-policy-migration-verify/probe=1" "removed execution"
+wait_for_annotate_denied "A4 policy exception metadata patch denied" "policyexceptions.kyverno.io" "${POLEX_NAME}" "legacy-policy-migration-verify/probe=1" "removed execution" "${TEST_NAMESPACE}"
 
 # Sampled here, not right after the upgrade: every create above is expected
 # to be denied and wait_for_deny force-deletes any spurious success, so
@@ -1295,7 +1336,7 @@ wait_for_webhook_configs_reconciled "A4" "baseline"
 # Not strict equality: baseline is the published 1.19 chart and this is
 # the local chart, so a legitimate capability addition must not fail this.
 assert_legacy_webhook_rules_not_narrowed "baseline" "post-upgrade" "A4"
-log "A4: PASS (enforcement intact; create/spec-update blocked and metadata patch allowed on all five legacy kinds across all three block handlers; CR counts and per-kind spec hashes late-sampled against baseline, CRDs unchanged, webhook coverage not narrowed, and no owning-webhook attribute change)"
+log "A4: PASS (legacy execution gone while stored policies survive untouched; create/spec-update blocked and metadata patch denied on all five legacy kinds across all three block handlers; CR counts and per-kind spec hashes late-sampled against baseline, CRDs unchanged, webhook coverage not narrowed, and no owning-webhook attribute change)"
 
 # --- A4b: legacy-policy deletes keep succeeding while the write-block is active
 # Proves an operator can still delete a legacy policy on 1.20 to migrate off
@@ -1413,9 +1454,13 @@ wait_for_deny "B1 pre-upgrade ClusterPolicy enforcement" "${WORK_DIR}/violating-
 log "B2: snapshotting every controller's deployment image and the release revision before the blocked upgrade attempt"
 BEFORE_IMAGES="$(controller_deployment_images)"
 BEFORE_REVISION="$(release_revision)"
+BEFORE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
+BEFORE_CR_COUNTS="$(legacy_cr_counts_snapshot)"
 [ -n "${BEFORE_IMAGES}" ] && [ "${BEFORE_IMAGES}" != "[]" ] && [ "${BEFORE_IMAGES}" != "null" ] \
   || fail "B2: could not read the controller deployment images before the upgrade attempt"
 [ -n "${BEFORE_REVISION}" ] || fail "B2: could not read the release revision before the upgrade attempt"
+[ -n "${BEFORE_CLUSTERPOLICY_HASH}" ] || fail "B2: could not read the pre-existing ClusterPolicy spec before the upgrade attempt"
+[ -n "${BEFORE_CR_COUNTS}" ] || fail "B2: could not snapshot legacy policy counts before the upgrade attempt"
 
 log "B3: attempting the upgrade WITHOUT the opt-out, expecting it to be blocked"
 if run_local_upgrade "" "${WORK_DIR}/b3-upgrade.log"; then
@@ -1455,6 +1500,13 @@ case "${STATUS}" in
     ;;
 esac
 
+POST_BLOCK_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
+POST_BLOCK_CR_COUNTS="$(legacy_cr_counts_snapshot)"
+[ "${POST_BLOCK_CLUSTERPOLICY_HASH}" = "${BEFORE_CLUSTERPOLICY_HASH}" ] \
+  || fail "B3: the pre-existing ClusterPolicy was deleted or its spec changed during the blocked upgrade (before='${BEFORE_CLUSTERPOLICY_HASH}' after='${POST_BLOCK_CLUSTERPOLICY_HASH}')"
+[ "${POST_BLOCK_CR_COUNTS}" = "${BEFORE_CR_COUNTS}" ] \
+  || fail "B3: the set of legacy policy resources changed during the blocked upgrade (before='${BEFORE_CR_COUNTS}' after='${POST_BLOCK_CR_COUNTS}')"
+
 # These three greps check only the render-time gate's message - the path
 # that always fires before the hook Job could run, so it's the only one
 # this script exercises (a hook Job's logs never reach this stderr).
@@ -1462,9 +1514,11 @@ grep -q -- "- ClusterPolicy: 1" "${WORK_DIR}/b3-upgrade.log" \
   || { cat "${WORK_DIR}/b3-upgrade.log" >&2; fail "B3: blocked-upgrade error is missing the offending kind/count"; }
 grep -qF "${CLUSTERPOLICY_NAME}" "${WORK_DIR}/b3-upgrade.log" \
   || { cat "${WORK_DIR}/b3-upgrade.log" >&2; fail "B3: blocked-upgrade error is missing the offending resource name"; }
-grep -q "upgrade.allowLegacyPolicies" "${WORK_DIR}/b3-upgrade.log" \
-  || { cat "${WORK_DIR}/b3-upgrade.log" >&2; fail "B3: blocked-upgrade error is missing the upgrade.allowLegacyPolicies opt-out hint"; }
-log "B3: PASS (upgrade blocked by the render-time gate with count/name/opt-out hint; no controller manifest change)"
+grep -q "upgrade.acknowledgeLegacyPoliciesNotEnforced" "${WORK_DIR}/b3-upgrade.log" \
+  || { cat "${WORK_DIR}/b3-upgrade.log" >&2; fail "B3: blocked-upgrade error is missing the upgrade.acknowledgeLegacyPoliciesNotEnforced opt-out hint"; }
+grep -q "https://kyverno.io/docs/guides/migration-to-cel/" "${WORK_DIR}/b3-upgrade.log" \
+  || { cat "${WORK_DIR}/b3-upgrade.log" >&2; fail "B3: blocked-upgrade error is missing the migration guide"; }
+log "B3: PASS (upgrade blocked with migration guidance; controller manifests and every legacy policy remain unchanged)"
 
 log "B4: migrating to CEL - applying the ValidatingPolicy twin, deleting the legacy ClusterPolicy"
 apply_vpol_fixture

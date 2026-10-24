@@ -573,9 +573,9 @@ major-bump:
 # Managed by pr-stale-author-action.yaml; don't set by hand.
 stale:
   color: CFD3D7
-  description: Waiting on the author with no new commit for 14 days
+  description: Waiting on the author with no new commit for 7 days
 
-# Set by a maintainer. Exempts a PR from pr-stale-author-action.yaml (no stale label, no review nudge).
+# Set by a maintainer. Exempts a PR from pr-stale-author-action.yaml.
 no-stale:
   color: C2E0C6
-  description: Exempt from the stale-author and idle-review reminders
+  description: Exempt from stale-author, automatic closure, and idle-review handling
