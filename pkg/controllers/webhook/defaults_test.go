@@ -85,7 +85,26 @@ func webhookDefaultFixtures(t *testing.T) ([]admissionregistrationv1.ValidatingW
 	storedEmptyFields.Name = emptyFields.Name
 	storedEmptyFields.NamespaceSelector = &metav1.LabelSelector{}
 	storedEmptyFields.ObjectSelector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "test"}}
-	desired, observed := []admissionregistrationv1.ValidatingWebhook{minimal, explicit, url, emptyFields}, []admissionregistrationv1.ValidatingWebhook{stored, explicit, storedURL, storedEmptyFields}
+	// Exists and DoesNotExist take no values, and an empty list is omitted the same way.
+	emptyValues := *minimal.DeepCopy()
+	emptyValues.Name = "empty-requirement-values.kyverno.svc"
+	emptyValues.NamespaceSelector = &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{Key: "team", Operator: metav1.LabelSelectorOpExists, Values: []string{}},
+	}}
+	emptyValues.ObjectSelector = &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{Key: "app", Operator: metav1.LabelSelectorOpIn, Values: []string{"test"}},
+		{Key: "skip", Operator: metav1.LabelSelectorOpDoesNotExist, Values: []string{}},
+	}}
+	storedEmptyValues := *stored.DeepCopy()
+	storedEmptyValues.Name = emptyValues.Name
+	storedEmptyValues.NamespaceSelector = &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{Key: "team", Operator: metav1.LabelSelectorOpExists},
+	}}
+	storedEmptyValues.ObjectSelector = &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{Key: "app", Operator: metav1.LabelSelectorOpIn, Values: []string{"test"}},
+		{Key: "skip", Operator: metav1.LabelSelectorOpDoesNotExist},
+	}}
+	desired, observed := []admissionregistrationv1.ValidatingWebhook{minimal, explicit, url, emptyFields, emptyValues}, []admissionregistrationv1.ValidatingWebhook{stored, explicit, storedURL, storedEmptyFields, storedEmptyValues}
 
 	// Exercise the real CEL builder with the policy kinds reported in #17735.
 	match := &admissionregistrationv1.MatchResources{ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{RuleWithOperations: rules[0]}}}
@@ -151,11 +170,16 @@ func TestDefaultWebhookSelectorDoesNotMutateSource(t *testing.T) {
 		MatchLabels:      map[string]string{},
 		MatchExpressions: []metav1.LabelSelectorRequirement{},
 	}
-	webhooks := []admissionregistrationv1.ValidatingWebhook{{NamespaceSelector: selector}}
+	requirements := &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{Key: "team", Operator: metav1.LabelSelectorOpExists, Values: []string{}},
+	}}
+	webhooks := []admissionregistrationv1.ValidatingWebhook{{NamespaceSelector: selector, ObjectSelector: requirements}}
 	defaultValidatingWebhooks(webhooks)
 	require.Equal(t, &metav1.LabelSelector{}, webhooks[0].NamespaceSelector)
+	require.Nil(t, webhooks[0].ObjectSelector.MatchExpressions[0].Values)
 	require.NotNil(t, selector.MatchLabels)
 	require.NotNil(t, selector.MatchExpressions)
+	require.NotNil(t, requirements.MatchExpressions[0].Values)
 }
 
 // TestReconcileWebhookConfigurationDefaults verifies that defaulted webhooks

@@ -56,17 +56,37 @@ func defaultWebhookSelector(selector *metav1.LabelSelector) *metav1.LabelSelecto
 	if selector == nil {
 		return &metav1.LabelSelector{}
 	}
-	if selector.MatchLabels != nil && len(selector.MatchLabels) == 0 ||
-		selector.MatchExpressions != nil && len(selector.MatchExpressions) == 0 {
-		selector = selector.DeepCopy()
-		if len(selector.MatchLabels) == 0 {
-			selector.MatchLabels = nil
-		}
-		if len(selector.MatchExpressions) == 0 {
-			selector.MatchExpressions = nil
+	if !hasEmptySelectorFields(selector) {
+		return selector
+	}
+	selector = selector.DeepCopy()
+	if len(selector.MatchLabels) == 0 {
+		selector.MatchLabels = nil
+	}
+	if len(selector.MatchExpressions) == 0 {
+		selector.MatchExpressions = nil
+	}
+	for i := range selector.MatchExpressions {
+		if len(selector.MatchExpressions[i].Values) == 0 {
+			selector.MatchExpressions[i].Values = nil
 		}
 	}
 	return selector
+}
+
+// hasEmptySelectorFields reports whether the selector holds an empty but non-nil
+// map or slice, including the values of an Exists or DoesNotExist requirement.
+func hasEmptySelectorFields(selector *metav1.LabelSelector) bool {
+	if selector.MatchLabels != nil && len(selector.MatchLabels) == 0 ||
+		selector.MatchExpressions != nil && len(selector.MatchExpressions) == 0 {
+		return true
+	}
+	for _, requirement := range selector.MatchExpressions {
+		if requirement.Values != nil && len(requirement.Values) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // defaultWebhookRulesAndService fills the API-server defaults for rule scope
