@@ -79,6 +79,22 @@ func New(
 	namespace string,
 	jp jmespath.Interface,
 ) (store.Entry, error) {
+	return newWithWatchErrorObserver(ctx, gce, eventGen, dClient, logger, gvr, namespace, jp, nil)
+}
+
+// newWithWatchErrorObserver lets regression tests observe callbacks that are
+// intentionally suppressed by event throttling. Production passes nil.
+func newWithWatchErrorObserver(
+	ctx context.Context,
+	gce *kyvernov2beta1.GlobalContextEntry,
+	eventGen event.Interface,
+	dClient dynamic.Interface,
+	logger logr.Logger,
+	gvr schema.GroupVersionResource,
+	namespace string,
+	jp jmespath.Interface,
+	observeWatchError func(error),
+) (store.Entry, error) {
 	if namespace == "" {
 		namespace = metav1.NamespaceAll
 	}
@@ -102,6 +118,11 @@ func New(
 	var lastWatchErrorEvent time.Time
 
 	err := informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		// Observe even suppressed errors so tests can verify both callbacks.
+		if observeWatchError != nil {
+			observeWatchError(err)
+		}
+
 		// Fail fast only before initial cache synchronization. Once synced,
 		// leave retries and relisting to the client-go reflector (#18180).
 		// Serialize the decision with New's startup completion and throttle
