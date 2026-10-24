@@ -97,12 +97,22 @@ spec:
           image: {{ include "kyverno.background-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.backgroundController.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.backgroundController.image.pullPolicy }}
           ports:
-          - containerPort: {{ .Values.backgroundController.server.port }}
-            name: https
-            protocol: TCP
           - containerPort: {{ .Values.backgroundController.metering.port }}
             name: metrics
             protocol: TCP
+          {{- $features := mergeOverwrite (deepCopy .Values.features) .Values.backgroundController.featuresOverride }}
+          {{- $bindAddress := ":8080" }}
+          {{- if and $features.controllerRuntimeMetrics (hasKey $features.controllerRuntimeMetrics "bindAddress") }}
+            {{- if ne ($features.controllerRuntimeMetrics.bindAddress | toString) "" }}
+              {{- $bindAddress = $features.controllerRuntimeMetrics.bindAddress | toString }}
+            {{- end }}
+          {{- end }}
+          {{- $port := last (splitList ":" $bindAddress) | int }}
+          {{- if and (ne $bindAddress "0") (ne $bindAddress ":0") (gt $port 0) }}
+          - containerPort: {{ $port }}
+            name: cr-metrics
+            protocol: TCP
+          {{- end }}
           {{ if .Values.backgroundController.profiling.enabled }}
           - containerPort: {{ .Values.backgroundController.profiling.port }}
             name: profiling-port
