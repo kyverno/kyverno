@@ -193,3 +193,43 @@ func TestResultSkip(t *testing.T) {
 		})
 	}
 }
+
+func TestFunctionName(t *testing.T) {
+	Init(true)
+	tests := []struct {
+		name         string
+		functionName string
+		want         string
+	}{{
+		name:         "truncate",
+		functionName: "truncate",
+		want:         "truncate",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := FunctionName(tt.functionName); got != tt.want {
+				t.Errorf("FunctionName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFunctionNote(t *testing.T) {
+	Init(true)
+	tests := []struct {
+		name string
+		note string
+		want string
+	}{{
+		name: "note",
+		note: "sample note",
+		want: "sample note",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := FunctionNote(tt.note); got != tt.want {
+				t.Errorf("FunctionNote() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

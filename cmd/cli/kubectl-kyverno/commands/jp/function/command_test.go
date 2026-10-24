@@ -58,3 +58,17 @@ func TestCommandHelp(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
 }
+
+func TestCommandWithRemoveColor(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{"--remove-color", "to_upper"})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+	out, err := io.ReadAll(b)
+	assert.NoError(t, err)
+	expected := "Name: to_upper\n  Signature: to_upper(string) string\n  Note:      takes in a string and outputs the same string with all upper-case letters"
+	assert.Contains(t, strings.TrimSpace(string(out)), expected)
+}
