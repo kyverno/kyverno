@@ -739,7 +739,8 @@ spec:
 				ContextPath:    invalidContextFile,
 				ContinueOnFail: true,
 			},
-			expectErr: false,
+			expectErr:         false,
+			expectNoResponses: true,
 		},
 		{
 			name: "deleting policy context failure without continue-on-fail fails fast",
@@ -760,7 +761,8 @@ spec:
 				ContextPath:    invalidContextFile,
 				ContinueOnFail: true,
 			},
-			expectErr: false,
+			expectErr:         false,
+			expectNoResponses: true,
 		},
 		{
 			name: "missing CRD path without continue-on-fail fails fast",
