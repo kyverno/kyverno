@@ -269,7 +269,7 @@ func (c *templateCompiler) compileNode(n *yaml.Node) (node, error) {
 	if !c.interpolate || !nodeContainsPlaceholder(n) {
 		var v any
 		if err := n.Decode(&v); err != nil {
-			return nil, fmt.Errorf("line %d: %v", n.Line, err)
+			return nil, fmt.Errorf("line %d: %w", n.Line, err)
 		}
 		return &literalNode{value: v}, nil
 	}
@@ -314,7 +314,7 @@ func (c *templateCompiler) compileNode(n *yaml.Node) (node, error) {
 func (c *templateCompiler) compileScalar(n *yaml.Node) (node, error) {
 	segments, err := scan(n.Value)
 	if err != nil {
-		return nil, fmt.Errorf("line %d: %v", n.Line, err)
+		return nil, fmt.Errorf("line %d: %w", n.Line, err)
 	}
 	expressions := 0
 	for _, s := range segments {
@@ -354,11 +354,11 @@ func (c *templateCompiler) compileScalar(n *yaml.Node) (node, error) {
 func (c *templateCompiler) compileExpression(n *yaml.Node, expression string) (cel.Program, error) {
 	ast, issues := c.env.Compile(expression)
 	if err := issues.Err(); err != nil {
-		return nil, fmt.Errorf("line %d: invalid placeholder expression %q: %v", n.Line, expression, err)
+		return nil, fmt.Errorf("line %d: invalid placeholder expression %q: %w", n.Line, expression, err)
 	}
 	program, err := celcompiler.NewProgram(c.env, ast)
 	if err != nil {
-		return nil, fmt.Errorf("line %d: failed to build placeholder program %q: %v", n.Line, expression, err)
+		return nil, fmt.Errorf("line %d: failed to build placeholder program %q: %w", n.Line, expression, err)
 	}
 	return program, nil
 }

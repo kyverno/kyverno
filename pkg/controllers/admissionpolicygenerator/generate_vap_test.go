@@ -2,6 +2,7 @@ package admissionpolicygenerator
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -16,8 +17,11 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
@@ -148,4 +152,55 @@ func TestHandleVAPGeneration_PodControllerAutogen(t *testing.T) {
 			assert.Equal(t, tt.wantGenerated, updated.Status.Generated)
 		})
 	}
+}
+
+type mockVAPListerForError struct {
+	admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	err error
+}
+
+func (m *mockVAPListerForError) List(selector labels.Selector) ([]*admissionregistrationv1.ValidatingAdmissionPolicy, error) {
+	return nil, m.err
+}
+
+func (m *mockVAPListerForError) Get(name string) (*admissionregistrationv1.ValidatingAdmissionPolicy, error) {
+	return nil, m.err
+}
+
+func TestHandleVAPGeneration_SentinelError(t *testing.T) {
+	errSentinel := errors.New("sentinel vap list error")
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			AutogenConfiguration: &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
+				ValidatingAdmissionPolicy: &policiesv1beta1.VapGenerationConfiguration{Enabled: ptr.To(true)},
+			},
+		},
+	}
+	c, _, _ := newVAPTestController(t, vpol)
+	c.vapLister = &mockVAPListerForError{err: errSentinel}
+
+	err := c.handleVAPGeneration(context.Background(), engineapi.NewValidatingPolicy(vpol))
+	assert.ErrorIs(t, err, errSentinel)
+}
+
+func TestHandleVAPGeneration_APIError(t *testing.T) {
+	errSentinel := errors.New("sentinel vap api error")
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			AutogenConfiguration: &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
+				ValidatingAdmissionPolicy: &policiesv1beta1.VapGenerationConfiguration{Enabled: ptr.To(true)},
+			},
+		},
+	}
+	c, kubeClient, _ := newVAPTestController(t, vpol)
+	kubeClient.PrependReactor("create", "validatingadmissionpolicies", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errSentinel
+	})
+
+	err := c.handleVAPGeneration(context.Background(), engineapi.NewValidatingPolicy(vpol))
+	assert.ErrorIs(t, err, errSentinel)
 }

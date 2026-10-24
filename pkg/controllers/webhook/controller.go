@@ -828,7 +828,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 
 	var errs []error
 	if err := c.buildForJSONPoliciesMutation(cfg, caBundle, result); err != nil {
-		errs = append(errs, fmt.Errorf("failed to build webhook rules for imageverificationpolicies: %v", err))
+		errs = append(errs, fmt.Errorf("failed to build webhook rules for imageverificationpolicies: %w", err))
 	}
 
 	slices.SortFunc(result.Webhooks, func(a, b admissionregistrationv1.MutatingWebhook) int {
@@ -950,7 +950,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 
 	var errs []error
 	if err := c.buildForJSONPoliciesValidation(cfg, caBundle, webhookConfig); err != nil {
-		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %v", err))
+		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %w", err))
 	}
 
 	// Metadata protection is independent of policy selectors and applies the same

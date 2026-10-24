@@ -16,7 +16,7 @@ func CRDsInstalled(apiserverClient apiserver.Interface, names ...string) error {
 	for _, crd := range names {
 		err := isCRDInstalled(apiserverClient, crd)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to check CRD %s is installed: %s", crd, err))
+			errs = append(errs, fmt.Errorf("failed to check CRD %s is installed: %w", crd, err))
 		}
 	}
 	return multierr.Combine(errs...)
