@@ -4,7 +4,7 @@ import (
 	"time"
 
 	gojmespath "github.com/kyverno/go-jmespath"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -134,7 +134,7 @@ func (k *KubernetesResource) Validate(path *field.Path) (errs field.ErrorList) {
 }
 
 type ExternalAPICall struct {
-	kyvernov1.APICall `json:",inline,omitempty"`
+	kyverno.APICall `json:",inline,omitempty"`
 	// RefreshInterval defines the interval in duration at which to poll the APICall.
 	// The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
 	// such as "300ms", "1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".

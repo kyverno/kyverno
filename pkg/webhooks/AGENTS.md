@@ -4,27 +4,29 @@ The actual `AdmissionReview` HTTP handlers. No package doc comments exist here �
 one. See [ARCHITECTURE.md](../../ARCHITECTURE.md) for how this fits between `pkg/engine`/`pkg/cel` and
 `pkg/background`.
 
-## What actually makes a rule synchronous vs. queued as an UpdateRequest
+## Routing is per CEL policy kind, each with its own webhook handler
 
-It's **rule type**, not enforce/audit mode:
+Since 1.20 removed legacy `kyverno.io` execution (#17710), there is no single shared admission
+dispatcher for resource requests. Each CEL policy kind is served from its own route in `server.go`
+by its own handler package under `pkg/webhooks/resource/`:
 
-- For non-dry-run requests, `generate` and `mutateExisting` rules are routed to `handleBackgroundApplies` →
-  `pkg/webhooks/updaterequest.go`, regardless of enforce/audit (`pkg/webhooks/resource/handlers.go`'s
-  `if !admissionutils.IsDryRun(request.AdmissionRequest)` guard — a dry-run admission request skips this path
-  entirely, so no `UpdateRequest` is created for it). See [pkg/background/AGENTS.md](../background/AGENTS.md)
-  for what happens after the `UpdateRequest` is created.
-- Plain `validate` rules are evaluated inline. Enforce-mode and audit-mode-with-`emitWarning` (`ValidateAuditWarn`)
-  run synchronously inside the same `wait.Group` that produces the admission decision — a resource can be
-  `Allowed: true` and still carry a `Warning` from a mixed policy (see `handlers_test.go`'s
-  `Test_ValidateAuditWarn_MixedAuditEnforcePolicy`). Plain audit-mode validate (no warning) runs on a **separate,
-  bounded worker pool** (`auditPool`, a `pond.Pool`) purely to produce Events/PolicyReport data — this never affects
-  the already-returned admission response.
-- Background applies for generate/mutateExisting are fired in parallel with the enforce-validation wait group but
-  **not awaited** — the admission response returns as soon as enforce validation finishes, without waiting for
-  background work.
-- Mutate rules (non-`mutateExisting`) apply inline; if image-verify rules also match, the request is re-patched and
-  the `PolicyContext` rebuilt *before* image verification runs — image-verify always sees the post-mutation
-  resource, never the original.
+- `pkg/webhooks/resource/vpol` — `ValidatingPolicy`/`NamespacedValidatingPolicy`, served at
+  `/vpol/*policies` / `/nvpol/*policies`, evaluated synchronously inside a `wait.Group`.
+- `pkg/webhooks/resource/ivpol` — `ImageValidatingPolicy`/`NamespacedImageValidatingPolicy`,
+  served at `/ivpol/{validate,mutate}/*policies` / `/nivpol/{validate,mutate}/*policies`.
+- `pkg/webhooks/resource/mpol` — `MutatingPolicy`/`NamespacedMutatingPolicy`, served at
+  `/mpol/*policies` / `/nmpol/*policies`.
+- `pkg/webhooks/resource/gpol` — `GeneratingPolicy`/`NamespacedGeneratingPolicy`, served at
+  `/gpol/*policies` / `/ngpol/*policies`. For non-dry-run requests it calls `h.urGenerator.Apply`
+  (`pkg/webhooks/updaterequest/generator.go`) to queue background generation as an `UpdateRequest`;
+  a dry-run request returns immediately with no `UpdateRequest` created
+  (`admissionutils.IsDryRun(request.AdmissionRequest)` guard). See
+  [pkg/background/AGENTS.md](../background/AGENTS.md) for what happens after the `UpdateRequest` is
+  created.
+
+`pkg/webhooks/resource/validation/utils.go`'s `NeedsReports` is the one piece of the former shared
+resource-admission package kept across the deletion; it's still imported by the surviving CEL
+handlers.
 
 ## `updaterequest.go` only ever creates a marker CR — it never performs the mutation itself
 
@@ -35,6 +37,22 @@ request with empty `RuleContext`, and otherwise spawns a detached goroutine (`go
 that retries creating the `UpdateRequest` object with exponential backoff, then flips its status to `Pending`. The
 real generate/mutate-existing side effects happen later, in `pkg/background`, which watches these objects — this
 package's job ends at creating the CR.
+
+## Legacy `kyverno.io` policy writes are denied at the route level, not inside the handlers
+
+Starting in 1.20, `handlers.AdmissionHandler.WithLegacyPolicyDenial()`
+(`pkg/webhooks/handlers/legacy.go`) denies create/update requests for the legacy `kyverno.io`
+policy kinds (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, legacy
+`PolicyException`) before they reach `pkg/webhooks/policy`, `pkg/webhooks/exception`, or the
+cleanup admission handler. It is wired on the policy and exception routes in `server.go`, and on
+the cleanup-controller's server, *outside* `WithSubResourceFilter()` — that filter returns success
+for every subresource request before the inner handler runs, so a gate placed inside it would
+never see a subresource write and would reintroduce the blanket subresource bypass the 1.20 change
+removes. The decision function is `deprecations.DenyLegacyWrite` (`pkg/deprecations/block.go`);
+the webhook rule tables it depends on for registration live in `pkg/deprecations/webhookrules.go`,
+the single source of truth consumed by `pkg/controllers/webhook`, `cmd/kyverno/main.go`, and
+`cmd/cleanup-controller/main.go`. The typed `Validate` methods in this package no longer contain
+the block themselves; they only run once the gate has already let a request through.
 
 ## Two separate PolicyException admission handlers exist, on purpose
 

@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -52,6 +53,9 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 }
 
 func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicate Predicate) (EngineResponse, error) {
+	// A shared CEL cost budget for every policy this call evaluates (requestbudget.Ensure
+	// is a no-op if the webhook handler already set one on ctx).
+	ctx, _ = requestbudget.Ensure(ctx)
 	var response EngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)
@@ -256,7 +260,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	} else {
 		ruleName := "validation"
 		if result.Error != nil {
-			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
+			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)).WithMessageExpressionError(result.MessageExpressionError))
 		} else if result.Result {
 			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
 		} else if refused := result.RefusedException; refused != nil {
@@ -264,18 +268,22 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			// failed. Report what the exception required: nowhere else does the submitter learn
 			// one was in play. reportResult is not consulted — nothing was granted.
 			exceptions := []engineapi.GenericException{engineapi.NewCELPolicyException(refused.Exception)}
+			msgErr := result.MessageExpressionError
+			if refused.MessageExpressionError != nil {
+				msgErr = refused.MessageExpressionError
+			}
 			if refused.Error != nil {
 				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation,
 					fmt.Sprintf("failed to evaluate compensating controls of policy exception %s", cache.MetaObjectToName(refused.Exception)),
 					refused.Error, withValidationIndex(nil, result.Index),
-				).WithExceptions(exceptions))
+				).WithExceptions(exceptions).WithMessageExpressionError(msgErr))
 			} else {
-				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, refused.Message,
-					withValidationIndex(result.AuditAnnotations, result.Index),
-				).WithExceptions(exceptions))
+				props := withValidationIndex(result.AuditAnnotations, result.Index)
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, refused.Message, props).WithExceptions(exceptions).WithMessageExpressionError(msgErr))
 			}
 		} else {
-			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
+			props := withValidationIndex(result.AuditAnnotations, result.Index)
+			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, props).WithMessageExpressionError(result.MessageExpressionError))
 		}
 	}
 	if tracing {

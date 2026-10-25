@@ -3,6 +3,7 @@ package test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
@@ -22,6 +24,7 @@ import (
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -138,6 +141,8 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 	tests := []struct {
 		name           string
 		ruleStatus     engineapi.RuleStatus
+		ruleProperties map[string]string
+		msgExprErr     error
 		expectedResult string
 		wantOk         bool
 		wantReason     string
@@ -177,6 +182,25 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 			wantOk:         false,
 			wantReason:     "Want fail, got error",
 		},
+		{
+			// Regression test for https://github.com/kyverno/kyverno/issues/15350
+			//
+			// Before the fix: when a CEL messageExpression threw a runtime error
+			// (e.g. "no such key: annotations"), Kyverno converted the error to a
+			// human-readable string and returned RuleFail. Because the test expected
+			// "fail", checkResult saw a match and reported PASS — silently hiding the
+			// broken messageExpression from the policy author.
+			//
+			// After the fix: the engine also writes MessageExpressionErrorKey into the
+			// RuleResponse properties. checkResult detects the key and returns false,
+			// surfacing the authoring error regardless of the expected result.
+			name:           "expect fail and got fail with messageExpression error - should surface the error",
+			ruleStatus:     engineapi.RuleStatusFail,
+			msgExprErr:     errors.New("no such key: annotations"),
+			expectedResult: openreports.StatusFail,
+			wantOk:         false,
+			wantReason:     "messageExpression evaluation error",
+		},
 	}
 
 	for _, tt := range tests {
@@ -184,11 +208,11 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 			var rule engineapi.RuleResponse
 			switch tt.ruleStatus {
 			case engineapi.RuleStatusPass:
-				rule = *engineapi.RulePass("test-rule", engineapi.Validation, "msg", nil)
+				rule = *engineapi.RulePass("test-rule", engineapi.Validation, "msg", tt.ruleProperties).WithMessageExpressionError(tt.msgExprErr)
 			case engineapi.RuleStatusFail:
-				rule = *engineapi.RuleFail("test-rule", engineapi.Validation, "msg", nil)
+				rule = *engineapi.RuleFail("test-rule", engineapi.Validation, "msg", tt.ruleProperties).WithMessageExpressionError(tt.msgExprErr)
 			case engineapi.RuleStatusError:
-				rule = *engineapi.RuleError("test-rule", engineapi.Validation, "msg", nil, nil)
+				rule = *engineapi.RuleError("test-rule", engineapi.Validation, "msg", nil, tt.ruleProperties).WithMessageExpressionError(tt.msgExprErr)
 			}
 
 			response := engineapi.NewEngineResponse(
@@ -615,6 +639,49 @@ func TestRunTest_CELHTTPPostMock(t *testing.T) {
 	assert.True(t, found, "expected engine response for policy check-pod-admission")
 }
 
+func TestRunTest_MessageExpressionError(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDirs := []string{
+		filepath.Join(rootDir, "test", "cli", "issue-15350-message-expression-error"),
+		filepath.Join(rootDir, "test", "cli", "issue-15350-message-expression-error-exceptions"),
+	}
+
+	for _, testDir := range testDirs {
+		t.Run(filepath.Base(testDir), func(t *testing.T) {
+
+			if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+				t.Fatalf("Test directory not found: %s", testDir)
+			}
+
+			testFile := filepath.Join(testDir, "kyverno-test.yaml")
+			testCases := test.LoadTest(nil, testFile)
+			require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+			testCase := testCases[0]
+			// Wire the fixture with result set to fail to verify the error path
+			testCase.Test.Results[0].Result = openreportsv1alpha1.Result(openreports.StatusFail)
+
+			out := &bytes.Buffer{}
+			testResponse, err := runTest(context.TODO(), out, testCase, false)
+			require.NoError(t, err, "runTest should not return an execution error, just test failures")
+
+			var found bool
+			for _, responses := range testResponse.Trigger {
+				for _, response := range responses {
+					for _, rule := range response.PolicyResponse.Rules {
+						found = true
+						ok, _, reason := checkRuleResultOnly(testCase.Test.Results[0], response, rule)
+						assert.False(t, ok, "checkRuleResultOnly should return false due to mismatched result")
+						assert.Contains(t, reason, "messageExpression evaluation error: no such key: annotations", "CLI should report the messageExpression evaluation error reason")
+					}
+				}
+			}
+			assert.True(t, found, "Expected to find at least one rule evaluation")
+		})
+	}
+}
 func TestRunTest_CELHTTPPostMockDeny(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err)
@@ -1269,7 +1336,7 @@ func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
 
 	_, err = runTest(context.TODO(), io.Discard, testCases[0], false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
 }
 
@@ -1285,6 +1352,844 @@ func Test_RunTestBlocksLegacyPolicyException(t *testing.T) {
 
 	_, err = runTest(context.TODO(), io.Discard, testCases[0], false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException: Kyverno v1.20 removed execution")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
+}
+
+func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
+	color.Init(true)
+
+	resourceKey := "v1,Pod,default,test-pod"
+
+	tests := []struct {
+		name               string
+		policy             string
+		policyNamespace    string
+		expectedResult     openreportsv1alpha1.Result
+		rules              []engineapi.RuleResponse
+		competingResponses []engineapi.EngineResponse
+		skippedPolicies    map[string]string
+		wantSkip           int
+		wantPass           int
+		wantFail           int
+		wantResult         string
+		wantReason         string
+	}{
+		{
+			name:            "ordinary missing target without rules reports fail not found",
+			expectedResult:  openreportsv1alpha1.Result(openreports.StatusPass),
+			skippedPolicies: map[string]string{},
+			wantSkip:        0,
+			wantPass:        0,
+			wantFail:        1,
+			wantResult:      "Fail",
+			wantReason:      "Not found",
+		},
+		{
+			name:           "target when policy was skipped during validation reports skip",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			skippedPolicies: map[string]string{
+				"test-policy": "preconditions not met",
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Skip",
+			wantReason: "Invalid Policy",
+		},
+		{
+			name:           "target with skipped mutation outcome preserving engine skip",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "target with skipped mutation outcome when expecting pass reports fail",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			wantSkip:   0,
+			wantPass:   0,
+			wantFail:   1,
+			wantResult: "Fail",
+			wantReason: "Want pass, got skip",
+		},
+		{
+			name:           "target with errored mutation outcome preserving engine error",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusError),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleError("test-rule", engineapi.Mutation, "target evaluation error", nil, nil),
+			},
+			wantSkip:   0,
+			wantPass:   1,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "target with errored mutation outcome when expecting pass reports fail",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleError("test-rule", engineapi.Mutation, "target evaluation error", nil, nil),
+			},
+			wantSkip:   0,
+			wantPass:   0,
+			wantFail:   1,
+			wantResult: "Fail",
+			wantReason: "Want pass, got error",
+		},
+		{
+			name:           "target with failed mutation outcome preserving engine failure",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusFail),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleFail("test-rule", engineapi.Mutation, "mutation failed", nil),
+			},
+			wantSkip:   0,
+			wantPass:   1,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "target with failed mutation outcome when expecting pass reports fail",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleFail("test-rule", engineapi.Mutation, "mutation failed", nil),
+			},
+			wantSkip:   0,
+			wantPass:   0,
+			wantFail:   1,
+			wantResult: "Fail",
+			wantReason: "Want pass, got fail",
+		},
+		{
+			name:           "competing policy under same target key is excluded",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "competing-policy",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("competing-rule", engineapi.Mutation, "competing policy should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:            "competing namespaced policy with same name in different namespace is excluded",
+			policy:          "test-ns-1/test-policy",
+			policyNamespace: "test-ns-1",
+			expectedResult:  openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-policy",
+							Namespace: "test-ns-2",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("test-rule", engineapi.Mutation, "competing namespace should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:            "competing cluster policy with same name is excluded when test specifies namespace",
+			policy:          "test-ns-1/test-policy",
+			policyNamespace: "test-ns-1",
+			expectedResult:  openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-policy",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("test-rule", engineapi.Mutation, "cluster policy should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "competing namespaced policy with same name is excluded when test specifies cluster policy (unqualified)",
+			policy:         "test-policy",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-policy",
+							Namespace: "test-ns",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("test-rule", engineapi.Mutation, "namespaced policy should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "competing unattributed response with nil policy is excluded when test specifies policy",
+			policy:         "test-policy",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					nil,
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("test-rule", engineapi.Mutation, "nil policy response should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policyStr := "test-policy"
+			if tt.policy != "" {
+				policyStr = tt.policy
+			}
+			policyMeta := metav1.ObjectMeta{
+				Name: strings.Split(policyStr, "/")[len(strings.Split(policyStr, "/"))-1],
+			}
+			if tt.policyNamespace != "" {
+				policyMeta.Namespace = tt.policyNamespace
+			}
+			var genericPolicy engineapi.GenericPolicy
+			if tt.policyNamespace != "" {
+				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+					ObjectMeta: policyMeta,
+				})
+			} else {
+				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					ObjectMeta: policyMeta,
+				})
+			}
+
+			engineResp := engineapi.NewEngineResponse(
+				unstructured.Unstructured{},
+				genericPolicy,
+				nil,
+			)
+			if len(tt.rules) > 0 {
+				engineResp = engineResp.WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: tt.rules,
+				})
+			}
+
+			targetList := []engineapi.EngineResponse{engineResp}
+			if len(tt.competingResponses) > 0 {
+				targetList = append(targetList, tt.competingResponses...)
+			} else {
+				targetList = append(targetList, engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "competing-policy",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("competing-rule", engineapi.Mutation, "competing policy should be excluded", nil),
+					},
+				}))
+			}
+
+			responses := &TestResponse{
+				Trigger:            map[string][]engineapi.EngineResponse{},
+				TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+				Target: map[string][]engineapi.EngineResponse{
+					resourceKey: targetList,
+				},
+				SkippedPolicies:  tt.skippedPolicies,
+				DeletingPolicies: map[string]struct{}{},
+			}
+
+			testResults := []v1alpha1.TestResult{
+				{
+					TestResultBase: v1alpha1.TestResultBase{
+						Policy: policyStr,
+						Rule:   "test-rule",
+						Result: tt.expectedResult,
+					},
+					TestResultData: v1alpha1.TestResultData{
+						Resources: []string{"test-pod"},
+					},
+				},
+			}
+
+			rc := &resultCounts{}
+			resultsTable := table.Table{}
+
+			assert.NotPanics(t, func() {
+				err := printTestResult(
+					testResults,
+					responses,
+					rc,
+					&resultsTable,
+					nil,
+					"",
+					true,
+				)
+				require.NoError(t, err)
+			})
+
+			assert.Equal(t, tt.wantSkip, rc.Skip)
+			assert.Equal(t, tt.wantPass, rc.Pass)
+			assert.Equal(t, tt.wantFail, rc.Fail)
+			require.Len(t, resultsTable.RawRows, 1)
+			assert.Equal(t, tt.wantResult, resultsTable.RawRows[0].Result)
+			assert.Equal(t, tt.wantReason, resultsTable.RawRows[0].Reason)
+		})
+	}
+}
+
+func TestExtractPatchedTargetFromEngineResponse(t *testing.T) {
+	// 1. Empty response returns nil, nil
+	resp := engineapi.EngineResponse{}
+	r, rule := extractPatchedTargetFromEngineResponse("v1", "Pod", "test", "default", resp)
+	assert.Nil(t, r)
+	assert.Nil(t, rule)
+
+	// 2. Multi-rule response does not mutate resourceNamespace parameter
+	target1 := unstructured.Unstructured{}
+	target1.SetAPIVersion("v1")
+	target1.SetKind("Pod")
+	target1.SetName("pod-1")
+	target1.SetNamespace("ns-1")
+
+	target2 := unstructured.Unstructured{}
+	target2.SetAPIVersion("v1")
+	target2.SetKind("Pod")
+	target2.SetName("pod-2")
+	target2.SetNamespace("ns-2")
+
+	rule1 := *engineapi.RulePass("rule-1", engineapi.Mutation, "msg", nil).WithPatchedTarget(&target1, metav1.GroupVersionResource{}, "")
+	rule2 := *engineapi.RulePass("rule-2", engineapi.Mutation, "msg", nil).WithPatchedTarget(&target2, metav1.GroupVersionResource{}, "")
+
+	respWithRules := engineapi.EngineResponse{}.WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule1, rule2},
+	})
+
+	// When searching for pod-2 without specifying namespace (""), it should match pod-2 in ns-2
+	// instead of being overridden by pod-1's namespace
+	r2, matchedRule := extractPatchedTargetFromEngineResponse("v1", "Pod", "pod-2", "", respWithRules)
+	require.NotNil(t, r2)
+	require.NotNil(t, matchedRule)
+	assert.Equal(t, "pod-2", r2.GetName())
+	assert.Equal(t, "rule-2", matchedRule.Name())
+}
+
+func TestResponseTargetsResource_MutatingPolicyFallbackToMatchConstraints(t *testing.T) {
+	target := &unstructured.Unstructured{}
+	target.SetAPIVersion("v1")
+	target.SetKind("ConfigMap")
+	target.SetName("test-cm")
+	target.SetNamespace("default")
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mutate-cm",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	resp := engineapi.NewEngineResponse(*target, engineapi.NewMutatingPolicy(mpol), nil)
+	matched := responseTargetsResource(target, resp)
+	assert.True(t, matched)
+}
+
+func TestResponseTargetsResource_MutatingPolicyTriggerDoesNotSatisfyTarget(t *testing.T) {
+	target := &unstructured.Unstructured{}
+	target.SetAPIVersion("v1")
+	target.SetKind("ConfigMap")
+	target.SetName("test-cm")
+	target.SetNamespace("default")
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mutate-cm",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Trigger response: evaluated on target object as trigger, but without target provenance property
+	triggerResp := engineapi.NewEngineResponse(*target, engineapi.NewMutatingPolicy(mpol), nil).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{
+			*engineapi.RulePass("mutate-rule", engineapi.Mutation, "mutated", nil),
+		},
+	})
+	assert.False(t, responseTargetsResource(target, triggerResp), "ordinary trigger response should not satisfy target test")
+
+	// Target response: evaluated with target provenance property
+	targetResp := engineapi.NewEngineResponse(*target, engineapi.NewMutatingPolicy(mpol), nil).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{
+			*engineapi.RulePass("mutate-rule", engineapi.Mutation, "mutated", map[string]string{"kyverno.io/target": "true"}),
+		},
+	})
+	assert.True(t, responseTargetsResource(target, targetResp), "response with target provenance should satisfy target test")
+}
+
+func TestPrintTestResult_TargetResourceWithCommaInName(t *testing.T) {
+	color.Init(true)
+
+	resourceKey := "rbac.authorization.k8s.io/v1,ClusterRole,,team,payments-reader"
+
+	target := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1",
+			"kind":       "ClusterRole",
+			"metadata": map[string]interface{}{
+				"name": "team,payments-reader",
+			},
+		},
+	}
+
+	patched := target.DeepCopy()
+	patched.SetAnnotations(map[string]string{"mutated": "true"})
+
+	rule := *engineapi.RulePass("mutate-role", engineapi.Mutation, "mutated", map[string]string{"kyverno.io/target": "true"}).
+		WithPatchedTarget(patched, metav1.GroupVersionResource{}, "")
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mutate-roles",
+		},
+	}
+
+	resp := engineapi.NewEngineResponse(target, engineapi.NewMutatingPolicy(mpol), nil).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule},
+	})
+
+	responses := &TestResponse{
+		Trigger:            map[string][]engineapi.EngineResponse{},
+		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+		Target: map[string][]engineapi.EngineResponse{
+			resourceKey: {resp},
+		},
+		SkippedPolicies:  map[string]string{},
+		DeletingPolicies: map[string]struct{}{},
+	}
+
+	makeFS := func(files map[string]string) billy.Filesystem {
+		fs := memfs.New()
+		for name, content := range files {
+			f, err := fs.Create(name)
+			require.NoError(t, err)
+			_, err = f.Write([]byte(content))
+			require.NoError(t, err)
+			f.Close()
+		}
+		return fs
+	}
+
+	matchingYAML := `apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: team,payments-reader
+  annotations:
+    mutated: "true"
+`
+
+	mismatchYAML := `apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: team,payments-reader
+  annotations:
+    mutated: "false"
+`
+
+	t.Run("matching patched target with comma in name passes", func(t *testing.T) {
+		fs := makeFS(map[string]string{
+			"patched.yaml": matchingYAML,
+		})
+		testResults := []v1alpha1.TestResult{
+			{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy:           "mutate-roles",
+					Result:           openreportsv1alpha1.Result(openreports.StatusPass),
+					PatchedResources: "patched.yaml",
+				},
+				TestResultData: v1alpha1.TestResultData{
+					Resources: []string{"team,payments-reader"},
+				},
+			},
+		}
+
+		rc := &resultCounts{}
+		var resultsTable table.Table
+		err := printTestResult(testResults, responses, rc, &resultsTable, fs, "", true)
+		require.NoError(t, err)
+		assert.Equal(t, 1, rc.Pass)
+		assert.Equal(t, 0, rc.Fail)
+		require.Len(t, resultsTable.RawRows, 1)
+		assert.Equal(t, "Pass", resultsTable.RawRows[0].Result)
+		assert.Equal(t, "rbac.authorization.k8s.io/v1/ClusterRole/team,payments-reader", resultsTable.RawRows[0].Resource)
+	})
+
+	t.Run("mismatched patched target with comma in name fails", func(t *testing.T) {
+		fs := makeFS(map[string]string{
+			"patched.yaml": mismatchYAML,
+		})
+		testResults := []v1alpha1.TestResult{
+			{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy:           "mutate-roles",
+					Result:           openreportsv1alpha1.Result(openreports.StatusPass),
+					PatchedResources: "patched.yaml",
+				},
+				TestResultData: v1alpha1.TestResultData{
+					Resources: []string{"team,payments-reader"},
+				},
+			},
+		}
+
+		rc := &resultCounts{}
+		var resultsTable table.Table
+		err := printTestResult(testResults, responses, rc, &resultsTable, fs, "", true)
+		require.NoError(t, err)
+		assert.Equal(t, 0, rc.Pass)
+		assert.Equal(t, 1, rc.Fail)
+		require.Len(t, resultsTable.RawRows, 1)
+		assert.Equal(t, "Fail", resultsTable.RawRows[0].Result)
+		assert.Equal(t, "Resource diff", resultsTable.RawRows[0].Reason)
+	})
+}
+
+func TestPrintTestResult_MutatingPolicyTargetWithRuleSpecified(t *testing.T) {
+	color.Init(true)
+
+	resourceKey := "v1,ConfigMap,default,test-cm"
+
+	target := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      "test-cm",
+				"namespace": "default",
+			},
+		},
+	}
+
+	patched := target.DeepCopy()
+	patched.SetAnnotations(map[string]string{"mutated": "true"})
+
+	rule := *engineapi.RulePass("any-rule-name", engineapi.Mutation, "mutated", map[string]string{"kyverno.io/target": "true"}).
+		WithPatchedTarget(patched, metav1.GroupVersionResource{}, "")
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mutate-cm-policy",
+		},
+	}
+
+	resp := engineapi.NewEngineResponse(target, engineapi.NewMutatingPolicy(mpol), nil).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule},
+	})
+
+	responses := &TestResponse{
+		Trigger:            map[string][]engineapi.EngineResponse{},
+		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+		Target: map[string][]engineapi.EngineResponse{
+			resourceKey: {resp},
+		},
+		SkippedPolicies:  map[string]string{},
+		DeletingPolicies: map[string]struct{}{},
+	}
+
+	makeFS := func(files map[string]string) billy.Filesystem {
+		fs := memfs.New()
+		for name, content := range files {
+			f, err := fs.Create(name)
+			require.NoError(t, err)
+			_, err = f.Write([]byte(content))
+			require.NoError(t, err)
+			f.Close()
+		}
+		return fs
+	}
+
+	matchingYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-cm
+  namespace: default
+  annotations:
+    mutated: "true"
+`
+
+	mismatchYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-cm
+  namespace: default
+  annotations:
+    mutated: "false"
+`
+
+	t.Run("rule specified on ruleless policy performs patch comparison and passes when matched", func(t *testing.T) {
+		fs := makeFS(map[string]string{
+			"patched.yaml": matchingYAML,
+		})
+		testResults := []v1alpha1.TestResult{
+			{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy:           "mutate-cm-policy",
+					Rule:             "arbitrary-rule-name",
+					Result:           openreportsv1alpha1.Result(openreports.StatusPass),
+					PatchedResources: "patched.yaml",
+				},
+				TestResultData: v1alpha1.TestResultData{
+					Resources: []string{"test-cm"},
+				},
+			},
+		}
+
+		rc := &resultCounts{}
+		var resultsTable table.Table
+		err := printTestResult(testResults, responses, rc, &resultsTable, fs, "", true)
+		require.NoError(t, err)
+		assert.Equal(t, 1, rc.Pass)
+		assert.Equal(t, 0, rc.Fail)
+		require.Len(t, resultsTable.RawRows, 1)
+		assert.Equal(t, "Pass", resultsTable.RawRows[0].Result)
+	})
+
+	t.Run("rule specified on ruleless policy performs patch comparison and fails on wrong patch", func(t *testing.T) {
+		fs := makeFS(map[string]string{
+			"patched.yaml": mismatchYAML,
+		})
+		testResults := []v1alpha1.TestResult{
+			{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy:           "mutate-cm-policy",
+					Rule:             "arbitrary-rule-name",
+					Result:           openreportsv1alpha1.Result(openreports.StatusPass),
+					PatchedResources: "patched.yaml",
+				},
+				TestResultData: v1alpha1.TestResultData{
+					Resources: []string{"test-cm"},
+				},
+			},
+		}
+
+		rc := &resultCounts{}
+		var resultsTable table.Table
+		err := printTestResult(testResults, responses, rc, &resultsTable, fs, "", true)
+		require.NoError(t, err)
+		assert.Equal(t, 0, rc.Pass)
+		assert.Equal(t, 1, rc.Fail)
+		require.Len(t, resultsTable.RawRows, 1)
+		assert.Equal(t, "Fail", resultsTable.RawRows[0].Result)
+		assert.Equal(t, "Resource diff", resultsTable.RawRows[0].Reason)
+	})
+}
+
+// TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger pins CLI/admission parity
+// for MutatingPolicies that declare active targetMatchConstraints: such a policy is
+// excluded from inline mutation of the trigger that matched it (see
+// NoTargetMatchConstraintPolicy and pkg/webhooks/resource/mpol/handler.go) and is instead
+// evaluated against its targets alone. The CLI passed a nil predicate to Engine.Handle, so
+// the policy was also evaluated against the trigger and the *target-shaped* patch was
+// applied to the trigger itself.
+//
+// The fixture's own `results` cannot express this invariant: the mutation legitimate for
+// the target is exactly the mutation the defect applies to the trigger, so both runs pass.
+// The invariant is observable only on the engine responses, hence a Go test.
+func TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-mutating-policy", "mutate-existing")
+
+	// The fixture is checked in and is what proves the regression, so its absence is a
+	// failure rather than a skip.
+	require.DirExists(t, testDir, "mutate-existing fixture is required to prove the regression")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+
+	const (
+		policyName = "mutate-existing-configmap"
+		labelKey   = "mutated"
+		// Identity of the resources in the fixture: the Deployment triggers the policy and
+		// the ConfigMap is the resource the policy's mutations are meant to reach.
+		triggerAPIVersion = "apps/v1"
+		triggerKind       = "Deployment"
+		triggerNamespace  = "test-ns"
+		triggerName       = "test-deploy"
+		targetAPIVersion  = "v1"
+		targetKind        = "ConfigMap"
+		targetNamespace   = "test-ns"
+		targetName        = "test-configmap"
+		targetLabel       = "true"
+	)
+
+	// resourceKey renders a resource identity in the same shape the test harness uses to
+	// key its response maps (see generateResourceKey), so the trigger can be told apart
+	// from a patched target carried on the same response.
+	resourceKey := func(apiVersion, kind, namespace, name string) string {
+		return apiVersion + "," + kind + "," + namespace + "," + name
+	}
+	describe := func(u unstructured.Unstructured) string {
+		if u.Object == nil {
+			return "<nil>"
+		}
+		return resourceKey(u.GetAPIVersion(), u.GetKind(), u.GetNamespace(), u.GetName())
+	}
+	triggerIdentity := resourceKey(triggerAPIVersion, triggerKind, triggerNamespace, triggerName)
+	targetIdentity := resourceKey(targetAPIVersion, targetKind, targetNamespace, targetName)
+
+	t.Run("trigger is not evaluated inline and only the target is mutated", func(t *testing.T) {
+		responses := testResponse.Trigger[triggerIdentity]
+
+		// The defect evaluated the policy against the trigger itself: that inline response
+		// names the trigger and patches it with the target-shaped mutation.
+		for _, response := range responses {
+			assert.NotEqual(t, triggerIdentity, describe(response.Resource),
+				"policy %s must not be evaluated inline against trigger %s", response.Policy().GetName(), triggerIdentity)
+			assert.NotEqual(t, triggerIdentity, describe(response.PatchedResource),
+				"trigger %s was mutated with the target-shaped patch", triggerIdentity)
+		}
+
+		// What remains is the mutate-existing evaluation, which carries the target as its
+		// resource (see the mutateExisting branch of ApplyPoliciesOnResource) and no patch
+		// of its own.
+		require.Len(t, responses, 1, "expected exactly one engine response for trigger %s", triggerIdentity)
+		response := responses[0]
+		require.Equal(t, policyName, response.Policy().GetName())
+		assert.Equal(t, targetIdentity, describe(response.Resource),
+			"trigger %s response must be the mutate-existing evaluation of the target", triggerIdentity)
+		assert.Nil(t, response.PatchedResource.Object,
+			"trigger %s must not carry a patched resource", triggerIdentity)
+
+		// The target's patch is carried only as a patched target naming the ConfigMap.
+		require.Len(t, response.PolicyResponse.Rules, 1, "expected one rule response on trigger %s", triggerIdentity)
+		patchedTarget, _, _ := response.PolicyResponse.Rules[0].PatchedTarget()
+		require.NotNil(t, patchedTarget, "expected rule %s to carry a patched target",
+			response.PolicyResponse.Rules[0].Name())
+		assert.Equal(t, targetIdentity, describe(*patchedTarget),
+			"patched target must name the target ConfigMap")
+		assert.Equal(t, targetLabel, patchedTarget.GetLabels()[labelKey],
+			"patched target must carry the intended mutation")
+		assert.NotEqual(t, triggerIdentity, describe(*patchedTarget),
+			"rule patched target must not be the trigger itself")
+	})
+
+	t.Run("target response names the mutated target and is not the trigger", func(t *testing.T) {
+		responses := testResponse.Target[targetIdentity]
+		require.Len(t, responses, 1, "expected exactly one engine response for target %s", targetIdentity)
+
+		response := responses[0]
+		assert.Equal(t, policyName, response.Policy().GetName())
+		require.Len(t, response.PolicyResponse.Rules, 1, "expected one rule response for target")
+		patchedTarget, _, _ := response.PolicyResponse.Rules[0].PatchedTarget()
+		require.NotNil(t, patchedTarget, "expected target rule to carry a patched target")
+		assert.Equal(t, targetIdentity, describe(*patchedTarget))
+		assert.Equal(t, targetLabel, patchedTarget.GetLabels()[labelKey],
+			"expected target ConfigMap to receive mutated=%s", targetLabel)
+		assert.NotEqual(t, triggerIdentity, describe(*patchedTarget), "target response must not be the trigger")
+	})
 }

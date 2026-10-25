@@ -5,15 +5,18 @@ import (
 	"testing"
 	"time"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	metaclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	"github.com/kyverno/kyverno/pkg/openreports"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	orfake "github.com/openreports/reports-api/pkg/client/clientset/versioned/fake"
 	"github.com/stretchr/testify/assert"
@@ -56,22 +59,9 @@ var (
 			},
 		},
 	}
-	policy = &v1.Policy{
+	vpol = &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "require-app-label",
-		},
-		Spec: v1.Spec{
-			ValidationFailureAction: v1.Enforce,
-			Rules: []v1.Rule{
-				{
-					Name: "check-app-label",
-					MatchResources: v1.MatchResources{
-						ResourceDescription: v1.ResourceDescription{
-							Kinds: []string{"Pod"},
-						},
-					},
-				},
-			},
 		},
 	}
 	ephr = &reportsv1.EphemeralReport{
@@ -84,7 +74,7 @@ var (
 				"audit.kyverno.io/resource.namespace": "default",
 				"audit.kyverno.io/resource.version":   "v1",
 				"audit.kyverno.io/source":             "background-scan",
-				"pol.kyverno.io/require-app-label":    "test-hash",
+				"vpol.kyverno.io/require-app-label":   "test-hash",
 				"audit.kyverno.io/resource.uid":       "pod-id-12345",
 			},
 			OwnerReferences: []metav1.OwnerReference{
@@ -100,11 +90,10 @@ var (
 			Results: []openreportsv1alpha1.ReportResult{
 				{
 					Description: "validation error: Pods must have a 'app' label",
-					Policy:      "default/require-app-label",
-					Rule:        "check-app-label",
+					Policy:      "require-app-label",
 					Result:      openreportsv1alpha1.Result(openreports.StatusFail),
 					Scored:      true,
-					Source:      "kyverno",
+					Source:      reportutils.SourceValidatingPolicy,
 					Properties: map[string]string{
 						"process": "background scan",
 					},
@@ -117,7 +106,7 @@ var (
 	}
 )
 
-func newFakeMetaClient() (metadatainformers.SharedInformerFactory, metafake.MetadataClient, metafake.MetadataClient) {
+func newFakeMetaClient() (metadatainformers.SharedInformerFactory, metafake.MetadataClient, metafake.MetadataClient, metaclient.UpstreamInterface) {
 	s := metafake.NewTestScheme()
 	metav1.AddMetaToScheme(s)
 
@@ -125,16 +114,16 @@ func newFakeMetaClient() (metadatainformers.SharedInformerFactory, metafake.Meta
 
 	return metadatainformers.NewSharedInformerFactory(client, 1*time.Minute),
 		client.Resource(v1alpha2.SchemeGroupVersion.WithResource("policyreports")).Namespace("default").(metafake.MetadataClient),
-		client.Resource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports")).Namespace("default").(metafake.MetadataClient)
+		client.Resource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports")).Namespace("default").(metafake.MetadataClient),
+		client
 }
 
 func TestController(t *testing.T) {
-	metaFactory, metaClient, _ := newFakeMetaClient()
+	metaFactory, metaClient, _, upstream := newFakeMetaClient()
 	client := versionedfake.NewSimpleClientset()
 	kyvernoFactory := kyvernoinformer.NewSharedInformerFactory(client, 1*time.Second)
 
-	polInformer := kyvernoFactory.Kyverno().V1().Policies()
-	cpolInformer := kyvernoFactory.Kyverno().V1().ClusterPolicies()
+	vpolInformer := kyvernoFactory.Policies().V1beta1().ValidatingPolicies()
 
 	client.Wgpolicyk8sV1alpha2().PolicyReports("default").Create(context.TODO(), kyvernoPolr, metav1.CreateOptions{})
 	client.Wgpolicyk8sV1alpha2().PolicyReports("default").Create(context.TODO(), notKyvernoPolr, metav1.CreateOptions{})
@@ -142,7 +131,7 @@ func TestController(t *testing.T) {
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: kyvernoPolr.ObjectMeta}, metav1.CreateOptions{})
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: notKyvernoPolr.ObjectMeta}, metav1.CreateOptions{})
 
-	controller := aggregate.NewController(client, nil, nil, metaFactory, polInformer, cpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	controller := aggregate.NewController(client, nil, nil, metaFactory, vpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, upstream)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -160,7 +149,7 @@ func TestController(t *testing.T) {
 	metaFactory.WaitForCacheSync(stop)
 	kyvernoFactory.WaitForCacheSync(stop)
 
-	_, err := client.KyvernoV1().ClusterPolicies().Create(context.TODO(), &v1.ClusterPolicy{
+	_, err := client.PoliciesV1beta1().ValidatingPolicies().Create(context.TODO(), &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kyverno-pol",
 		},
@@ -188,13 +177,12 @@ func TestController(t *testing.T) {
 }
 
 func TestControllerWithOpenreports(t *testing.T) {
-	metaFactory, _, metaClient := newFakeMetaClient()
+	metaFactory, _, metaClient, upstream := newFakeMetaClient()
 	client := versionedfake.NewSimpleClientset()
 	orClient := orfake.NewSimpleClientset()
 	kyvernoFactory := kyvernoinformer.NewSharedInformerFactory(client, 1*time.Second)
 
-	polInformer := kyvernoFactory.Kyverno().V1().Policies()
-	cpolInformer := kyvernoFactory.Kyverno().V1().ClusterPolicies()
+	vpolInformer := kyvernoFactory.Policies().V1beta1().ValidatingPolicies()
 
 	// create the ephemeral report that will trigger frontReconcile
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: ephr.ObjectMeta}, metav1.CreateOptions{})
@@ -205,7 +193,7 @@ func TestControllerWithOpenreports(t *testing.T) {
 	dClient, _ := dclient.NewFakeClient(s, map[schema.GroupVersionResource]string{}, pod)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 
-	controller := aggregate.NewController(client, orClient.OpenreportsV1alpha1(), dClient, metaFactory, polInformer, cpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	controller := aggregate.NewController(client, orClient.OpenreportsV1alpha1(), dClient, metaFactory, vpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, upstream)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -224,11 +212,190 @@ func TestControllerWithOpenreports(t *testing.T) {
 	kyvernoFactory.WaitForCacheSync(stop)
 
 	// Create the policy for result merging to work
-	_, err := client.KyvernoV1().Policies("default").Create(context.TODO(), policy, metav1.CreateOptions{})
+	_, err := client.PoliciesV1beta1().ValidatingPolicies().Create(context.TODO(), vpol, metav1.CreateOptions{})
 	assert.Nil(t, err)
 
 	time.Sleep(13 * time.Second)
 
 	list, _ := orClient.OpenreportsV1alpha1().Reports("default").List(context.TODO(), metav1.ListOptions{})
 	assert.Len(t, list.Items, 1)
+}
+
+// TestControllerWithOpenreports_LegacyResultsPruned proves a legacy kyverno.io
+// result carried in an ephemeral report is pruned during aggregation, while a
+// CEL (ValidatingPolicy) result in the same report is kept.
+func TestControllerWithOpenreports_LegacyResultsPruned(t *testing.T) {
+	metaFactory, _, metaClient, upstream := newFakeMetaClient()
+	client := versionedfake.NewSimpleClientset()
+	orClient := orfake.NewSimpleClientset()
+	kyvernoFactory := kyvernoinformer.NewSharedInformerFactory(client, 1*time.Second)
+
+	vpolInformer := kyvernoFactory.Policies().V1beta1().ValidatingPolicies()
+
+	mixedEphr := ephr.DeepCopy()
+	mixedEphr.Spec.Results = append(mixedEphr.Spec.Results, openreportsv1alpha1.ReportResult{
+		Description: "legacy validation error",
+		Policy:      "default/require-app-label",
+		Rule:        "check-app-label",
+		Result:      openreportsv1alpha1.Result(openreports.StatusFail),
+		Scored:      true,
+		Source:      reportutils.SourceKyverno,
+	})
+
+	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: mixedEphr.ObjectMeta}, metav1.CreateOptions{})
+	client.ReportsV1().EphemeralReports("default").Create(context.TODO(), mixedEphr, metav1.CreateOptions{})
+
+	s := runtime.NewScheme()
+	metav1.AddMetaToScheme(s)
+	dClient, _ := dclient.NewFakeClient(s, map[schema.GroupVersionResource]string{}, pod)
+	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	controller := aggregate.NewController(client, orClient.OpenreportsV1alpha1(), dClient, metaFactory, vpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, upstream)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		controller.Run(ctx, 1)
+	}()
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	metaFactory.Start(stop)
+	kyvernoFactory.Start(stop)
+
+	metaFactory.WaitForCacheSync(stop)
+	kyvernoFactory.WaitForCacheSync(stop)
+
+	_, err := client.PoliciesV1beta1().ValidatingPolicies().Create(context.TODO(), vpol, metav1.CreateOptions{})
+	assert.Nil(t, err)
+
+	time.Sleep(13 * time.Second)
+
+	list, _ := orClient.OpenreportsV1alpha1().Reports("default").List(context.TODO(), metav1.ListOptions{})
+	if assert.Len(t, list.Items, 1) {
+		assert.Len(t, list.Items[0].Results, 1)
+		assert.Equal(t, reportutils.SourceValidatingPolicy, list.Items[0].Results[0].Source)
+	}
+}
+
+// TestController_StartupSweepDeletesLegacyOnlyReport proves decision C2: on
+// startup, with a legacy kyverno.io ClusterPolicy present, a permanent report
+// carrying only legacy results and no ephemeral reports gets swept and deleted.
+func TestController_StartupSweepDeletesLegacyOnlyReport(t *testing.T) {
+	metaFactory, metaClient, _, upstream := newFakeMetaClient()
+	client := versionedfake.NewSimpleClientset()
+	kyvernoFactory := kyvernoinformer.NewSharedInformerFactory(client, 1*time.Second)
+
+	vpolInformer := kyvernoFactory.Policies().V1beta1().ValidatingPolicies()
+
+	legacyOnlyPolr := &v1alpha2.PolicyReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "legacy-only-polr",
+			Namespace: "default",
+			Labels: map[string]string{
+				kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+			},
+		},
+		Results: []v1alpha2.PolicyReportResult{
+			{Source: reportutils.SourceKyverno, Policy: "require-app-label", Rule: "check-app-label"},
+		},
+	}
+	client.Wgpolicyk8sV1alpha2().PolicyReports("default").Create(context.TODO(), legacyOnlyPolr, metav1.CreateOptions{})
+	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: legacyOnlyPolr.ObjectMeta}, metav1.CreateOptions{})
+
+	// seed a legacy ClusterPolicy in the metadata client so the startup sweep gate opens
+	cpolGVR := kyvernov1.SchemeGroupVersion.WithResource("clusterpolicies")
+	_, err := upstream.Resource(cpolGVR).(metafake.MetadataClient).CreateFake(&metav1.PartialObjectMetadata{
+		ObjectMeta: metav1.ObjectMeta{Name: "legacy-cpol"},
+	}, metav1.CreateOptions{})
+	assert.Nil(t, err)
+
+	controller := aggregate.NewController(client, nil, nil, metaFactory, vpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, upstream)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	metaFactory.Start(stop)
+	kyvernoFactory.Start(stop)
+
+	metaFactory.WaitForCacheSync(stop)
+	kyvernoFactory.WaitForCacheSync(stop)
+
+	// production order: caches synced before Run starts the startup sweep
+	go func() {
+		controller.Run(ctx, 1)
+	}()
+
+	time.Sleep(13 * time.Second)
+
+	list, _ := client.Wgpolicyk8sV1alpha2().PolicyReports("default").List(context.TODO(), metav1.ListOptions{})
+	for _, item := range list.Items {
+		assert.NotEqual(t, legacyOnlyPolr.Name, item.Name, "legacy-only report should have been swept and deleted")
+	}
+}
+
+// TestController_StartupSweepSkippedWithoutLegacyPolicies proves the startup
+// sweep stays off (decision C2) when no legacy kyverno.io policy exists, so a
+// legacy-only report survives untouched.
+func TestController_StartupSweepSkippedWithoutLegacyPolicies(t *testing.T) {
+	metaFactory, metaClient, _, upstream := newFakeMetaClient()
+	client := versionedfake.NewSimpleClientset()
+	kyvernoFactory := kyvernoinformer.NewSharedInformerFactory(client, 1*time.Second)
+
+	vpolInformer := kyvernoFactory.Policies().V1beta1().ValidatingPolicies()
+
+	legacyOnlyPolr := &v1alpha2.PolicyReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "legacy-only-polr-2",
+			Namespace: "default",
+			Labels: map[string]string{
+				kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+			},
+		},
+		Results: []v1alpha2.PolicyReportResult{
+			{Source: reportutils.SourceKyverno, Policy: "require-app-label", Rule: "check-app-label"},
+		},
+	}
+	client.Wgpolicyk8sV1alpha2().PolicyReports("default").Create(context.TODO(), legacyOnlyPolr, metav1.CreateOptions{})
+	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: legacyOnlyPolr.ObjectMeta}, metav1.CreateOptions{})
+
+	controller := aggregate.NewController(client, nil, nil, metaFactory, vpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, upstream)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	metaFactory.Start(stop)
+	kyvernoFactory.Start(stop)
+
+	metaFactory.WaitForCacheSync(stop)
+	kyvernoFactory.WaitForCacheSync(stop)
+
+	go func() {
+		controller.Run(ctx, 1)
+	}()
+
+	time.Sleep(13 * time.Second)
+
+	list, _ := client.Wgpolicyk8sV1alpha2().PolicyReports("default").List(context.TODO(), metav1.ListOptions{})
+	var found bool
+	for _, item := range list.Items {
+		if item.Name == legacyOnlyPolr.Name {
+			found = true
+		}
+	}
+	assert.True(t, found, "legacy-only report should survive when no legacy policies are present")
+
+	for _, a := range client.Fake.Actions() {
+		if action, ok := a.(k8stesting.GetAction); ok {
+			assert.NotEqual(t, legacyOnlyPolr.Name, action.GetName(), "the startup sweep should not have touched the report")
+		}
+	}
 }

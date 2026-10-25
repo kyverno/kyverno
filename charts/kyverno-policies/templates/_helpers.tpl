@@ -81,17 +81,6 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
-{{/* Fail if deployed Kyverno does not match */}}
-{{- define "kyverno-policies.supportedKyvernoCheck" -}}
-{{- $supportedKyverno := index . "ver" -}}
-{{- $top := index . "top" }}
-{{- if (include "kyverno-policies.kyvernoVersion" $top) -}}
-  {{- if not ( semverCompare $supportedKyverno (include "kyverno-policies.kyvernoVersion" $top) ) -}}
-    {{- fail (printf "Kyverno version is too low, expected %s" $supportedKyverno) -}}
-  {{- end -}}
-{{- end -}}
-{{- end -}}
-
 {{/* Custom annotations with per-policy overrides.
      Merges default customAnnotations with per-policy overrides.
      Per-policy entries override defaults when they share the same key.
@@ -121,15 +110,6 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
   {{- end -}}
 {{- else -}}
   {{- $values.podSecuritySeverity | quote -}}
-{{- end -}}
-{{- end -}}
-
-{{/* Check if ValidatingPolicy should be used */}}
-{{- define "kyverno-policies.useValidatingPolicy" -}}
-{{- if eq .Values.policyType "ValidatingPolicy" -}}
-{{- true -}}
-{{- else -}}
-{{- false -}}
 {{- end -}}
 {{- end -}}
 

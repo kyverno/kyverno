@@ -1,15 +1,14 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 #
-# Daily sweep with two once-per-PR nudges. Nothing is closed.
+# Daily sweep for author-action PRs and idle ready-for-review PRs.
 #
-# 1. Stale author: a `needs-author-action` PR whose author has not pushed a commit for STALE_DAYS gets `stale` and
-#    one comment pinging its reviewers. `stale` is removed once the PR no longer needs the author, the author pushes
-#    a commit, or `no-stale` is set. Replies don't count either way.
-# 2. Maintainer nudge: a `ready-for-review` PR with no new commit or maintainer activity for NUDGE_DAYS gets one
-#    comment (per head commit) pinging its reviewers.
+# 1. A `needs-author-action` PR with no new commit for STALE_DAYS gets `stale` and a comment to its author. If it
+#    remains inactive for CLOSE_DAYS total, it is commented on and closed. A new commit clears `stale`; replies do
+#    not reset the clock. For merge conflicts, the clock starts when the conflict label was applied if later than
+#    the last commit.
+# 2. A `ready-for-review` PR with no new commit or maintainer activity for NUDGE_DAYS gets one reviewer nudge.
 #
-# The author is always told. For a PR idle BACKLOG_DAYS or more, reviewers are not pinged (no stale ping, no nudge),
-# to avoid a notification flood.
+# PRs with `no-stale` are exempt. For PRs idle BACKLOG_DAYS or more, reviewers are not pinged.
 #
 # Reviewers = requested reviewers, assignees and past reviewers, minus the author; FALLBACK_REVIEWERS if none.
 # Run with dry_run=true to preview.
@@ -30,8 +29,8 @@ on:
         type: boolean
         default: true
       stale_days:
-        description: "Days without author activity before a needs-author-action PR is marked stale"
-        default: "14"
+        description: "Days without a new commit before a needs-author-action PR is marked stale"
+        default: "7"
       review_nudge_days:
         description: "Days without maintainer activity before a ready-for-review PR is nudged"
         default: "7"
@@ -40,28 +39,33 @@ on:
 
 jobs:
   sweep:
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       pull-requests: write
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       DRY_RUN: ${{ inputs.dry_run || 'false' }}
-      STALE_DAYS: ${{ inputs.stale_days || '14' }}
+      STALE_DAYS: ${{ inputs.stale_days || '7' }}
+      CLOSE_DAYS: "14"
       NUDGE_DAYS: ${{ inputs.review_nudge_days || '7' }}
       BACKLOG_DAYS: "30"
       FALLBACK_REVIEWERS: "@kyverno/kyverno-core-maintainers"
     steps:
-      - name: Mark stale needs-author-action PRs and nudge idle ready-for-review PRs
+      - name: Manage stale PRs and nudge idle ready-for-review PRs
         run: |
           set -euo pipefail
 
-          [[ "$STALE_DAYS" =~ ^[0-9]+$ && "$NUDGE_DAYS" =~ ^[0-9]+$ ]] \
-            || { echo "::error::stale_days and review_nudge_days must be whole numbers."; exit 1; }
+          [[ "$STALE_DAYS" =~ ^[0-9]+$ && "$CLOSE_DAYS" =~ ^[0-9]+$ && "$NUDGE_DAYS" =~ ^[0-9]+$ ]] \
+            || { echo "::error::configured day values must be whole numbers."; exit 1; }
+          (( STALE_DAYS <= CLOSE_DAYS )) \
+            || { echo "::error::stale_days must not exceed close_days."; exit 1; }
 
           repo="${GITHUB_REPOSITORY}"
           now=$(date -u +%s)
           stale_secs=$((STALE_DAYS * 86400))
+          close_secs=$((CLOSE_DAYS * 86400))
           nudge_secs=$((NUDGE_DAYS * 86400))
           backlog_secs=$((BACKLOG_DAYS * 86400))
 
@@ -70,19 +74,16 @@ jobs:
             if [[ "$DRY_RUN" == "true" ]]; then echo "[dry-run] $*"; else "$@" && sleep 1; fi
           }
 
-          # One GraphQL call per PR, normalised into small files (PR data is arbitrary text, so never bash variables).
-          # Only the newest 100 commits, comments, reviews and label events are read, which is enough for the
-          # newest-activity clocks. `truncated` flags a PR with more than 100 commits, whose author commit may be
-          # out of view. Helpers return non-zero on failure.
+          # PR data is arbitrary text, so normalise it into small files rather than bash variables.
+          # Helpers return non-zero on failure.
           pr_query='
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
                 pullRequest(number: $number) {
-                  createdAt
                   headRefOid
                   author { login }
                   labels(first: 100) { nodes { name } }
-                  commits(last: 100) { totalCount nodes { commit { committedDate author { user { login } } } } }
+                  commits(last: 100) { nodes { commit { oid committedDate } } }
                   assignees(first: 20) { nodes { login } }
                   reviewRequests(first: 50) { nodes { requestedReviewer {
                     __typename
@@ -91,9 +92,22 @@ jobs:
                     ... on Mannequin { login }
                     ... on Team { combinedSlug }
                   } } }
-                  comments(last: 100) { totalCount nodes { author { login __typename } createdAt body } }
+                  comments(last: 100) {
+                    totalCount
+                    pageInfo { hasPreviousPage startCursor }
+                    nodes { author { login __typename } createdAt body }
+                  }
                   reviews(last: 100) { totalCount nodes { author { login __typename } submittedAt } }
-                  timelineItems(last: 100, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }
+                  timelineItems(last: 100, itemTypes: [LABELED_EVENT, UNLABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT, PULL_REQUEST_COMMIT]) {
+                    pageInfo { hasPreviousPage startCursor }
+                    nodes {
+                      __typename
+                      ... on LabeledEvent { createdAt label { name } }
+                      ... on UnlabeledEvent { createdAt label { name } }
+                      ... on HeadRefForcePushedEvent { createdAt }
+                      ... on PullRequestCommit { commit { oid committedDate } }
+                    }
+                  }
                 }
               }
             }'
@@ -106,24 +120,110 @@ jobs:
             done
             jq '.data.repository.pullRequest
               | {author: {login: (.author.login // "ghost")}, headRefOid,
-                 created: (.createdAt | fromdateiso8601),
-                 truncated: (.commits.totalCount > 100),
                  labels: .labels.nodes,
-                 commits: [.commits.nodes[].commit | {committedDate, login: .author.user.login}],
+                 commits: [.commits.nodes[].commit | {oid, committedDate}],
                  assignees: .assignees.nodes,
                  reviewRequests: [.reviewRequests.nodes[].requestedReviewer
                    | select(. != null and (.login or .combinedSlug))
                    | if .__typename == "Team" then {__typename, slug: .combinedSlug} else {__typename, login} end]}' \
               raw.json > pr.json || return 1
-            jq '[.data.repository.pullRequest.comments.nodes[]
-                 | {u: (.author.login // "ghost"), t: (.author.__typename // "User"), at: .createdAt, body: (.body // "")}]' \
-              raw.json > issue-comments.json || return 1
+            jq -n '[]' > comment-pages.json || return 1
+            jq '.data.repository.pullRequest.comments.pageInfo' raw.json > comment-page-info.json || return 1
+            append_comment_page raw.json || return 1
             jq '[.data.repository.pullRequest.reviews.nodes[] | select(.submittedAt != null)
                  | {u: (.author.login // "ghost"), t: (.author.__typename // "User"), at: .submittedAt}]' \
               raw.json > reviews.json || return 1
-            jq '[.data.repository.pullRequest.timelineItems.nodes[] | select(.label.name != null)
-                 | {l: .label.name, at: .createdAt}]' \
-              raw.json > label-events.json || return 1
+            jq -n '[]' > timeline-pages.json || return 1
+            jq '.data.repository.pullRequest.timelineItems.pageInfo' raw.json > timeline-page-info.json || return 1
+            append_timeline_page raw.json || return 1
+            while needs_timeline_history; do
+              local cursor
+              cursor=$(jq -r '.startCursor' timeline-page-info.json)
+              gh api graphql -f query="$timeline_query" -f owner="${repo%/*}" -f name="${repo#*/}" \
+                -F number="$1" -f cursor="$cursor" > timeline-page.json || return 1
+              jq '.data.repository.pullRequest.timelineItems.pageInfo' timeline-page.json > timeline-page-info.json || return 1
+              append_timeline_page timeline-page.json || return 1
+            done
+            jq '[.[] | select(.kind == "label") | {l, at}]' timeline-events.json > label-events.json || return 1
+            jq '[.[] | select(.kind == "unlabel") | {l, at}]' timeline-events.json > unlabel-events.json || return 1
+            jq '[.[] | select(.kind == "force-push") | {at}]' timeline-events.json > force-push-events.json || return 1
+          }
+
+          timeline_query='
+            query($owner: String!, $name: String!, $number: Int!, $cursor: String!) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $number) {
+                  timelineItems(last: 100, before: $cursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT, PULL_REQUEST_COMMIT]) {
+                    pageInfo { hasPreviousPage startCursor }
+                    nodes {
+                      __typename
+                      ... on LabeledEvent { createdAt label { name } }
+                      ... on UnlabeledEvent { createdAt label { name } }
+                      ... on HeadRefForcePushedEvent { createdAt }
+                      ... on PullRequestCommit { commit { oid committedDate } }
+                    }
+                  }
+                }
+              }
+            }'
+
+          comments_query='
+            query($owner: String!, $name: String!, $number: Int!, $cursor: String!) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $number) {
+                  comments(last: 100, before: $cursor) {
+                    pageInfo { hasPreviousPage startCursor }
+                    nodes { author { login __typename } createdAt body }
+                  }
+                }
+              }
+            }'
+
+          append_comment_page() {
+            local page="$1"
+            jq '[.data.repository.pullRequest.comments.nodes[]
+                 | {u: (.author.login // "ghost"), t: (.author.__typename // "User"), at: .createdAt, body: (.body // "")}]' \
+              "$page" > comment-current-page.json || return 1
+            jq --slurpfile page comment-current-page.json '. + [$page[0]]' \
+              comment-pages.json > comment-pages-next.json || return 1
+            mv comment-pages-next.json comment-pages.json
+            jq 'reverse | add // []' comment-pages.json > issue-comments.json || return 1
+          }
+
+          append_timeline_page() {
+            local page="$1"
+            jq '[.data.repository.pullRequest.timelineItems.nodes[]
+                 | if .__typename == "LabeledEvent" then {kind: "label", l: .label.name, at: .createdAt}
+                   elif .__typename == "UnlabeledEvent" then {kind: "unlabel", l: .label.name, at: .createdAt}
+                   elif .__typename == "HeadRefForcePushedEvent" then {kind: "force-push", at: .createdAt}
+                   elif .__typename == "PullRequestCommit" then {kind: "commit", oid: .commit.oid, at: .commit.committedDate}
+                   else empty end]' "$page" > timeline-current-page.json || return 1
+            jq --slurpfile page timeline-current-page.json '. + [$page[0]]' \
+              timeline-pages.json > timeline-pages-next.json || return 1
+            mv timeline-pages-next.json timeline-pages.json
+            jq 'reverse | add // []' timeline-pages.json > timeline-events.json || return 1
+          }
+
+          needs_timeline_history() {
+            [[ "$(jq -r '.hasPreviousPage' timeline-page-info.json)" == "true" ]] || return 1
+            local labels
+            labels=$(jq -r '[.labels[].name] | join(",")' pr.json)
+            for label in needs-author-action stale ready-for-review merge-conflicts; do
+              if [[ ",$labels," == *",$label,"* ]] \
+                && ! jq -e --arg l "$label" 'any(.[]; .kind == "label" and .l == $l)' timeline-events.json > /dev/null; then
+                return 0
+              fi
+            done
+            if [[ ",$labels," == *",stale,"* ]] \
+              && [[ "$(jq -r '.headRefOid' pr.json)" != "null" ]] \
+              && ! has_marker 'pr-stale-author-action: stale ' \
+              && ! jq -e '
+                ([to_entries[] | select(.value.kind == "label" and .value.l == "stale") | .key] | last // -1) as $stale
+                | any(to_entries[]; .key < $stale and .value.kind == "commit")
+              ' timeline-events.json > /dev/null; then
+              return 0
+            fi
+            return 1
           }
 
           has_label() { jq -e --arg l "$1" 'any(.labels[]; .name == $l)' pr.json > /dev/null; }
@@ -135,9 +235,105 @@ jobs:
             jq --arg l "$1" '[.[] | select(.l == $l) | .at | fromdateiso8601] | max // 0' label-events.json
           }
 
-          # Epoch of the author's latest commit; commits with no linked account count as theirs, maintainers' don't.
-          author_commit() {
-            jq --arg a "$1" '[.commits[] | select(.login == $a or .login == null) | .committedDate | fromdateiso8601] | max // 0' pr.json
+          # Epoch of the latest commit, from anyone: a maintainer or a second account pushing is activity too.
+          last_commit() {
+            jq '[.commits[].committedDate | fromdateiso8601] | max // 0' pr.json
+          }
+
+          latest_force_push() {
+            jq '[.[] | .at | fromdateiso8601] | max // 0' force-push-events.json
+          }
+
+          latest_stale_removal() {
+            jq '[.[] | select(.l == "stale") | .at | fromdateiso8601] | max // 0' unlabel-events.json
+          }
+
+          commit_after_label() {
+            jq -e --arg l "$1" '
+              ([to_entries[] | select(.value.kind == "label" and .value.l == $l) | .key] | last // -1) as $label_index
+              | any(to_entries[]; .key > $label_index and .value.kind == "commit")
+            ' timeline-events.json > /dev/null
+          }
+
+          late_commit_oid() {
+            jq -r '
+              ([to_entries[] | select(.value.kind == "label" and .value.l == "needs-author-action") | .key] | last // -1) as $label_index
+              | [to_entries[] | select(.key > $label_index and .value.kind == "commit") | .value.oid]
+              | last // ""
+            ' timeline-events.json
+          }
+
+          # GitHub does not expose ordinary push times; persist when this workflow first sees a commit added after the label.
+          late_commit_observed_at() {
+            local n="$1" oid observed cursor
+            oid=$(late_commit_oid) || return 1
+            [[ -z "$oid" ]] && { printf '0'; return 0; }
+            observed=$(jq -r --arg oid "$oid" '
+              [.[] | select(.t == "Bot") | .body
+               | try capture("<!-- pr-stale-author-action: observed (?<oid>[0-9a-f]+) (?<at>[0-9]+) -->") catch empty
+               | select(.oid == $oid) | .at] | last // ""
+            ' issue-comments.json) || return 1
+            while [[ -z "$observed" && "$(jq -r '.hasPreviousPage' comment-page-info.json)" == "true" ]]; do
+              cursor=$(jq -r '.startCursor' comment-page-info.json)
+              gh api graphql -f query="$comments_query" -f owner="${repo%/*}" -f name="${repo#*/}" \
+                -F number="$n" -f cursor="$cursor" > comments-page.json || return 1
+              jq '.data.repository.pullRequest.comments.pageInfo' comments-page.json > comment-page-info.json || return 1
+              append_comment_page comments-page.json || return 1
+              observed=$(jq -r --arg oid "$oid" '
+                [.[] | select(.t == "Bot") | .body
+                 | try capture("<!-- pr-stale-author-action: observed (?<oid>[0-9a-f]+) (?<at>[0-9]+) -->") catch empty
+                 | select(.oid == $oid) | .at] | last // ""
+              ' issue-comments.json) || return 1
+            done
+            if [[ -n "$observed" ]]; then
+              printf '%s' "$observed"
+              return 0
+            fi
+            local marker="<!-- pr-stale-author-action: observed $oid $now -->"
+            printf '%s\n' "$marker" > body.md
+            act gh pr comment "$n" --repo "$repo" --body-file body.md >&2 || return 1
+            printf '%s' "$now"
+          }
+
+          force_push_after() {
+            jq -e --argjson t "$1" 'any(.[]; (.at | fromdateiso8601) > $t)' force-push-events.json > /dev/null
+          }
+
+          stale_head() {
+            local marked
+            marked=$(jq -r '[.[] | select(.t == "Bot") | .body
+              | try capture("<!-- pr-stale-author-action: stale [0-9]+ (?<head>[0-9a-f]+|null) -->").head catch empty]
+              | map(select(. != "")) | last // ""' issue-comments.json) || return 1
+            if [[ -n "$marked" ]]; then
+              printf '%s' "$marked"
+              return 0
+            fi
+            if [[ "$(jq -r '.headRefOid' pr.json)" == "null" ]]; then
+              printf 'null'
+              return 0
+            fi
+            jq -r '
+              ([to_entries[] | select(.value.kind == "label" and .value.l == "stale") | .key] | last // -1) as $stale
+              | if $stale < 0 then ""
+                else ([to_entries[] | select(.key < $stale and .value.kind == "commit") | .value.oid] | last // "")
+                end' timeline-events.json
+          }
+
+          # Use commit/force-push activity and stale-label removal; undated late pushes start a conservative clock.
+          author_clock() {
+            local n="$1" last pushed removed conflicted observed
+            last=$(last_commit) || return 1
+            pushed=$(latest_force_push) || return 1
+            [[ "$pushed" -gt "$last" ]] && last="$pushed"
+            removed=$(latest_stale_removal) || return 1
+            [[ "$removed" -gt "$last" ]] && last="$removed"
+            if has_label merge-conflicts; then
+              conflicted=$(label_time merge-conflicts) || return 1
+              [[ "$conflicted" -gt "$last" ]] && last="$conflicted"
+            fi
+            observed=$(late_commit_observed_at "$n") || return 1
+            [[ "$observed" -gt "$last" ]] && last="$observed"
+            printf '%s' "$last"
           }
 
           # Epoch the PR started waiting on reviewers: newest of label time ($2), the last commit (anyone's, since a
@@ -164,52 +360,50 @@ jobs:
 
           date_of() { jq -rn --argjson t "$1" '$t | strftime("%Y-%m-%d")'; }
 
-          # PRs carrying `stale`: clear it once it no longer applies. Only a new commit from the author counts: a reply
-          # (for example "I can't continue") must not clear it.
+          # PRs carrying `stale`: clear it once it no longer applies. Only a new commit counts: a reply (for example
+          # "I can't continue") must not clear it.
           handle_stale_label() {
-            local n="$1" author last stale_at
+            local n="$1" last stale_at head recorded_head
             fetch "$n" || return 1
-            author=$(jq -r '.author.login' pr.json)
-            last=$(author_commit "$author") || return 1
+            last=$(last_commit) || return 1
             stale_at=$(label_time stale) || return 1
+            head=$(jq -r '.headRefOid' pr.json)
+            recorded_head=$(stale_head) || return 1
             # Unknown when the label event is outside the fetched history; leave the label alone.
             [[ "$stale_at" -eq 0 ]] && { echo "::warning::PR #$n: stale label time not found — skipping."; return 0; }
-            if ! has_label needs-author-action || has_label no-stale || [[ "$last" -gt "$stale_at" ]]; then
+            if ! has_label needs-author-action || has_label no-stale || [[ "$last" -gt "$stale_at" ]] \
+              || commit_after_label stale \
+              || force_push_after "$stale_at" \
+              || { [[ "$head" != "null" && -n "$recorded_head" ]] && [[ "$head" != "$recorded_head" ]]; }; then
               echo "PR #$n: no longer stale — removing the label."
               act gh pr edit "$n" --repo "$repo" --remove-label stale || return 1
             fi
           }
 
-          # needs-author-action PRs: mark stale after STALE_DAYS without an author commit.
+          # needs-author-action PRs: mark stale after STALE_DAYS without a new commit.
           handle_needs_author() {
-            local n="$1" author last idle marker
+            local n="$1" author last idle marker head needs_author_at
             fetch "$n" || return 1
             author=$(jq -r '.author.login' pr.json)
-            last=$(author_commit "$author") || return 1
-            if [[ "$last" -eq 0 ]]; then
-              # No author commit in view: if more than 100 commits hide theirs, don't decide; otherwise the author's
-              # last activity is opening the PR.
-              if jq -e '.truncated' pr.json > /dev/null; then
-                echo "::warning::PR #$n: author commit not in the newest 100 — skipping."
-                return 0
-              fi
-              last=$(jq '.created' pr.json)
-            fi
+            needs_author_at=$(label_time needs-author-action) || return 1
+            [[ "$needs_author_at" -eq 0 ]] && { echo "::warning::PR #$n: needs-author-action label time not found — skipping."; return 0; }
+            last=$(author_clock "$n") || return 1
+            head=$(jq -r '.headRefOid' pr.json)
             idle=$((now - last))
             [[ "$idle" -lt "$stale_secs" ]] && return 0
 
-            marker="<!-- pr-stale-author-action: $last -->"
+            marker="<!-- pr-stale-author-action: stale $last $head -->"
             if ! has_marker "$marker"; then
               {
                 printf '%s\n' "$marker"
-                printf '@%s there has been no activity from you on this PR for %s days (last: %s), and it is still waiting on you (`needs-author-action`), so it is now marked `stale`.\n\n' \
+                printf '@%s there has been no new commit on this PR for %s days (since: %s), and it is still waiting on you (`needs-author-action`), so it is now marked `stale`.\n\n' \
                   "$author" "$((idle / 86400))" "$(date_of "$last")"
                 printf -- '- Still working on it? Push a commit; the label clears automatically.\n'
                 printf -- '- Stuck or unsure? Say what you are stuck on and a reviewer will help.\n'
                 printf -- '- Cannot continue? Say so here; the label stays and a maintainer can pick it up.\n\n'
                 # Old PRs: author only, no reviewer ping.
                 if [[ "$idle" -lt "$backlog_secs" ]]; then
-                  printf '%s no author response for %s days; this may need a nudge, a hand-off, or closing.' \
+                  printf '%s no new commit for %s days; this may need a nudge, a hand-off, or closing.' \
                     "$(reviewers "$author")" "$((idle / 86400))"
                   if has_label milestone-pr; then
                     printf '\n\nThis PR closes an issue in an open release milestone, so maintainers: consider taking it over or reassigning it.'
@@ -219,8 +413,44 @@ jobs:
               [[ "$DRY_RUN" == "true" ]] && { echo "PR #$n would get:"; cat body.md; echo; }
               act gh pr comment "$n" --repo "$repo" --body-file body.md || return 1
             fi
-            echo "PR #$n: no author activity for $((idle / 86400)) days — marking stale."
+            echo "PR #$n: no new commit for $((idle / 86400)) days — marking stale."
             act gh pr edit "$n" --repo "$repo" --add-label stale
+          }
+
+          # Close a PR after CLOSE_DAYS total inactivity, once it has already been marked stale.
+          handle_close() {
+            local n="$1" author last last_commit_at stale_at idle marker head recorded_head
+            fetch "$n" || return 1
+            if ! has_label needs-author-action || ! has_label stale || has_label no-stale; then
+              return 0
+            fi
+            author=$(jq -r '.author.login' pr.json)
+            last_commit_at=$(last_commit) || return 1
+            last=$(author_clock "$n") || return 1
+            stale_at=$(label_time stale) || return 1
+            head=$(jq -r '.headRefOid' pr.json)
+            recorded_head=$(stale_head) || return 1
+            # A new commit or force-push after stale marking resets the cycle; merge-conflict time only affects idle.
+            [[ "$stale_at" -eq 0 || "$last_commit_at" -gt "$stale_at" ]] && return 0
+            commit_after_label stale && return 0
+            force_push_after "$stale_at" && return 0
+            [[ -z "$recorded_head" ]] && return 0
+            [[ "$head" != "null" && "$head" != "$recorded_head" ]] && return 0
+            idle=$((now - last))
+            [[ "$idle" -lt "$close_secs" ]] && return 0
+
+            marker="<!-- pr-stale-author-action: close-$last -->"
+            if ! has_marker "$marker"; then
+              {
+                printf '%s\n' "$marker"
+                printf '@%s to help manage our PR queue we are closing PRs with no activity. This PR has had no new commit for %s days. A prior reminder was issued when this PR was marked `stale`. If you would like to continue working on it, please address the flagged issues and reopen the PR. Thanks for your contributions and understanding!\n' \
+                  "$author" "$((idle / 86400))"
+              } > body.md
+              [[ "$DRY_RUN" == "true" ]] && { echo "PR #$n would get:"; cat body.md; echo; }
+              act gh pr comment "$n" --repo "$repo" --body-file body.md || return 1
+            fi
+            echo "PR #$n: no new commit for $((idle / 86400)) days — closing."
+            act gh pr close "$n" --repo "$repo"
           }
 
           # ready-for-review PRs: nudge the reviewers once per head commit after NUDGE_DAYS of maintainer silence.
@@ -266,6 +496,7 @@ jobs:
           base="draft:false -author:app/dependabot"
           sweep "$base label:stale" handle_stale_label
           sweep "$base -label:no-stale label:needs-author-action -label:stale" handle_needs_author
+          sweep "$base -label:no-stale label:needs-author-action label:stale" handle_close
           sweep "$base -label:no-stale label:ready-for-review" handle_ready
 
           if [[ "$failed" -gt 0 ]]; then echo "::error::$failed operation(s) failed."; exit 1; fi

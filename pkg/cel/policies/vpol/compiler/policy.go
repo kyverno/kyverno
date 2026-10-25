@@ -96,6 +96,9 @@ func (p *Policy) evaluateKubernetes(
 	return p.evaluateWithData(ctx, data)
 }
 
+// evaluateWithData evaluates the compiled CEL policy against the provided resource data,
+// capturing any validation failures or runtime errors (including message expression errors)
+// in the returned EvaluationResult.
 func (p *Policy) evaluateWithData(
 	ctx context.Context,
 	data evaluationData,
@@ -108,6 +111,7 @@ func (p *Policy) evaluateWithData(
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
 	}
+	libs.BindRequestContext(ctx, data.Context, dataNew)
 	// check if the resource matches an exception
 	var refused *RefusedException
 	if len(p.exceptions) > 0 {
@@ -219,6 +223,13 @@ func (p *Policy) evaluateWithData(
 					})
 				}
 			}
+			// A resource refusal must win over a value. When the per-request budget is
+			// exhausted by a program that otherwise completed, ContextEval returns BOTH a
+			// usable value and the refusal, so checking out first discards the refusal and
+			// the variable evaluates as if the budget had never been exceeded.
+			if compiler.IsResourceError(err) {
+				return types.WrapErr(err)
+			}
 			if out != nil {
 				return out
 			}
@@ -270,20 +281,21 @@ func (p *Policy) evaluateWithData(
 		}
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			ran(index, trace.VerdictFail)
-			message := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
+			message, msgErr := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
 			verdict.Status, verdict.Message = trace.VerdictFail, message
+			// an audit annotation error must not mask the failure
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {
-				verdict.Status, verdict.Message = trace.VerdictError, err.Error()
-				return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
+				auditAnnotations = nil
 			}
 			return &EvaluationResult{
-				Result:           outcome,
-				Message:          message,
-				Index:            index,
-				AuditAnnotations: auditAnnotations,
-				RefusedException: refused,
-				Trace:            decision(),
+				Result:                 outcome,
+				Message:                message,
+				MessageExpressionError: msgErr,
+				Index:                  index,
+				AuditAnnotations:       auditAnnotations,
+				RefusedException:       refused,
+				Trace:                  decision(),
 			}, nil
 		} else if err != nil {
 			ran(index, trace.VerdictError)
@@ -330,33 +342,37 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 	if ast != nil {
 		source = ast.Source().Content()
 	}
-	return trace.Build(source, ast, out, details)
+	et := trace.Build(source, ast, out, details)
+	// an expression with an external or non-repeatable call is never re-run to explain it
+	et.NoBreakdown = compiler.NoBreakdownReason(ast)
+	return et
 }
 
 // resolveMessage returns the message to report for a failed validation, preferring
 // messageExpression over the static message and falling back when neither yields anything.
+// It also returns any error encountered during message expression evaluation.
 func (p *Policy) resolveMessage(
 	ctx context.Context,
 	data map[string]any,
 	validation compiler.Validation,
 	fallback string,
-) string {
+) (string, error) {
 	message := validation.Message
 	if validation.MessageExpression != nil {
 		out, _, err := validation.MessageExpression.ContextEval(ctx, data)
 		if err != nil {
-			return fmt.Sprintf("failed to evaluate message expression: %s", err)
+			return fmt.Sprintf("failed to evaluate message expression: %s", err), err
 		}
 		msg, err := utils.ConvertToNative[string](out)
 		if err != nil {
-			return fmt.Sprintf("failed to convert message expression to string: %s", err)
+			return fmt.Sprintf("failed to convert message expression to string: %s", err), err
 		}
 		message = msg
 	}
 	if message == "" {
-		return fallback
+		return fallback, nil
 	}
-	return message
+	return message, nil
 }
 
 // evaluateExceptionValidations evaluates the compensating controls of an exception already known
@@ -381,9 +397,11 @@ func (p *Policy) evaluateExceptionValidations(
 				"compensating control at index %d failed for policy exception %s",
 				index, cache.MetaObjectToName(polex.Exception),
 			)
+			msg, msgErr := p.resolveMessage(ctx, data, validation, fallback)
 			return &RefusedException{
-				Exception: polex.Exception,
-				Message:   p.resolveMessage(ctx, data, validation, fallback),
+				Exception:              polex.Exception,
+				Message:                msg,
+				MessageExpressionError: msgErr,
 			}
 		}
 	}
