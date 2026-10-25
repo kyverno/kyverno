@@ -11,13 +11,17 @@ Most controllers implement the one-method `Controller` interface (`Run(context.C
 `workqueue.TypedRateLimitingInterface`, informer→queue wiring through `pkg/utils/controller` helpers
 (imported as `controllerutils`), and a single shared `controllerutils.Run(ctx, logger, ControllerName, period,
 queue, workers, maxRetries, reconcileFunc, routines...)` call — identical across nearly every *queue-backed*
-controller in this package. This is not a universal pattern, though — three subdirectories opt out entirely:
+controller in this package. This is not a universal pattern, though — several subdirectories opt out:
 `pkg/controllers/generic/logging` doesn't use a workqueue or implement `Controller.Run` at all — it's a
 fire-and-forget event logger wired directly to informer callbacks (used for CleanupPolicy/ClusterCleanupPolicy
-change logging). `pkg/controllers/metrics/legacypolicy` and `pkg/controllers/metrics/updaterequest` are the same
-shape: callback-only constructors subscribed directly to informer events (see the table below), with no
-`Controller.Run`, no queue, and no `controllerutils.Run` call — don't assume the shared pattern applies when
-touching these three.
+change logging). `pkg/controllers/metrics/updaterequest` is the same shape: a callback-only constructor
+subscribed to an OTel scrape callback and backed by an informer lister, with no `Controller.Run`, no queue, and
+no `controllerutils.Run` call. `pkg/controllers/metrics/legacypolicy` is a third shape, not either of the above:
+it does implement `Controller.Run`, wired through `internal.NewController` like a queue-backed controller, but
+`Run` drives a plain `wait.UntilWithContext` timer loop (`refreshInterval`, 30s) instead of a workqueue — there
+is no informer behind it at all since #17710 PR 4 narrowed the admission/cleanup controllers' RBAC to `list`
+only; the gauge is refreshed by listing via the metadata client, not by watching. Don't assume the queue
+pattern applies to any of these three.
 
 ## Subdirectory → responsibility → leader election
 
@@ -28,11 +32,10 @@ leader-elected = created before/outside that block, so it runs on every replica.
 |---|---|---|
 | `certmanager` | Kyverno's own webhook TLS certificate Secrets | Yes |
 | `deleting` | CEL `DeletingPolicy`/`NamespacedDeletingPolicy` — see [pkg/background/AGENTS.md](../background/AGENTS.md) for why this is not UpdateRequest-driven | Yes |
-| `exceptions` | In-memory index of `PolicyException` rule matches, feeding the engine's exception selector | **No** — built alongside the webhook server, outside the leader block |
 | `admissionpolicygenerator` | Generates native `ValidatingAdmissionPolicy`/`MutatingAdmissionPolicy` from Kyverno CEL policies, gated by the `GenerateValidatingAdmissionPolicy`/`GenerateMutatingAdmissionPolicy` toggles | Yes |
 | `globalcontext` | `GlobalContextEntry`/`ClusterGlobalContextEntry` → in-memory cache store for CEL/JMESPath external lookups | **No** — created/run before/outside the leader-election block in all four binaries that use it (`kyverno`, background, cleanup, reports controllers; in `cmd/kyverno/main.go` it's explicitly under the "start non leader controllers" comment) |
-| `metrics/legacypolicy` | Reports the `kyverno_legacy_policies_total` gauge at scrape time, from counters the admission and cleanup controllers each supply for the legacy kinds they natively watch | No (scrape-time callback, no queue) |
-| `metrics/updaterequest` | Updates `UpdateRequest` count/status metrics from informer events | No (event-driven, no queue) |
+| `metrics/legacypolicy` | Reports the `kyverno_legacy_policies_total` gauge at scrape time, from counts refreshed every 30s via metadata-only `list` calls for the legacy kinds the admission and cleanup controllers each cover | **No** — created/run before/outside the leader-election block, same as `globalcontext` above |
+| `metrics/updaterequest` | Updates `UpdateRequest` count/status metrics from an informer lister, read at scrape time | No (scrape-time callback, no queue) |
 | `policystatus` | Aggregates and writes `.status` for CEL policy kinds | Yes |
 | `report/aggregate` | Aggregates intermediary Admission/BackgroundScan reports into final `PolicyReport`/`ClusterPolicyReport`, dropping results whose policy no longer exists and every legacy `source: kyverno` result; uses two separate queues (front/back) and, while legacy `ClusterPolicy`/`Policy` are still present, runs a one-time startup sweep over every existing report | Yes |
 | `report/background` | Periodic background policy scans producing `BackgroundScanReport`/`ClusterBackgroundScanReport` | Yes |
