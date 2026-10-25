@@ -318,7 +318,7 @@ func TestToPolicyReportResult_ConcurrentAccess(t *testing.T) {
 func TestToPolicyReportResultPreservesSubsecondTimestamp(t *testing.T) {
 	t.Parallel()
 
-	pol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+	pol := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "require-label"},
 	})
 	rule := engineapi.NewRuleResponse(
