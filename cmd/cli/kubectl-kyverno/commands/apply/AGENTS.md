@@ -23,8 +23,7 @@ to the same stream.
 
 ## Flag precedence and validation rules
 
-All validation happens in the `RunE` closure in `Command()`, **before** calling
-`applyCommandHelper`. The order is:
+Flag-combination validation happens in the `RunE` closure before calling `applyCommandHelper`; output-path validation is performed in `checkArguments()` and `checkMutateLogPath()` during the helper.
 
 1. `--output` + `--output-dir` simultaneously → error (both target the same
    `MutateLogPath` field; using both is ambiguous).
