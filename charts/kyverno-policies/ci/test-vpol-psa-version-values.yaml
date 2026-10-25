@@ -1,0 +1,7 @@
+podSecurityStandard: restricted
+
+# Pin the policies to Kubernetes Pod Security Admission v1.34.
+# The user namespace relaxation and disallow-proc-mount-strict need v1.35,
+# so they stay off even with podSecurityUserNamespaces enabled.
+podSecurityVersion: v1.34
+podSecurityUserNamespaces: true

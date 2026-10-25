@@ -46,6 +46,35 @@ An additional policy "require-non-root-groups" is included in an `other` group a
 
 For the latest version of these PSS policies, always refer to the kyverno/policies repo at https://github.com/kyverno/policies/tree/main/pod-security.
 
+## Select a Pod Security Admission version
+
+Kubernetes Pod Security Admission (PSA) versions its checks, and a namespace can pin a version with the `pod-security.kubernetes.io/enforce-version` label. The `podSecurityVersion` value does the same for the Pod Security Standards policies in this chart.
+
+* `latest` (default) matches the cluster's Kubernetes minor version when you install or upgrade the chart. It keeps the allow-lists of earlier chart releases, so Pods that pass today keep passing.
+* A version from `v1.25` to `v1.37`, for example `v1.34`, matches that PSA version. A version newer than `v1.37` uses `v1.37`, and an older or malformed version fails the install.
+
+```console
+$ helm install kyverno-policies --namespace kyverno kyverno/kyverno-policies \
+    --set podSecurityVersion=v1.34
+```
+
+Each policy that changes between PSA versions shows the version it matches in its `kyverno.io/pod-security-version` annotation:
+
+* A pinned version shows as the version, for example `v1.34`. The policies match PSA for that version.
+* `latest` shows as `latest` and the resolved version, for example `latest (v1.30)`. The version-gated checks, such as `disallow-host-probes` and the `v1.32` and `v1.37` sysctls, follow that version. The legacy allow-lists still apply, so `latest` can allow more than PSA `v1.30` does. For example, it allows the `container_engine_t` SELinux type, which PSA allows only from `v1.31`. To match PSA exactly, pin a version.
+
+Because Helm resolves `latest` only when it renders the chart, run `helm upgrade` after you upgrade Kubernetes to pick up newer checks.
+
+These policies change between PSA versions. The other policies are the same for every supported version.
+
+| Policy | PSA versions with a change | Change |
+|---|---|---|
+| `restrict-sysctls` | `v1.27`, `v1.29`, `v1.32`, `v1.37` | Each version allows more safe sysctls. With `latest`, the chart allows at least the `v1.29` list. |
+| `disallow-selinux` | `v1.31` | Allows the `container_engine_t` type. Always allowed with `latest`. |
+| `disallow-host-probes` | `v1.34` | Installed from `v1.34`. |
+| `disallow-proc-mount`, `require-run-as-nonroot`, `require-run-as-non-root-user` | `v1.35` | Skip Pods that set `spec.hostUsers` to `false`, when `podSecurityUserNamespaces` is `true`. With `latest`, `podSecurityUserNamespaces` alone decides. |
+| `disallow-proc-mount-strict` | `v1.35` | Installed from `v1.35` with the Restricted profile, when `podSecurityUserNamespaces` is `true`. |
+
 ## Deploy custom policies
 If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`:
 ````yaml
@@ -86,7 +115,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | podSecuritySeverity | string | `"medium"` | Pod Security Standard severity (`low`, `medium`, `high`). |
 | podSecuritySeverityByPolicy | object | `{}` | Define podSecuritySeverity overrides for specific policies. Override the global `podSecuritySeverity` with an individual severity for individual policies. An empty string per-policy entry suppresses the annotation entirely. |
 | podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
-| podSecurityUserNamespaces | bool | `false` | Enable the Kubernetes Pod Security Admission relaxation for user namespace pods. When `true`, the `disallow-proc-mount` (Baseline), `require-run-as-nonroot` and `require-run-as-non-root-user` (Restricted) ValidatingPolicies skip Pods that explicitly set `spec.hostUsers` to `false`. A Pod that omits `hostUsers` or sets it to `true` is always checked. The Restricted `disallow-proc-mount-strict` ValidatingPolicy never relaxes, and neither does `disallow-proc-mount` when the Restricted profile is installed. |
+| podSecurityUserNamespaces | bool | `false` | Enable the Kubernetes Pod Security Admission relaxation for user namespace pods. When `true`, the `disallow-proc-mount` (Baseline), `require-run-as-nonroot` and `require-run-as-non-root-user` (Restricted) ValidatingPolicies skip Pods that explicitly set `spec.hostUsers` to `false`. A Pod that omits `hostUsers` or sets it to `true` is always checked. The Restricted `disallow-proc-mount-strict` ValidatingPolicy never relaxes, and neither does `disallow-proc-mount` when the Restricted profile is installed. When `podSecurityVersion` is pinned below `v1.35`, the relaxation does not apply, because Kubernetes Pod Security Admission added it in `v1.35`. From `v1.35`, Pod Security Admission always applies the relaxation, so with this set to `false` a pinned `v1.35` or later denies some `hostUsers: false` Pods that Pod Security Admission allows. |
+| podSecurityVersion | string | `"latest"` | Kubernetes Pod Security Admission version that the Pod Security Standards policies match, the same as the `pod-security.kubernetes.io/enforce-version` namespace label. Use `latest` or a version from `v1.25` to `v1.37`, for example `v1.34`. A version newer than `v1.37` uses `v1.37`. `latest` uses the cluster's Kubernetes minor version when you install or upgrade the chart, and keeps the allow-lists of earlier chart releases, so Pods that pass today keep passing. Because of that, `latest` can allow more than Pod Security Admission does for that version. Each version-aware policy shows the version in its `kyverno.io/pod-security-version` annotation, for example `v1.34` for a pinned version or `latest (v1.30)` for `latest` on Kubernetes 1.30. |
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
 | customPolicies | list | `[]` | Additional custom policies to include. |
