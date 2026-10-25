@@ -27,15 +27,20 @@ type Generate struct {
 
 // NewGenerateFactory returns a new instance of Generate validation checker
 func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, reportsSA string, log logr.Logger) *Generate {
+	return NewGenerateFactoryWithCache(client, rule, user, reportsSA, log, nil)
+}
+
+// NewGenerateFactoryWithCache returns a Generate checker sharing authorization results in cache.
+func NewGenerateFactoryWithCache(client dclient.Interface, rule *kyvernov1.Rule, user, reportsSA string, log logr.Logger, cache *auth.Cache) *Generate {
 	var authCheckerReports auth.AuthChecks
 	if reportsSA != "" {
-		authCheckerReports = auth.NewAuth(client, reportsSA, log)
+		authCheckerReports = auth.NewAuthWithCache(client, reportsSA, log, cache)
 	}
 
 	g := Generate{
 		user:               user,
 		rule:               rule,
-		authChecker:        auth.NewAuth(client, user, log),
+		authChecker:        auth.NewAuthWithCache(client, user, log, cache),
 		authCheckerReports: authCheckerReports,
 		log:                log,
 	}

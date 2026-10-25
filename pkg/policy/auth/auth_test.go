@@ -1,11 +1,182 @@
 package auth
 
 import (
+	"context"
+	"errors"
+	"sync/atomic"
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	authorizationv1 "k8s.io/api/authorization/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
+	kubefake "k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
+
+// newCountingFakeClient returns a dclient.Interface backed by a fake kube
+// clientset whose SubjectAccessReview creations are counted, so tests can
+// assert how many times the API server was actually contacted.
+func newCountingFakeClient(t *testing.T) (dclient.Interface, *atomic.Int64) {
+	t.Helper()
+	var calls atomic.Int64
+
+	kubeClient := kubefake.NewSimpleClientset()
+	kubeClient.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		calls.Add(1)
+		return true, &authorizationv1.SubjectAccessReview{
+			Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true},
+		}, nil
+	})
+
+	dynClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	disco := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{{Version: "v1", Resource: "pods"}})
+	client := dclient.NewFakeClientWithDisco(dynClient, kubeClient, disco)
+	return client, &calls
+}
+
+func TestAuth_CanI_CacheDedupesAccessReviews(t *testing.T) {
+	client, calls := newCountingFakeClient(t)
+	cache := NewCache()
+
+	// Simulate several rules in the same policy all checking the same
+	// (user, verb, kind) tuple, as happens when multiple rules match the
+	// same resource kind - each rule gets its own Auth instance, but they
+	// share the Cache the way validateActions does across a policy's rules.
+	for i := 0; i < 5; i++ {
+		a := NewAuthWithCache(client, "system:serviceaccount:kyverno:reports-controller", logr.Discard(), cache)
+		ok, msg, err := a.CanI(context.Background(), []string{"get", "list", "watch"}, "Pod", "", "", "")
+		assert.NoError(t, err)
+		assert.True(t, ok)
+		assert.Empty(t, msg)
+	}
+
+	// 3 verbs checked once each and then reused from cache for the other 4 rules.
+	assert.Equal(t, int64(3), calls.Load())
+}
+
+func TestAuth_CanI_NoCacheRepeatsAccessReviews(t *testing.T) {
+	client, calls := newCountingFakeClient(t)
+
+	for i := 0; i < 5; i++ {
+		a := NewAuth(client, "system:serviceaccount:kyverno:reports-controller", logr.Discard())
+		ok, _, err := a.CanI(context.Background(), []string{"get", "list", "watch"}, "Pod", "", "", "")
+		assert.NoError(t, err)
+		assert.True(t, ok)
+	}
+
+	// without a cache, every rule repeats all 3 verb checks
+	assert.Equal(t, int64(15), calls.Load())
+}
+
+func TestAuth_CanI_CacheRetriesAPIErrors(t *testing.T) {
+	client, _ := newCountingFakeClient(t)
+	calls := 0
+	apiError := errors.New("API server unavailable")
+	client.GetKubeClient().(*kubefake.Clientset).PrependReactor("create", "subjectaccessreviews", func(k8stesting.Action) (bool, runtime.Object, error) {
+		calls++
+		if calls == 1 {
+			return true, nil, apiError
+		}
+		return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true}}, nil
+	})
+	cache := NewCache()
+	a := NewAuthWithCache(client, "test-user", logr.Discard(), cache)
+	ok, _, err := a.CanI(context.Background(), []string{"get"}, "Pod", "", "", "")
+	require.ErrorIs(t, err, apiError)
+	assert.False(t, ok)
+	assert.Empty(t, cache.results)
+
+	for i := 0; i < 2; i++ {
+		a := NewAuthWithCache(client, "test-user", logr.Discard(), cache)
+		ok, _, err := a.CanI(context.Background(), []string{"get"}, "Pod", "", "", "")
+		require.NoError(t, err)
+		assert.True(t, ok)
+	}
+	assert.Equal(t, 2, calls)
+}
+
+func TestAuth_CanI_CacheDecisions(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		status authorizationv1.SubjectAccessReviewStatus
+	}{
+		{name: "denied", status: authorizationv1.SubjectAccessReviewStatus{Denied: true}},
+		{name: "denied with diagnostic evaluation error", status: authorizationv1.SubjectAccessReviewStatus{Denied: true, EvaluationError: "authorization webhook timeout"}},
+		{name: "no opinion with diagnostic evaluation error", status: authorizationv1.SubjectAccessReviewStatus{EvaluationError: "authorization webhook timeout"}},
+		{name: "allowed despite evaluation error", status: authorizationv1.SubjectAccessReviewStatus{Allowed: true, EvaluationError: "another authorizer failed"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			client, _ := newCountingFakeClient(t)
+			calls := 0
+			client.GetKubeClient().(*kubefake.Clientset).PrependReactor("create", "subjectaccessreviews", func(k8stesting.Action) (bool, runtime.Object, error) {
+				calls++
+				return true, &authorizationv1.SubjectAccessReview{Status: tt.status}, nil
+			})
+			cache := NewCache()
+			for i := 0; i < 2; i++ {
+				a := NewAuthWithCache(client, "test-user", logr.Discard(), cache)
+				ok, msg, err := a.CanI(context.Background(), []string{"get"}, "Pod", "", "", "")
+				assert.NoError(t, err)
+				assert.Equal(t, tt.status.Allowed, ok)
+				if !ok {
+					assert.Contains(t, msg, "test-user requires permissions get for resource Pod")
+				}
+			}
+			assert.Equal(t, 1, calls)
+		})
+	}
+}
+
+func TestAuth_CanI_CacheKeyIsolation(t *testing.T) {
+	type request struct {
+		user, verb, kind, namespace, name, subresource string
+	}
+	baseline := request{user: "alice", verb: "get", kind: "Pod", namespace: "ns-a", name: "pod-a"}
+	for _, tt := range []struct {
+		name   string
+		change func(*request)
+	}{
+		{name: "user", change: func(r *request) { r.user = "bob" }},
+		{name: "verb", change: func(r *request) { r.verb = "update" }},
+		{name: "kind", change: func(r *request) { r.kind = "ConfigMap" }},
+		{name: "namespace", change: func(r *request) { r.namespace = "ns-b" }},
+		{name: "name", change: func(r *request) { r.name = "pod-b" }},
+		{name: "subresource", change: func(r *request) { r.subresource = "status" }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			client, _ := newCountingFakeClient(t)
+			calls := 0
+			client.GetKubeClient().(*kubefake.Clientset).PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				calls++
+				review := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+				attrs := review.Spec.ResourceAttributes
+				require.NotNil(t, attrs)
+				allowed := review.Spec.User == baseline.user && attrs.Verb == baseline.verb &&
+					attrs.Resource == "pods" && attrs.Namespace == baseline.namespace &&
+					attrs.Name == baseline.name && attrs.Subresource == baseline.subresource
+				return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: allowed, Denied: !allowed}}, nil
+			})
+			changed := baseline
+			tt.change(&changed)
+			cache := NewCache()
+			for _, r := range []request{baseline, changed, baseline, changed} {
+				a := NewAuthWithCache(client, r.user, logr.Discard(), cache)
+				ok, msg, err := a.CanI(context.Background(), []string{r.verb}, r.kind, r.namespace, r.name, r.subresource)
+				require.NoError(t, err)
+				assert.Equal(t, r == baseline, ok)
+				if !ok {
+					assert.NotEmpty(t, msg)
+				}
+			}
+			assert.Equal(t, 2, calls, "each distinct key should be checked once, including denials")
+		})
+	}
+}
 
 func TestNewAuth_DifferentUsers(t *testing.T) {
 	tests := []struct {

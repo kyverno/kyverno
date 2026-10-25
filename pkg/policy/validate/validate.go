@@ -21,13 +21,18 @@ type Validate struct {
 	authChecker    auth.AuthChecks
 }
 
-// NewValidateFactory returns a new instance of Mutate validation checker
+// NewValidateFactory returns a new instance of Validate validation checker.
 func NewValidateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool, reportsSA string) *Validate {
+	return NewValidateFactoryWithCache(rule, client, mock, reportsSA, nil)
+}
+
+// NewValidateFactoryWithCache returns a Validate checker sharing authorization results in cache.
+func NewValidateFactoryWithCache(rule *kyvernov1.Rule, client dclient.Interface, mock bool, reportsSA string, cache *auth.Cache) *Validate {
 	var authChecker auth.AuthChecks
 	if mock {
 		authChecker = fake.NewFakeAuth()
 	} else {
-		authChecker = auth.NewAuth(client, reportsSA, logging.GlobalLogger())
+		authChecker = auth.NewAuthWithCache(client, reportsSA, logging.GlobalLogger(), cache)
 	}
 
 	return &Validate{
