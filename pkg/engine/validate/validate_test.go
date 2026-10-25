@@ -741,7 +741,9 @@ func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
 	assert.NilError(t, err)
 }
 
-func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
+// The pattern carries an already-substituted operator value; variable substitution now happens
+// upstream of validateResourceElement.
+func TestValidateMap_SubstitutedOperatorPatternPasses(t *testing.T) {
 	rawPattern := []byte(`{
 		"spec":{
 			"containers":[
@@ -957,7 +959,7 @@ func TestValidateMap_MalformedReferenceOnlyDolarMark(t *testing.T) {
 	assert.Assert(t, err != nil)
 }
 
-func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
+func TestValidateMap_SubstitutedOperatorPatternLimitsOnlyPasses(t *testing.T) {
 	rawPattern := []byte(`{
 		"spec":{
 			"containers":[
@@ -1063,60 +1065,6 @@ func TestValidateMap_MalformedPath(t *testing.T) {
 	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
-}
-
-func TestValidateMap_AbosolutePathExists(t *testing.T) {
-	rawPattern := []byte(`{
-		"spec":{
-			"containers":[
-				{
-					"name":"*",
-					"resources":{
-						"requests":{
-							"memory":"<=2048Mi"
-						},
-						"limits":{
-							"memory":"2048Mi"
-						}
-					}
-				}
-			]
-		}
-	}`)
-
-	rawMap := []byte(`{
-		"apiVersion":"apps/v1",
-		"kind":"Deployment",
-		"metadata":{
-			"name":"nginx-deployment",
-			"labels":{
-				"app":"nginx"
-			}
-		},
-		"spec":{
-			"containers":[
-				{
-					"name":"nirmata",
-					"resources":{
-						"requests":{
-							"memory":"1024Mi"
-						},
-						"limits":{
-							"memory":"2048Mi"
-						}
-					}
-				}
-			]
-		}
-	}`)
-
-	var pattern, resource interface{}
-	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
-	assert.Assert(t, json.Unmarshal(rawMap, &resource))
-
-	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
-	assert.Equal(t, path, "")
-	assert.Assert(t, err == nil)
 }
 
 func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
