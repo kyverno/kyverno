@@ -1840,3 +1840,18 @@ func Test_jpRegexReplaceAllLiteral_RejectsOversizedPattern(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, result, "value")
 }
+
+func Test_CustomFunctions_ValidationErrors(t *testing.T) {
+	t.Run("time_to_cron", func(t *testing.T) {
+		_, err := jpTimeToCron([]any{123})
+		assert.ErrorContains(t, err, "JMESPath function 'time_to_cron': argument #1 is not of type string")
+	})
+	t.Run("time_add arg 1", func(t *testing.T) {
+		_, err := jpTimeAdd([]any{123, "1h"})
+		assert.ErrorContains(t, err, "JMESPath function 'time_add': argument #1 is not of type string")
+	})
+	t.Run("time_add arg 2", func(t *testing.T) {
+		_, err := jpTimeAdd([]any{"2021-01-02T15:04:05Z", 123})
+		assert.ErrorContains(t, err, "JMESPath function 'time_add': argument #2 is not of type string")
+	})
+}
