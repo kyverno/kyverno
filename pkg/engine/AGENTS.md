@@ -10,7 +10,7 @@ an engine in its own right.
 
 - `api`: shared result/policy types — `EngineResponse`, `PolicyResponse`, `RuleResponse`, `GenericPolicy`
   (wraps both admission-policy and CEL policy kinds behind one interface), `GenericException`, and the
-  `Client`/`ResourceClient`/`RegistryClient` interfaces `apicall` depends on. There is no
+  `Client`/`ResourceClient`/`RegistryClient` interfaces `adapters` implements. There is no
   `PolicyContext` type or `Copy()`/copy-on-write mechanism in this tree any more.
 - `apicall`: executes `APICall`/context-entry HTTP calls. `executor.go` enforces an egress policy that blocks
   loopback and link-local ranges (including IPv4-mapped/compatible and NAT64-encoded forms of
@@ -21,8 +21,8 @@ an engine in its own right.
   (informer-based and client-based) used to fetch ConfigMaps for context-entry resolution. The JMESPath/CEL
   context store, its `Checkpoint`/`Restore`/`Reset` stack, and the `apicall`/`configmap`/`globalcontext`/
   `imagedata`/variable loaders that used to live here were deleted with the legacy rule-evaluation engine.
-- `variables`: down to `variables/regex`, shift-position regex helpers used by JMESPath substitution
-  elsewhere in the tree. `ReplaceAllVars`/`SubstituteAll` and condition evaluation
+- `variables`: down to `variables/regex`, whose only importer is `api/kyverno/v1/common_types.go`; it
+  becomes an orphan when that package goes. `ReplaceAllVars`/`SubstituteAll` and condition evaluation
   (`AnyAllConditions`/`Condition`/`ConditionOperator`) were deleted with the legacy rule-evaluation engine
   and no longer exist here.
 - `jmespath`: the custom JMESPath function registry (`NewFunctionRegistry`), used by the global context
@@ -37,7 +37,8 @@ an engine in its own right.
   `patchJSON6902.go`). Real importers are `pkg/webhooks/resource/ivpol/handler.go` and
   `pkg/webhooks/resource/mpol/handler.go` — it is on the live admission request path, not a CLI-only helper.
 - `adapters`: thin adapters from `pkg/clients/dclient` and `github.com/kyverno/sdk/extensions/registryclient`
-  to the narrower `Client`/`ResourceClient`/`RegistryClient` interfaces `apicall` expects.
+  to the narrower `Client`/`ResourceClient`/`RegistryClient` interfaces in `api`. Imported by
+  `pkg/admissionpolicy/{mutate,validate}.go` and `pkg/controllers/globalcontext/controller.go`.
 - `handlers`: down to `handler.go`'s single helper, `WithResponses(...)`, which filters nil `RuleResponse`s
   into a slice; its real callers are `pkg/cel/policies/vpol/engine` and `pkg/cel/policies/mpol/engine`.
 
