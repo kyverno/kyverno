@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -280,7 +281,7 @@ func TestValidateCELHandler_PolicyExceptionSkipsEnforcement(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Spec: kyvernov2.PolicyExceptionSpec{
-			Match: kyvernov2.MatchResources{
+			Match: kyvernov2beta1.MatchResources{
 				Any: kyvernov1.ResourceFilters{
 					{
 						ResourceDescription: kyvernov1.ResourceDescription{
@@ -778,7 +779,7 @@ func TestValidateCELHandler_ExceptionWithNamespaceKey(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: kyvernov2.PolicyExceptionSpec{
-			Match: kyvernov2.MatchResources{
+			Match: kyvernov2beta1.MatchResources{
 				Any: kyvernov1.ResourceFilters{
 					{
 						ResourceDescription: kyvernov1.ResourceDescription{

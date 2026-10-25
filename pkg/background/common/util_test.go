@@ -3,7 +3,7 @@ package common
 import (
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -143,7 +143,7 @@ func TestResourceSpecFromUnstructured_ReturnsResourceSpec(t *testing.T) {
 	result := ResourceSpecFromUnstructured(obj)
 
 	// Verify the result is of type ResourceSpec
-	var _ kyvernov1.ResourceSpec = result
+	var _ kyverno.ResourceSpec = result
 }
 
 func TestResourceSpecFromUnstructured_EmptyObject(t *testing.T) {
