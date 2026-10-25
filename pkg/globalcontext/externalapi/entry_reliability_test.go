@@ -10,8 +10,8 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -193,4 +193,12 @@ func TestEntry_Publish_RejectsCancelledContext(t *testing.T) {
 	called := false
 	e.publish(ctx, func() { called = true })
 	require.False(t, called)
+}
+
+// Status refresh must not invoke the Kubernetes client after cancellation.
+func TestEntry_RefreshStatus_SkipsCanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	e := &entry{}
+	e.refreshStatus(ctx, reliabilityTestGCE(), nil, logr.Discard())
 }
