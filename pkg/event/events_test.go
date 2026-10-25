@@ -305,3 +305,34 @@ func Test_NewPolicyAppliedEvent_NamespacedMutatingPolicy(t *testing.T) {
 	assert.Contains(t, ev.Message, "Secret team-a/credentials is successfully mutated")
 	assert.Equal(t, "team-a", ev.Regarding.Namespace)
 }
+
+// gpol builds its EngineResponse with only Resource set, no PatchedResource (generate_controller.go);
+// the exception message must still name the resource instead of joining two empty strings into "/".
+func Test_NewPolicyExceptionEvents_NoPatchedResource(t *testing.T) {
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-labels"},
+	}
+	resource := unstructured.Unstructured{}
+	resource.SetKind("Deployment")
+	resource.SetNamespace("default")
+	resource.SetName("nginx")
+
+	er := engineapi.EngineResponse{
+		Resource: resource,
+	}
+	er = er.WithPolicy(engineapi.NewValidatingPolicy(vpol))
+
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "skip-nginx", Namespace: "default"},
+	}
+	ruleResp := engineapi.RuleSkip("require-labels", engineapi.Validation, "skipped", nil).
+		WithExceptions([]engineapi.GenericException{engineapi.NewCELPolicyException(polex)})
+
+	events := NewPolicyExceptionEvents(er, *ruleResp, GeneratePolicyController)
+
+	assert.Len(t, events, 2)
+	for _, e := range events {
+		assert.Contains(t, e.Message, "Deployment/default/nginx")
+		assert.NotContains(t, e.Message, "resource  was skipped")
+	}
+}

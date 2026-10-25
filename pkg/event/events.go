@@ -146,11 +146,18 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 	exceptionNames := make([]string, 0, len(exceptions))
 	events := make([]Info, 0, len(exceptions)+1)
 
+	// GetResourceSpec falls back to Resource when PatchedResource is unset (e.g. gpol), so
+	// build the key from it instead of resourceKey(engineResponse.PatchedResource) directly.
+	resKey := related.Kind + "/" + related.Name
+	if related.Namespace != "" {
+		resKey = related.Kind + "/" + related.Namespace + "/" + related.Name
+	}
+
 	var exceptionMessage string
 	if pol.GetNamespace() == "" {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), pol.GetName(), ruleResp.Name())
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resKey, pol.GetName(), ruleResp.Name())
 	} else {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), pol.GetNamespace(), pol.GetName(), ruleResp.Name())
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resKey, pol.GetNamespace(), pol.GetName(), ruleResp.Name())
 	}
 
 	for _, exception := range exceptions {
@@ -180,7 +187,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 		})
 	}
 
-	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exceptions %s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), strings.Join(exceptionNames, ", "))
+	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exceptions %s", resKey, ruleResp.Name(), strings.Join(exceptionNames, ", "))
 	events = append(events, Info{
 		Regarding: corev1.ObjectReference{
 			APIVersion: pol.GetAPIVersion(),
