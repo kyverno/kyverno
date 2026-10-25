@@ -8,13 +8,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	corev1 "k8s.io/api/core/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/component-base/metrics/legacyregistry"
 )
 
 type TlsProvider func() ([]byte, []byte, error)
@@ -88,6 +88,9 @@ func InitMetrics(
 
 	switch otelProvider {
 	case "grpc":
+		// Note: workqueue metrics registered via k8s.io/component-base/metrics/legacyregistry
+		// are not exported through the OTLP/gRPC path. They are only visible via the
+		// Prometheus scrape endpoint (--otelProvider=prometheus).
 		endpoint := fmt.Sprintf("[%s]:%d", otelCollector, metricsPort)
 		meterProvider, err = NewOTLPGRPCConfig(
 			ctx,
@@ -108,7 +111,9 @@ func InitMetrics(
 		}
 
 		metricsServerMux = http.NewServeMux()
-		metricsServerMux.Handle(config.MetricsPath, promhttp.Handler())
+		// legacyregistry.Handler exposes both OTel and workqueue metrics via the Prometheus scrape endpoint.
+		// Workqueue metrics registered via component-base are not exported via the OTLP/gRPC path.
+		metricsServerMux.Handle(config.MetricsPath, legacyregistry.Handler())
 	}
 
 	if meterProvider != nil {
