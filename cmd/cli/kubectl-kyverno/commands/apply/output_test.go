@@ -71,6 +71,59 @@ func TestResolveOutputFlags(t *testing.T) {
 	}
 }
 
+func TestLegacyOutputRejectsFormats(t *testing.T) {
+	fixtures, err := filepath.Abs("../../../../../test/conformance/chainsaw/cli/apply/output-flags/")
+	require.NoError(t, err)
+	for _, flag := range []string{"-o", "--output"} {
+		for _, format := range []string{"json", "yaml", "yml", "table", "markdown", "junit"} {
+			for _, path := range []string{format, strings.ToUpper(format), "./" + format} {
+				t.Run(flag+"/"+path, func(t *testing.T) {
+					dir := t.TempDir()
+					t.Chdir(dir)
+					cmd := Command()
+					cmd.SetOut(io.Discard)
+					cmd.SetErr(io.Discard)
+					cmd.SetArgs([]string{filepath.Join(fixtures, "policy.yaml"), "-r", filepath.Join(fixtures, "resource.yaml"), flag, path})
+					err := cmd.Execute()
+					require.ErrorContains(t, err, "invalid path")
+					assert.ErrorContains(t, err, "--output-format")
+					assert.NotContains(t, err.Error(), "--output-format "+format)
+					entries, err := os.ReadDir(dir)
+					require.NoError(t, err)
+					assert.Empty(t, entries, "rejected formats must not create files or directories")
+				})
+			}
+		}
+	}
+}
+
+func TestExplicitOutputAcceptsFormatNames(t *testing.T) {
+	fixtures, err := filepath.Abs("../../../../../test/conformance/chainsaw/cli/apply/output-flags/")
+	require.NoError(t, err)
+	for _, flag := range []string{"--output-dir", "--output-file"} {
+		for _, name := range []string{"json", "yaml", "yml", "table", "markdown", "junit", "JSON"} {
+			t.Run(flag+"/"+name, func(t *testing.T) {
+				t.Chdir(t.TempDir())
+				cmd := Command()
+				cmd.SetOut(io.Discard)
+				cmd.SetErr(io.Discard)
+				cmd.SetArgs([]string{filepath.Join(fixtures, "policy.yaml"), "-r", filepath.Join(fixtures, "resource.yaml"), flag, "./" + name})
+				require.NoError(t, cmd.Execute())
+				info, err := os.Stat(name)
+				require.NoError(t, err)
+				assert.Equal(t, flag == "--output-dir", info.IsDir())
+				path := name
+				if info.IsDir() {
+					path = filepath.Join(name, "output-example-mutated.yaml")
+				}
+				data, err := os.ReadFile(path)
+				require.NoError(t, err)
+				assert.Contains(t, string(data), "output-test: \"true\"")
+			})
+		}
+	}
+}
+
 func TestOutputDestinationTypes(t *testing.T) {
 	for _, directory := range []bool{false, true} {
 		name := "file without extension"

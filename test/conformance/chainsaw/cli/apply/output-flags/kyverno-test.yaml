@@ -3,14 +3,14 @@ kind: Test
 metadata:
   name: output-flags
 policies:
-  - policy.yaml
+- policy.yaml
 resources:
-  - resource.yaml
+- resource.yaml
 results:
-  - isMutatingPolicy: true
-    policy: add-output-label
-    kind: ConfigMap
-    resources:
-      - default/output-example
-    patchedResources: patched-resource.yaml
-    result: pass
+- isMutatingPolicy: true
+  kind: ConfigMap
+  patchedResources: patched-resource.yaml
+  policy: add-output-label
+  resources:
+  - default/output-example
+  result: pass
