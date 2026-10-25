@@ -1,7 +1,6 @@
 package api
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
@@ -76,10 +75,6 @@ type Interface interface {
 
 	// ImageInfo returns image infos present in the context
 	ImageInfo() map[string]map[string]apiutils.ImageInfo
-
-	// GenerateCustomImageInfo returns image infos as defined by a custom image extraction config
-	// and updates the context
-	GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov1.ImageExtractorConfigs, cfg config.Configuration) (map[string]map[string]apiutils.ImageInfo, error)
 
 	// Checkpoint creates a copy of the current internal state and pushes it into a stack of stored states.
 	Checkpoint()

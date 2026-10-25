@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -163,49 +162,15 @@ func BuildStandardExtractors(tags ...string) []imageExtractor {
 	return extractors
 }
 
-func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) []imageExtractor {
-	if configs != nil {
-		if extractorConfigs, ok := configs[kind]; ok {
-			extractors := make([]imageExtractor, 0, len(extractorConfigs))
-			for _, c := range extractorConfigs {
-				fields := func(input []string) []string {
-					output := []string{}
-					for _, i := range input {
-						o := strings.Trim(i, " ")
-						if o != "" {
-							output = append(output, o)
-						}
-					}
-					return output
-				}(strings.Split(c.Path, "/"))
-				name := c.Name
-				if name == "" {
-					name = "custom"
-				}
-				value := c.Value
-				if value == "" {
-					value = fields[len(fields)-1]
-					fields = fields[:len(fields)-1]
-				}
-				extractors = append(extractors, imageExtractor{
-					Fields:   fields,
-					Key:      c.Key,
-					Name:     name,
-					Value:    value,
-					JMESPath: c.JMESPath,
-				})
-			}
-			return extractors
-		}
-	}
+func lookupImageExtractor(kind string) []imageExtractor {
 	return registeredExtractors[kind]
 }
 
-func ExtractImagesFromResource(resource unstructured.Unstructured, configs kyvernov1.ImageExtractorConfigs, cfg config.Configuration) (map[string]map[string]ImageInfo, error) {
+func ExtractImagesFromResource(resource unstructured.Unstructured, cfg config.Configuration) (map[string]map[string]ImageInfo, error) {
 	infos := map[string]map[string]ImageInfo{}
 
 	// Extract images using existing logic (imagePullSecrets are now part of ImageInfo struct)
-	extractors := lookupImageExtractor(resource.GetKind(), configs)
+	extractors := lookupImageExtractor(resource.GetKind())
 	if extractors != nil && len(extractors) == 0 {
 		return nil, fmt.Errorf("no extractors found for %s", resource.GetKind())
 	}
