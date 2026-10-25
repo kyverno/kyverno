@@ -440,7 +440,10 @@ func main() {
 		// start non leader controllers
 		eventController.Run(ctx, setup.Logger, &wg)
 		gceController.Run(ctx, setup.Logger, &wg)
-		legacyPolicyController.Run(ctx, setup.Logger, &wg)
+		// skip the refresh loop when metrics export is off; the gauge it feeds is never scraped
+		if !internal.MetricsExportDisabled() {
+			legacyPolicyController.Run(ctx, setup.Logger, &wg)
+		}
 		// start leader election
 		le.Run(ctx)
 	}()
