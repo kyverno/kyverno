@@ -48,8 +48,12 @@ func NewController(m metrics.LegacyPolicyMetrics, group string, counters map[str
 	return c
 }
 
-// Run refreshes the counts every refreshInterval until ctx is done.
+// Run refreshes the counts every refreshInterval until ctx is done. No-op when metrics are
+// disabled, so disabling metrics doesn't generate API traffic that didn't exist before.
 func (c *controller) Run(ctx context.Context, _ int) {
+	if c.metrics == nil {
+		return
+	}
 	wait.UntilWithContext(ctx, c.refresh, refreshInterval)
 }
 
