@@ -1,0 +1,51 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: test-mpol-bgns-selector
+spec:
+  failurePolicy: Fail
+  evaluation:
+    admission:
+      enabled: false
+    background:
+      enabled: true
+    mutateExisting:
+      enabled: true
+  # matchConstraints.namespaceSelector restricts WHICH namespaces the policy
+  # applies to.  The background processor calls collectGVK with
+  # targetMatchConstraints (which has no namespaceSelector here), so it
+  # discovers ConfigMaps in ALL namespaces — including the excluded one.
+  # Evaluate() must then reject the excluded-namespace target by evaluating
+  # matchConstraints.namespaceSelector against the resolved namespace object.
+  # Without the fix (nil matcher), handlePolicy skipped the namespaceSelector
+  # check and mutated ConfigMaps in both namespaces.
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+        env: production
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["configmaps"]
+  # targetMatchConstraints deliberately omits namespaceSelector so that
+  # collectGVK lists configmaps from every namespace.  The filtering
+  # happens solely inside Evaluate() via matchConstraints above.
+  targetMatchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["configmaps"]
+      resourceNames: ["test-mpol-bgns-cm"]
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              scanned: "yes"
+            }
+          }
+        }
