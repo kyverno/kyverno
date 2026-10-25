@@ -22,6 +22,9 @@ var (
 	}, {
 		Name:       "ephemeralContainers",
 		Expression: "(object != null ? object : oldObject).spec.?ephemeralContainers.orValue([]).map(e, e.image)",
+	}, {
+		Name:       "imageVolumes",
+		Expression: "(object != null ? object : oldObject).spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)",
 	}}
 	podControllerImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
@@ -32,6 +35,9 @@ var (
 	}, {
 		Name:       "ephemeralContainers",
 		Expression: "(object != null ? object : oldObject).spec.template.spec.?ephemeralContainers.orValue([]).map(e, e.image)",
+	}, {
+		Name:       "imageVolumes",
+		Expression: "(object != null ? object : oldObject).spec.template.spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)",
 	}}
 	cronJobImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
@@ -42,6 +48,9 @@ var (
 	}, {
 		Name:       "ephemeralContainers",
 		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?ephemeralContainers.orValue([]).map(e, e.image)",
+	}, {
+		Name:       "imageVolumes",
+		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)",
 	}}
 )
 
@@ -53,6 +62,8 @@ var (
 	daemonsets   = metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
 	replicasets  = metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
 	cronjobs     = metav1.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
+	// replicationcontrollers carry a pod template at spec.template, like the apps controllers.
+	replicationcontrollers = metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "replicationcontrollers"}
 )
 
 type ImageExtractor struct {
@@ -63,7 +74,7 @@ func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1beta1.ImageE
 	switch gvr {
 	case pods:
 		return podImageExtractors
-	case jobs, deployments, statefulsets, daemonsets, replicasets:
+	case jobs, deployments, statefulsets, daemonsets, replicasets, replicationcontrollers:
 		return podControllerImageExtractors
 	case cronjobs:
 		return cronJobImageExtractors
@@ -137,7 +148,7 @@ func (p ImageExtractorProfiles) ForResource(gvr *metav1.GroupVersionResource) ma
 		switch *gvr {
 		case pods:
 			return p[1]
-		case jobs, deployments, statefulsets, daemonsets, replicasets:
+		case jobs, deployments, statefulsets, daemonsets, replicasets, replicationcontrollers:
 			return p[2]
 		case cronjobs:
 			return p[3]

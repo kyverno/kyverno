@@ -1,0 +1,32 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: image-volumes-from-trusted-registry
+spec:
+  validationActions:
+    - Deny
+  validationConfigurations:
+    required: false
+    verifyDigest: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["deployments"]
+  matchImageReferences:
+    - glob: "*"
+  # Required by the API; the validation below reads the extracted images only.
+  attestors:
+    - name: unused
+      cosign:
+        key:
+          data: unused
+  validations:
+    - expression: >-
+        images.imageVolumes.all(image, image.startsWith('ghcr.io/kyverno/'))
+      message: image volumes must come from ghcr.io/kyverno

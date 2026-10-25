@@ -230,3 +230,56 @@ func Test_extractImageInfo_UnregisteredKind(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, len(images), 0)
 }
+
+// Image volumes are extracted for every kind the standard extractors cover, keyed by
+// the JSON pointer to the reference, and volumes without an image are skipped.
+func Test_extractImageVolumes(t *testing.T) {
+	podSpec := `{"containers":[{"name":"app","image":"kyverno/app:v1"}],"volumes":[` +
+		`{"name":"model","image":{"reference":"ghcr.io/kyverno/model:v1"}},` +
+		`{"name":"config","configMap":{"name":"cm"}},` +
+		`{"name":"extra-model","image":{"reference":"ghcr.io/kyverno/model:v2","pullPolicy":"IfNotPresent"}}]}`
+	template := `{"template":{"spec":` + podSpec + `}}`
+	tests := []struct {
+		kind   string
+		spec   string
+		prefix string
+	}{
+		{"Pod", podSpec, "/spec"},
+		{"Deployment", template, "/spec/template/spec"},
+		{"StatefulSet", template, "/spec/template/spec"},
+		{"DaemonSet", template, "/spec/template/spec"},
+		{"ReplicaSet", template, "/spec/template/spec"},
+		{"ReplicationController", template, "/spec/template/spec"},
+		{"Job", template, "/spec/template/spec"},
+		{"CronJob", `{"jobTemplate":{"spec":` + template + `}}`, "/spec/jobTemplate/spec/template/spec"},
+	}
+	for _, test := range tests {
+		t.Run(test.kind, func(t *testing.T) {
+			raw := []byte(`{"apiVersion":"v1","kind":"` + test.kind + `","metadata":{"name":"app"},"spec":` + test.spec + `}`)
+			resource, err := kubeutils.BytesToUnstructured(raw)
+			assert.NilError(t, err)
+			images, err := ExtractImagesFromResource(*resource, cfg)
+			assert.NilError(t, err)
+			volumes := images["imageVolumes"]
+			assert.Equal(t, len(volumes), 2)
+			for pointer, reference := range map[string]string{
+				test.prefix + "/volumes/0/image/reference": "ghcr.io/kyverno/model:v1",
+				test.prefix + "/volumes/2/image/reference": "ghcr.io/kyverno/model:v2",
+			} {
+				info, ok := volumes[pointer]
+				assert.Assert(t, ok, "no image volume at %s", pointer)
+				assert.Equal(t, info.Pointer, pointer)
+				assert.Equal(t, info.Reference, reference)
+			}
+			assert.Equal(t, images["containers"]["app"].Reference, "docker.io/kyverno/app:v1")
+		})
+	}
+	t.Run("no image volumes", func(t *testing.T) {
+		resource, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"app"},"spec":{"containers":[{"name":"app","image":"kyverno/app:v1"}],"volumes":[{"name":"config","configMap":{"name":"cm"}}]}}`))
+		assert.NilError(t, err)
+		images, err := ExtractImagesFromResource(*resource, cfg)
+		assert.NilError(t, err)
+		_, ok := images["imageVolumes"]
+		assert.Assert(t, !ok)
+	})
+}
