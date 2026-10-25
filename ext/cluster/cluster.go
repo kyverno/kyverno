@@ -5,11 +5,9 @@ import (
 	"strings"
 	"time"
 
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/playground/backend/data"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -44,7 +42,6 @@ type Cluster interface {
 	Search(context.Context, string, string, string, map[string]string) ([]SearchResult, error)
 	Get(context.Context, string, string, string, string) (*unstructured.Unstructured, error)
 	DClient([]runtime.Object) (dclient.Interface, error)
-	PolicyExceptionSelector(namespace string, exceptions ...*kyvernov2.PolicyException) engineapi.PolicyExceptionSelector
 	OpenAPIClient(version string) (openapi.Client, error)
 	IsFake() bool
 	RESTMapper(crds []*apiextensionsv1.CustomResourceDefinition) meta.RESTMapper
@@ -147,10 +144,6 @@ func (c cluster) Search(ctx context.Context, apiVersion string, kind string, nam
 
 func (c cluster) Get(ctx context.Context, apiVersion string, kind string, namespace string, name string) (*unstructured.Unstructured, error) {
 	return c.dClient.GetResource(ctx, apiVersion, kind, namespace, name)
-}
-
-func (c cluster) PolicyExceptionSelector(namespace string, exceptions ...*kyvernov2.PolicyException) engineapi.PolicyExceptionSelector {
-	return NewPolicyExceptionSelector(namespace, c.kyvernoClient, exceptions...)
 }
 
 func (c cluster) OpenAPIClient(version string) (openapi.Client, error) {
