@@ -527,16 +527,20 @@ func main() {
 		// kyverno_legacy_policies_total gauge: ClusterPolicy, Policy, and legacy
 		// PolicyException, read from metadata-only lists refreshed every 30s.
 		// CleanupPolicy and ClusterCleanupPolicy are gauged by the
-		// cleanup-controller instead.
-		legacyPolicyController := internal.NewController(
-			legacypolicymetricscontroller.ControllerName,
-			legacypolicymetricscontroller.NewController(
-				metrics.GetLegacyPolicyMetrics(),
-				"kyverno.io",
-				deprecations.MetadataKindCounters(setup.MetadataClient, "ClusterPolicy", "Policy", "PolicyException"),
-			),
-			legacypolicymetricscontroller.Workers,
-		)
+		// cleanup-controller instead. Not constructed at all when metrics export is
+		// disabled, so there's no refresh loop to generate the metadata List traffic.
+		var legacyPolicyController internal.Controller
+		if !internal.MetricsExportDisabled() {
+			legacyPolicyController = internal.NewController(
+				legacypolicymetricscontroller.ControllerName,
+				legacypolicymetricscontroller.NewController(
+					metrics.GetLegacyPolicyMetrics(),
+					"kyverno.io",
+					deprecations.MetadataKindCounters(setup.MetadataClient, "ClusterPolicy", "Policy", "PolicyException"),
+				),
+				legacypolicymetricscontroller.Workers,
+			)
+		}
 		runtime := runtimeutils.NewRuntime(
 			setup.Logger.WithName("runtime-checks"),
 			serverIP,
@@ -870,8 +874,7 @@ func main() {
 		// start non leader controllers
 		eventController.Run(signalCtx, setup.Logger, &wg)
 		gceController.Run(signalCtx, setup.Logger, &wg)
-		// skip the refresh loop when metrics export is off; the gauge it feeds is never scraped
-		if !internal.MetricsExportDisabled() {
+		if legacyPolicyController != nil {
 			legacyPolicyController.Run(signalCtx, setup.Logger, &wg)
 		}
 		// start leader election

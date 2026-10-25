@@ -48,9 +48,9 @@ func NewController(m metrics.LegacyPolicyMetrics, group string, counters map[str
 	return c
 }
 
-// Run refreshes the counts every refreshInterval until ctx is done. Skipping this when metrics
-// export is disabled is the caller's job (InitMetrics always returns a non-nil manager, backed
-// by a no-op provider, so c.metrics is never nil here in practice).
+// Run refreshes the counts every refreshInterval until ctx is done. The caller only
+// constructs this controller when metrics export is enabled, so Run always has somewhere
+// to send what it refreshes.
 func (c *controller) Run(ctx context.Context, _ int) {
 	wait.UntilWithContext(ctx, c.refresh, refreshInterval)
 }

@@ -174,16 +174,21 @@ func main() {
 		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 		// kyverno_legacy_policies_total gauge: CleanupPolicy and ClusterCleanupPolicy,
 		// read from metadata-only lists refreshed every 30s. ClusterPolicy, Policy, and
-		// legacy PolicyException are gauged by the admission controller instead.
-		legacyPolicyController := internal.NewController(
-			legacypolicymetricscontroller.ControllerName,
-			legacypolicymetricscontroller.NewController(
-				metrics.GetLegacyPolicyMetrics(),
-				"kyverno.io",
-				deprecations.MetadataKindCounters(setup.MetadataClient, "CleanupPolicy", "ClusterCleanupPolicy"),
-			),
-			legacypolicymetricscontroller.Workers,
-		)
+		// legacy PolicyException are gauged by the admission controller instead. Not
+		// constructed at all when metrics export is disabled, so there's no refresh loop
+		// to generate the metadata List traffic.
+		var legacyPolicyController internal.Controller
+		if !internal.MetricsExportDisabled() {
+			legacyPolicyController = internal.NewController(
+				legacypolicymetricscontroller.ControllerName,
+				legacypolicymetricscontroller.NewController(
+					metrics.GetLegacyPolicyMetrics(),
+					"kyverno.io",
+					deprecations.MetadataKindCounters(setup.MetadataClient, "CleanupPolicy", "ClusterCleanupPolicy"),
+				),
+				legacypolicymetricscontroller.Workers,
+			)
+		}
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -440,8 +445,7 @@ func main() {
 		// start non leader controllers
 		eventController.Run(ctx, setup.Logger, &wg)
 		gceController.Run(ctx, setup.Logger, &wg)
-		// skip the refresh loop when metrics export is off; the gauge it feeds is never scraped
-		if !internal.MetricsExportDisabled() {
+		if legacyPolicyController != nil {
 			legacyPolicyController.Run(ctx, setup.Logger, &wg)
 		}
 		// start leader election
