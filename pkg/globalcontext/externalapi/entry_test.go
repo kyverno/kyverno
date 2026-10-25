@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
@@ -140,9 +140,9 @@ func (b *blockingAPIClient) RawAbsPath(ctx context.Context, _ string, _ string, 
 
 func TestEntry_Stop_NoDeadlockWithInflightCall(t *testing.T) {
 	client := &blockingAPIClient{started: make(chan struct{})}
-	gce := &kyvernov2beta1.GlobalContextEntry{
-		Spec: kyvernov2beta1.GlobalContextEntrySpec{
-			APICall: &kyvernov2beta1.ExternalAPICall{
+	gce := &kyvernov2.GlobalContextEntry{
+		Spec: kyvernov2.GlobalContextEntrySpec{
+			APICall: &kyvernov2.ExternalAPICall{
 				APICall: kyverno.APICall{
 					URLPath: "/apis",
 					Method:  "GET",

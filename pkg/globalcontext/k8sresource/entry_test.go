@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
@@ -324,7 +324,7 @@ func TestEntry_RecomputeProjections_Success(t *testing.T) {
 
 	eventGen := &mockEventGen{}
 
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-gce",
 		},
@@ -354,7 +354,7 @@ func TestEntry_RecomputeProjections_ListerError(t *testing.T) {
 
 	eventGen := &mockEventGen{}
 
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-gce",
 		},
@@ -389,7 +389,7 @@ func TestEntry_RecomputeProjections_ProjectionError(t *testing.T) {
 
 	eventGen := &mockEventGen{}
 
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-gce",
 		},
@@ -425,7 +425,7 @@ func TestEntry_RecomputeProjections_MultipleProjections(t *testing.T) {
 
 	eventGen := &mockEventGen{}
 
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-gce",
 		},

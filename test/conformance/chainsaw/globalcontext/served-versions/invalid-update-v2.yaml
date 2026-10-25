@@ -1,0 +1,12 @@
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: version-compat-v2
+spec:
+  kubernetesResource:
+    version: v1
+    resource: configmaps
+    namespace: default
+  projections:
+  - name: names
+    jmesPath: '['

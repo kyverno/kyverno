@@ -260,12 +260,17 @@ spec:
                   refreshed successfully for the API Call
                 format: date-time
                 type: string
+              ready:
+                description: |-
+                  Ready preserves the legacy readiness value across API version migrations.
+                  Deprecated: use Conditions instead.
+                type: boolean
             type: object
         required:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -774,6 +779,6 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}

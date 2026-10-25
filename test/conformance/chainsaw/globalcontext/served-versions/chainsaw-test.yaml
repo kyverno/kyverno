@@ -1,0 +1,65 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: globalcontext-served-versions
+spec:
+  concurrent: false
+  steps:
+  - name: create-through-each-served-version
+    try:
+    - apply:
+        file: entries.yaml
+  - name: reject-invalid-create-v2
+    try:
+    - apply:
+        file: invalid-create-v2.yaml
+        expect:
+        - check:
+            (contains($error, 'jmesPath')): true
+            (contains($error, 'SyntaxError')): true
+  - name: reject-invalid-update-v2
+    try:
+    - apply:
+        file: invalid-update-v2.yaml
+        expect:
+        - check:
+            (contains($error, 'jmesPath')): true
+            (contains($error, 'SyntaxError')): true
+  - name: reject-invalid-create-v2beta1
+    try:
+    - apply:
+        file: invalid-create-v2beta1.yaml
+        expect:
+        - check:
+            (contains($error, 'jmesPath')): true
+            (contains($error, 'SyntaxError')): true
+  - name: reject-invalid-update-v2beta1
+    try:
+    - apply:
+        file: invalid-update-v2beta1.yaml
+        expect:
+        - check:
+            (contains($error, 'jmesPath')): true
+            (contains($error, 'SyntaxError')): true
+  - name: reject-invalid-create-v2alpha1
+    try:
+    - apply:
+        file: invalid-create-v2alpha1.yaml
+        expect:
+        - check:
+            (contains($error, 'jmesPath')): true
+            (contains($error, 'SyntaxError')): true
+  - name: reject-invalid-update-v2alpha1
+    try:
+    - apply:
+        file: invalid-update-v2alpha1.yaml
+        expect:
+        - check:
+            (contains($error, 'jmesPath')): true
+            (contains($error, 'SyntaxError')): true
+  - name: update-through-each-served-version
+    try:
+    - apply:
+        file: updated.yaml
+    - assert:
+        file: assert.yaml

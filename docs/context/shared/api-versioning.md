@@ -63,11 +63,16 @@ tooling to check it, start here.
 exist, added in this order: `v2alpha1` (2024, `#9591`) → `v2beta1` (Oct 2025, `#14165`) → `v2` (Dec 2025, `#14540`).
 `api/kyverno/v2alpha1/global_context_entry_types.go` carries
 `+kubebuilder:deprecatedversion:warning="kyverno.io/v2alpha1 GlobalContextEntry is deprecated; use kyverno.io/v2
-GlobalContextEntry"` — but the CRD's actual `storage: true` version right now is **`v2beta1`**
-(`api/kyverno/v2beta1/global_context_entry_types.go` carries `+kubebuilder:storageversion`), not `v2`; `v2` is the
-newest, stable-named version but hasn't been cut over as the storage version yet, and carries no deprecation marker
-of its own. All three are still `served: true`
-(`config/crds/kyverno/kyverno.io_globalcontextentries.yaml`). Don't assume "the stable-named version is the storage
-version" — check the CRD's `storage:` flags directly. `v2alpha1` stays open for the *next* new kind regardless of
+GlobalContextEntry"`. Runtime clients and the CRD storage version now use **`v2`**
+(`api/kyverno/v2/global_context_entry_types.go` carries `+kubebuilder:storageversion`). All three versions remain
+`served: true` in `config/crds/kyverno/kyverno.io_globalcontextentries.yaml`.
+
+Changing the storage flag affects subsequent writes; existing objects still need rewriting. The existing CLI
+migrator rewrites them before narrowing `status.storedVersions`. A normal API GET does not prove which version
+is stored. See [GlobalContextEntry migration](../../dev/api/globalcontext-migration.md) for the upgrade,
+verification and reverse-migration procedure. Serving-version retirement remains a separate decision subject to
+the notice periods above.
+
+`v2alpha1` stays open for the *next* new kind regardless of
 what `GlobalContextEntry` is doing there — one kind's lifecycle stage doesn't change the package's role for a
 different kind. Check what a version actually contains before assuming any one kind's current role from it.

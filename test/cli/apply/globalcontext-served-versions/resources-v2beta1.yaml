@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v2beta1
+kind: GlobalContextEntry
+metadata:
+  name: version-cache
+spec:
+  kubernetesResource:
+    version: v1
+    resource: configmaps
+    namespace: default
+  projections:
+  - name: names
+    jmesPath: '[].metadata.name'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cached-source
+  namespace: default
+  labels:
+    role: source
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: target
+  namespace: default
+  labels:
+    role: target

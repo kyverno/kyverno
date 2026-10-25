@@ -79,7 +79,11 @@ func TestAdmissionWatchReadinessRegression(t *testing.T) {
 				}
 				apiVersion := "kyverno.io/v1"
 				if resource == "globalcontextentries" {
-					apiVersion = "kyverno.io/v2beta1"
+					if r.URL.Path != "/apis/kyverno.io/v2/globalcontextentries" {
+						http.NotFound(w, r)
+						return
+					}
+					apiVersion = "kyverno.io/v2"
 				}
 				if resource == "policyexceptions" {
 					apiVersion = "kyverno.io/v2"

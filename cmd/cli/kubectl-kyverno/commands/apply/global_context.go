@@ -105,11 +105,13 @@ func extractGlobalContextEntries(resources []*unstructured.Unstructured) ([]*uns
 
 	for _, r := range resources {
 		gvk := r.GroupVersionKind()
-		if gvk.Kind == "GlobalContextEntry" && gvk.Group == "kyverno.io" && gvk.Version == "v2" {
+		supportedVersion := gvk.Version == "v2" || gvk.Version == "v2beta1" || gvk.Version == "v2alpha1"
+		if gvk.Kind == "GlobalContextEntry" && gvk.Group == "kyverno.io" && supportedVersion {
 			gce := &kyvernov2.GlobalContextEntry{}
 			if err := convertToGCE(r, gce); err != nil {
 				return nil, nil, fmt.Errorf("failed to convert %s %q to GlobalContextEntry: %w", gvk, r.GetName(), err)
 			}
+			gce.SetGroupVersionKind(kyvernov2.SchemeGroupVersion.WithKind(gvk.Kind))
 			gctxEntries = append(gctxEntries, gce)
 		} else {
 			regular = append(regular, r)

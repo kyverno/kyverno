@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
@@ -34,7 +34,7 @@ const cacheSyncTimeout = 30 * time.Second
 type entry struct {
 	lister      cache.GenericLister
 	stop        func()
-	gce         *kyvernov2beta1.GlobalContextEntry
+	gce         *kyvernov2.GlobalContextEntry
 	eventGen    event.Interface
 	projections []store.Projection
 	jp          jmespath.Interface
@@ -62,7 +62,7 @@ func newOnceStop(cancel context.CancelFunc, group *wait.Group) func() {
 
 func New(
 	ctx context.Context,
-	gce *kyvernov2beta1.GlobalContextEntry,
+	gce *kyvernov2.GlobalContextEntry,
 	eventGen event.Interface,
 	dClient dynamic.Interface,
 	logger logr.Logger,

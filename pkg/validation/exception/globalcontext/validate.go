@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 )
 
 const (
@@ -16,7 +16,7 @@ type ValidationOptions struct {
 }
 
 // Validate checks global context entry is valid
-func Validate(ctx context.Context, logger logr.Logger, gctx *kyvernov2beta1.GlobalContextEntry, opts ValidationOptions) ([]string, error) {
+func Validate(ctx context.Context, logger logr.Logger, gctx *kyvernov2.GlobalContextEntry, opts ValidationOptions) ([]string, error) {
 	var warnings []string
 	if !opts.Enabled {
 		warnings = append(warnings, disabledGctx)

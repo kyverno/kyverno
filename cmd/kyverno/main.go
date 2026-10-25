@@ -242,7 +242,7 @@ func createrLeaderControllers(
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"kyverno.io"},
-				APIVersions: []string{"v2alpha1"},
+				APIVersions: []string{"v2", "v2beta1", "v2alpha1"},
 				Resources:   []string{"globalcontextentries"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
@@ -515,7 +515,7 @@ func main() {
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
-				kyvernoInformer.Kyverno().V2beta1().GlobalContextEntries(),
+				kyvernoInformer.Kyverno().V2().GlobalContextEntries(),
 				setup.KubeClient,
 				setup.KyvernoDynamicClient,
 				setup.KyvernoClient,

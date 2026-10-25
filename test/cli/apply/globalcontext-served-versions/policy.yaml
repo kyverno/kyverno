@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: evaluate-target-resources
+spec:
+  validationActions:
+  - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["*"]
+      apiVersions: ["*"]
+      operations: [CREATE, UPDATE]
+      resources: ["*"]
+  validations:
+  - expression: object.kind == 'ConfigMap'
+    message: GlobalContextEntry inputs must be extracted before target evaluation.

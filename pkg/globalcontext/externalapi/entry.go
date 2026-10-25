@@ -9,9 +9,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -35,10 +35,10 @@ type entry struct {
 
 func New(
 	ctx context.Context,
-	gce *kyvernov2beta1.GlobalContextEntry,
+	gce *kyvernov2.GlobalContextEntry,
 	eventGen event.Interface,
 	kyvernoClient versioned.Interface,
-	gceLister kyvernov2beta1listers.GlobalContextEntryLister,
+	gceLister kyvernov2listers.GlobalContextEntryLister,
 	logger logr.Logger,
 	client apicall.ClientInterface,
 	call kyverno.APICall,
@@ -186,15 +186,15 @@ func doCall(ctx context.Context, caller apicall.Executor, call kyverno.APICall, 
 	return result, retryError
 }
 
-func updateStatus(ctx context.Context, gce *kyvernov2beta1.GlobalContextEntry, kyvernoClient versioned.Interface) error {
+func updateStatus(ctx context.Context, gce *kyvernov2.GlobalContextEntry, kyvernoClient versioned.Interface) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Fetch the latest version of the GlobalContextEntry
-		latest, err := kyvernoClient.KyvernoV2beta1().GlobalContextEntries().Get(ctx, gce.GetName(), metav1.GetOptions{})
+		latest, err := kyvernoClient.KyvernoV2().GlobalContextEntries().Get(ctx, gce.GetName(), metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 
-		return controllerutils.UpdateStatus(ctx, latest, kyvernoClient.KyvernoV2beta1().GlobalContextEntries(), func(latest *kyvernov2beta1.GlobalContextEntry) error {
+		return controllerutils.UpdateStatus(ctx, latest, kyvernoClient.KyvernoV2().GlobalContextEntries(), func(latest *kyvernov2.GlobalContextEntry) error {
 			if latest == nil {
 				return fmt.Errorf("failed to update status: %s", gce.GetName())
 			}
