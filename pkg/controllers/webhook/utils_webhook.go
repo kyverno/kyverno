@@ -4,7 +4,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	objectmeta "k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
 
@@ -12,8 +11,6 @@ import (
 // based on group, kind, scopeType, failurePolicy and webhookTimeout
 // a fine-grained webhook is created per policy with a unique path
 type webhook struct {
-	// policyMeta is set for fine-grained webhooks
-	policyMeta        objectmeta.ObjectName
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
 	rules             sets.Set[ruleEntry]
@@ -69,18 +66,6 @@ func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePoli
 		rules:             sets.New[ruleEntry](),
 		matchConditions:   matchConditions,
 	}
-}
-
-func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition, policy kyvernov1.PolicyInterface) *webhook {
-	webhook := newWebhook(timeout, failurePolicy, matchConditions)
-	webhook.policyMeta = objectmeta.ObjectName{
-		Namespace: policy.GetNamespace(),
-		Name:      policy.GetName(),
-	}
-	if policy.GetSpec().CustomWebhookMatchConditions() {
-		webhook.matchConditions = policy.GetSpec().GetMatchConditions()
-	}
-	return webhook
 }
 
 func (wh *webhook) hasRule(
@@ -241,12 +226,4 @@ func (wh *webhook) set(
 
 func (wh *webhook) isEmpty() bool {
 	return len(wh.rules) == 0
-}
-
-func (wh *webhook) key(separator string) string {
-	p := wh.policyMeta
-	if p.Namespace != "" {
-		return p.Namespace + separator + p.Name
-	}
-	return p.Name
 }

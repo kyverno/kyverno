@@ -1,5 +1,5 @@
 {{- $name := "disallow-proc-mount-strict" }}
-{{- if and .Values.podSecurityUserNamespaces (eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+{{- if and .Values.podSecurityUserNamespaces (eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true") }}
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:

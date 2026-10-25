@@ -21,6 +21,9 @@ import (
 // active is dropped). Fields are exported so callers outside this package (the
 // integration test framework) can build a Maps and run the real merge via
 // MergeReports / AggregateResults.
+// Pol is retained for external callers but is no longer populated by this
+// controller: legacy kyverno.io results are now dropped during merge instead
+// of matched against active legacy policies.
 type Maps struct {
 	Pol    map[string]PolicyMapEntry
 	Vap    sets.Set[string]
@@ -87,13 +90,6 @@ func MergeReports(maps Maps, accumulator map[string]openreportsv1alpha1.ReportRe
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
 					mergeLatestResult(accumulator, key, result)
 				}
-			// Legacy kyverno.io source (ClusterPolicy/Policy): deprecated in
-			// 1.20, removed in 1.21 (#17491). Still aggregated for reporting
-			// continuity via the shared default body below. Removing this case
-			// in 1.21 is not enough on its own; "kyverno" would still fall into
-			// default, so the default branch must change then too.
-			case reportutils.SourceKyverno:
-				fallthrough
 			default:
 				currentPolicy := maps.Pol[result.Policy]
 				if currentPolicy.Rules != nil && currentPolicy.Rules.Has(result.Rule) {

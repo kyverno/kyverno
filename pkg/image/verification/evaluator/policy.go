@@ -24,8 +24,6 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
-	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
-	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"go.uber.org/multierr"
@@ -254,8 +252,8 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 		// The activation overrides the Lib's cel.Globals binding, so confine here too
 		// or a namespaced policy would reach the raw context at evaluation time.
 		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: engine.ConfineGlobalContext(context, c.namespace)}
-		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context} // the thing that actually does the fetching and validation of images
-		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
+		// binds the image and resource keys to a view of the context scoped to this evaluation
+		libs.BindRequestContext(ctx, context, data)
 	}
 
 	var gvr *metav1.GroupVersionResource
