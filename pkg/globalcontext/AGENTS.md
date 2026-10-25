@@ -23,8 +23,11 @@ periodically refreshed external APIs. These boundaries matter for correctness.
 - `Stop` cancels the polling context **before** acquiring the publication
   gate, then marks the entry stopped and releases the gate before waiting for
   the polling worker. This enables cancellation of in-flight status calls.
-- External API status refreshes run outside `publishMu` with the cancellable
-  polling context. Do not log cancellation-driven status failures.
+- External API status refreshes run outside `publishMu`, under the separate
+  `statusMu` gate, using the cancellable polling context. `Stop` cancels before
+  acquiring `statusMu`, then waits for in-flight refreshes to leave that gate.
+  Completed shutdown cannot leave an outstanding refresh, and cancellation-
+  driven status failures must not be logged.
 - A callback already inside the publication gate can finish during concurrent
   shutdown; no subsequent callback may start publishing after `Stop`
   completes.
