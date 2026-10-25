@@ -30,6 +30,8 @@ type entry struct {
 	err         error
 	stop        func()
 	stopOnce    sync.Once
+	publishMu   sync.Mutex // serializes shutdown with data, status, and event publication
+	stopped     bool       // guarded by publishMu
 	projections []store.Projection
 }
 
@@ -49,17 +51,7 @@ func New(
 	jp jmespath.Interface,
 ) (store.Entry, error) {
 	var group wait.Group
-	var stopOnce sync.Once
 	ctx, cancel := context.WithCancel(ctx)
-	stop := func() {
-		stopOnce.Do(func() {
-			// Signal the background polling worker (started below via
-			// group.StartWithContext) to stop
-			cancel()
-			// Wait for the group to terminate
-			group.Wait()
-		})
-	}
 
 	projections := make([]store.Projection, 0)
 	for _, p := range gce.Spec.Projections {
@@ -75,8 +67,17 @@ func New(
 
 	e := &entry{
 		dataMap:     make(map[string]any),
-		stop:        stop,
 		projections: projections,
+	}
+	// Cancel under the same lock used for publication. A completed poll must
+	// never publish after teardown has marked the entry stopped.
+	e.stop = func() {
+		e.publishMu.Lock()
+		e.stopped = true
+		cancel()
+		e.publishMu.Unlock()
+		// Never wait while holding publishMu: the worker may need that lock.
+		group.Wait()
 	}
 
 	group.StartWithContext(ctx, func(ctx context.Context) {
@@ -84,33 +85,48 @@ func New(
 		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
-			if data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit); err != nil {
-				e.setData(nil, err)
+			data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit)
+			// Check cancellation and publish atomically with entry shutdown.
+			e.publish(ctx, func() {
+				if err != nil {
+					e.setData(nil, err)
 
-				logger.Error(err, "failed to get data from api caller")
+					logger.Error(err, "failed to get data from api caller")
 
-				eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
-					APIVersion: gce.APIVersion,
-					Kind:       gce.Kind,
-					Name:       gce.Name,
-					Namespace:  gce.Namespace,
-					UID:        gce.UID,
-				}, err))
-			} else {
-				e.setData(data, nil)
+					eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+						APIVersion: gce.APIVersion,
+						Kind:       gce.Kind,
+						Name:       gce.Name,
+						Namespace:  gce.Namespace,
+						UID:        gce.UID,
+					}, err))
+				} else {
+					e.setData(data, nil)
 
-				logger.V(4).Info("api call success", "data", data)
+					logger.V(4).Info("api call success", "data", data)
 
-				if shouldUpdateStatus {
-					if updateErr := updateStatus(ctx, gce, kyvernoClient); updateErr != nil {
-						logger.Error(updateErr, "failed to update status")
+					if shouldUpdateStatus {
+						if updateErr := updateStatus(ctx, gce, kyvernoClient); updateErr != nil {
+							logger.Error(updateErr, "failed to update status")
+						}
 					}
 				}
-			}
+			})
 		}, period)
 	})
 
 	return e, nil
+}
+
+// publish serializes the final cancellation check with every poll side effect.
+// The callback must not call Stop; Stop waits for the worker outside the lock.
+func (e *entry) publish(ctx context.Context, fn func()) {
+	e.publishMu.Lock()
+	defer e.publishMu.Unlock()
+	if e.stopped || ctx.Err() != nil {
+		return
+	}
+	fn()
 }
 
 func (e *entry) Get(projection string) (any, error) {
@@ -176,8 +192,12 @@ func doCall(ctx context.Context, caller apicall.Executor, call kyvernov1.APICall
 	}
 
 	retryError := retry.OnError(backoff, func(err error) bool {
-		return err != nil
+		// Do not retry cancellation failures during entry teardown.
+		return err != nil && ctx.Err() == nil
 	}, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		var exeErr error
 		result, exeErr = caller.Execute(ctx, &call)
 		return exeErr
