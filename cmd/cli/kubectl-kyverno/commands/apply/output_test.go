@@ -279,13 +279,17 @@ func TestCommandOutputFlags(t *testing.T) {
 	})
 	t.Run("table matches legacy", func(t *testing.T) {
 		table, warnings := run(t, "--output-format", "table")
-		legacy, legacyWarnings := run(t, "-t")
 		assert.Contains(t, table, "add-output-label")
 		assert.Contains(t, table, "Pass")
-		assert.Equal(t, table, strings.TrimPrefix(legacy, "Flag --table has been deprecated, use --output-format table instead\n"))
 		assert.Empty(t, warnings)
-		assert.Contains(t, legacy, "deprecated")
-		assert.Empty(t, legacyWarnings)
+		for _, flag := range []string{"-t", "--table"} {
+			t.Run(flag, func(t *testing.T) {
+				legacy, legacyWarnings := run(t, flag)
+				assert.Equal(t, table, legacy)
+				assert.NotContains(t, legacy, "deprecated")
+				assert.Empty(t, legacyWarnings)
+			})
+		}
 	})
 	t.Run("destinations match legacy", func(t *testing.T) {
 		dir := filepath.Join(t.TempDir(), "directory.yaml")

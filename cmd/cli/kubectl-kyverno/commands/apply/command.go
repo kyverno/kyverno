@@ -262,7 +262,6 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
-	_ = cmd.Flags().MarkDeprecated("table", "use --output-format table instead")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ParamResources, "parameter-resource", "", []string{}, "Path to resource files that act as ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exception", "e", nil, "Policy exception to be considered when evaluating policies against resources")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Exception, "exceptions", "", nil, "Policy exception to be considered when evaluating policies against resources")

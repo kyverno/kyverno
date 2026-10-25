@@ -85,6 +85,7 @@ kyverno apply [flags]
   -s, --set strings                        Variables that are required
       --show-performance                   Show resource loading performance metrics
   -i, --stdin                              Optional mutate policy parameter to pipe directly through to kubectl
+  -t, --table                              Show results in table format
       --target-resource strings            Path to individual files containing target resources files for policies that have mutate existing
       --target-resources strings           Path to a directory containing target resources files for policies that have mutate existing
   -u, --userinfo string                    Admission Info including Roles, Cluster Roles and Subjects
