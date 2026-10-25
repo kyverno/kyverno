@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,16 +35,15 @@ var (
 )
 
 type imageExtractor struct {
-	Fields   []string
-	Key      string
-	Value    string
-	Name     string
-	JMESPath string
+	Fields []string
+	Key    string
+	Value  string
+	Name   string
 }
 
 func (i *imageExtractor) ExtractFromResource(resource interface{}, cfg config.Configuration) (map[string]ImageInfo, error) {
 	imageInfo := map[string]ImageInfo{}
-	if err := extract(resource, []string{}, i.Key, i.Value, i.Fields, i.JMESPath, &imageInfo, cfg, []string{}); err != nil {
+	if err := extract(resource, []string{}, i.Key, i.Value, i.Fields, &imageInfo, cfg, []string{}); err != nil {
 		return nil, err
 	}
 	return imageInfo, nil
@@ -57,7 +55,6 @@ func extract(
 	keyPath string,
 	valuePath string,
 	fields []string,
-	jmesPath string,
 	imageInfos *map[string]ImageInfo,
 	cfg config.Configuration,
 	pullSecrets []string,
@@ -71,11 +68,11 @@ func extract(
 			for i, v := range typedObj {
 				switch v.(type) {
 				case map[string]interface{}:
-					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], imageInfos, cfg, pullSecrets); err != nil {
 						return err
 					}
 				case []interface{}:
-					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields, jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields, imageInfos, cfg, pullSecrets); err != nil {
 						return err
 					}
 				}
@@ -85,7 +82,7 @@ func extract(
 			for i, v := range typedObj {
 				switch v.(type) {
 				case map[string]interface{}, []interface{}:
-					if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+					if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], imageInfos, cfg, pullSecrets); err != nil {
 						return err
 					}
 				}
@@ -121,23 +118,6 @@ func extract(
 			logging.V(4).Info("image information is not present", "pointer", pointer)
 			return nil
 		}
-		if jmesPath != "" {
-			// TODO: should be injected
-			jp := jmespath.New(cfg)
-			q, err := jp.Query(jmesPath)
-			if err != nil {
-				return fmt.Errorf("invalid jmespath %s: %v", jmesPath, err)
-			}
-			result, err := q.Search(value)
-			if err != nil {
-				return fmt.Errorf("failed to apply jmespath %s: %v", jmesPath, err)
-			}
-			resultStr, ok := result.(string)
-			if !ok {
-				return fmt.Errorf("jmespath %s must produce a string, but produced %v", jmesPath, result)
-			}
-			value = resultStr
-		}
 		if imageInfo, err := imageutils.GetImageInfo(value, cfg); err != nil {
 			return fmt.Errorf("invalid image '%s' (%s)", value, err.Error())
 		} else {
@@ -147,7 +127,7 @@ func extract(
 		return nil
 	}
 	currentPath := fields[0]
-	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets)
+	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], imageInfos, cfg, pullSecrets)
 }
 
 func BuildStandardExtractors(tags ...string) []imageExtractor {
