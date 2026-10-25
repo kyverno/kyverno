@@ -3,7 +3,7 @@ package common
 import (
 	"context"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
@@ -15,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func UpdateStatus(ctx context.Context, client versioned.Interface, urLister kyvernov2listers.UpdateRequestNamespaceLister, name string, state kyvernov2.UpdateRequestState, message string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func UpdateStatus(ctx context.Context, client versioned.Interface, urLister kyvernov2listers.UpdateRequestNamespaceLister, name string, state kyvernov2.UpdateRequestState, message string, genResources []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	var latest *kyvernov2.UpdateRequest
 	ur, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
@@ -42,8 +42,8 @@ func UpdateStatus(ctx context.Context, client versioned.Interface, urLister kyve
 	return ur, nil
 }
 
-func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyvernov1.ResourceSpec {
-	return kyvernov1.ResourceSpec{
+func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyverno.ResourceSpec {
+	return kyverno.ResourceSpec{
 		APIVersion: obj.GetAPIVersion(),
 		Kind:       obj.GetKind(),
 		Namespace:  obj.GetNamespace(),

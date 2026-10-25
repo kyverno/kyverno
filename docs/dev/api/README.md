@@ -34,6 +34,11 @@ version for `ClusterPolicy`/`Policy` specifically (`config/crds/kyverno/kyverno.
 not a group-wide fact about every `kyverno.io` kind: other kinds in this group (e.g. `GlobalContextEntry`) have
 their own, independent storage version. See
 [docs/context/shared/api-versioning.md](../../context/shared/api-versioning.md) for the full picture.
+During the CEL migration, `config/crds/kyverno/` is a frozen compatibility snapshot rather than a live
+`controller-gen` output for most kinds — see [`config/crds/kyverno/README.md`](../../../config/crds/kyverno/README.md)
+for what still regenerates. Shared types used by several `kyverno.io` versions (`ResourceSpec`, `APICall`, and
+others) live in the version-less `api/kyverno` package and are documented on pkg.go.dev rather than on a
+per-version reference page, since `api/kyverno` has no version segment for the doc generators to key on.
 
 ## Concepts
 * https://kubernetes.io/docs/reference/using-api/api-concepts/ 
