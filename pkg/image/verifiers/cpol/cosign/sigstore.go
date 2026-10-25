@@ -37,7 +37,7 @@ type verificationResult struct {
 
 type verificationBundle struct {
 	ProtoBundle   *bundle.Bundle
-	DSSE_Envelope *in_toto.Statement //nolint:staticcheck
+	DSSE_Envelope *in_toto.Statement
 }
 
 func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Options) ([]*verificationResult, error) {
@@ -146,7 +146,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 
 		verifBundle := &verificationBundle{ProtoBundle: b}
 		if dsseEnvelope := b.Bundle.GetDsseEnvelope(); dsseEnvelope != nil && dsseEnvelope.PayloadType == "application/vnd.in-toto+json" {
-			var intotoStatement in_toto.Statement //nolint:staticcheck
+			var intotoStatement in_toto.Statement
 			if err := json.Unmarshal(dsseEnvelope.Payload, &intotoStatement); err == nil {
 				verifBundle.DSSE_Envelope = &intotoStatement
 			}

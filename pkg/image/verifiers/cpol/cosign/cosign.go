@@ -322,7 +322,7 @@ func decodePayload(payloadBase64 string) (map[string]any, error) {
 		return nil, fmt.Errorf("failed to base64 decode payload for %v: %w", statementRaw, err)
 	}
 
-	var statement in_toto.Statement //nolint:staticcheck
+	var statement in_toto.Statement
 	if err := json.Unmarshal(statementRaw, &statement); err != nil {
 		return nil, err
 	}
@@ -339,7 +339,7 @@ func decodePayload(payloadBase64 string) (map[string]any, error) {
 	return decodeCosignCustomProvenanceV01(statement)
 }
 
-func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]any, error) { //nolint:staticcheck
+func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]any, error) {
 	if statement.Type != attestation.CosignCustomProvenanceV01 {
 		return nil, fmt.Errorf("invalid statement type %s", attestation.CosignCustomProvenanceV01)
 	}
@@ -567,7 +567,7 @@ func checkAnnotations(payloads []payload.SimpleContainerImage, annotations map[s
 		}
 	}
 
-	return fmt.Errorf("no signature matched the required annotations")
+	return fmt.Errorf("no signature matched the required annotations: %v", errs)
 }
 
 func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {

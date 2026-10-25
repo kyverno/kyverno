@@ -196,6 +196,7 @@ func Test_findResourceFromResourceName(t *testing.T) {
 
 	apiResource, err = findResourceFromResourceName(schema.GroupVersionResource{Group: "policy", Version: "v1", Resource: "pods/eviction"}, serverGroupsAndResources)
 	assert.Error(t, err)
+	assert.Nil(t, apiResource)
 
 	apiResource, err = findResourceFromResourceName(schema.GroupVersionResource{Version: "v1", Resource: "pods/eviction"}, serverGroupsAndResources)
 	assert.NoError(t, err)
