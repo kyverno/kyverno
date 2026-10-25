@@ -5,13 +5,19 @@ import (
 	"testing"
 	"time"
 
+	"errors"
+
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	coordinationv1listers "k8s.io/client-go/listers/coordination/v1"
@@ -318,4 +324,78 @@ func TestPruneLegacyWebhooks_PreservesIdentityWhenNothingMatches(t *testing.T) {
 	pruned := pruneLegacyWebhooks(withLeadingLegacy, config.ValidatingWebhookServicePath)
 	require.Len(t, pruned, 1)
 	assert.Equal(t, "user-managed", pruned[0].Name)
+}
+
+type mockVpolListerForError struct {
+	policiesv1beta1listers.ValidatingPolicyLister
+	err error
+}
+
+func (m *mockVpolListerForError) List(selector labels.Selector) ([]*policiesv1beta1.ValidatingPolicy, error) {
+	return nil, m.err
+}
+
+type mockMpolListerForError struct {
+	policiesv1beta1listers.MutatingPolicyLister
+	err error
+}
+
+func (m *mockMpolListerForError) List(selector labels.Selector) ([]*policiesv1beta1.MutatingPolicy, error) {
+	return nil, m.err
+}
+
+func TestBuildResourceValidatingWebhookConfiguration_SentinelError(t *testing.T) {
+	errSentinel := errors.New("sentinel list error")
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	lease := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kyverno-health",
+			Namespace: config.KyvernoNamespace(),
+			Annotations: map[string]string{
+				AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
+			},
+		},
+	}
+	require.NoError(t, indexer.Add(lease))
+
+	c := &controller{
+		vpolLister:                &mockVpolListerForError{err: errSentinel},
+		leaseLister:               coordinationv1listers.NewLeaseLister(indexer),
+		clusterroleLister:         rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+		runtime:                   fakeRuntime{},
+		excludeBootstrapResources: true,
+	}
+
+	cfg := config.NewDefaultConfiguration(false)
+
+	_, err := c.buildResourceValidatingWebhookConfiguration(context.TODO(), cfg, nil)
+	assert.ErrorIs(t, err, errSentinel)
+}
+
+func TestBuildResourceMutatingWebhookConfiguration_SentinelError(t *testing.T) {
+	errSentinel := errors.New("sentinel list error")
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	lease := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kyverno-health",
+			Namespace: config.KyvernoNamespace(),
+			Annotations: map[string]string{
+				AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
+			},
+		},
+	}
+	require.NoError(t, indexer.Add(lease))
+
+	c := &controller{
+		mpolLister:                &mockMpolListerForError{err: errSentinel},
+		leaseLister:               coordinationv1listers.NewLeaseLister(indexer),
+		clusterroleLister:         rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+		runtime:                   fakeRuntime{},
+		excludeBootstrapResources: true,
+	}
+
+	cfg := config.NewDefaultConfiguration(false)
+
+	_, err := c.buildResourceMutatingWebhookConfiguration(context.TODO(), cfg, nil)
+	assert.ErrorIs(t, err, errSentinel)
 }

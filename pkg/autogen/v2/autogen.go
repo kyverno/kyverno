@@ -274,14 +274,20 @@ func extractPodSpec(resource *unstructured.Unstructured) (*unstructured.Unstruct
 	switch kind {
 	case "Deployment", "StatefulSet", "DaemonSet", "Job", "ReplicaSet", "ReplicationController":
 		podSpec, found, err = unstructured.NestedMap(resource.Object, "spec", "template", "spec")
-		if err != nil || !found {
-			return nil, fmt.Errorf("error extracting pod spec: %v", err)
+		if err != nil {
+			return nil, fmt.Errorf("error extracting pod spec: %w", err)
+		}
+		if !found {
+			return nil, fmt.Errorf("error extracting pod spec: not found")
 		}
 
 	case "CronJob":
 		jobTemplate, found, err := unstructured.NestedMap(resource.Object, "spec", "jobTemplate", "spec", "template", "spec")
-		if err != nil || !found {
-			return nil, fmt.Errorf("error extracting pod spec from CronJob: %v", err)
+		if err != nil {
+			return nil, fmt.Errorf("error extracting pod spec from CronJob: %w", err)
+		}
+		if !found {
+			return nil, fmt.Errorf("error extracting pod spec from CronJob: not found")
 		}
 		podSpec = jobTemplate
 

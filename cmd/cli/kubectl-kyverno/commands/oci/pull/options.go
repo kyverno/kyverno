@@ -52,18 +52,17 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 	}
 	ref, err := name.ParseReference(o.imageRef)
 	if err != nil {
-		return fmt.Errorf("parsing image reference: %v", err)
+		return fmt.Errorf("parsing image reference: %w", err)
 	}
 	fmt.Fprintf(os.Stderr, "Downloading policies from an image [%s]...\n", ref.Name())
 	rmt, err := remote.Get(ref, remote.WithContext(ctx), remote.WithAuthFromKeychain(keychain))
 	if err != nil {
-		return fmt.Errorf("fetching remote image: %v", err)
+		return fmt.Errorf("fetching remote image: %w", err)
 	}
 	img, err := rmt.Image()
 	if err != nil {
-		return fmt.Errorf("loading image from manifest: %v", err)
+		return fmt.Errorf("loading image from manifest: %w", err)
 	}
-
 	if _, err := bundle.Read(img, dir); err != nil {
 		return err
 	}

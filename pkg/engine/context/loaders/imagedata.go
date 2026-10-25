@@ -63,7 +63,7 @@ func (idl *imageDataLoader) loadImageData() error {
 	}
 
 	if err := idl.enginectx.AddContextEntry(idl.entry.Name, idl.data); err != nil {
-		return fmt.Errorf("failed to add resource data to context: contextEntry: %v, error: %v", idl.entry, err)
+		return fmt.Errorf("failed to add resource data to context: contextEntry: %v, error: %w", idl.entry, err)
 	}
 
 	return nil
@@ -73,7 +73,7 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 	entry := idl.entry
 	ref, err := variables.SubstituteAll(idl.logger, idl.enginectx, entry.ImageRegistry.Reference)
 	if err != nil {
-		return nil, fmt.Errorf("ailed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.Reference, err)
+		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %w", entry.Name, entry.ImageRegistry.Reference, err)
 	}
 
 	refString, ok := ref.(string)
@@ -83,7 +83,7 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 
 	path, err := variables.SubstituteAll(idl.logger, idl.enginectx, entry.ImageRegistry.JMESPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
+		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %w", entry.Name, entry.ImageRegistry.JMESPath, err)
 	}
 
 	resourceNamespace := getNamespaceFromContext(idl.enginectx)
@@ -91,7 +91,7 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 	// They must be specified explicitly in ImageRegistryCredentials
 	client, err := idl.rclientFactory.GetClient(idl.ctx, entry.ImageRegistry.ImageRegistryCredentials, resourceNamespace, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get registry client %s: %v", entry.Name, err)
+		return nil, fmt.Errorf("failed to get registry client %s: %w", entry.Name, err)
 	}
 
 	imageData, err := idl.fetchImageDataMap(client, refString)
@@ -102,7 +102,7 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 	if path != "" {
 		imageData, err = applyJMESPath(idl.jp, path.(string), imageData)
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply JMESPath (%s) results to context entry %s, error: %v", entry.ImageRegistry.JMESPath, entry.Name, err)
+			return nil, fmt.Errorf("failed to apply JMESPath (%s) results to context entry %s, error: %w", entry.ImageRegistry.JMESPath, entry.Name, err)
 		}
 	}
 
@@ -127,23 +127,23 @@ func getNamespaceFromContext(ctx enginecontext.Interface) string {
 func (idl *imageDataLoader) fetchImageDataMap(client engineapi.ImageDataClient, ref string) (interface{}, error) {
 	desc, err := client.ForRef(idl.ctx, ref)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %w", ref, err)
 	}
 
 	var manifest interface{}
 	if err := json.Unmarshal(desc.Manifest, &manifest); err != nil {
-		return nil, fmt.Errorf("failed to decode manifest for image reference: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to decode manifest for image reference: %s, error: %w", ref, err)
 	}
 
 	var configData interface{}
 	if err := json.Unmarshal(desc.Config, &configData); err != nil {
-		return nil, fmt.Errorf("failed to decode config for image reference: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to decode config for image reference: %s, error: %w", ref, err)
 	}
 
 	var manifestList interface{}
 	if desc.ManifestList != nil {
 		if err := json.Unmarshal(desc.ManifestList, &manifestList); err != nil {
-			return nil, fmt.Errorf("failed to decode image index for image reference: %s, error: %v", ref, err)
+			return nil, fmt.Errorf("failed to decode image index for image reference: %s, error: %w", ref, err)
 		}
 	}
 

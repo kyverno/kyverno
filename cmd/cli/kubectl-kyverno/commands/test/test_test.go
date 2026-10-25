@@ -1,10 +1,13 @@
 package test
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 )
 
@@ -81,5 +84,46 @@ func TestProcessResources(t *testing.T) {
 
 	if !reflect.DeepEqual(processed, expected) {
 		t.Errorf("Expected %v, got %v", expected, processed)
+	}
+}
+
+type mockRESTMapper struct {
+	meta.RESTMapper
+	err error
+}
+
+func (m *mockRESTMapper) RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error) {
+	return nil, m.err
+}
+
+func TestApplyImageValidatingPolicies_RESTMappingError(t *testing.T) {
+	errSentinel := errors.New("sentinel mapping error")
+	restMapper := &mockRESTMapper{err: errSentinel}
+
+	resource := &unstructured.Unstructured{}
+	resource.SetGroupVersionKind(schema.GroupVersionKind{Group: "v1", Version: "v1", Kind: "Pod"})
+	resources := []*unstructured.Unstructured{resource}
+
+	_, err := applyImageValidatingPolicies(
+		nil,        // ivps
+		nil,        // jsonPayloads
+		resources,  // resources
+		nil,        // celExceptions
+		nil,        // namespaceProvider
+		nil,        // userInfo
+		nil,        // rc
+		nil,        // dclient
+		false,      // registryAccess
+		nil,        // f
+		"",         // contextPath
+		false,      // continueOnFail
+		false,      // isFake
+		restMapper, // restMapper
+		nil,        // gceMap
+		"",         // operation
+	)
+
+	if !errors.Is(err, errSentinel) {
+		t.Errorf("expected error %v, got %v", errSentinel, err)
 	}
 }
