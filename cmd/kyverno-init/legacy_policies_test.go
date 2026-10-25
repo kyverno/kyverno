@@ -64,6 +64,9 @@ func TestCountLegacyPolicies_CRDAbsent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("countLegacyPolicies() unexpected error: %v", err)
 	}
+	if len(counts) != 5 {
+		t.Fatalf("len(counts) = %d, want 5 (one entry per legacy kind, even when its CRD is absent)", len(counts))
+	}
 	for kind, count := range counts {
 		if count != 0 {
 			t.Errorf("counts[%s] = %d, want 0 when the CRD is absent", kind, count)
