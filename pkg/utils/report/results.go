@@ -209,7 +209,6 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	case pol.AsNamespacedGeneratingPolicy() != nil:
 		result.Source = SourceGeneratingPolicy
 		process = "admission review"
-
 	}
 	addProperty("process", process, &result)
 
