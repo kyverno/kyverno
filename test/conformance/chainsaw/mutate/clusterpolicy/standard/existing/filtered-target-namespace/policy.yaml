@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-existing-filtered-target
+spec:
+  rules:
+  - name: label-targets
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          names:
+          - trigger
+          namespaces:
+          - filtered-target
+    mutate:
+      mutateExistingOnPolicyUpdate: false
+      patchStrategicMerge:
+        metadata:
+          labels:
+            foo: bar
+      targets:
+      - apiVersion: v1
+        kind: ConfigMap
+        name: mutate-existing-target
+        namespace: '{{ request.object.metadata.namespace }}'
+      - apiVersion: v1
+        kind: ConfigMap
+        name: mutate-existing-target
+        namespace: kyverno
