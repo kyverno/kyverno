@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -285,8 +285,8 @@ func TestToPolicyReportResult_ConcurrentAccess(t *testing.T) {
 		sharedProps,
 	)
 
-	// Minimal ClusterPolicy to satisfy GenericPolicy interface.
-	pol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+	// Minimal ValidatingPolicy to satisfy GenericPolicy interface.
+	pol := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "require-labels",
 		},

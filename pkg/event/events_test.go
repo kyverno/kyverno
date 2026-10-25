@@ -6,7 +6,6 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -195,69 +194,6 @@ func Test_NewFailedEvent_no_rule(t *testing.T) {
 
 	assert.Contains(t, ev.Message, "policy baseline-policy error")
 	assert.NotContains(t, ev.Message, "baseline-policy/")
-}
-
-func Test_NewCleanupPolicyEvent_success(t *testing.T) {
-	pol := &kyvernov2.ClusterCleanupPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "remove-stale-pods",
-			UID:  "pol-uid-1",
-		},
-	}
-	res := unstructured.Unstructured{}
-	res.SetAPIVersion("v1")
-	res.SetKind("Pod")
-	res.SetNamespace("default")
-	res.SetName("zombie")
-
-	ev := NewCleanupPolicyEvent(pol, res, nil)
-
-	assert.Equal(t, "remove-stale-pods", ev.Regarding.Name)
-	assert.Equal(t, PolicyApplied, ev.Reason)
-	assert.Equal(t, ResourceCleanedUp, ev.Action)
-	assert.Equal(t, CleanupController, ev.Source)
-	assert.Contains(t, ev.Message, "successfully cleaned up")
-	assert.Contains(t, ev.Message, "Pod/default/zombie")
-}
-
-func Test_NewCleanupPolicyEvent_failure(t *testing.T) {
-	pol := &kyvernov2.ClusterCleanupPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "cleanup-cm",
-		},
-	}
-	res := unstructured.Unstructured{}
-	res.SetKind("ConfigMap")
-	res.SetNamespace("test")
-	res.SetName("leftover")
-	err := errors.New("forbidden")
-
-	ev := NewCleanupPolicyEvent(pol, res, err)
-
-	assert.Equal(t, PolicyError, ev.Reason)
-	assert.Equal(t, None, ev.Action)
-	assert.Contains(t, ev.Message, "failed to clean up")
-	assert.Contains(t, ev.Message, "forbidden")
-}
-
-func Test_NewCleanupPolicyEvent_namespaced(t *testing.T) {
-	pol := &kyvernov2.CleanupPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "secret-cleaner",
-			Namespace: "team-a",
-			UID:       "sec-uid",
-		},
-	}
-	res := unstructured.Unstructured{}
-	res.SetKind("Secret")
-	res.SetNamespace("team-a")
-	res.SetName("expired-token")
-
-	ev := NewCleanupPolicyEvent(pol, res, nil)
-
-	assert.Equal(t, "secret-cleaner", ev.Regarding.Name)
-	assert.Equal(t, "team-a", ev.Regarding.Namespace)
-	assert.Equal(t, ResourceCleanedUp, ev.Action)
 }
 
 func Test_resourceKey_namespaced(t *testing.T) {

@@ -190,15 +190,7 @@ func Command() *cobra.Command {
 						}
 					}
 					if len(failedRules) > 0 {
-						auditWarn := false
-						if applyCommandConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
-							auditWarn = true
-						}
-						if auditWarn {
-							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed as audit warning:")
-						} else {
-							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
-						}
+						fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
 						for i, rule := range failedRules {
 							msg := rule.Message()
 							if msg == "" {

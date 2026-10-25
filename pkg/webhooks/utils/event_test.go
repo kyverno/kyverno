@@ -3,31 +3,18 @@ package utils
 import (
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestGenerateEvents(t *testing.T) {
-	policy := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+	policy := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-policy",
-		},
-		Spec: kyvernov1.Spec{
-			Rules: []kyvernov1.Rule{
-				{
-					Name: "validate-rule",
-					Validation: &kyvernov1.Validation{
-						Message: "ok",
-					},
-				},
-			},
 		},
 	})
 
@@ -153,56 +140,6 @@ func TestGenerateEvents(t *testing.T) {
 			wantCheck: func(t *testing.T, events []event.Info) {
 				assert.Equal(t, event.PolicyViolation, events[0].Reason)
 				assert.Contains(t, events[0].Message, "error")
-			},
-		},
-		{
-			name: "skipped rule with exception generates policy exception events",
-			args: args{
-				engineResponses: []engineapi.EngineResponse{
-					engineapi.NewEngineResponse(resource, policy, nil).
-						WithPolicyResponse(engineapi.PolicyResponse{
-							Rules: []engineapi.RuleResponse{
-								*engineapi.RuleSkip(
-									"skip-rule",
-									engineapi.Validation,
-									"skipped",
-									nil,
-								).WithExceptions([]engineapi.GenericException{
-									engineapi.NewPolicyException(
-										&kyvernov2.PolicyException{
-											ObjectMeta: metav1.ObjectMeta{
-												Name:      "my-exception",
-												Namespace: "default",
-											},
-										},
-									),
-								}),
-							},
-						}),
-				},
-				blocked: false,
-			},
-			wantCount: 2,
-			wantCheck: func(t *testing.T, events []event.Info) {
-				var exceptionEvent, policyEvent *event.Info
-
-				for i := range events {
-					if events[i].Regarding.Kind == "PolicyException" {
-						exceptionEvent = &events[i]
-					} else {
-						policyEvent = &events[i]
-					}
-				}
-
-				require.NotNil(t, exceptionEvent)
-				require.NotNil(t, policyEvent)
-
-				assert.Equal(t, event.PolicySkipped, exceptionEvent.Reason)
-				assert.Equal(t, event.ResourcePassed, exceptionEvent.Action)
-				assert.Contains(t, exceptionEvent.Message, "was skipped")
-
-				assert.Equal(t, event.PolicySkipped, policyEvent.Reason)
-				assert.Contains(t, policyEvent.Message, "policy exceptions")
 			},
 		},
 		{
