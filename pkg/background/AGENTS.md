@@ -48,7 +48,7 @@ shared JMESPath `engine.PolicyContext` + `Engine.Generate/Mutate`) were deleted 
 legacy-only helpers in `pkg/background/common` (`ManageLabels`, `MutateLabelsSet`, `PolicyInfo`, `TriggerInfo`,
 `TagSource`, `FindDownstream`). `pkg/background/common` now holds only the gpol/UR helpers: `GetResource`,
 `GetTrigger` and its `getTriggerFor*` helpers, `GenerateLabelsSet`, `UpdateStatus`,
-`ResourceSpecFromUnstructured`. The CEL paths go through the CEL engines built on `pkg/cel`, use `libs.Context` for CEL global
+`ResourceSpecFromUnstructured`, `NewStatusControl`, `TriggerFromLabels`. The CEL paths go through the CEL engines built on `pkg/cel`, use `libs.Context` for CEL global
 context, and **gpol additionally owns a process-wide, in-memory `WatchManager`** (mutex-protected maps of dynamic
 watchers, policy refs, ref counts) for downstream drift-detection — this state is not persisted; on restart,
 watches rebuild from the policy's already-generated resources. gpol's watcher-sync/stale-downstream-cleanup runs

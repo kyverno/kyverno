@@ -1,9 +1,10 @@
 # AGENTS.md — pkg/engine
 
 The legacy (`kyverno.io`) rule-evaluation engine was deleted in #17710 PR 4 (handler dispatch, pattern/anchor
-matching against admission requests, the `forceMutate` path, and `pkg/webhooks/resource/updaterequest.go`
-no longer exist). What remains is a shared library consumed by the CEL engines (`pkg/cel/policies/*`), the
-global context controller, image verification, and the CLI — not an engine in its own right.
+matching against admission requests, and the `forceMutate` path no longer exist). `pkg/webhooks/resource/
+updaterequest.go` was removed earlier, by #17710 PR 1 (#18164). What remains is a shared library consumed by
+the CEL engines (`pkg/cel/policies/*`), the global context controller, image verification, and the CLI — not
+an engine in its own right.
 
 ## What's here
 
@@ -22,9 +23,10 @@ global context controller, image verification, and the CLI — not an engine in 
 - `variables`: `ReplaceAllVars`/`SubstituteAll` and condition evaluation (`AnyAllConditions`, `Condition`,
   `ConditionOperator`). Still imports `kyvernov1` for the condition/rule types kept in the `api/kyverno/v1`
   root after PR 4; it does not evaluate legacy policy rules.
-- `jmespath`: the custom JMESPath function registry (`NewFunctionRegistry`), used by `variables`,
-  `apicall`, `context`/`context/loaders`, the global context controller/store, the CLI, and
-  `cmd/internal`/`cmd/background-controller` bootstrap — not by `pkg/cel`.
+- `jmespath`: the custom JMESPath function registry (`NewFunctionRegistry`), used by `apicall`,
+  `context`/`context/loaders`, the global context controller/store, the CLI, and
+  `cmd/internal`/`cmd/background-controller` bootstrap — not by `variables` (which imports the plain
+  `go-jmespath` library directly) and not by `pkg/cel`.
 - `anchor`, `pattern`, `validate`, `operator`, `wildcards`, `jsonutils`: pattern/anchor matching and JSON
   traversal primitives, originally written for legacy rule validation. Still live in the admission path:
   `anchor` is imported by `wildcards`, `validate`, `variables`, and `mutate/patch` (which is itself on the
@@ -33,8 +35,8 @@ global context controller, image verification, and the CLI — not an engine in 
 - `mutate/patch`: strategic-merge and JSON-6902 patch generation (`strategicMergePatch.go`,
   `patchJSON6902.go`). Real importers are `pkg/webhooks/resource/ivpol/handler.go` and
   `pkg/webhooks/resource/mpol/handler.go` — it is on the live admission request path, not a CLI-only helper.
-- `adapters`: thin adapters from `pkg/clients/dclient`/`pkg/clients/kube` client interfaces to the narrower
-  interfaces `apicall`/`context` loaders expect.
+- `adapters`: thin adapters from `pkg/clients/dclient` and `github.com/kyverno/sdk/extensions/registryclient`
+  to the narrower `Client`/`ResourceClient`/`RegistryClient` interfaces `apicall`/`context` loaders expect.
 - `handlers`: down to `handler.go`'s single helper, `WithResponses(...)`, which filters nil `RuleResponse`s
   into a slice; its real callers are `pkg/cel/policies/vpol/engine` and `pkg/cel/policies/mpol/engine`.
 

@@ -50,8 +50,9 @@ interfaces — the rule is about what constructs the concrete client, not what t
 
 **Policy engine core:** the legacy (`kyverno.io`) rule-evaluation engine was deleted in #17710 PR 4. `pkg/engine` is
 now a shared library consumed by the CEL engines, GCE, and the CLI: JMESPath variable substitution and condition
-evaluation, context/apicall loading (with SSRF hardening), strategic-merge mutate patch generation, and the
-copy-on-write `api` policy-context types. `pkg/cel` is the CEL-based engine stack for `policies.kyverno.io` types,
+evaluation, context/apicall loading (with SSRF hardening), strategic-merge mutate patch generation, and the shared
+`api` result/policy types (`EngineResponse`, `RuleResponse`, `GenericPolicy`) — there is no `PolicyContext` type or
+copy-on-write mechanism in this tree any more. `pkg/cel` is the CEL-based engine stack for `policies.kyverno.io` types,
 split by policy kind: `vpol` (ValidatingPolicy), `mpol` (MutatingPolicy), `gpol` (GeneratingPolicy), `dpol`
 (DeletingPolicy), `ivpol` (ImageValidatingPolicy). See [pkg/engine/AGENTS.md](pkg/engine/AGENTS.md) and
 [pkg/cel/AGENTS.md](pkg/cel/AGENTS.md). `pkg/admissionpolicy` bridges CEL policy authoring to native Kubernetes
