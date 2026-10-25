@@ -184,25 +184,25 @@ func Command() *cobra.Command {
 						}
 						if rule.RuleType() == engineapi.Mutation {
 							if rule.Status() == engineapi.RuleStatusSkip {
-								fmt.Fprintln(out, "\nskipped mutate policy", response.Policy().GetName(), "->", "resource", resPath)
+								fmt.Fprintln(out, "\n"+color.BoldYellow("skipped mutate policy"), color.Policy(response.Policy().GetNamespace(), response.Policy().GetName()), "->", "resource", resPath)
 							} else if rule.Status() == engineapi.RuleStatusError {
-								fmt.Fprintln(out, "\nerror while applying mutate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror: ", rule.Message())
+								fmt.Fprintln(out, "\n"+color.BoldRed("error while applying mutate policy"), color.Policy(response.Policy().GetNamespace(), response.Policy().GetName()), "->", "resource", resPath, "\n"+color.BoldRed("error:")+" ", rule.Message())
 							}
 						}
 						if rule.RuleType() == engineapi.Generation {
 							if rule.Status() == engineapi.RuleStatusError {
-								fmt.Fprintln(out, "\nerror while applying generate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror:", rule.Message())
+								fmt.Fprintln(out, "\n"+color.BoldRed("error while applying generate policy"), color.Policy(response.Policy().GetNamespace(), response.Policy().GetName()), "->", "resource", resPath, "\n"+color.BoldRed("error:"), rule.Message())
 							}
 						}
 					}
 					if len(failedRules) > 0 {
-						fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
+						fmt.Fprintln(out, "policy", color.Policy(response.Policy().GetNamespace(), response.Policy().GetName()), "->", "resource", resPath, color.BoldRed("failed:"))
 						for i, rule := range failedRules {
 							msg := rule.Message()
 							if msg == "" {
 								msg = "validation failed"
 							}
-							fmt.Fprintln(out, i+1, "-", rule.Name(), msg)
+							fmt.Fprintln(out, i+1, "-", color.Rule(rule.Name()), msg)
 						}
 					}
 				}

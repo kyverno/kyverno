@@ -10,7 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	fatihcolor "github.com/fatih/color"
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
@@ -27,8 +29,13 @@ func TestMain(m *testing.M) {
 }
 
 func TestPrintSkippedAndInvalidPolicies(t *testing.T) {
-	var out bytes.Buffer
-	printSkippedAndInvalidPolicies(&out, SkippedInvalidPolicies{
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(true)
+	})
+
+	testData := SkippedInvalidPolicies{
 		skipped: []PolicyDiagnostic{{
 			name:   "skipped-policy",
 			reason: "missing variable `request.operation`",
@@ -37,14 +44,70 @@ func TestPrintSkippedAndInvalidPolicies(t *testing.T) {
 			name:   "invalid-policy",
 			reason: "failed to compile policy invalid-policy (spec.matchConditions[0].expression: Forbidden: variables cannot be referenced)",
 		}},
+	}
+
+	t.Run("color disabled", func(t *testing.T) {
+		fatihcolor.NoColor = true
+		color.Init(true)
+		var out bytes.Buffer
+		printSkippedAndInvalidPolicies(&out, testData)
+
+		printed := out.String()
+		assert.Contains(t, printed, "Policies Skipped:")
+		assert.Contains(t, printed, "1. skipped-policy: missing variable `request.operation`")
+		assert.Contains(t, printed, "Invalid Policies:")
+		assert.Contains(t, printed, "1. invalid-policy: failed to compile policy invalid-policy")
+		assert.Contains(t, printed, "variables cannot be referenced")
+		assert.NotContains(t, printed, "\x1b[")
 	})
 
-	printed := out.String()
-	assert.Contains(t, printed, "Policies Skipped:")
-	assert.Contains(t, printed, "1. skipped-policy: missing variable `request.operation`")
-	assert.Contains(t, printed, "Invalid Policies:")
-	assert.Contains(t, printed, "1. invalid-policy: failed to compile policy invalid-policy")
-	assert.Contains(t, printed, "variables cannot be referenced")
+	t.Run("color enabled", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		color.Init(false)
+		var out bytes.Buffer
+		printSkippedAndInvalidPolicies(&out, testData)
+
+		printed := out.String()
+		assert.Contains(t, printed, "\x1b[33;1mPolicies Skipped:\x1b[0;22m")
+		assert.Contains(t, printed, "\x1b[36;1mskipped-policy\x1b[0;22m: missing variable `request.operation`")
+		assert.Contains(t, printed, "\x1b[31;1mInvalid Policies:\x1b[0;22m")
+		assert.Contains(t, printed, "\x1b[36;1minvalid-policy\x1b[0;22m: failed to compile policy invalid-policy")
+	})
+}
+
+func TestPrintViolations(t *testing.T) {
+	rc := &processor.ResultCounts{
+		Pass:  1,
+		Fail:  2,
+		Warn:  3,
+		Error: 4,
+		Skip:  5,
+	}
+
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(true)
+	})
+
+	t.Run("color disabled", func(t *testing.T) {
+		fatihcolor.NoColor = true
+		color.Init(true)
+		var out bytes.Buffer
+		printViolations(&out, rc)
+		expected := "\npass: 1, fail: 2, warn: 3, error: 4, skip: 5 \n"
+		assert.Equal(t, expected, out.String())
+		assert.NotContains(t, out.String(), "\x1b[")
+	})
+
+	t.Run("color enabled", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		color.Init(false)
+		var out bytes.Buffer
+		printViolations(&out, rc)
+		expected := "\npass: \x1b[32;1m1\x1b[0;22m, fail: \x1b[31;1m2\x1b[0;22m, warn: \x1b[33;1m3\x1b[0;22m, error: \x1b[31;1m4\x1b[0;22m, skip: \x1b[36;1m5\x1b[0;22m \n"
+		assert.Equal(t, expected, out.String())
+	})
 }
 
 func Test_Apply(t *testing.T) {
@@ -2035,4 +2098,45 @@ func Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition(t *testing.T) {
 			assert.Contains(t, out.String(), "evaluated against a JSON payload")
 		}
 	}
+}
+
+func TestCommandWithColorAndRemoveColor(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(true)
+	})
+
+	policyPath := "../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"
+	resourcePath := "../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"
+
+	t.Run("color enabled by default", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath})
+		_ = cmd.Execute()
+
+		output := out.String()
+		assert.Contains(t, output, "\x1b[31;1mfailed:\x1b[0;22m")
+		assert.Contains(t, output, "\x1b[36;1mdisallow-host-path\x1b[0;22m")
+		assert.Contains(t, output, "\x1b[31;1m1\x1b[0;22m")
+	})
+
+	t.Run("remove color with flag", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--remove-color"})
+		_ = cmd.Execute()
+
+		output := out.String()
+		assert.Contains(t, output, "failed:")
+		assert.Contains(t, output, "policy disallow-host-path -> resource default/Pod/bad-pod failed:")
+		assert.NotContains(t, output, "\x1b[")
+	})
 }

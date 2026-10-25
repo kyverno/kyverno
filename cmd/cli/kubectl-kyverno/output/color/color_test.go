@@ -263,3 +263,47 @@ func TestFunctionNote(t *testing.T) {
 		})
 	}
 }
+
+func TestBoldHelpers(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(true)
+	})
+
+	t.Run("color disabled", func(t *testing.T) {
+		fatihcolor.NoColor = true
+		Init(true)
+
+		assert := func(got, want string) {
+			t.Helper()
+			if got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		}
+		assert(BoldGreen(1), "1")
+		assert(BoldRed(2), "2")
+		assert(BoldYellow(3), "3")
+		assert(BoldCyan(4), "4")
+		assert(BoldYellow("Policies Skipped:"), "Policies Skipped:")
+		assert(BoldRed("failed:"), "failed:")
+	})
+
+	t.Run("color enabled", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		Init(false)
+
+		assert := func(got, want string) {
+			t.Helper()
+			if got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		}
+		assert(BoldGreen(1), "\x1b[32;1m1\x1b[0;22m")
+		assert(BoldRed(2), "\x1b[31;1m2\x1b[0;22m")
+		assert(BoldYellow(3), "\x1b[33;1m3\x1b[0;22m")
+		assert(BoldCyan(4), "\x1b[36;1m4\x1b[0;22m")
+		assert(BoldYellow("Policies Skipped:"), "\x1b[33;1mPolicies Skipped:\x1b[0;22m")
+		assert(BoldRed("failed:"), "\x1b[31;1mfailed:\x1b[0;22m")
+	})
+}

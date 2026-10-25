@@ -9,6 +9,7 @@ import (
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -26,7 +27,7 @@ const divider = "---------------------------------------------------------------
 func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedInvalidPolicies) {
 	if len(skipInvalidPolicies.skipped) > 0 {
 		fmt.Fprintln(out, divider)
-		fmt.Fprintln(out, "Policies Skipped:")
+		fmt.Fprintln(out, color.BoldYellow("Policies Skipped:"))
 		for i, policy := range skipInvalidPolicies.skipped {
 			printPolicyDiagnostic(out, i+1, policy)
 		}
@@ -34,7 +35,7 @@ func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedIn
 	}
 	if len(skipInvalidPolicies.invalid) > 0 {
 		fmt.Fprintln(out, divider)
-		fmt.Fprintln(out, "Invalid Policies:")
+		fmt.Fprintln(out, color.BoldRed("Invalid Policies:"))
 		for i, policy := range skipInvalidPolicies.invalid {
 			printPolicyDiagnostic(out, i+1, policy)
 		}
@@ -43,11 +44,12 @@ func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedIn
 }
 
 func printPolicyDiagnostic(out io.Writer, index int, policy PolicyDiagnostic) {
+	coloredPolicyName := color.Policy("", policy.name)
 	if policy.reason == "" {
-		fmt.Fprintf(out, "%d. %s\n", index, policy.name)
+		fmt.Fprintf(out, "%d. %s\n", index, coloredPolicyName)
 		return
 	}
-	fmt.Fprintf(out, "%d. %s: %s\n", index, policy.name, policy.reason)
+	fmt.Fprintf(out, "%d. %s: %s\n", index, coloredPolicyName, policy.reason)
 }
 
 func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool, outputFormat string) {
@@ -232,5 +234,11 @@ func printException(out io.Writer, result openreportsv1alpha1.ReportResult, ttl 
 }
 
 func printViolations(out io.Writer, rc *processor.ResultCounts) {
-	fmt.Fprintf(out, "\npass: %d, fail: %d, warn: %d, error: %d, skip: %d \n", rc.Pass, rc.Fail, rc.Warn, rc.Error, rc.Skip)
+	fmt.Fprintf(out, "\npass: %s, fail: %s, warn: %s, error: %s, skip: %s \n",
+		color.BoldGreen(rc.Pass),
+		color.BoldRed(rc.Fail),
+		color.BoldYellow(rc.Warn),
+		color.BoldRed(rc.Error),
+		color.BoldCyan(rc.Skip),
+	)
 }

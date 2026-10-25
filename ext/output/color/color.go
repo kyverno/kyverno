@@ -14,6 +14,10 @@ var (
 	BoldFgCyan *Color
 )
 
+func init() {
+	Init(false, false)
+}
+
 func Init(noColor bool, force bool) {
 	toggleColor := func(c *Color) *Color {
 		if noColor {

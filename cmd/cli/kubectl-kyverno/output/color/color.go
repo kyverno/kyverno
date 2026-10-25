@@ -12,6 +12,10 @@ var (
 	HeaderFgColor int
 )
 
+func init() {
+	Init(false)
+}
+
 func Init(noColor bool) {
 	color.Init(noColor, false)
 	if !noColor {
@@ -90,4 +94,20 @@ func FunctionName(name string) string {
 
 func FunctionNote(note string) string {
 	return color.BoldYellow.Sprint(note)
+}
+
+func BoldGreen(v ...any) string {
+	return color.BoldGreen.Sprint(v...)
+}
+
+func BoldRed(v ...any) string {
+	return color.BoldRed.Sprint(v...)
+}
+
+func BoldYellow(v ...any) string {
+	return color.BoldYellow.Sprint(v...)
+}
+
+func BoldCyan(v ...any) string {
+	return color.BoldFgCyan.Sprint(v...)
 }
