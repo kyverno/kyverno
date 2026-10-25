@@ -87,6 +87,23 @@ func verifyBundles(bundles []*verificationBundle, desc *v1.Descriptor, trustedMa
 	return verificationResults, nil
 }
 
+const (
+	sigstoreBundleArtifactType = "application/vnd.dev.sigstore.bundle"
+	ociEmptyArtifactType       = "application/vnd.oci.empty.v1+json"
+)
+
+func isSigstoreBundleType(mediaType string) bool {
+	return strings.HasPrefix(mediaType, sigstoreBundleArtifactType)
+}
+
+// isSigstoreBundleManifest reports whether the manifest artifact type or its first layer media type is a sigstore bundle.
+func isSigstoreBundleManifest(manifest *v1.Manifest) bool {
+	if isSigstoreBundleType(manifest.ArtifactType) {
+		return true
+	}
+	return len(manifest.Layers) > 0 && isSigstoreBundleType(string(manifest.Layers[0].MediaType))
+}
+
 func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpts []remote.Option) ([]*verificationBundle, *v1.Descriptor, error) {
 	bundles := make([]*verificationBundle, 0)
 	desc, err := remote.Head(ref, remoteOpts...)
@@ -105,12 +122,24 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		return nil, nil, fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", limit)
 	}
 	for _, manifestDesc := range referrersDescs.Manifests {
-		if !strings.HasPrefix(manifestDesc.ArtifactType, "application/vnd.dev.sigstore.bundle") {
+		// registries without the referrers API serve a fallback tag index whose descriptors may not
+		// carry the artifact type, so those referrers are checked against their own manifest
+		untyped := manifestDesc.ArtifactType == "" || manifestDesc.ArtifactType == ociEmptyArtifactType
+		if !untyped && !isSigstoreBundleType(manifestDesc.ArtifactType) {
 			continue
 		}
 		refImg, err := remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch referrer image: %w", err)
+		}
+		if untyped {
+			manifest, err := refImg.Manifest()
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to fetch referrer manifest: %w", err)
+			}
+			if !isSigstoreBundleManifest(manifest) {
+				continue
+			}
 		}
 		layers, err := refImg.Layers()
 		if err != nil {
