@@ -58,7 +58,7 @@ customPolicies:
 
 ## Installing the Chart
 
-These PSS policies presently have a minimum requirement of Kyverno 1.6.0.
+These PSS policies presently have a minimum requirement of Kyverno 1.17.0.
 
 ```console
 ## Add the Kyverno Helm repository
