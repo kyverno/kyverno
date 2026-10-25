@@ -17,11 +17,17 @@ periodically refreshed external APIs. These boundaries matter for correctness.
 - An external API poll may finish concurrently with `Stop` or cancellation of
   its parent context. A standalone `ctx.Err()` check before publishing is
   insufficient, because shutdown can occur immediately after the check.
-- `externalapi.entry.publishMu` serializes the final cancellation check and
-  publication (data, events, and refresh status) with `Stop`. Hold this gate
-  across related side effects; do not call `Stop` from the publish callback.
-- `Stop` marks the entry stopped and cancels the polling context while holding
-  that gate; it must release the gate before waiting for the worker to exit.
+- `externalapi.entry.publishMu` serializes the final cancellation check
+  and cache/event publication with `Stop`. Publication callbacks must not
+  call `Stop` or perform blocking Kubernetes status I/O.
+- `Stop` cancels the polling context **before** acquiring the publication
+  gate, then marks the entry stopped and releases the gate before waiting for
+  the polling worker. This enables cancellation of in-flight status calls.
+- External API status refreshes run outside `publishMu` with the cancellable
+  polling context. Do not log cancellation-driven status failures.
+- A callback already inside the publication gate can finish during concurrent
+  shutdown; no subsequent callback may start publishing after `Stop`
+  completes.
 - Do not retry API requests after context cancellation. Real API failures
   while the entry is active still need their normal error state and event.
 

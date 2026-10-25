@@ -11,6 +11,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -90,28 +91,28 @@ func TestEntry_APIErrorStillEmitsEvent(t *testing.T) {
 	}
 }
 
-
-// A poll holding the publication lock finishes before Stop cancels the entry.
-// Once Stop completes, even a late successful response cannot publish.
+// Verify the real New/Stop shutdown path. Stop cancels requests promptly,
+// but waits until a callback already inside the publication gate has exited.
 func TestEntry_Publish_SerializesWithStop(t *testing.T) {
+	gce := reliabilityTestGCE()
 	ctx, cancel := context.WithCancel(context.Background())
-	e := &entry{dataMap: make(map[string]any)}
-	e.stop = func() {
-		e.publishMu.Lock()
-		e.stopped = true
-		cancel()
-		e.publishMu.Unlock()
-	}
+	defer cancel()
 
+	e, err := New(ctx, gce, &eventCollector{events: make(chan event.Info, 2)},
+		nil, nil, logr.Discard(), &blockingAPIClient{started: make(chan struct{})},
+		gce.Spec.APICall.APICall, time.Hour, 0, time.Second, false, nil)
+	require.NoError(t, err)
+
+	entry := e.(*entry)
 	started := make(chan struct{})
 	release := make(chan struct{})
 	published := make(chan struct{})
 	go func() {
 		defer close(published)
-		e.publish(ctx, func() {
+		entry.publish(ctx, func() {
 			close(started)
 			<-release
-			e.setData([]byte(`{"phase":"initial"}`), nil)
+			entry.setData([]byte(`{"phase":"initial"}`), nil)
 		})
 	}()
 	select {
@@ -120,16 +121,24 @@ func TestEntry_Publish_SerializesWithStop(t *testing.T) {
 		t.Fatal("publication did not start")
 	}
 
+	stopStarted := make(chan struct{})
 	stopped := make(chan struct{})
 	go func() {
+		close(stopStarted)
 		e.Stop()
 		close(stopped)
 	}()
-	// Stop must not finish while an in-flight publication owns the lock.
+	// Synchronize the attempt before asserting that the in-progress
+	// publication prevents Stop from completing.
+	select {
+	case <-stopStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Stop did not start")
+	}
 	select {
 	case <-stopped:
-		t.Fatal("Stop completed before publication finished")
-	default:
+		t.Fatal("Stop completed while publication was blocked")
+	case <-time.After(25 * time.Millisecond):
 	}
 	close(release)
 	select {
@@ -143,16 +152,38 @@ func TestEntry_Publish_SerializesWithStop(t *testing.T) {
 		t.Fatal("Stop blocked")
 	}
 
-	runLate := false
-	e.publish(ctx, func() {
-		runLate = true
-		e.setData([]byte(`{"phase":"late"}`), nil)
-	})
-	require.False(t, runLate, "late poll must not publish after Stop")
-	result, err := e.Get("")
+	called := false
+	entry.publish(ctx, func() { called = true })
+	require.False(t, called, "a late poll must not publish after Stop")
+	result, err := entry.Get("")
 	require.NoError(t, err)
 	require.Equal(t, "initial", result.(map[string]any)["phase"])
 }
+
+type cancelingExecutor struct {
+	cancel context.CancelFunc
+	calls  int
+	err    error
+}
+
+func (c *cancelingExecutor) Execute(context.Context, *kyvernov1.APICall) ([]byte, error) {
+	c.calls++
+	c.cancel()
+	return nil, c.err
+}
+
+// A canceled context must not trigger additional retries after a backend error.
+func TestDoCall_CancellationStopsRetries(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	backendErr := errors.New("backend failed during cancellation")
+	caller := &cancelingExecutor{cancel: cancel, err: backendErr}
+	_, err := doCall(ctx, caller, kyvernov1.APICall{}, 3)
+	require.ErrorIs(t, err, backendErr)
+	require.Equal(t, 1, caller.calls)
+}
+
+var _ apicall.Executor = (*cancelingExecutor)(nil)
 
 // A cancelled parent context must also suppress publication without Stop.
 func TestEntry_Publish_RejectsCancelledContext(t *testing.T) {

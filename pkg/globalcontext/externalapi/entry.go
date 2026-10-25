@@ -51,7 +51,6 @@ func New(
 	jp jmespath.Interface,
 ) (store.Entry, error) {
 	var group wait.Group
-	ctx, cancel := context.WithCancel(ctx)
 
 	projections := make([]store.Projection, 0)
 	for _, p := range gce.Spec.Projections {
@@ -65,16 +64,20 @@ func New(
 		})
 	}
 
+	// Establish the poll context only after validation succeeds, so failed
+	// projection compilation does not leak a child context.
+	ctx, cancel := context.WithCancel(ctx)
 	e := &entry{
 		dataMap:     make(map[string]any),
 		projections: projections,
 	}
-	// Cancel under the same lock used for publication. A completed poll must
-	// never publish after teardown has marked the entry stopped.
+	// Cancel first so status updates (which perform Kubernetes I/O outside
+	// publishMu) can be interrupted even if publication is in progress.
+	// After acquiring the publication gate, reject any later poll side effects.
 	e.stop = func() {
+		cancel()
 		e.publishMu.Lock()
 		e.stopped = true
-		cancel()
 		e.publishMu.Unlock()
 		// Never wait while holding publishMu: the worker may need that lock.
 		group.Wait()
@@ -86,7 +89,9 @@ func New(
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
 			data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit)
-			// Check cancellation and publish atomically with entry shutdown.
+			// Publish cache updates and events behind the shutdown gate.
+			// Kubernetes status I/O must not run while holding publishMu:
+			// Stop needs to cancel an in-flight status request.
 			e.publish(ctx, func() {
 				if err != nil {
 					e.setData(nil, err)
@@ -104,22 +109,24 @@ func New(
 					e.setData(data, nil)
 
 					logger.V(4).Info("api call success", "data", data)
-
-					if shouldUpdateStatus {
-						if updateErr := updateStatus(ctx, gce, kyvernoClient); updateErr != nil {
-							logger.Error(updateErr, "failed to update status")
-						}
-					}
 				}
 			})
+
+			// REST calls use the cancelable poll context; they never hold the
+			// shutdown gate and cannot keep Stop from signaling cancellation.
+			if err == nil && shouldUpdateStatus && ctx.Err() == nil {
+				if updateErr := updateStatus(ctx, gce, kyvernoClient); updateErr != nil && ctx.Err() == nil {
+					logger.Error(updateErr, "failed to update status")
+				}
+			}
 		}, period)
 	})
 
 	return e, nil
 }
 
-// publish serializes the final cancellation check with every poll side effect.
-// The callback must not call Stop; Stop waits for the worker outside the lock.
+// publish guards cache and event publication against completed shutdown.
+// Callbacks must not perform blocking Kubernetes I/O or call Stop.
 func (e *entry) publish(ctx context.Context, fn func()) {
 	e.publishMu.Lock()
 	defer e.publishMu.Unlock()
