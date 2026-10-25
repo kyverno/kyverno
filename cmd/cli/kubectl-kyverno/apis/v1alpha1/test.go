@@ -333,9 +333,13 @@ type CheckResult struct {
 	Match CheckMatch `json:"match,omitempty"`
 
 	// Assert contains assertion to be performed on the relevant rule responses
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Assert kyverno.Any `json:"assert"`
 
 	// Error contains negative assertion to be performed on the relevant rule responses
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Error kyverno.Any `json:"error"`
 }
 
@@ -350,11 +354,17 @@ type TestResourceSpec struct {
 
 type CheckMatch struct {
 	// Resource filters engine responses
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Resource *kyverno.Any `json:"resource,omitempty"`
 
 	// Policy filters engine responses
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Policy *kyverno.Any `json:"policy,omitempty"`
 
 	// Rule filters rule responses
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Rule *kyverno.Any `json:"rule,omitempty"`
 }
