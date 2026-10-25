@@ -223,5 +223,9 @@ for version in foo 1.34 v2.0 v1.034 v1.24; do
   fi
   log "  OK   podSecurityVersion=${version} fails"
 done
+if render v1.37.0 v1.24 --set podSecurityStandard=privileged >/dev/null 2>&1; then
+  fail "podSecurityVersion=v1.24 rendered with the privileged profile, want an error"
+fi
+log "  OK   podSecurityVersion=v1.24 fails with the privileged profile"
 
 log "kyverno-policies renders the PSA behavior for every podSecurityVersion"
