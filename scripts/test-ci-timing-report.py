@@ -53,6 +53,7 @@ class TimingTests(unittest.TestCase):
     def test_failures_cancellations_approval_waits_and_pending_retained(self):
         cases = [("failure", "completed", "failure"), ("cancelled", "completed", "cancelled"),
                  ("action_required", "completed", "action_required"),
+                 (None, "waiting", "action_required"),
                  (None, "in_progress", "in_progress"), ("skipped", "completed", "non_success")]
         for conclusion, status, expected in cases:
             with self.subTest(conclusion=conclusion):
@@ -103,6 +104,28 @@ class TimingTests(unittest.TestCase):
         self.assertIn("Fewer than 100", text)
         self.assertIn("not an all-required-checks", text)
         self.assertIn("not billed", text)
+
+    def test_collector_rejects_invalid_inputs_before_requests(self):
+        cases = [
+            {"repo": "kyverno"},
+            {"repo": "kyverno/kyverno/extra"},
+            {"workflow": ["../unit.yaml"]},
+            {"workflow": ["unit.txt"]},
+            {"since": at(30), "until": at(0)},
+            {"since": at(0), "until": at(0)},
+            {"since": "not-a-timestamp"},
+            {"since": "2026-10-21T00:00:00"},
+            {"until": "2026-10-21T00:30:00"},
+        ]
+        for changes in cases:
+            with self.subTest(changes=changes):
+                args = argparse.Namespace(repo="kyverno/kyverno", workflow=["unit.yaml"],
+                                          event="push", branch="main", since=at(0), until=at(30))
+                vars(args).update(changes)
+                with patch.object(TIMING, "api_pages") as api:
+                    with self.assertRaises(ValueError):
+                        TIMING.collect(args)
+                    api.assert_not_called()
 
     def test_collector_reads_all_pages_and_specific_attempt(self):
         raw = {"id": 42, "run_attempt": 3, "head_sha": "abc", "event": "pull_request",
