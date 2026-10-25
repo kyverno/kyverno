@@ -65,10 +65,30 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 	return &c
 }
 
+// isEligible reports whether policy is eligible for the standard admission policy cache.
 func isEligible(policy kyvernov1.PolicyInterface) bool {
 	return policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookMatchConditions() && policy.IsReady()
 }
 
+// syncPolicy adds an eligible policy to the cache or removes an ineligible one.
+func (c *controller) syncPolicy(key string, policy kyvernov1.PolicyInterface) error {
+	if isEligible(policy) {
+		return c.cache.Set(key, policy, c.client.Discovery())
+	}
+	c.cache.Unset(key)
+	return nil
+}
+
+// warmUpPolicy computes the cache key for policy and synchronizes its cache entry.
+func (c *controller) warmUpPolicy(policy kyvernov1.PolicyInterface) error {
+	key, err := cache.MetaNamespaceKeyFunc(policy)
+	if err != nil {
+		return err
+	}
+	return c.syncPolicy(key, policy)
+}
+
+// WarmUp populates the policy cache from the initial policy and cluster policy listers.
 func (c *controller) WarmUp() error {
 	logger.V(4).Info("warming up ...")
 	defer logger.V(4).Info("warm up done")
@@ -78,16 +98,8 @@ func (c *controller) WarmUp() error {
 		return err
 	}
 	for _, policy := range pols {
-		key, err := cache.MetaNamespaceKeyFunc(policy)
-		if err != nil {
+		if err := c.warmUpPolicy(policy); err != nil {
 			return err
-		}
-		if isEligible(policy) {
-			if err := c.cache.Set(key, policy, c.client.Discovery()); err != nil {
-				return err
-			}
-		} else {
-			c.cache.Unset(key)
 		}
 	}
 	cpols, err := c.cpolLister.List(labels.Everything())
@@ -95,25 +107,19 @@ func (c *controller) WarmUp() error {
 		return err
 	}
 	for _, policy := range cpols {
-		key, err := cache.MetaNamespaceKeyFunc(policy)
-		if err != nil {
+		if err := c.warmUpPolicy(policy); err != nil {
 			return err
-		}
-		if isEligible(policy) {
-			if err := c.cache.Set(key, policy, c.client.Discovery()); err != nil {
-				return err
-			}
-		} else {
-			c.cache.Unset(key)
 		}
 	}
 	return nil
 }
 
+// Run starts the policycache controller worker loop until ctx is canceled.
 func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
+// reconcile synchronizes a single policy key with the policy cache.
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	policy, err := c.loadPolicy(namespace, name)
 	if err != nil {
@@ -122,11 +128,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	if isEligible(policy) {
-		return c.cache.Set(key, policy, c.client.Discovery())
-	}
-	c.cache.Unset(key)
-	return nil
+	return c.syncPolicy(key, policy)
 }
 
 func (c *controller) loadPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {
