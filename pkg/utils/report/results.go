@@ -107,6 +107,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		}
 	}
 
+	now := time.Now()
 	result := openreportsv1alpha1.ReportResult{
 		Source:      SourceKyverno,
 		Policy:      policyName,
@@ -116,7 +117,8 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		Result:      toPolicyResult(ruleResult.Status()),
 		Scored:      annotations[kyverno.AnnotationPolicyScored] != "false",
 		Timestamp: metav1.Timestamp{
-			Seconds: time.Now().Unix(),
+			Seconds: now.Unix(),
+			Nanos:   int32(now.Nanosecond()), //nolint:gosec // Nanosecond is in [0, 1e9), which fits in int32.
 		},
 		Category: annotations[kyverno.AnnotationPolicyCategory],
 		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
