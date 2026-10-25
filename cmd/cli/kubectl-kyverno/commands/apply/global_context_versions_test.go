@@ -1,8 +1,12 @@
 package apply
 
 import (
+	"context"
+	"io"
+	"path/filepath"
 	"testing"
 
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -57,6 +61,23 @@ func TestExtractGlobalContextEntryVersions(t *testing.T) {
 			require.Equal(t, "[].metadata.name", entry.Spec.Projections[0].JMESPath)
 			require.NotNil(t, entry.Status.Ready)
 			require.False(t, *entry.Status.Ready)
+		})
+	}
+}
+func TestApplyGlobalContextServedVersionFixtures(t *testing.T) {
+	t.Parallel()
+	root := "../../../../../test/cli/apply/globalcontext-served-versions"
+	for _, version := range []string{"v2", "v2beta1", "v2alpha1"} {
+		t.Run(version, func(t *testing.T) {
+			t.Parallel()
+			config := ApplyCommandConfig{
+				PolicyPaths:   []string{filepath.Join(root, "policy.yaml")},
+				ResourcePaths: []string{filepath.Join(root, "resources-"+version+".yaml")},
+			}
+			counts, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+			require.NoError(t, err)
+			require.Equal(t, &processor.ResultCounts{Pass: 2}, counts)
+			require.Len(t, responses, 2)
 		})
 	}
 }

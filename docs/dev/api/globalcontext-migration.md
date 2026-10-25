@@ -38,3 +38,13 @@ one minor release for alpha, two for beta and three for stable APIs, with
 a release-note announcement and planned removal version.
 Release scheduling and the minimum supported upgrade baseline require
 maintainer agreement.
+
+## Verification
+
+On 25 October 2026, a disposable Kind cluster with Kubernetes v1.35.1 was
+upgraded from `46c75bc0e` to the GCE changes in `8d53e7257`. Tests covered
+all three served APIs, cache and projection updates, API-call refresh,
+raw etcd rewrites, an injected migration failure, rerun and reverse migration.
+UIDs, specifications, labels, annotations, finalizers, conditions and legacy
+`ready` values were preserved. A completed rerun left object versions unchanged.
+The minimum supported release baseline still requires maintainer agreement.

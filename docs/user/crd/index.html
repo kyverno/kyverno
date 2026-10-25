@@ -6851,6 +6851,19 @@ It can also be used to make calls to the Kubernetes API server in such cases:
 <tbody>
 <tr>
 <td>
+<code>ready</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Ready preserves the legacy readiness value across API version migrations.
+Deprecated: use Conditions instead.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>conditions</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
