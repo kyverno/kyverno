@@ -649,8 +649,6 @@ metricsConfig:
     kyverno_admission_review_duration_seconds:
       # enabled: false
       disabledLabelDimensions: ["resource_namespace"]
-    kyverno_policy_rule_info_total:
-      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
     kyverno_admission_requests_total:
       disabledLabelDimensions: ["resource_namespace"]
     kyverno_cleanup_controller_deletedobjects_total:
