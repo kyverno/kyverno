@@ -2179,6 +2179,229 @@ func Test_mutate_existing_resources(t *testing.T) {
 	}
 }
 
+// Test_mutate_existing_context_isolation verifies that target-specific context variables
+// loaded for target[0] do not leak into target[1] during mutateExisting evaluation (#18263).
+func Test_mutate_existing_context_isolation(t *testing.T) {
+	triggerRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "ConfigMap",
+		"metadata": {
+			"name": "cm-trigger",
+			"namespace": "bar"
+		}
+	}`)
+
+	target1Raw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "ConfigMap",
+		"metadata": {
+			"name": "target-one",
+			"namespace": "bar"
+		},
+		"data": {}
+	}`)
+
+	target2Raw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "ConfigMap",
+		"metadata": {
+			"name": "target-two",
+			"namespace": "bar"
+		},
+		"data": {}
+	}`)
+
+	tests := []struct {
+		name          string
+		policyRaw     []byte
+		target1Status engineapi.RuleStatus
+		assertTarget1 func(t *testing.T, rr engineapi.RuleResponse)
+	}{
+		{
+			name: "fallback default when variable is unpopulated in target-two",
+			policyRaw: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-context-isolation-fallback"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "mutate-targets-isolated",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": ["ConfigMap"],
+											"names": ["cm-trigger"]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"mutateExistingOnPolicyUpdate": false,
+								"targets": [
+									{
+										"apiVersion": "v1",
+										"kind": "ConfigMap",
+										"name": "target-one",
+										"namespace": "bar",
+										"context": [
+											{
+												"name": "injectedVar",
+												"variable": {
+													"value": "secret-token-from-target-0"
+												}
+											}
+										]
+									},
+									{
+										"apiVersion": "v1",
+										"kind": "ConfigMap",
+										"name": "target-two",
+										"namespace": "bar"
+									}
+								],
+								"patchStrategicMerge": {
+									"data": {
+										"token": "{{ injectedVar || 'isolated-default' }}"
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			target1Status: engineapi.RuleStatusPass,
+			assertTarget1: func(t *testing.T, rr engineapi.RuleResponse) {
+				patched1, _, _ := rr.PatchedTarget()
+				require.NotNil(t, patched1)
+				data1, found, err := unstructured.NestedStringMap(patched1.UnstructuredContent(), "data")
+				require.NoError(t, err)
+				require.True(t, found)
+				require.Equal(t, "isolated-default", data1["token"])
+			},
+		},
+		{
+			name: "precondition not met when target-two requires variable defined only in target-one",
+			policyRaw: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-context-isolation-precondition"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "mutate-targets-precondition",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": ["ConfigMap"],
+											"names": ["cm-trigger"]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"mutateExistingOnPolicyUpdate": false,
+								"targets": [
+									{
+										"apiVersion": "v1",
+										"kind": "ConfigMap",
+										"name": "target-one",
+										"namespace": "bar",
+										"context": [
+											{
+												"name": "injectedVar",
+												"variable": {
+													"value": "secret-token-from-target-0"
+												}
+											}
+										],
+										"preconditions": {
+											"all": [
+												{
+													"key": "{{ injectedVar || '' }}",
+													"operator": "Equals",
+													"value": "secret-token-from-target-0"
+												}
+											]
+										}
+									},
+									{
+										"apiVersion": "v1",
+										"kind": "ConfigMap",
+										"name": "target-two",
+										"namespace": "bar",
+										"preconditions": {
+											"all": [
+												{
+													"key": "{{ injectedVar || '' }}",
+													"operator": "Equals",
+													"value": "secret-token-from-target-0"
+												}
+											]
+										}
+									}
+								],
+								"patchStrategicMerge": {
+									"data": {
+										"token": "applied"
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			target1Status: engineapi.RuleStatusSkip,
+			assertTarget1: func(t *testing.T, rr engineapi.RuleResponse) {
+				patched1, _, _ := rr.PatchedTarget()
+				require.Nil(t, patched1, "skipped target must not produce a patched target")
+				require.Contains(t, rr.Message(), "preconditions not met")
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			policy := loadResource[kyverno.ClusterPolicy](t, tc.policyRaw)
+			trigger := loadUnstructured(t, triggerRaw)
+			target1 := loadUnstructured(t, target1Raw)
+			target2 := loadUnstructured(t, target2Raw)
+
+			targets := []runtime.Object{&target1, &target2}
+			policyContext := createContext(t, &policy, trigger)
+
+			scheme := runtime.NewScheme()
+			dclient, err := client.NewFakeClient(scheme, map[schema.GroupVersionResource]string{}, targets...)
+			require.NoError(t, err)
+			dclient.SetDiscovery(client.NewFakeDiscoveryClient(nil))
+
+			er := testMutate(context.TODO(), dclient, registryclient.New(), policyContext, nil)
+			require.Equal(t, 2, len(er.PolicyResponse.Rules))
+			require.Equal(t, engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].Status())
+			require.Equal(t, tc.target1Status, er.PolicyResponse.Rules[1].Status())
+
+			patched0, _, _ := er.PolicyResponse.Rules[0].PatchedTarget()
+			require.NotNil(t, patched0)
+			data0, found, err := unstructured.NestedStringMap(patched0.UnstructuredContent(), "data")
+			require.NoError(t, err)
+			require.True(t, found)
+			if tc.name == "fallback default when variable is unpopulated in target-two" {
+				require.Equal(t, "secret-token-from-target-0", data0["token"])
+			} else {
+				require.Equal(t, "applied", data0["token"])
+			}
+
+			tc.assertTarget1(t, er.PolicyResponse.Rules[1])
+		})
+	}
+}
+
 func Test_RuleSelectorMutate(t *testing.T) {
 	policyRaw := []byte(`{
     "apiVersion": "kyverno.io/v1",

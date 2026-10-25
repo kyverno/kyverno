@@ -74,11 +74,15 @@ func (h mutateExistingHandler) Process(
 		responses = append(responses, *rr)
 	}
 
+	policyContext.JSONContext().Checkpoint()
+	defer policyContext.JSONContext().Restore()
+
 	for _, target := range targets {
 		if target.unstructured.Object == nil {
 			continue
 		}
-		policyContext := policyContext
+		policyContext.JSONContext().Reset()
+		policyContext := policyContext.Copy()
 		if err := policyContext.JSONContext().SetTargetResource(target.unstructured.Object); err != nil {
 			logger.Error(err, "failed to add target resource to the context")
 			continue
