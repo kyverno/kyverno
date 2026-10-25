@@ -113,7 +113,8 @@ func (e *skippedEngine) Handle(_ context.Context, _ celengine.EngineRequest, p g
 		ObjectMeta: metav1.ObjectMeta{Name: "skip-trigger", Namespace: "tenant-a"},
 	}
 	return gpolengine.EngineResponse{
-		Trigger: &unstructured.Unstructured{},
+		// A real trigger, not an empty Unstructured{}, so the event's resource key is exercised.
+		Trigger: makeUnstructured("", "", "v1", "ConfigMap", "trigger-cm", "tenant-a", "trigger-uid", nil),
 		Policies: []gpolengine.GeneratingPolicyResponse{{
 			Policy: p.Policy,
 			Result: engineapi.RuleSkip("rule", engineapi.Generation, "excluded by policy exception", nil).
@@ -654,6 +655,12 @@ func TestProcessUR_SkippedByExceptionEmitsEvent(t *testing.T) {
 	for _, e := range eventGen.events {
 		if e.Reason == event.PolicySkipped && e.Regarding.Kind == "CELPolicyException" {
 			sawException = true
+			// The resource key must name the real trigger, not fall back to an empty "/".
+			assert.Contains(t, e.Message, "ConfigMap/tenant-a/trigger-cm", "event message should identify the trigger resource")
+			require.NotNil(t, e.Related, "event should carry the trigger as a related object")
+			assert.Equal(t, "ConfigMap", e.Related.Kind)
+			assert.Equal(t, "tenant-a", e.Related.Namespace)
+			assert.Equal(t, "trigger-cm", e.Related.Name)
 		}
 	}
 	assert.True(t, sawException, "skipped gpol rule with an exception should emit a PolicySkipped event")
