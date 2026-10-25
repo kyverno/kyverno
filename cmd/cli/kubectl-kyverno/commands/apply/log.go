@@ -7,9 +7,18 @@ import (
 	"strings"
 )
 
-// checkMutateLogPath - checking path for printing mutated resource (-o flag)
+// checkMutateLogPath - checking path for printing mutated resource (-o / --output-dir flag)
 func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err error) {
 	if mutateLogPath != "" {
+		cleaned := filepath.Clean(mutateLogPath)
+		switch cleaned {
+		case "json", "yaml", "table":
+			return false, fmt.Errorf("invalid path %q: did you mean --output-format %s? Use --output-dir to specify a file or directory for mutated resources", mutateLogPath, cleaned)
+		case "yml":
+			return false, fmt.Errorf("invalid path %q: did you mean --output-format yaml? Use --output-dir to specify a file or directory for mutated resources", mutateLogPath)
+		case "markdown", "junit":
+			return false, fmt.Errorf("invalid path %q: use --output-format for report output, or --output-dir to specify a file or directory for mutated resources", mutateLogPath)
+		}
 		spath := strings.Split(mutateLogPath, "/")
 		sfileName := strings.Split(spath[len(spath)-1], ".")
 		if sfileName[len(sfileName)-1] == "yml" || sfileName[len(sfileName)-1] == "yaml" {

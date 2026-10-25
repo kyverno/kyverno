@@ -53,37 +53,76 @@ func printPolicyDiagnostic(out io.Writer, index int, policy PolicyDiagnostic) {
 func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool, outputFormat string) {
 	clustered, namespaced := report.ComputePolicyReports(auditWarn, engineResponses...)
 
-	printReport := func(report interface{}) {
-		var output []byte
-		if outputFormat == "json" {
-			output, _ = json.Marshal(report)
-		} else {
-			output, _ = yaml.Marshal(report)
-		}
-		fmt.Fprintln(out, string(output))
-	}
-
+	var allReports []interface{}
 	if len(clustered) > 0 {
 		clusterReport := report.MergeClusterReports(clustered)
-		printReport(clusterReport)
+		allReports = append(allReports, clusterReport)
+	}
+	for _, r := range namespaced {
+		allReports = append(allReports, r)
 	}
 
-	for _, r := range namespaced {
-		fmt.Fprintln(out, "---")
-		printReport(r)
+	if len(allReports) == 0 {
+		return
+	}
+
+	if outputFormat == "json" {
+		if len(allReports) == 1 {
+			output, _ := json.Marshal(allReports[0])
+			fmt.Fprintln(out, string(output))
+		} else {
+			output, _ := json.Marshal(allReports)
+			fmt.Fprintln(out, string(output))
+		}
+		return
+	}
+
+	for i, r := range allReports {
+		if i > 0 {
+			fmt.Fprintln(out, "---")
+		}
+		output, _ := yaml.Marshal(r)
+		fmt.Fprintln(out, string(output))
 	}
 }
 
 func printExceptions(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool, outputFormat string, ttl time.Duration) {
 	clustered, _ := report.ComputePolicyReports(auditWarn, engineResponses...)
+	var exceptions []policiesv1beta1.PolicyException
 	for _, report := range clustered {
 		for _, result := range report.Results {
 			if result.Result == "fail" {
-				if err := printException(out, result, ttl, outputFormat); err != nil {
+				exs, err := buildExceptions(result, ttl)
+				if err != nil {
 					log.Error(err)
+					continue
 				}
+				exceptions = append(exceptions, exs...)
 			}
 		}
+	}
+
+	if len(exceptions) == 0 {
+		return
+	}
+
+	if outputFormat == "json" {
+		if len(exceptions) == 1 {
+			output, _ := json.Marshal(exceptions[0])
+			fmt.Fprintln(out, string(output))
+		} else {
+			output, _ := json.Marshal(exceptions)
+			fmt.Fprintln(out, string(output))
+		}
+		return
+	}
+
+	for i, ex := range exceptions {
+		if i > 0 {
+			fmt.Fprintln(out, "---")
+		}
+		output, _ := yaml.Marshal(ex)
+		fmt.Fprintln(out, string(output))
 	}
 }
 
@@ -141,13 +180,14 @@ func buildExceptionMatchExpression(kinds, names []string, namespace string) stri
 	return strings.Join(parts, " && ")
 }
 
-func printException(out io.Writer, result openreportsv1alpha1.ReportResult, ttl time.Duration, outputFormat string) error {
+func buildExceptions(result openreportsv1alpha1.ReportResult, ttl time.Duration) ([]policiesv1beta1.PolicyException, error) {
 	kind := policyKindForSource(result.Source)
 	if kind == "" {
 		// Native Kubernetes ValidatingAdmissionPolicy/MutatingAdmissionPolicy results aren't
 		// exempted via a Kyverno PolicyException; nothing useful to suggest.
-		return nil
+		return nil, nil
 	}
+	var exceptions []policiesv1beta1.PolicyException
 	for _, r := range result.Subjects {
 		name := strings.Join([]string{result.Policy, result.Rule, r.Namespace, r.Name}, "-")
 
@@ -196,7 +236,7 @@ func printException(out io.Writer, result openreportsv1alpha1.ReportResult, ttl 
 			var controls []kyvernoreports.Control
 			err := json.Unmarshal([]byte(controlList), &controls)
 			if err != nil {
-				return errors.Wrapf(err, "failed to unmarshall PSS controls %s", controlList)
+				return nil, errors.Wrapf(err, "failed to unmarshall PSS controls %s", controlList)
 			}
 			controlNames := make([]string, 0, len(controls))
 			for _, c := range controls {
@@ -210,24 +250,33 @@ func printException(out io.Writer, result openreportsv1alpha1.ReportResult, ttl 
 			}
 		}
 
-		var exceptionReport []byte
-		marshal := func(report interface{}) ([]byte, error) {
-			if outputFormat == "json" {
-				return json.Marshal(report)
-			}
-			return yaml.Marshal(report)
-		}
+		exceptions = append(exceptions, exception)
+	}
 
-		exceptionReport, err := marshal(exception)
+	return exceptions, nil
+}
+
+func printException(out io.Writer, result openreportsv1alpha1.ReportResult, ttl time.Duration, outputFormat string) error {
+	exceptions, err := buildExceptions(result, ttl)
+	if err != nil {
+		return err
+	}
+	for _, exception := range exceptions {
+		var exceptionReport []byte
+		if outputFormat == "json" {
+			exceptionReport, err = json.Marshal(exception)
+		} else {
+			exceptionReport, err = yaml.Marshal(exception)
+		}
 		if err != nil {
 			return err
 		}
-
-		fmt.Fprint(out, "---\n")
+		if outputFormat != "json" {
+			fmt.Fprint(out, "---\n")
+		}
 		fmt.Fprint(out, string(exceptionReport))
 		fmt.Fprint(out, "\n")
 	}
-
 	return nil
 }
 
