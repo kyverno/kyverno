@@ -143,6 +143,42 @@ func TestGenerateEvents(t *testing.T) {
 			},
 		},
 		{
+			name: "CEL rule skipped by a CEL exception generates policy exception events",
+			args: args{
+				engineResponses: []engineapi.EngineResponse{
+					engineapi.NewEngineResponse(resource, policy, nil).
+						WithPolicyResponse(engineapi.PolicyResponse{
+							Rules: []engineapi.RuleResponse{
+								*engineapi.RuleSkip(
+									"require-labels",
+									engineapi.Validation,
+									"rule skipped",
+									nil,
+								).WithExceptions([]engineapi.GenericException{
+									engineapi.NewCELPolicyException(&policiesv1beta1.PolicyException{
+										ObjectMeta: v1.ObjectMeta{
+											Name:      "skip-labels",
+											Namespace: "default",
+										},
+									}),
+								}),
+							},
+						}),
+				},
+				blocked: false,
+			},
+			wantCount: 2,
+			wantCheck: func(t *testing.T, events []event.Info) {
+				assert.Equal(t, event.PolicySkipped, events[0].Reason)
+				assert.Equal(t, "CELPolicyException", events[0].Regarding.Kind)
+				assert.Equal(t, "skip-labels", events[0].Regarding.Name)
+
+				assert.Equal(t, event.PolicySkipped, events[1].Reason)
+				assert.Equal(t, "test-policy", events[1].Regarding.Name)
+				assert.Contains(t, events[1].Message, "skip-labels")
+			},
+		},
+		{
 			name: "empty engine response produces no events",
 			args: args{
 				engineResponses: []engineapi.EngineResponse{

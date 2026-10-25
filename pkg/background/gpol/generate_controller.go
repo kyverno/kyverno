@@ -175,7 +175,9 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			}
 			engineResponse.PolicyResponse.Rules = []engineapi.RuleResponse{*res.Result}
 			engineResponse = engineResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
-			if res.Result.Status() == engineapi.RuleStatusError || res.Result.Status() == engineapi.RuleStatusFail {
+			if res.Result.Status() == engineapi.RuleStatusSkip {
+				c.eventGen.Add(event.NewPolicyExceptionEvents(engineResponse, *res.Result, event.GeneratePolicyController)...)
+			} else if res.Result.Status() == engineapi.RuleStatusError || res.Result.Status() == engineapi.RuleStatusFail {
 				// surface evaluation/generation errors instead of silently
 				// reporting the UR as Completed, so users can diagnose why no
 				// resources were generated (https://github.com/kyverno/kyverno/issues/16983)

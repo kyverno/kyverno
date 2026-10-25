@@ -136,6 +136,74 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	}
 }
 
+// NewPolicyExceptionEvents builds the PolicySkipped events for a rule skipped by one or more
+// exceptions, one per exception plus one on the policy itself. Policy and exception are read
+// through their GenericPolicy/GenericException accessors, so this covers CEL policies too.
+func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp engineapi.RuleResponse, source Source) []Info {
+	exceptions := ruleResp.Exceptions()
+	pol := engineResponse.Policy()
+	related := engineResponse.GetResourceSpec()
+	exceptionNames := make([]string, 0, len(exceptions))
+	events := make([]Info, 0, len(exceptions)+1)
+
+	var exceptionMessage string
+	if pol.GetNamespace() == "" {
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), pol.GetName(), ruleResp.Name())
+	} else {
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), pol.GetNamespace(), pol.GetName(), ruleResp.Name())
+	}
+
+	for _, exception := range exceptions {
+		ns := exception.GetNamespace()
+		name := exception.GetName()
+		exceptionNames = append(exceptionNames, ns+"/"+name)
+
+		events = append(events, Info{
+			Regarding: corev1.ObjectReference{
+				APIVersion: exception.GetAPIVersion(),
+				Kind:       exception.GetKind(),
+				Name:       name,
+				Namespace:  ns,
+				UID:        exception.GetUID(),
+			},
+			Related: &corev1.ObjectReference{
+				APIVersion: related.APIVersion,
+				Kind:       related.Kind,
+				Name:       related.Name,
+				Namespace:  related.Namespace,
+				UID:        types.UID(related.UID),
+			},
+			Reason:  PolicySkipped,
+			Message: exceptionMessage,
+			Source:  source,
+			Action:  ResourcePassed,
+		})
+	}
+
+	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exceptions %s", resourceKey(engineResponse.PatchedResource), ruleResp.Name(), strings.Join(exceptionNames, ", "))
+	events = append(events, Info{
+		Regarding: corev1.ObjectReference{
+			APIVersion: pol.GetAPIVersion(),
+			Kind:       pol.GetKind(),
+			Name:       pol.GetName(),
+			Namespace:  pol.GetNamespace(),
+			UID:        pol.GetUID(),
+		},
+		Related: &corev1.ObjectReference{
+			APIVersion: related.APIVersion,
+			Kind:       related.Kind,
+			Name:       related.Name,
+			Namespace:  related.Namespace,
+			UID:        types.UID(related.UID),
+		},
+		Reason:  PolicySkipped,
+		Message: policyMessage,
+		Source:  source,
+		Action:  ResourcePassed,
+	})
+	return events
+}
+
 func NewResourceGenerationEvent(policy, rule string, source Source, resource kyverno.ResourceSpec) Info {
 	msg := fmt.Sprintf("Created %s %s as a result of applying policy %s/%s", resource.GetKind(), resource.GetName(), policy, rule)
 	regarding := corev1.ObjectReference{
