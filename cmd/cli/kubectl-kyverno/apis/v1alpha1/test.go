@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -333,10 +333,10 @@ type CheckResult struct {
 	Match CheckMatch `json:"match,omitempty"`
 
 	// Assert contains assertion to be performed on the relevant rule responses
-	Assert kyvernov1.Any `json:"assert"`
+	Assert kyverno.Any `json:"assert"`
 
 	// Error contains negative assertion to be performed on the relevant rule responses
-	Error kyvernov1.Any `json:"error"`
+	Error kyverno.Any `json:"error"`
 }
 
 type TestResourceSpec struct {
@@ -350,11 +350,11 @@ type TestResourceSpec struct {
 
 type CheckMatch struct {
 	// Resource filters engine responses
-	Resource *kyvernov1.Any `json:"resource,omitempty"`
+	Resource *kyverno.Any `json:"resource,omitempty"`
 
 	// Policy filters engine responses
-	Policy *kyvernov1.Any `json:"policy,omitempty"`
+	Policy *kyverno.Any `json:"policy,omitempty"`
 
 	// Rule filters rule responses
-	Rule *kyvernov1.Any `json:"rule,omitempty"`
+	Rule *kyverno.Any `json:"rule,omitempty"`
 }
