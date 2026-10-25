@@ -837,7 +837,7 @@ func TestRunTest_NamespacedGeneratingPolicy(t *testing.T) {
 	testCase := testCases[0]
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test: %s", out.String())
 
 	t.Run("NamespacedGeneratingPolicy produces engine response without panicking", func(t *testing.T) {
