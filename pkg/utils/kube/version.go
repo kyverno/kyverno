@@ -21,7 +21,7 @@ func HigherThanKubernetesVersion(client discovery.ServerVersionInterface, log lo
 	}
 	b, err := isVersionHigher(serverVersion.String(), major, minor, patch)
 	if err != nil {
-		logger.Error(err, "serverVersion", serverVersion.String())
+		logger.Error(err, "failed to parse kubernetes server version", "serverVersion", serverVersion.String())
 		return false
 	}
 	return b
