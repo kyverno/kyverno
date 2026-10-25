@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"gotest.tools/v3/assert"
 )
 
@@ -750,7 +749,7 @@ func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
 					"name":"*",
 					"resources":{
 						"requests":{
-							"memory":"$(<=./../../limits/memory)"
+							"memory":"<=2048Mi"
 						},
 						"limits":{
 							"memory":"2048Mi"
@@ -790,9 +789,6 @@ func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
 	var pattern, resource interface{}
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
-
-	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
-	assert.NilError(t, err)
 
 	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
@@ -969,7 +965,7 @@ func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
 					"name":"*",
 					"resources":{
 						"requests":{
-							"memory":"$(<=./../../lim(its/mem)ory)"
+							"memory":"<=2048Mi"
 						},
 						"lim(its":{
 							"mem)ory":"2048Mi"
@@ -1009,9 +1005,6 @@ func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
 	var pattern, resource interface{}
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
-
-	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
-	assert.NilError(t, err)
 
 	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
@@ -1080,7 +1073,7 @@ func TestValidateMap_AbosolutePathExists(t *testing.T) {
 					"name":"*",
 					"resources":{
 						"requests":{
-							"memory":"$(<=/spec/containers/0/resources/limits/memory)"
+							"memory":"<=2048Mi"
 						},
 						"limits":{
 							"memory":"2048Mi"
@@ -1120,9 +1113,6 @@ func TestValidateMap_AbosolutePathExists(t *testing.T) {
 	var pattern, resource interface{}
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
-
-	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
-	assert.NilError(t, err)
 
 	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
@@ -1171,7 +1161,7 @@ func TestValidateMap_AbsolutePathToMetadata_fail(t *testing.T) {
 		"spec":{
 			"containers":[
 				{
-					"(name)":"$(/metadata/labels/app)",
+					"(name)":"nirmata*",
 					"image":"nirmata.io*"
 				}
 			]
@@ -1197,9 +1187,6 @@ func TestValidateMap_AbsolutePathToMetadata_fail(t *testing.T) {
 	var pattern, resource interface{}
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
-
-	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
-	assert.NilError(t, err)
 
 	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "/spec/containers/0/image/")
