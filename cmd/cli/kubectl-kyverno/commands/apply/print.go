@@ -44,7 +44,7 @@ func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedIn
 }
 
 func printPolicyDiagnostic(out io.Writer, index int, policy PolicyDiagnostic) {
-	coloredPolicyName := color.Policy("", policy.name)
+	coloredPolicyName := color.BoldCyan(policy.name)
 	if policy.reason == "" {
 		fmt.Fprintf(out, "%d. %s\n", index, coloredPolicyName)
 		return

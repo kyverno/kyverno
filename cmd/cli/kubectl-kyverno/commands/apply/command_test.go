@@ -32,18 +32,34 @@ func TestPrintSkippedAndInvalidPolicies(t *testing.T) {
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
 		fatihcolor.NoColor = origNoColor
-		color.Init(true)
+		color.Init(origNoColor)
 	})
 
 	testData := SkippedInvalidPolicies{
-		skipped: []PolicyDiagnostic{{
-			name:   "skipped-policy",
-			reason: "missing variable `request.operation`",
-		}},
-		invalid: []PolicyDiagnostic{{
-			name:   "invalid-policy",
-			reason: "failed to compile policy invalid-policy (spec.matchConditions[0].expression: Forbidden: variables cannot be referenced)",
-		}},
+		skipped: []PolicyDiagnostic{
+			{
+				name:   "skipped-policy",
+				reason: "missing variable `request.operation`",
+			},
+			{
+				name:   "skipped-policy-no-reason",
+				reason: "",
+			},
+		},
+		invalid: []PolicyDiagnostic{
+			{
+				name:   "invalid-policy",
+				reason: "failed to compile policy invalid-policy (spec.matchConditions[0].expression: Forbidden: variables cannot be referenced)",
+			},
+			{
+				name:   "invalid-policy-no-reason",
+				reason: "",
+			},
+			{
+				name:   "policies/team-a/typo.yaml",
+				reason: "failed to parse YAML",
+			},
+		},
 	}
 
 	t.Run("color disabled", func(t *testing.T) {
@@ -55,8 +71,11 @@ func TestPrintSkippedAndInvalidPolicies(t *testing.T) {
 		printed := out.String()
 		assert.Contains(t, printed, "Policies Skipped:")
 		assert.Contains(t, printed, "1. skipped-policy: missing variable `request.operation`")
+		assert.Contains(t, printed, "2. skipped-policy-no-reason")
 		assert.Contains(t, printed, "Invalid Policies:")
 		assert.Contains(t, printed, "1. invalid-policy: failed to compile policy invalid-policy")
+		assert.Contains(t, printed, "2. invalid-policy-no-reason")
+		assert.Contains(t, printed, "3. policies/team-a/typo.yaml: failed to parse YAML")
 		assert.Contains(t, printed, "variables cannot be referenced")
 		assert.NotContains(t, printed, "\x1b[")
 	})
@@ -70,8 +89,11 @@ func TestPrintSkippedAndInvalidPolicies(t *testing.T) {
 		printed := out.String()
 		assert.Contains(t, printed, "\x1b[33;1mPolicies Skipped:\x1b[0;22m")
 		assert.Contains(t, printed, "\x1b[36;1mskipped-policy\x1b[0;22m: missing variable `request.operation`")
+		assert.Contains(t, printed, "\x1b[36;1mskipped-policy-no-reason\x1b[0;22m")
 		assert.Contains(t, printed, "\x1b[31;1mInvalid Policies:\x1b[0;22m")
 		assert.Contains(t, printed, "\x1b[36;1minvalid-policy\x1b[0;22m: failed to compile policy invalid-policy")
+		assert.Contains(t, printed, "\x1b[36;1minvalid-policy-no-reason\x1b[0;22m")
+		assert.Contains(t, printed, "\x1b[36;1mpolicies/team-a/typo.yaml\x1b[0;22m: failed to parse YAML")
 	})
 }
 
@@ -87,7 +109,7 @@ func TestPrintViolations(t *testing.T) {
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
 		fatihcolor.NoColor = origNoColor
-		color.Init(true)
+		color.Init(origNoColor)
 	})
 
 	t.Run("color disabled", func(t *testing.T) {
@@ -2104,7 +2126,7 @@ func TestCommandWithColorAndRemoveColor(t *testing.T) {
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
 		fatihcolor.NoColor = origNoColor
-		color.Init(true)
+		color.Init(origNoColor)
 	})
 
 	policyPath := "../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"
@@ -2117,7 +2139,8 @@ func TestCommandWithColorAndRemoveColor(t *testing.T) {
 		cmd.SetOut(&out)
 		cmd.SetErr(&out)
 		cmd.SetArgs([]string{policyPath, "--resource", resourcePath})
-		_ = cmd.Execute()
+		err := cmd.Execute()
+		assert.Error(t, err)
 
 		output := out.String()
 		assert.Contains(t, output, "\x1b[31;1mfailed:\x1b[0;22m")
@@ -2132,11 +2155,27 @@ func TestCommandWithColorAndRemoveColor(t *testing.T) {
 		cmd.SetOut(&out)
 		cmd.SetErr(&out)
 		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--remove-color"})
-		_ = cmd.Execute()
+		err := cmd.Execute()
+		assert.Error(t, err)
 
 		output := out.String()
 		assert.Contains(t, output, "failed:")
 		assert.Contains(t, output, "policy disallow-host-path -> resource default/Pod/bad-pod failed:")
+		assert.NotContains(t, output, "\x1b[")
+	})
+
+	t.Run("suppress color in policy-report structured output", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--policy-report"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: ClusterReport")
 		assert.NotContains(t, output, "\x1b[")
 	})
 }

@@ -4,20 +4,38 @@ import (
 	"testing"
 
 	fatihcolor "github.com/fatih/color"
+	"github.com/kataras/tablewriter"
 )
 
 func TestInit(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
 	tests := []struct {
 		name    string
 		noColor bool
 	}{{
-		noColor: true,
-	}, {
+		name:    "color enabled",
 		noColor: false,
+	}, {
+		name:    "color disabled",
+		noColor: true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			Init(tt.noColor)
+			if tt.noColor {
+				if HeaderBgColor != 0 || HeaderFgColor != 0 {
+					t.Errorf("expected header colors to be cleared, got bg=%d fg=%d", HeaderBgColor, HeaderFgColor)
+				}
+			} else {
+				if HeaderBgColor != tablewriter.BgBlackColor || HeaderFgColor != tablewriter.FgGreenColor {
+					t.Errorf("expected header colors to be set, got bg=%d fg=%d", HeaderBgColor, HeaderFgColor)
+				}
+			}
 		})
 	}
 }
@@ -200,7 +218,7 @@ func TestFunctionName(t *testing.T) {
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
 		fatihcolor.NoColor = origNoColor
-		Init(true)
+		Init(origNoColor)
 	})
 
 	tests := []struct {
@@ -234,7 +252,7 @@ func TestFunctionNote(t *testing.T) {
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
 		fatihcolor.NoColor = origNoColor
-		Init(true)
+		Init(origNoColor)
 	})
 
 	tests := []struct {
@@ -268,7 +286,7 @@ func TestBoldHelpers(t *testing.T) {
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
 		fatihcolor.NoColor = origNoColor
-		Init(true)
+		Init(origNoColor)
 	})
 
 	t.Run("color disabled", func(t *testing.T) {

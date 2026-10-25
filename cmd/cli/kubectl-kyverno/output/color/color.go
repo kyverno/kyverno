@@ -12,15 +12,14 @@ var (
 	HeaderFgColor int
 )
 
-func init() {
-	Init(false)
-}
-
 func Init(noColor bool) {
 	color.Init(noColor, false)
 	if !noColor {
 		HeaderBgColor = tablewriter.BgBlackColor
 		HeaderFgColor = tablewriter.FgGreenColor
+	} else {
+		HeaderBgColor = 0
+		HeaderFgColor = 0
 	}
 }
 
