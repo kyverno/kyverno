@@ -13,15 +13,17 @@ kubebuilder markers on these types the way controller-runtime projects typically
 admission webhook config in the repo: `pkg/controllers/webhook` builds and reconciles
 `ValidatingWebhookConfiguration`/`MutatingWebhookConfiguration` resources dynamically at runtime, and
 `test/conformance/` has static ones for test fixtures — just none of it originates from a marker in this tree.
-Instead, each policy type has a hand-written `Validate(...)` method, but the signature isn't uniform across
-types: `ClusterPolicy.Validate(clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList)`
-(`clusterpolicy_types.go`) returns warnings, while `CleanupPolicy`/`ClusterCleanupPolicy.Validate(clusterResources)`
-and `PolicyException.Validate()` return only `field.ErrorList`, with their own distinct parameter lists. These are
-also invoked from different places, not one shared webhook server: `ClusterPolicy.Validate` is reached via
-`pkg/validation/policy.Validate()`, called from `pkg/webhooks/policy`; `PolicyException.Validate()` is called from
-`pkg/webhooks/exception` and `pkg/webhooks/celexception`; cleanup policy validation runs through its own
-`pkg/validation/cleanuppolicy.Validate()`, called from `cmd/cleanup-controller/handlers/admission/policy` — a
-webhook server in a different binary entirely. Validation is genuinely two-layered regardless of which type: CRD
+Each policy type still has a hand-written `Validate(...)` method on the Go type, but after #17710 PR 4 most of
+them are unreachable from server code: `ClusterPolicy.Validate(clusterResources sets.Set[string]) (warnings
+[]string, errs field.ErrorList)` (`clusterpolicy_types.go`) has no caller left — `pkg/validation/policy.Validate()`,
+which used to call it from `pkg/webhooks/policy`, no longer exists, and `pkg/webhooks/policy` now only validates
+CEL policy kinds. Likewise `CleanupPolicy`/`ClusterCleanupPolicy.Validate(clusterResources)` has no caller;
+`cmd/cleanup-controller/handlers/admission/policy` and `pkg/validation/cleanuppolicy.Validate()` are both gone, and
+new writes to those kinds are now unconditionally denied by the webhook (see
+[pkg/deprecations/AGENTS.md](../pkg/deprecations/AGENTS.md)) rather than validated. The one still-live method is
+`PolicyException.Validate()` (`policy_exception_types.go`), called from `pkg/webhooks/celexception` — `polex` is a
+`kyvernov2` type shared by the CEL exception path, not legacy-only. Validation is genuinely two-layered regardless
+of which type: CRD
 OpenAPI schema validation from `+kubebuilder:validation:...` markers, enforced by the Kubernetes API server itself,
 *and* Kyverno's own semantic `Validate()` for cross-field checks the schema can't express. If you're adding a new
 validation rule, decide which layer it belongs in — a marker if it's expressible as schema, a `Validate()` addition

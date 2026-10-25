@@ -5,9 +5,18 @@ import argparse
 import base64
 import copy
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
+
+
+def write_report(path, report):
+    """Create a private report; refuse existing files and symlinks."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as output:
+        json.dump(report, output, indent=2)
+        output.write("\n")
 
 
 def preserved_fields(obj):
@@ -26,7 +35,8 @@ def main():
     parser.add_argument("--name", action="append", required=True)
     parser.add_argument("--expected-version", choices=("v2", "v2beta1"), required=True)
     parser.add_argument("--compare", type=Path)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True,
+                        help="new report path (must not already exist)")
     args = parser.parse_args()
     if not args.context.startswith("kind-"):
         parser.error("use a disposable kind cluster")
@@ -84,7 +94,7 @@ def main():
         "servedVersions": sorted(served),
     }
     # Preserve the observation even if the expected version check fails.
-    args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    write_report(args.output, report)
     expected = "kyverno.io/" + args.expected_version
     for name, obj in objects.items():
         if obj["apiVersion"] != expected:

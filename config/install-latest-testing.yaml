@@ -199,7 +199,7 @@ metadata:
     app.kubernetes.io/version: latest
 data:
   namespaces: "{\"exclude\":[],\"include\":[]}"
-  metricsExposure: "{\"kyverno_admission_requests_total\":{\"disabledLabelDimensions\":[\"resource_namespace\"]},\"kyverno_admission_review_duration_seconds\":{\"disabledLabelDimensions\":[\"resource_namespace\"]},\"kyverno_cleanup_controller_deletedobjects_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]},\"kyverno_generating_policy_execution_duration_seconds\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"resource_request_operation\"]},\"kyverno_generating_policy_results_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]},\"kyverno_image_validating_policy_execution_duration_seconds\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"resource_request_operation\"]},\"kyverno_image_validating_policy_results_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]},\"kyverno_mutating_policy_execution_duration_seconds\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"resource_request_operation\"]},\"kyverno_mutating_policy_results_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]},\"kyverno_policy_execution_duration_seconds\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"resource_request_operation\"]},\"kyverno_policy_results_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]},\"kyverno_policy_rule_info_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]},\"kyverno_validating_policy_execution_duration_seconds\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"resource_request_operation\"]},\"kyverno_validating_policy_results_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]}}"
+  metricsExposure: "{\"kyverno_admission_requests_total\":{\"disabledLabelDimensions\":[\"resource_namespace\"]},\"kyverno_admission_review_duration_seconds\":{\"disabledLabelDimensions\":[\"resource_namespace\"]},\"kyverno_cleanup_controller_deletedobjects_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]},\"kyverno_generating_policy_execution_duration_seconds\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"resource_request_operation\"]},\"kyverno_generating_policy_results_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]},\"kyverno_image_validating_policy_execution_duration_seconds\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"resource_request_operation\"]},\"kyverno_image_validating_policy_results_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]},\"kyverno_mutating_policy_execution_duration_seconds\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"resource_request_operation\"]},\"kyverno_mutating_policy_results_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]},\"kyverno_validating_policy_execution_duration_seconds\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"resource_request_operation\"]},\"kyverno_validating_policy_results_total\":{\"disabledLabelDimensions\":[\"resource_namespace\",\"policy_namespace\"]}}"
   bucketBoundaries: "0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 25, 30"
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -89580,10 +89580,6 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - policies
-      - policies/status
-      - clusterpolicies
-      - clusterpolicies/status
       - updaterequests
       - updaterequests/status
       - globalcontextentries
@@ -89597,23 +89593,15 @@ rules:
       - update
       - watch
       - deletecollection
+  # Read-only: kyverno-init's startup inventory and the admission controller's
+  # kyverno_legacy_policies_total gauge list the legacy kyverno.io kinds. Nothing in this
+  # pod creates, updates, or deletes them.
   - apiGroups:
       - kyverno.io
     resources:
+      - clusterpolicies
+      - policies
       - policyexceptions
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  # Read-only: lets kyverno-init report legacy CleanupPolicy/ClusterCleanupPolicy
-  # custom resources still present in the cluster. These kinds are otherwise owned
-  # by the cleanup-controller, which has its own read/write RBAC for them.
-  - apiGroups:
-      - kyverno.io
-    resources:
       - cleanuppolicies
       - clustercleanuppolicies
     verbs:
@@ -89762,11 +89750,6 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - policies
-      - policies/status
-      - clusterpolicies
-      - clusterpolicies/status
-      - policyexceptions
       - updaterequests
       - updaterequests/status
       - globalcontextentries
@@ -89812,11 +89795,15 @@ rules:
   # templates/rbac/). Generate rules that create a RoleBinding to those roles
   # are rejected by the RBAC escalation check unless the background controller
   # holds every permission they grant.
+  # Includes the legacy policies/clusterpolicies rows of admin:policies and view:policies
+  # until those roles drop them in 1.21.
   - apiGroups:
       - kyverno.io
     resources:
       - cleanuppolicies
       - clustercleanuppolicies
+      - policies
+      - clusterpolicies
     verbs:
       - create
       - delete
@@ -89996,7 +89983,6 @@ rules:
       - cleanuppolicies
     verbs:
       - list
-      - watch
   - apiGroups:
       - policies.kyverno.io
     resources:
@@ -90037,13 +90023,6 @@ rules:
       - update
       - watch
       - deletecollection
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - clustercleanuppolicies/status
-      - cleanuppolicies/status
-    verbs:
-      - update
   - apiGroups:
       - ''
     resources:
@@ -90352,9 +90331,6 @@ rules:
     resources:
       - globalcontextentries
       - globalcontextentries/status
-      - policyexceptions
-      - policies
-      - clusterpolicies
     verbs:
       - create
       - delete
@@ -90364,6 +90340,15 @@ rules:
       - update
       - watch
       - deletecollection
+  # Read-only: the aggregate controller's 1.20 startup sweep lists these once per leader start
+  # (#17710 PR 3). Remove with the sweep in 1.21.
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - clusterpolicies
+      - policies
+    verbs:
+      - list
   - apiGroups:
       - policies.kyverno.io
     resources:

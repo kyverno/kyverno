@@ -37,7 +37,7 @@ kyverno apply [flags]
 ### Options
 
 ```
-      --audit-warn                         If set to true, will flag audit policies as warnings instead of failures
+      --audit-warn                         Currently has no effect; ValidatingPolicy audit support is tracked by https://github.com/kyverno/kyverno/issues/16485
       --batch-size int                     Number of resources to fetch per API call (default 100)
   -c, --cluster                            Checks if policies should be applied to cluster in the current context
       --cluster-wide-resources             If set to true, will apply policies to cluster-wide resources

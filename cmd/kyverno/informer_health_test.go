@@ -13,21 +13,15 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
-	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/factories"
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/informers/health"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
@@ -50,8 +44,8 @@ func TestAdmissionWatchReadinessRegression(t *testing.T) {
 	for _, mode := range []string{"list-eof", "watchlist-error"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
-			var policy kyvernov1.ClusterPolicy
-			require.NoError(t, json.Unmarshal([]byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"require-label","resourceVersion":"1"},"spec":{"background":false,"rules":[{"name":"label","match":{"resources":{"kinds":["ConfigMap"]}},"validate":{"message":"label required","pattern":{"metadata":{"labels":{"approved":"old"}}}}}]}}`), &policy))
+			var policy kyvernov2.GlobalContextEntry
+			require.NoError(t, json.Unmarshal([]byte(`{"apiVersion":"kyverno.io/v2","kind":"GlobalContextEntry","metadata":{"name":"require-label","resourceVersion":"1","labels":{"approved":"old"}},"spec":{"kubernetesResource":{"version":"v1","resource":"configmaps"}}}`), &policy))
 			var mu sync.Mutex
 			disconnected := false
 			drop := make(chan struct{})
@@ -71,30 +65,17 @@ func TestAdmissionWatchReadinessRegression(t *testing.T) {
 					return
 				}
 				resource := path.Base(r.URL.Path)
-				kinds := map[string]string{"clusterpolicies": "ClusterPolicy", "policies": "Policy", "globalcontextentries": "GlobalContextEntry", "policyexceptions": "PolicyException"}
+				kinds := map[string]string{"globalcontextentries": "GlobalContextEntry"}
 				kind, ok := kinds[resource]
-				if !ok {
+				if !ok || r.URL.Path != "/apis/kyverno.io/v2/globalcontextentries" {
 					http.NotFound(w, r)
 					return
 				}
-				apiVersion := "kyverno.io/v1"
-				if resource == "globalcontextentries" {
-					if r.URL.Path != "/apis/kyverno.io/v2/globalcontextentries" {
-						http.NotFound(w, r)
-						return
-					}
-					apiVersion = "kyverno.io/v2"
-				}
-				if resource == "policyexceptions" {
-					apiVersion = "kyverno.io/v2"
-				}
+				apiVersion := "kyverno.io/v2"
 				w.Header().Set("Content-Type", "application/json")
 				enc := json.NewEncoder(w)
 				if r.URL.Query().Get("watch") != "true" {
-					items := []any{}
-					if resource == "clusterpolicies" {
-						items = append(items, current)
-					}
+					items := []any{current}
 					_ = enc.Encode(map[string]any{"apiVersion": apiVersion, "kind": kind + "List", "metadata": map[string]string{"resourceVersion": current.ResourceVersion}, "items": items})
 					return
 				}
@@ -106,11 +87,9 @@ func TestAdmissionWatchReadinessRegression(t *testing.T) {
 				}
 				w.WriteHeader(http.StatusOK)
 				if initial {
-					if resource == "clusterpolicies" {
-						_ = enc.Encode(map[string]any{"type": "ADDED", "object": current})
-					}
+					_ = enc.Encode(map[string]any{"type": "ADDED", "object": current})
 					_ = enc.Encode(map[string]any{"type": "BOOKMARK", "object": map[string]any{"apiVersion": apiVersion, "kind": kind, "metadata": map[string]any{"resourceVersion": current.ResourceVersion, "annotations": map[string]string{metav1.InitialEventsAnnotationKey: "true"}}}})
-				} else if resource == "clusterpolicies" {
+				} else {
 					// Replay the current state if client-go resumes directly without a relist.
 					_ = enc.Encode(map[string]any{"type": "MODIFIED", "object": current})
 				}
@@ -133,13 +112,13 @@ func TestAdmissionWatchReadinessRegression(t *testing.T) {
 			clock := clocktesting.NewFakeClock(time.Now())
 			tracker := health.NewTracker(logr.Discard(), clock)
 			factory := kyvernoinformers.NewSharedInformerFactory(client, 0)
-			registerAdmissionInformers(factory, client, tracker, true)
-			cpol := factory.Kyverno().V1().ClusterPolicies()
-			require.Same(t, cpol.Informer(), factory.Kyverno().V1().ClusterPolicies().Informer())
+			registerAdmissionInformers(factory, client, tracker)
+			gce := factory.Kyverno().V2().GlobalContextEntries()
+			require.Same(t, gce.Informer(), factory.Kyverno().V2().GlobalContextEntries().Informer())
 			factory.Start(ctx.Done())
 			defer factory.Shutdown() // Cancel before waiting for the factory below.
 			defer cancel()
-			require.Eventually(t, func() bool { return cpol.Informer().HasSynced() && opened.Load() >= 4 && tracker.Ready() }, 10*time.Second, 10*time.Millisecond)
+			require.Eventually(t, func() bool { return gce.Informer().HasSynced() && opened.Load() >= 1 && tracker.Ready() }, 10*time.Second, 10*time.Millisecond)
 
 			deployment := informers.NewSharedInformerFactory(fake.NewSimpleClientset(), 0).Apps().V1().Deployments()
 			readiness := runtimeutils.NewRuntime(logr.Discard(), "", deployment, healthyCertificates{}, tracker.Ready)
@@ -148,30 +127,19 @@ func TestAdmissionWatchReadinessRegression(t *testing.T) {
 				handlers.Probe(readiness.IsReady)(out, httptest.NewRequest(http.MethodGet, "/health/readiness", nil))
 				return out.Code
 			}
-			cfg := config.NewDefaultConfiguration(false)
-			jp := jmespath.New(cfg)
-			policyEngine := engine.NewEngine(cfg, jp, nil, nil, imageverifycache.DisabledImageVerifyCache(), factories.DefaultContextLoaderFactory(nil), nil, nil)
-			admitted := func() bool {
-				current, err := cpol.Lister().Get("require-label")
-				require.NoError(t, err)
-				resource := unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "example", "namespace": "default", "labels": map[string]any{"approved": "old"}}}}
-				pc, err := engine.NewPolicyContext(jp, resource, kyvernov1.Create, nil, cfg)
-				require.NoError(t, err)
-				response := policyEngine.Validate(ctx, pc.WithPolicy(current))
-				require.Len(t, response.PolicyResponse.Rules, 1)
-				return response.IsSuccessful()
-			}
 			require.Equal(t, http.StatusOK, probe())
-			require.True(t, admitted())
+			current, err := gce.Lister().Get("require-label")
+			require.NoError(t, err)
+			require.Equal(t, "1", current.ResourceVersion)
 			mu.Lock()
 			disconnected = true
 			close(drop)
 			policy.ResourceVersion = "2"
-			// Change the policy through the independent control path while watches fail.
-			require.NoError(t, json.Unmarshal([]byte(`{"metadata":{"labels":{"approved":"new"}}}`), &policy.Spec.Rules[0].Validation.RawPattern))
+			// Change the entry through the independent control path while watches fail.
+			policy.Labels["approved"] = "new"
 			mu.Unlock()
 			require.Eventually(t, func() bool { return failedRequests.Load() > 0 }, 10*time.Second, 10*time.Millisecond)
-			require.True(t, cpol.Informer().HasSynced(), "HasSynced remains true after disconnection")
+			require.True(t, gce.Informer().HasSynced(), "HasSynced remains true after disconnection")
 			response, err := srv.Client().Get(srv.URL + "/unrelated")
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, response.StatusCode)
@@ -181,17 +149,18 @@ func TestAdmissionWatchReadinessRegression(t *testing.T) {
 			clock.Step(time.Nanosecond)
 			require.Equal(t, http.StatusInternalServerError, probe(), "regression: certificates alone incorrectly leave this replica ready")
 			require.True(t, readiness.IsLive(ctx))
-			require.True(t, admitted(), "the informer still holds the old policy during the outage")
+			current, err = gce.Lister().Get("require-label")
+			require.NoError(t, err)
+			require.Equal(t, "1", current.ResourceVersion, "the informer still holds the old object during the outage")
 			mu.Lock()
 			disconnected = false
 			drop = make(chan struct{})
 			mu.Unlock()
 			require.Eventually(t, func() bool {
 				clock.Step(time.Second)
-				current, err := cpol.Lister().Get("require-label")
+				current, err := gce.Lister().Get("require-label")
 				return err == nil && current.ResourceVersion == "2" && probe() == http.StatusOK
 			}, 15*time.Second, 10*time.Millisecond)
-			require.False(t, admitted(), "the recovered cache must evaluate the updated policy")
 		})
 	}
 }

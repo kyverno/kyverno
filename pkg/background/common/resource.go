@@ -169,11 +169,6 @@ func GetResource(client dclient.Interface, resourceSpec kyverno.ResourceSpec, ur
 		}
 		resource, err := client.GetResource(context.TODO(), resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
 		if err != nil {
-			if urSpec.GetRequestType() == kyvernov2.Mutate && errors.IsNotFound(err) && urSpec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
-				log.V(4).Info("trigger resource does not exist for mutateExisting rule", "operation", urSpec.Context.AdmissionRequestInfo.Operation)
-				return nil, nil
-			}
-
 			return nil, fmt.Errorf("resource %s/%s/%s/%s: %v", resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name, err)
 		}
 

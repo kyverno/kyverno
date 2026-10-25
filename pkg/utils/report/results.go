@@ -211,11 +211,6 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 	case pol.AsNamespacedGeneratingPolicy() != nil:
 		result.Source = SourceGeneratingPolicy
 		process = "admission review"
-
-	case pol.AsKyvernoPolicy() != nil:
-		kyvernoPolicy := pol.AsKyvernoPolicy()
-		result.Source = SourceKyverno
-		process = selectProcess(kyvernoPolicy.BackgroundProcessingEnabled(), kyvernoPolicy.AdmissionProcessingEnabled())
 	}
 	addProperty("process", process, &result)
 

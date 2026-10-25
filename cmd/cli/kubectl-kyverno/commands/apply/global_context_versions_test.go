@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -79,5 +81,35 @@ func TestApplyGlobalContextServedVersionFixtures(t *testing.T) {
 			require.Equal(t, &processor.ResultCounts{Pass: 2}, counts)
 			require.Len(t, responses, 2)
 		})
+	}
+}
+
+func TestGlobalContextProvider(t *testing.T) {
+	t.Parallel()
+	base := libs.NewFakeContextProvider()
+	base.AddGlobalReference("fallback", "mock")
+	cache := gctxstore.New(0)
+	objects := []interface{}{map[string]interface{}{"name": "cached-source"}}
+	require.NoError(t, cache.Set("cache", &staticEntry{
+		objects:     objects,
+		projections: map[string]interface{}{"names": []interface{}{"cached-source"}},
+	}))
+	provider := base
+	provider.SetGlobalContextStore(cache)
+	for _, ctx := range []libs.Context{provider, provider.Clone()} {
+		raw, err := ctx.GetGlobalReference("cache", "")
+		require.NoError(t, err)
+		require.Equal(t, objects, raw)
+		names, err := ctx.GetGlobalReference("cache", "names")
+		require.NoError(t, err)
+		require.Equal(t, []interface{}{"cached-source"}, names)
+		_, err = ctx.GetGlobalReference("cache", "missing")
+		require.EqualError(t, err, `projection "missing" not found`)
+		fallback, err := ctx.GetGlobalReference("fallback", "")
+		require.NoError(t, err)
+		require.Equal(t, "mock", fallback)
+		missing, err := ctx.GetGlobalReference("missing", "")
+		require.NoError(t, err)
+		require.Nil(t, missing)
 	}
 }

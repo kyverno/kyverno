@@ -7,7 +7,6 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	errors "github.com/pkg/errors"
@@ -63,9 +62,4 @@ func retryOrDeleteOnFailure(ctx context.Context, kyvernoClient versioned.Interfa
 	}
 
 	return ur, nil
-}
-
-func FindDownstream(ctx context.Context, client dclient.Interface, apiVersion, kind string, labels map[string]string) (*unstructured.UnstructuredList, error) {
-	selector := &metav1.LabelSelector{MatchLabels: labels}
-	return client.ListResource(ctx, apiVersion, kind, "", selector)
 }

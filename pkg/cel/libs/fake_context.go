@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,6 +15,7 @@ type FakeContextProvider struct {
 	resources          map[string]map[string]map[string]*unstructured.Unstructured
 	images             map[string]map[string]any
 	globalReferences   map[string]any
+	gctxStore          gctxstore.Store
 	httpMocks          map[string]interface{}
 	generatedResources []*unstructured.Unstructured
 	policyName         string
@@ -75,7 +77,16 @@ func (cp *FakeContextProvider) GetHTTPMocks() map[string]interface{} {
 	return cp.httpMocks
 }
 
+func (cp *FakeContextProvider) SetGlobalContextStore(store gctxstore.Store) {
+	cp.gctxStore = store
+}
+
 func (cp *FakeContextProvider) GetGlobalReference(name, projection string) (any, error) {
+	if cp.gctxStore != nil {
+		if entry, ok := cp.gctxStore.Get(name); ok {
+			return entry.Get(projection)
+		}
+	}
 	data, ok := cp.globalReferences[name]
 	if !ok {
 		return nil, nil

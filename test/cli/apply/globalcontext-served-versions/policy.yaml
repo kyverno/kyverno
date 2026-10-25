@@ -12,5 +12,9 @@ spec:
       operations: [CREATE, UPDATE]
       resources: ["*"]
   validations:
-  - expression: object.kind == 'ConfigMap'
-    message: GlobalContextEntry inputs must be extracted before target evaluation.
+  - expression: >-
+      object.kind == 'ConfigMap' &&
+      globalContext.get('version-cache', 'names').size() == 2 &&
+      'cached-source' in globalContext.get('version-cache', 'names') &&
+      'target' in globalContext.get('version-cache', 'names')
+    message: GlobalContextEntry inputs must be extracted and loaded before target evaluation.
