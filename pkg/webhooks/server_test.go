@@ -1,7 +1,9 @@
 package webhooks
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,13 +16,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
@@ -30,7 +36,7 @@ import (
 type mockHandler struct{}
 
 func (m *mockHandler) Execute(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) admissionv1.AdmissionResponse {
-	return admissionv1.AdmissionResponse{Allowed: true}
+	return admissionv1.AdmissionResponse{UID: request.UID, Allowed: true}
 }
 
 type mockDiscovery struct {
@@ -39,6 +45,10 @@ type mockDiscovery struct {
 
 func (m *mockDiscovery) DiscoveryCache() cache.SharedInformer {
 	return nil
+}
+
+func (m *mockDiscovery) GetGVKFromGVR(resource schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+	return schema.GroupVersionKind{Group: resource.Group, Version: resource.Version, Kind: "Secret"}, nil
 }
 
 type mockMetricsConfig struct {
@@ -143,7 +153,6 @@ func TestNewServer(t *testing.T) {
 		ValidatingPolicies: dummyHandler, NamespacedValidatingPolicies: dummyHandler,
 		GeneratingPolicies: dummyHandler, NamespacedGeneratingPolicies: dummyHandler,
 		ImageVerificationPolicies: dummyHandler, ImageVerificationPoliciesMutation: dummyHandler,
-		Mutation: dummyHandler, Validation: dummyHandler,
 	}
 	eHandlers := ExceptionHandlers{Validation: dummyHandler}
 	celHandlers := CELExceptionHandlers{Validation: dummyHandler}
@@ -155,7 +164,7 @@ func TestNewServer(t *testing.T) {
 		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
 		cfg, metricsMgr, debugOpts, tlsProvider,
 		mwcClient, vwcClient, leaseClient, runtimeMock,
-		rbLister, crbLister, discoveryMock, "localhost", 8080,
+		rbLister, crbLister, discoveryMock, "localhost", 8080, "",
 	)
 
 	assert.NotNil(t, s)
@@ -166,9 +175,13 @@ func TestNewServer(t *testing.T) {
 
 // buildTestServer wires NewServer with mock handlers, mirroring TestNewServer, and returns the
 // underlying httprouter so route registration can be asserted against the real server.
-func buildTestServer(t *testing.T) *httprouter.Router {
+func buildTestServer(t *testing.T, backgroundServiceAccountName string) *httprouter.Router {
 	t.Helper()
-	ctx := context.TODO()
+	return buildTestServerWithContext(t, context.Background(), backgroundServiceAccountName)
+}
+
+func buildTestServerWithContext(t *testing.T, ctx context.Context, backgroundServiceAccountName string) *httprouter.Router {
+	t.Helper()
 	dummyHandler := &mockHandler{}
 	cfg := config.NewDefaultConfiguration(false)
 	metricsMgr := &mockMetricsConfig{}
@@ -186,7 +199,7 @@ func buildTestServer(t *testing.T) *httprouter.Router {
 		ValidatingPolicies: dummyHandler, NamespacedValidatingPolicies: dummyHandler,
 		GeneratingPolicies: dummyHandler, NamespacedGeneratingPolicies: dummyHandler,
 		ImageVerificationPolicies: dummyHandler, ImageVerificationPoliciesMutation: dummyHandler,
-		Mutation: dummyHandler, Validation: dummyHandler,
+		NamespacedImageVerificationPolicies: dummyHandler, NamespacedImageVerificationPoliciesMutation: dummyHandler,
 	}
 	eHandlers := ExceptionHandlers{Validation: dummyHandler}
 	celHandlers := CELExceptionHandlers{Validation: dummyHandler}
@@ -198,7 +211,7 @@ func buildTestServer(t *testing.T) *httprouter.Router {
 		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
 		cfg, metricsMgr, debugOpts, tlsProvider,
 		mwcClient, vwcClient, leaseClient, runtimeMock,
-		rbLister, crbLister, discoveryMock, "localhost", 8080,
+		rbLister, crbLister, discoveryMock, "localhost", 8080, backgroundServiceAccountName,
 	)
 	srv, ok := s.(*server)
 	require.True(t, ok, "NewServer must return a *server")
@@ -214,7 +227,7 @@ func buildTestServer(t *testing.T) *httprouter.Router {
 // path the server does not serve and gets "the server could not find the requested resource"
 // (HTTP 404), meaning a NamespacedImageValidatingPolicy never runs at admission.
 func TestServer_NamespacedImageValidatingPolicyRoutesAreServed(t *testing.T) {
-	router := buildTestServer(t)
+	router := buildTestServer(t, "")
 
 	// All four image-validating-policy webhook paths registered by the webhook controller must be
 	// served by the webhook server, otherwise the API server's webhook call 404s.
@@ -299,4 +312,280 @@ func TestServerStopWithErrors(t *testing.T) {
 func TestServerRunDoesNotPanic(t *testing.T) {
 	s := &server{server: &http.Server{Addr: ":0"}}
 	assert.NotPanics(t, func() { s.Run(); time.Sleep(10 * time.Millisecond) })
+}
+
+func TestServerGenerationLabelProtection(t *testing.T) {
+	t.Parallel()
+	background := "system:serviceaccount:external-controllers:custom-background"
+	router := buildTestServer(t, background)
+	resource := func(labels map[string]string, value string) []byte {
+		object := map[string]any{
+			"apiVersion": "v1", "kind": "Secret",
+			"metadata": map[string]any{"name": "target", "namespace": "outside-trigger-scope", "labels": labels},
+			"data":     map[string]string{"value": value},
+		}
+		data, err := json.Marshal(object)
+		require.NoError(t, err)
+		return data
+	}
+	labels := map[string]string{"generate.kyverno.io/policy-name": "policy", "app.kubernetes.io/managed-by": "kyverno"}
+	tests := []struct {
+		name                 string
+		username             string
+		operation            admissionv1.Operation
+		newLabels, oldLabels map[string]string
+		allowed              bool
+	}{
+		{name: "tenant cannot create labels", username: "system:serviceaccount:tenant:editor", operation: admissionv1.Create, newLabels: labels},
+		{name: "unrelated installation account cannot create labels", username: config.KyvernoUserName("unrelated"), operation: admissionv1.Create, newLabels: labels},
+		{name: "unrelated installation account cannot remove labels", username: config.KyvernoUserName("unrelated"), operation: admissionv1.Update, oldLabels: labels},
+		{name: "configured background account creates labels", username: background, operation: admissionv1.Create, newLabels: labels, allowed: true},
+		{name: "configured admission account creates labels", username: config.KyvernoUserName(config.KyvernoServiceAccountName()), operation: admissionv1.Create, newLabels: labels, allowed: true},
+		{name: "background account name prefix is not trusted", username: background + "-other", operation: admissionv1.Create, newLabels: labels},
+		{name: "ordinary downstream edit retains labels", username: "system:serviceaccount:tenant:editor", operation: admissionv1.Update, oldLabels: labels, newLabels: labels, allowed: true},
+		{name: "standalone managed-by edit remains allowed", username: "system:serviceaccount:tenant:editor", operation: admissionv1.Create, newLabels: map[string]string{"app.kubernetes.io/managed-by": "kyverno"}, allowed: true},
+		{name: "clone-source edit remains allowed", username: "system:serviceaccount:tenant:editor", operation: admissionv1.Create, newLabels: map[string]string{"generate.kyverno.io/clone-source": ""}, allowed: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			request := &admissionv1.AdmissionRequest{
+				UID: "metadata-request", Namespace: "outside-trigger-scope", Operation: test.operation,
+				Kind:     metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+				Resource: metav1.GroupVersionResource{Version: "v1", Resource: "secrets"},
+				UserInfo: authenticationv1.UserInfo{Username: test.username},
+				Object:   runtime.RawExtension{Raw: resource(test.newLabels, "ZWRpdGVk")},
+			}
+			if test.operation == admissionv1.Update {
+				request.OldObject = runtime.RawExtension{Raw: resource(test.oldLabels, "b3JpZ2luYWw=")}
+			}
+			body, err := json.Marshal(admissionv1.AdmissionReview{TypeMeta: metav1.TypeMeta{APIVersion: "admission.k8s.io/v1", Kind: "AdmissionReview"}, Request: request})
+			require.NoError(t, err)
+			httpRequest := httptest.NewRequest(http.MethodPost, config.GenerationLabelProtectionWebhookServicePath, bytes.NewReader(body))
+			httpRequest.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httpRequest)
+			require.Equal(t, http.StatusOK, response.Code)
+			var review admissionv1.AdmissionReview
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &review))
+			require.NotNil(t, review.Response)
+			assert.Equal(t, request.UID, review.Response.UID)
+			assert.Equal(t, test.allowed, review.Response.Allowed)
+		})
+	}
+}
+
+type serverProtectionToggles struct {
+	toggle.Toggles
+	enabled bool
+}
+
+func (t serverProtectionToggles) ProtectManagedResources() bool {
+	return t.enabled
+}
+
+func TestServerProtectionRoutes(t *testing.T) {
+	t.Parallel()
+	const background = "system:serviceaccount:external-controllers:custom-background"
+	const tenant = "system:serviceaccount:tenant:editor"
+	routes := []string{
+		config.GenerationLabelProtectionWebhookServicePath,
+		"/mpol/policy", "/nmpol/policy", "/vpol/policy", "/nvpol/policy",
+		"/ivpol/validate/policy", "/ivpol/mutate/policy",
+		"/nivpol/validate/policy", "/nivpol/mutate/policy", "/gpol/policy", "/ngpol/policy",
+	}
+	association := `{"apiVersion":"v1","kind":"Secret","metadata":{"name":"target","labels":{"generate.kyverno.io/policy-name":"policy"}}}`
+	managed := `{"apiVersion":"v1","kind":"Secret","metadata":{"name":"target","labels":{"generate.kyverno.io/policy-name":"policy","app.kubernetes.io/managed-by":"kyverno"}}}`
+	tests := []struct {
+		name, username, object, oldObject string
+		generationAllowed, managedAllowed bool
+	}{
+		{name: "association is checked only on dedicated route", username: tenant, object: association, managedAllowed: true},
+		{name: "managed resource protection remains optional", username: tenant, object: managed},
+		{name: "configured external controller retains existing managed-resource restrictions", username: background, object: managed, generationAllowed: true},
+		{name: "configured admission controller", username: config.KyvernoUserName(config.KyvernoServiceAccountName()), object: managed, generationAllowed: true, managedAllowed: true},
+		{name: "external controller name suffix", username: background + "-other", object: managed},
+		{name: "installation namespace compatibility", username: config.KyvernoUserName("existing-account"), object: managed, managedAllowed: true},
+		{name: "ordinary downstream update", username: tenant, object: managed, oldObject: managed, generationAllowed: true},
+		{name: "association removal", username: tenant, object: `{"apiVersion":"v1","kind":"Secret","metadata":{"name":"target"}}`, oldObject: managed},
+		{name: "invalid resource is decoded only when protection applies", username: tenant, object: `[]`},
+	}
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("managed-protection=%t", enabled), func(t *testing.T) {
+			t.Parallel()
+			ctx := toggle.NewContext(context.Background(), serverProtectionToggles{Toggles: toggle.FromContext(context.Background()), enabled: enabled})
+			router := buildTestServerWithContext(t, ctx, background)
+			for _, route := range routes {
+				for _, test := range tests {
+					t.Run(route+"/"+test.name, func(t *testing.T) {
+						t.Parallel()
+						request := &admissionv1.AdmissionRequest{
+							UID: "protection-route", Namespace: "outside-trigger-scope", Name: "target", Operation: admissionv1.Create,
+							Kind:     metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+							Resource: metav1.GroupVersionResource{Version: "v1", Resource: "secrets"},
+							UserInfo: authenticationv1.UserInfo{Username: test.username},
+							Object:   runtime.RawExtension{Raw: []byte(test.object)},
+						}
+						if test.oldObject != "" {
+							request.Operation = admissionv1.Update
+							request.OldObject.Raw = []byte(test.oldObject)
+						}
+						body, err := json.Marshal(admissionv1.AdmissionReview{TypeMeta: metav1.TypeMeta{APIVersion: "admission.k8s.io/v1", Kind: "AdmissionReview"}, Request: request})
+						require.NoError(t, err)
+						httpRequest := httptest.NewRequest(http.MethodPost, route, bytes.NewReader(body))
+						httpRequest.Header.Set("Content-Type", "application/json")
+						response := httptest.NewRecorder()
+						router.ServeHTTP(response, httpRequest)
+						require.Equal(t, http.StatusOK, response.Code)
+						var review admissionv1.AdmissionReview
+						require.NoError(t, json.Unmarshal(response.Body.Bytes(), &review))
+						require.NotNil(t, review.Response)
+						assert.Equal(t, request.UID, review.Response.UID)
+						allowed := !enabled || test.managedAllowed
+						if route == config.GenerationLabelProtectionWebhookServicePath {
+							allowed = test.generationAllowed
+							if !allowed && test.object != `[]` {
+								require.NotNil(t, review.Response.Result)
+								assert.Contains(t, review.Response.Result.Message, "generate labels can only be set by Kyverno")
+							}
+						}
+						assert.Equal(t, allowed, review.Response.Allowed)
+					})
+				}
+			}
+		})
+	}
+}
+
+// TestServerLegacyPolicyDenial proves the policy and exception validating routes deny legacy
+// kyverno.io policy writes at the mux level (WithLegacyPolicyDenial), including the 1.20
+// behavioural flip: a status-subresource update is now denied, not allowed. The mock inner
+// handler always returns Allowed: true, so any denial observed here comes from the decorator,
+// not from the handler.
+func TestServerLegacyPolicyDenial(t *testing.T) {
+	t.Parallel()
+	router := buildTestServer(t, "")
+
+	terminatingOld := []byte(`{"metadata":{"name":"cpol","deletionTimestamp":"2024-01-01T00:00:00Z","finalizers":["kyverno.io/cleanup"]},"spec":{}}`)
+	terminatingNew := []byte(`{"metadata":{"name":"cpol","deletionTimestamp":"2024-01-01T00:00:00Z","finalizers":[]},"spec":{}}`)
+
+	tests := []struct {
+		name, route string
+		kind        metav1.GroupVersionKind
+		operation   admissionv1.Operation
+		subResource string
+		oldObject   []byte
+		object      []byte
+		allowed     bool
+	}{
+		{
+			name: "policy route: create ClusterPolicy denied", route: config.PolicyValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}, operation: admissionv1.Create,
+			object: []byte(`{"metadata":{"name":"cpol"},"spec":{}}`), allowed: false,
+		},
+		{
+			name: "policy route: top-level update denied", route: config.PolicyValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}, operation: admissionv1.Update,
+			oldObject: []byte(`{"metadata":{"name":"cpol"},"spec":{"a":1}}`), object: []byte(`{"metadata":{"name":"cpol"},"spec":{"a":2}}`), allowed: false,
+		},
+		{
+			// This is PR 1's headline behavioural flip: the per-binary legacy status writer that
+			// used to register "status" as a transitionally allowed subresource is gone, so this
+			// now denies rather than succeeds.
+			name: "policy route: status subresource update denied", route: config.PolicyValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}, operation: admissionv1.Update, subResource: "status",
+			oldObject: []byte(`{"metadata":{"name":"cpol"},"status":{"ready":false}}`), object: []byte(`{"metadata":{"name":"cpol"},"status":{"ready":true}}`), allowed: false,
+		},
+		{
+			name: "policy route: delete allowed", route: config.PolicyValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}, operation: admissionv1.Delete,
+			object: []byte(`{"metadata":{"name":"cpol"},"spec":{}}`), allowed: true,
+		},
+		{
+			name: "policy route: finalizer removal on terminating object allowed", route: config.PolicyValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}, operation: admissionv1.Update,
+			oldObject: terminatingOld, object: terminatingNew, allowed: true,
+		},
+		{
+			name: "exception route: create legacy PolicyException denied", route: config.ExceptionValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"}, operation: admissionv1.Create,
+			object: []byte(`{"metadata":{"name":"polex"},"spec":{}}`), allowed: false,
+		},
+		{
+			name: "exception route: delete allowed", route: config.ExceptionValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"}, operation: admissionv1.Delete,
+			object: []byte(`{"metadata":{"name":"polex"},"spec":{}}`), allowed: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			request := &admissionv1.AdmissionRequest{
+				UID: "legacy-denial", Operation: test.operation, SubResource: test.subResource,
+				Kind:      test.kind,
+				Object:    runtime.RawExtension{Raw: test.object},
+				OldObject: runtime.RawExtension{Raw: test.oldObject},
+			}
+			body, err := json.Marshal(admissionv1.AdmissionReview{TypeMeta: metav1.TypeMeta{APIVersion: "admission.k8s.io/v1", Kind: "AdmissionReview"}, Request: request})
+			require.NoError(t, err)
+			httpRequest := httptest.NewRequest(http.MethodPost, test.route, bytes.NewReader(body))
+			httpRequest.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httpRequest)
+			require.Equal(t, http.StatusOK, response.Code)
+			var review admissionv1.AdmissionReview
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &review))
+			require.NotNil(t, review.Response)
+			assert.Equal(t, request.UID, review.Response.UID)
+			assert.Equal(t, test.allowed, review.Response.Allowed)
+		})
+	}
+}
+
+// TestServerLegacyCompatRoutes proves every 1.19 path shape under /validate and /mutate still gets
+// a 200/allowed response instead of a 404, so a stale webhook configuration persisted from before
+// #17710 doesn't turn into a cluster-wide write denial on a failurePolicy: Fail webhook. The
+// negative control proves the test would actually catch a missing route.
+func TestServerLegacyCompatRoutes(t *testing.T) {
+	t.Parallel()
+	router := buildTestServer(t, "")
+
+	for _, base := range []string{config.ValidatingWebhookServicePath, config.MutatingWebhookServicePath} {
+		for _, path := range []string{
+			base,
+			base + "/ignore",
+			base + "/fail",
+			base + "/ignore" + config.FineGrainedWebhookPath + "/ns/name",
+			base + "/fail" + config.FineGrainedWebhookPath + "/ns/name",
+		} {
+			t.Run(path, func(t *testing.T) {
+				t.Parallel()
+				request := &admissionv1.AdmissionRequest{
+					UID:       "legacy-compat",
+					Operation: admissionv1.Create,
+					Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+					Object:    runtime.RawExtension{Raw: []byte(`{"metadata":{"name":"pod"}}`)},
+				}
+				body, err := json.Marshal(admissionv1.AdmissionReview{TypeMeta: metav1.TypeMeta{APIVersion: "admission.k8s.io/v1", Kind: "AdmissionReview"}, Request: request})
+				require.NoError(t, err)
+				httpRequest := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
+				httpRequest.Header.Set("Content-Type", "application/json")
+				response := httptest.NewRecorder()
+				router.ServeHTTP(response, httpRequest)
+				require.Equalf(t, http.StatusOK, response.Code, "POST %s must not 404: a stale 1.19 webhook configuration with failurePolicy Fail would deny every matching write", path)
+				var review admissionv1.AdmissionReview
+				require.NoError(t, json.Unmarshal(response.Body.Bytes(), &review))
+				require.NotNil(t, review.Response)
+				assert.Equal(t, request.UID, review.Response.UID)
+				assert.True(t, review.Response.Allowed)
+			})
+		}
+	}
+
+	// Negative control: an unregistered path under the same base must still 404, proving the
+	// compat routes above are specific registrations, not a catch-all that would swallow this test.
+	httpRequest := httptest.NewRequest(http.MethodPost, config.ValidatingWebhookServicePath+"/not-a-real-shape/extra/segments", bytes.NewReader([]byte("{}")))
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httpRequest)
+	assert.Equal(t, http.StatusNotFound, response.Code)
 }

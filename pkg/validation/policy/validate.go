@@ -20,7 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/deprecations"
+	"github.com/kyverno/kyverno/pkg/deprecations/policywarnings"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -127,7 +127,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
 	}
 
-	for _, warning := range deprecations.PolicyFieldWarnings(policy) {
+	for _, warning := range policywarnings.PolicyFieldWarnings(policy) {
 		warnings = append(warnings, warning.Message)
 	}
 	var errs field.ErrorList

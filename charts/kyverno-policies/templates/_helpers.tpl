@@ -81,17 +81,6 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
-{{/* Fail if deployed Kyverno does not match */}}
-{{- define "kyverno-policies.supportedKyvernoCheck" -}}
-{{- $supportedKyverno := index . "ver" -}}
-{{- $top := index . "top" }}
-{{- if (include "kyverno-policies.kyvernoVersion" $top) -}}
-  {{- if not ( semverCompare $supportedKyverno (include "kyverno-policies.kyvernoVersion" $top) ) -}}
-    {{- fail (printf "Kyverno version is too low, expected %s" $supportedKyverno) -}}
-  {{- end -}}
-{{- end -}}
-{{- end -}}
-
 {{/* Custom annotations with per-policy overrides.
      Merges default customAnnotations with per-policy overrides.
      Per-policy entries override defaults when they share the same key.
@@ -121,15 +110,6 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
   {{- end -}}
 {{- else -}}
   {{- $values.podSecuritySeverity | quote -}}
-{{- end -}}
-{{- end -}}
-
-{{/* Check if ValidatingPolicy should be used */}}
-{{- define "kyverno-policies.useValidatingPolicy" -}}
-{{- if eq .Values.policyType "ValidatingPolicy" -}}
-{{- true -}}
-{{- else -}}
-{{- false -}}
 {{- end -}}
 {{- end -}}
 
@@ -265,4 +245,16 @@ auditAnnotations:
 {{- if .Values.podSecurityUserNamespaces -}}
 {{- "object.spec.?hostUsers.orValue(true) == false ||" -}}
 {{- end -}}
+{{- end -}}
+
+{{/* Safe sysctls allowed by PSA for the cluster version. Never fewer than the v1.29 list. */}}
+{{- define "kyverno-policies.allowedSysctls" -}}
+{{- $sysctls := list "kernel.shm_rmid_forced" "net.ipv4.ip_local_port_range" "net.ipv4.tcp_syncookies" "net.ipv4.ping_group_range" "net.ipv4.ip_unprivileged_port_start" "net.ipv4.ip_local_reserved_ports" "net.ipv4.tcp_keepalive_time" "net.ipv4.tcp_fin_timeout" "net.ipv4.tcp_keepalive_intvl" "net.ipv4.tcp_keepalive_probes" -}}
+{{- if semverCompare ">=1.32.0-0" .Capabilities.KubeVersion.Version -}}
+{{- $sysctls = concat $sysctls (list "net.ipv4.tcp_rmem" "net.ipv4.tcp_wmem") -}}
+{{- end -}}
+{{- if semverCompare ">=1.37.0-0" .Capabilities.KubeVersion.Version -}}
+{{- $sysctls = concat $sysctls (list "net.ipv4.tcp_slow_start_after_idle" "net.ipv4.tcp_notsent_lowat") -}}
+{{- end -}}
+{{- range $i, $s := $sysctls }}{{ if $i }}, {{ end }}'{{ $s }}'{{ end -}}
 {{- end -}}

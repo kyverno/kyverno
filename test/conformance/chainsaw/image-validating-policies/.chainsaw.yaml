@@ -14,4 +14,6 @@ spec:
   namespace:
     fastDelete: true
   timeouts:
-    apply: 10s
+    # As long as the policies' webhook timeoutSeconds (up to 30s), so a slow image
+    # verification that the webhook still allows doesn't fail the create first.
+    apply: 30s

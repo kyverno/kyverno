@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"google.golang.org/protobuf/types/known/structpb"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
@@ -53,24 +54,25 @@ type jsonPatcher struct {
 	prog cel.Program
 }
 
-func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
-	patchObj, _, err := e.evaluatePatchExpression(ctx, runtimeCELCostBudget, evalData)
+func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, MutationEval, error) {
+	patchObj, _, eval, err := e.evaluatePatchExpression(ctx, runtimeCELCostBudget, evalData)
 	if err != nil {
-		return nil, err
+		return nil, eval, err
 	}
 	o := patchRequest.ObjectInterfaces
 	jsonSerializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, o.GetObjectCreater(), o.GetObjectTyper(), json.SerializerOptions{Pretty: false, Strict: true})
 	objJS, err := runtime.Encode(jsonSerializer, patchRequest.VersionedAttributes.VersionedObject)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create JSON patch: %w", err)
+		return nil, eval, fmt.Errorf("failed to create JSON patch: %w", err)
 	}
 	patchedJS, err := patchObj.Apply(objJS)
 	if err != nil {
 		if errors.Is(err, jsonpatch.ErrTestFailed) {
 			// If a json patch fails a test operation, the patch must not be applied
-			return patchRequest.VersionedAttributes.VersionedObject, nil
+			eval.NotApplied = "a test operation failed, so the object was left unchanged"
+			return patchRequest.VersionedAttributes.VersionedObject, eval, nil
 		}
-		return nil, fmt.Errorf("JSON Patch: %w", err)
+		return nil, eval, fmt.Errorf("JSON Patch: %w", err)
 	}
 
 	var newVersionedObject runtime.Object
@@ -79,23 +81,24 @@ func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchR
 	} else {
 		newVersionedObject, err = o.GetObjectCreater().New(patchRequest.VersionedAttributes.VersionedKind)
 		if err != nil {
-			return nil, apierrors.NewInternalError(err)
+			return nil, eval, apierrors.NewInternalError(err)
 		}
 	}
 
 	if newVersionedObject, _, err = jsonSerializer.Decode(patchedJS, nil, newVersionedObject); err != nil {
-		return nil, apierrors.NewInternalError(err)
+		return nil, eval, apierrors.NewInternalError(err)
 	}
 
-	return newVersionedObject, nil
+	return newVersionedObject, eval, nil
 }
 
-func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudget int64, evalData map[string]any) (jsonpatch.Patch, int64, error) {
+func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudget int64, evalData map[string]any) (jsonpatch.Patch, int64, MutationEval, error) {
 	var err error
 
 	refVal, _, err := e.prog.ContextEval(ctx, evalData)
+	eval := MutationEval{Result: refVal}
 	if err != nil {
-		return nil, -1, err
+		return nil, -1, eval, err
 	}
 
 	// the return type can be any valid CEL value.
@@ -106,7 +109,7 @@ func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudg
 	iter, ok := refVal.(traits.Lister)
 	if !ok {
 		// Should never happen since compiler checks return type.
-		return nil, -1, fmt.Errorf("type mismatch: JSONPatchType.expression should evaluate to array")
+		return nil, -1, eval, fmt.Errorf("type mismatch: JSONPatchType.expression should evaluate to array")
 	}
 	result := jsonpatch.Patch{}
 	for it := iter.Iterator(); it.HasNext() == types.True; {
@@ -114,12 +117,12 @@ func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudg
 		patchObj, err := v.ConvertToNative(reflect.TypeOf(&mutation.JSONPatchVal{}))
 		if err != nil {
 			// Should never happen since return type is checked by compiler.
-			return nil, -1, fmt.Errorf("type mismatch: JSONPatchType.expression should evaluate to array of JSONPatch: %w", err)
+			return nil, -1, eval, fmt.Errorf("type mismatch: JSONPatchType.expression should evaluate to array of JSONPatch: %w", err)
 		}
 		op, ok := patchObj.(*mutation.JSONPatchVal)
 		if !ok {
 			// Should never happen since return type is checked by compiler.
-			return nil, -1, fmt.Errorf("type mismatch: JSONPatchType.expression should evaluate to array of JSONPatch, got element of %T", patchObj)
+			return nil, -1, eval, fmt.Errorf("type mismatch: JSONPatchType.expression should evaluate to array of JSONPatch, got element of %T", patchObj)
 		}
 
 		// Construct a JSON Patch from the evaluated CEL expression
@@ -130,28 +133,9 @@ func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudg
 			resultOp["from"] = pointer.To(gojson.RawMessage(strconv.Quote(op.From)))
 		}
 		if op.Val != nil {
-			if objVal, ok := op.Val.(*dynamic.ObjectVal); ok {
-				// TODO: Object initializers are insufficiently type checked.
-				// In the interim, we use this sanity check to detect type mismatches
-				// between field names and Object initializers. For example,
-				// "Object.spec{ selector: Object.spec.wrong{}}" is detected as a mismatch.
-				// Before beta, attaching full type information both to Object initializers and
-				// the "object" and "oldObject" variables is needed. This will allow CEL to
-				// perform comprehensive runtime type checking.
-				err := objVal.CheckTypeNamesMatchFieldPathNames()
-				if err != nil {
-					return nil, -1, fmt.Errorf("type mismatch: %w", err)
-				}
-			}
-			// CEL data literals representing arbitrary JSON values can be serialized to JSON for use in
-			// JSON Patch if first converted to pb.Value.
-			v, err := op.Val.ConvertToNative(reflect.TypeOf(&structpb.Value{}))
+			b, err := patchValueToJSON(op.Val)
 			if err != nil {
-				return nil, -1, fmt.Errorf("JSONPath valueExpression evaluated to a type that could not marshal to JSON: %w", err)
-			}
-			b, err := gojson.Marshal(v)
-			if err != nil {
-				return nil, -1, fmt.Errorf("JSONPath valueExpression evaluated to a type that could not marshal to JSON: %w", err)
+				return nil, -1, eval, err
 			}
 			resultOp["value"] = pointer.To[gojson.RawMessage](b)
 		}
@@ -159,5 +143,84 @@ func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudg
 		result = append(result, resultOp)
 	}
 
-	return result, remainingBudget, nil
+	return result, remainingBudget, eval, nil
+}
+
+// patchValueToJSON encodes the value of a single JSON Patch operation.
+//
+// Object initializers are converted through their native map rather than through
+// structpb. ObjectVal.ConvertToNative answers a request for a *structpb.Value with a
+// *structpb.Struct, which goes unnoticed for a bare object because the result is
+// marshalled immediately and both encode to the same JSON.
+//
+// It does not go unnoticed once the object sits inside a container. cel-go converts a
+// list to []*structpb.Value and a map to map[string]*structpb.Value, then fills each in
+// by reflection, where the element type is enforced and the mismatch panics: Set for a
+// list, SetMapIndex for a map. Both containers are therefore encoded entry by entry so
+// that neither collection is ever built, which also makes the type-name check reachable
+// for the objects inside them.
+func patchValueToJSON(val ref.Val) (gojson.RawMessage, error) {
+	switch typed := val.(type) {
+	case *dynamic.ObjectVal:
+		// TODO: Object initializers are insufficiently type checked.
+		// In the interim, we use this sanity check to detect type mismatches
+		// between field names and Object initializers. For example,
+		// "Object.spec{ selector: Object.spec.wrong{}}" is detected as a mismatch.
+		// Before beta, attaching full type information both to Object initializers and
+		// the "object" and "oldObject" variables is needed. This will allow CEL to
+		// perform comprehensive runtime type checking.
+		if err := typed.CheckTypeNamesMatchFieldPathNames(); err != nil {
+			return nil, fmt.Errorf("type mismatch: %w", err)
+		}
+		native, err := typed.ConvertToNative(reflect.TypeOf(map[string]any{}))
+		if err != nil {
+			return nil, unmarshalableValue(err)
+		}
+		return marshalPatchValue(native)
+	case traits.Lister:
+		elements := []gojson.RawMessage{}
+		for it := typed.Iterator(); it.HasNext() == types.True; {
+			element, err := patchValueToJSON(it.Next())
+			if err != nil {
+				return nil, err
+			}
+			elements = append(elements, element)
+		}
+		return marshalPatchValue(elements)
+	case traits.Mapper:
+		entries := map[string]gojson.RawMessage{}
+		for it := typed.Iterator(); it.HasNext() == types.True; {
+			key := it.Next()
+			name, ok := key.Value().(string)
+			if !ok {
+				return nil, fmt.Errorf("JSONPath valueExpression evaluated to a map with a %T key, only string keys can marshal to JSON", key.Value())
+			}
+			entry, err := patchValueToJSON(typed.Get(key))
+			if err != nil {
+				return nil, err
+			}
+			entries[name] = entry
+		}
+		return marshalPatchValue(entries)
+	default:
+		// CEL data literals representing arbitrary JSON values can be serialized to JSON for use in
+		// JSON Patch if first converted to pb.Value.
+		v, err := val.ConvertToNative(reflect.TypeOf(&structpb.Value{}))
+		if err != nil {
+			return nil, unmarshalableValue(err)
+		}
+		return marshalPatchValue(v)
+	}
+}
+
+func marshalPatchValue(v any) (gojson.RawMessage, error) {
+	b, err := gojson.Marshal(v)
+	if err != nil {
+		return nil, unmarshalableValue(err)
+	}
+	return b, nil
+}
+
+func unmarshalableValue(err error) error {
+	return fmt.Errorf("JSONPath valueExpression evaluated to a type that could not marshal to JSON: %w", err)
 }

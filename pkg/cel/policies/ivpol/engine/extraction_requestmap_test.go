@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -208,7 +209,9 @@ type countingNilThunkCompiledPolicy struct {
 
 func (c *countingNilThunkCompiledPolicy) Evaluate(
 	_ context.Context,
-	_ *imageverify.Runtime,
+	_ imagedataloader.ImageContext,
+	_ imageverifycache.Client,
+	_ *imageverify.ImageVerificationResults,
 	_ admission.Attributes,
 	_ interface{},
 	_ apiruntime.Object,
@@ -223,13 +226,17 @@ func (c *countingNilThunkCompiledPolicy) Evaluate(
 	return &eval.EvaluationResult{Result: true}, nil
 }
 
+func (c *countingNilThunkCompiledPolicy) Tracing() bool { return false }
+
 func (c *countingNilThunkCompiledPolicy) EnforceRequired(images []string, _ *imageverify.ImageVerificationResults) error {
 	return nil
 }
 
 func (c *countingNilThunkCompiledPolicy) MutateDigest(
 	context.Context,
-	*imageverify.Runtime,
+	imagedataloader.ImageContext,
+	imageverifycache.Client,
+	*imageverify.ImageVerificationResults,
 	admission.Attributes,
 	interface{},
 	apiruntime.Object,
@@ -281,7 +288,7 @@ func TestEvaluateExtractedIv_BuildsExactlyOncePerTemplate_NeverSharesOuterThunk(
 
 	compiled := &countingNilThunkCompiledPolicy{t: t}
 	e := &engineImpl{}
-	result, err := e.evaluateExtractedIv(context.Background(), compiled, &imageverify.Runtime{ImageContext: fakeImageContext{}}, attr, request, nil, nil)
+	result, err := e.evaluateExtractedIv(context.Background(), compiled, fakeImageContext{}, nil, nil, attr, request, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Nil(t, result.Error)
