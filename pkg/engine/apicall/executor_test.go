@@ -811,3 +811,29 @@ func Test_DialContext_DeadlineRespectsShorterParent(t *testing.T) {
 	assert.Assert(t, got.Sub(parent).Abs() < 50*time.Millisecond,
 		"the caller's shorter deadline must win over dialTimeout")
 }
+
+func Test_ExecuteServiceCall_PreservesEmptyUserContentTypeForPost(t *testing.T) {
+	withEmptyEgressBlocklist(t)
+	var gotContentType []string
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotContentType = r.Header.Values("Content-Type")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer s.Close()
+
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, apiConfig)
+	call := &kyvernov1.APICall{
+		Method: "POST",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL,
+			Headers: []kyvernov1.HTTPHeader{
+				{Key: "Content-Type", Value: ""},
+			},
+		},
+	}
+
+	_, err := executor.Execute(context.TODO(), call)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, gotContentType, []string{""})
+}
