@@ -40,8 +40,6 @@ area/validation:
     - changed-files:
         - any-glob-to-any-file:
             - pkg/engine/validate/**
-            - pkg/engine/validation.go
-            - pkg/engine/validation_test.go
             - pkg/validation/**
 
 area/mutation:
@@ -51,10 +49,6 @@ area/mutation:
     - changed-files:
         - any-glob-to-any-file:
             - pkg/engine/mutate/**
-            - pkg/engine/mutation.go
-            - pkg/engine/mutation_test.go
-            - pkg/engine/forceMutate.go
-            - pkg/engine/forceMutate_test.go
 
 area/generation:
   color: 0052cc
@@ -62,7 +56,6 @@ area/generation:
   rules:
     - changed-files:
         - any-glob-to-any-file:
-            - pkg/engine/generation.go
             - pkg/background/**
 
 # ── Area: Image Verification (indigo #3F51B5) ───────────────────────────────
@@ -72,8 +65,6 @@ area/image-verify:
   rules:
     - changed-files:
         - any-glob-to-any-file:
-            - pkg/engine/image_verify.go
-            - pkg/engine/image_verify_test.go
             - pkg/image/**
 
 area/cosign:
