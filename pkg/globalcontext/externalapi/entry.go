@@ -30,7 +30,8 @@ type entry struct {
 	err         error
 	stop        func()
 	stopOnce    sync.Once
-	publishMu   sync.Mutex // serializes shutdown with data, status, and event publication
+	publishMu   sync.Mutex // serializes shutdown with cache and event publication
+	statusMu    sync.Mutex // serializes status refreshes with completed shutdown
 	stopped     bool       // guarded by publishMu
 	projections []store.Projection
 }
@@ -71,15 +72,17 @@ func New(
 		dataMap:     make(map[string]any),
 		projections: projections,
 	}
-	// Cancel first so status updates (which perform Kubernetes I/O outside
-	// publishMu) can be interrupted even if publication is in progress.
-	// After acquiring the publication gate, reject any later poll side effects.
+	// Cancel before waiting for any in-flight I/O. statusMu prevents a
+	// refresh from surviving the transition to stopped; publishMu guards
+	// cache and event publication. Neither gate blocks cancellation itself.
 	e.stop = func() {
 		cancel()
+		e.statusMu.Lock()
 		e.publishMu.Lock()
 		e.stopped = true
 		e.publishMu.Unlock()
-		// Never wait while holding publishMu: the worker may need that lock.
+		e.statusMu.Unlock()
+		// Wait only after releasing both locks to avoid worker deadlocks.
 		group.Wait()
 	}
 
@@ -112,17 +115,35 @@ func New(
 				}
 			})
 
-			// REST calls use the cancelable poll context; they never hold the
-			// shutdown gate and cannot keep Stop from signaling cancellation.
-			if err == nil && shouldUpdateStatus && ctx.Err() == nil {
-				if updateErr := updateStatus(ctx, gce, kyvernoClient); updateErr != nil && ctx.Err() == nil {
-					logger.Error(updateErr, "failed to update status")
-				}
+			// Status publication uses a separate gate from cache/events.
+			// Stop cancels the context before waiting for statusMu, so an
+			// in-flight Kubernetes request can exit on cancellation.
+			if err == nil && shouldUpdateStatus {
+				e.refreshStatus(ctx, gce, kyvernoClient, logger)
 			}
 		}, period)
 	})
 
 	return e, nil
+}
+
+// refreshStatus prevents a status update from outliving the stopped state.
+// Do not acquire publishMu while holding statusMu: Stop acquires statusMu
+// before marking stopped under publishMu.
+func (e *entry) refreshStatus(
+	ctx context.Context,
+	gce *kyvernov2beta1.GlobalContextEntry,
+	kyvernoClient versioned.Interface,
+	logger logr.Logger,
+) {
+	e.statusMu.Lock()
+	defer e.statusMu.Unlock()
+	if ctx.Err() != nil {
+		return
+	}
+	if err := updateStatus(ctx, gce, kyvernoClient); err != nil && ctx.Err() == nil {
+		logger.Error(err, "failed to update status")
+	}
 }
 
 // publish guards cache and event publication against completed shutdown.
