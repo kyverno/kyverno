@@ -16,8 +16,8 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-// castPolicy only recognizes CEL policy kinds (gpol/ngpol/mpol/nmpol).
-// Legacy kyvernov1.ClusterPolicy/Policy inputs return nil.
+// castPolicy only recognizes CEL policy kinds (gpol/ngpol/mpol/nmpol); any
+// other input, including legacy kyverno.io types, returns nil.
 func castPolicy(p interface{}) engineapi.GenericPolicy {
 	var policy engineapi.GenericPolicy
 	switch obj := p.(type) {
