@@ -7,9 +7,10 @@ global context controller, image verification, and the CLI — not an engine in 
 
 ## What's here
 
-- `api`: the policy-context types (`PolicyContext`, `RuleResponse`, `EngineResponse`) and their copy-on-write
-  semantics. `PolicyContext` carries the admission request/old/new resource and is cloned (`Copy()`), not
-  mutated in place, when a caller needs an isolated view for a nested evaluation.
+- `api`: shared result/policy types — `EngineResponse`, `PolicyResponse`, `RuleResponse`, `GenericPolicy`
+  (wraps both admission-policy and CEL policy kinds behind one interface), `GenericException`, and the
+  `Client`/`ResourceClient`/`RegistryClient` interfaces `apicall`/`context` loaders depend on. There is no
+  `PolicyContext` type or `Copy()`/copy-on-write mechanism in this tree any more.
 - `apicall`: executes `APICall`/context-entry HTTP calls. `executor.go` enforces an egress policy that blocks
   loopback and link-local ranges (including IPv4-mapped/compatible and NAT64-encoded forms of
   `169.254.169.254`, the cloud metadata address) unless explicitly allow-listed — this is SSRF hardening, not
@@ -21,17 +22,21 @@ global context controller, image verification, and the CLI — not an engine in 
 - `variables`: `ReplaceAllVars`/`SubstituteAll` and condition evaluation (`AnyAllConditions`, `Condition`,
   `ConditionOperator`). Still imports `kyvernov1` for the condition/rule types kept in the `api/kyverno/v1`
   root after PR 4; it does not evaluate legacy policy rules.
-- `jmespath`: the custom JMESPath function registry (`NewFunctionRegistry`) used by `variables` and by CEL's
-  `context` library.
+- `jmespath`: the custom JMESPath function registry (`NewFunctionRegistry`), used by `variables`,
+  `apicall`, `context`/`context/loaders`, the global context controller/store, the CLI, and
+  `cmd/internal`/`cmd/background-controller` bootstrap — not by `pkg/cel`.
 - `anchor`, `pattern`, `validate`, `operator`, `wildcards`, `jsonutils`: pattern/anchor matching and JSON
-  traversal primitives, originally written for legacy rule validation, now shared by the CLI's JMESPath
-  tooling and by nothing else that executes against live admission traffic.
+  traversal primitives, originally written for legacy rule validation. Still live in the admission path:
+  `anchor` is imported by `wildcards`, `validate`, `variables`, and `mutate/patch` (which is itself on the
+  live `ivpol`/`mpol` admission handlers — see below); `pattern` is imported by `validate` and
+  `variables/operator`.
 - `mutate/patch`: strategic-merge and JSON-6902 patch generation (`strategicMergePatch.go`,
-  `patchJSON6902.go`), used by `pkg/admissionpolicy` to build `MutatingAdmissionPolicy` patches and by the CLI.
+  `patchJSON6902.go`). Real importers are `pkg/webhooks/resource/ivpol/handler.go` and
+  `pkg/webhooks/resource/mpol/handler.go` — it is on the live admission request path, not a CLI-only helper.
 - `adapters`: thin adapters from `pkg/clients/dclient`/`pkg/clients/kube` client interfaces to the narrower
   interfaces `apicall`/`context` loaders expect.
 - `handlers`: down to `handler.go`'s single helper, `WithResponses(...)`, which filters nil `RuleResponse`s
-  into a slice; used by callers that still build engine-style rule responses (CEL `gpol`/`mpol` processors).
+  into a slice; its real callers are `pkg/cel/policies/vpol/engine` and `pkg/cel/policies/mpol/engine`.
 
 ## Working here
 

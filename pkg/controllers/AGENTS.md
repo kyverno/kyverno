@@ -13,15 +13,18 @@ Most controllers implement the one-method `Controller` interface (`Run(context.C
 queue, workers, maxRetries, reconcileFunc, routines...)` call — identical across nearly every *queue-backed*
 controller in this package. This is not a universal pattern, though — several subdirectories opt out:
 `pkg/controllers/generic/logging` doesn't use a workqueue or implement `Controller.Run` at all — it's a
-fire-and-forget event logger wired directly to informer callbacks (used for CleanupPolicy/ClusterCleanupPolicy
-change logging). `pkg/controllers/metrics/updaterequest` is the same shape: a callback-only constructor
+fire-and-forget event logger wired directly to informer callbacks. #17710 PR 4 deleted its last caller
+(`cmd/cleanup-controller/main.go`'s CleanupPolicy/ClusterCleanupPolicy change logging); nothing in the tree
+constructs it any more, so treat it as dead code pending removal, not a live pattern to copy.
+`pkg/controllers/metrics/updaterequest` is the same shape: a callback-only constructor
 subscribed to an OTel scrape callback and backed by an informer lister, with no `Controller.Run`, no queue, and
 no `controllerutils.Run` call. `pkg/controllers/metrics/legacypolicy` is a third shape, not either of the above:
 it does implement `Controller.Run`, wired through `internal.NewController` like a queue-backed controller, but
-`Run` drives a plain `wait.UntilWithContext` timer loop (`refreshInterval`, 30s) instead of a workqueue — there
-is no informer behind it at all since #17710 PR 4 narrowed the admission/cleanup controllers' RBAC to `list`
-only; the gauge is refreshed by listing via the metadata client, not by watching. Don't assume the queue
-pattern applies to any of these three.
+`Run` drives a plain `wait.UntilWithContext` timer loop (`refreshInterval`, 30s) instead of a workqueue. There
+is no informer behind it because #17710 PR 4 deleted the legacy engine's typed `kyverno.io` listers, which
+forced the gauge onto metadata-only `list` calls instead of a watch — and that, in turn, is what let the chart
+narrow the admission/cleanup controllers' RBAC for these kinds down to `list` only (no `watch`). Don't assume
+the queue pattern applies to any of these three.
 
 ## Subdirectory → responsibility → leader election
 
@@ -44,7 +47,7 @@ leader-elected = created before/outside that block, so it runs on every replica.
 | `ttl` | Deletes TTL-annotated expired resources via a metadata-only client | Yes |
 | `webhook` | Creates/reconciles Kyverno's dynamic `ValidatingWebhookConfiguration`/`MutatingWebhookConfiguration`, plus a watchdog routine | Yes |
 | `generic/configmap` | Watches the Kyverno config ConfigMap, reloads `config.Configuration` in-memory | No (runs everywhere) |
-| `generic/logging` | Generic CRD-change logger, reused for cleanup policy kinds | No (no queue at all) |
+| `generic/logging` | Generic CRD-change logger — unused since #17710 PR 4 deleted its last caller | n/a (no caller) |
 | `generic/webhook` | Generic webhook-configuration reconciler, reused for cleanup/ttl webhook configs outside `cmd/kyverno` | Yes (from within leader callbacks) |
 
 `generic/webhook.NewController` takes a trailing `...Option`. The only option, `WithoutConfigMatchConditions()`,
