@@ -111,6 +111,7 @@ func (p *Policy) evaluateWithData(
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
 	}
+	libs.BindRequestContext(ctx, data.Context, dataNew)
 	// check if the resource matches an exception
 	var refused *RefusedException
 	if len(p.exceptions) > 0 {
@@ -341,7 +342,10 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 	if ast != nil {
 		source = ast.Source().Content()
 	}
-	return trace.Build(source, ast, out, details)
+	et := trace.Build(source, ast, out, details)
+	// an expression with an external or non-repeatable call is never re-run to explain it
+	et.NoBreakdown = compiler.NoBreakdownReason(ast)
+	return et
 }
 
 // resolveMessage returns the message to report for a failed validation, preferring

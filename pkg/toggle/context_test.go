@@ -14,7 +14,6 @@ type mockToggles struct {
 	generateMutatingAdmissionPolicy   bool
 	dumpMutatePatches                 bool
 	allowHTTPInNamespacedPolicies     bool
-	blockLegacyPolicyAPIs             bool
 }
 
 func (m mockToggles) ProtectManagedResources() bool  { return m.protectManagedResources }
@@ -26,7 +25,6 @@ func (m mockToggles) GenerateValidatingAdmissionPolicy() bool {
 func (m mockToggles) GenerateMutatingAdmissionPolicy() bool { return m.generateMutatingAdmissionPolicy }
 func (m mockToggles) DumpMutatePatches() bool               { return m.dumpMutatePatches }
 func (m mockToggles) AllowHTTPInNamespacedPolicies() bool   { return m.allowHTTPInNamespacedPolicies }
-func (m mockToggles) BlockLegacyPolicyAPIs() bool           { return m.blockLegacyPolicyAPIs }
 
 func TestNewContext(t *testing.T) {
 	tests := []struct {

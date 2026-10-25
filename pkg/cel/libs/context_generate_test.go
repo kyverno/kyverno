@@ -74,7 +74,7 @@ func TestGenerateResources_NamespacedPolicyAllowsNamespaced(t *testing.T) {
 
 // A cluster-scoped policy uses an empty namespace argument and may still
 // generate cluster-scoped resources.
-func TestGenerateResources_ClusterPolicyAllowsClusterScoped(t *testing.T) {
+func TestGenerateResources_ClusterScopedPolicyAllowsClusterScoped(t *testing.T) {
 	cp := &contextProvider{
 		cliEvaluation: true,
 		restMapper:    generateTestRESTMapper(),
