@@ -555,8 +555,15 @@ func checkAnnotations(payloads []payload.SimpleContainerImage, annotations map[s
 		allMatch := true
 		for key, val := range annotations {
 			if val != p.Optional[key] {
-				errs = append(errs, fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
-					p.Optional[key], val, key))
+				if actual, ok := p.Optional[key]; !ok {
+					errs = append(errs, fmt.Errorf("annotations mismatch: key %s is missing, expected value %s", key, val))
+				} else if actualString, ok := actual.(string); ok {
+					errs = append(errs, fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
+						actualString, val, key))
+				} else {
+					errs = append(errs, fmt.Errorf("annotations mismatch: %v (%T) does not match expected value %s for key %s",
+						actual, actual, val, key))
+				}
 				allMatch = false
 				break
 			}
@@ -567,7 +574,7 @@ func checkAnnotations(payloads []payload.SimpleContainerImage, annotations map[s
 		}
 	}
 
-	return fmt.Errorf("no signature matched the required annotations")
+	return fmt.Errorf("no signature matched the required annotations: %v", errs)
 }
 
 func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
