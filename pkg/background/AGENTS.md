@@ -30,6 +30,16 @@ silently dropping it. After processing, it **re-fetches the UR live** (not from 
 updating status — `Completed` deletes the UR, `Failed` resets it to `Pending` for retry. This live re-fetch
 specifically avoids a race where a completed UR would never get deleted.
 
+An empty live state is the create-without-Pending case (#18194): create and the first `Pending` status write
+are separate calls, and a failed status write used to leave the request unprocessed forever while it still
+counted toward `updateRequestThreshold`. That sync does not run `processUR`. Once the live object is older
+than `emptyStateRecoveryDelay` (5s, past `generator.applyResource`'s 3s retry of the initial status write),
+reconcile sets `Pending` and the status update requeues the normal path. A younger empty object is left
+unchanged and requeued for the rest of that delay, so the creator's in-flight `UpdateStatus` is not
+overwritten (a conflict there makes the caller submit a second request). The decision uses the fresh read,
+so a newer `Pending`, `Skip`, `Failed`, or `Completed` state is not repaired from a stale empty informer
+copy. Legacy mutate/generate requests never reach this recovery; they are deleted above.
+
 ## CEL gpol/mpol are the only policy execution paths left here
 
 The legacy `generate`/`mutateExisting` controllers (which re-fetched the `PolicyInterface` and ran it through the

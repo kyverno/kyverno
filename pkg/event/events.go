@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	corev1 "k8s.io/api/core/v1"
@@ -149,7 +149,7 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	}
 }
 
-func NewResourceGenerationEvent(policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
+func NewResourceGenerationEvent(policy, rule string, source Source, resource kyverno.ResourceSpec) Info {
 	msg := fmt.Sprintf("Created %s %s as a result of applying policy %s/%s", resource.GetKind(), resource.GetName(), policy, rule)
 	regarding := corev1.ObjectReference{
 		APIVersion: resource.APIVersion,
@@ -167,7 +167,7 @@ func NewResourceGenerationEvent(policy, rule string, source Source, resource kyv
 	}
 }
 
-func NewBackgroundFailedEvent(err error, policy engineapi.GenericPolicy, rule string, source Source, resource kyvernov1.ResourceSpec) []Info {
+func NewBackgroundFailedEvent(err error, policy engineapi.GenericPolicy, rule string, source Source, resource kyverno.ResourceSpec) []Info {
 	events := make([]Info, 0, 1)
 	regarding := corev1.ObjectReference{
 		// TODO: iirc it's not safe to assume api version is set
@@ -201,7 +201,7 @@ func NewBackgroundFailedEvent(err error, policy engineapi.GenericPolicy, rule st
 	return events
 }
 
-func NewBackgroundSuccessEvent(source Source, policy engineapi.GenericPolicy, resources []kyvernov1.ResourceSpec) []Info {
+func NewBackgroundSuccessEvent(source Source, policy engineapi.GenericPolicy, resources []kyverno.ResourceSpec) []Info {
 	events := make([]Info, 0, len(resources))
 	msg := "resource generated"
 	action := ResourceGenerated
@@ -383,7 +383,7 @@ func NewValidatingAdmissionPolicyEvent(policy engineapi.GenericPolicy, vapName, 
 	return []Info{vapEvent, vapBindingEvent}
 }
 
-func NewFailedEvent(err error, policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
+func NewFailedEvent(err error, policy, rule string, source Source, resource kyverno.ResourceSpec) Info {
 	var msg string
 	if rule == "" {
 		msg = fmt.Sprintf("policy %s error: %v", policy, err)
