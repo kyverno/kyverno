@@ -22,7 +22,7 @@ const (
 // controller reports the kyverno_legacy_policies_total gauge at every scrape, from counts
 // refreshed in the background every refreshInterval. It is shared by the admission
 // controller and the cleanup controller: each process constructs it with counters for only
-// the legacy kinds it natively watches.
+// the legacy kinds it owns, read via metadata-only List calls, not an informer watch.
 type controller struct {
 	metrics  metrics.LegacyPolicyMetrics
 	group    string

@@ -921,15 +921,15 @@ prometheusRule:
   #       - alert: KyvernoPolicyExecutionHighLatency
   #         expr: |
   #           histogram_quantile(0.99,
-  #             sum(rate(kyverno_policy_execution_duration_seconds_bucket[5m])) by (le, rule_type)
+  #             sum(rate(kyverno_validating_policy_execution_duration_seconds_bucket[5m])) by (le, policy_name)
   #           ) > 0.5
   #         for: 5m
   #         labels:
   #           severity: warning
   #         annotations:
-  #           summary: Kyverno policy execution p99 latency is elevated
+  #           summary: Kyverno validating policy execution p99 latency is elevated
   #           description: >-
-  #             {{ $labels.rule_type }} rule p99 execution latency is
+  #             {{ $labels.policy_name }} p99 execution latency is
   #             {{ $value | humanizeDuration }}.
   #           runbook_url: https://kyverno.io/docs/guides/monitoring/#policy-execution-latency-high
 
