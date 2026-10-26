@@ -192,6 +192,13 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 	oldResource := v.policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
+	// Checkpoint and re-load rule context so variables are evaluated against the old resource,
+	// not the new one, avoiding a false "pre-existing violations" skip. The checkpoint is taken
+	// before switching resources and operation, and restored after they are reset (deferred calls
+	// run in reverse order), so context entries reloaded on restore see the new resource again.
+	v.policyContext.JSONContext().Checkpoint()
+	defer v.policyContext.JSONContext().Restore()
+
 	if err = v.policyContext.SetResources(emptyResource, oldResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to set resources")
 	}
@@ -209,11 +216,6 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 			v.log.Error(errors.Wrapf(resetErr, "failed to reset operation"), "")
 		}
 	}()
-
-	// Checkpoint and re-load rule context so variables are evaluated against the old resource,
-	// not the new one, avoiding a false "pre-existing violations" skip.
-	v.policyContext.JSONContext().Checkpoint()
-	defer v.policyContext.JSONContext().Restore()
 
 	// Clear rule context entries before reloading, as most loaders merge into the
 	// existing entry and would otherwise leave stale fields from the new object.
