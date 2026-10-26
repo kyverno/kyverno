@@ -1028,6 +1028,9 @@ features:
   protectManagedResources:
     # -- Enables the feature
     enabled: false
+  protectGenerationLabels:
+    # -- Enables generation label protection webhook
+    enabled: true
   registryClient:
     # -- Allow insecure registry
     allowInsecure: false

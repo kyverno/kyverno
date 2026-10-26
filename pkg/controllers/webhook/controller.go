@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"go.uber.org/multierr"
@@ -520,7 +521,11 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 		if desired.Name == config.ValidatingWebhookConfigurationName {
 			_, err := controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 				w.Webhooks = pruneLegacyWebhooks(w.Webhooks, config.ValidatingWebhookServicePath)
-				setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(caData))
+				if toggle.FromContext(ctx).ProtectGenerationLabels() {
+					setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(ctx, caData))
+				} else {
+					w.Webhooks = removeGenerationLabelProtectionWebhook(w.Webhooks)
+				}
 				return nil
 			})
 			return err
@@ -934,10 +939,14 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 // when autoUpdateWebhooks is false. The legacy catch-all "/validate" ignore/fail
 // webhooks are gone along with that route; only the generation-label protection
 // webhook (unrelated to the removed catch-all) remains resource-facing here.
-func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+	var webhooks []admissionregistrationv1.ValidatingWebhook
+	if toggle.FromContext(ctx).ProtectGenerationLabels() {
+		webhooks = append(webhooks, c.buildGenerationLabelProtectionWebhook(ctx, caBundle))
+	}
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
-			Webhooks:   []admissionregistrationv1.ValidatingWebhook{c.buildGenerationLabelProtectionWebhook(caBundle)},
+			Webhooks:   webhooks,
 		},
 		nil
 }
@@ -956,7 +965,9 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 	// Metadata protection is independent of policy selectors and applies the same
 	// configured bootstrap exclusion. Its association selector skips ordinary resources.
 	excludeBootstrapResourcesFromValidatingWebhooks(webhookConfig.Webhooks, c.excludeBootstrapResources)
-	webhookConfig.Webhooks = append(webhookConfig.Webhooks, c.buildGenerationLabelProtectionWebhook(caBundle))
+	if toggle.FromContext(ctx).ProtectGenerationLabels() {
+		webhookConfig.Webhooks = append(webhookConfig.Webhooks, c.buildGenerationLabelProtectionWebhook(ctx, caBundle))
+	}
 
 	slices.SortFunc(webhookConfig.Webhooks, func(a, b admissionregistrationv1.ValidatingWebhook) int {
 		return strings.Compare(a.Name, b.Name)
