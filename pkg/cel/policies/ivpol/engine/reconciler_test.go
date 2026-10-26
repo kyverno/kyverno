@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -193,4 +194,77 @@ func TestReconcile_DeleteRemovesAllVariants(t *testing.T) {
 	fetched, err = rec.Fetch(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, fetched, "deleting a policy must remove its primary entry and all autogen variants")
+}
+
+func TestReconcile_Fetch_DeterministicOrdering(t *testing.T) {
+	ctx := context.Background()
+	policies := map[string]*policiesv1beta1.ImageValidatingPolicy{
+		"alpha":   autogennablePolicy("alpha"),
+		"beta":    autogennablePolicy("beta"),
+		"gamma":   autogennablePolicy("gamma"),
+		"delta":   autogennablePolicy("delta"),
+		"epsilon": autogennablePolicy("epsilon"),
+	}
+
+	fc := &fakeClient{policies: policies}
+	rec := newReconciler(iveval.NewCompiler(nil), fc, nil, false)
+
+	for name := range policies {
+		_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: name}})
+		require.NoError(t, err)
+	}
+
+	firstFetched, err := rec.Fetch(ctx)
+	require.NoError(t, err)
+	firstOrder := variantOrder(firstFetched)
+	var policyOrder []string
+	for _, p := range firstFetched {
+		name := p.Policy.GetName()
+		if len(policyOrder) == 0 || policyOrder[len(policyOrder)-1] != name {
+			policyOrder = append(policyOrder, name)
+		}
+	}
+	assert.Equal(t, []string{"alpha", "beta", "delta", "epsilon", "gamma"}, policyOrder)
+
+	for i := 0; i < 50; i++ {
+		fetched, err := rec.Fetch(ctx)
+		require.NoError(t, err)
+		currentOrder := variantOrder(fetched)
+		assert.Equal(t, firstOrder, currentOrder, "reconciler.Fetch must return deterministic order at iteration %d", i)
+	}
+}
+
+func TestReconcile_AutogenVariantDeterministicOrdering(t *testing.T) {
+	ctx := context.Background()
+	fc := &fakeClient{policies: map[string]*policiesv1beta1.ImageValidatingPolicy{
+		"alpha": autogennablePolicy("alpha"),
+	}}
+	var baseline []string
+	for i := 0; i < 50; i++ {
+		rec := newReconciler(iveval.NewCompiler(nil), fc, nil, false)
+		_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "alpha"}})
+		require.NoError(t, err)
+		fetched, err := rec.Fetch(ctx)
+		require.NoError(t, err)
+
+		order := variantOrder(fetched)
+		if i == 0 {
+			baseline = order
+			require.Greater(t, len(baseline), 1, "expected autogennable policy to generate variants")
+		} else {
+			assert.Equal(t, baseline, order, "reconcile autogen variants order must be deterministic at iteration %d", i)
+		}
+	}
+}
+
+func variantOrder(policies []Policy) []string {
+	var order []string
+	for _, p := range policies {
+		ruleNames := ""
+		if mc := p.Policy.GetSpec().MatchConstraints; mc != nil && len(mc.ResourceRules) > 0 {
+			ruleNames = strings.Join(mc.ResourceRules[0].Resources, ",")
+		}
+		order = append(order, fmt.Sprintf("%s:%s:%t", p.Policy.GetName(), ruleNames, p.ExtractionMode))
+	}
+	return order
 }

@@ -1,0 +1,5 @@
+Source commit: acab6e3f009acdbef58e0c78a1c20c8454d2d97d
+Conflicted paths:
+pkg/cel/policies/ivpol/engine/engine.go
+pkg/cel/policies/ivpol/engine/engine_test.go
+pkg/cel/policies/ivpol/engine/provider_test.go
