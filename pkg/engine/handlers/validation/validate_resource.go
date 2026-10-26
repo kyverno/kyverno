@@ -217,8 +217,10 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 
 	// Clear rule context entries before reloading, as most loaders merge into the
 	// existing entry and would otherwise leave stale fields from the new object.
+	// Replacing (rather than adding a variable) targets the same key as the loaders,
+	// including dotted entry names, and resets the entry's size accounting.
 	for _, entry := range v.rule.Context {
-		if err = v.policyContext.JSONContext().AddVariable(entry.Name, nil); err != nil {
+		if err = v.policyContext.JSONContext().ReplaceContextEntry(entry.Name, []byte("null")); err != nil {
 			return nil, errors.Wrapf(err, "failed to clear context entry %s", entry.Name)
 		}
 	}

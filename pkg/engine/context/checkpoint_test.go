@@ -181,3 +181,18 @@ func TestContextEntryReloadIsNotDoubleCharged(t *testing.T) {
 	// restoring the checkpoint restores the per-entry charges (20 + 6 = 26)
 	assert.NilError(t, ctx.AddContextEntry("new", []byte(`"0"`)))
 }
+
+func TestClearedContextEntryCanShrink(t *testing.T) {
+	ctx := NewContextWithMaxSize(nil, 30)
+	assert.NilError(t, ctx.AddContextEntry("a", []byte(`{"key":"0123456789"}`))) // 20 bytes
+	assert.NilError(t, ctx.AddContextEntry("b", []byte(`"012345"`)))             // 8 bytes -> 28
+
+	// clearing an entry by replacing it resets its charge, so a reload that shrinks one
+	// entry and grows another is charged for what the context actually holds (5 + 20)
+	ctx.Checkpoint()
+	assert.NilError(t, ctx.ReplaceContextEntry("a", []byte("null")))
+	assert.NilError(t, ctx.ReplaceContextEntry("b", []byte("null")))
+	assert.NilError(t, ctx.AddContextEntry("a", []byte(`"012"`)))
+	assert.NilError(t, ctx.AddContextEntry("b", []byte(`{"key":"0123456789"}`)))
+	ctx.Restore()
+}
