@@ -36,60 +36,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: assert
 
-  autogen:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: autogen
-
-  background-only:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: background-only
-
-  cleanup:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: cleanup
-
   cel-http:
     runs-on: ubuntu-latest
     strategy:
@@ -107,147 +53,6 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: cel/http
-
-  custom-sigstore:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: ${{ fromJSON(inputs.release-candidate && '["v1.33.7","v1.34.3","v1.35.1","v1.36.1"]' || '["v1.33.x","v1.34.x"]') }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      # install tools
-      - name: Install tools
-        uses: ./.github/actions/tools/helm
-      - name: Install crane
-        uses: ./.github/actions/tools/crane
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
-        with:
-          cosign-release: v2.6.1
-      - name: Install chainsaw
-        uses: ./.github/actions/tools/chainsaw
-      # create cluster
-      - name: Install pinned full-matrix Kind
-        if: inputs.release-candidate
-        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
-        with:
-          install_only: true
-          version: v0.33.0
-      - name: Prepare pinned full-matrix Sigstore cluster
-        if: inputs.release-candidate
-        env:
-          K8S_VERSION: ${{ matrix.k8s-version }}
-        run: python3 scripts/release/scaffolding.py "$K8S_VERSION"
-      - name: Create kind cluster and setup Sigstore Scaffolding
-        if: '!inputs.release-candidate'
-        uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
-        with:
-          version: v0.7.33
-          k8s-version: ${{ matrix.k8s-version }}
-          knative-version: "1.10.0"
-      - name: Install pinned Sigstore on the full-matrix cluster
-        if: inputs.release-candidate
-        uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
-        with:
-          version: v0.7.33
-          sigstore-only: true
-      - name: Create TUF values config map
-        run: |
-          set -e
-          kubectl create namespace kyverno
-          kubectl -n kyverno create configmap tufvalues --from-literal=TUF_MIRROR=$TUF_MIRROR --from-literal=FULCIO_URL=$FULCIO_URL --from-literal=REKOR_URL=$REKOR_URL --from-literal=CTLOG_URL=$CTLOG_URL --from-literal=ISSUER_URL=$ISSUER_URL
-          kubectl -n tuf-system get secrets tuf-root -oyaml | sed 's/namespace: .*/namespace: kyverno/' | kubectl create -f -
-      # deploy kyverno
-      - name: Download kyverno images archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: kyverno.tar
-      - name: Load kyverno images archive in kind cluster
-        shell: bash
-        run: |
-          set -e
-          kind load image-archive kyverno.tar --name kind
-      - name: Install kyverno
-        shell: bash
-        run: |
-          set -e
-          export USE_CONFIG=standard,custom-sigstore,legacy-policies
-          make kind-install-kyverno
-      - name: Wait for kyverno ready
-        uses: ./.github/actions/kyverno/wait-ready
-      # prepare test image
-      - name: Create test image
-        shell: bash
-        run: |
-          DIGEST=$(crane digest cgr.dev/chainguard/static)
-          IMAGE_NAME=$(uuidgen | tr "[:upper:]" "[:lower:]")
-          TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
-          crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
-          cosign initialize --mirror $TUF_MIRROR --root $TUF_MIRROR/root.json
-          # The token from the setup step can expire while the copy to ttl.sh runs.
-          OIDC_TOKEN=$(curl -s "$ISSUER_URL")
-          COSIGN_EXPERIMENTAL=1 cosign sign $TEST_IMAGE_URL --identity-token $OIDC_TOKEN --fulcio-url $FULCIO_URL --rekor-url $REKOR_URL -y
-          echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
-      # run tests
-      - name: Test with Chainsaw
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TEST_IMAGE_URL: ${{ env.TEST_IMAGE_URL }}
-        run: |
-          set -e
-          mkdir -p "$GITHUB_WORKSPACE/release-reports"
-          cd ./test/conformance/chainsaw/custom-sigstore
-          chainsaw test --config .chainsaw.yaml --report-format JSON --report-path "$GITHUB_WORKSPACE/release-reports" --report-name custom-sigstore
-      - name: Diagnose Sigstore topology failures
-        if: failure() && inputs.release-candidate
-        timeout-minutes: 5
-        shell: bash
-        run: |
-          mkdir -p release-reports
-          {
-            kubectl --request-timeout=15s get pods,services,jobs,ksvc -A -o wide || true
-            kubectl --request-timeout=15s get events -A --sort-by=.lastTimestamp || true
-            for namespace in default ctlog-system fulcio-system knative-serving rekor-system tuf-system tsa-system; do
-              kubectl --request-timeout=15s -n "$namespace" describe pods || true
-              for pod in $(kubectl --request-timeout=15s -n "$namespace" get pods -o name); do
-                kubectl --request-timeout=15s -n "$namespace" logs "$pod" --all-containers=true --prefix=true --tail=200 || true
-              done
-            done
-          } 2>&1 | tee release-reports/sigstore-topology.log
-      - name: Retain custom Sigstore test results
-        if: always() && inputs.release-candidate
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: release-conformance-custom-sigstore-${{ matrix.k8s-version }}-${{ github.run_attempt }}
-          path: release-reports
-          retention-days: 90
-      - name: Debug failure
-        if: failure()
-        uses: ./.github/actions/kyverno/logs
-
-  deferred:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: deferred
 
   deleting-policies:
     runs-on: ubuntu-latest
@@ -306,45 +111,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: events
 
-  exceptions:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-        shard-index: [0, 1, 2]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: exceptions
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 3
-
-  filter:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: filter
-
   force-failure-policy-ignore:
     runs-on: ubuntu-latest
     strategy:
@@ -362,28 +128,6 @@ jobs:
           kyverno-configs: standard,force-failure-policy-ignore
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: force-failure-policy-ignore
-
-  generate:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-        shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: generate
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 12
-          install-kubectl-evict: true
 
   generate-mutating-admission-policy-alpha:
     runs-on: ubuntu-latest
@@ -619,24 +363,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports-v1
 
-  reports-exclude-result:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: ${{ fromJSON(inputs.release-candidate && '["v1.33.7","v1.34.3","v1.35.1","v1.36.1"]' || '["v1.34.0"]') }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: exclude-result,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: reports-exclude-result
-
   mutating-policies:
     runs-on: ubuntu-latest
     strategy:
@@ -755,25 +481,6 @@ jobs:
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
-  openreports:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: openreports,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: openreports
-          install-openreports: true
-
   policy-exceptions-disabled:
     runs-on: ubuntu-latest
     strategy:
@@ -791,42 +498,6 @@ jobs:
           kyverno-configs: default
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: policy-exceptions-disabled
-
-  policy-validation:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: policy-validation
-
-  rangeoperators:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: rangeoperators
 
   rbac:
     runs-on: ubuntu-latest
@@ -868,24 +539,6 @@ jobs:
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
-  sigstore-custom-tuf:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,sigstore-custom-tuf,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: sigstore-custom-tuf
-
   ttl:
     runs-on: ubuntu-latest
     strategy:
@@ -903,27 +556,6 @@ jobs:
           kyverno-configs: standard,ttl
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: ttl
-
-  validate:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-        shard-index: [0, 1, 2, 3, 4, 5, 6, 7]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: validate
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 8
 
   validating-admission-policy-reports:
     runs-on: ubuntu-latest
@@ -964,47 +596,6 @@ jobs:
           shard-index: ${{ matrix.shard-index }}
           shard-count: 5
 
-  verify-images:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: read
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-        shard-index: [0, 1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: verify-images
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 2
-
-  verify-manifests:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: verify-manifests
-
   webhook-bootstrap-exclusion:
     runs-on: ubuntu-latest
     strategy:
@@ -1022,42 +613,6 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: webhook-bootstrap-exclusion
-
-  webhook-configurations:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: webhook-configurations
-
-  webhooks:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,legacy-policies
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: webhooks
 
   monitor-helm-secret-size:
     runs-on: ubuntu-latest
