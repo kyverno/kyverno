@@ -743,7 +743,7 @@ func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
 
 // The pattern carries a literal operator value. Nothing in this tree substitutes variables any
 // more, so the pattern is used exactly as written.
-func TestValidateMap_SubstitutedOperatorPatternPasses(t *testing.T) {
+func TestValidateMap_LiteralOperatorPatternPasses(t *testing.T) {
 	rawPattern := []byte(`{
 		"spec":{
 			"containers":[
