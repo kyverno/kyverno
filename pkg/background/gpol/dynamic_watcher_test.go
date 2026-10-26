@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 )
 
 type mockRESTMapper struct {
@@ -2528,4 +2529,88 @@ func TestHandleUpdate_SourcePropagationErrorKeepsCache(t *testing.T) {
 
 	require.Len(t, mc.applied, 1)
 	assert.Equal(t, entry, wm.dynamicWatchers[gvr].metadataCache["ds-uid"])
+}
+
+func TestPolicyMatches(t *testing.T) {
+	labelsWith := func(namespace *string) map[string]string {
+		labels := map[string]string{common.GeneratePolicyLabel: "pol"}
+		if namespace != nil {
+			labels[common.GeneratePolicyNamespaceLabel] = *namespace
+		}
+		return labels
+	}
+	tests := []struct {
+		name      string
+		labels    map[string]string
+		policyKey string
+		want      bool
+	}{
+		{name: "namespaced key, same namespace", labels: labelsWith(ptr.To("tenant-ns")), policyKey: "tenant-ns/pol", want: true},
+		{name: "namespaced key, other namespace", labels: labelsWith(ptr.To("other-ns")), policyKey: "tenant-ns/pol", want: false},
+		{name: "namespaced key, cluster label", labels: labelsWith(ptr.To("")), policyKey: "tenant-ns/pol", want: false},
+		{name: "namespaced key, missing label", labels: labelsWith(nil), policyKey: "tenant-ns/pol", want: false},
+		{name: "cluster key, cluster label", labels: labelsWith(ptr.To("")), policyKey: "pol", want: true},
+		{name: "cluster key, missing label", labels: labelsWith(nil), policyKey: "pol", want: true},
+		{name: "cluster key, namespaced label", labels: labelsWith(ptr.To("tenant-ns")), policyKey: "pol", want: false},
+		{name: "other name", labels: labelsWith(ptr.To("tenant-ns")), policyKey: "tenant-ns/other", want: false},
+		{name: "invalid key", labels: labelsWith(ptr.To("tenant-ns")), policyKey: "a/b/pol", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, policyMatches(tt.labels, tt.policyKey))
+		})
+	}
+}
+
+// A NamespacedGeneratingPolicy is keyed namespace/name in the watch manager.
+// Its downstreams must be found and deleted under that key, without touching
+// the downstream of a same-named policy in another namespace or at cluster
+// scope.
+func TestWatchManager_NamespacedPolicyKeyMatchesDownstream(t *testing.T) {
+	secretGVR := schema.GroupVersionResource{Version: "v1", Resource: "secrets"}
+	trigger := &kyverno.ResourceSpec{UID: "uid-trigger"}
+	downstream := func(name, ns, policyNamespace string) *unstructured.Unstructured {
+		return makeUnstructured("1", "", "v1", "Secret", name, ns, types.UID("uid-"+name), map[string]string{
+			kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+			common.GeneratePolicyLabel:          "pol",
+			common.GeneratePolicyNamespaceLabel: policyNamespace,
+			common.GenerateTriggerUIDLabel:      "uid-trigger",
+		})
+	}
+	tenant := downstream("tenant", "tenant-ns", "tenant-ns")
+	other := downstream("other", "other-ns", "other-ns")
+	cluster := downstream("cluster", "tenant-ns", "")
+
+	client := &MockClient{}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(schema.GroupKind, string) (*meta.RESTMapping, error) {
+			return &meta.RESTMapping{Resource: secretGVR}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			// pre-seeded so SyncWatchers reuses it instead of starting a real watcher
+			secretGVR: {watcher: watch.NewFake(), metadataCache: map[types.UID]Resource{}},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{},
+		refCount:   map[schema.GroupVersionResource]int{},
+	}
+	require.NoError(t, wm.SyncWatchers("tenant-ns/pol", trigger, []*unstructured.Unstructured{tenant}, false))
+	require.NoError(t, wm.SyncWatchers("other-ns/pol", trigger, []*unstructured.Unstructured{other}, false))
+	require.NoError(t, wm.SyncWatchers("pol", trigger, []*unstructured.Unstructured{cluster}, false))
+
+	names := func(objs []*unstructured.Unstructured) []string {
+		var out []string
+		for _, obj := range objs {
+			out = append(out, obj.GetName())
+		}
+		return out
+	}
+	assert.Equal(t, []string{"tenant"}, names(wm.GetDownstreams("tenant-ns/pol")))
+	assert.Equal(t, []string{"other"}, names(wm.GetDownstreams("other-ns/pol")))
+	assert.Equal(t, []string{"cluster"}, names(wm.GetDownstreams("pol")))
+
+	wm.DeleteDownstreams("tenant-ns/pol", trigger)
+	assert.Equal(t, []string{"Secret/tenant-ns/tenant"}, client.deleted)
+	assert.ElementsMatch(t, []string{"other", "cluster"}, names(append(wm.GetDownstreams("other-ns/pol"), wm.GetDownstreams("pol")...)))
 }
