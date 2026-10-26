@@ -3,6 +3,7 @@ package color
 import (
 	"strings"
 
+	fatihcolor "github.com/fatih/color"
 	"github.com/kataras/tablewriter"
 	"github.com/kyverno/kyverno/ext/output/color"
 )
@@ -14,7 +15,7 @@ var (
 
 func Init(noColor bool) {
 	color.Init(noColor, false)
-	if !noColor {
+	if !noColor && !fatihcolor.NoColor {
 		HeaderBgColor = tablewriter.BgBlackColor
 		HeaderFgColor = tablewriter.FgGreenColor
 	} else {
