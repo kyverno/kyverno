@@ -94,13 +94,13 @@ require (
 	k8s.io/client-go v0.36.4
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-aggregator v0.36.4
-	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad
+	k8s.io/kube-openapi v0.0.0-20261001230523-97fa35140926
 	k8s.io/pod-security-admission v0.36.2
 	k8s.io/utils v0.0.0-20260626114624-be93311217bd
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20260105161640-a97ccfaca20b
-	sigs.k8s.io/kustomize/api v0.21.1
-	sigs.k8s.io/kustomize/kyaml v0.21.2
+	sigs.k8s.io/kustomize/api v0.21.3
+	sigs.k8s.io/kustomize/kyaml v0.21.3
 	sigs.k8s.io/release-utils v0.12.4
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2
 	sigs.k8s.io/yaml v1.6.0
@@ -218,14 +218,11 @@ require (
 	github.com/go-openapi/runtime/server-middleware v0.30.0 // indirect
 	github.com/go-openapi/spec v0.22.9 // indirect
 	github.com/go-openapi/strfmt v0.27.0 // indirect
-	github.com/go-openapi/swag v0.28.0 // indirect
-	github.com/go-openapi/swag/cmdutils v0.28.0 // indirect
 	github.com/go-openapi/swag/conv v0.28.0 // indirect
 	github.com/go-openapi/swag/fileutils v0.28.0 // indirect
 	github.com/go-openapi/swag/jsonutils v0.28.0 // indirect
 	github.com/go-openapi/swag/loading v0.28.0 // indirect
 	github.com/go-openapi/swag/mangling v0.28.0 // indirect
-	github.com/go-openapi/swag/netutils v0.28.0 // indirect
 	github.com/go-openapi/swag/pools v0.28.0 // indirect
 	github.com/go-openapi/swag/stringutils v0.28.0 // indirect
 	github.com/go-openapi/swag/typeutils v0.28.0 // indirect
@@ -378,6 +375,7 @@ require (
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v7 v7.0.0 // indirect
 )
 
 replace k8s.io/pod-security-admission => github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f
