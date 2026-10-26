@@ -90938,6 +90938,7 @@ spec:
             - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=false
             - --protectManagedResources=false
+            - --protectGenerationLabels=true
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
