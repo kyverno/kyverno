@@ -107,7 +107,7 @@ func TestListExceptions(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ListExceptions(tt.lister, tt.policyKind, tt.policyName)
+			got, err := ListExceptions(tt.lister, tt.policyKind, "", tt.policyName)
 			assert.Equal(t, tt.want, got)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -141,7 +141,7 @@ func TestManagerPolicyExceptionLister_ReadsThroughSharedReader(t *testing.T) {
 
 	t.Run("cluster-wide", func(t *testing.T) {
 		lister := NewManagerPolicyExceptionLister(fakeClient, "")
-		got, err := ListExceptions(lister, "ValidatingPolicy", "require-team")
+		got, err := ListExceptions(lister, "ValidatingPolicy", "", "require-team")
 		require.NoError(t, err)
 		require.Len(t, got, 1)
 		assert.Equal(t, "exempt", got[0].Name)
@@ -149,16 +149,76 @@ func TestManagerPolicyExceptionLister_ReadsThroughSharedReader(t *testing.T) {
 
 	t.Run("namespace scoped to a different namespace finds nothing", func(t *testing.T) {
 		lister := NewManagerPolicyExceptionLister(fakeClient, "other-namespace")
-		got, err := ListExceptions(lister, "ValidatingPolicy", "require-team")
+		got, err := ListExceptions(lister, "ValidatingPolicy", "", "require-team")
 		require.NoError(t, err)
 		assert.Empty(t, got)
 	})
 
 	t.Run("namespace scoped to the matching namespace finds it", func(t *testing.T) {
 		lister := NewManagerPolicyExceptionLister(fakeClient, "kyverno")
-		got, err := ListExceptions(lister, "ValidatingPolicy", "require-team")
+		got, err := ListExceptions(lister, "ValidatingPolicy", "", "require-team")
 		require.NoError(t, err)
 		require.Len(t, got, 1)
 		assert.Equal(t, "exempt", got[0].Name)
 	})
+}
+
+// A PolicyRef has no namespace, so for a namespaced policy the exception's own namespace is the
+// scope: only exceptions in the policy's namespace apply. A cluster-scoped policy keeps accepting
+// exceptions from any namespace the lister serves.
+func TestMatchExceptions_NamespaceScope(t *testing.T) {
+	polex := func(namespace, kind string) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "exempt", Namespace: namespace},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "require-team", Kind: kind}},
+			},
+		}
+	}
+	tests := []struct {
+		name            string
+		exceptions      []*policiesv1beta1.PolicyException
+		kind, namespace string
+		want            []string
+	}{{
+		name:       "namespaced policy: exception in the same namespace applies",
+		exceptions: []*policiesv1beta1.PolicyException{polex("team-a", "NamespacedValidatingPolicy")},
+		kind:       "NamespacedValidatingPolicy", namespace: "team-a",
+		want: []string{"team-a"},
+	}, {
+		name:       "namespaced policy: exception in another namespace does not apply",
+		exceptions: []*policiesv1beta1.PolicyException{polex("team-b", "NamespacedValidatingPolicy")},
+		kind:       "NamespacedValidatingPolicy", namespace: "team-a",
+	}, {
+		name: "namespaced policy: only the same-namespace exception is kept",
+		exceptions: []*policiesv1beta1.PolicyException{
+			polex("team-b", "NamespacedValidatingPolicy"),
+			polex("team-a", "NamespacedValidatingPolicy"),
+			polex("kyverno", "NamespacedValidatingPolicy"),
+		},
+		kind: "NamespacedValidatingPolicy", namespace: "team-a",
+		want: []string{"team-a"},
+	}, {
+		name: "cluster policy: exceptions from any namespace apply",
+		exceptions: []*policiesv1beta1.PolicyException{
+			polex("team-a", "ValidatingPolicy"),
+			polex("kyverno", "ValidatingPolicy"),
+		},
+		kind: "ValidatingPolicy", namespace: "",
+		want: []string{"team-a", "kyverno"},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MatchExceptions(tt.exceptions, tt.kind, tt.namespace, "require-team")
+			namespaces := make([]string, 0, len(got))
+			for _, e := range got {
+				namespaces = append(namespaces, e.GetNamespace())
+			}
+			if tt.want == nil {
+				assert.Empty(t, namespaces)
+				return
+			}
+			assert.Equal(t, tt.want, namespaces)
+		})
+	}
 }

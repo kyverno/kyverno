@@ -87,7 +87,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	var exceptions []*policiesv1beta1.PolicyException
 	var err error
 	if r.polexEnabled {
-		exceptions, err = engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())
+		exceptions, err = engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetNamespace(), policy.GetName())
 		if err != nil {
 			return ctrl.Result{}, err
 		}
