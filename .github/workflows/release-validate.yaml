@@ -86,8 +86,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-    outputs:
-      policy-library-sha: ${{ steps.testing.outputs.policy-library-sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -197,14 +195,12 @@ jobs:
           compression-level: 0
           if-no-files-found: error
       - name: Restore exact testing artifacts from candidate
-        id: testing
         run: |
           python3 scripts/release/release.py check-seal
           cp .release/kyverno.tar kyverno.tar
           cp .release/kubectl-kyverno kubectl-kyverno
           cp .release/workspace.tar workspace.tar
           sha256sum workspace.tar > release-workspace.sha256
-          echo "policy-library-sha=$(jq -r .policy_library_sha .release/plan.json)" >> "$GITHUB_OUTPUT"
       - if: steps.retained.outputs.artifact-1 != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -296,14 +292,6 @@ jobs:
       release-candidate: true
       release-sha: ${{ inputs.sha }}
 
-  policy-library:
-    needs: candidate
-    uses: ./.github/workflows/tests-conformance-policy-library.yaml
-    with:
-      release-candidate: true
-      release-sha: ${{ inputs.sha }}
-      policy-library-sha: ${{ needs.candidate.outputs.policy-library-sha }}
-
   k6:
     needs: candidate
     permissions:
@@ -359,7 +347,7 @@ jobs:
 
   gate:
     if: always()
-    needs: [codegen, unit, candidate, cli, charts, artifacthub, conformance, policy-library, k6, performance, manifests]
+    needs: [codegen, unit, candidate, cli, charts, artifacthub, conformance, k6, performance, manifests]
     runs-on: ubuntu-latest
     permissions:
       actions: read

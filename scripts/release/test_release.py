@@ -176,6 +176,21 @@ class LocalArtifacts(unittest.TestCase):
                 release.publish_sbom(subject, sbom, "kyverno")
         run.assert_not_called()
 
+    def test_sbom_publication_rejects_attachment_with_different_whitespace(self):
+        sbom = Path("candidate.cdx.json")
+        sbom.write_bytes(b'{"bomFormat":"CycloneDX"}\n')
+        subject = "ghcr.io/kyverno/kyverno@sha256:" + "a" * 64
+        attachment = "ghcr.io/kyverno/sbom:sha256-" + "a" * 64 + ".sbom"
+        with patch.object(
+            release.subprocess, "check_output",
+            side_effect=[attachment, b'{"bomFormat":"CycloneDX"}'],
+        ), patch.object(
+            release, "inspect_digest", return_value="sha256:" + "b" * 64,
+        ), patch.object(release, "run") as run:
+            with self.assertRaisesRegex(ValueError, "Refusing to overwrite conflicting"):
+                release.publish_sbom(subject, sbom, "kyverno")
+        run.assert_not_called()
+
     def test_sbom_publication_attaches_only_when_absent_and_verifies_bytes(self):
         sbom = Path("candidate.cdx.json")
         sbom.write_bytes(b'{"bomFormat":"CycloneDX"}\n')
@@ -536,12 +551,10 @@ class LocalArtifacts(unittest.TestCase):
     def test_all_chainsaw_entrypoints_create_their_json_report_directory(self):
         generic = release.read(ROOT / ".github/actions/tests/conformance/run/action.yaml")
         conformance = release.read(ROOT / ".github/workflows/tests-conformance.yaml")["jobs"]
-        policies = release.read(ROOT / ".github/workflows/tests-conformance-policy-library.yaml")["jobs"]
         entries = [
             (generic["runs"]["steps"], "conformance-results"),
             (conformance["custom-sigstore"]["steps"], "release-reports"),
             (conformance["check-tests"]["steps"], "release-reports"),
-            (policies["policy-library"]["steps"], "policy-library-results"),
         ]
         chainsaw = self.path / "chainsaw"
         chainsaw.write_text(
@@ -1080,8 +1093,9 @@ class RetryAndGates(unittest.TestCase):
     def test_every_validation_is_a_mandatory_gate(self):
         jobs = self.workflow("release-validate.yaml")["jobs"]
         expected = {"codegen", "unit", "candidate", "cli", "charts", "artifacthub",
-                    "conformance", "policy-library", "k6", "performance", "manifests"}
+                    "conformance", "k6", "performance", "manifests"}
         self.assertEqual(set(jobs["gate"]["needs"]), expected)
+        self.assertNotIn("policy-library", jobs)
         last = jobs["gate"]["steps"][-1]
         self.assertIn('j["result"]=="success"', last["run"])
         for job in expected:
@@ -1090,7 +1104,7 @@ class RetryAndGates(unittest.TestCase):
                       jobs["charts"]["steps"][-1]["run"])
         self.assertIn("--skip-helm-dependencies", jobs["charts"]["steps"][-1]["run"])
         self.assertIn("helm lint --strict .release/packages/*.tgz", jobs["charts"]["steps"][-1]["run"])
-        for job in ("conformance", "policy-library", "k6"):
+        for job in ("conformance", "k6"):
             self.assertEqual(jobs[job]["with"]["release-candidate"], "true")
             self.assertEqual(jobs[job]["with"]["release-sha"], "${{ inputs.sha }}")
         scan = next(step for step in jobs["candidate"]["steps"]
@@ -1171,7 +1185,7 @@ class RetryAndGates(unittest.TestCase):
                 "release-conformance-") for step in steps))
 
     def test_reusable_suites_pin_kyverno_code_and_keep_nonrelease_event_sha_default(self):
-        for name in ("tests-conformance.yaml", "tests-conformance-policy-library.yaml", "tests-k6.yaml"):
+        for name in ("tests-conformance.yaml", "tests-k6.yaml"):
             workflow = self.workflow(name)
             self.assertEqual(workflow["on"]["workflow_call"]["inputs"]["release-sha"]["default"], "")
             for job in workflow["jobs"].values():

@@ -499,18 +499,18 @@ def publish_sbom(subject, sbom, owner):
     if not attachment:
         raise ValueError(f"Cannot resolve SBOM attachment reference for {subject}")
 
-    expected = hashlib.sha256(Path(sbom).read_bytes().strip()).hexdigest()
+    expected = hashlib.sha256(Path(sbom).read_bytes()).hexdigest()
     if inspect_digest(attachment) is not None:
         existing = subprocess.check_output(
             ["cosign", "download", "sbom", subject], env=env,
-        ).strip()
+        )
         same_or_absent(hashlib.sha256(existing).hexdigest(), expected, attachment)
         return
 
     run("cosign", "attach", "sbom", "--type", "cyclonedx", "--sbom", sbom, subject, env=env)
     published = subprocess.check_output(
         ["cosign", "download", "sbom", subject], env=env,
-    ).strip()
+    )
     same_or_absent(hashlib.sha256(published).hexdigest(), expected, attachment)
 
 

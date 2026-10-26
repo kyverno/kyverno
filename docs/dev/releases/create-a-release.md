@@ -155,7 +155,8 @@ members, not an emulated test of every architecture.
 - Artifact Hub lint;
 - the full conformance workflow and the full supported Kubernetes matrices,
   including the appropriate alpha/beta/stable Kubernetes API variants;
-- policy-library tests against the pinned policy-library commit;
+- the policy-library suite remains disabled until its legacy policies have CEL
+  equivalents, so it is not a release gate;
 - K6 scenarios and admission hot-path performance regression checks;
 - installation of the exact staged install manifest across supported Kubernetes
   versions, using the same locally loaded staged image tags.
@@ -233,8 +234,8 @@ publication/remote-verification job succeeds and the GitHub release is non-draft
 The validation and publication summaries include the exact SHA, application and
 chart versions, image digests, policy-library commit, every job/Kubernetes/shard
 result, first failed step, log links, and reproduction/retry commands. Retained
-reports include per-test JSON for the shared conformance runner, custom Sigstore,
-CLI conformance and policy library, and failed-job logs for special suites and publication jobs. K6
+reports include per-test JSON for the shared conformance runner and custom Sigstore,
+plus failed-job logs for special suites and publication jobs. K6
 reports remain available as their existing report artifacts.
 Job enumeration uses small, individually retried API pages because GitHub's
 large-page endpoint can time out on full reusable matrices after a rerun.

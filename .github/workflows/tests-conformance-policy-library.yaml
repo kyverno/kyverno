@@ -5,20 +5,7 @@ name: Conformance tests (policy library)
 permissions: {}
 
 on:
-  workflow_call:
-    inputs:
-      release-candidate:
-        type: boolean
-        default: false
-      release-sha:
-        type: string
-        default: ""
-      policy-library-sha:
-        type: string
-        default: ""
-
-env:
-  RELEASE_CANDIDATE: ${{ inputs.release-candidate }}
+  workflow_call: {}
 
 jobs:
   policy-library:
@@ -38,16 +25,11 @@ jobs:
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.release-sha || github.sha }}
-          persist-credentials: false
       - name: Checkout kyverno/policies
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: kyverno/policies
           path: policies
-          ref: ${{ inputs.policy-library-sha }}
-          persist-credentials: false
       # install tools
       - name: Install tools
         uses: ./.github/actions/tools/install
@@ -101,21 +83,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          mkdir -p policy-library-results
           cd policies
           chainsaw test . \
-            --report-format JSON --report-path ../policy-library-results --report-name results \
             --shard-index ${{ matrix.shard-index }} \
             --shard-count 12 \
             --exclude-test-regex '^chainsaw$/^(tekton|traefik|velero)' \
             --no-color=false
-      - name: Retain per-test policy-library results
-        if: always() && inputs.release-candidate
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: release-policy-library-${{ matrix.k8s-version }}-${{ matrix.shard-index }}-${{ github.run_attempt }}
-          path: policy-library-results
-          retention-days: 90
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno/logs

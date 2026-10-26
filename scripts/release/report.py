@@ -52,7 +52,7 @@ def test_reports(root):
     repo = os.environ["GITHUB_REPOSITORY"]
     run_id = os.environ["GITHUB_RUN_ID"]
     for artifact in artifacts.available():
-        if not artifact["name"].startswith(("release-conformance-", "release-policy-library-", "k6-reports-")):
+        if not artifact["name"].startswith(("release-conformance-", "k6-reports-")):
             continue
         directory = root / "test-reports" / artifact["name"]
         artifacts.download(artifact, directory)
