@@ -6,10 +6,12 @@
 
 ## About
 
-**1.20 notice.** This chart's templates render `policies.kyverno.io` policy types. Kyverno 1.20
-no longer executes legacy `kyverno.io` policies and rejects their create and update requests, so
-any custom manifest you pass through `.Values.customPolicies` must use a `policies.kyverno.io`
-kind.
+**1.20 notice.** This chart's built-in PSS templates render `policies.kyverno.io` policy types.
+Kyverno 1.20 no longer executes legacy `kyverno.io` policies and rejects their create and update
+requests. Anything you pass through `.Values.customPolicies` keeps the group, version, and kind
+you supply — the chart renders it verbatim — so a legacy `kyverno.io/v1` `ClusterPolicy` supplied
+that way is denied at admission and the release fails to apply. Use a supported
+`policies.kyverno.io` kind for custom manifests.
 
 **Review your legacy objects before upgrading.** The `policyType` option is gone, and this chart
 converts nothing. If you previously installed it with `policyType: ClusterPolicy`, upgrading
