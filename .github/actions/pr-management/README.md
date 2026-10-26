@@ -72,7 +72,21 @@ jobs:
           dry-run: 'true'
 ```
 
-For `labels`, `sync-labels`, and `stale`, omit `checks: read` and `actions: read`.
+Least-privilege scopes per mode:
+
+| Mode | Required token permissions |
+| --- | --- |
+| `labels` | `contents: read`, `pull-requests: write` |
+| `sync-labels` | `contents: read`, `issues: write` |
+| `readiness` | `contents: read`, `issues: write`, `pull-requests: write`, `checks: read`, `actions: read` |
+| `stale` | `contents: read`, `issues: write`, `pull-requests: write` |
+| `validate` | `contents: read` (no token required) |
+
+`labels` mode only applies path and `merge-conflicts` labels; it does not create
+label metadata. Run `sync-labels` (for example on pushes to the default branch
+that change `labels.yml`) so lifecycle labels such as `needs-author-action`,
+`ready-for-review`, `workflow-approval-required`, and `stale` exist before
+enabling readiness or stale mutations.
 For `validate`, use only `contents: read`; checkout the proposed config and omit
 `GH_TOKEN`. Use separate jobs for each mode, explicit timeouts, and non-cancelling
 concurrency groups to avoid overlapping sweeps. Do not expose write-capable jobs

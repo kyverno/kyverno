@@ -27,8 +27,11 @@ runs:
       env:
         PR_MODE: ${{ inputs.mode }}
       run: |
-        command -v python3 ruby jq
-        if [[ "$PR_MODE" != "validate" ]]; then command -v gh; fi
+        tools=(python3 ruby jq)
+        [[ "$PR_MODE" == "validate" ]] || tools+=(gh)
+        for tool in "${tools[@]}"; do
+          command -v "$tool" > /dev/null || { echo "::error::Required tool '$tool' not found"; exit 1; }
+        done
     - name: Run shared PR management
       id: manage
       shell: bash
@@ -48,7 +51,8 @@ runs:
         configuration-path: ${{ steps.manage.outputs.configuration-path }}
         sync-labels: true
     - name: Check merge conflicts
-      if: inputs.mode == 'labels' && inputs.dry-run == 'false'
+      # Independent of path labeling: refresh conflict labels even if an earlier step failed.
+      if: ${{ !cancelled() && inputs.mode == 'labels' && inputs.dry-run == 'false' }}
       uses: eps1lon/actions-label-merge-conflict@1df065ebe6e3310545d4f4c4e862e43bdca146f0 # v3.0.3
       with:
         dirtyLabel: merge-conflicts

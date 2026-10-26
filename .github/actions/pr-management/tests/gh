@@ -29,6 +29,11 @@ if args[:2] == ["api", "graphql"]:
         emit({"data": None, "errors": [{"message": "denied"}]})
     if "search(" in query:
         emit({"data": {"search": fixture["discovery"]}})
+    number = next((int(a[7:]) for a in args if a.startswith("number=")), None)
+    if "after:" not in query and number in fixture.get("fail_detail_numbers", []):
+        fail(f"detail fetch failed for #{number}")
+    if "after:" not in query and number is not None and "stale_pr" not in fixture:
+        emit({"data": {"repository": {"pullRequest": dict(fixture["readiness_pr"], number=number)}}})
     if "after:" in query and "reviewThreads(" in query:
         emit({"data": {"repository": {"pullRequest": {"reviewThreads": fixture["thread_page"]}}}})
     if "before:" in query and "comments(" in query:

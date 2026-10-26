@@ -193,35 +193,45 @@ paginate_connection() {
   done
 }
 
-# Written straight to a file, never through a bash variable — PR content can contain arbitrary text.
-: > pr-details.jsonl
-for number in $(jq -r '.[]' qualifying-numbers.json); do
+fetch_pr_details() {
   gh api graphql -f query="$detail_query" -f owner="$owner" -f name="$name" -F number="$number" \
-    | jq -c '.data.repository.pullRequest' > one-pr.json
+    | jq -c '.data.repository.pullRequest' > one-pr.json || return 1
 
   # A qualifying PR can close between discovery and here — skip rather than process a null result.
   if [[ "$(jq -r 'type' one-pr.json)" != "object" ]]; then
     echo "PR #$number: detail fetch returned nothing (closed mid-run?) — skipping."
-    continue
+    return 0
   fi
-  [[ "$(jq -r '.state' one-pr.json)" == "OPEN" ]] || continue
-  [[ "$(jq -r '.author.login' one-pr.json)" == "dependabot[bot]" ]] && continue
+  [[ "$(jq -r '.state' one-pr.json)" == "OPEN" ]] || return 0
+  [[ "$(jq -r '.author.login' one-pr.json)" == "dependabot[bot]" ]] && return 0
   if [[ "$(jq -r '.isDraft' one-pr.json)" == "true" ]]; then
     # A converted draft must not retain readiness; do not evaluate or comment on it.
     for label in ready-for-review needs-author-action workflow-approval-required; do
-      gh pr edit "$number" --repo "$GITHUB_REPOSITORY" --remove-label "$label"
+      gh pr edit "$number" --repo "$GITHUB_REPOSITORY" --remove-label "$label" || return 1
     done
-    continue
+    return 0
   fi
 
-  paginate_connection one-pr.json ".labels" "$labels_page_query"
+  paginate_connection one-pr.json ".labels" "$labels_page_query" || return 1
   # A missing rollup is pending CI, not a proven empty/successful connection.
   if [[ "$(jq -r '.commits.nodes[0].commit.statusCheckRollup' one-pr.json)" != "null" ]]; then
-    paginate_connection one-pr.json ".commits.nodes[0].commit.statusCheckRollup.contexts" "$checks_page_query"
+    paginate_connection one-pr.json ".commits.nodes[0].commit.statusCheckRollup.contexts" "$checks_page_query" || return 1
   fi
-  paginate_connection one-pr.json ".reviewThreads" "$threads_page_query"
+  paginate_connection one-pr.json ".reviewThreads" "$threads_page_query" || return 1
 
   cat one-pr.json >> pr-details.jsonl
+}
+
+# Written straight to a file, never through a bash variable — PR content can contain arbitrary text.
+# Called in an `if` context (errexit suppressed), so every fallible command returns explicitly; a failed
+# PR is skipped (never evaluated or mutated) and the run still fails after the remaining PRs are handled.
+: > pr-details.jsonl
+fetch_failures=0
+for number in $(jq -r '.[]' qualifying-numbers.json); do
+  if ! fetch_pr_details; then
+    echo "::warning::PR #$number: detail fetch failed — skipping this PR."
+    fetch_failures=$((fetch_failures + 1))
+  fi
 done
 jq -s '.' pr-details.jsonl > prs.json
 returned_count=$(jq 'length' prs.json)
@@ -342,3 +352,8 @@ Everything else here looks ready, so this is labelled \`ready-for-review\`. ${in
 
   gh pr comment "$number" --repo "${GITHUB_REPOSITORY}" --body "$body"
 done
+
+if [[ "$fetch_failures" -gt 0 ]]; then
+  echo "::error::$fetch_failures PR detail fetch(es) failed; those PRs were skipped."
+  exit 1
+fi

@@ -194,6 +194,19 @@ class AutomationTests(unittest.TestCase):
         self.run_action(success=False)
         self.assertEqual(self.mutations, [])
 
+    def test_sweep_isolates_per_pr_fetch_failures(self):
+        self.env["GITHUB_EVENT_NAME"] = "schedule"
+        self.fixture["discovery"] = {
+            "pageInfo": {"hasNextPage": False, "endCursor": None},
+            "nodes": [{"number": n, "isDraft": False, "closingIssuesReferences": connection([])} for n in (1, 2)],
+        }
+        self.fixture["fail_detail_numbers"] = [1]
+        result = self.run_action(success=False)
+        self.assertIn("1 PR detail fetch(es) failed", result.stdout + result.stderr)
+        self.assertFalse(any(call[:3] == ["pr", "edit", "1"] for call in self.mutations))
+        self.assertTrue(any(call[:3] == ["pr", "edit", "2"] and "ready-for-review" in call
+                            for call in self.mutations))
+
     def test_readiness_head_and_draft_races(self):
         for live in ({"head": {"sha": "b" * 40}}, {"draft": True}, {"state": "closed"}):
             with self.subTest(live=live):
