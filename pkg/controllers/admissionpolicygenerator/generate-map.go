@@ -47,6 +47,20 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1be
 
 func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, version admissionpolicy.MutatingAdmissionPolicyVersion) error {
 	genericPolicy := engineapi.NewMutatingPolicy(mpol)
+	reason, err := mapGenerationSkipReason(mpol)
+	if err != nil {
+		return fmt.Errorf("failed to compute autogen configs for %s: %w", mpol.GetName(), err)
+	}
+	shouldDelete := reason != ""
+	var celexceptions []policiesv1beta1.PolicyException
+	if !shouldDelete {
+		celexceptions, err = c.getCELExceptions(mpol.GetName(), mpol.GetKind())
+		if err != nil {
+			return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
+		}
+		c.requeueAtExpiry(mpol.GetName(), "MutatingPolicy", celexceptions)
+	}
+	// Expiry is armed before these permission checks, which return without retrying.
 	if !admissionpolicy.HasMutatingAdmissionPolicyPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicies")
 		c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies")
@@ -61,25 +75,19 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	mapName := "mpol-" + mpol.GetName()
 	mapBindingName := constructBindingName(mapName)
 
-	reason, err := mapGenerationSkipReason(mpol)
-	if err != nil {
-		return fmt.Errorf("failed to compute autogen configs for %s: %w", mpol.GetName(), err)
-	}
-	shouldDelete := reason != ""
-
 	switch version {
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1:
-		return c.handleMAPV1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy)
+		return c.handleMAPV1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
-		return c.handleMAPV1Beta1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy)
+		return c.handleMAPV1Beta1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1:
-		return c.handleMAPV1Alpha1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy)
+		return c.handleMAPV1Alpha1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
 	default:
 		return fmt.Errorf("unsupported MutatingAdmissionPolicy version: %s", version)
 	}
 }
 
-func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {
+func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy, celexceptions []policiesv1beta1.PolicyException) error {
 	observedMAP, mapErr := c.getMutatingAdmissionPolicyV1(mapName)
 	observedMAPbinding, mapBindingErr := c.getMutatingAdmissionPolicyBindingV1(mapBindingName)
 
@@ -96,11 +104,6 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 		}
 		c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 		return nil
-	}
-
-	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
-	if err != nil {
-		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
 
 	if mapErr != nil {
@@ -176,7 +179,7 @@ func mapGenerationSkipReason(mpol *policiesv1beta1.MutatingPolicy) (string, erro
 	return "", nil
 }
 
-func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {
+func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy, celexceptions []policiesv1beta1.PolicyException) error {
 	observedMAP, mapErr := c.getMutatingAdmissionPolicy(mapName)
 	observedMAPbinding, mapBindingErr := c.getMutatingAdmissionPolicyBinding(mapBindingName)
 
@@ -193,11 +196,6 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 		}
 		c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 		return nil
-	}
-
-	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
-	if err != nil {
-		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
 
 	if mapErr != nil {
@@ -251,7 +249,7 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 	return nil
 }
 
-func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {
+func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy, celexceptions []policiesv1beta1.PolicyException) error {
 	observedMAP, mapErr := c.getMutatingAdmissionPolicyBeta(mapName)
 	observedMAPbinding, mapBindingErr := c.getMutatingAdmissionPolicyBindingBeta(mapBindingName)
 
@@ -268,11 +266,6 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 		}
 		c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 		return nil
-	}
-
-	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
-	if err != nil {
-		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
 
 	if mapErr != nil {
