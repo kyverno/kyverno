@@ -21,10 +21,9 @@ an engine in its own right.
   (informer-based and client-based) used to fetch ConfigMaps for context-entry resolution. The JMESPath/CEL
   context store, its `Checkpoint`/`Restore`/`Reset` stack, and the `apicall`/`configmap`/`globalcontext`/
   `imagedata`/variable loaders that used to live here were deleted with the legacy rule-evaluation engine.
-- `variables`: down to `variables/regex`, whose only importer is `api/kyverno/v1/common_types.go`; it
-  becomes an orphan when that package goes. `ReplaceAllVars`/`SubstituteAll` and condition evaluation
-  (`AnyAllConditions`/`Condition`/`ConditionOperator`) were deleted with the legacy rule-evaluation engine
-  and no longer exist here.
+- `variables` no longer exists: `ReplaceAllVars`/`SubstituteAll`, condition evaluation
+  (`AnyAllConditions`/`Condition`/`ConditionOperator`), and `variables/regex` were deleted with the legacy
+  rule-evaluation engine and `api/kyverno/v1` (#17713 section 3) and no longer exist here.
 - `jmespath`: the custom JMESPath function registry (`NewFunctionRegistry`), used by the global context
   controller/store (`pkg/controllers/globalcontext`, `pkg/globalcontext/**`), the CLI, and
   `cmd/internal`/`cmd/background-controller` bootstrap — not by `pkg/cel`.
