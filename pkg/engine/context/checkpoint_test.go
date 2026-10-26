@@ -164,3 +164,20 @@ func TestCheckpointReloadIsNotDoubleCharged(t *testing.T) {
 	assert.NilError(t, ctx.AddContextEntry("other", []byte(`"012345"`)))
 	ctx.Restore()
 }
+
+func TestContextEntryReloadIsNotDoubleCharged(t *testing.T) {
+	ctx := NewContextWithMaxSize(nil, 30)
+	entry := []byte(`{"key":"0123456789"}`) // 20 bytes
+	assert.NilError(t, ctx.AddContextEntry("added", entry))
+	assert.NilError(t, ctx.ReplaceContextEntry("replaced", []byte(`"0123"`))) // 6 bytes -> 26
+
+	// reloading the same entries within the same checkpoint replaces their previous charge
+	ctx.Checkpoint()
+	assert.NilError(t, ctx.AddContextEntry("added", entry))
+	assert.NilError(t, ctx.ReplaceContextEntry("replaced", []byte(`"012345"`))) // 8 bytes -> 28
+	assert.ErrorContains(t, ctx.AddContextEntry("new", []byte(`"0123"`)), "context size limit exceeded")
+	ctx.Restore()
+
+	// restoring the checkpoint restores the per-entry charges (20 + 6 = 26)
+	assert.NilError(t, ctx.AddContextEntry("new", []byte(`"0"`)))
+}

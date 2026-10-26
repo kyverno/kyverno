@@ -134,14 +134,20 @@ type context struct {
 	jp                 jmespath.Interface
 	jsonRaw            map[string]interface{}
 	jsonRawCheckpoints []map[string]interface{}
-	sizeCheckpoints    []int64
+	sizeCheckpoints    []sizeCheckpoint
 	images             map[string]map[string]apiutils.ImageInfo
 	imagesCheckpoints  []map[string]map[string]apiutils.ImageInfo
 	imageInfoLoader    *ImageInfoLoader
 	operation          kyvernov1.AdmissionOperation
 	deferred           DeferredLoaders
 	contextSize        int64
+	entrySizes         map[string]int64
 	maxContextSize     int64
+}
+
+type sizeCheckpoint struct {
+	contextSize int64
+	entrySizes  map[string]int64
 }
 
 // NewContext returns a new context
@@ -223,7 +229,9 @@ func (ctx *context) AddVariable(key string, value interface{}) error {
 }
 
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
-	if err := ctx.checkContextSizeLimit(int64(len(dataRaw))); err != nil {
+	// data is merged into any existing entry, so the entry is charged the larger of its previous and new size
+	size := max(ctx.entrySizes[name], int64(len(dataRaw)))
+	if err := ctx.checkContextSizeLimit(size - ctx.entrySizes[name]); err != nil {
 		return err
 	}
 	var data interface{}
@@ -231,12 +239,13 @@ func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
 		logger.Error(err, "failed to unmarshal the resource")
 		return err
 	}
-	ctx.contextSize += int64(len(dataRaw))
+	ctx.setEntrySize(name, size)
 	return addToContext(ctx, data, false, name)
 }
 
 func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
-	if err := ctx.checkContextSizeLimit(int64(len(dataRaw))); err != nil {
+	size := int64(len(dataRaw))
+	if err := ctx.checkContextSizeLimit(size - ctx.entrySizes[name]); err != nil {
 		return err
 	}
 	var data interface{}
@@ -249,8 +258,18 @@ func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
 		logger.Error(err, "unable to replace context entry", "context entry name", name)
 		return err
 	}
-	ctx.contextSize += int64(len(dataRaw))
+	ctx.setEntrySize(name, size)
 	return addToContext(ctx, data, false, name)
+}
+
+// setEntrySize records the size charged for a context entry. Each entry is charged once, so
+// reloading an entry (e.g. after a checkpoint is restored) does not count against the limit again.
+func (ctx *context) setEntrySize(name string, size int64) {
+	if ctx.entrySizes == nil {
+		ctx.entrySizes = map[string]int64{}
+	}
+	ctx.contextSize += size - ctx.entrySizes[name]
+	ctx.entrySizes[name] = size
 }
 
 // AddResource data at path: request.object
@@ -530,7 +549,7 @@ func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
 func (ctx *context) Checkpoint() {
 	jsonRawCheckpoint := ctx.copyContext(ctx.jsonRaw)
 	ctx.jsonRawCheckpoints = append(ctx.jsonRawCheckpoints, jsonRawCheckpoint)
-	ctx.sizeCheckpoints = append(ctx.sizeCheckpoints, ctx.contextSize)
+	ctx.sizeCheckpoints = append(ctx.sizeCheckpoints, sizeCheckpoint{ctx.contextSize, maps.Clone(ctx.entrySizes)})
 	ctx.imagesCheckpoints = append(ctx.imagesCheckpoints, ctx.copyImages(ctx.images))
 	if ctx.imageInfoLoader != nil {
 		ctx.imageInfoLoader.checkpoint()
@@ -584,11 +603,13 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 
 	n := len(ctx.jsonRawCheckpoints) - 1
 	jsonRawCheckpoint := ctx.jsonRawCheckpoints[n]
-	ctx.contextSize = ctx.sizeCheckpoints[n]
+	sizes := ctx.sizeCheckpoints[n]
+	ctx.contextSize = sizes.contextSize
 
 	if restore {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 		ctx.sizeCheckpoints = ctx.sizeCheckpoints[:n]
+		ctx.entrySizes = sizes.entrySizes
 		ctx.jsonRaw = jsonRawCheckpoint
 		if len(ctx.imagesCheckpoints) > n {
 			ctx.images = ctx.imagesCheckpoints[n]
@@ -598,6 +619,7 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 			ctx.imageInfoLoader.restore(n)
 		}
 	} else {
+		ctx.entrySizes = maps.Clone(sizes.entrySizes)
 		ctx.jsonRaw = ctx.copyContext(jsonRawCheckpoint)
 		if len(ctx.imagesCheckpoints) > n {
 			ctx.images = ctx.copyImages(ctx.imagesCheckpoints[n])
