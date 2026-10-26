@@ -2,6 +2,7 @@ package generation
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -434,11 +435,14 @@ func TestHandleNonTrigger_CloneSourceDeletion_AttachesAdmissionContext(t *testin
 	policyContext, err := engine.NewPolicyContext(jp, source, kyvernov1.Delete, nil, cfg)
 	assert.NoError(t, err)
 
+	oldObject, err := json.Marshal(source.Object)
+	require.NoError(t, err)
 	request := admissionv1.AdmissionRequest{
 		Operation: admissionv1.Delete,
 		Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"},
 		Namespace: "certs",
 		Name:      "dummy-secret-1",
+		OldObject: runtime.RawExtension{Raw: oldObject},
 	}
 
 	// invoke via handleNonTrigger so the clone-source dispatch path is exercised
@@ -449,8 +453,17 @@ func TestHandleNonTrigger_CloneSourceDeletion_AttachesAdmissionContext(t *testin
 	// background controller can scope the cleanup to the deleted source.
 	assert.True(t, gen.applyCalled, "an UpdateRequest should have been created")
 	assert.Equal(t, "sync-secrets", gen.applySpec.Policy)
-	assert.NotNil(t, gen.applySpec.Context.AdmissionRequestInfo.AdmissionRequest,
-		"the admission request must be attached to the delete-downstream UR")
+	attached := gen.applySpec.Context.AdmissionRequestInfo.AdmissionRequest
+	if assert.NotNil(t, attached, "the admission request must be attached to the delete-downstream UR") {
+		// the deleted source (and its UID) must survive so the background
+		// controller can tell which source was deleted
+		assert.Equal(t, admissionv1.Delete, attached.Operation)
+		deleted := &unstructured.Unstructured{}
+		require.NoError(t, deleted.UnmarshalJSON(attached.OldObject.Raw))
+		assert.Equal(t, types.UID("source-uid-1"), deleted.GetUID())
+		_, isCloneSource := deleted.GetLabels()[common.GenerateTypeCloneSourceLabel]
+		assert.True(t, isCloneSource)
+	}
 }
 
 type mockURGenerator struct {
