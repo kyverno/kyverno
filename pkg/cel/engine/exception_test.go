@@ -206,6 +206,20 @@ func TestMatchExceptions_NamespaceScope(t *testing.T) {
 		},
 		kind: "ValidatingPolicy", namespace: "",
 		want: []string{"team-a", "kyverno"},
+	}, {
+		name: "an exception that lists the policy twice is returned once",
+		exceptions: func() []*policiesv1beta1.PolicyException {
+			dup := polex("team-a", "NamespacedValidatingPolicy")
+			dup.Spec.PolicyRefs = append(dup.Spec.PolicyRefs, dup.Spec.PolicyRefs[0])
+			return []*policiesv1beta1.PolicyException{dup}
+		}(),
+		kind: "NamespacedValidatingPolicy", namespace: "team-a",
+		want: []string{"team-a"},
+	}, {
+		name:       "nil entries are skipped",
+		exceptions: []*policiesv1beta1.PolicyException{nil, polex("team-a", "NamespacedValidatingPolicy")},
+		kind:       "NamespacedValidatingPolicy", namespace: "team-a",
+		want: []string{"team-a"},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
