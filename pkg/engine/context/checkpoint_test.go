@@ -206,3 +206,37 @@ func TestClearedContextEntryCanShrink(t *testing.T) {
 	assert.NilError(t, ctx.AddContextEntry("b", []byte(`{"key":"0123456789"}`)))
 	ctx.Restore()
 }
+
+// entryLoader replays its cached payload with AddContextEntry, like the ConfigMap and API call loaders
+type entryLoader struct {
+	ctx    Interface
+	name   string
+	data   []byte
+	loaded bool
+}
+
+func (l *entryLoader) HasLoaded() bool { return l.loaded }
+func (l *entryLoader) LoadData() error {
+	l.loaded = true
+	return l.ctx.AddContextEntry(l.name, l.data)
+}
+
+func TestRestoreReloadedEntryIsNotDoubleCharged(t *testing.T) {
+	ctx := newContext()
+	ctx.maxContextSize = 45
+	dl, err := NewDeferredLoader("cm", &entryLoader{ctx: ctx, name: "cm", data: []byte(`{"key":"0123456789"}`)}, logger) // 20 bytes
+	assert.NilError(t, err)
+	assert.NilError(t, ctx.AddDeferredLoader(dl))
+	_, err = ctx.Query("cm")
+	assert.NilError(t, err)
+
+	// restoring the checkpoint replays the loaded entry, which replaces the entry already held
+	// by the checkpoint instead of being charged again (20 + 8 = 28, not 20 + 20 + 8 = 48)
+	ctx.Checkpoint()
+	ctx.Restore()
+	assert.NilError(t, ctx.AddContextEntry("other", []byte(`"012345"`)))
+
+	got, err := ctx.Query("cm.key")
+	assert.NilError(t, err)
+	assert.Equal(t, "0123456789", got)
+}

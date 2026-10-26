@@ -144,6 +144,8 @@ type context struct {
 	contextSize        int64
 	entrySizes         map[string]int64
 	maxContextSize     int64
+	// reloaded tracks the entries reloaded by deferred loaders while resetting to a checkpoint
+	reloaded map[string]bool
 }
 
 type sizeCheckpoint struct {
@@ -230,6 +232,12 @@ func (ctx *context) AddVariable(key string, value interface{}) error {
 }
 
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
+	// a loader reloading its data after a checkpoint reset provides the entry's full data, which the
+	// checkpoint may already hold, so the first reload of an entry replaces it instead of merging
+	if ctx.reloaded != nil && !ctx.reloaded[name] {
+		ctx.reloaded[name] = true
+		return ctx.ReplaceContextEntry(name, dataRaw)
+	}
 	// data is merged into any existing entry, so its size is added to the entry's charge
 	size := entrySize(dataRaw)
 	if err := ctx.checkContextSizeLimit(size); err != nil {
@@ -603,6 +611,8 @@ func (ctx *context) Reset() {
 
 func (ctx *context) reset(restore bool) {
 	if ctx.resetCheckpoint(restore) {
+		ctx.reloaded = map[string]bool{}
+		defer func() { ctx.reloaded = nil }()
 		ctx.deferred.Reset(restore, len(ctx.jsonRawCheckpoints))
 	}
 }
