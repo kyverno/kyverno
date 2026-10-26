@@ -15,6 +15,17 @@ Snapshot baseline: commit `22a7827fe` (upstream/main, 2026-10-23). Generator:
 own version annotation only; it isn't the generator version and wasn't
 touched for this snapshot.
 
+### Corrections since the baseline
+
+- **2026-10-26 (PR #18286, #17707):** `kyverno.io_clusterpolicies.yaml` and
+  `kyverno.io_policies.yaml` were hand-edited to restore
+  `ImageExtractorConfig.Filter` (`imageExtractors[].filter`). That field was
+  added by #16269 only to `release-1.19`, never forward-ported to `main`, so
+  the `22a7827fe` baseline itself had already been missing it before this
+  file existed. Confirmed against the real v1.19.2 release's CRD (schema
+  byte-identical, modulo `description` text, after the fix). Digests in
+  `scripts/verify-legacy-crd-snapshot.sh` updated accordingly.
+
 ## Classification
 
 | File | Status | Versions | Refreshed by |
