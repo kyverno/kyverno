@@ -215,6 +215,14 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 	v.policyContext.JSONContext().Checkpoint()
 	defer v.policyContext.JSONContext().Restore()
 
+	// Clear rule context entries before reloading, as most loaders merge into the
+	// existing entry and would otherwise leave stale fields from the new object.
+	for _, entry := range v.rule.Context {
+		if err = v.policyContext.JSONContext().AddVariable(entry.Name, nil); err != nil {
+			return nil, errors.Wrapf(err, "failed to clear context entry %s", entry.Name)
+		}
+	}
+
 	if err = v.contextLoader(ctx, v.rule.Context, v.policyContext.JSONContext()); err != nil {
 		return nil, errors.Wrapf(err, "failed to load rule context for old object")
 	}
