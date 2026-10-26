@@ -1761,3 +1761,19 @@ func testMatchPattern(t *testing.T, testCase struct {
 		assert.Assert(t, err == nil, fmt.Sprintf("\nexpected error - test: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
 	}
 }
+
+// A conditional anchor mismatch is wrapped in a PatternError; the anchor predicates must
+// see through it via PatternError.Unwrap, otherwise the resource is not skipped.
+func TestMatchPattern_ConditionalAnchorMismatchIsSkipped(t *testing.T) {
+	var pattern, resource interface{}
+	assert.NilError(t, json.Unmarshal([]byte(`{"(kind)": "Pod", "spec": {"x": "y"}}`), &pattern))
+	assert.NilError(t, json.Unmarshal([]byte(`{"kind": "Deployment", "spec": {"x": "z"}}`), &resource))
+
+	err := MatchPattern(logr.Discard(), resource, pattern)
+	assert.Assert(t, err != nil)
+	assert.Assert(t, anchor.IsConditionalAnchorError(err))
+	assert.Assert(t, !anchor.IsGlobalAnchorError(err))
+	pe, ok := err.(*PatternError)
+	assert.Assert(t, ok)
+	assert.Assert(t, pe.Skip)
+}

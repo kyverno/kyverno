@@ -135,6 +135,8 @@ type context struct {
 	jsonRaw            map[string]interface{}
 	jsonRawCheckpoints []map[string]interface{}
 	images             map[string]map[string]apiutils.ImageInfo
+	imagesCheckpoints  []map[string]map[string]apiutils.ImageInfo
+	imageInfoLoader    *ImageInfoLoader
 	operation          kyvernov1.AdmissionOperation
 	deferred           DeferredLoaders
 	contextSize        int64
@@ -254,10 +256,26 @@ func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
 func (ctx *context) AddResource(data map[string]interface{}) error {
 	if len(ctx.jsonRawCheckpoints) > 0 {
 		clearLeafValueMaybeClone(ctx.jsonRaw, true, "request", "object")
+		clearLeafValueMaybeClone(ctx.jsonRaw, true, "images")
 	} else {
 		clearLeafValue(ctx.jsonRaw, "request", "object")
+		clearLeafValue(ctx.jsonRaw, "images")
 	}
-	return addToContext(ctx, data, false, "request", "object")
+	if ctx.imageInfoLoader != nil {
+		ctx.imageInfoLoader.resource = &unstructured.Unstructured{Object: data}
+		ctx.imageInfoLoader.hasLoaded = false
+	}
+	ctx.images = nil
+	if ctx.deferred != nil {
+		ctx.deferred.ClearMatches()
+	}
+	if err := addToContext(ctx, data, false, "request", "object"); err != nil {
+		return err
+	}
+	if ctx.imageInfoLoader != nil && !toggle.FromContext(cont.Background()).EnableDeferredLoading() {
+		return ctx.imageInfoLoader.LoadData()
+	}
+	return nil
 }
 
 // AddOldResource data at path: request.oldObject
@@ -364,6 +382,7 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg confi
 		eCtx:     ctx,
 		cfg:      cfg,
 	}
+	ctx.imageInfoLoader = imageInfoLoader
 	dl, err := NewDeferredLoader("images", imageInfoLoader, logger)
 	if err != nil {
 		return err
@@ -381,7 +400,9 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg confi
 }
 
 func (ctx *context) addImageInfos(images map[string]map[string]apiutils.ImageInfo) error {
+	clearLeafValue(ctx.jsonRaw, "images")
 	if len(images) == 0 {
+		ctx.images = nil
 		return nil
 	}
 	ctx.images = images
@@ -394,10 +415,37 @@ func (ctx *context) addImageInfos(images map[string]map[string]apiutils.ImageInf
 }
 
 type ImageInfoLoader struct {
-	resource  *unstructured.Unstructured
-	hasLoaded bool
-	eCtx      *context
-	cfg       config.Configuration
+	resource             *unstructured.Unstructured
+	resourceCheckpoints  []*unstructured.Unstructured
+	hasLoaded            bool
+	hasLoadedCheckpoints []bool
+	eCtx                 *context
+	cfg                  config.Configuration
+}
+
+func (l *ImageInfoLoader) checkpoint() {
+	l.hasLoadedCheckpoints = append(l.hasLoadedCheckpoints, l.hasLoaded)
+	l.resourceCheckpoints = append(l.resourceCheckpoints, l.resource)
+}
+
+func (l *ImageInfoLoader) restore(n int) {
+	if len(l.hasLoadedCheckpoints) > n {
+		l.hasLoaded = l.hasLoadedCheckpoints[n]
+		l.hasLoadedCheckpoints = l.hasLoadedCheckpoints[:n]
+	}
+	if len(l.resourceCheckpoints) > n {
+		l.resource = l.resourceCheckpoints[n]
+		l.resourceCheckpoints = l.resourceCheckpoints[:n]
+	}
+}
+
+func (l *ImageInfoLoader) reset(n int) {
+	if len(l.hasLoadedCheckpoints) > n {
+		l.hasLoaded = l.hasLoadedCheckpoints[n]
+	}
+	if len(l.resourceCheckpoints) > n {
+		l.resource = l.resourceCheckpoints[n]
+	}
 }
 
 func (l *ImageInfoLoader) HasLoaded() bool {
@@ -405,12 +453,24 @@ func (l *ImageInfoLoader) HasLoaded() bool {
 }
 
 func (l *ImageInfoLoader) LoadData() error {
+	if len(l.eCtx.images) > 0 {
+		l.hasLoaded = true
+		return nil
+	}
+	if l.resource == nil {
+		l.hasLoaded = true
+		return nil
+	}
 	images, err := apiutils.ExtractImagesFromResource(*l.resource, nil, l.cfg)
 	if err != nil {
 		return err
 	}
 
-	return l.eCtx.addImageInfos(images)
+	if err := l.eCtx.addImageInfos(images); err != nil {
+		return err
+	}
+	l.hasLoaded = true
+	return nil
 }
 
 func convertImagesToUnstructured(images map[string]map[string]apiutils.ImageInfo) (map[string]interface{}, error) {
@@ -446,6 +506,11 @@ func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured,
 		return nil, fmt.Errorf("failed to add images to context: %w", err)
 	}
 
+	if ctx.imageInfoLoader != nil {
+		ctx.imageInfoLoader.resource = resource
+		ctx.imageInfoLoader.hasLoaded = true
+	}
+
 	return images, nil
 }
 
@@ -464,6 +529,30 @@ func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
 func (ctx *context) Checkpoint() {
 	jsonRawCheckpoint := ctx.copyContext(ctx.jsonRaw)
 	ctx.jsonRawCheckpoints = append(ctx.jsonRawCheckpoints, jsonRawCheckpoint)
+	ctx.imagesCheckpoints = append(ctx.imagesCheckpoints, ctx.copyImages(ctx.images))
+	if ctx.imageInfoLoader != nil {
+		ctx.imageInfoLoader.checkpoint()
+	}
+}
+
+func (ctx *context) copyImages(in map[string]map[string]apiutils.ImageInfo) map[string]map[string]apiutils.ImageInfo {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]map[string]apiutils.ImageInfo, len(in))
+	for k, v := range in {
+		inner := make(map[string]apiutils.ImageInfo, len(v))
+		for k2, v2 := range v {
+			if v2.ImagePullSecrets != nil {
+				secrets := make([]string, len(v2.ImagePullSecrets))
+				copy(secrets, v2.ImagePullSecrets)
+				v2.ImagePullSecrets = secrets
+			}
+			inner[k2] = v2
+		}
+		out[k] = inner
+	}
+	return out
 }
 
 func (ctx *context) copyContext(in map[string]interface{}) map[string]interface{} {
@@ -497,8 +586,21 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 	if restore {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 		ctx.jsonRaw = jsonRawCheckpoint
+		if len(ctx.imagesCheckpoints) > n {
+			ctx.images = ctx.imagesCheckpoints[n]
+			ctx.imagesCheckpoints = ctx.imagesCheckpoints[:n]
+		}
+		if ctx.imageInfoLoader != nil {
+			ctx.imageInfoLoader.restore(n)
+		}
 	} else {
 		ctx.jsonRaw = ctx.copyContext(jsonRawCheckpoint)
+		if len(ctx.imagesCheckpoints) > n {
+			ctx.images = ctx.copyImages(ctx.imagesCheckpoints[n])
+		}
+		if ctx.imageInfoLoader != nil {
+			ctx.imageInfoLoader.reset(n)
+		}
 	}
 
 	return true

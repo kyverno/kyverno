@@ -497,6 +497,11 @@ func validatePolicy(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.
 		}
 
 		checkForDeprecatedOperatorsInRule(rule, &warnings)
+
+		// warn on wildcard kinds since they can heavily impact performance
+		if warningMsg, ok := hasWildcard(rule, policy.IsNamespaced()); ok {
+			warnings = append(warnings, warningMsg)
+		}
 	}
 
 	// check for CEL expression warnings in case of CEL subrules
@@ -1888,4 +1893,47 @@ func checkForDeprecatedOperatorsInRule(rule kyvernov1.Rule, warnings *[]string) 
 			}
 		}
 	}
+}
+
+// hasWildcard returns a warning message and true if the rule's match block targets all
+// resource kinds ("*"). Exclude blocks are ignored: a wildcard there only removes resources
+// from the match set and does not widen what the webhook intercepts. Rules of a namespaced
+// Policy are always confined to the policy's namespace.
+func hasWildcard(rule kyvernov1.Rule, namespacedPolicy bool) (string, bool) {
+	match := rule.MatchResources
+	rootScoped := namespacedPolicy || isNamespaceScoped(match.ResourceDescription)
+	found, unscoped := false, false
+	// root and match.any: the rule is unscoped if any wildcard filter is unscoped
+	if slices.Contains(match.Kinds, "*") {
+		found = true
+		unscoped = unscoped || !rootScoped
+	}
+	for _, filter := range match.Any {
+		if slices.Contains(filter.Kinds, "*") {
+			found = true
+			unscoped = unscoped || (!rootScoped && !isNamespaceScoped(filter.ResourceDescription))
+		}
+	}
+	// match.all: filters are combined, so one namespace-scoped filter scopes the whole match
+	allWildcard, allScoped := false, false
+	for _, filter := range match.All {
+		allWildcard = allWildcard || slices.Contains(filter.Kinds, "*")
+		allScoped = allScoped || isNamespaceScoped(filter.ResourceDescription)
+	}
+	if allWildcard {
+		found = true
+		unscoped = unscoped || (!rootScoped && !allScoped)
+	}
+	if !found {
+		return "", false
+	}
+	if unscoped {
+		return fmt.Sprintf("Rule '%s' targets all resource kinds ('*') globally with no namespace isolation. This forces Kyverno to evaluate every API server request across the cluster and can degrade control-plane performance. Consider specifying explicit resource kinds or adding explicit scoping.", rule.Name), true
+	}
+	return fmt.Sprintf("Rule '%s' targets all resource kinds ('*') within a restricted namespace scope. Intercepting all resource types here still impacts admission control latency; consider specifying explicit resource kinds if possible.", rule.Name), true
+}
+
+// isNamespaceScoped reports whether a resource description restricts matching to specific namespaces.
+func isNamespaceScoped(desc kyvernov1.ResourceDescription) bool {
+	return (len(desc.Namespaces) > 0 && !slices.Contains(desc.Namespaces, "*")) || desc.NamespaceSelector != nil
 }
