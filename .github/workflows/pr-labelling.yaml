@@ -1,47 +1,34 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-
 name: PR Labelling
 
 on:
-
-  # So that PRs touching the same files as the push are updated
   push:
-
-  # So that the `dirtyLabel` is removed if conflicts are resolve
-  # We recommend `pull_request_target` so that github secrets are available.
-  # In `pull_request` we wouldn't be able to change labels of fork PRs
+    branches: [main]
   pull_request_target:
     types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
+  issues: write
   pull-requests: write
+
+concurrency:
+  group: pr-labelling-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   labeler:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Checkout repository
+      - name: Checkout trusted default branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install yq
-        uses: ./.github/actions/tools/yq
-      - name: Render actions/labeler config from labels.yml
-        run: |
-          yq -o=json '.' .github/labels.yml \
-            | jq 'with_entries(select(.value.rules != null and (.value.rules | length) > 0)) | map_values(.rules)' \
-            | yq -p=json -P '.' > .github/labeler.generated.yml
-      - name: Label PR based on changed files
-        uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          configuration-path: .github/labeler.generated.yml
-          sync-labels: true
-
-  merge-conflicts:
-    runs-on: ubuntu-latest
-    steps:
-      - name: check if prs are dirty
-        uses: eps1lon/actions-label-merge-conflict@1df065ebe6e3310545d4f4c4e862e43bdca146f0 # v3.0.3
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: ./.github/actions/pr-management
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
-          dirtyLabel: merge-conflicts
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          mode: labels
+          dry-run: 'false'
