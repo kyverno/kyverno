@@ -22,7 +22,7 @@ annotations:
   artifacthub.io/prerelease: "false"
   artifacthub.io/changes: |
     - kind: removed
-      description: Removed the policyType option; the chart now installs only ValidatingPolicy (policies.kyverno.io) templates
+      description: Removed the policyType chart value; the built-in PSS templates now render only ValidatingPolicy (policies.kyverno.io) types
     - kind: removed
       description: Remove spec.validationFailureAction field from policies as it is deprecated
     - kind: added
