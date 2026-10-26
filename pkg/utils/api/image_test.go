@@ -208,3 +208,25 @@ func Test_extractImageInfo(t *testing.T) {
 		assert.DeepEqual(t, test.images, images)
 	}
 }
+
+func Test_extractImageInfo_InvalidReference(t *testing.T) {
+	raw := []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"myapp"},"spec":{"containers":[{"name":"nginx","image":"!!invalid!!"}]}}`)
+	resource, err := kubeutils.BytesToUnstructured(raw)
+	assert.NilError(t, err)
+
+	images, err := ExtractImagesFromResource(*resource, cfg)
+	assert.ErrorContains(t, err, "invalid image")
+	assert.Assert(t, images == nil)
+}
+
+func Test_extractImageInfo_UnregisteredKind(t *testing.T) {
+	// No extractor is registered for this kind, so lookupImageExtractor returns nil
+	// and the result is empty rather than an error.
+	raw := []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"myapp"},"data":{"image":"nginx:latest"}}`)
+	resource, err := kubeutils.BytesToUnstructured(raw)
+	assert.NilError(t, err)
+
+	images, err := ExtractImagesFromResource(*resource, cfg)
+	assert.NilError(t, err)
+	assert.Equal(t, len(images), 0)
+}
