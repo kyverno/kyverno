@@ -6,12 +6,11 @@ Kubernetes Pod Security Standards implemented as Kyverno policies
 
 ## About
 
-**1.20 notice.** This chart's templates render `kyverno.io/v1` `ClusterPolicy` resources, the
-legacy policy type. Starting with Kyverno 1.20, Kyverno no longer executes legacy `kyverno.io`
-policies and rejects their create and update requests: installing or upgrading this chart against
-a 1.20 or later Kyverno cluster fails instead of storing unenforced `ClusterPolicy` objects. Wait
-for this chart to migrate its templates to the `policies.kyverno.io` policy types before relying
-on it for enforcement on a 1.20 cluster; track the migration at https://github.com/kyverno/kyverno.
+**1.20 notice.** This chart's templates render `policies.kyverno.io` policy types. Kyverno 1.20
+no longer executes legacy `kyverno.io` policies and rejects their create and update requests, so
+any custom manifest you pass through `.Values.customPolicies` must use a `policies.kyverno.io`
+kind. If you previously installed this chart with `policyType: ClusterPolicy`, that option no
+longer exists and the upgrade replaces those objects with their `ValidatingPolicy` equivalents.
 
 This chart contains Kyverno's implementation of the Kubernetes Pod Security Standards (PSS) as documented at https://kubernetes.io/docs/concepts/security/pod-security-standards/ and are a Helm packaged version of those found at https://github.com/kyverno/policies/tree/main/pod-security. The goal of the PSS controls is to provide a good starting point for general Kubernetes cluster operational security. These controls are broken down into two categories, Baseline and Restricted. Baseline policies implement the most basic of Pod security controls while Restricted implements more strict controls. Restricted is cumulative and encompasses those listed in Baseline.
 
@@ -50,8 +49,8 @@ For the latest version of these PSS policies, always refer to the kyverno/polici
 If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`:
 ````yaml
 customPolicies:
-  - apiVersion: kyverno.io/v1
-    kind: ClusterPolicy
+  - apiVersion: policies.kyverno.io/v1beta1
+    kind: ValidatingPolicy
     metadata: # metadata
     spec: # spec
 ````
