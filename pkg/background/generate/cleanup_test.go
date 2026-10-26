@@ -344,11 +344,10 @@ func cloneListDownstreamSecret(name, namespace, sourceUID string) *unstructured.
 	}
 }
 
-// TestHandleNonPolicyChanges_CloneListScopedToDeletedSource is the regression test
-// for https://github.com/kyverno/kyverno/issues/9654 : when a single clone source
-// is deleted, only the downstream cloned from that source is removed, not every
-// downstream sharing the same trigger.
-func TestHandleNonPolicyChanges_CloneListScopedToDeletedSource(t *testing.T) {
+// newCloneListFixtures builds two provenance-signed downstreams that share one
+// trigger but were cloned from different sources, plus the owning policy.
+func newCloneListFixtures(t *testing.T) (dclient.Interface, *provenance.Store, *kyvernov1.ClusterPolicy) {
+	t.Helper()
 	ds1 := cloneListDownstreamSecret("dummy-secret-1", "certs-replicated", "source-uid-1")
 	ds2 := cloneListDownstreamSecret("dummy-secret-2", "certs-replicated", "source-uid-2")
 
@@ -388,8 +387,18 @@ func TestHandleNonPolicyChanges_CloneListScopedToDeletedSource(t *testing.T) {
 		{Group: "", Version: "v1", Resource: "namespaces"}: "NamespaceList",
 	}
 	client, err := dclient.NewFakeClient(scheme, gvrToListKind, ds1, ds2)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	return client, store, policy
+}
+
+// TestHandleNonPolicyChanges_CloneListScopedToDeletedSource is the regression test
+// for https://github.com/kyverno/kyverno/issues/9654 : when a single clone source
+// is deleted, only the downstream cloned from that source is removed, not every
+// downstream sharing the same trigger.
+func TestHandleNonPolicyChanges_CloneListScopedToDeletedSource(t *testing.T) {
+	client, store, policy := newCloneListFixtures(t)
 
 	controller := &GenerateController{
 		client:     client,
@@ -547,4 +556,62 @@ func TestDeletedCloneSourceUID(t *testing.T) {
 			assert.Equal(t, tt.want, controller.deletedCloneSourceUID(tt.ur, "trigger-uid"))
 		})
 	}
+}
+
+// TestProcessUR_CloneSourceDeletionScopedEndToEnd drives the real background path
+// for a deleted clone source: ProcessUR resolves the trigger through
+// common.GetTrigger (which treats the deleted source as the admission object),
+// then cleanup must still use the UpdateRequest's rule trigger (the Namespace)
+// to find the downstreams, and delete only the one cloned from that source.
+func TestProcessUR_CloneSourceDeletionScopedEndToEnd(t *testing.T) {
+	client, store, policy := newCloneListFixtures(t)
+	statusControl := &fakeStatusControl{}
+	controller := &GenerateController{
+		client:        client,
+		provenance:    store,
+		statusControl: statusControl,
+		policyLister:  &fakeClusterPolicyLister{policy: policy},
+		npolicyLister: &fakePolicyLister{},
+		eventGen:      event.NewFake(),
+		log:           logr.Discard(),
+	}
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ur", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.Generate,
+			Policy: policy.GetName(),
+			RuleContext: []kyvernov2.RuleContext{{
+				Rule:             "sync-secret",
+				DeleteDownstream: true,
+				Trigger: kyvernov1.ResourceSpec{
+					APIVersion: "v1",
+					Kind:       "Namespace",
+					Name:       "certs-replicated",
+					UID:        "trigger-uid-123",
+				},
+			}},
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+					Operation: admissionv1.Delete,
+					AdmissionRequest: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Delete,
+						Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+						Namespace: "certs",
+						OldObject: runtime.RawExtension{Raw: secretRaw(t, "dummy-secret-1", "certs", "source-uid-1",
+							map[string]interface{}{common.GenerateTypeCloneSourceLabel: ""})},
+					},
+				},
+			},
+		},
+	}
+
+	require.NoError(t, controller.ProcessUR(ur))
+	assert.True(t, statusControl.successCalled, "UR must complete successfully")
+	assert.False(t, statusControl.failedCalled)
+
+	_, err := client.GetResource(context.TODO(), "v1", "Secret", "certs-replicated", "dummy-secret-1")
+	assert.True(t, apierrors.IsNotFound(err), "the clone of the deleted source must be removed")
+	_, err = client.GetResource(context.TODO(), "v1", "Secret", "certs-replicated", "dummy-secret-2")
+	assert.NoError(t, err, "the clone of the other source must be retained")
 }
