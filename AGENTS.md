@@ -211,7 +211,7 @@ documentation, tests, and user documentation for current behavior.
 ## Coding Conventions
 
 - **Import aliases:** Enforced by `importas` linter. Key patterns:
-  - `github.com/kyverno/kyverno/api/<group>/<version>` → `<group><version>` (e.g., `kyvernov1`)
+  - `github.com/kyverno/kyverno/api/<group>/<version>` → `<group><version>` (e.g., `kyvernov2`)
   - `k8s.io/api/<group>/<version>` → `<group><version>` (e.g., `corev1`)
   - See `.golangci.yml` for the full alias table
 - **Logging:** Uses `logr` with `zerologr` backend. Default level is 2. See `docs/dev/logging/logging.md`:
