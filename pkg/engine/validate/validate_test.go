@@ -741,8 +741,8 @@ func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
 	assert.NilError(t, err)
 }
 
-// The pattern carries an already-substituted operator value; variable substitution now happens
-// upstream of validateResourceElement.
+// The pattern carries a literal operator value. Nothing in this tree substitutes variables any
+// more, so the pattern is used exactly as written.
 func TestValidateMap_SubstitutedOperatorPatternPasses(t *testing.T) {
 	rawPattern := []byte(`{
 		"spec":{
@@ -1011,6 +1011,60 @@ func TestValidateMap_SubstitutedOperatorPatternLimitsOnlyPasses(t *testing.T) {
 	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
+}
+
+func TestValidateMap_SubstitutedOperatorPatternRejects(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"<=2048Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{
+			"name":"nginx-deployment",
+			"labels":{
+				"app":"nginx"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"name":"nirmata",
+					"resources":{
+						"requests":{
+							"memory":"4096Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
+
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
+	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
+	assert.Assert(t, err != nil)
 }
 
 func TestValidateMap_MalformedPath(t *testing.T) {
