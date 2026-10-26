@@ -28,11 +28,8 @@ func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engi
 		init := func(jsonContext enginecontext.Interface) error {
 			rule := s.GetPolicyRule(policy.GetName(), rule.Name)
 			if rule != nil && len(rule.Values) > 0 {
-				variables := rule.Values
-				for key, value := range variables {
-					if err := jsonContext.AddVariable(key, value); err != nil {
-						return err
-					}
+				if err := AddValues(jsonContext, rule.Values); err != nil {
+					return err
 				}
 			}
 			if rule != nil && len(rule.ForEachValues) > 0 {
