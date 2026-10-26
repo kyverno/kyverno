@@ -651,8 +651,6 @@ metricsConfig:
       disabledLabelDimensions: ["resource_namespace"]
     kyverno_admission_requests_total:
       disabledLabelDimensions: ["resource_namespace"]
-    kyverno_cleanup_controller_deletedobjects_total:
-      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
     kyverno_validating_policy_results_total:
       disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
     kyverno_mutating_policy_results_total:

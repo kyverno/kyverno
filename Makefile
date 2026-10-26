@@ -505,7 +505,6 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--output-dir ./pkg/client/clientset \
 		--output-pkg $(CLIENTSET_PACKAGE) \
 		--input-base github.com/kyverno \
-		--input kyverno/api/kyverno/v1 \
 		--input kyverno/api/kyverno/v2 \
 		--input kyverno/api/kyverno/v2alpha1 \
 		--input kyverno/api/kyverno/v2beta1 \
@@ -522,7 +521,6 @@ codegen-client-listers: $(LISTER_GEN)
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-dir ./pkg/client/listers \
 		--output-pkg $(LISTERS_PACKAGE) \
-		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
 		./api/kyverno/v2beta1 \
@@ -541,7 +539,6 @@ codegen-client-informers: $(INFORMER_GEN)
 		--output-pkg $(INFORMERS_PACKAGE) \
 		--versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned \
 		--listers-package $(LISTERS_PACKAGE) \
-		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
 		./api/kyverno/v2beta1 \
