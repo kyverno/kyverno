@@ -54,7 +54,16 @@ jobs:
         run: python3 -m unittest discover -s scripts/release -p 'test_*.py' -v
       - uses: ./.github/actions/go/setup
       - name: Validate workflow syntax and cross-workflow contracts
-        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck= -pyflakes=
+        run: |
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck= -pyflakes= \
+            .github/workflows/check-release-automation.yaml \
+            .github/workflows/prepare-release.yaml \
+            .github/workflows/release.yaml \
+            .github/workflows/release-publish.yaml \
+            .github/workflows/release-validate.yaml \
+            .github/workflows/helm-release.yaml \
+            .github/workflows/tests-conformance.yaml \
+            .github/workflows/tests-k6.yaml
 
   prepare-charts:
     runs-on: ubuntu-latest
