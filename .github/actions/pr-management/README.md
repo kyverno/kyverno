@@ -35,7 +35,13 @@ It never deletes unmanaged labels and fails on lookup or write errors.
 expressions without evaluating them, regardless of `dry-run`. It never calls
 GitHub. Consumers can use it in read-only `pull_request` CI on local/head
 configuration while pinning the action itself to a trusted full commit SHA.
-Only YAML/JSON is parsed; no PR-provided shell or Python is executed by this mode.
+When the action is pinned to a trusted SHA, the PR's configuration is only
+parsed as YAML/JSON data; no PR-provided shell or Python is executed.
+
+This repository's own `check-pr-management.yaml` intentionally runs the action
+from the PR checkout, because it tests changes to the action itself. That is
+ordinary `pull_request` CI: fork PRs receive a read-only token and no secrets,
+and the job grants only `contents: read` with `persist-credentials: false`.
 
 ## Trusted configuration and permissions
 
