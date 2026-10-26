@@ -5,12 +5,14 @@ This page lists the Go packages and symbols that Kyverno 1.20 removes from this 
 
 **The Kubernetes APIs stay served.** This removal only affects Go import paths, generated clients, and the
 in-tree engine code that used them. The legacy `kyverno.io` CRDs (`ClusterPolicy`, `Policy`, `CleanupPolicy`,
-`ClusterCleanupPolicy`, `PolicyException`) keep working through the 1.20 compatibility period: you can still
-create, read, update, and delete these objects through `kubectl` or any Kubernetes client, and
-`config/crds/kyverno/` stays byte-identical to the pre-1.20 schema (see
-[`config/crds/kyverno/README.md`](../../../config/crds/kyverno/README.md)). Writes to these legacy kinds are
-denied at admission time as part of the separate 1.20 deprecation policy; see
-[`pkg/deprecations/AGENTS.md`](../../../pkg/deprecations/AGENTS.md) for that behavior.
+`ClusterCleanupPolicy`, `PolicyException`) remain registered, and `config/crds/kyverno/` stays byte-identical
+to the pre-1.20 schema (see [`config/crds/kyverno/README.md`](../../../config/crds/kyverno/README.md)).
+
+Writes to these kinds are denied at admission time by the separate 1.20 deprecation policy, which this
+removal does not change. You cannot create them, and you cannot update them except to remove a finalizer
+from a terminating object or to write an allowed subresource. You can still read, list, and delete existing
+objects through `kubectl` or any Kubernetes client, so you can inspect and clean up what a cluster already
+holds. See [`pkg/deprecations/AGENTS.md`](../../../pkg/deprecations/AGENTS.md) for the exact rules.
 
 ## Removed import paths
 

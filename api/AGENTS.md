@@ -13,17 +13,19 @@ kubebuilder markers on these types the way controller-runtime projects typically
 admission webhook config in the repo: `pkg/controllers/webhook` builds and reconciles
 `ValidatingWebhookConfiguration`/`MutatingWebhookConfiguration` resources dynamically at runtime, and
 `test/conformance/` has static ones for test fixtures — just none of it originates from a marker in this tree.
-Each remaining policy type still has a hand-written `Validate(...)` method on the Go type. `ClusterPolicy`,
+`ClusterPolicy`,
 `Policy`, `CleanupPolicy`, and `ClusterCleanupPolicy` no longer exist in Go at all — #17713 section 3 deleted
 `api/kyverno/v1`, `api/kyverno/v1beta1`, and the doomed `v2`/`v2beta1` cleanup and policy roots, since
 `pkg/validation/policy.Validate()` and `pkg/validation/cleanuppolicy.Validate()` had no caller left after
 #17710 PR 4 removed the handlers that called them. The Kubernetes APIs for those kinds stay served during the
 1.20 compatibility period (see `config/crds/kyverno/README.md`); new writes to them are now unconditionally
 denied by the webhook (see [pkg/deprecations/AGENTS.md](../pkg/deprecations/AGENTS.md)) rather than validated
-in Go. See `docs/dev/api/removed-legacy-go-api.md` for the full removed-symbol table. The one still-live method is
-`PolicyException.Validate()` (`policy_exception_types.go`), called from `pkg/webhooks/celexception` — `polex` is a
-`kyvernov2` type shared by the CEL exception path, not legacy-only. Validation is genuinely two-layered regardless
-of which type: CRD
+in Go. See `docs/dev/api/removed-legacy-go-api.md` for the full removed-symbol table. The hand-written
+`Validate(...)` methods that remain all belong to `GlobalContextEntry` (`api/kyverno/v2` and
+`api/kyverno/v2beta1`, plus its `Spec`/`KubernetesResource`/`ExternalAPICall`/`Projection` helpers).
+`PolicyException.Validate()` went with the `kyvernov2`/`kyvernov2beta1` exception roots; `pkg/webhooks/celexception`
+validates `policies.kyverno.io` types from the external `github.com/kyverno/api` module instead.
+Validation is genuinely two-layered regardless of which type: CRD
 OpenAPI schema validation from `+kubebuilder:validation:...` markers, enforced by the Kubernetes API server itself,
 *and* Kyverno's own semantic `Validate()` for cross-field checks the schema can't express. If you're adding a new
 validation rule, decide which layer it belongs in — a marker if it's expressible as schema, a `Validate()` addition
@@ -63,9 +65,11 @@ moves into a versioned subpackage to keep an unreachable consumer compiling (#17
 dead `pkg/` consumers rather than add aliases for them). Retained (regenerated) CRD types reference `kyverno.*`
 directly: controller-gen takes a non-inline field's description from the type name it sees, so a generated type
 naming an alias would pick up the alias's doc comment instead of its own. `config/crds/kyverno` is a 1.20
-compatibility snapshot (see `config/crds/kyverno/README.md`): only the five legacy policy CRDs are frozen
-byte-for-byte and digest-checked by `make verify-legacy-crd-snapshot`; GlobalContextEntry and UpdateRequest
-`v2` keep regenerating from Go under `make verify-codegen`. The root package must not import any versioned
+compatibility snapshot (see `config/crds/kyverno/README.md`): the five legacy policy CRDs are frozen
+byte-for-byte and digest-checked by `make verify-legacy-crd-snapshot`, and the UpdateRequest `v1beta1`
+version is frozen in place inside an otherwise-regenerated file (`KYVERNO_CRDS_FROZEN_VERSIONS`,
+`Makefile:571`). GlobalContextEntry and UpdateRequest `v2` keep regenerating from Go under
+`make verify-codegen`. The root package must not import any versioned
 `api/kyverno/*` package, to keep the dependency direction one-way (versioned packages import the root, never
 the reverse). Because the root package has no version segment, `genref`/`gen-crd-api-reference-docs` can't scan
 it as a documented page; it's registered as an external package pointing at pkg.go.dev instead (see
