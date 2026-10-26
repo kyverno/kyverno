@@ -828,13 +828,13 @@ func jpLabelMatch(arguments []any) (any, error) {
 	labelMap, ok := arguments[0].(map[string]any)
 
 	if !ok {
-		return nil, formatError(invalidArgumentTypeError, labelMatch, 0, "Object")
+		return nil, formatError(invalidArgumentTypeError, labelMatch, 1, "Object")
 	}
 
 	matchMap, ok := arguments[1].(map[string]any)
 
 	if !ok {
-		return nil, formatError(invalidArgumentTypeError, labelMatch, 1, "Object")
+		return nil, formatError(invalidArgumentTypeError, labelMatch, 2, "Object")
 	}
 
 	for key, value := range labelMap {
