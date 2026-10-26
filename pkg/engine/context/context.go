@@ -1,6 +1,7 @@
 package context
 
 import (
+	"bytes"
 	cont "context"
 	"encoding/csv"
 	"fmt"
@@ -229,9 +230,9 @@ func (ctx *context) AddVariable(key string, value interface{}) error {
 }
 
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
-	// data is merged into any existing entry, so the entry is charged the larger of its previous and new size
-	size := max(ctx.entrySizes[name], int64(len(dataRaw)))
-	if err := ctx.checkContextSizeLimit(size - ctx.entrySizes[name]); err != nil {
+	// data is merged into any existing entry, so its size is added to the entry's charge
+	size := entrySize(dataRaw)
+	if err := ctx.checkContextSizeLimit(size); err != nil {
 		return err
 	}
 	var data interface{}
@@ -239,12 +240,13 @@ func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
 		logger.Error(err, "failed to unmarshal the resource")
 		return err
 	}
-	ctx.setEntrySize(name, size)
+	ctx.setEntrySize(name, ctx.entrySizes[name]+size)
 	return addToContext(ctx, data, false, name)
 }
 
 func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
-	size := int64(len(dataRaw))
+	// the entry's previous data is replaced, so only the difference counts against the limit
+	size := entrySize(dataRaw)
 	if err := ctx.checkContextSizeLimit(size - ctx.entrySizes[name]); err != nil {
 		return err
 	}
@@ -262,8 +264,17 @@ func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
 	return addToContext(ctx, data, false, name)
 }
 
-// setEntrySize records the size charged for a context entry. Each entry is charged once, so
-// reloading an entry (e.g. after a checkpoint is restored) does not count against the limit again.
+// entrySize returns the size charged for context entry data. A null entry holds no data,
+// so replacing an entry with null clears its charge.
+func entrySize(dataRaw []byte) int64 {
+	if bytes.Equal(bytes.TrimSpace(dataRaw), []byte("null")) {
+		return 0
+	}
+	return int64(len(dataRaw))
+}
+
+// setEntrySize records the size charged for a context entry, so that replacing or clearing
+// an entry releases its previous charge instead of accumulating it.
 func (ctx *context) setEntrySize(name string, size int64) {
 	if ctx.entrySizes == nil {
 		ctx.entrySizes = map[string]int64{}

@@ -165,21 +165,31 @@ func TestCheckpointReloadIsNotDoubleCharged(t *testing.T) {
 	ctx.Restore()
 }
 
-func TestContextEntryReloadIsNotDoubleCharged(t *testing.T) {
+func TestContextEntryCharges(t *testing.T) {
 	ctx := NewContextWithMaxSize(nil, 30)
 	entry := []byte(`{"key":"0123456789"}`) // 20 bytes
 	assert.NilError(t, ctx.AddContextEntry("added", entry))
 	assert.NilError(t, ctx.ReplaceContextEntry("replaced", []byte(`"0123"`))) // 6 bytes -> 26
 
-	// reloading the same entries within the same checkpoint replaces their previous charge
 	ctx.Checkpoint()
-	assert.NilError(t, ctx.AddContextEntry("added", entry))
-	assert.NilError(t, ctx.ReplaceContextEntry("replaced", []byte(`"012345"`))) // 8 bytes -> 28
+	// added data is merged into the existing entry, so it accumulates (26 + 20 = 46)
+	assert.ErrorContains(t, ctx.AddContextEntry("added", entry), "context size limit exceeded")
+	// replaced data releases the previous charge (26 - 6 + 8 = 28)
+	assert.NilError(t, ctx.ReplaceContextEntry("replaced", []byte(`"012345"`)))
 	assert.ErrorContains(t, ctx.AddContextEntry("new", []byte(`"0123"`)), "context size limit exceeded")
 	ctx.Restore()
 
 	// restoring the checkpoint restores the per-entry charges (20 + 6 = 26)
 	assert.NilError(t, ctx.AddContextEntry("new", []byte(`"0"`)))
+}
+
+func TestClearingContextEntryIsFree(t *testing.T) {
+	ctx := NewContextWithMaxSize(nil, 1)
+	assert.NilError(t, ctx.AddContextEntry("entry", []byte(`1`))) // at the limit
+
+	// a null entry holds no data, so clearing is never charged, even at the limit
+	assert.NilError(t, ctx.ReplaceContextEntry("entry", []byte("null")))
+	assert.NilError(t, ctx.AddContextEntry("entry", []byte(`2`)))
 }
 
 func TestClearedContextEntryCanShrink(t *testing.T) {
