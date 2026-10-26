@@ -355,7 +355,13 @@ class AutomationTests(unittest.TestCase):
                 self.fixture["stale_pr"] = dict(stale(), **change)
                 for handler in ("handle_stale_label", "handle_needs_author", "handle_close", "handle_ready"):
                     self.run_action(shell=f"{handler} 1", success="state" not in change and "isDraft" not in change)
-                    self.assertEqual(self.mutations, [])
+                    if handler == "handle_stale_label" and "labels" in change:
+                        # Exemption resets the stale cycle instead of preserving the old clock.
+                        self.assertEqual(self.mutations, [["pr", "edit", "1", "--repo", "kyverno/example",
+                                                           "--remove-label", "stale"]])
+                    else:
+                        self.assertEqual(self.mutations, [])
+                    (self.work / "calls.jsonl").unlink(missing_ok=True)
 
     def test_force_push_resets_cycle_and_close_rechecks_live_hold(self):
         self.fixture["stale_pr"] = stale()

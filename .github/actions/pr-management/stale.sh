@@ -363,7 +363,13 @@ date_of() { jq -rn --argjson t "$1" '$t | strftime("%Y-%m-%d")'; }
 handle_stale_label() {
   local n="$1" last stale_at head recorded_head
   fetch "$n" || return 1
-  is_exempt && return 0
+  # Exemption resets the cycle: otherwise removing the exemption later could close on the old stale clock.
+  if is_exempt; then
+    has_label stale || return 0
+    echo "PR #$n: exempt — removing the stale label."
+    act gh pr edit "$n" --repo "$repo" --remove-label stale || return 1
+    return 0
+  fi
   last=$(last_commit) || return 1
   stale_at=$(label_time stale) || return 1
   head=$(jq -r '.headRefOid' pr.json)
