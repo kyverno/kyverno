@@ -634,9 +634,6 @@ metricsConfig:
 
   # -- (map) Configures the exposure of individual metrics, by default all metrics and all labels are exported, changing this configuration requires restart of the kyverno admission controller
   metricsExposure:
-    kyverno_policy_execution_duration_seconds:
-      # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
-      disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
     kyverno_validating_policy_execution_duration_seconds:
       # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
       disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
@@ -652,10 +649,6 @@ metricsConfig:
     kyverno_admission_review_duration_seconds:
       # enabled: false
       disabledLabelDimensions: ["resource_namespace"]
-    kyverno_policy_rule_info_total:
-      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
-    kyverno_policy_results_total:
-      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
     kyverno_admission_requests_total:
       disabledLabelDimensions: ["resource_namespace"]
     kyverno_cleanup_controller_deletedobjects_total:
@@ -928,15 +921,15 @@ prometheusRule:
   #       - alert: KyvernoPolicyExecutionHighLatency
   #         expr: |
   #           histogram_quantile(0.99,
-  #             sum(rate(kyverno_policy_execution_duration_seconds_bucket[5m])) by (le, rule_type)
+  #             sum(rate(kyverno_validating_policy_execution_duration_seconds_bucket[5m])) by (le, policy_name)
   #           ) > 0.5
   #         for: 5m
   #         labels:
   #           severity: warning
   #         annotations:
-  #           summary: Kyverno policy execution p99 latency is elevated
+  #           summary: Kyverno validating policy execution p99 latency is elevated
   #           description: >-
-  #             {{ $labels.rule_type }} rule p99 execution latency is
+  #             {{ $labels.policy_name }} p99 execution latency is
   #             {{ $value | humanizeDuration }}.
   #           runbook_url: https://kyverno.io/docs/guides/monitoring/#policy-execution-latency-high
 
