@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: expired-exception-for-team-b
+spec:
+  expiresAt: "2020-01-01T00:00:00Z"
+  policyRefs:
+  - name: generate-cm
+    kind: GeneratingPolicy
+  matchConditions:
+    - name: check-namespace-name
+      expression: "object.metadata.name == 'team-b'"

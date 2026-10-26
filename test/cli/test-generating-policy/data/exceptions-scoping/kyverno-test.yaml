@@ -1,0 +1,33 @@
+apiVersion: cli.kyverno.io/v1alpha1
+exceptions:
+- other-policy-exception.yaml
+- expired-exception.yaml
+- live-exception.yaml
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- generatedResource: generated-resource-team-a.yaml
+  isGeneratingPolicy: true
+  kind: Namespace
+  policy: generate-cm
+  resources:
+  - team-a
+  result: pass
+- generatedResource: generated-resource-team-b.yaml
+  isGeneratingPolicy: true
+  kind: Namespace
+  policy: generate-cm
+  resources:
+  - team-b
+  result: pass
+- isGeneratingPolicy: true
+  kind: Namespace
+  policy: generate-cm
+  resources:
+  - team-c
+  result: skip
