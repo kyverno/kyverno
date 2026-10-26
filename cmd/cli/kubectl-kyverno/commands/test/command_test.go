@@ -2192,3 +2192,31 @@ func TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger(t *testing.T)
 		assert.NotEqual(t, triggerIdentity, describe(*patchedTarget), "target response must not be the trigger")
 	})
 }
+
+func Test_ClusterNamespaceSelector(t *testing.T) {
+	color.Init(true)
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "cluster-namespace-selector")
+	require.DirExists(t, testDir)
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+	require.NotNil(t, testResponse)
+
+	rc := &resultCounts{}
+	var resultsTable table.Table
+	resourcePath := filepath.Dir(testCase.Path)
+	err = printTestResult(testCase.Test.Results, testResponse, rc, &resultsTable, testCase.Fs, resourcePath, true)
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc.Fail, "Expected 0 test failures, resultsTable: %v", resultsTable.RawRows)
+	assert.Equal(t, 2, rc.Pass)
+	assert.Equal(t, 1, rc.Skip)
+}

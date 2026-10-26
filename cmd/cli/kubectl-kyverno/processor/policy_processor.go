@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/google/cel-go/common/types"
@@ -43,6 +45,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -85,6 +88,7 @@ type PolicyProcessor struct {
 	UserInfo             *kyvernov2.RequestInfo
 	PolicyReport         bool
 	NamespaceSelectorMap map[string]map[string]string
+	NamespaceResolver    celengine.NamespaceResolver
 	Stdin                bool
 	Rc                   *ResultCounts
 	PrintPatchResource   bool
@@ -1064,11 +1068,86 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 	return true
 }
 
-func (p *PolicyProcessor) getNamespaceResolver() celengine.NamespaceResolver {
-	if p.Variables != nil {
-		return p.Variables.Namespace
+// GetNamespaceResolver creates a celengine.NamespaceResolver that checks local in-memory
+// variables first and, when cluster mode is active and a client is present, falls back
+// to resolving the namespace from the live cluster with caching.
+func GetNamespaceResolver(vars *variables.Variables, client dclient.Interface, cluster bool) celengine.NamespaceResolver {
+	var localResolver celengine.NamespaceResolver
+	if vars != nil {
+		localResolver = vars.Namespace
+	}
+	if cluster && client != nil {
+		var mu sync.Mutex
+		cache := make(map[string]*corev1.Namespace)
+		return func(name string) *corev1.Namespace {
+			if name == "" {
+				return nil
+			}
+			if localResolver != nil {
+				if ns := localResolver(name); ns != nil {
+					return ns
+				}
+			}
+			mu.Lock()
+			if cached, ok := cache[name]; ok {
+				mu.Unlock()
+				return cached
+			}
+			mu.Unlock()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			var resolved *corev1.Namespace
+			var isNotFound bool
+			if kubeClient := client.GetKubeClient(); kubeClient != nil {
+				func() {
+					defer func() { _ = recover() }()
+					ns, err := kubeClient.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+					if err == nil && ns != nil {
+						resolved = ns
+					} else if apierrors.IsNotFound(err) {
+						isNotFound = true
+					}
+				}()
+			}
+			if resolved == nil && !isNotFound {
+				func() {
+					defer func() { _ = recover() }()
+					res, err := client.GetResource(ctx, "v1", "Namespace", "", name)
+					if err == nil && res != nil {
+						var ns corev1.Namespace
+						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(res.UnstructuredContent(), &ns); err == nil {
+							resolved = &ns
+						}
+					} else if apierrors.IsNotFound(err) {
+						isNotFound = true
+					}
+				}()
+			}
+
+			// Cache confirmed results: either a found namespace or confirmed 404 (not found).
+			// Transient API errors are not cached to allow subsequent evaluations to retry.
+			if resolved != nil || isNotFound {
+				mu.Lock()
+				cache[name] = resolved
+				mu.Unlock()
+			}
+			return resolved
+		}
+	}
+	if localResolver != nil {
+		return localResolver
 	}
 	return func(string) *corev1.Namespace { return nil }
+}
+
+func (p *PolicyProcessor) getNamespaceResolver() celengine.NamespaceResolver {
+	if p.NamespaceResolver != nil {
+		return p.NamespaceResolver
+	}
+	p.NamespaceResolver = GetNamespaceResolver(p.Variables, p.Client, p.Cluster)
+	return p.NamespaceResolver
 }
 
 func (p *PolicyProcessor) loadCrds() error {
