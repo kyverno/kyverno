@@ -7,17 +7,50 @@ import (
 )
 
 func TestInit(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+	})
+
 	tests := []struct {
-		name    string
-		noColor bool
-	}{{
-		noColor: true,
-	}, {
-		noColor: false,
-	}}
+		name              string
+		noColor           bool
+		fatihNoColor      bool
+		wantHeaderBgColor int
+		wantHeaderFgColor int
+	}{
+		{
+			name:              "color disabled by flag",
+			noColor:           true,
+			fatihNoColor:      false,
+			wantHeaderBgColor: 0,
+			wantHeaderFgColor: 0,
+		},
+		{
+			name:              "color enabled in TTY",
+			noColor:           false,
+			fatihNoColor:      false,
+			wantHeaderBgColor: 40, // tablewriter.BgBlackColor
+			wantHeaderFgColor: 32, // tablewriter.FgGreenColor
+		},
+		{
+			name:              "color suppressed in non-TTY",
+			noColor:           false,
+			fatihNoColor:      true,
+			wantHeaderBgColor: 0,
+			wantHeaderFgColor: 0,
+		},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.fatihNoColor
 			Init(tt.noColor)
+			if HeaderBgColor != tt.wantHeaderBgColor {
+				t.Errorf("HeaderBgColor = %v, want %v", HeaderBgColor, tt.wantHeaderBgColor)
+			}
+			if HeaderFgColor != tt.wantHeaderFgColor {
+				t.Errorf("HeaderFgColor = %v, want %v", HeaderFgColor, tt.wantHeaderFgColor)
+			}
 		})
 	}
 }
@@ -262,4 +295,46 @@ func TestFunctionNote(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBoldHelpers(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(true)
+	})
+
+	t.Run("color disabled", func(t *testing.T) {
+		fatihcolor.NoColor = true
+		Init(true)
+		if got := BoldGreen("green"); got != "green" {
+			t.Errorf("BoldGreen() = %q, want %q", got, "green")
+		}
+		if got := BoldRed("red"); got != "red" {
+			t.Errorf("BoldRed() = %q, want %q", got, "red")
+		}
+		if got := BoldYellow("yellow"); got != "yellow" {
+			t.Errorf("BoldYellow() = %q, want %q", got, "yellow")
+		}
+		if got := BoldCyan("cyan"); got != "cyan" {
+			t.Errorf("BoldCyan() = %q, want %q", got, "cyan")
+		}
+	})
+
+	t.Run("color enabled", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		Init(false)
+		if got := BoldGreen("green"); got != "[32;1mgreen[0;22m" {
+			t.Errorf("BoldGreen() = %q, want %q", got, "[32;1mgreen[0;22m")
+		}
+		if got := BoldRed("red"); got != "[31;1mred[0;22m" {
+			t.Errorf("BoldRed() = %q, want %q", got, "[31;1mred[0;22m")
+		}
+		if got := BoldYellow("yellow"); got != "[33;1myellow[0;22m" {
+			t.Errorf("BoldYellow() = %q, want %q", got, "[33;1myellow[0;22m")
+		}
+		if got := BoldCyan("cyan"); got != "[36;1mcyan[0;22m" {
+			t.Errorf("BoldCyan() = %q, want %q", got, "[36;1mcyan[0;22m")
+		}
+	})
 }

@@ -116,16 +116,16 @@ func testCommandExecute(
 	filter, filterErrs := filter.ParseFilter(testCase)
 	if len(filterErrs) > 0 {
 		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Filter errors:")
+		fmt.Fprintln(out, color.BoldRed("Filter errors:"))
 		for _, e := range filterErrs {
-			fmt.Fprintln(out, "  Error:", e)
+			fmt.Fprintln(out, "  "+color.BoldRed("Error:"), e)
 		}
 	}
 	// load tests
 	tests, err := loadTests(dirPath, fileName, gitBranch)
 	if err != nil {
 		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Error loading tests:", err)
+		fmt.Fprintln(out, color.BoldRed("Error loading tests:"), err)
 		return err
 	}
 	if len(tests) == 0 {
@@ -134,10 +134,10 @@ func testCommandExecute(
 	}
 	if errs := tests.Errors(); len(errs) > 0 {
 		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Test errors:")
+		fmt.Fprintln(out, color.BoldRed("Test errors:"))
 		for _, e := range errs {
 			fmt.Fprintln(out, "  Path:", e.Path)
-			fmt.Fprintln(out, "    Error:", e.Err)
+			fmt.Fprintln(out, "    "+color.BoldRed("Error:"), e.Err)
 		}
 		return fmt.Errorf("found %d errors after loading tests", len(errs))
 	}
@@ -195,10 +195,16 @@ func testCommandExecute(
 			}
 		}
 	}
-	if !failOnly {
-		fmt.Fprintf(out, "\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
+	var failCount string
+	if rc.Fail > 0 {
+		failCount = color.BoldRed(rc.Fail)
 	} else {
-		fmt.Fprintf(out, "\nTest Summary: %d out of %d tests failed\n", rc.Fail, rc.Pass+rc.Skip+rc.Fail)
+		failCount = color.BoldGreen(rc.Fail)
+	}
+	if !failOnly {
+		fmt.Fprintf(out, "\nTest Summary: %s tests passed and %s tests failed\n", color.BoldGreen(rc.Pass+rc.Skip), failCount)
+	} else {
+		fmt.Fprintf(out, "\nTest Summary: %s out of %d tests failed\n", failCount, rc.Pass+rc.Skip+rc.Fail)
 	}
 	fmt.Fprintln(out)
 	if rc.Fail > 0 {

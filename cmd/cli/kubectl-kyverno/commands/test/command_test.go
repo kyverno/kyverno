@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	fatihcolor "github.com/fatih/color"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -2191,4 +2193,176 @@ func TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger(t *testing.T)
 			"expected target ConfigMap to receive mutated=%s", targetLabel)
 		assert.NotEqual(t, triggerIdentity, describe(*patchedTarget), "target response must not be the trigger")
 	})
+}
+
+func TestCommand_SummaryColorEnabled(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+	fatihcolor.NoColor = false
+	color.Init(false)
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{testDir})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	out := outBuffer.String()
+	assert.Contains(t, out, "Loading test "+color.BoldCyan("kyverno-test"))
+	assert.Contains(t, out, "Test Summary: "+color.BoldGreen(2)+" tests passed and "+color.BoldGreen(0)+" tests failed")
+	assert.True(t, ansiRegex.MatchString(out), "expected output to contain ANSI color codes")
+}
+
+func TestCommand_SummaryColorDisabled(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{testDir, "--remove-color"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	out := outBuffer.String()
+	assert.Contains(t, out, "Loading test kyverno-test")
+	assert.Contains(t, out, "Test Summary: 2 tests passed and 0 tests failed")
+	assert.False(t, ansiRegex.MatchString(out), "expected output to have no ANSI color codes")
+}
+
+func TestCommand_SummaryFailureCounts(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	sourceDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	tmpDir := t.TempDir()
+	for _, file := range []string{"policy.yaml", "deployment1.yaml", "deployment2.yaml"} {
+		content, err := os.ReadFile(filepath.Join(sourceDir, file))
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(tmpDir, file), content, 0o600)
+		require.NoError(t, err)
+	}
+
+	testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- deployment1.yaml
+- deployment2.yaml
+results:
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - bad-deployment
+  result: pass
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - good-deployment
+  result: pass
+`
+	err = os.WriteFile(filepath.Join(tmpDir, "kyverno-test.yaml"), []byte(testYAML), 0o600)
+	require.NoError(t, err)
+
+	// 1. Color enabled
+	fatihcolor.NoColor = false
+	color.Init(false)
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{tmpDir})
+
+	err = cmd.Execute()
+	require.Error(t, err)
+
+	out := outBuffer.String()
+	expectedSummary := fmt.Sprintf("Test Summary: %s tests passed and %s tests failed", color.BoldGreen(1), color.BoldRed(1))
+	assert.Contains(t, out, expectedSummary)
+	assert.True(t, ansiRegex.MatchString(out), "expected colored failure count")
+
+	// 2. Color disabled with --remove-color
+	cmdNoColor := Command()
+	outBufferNoColor := bytes.NewBufferString("")
+	cmdNoColor.SetOut(outBufferNoColor)
+	cmdNoColor.SetErr(io.Discard)
+	cmdNoColor.SetArgs([]string{tmpDir, "--remove-color"})
+
+	err = cmdNoColor.Execute()
+	require.Error(t, err)
+
+	outNoColor := outBufferNoColor.String()
+	assert.Contains(t, outNoColor, "Test Summary: 1 tests passed and 1 tests failed")
+	assert.False(t, ansiRegex.MatchString(outNoColor), "expected plain output with --remove-color")
+}
+
+func TestRunTest_WarningColor(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+
+	// Duplicate a resource to trigger the duplicate resource warning in test execution
+	testCase := testCases[0]
+	testCase.Test.Resources = append(testCase.Test.Resources, testCase.Test.Resources[0])
+
+	// With color enabled
+	fatihcolor.NoColor = false
+	color.Init(false)
+	outBuffer := bytes.NewBufferString("")
+	_, _ = runTest(context.TODO(), outBuffer, testCase, false)
+	out := outBuffer.String()
+	assert.Contains(t, out, color.BoldYellow("warning:"))
+	assert.True(t, ansiRegex.MatchString(out), "expected warning to be colored when color enabled")
+
+	// With color disabled
+	color.Init(true)
+	outBufferNoColor := bytes.NewBufferString("")
+	_, _ = runTest(context.TODO(), outBufferNoColor, testCase, false)
+	outNoColor := outBufferNoColor.String()
+	assert.Contains(t, outNoColor, "warning: found duplicated resource")
+	assert.False(t, ansiRegex.MatchString(outNoColor), "expected warning to not contain ANSI codes when color disabled")
 }

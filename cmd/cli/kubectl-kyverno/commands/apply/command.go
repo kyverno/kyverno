@@ -159,12 +159,15 @@ func Command() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			out := cmd.OutOrStdout()
-			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
 			table, err = applyCommandConfig.resolveOutputFlags(cmd, table, detailedResults)
 			if err != nil {
 				return err
 			}
+			if applyCommandConfig.PolicyReport || applyCommandConfig.GenerateExceptions || applyCommandConfig.Stdin {
+				removeColor = true
+			}
+			color.Init(removeColor)
 			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
 			if err != nil {
 				return err
