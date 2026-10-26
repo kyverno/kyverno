@@ -15,14 +15,22 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
-	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/v3/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apiserver/pkg/admission"
+	yaml "sigs.k8s.io/yaml"
 )
+
+// loadVpol decodes one ValidatingPolicy document (YAML or JSON) for the tests in this file.
+func loadVpol(t *testing.T, raw []byte) policiesv1beta1.ValidatingPolicy {
+	t.Helper()
+	var vpol policiesv1beta1.ValidatingPolicy
+	assert.NilError(t, yaml.Unmarshal(raw, &vpol))
+	return vpol
+}
 
 func Test_resolveResource_fromValidatingPolicy(t *testing.T) {
 	// resolveResource should find resource names by scanning ValidatingPolicies
@@ -281,12 +289,10 @@ spec:
     image: nginx
 `)
 
-		_, _, _, vpols, _, _, _, err := yamlutils.GetPolicy(vpolYAML)
-		assert.NilError(t, err)
-		assert.Assert(t, len(vpols) > 0)
+		vpol := loadVpol(t, vpolYAML)
 
 		compiler := vpolcompiler.NewCompilerWithTrace(false)
-		vpolLikes := []policiesv1beta1.ValidatingPolicyLike{&vpols[0]}
+		vpolLikes := []policiesv1beta1.ValidatingPolicyLike{&vpol}
 		provider, err := vpolengine.NewProvider(compiler, vpolLikes, nil)
 		assert.NilError(t, err)
 
@@ -360,12 +366,10 @@ spec:
   - expression: "object.message == 'hello'"
     message: "message must be hello"
 `)
-		_, _, _, jsonVpols, _, _, _, err := yamlutils.GetPolicy(vpolJSONYAML)
-		assert.NilError(t, err)
-		assert.Assert(t, len(jsonVpols) > 0)
+		jsonVpol := loadVpol(t, vpolJSONYAML)
 
 		compiler := vpolcompiler.NewCompilerWithTrace(false)
-		jsonVpolLikes := []policiesv1beta1.ValidatingPolicyLike{&jsonVpols[0]}
+		jsonVpolLikes := []policiesv1beta1.ValidatingPolicyLike{&jsonVpol}
 		provider, err := vpolengine.NewProvider(compiler, jsonVpolLikes, nil)
 		assert.NilError(t, err)
 
@@ -514,9 +518,7 @@ spec:
   - expression: "globalContext.get('env-config', 'tier') == 'production'"
     message: "tier must be production"
 `)
-	_, _, _, vpols, _, _, _, err := yamlutils.GetPolicy(contextPolicyYAML)
-	assert.NilError(t, err)
-	assert.Assert(t, len(vpols) > 0)
+	vpol := loadVpol(t, contextPolicyYAML)
 
 	passingPodYAML := []byte(`
 apiVersion: v1
@@ -546,7 +548,7 @@ spec:
 	rc := &ResultCounts{}
 	p := PolicyProcessor{
 		Store:              &store.Store{},
-		ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{&vpols[0]},
+		ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{&vpol},
 		Resource:           *podList[0],
 		Rc:                 rc,
 		Out:                os.Stdout,
@@ -588,9 +590,7 @@ spec:
   evaluation:
     mode: JSON
 `)
-	_, _, _, jsonVpols, _, _, _, err := yamlutils.GetPolicy(vpolJSONYAML)
-	assert.NilError(t, err)
-	assert.Assert(t, len(jsonVpols) > 0)
+	jsonVpol := loadVpol(t, vpolJSONYAML)
 
 	mpol := &policiesv1beta1.MutatingPolicy{}
 	mpol.SetName("dummy-mpol")
@@ -615,7 +615,7 @@ spec:
 			name: "vpol json provider error",
 			processor: PolicyProcessor{
 				Store:               &store.Store{},
-				ValidatingPolicies:  []policiesv1beta1.ValidatingPolicyLike{&jsonVpols[0]},
+				ValidatingPolicies:  []policiesv1beta1.ValidatingPolicyLike{&jsonVpol},
 				JsonPayload:         *podList[0],
 				Rc:                  &ResultCounts{},
 				Out:                 os.Stdout,
