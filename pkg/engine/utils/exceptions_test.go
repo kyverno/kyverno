@@ -250,11 +250,7 @@ func (c *countingClient) GetNamespace(_ context.Context, name string, _ metav1.G
 
 func newExceptionTestPolicyContext(t *testing.T, resource unstructured.Unstructured) engineapi.PolicyContext {
 	t.Helper()
-	cfg := config.NewDefaultConfiguration(false)
-	jp := jmespath.New(cfg)
-	pc, err := policycontext.NewPolicyContext(jp, resource, kyvernov1.Create, nil, cfg)
-	assert.NoError(t, err)
-	return pc.WithNewResource(resource)
+	return newExceptionTestPolicyContextForOperation(t, resource, kyvernov1.Create)
 }
 
 func newPodResource(name, namespace string) unstructured.Unstructured {
@@ -424,8 +420,7 @@ func TestCheckResourceDescription_EmptyOperationsMatchesAny(t *testing.T) {
 }
 
 // A PolicyException that scopes itself to a set of operations must only apply to
-// those operations. Before this was honoured, an exception limited to CREATE also
-// exempted UPDATE and DELETE, silently widening the exception.
+// those operations.
 func TestMatchesException_OperationsAreHonoured(t *testing.T) {
 	client := &countingClient{}
 	polexs := []*kyvernov2.PolicyException{polexMatchingOperations(kyvernov1.Create)}
