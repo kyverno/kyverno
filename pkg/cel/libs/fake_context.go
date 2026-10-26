@@ -11,11 +11,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+type globalContextStore interface {
+	Get(key string) (gctxstore.Entry, bool)
+}
+
 type FakeContextProvider struct {
 	resources          map[string]map[string]map[string]*unstructured.Unstructured
 	images             map[string]map[string]any
 	globalReferences   map[string]any
-	gctxStore          gctxstore.Store
+	gctxStore          globalContextStore
 	httpMocks          map[string]interface{}
 	generatedResources []*unstructured.Unstructured
 	policyName         string
@@ -77,7 +81,7 @@ func (cp *FakeContextProvider) GetHTTPMocks() map[string]interface{} {
 	return cp.httpMocks
 }
 
-func (cp *FakeContextProvider) SetGlobalContextStore(store gctxstore.Store) {
+func (cp *FakeContextProvider) SetGlobalContextStore(store globalContextStore) {
 	cp.gctxStore = store
 }
 

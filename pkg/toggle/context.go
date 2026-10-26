@@ -8,6 +8,7 @@ var defaults Toggles = defaultToggles{}
 
 type Toggles interface {
 	ProtectManagedResources() bool
+	ProtectGenerationLabels() bool
 	ForceFailurePolicyIgnore() bool
 	EnableDeferredLoading() bool
 	GenerateValidatingAdmissionPolicy() bool
@@ -20,6 +21,10 @@ type defaultToggles struct{}
 
 func (defaultToggles) ProtectManagedResources() bool {
 	return ProtectManagedResources.Enabled()
+}
+
+func (defaultToggles) ProtectGenerationLabels() bool {
+	return ProtectGenerationLabels.Enabled()
 }
 
 func (defaultToggles) ForceFailurePolicyIgnore() bool {

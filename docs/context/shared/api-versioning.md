@@ -7,7 +7,7 @@ file to edit.
 ## Where the types live
 
 - `kyverno.io`, `wgpolicyk8s.io` (as `policyreport`), and `reports.kyverno.io` are defined **in this repo**, under
-  `api/kyverno/{v1,v1beta1,v2,v2alpha1,v2beta1}`, `api/policyreport/v1alpha2`, and `api/reports/v1`.
+  `api/kyverno/{v2,v2alpha1,v2beta1}`, `api/policyreport/v1alpha2`, and `api/reports/v1`.
 - **`policies.kyverno.io`** (the CEL-based types: ValidatingPolicy, MutatingPolicy, GeneratingPolicy, DeletingPolicy,
   ImageValidatingPolicy, PolicyException, and their Namespaced\* variants) is defined in the **separate
   `github.com/kyverno/api` Go module**, not in this repo's `api/` directory. It's pinned in `go.mod` and imported
@@ -15,8 +15,8 @@ file to edit.
   (`config/crds/policies.kyverno.io/*.yaml`) and consuming Go code live here. See
   [repo-boundaries.md](./repo-boundaries.md) for why (no backfilled ADR exists yet for this decision).
 - A handful of types shared across `kyverno.io` versions (`ResourceSpec`, `APICall`, `ServiceCall`, `Method`,
-  `RequestData`, `HTTPHeader`) live in the version-less `api/kyverno` root package; `v1` re-exports them as
-  type aliases for compatibility. See [`api/AGENTS.md`](../../../api/AGENTS.md) for the alias rules.
+  `RequestData`, `HTTPHeader`) live in the version-less `api/kyverno` root package. The versioned packages
+  import these directly. See [`api/AGENTS.md`](../../../api/AGENTS.md) for the dependency rules.
 
 ## Stability tiers
 
@@ -50,8 +50,8 @@ published deprecation schedule for legacy `kyverno.io` v1 types (`ClusterPolicy`
 — that page, not this one, is authoritative for which specific fields are currently deprecated. Their migration path
 is **not** to a `kyverno.io/v2` version of the same types — `api/kyverno/v2` has no `ClusterPolicy`/`Policy` type at
 all — it's to the CEL `policies.kyverno.io` types (`ValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`,
-`ImageValidatingPolicy`), per the deprecation marker on `v1.ClusterPolicy` itself (quoted in
-[api/AGENTS.md](../../../api/AGENTS.md)).
+`ImageValidatingPolicy`). The legacy Go types have been removed; the served CRDs remain in the
+compatibility snapshot. See [the removed Go API inventory](../../dev/api/removed-legacy-go-api.md).
 
 None of the above is enforced by a linter or CI check today — it's a reviewer-enforced convention. If you're adding
 tooling to check it, start here.

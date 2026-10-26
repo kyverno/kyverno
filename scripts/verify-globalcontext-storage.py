@@ -19,6 +19,18 @@ def write_report(path, report):
         output.write("\n")
 
 
+def run_kubectl(kubeconfig, context, *arguments):
+    try:
+        result = subprocess.run(
+            ["kubectl", "--kubeconfig", kubeconfig, "--context", context,
+             "--request-timeout=30s", *arguments],
+            check=True, capture_output=True, text=True, timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        raise SystemExit("kubectl timed out after 60 seconds") from None
+    return json.loads(result.stdout)
+
+
 def preserved_fields(obj):
     result = copy.deepcopy(obj)
     result.pop("apiVersion", None)
@@ -47,12 +59,7 @@ def main():
         parser.error("provide distinct Kubernetes object names")
 
     def kubectl(*arguments):
-        result = subprocess.run(
-            ["kubectl", "--kubeconfig", args.kubeconfig, "--context", args.context,
-             *arguments],
-            check=True, capture_output=True, text=True,
-        )
-        return json.loads(result.stdout)
+        return run_kubectl(args.kubeconfig, args.context, *arguments)
 
     nodes = kubectl("get", "nodes", "-o", "json")["items"]
     if not nodes or not all(

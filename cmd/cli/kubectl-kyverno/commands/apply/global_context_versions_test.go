@@ -21,10 +21,12 @@ func TestExtractGlobalContextEntryVersions(t *testing.T) {
 		apiVersion string
 		kind       string
 		extracted  bool
+		malformed  bool
 	}{
 		{name: "stable", apiVersion: "kyverno.io/v2", kind: "GlobalContextEntry", extracted: true},
 		{name: "beta", apiVersion: "kyverno.io/v2beta1", kind: "GlobalContextEntry", extracted: true},
 		{name: "alpha", apiVersion: "kyverno.io/v2alpha1", kind: "GlobalContextEntry", extracted: true},
+		{name: "malformed spec", apiVersion: "kyverno.io/v2", kind: "GlobalContextEntry", malformed: true},
 		{name: "unsupported version", apiVersion: "kyverno.io/v99", kind: "GlobalContextEntry"},
 		{name: "different group", apiVersion: "example.com/v2", kind: "GlobalContextEntry"},
 		{name: "different kind", apiVersion: "kyverno.io/v2", kind: "PolicyException"},
@@ -44,8 +46,18 @@ func TestExtractGlobalContextEntryVersions(t *testing.T) {
 				},
 				"status": map[string]interface{}{"ready": false},
 			}}
+			if tc.malformed {
+				input.Object["spec"] = "not an object"
+			}
 			original := input.DeepCopy()
 			regular, entries, err := extractGlobalContextEntries([]*unstructured.Unstructured{input})
+			if tc.malformed {
+				require.ErrorContains(t, err, "failed to convert")
+				require.Nil(t, regular)
+				require.Nil(t, entries)
+				require.Equal(t, original, input)
+				return
+			}
 			require.NoError(t, err)
 			require.Equal(t, original, input, "extraction must not change the caller's object")
 			if !tc.extracted {
@@ -67,11 +79,11 @@ func TestExtractGlobalContextEntryVersions(t *testing.T) {
 	}
 }
 func TestApplyGlobalContextServedVersionFixtures(t *testing.T) {
-	t.Parallel()
+	previous := libs.LibraryContext
+	t.Cleanup(func() { libs.LibraryContext = previous })
 	root := "../../../../../test/cli/apply/globalcontext-served-versions"
 	for _, version := range []string{"v2", "v2beta1", "v2alpha1"} {
 		t.Run(version, func(t *testing.T) {
-			t.Parallel()
 			config := ApplyCommandConfig{
 				PolicyPaths:   []string{filepath.Join(root, "policy.yaml")},
 				ResourcePaths: []string{filepath.Join(root, "resources-"+version+".yaml")},

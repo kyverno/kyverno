@@ -9,6 +9,7 @@ import stat
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.dont_write_bytecode = True
 SPEC = importlib.util.spec_from_file_location(
@@ -51,6 +52,22 @@ class ReportTest(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 storage.write_report(path, {"objects": "private"})
             self.assertEqual(target.read_text(encoding="utf-8"), "original")
+
+
+class KubectlTest(unittest.TestCase):
+    @mock.patch.object(storage.subprocess, "run")
+    def test_calls_have_a_finite_timeout(self, run):
+        run.return_value.stdout = '{"items": []}'
+        self.assertEqual(storage.run_kubectl("config", "kind-proof", "get", "nodes"),
+                         {"items": []})
+        self.assertEqual(run.call_args.kwargs["timeout"], 60)
+        self.assertIn("--request-timeout=30s", run.call_args.args[0])
+
+    @mock.patch.object(storage.subprocess, "run")
+    def test_timeout_reports_a_clear_failure(self, run):
+        run.side_effect = storage.subprocess.TimeoutExpired("kubectl", 60)
+        with self.assertRaisesRegex(SystemExit, "kubectl timed out after 60 seconds"):
+            storage.run_kubectl("config", "kind-proof", "get", "nodes")
 
 
 if __name__ == "__main__":
