@@ -9,6 +9,13 @@ on:
 
 jobs:
   policy-library:
+    # Disabled: the kyverno/policies library this job checks out is written as
+    # ClusterPolicy/Policy resources, which the write-time legacy-policy denial
+    # (#17710) now rejects unconditionally, and the "legacy-policies" install
+    # overlay this job used to opt out of policy-writing restrictions no
+    # longer exists. Re-enable once the library has CEL (ValidatingPolicy/
+    # MutatingPolicy/...) equivalents to test against; see the #17701 epic.
+    if: false
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -62,7 +69,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          export USE_CONFIG=standard,legacy-policies
+          export USE_CONFIG=standard
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno/wait-ready

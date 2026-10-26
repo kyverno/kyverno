@@ -16,12 +16,12 @@ do not — both do their own minimal, standalone setup instead.
 
 | Binary | Source | Purpose |
 |---|---|---|
-| `kyverno` | `cmd/kyverno/` | The admission controller. Runs the webhook server (sync validate/mutate), policy/report/webhook/certmanager controllers, and the CEL-based engines (`pkg/cel/policies/{vpol,mpol,gpol,ivpol}`) alongside the legacy `kyverno.io` engine. |
+| `kyverno` | `cmd/kyverno/` | The admission controller. Runs the webhook server (sync validate/mutate), policy/report/webhook/certmanager controllers, and the CEL-based engines (`pkg/cel/policies/{vpol,mpol,gpol,ivpol}`). The legacy `kyverno.io` rule-evaluation engine was removed in #17710 PR 4. |
 | `kyvernopre` | `cmd/kyverno-init/` | Init container. Cleans up stale webhook configurations before the admission controller starts. |
 | `kubectl-kyverno` | `cmd/cli/kubectl-kyverno/` | Offline CLI for applying/testing policies without a cluster. Built on library code in `pkg/cli` (distinct from the `cmd/cli` command tree itself). |
 | `cleanup-controller` | `cmd/cleanup-controller/` | Reconciles `CleanupPolicy`/`ClusterCleanupPolicy`, runs a cleanup-policy validation webhook, and handles CronJob-invoked cleanup plus the CEL `dpol` (DeletingPolicy) engine. |
-| `reports-controller` | `cmd/reports-controller/` | Produces and aggregates `PolicyReport`/`ClusterPolicyReport` from admission and background scans. |
-| `background-controller` | `cmd/background-controller/` | Processes `generate` and `mutate-existing` rules against already-existing resources via `UpdateRequest`s, plus the CEL `gpol`/`mpol` background paths. |
+| `reports-controller` | `cmd/reports-controller/` | Produces and aggregates `PolicyReport`/`ClusterPolicyReport` from admission and background scans for CEL policies and ValidatingAdmissionPolicy/MutatingAdmissionPolicy only; legacy `kyverno.io/v1` `ClusterPolicy`/`Policy` and `kyverno.io/v2` `PolicyException` execution was removed in #17710 PR 3. |
+| `background-controller` | `cmd/background-controller/` | Processes CEL `gpol` (generate) and `mpol` (mutate-existing) rules against already-existing resources via `UpdateRequest`s. Legacy `kyverno.io/v1` `generate`/`mutateExisting` execution was removed in #17710 PR 2; any pre-existing legacy `UpdateRequest` is deleted, not processed, on its first sync. |
 | `readiness-checker` | `cmd/readiness-checker/` | Small utility binary used by probes/Helm hooks: `check-endpoints`, `check-http`, `scale-deploy`, `delete-webhooks`. |
 
 ## Domain layering (`pkg/`)
@@ -48,24 +48,26 @@ a raw `pkg/client`/`k8s.io/client-go` client directly in new controller/webhook 
 packages' *interface* types as a function parameter is fine and common — the generated wrappers embed those same
 interfaces — the rule is about what constructs the concrete client, not what type a function signature names).
 
-**Policy engine core:** `pkg/engine` is the legacy (`kyverno.io`) rule-evaluation engine — JMESPath variable
-substitution, pattern/anchor matching, mutate patch generation, external API/context calls. `pkg/cel` is the newer,
-parallel CEL-based engine stack for `policies.kyverno.io` types, split by policy kind: `vpol`
-(ValidatingPolicy), `mpol` (MutatingPolicy), `gpol` (GeneratingPolicy), `dpol` (DeletingPolicy), `ivpol`
-(ImageValidatingPolicy). It sits alongside `pkg/engine`, not layered under it — both are invoked from `cmd/kyverno`
-and the other controller binaries for their respective policy families. See [pkg/engine/AGENTS.md](pkg/engine/AGENTS.md)
-and [pkg/cel/AGENTS.md](pkg/cel/AGENTS.md). `pkg/admissionpolicy` bridges CEL policy authoring to native Kubernetes
-`ValidatingAdmissionPolicy`/`MutatingAdmissionPolicy`. `pkg/autogen` (and `pkg/cel/autogen`) compute autogen rules
-for Pod-controller kinds. `pkg/image` holds all image signature/attestation verification — cosign and notary
-verifiers live under `pkg/image/verifiers/{cpol,ivpol}/{cosign,notary}` (not `pkg/cosign`/`pkg/notary`, which no
-longer exist); `pkg/sigstoretuf` handles TUF trust-root management for the cosign verifiers. See
-[pkg/image/AGENTS.md](pkg/image/AGENTS.md).
+**Policy engine core:** the legacy (`kyverno.io`) rule-evaluation engine was deleted in #17710 PR 4. `pkg/engine` is
+now a shared library consumed by the CEL engines, GCE, and the CLI: JMESPath variable substitution and condition
+evaluation, context/apicall loading (with SSRF hardening), strategic-merge mutate patch generation, and the shared
+`api` result/policy types (`EngineResponse`, `RuleResponse`, `GenericPolicy`) — there is no `PolicyContext` type or
+copy-on-write mechanism in this tree any more. `pkg/cel` is the CEL-based engine stack for `policies.kyverno.io` types,
+split by policy kind: `vpol` (ValidatingPolicy), `mpol` (MutatingPolicy), `gpol` (GeneratingPolicy), `dpol`
+(DeletingPolicy), `ivpol` (ImageValidatingPolicy). See [pkg/engine/AGENTS.md](pkg/engine/AGENTS.md) and
+[pkg/cel/AGENTS.md](pkg/cel/AGENTS.md). `pkg/admissionpolicy` bridges CEL policy authoring to native Kubernetes
+`ValidatingAdmissionPolicy`/`MutatingAdmissionPolicy`. `pkg/cel/autogen` computes autogen rules for Pod-controller
+kinds. `pkg/image` holds all image signature/attestation verification — cosign and notary verifiers live under
+`pkg/image/verifiers/ivpol/{cosign,notary}` (not `pkg/cosign`/`pkg/notary`, which no longer exist); `pkg/sigstoretuf`
+handles TUF trust-root management for the cosign verifiers. See [pkg/image/AGENTS.md](pkg/image/AGENTS.md).
 
-**Policy lifecycle / admission:** `pkg/policy`, `pkg/validation`, `pkg/exceptions` (`PolicyException` matching),
-`pkg/policycache` (informer-driven in-memory cache read at webhook time), `pkg/globalcontext` (`GlobalContextEntry`
-caching for JMESPath/CEL context). `pkg/webhooks` holds the actual `AdmissionReview` HTTP handlers — the
-synchronous validate/mutate path returns immediately, while generate/mutate-existing rules are queued as
-`UpdateRequest`s for `pkg/background` to process asynchronously. See [pkg/webhooks/AGENTS.md](pkg/webhooks/AGENTS.md)
+**Policy lifecycle / admission:** `pkg/policy`, `pkg/validation`,
+`pkg/globalcontext` (`GlobalContextEntry` caching for JMESPath/CEL context). `pkg/webhooks` holds the actual
+`AdmissionReview` HTTP handlers — the
+synchronous validate/mutate path returns immediately, while CEL `gpol`/`mpol` generate/mutate-existing rules are
+queued as `UpdateRequest`s for `pkg/background` to process asynchronously (legacy `kyverno.io/v1` generate/
+mutate-existing execution was removed from `pkg/background` in #17710 PR 2). See
+[pkg/webhooks/AGENTS.md](pkg/webhooks/AGENTS.md)
 and [pkg/background/AGENTS.md](pkg/background/AGENTS.md). `pkg/controllers/*` wires all of the above into
 controller-runtime-style reconcilers; see [pkg/controllers/AGENTS.md](pkg/controllers/AGENTS.md) for the
 subdirectory → responsibility → leader-election map.
@@ -128,7 +130,7 @@ Confirmed via `DO NOT EDIT` headers and Makefile targets:
 | `pkg/client/{clientset,informers,listers}/**` | `make codegen-client-all` |
 | `api/**/zz_generated.{deepcopy,register}.go` | `make codegen-api-all` |
 | `pkg/config/mocks/mock_config.go` | no `make` target — see note below |
-| `config/crds/**/*.yaml` | `make codegen-crds-all` |
+| `config/crds/**/*.yaml` | `make codegen-crds-all` (`config/crds/kyverno/` is a frozen compatibility snapshot during the CEL migration — only GCE and UR `v2` regenerate, see `config/crds/kyverno/README.md`) |
 | `cmd/cli/kubectl-kyverno/config/crds/**`, `cmd/cli/kubectl-kyverno/data/crds/**` | `make codegen-cli-all` (the CLI's own controller-gen output, then copied from `config/crds/`) |
 | `charts/kyverno/charts/crds/templates/{kyverno.io,reports.kyverno.io,wgpolicyk8s.io}/**` | `make codegen-helm-crds` (the chart's own CRD copies; `_helpers.tpl` in the same dir is hand-written) |
 | `config/install-latest-testing.yaml` | `make codegen-manifest-all` |

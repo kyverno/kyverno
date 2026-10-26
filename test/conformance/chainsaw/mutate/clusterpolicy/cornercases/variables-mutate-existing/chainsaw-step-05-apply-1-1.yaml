@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  annotations:
-    corp.org/random: bar
-  name: mypod
-  namespace: foo

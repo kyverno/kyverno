@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -291,6 +291,9 @@ func TestPolicyLabelPrefix_MutatingAndDeletingPolicies(t *testing.T) {
 	nsIvpol := &policiesv1beta1.NamespacedImageValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-ivpol", Namespace: "default"},
 	}
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-vap"},
+	}
 	gpol := &policiesv1beta1.GeneratingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-gpol"},
 	}
@@ -309,19 +312,13 @@ func TestPolicyLabelPrefix_MutatingAndDeletingPolicies(t *testing.T) {
 	nsDpol := &policiesv1beta1.NamespacedDeletingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-dpol", Namespace: "default"},
 	}
-	cleanup := &kyvernov2.CleanupPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-cleanuppol"},
-	}
-	clusterCleanup := &kyvernov2.ClusterCleanupPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-cleanuppol"},
-	}
-
 	tests := []struct {
 		name   string
 		policy engineapi.GenericPolicy
 		prefix string
 	}{
 		{"validating policy", engineapi.NewValidatingPolicy(vpol), LabelPrefixValidatingPolicy},
+		{"validating admission policy", engineapi.NewValidatingAdmissionPolicy(vap), LabelPrefixValidatingAdmissionPolicy},
 		{"namespaced validating policy", engineapi.NewNamespacedValidatingPolicy(nsVpol), LabelPrefixValidatingPolicy},
 		{"image validating policy", engineapi.NewImageValidatingPolicy(ivpol), LabelPrefixImageValidatingPolicy},
 		{"namespaced image validating policy", engineapi.NewNamespacedImageValidatingPolicy(nsIvpol), LabelPrefixImageValidatingPolicy},
@@ -331,8 +328,6 @@ func TestPolicyLabelPrefix_MutatingAndDeletingPolicies(t *testing.T) {
 		{"namespaced mutating policy", engineapi.NewNamespacedMutatingPolicy(nsMpol), LabelPrefixMutatingPolicy},
 		{"deleting policy", engineapi.NewDeletingPolicyFromLike(dpol), LabelPrefixDeletingPolicy},
 		{"namespaced deleting policy", engineapi.NewDeletingPolicyFromLike(nsDpol), LabelPrefixDeletingPolicy},
-		{"cleanup policy", engineapi.NewCleanupPolicyFromInterface(cleanup), LabelPrefixDeletingPolicy},
-		{"cluster cleanup policy", engineapi.NewCleanupPolicyFromInterface(clusterCleanup), LabelPrefixDeletingPolicy},
 	}
 
 	for _, tt := range tests {
