@@ -16,59 +16,80 @@ again — but results already written under 1.19 don't disappear on their own.
 `pkg/controllers/report/aggregate/controller.go` handles this with a one-time startup sweep
 (`legacyPoliciesPresent` / `enqueueAllReports`, internally called "decision C2"): on controller start,
 if any `kyverno.io/v1` `ClusterPolicy` or `Policy` object still exists on the cluster, every managed
-`PolicyReport`/`ClusterPolicyReport` is re-queued once, which prunes any legacy-policy-sourced result
-from it during the normal reconcile (results are only ever rebuilt from current `EphemeralReport`s,
-and nothing produces one for a legacy policy anymore). If no legacy policy objects exist at startup,
-the sweep is skipped entirely as unnecessary work. The check fails closed: if the presence check
-itself errors, the sweep is skipped for that start rather than risking a cluster-wide read burst
-against an already-unhealthy API server, and the next leader election retries it.
+permanent report is re-queued once. The pruning itself happens on that reconcile's normal path
+(`backReconcile`), not as a special case: it feeds the report's existing results back into
+`MergeReports` alongside the current `EphemeralReport`s, and `MergeReports` only keeps a legacy
+(`SourceKyverno`) result if it finds the originating policy in a live policy map — which, now that
+legacy execution is gone, is never populated, so every `SourceKyverno` result is dropped on that pass
+regardless of which report it came from. If no legacy policy objects exist at startup, the sweep
+itself is skipped as unnecessary work — but note this means a report that already held stale
+`SourceKyverno` results *before* the legacy policy that produced them was deleted won't get swept by
+this path; it's only cleared once something else re-queues that specific report (e.g. a write to the
+resource it covers). The presence check fails closed: if it errors, the sweep is skipped for that
+start rather than risking a cluster-wide read burst against an already-unhealthy API server, and the
+next leader election retries it.
 
-Practically: after upgrading to 1.20, existing reports clear their legacy-policy results on the first
-reports-controller restart that sees the upgrade, with no manual cleanup step. A report that never
-referenced a legacy policy is untouched.
+This covers both report backends: when OpenReports is enabled (`orClient != nil`), the permanent
+objects being read, merged, and written back are `Report`/`ClusterReport`, not
+`PolicyReport`/`ClusterPolicyReport` — same mechanism, different CRD kind.
+
+Practically: if legacy policies are still present when a cluster restarts into 1.20, every report
+gets its legacy-sourced results pruned on that one pass, with no manual cleanup step. If every legacy
+policy was already deleted *before* that restart, the startup sweep has nothing to trigger it, and any
+report still carrying stale results from before the deletion keeps them until it's next reconciled for
+an unrelated reason.
 
 ## Non-Helm / GitOps preflight
 
-The automatic "don't let an operator silently lose enforcement" gate is two Helm-specific mechanisms,
-both in `charts/kyverno/templates/`:
+The automatic "don't let an operator silently lose enforcement" gate is two independent mechanisms,
+both in `charts/kyverno/templates/`, that run on different conditions:
 
-- `validate-legacy-policies.yaml` — a chart-render-time `lookup` against the live cluster (requires
-  `helm template`/`install`/`upgrade` to be run with real cluster access) that `fail`s the render if
-  any of the five legacy kinds still have instances, unless
-  `upgrade.acknowledgeLegacyPoliciesNotEnforced=true` is set.
+- `validate-legacy-policies.yaml` — a chart-render-time `lookup` against the live cluster that `fail`s
+  the render if any of the five legacy kinds still have instances, unless
+  `upgrade.acknowledgeLegacyPoliciesNotEnforced=true` is set. **`lookup` is not populated by an
+  ordinary `helm template`, even one run with full cluster access** — confirmed directly (a minimal
+  test chart's `lookup` call returns empty under plain `helm template --kube-context <ctx>`, and under
+  `helm install --dry-run`/`--dry-run=client`, but returns real data under `helm template
+  --dry-run=server` (the current name for the deprecated `--validate` flag) and under a real `helm
+  install`/`helm upgrade`). This is Helm's own behavior, not specific to this chart.
 - `templates/hooks/pre-install-check-legacy-policies.yaml` — a `pre-install,pre-upgrade` Helm hook
   `Job` running `kyverno check-legacy-policies` (the same check, as a cluster-side binary instead of
-  Helm template logic) for installers that skip client-side `lookup`. Suppressed when
-  `global.templating.enabled=true`, which is how this repo's own `config/install.yaml`/
-  `config/install-latest-testing.yaml` are generated — there is no live cluster to look up against
-  while building a static manifest for publication, and no hook execution model for a plain manifest
-  either.
+  Helm template logic). Suppressed when `global.templating.enabled=true`, which is how this repo's own
+  `config/install-latest-testing.yaml` is generated for CI and how the release workflow builds the
+  `install.yaml` asset it attaches to each GitHub release (there is no release-tracked
+  `config/install.yaml` path in this tree) — there is no live cluster to look up against while
+  building a manifest for publication, and no hook execution model for a plain manifest either.
 
-**Neither mechanism runs for an install or upgrade that doesn't invoke live Helm templating or hook
-execution against the target cluster.** Concretely, this gate does not protect:
+**Concretely, by install method:**
 
-- Applying the published static manifest (`config/install.yaml` or `config/install-latest-testing.yaml`)
-  directly, e.g. `kubectl apply -f`.
-- A GitOps pipeline that renders the chart once (`helm template`) and commits or applies the resulting
-  plain YAML — common when a team wants Kustomize post-processing, or wants `kubectl diff`/drift
-  detection on plain manifests instead of relying on Helm's own diffing.
+| Method | `lookup` gate | Hook `Job` |
+|---|---|---|
+| Real `helm install`/`helm upgrade` (or `--dry-run=server`) | Runs | Runs |
+| Flux's `helm-controller` (`HelmRelease`) | Runs — it performs a genuine Helm install/upgrade, not just templating | Runs |
+| ArgoCD's native Helm source type | **Does not run** — ArgoCD renders with `helm template`, it does not install/upgrade a Helm release | Runs, via ArgoCD's own Helm-hook-to-sync-wave translation, unless hooks are skipped for that app/resource |
+| Plain `helm template` (even with `--kube-context` set), or any pipeline that renders the chart once and applies/commits the resulting plain YAML | **Does not run** | **Does not run** — no hook execution model outside a real Helm install/upgrade |
+| The published release `install.yaml` asset, or `config/install-latest-testing.yaml` | **Does not run** | **Does not run** |
 
-It does run under GitOps controllers that genuinely invoke Helm against the live cluster at sync time
-(Flux's `helm-controller`, ArgoCD's native Helm source type), since those execute the same `lookup`
-and hook-equivalent logic Helm itself would.
-
-**For any of the unprotected paths**, run the same check Helm would have run, before upgrading:
+**For any of the paths marked "does not run" above**, run the same check the hook `Job` would have run,
+manually, before upgrading:
 
 ```
 kyverno check-legacy-policies --kubeconfig <path> [--context <name>]
 ```
 
-This is the exact binary the Helm hook `Job` runs (`cmd/cli/kubectl-kyverno/commands/legacypolicies`);
-it is registered on the `kyverno` CLI but marked `Hidden: true` (not shown in `--help`), since it's
-meant to be invoked by the hook rather than discovered interactively — it still works when run by
-name. A non-zero exit means legacy policies were found and are about to lose enforcement; there's no
-machine-checkable equivalent of `acknowledgeLegacyPoliciesNotEnforced` outside Helm's own values —
-the operator has to decide to proceed anyway, same as setting that value would mean.
+This is the exact binary the hook `Job` runs (`cmd/cli/kubectl-kyverno/commands/legacypolicies`); it is
+registered on the `kyverno` CLI but marked `Hidden: true` (not shown in `--help`), since it's meant to
+be invoked by the hook rather than discovered interactively — it still works when run by name.
+
+**A non-zero exit is not by itself proof that legacy policies were found** — `run()` returns any error
+from listing the five kinds (a kubeconfig problem, an RBAC denial, an API timeout) exactly the same
+way it returns the "found" case, and a missing CRD is treated as zero instances of that kind, not an
+error. Check the actual message: only `"found %d legacy policy resource(s); migrate them to
+policies.kyverno.io before continuing..."` means a real finding. Any other non-zero exit is an
+indeterminate result — the check itself failed, not a clean bill of health — and needs investigating
+before deciding whether it's safe to proceed. There's no machine-checkable equivalent of
+`acknowledgeLegacyPoliciesNotEnforced` outside Helm's own values either way — a confirmed finding still
+means the operator has to decide to proceed, same as setting that value would.
 
 ## Rollback limits
 
