@@ -8,48 +8,60 @@ on:
   workflow_call: {}
 
 jobs:
+  kubernetes-matrix:
+    uses: ./.github/workflows/kubernetes-matrix.yaml
+
   assert:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: assert
 
   cel-http:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: cel/http
 
   deleting-policies:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
         shard-index: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deleting-policies
@@ -57,78 +69,73 @@ jobs:
           shard-count: 6
 
   deprecations:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard,legacy-denial-probe
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deprecations
 
   events:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: events
 
   force-failure-policy-ignore:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard,force-failure-policy-ignore
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: force-failure-policy-ignore
 
-  generate-mutating-admission-policy-alpha:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kind-config: ./scripts/config/kind/vap-v1alpha1.yaml
-          kyverno-configs: standard,generate-mutating-admission-policy
-          quarantined-tests: applyconfiguration
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: generate-mutating-admission-policy-alpha
-
   generate-mutating-admission-policy:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.34.3, v1.35.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.beta-versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,generate-mutating-admission-policy
           quarantined-tests: applyconfiguration
@@ -136,48 +143,57 @@ jobs:
           tests-path: generate-mutating-admission-policy
 
   generate-mutating-admission-policy-v1:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.stable-versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard,generate-mutating-admission-policy
           quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy-v1
 
   generate-validating-admission-policy:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-validating-admission-policy
 
   generating-policies:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
         shard-index: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generating-policies
@@ -187,32 +203,38 @@ jobs:
           install-kubectl-evict: true
 
   globalcontext:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: globalcontext
 
   image-validating-policies:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: image-validating-policies
@@ -220,97 +242,96 @@ jobs:
           shard-count: 3
 
   lease:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: lease
 
   mutate:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutate
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
-  mutating-admission-policy-reports-alpha:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kind-config: ./scripts/config/kind/vap-v1alpha1.yaml
-          kyverno-configs: standard,mutating-admission-policy-reports
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: mutating-admission-policy-reports-alpha
-
   mutating-admission-policy-reports:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.34.3, v1.35.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.beta-versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,mutating-admission-policy-reports
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports
 
   mutating-admission-policy-reports-v1:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.stable-versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard,mutating-admission-policy-reports
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports-v1
 
   mutating-policies:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-policies
@@ -318,32 +339,38 @@ jobs:
           shard-count: 3
 
   namespaced-deleting-policies:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-deleting-policies
 
   namespaced-generating-policies:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-generating-policies
@@ -352,47 +379,56 @@ jobs:
           shard-count: 3
 
   namespaced-image-validating-policies:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-image-validating-policies
 
   namespaced-mutating-policies:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-mutating-policies
 
   namespaced-validating-policies:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-validating-policies
@@ -400,48 +436,57 @@ jobs:
           shard-count: 3
 
   policy-exceptions-disabled:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: default
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: policy-exceptions-disabled
 
   rbac:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         kyverno-configs: [standard, default, force-failure-policy-ignore]
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: ${{ matrix.kyverno-configs }}
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: rbac
 
   reports:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: reports
@@ -449,47 +494,56 @@ jobs:
           shard-count: 3
 
   ttl:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard,ttl
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: ttl
 
   validating-admission-policy-reports:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-admission-policy-reports
 
   validating-policies:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
         shard-index: [0, 1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-policies
@@ -497,26 +551,30 @@ jobs:
           shard-count: 5
 
   webhook-bootstrap-exclusion:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: webhook-bootstrap-exclusion
 
   monitor-helm-secret-size:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.35.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.smoke-versions) }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -525,7 +583,9 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version }}
+          version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
+          kubectl_version: ${{ matrix.k8s-version }}
+          node_image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
@@ -559,7 +619,12 @@ jobs:
           fi
 
   check-tests:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.smoke-versions) }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -576,7 +641,9 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
-          node_image: kindest/node:v1.33.1
+          version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
+          kubectl_version: ${{ matrix.k8s-version }}
+          node_image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Install Kyverno CLI
@@ -595,11 +662,12 @@ jobs:
           cd ./test/conformance/chainsaw/cli && chainsaw test --config .chainsaw.yaml
 
   helm-tests:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -608,7 +676,9 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version }}
+          version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
+          kubectl_version: ${{ matrix.k8s-version }}
+          node_image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
@@ -668,11 +738,12 @@ jobs:
           fi
 
   helm-uninstall:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -681,7 +752,9 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version }}
+          version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
+          kubectl_version: ${{ matrix.k8s-version }}
+          node_image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
@@ -711,11 +784,12 @@ jobs:
         uses: ./.github/actions/kyverno/logs
 
   helm-upgrade:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
         kyverno-version: ["3.6"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -725,7 +799,9 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version }}
+          version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
+          kubectl_version: ${{ matrix.k8s-version }}
+          node_image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
@@ -760,6 +836,7 @@ jobs:
         uses: ./.github/actions/kyverno/logs
 
   helm-upgrade-legacy-migration:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -769,7 +846,7 @@ jobs:
         # and version skew is already covered by the helm-upgrade and
         # conformance matrices above. Kept as a one-element matrix so
         # widening it later is a one-line change.
-        k8s-version: [v1.35.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.smoke-versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install helm
@@ -777,7 +854,9 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version }}
+          version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
+          kubectl_version: ${{ matrix.k8s-version }}
+          node_image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
@@ -805,13 +884,12 @@ jobs:
         uses: ./.github/actions/kyverno/logs
 
   cert-manager-certificates:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version:
-          - name: v1.33
-            version: v1.33.1
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.smoke-versions) }}
         key-algorithm:
           - name: rsa
             test-dir: rsa-cert-manager
@@ -819,12 +897,14 @@ jobs:
           - name: ecdsa
             test-dir: ecdsa-cert-manager
             helm-settings: --set admissionController.certManager.enabled=true --set admissionController.certManager.algorithm=ECDSA --set admissionController.certManager.size=256 --set cleanupController.certManager.enabled=true --set cleanupController.certManager.algorithm=ECDSA --set cleanupController.certManager.size=256
-    name: ${{ matrix.k8s-version.name }} - cert-manager ${{ matrix.key-algorithm.name }}
+    name: ${{ matrix.k8s-version }} - cert-manager ${{ matrix.key-algorithm.name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
-          k8s-version: ${{ matrix.k8s-version.version }}
+          k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
@@ -832,13 +912,12 @@ jobs:
           explicit-install-settings: ${{ matrix.key-algorithm.helm-settings }}
 
   self-signed-certificates:
+    needs: kubernetes-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        k8s-version:
-          - name: v1.33
-            version: v1.33.1
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.smoke-versions) }}
         key-algorithm:
           - name: ecdsa
             test-dir: ecdsa-self-signed
@@ -846,12 +925,14 @@ jobs:
           - name: ed25519
             test-dir: ed25519-self-signed
             helm-settings: --set admissionController.tlsKeyAlgorithm=Ed25519 --set cleanupController.tlsKeyAlgorithm=Ed25519
-    name: ${{ matrix.k8s-version.name }} - self-signed ${{ matrix.key-algorithm.name }}
+    name: ${{ matrix.k8s-version }} - self-signed ${{ matrix.key-algorithm.name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
-          k8s-version: ${{ matrix.k8s-version.version }}
+          k8s-version: ${{ matrix.k8s-version }}
+          node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
+          kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
