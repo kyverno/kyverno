@@ -20,6 +20,53 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// collectUniqueCheckResponses collects default and target evaluations once.
+// Checks have no operation selector, so dedicated operation evaluations are
+// excluded, including their projections in Target. Copies of an
+// EngineResponse share their rule slice, so its first element identifies the
+// originating evaluation without merging separate evaluations with equal data.
+func collectUniqueCheckResponses(responses TestResponse) []engineapi.EngineResponse {
+	var collected []engineapi.EngineResponse
+	seen := make(map[*engineapi.RuleResponse]struct{})
+	add := func(response engineapi.EngineResponse) {
+		if len(response.PolicyResponse.Rules) == 0 {
+			return
+		}
+		key := &response.PolicyResponse.Rules[0]
+		if _, exists := seen[key]; exists {
+			return
+		}
+		seen[key] = struct{}{}
+		collected = append(collected, response)
+	}
+	for _, responseList := range responses.Trigger {
+		for _, response := range responseList {
+			add(response)
+		}
+	}
+	operationResponses := make(map[*engineapi.RuleResponse]struct{})
+	for _, byResource := range responses.TriggerByOperation {
+		for _, responseList := range byResource {
+			for _, response := range responseList {
+				if len(response.PolicyResponse.Rules) > 0 {
+					operationResponses[&response.PolicyResponse.Rules[0]] = struct{}{}
+				}
+			}
+		}
+	}
+	for _, responseList := range responses.Target {
+		for _, response := range responseList {
+			if len(response.PolicyResponse.Rules) > 0 {
+				if _, explicit := operationResponses[&response.PolicyResponse.Rules[0]]; explicit {
+					continue
+				}
+			}
+			add(response)
+		}
+	}
+	return collected
+}
+
 func printCheckResult(
 	checks []v1alpha1.CheckResult,
 	responses TestResponse,
@@ -27,13 +74,16 @@ func printCheckResult(
 	resultsTable *table.Table,
 ) error {
 	ctx := context.Background()
-	testCount := 1
-	for _, check := range checks {
-		// filter engine responses
-		var matchingEngineResponses []engineapi.EngineResponse
-		for _, engineresponses := range responses.Trigger {
-			matchingEngineResponses = append(matchingEngineResponses, engineresponses...)
+	for i, check := range checks {
+		if (check.Assert == nil || check.Assert.Value == nil) && (check.Error == nil || check.Error.Value == nil) {
+			return fmt.Errorf("checks[%d]: at least one of assert or error must be specified", i)
 		}
+	}
+	testCount := len(resultsTable.RawRows) + 1
+	allEngineResponses := collectUniqueCheckResponses(responses)
+	for _, check := range checks {
+		// Each check may filter the response slice independently.
+		matchingEngineResponses := allEngineResponses
 		// 1. by resource
 		if check.Match.Resource != nil {
 			var filtered []engineapi.EngineResponse
@@ -52,7 +102,11 @@ func printCheckResult(
 		if check.Match.Policy != nil {
 			var filtered []engineapi.EngineResponse
 			for _, response := range matchingEngineResponses {
-				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().AsObject())
+				policy := response.Policy()
+				if policy == nil {
+					continue
+				}
+				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(policy.AsObject())
 				if err != nil {
 					return err
 				}
@@ -85,6 +139,10 @@ func printCheckResult(
 				}
 				matchingRuleResponses = filtered
 			}
+			policyName := ""
+			if policy := response.Policy(); policy != nil {
+				policyName = policy.GetName()
+			}
 			for _, rule := range matchingRuleResponses {
 				// perform check
 				data := map[string]any{
@@ -92,15 +150,33 @@ func printCheckResult(
 					"ruleType": rule.RuleType(),
 					"message":  rule.Message(),
 					"status":   string(rule.Status()),
-					// generatedResource unstructured.Unstructured
-					// patchedTarget *unstructured.Unstructured
-					// patchedTargetParentResourceGVR metav1.GroupVersionResource
-					// patchedTargetSubresourceName string
+					// Generated resource and patched-target data are added below when available.
 					// podSecurityChecks contains pod security checks (only if this is a pod security rule)
 					"podSecurityChecks": rule.PodSecurityChecks(),
 					"exceptions":        rule.Exceptions(),
 				}
-				if check.Assert.Value != nil {
+				generatedResources := make([]any, 0, len(rule.GeneratedResources()))
+				for _, generated := range rule.GeneratedResources() {
+					if generated != nil {
+						generatedResources = append(generatedResources, generated.UnstructuredContent())
+					}
+				}
+				if len(generatedResources) > 0 {
+					// Preserve the singular field as the first generated resource while exposing all
+					// generated resources in their engine order for multi-resource rules.
+					data["generatedResource"] = generatedResources[0]
+					data["generatedResources"] = generatedResources
+				}
+				if patchedTarget, parentResourceGVR, subresourceName := rule.PatchedTarget(); patchedTarget != nil {
+					data["patchedTarget"] = patchedTarget.UnstructuredContent()
+					data["patchedTargetParentResourceGVR"] = map[string]any{
+						"group":    parentResourceGVR.Group,
+						"version":  parentResourceGVR.Version,
+						"resource": parentResourceGVR.Resource,
+					}
+					data["patchedTargetSubresourceName"] = subresourceName
+				}
+				if check.Assert != nil && check.Assert.Value != nil {
 					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Assert.Value), data, nil)
 					if err != nil {
 						return err
@@ -108,7 +184,7 @@ func printCheckResult(
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
+							Policy:    color.Policy("", policyName),
 							Rule:      color.Rule(rule.Name()),
 							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
 							IsFailure: len(errs) != 0,
@@ -131,7 +207,7 @@ func printCheckResult(
 					resultsTable.Add(row)
 					testCount++
 				}
-				if check.Error.Value != nil {
+				if check.Error != nil && check.Error.Value != nil {
 					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Error.Value), data, nil)
 					if err != nil {
 						return err
@@ -139,10 +215,10 @@ func printCheckResult(
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
+							Policy:    color.Policy("", policyName),
 							Rule:      color.Rule(rule.Name()),
 							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
-							IsFailure: len(errs) != 0,
+							IsFailure: len(errs) == 0,
 						},
 						Message: rule.Message(),
 					}
