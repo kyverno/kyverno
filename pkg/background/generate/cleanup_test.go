@@ -23,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 )
 
 // failingDeleteClient wraps dclient.Interface and overrides DeleteResource to
@@ -335,6 +337,7 @@ func cloneListDownstreamSecret(name, namespace, sourceUID string) *unstructured.
 					common.GenerateTriggerUIDLabel:     "trigger-uid-123",
 					// each downstream references a distinct clone source
 					common.GenerateSourceUIDLabel: sourceUID,
+					common.GenerateRuleLabel:      "sync-secret",
 				},
 			},
 		},
@@ -349,22 +352,9 @@ func TestHandleNonPolicyChanges_CloneListScopedToDeletedSource(t *testing.T) {
 	ds1 := cloneListDownstreamSecret("dummy-secret-1", "certs-replicated", "source-uid-1")
 	ds2 := cloneListDownstreamSecret("dummy-secret-2", "certs-replicated", "source-uid-2")
 
-	scheme := runtime.NewScheme()
-	gvrToListKind := map[schema.GroupVersionResource]string{
-		{Group: "", Version: "v1", Resource: "secrets"}:    "SecretList",
-		{Group: "", Version: "v1", Resource: "namespaces"}: "NamespaceList",
-	}
-	client, err := dclient.NewFakeClient(scheme, gvrToListKind, ds1, ds2)
-	assert.NoError(t, err)
-	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-
-	controller := &GenerateController{
-		client: client,
-		log:    logr.Discard(),
-	}
-
+	// cleanup only deletes downstreams carrying a valid provenance stamp
 	policy := &kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "sync-secrets"},
+		ObjectMeta: metav1.ObjectMeta{Name: "sync-secrets", UID: "sync-secrets-uid"},
 		Spec: kyvernov1.Spec{
 			Rules: []kyvernov1.Rule{
 				{
@@ -381,6 +371,30 @@ func TestHandleNonPolicyChanges_CloneListScopedToDeletedSource(t *testing.T) {
 				},
 			},
 		},
+	}
+	kube := kubefake.NewSimpleClientset()
+	require.NoError(t, provenance.EnsureKey(t.Context(), kube.CoreV1().Secrets(config.KyvernoNamespace())))
+	store := provenance.NewStore(kube)
+	for _, ds := range []*unstructured.Unstructured{ds1, ds2} {
+		ds.SetUID(types.UID("uid-" + ds.GetName()))
+		stamp, err := store.Sign(t.Context(), policy, ds)
+		require.NoError(t, err)
+		ds.SetAnnotations(map[string]string{provenance.Annotation: stamp})
+	}
+
+	scheme := runtime.NewScheme()
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "secrets"}:    "SecretList",
+		{Group: "", Version: "v1", Resource: "namespaces"}: "NamespaceList",
+	}
+	client, err := dclient.NewFakeClient(scheme, gvrToListKind, ds1, ds2)
+	assert.NoError(t, err)
+	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	controller := &GenerateController{
+		client:     client,
+		provenance: store,
+		log:        logr.Discard(),
 	}
 
 	ruleContext := kyvernov2.RuleContext{
@@ -517,11 +531,20 @@ func TestDeletedCloneSourceUID(t *testing.T) {
 			}),
 			want: "source-uid-1",
 		},
+		{
+			name: "delete of a trigger that is also a clone source",
+			ur: newUR(&admissionv1.AdmissionRequest{
+				Operation: admissionv1.Delete,
+				Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+				OldObject: runtime.RawExtension{Raw: secretRaw(t, "trigger", "certs", "trigger-uid", cloneSourceLabels)},
+			}),
+			want: "",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, controller.deletedCloneSourceUID(tt.ur))
+			assert.Equal(t, tt.want, controller.deletedCloneSourceUID(tt.ur, "trigger-uid"))
 		})
 	}
 }

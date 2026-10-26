@@ -104,7 +104,7 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 		// When a specific clone source is deleted, scope the downstream deletion to
 		// only the target(s) cloned from that source. Otherwise every target sharing
 		// the same trigger would be deleted.
-		if sourceUID := c.deletedCloneSourceUID(ur); sourceUID != "" {
+		if sourceUID := c.deletedCloneSourceUID(ur, ruleContext.Trigger.GetUID()); sourceUID != "" {
 			labels[common.GenerateSourceUIDLabel] = sourceUID
 		}
 
@@ -155,7 +155,9 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 // delete request, or an empty string when the request was not caused by a clone
 // source deletion (e.g. a trigger deletion). It is used to scope cloneList
 // downstream cleanup to the target(s) generated from the deleted source only.
-func (c *GenerateController) deletedCloneSourceUID(ur *kyvernov2.UpdateRequest) string {
+// A resource can be both a trigger and a clone source, so a deleted object whose
+// UID is the rule's trigger UID is a trigger deletion and is never scoped.
+func (c *GenerateController) deletedCloneSourceUID(ur *kyvernov2.UpdateRequest, triggerUID types.UID) string {
 	request := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 	if request == nil || request.Operation != admissionv1.Delete {
 		return ""
@@ -165,7 +167,10 @@ func (c *GenerateController) deletedCloneSourceUID(ur *kyvernov2.UpdateRequest) 
 		c.log.Error(err, "failed to extract the deleted resource from the admission request")
 		return ""
 	}
-	// only clone sources carry the clone-source tag; triggers do not
+	if source.GetUID() == "" || source.GetUID() == triggerUID {
+		return ""
+	}
+	// only clone sources carry the clone-source tag
 	if _, ok := source.GetLabels()[common.GenerateTypeCloneSourceLabel]; !ok {
 		return ""
 	}

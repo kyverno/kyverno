@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -17,12 +18,14 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -336,7 +339,11 @@ func TestHandleNonTrigger_CloneSourceDeletion_AttachesAdmissionContext(t *testin
 			"metadata": map[string]interface{}{
 				"name":      "dummy-secret-1",
 				"namespace": "certs-replicated",
+				"uid":       "target-uid-1",
 				"labels": map[string]interface{}{
+					common.GenerateTriggerUIDLabel:      "trigger-uid-123",
+					common.GenerateTriggerVersionLabel:  "v1",
+					common.GenerateTriggerKindLabel:     "Namespace",
 					common.GeneratePolicyLabel:          "sync-secrets",
 					common.GeneratePolicyNamespaceLabel: "",
 					common.GenerateRuleLabel:            "sync-secret",
@@ -352,18 +359,10 @@ func TestHandleNonTrigger_CloneSourceDeletion_AttachesAdmissionContext(t *testin
 		},
 	}
 
-	scheme := runtime.NewScheme()
-	gvrToListKind := map[schema.GroupVersionResource]string{
-		{Group: "", Version: "v1", Resource: "secrets"}:    "SecretList",
-		{Group: "", Version: "v1", Resource: "namespaces"}: "NamespaceList",
-	}
-	client, err := dclient.NewFakeClient(scheme, gvrToListKind, target)
-	assert.NoError(t, err)
-	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-
 	// cluster policy referenced by the target labels
 	policy := &kyvernov1.ClusterPolicy{}
 	policy.SetName("sync-secrets")
+	policy.SetUID("sync-secrets-uid")
 	policy.Spec = kyvernov1.Spec{
 		Rules: []kyvernov1.Rule{
 			{
@@ -385,6 +384,22 @@ func TestHandleNonTrigger_CloneSourceDeletion_AttachesAdmissionContext(t *testin
 			},
 		},
 	}
+
+	// only targets carrying a valid provenance stamp are acted upon
+	kube := kubefake.NewSimpleClientset()
+	require.NoError(t, provenance.EnsureKey(t.Context(), kube.CoreV1().Secrets(config.KyvernoNamespace())))
+	store := provenance.NewStore(kube)
+	signTarget(t, store, policy, target)
+
+	scheme := runtime.NewScheme()
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "secrets"}:    "SecretList",
+		{Group: "", Version: "v1", Resource: "namespaces"}: "NamespaceList",
+	}
+	client, err := dclient.NewFakeClient(scheme, gvrToListKind, target)
+	assert.NoError(t, err)
+	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	assert.NoError(t, indexer.Add(policy))
 	cpolLister := kyvernov1listers.NewClusterPolicyLister(indexer)
@@ -395,6 +410,7 @@ func TestHandleNonTrigger_CloneSourceDeletion_AttachesAdmissionContext(t *testin
 		client:      client,
 		cpolLister:  cpolLister,
 		urGenerator: gen,
+		provenance:  store,
 	}
 
 	// the deleted clone source
