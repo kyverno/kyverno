@@ -2,11 +2,13 @@ package engine
 
 import (
 	"context"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type PolicyExceptionLister interface {
@@ -90,4 +92,38 @@ func MatchExceptions(exceptions []*policiesv1beta1.PolicyException, kind, name s
 		}
 	}
 	return out
+}
+
+// NextExceptionExpiry returns how long until the earliest spec.expiresAt among
+// exceptions, and false when none of them sets one. An exception that is already
+// past its deadline yields one second rather than a non-positive delay, so a
+// caller using the result as a requeue delay still gets a prompt requeue.
+func NextExceptionExpiry(exceptions []*policiesv1beta1.PolicyException, now time.Time) (time.Duration, bool) {
+	var next time.Duration
+	found := false
+	for _, exception := range exceptions {
+		if exception == nil || exception.Spec.ExpiresAt == nil {
+			continue
+		}
+		if until := exception.Spec.ExpiresAt.Sub(now); !found || until < next {
+			next, found = until, true
+		}
+	}
+	if found && next <= 0 {
+		next = time.Second
+	}
+	return next, found
+}
+
+// ExceptionExpiryResult is the reconcile result for a policy whose cached compiled
+// form includes exceptions. The compiled policy only changes on a reconcile, and
+// nothing triggers one when wall-clock time passes an exception's expiresAt, so the
+// reconcile requeues itself for the earliest deadline; that reconcile lists the
+// exceptions again, drops the expired one and recompiles.
+func ExceptionExpiryResult(exceptions []*policiesv1beta1.PolicyException) reconcile.Result {
+	requeueAfter, ok := NextExceptionExpiry(exceptions, time.Now())
+	if !ok {
+		return reconcile.Result{}
+	}
+	return reconcile.Result{RequeueAfter: requeueAfter}
 }

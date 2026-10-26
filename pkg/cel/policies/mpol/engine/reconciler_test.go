@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
@@ -15,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -413,4 +415,44 @@ func TestMatchesMutateExisting(t *testing.T) {
 			assert.ElementsMatch(t, tt.expectedNames, got)
 		})
 	}
+}
+
+// fixedExceptionLister serves a fixed set of PolicyExceptions.
+type fixedExceptionLister []*policiesv1beta1.PolicyException
+
+func (l fixedExceptionLister) List(labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
+	return l, nil
+}
+
+// The reconciler compiles live exceptions into the cached policy, so it must requeue itself for
+// the earliest expiresAt; the requeued reconcile then lists the exceptions again without it.
+func TestReconcile_ExpiringExceptionRequeues(t *testing.T) {
+	ctx := context.Background()
+	mp := &policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "test-policy"}}
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: mp.Name}}
+	polex := func(expiresAt *metav1.Time) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "exempt"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				ExpiresAt:  expiresAt,
+				PolicyRefs: []policiesv1beta1.PolicyRef{{Name: mp.Name, Kind: mp.GetKind()}},
+			},
+		}
+	}
+
+	t.Run("expiring exception requeues for its deadline", func(t *testing.T) {
+		inAnHour := metav1.NewTime(time.Now().Add(time.Hour))
+		rec := newReconciler(&fakeClient{policy: mp}, compiler.NewCompiler(), fixedExceptionLister{polex(&inAnHour)}, true)
+		res, err := rec.Reconcile(ctx, req)
+		require.NoError(t, err)
+		assert.Greater(t, res.RequeueAfter, 59*time.Minute)
+		assert.LessOrEqual(t, res.RequeueAfter, time.Hour)
+	})
+
+	t.Run("exception without expiry does not requeue", func(t *testing.T) {
+		rec := newReconciler(&fakeClient{policy: mp}, compiler.NewCompiler(), fixedExceptionLister{polex(nil)}, true)
+		res, err := rec.Reconcile(ctx, req)
+		require.NoError(t, err)
+		assert.Equal(t, reconcile.Result{}, res)
+	})
 }

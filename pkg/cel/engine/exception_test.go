@@ -238,3 +238,71 @@ func TestMatchExceptions(t *testing.T) {
 		})
 	}
 }
+
+func TestNextExceptionExpiry(t *testing.T) {
+	now := time.Date(2026, time.October, 27, 12, 0, 0, 0, time.UTC)
+	at := func(d time.Duration) *metav1.Time {
+		expiresAt := metav1.NewTime(now.Add(d))
+		return &expiresAt
+	}
+	polex := func(expiresAt *metav1.Time) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{ExpiresAt: expiresAt},
+		}
+	}
+
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		want       time.Duration
+		wantOK     bool
+	}{{
+		name:       "no exceptions",
+		exceptions: nil,
+		wantOK:     false,
+	}, {
+		name:       "exceptions without expiry never requeue",
+		exceptions: []*policiesv1beta1.PolicyException{polex(nil), nil},
+		wantOK:     false,
+	}, {
+		name:       "single expiring exception",
+		exceptions: []*policiesv1beta1.PolicyException{polex(at(time.Hour))},
+		want:       time.Hour,
+		wantOK:     true,
+	}, {
+		name: "earliest expiry wins",
+		exceptions: []*policiesv1beta1.PolicyException{
+			polex(at(2 * time.Hour)),
+			polex(nil),
+			polex(at(10 * time.Minute)),
+		},
+		want:   10 * time.Minute,
+		wantOK: true,
+	}, {
+		name:       "deadline already reached still requeues promptly",
+		exceptions: []*policiesv1beta1.PolicyException{polex(at(0))},
+		want:       time.Second,
+		wantOK:     true,
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := NextExceptionExpiry(tt.exceptions, now)
+			assert.Equal(t, tt.wantOK, ok)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestExceptionExpiryResult(t *testing.T) {
+	inAnHour := metav1.NewTime(time.Now().Add(time.Hour))
+
+	assert.Zero(t, ExceptionExpiryResult(nil), "no exceptions must not requeue")
+	assert.Zero(t, ExceptionExpiryResult([]*policiesv1beta1.PolicyException{{}}), "an exception without expiresAt must not requeue")
+
+	result := ExceptionExpiryResult([]*policiesv1beta1.PolicyException{{
+		Spec: policiesv1beta1.PolicyExceptionSpec{ExpiresAt: &inAnHour},
+	}})
+	assert.Greater(t, result.RequeueAfter, 59*time.Minute)
+	assert.LessOrEqual(t, result.RequeueAfter, time.Hour)
+}

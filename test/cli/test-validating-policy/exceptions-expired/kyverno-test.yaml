@@ -1,0 +1,24 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+exceptions:
+- expired-exception.yaml
+- live-exception.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - expired-ns/deployment-under-expired-exception
+  result: fail
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - live-ns/deployment-under-live-exception
+  result: skip
