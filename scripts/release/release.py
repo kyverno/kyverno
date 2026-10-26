@@ -679,8 +679,8 @@ def verify_remote(metadata):
         downloaded = subprocess.check_output(
             ["cosign", "download", "sbom", subject],
             env={**os.environ, "COSIGN_REPOSITORY": f"ghcr.io/{metadata['owner']}/sbom"})
-        if hashlib.sha256(downloaded.strip()).hexdigest() != hashlib.sha256(
-            Path(f".release/sboms/{name}-bom.cdx.json").read_bytes().strip()
+        if hashlib.sha256(downloaded).hexdigest() != hashlib.sha256(
+            Path(f".release/sboms/{name}-bom.cdx.json").read_bytes()
         ).hexdigest():
             raise ValueError(f"Remote SBOM mismatch: {name}")
 

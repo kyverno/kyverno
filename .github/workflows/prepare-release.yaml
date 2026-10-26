@@ -1,5 +1,7 @@
 name: prepare-release
 
+run-name: Prepare release ${{ inputs.tag }} at ${{ inputs.sha }}
+
 permissions: {}
 
 on:

@@ -223,6 +223,28 @@ class LocalArtifacts(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Refusing to overwrite conflicting"):
                 release.publish_sbom(subject, sbom, "kyverno")
 
+    def test_remote_verification_rejects_sbom_with_missing_trailing_bytes(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        name = next(iter(release.IMAGES))
+        image = "ghcr.io/kyverno/" + name + ":v1.20.2"
+        metadata["images"] = {name: image}
+        metadata["chart_images"] = {}
+        sbom = Path(f".release/sboms/{name}-bom.cdx.json")
+        sbom.parent.mkdir(parents=True)
+        sbom.write_bytes(b'{"bomFormat":"CycloneDX"}\n')
+        raw_image = b"image manifest"
+        digest = "sha256:" + hashlib.sha256(raw_image).hexdigest()
+        with patch.object(release, "verify_remote_charts"), \
+                patch.object(release, "output", return_value="rendered manifest"), \
+                patch.object(release, "verify_images"), \
+                patch.object(release.subprocess, "check_output",
+                             side_effect=[raw_image, sbom.read_bytes().rstrip()]), \
+                patch.object(release, "inspect_digest", return_value=digest), \
+                patch.object(release, "verify_signature"), \
+                patch.object(release, "verify_provenance"):
+            with self.assertRaisesRegex(ValueError, "Remote SBOM mismatch"):
+                release.verify_remote(metadata)
+
     def stage_dependencies(self, *args, **kwargs):
         if args[:3] == ("helm", "dependency", "build"):
             for dependency in release.external_dependencies(release.read("charts/kyverno/Chart.lock")):
@@ -1023,6 +1045,29 @@ class RetryAndGates(unittest.TestCase):
                 retained.main()
             rebuild.assert_not_called()
 
+    def test_new_dispatch_for_prior_tag_and_sha_never_rebuilds(self):
+        prior_run = {
+            "id": 1,
+            "display_title": f"Prepare release v1.20.2 at {SHA}",
+        }
+        with patch.object(
+            retained, "output",
+            side_effect=[
+                json.dumps([{"artifacts": []}]),
+                json.dumps([{"workflow_runs": [prior_run]}]),
+            ],
+        ) as output, patch.dict(os.environ, {
+            "GITHUB_REPOSITORY": "kyverno/kyverno",
+            "GITHUB_RUN_ID": "2",
+            "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "RELEASE_TAG": "v1.20.2",
+            "RELEASE_SHA": SHA,
+        }), patch.object(retained.subprocess, "run") as rebuild:
+            with self.assertRaisesRegex(ValueError, "previous dispatch"):
+                retained.main()
+            self.assertIn("workflows/prepare-release.yaml/runs", output.call_args.args[-1])
+            rebuild.assert_not_called()
+
     def test_existing_asset_compares_api_download_not_graphql_id_and_never_clobbers(self):
         data = b"immutable archive"
         asset = {"name": "test.tar.gz", "id": "RA_graphql_id",
@@ -1085,6 +1130,8 @@ class RetryAndGates(unittest.TestCase):
             self.assertIn("validate", workflow["jobs"]["publish"]["needs"])
         self.assertIn("validate", dispatch["jobs"]["tag"]["needs"])
         self.assertEqual(dispatch["jobs"]["validate"]["needs"], "identity")
+        self.assertEqual(dispatch["run-name"],
+                         "Prepare release ${{ inputs.tag }} at ${{ inputs.sha }}")
         self.assertIn('test "$RELEASE_SHA" = "$GITHUB_SHA"',
                       dispatch["jobs"]["identity"]["steps"][0]["run"])
         self.assertNotIn("workflow_dispatch", push["on"])
