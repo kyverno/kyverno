@@ -21,8 +21,9 @@ admission webhook config in the repo: `pkg/controllers/webhook` builds and recon
 1.20 compatibility period (see `config/crds/kyverno/README.md`); new writes to them are now unconditionally
 denied by the webhook (see [pkg/deprecations/AGENTS.md](../pkg/deprecations/AGENTS.md)) rather than validated
 in Go. See `docs/dev/api/removed-legacy-go-api.md` for the full removed-symbol table. The hand-written
-`Validate(...)` methods that remain all belong to `GlobalContextEntry` (`api/kyverno/v2` and
-`api/kyverno/v2beta1`, plus its `Spec`/`KubernetesResource`/`ExternalAPICall`/`Projection` helpers).
+`Validate(...)` methods that remain all belong to `GlobalContextEntry` — the same five in each of
+`api/kyverno/v2`, `v2alpha1`, and `v2beta1`, covering the type plus its
+`Spec`/`KubernetesResource`/`ExternalAPICall`/`Projection` helpers.
 `PolicyException.Validate()` went with the `kyvernov2`/`kyvernov2beta1` exception roots; `pkg/webhooks/celexception`
 validates `policies.kyverno.io` types from the external `github.com/kyverno/api` module instead.
 Validation is genuinely two-layered regardless of which type: CRD
