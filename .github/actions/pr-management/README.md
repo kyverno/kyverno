@@ -35,8 +35,11 @@ It never deletes unmanaged labels and fails on lookup or write errors.
 expressions without evaluating them, regardless of `dry-run`. It never calls
 GitHub. Consumers can use it in read-only `pull_request` CI on local/head
 configuration while pinning the action itself to a trusted full commit SHA.
-When the action is pinned to a trusted SHA, the PR's configuration is only
-parsed as YAML/JSON data; no PR-provided shell or Python is executed.
+In `validate` mode, with the action pinned to a trusted SHA, the PR's
+configuration is only parsed as YAML/JSON and its readiness jq is compiled but
+never invoked; no PR-provided shell, Python, or jq program is executed. Other
+modes (notably `readiness`, which evaluates the jq checks) still require the
+trusted default-branch checkout described below.
 
 This repository's own `check-pr-management.yaml` intentionally runs the action
 from the PR checkout, because it tests changes to the action itself. That is
