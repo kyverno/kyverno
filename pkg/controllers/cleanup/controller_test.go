@@ -15,6 +15,7 @@ import (
 	configpkg "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/config/mocks"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/stretchr/testify/assert"
@@ -130,6 +131,89 @@ func Test_Cleanup_SkipResourceNamespaceMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cleanup failed: %v", err)
 	}
+}
+
+func Test_Cleanup_EmptyExcludeResourcesDoesNotSkipResource(t *testing.T) {
+	// Define a CleanupPolicy in ns1 with an empty ExcludeResources
+	policy := &kyvernov2.CleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-policy",
+			Namespace: "ns1",
+		},
+		Spec: kyvernov2.CleanupPolicySpec{
+			MatchResources: kyvernov2.MatchResources{
+				Any: []kyvernov1.ResourceFilter{
+					{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Kinds: []string{"ConfigMap"},
+						},
+					},
+				},
+			},
+			ExcludeResources: &kyvernov2.MatchResources{},
+		},
+	}
+
+	// Create a resource in ns1
+	resource := unstructured.Unstructured{}
+	resource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "ConfigMap",
+	})
+	resource.SetName("test-cm")
+	resource.SetNamespace("ns1")
+
+	// Setup mock dclient
+	baseClient := dclient.NewEmptyFakeClient()
+	mockClient := &mockDClient{
+		Interface: baseClient,
+	}
+
+	mockClient.listResource = func(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+		return &unstructured.UnstructuredList{
+			Items: []unstructured.Unstructured{resource},
+		}, nil
+	}
+
+	deleted := false
+	mockClient.deleteResource = func(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool, options metav1.DeleteOptions) error {
+		deleted = true
+		return nil
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockConfig := mocks.NewMockConfiguration(ctrl)
+	mockConfig.EXPECT().
+		ToFilter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(false).
+		AnyTimes()
+
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	ns1 := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns1"}}
+	if err := indexer.Add(ns1); err != nil {
+		t.Fatalf("failed to add namespace: %v", err)
+	}
+	nsLister := corev1listers.NewNamespaceLister(indexer)
+
+	c := &controller{
+		client:        mockClient,
+		configuration: mockConfig,
+		nsLister:      nsLister,
+		eventGen:      event.NewFake(),
+		jp:            jmespath.New(configpkg.NewDefaultConfiguration(false)),
+		gctxStore:     nil,
+		cmResolver:    nil,
+	}
+
+	ctx := context.Background()
+	err := c.cleanup(ctx, logr.Discard(), policy)
+	if err != nil {
+		t.Fatalf("cleanup failed: %v", err)
+	}
+	assert.True(t, deleted, "expected resource to be deleted when ExcludeResources is empty")
 }
 
 func Test_SkipResourceDueToFilter(t *testing.T) {

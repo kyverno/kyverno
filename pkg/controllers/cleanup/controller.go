@@ -248,7 +248,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 				debug.Info("resource/match didn't match", "result", matched)
 				continue
 			}
-			if spec.ExcludeResources != nil {
+			if spec.ExcludeResources != nil && (len(spec.ExcludeResources.Any) > 0 || len(spec.ExcludeResources.All) > 0) {
 				excluded := match.CheckMatchesResources(
 					resource,
 					*spec.ExcludeResources,
