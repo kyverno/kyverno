@@ -134,6 +134,7 @@ type context struct {
 	jp                 jmespath.Interface
 	jsonRaw            map[string]interface{}
 	jsonRawCheckpoints []map[string]interface{}
+	sizeCheckpoints    []int64
 	images             map[string]map[string]apiutils.ImageInfo
 	imagesCheckpoints  []map[string]map[string]apiutils.ImageInfo
 	imageInfoLoader    *ImageInfoLoader
@@ -529,6 +530,7 @@ func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
 func (ctx *context) Checkpoint() {
 	jsonRawCheckpoint := ctx.copyContext(ctx.jsonRaw)
 	ctx.jsonRawCheckpoints = append(ctx.jsonRawCheckpoints, jsonRawCheckpoint)
+	ctx.sizeCheckpoints = append(ctx.sizeCheckpoints, ctx.contextSize)
 	ctx.imagesCheckpoints = append(ctx.imagesCheckpoints, ctx.copyImages(ctx.images))
 	if ctx.imageInfoLoader != nil {
 		ctx.imageInfoLoader.checkpoint()
@@ -582,9 +584,11 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 
 	n := len(ctx.jsonRawCheckpoints) - 1
 	jsonRawCheckpoint := ctx.jsonRawCheckpoints[n]
+	ctx.contextSize = ctx.sizeCheckpoints[n]
 
 	if restore {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
+		ctx.sizeCheckpoints = ctx.sizeCheckpoints[:n]
 		ctx.jsonRaw = jsonRawCheckpoint
 		if len(ctx.imagesCheckpoints) > n {
 			ctx.images = ctx.imagesCheckpoints[n]

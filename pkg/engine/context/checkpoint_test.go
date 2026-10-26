@@ -149,3 +149,18 @@ func mustJSON(v map[string]interface{}) []byte {
 	}
 	return b
 }
+
+func TestCheckpointReloadIsNotDoubleCharged(t *testing.T) {
+	ctx := NewContextWithMaxSize(nil, 30)
+	entry := []byte(`{"key":"0123456789"}`) // 20 bytes
+	assert.NilError(t, ctx.AddContextEntry("entry", entry))
+
+	ctx.Checkpoint()
+	assert.NilError(t, ctx.AddContextEntry("other", []byte(`"012345"`))) // 8 bytes -> 28
+	ctx.Restore()
+
+	// without restoring the size accounting, this would be 28 + 8 = 36 > 30
+	ctx.Checkpoint()
+	assert.NilError(t, ctx.AddContextEntry("other", []byte(`"012345"`)))
+	ctx.Restore()
+}
