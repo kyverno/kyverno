@@ -65,6 +65,10 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 	return &c
 }
 
+func isEligible(policy kyvernov1.PolicyInterface) bool {
+	return policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookMatchConditions() && policy.IsReady()
+}
+
 func (c *controller) WarmUp() error {
 	logger.V(4).Info("warming up ...")
 	defer logger.V(4).Info("warm up done")
@@ -78,7 +82,7 @@ func (c *controller) WarmUp() error {
 		if err != nil {
 			return err
 		}
-		if policy.IsReady() {
+		if isEligible(policy) {
 			if err := c.cache.Set(key, policy, c.client.Discovery()); err != nil {
 				return err
 			}
@@ -95,7 +99,7 @@ func (c *controller) WarmUp() error {
 		if err != nil {
 			return err
 		}
-		if policy.IsReady() {
+		if isEligible(policy) {
 			if err := c.cache.Set(key, policy, c.client.Discovery()); err != nil {
 				return err
 			}
@@ -118,17 +122,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	if policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookMatchConditions() {
-		if policy.IsReady() {
-			return c.cache.Set(key, policy, c.client.Discovery())
-		} else {
-			c.cache.Unset(key)
-			return nil
-		}
-	} else {
-		c.cache.Unset(key)
-		return nil
+	if isEligible(policy) {
+		return c.cache.Set(key, policy, c.client.Discovery())
 	}
+	c.cache.Unset(key)
+	return nil
 }
 
 func (c *controller) loadPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {
