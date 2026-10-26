@@ -11,6 +11,7 @@ import (
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/go-git/go-billy/v5"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -34,10 +35,15 @@ import (
 	"github.com/kyverno/kyverno/ext/cluster"
 	"github.com/kyverno/kyverno/ext/output/pluralize"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -77,6 +83,12 @@ func deletingPolicyKey(namespace, name string) string {
 }
 
 // `kyverno test` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
+var (
+	hookVpolProviderCreated    func()
+	hookMpolProviderCreated    func()
+	hookContextProviderCreated func()
+)
+
 func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
 	failOnWarnings := len(warningsAsErrors) > 0 && warningsAsErrors[0]
 	crdProcessor := data.NewCRDProcessor(nil)
@@ -444,6 +456,68 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		explicitOperations.Insert(res.Operation)
 	}
+	var contextProvider libs.Context
+	var vpolProvider vpolengine.Provider
+	var vpolProviderErr error
+	var vpolJSONProvider vpolengine.Provider
+	var vpolJSONProviderErr error
+	var mpolProvider mpolengine.Provider
+	var mpolProviderErr error
+
+	if (len(uniques) > 0 || len(jsonPayloads) > 0) && (len(results.ValidatingPolicies) != 0 || len(results.MutatingPolicies) != 0 || len(results.GeneratingPolicies) != 0) {
+		if restMapper == nil {
+			var err error
+			restMapper, err = utils.GetRESTMapper(dClient)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var err error
+		contextProvider, err = processor.NewContextProvider(dClient, restMapper, testCase.Fs, contextPath, registryAccess, !(len(testCase.Test.ClusterResources) > 0), gceMap, store.GetHTTPMockIndex())
+		if err != nil {
+			return nil, err
+		}
+		if hookContextProviderCreated != nil {
+			hookContextProviderCreated()
+		}
+		var celExceptions []*policiesv1beta1.PolicyException
+		if polexLoader != nil {
+			celExceptions = polexLoader.CELExceptions
+		}
+		if len(results.ValidatingPolicies) != 0 {
+			compiler := vpolcompiler.NewCompiler()
+			var jsonPolicies []policiesv1beta1.ValidatingPolicyLike
+			var k8sPolicies []policiesv1beta1.ValidatingPolicyLike
+			for i := range results.ValidatingPolicies {
+				pol := results.ValidatingPolicies[i]
+				if pol.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+					jsonPolicies = append(jsonPolicies, pol)
+				} else {
+					k8sPolicies = append(k8sPolicies, pol)
+				}
+			}
+			if len(k8sPolicies) > 0 {
+				vpolProvider, vpolProviderErr = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
+				if hookVpolProviderCreated != nil {
+					hookVpolProviderCreated()
+				}
+			}
+			if len(jsonPolicies) > 0 {
+				vpolJSONProvider, vpolJSONProviderErr = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
+				if hookVpolProviderCreated != nil {
+					hookVpolProviderCreated()
+				}
+			}
+		}
+		if len(results.MutatingPolicies) != 0 {
+			compiler := mpolcompiler.NewCompiler()
+			mpolProvider, mpolProviderErr = mpolengine.NewProvider(compiler, results.MutatingPolicies, celExceptions, contextProvider)
+			if hookMpolProviderCreated != nil {
+				hookMpolProviderCreated()
+			}
+		}
+	}
+
 	// evalResource is a closure that applies all loaded policies to a single
 	// resource under the given admission operation. The defaultRun flag controls
 	// whether DeletingPolicies are evaluated (they run only once, in the default
@@ -484,6 +558,13 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			ConfigMapResolver:                 cmResolver,
 			RESTMapper:                        restMapper,
 			CrdPaths:                          crdPaths,
+			ContextProvider:                   contextProvider,
+			VpolProvider:                      vpolProvider,
+			VpolProviderErr:                   vpolProviderErr,
+			VpolJSONProvider:                  vpolJSONProvider,
+			VpolJSONProviderErr:               vpolJSONProviderErr,
+			MpolProvider:                      mpolProvider,
+			MpolProviderErr:                   mpolProviderErr,
 		}
 		ers, err := pp.ApplyPoliciesOnResource()
 		if err != nil {
@@ -599,6 +680,13 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			Out:                               io.Discard,
 			CrdPaths:                          crdPaths,
 			RESTMapper:                        restMapper,
+			ContextProvider:                   contextProvider,
+			VpolProvider:                      vpolProvider,
+			VpolProviderErr:                   vpolProviderErr,
+			VpolJSONProvider:                  vpolJSONProvider,
+			VpolJSONProviderErr:               vpolJSONProviderErr,
+			MpolProvider:                      mpolProvider,
+			MpolProviderErr:                   mpolProviderErr,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
