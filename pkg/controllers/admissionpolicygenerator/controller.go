@@ -227,6 +227,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if err != nil {
 			return err
 		}
+		c.requeueAtExceptionExpiry(key, polType, name)
 	} else if polType == "MutatingPolicy" {
 		mpol, err := c.getMutatingPolicy(name)
 		if err != nil {
@@ -247,6 +248,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if err != nil {
 			return err
 		}
+		c.requeueAtExceptionExpiry(key, polType, name)
 	}
 	return nil
 }

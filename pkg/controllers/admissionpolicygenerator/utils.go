@@ -2,6 +2,7 @@ package admissionpolicygenerator
 
 import (
 	"fmt"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
@@ -120,6 +121,25 @@ func (c *controller) getCELExceptions(policyName, kind string) ([]policiesv1beta
 		exceptions = append(exceptions, *polex)
 	}
 	return exceptions, nil
+}
+
+// requeueAtExceptionExpiry re-enqueues key for the earliest expiresAt among the exceptions
+// that match the policy. The generated VAP/MAP bake those exceptions in and are otherwise only
+// regenerated on policy or exception events, so without this an expired exception would keep
+// being honored by the API server until something else touched the policy.
+func (c *controller) requeueAtExceptionExpiry(key, kind, name string) {
+	exceptions, err := c.getCELExceptions(name, kind)
+	if err != nil {
+		logger.Error(err, "failed to list exceptions to schedule regeneration at their expiry", "policy", name)
+		return
+	}
+	matched := make([]*policiesv1beta1.PolicyException, 0, len(exceptions))
+	for i := range exceptions {
+		matched = append(matched, &exceptions[i])
+	}
+	if requeueAfter, ok := celengine.NextExceptionExpiry(matched, time.Now()); ok {
+		c.queue.AddAfter(key, requeueAfter)
+	}
 }
 
 func constructBindingName(polName string) string {
