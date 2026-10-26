@@ -1547,3 +1547,119 @@ func TestBuildForJSONPolicies_ImageValidatingPolicyWebhookNamesDoNotCollide(t *t
 		assert.Equal(t, ptr.To(int32(17)), webhook.TimeoutSeconds)
 	}
 }
+
+func TestBuildWebhookRules_TimeoutCappedAtKubernetesMaximum(t *testing.T) {
+	rule := admissionregistrationv1.NamedRuleWithOperations{
+		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{""},
+				APIVersions: []string{"v1"},
+				Resources:   []string{"pods"},
+			},
+		},
+	}
+	basicVpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "basic-pol"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{rule},
+			},
+		},
+	}
+	fineGrainedVpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "finegrained-pol"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "test-cond",
+				Expression: "true",
+			}},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{rule},
+			},
+		},
+	}
+	customTimeoutVpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "custom-timeout-pol"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			WebhookConfiguration: &policiesv1beta1.WebhookConfiguration{
+				TimeoutSeconds: ptr.To(int32(40)),
+			},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{rule},
+			},
+		},
+	}
+
+	cache := NewExpressionCache()
+	cache.AddPolicyExpressions(fineGrainedVpol.Spec.MatchConditions)
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.ValidatingPolicyWebhookName,
+		"/vpol",
+		0,
+		nil,
+		[]engineapi.GenericPolicy{
+			engineapi.NewValidatingPolicy(basicVpol),
+			engineapi.NewValidatingPolicy(fineGrainedVpol),
+			engineapi.NewValidatingPolicy(customTimeoutVpol),
+		},
+		cache,
+		45,
+	)
+
+	assert.NotEmpty(t, webhooks)
+	for _, wh := range webhooks {
+		assert.NotNil(t, wh.TimeoutSeconds, "TimeoutSeconds must be set for webhook %s", wh.Name)
+		assert.Equal(t, int32(30), *wh.TimeoutSeconds, "webhook %s timeout must be capped to 30", wh.Name)
+	}
+}
+
+func TestBuildForJSONPolicies_TimeoutCappedAtKubernetesMaximum(t *testing.T) {
+	rule := admissionregistrationv1.NamedRuleWithOperations{
+		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{""},
+				APIVersions: []string{"v1"},
+				Resources:   []string{"pods"},
+			},
+		},
+	}
+	matchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{rule},
+	}
+	ivpol := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-capping"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: matchConstraints,
+		},
+	}
+	nivpol := &policiesv1beta1.NamespacedImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "nivpol-capping", Namespace: "default"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: matchConstraints,
+		},
+	}
+
+	c := newImageValidatingPolicyTestController(t, ivpol, nivpol)
+	c.defaultTimeout = 45
+
+	cfg := config.NewDefaultConfiguration(false)
+
+	validating := &admissionregistrationv1.ValidatingWebhookConfiguration{}
+	assert.NoError(t, c.buildForJSONPoliciesValidation(cfg, nil, validating))
+	assert.NotEmpty(t, validating.Webhooks)
+	for _, webhook := range validating.Webhooks {
+		assert.Equal(t, ptr.To(int32(30)), webhook.TimeoutSeconds)
+	}
+
+	mutating := &admissionregistrationv1.MutatingWebhookConfiguration{}
+	assert.NoError(t, c.buildForJSONPoliciesMutation(cfg, nil, mutating))
+	assert.NotEmpty(t, mutating.Webhooks)
+	for _, webhook := range mutating.Webhooks {
+		assert.Equal(t, ptr.To(int32(30)), webhook.TimeoutSeconds)
+	}
+}

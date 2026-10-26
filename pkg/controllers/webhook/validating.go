@@ -25,6 +25,7 @@ import (
 )
 
 func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy, expressionCache *expressionCache, defaultTimeout int32) []admissionregistrationv1.ValidatingWebhook {
+	timeout := capTimeout(defaultTimeout)
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
 		p := extractGenericPolicy(policy)
@@ -53,7 +54,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			webhook := admissionregistrationv1.ValidatingWebhook{
 				SideEffects:             &noneOnDryRun,
 				AdmissionReviewVersions: []string{"v1"},
-				TimeoutSeconds:          &defaultTimeout,
+				TimeoutSeconds:          &timeout,
 			}
 			matchConditions := webhookMatchConditions(validConditions(expressionCache, p.GetMatchConditions()))
 			if spec := generatingPolicySpec(policy); spec != nil && spec.SynchronizationEnabled() {
@@ -153,7 +154,8 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.MatchPolicy = p.GetMatchConstraints().MatchPolicy
 			}
 			if p.GetTimeoutSeconds() != nil {
-				webhook.TimeoutSeconds = p.GetTimeoutSeconds()
+				policyTimeout := capTimeout(*p.GetTimeoutSeconds())
+				webhook.TimeoutSeconds = &policyTimeout
 			}
 			if p.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()) == admissionregistrationv1.Ignore {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
@@ -205,7 +207,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			AdmissionReviewVersions: []string{"v1"},
 			NamespaceSelector:       group.namespaceSelector,
 			ObjectSelector:          group.objectSelector,
-			TimeoutSeconds:          &defaultTimeout,
+			TimeoutSeconds:          &timeout,
 		}
 		webhookFail := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-fail" + group.suffix,
@@ -215,7 +217,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			AdmissionReviewVersions: []string{"v1"},
 			NamespaceSelector:       group.namespaceSelector,
 			ObjectSelector:          group.objectSelector,
-			TimeoutSeconds:          &defaultTimeout,
+			TimeoutSeconds:          &timeout,
 		}
 
 		for _, policy := range basic {
