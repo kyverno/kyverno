@@ -119,11 +119,12 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	if mpol == nil {
 		return err
 	}
-	// The request for a new policy can arrive before the engine has compiled that policy; return an
-	// error so it is retried with backoff, since evaluating now would match nothing and complete it
-	// silently. The lookup also matches bare names, so check the compiled policy is this one.
+	// The request for a new or updated policy can arrive before the engine has compiled that policy
+	// or its latest generation; return an error so it is retried with backoff, since evaluating now
+	// would match nothing or evaluate against a stale compiled policy and complete silently as a no-op.
+	// The lookup also matches bare names, so check the compiled policy is this one and on the same generation.
 	key := mpolengine.PolicyKey(mpol)
-	if compiled, err := p.engine.GetCompiledPolicy(key); err != nil || (compiled.Policy != nil && mpolengine.PolicyKey(compiled.Policy) != key) {
+	if compiled, err := p.engine.GetCompiledPolicy(key); err != nil || (compiled.Policy != nil && (mpolengine.PolicyKey(compiled.Policy) != key || (mpol.GetGeneration() != 0 && compiled.Policy.GetGeneration() != mpol.GetGeneration()))) {
 		return fmt.Errorf("mutating policy %s is not compiled yet", key)
 	}
 
