@@ -9,23 +9,17 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	crdscheme "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/scheme"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apiv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/restmapper"
 )
@@ -127,70 +121,6 @@ func GetResourceAccordingToResourcePath(
 		}
 	}
 	return resources, err
-}
-
-func GetKindsFromPolicy(out io.Writer, policy kyvernov1.PolicyInterface, subresources []v1alpha1.Subresource, dClient dclient.Interface) sets.Set[string] {
-	knownkinds := sets.New[string]()
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
-		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-			k, err := getKind(kind, subresources, dClient)
-			if err != nil {
-				fmt.Fprintf(out, "Error: %s", err.Error())
-				continue
-			}
-			knownkinds.Insert(k)
-		}
-		if rule.ExcludeResources != nil {
-			for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-				k, err := getKind(kind, subresources, dClient)
-				if err != nil {
-					fmt.Fprintf(out, "Error: %s", err.Error())
-					continue
-				}
-				knownkinds.Insert(k)
-			}
-		}
-	}
-	return knownkinds
-}
-
-func getKind(kind string, subresources []v1alpha1.Subresource, dClient dclient.Interface) (string, error) {
-	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-	if subresource == "" {
-		return kind, nil
-	}
-	if dClient == nil {
-		gv := schema.GroupVersion{Group: group, Version: version}
-		return getSubresourceKind(gv.String(), kind, subresource, subresources)
-	}
-	gvrss, err := dClient.Discovery().FindResources(group, version, kind, subresource)
-	if err != nil {
-		return kind, err
-	}
-	if len(gvrss) != 1 {
-		return kind, fmt.Errorf("no unique match for kind %s", kind)
-	}
-	for _, api := range gvrss {
-		return api.Kind, nil
-	}
-	return kind, nil
-}
-
-func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []v1alpha1.Subresource) (string, error) {
-	for _, subresource := range subresources {
-		parentResourceGroupVersion := metav1.GroupVersion{
-			Group:   subresource.ParentResource.Group,
-			Version: subresource.ParentResource.Version,
-		}.String()
-		if groupVersion == "" || kubeutils.GroupVersionMatches(groupVersion, parentResourceGroupVersion) {
-			if parentKind == subresource.ParentResource.Kind {
-				if strings.ToLower(subresourceName) == strings.Split(subresource.Subresource.Name, "/")[1] {
-					return subresource.Subresource.Kind, nil
-				}
-			}
-		}
-	}
-	return "", fmt.Errorf("subresource %s not found for parent resource %s", subresourceName, parentKind)
 }
 
 func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths ...string) (string, string) {
