@@ -40,3 +40,45 @@ spec:
         file: pod.yaml
     - assert:
         file: assert-pod.yaml
+  - name: create policy with only issuer regex mismatched
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-issuer-mismatch.yaml
+  - name: wait for issuer-mismatch policy readiness
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: ImageValidatingPolicy
+          metadata:
+            name: ivpol-keyless-attestation-regexp-issuer-mismatch
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - message: Webhook configured.
+                reason: Succeeded
+                status: "True"
+                type: WebhookConfigured
+              (conditions[?type == 'RBACPermissionsGranted']):
+              - message: Background scanning disabled; reporting permissions not required.
+                reason: Succeeded
+                status: "True"
+                type: RBACPermissionsGranted
+              ready: true
+  - name: reject image when only issuer regex mismatches
+    try:
+    - create:
+        file: pod-issuer-mismatch.yaml
+        expect:
+        - check:
+            ($error != null): true
+            "($error != null && contains($error, 'Policy ivpol-keyless-attestation-regexp-issuer-mismatch failed: image attestor threshold not satisfied'))": true
+    - error:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: zulu-issuer-mismatch
