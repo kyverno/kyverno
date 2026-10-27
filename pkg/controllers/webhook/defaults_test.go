@@ -10,6 +10,7 @@ import (
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -315,43 +316,69 @@ func newResourceWebhookTestController(t *testing.T, client *fake.Clientset, webh
 	}
 }
 
+// withoutGenerationLabelProtection keeps the default toggles but disables the
+// generation label protection webhook.
+type withoutGenerationLabelProtection struct {
+	toggle.Toggles
+}
+
+func (withoutGenerationLabelProtection) ProtectGenerationLabels() bool { return false }
+
 // TestReconcileResourceWebhooksWithoutPolicies runs the complete resource builders
-// without any policy. The mutating configuration then has no webhooks, and the API
-// server stores that empty list as an omitted field, so later watchdog ticks must
-// compare it as equal instead of updating the configuration every time.
+// without any policy. The mutating configuration then has no webhooks, and so has
+// the validating one when generation label protection is disabled. The API server
+// stores that empty list as an omitted field, so later watchdog ticks must compare
+// it as equal instead of updating the configuration every time.
 func TestReconcileResourceWebhooksWithoutPolicies(t *testing.T) {
 	t.Parallel()
-	for _, kind := range []string{"validating", "mutating"} {
-		t.Run(kind, func(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		mutating      bool
+		protectLabels bool
+		wantWebhooks  bool
+	}{
+		{name: "validating", protectLabels: true, wantWebhooks: true},
+		{name: "validating without generation label protection"},
+		{name: "mutating", mutating: true, protectLabels: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := t.Context()
+			if !tt.protectLabels {
+				ctx = toggle.NewContext(ctx, withoutGenerationLabelProtection{toggle.FromContext(ctx)})
+			}
 			client := fake.NewSimpleClientset()
 			webhooks := newTestIndexer(t)
 			c := newResourceWebhookTestController(t, client, webhooks, nil, nil)
 			reconcile := c.reconcileResourceValidatingWebhookConfiguration
-			if kind == "mutating" {
+			var stored runtime.Object = &admissionregistrationv1.ValidatingWebhookConfiguration{}
+			if tt.mutating {
 				reconcile = c.reconcileResourceMutatingWebhookConfiguration
+				stored = &admissionregistrationv1.MutatingWebhookConfiguration{}
 			}
-			require.NoError(t, reconcile(t.Context()))
+			require.NoError(t, reconcile(ctx))
 			actions := client.Actions()
 			require.Len(t, actions, 1)
 			require.Equal(t, "create", actions[0].GetVerb())
-			written := actions[0].(clienttesting.CreateAction).GetObject()
 
 			// Store the write as the API server returns it, after its JSON round trip.
-			data, err := json.Marshal(written)
+			data, err := json.Marshal(actions[0].(clienttesting.CreateAction).GetObject())
 			require.NoError(t, err)
-			var stored runtime.Object = &admissionregistrationv1.ValidatingWebhookConfiguration{}
-			if kind == "mutating" {
-				stored = &admissionregistrationv1.MutatingWebhookConfiguration{}
-			}
 			require.NoError(t, json.Unmarshal(data, stored))
-			if obj, ok := stored.(*admissionregistrationv1.MutatingWebhookConfiguration); ok {
-				require.Nil(t, obj.Webhooks, "an empty webhook list is not stored")
+			var count int
+			switch obj := stored.(type) {
+			case *admissionregistrationv1.ValidatingWebhookConfiguration:
+				require.Equal(t, !tt.wantWebhooks, obj.Webhooks == nil)
+				count = len(obj.Webhooks)
+			case *admissionregistrationv1.MutatingWebhookConfiguration:
+				require.Equal(t, !tt.wantWebhooks, obj.Webhooks == nil)
+				count = len(obj.Webhooks)
 			}
+			require.Equal(t, tt.wantWebhooks, count > 0)
 			require.NoError(t, webhooks.Add(stored))
 			client.ClearActions()
 			for range 3 {
-				require.NoError(t, reconcile(t.Context()))
+				require.NoError(t, reconcile(ctx))
 			}
 			require.Empty(t, client.Actions(), "subsequent watchdog ticks must not send updates")
 		})
