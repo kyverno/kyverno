@@ -164,12 +164,14 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 				if rule.Status() == engineapi.RuleStatusError {
 					response.PatchedResource = nil
 					response.Policies = append(response.Policies, result)
+					annotateTraces(response.Policies, response.Resource)
 					return response, fmt.Errorf("JSON policy %s: %s", PolicyKey(mpol.Policy), rule.Message())
 				}
 			}
 			result.PatchedResource = response.PatchedResource.DeepCopy()
 			response.Policies = append(response.Policies, result)
 		}
+		annotateTraces(response.Policies, response.Resource)
 		return response, nil
 	}
 

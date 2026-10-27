@@ -1874,6 +1874,14 @@ func Test_Apply_Explain(t *testing.T) {
 		},
 		want: []string{"(MutatingPolicy)", "SCOPE      applied", "MUTATIONS", "VERDICT    PASS"},
 	}, {
+		name: "mutating policy on a JSON payload",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{base + "test-mutating-policy/json-document-mutation/policy.yaml"},
+			JSONPaths:   []string{base + "test-mutating-policy/json-document-mutation/input.json"},
+		},
+		want:       []string{"add-region (MutatingPolicy)", "evaluated against a JSON payload", "MUTATIONS", "VERDICT    PASS"},
+		wantCounts: &processor.ResultCounts{Pass: 2},
+	}, {
 		name: "validating policy on a JSON payload",
 		config: ApplyCommandConfig{
 			PolicyPaths: []string{base + "test-validating-policy/json-check-dockerfile/policy.yaml"},

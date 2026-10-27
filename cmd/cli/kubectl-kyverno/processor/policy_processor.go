@@ -234,6 +234,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			reps, evaluationErr := eng.Handle(context.TODO(), celengine.RequestFromJSON(contextProvider, object), func(policy policiesv1beta1.MutatingPolicyLike) bool {
 				return policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
 			})
+			p.explainMutations(reps.Policies)
 			for _, r := range reps.Policies {
 				response := engineapi.EngineResponse{
 					Resource:       *object,

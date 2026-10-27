@@ -19,6 +19,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,6 +40,7 @@ type jsonEvaluationResult struct {
 	Skipped          bool
 	Exceptions       []*policiesv1beta1.PolicyException
 	AuditAnnotations map[string]string
+	Trace            *trace.Decision
 }
 
 type jsonPatchResolver struct{}
@@ -131,23 +133,18 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.MutatingPolicyLike,
 	if err != nil {
 		return nil, field.ErrorList{field.InternalError(path, err)}
 	}
-	result := &Policy{jsonMutations: make([]cel.Program, 0, len(spec.Mutations))}
-	result.variables = make(map[string]cel.Program)
+	result := &Policy{jsonMutations: make([]cel.Program, 0, len(spec.Mutations)), trace: c.trace}
+	names := make(map[string]bool)
 	for i, variable := range spec.Variables {
-		vpath := path.Child("variables").Index(i)
-		if _, exists := result.variables[variable.Name]; exists {
-			return nil, field.ErrorList{field.Duplicate(vpath.Child("name"), variable.Name)}
+		if names[variable.Name] {
+			return nil, field.ErrorList{field.Duplicate(path.Child("variables").Index(i).Child("name"), variable.Name)}
 		}
-		ast, issues := env.Compile(variable.Expression)
-		if issues.Err() != nil {
-			return nil, field.ErrorList{field.Invalid(vpath.Child("expression"), variable.Expression, issues.Err().Error())}
-		}
-		program, err := celcompiler.NewProgram(env, ast)
-		if err != nil {
-			return nil, field.ErrorList{field.InternalError(vpath, err)}
-		}
-		provider.RegisterField(variable.Name, ast.OutputType())
-		result.variables[variable.Name] = program
+		names[variable.Name] = true
+	}
+	var compileErrs field.ErrorList
+	result.variables, result.tracedVariables, compileErrs = celcompiler.CompileVariablesWithTrace(path.Child("variables"), env, provider, c.trace, spec.Variables...)
+	if len(compileErrs) > 0 {
+		return nil, compileErrs
 	}
 	compile := func(path *field.Path, expression string, allowed ...*cel.Type) cel.Program {
 		ast, issues := env.Compile(expression)
@@ -169,9 +166,8 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.MutatingPolicyLike,
 		}
 		return program
 	}
-	for i, condition := range spec.MatchConditions {
-		result.matchConditions = append(result.matchConditions, compile(path.Child("matchConditions").Index(i).Child("expression"), condition.Expression, cel.BoolType))
-	}
+	result.matchConditions, result.tracedMatchConditions, compileErrs = celcompiler.CompileMatchConditionsWithTrace(path.Child("matchConditions"), env, c.trace, spec.MatchConditions...)
+	errs = append(errs, compileErrs...)
 	for i, exception := range exceptions {
 		if exception == nil {
 			errs = append(errs, field.Required(field.NewPath("exceptions").Index(i), "exception is required"))
@@ -188,7 +184,13 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.MutatingPolicyLike,
 		result.auditAnnotations[annotation.Key] = compile(path.Child("auditAnnotations").Index(i).Child("valueExpression"), annotation.ValueExpression, cel.StringType, cel.NullType)
 	}
 	for i, m := range spec.Mutations {
-		result.jsonMutations = append(result.jsonMutations, compile(path.Child("mutations").Index(i).Child("jsonPatch", "expression"), m.JSONPatch.Expression, cel.ListType(jsonPatchType)))
+		compiled, compileErrs := celcompiler.CompileMutationWithTrace(path.Child("mutations").Index(i).Child("jsonPatch"), env, m.JSONPatch.Expression, cel.ListType(jsonPatchType), c.trace)
+		errs = append(errs, compileErrs...)
+		result.jsonMutations = append(result.jsonMutations, compiled.Program)
+		if c.trace {
+			compiled.Name = fmt.Sprintf("mutations[%d] (jsonPatch)", i)
+			result.tracedMutations = append(result.tracedMutations, compiled)
+		}
 	}
 	if len(errs) > 0 {
 		return nil, errs
@@ -210,19 +212,37 @@ func (p *Policy) EvaluateJSON(ctx context.Context, object *unstructured.Unstruct
 	}
 	result, err := p.evaluateJSONDocument(ctx, raw)
 	if err != nil {
-		return &EvaluationResult{Error: err}
+		return &EvaluationResult{Error: err, Trace: result.Trace}
 	}
 	var patched map[string]any
 	if err := kjson.UnmarshalCaseSensitivePreserveInts(result.Document, &patched); err != nil || patched == nil {
-		return &EvaluationResult{Error: fmt.Errorf("JSON mutation must preserve an object root")}
+		return &EvaluationResult{Error: fmt.Errorf("JSON mutation must preserve an object root"), Trace: result.Trace}
 	}
 	return &EvaluationResult{
-		PatchedResource: &unstructured.Unstructured{Object: patched},
-		Skipped:         result.Skipped && len(result.Exceptions) == 0, Exceptions: result.Exceptions, AuditAnnotations: result.AuditAnnotations,
+		PatchedResource:  &unstructured.Unstructured{Object: patched},
+		Skipped:          result.Skipped && len(result.Exceptions) == 0,
+		Exceptions:       result.Exceptions,
+		AuditAnnotations: result.AuditAnnotations,
+		Trace:            result.Trace,
 	}
 }
 
-func (p *Policy) evaluateJSONDocument(ctx context.Context, document json.RawMessage) (jsonEvaluationResult, error) {
+func (p *Policy) evaluateJSONDocument(ctx context.Context, document json.RawMessage) (result jsonEvaluationResult, evaluationErr error) {
+	var decision *trace.Decision
+	if p.trace {
+		decision = &trace.Decision{Verdict: trace.VerdictTrace{Status: trace.VerdictPass}}
+		defer func() {
+			if evaluationErr != nil {
+				decision.Verdict.Status, decision.Verdict.Message = trace.VerdictError, evaluationErr.Error()
+			} else if result.Skipped {
+				decision.Verdict.Status = trace.VerdictSkip
+				if decision.Verdict.Message == "" {
+					decision.Verdict.Message = skipMessage(decision.Match)
+				}
+			}
+			result.Trace = decision
+		}()
+	}
 	if err := ctx.Err(); err != nil {
 		return jsonEvaluationResult{}, err
 	}
@@ -231,6 +251,24 @@ func (p *Policy) evaluateJSONDocument(ctx context.Context, document json.RawMess
 		return jsonEvaluationResult{}, err
 	}
 	data := map[string]any{celcompiler.ObjectKey: object, celcompiler.ExceptionsKey: libs.Exception{}}
+	var recordMatch func(int, ref.Val, error)
+	var recordVariable func(string, ref.Val, error)
+	if p.trace {
+		recordMatch = func(i int, out ref.Val, err error) {
+			t := p.tracedMatchConditions[i]
+			details := celcompiler.TraceDetails(ctx, t.Traced, data, err)
+			decision.Match = append(decision.Match, trace.NamedExpressionTrace{
+				Name: t.Name, ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+			})
+		}
+		recordVariable = func(name string, out ref.Val, err error) {
+			t := p.tracedVariables[name]
+			details := celcompiler.TraceDetails(ctx, t.Traced, data, err)
+			decision.Variables = append(decision.Variables, trace.NamedExpressionTrace{
+				Name: name, ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+			})
+		}
+	}
 	p.appendVariables(ctx, data, nil)
 	var exceptions []*policiesv1beta1.PolicyException
 	scopes := libs.Exception{}
@@ -259,8 +297,8 @@ func (p *Policy) evaluateJSONDocument(ctx context.Context, document json.RawMess
 		return jsonEvaluationResult{Document: bytes.Clone(document), Skipped: true, Exceptions: exceptions}, nil
 	}
 	data[celcompiler.ExceptionsKey] = scopes
-	p.appendVariables(ctx, data, nil)
-	match, err := p.match(ctx, data, p.matchConditions, nil)
+	p.appendVariables(ctx, data, recordVariable)
+	match, err := p.match(ctx, data, p.matchConditions, recordMatch)
 	if err != nil {
 		return jsonEvaluationResult{}, fmt.Errorf("match conditions: %w", err)
 	}
@@ -277,11 +315,23 @@ func (p *Policy) evaluateJSONDocument(ctx context.Context, document json.RawMess
 			return jsonEvaluationResult{}, err
 		}
 		out, _, err := program.ContextEval(ctx, data)
-		if err != nil {
-			return jsonEvaluationResult{}, fmt.Errorf("mutation %d: %w", i, err)
-		}
 		var skipped bool
-		patched, skipped, err = applyDocumentPatch(ctx, patched, out, &operations)
+		if err == nil {
+			patched, skipped, err = applyDocumentPatch(ctx, patched, out, &operations)
+		}
+		if p.trace {
+			t := p.tracedMutations[i]
+			details := celcompiler.TraceDetails(ctx, t.Traced, data, err)
+			mt := trace.MutationTrace{Name: t.Name, ExpressionTrace: buildExpressionTrace(t.AST, out, details, err)}
+			if err != nil {
+				mt.Error = err.Error()
+			}
+			if skipped {
+				mt.NotApplied = "a test operation failed, so the object was left unchanged"
+				decision.Verdict.Message = mt.NotApplied
+			}
+			decision.Mutations = append(decision.Mutations, mt)
+		}
 		if err != nil {
 			return jsonEvaluationResult{}, fmt.Errorf("mutation %d: %w", i, err)
 		}
@@ -299,7 +349,7 @@ func (p *Policy) evaluateJSONDocument(ctx context.Context, document json.RawMess
 		if _, ok := data[celcompiler.ObjectKey].(map[string]any); !ok {
 			return jsonEvaluationResult{}, fmt.Errorf("JSON mutation must preserve an object root")
 		}
-		p.appendVariables(ctx, data, nil)
+		p.appendVariables(ctx, data, recordVariable)
 	}
 	annotations := make(map[string]string)
 	for name, program := range p.auditAnnotations {

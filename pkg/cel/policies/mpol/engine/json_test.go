@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -93,7 +94,7 @@ func TestJSONMutationReusesProviderAndSnapshots(t *testing.T) {
 	)
 	first.Spec.Variables = []admissionregistrationv1.Variable{{Name: "count", Expression: "object.count"}}
 	second := jsonMutationPolicy("second", `[JSONPatch{op:"add",path:"/result",value:object.count*2}]`)
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{first, second}, nil, nil)
+	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.MutatingPolicyLike{first, second}, nil, nil)
 	require.NoError(t, err)
 	first.Spec.Mutations[0].JSONPatch.Expression = "invalid("
 	engine := NewEngine(provider, nil, nil, nil, nil)
@@ -102,15 +103,75 @@ func TestJSONMutationReusesProviderAndSnapshots(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, jsonObject(t, `{"count":2,"result":4}`), response.PatchedResource)
 		require.Equal(t, jsonObject(t, `{"count":2}`), response.Policies[0].PatchedResource)
+		require.Len(t, response.Policies[0].Trace.Mutations, 2)
 		response.PatchedResource.Object["count"] = int64(99)
 		require.Equal(t, int64(2), response.Policies[0].PatchedResource.Object["count"])
+	}
+}
+
+func TestJSONMutationTracing(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, condition, expression, verdict string
+	}{
+		{"pass", "variables.count > 0", `[JSONPatch{op:"add",path:"/next",value:variables.count+1}]`, trace.VerdictPass},
+		{"excluded", "variables.count < 0", `[JSONPatch{op:"add",path:"/next",value:1}]`, trace.VerdictSkip},
+		{"failed test", "true", `[JSONPatch{op:"test",path:"/count",value:2}]`, trace.VerdictSkip},
+		{"evaluation error", "true", `[JSONPatch{op:"add",path:"/next",value:object.missing}]`, trace.VerdictError},
+		{"patch error", "true", `[JSONPatch{op:"remove",path:"/missing"}]`, trace.VerdictError},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			policy := jsonMutationPolicy("trace-json", tc.expression)
+			policy.Spec.Variables = []admissionregistrationv1.Variable{{Name: "count", Expression: "object.count"}}
+			policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "selected", Expression: tc.condition}}
+			var plain *EngineResponse
+			for _, tracing := range []bool{false, true} {
+				provider, err := NewProvider(compiler.NewCompilerWithTrace(tracing), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
+				require.NoError(t, err)
+				engine := NewEngine(provider, nil, nil, nil, nil)
+				response, err := engine.Handle(context.Background(), celengine.RequestFromJSON(nil, jsonObject(t, `{"count":1}`)), nil)
+				require.Equal(t, tc.verdict == trace.VerdictError, err != nil)
+				require.Len(t, response.Policies, 1)
+				if !tracing {
+					require.Nil(t, response.Policies[0].Trace)
+					plain = &response
+					continue
+				}
+				require.Equal(t, plain.PatchedResource, response.PatchedResource)
+				require.Equal(t, plain.Policies[0].Rules[0].Status(), response.Policies[0].Rules[0].Status())
+				decision := response.Policies[0].Trace
+				require.NotNil(t, decision)
+				require.Equal(t, "trace-json", decision.PolicyName)
+				require.Equal(t, "MutatingPolicy", decision.PolicyKind)
+				require.True(t, decision.Scope.Applied)
+				require.Equal(t, tc.verdict, decision.Verdict.Status)
+				require.Len(t, decision.Match, 1)
+				require.Equal(t, tc.condition, decision.Match[0].Source)
+				if tc.name == "excluded" {
+					require.Empty(t, decision.Mutations)
+					require.Contains(t, decision.Verdict.Message, "selected")
+				} else {
+					require.Len(t, decision.Mutations, 1)
+					require.Equal(t, tc.expression, decision.Mutations[0].Source)
+				}
+				if tc.name == "pass" {
+					require.NotEmpty(t, decision.Variables)
+					require.Equal(t, "object.count", decision.Variables[0].Source)
+					require.NotEmpty(t, decision.Mutations[0].Nodes)
+				}
+				if tc.name == "failed test" {
+					require.NotEmpty(t, decision.Mutations[0].NotApplied)
+				}
+			}
+		})
 	}
 }
 
 func TestJSONMutationLimits(t *testing.T) {
 	t.Parallel()
 	policy := jsonMutationPolicy("test", `[JSONPatch{op:"add",path:"/ok",value:true}]`)
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
+	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
 	require.NoError(t, err)
 	engine := NewEngine(provider, nil, nil, nil, nil)
 	t.Run("caller budget", func(t *testing.T) {
@@ -120,6 +181,7 @@ func TestJSONMutationLimits(t *testing.T) {
 		response, err := engine.Handle(ctx, celengine.RequestFromJSON(nil, jsonObject(t, `{}`)), nil)
 		require.Error(t, err)
 		require.Nil(t, response.PatchedResource)
+		require.Equal(t, trace.VerdictError, response.Policies[0].Trace.Verdict.Status)
 	})
 	t.Run("cancellation", func(t *testing.T) {
 		t.Parallel()
