@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
@@ -755,5 +756,54 @@ func TestApplyPoliciesOnResource_MatchConditionSeesSuppliedTargets(t *testing.T)
 		}
 	}
 	assert.Equal(t, []string{"test-deploy"}, mutated, "the matchCondition must find the supplied target")
+	assert.Equal(t, 1, rc.Pass)
+}
+
+// TestApplyPoliciesOnResource_TargetNamespaceSelectorUsesNamespaceLabels checks that a target
+// namespaceSelector is matched against the labels of the target's namespace from the values, like the
+// background controller does with the namespaces in the cluster.
+func TestApplyPoliciesOnResource_TargetNamespaceSelectorUsesNamespaceLabels(t *testing.T) {
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	prod := readUnstructured(t, filepath.Join(targetFixture, "target.yaml"))
+	require.Equal(t, "test-ns", prod.GetNamespace())
+	dev := prod.DeepCopy()
+	dev.SetNamespace("dev-ns")
+	targetPolicy, err := os.ReadFile(filepath.Join(targetFixture, "policy.yaml"))
+	require.NoError(t, err)
+	withSelector := strings.Replace(string(targetPolicy), "  targetMatchConstraints:\n", "  targetMatchConstraints:\n    namespaceSelector:\n      matchLabels:\n        env: prod\n", 1)
+	require.NotEqual(t, string(targetPolicy), withSelector)
+	loaded := loadMutatingPolicies(t, withSelector)
+	require.Len(t, loaded.MutatingPolicies, 1)
+	vars, err := variables.New(nil, nil, "", "", &v1alpha1.ValuesSpec{
+		NamespaceSelectors: []v1alpha1.NamespaceSelector{
+			{Name: "test-ns", Labels: map[string]string{"env": "prod"}},
+			{Name: "dev-ns", Labels: map[string]string{"env": "dev"}},
+		},
+	})
+	require.NoError(t, err)
+
+	rc := &ResultCounts{}
+	processor := PolicyProcessor{
+		Store:              &store.Store{},
+		MutatingPolicies:   loaded.MutatingPolicies,
+		Resource:           *secret.DeepCopy(),
+		TargetResources:    []*unstructured.Unstructured{prod.DeepCopy(), dev},
+		Variables:          vars,
+		Rc:                 rc,
+		PrintPatchResource: true,
+		Out:                &bytes.Buffer{},
+	}
+	responses, err := processor.ApplyPoliciesOnResource()
+	require.NoError(t, err)
+
+	var mutated []string
+	for _, response := range responses {
+		for _, rule := range response.PolicyResponse.Rules {
+			if patched, _, _ := rule.PatchedTarget(); patched != nil {
+				mutated = append(mutated, patched.GetNamespace()+"/"+patched.GetName())
+			}
+		}
+	}
+	assert.Equal(t, []string{"test-ns/test-deploy"}, mutated, "only the target in a namespace labelled env=prod must be mutated")
 	assert.Equal(t, 1, rc.Pass)
 }

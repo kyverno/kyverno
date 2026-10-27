@@ -345,8 +345,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						false,
 						nil,
 					)
+					// a target namespaceSelector is matched against the labels of the target's namespace
+					var targetNamespace *corev1.Namespace
+					if ns := target.GetNamespace(); ns != "" {
+						targetNamespace = nsResolver(ns)
+					}
 					// targets are evaluated with the admission request of the admitted trigger, as the background controller does
-					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, admitted.request.Request, mpolengine.And(policyKeyIn(triggeredPolicies), targetMatchPredicate(targetMatcher, attr, celTargets)))
+					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, admitted.request.Request, mpolengine.And(policyKeyIn(triggeredPolicies), targetMatchPredicate(targetMatcher, attr, targetNamespace, celTargets)))
 					if err != nil {
 						return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
 					}
@@ -943,9 +948,10 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 // matches a MutatingPolicy's targetMatchConstraints. This filters out policies
 // whose target constraints don't match the given target, mirroring the filtering
 // the background controller does via API list calls before calling Evaluate.
+// namespace is the target's namespace, nil for a cluster-scoped target or an unknown namespace.
 // celTargets maps policy keys (mpolengine.PolicyKey) to the set of target keys (celTargetKey) discovered
 // by evaluating CEL expressions.
-func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTargets map[string]map[string]bool) func(policiesv1beta1.MutatingPolicyLike) bool {
+func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, namespace *corev1.Namespace, celTargets map[string]map[string]bool) func(policiesv1beta1.MutatingPolicyLike) bool {
 	return func(mpol policiesv1beta1.MutatingPolicyLike) bool {
 		// like the background controller, a namespaced policy only ever acts on targets in its own
 		// namespace, which also rules out cluster-scoped targets
@@ -977,7 +983,7 @@ func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTarg
 			rules[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
 		}
 		constraints.ResourceRules = rules
-		matches, err := m.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, nil)
+		matches, err := m.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
 		if err != nil {
 			return false
 		}

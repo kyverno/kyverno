@@ -18,7 +18,9 @@
    background-only policies keep mutating their targets as the background controller would. Like the admission
    matcher, a namespaced policy is only considered for a trigger in its own namespace, and like the background
    controller, `targetMatchPredicate` only lets it act on targets in that same namespace, which also rules out
-   cluster-scoped targets. The target pass then keeps
+   cluster-scoped targets. A target `namespaceSelector` is matched against the target's namespace from the
+   values (`nsResolver`), as the trigger's is; without it only `kubernetes.io/metadata.name` is known. The target
+   pass then keeps
    only those policies with `policyKeyIn`, an exact `mpolengine.PolicyKey` (namespace/name) match. Do not use
    `MatchNames` here: it also matches by bare name, so a triggered clustered policy would let a same-named
    namespaced policy from another namespace through. Targets selected by a CEL expression (`discoverCELTargets`)
