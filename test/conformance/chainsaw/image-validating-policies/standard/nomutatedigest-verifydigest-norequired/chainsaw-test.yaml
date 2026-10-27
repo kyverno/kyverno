@@ -43,6 +43,7 @@ spec:
   - name: reject update that removes the digest
     try:
     - script:
+        timeout: 35s
         content: |-
           if output=$(kubectl -n "$NAMESPACE" patch pod testpod --type=json \
             -p='[{"op":"replace","path":"/spec/containers/0/image","value":"ghcr.io/kyverno/test-verify-image:signed-keyless"}]' 2>&1); then
