@@ -499,7 +499,7 @@ func (c *compiledPolicy) MutateDigest(
 	// images are extracted from the well-known container fields directly (rather than
 	// through the policy's CEL image extractors) because we need the JSON pointer to the
 	// image reference within the resource in order to build a patch
-	imagesByCategory, err := apiutils.ExtractImagesFromResource(resource, nil, cfg)
+	imagesByCategory, err := apiutils.ExtractImagesFromResource(resource, cfg)
 	if err != nil {
 		return nil, err
 	}

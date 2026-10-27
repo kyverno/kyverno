@@ -16,7 +16,7 @@ do not — both do their own minimal, standalone setup instead.
 
 | Binary | Source | Purpose |
 |---|---|---|
-| `kyverno` | `cmd/kyverno/` | The admission controller. Runs the webhook server (sync validate/mutate), policy/report/webhook/certmanager controllers, and the CEL-based engines (`pkg/cel/policies/{vpol,mpol,gpol,ivpol}`) alongside the legacy `kyverno.io` engine. |
+| `kyverno` | `cmd/kyverno/` | The admission controller. Runs the webhook server (sync validate/mutate), policy/report/webhook/certmanager controllers, and the CEL-based engines (`pkg/cel/policies/{vpol,mpol,gpol,ivpol}`). The legacy `kyverno.io` rule-evaluation engine was removed in #17710 PR 4. |
 | `kyvernopre` | `cmd/kyverno-init/` | Init container. Cleans up stale webhook configurations before the admission controller starts. |
 | `kubectl-kyverno` | `cmd/cli/kubectl-kyverno/` | Offline CLI for applying/testing policies without a cluster. Built on library code in `pkg/cli` (distinct from the `cmd/cli` command tree itself). |
 | `cleanup-controller` | `cmd/cleanup-controller/` | Reconciles `CleanupPolicy`/`ClusterCleanupPolicy`, runs a cleanup-policy validation webhook, and handles CronJob-invoked cleanup plus the CEL `dpol` (DeletingPolicy) engine. |
@@ -48,20 +48,20 @@ a raw `pkg/client`/`k8s.io/client-go` client directly in new controller/webhook 
 packages' *interface* types as a function parameter is fine and common — the generated wrappers embed those same
 interfaces — the rule is about what constructs the concrete client, not what type a function signature names).
 
-**Policy engine core:** `pkg/engine` is the legacy (`kyverno.io`) rule-evaluation engine — JMESPath variable
-substitution, pattern/anchor matching, mutate patch generation, external API/context calls. `pkg/cel` is the newer,
-parallel CEL-based engine stack for `policies.kyverno.io` types, split by policy kind: `vpol`
-(ValidatingPolicy), `mpol` (MutatingPolicy), `gpol` (GeneratingPolicy), `dpol` (DeletingPolicy), `ivpol`
-(ImageValidatingPolicy). It sits alongside `pkg/engine`, not layered under it — both are invoked from `cmd/kyverno`
-and the other controller binaries for their respective policy families. See [pkg/engine/AGENTS.md](pkg/engine/AGENTS.md)
-and [pkg/cel/AGENTS.md](pkg/cel/AGENTS.md). `pkg/admissionpolicy` bridges CEL policy authoring to native Kubernetes
-`ValidatingAdmissionPolicy`/`MutatingAdmissionPolicy`. `pkg/autogen` (and `pkg/cel/autogen`) compute autogen rules
-for Pod-controller kinds. `pkg/image` holds all image signature/attestation verification — cosign and notary
-verifiers live under `pkg/image/verifiers/{cpol,ivpol}/{cosign,notary}` (not `pkg/cosign`/`pkg/notary`, which no
-longer exist); `pkg/sigstoretuf` handles TUF trust-root management for the cosign verifiers. See
-[pkg/image/AGENTS.md](pkg/image/AGENTS.md).
+**Policy engine core:** the legacy (`kyverno.io`) rule-evaluation engine was deleted in #17710 PR 4. `pkg/engine` is
+now a shared library consumed by the CEL engines, GCE, and the CLI: JMESPath variable substitution and condition
+evaluation, context/apicall loading (with SSRF hardening), strategic-merge mutate patch generation, and the shared
+`api` result/policy types (`EngineResponse`, `RuleResponse`, `GenericPolicy`) — there is no `PolicyContext` type or
+copy-on-write mechanism in this tree any more. `pkg/cel` is the CEL-based engine stack for `policies.kyverno.io` types,
+split by policy kind: `vpol` (ValidatingPolicy), `mpol` (MutatingPolicy), `gpol` (GeneratingPolicy), `dpol`
+(DeletingPolicy), `ivpol` (ImageValidatingPolicy). See [pkg/engine/AGENTS.md](pkg/engine/AGENTS.md) and
+[pkg/cel/AGENTS.md](pkg/cel/AGENTS.md). `pkg/admissionpolicy` bridges CEL policy authoring to native Kubernetes
+`ValidatingAdmissionPolicy`/`MutatingAdmissionPolicy`. `pkg/cel/autogen` computes autogen rules for Pod-controller
+kinds. `pkg/image` holds all image signature/attestation verification — cosign and notary verifiers live under
+`pkg/image/verifiers/ivpol/{cosign,notary}` (not `pkg/cosign`/`pkg/notary`, which no longer exist); `pkg/sigstoretuf`
+handles TUF trust-root management for the cosign verifiers. See [pkg/image/AGENTS.md](pkg/image/AGENTS.md).
 
-**Policy lifecycle / admission:** `pkg/policy`, `pkg/validation`, `pkg/exceptions` (`PolicyException` matching),
+**Policy lifecycle / admission:** `pkg/policy`, `pkg/validation`,
 `pkg/globalcontext` (`GlobalContextEntry` caching for JMESPath/CEL context). `pkg/webhooks` holds the actual
 `AdmissionReview` HTTP handlers — the
 synchronous validate/mutate path returns immediately, while CEL `gpol`/`mpol` generate/mutate-existing rules are

@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestCastPolicy_MutatingPolicy(t *testing.T) {
@@ -33,13 +33,28 @@ func TestCastPolicy_NamespacedMutatingPolicy(t *testing.T) {
 	assert.IsType(t, engineapi.NewNamespacedMutatingPolicy(nmpol), result)
 }
 
-// TestCastPolicy_LegacyKindsReturnNil pins that legacy kyvernov1 policy kinds
-// are no longer recognized by castPolicy now that pkg/policy only dispatches
-// CEL policies.
 func TestCastPolicy_LegacyKindsReturnNil(t *testing.T) {
-	cpol := &kyverno.ClusterPolicy{ObjectMeta: metav1.ObjectMeta{Name: "test-cpol"}}
-	assert.Nil(t, castPolicy(cpol))
-
-	pol := &kyverno.Policy{ObjectMeta: metav1.ObjectMeta{Name: "test-pol", Namespace: "test-ns"}}
-	assert.Nil(t, castPolicy(pol))
+	// castPolicy only recognizes CEL policy kinds; a legacy kyverno.io/v1 kind
+	// (represented as unstructured, since the Go types are gone) must fall
+	// through to the default case and return nil.
+	tests := []struct {
+		name string
+		kind string
+	}{
+		{name: "ClusterPolicy", kind: "ClusterPolicy"},
+		{name: "Policy", kind: "Policy"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			legacy := &unstructured.Unstructured{Object: map[string]interface{}{
+				"apiVersion": "kyverno.io/v1",
+				"kind":       tt.kind,
+				"metadata": map[string]interface{}{
+					"name": "test-policy",
+				},
+			}}
+			result := castPolicy(legacy)
+			assert.Nil(t, result)
+		})
+	}
 }

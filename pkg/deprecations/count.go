@@ -1,29 +1,30 @@
 package deprecations
 
 import (
+	"context"
 	"errors"
 	"sort"
 )
 
 // KindCounter returns the number of existing custom resources for one legacy
-// kyverno.io kind. Implementations typically wrap a synced informer lister,
-// for example:
+// kyverno.io kind. Implementations typically wrap a metadata-only list, for
+// example:
 //
-//	func() (int, error) {
-//		pols, err := cpolLister.List(labels.Everything())
-//		return len(pols), err
+//	func(ctx context.Context) (int, error) {
+//		list, err := client.Resource(gvr).Namespace(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+//		return len(list.Items), err
 //	}
-type KindCounter func() (int, error)
+type KindCounter func(ctx context.Context) (int, error)
 
 // CountLegacyPolicies invokes each counter and returns a map of kind name to
 // the number of existing custom resources of that kind. It is pure: it takes
-// whatever counters the caller can build from its own listers and returns a
-// plain map, with no logging, metrics, or event side effects.
+// whatever counters the caller can build and returns a plain map, with no
+// logging, metrics, or event side effects.
 //
 // Counting continues for every kind even if one counter fails; failures are
 // aggregated and returned alongside whatever counts were successfully
 // collected, so callers can still act on the partial result.
-func CountLegacyPolicies(counters map[string]KindCounter) (map[string]int, error) {
+func CountLegacyPolicies(ctx context.Context, counters map[string]KindCounter) (map[string]int, error) {
 	counts := make(map[string]int, len(counters))
 	var errs []error
 
@@ -35,7 +36,7 @@ func CountLegacyPolicies(counters map[string]KindCounter) (map[string]int, error
 	sort.Strings(kinds)
 
 	for _, kind := range kinds {
-		count, err := counters[kind]()
+		count, err := counters[kind](ctx)
 		if err != nil {
 			errs = append(errs, err)
 			continue
