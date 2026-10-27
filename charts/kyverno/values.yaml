@@ -924,9 +924,9 @@ features:
   registryClient:
     # -- Allow insecure registry
     allowInsecure: false
-    # -- Registry egress policy for admission, background, and reports controllers: audit permits private addresses and logs requests enforce would block; enforce requires an allowlist entry. Both modes always block metadata and other unsafe addresses.
+    # -- Workload image registry egress policy for admission, background, and reports controllers: audit permits private addresses and logs enforce violations; enforce requires an allowlist entry. Both modes block metadata and unsafe resource-image destinations. Policy-authored endpoints are exempt.
     privateRegistryEgressMode: audit
-    # -- Exact registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Entries must be non-empty strings without commas; use one list item per entry. Metadata and other unsafe addresses remain blocked.
+    # -- Exact workload image registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Use one non-empty string per entry, without commas. Metadata and unsafe resource-image destinations remain blocked. Policy-authored endpoints need no entries.
     privateRegistryAllowlist: []
     # -- Enable registry client helpers
     credentialHelpers:

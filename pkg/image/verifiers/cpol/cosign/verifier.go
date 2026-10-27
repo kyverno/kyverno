@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/sigstore/cosign/v3/pkg/oci"
@@ -41,10 +42,9 @@ func (v *verifier) VerifySignature(ctx context.Context, opts verifiers.Options) 
 		return &verifiers.Response{Digest: results[0].Desc.Digest.String()}, nil
 	}
 
-	nameOpts := opts.Client.NameOptions()
-	ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
+	ref, err := resourceReference(ctx, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
+		return nil, fmt.Errorf("failed to resolve image %s: %w", opts.ImageRef, err)
 	}
 
 	// verify image signatures is a wrapper around a cosign function of the same name
@@ -113,13 +113,12 @@ func (v *verifier) FetchAttestations(ctx context.Context, opts verifiers.Options
 		return nil, err
 	}
 
-	nameOpts := opts.Client.NameOptions()
 	signatures, bundleVerified, err := tracing.ChildSpan3(
 		ctx,
 		"",
 		"VERIFY IMG ATTESTATIONS",
 		func(ctx context.Context, span trace.Span) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
-			ref, err := name.ParseReference(opts.ImageRef, nameOpts...)
+			ref, err := resourceReference(ctx, opts)
 			if err != nil {
 				return nil, false, fmt.Errorf("failed to parse image: %w", err)
 			}
@@ -169,4 +168,34 @@ func (v *verifier) FetchAttestations(ctx context.Context, opts verifiers.Options
 	}
 
 	return &verifiers.Response{Digest: digest, Statements: inTotoStatements}, nil
+}
+
+func resourceReference(ctx context.Context, opts verifiers.Options) (name.Reference, error) {
+	ref, err := name.ParseReference(opts.ImageRef, opts.Client.NameOptions()...)
+	if err != nil || opts.Repository == "" {
+		return ref, err
+	}
+	repository, err := name.NewRepository(opts.Repository, opts.Client.NameOptions()...)
+	if err != nil {
+		return nil, err
+	}
+	if digest, pinned := ref.(name.Digest); pinned {
+		if scoped, ok := opts.Client.(interface {
+			ValidateImage(context.Context, string) error
+		}); ok {
+			if err := scoped.ValidateImage(ctx, opts.ImageRef); err != nil {
+				return nil, err
+			}
+		}
+		return repository.Digest(digest.DigestStr()), nil
+	}
+	options, _, err := opts.Client.Options(ctx)
+	if err != nil {
+		return nil, err
+	}
+	descriptor, err := gcrremote.Get(ref, options...)
+	if err != nil {
+		return nil, err
+	}
+	return repository.Digest(descriptor.Digest.String()), nil
 }

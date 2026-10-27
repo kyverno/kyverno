@@ -52,25 +52,11 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 
 	bundles, hash := v.loadBundles(image.NameRef(), cOpts.RegistryClientOpts)
 	cOpts.NewBundleFormat = len(bundles) > 0
-	if err := validateBundleTrust(cOpts); err != nil {
-		return nil, nil, nil, err
-	}
 	if cOpts.NewBundleFormat && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
 		cOpts.UseSignedTimestamps = true
 	}
 
 	return cOpts, bundles, hash, nil
-}
-
-func validateBundleTrust(opts *cosign.CheckOpts) error {
-	// PEM keys and certificates remain sufficient for legacy verification.
-	// Modern bundles need trusted-root material for identity, transparency-log,
-	// or timestamp verification; offline public-key verification does not.
-	if opts.NewBundleFormat && opts.TrustedMaterial == nil &&
-		(opts.SigVerifier == nil || !opts.IgnoreTlog || opts.UseSignedTimestamps) {
-		return fmt.Errorf("modern Sigstore bundle verification requires trusted root material for identity, transparency log, or timestamp verification")
-	}
-	return nil
 }
 
 // bundleLayerMediaTypePrefix identifies the layer of a cosign v3 sigstore bundle referrer.

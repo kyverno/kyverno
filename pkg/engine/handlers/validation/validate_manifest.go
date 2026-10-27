@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
-	"github.com/kyverno/kyverno/pkg/engine/handlers/validation/manifest"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineresources "github.com/kyverno/kyverno/pkg/engine/resources"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -184,7 +183,7 @@ func (h validateManifestHandler) verifyManifest(
 	verifiedMsgs := []string{}
 	for i, attestorSet := range verifyRule.Attestors {
 		path := fmt.Sprintf(".attestors[%d]", i)
-		verified, reason, err := verifyManifestAttestorSet(ctx, resource, attestorSet, vo, path, string(adreq.UID), logger)
+		verified, reason, err := verifyManifestAttestorSet(resource, attestorSet, vo, path, string(adreq.UID), logger)
 		if err != nil {
 			return verified, reason, err
 		}
@@ -203,7 +202,7 @@ func (h validateManifestHandler) checkDryRunPermission(ctx context.Context, kind
 	return ok, err
 }
 
-func verifyManifestAttestorSet(ctx context.Context, resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {
+func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {
 	verifiedCount := 0
 	attestorSet = internal.ExpandStaticKeys(attestorSet)
 	requiredCount := attestorSet.RequiredCount()
@@ -222,13 +221,13 @@ func verifyManifestAttestorSet(ctx context.Context, resource unstructured.Unstru
 				entryError = fmt.Errorf("failed to unmarshal nested attestor %s: %w", attestorPath, err)
 			} else {
 				attestorPath += ".attestor"
-				verified, reason, err = verifyManifestAttestorSet(ctx, resource, *nestedAttestorSet, vo, attestorPath, uid, logger)
+				verified, reason, err = verifyManifestAttestorSet(resource, *nestedAttestorSet, vo, attestorPath, uid, logger)
 				if err != nil {
 					entryError = fmt.Errorf("failed to verify signature; %s: %w", attestorPath, err)
 				}
 			}
 		} else {
-			verified, reason, entryError = k8sVerifyResource(ctx, resource, a, vo, attestorPath, uid, i, logger)
+			verified, reason, entryError = k8sVerifyResource(resource, a, vo, attestorPath, uid, i, logger)
 		}
 
 		if entryError != nil {
@@ -262,7 +261,7 @@ func verifyManifestAttestorSet(ctx context.Context, resource unstructured.Unstru
 	return false, reason, nil
 }
 
-func k8sVerifyResource(ctx context.Context, resource unstructured.Unstructured, a kyvernov1.Attestor, vo *k8smanifest.VerifyResourceOption, attestorPath, uid string, i int, logger logr.Logger) (bool, string, error) {
+func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor, vo *k8smanifest.VerifyResourceOption, attestorPath, uid string, i int, logger logr.Logger) (bool, string, error) {
 	// check annotations
 	if a.Annotations != nil {
 		mnfstAnnotations := resource.GetAnnotations()
@@ -282,7 +281,7 @@ func k8sVerifyResource(ctx context.Context, resource unstructured.Unstructured, 
 	}
 
 	logger.V(4).Info("verifying resource by k8s-manifest-sigstore")
-	result, err := manifest.VerifyResource(ctx, resource, vo)
+	result, err := k8smanifest.VerifyResource(resource, vo)
 	if err != nil {
 		logger.V(4).Info("verifyResoource return err", err.Error())
 		if k8smanifest.IsSignatureNotFoundError(err) {

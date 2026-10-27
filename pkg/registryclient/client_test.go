@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,12 +27,11 @@ func TestFetchImageDescriptorBlocksPrivateLiteral(t *testing.T) {
 	require.True(t, errors.Is(err, ErrRegistryAddressBlocked), err.Error())
 }
 
-func TestImageVerificationCredentialOptionsBlockPrivateLiteral(t *testing.T) {
+func TestResourceImageOptionsBlockPrivateLiteral(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	opts, nameOpts := OptsFromImageVerificationCredentials(ctx, nil, policiesv1alpha1.Credentials{
-		AllowInsecureRegistry: true,
-	}, "kyverno")
+	opts, nameOpts, err := New(WithAllowInsecureRegistry(true)).Options(ctx)
+	require.NoError(t, err)
 	reference, err := name.ParseReference("127.0.0.1:5000/example/image:latest", nameOpts...)
 	require.NoError(t, err)
 	_, err = gcrremote.Get(reference, opts...)

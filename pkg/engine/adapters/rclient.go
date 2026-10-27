@@ -22,6 +22,22 @@ func RegistryClient(client registryclient.Client) engineapi.RegistryClient {
 	return &rclientAdapter{client}
 }
 
+func (a *rclientAdapter) PolicyClient() registryclient.Client {
+	if scoped, ok := a.Client.(interface{ PolicyClient() registryclient.Client }); ok {
+		return scoped.PolicyClient()
+	}
+	return a.Client
+}
+
+func (a *rclientAdapter) ValidateImage(ctx context.Context, imageRef string) error {
+	if scoped, ok := a.Client.(interface {
+		ValidateImage(context.Context, string) error
+	}); ok {
+		return scoped.ValidateImage(ctx, imageRef)
+	}
+	return nil
+}
+
 func (a *rclientAdapter) ForRef(ctx context.Context, ref string) (*engineapi.ImageData, error) {
 	desc, err := a.Client.FetchImageDescriptor(ctx, ref)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	sdkregistryclient "github.com/kyverno/sdk/extensions/registryclient"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -53,6 +54,19 @@ type registryClientFactory struct {
 	secretsLister             corev1listers.SecretLister
 	privateRegistryAllowlist  []string
 	privateRegistryEgressMode string
+}
+
+func (f *registryClientFactory) GetPolicyClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials, resourceNamespace string) (engineapi.RegistryClient, error) {
+	client, err := f.GetClient(ctx, creds, resourceNamespace, nil)
+	if err != nil {
+		return nil, err
+	}
+	if scoped, ok := client.(interface {
+		PolicyClient() sdkregistryclient.Client
+	}); ok {
+		return adapters.RegistryClient(scoped.PolicyClient()), nil
+	}
+	return client, nil
 }
 
 func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials, resourceNamespace string, imagePullSecrets []string) (engineapi.RegistryClient, error) {

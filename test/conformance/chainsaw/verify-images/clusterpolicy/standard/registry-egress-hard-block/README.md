@@ -9,7 +9,15 @@ cannot make the test pass.
 The policy reuses the public key from the keyed verification tests. Transparency
 log and SCT checks are disabled because this proof only exercises registry
 network destinations. No signing key, registry, cloud endpoint, or pull secret is
-needed. The Pod selector limits the policy to the two proof resources.
+needed. The Pod selector limits the policy to the proof resources. The init
+container fixture verifies an init image is guarded independently of the regular
+container. Unit coverage in `pkg/registryclient/scope_test.go` also extracts and
+blocks regular, init, and ephemeral container images in both modes.
+
+Policy-authored image registry context, signature repository, key, certificate,
+Rekor, Fulcio, TSA, TUF, and manifest/bundle endpoints are outside this guard and
+retain upstream native behavior. Their positive reachability regressions use
+local HTTP test servers rather than blocked-endpoint proof fixtures.
 
 Run against a cluster with the changed Kyverno controller installed. Helm passes
 the registry egress settings to admission, background, and reports controllers;
@@ -28,8 +36,9 @@ this directory, run each command and verify the output contains
 ```sh
 kyverno apply policy.yaml --resource metadata-pod.yaml --registry
 kyverno apply policy.yaml --resource loopback-pod.yaml --registry
+kyverno apply policy.yaml --resource init-pod.yaml --registry
 ```
 
-Both commands must report a failed verification. Unit tests in
+All commands must report a failed verification. Unit tests in
 `pkg/utils/egress` separately prove that blocked destinations receive no dial or
 HTTP request, including redirects and attempts to reuse existing connections.

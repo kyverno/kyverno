@@ -13,7 +13,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils/egress"
 	"github.com/kyverno/sdk/extensions/regcreds"
@@ -100,9 +99,9 @@ func ValidateEgressConfig(allowlist []string, mode string) error {
 
 type client struct {
 	keychain              authn.Keychain
+	policyClient          Client
 	transport             http.RoundTripper
 	policy                *egress.Policy
-	egressConfig          egress.Config
 	configErr             error
 	allowInsecureRegistry bool
 }
@@ -176,9 +175,12 @@ func New(opts ...Option) Client {
 	}
 	c := &client{
 		allowInsecureRegistry: config.allowInsecureRegistry,
-		egressConfig:          egress.Config{Allowlist: slices.Clone(config.privateRegistryAllowlist), Mode: config.egressMode},
+		policyClient: sdkregistryclient.New(
+			sdkregistryclient.WithKeychain(keychain),
+			sdkregistryclient.WithAllowInsecureRegistry(config.allowInsecureRegistry),
+		),
 	}
-	shared, err := sharedTransport(c.egressConfig)
+	shared, err := sharedTransport(egress.Config{Allowlist: config.privateRegistryAllowlist, Mode: config.egressMode})
 	c.configErr = err
 	if err != nil {
 		c.transport = invalidTransport{err: err}
@@ -189,35 +191,28 @@ func New(opts ...Option) Client {
 	return c
 }
 
-// EgressTransport shares the configured network guard with Sigstore HTTP clients.
-// It carries no registry credentials and never mutates http.DefaultTransport.
-func EgressTransport() http.RoundTripper {
-	if configured, ok := globalClient.(*client); ok {
-		return configured.transport
-	}
-	shared, err := sharedTransport(egress.Config{})
-	if err != nil {
-		return invalidTransport{err: err}
-	}
-	return shared.transport
+// PolicyClient returns a separately constructed native client for policy-authored
+// destinations, without resource-image destination or credential restrictions.
+func (c *client) PolicyClient() Client {
+	return c.policyClient
 }
 
-// GuardKeychain applies the process egress policy to additional credential sources,
-// such as a policy's separate signature repository credentials.
-func GuardKeychain(inner authn.Keychain) authn.Keychain {
-	if configured, ok := globalClient.(*client); ok {
-		return &guardedKeychain{inner: inner, policy: configured.policy, configErr: configured.configErr}
+// ValidateImage checks a resource-image destination without fetching its content.
+func (c *client) ValidateImage(ctx context.Context, imageRef string) error {
+	if c.configErr != nil {
+		return c.configErr
 	}
-	shared, err := sharedTransport(egress.Config{})
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	reference, err := name.ParseReference(imageRef, c.NameOptions()...)
 	if err != nil {
-		return &guardedKeychain{inner: inner, configErr: err}
+		return err
 	}
-	return &guardedKeychain{inner: inner, policy: shared.policy}
-}
-
-// EgressHTTPClient guards each request, including redirects, with bounded latency.
-func EgressHTTPClient() *http.Client {
-	return &http.Client{Transport: EgressTransport(), Timeout: 30 * time.Second}
+	validationCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	_, err = c.policy.ResolveAndValidate(validationCtx, reference.Context().RegistryStr())
+	return err
 }
 
 type guardedKeychain struct {
@@ -350,68 +345,6 @@ func SetupGlobalRegistryClient(
 		globalClient = New(opts...)
 	})
 	return globalClient
-}
-
-// GlobalOptsOrDefault returns guarded options from the global client or secure defaults.
-func GlobalOptsOrDefault(ctx context.Context) ([]gcrremote.Option, []name.Option) {
-	if configured, ok := globalClient.(*client); ok {
-		return configured.optionsWithoutPuller(ctx)
-	}
-	return New().(*client).optionsWithoutPuller(ctx)
-}
-
-// GlobalImageDataOptions returns reusable options without fixing a context at
-// compile time. The image data loader supplies the admission request context.
-func GlobalImageDataOptions() ([]gcrremote.Option, []name.Option) {
-	if configured, ok := globalClient.(*client); ok {
-		return configured.imageDataOptions()
-	}
-	return New().(*client).imageDataOptions()
-}
-
-// ImageDataOptsFromImageVerificationCredentials keeps credentials refreshable and
-// lets the image data loader bind each request's cancellation and deadline.
-func ImageDataOptsFromImageVerificationCredentials(lister corev1listers.SecretLister, credentials policiesv1alpha1.Credentials, defaultNamespace string) ([]gcrremote.Option, []name.Option) {
-	return imageVerificationClient(lister, credentials, defaultNamespace).imageDataOptions()
-}
-
-// OptsFromImageVerificationCredentials builds guarded registry options for
-// credentials embedded in an ImageValidatingPolicy.
-func OptsFromImageVerificationCredentials(
-	ctx context.Context,
-	lister corev1listers.SecretLister,
-	credentials policiesv1alpha1.Credentials,
-	defaultNamespace string,
-) ([]gcrremote.Option, []name.Option) {
-	return imageVerificationClient(lister, credentials, defaultNamespace).optionsWithoutPuller(ctx)
-}
-
-func imageVerificationClient(lister corev1listers.SecretLister, credentials policiesv1alpha1.Credentials, defaultNamespace string) *client {
-	providers := make([]string, len(credentials.Providers))
-	for i, provider := range credentials.Providers {
-		providers[i] = string(provider)
-	}
-	privateAllowlist := []string(nil)
-	egressMode := ""
-	if configured, ok := globalClient.(*client); ok {
-		privateAllowlist = configured.egressConfig.Allowlist
-		egressMode = configured.egressConfig.Mode
-	}
-	// Explicit policy Secrets require an available credential lookup backend.
-	var requiredSecrets authn.Keychain
-	if lister == nil && len(credentials.Secrets) != 0 {
-		requiredSecrets = NewSecretsKeychain(nil, defaultNamespace, credentials.Secrets...)
-	}
-	configured := New(
-		WithKeychain(requiredSecrets),
-		WithSecretLister(lister, defaultNamespace),
-		WithImagePullSecrets(credentials.Secrets...),
-		WithCredentialHelpers(providers...),
-		WithAllowInsecureRegistry(credentials.AllowInsecureRegistry),
-		WithPrivateRegistryAllowlist(privateAllowlist...),
-		WithEgressMode(egressMode),
-	).(*client)
-	return configured
 }
 
 // GetRegistryClient returns the configured global client.

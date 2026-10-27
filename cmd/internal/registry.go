@@ -41,7 +41,7 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 		imagePullSecrets,
 		registryCredentialHelpers, allowInsecureRegistry, registryclient.WithLogger(logger))
 
-	// Guarded policy clients own a separate instance; SDK clients keep their global.
+	// Workload image clients own a separate instance; SDK clients keep their global.
 	guardedregistry.SetupGlobalRegistryClient(ms, config.KyvernoNamespace(), imagePullSecrets, registryCredentialHelpers, allowInsecureRegistry, privateRegistryAllowlist, privateRegistryEgressMode)
 	return registryClient, ms
 }

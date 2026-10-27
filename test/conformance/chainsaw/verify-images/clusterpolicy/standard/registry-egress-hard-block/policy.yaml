@@ -21,7 +21,8 @@ spec:
               test.kyverno.io/registry-egress: hard-block
     verifyImages:
     - imageReferences:
-      - '*'
+      - '127.0.0.1:5000/*'
+      - '169.254.169.254/*'
       failureAction: Enforce
       required: true
       mutateDigest: true

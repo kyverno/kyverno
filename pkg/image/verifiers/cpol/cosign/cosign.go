@@ -15,12 +15,15 @@ import (
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
-	"github.com/kyverno/kyverno/pkg/sigstoreguard"
+	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/attestation"
 	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/cosign/v3/pkg/oci/remote"
+	sigs "github.com/sigstore/cosign/v3/pkg/signature"
+	rekorclient "github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
@@ -47,7 +50,13 @@ func countPEMCertBlocks(pem []byte) int {
 func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.CheckOpts, error) {
 	var err error
 
-	options, _, err := opts.Client.Options(ctx)
+	registryClient := opts.Client
+	if opts.Repository != "" {
+		if scoped, ok := registryClient.(interface{ PolicyClient() registryclient.Client }); ok {
+			registryClient = scoped.PolicyClient()
+		}
+	}
+	options, _, err := registryClient.Options(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("constructing cosign remote options: %w", err)
 	}
@@ -84,7 +93,7 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 			}
 		} else {
 			// this supports Kubernetes secrets and KMS
-			cosignOpts.SigVerifier, err = sigstoreguard.PublicKeyFromKeyRefWithHashAlgo(ctx, opts.Key, signatureAlgorithm)
+			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, opts.Key, signatureAlgorithm)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load public key from %s: %w", opts.Key, err)
 			}
@@ -131,7 +140,7 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 		} else {
 			// if key, cert, and roots are not provided, default to Fulcio roots
 			if cosignOpts.RootCerts == nil {
-				roots, _, err := sigstoreguard.FulcioRootsWithContext(ctx)
+				roots, _, err := sigstoretuf.FulcioRoots()
 				if err != nil {
 					return nil, fmt.Errorf("failed to get roots from fulcio: %w", err)
 				}
@@ -145,7 +154,7 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 
 	cosignOpts.IgnoreTlog = opts.IgnoreTlog
 	if !opts.IgnoreTlog {
-		cosignOpts.RekorClient, err = sigstoreguard.NewRekorClient(opts.RekorURL)
+		cosignOpts.RekorClient, err = rekorclient.GetRekorClient(opts.RekorURL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Rekor client from URL %s: %w", opts.RekorURL, err)
 		}
@@ -572,7 +581,7 @@ func checkAnnotations(payloads []payload.SimpleContainerImage, annotations map[s
 
 func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
 	if rekorPubKey == "" {
-		return sigstoreguard.RekorPublicKeys(ctx)
+		return sigstoretuf.RekorPublicKeys(ctx)
 	}
 
 	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
@@ -584,7 +593,7 @@ func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTrans
 
 func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
 	if ctlogPubKey == "" {
-		return sigstoreguard.CTLogPublicKeys(ctx)
+		return sigstoretuf.CTLogPublicKeys(ctx)
 	}
 
 	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()

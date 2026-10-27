@@ -21,9 +21,8 @@ func testContext(t *testing.T) context.Context {
 
 func TestInitializeTuf_Default(t *testing.T) {
 	ctx := testContext(t)
-	trust, err := initTUFAndFetch(ctx, nil)
+	err := initializeTuf(ctx, nil)
 	require.NoError(t, err)
-	require.NotNil(t, trust)
 }
 
 func TestInitializeTuf_WithCustomMirror(t *testing.T) {
@@ -31,29 +30,33 @@ func TestInitializeTuf_WithCustomMirror(t *testing.T) {
 	tufCfg := &v1beta1.TUF{
 		Mirror: "https://custom-tuf.example.com",
 	}
-	_, err := initTUFAndFetch(ctx, tufCfg)
+	err := initializeTuf(ctx, tufCfg)
 	assert.Error(t, err)
 }
 
-func TestIntegrationGetRekor_WithURL(t *testing.T) {
+func TestGetRekor_WithURL(t *testing.T) {
 	ctx := testContext(t)
-	trust, err := initTUFAndFetch(ctx, nil)
+	err := initializeTuf(ctx, nil)
+	require.NoError(t, err)
+	tr, err := getTrustedRootFromTUF(ctx, nil)
 	require.NoError(t, err)
 	ctlog := &v1beta1.CTLog{
 		URL: "https://rekor.sigstore.dev",
 	}
-	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog, trust.rekorPubKeys, trust.ctlogPubKeys)
+	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, ctlog, tr)
 	require.NoError(t, err)
 	assert.NotNil(t, rekorClient)
 	assert.NotNil(t, rekorPubKeys)
 	assert.NotNil(t, ctlogPubKeys)
 }
 
-func TestIntegrationGetRekor_NilCTLog(t *testing.T) {
+func TestGetRekor_NilCTLog(t *testing.T) {
 	ctx := testContext(t)
-	trust, err := initTUFAndFetch(ctx, nil)
+	err := initializeTuf(ctx, nil)
 	require.NoError(t, err)
-	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, nil, trust.rekorPubKeys, trust.ctlogPubKeys)
+	tr, err := getTrustedRootFromTUF(ctx, nil)
+	require.NoError(t, err)
+	rekorClient, rekorPubKeys, ctlogPubKeys, err := getRekor(ctx, nil, tr)
 	require.NoError(t, err)
 	assert.Nil(t, rekorClient)
 	assert.NotNil(t, rekorPubKeys)
@@ -62,16 +65,21 @@ func TestIntegrationGetRekor_NilCTLog(t *testing.T) {
 
 func TestGetFulcio(t *testing.T) {
 	ctx := testContext(t)
-	trust, err := initTUFAndFetch(ctx, nil)
+	err := initializeTuf(ctx, nil)
 	require.NoError(t, err)
-	assert.NotNil(t, trust.fulcioRoots)
-	assert.NotNil(t, trust.fulcioIntermediates)
+	tr, err := getTrustedRootFromTUF(ctx, nil)
+	require.NoError(t, err)
+	roots, intermediates, err := getFulcio(ctx, tr)
+	require.NoError(t, err)
+	assert.NotNil(t, roots)
+	assert.NotNil(t, intermediates)
 }
 
-func TestGetVerificationMaterialFromTUF(t *testing.T) {
+func TestGetTrustedRootFromTUF(t *testing.T) {
 	ctx := testContext(t)
-	material, err := getVerificationMaterialFromTUF(ctx, nil)
+	err := initializeTuf(ctx, nil)
 	require.NoError(t, err)
-	require.NotNil(t, material)
-	assert.NotNil(t, material.TrustedRoot)
+	trustedRoot, err := getTrustedRootFromTUF(ctx, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, trustedRoot)
 }

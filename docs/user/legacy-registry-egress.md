@@ -1,51 +1,33 @@
-# Legacy policy registry egress configuration
+# Legacy resource-image registry egress configuration
 
-Legacy `kyverno.io` policy evaluation applies an egress guard before registry
-requests and credential resolution.
-The guard also covers registry token services, redirect destinations, and the HTTP
-services used for signature verification: Rekor, certificate transparency (CT)
-services, TUF mirrors, certificate roots, and public key URLs. These services share
-the registry egress mode and allowlist. Direct connections use the validated IP address, including when the registry is allowlisted,
-so a second DNS lookup cannot replace it with a different destination. DNS
-resolution and all dial attempts share a five-second deadline, shortened by the
-request deadline when present. IPv4 and IPv6 attempts can race for faster fallback.
-The remaining time is also apportioned across addresses within each family, so an
-unreachable first address can fall back to another within the same deadline.
+Legacy `kyverno.io` image verification guards registry destinations derived from
+untrusted workload images, including `containers`, `initContainers`,
+`ephemeralContainers`, Pod controller templates, and configured resource image
+extractors. The guard applies before registry requests and credential resolution.
+Registry token services and redirects reached while fetching these resource
+images are guarded as well.
 
-Azure credential exchange is restricted to the official Azure Container Registry
-domains, including supported sovereign clouds. Lookalike domains do not receive
-an Azure credential request. Other cloud credential bootstrap calls retain their
-provider SDK networking.
+Policy authors already have HTTP access through policy context. Policy-authored
+`imageRegistry` context destinations and explicit image signature repository
+settings are therefore outside this guard, even when their values use policy
+variables. Public-key and certificate references, Rekor, Fulcio, CT, TSA, TUF,
+and manifest/bundle verification retain their upstream native clients and trust
+behavior. They do not use this registry allowlist or egress mode. This is not a
+process-wide network policy.
 
-KMS key references retain their provider SDK networking; this registry and Sigstore
-HTTP guard is not a general process-wide network policy.
+An explicit image signature repository does not exempt the resource image: its
+destination is checked and tags are resolved through the guarded client before
+using the policy-selected signature repository with a pinned digest. Digest-only
+references keep native verification behavior without fetching image content.
 
-## Legacy manifest signature verification
+Direct resource-image registry connections use validated IP addresses, including
+when the registry is allowlisted, preventing a second DNS lookup from replacing
+the destination. DNS resolution and dial attempts share a five-second deadline,
+shortened by the request deadline. IPv4 and IPv6 attempts can race for fallback.
 
-The same guard covers `ClusterPolicy` and `Policy` rules using
-`validate.manifests`, including HTTP(S) public-key references, Rekor requests,
-and OCI resource bundles. Certificate loaders use the same guard where URL
-references are supported; existing policy certificate formats are unchanged.
-Bundles selected by
-`manifests.repository`, an attestor's `repository`, or the resource's
-`cosign.sigstore.dev/resourceBundleRef` annotation use guarded registry access.
-Bundle signatures are checked against the digest of the image whose manifests
-were examined, so a tag change cannot switch the verified content.
-
-Existing embedded message/signature annotations, multiple signatures, public keys,
-and PGP and X.509 verification remain supported. The adapter preserves local,
-environment, and operator Kubernetes Secret references where those references
-were supported by the legacy verifier. The `REKOR_SERVER`
-environment default remains supported when no Rekor URL is set in the policy.
-Certificate bundles receive full signature and certificate verification; a valid
-transparency-log entry alone is insufficient to authorize a manifest. Private
-manifest repositories, key services, and Rekor services need their own allowlist
-entries in enforce mode, subject to the same permanent address blocks.
-
-The [manifest egress proof](../../test/conformance/chainsaw/verify-manifests/egress-hard-block/README.md)
-contains signed Service fixtures for loopback/metadata key URLs and both policy-
-and annotation-selected image bundles. It includes cluster and local CLI commands;
-no private registry or cloud metadata service is needed to run the proof.
+Azure credential exchange uses the SDK's official Azure Container Registry
+provider checks, including sovereign clouds. Other cloud credential bootstrap
+calls retain their provider SDK networking.
 
 ## Release behavior and migration
 
@@ -60,8 +42,8 @@ unspecified, multicast, and broadcast addresses. An allowlist entry cannot bypas
 these restrictions. Registries using those addresses must move to an ordinary
 private or public address before upgrading.
 
-Audit mode preserves private network connectivity; it does not prevent a policy
-from reaching arbitrary private addresses in those permitted ranges. Operators
+Audit mode preserves private network connectivity; it does not prevent workload
+image values from selecting arbitrary private addresses in those permitted ranges. Operators
 who need that protection should configure the allowlist and enable `enforce`.
 Malformed allowlist entries and unrecognized mode values stop controller startup
 before informers are started.
@@ -101,35 +83,20 @@ entries.
 
 Registry credentials remain scoped to their configured registry. Permitting a
 network destination does not give that destination another registry's credentials.
-Private token services, redirect destinations, and signature verification services
-need their own allowlist entries in enforce mode; a registry entry does not
-automatically permit them.
+Private token services and redirect destinations reached from workload image
+registries need their own allowlist entries in enforce mode; a registry entry does
+not automatically permit them. Policy-authored endpoints need no entries.
 
 1. Upgrade with the default audit mode and normal verbosity 2 logging.
-2. Exercise image and manifest signature verification, image registry context
-   lookups and background scans that use your registries.
-3. Review the audit logs and add the private registries, token services, redirect destinations, and
-   signature verification services that your policies require.
+2. Exercise workload image verification and background scans using your registries.
+3. Review audit logs and add the private resource-image registries, token services,
+   and redirect destinations that these operations require.
 4. Enable enforce mode and repeat those operations before completing the rollout.
 
 The setting is passed to admission, background, and reports controllers. These
 controllers support `featuresOverride.registryClient` to change it for one
 controller. Keep these settings consistent unless a difference is intentional.
 Cleanup receives neither registry egress flag.
-
-## Sigstore trust configuration during upgrade
-
-TUF startup and signature verification share the configured registry egress mode
-and allowlist. Include private TUF mirrors in the allowlist when using enforce
-mode. Existing operator root settings, file mirrors, and public-key file overrides
-continue to apply. A policy-specific TUF mirror or root uses an isolated repository
-and cannot replace the controller's default trust material.
-
-Existing `TUF_ROOT` caches are imported into the per-mirror cache when the stored
-mirror matches. The old database and targets are retained, and imported metadata
-and targets are verified before use. Cached custom trust and authenticated root
-rotations remain usable offline while their metadata is valid. `SIGSTORE_NO_CACHE`
-continues to disable local cache reads and writes.
 
 ## HTTP and HTTPS proxies
 

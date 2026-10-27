@@ -379,8 +379,8 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.policyExceptions.namespace | string | `""` | Restrict policy exceptions to a single namespace Set to "*" to allow exceptions in all namespaces |
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
-| features.registryClient.privateRegistryEgressMode | string | `"audit"` | Registry egress policy for admission, background, and reports controllers: audit permits private addresses and logs requests enforce would block; enforce requires an allowlist entry. Both modes always block metadata and other unsafe addresses. |
-| features.registryClient.privateRegistryAllowlist | list | `[]` | Exact registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Entries must be non-empty strings without commas; use one list item per entry. Metadata and other unsafe addresses remain blocked. |
+| features.registryClient.privateRegistryEgressMode | string | `"audit"` | Workload image registry egress policy for admission, background, and reports controllers: audit permits private addresses and logs enforce violations; enforce requires an allowlist entry. Both modes block metadata and unsafe resource-image destinations. Policy-authored endpoints are exempt. |
+| features.registryClient.privateRegistryAllowlist | list | `[]` | Exact workload image registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Use one non-empty string per entry, without commas. Metadata and unsafe resource-image destinations remain blocked. Policy-authored endpoints need no entries. |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
 | features.tuf.enabled | bool | `false` | Enables the feature |
@@ -932,11 +932,16 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 
 ## Registry egress policy
 
-The registry egress guard in admission, background, and reports controllers defaults to
+The workload image registry egress guard in admission, background, and reports controllers defaults to
 `features.registryClient.privateRegistryEgressMode: audit`. Cleanup receives neither registry egress flag.
 Private registry destinations remain reachable during upgrades, while requests that
 would be blocked in `enforce` mode are logged at verbosity 2. Metadata, link-local,
 loopback, unspecified, multicast, and broadcast addresses are blocked in both modes.
+
+The guard covers untrusted resource images, including regular, init, and ephemeral
+containers. Policy-authored image registry context, signature repository, key,
+certificate, Rekor, Fulcio, TSA, TUF, and manifest/bundle endpoints retain native
+network behavior and are not subject to these egress settings.
 
 Before enabling `enforce`, add the exact hostnames, IP addresses, or CIDRs for your
 private registries and token services to `features.registryClient.privateRegistryAllowlist`.

@@ -38,3 +38,12 @@ spec:
             ($error != null): true
             (contains($error, 'connection blocked to network host')): true
             (contains($error, '127.0.0.1')): true
+  - name: deny init container registry before network access
+    try:
+    - create:
+        file: init-pod.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'connection blocked to network host')): true
+            (contains($error, '127.0.0.1')): true
