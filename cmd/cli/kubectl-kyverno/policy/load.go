@@ -622,10 +622,11 @@ func fsLoadWalking(loader loader, path string, skipUnreadable bool, walking sets
 			if err != nil {
 				if skipUnreadable && !pkgdeprecations.IsLegacyPolicyBlockError(err) {
 					// only report entries that could have held policies, other files are ignored anyway;
-					// a symlink without an extension may point at a directory
+					// a symlink is reported when it points at a directory, or when it has no extension
+					// and cannot be followed, since it may have pointed at one
 					ext := filepath.Ext(file.Name())
 					symlink := file.Type()&os.ModeSymlink != 0
-					if file.IsDir() || (symlink && ext == "") || ext == ".yaml" || ext == ".yml" {
+					if file.IsDir() || ext == ".yaml" || ext == ".yml" || (symlink && (ext == "" || isDirectory(entry))) {
 						aggregateResults.addError(entry, err)
 					}
 					continue
@@ -646,6 +647,12 @@ func fsLoadWalking(loader loader, path string, skipUnreadable bool, walking sets
 		aggregateResults.Merge(results)
 	}
 	return aggregateResults, nil
+}
+
+// isDirectory reports whether path, following symlinks, is a directory.
+func isDirectory(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.IsDir()
 }
 
 var remoteHTTPTimeout = utils.RemoteHTTPTimeout
