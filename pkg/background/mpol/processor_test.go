@@ -77,7 +77,20 @@ func (f *fakeEngine) Evaluate(ctx context.Context, adm admission.Attributes, amd
 }
 
 func (f *fakeEngine) GetCompiledPolicy(policyName string) (mpolengine.Policy, error) {
-	return mpolengine.Policy{CompiledPolicy: &mpolcompiler.Policy{}}, nil
+	namespace, name, found := strings.Cut(policyName, "/")
+	if !found {
+		name = namespace
+		namespace = ""
+	}
+	return mpolengine.Policy{
+		Policy: &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      name,
+			},
+		},
+		CompiledPolicy: &mpolcompiler.Policy{},
+	}, nil
 }
 
 func (f *fakeEngine) GetCompiledPolicies(names ...string) map[string]mpolengine.Policy {
@@ -852,6 +865,21 @@ func (e *notCompiledEngine) Evaluate(_ context.Context, attr admission.Attribute
 	return mpolengine.EngineResponse{Resource: obj}, nil
 }
 
+type nilCompiledPolicyEngine struct {
+	fakeEngine
+	evaluated bool
+}
+
+func (e *nilCompiledPolicyEngine) GetCompiledPolicy(_ string) (mpolengine.Policy, error) {
+	return mpolengine.Policy{Policy: nil}, nil
+}
+
+func (e *nilCompiledPolicyEngine) Evaluate(_ context.Context, attr admission.Attributes, _ admissionv1.AdmissionRequest, _ mpolengine.Predicate) (mpolengine.EngineResponse, error) {
+	e.evaluated = true
+	obj, _ := attr.GetObject().(*unstructured.Unstructured)
+	return mpolengine.EngineResponse{Resource: obj}, nil
+}
+
 // newBackgroundScanFixture mirrors the namespaced-mutating-policies existing/background-scan
 // conformance test: an admission-disabled mutate-existing policy and its target ConfigMap.
 func newBackgroundScanFixture(t *testing.T, policies ...runtime.Object) (dclient.Interface, versioned.Interface, meta.RESTMapper) {
@@ -952,6 +980,102 @@ func TestProcess_SameNamedPolicyFromAnotherScope_DoesNotCountAsCompiled(t *testi
 	assert.False(t, eng.evaluated)
 }
 
+func TestProcess_CompiledPolicyGenerationCheck(t *testing.T) {
+	tests := []struct {
+		name          string
+		policyGen     int64
+		compiledGen   int64
+		nilCompiled   bool
+		wantErr       bool
+		errContains   string
+		wantEvaluated bool
+		wantSuccess   bool
+	}{
+		{
+			name:          "stale compiled policy generation does not count as compiled",
+			policyGen:     2,
+			compiledGen:   1,
+			wantErr:       true,
+			errContains:   "mutating policy test-mpol is not compiled yet",
+			wantEvaluated: false,
+			wantSuccess:   false,
+		},
+		{
+			name:          "matching compiled policy generation counts as compiled",
+			policyGen:     2,
+			compiledGen:   2,
+			wantErr:       false,
+			wantEvaluated: true,
+			wantSuccess:   true,
+		},
+		{
+			name:          "nil compiled policy does not count as compiled",
+			policyGen:     1,
+			nilCompiled:   true,
+			wantErr:       true,
+			errContains:   "mutating policy test-mpol is not compiled yet",
+			wantEvaluated: false,
+			wantSuccess:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mpol := &policiesv1beta1.MutatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-mpol",
+					Generation: tt.policyGen,
+				},
+				Spec: backgroundScanSpec(),
+			}
+			fakeClient, kyvernoClient, restMapper := newBackgroundScanFixture(t, mpol)
+			var eng mpolengine.Engine
+			if tt.nilCompiled {
+				eng = &nilCompiledPolicyEngine{}
+			} else {
+				eng = &notCompiledEngine{compiled: &policiesv1beta1.MutatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-mpol",
+						Generation: tt.compiledGen,
+					},
+					Spec: backgroundScanSpec(),
+				}}
+			}
+			sc := &fakeStatusControl{}
+			p := NewProcessor(fakeClient, kyvernoClient, eng, restMapper, &libs.FakeContextProvider{}, sc, event.NewFake(), config.NewDefaultConfiguration(false))
+
+			ur := &kyvernov2.UpdateRequest{
+				ObjectMeta: metav1.ObjectMeta{Name: "ur-policy-event", Namespace: "kyverno"},
+				Spec:       kyvernov2.UpdateRequestSpec{Type: kyvernov2.CELMutate, Policy: "test-mpol"},
+			}
+			err := p.Process(ur)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.ErrorContains(t, err, tt.errContains)
+				}
+				assert.False(t, sc.successCalled)
+				assert.False(t, sc.failedCalled)
+			} else {
+				assert.NoError(t, err)
+				assert.True(t, sc.successCalled)
+			}
+
+			if tt.wantEvaluated {
+				if e, ok := eng.(*notCompiledEngine); ok {
+					assert.True(t, e.evaluated)
+				}
+			} else {
+				if e, ok := eng.(*notCompiledEngine); ok {
+					assert.False(t, e.evaluated)
+				} else if e, ok := eng.(*nilCompiledPolicyEngine); ok {
+					assert.False(t, e.evaluated)
+				}
+			}
+		})
+	}
+}
+
 // targetTrackingClient records the namespace every target list and write was issued against,
 // so a test can assert on what the processor actually asked the API server for.
 type targetTrackingClient struct {
@@ -982,8 +1106,21 @@ func (labellingEngine) Evaluate(ctx context.Context, adm admission.Attributes, _
 	return mpolengine.EngineResponse{Resource: in, PatchedResource: patched}, nil
 }
 
-func (labellingEngine) GetCompiledPolicy(string) (mpolengine.Policy, error) {
-	return mpolengine.Policy{}, nil
+func (labellingEngine) GetCompiledPolicy(policyName string) (mpolengine.Policy, error) {
+	namespace, name, found := strings.Cut(policyName, "/")
+	if !found {
+		name = namespace
+		namespace = ""
+	}
+	return mpolengine.Policy{
+		Policy: &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      name,
+			},
+		},
+		CompiledPolicy: &mpolcompiler.Policy{},
+	}, nil
 }
 
 func unstructuredObj(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
