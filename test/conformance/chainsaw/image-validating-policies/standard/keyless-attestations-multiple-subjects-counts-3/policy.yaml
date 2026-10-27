@@ -46,8 +46,9 @@ spec:
           insecureIgnoreSCT: true
   validations:
     - expression: >-
-        images.containers.size() > 0 && images.containers.all(image, verifyAttestationSignatures(image, attestations.provenance,
-        [attestors.signer0, attestors.signer1]) >= 2)
+        images.containers.size() > 0 && images.containers.all(image,
+        [attestors.signer0, attestors.signer1].all(attestor,
+        verifyAttestationSignatures(image, attestations.provenance, [attestor]) == 1))
       message: image attestor threshold not satisfied
     - expression: >-
         images.containers.all(image, extractPayload(image, attestations.provenance).predicate.builder.id.matches('^https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@refs/heads/main'))

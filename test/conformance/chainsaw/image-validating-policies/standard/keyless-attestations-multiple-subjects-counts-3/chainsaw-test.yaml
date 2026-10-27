@@ -34,7 +34,7 @@ spec:
                 status: "True"
                 type: RBACPermissionsGranted
               ready: true
-  - name: reject mismatched attestors
+  - name: reject when any required attestor does not match
     try:
     - create:
         file: pod.yaml
