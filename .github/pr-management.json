@@ -1,0 +1,9 @@
+{
+  "fallback_reviewers": "@kyverno/kyverno-core-maintainers",
+  "exempt_labels": ["no-stale", "hold", "hold-merge"],
+  "close_days": 14,
+  "warning_days": 7,
+  "backlog_days": 30,
+  "milestone_prefix": "Kyverno Release ",
+  "labels_file": ".github/labels.yml"
+}

@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -9,13 +10,163 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/assert"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	"go.yaml.in/yaml/v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
+
+func printCheckResult(
+	checks []v1alpha1.CheckResult,
+	responses TestResponse,
+	rc *resultCounts,
+	resultsTable *table.Table,
+) error {
+	ctx := context.Background()
+	testCount := 1
+	for _, check := range checks {
+		// filter engine responses
+		var matchingEngineResponses []engineapi.EngineResponse
+		for _, engineresponses := range responses.Trigger {
+			matchingEngineResponses = append(matchingEngineResponses, engineresponses...)
+		}
+		// 1. by resource
+		if check.Match.Resource != nil {
+			var filtered []engineapi.EngineResponse
+			for _, response := range matchingEngineResponses {
+				errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Resource.Value), response.Resource.UnstructuredContent(), nil)
+				if err != nil {
+					return err
+				}
+				if len(errs) == 0 {
+					filtered = append(filtered, response)
+				}
+			}
+			matchingEngineResponses = filtered
+		}
+		// 2. by policy
+		if check.Match.Policy != nil {
+			var filtered []engineapi.EngineResponse
+			for _, response := range matchingEngineResponses {
+				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().AsObject())
+				if err != nil {
+					return err
+				}
+				errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Policy.Value), data, nil)
+				if err != nil {
+					return err
+				}
+				if len(errs) == 0 {
+					filtered = append(filtered, response)
+				}
+			}
+			matchingEngineResponses = filtered
+		}
+		for _, response := range matchingEngineResponses {
+			// filter rule responses
+			matchingRuleResponses := response.PolicyResponse.Rules
+			if check.Match.Rule != nil {
+				var filtered []engineapi.RuleResponse
+				for _, response := range matchingRuleResponses {
+					data := map[string]any{
+						"name": response.Name(),
+					}
+					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Rule.Value), data, nil)
+					if err != nil {
+						return err
+					}
+					if len(errs) == 0 {
+						filtered = append(filtered, response)
+					}
+				}
+				matchingRuleResponses = filtered
+			}
+			for _, rule := range matchingRuleResponses {
+				// perform check
+				data := map[string]any{
+					"name":     rule.Name(),
+					"ruleType": rule.RuleType(),
+					"message":  rule.Message(),
+					"status":   string(rule.Status()),
+					// generatedResource unstructured.Unstructured
+					// patchedTarget *unstructured.Unstructured
+					// patchedTargetParentResourceGVR metav1.GroupVersionResource
+					// patchedTargetSubresourceName string
+					// podSecurityChecks contains pod security checks (only if this is a pod security rule)
+					"podSecurityChecks": rule.PodSecurityChecks(),
+					"exceptions":        rule.Exceptions(),
+				}
+				if check.Assert.Value != nil {
+					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Assert.Value), data, nil)
+					if err != nil {
+						return err
+					}
+					row := table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", response.Policy().GetName()),
+							Rule:      color.Rule(rule.Name()),
+							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
+							IsFailure: len(errs) != 0,
+						},
+						Message: rule.Message(),
+					}
+					if len(errs) == 0 {
+						row.Result = color.ResultPass()
+						row.Reason = "Ok"
+						if rule.Status() == engineapi.RuleStatusSkip {
+							rc.Skip++
+						} else {
+							rc.Pass++
+						}
+					} else {
+						row.Result = color.ResultFail()
+						row.Reason = errs.ToAggregate().Error()
+						rc.Fail++
+					}
+					resultsTable.Add(row)
+					testCount++
+				}
+				if check.Error.Value != nil {
+					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Error.Value), data, nil)
+					if err != nil {
+						return err
+					}
+					row := table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", response.Policy().GetName()),
+							Rule:      color.Rule(rule.Name()),
+							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
+							IsFailure: len(errs) != 0,
+						},
+						Message: rule.Message(),
+					}
+					if len(errs) != 0 {
+						row.Result = color.ResultPass()
+						row.Reason = errs.ToAggregate().Error()
+						if rule.Status() == engineapi.RuleStatusSkip {
+							rc.Skip++
+						} else {
+							rc.Pass++
+						}
+					} else {
+						row.Result = color.ResultFail()
+						row.Reason = "The assertion succeeded but was expected to fail"
+						rc.Fail++
+					}
+					resultsTable.Add(row)
+					testCount++
+				}
+			}
+		}
+	}
+	return nil
+}
 
 // a test that contains a policy that may contain several rules
 func printTestResult(
@@ -45,7 +196,7 @@ func printTestResult(
 							resources = append(resources, resourceGVKAndName)
 							continue
 						}
-						nameParts := strings.Split(resourceGVKAndName, ",")
+						nameParts := strings.SplitN(resourceGVKAndName, ",", 4)
 						nsAndName := strings.Split(r, "/")
 						if len(nsAndName) == 1 {
 							if r == nameParts[len(nameParts)-1] {
@@ -63,7 +214,7 @@ func printTestResult(
 			for _, resourceSpec := range test.ResourceSpecs {
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
-						nameParts := strings.Split(resourceGVKAndName, ",")
+						nameParts := strings.SplitN(resourceGVKAndName, ",", 4)
 						if len(nameParts) < 4 {
 							continue
 						}
@@ -76,10 +227,10 @@ func printTestResult(
 								continue
 							}
 						}
-						if resourceSpec.Namespace != nameParts[len(nameParts)-2] {
+						if resourceSpec.Namespace != nameParts[2] {
 							continue
 						}
-						if resourceSpec.Name == nameParts[len(nameParts)-1] {
+						if resourceSpec.Name == nameParts[3] {
 							resources = append(resources, resourceGVKAndName)
 						}
 					}
@@ -153,13 +304,13 @@ func printTestResult(
 								continue
 							}
 
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, resourceDisplayPath(resource))
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
 							if len(generatedResources) == 0 {
 								ok, message, reason := checkRuleResultOnly(test, response, rule)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, resourceDisplayPath(resource))
 								rows = append(rows, resourceRows...)
 							}
 							for _, r := range generatedResources {
@@ -197,24 +348,61 @@ func printTestResult(
 
 			// Check if the resource specified exists in the targets
 			if _, ok := responses.Target[resource]; ok {
+				policyNamespace, policyName := "", test.Policy
+				if ns, name, ok := strings.Cut(test.Policy, "/"); ok {
+					policyNamespace = ns
+					policyName = name
+				}
+
 				for _, response := range responses.Target[resource] {
+					if test.Policy != "" {
+						if response.Policy() == nil {
+							continue
+						}
+						if response.Policy().GetName() != policyName {
+							continue
+						}
+						if response.Policy().GetNamespace() != policyNamespace {
+							continue
+						}
+					}
+
 					// we are doing this twice which is kinda not nice
-					nameParts := strings.Split(resource, ",")
-					name, ns, kind, apiVersion := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2], nameParts[len(nameParts)-3], nameParts[len(nameParts)-4]
+					nameParts := strings.SplitN(resource, ",", 4)
+					if len(nameParts) < 4 {
+						continue
+					}
+					apiVersion, kind, ns, name := nameParts[0], nameParts[1], nameParts[2], nameParts[3]
 
+					displayResource := resourceDisplayPath(resource)
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
-					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
+					if r != nil && rule != nil && (test.Rule == "" || (response.Policy() != nil && isRulelessPolicyKind(response.Policy().GetKind())) || len(lookupRuleResponses(test, *rule)) > 0) {
+						ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
 
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
-					rows = append(rows, resourceRows...)
+						resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, displayResource)
+						rows = append(rows, resourceRows...)
+						continue
+					}
+
+					var rulesToCheck []engineapi.RuleResponse
+					if test.Rule == "" || (response.Policy() != nil && isRulelessPolicyKind(response.Policy().GetKind())) {
+						rulesToCheck = append(rulesToCheck, response.PolicyResponse.Rules...)
+					} else {
+						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
+					}
+
+					for _, rResp := range rulesToCheck {
+						ok, message, reason := checkRuleResultOnly(test, response, rResp)
+						resourceRows := createRowsAccordingToResults(test, rc, &testCount, rResp.Name(), ok, message, reason, displayResource)
+						rows = append(rows, resourceRows...)
+					}
 				}
 			}
 
 			if len(rows) == 0 && !resourceSkipped {
 				policyName := strings.Split(test.Policy, "/")[len(strings.Split(test.Policy, "/"))-1]
 
-				resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
-				resourceParts := strings.Split(resourceGVKAndName, "/")
+				resourcePath, resourceName := formatResourceDisplay(resource)
 
 				var row table.Row
 				if _, wasSkippedDuringValidation := responses.SkippedPolicies[policyName]; wasSkippedDuringValidation {
@@ -223,7 +411,7 @@ func printTestResult(
 							ID:        testCount,
 							Policy:    color.Policy("", test.Policy),
 							Rule:      color.Rule(test.Rule),
-							Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+							Resource:  color.Resource(resourcePath, "", resourceName),
 							Result:    color.ResultSkip(),
 							Reason:    color.InvalidPolicy(),
 							IsFailure: false,
@@ -237,7 +425,7 @@ func printTestResult(
 							ID:        testCount,
 							Policy:    color.Policy("", test.Policy),
 							Rule:      color.Rule(test.Rule),
-							Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+							Resource:  color.Resource(resourcePath, "", resourceName),
 							IsFailure: true,
 							Result:    color.ResultFail(),
 							Reason:    color.NotFound(),
@@ -256,9 +444,29 @@ func printTestResult(
 	return nil
 }
 
-func createExcludedRow(test v1alpha1.TestResult, testCount int, resource string, skipped bool) table.Row {
+func formatResourceDisplay(resource string) (string, string) {
+	nameParts := strings.SplitN(resource, ",", 4)
+	if len(nameParts) == 4 {
+		if nameParts[2] != "" {
+			return nameParts[0] + "/" + nameParts[1] + "/" + nameParts[2], nameParts[3]
+		}
+		return nameParts[0] + "/" + nameParts[1], nameParts[3]
+	}
 	resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
 	resourceParts := strings.Split(resourceGVKAndName, "/")
+	return strings.Join(resourceParts[:len(resourceParts)-1], "/"), resourceParts[len(resourceParts)-1]
+}
+
+func resourceDisplayPath(resource string) string {
+	path, name := formatResourceDisplay(resource)
+	if path == "" {
+		return name
+	}
+	return path + "/" + name
+}
+
+func createExcludedRow(test v1alpha1.TestResult, testCount int, resource string, skipped bool) table.Row {
+	resourcePath, resourceName := formatResourceDisplay(resource)
 
 	result := color.ResultPass()
 	if skipped {
@@ -271,9 +479,9 @@ func createExcludedRow(test v1alpha1.TestResult, testCount int, resource string,
 			Policy: color.Policy("", test.Policy),
 			Rule:   color.Rule(test.Rule),
 			Resource: color.Resource(
-				strings.Join(resourceParts[:len(resourceParts)-1], "/"),
+				resourcePath,
 				"",
-				resourceParts[len(resourceParts)-1],
+				resourceName,
 			),
 			Result:    result,
 			Reason:    color.Excluded(),
@@ -333,14 +541,16 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 }
 
 func extractPatchedTargetFromEngineResponse(apiVersion, kind, resourceName, resourceNamespace string, response engineapi.EngineResponse) (*unstructured.Unstructured, *engineapi.RuleResponse) {
-	for _, rule := range response.PolicyResponse.Rules {
+	for i := range response.PolicyResponse.Rules {
+		rule := &response.PolicyResponse.Rules[i]
 		r, _, _ := rule.PatchedTarget()
 		if r != nil {
-			if resourceNamespace == "" {
-				resourceNamespace = r.GetNamespace()
+			targetNs := resourceNamespace
+			if targetNs == "" {
+				targetNs = r.GetNamespace()
 			}
-			if r.GetAPIVersion() == apiVersion && r.GetKind() == kind && r.GetName() == resourceName && r.GetNamespace() == resourceNamespace {
-				return r, &rule
+			if r.GetAPIVersion() == apiVersion && r.GetKind() == kind && r.GetName() == resourceName && r.GetNamespace() == targetNs {
+				return r, rule
 			}
 		}
 	}

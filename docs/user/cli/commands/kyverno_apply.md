@@ -15,6 +15,15 @@ kyverno apply [flags]
 ### Examples
 
 ```
+  # Display evaluation results as a table
+  kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-format table
+
+  # Save mutated/generated resources to a directory
+  kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-dir /path/to/results/
+
+  # Save mutated/generated resources to a file
+  kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-file /path/to/results.yaml
+
   # Apply on a resource
   kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
 
@@ -37,7 +46,7 @@ kyverno apply [flags]
 ### Options
 
 ```
-      --audit-warn                         If set to true, will flag audit policies as warnings instead of failures
+      --audit-warn                         Currently has no effect; ValidatingPolicy audit support is tracked by https://github.com/kyverno/kyverno/issues/16485
       --batch-size int                     Number of resources to fetch per API call (default 100)
   -c, --cluster                            Checks if policies should be applied to cluster in the current context
       --cluster-wide-resources             If set to true, will apply policies to cluster-wide resources
@@ -54,7 +63,7 @@ kyverno apply [flags]
       --exceptions-with-resources          Evaluate policy exceptions from the resources path
       --exceptions-within-policies         Evaluate policy exceptions from the policies path
       --exceptions-within-resources        Evaluate policy exceptions from the resources path
-      --explain                            Print how each ValidatingPolicy reached its result: whether it applied, its match conditions, variables and validations (other policy types are not traced yet). The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive
+      --explain                            Print how each ValidatingPolicy, MutatingPolicy, GeneratingPolicy, ImageValidatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, the images it checked, and its validations, the mutations it ran, the generate entries it ran or its delete conditions. The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive
       --generate-exceptions                Generate policy exceptions for each violation
       --generated-exception-ttl duration   Default TTL for generated exceptions (default 720h0m0s)
   -b, --git-branch string                  test git repository branch
@@ -63,8 +72,9 @@ kyverno apply [flags]
       --json strings                       Paths to JSON documents (any root type); JSON-mode mutation runs before validation
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
-  -o, --output string                      Prints mutated/generated resources or JSON documents in a file/directory (.json for a single JSON document)
-      --output-format string               Specifies the policy report format (json or yaml). Default: yaml. (default "yaml")
+      --output-dir string                  Directory for mutated/generated resources or JSON documents
+      --output-file string                 File for mutated/generated resources or JSON documents (.json for a single JSON document)
+      --output-format string               Output format: json or yaml for policy reports/exceptions, or table for evaluation results (default "yaml")
       --parameter-resource strings         Path to resource files that act as ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters
       --password string                    Password for connecting to git repository
   -p, --policy-report                      Generates policy report when passed (default policyviolation)

@@ -6,6 +6,21 @@ Kubernetes Pod Security Standards implemented as Kyverno policies
 
 ## About
 
+**1.20 notice.** This chart's built-in PSS templates render `policies.kyverno.io` policy types.
+Kyverno 1.20 no longer executes legacy `kyverno.io` policies and rejects their create and update
+requests. Anything you pass through `.Values.customPolicies` keeps the group, version, and kind
+you supply — the chart renders it verbatim — so a legacy `kyverno.io/v1` `ClusterPolicy` supplied
+that way is denied at admission and the release fails to apply. Use a supported
+`policies.kyverno.io` kind for custom manifests.
+
+**Review your legacy objects before upgrading.** The `policyType` option is gone, and this chart
+converts nothing. If you previously installed it with `policyType: ClusterPolicy`, upgrading
+deletes the `ClusterPolicy` objects the release owns, because Helm removes resources that are no
+longer in the rendered manifest. The chart installs `ValidatingPolicy` equivalents of its own PSS
+policies, so that coverage continues, but the old objects are removed rather than converted and
+any legacy manifest you supplied through `.Values.customPolicies` is neither converted nor
+replaced. Migrate anything you rely on before you upgrade.
+
 This chart contains Kyverno's implementation of the Kubernetes Pod Security Standards (PSS) as documented at https://kubernetes.io/docs/concepts/security/pod-security-standards/ and are a Helm packaged version of those found at https://github.com/kyverno/policies/tree/main/pod-security. The goal of the PSS controls is to provide a good starting point for general Kubernetes cluster operational security. These controls are broken down into two categories, Baseline and Restricted. Baseline policies implement the most basic of Pod security controls while Restricted implements more strict controls. Restricted is cumulative and encompasses those listed in Baseline.
 
 The following policies are included in each profile.
@@ -16,6 +31,7 @@ The following policies are included in each profile.
 * disallow-host-namespaces
 * disallow-host-path
 * disallow-host-ports
+* disallow-host-probes
 * disallow-host-process
 * disallow-privileged-containers
 * disallow-proc-mount
@@ -42,15 +58,15 @@ For the latest version of these PSS policies, always refer to the kyverno/polici
 If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`:
 ````yaml
 customPolicies:
-  - apiVersion: kyverno.io/v1
-    kind: ClusterPolicy
+  - apiVersion: policies.kyverno.io/v1beta1
+    kind: ValidatingPolicy
     metadata: # metadata
     spec: # spec
 ````
 
 ## Installing the Chart
 
-These PSS policies presently have a minimum requirement of Kyverno 1.6.0.
+These PSS policies presently have a minimum requirement of Kyverno 1.17.0.
 
 ```console
 ## Add the Kyverno Helm repository
@@ -74,34 +90,25 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies. Only used when `policyType` is `ClusterPolicy` (the legacy kyverno.io types); with the default `policyType: ValidatingPolicy` cluster-wide CEL policies are installed. |
-| policyType | string | `"ValidatingPolicy"` | Policy engine type (`ClusterPolicy`, `ValidatingPolicy`) `ValidatingPolicy` installs CEL-based policies (policies.kyverno.io, requires Kyverno 1.17+). Set to `ClusterPolicy` to keep installing the legacy kyverno.io policy types, which are deprecated and will be removed in a future release (see https://kyverno.io/docs/guides/migration-to-cel/). |
 | podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
 | podSecuritySeverity | string | `"medium"` | Pod Security Standard severity (`low`, `medium`, `high`). |
 | podSecuritySeverityByPolicy | object | `{}` | Define podSecuritySeverity overrides for specific policies. Override the global `podSecuritySeverity` with an individual severity for individual policies. An empty string per-policy entry suppresses the annotation entirely. |
 | podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
-| podSecurityUserNamespaces | bool | `false` | Enable the Kubernetes Pod Security Admission relaxation for user namespace pods for ValidatingPolicy templates only. When `true`, the `disallow-proc-mount` (Baseline), `require-run-as-nonroot` and `require-run-as-non-root-user` (Restricted) ValidatingPolicies skip Pods that explicitly set `spec.hostUsers` to `false`. A Pod that omits `hostUsers` or sets it to `true` is always checked. The Restricted `disallow-proc-mount-strict` ValidatingPolicy never relaxes, and neither does `disallow-proc-mount` when the Restricted profile is installed. This setting has no effect on legacy `ClusterPolicy` templates. |
+| podSecurityUserNamespaces | bool | `false` | Enable the Kubernetes Pod Security Admission relaxation for user namespace pods. When `true`, the `disallow-proc-mount` (Baseline), `require-run-as-nonroot` and `require-run-as-non-root-user` (Restricted) ValidatingPolicies skip Pods that explicitly set `spec.hostUsers` to `false`. A Pod that omits `hostUsers` or sets it to `true` is always checked. The Restricted `disallow-proc-mount-strict` ValidatingPolicy never relaxes, and neither does `disallow-proc-mount` when the Restricted profile is installed. |
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
 | customPolicies | list | `[]` | Additional custom policies to include. |
 | failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/ |
 | validationFailureAction | string | `"Audit"` | Validation failure action (`Audit`, `Enforce`). For more info https://kyverno.io/docs/policy-types/cluster-policy/validate. |
 | validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |
-| validationFailureActionOverrides | object | `{"all":[]}` | Define validationFailureActionOverrides for specific policies. The overrides for `all` will apply to all policies. |
-| auditAnnotations | object | `{}` | Default audit annotations applied to all ValidatingPolicy policies (policyType: ValidatingPolicy only). Map of annotation key to CEL valueExpression. Audit annotations are recorded in the API server audit log. For more info https://kyverno.io/docs/policy-types/validating-policy/#using-auditannotations-to-add-custom-data |
-| auditAnnotationsByPolicy | object | `{}` | Define audit annotations for specific ValidatingPolicy policies (policyType: ValidatingPolicy only). Per-policy entries override defaults when they share the same key. |
-| validationAllowExistingViolations | bool | `true` | Validate already existing resources. For more info https://kyverno.io/docs/policy-types/. |
-| policyExclude | object | `{}` | Exclude resources from individual policies (policyType: ClusterPolicy only). Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map. NOTE: This setting only applies when policyType is set to ClusterPolicy. For ValidatingPolicy, use vpolExclude/vpolExcludeByPolicy instead. |
-| vpolExclude | object | `{}` | Default excludes applied to ALL ValidatingPolicy policies (policyType: ValidatingPolicy only). NOTE: This setting only applies when policyType is set to ValidatingPolicy. For ClusterPolicy, use policyExclude instead. Supports the following optional keys:   excludeResourceRules: list of Kubernetes NamedRuleWithOperations (native VAP excludes)   excludeNamespaces:    list of namespace names to exclude (generates CEL matchCondition)   excludeSubjects:      list of subjects to exclude (generates CEL matchCondition)   matchConditions:      list of CEL matchConditions for advanced filtering (passthrough of custom condition) Per-policy overrides via vpolExcludeByPolicy replace these defaults entirely for that policy. |
-| vpolExcludeByPolicy | object | `{}` | Per-policy excludes for individual ValidatingPolicy policies (policyType: ValidatingPolicy only). When set for a policy, it completely replaces the global vpolExclude defaults for that policy. NOTE: This setting only applies when policyType is set to ValidatingPolicy. For ClusterPolicy, use policyExclude instead. Each policy name maps to an object with the same keys as vpolExclude. |
-| policyPreconditions | object | `{}` | Add preconditions to individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map. |
-| autogenControllers | string | `""` | Customize the target Pod controllers for the auto-generated rules. (Eg. `none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`) For more info https://kyverno.io/docs/policy-types/cluster-policy/autogen/. |
+| auditAnnotations | object | `{}` | Default audit annotations applied to all ValidatingPolicy policies. Map of annotation key to CEL valueExpression. Audit annotations are recorded in the API server audit log. For more info https://kyverno.io/docs/policy-types/validating-policy/#using-auditannotations-to-add-custom-data |
+| auditAnnotationsByPolicy | object | `{}` | Define audit annotations for specific ValidatingPolicy policies. Per-policy entries override defaults when they share the same key. |
+| vpolExclude | object | `{}` | Default excludes applied to ALL ValidatingPolicy policies. Supports the following optional keys:   excludeResourceRules: list of Kubernetes NamedRuleWithOperations (native VAP excludes)   excludeNamespaces:    list of namespace names to exclude (generates CEL matchCondition)   excludeSubjects:      list of subjects to exclude (generates CEL matchCondition)   matchConditions:      list of CEL matchConditions for advanced filtering (passthrough of custom condition) Per-policy overrides via vpolExcludeByPolicy replace these defaults entirely for that policy. |
+| vpolExcludeByPolicy | object | `{}` | Per-policy excludes for individual ValidatingPolicy policies. When set for a policy, it completely replaces the global vpolExclude defaults for that policy. Each policy name maps to an object with the same keys as vpolExclude. |
 | nameOverride | string | `nil` | Name override. |
 | customAnnotations | object | `{}` | Additional Annotations. |
 | customAnnotationsByPolicy | object | `{}` | Define custom annotations for specific policies. Per-policy entries override defaults when they share the same key. |
 | customLabels | object | `{}` | Additional labels. |
-| background | bool | `true` | Policies background mode |
-| skipBackgroundRequests | bool | `nil` | SkipBackgroundRequests bypasses admission requests that are sent by the background controller |
 | kyvernoVersion | string | `"autodetect"` | Kyverno version The default of "autodetect" will try to determine the currently installed version from the deployment |
 | kubeVersionOverride | string | `nil` | Kubernetes version override Override default value of kubeVersion set by release team taken from Chart.yaml with custom value. Ideally range of versions no more than two prior (ex., 1.28-1.31), must be enclosed in quotes. |
 

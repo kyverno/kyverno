@@ -224,12 +224,12 @@ func (p *JSONPolicy) EvaluateJSON(ctx context.Context, document json.RawMessage)
 		return JSONEvaluationResult{}, err
 	}
 	data := map[string]any{celcompiler.ObjectKey: object, celcompiler.ExceptionsKey: libs.Exception{}}
-	p.policy.appendVariables(ctx, data)
+	p.policy.appendVariables(ctx, data, nil)
 	var exceptions []*policiesv1beta1.PolicyException
 	scopes := libs.Exception{}
 	fullExemption := false
 	for _, exception := range p.policy.exceptions {
-		match, err := p.policy.match(ctx, data, exception.MatchConditions)
+		match, err := p.policy.match(ctx, data, exception.MatchConditions, nil)
 		if err != nil {
 			if fullExemption {
 				continue
@@ -252,8 +252,8 @@ func (p *JSONPolicy) EvaluateJSON(ctx context.Context, document json.RawMessage)
 		return JSONEvaluationResult{Document: bytes.Clone(document), Skipped: true, Exceptions: exceptions}, nil
 	}
 	data[celcompiler.ExceptionsKey] = scopes
-	p.policy.appendVariables(ctx, data)
-	match, err := p.policy.match(ctx, data, p.policy.matchConditions)
+	p.policy.appendVariables(ctx, data, nil)
+	match, err := p.policy.match(ctx, data, p.policy.matchConditions, nil)
 	if err != nil {
 		return JSONEvaluationResult{}, fmt.Errorf("match conditions: %w", err)
 	}
@@ -289,7 +289,7 @@ func (p *JSONPolicy) EvaluateJSON(ctx context.Context, document json.RawMessage)
 			return JSONEvaluationResult{}, fmt.Errorf("mutation %d output: %w", i, err)
 		}
 		// Variables are memoized per activation; rebind them after object changes.
-		p.policy.appendVariables(ctx, data)
+		p.policy.appendVariables(ctx, data, nil)
 	}
 	annotations := make(map[string]string)
 	for name, program := range p.policy.auditAnnotations {

@@ -2,7 +2,6 @@ package report
 
 import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/openreports"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -20,13 +19,6 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 		ResourceVersion: resource.GetResourceVersion(),
 	}
 	result := reportutils.ToPolicyReportResult(engineResponse.Policy(), ruleResponse, resorceRef)
-	if result.Result == openreports.StatusFail {
-		audit := engineResponse.GetValidationFailureAction().Audit()
-		if audit && auditWarn {
-			result.Result = openreports.StatusWarn
-		}
-	}
-
 	return result
 }
 
@@ -71,7 +63,7 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 			report := openreportsv1alpha1.Report{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: openreportsv1alpha1.SchemeGroupVersion.String(),
-					Kind:       "PolicyReport",
+					Kind:       "Report",
 				},
 				Results: results,
 				Summary: reportutils.CalculateSummary(results),

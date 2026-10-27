@@ -137,3 +137,46 @@ func TestEvaluationSucceeded(t *testing.T) {
 	c.continuedAfterError = true
 	require.False(t, c.evaluationSucceeded(&processor.ResultCounts{Pass: 1}))
 }
+
+func TestJSONMutationExplicitOutputFlags(t *testing.T) {
+	fixtures := "../../../../../test/cli/test-mutating-policy/"
+	for _, flag := range []string{"--output-file", "--output-dir"} {
+		t.Run(flag, func(t *testing.T) {
+			destination := filepath.Join(t.TempDir(), "output.json")
+			args := []string{
+				fixtures + "json-document-mutation/policy.yaml",
+				"--json", fixtures + "json-document-mutation/input.json",
+				flag, destination,
+			}
+			if flag == "--output-dir" {
+				args = append(args, "--json", fixtures+"json-document-mutation/nested/input.json")
+			}
+			cmd := Command()
+			cmd.SetOut(&bytes.Buffer{})
+			cmd.SetErr(&bytes.Buffer{})
+			cmd.SetArgs(args)
+			require.NoError(t, cmd.Execute())
+			outputFile := destination
+			if flag == "--output-dir" {
+				files, err := os.ReadDir(destination)
+				require.NoError(t, err)
+				require.Len(t, files, 2)
+				outputFile = filepath.Join(destination, files[0].Name())
+			}
+			content, err := os.ReadFile(outputFile)
+			require.NoError(t, err)
+			require.Contains(t, string(content), `"region": "west"`)
+
+			// A later failing input must not overwrite previously successful output.
+			args = append(args, "--json", fixtures+"json-root-transitions/input.json")
+			cmd = Command()
+			cmd.SetOut(&bytes.Buffer{})
+			cmd.SetErr(&bytes.Buffer{})
+			cmd.SetArgs(args)
+			require.Error(t, cmd.Execute())
+			preserved, err := os.ReadFile(outputFile)
+			require.NoError(t, err)
+			require.Equal(t, content, preserved)
+		})
+	}
+}

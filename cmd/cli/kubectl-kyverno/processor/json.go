@@ -90,7 +90,7 @@ func (p *PolicyProcessor) applyPoliciesOnJSON(ctx context.Context) ([]engineapi.
 	// Every other policy family keeps the existing object-root JSON payload
 	// pipeline, now running on the mutated document. Kubernetes-mode
 	// MutatingPolicies were already reported as skipped above.
-	hasOtherPolicies := len(p.ValidatingPolicies) > 0 || len(p.Policies) > 0 ||
+	hasOtherPolicies := len(p.ValidatingPolicies) > 0 ||
 		len(p.ValidatingAdmissionPolicies) > 0 || len(p.MutatingAdmissionPolicies) > 0 ||
 		len(p.GeneratingPolicies) > 0
 	if !hasOtherPolicies {
