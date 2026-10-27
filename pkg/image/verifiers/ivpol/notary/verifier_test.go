@@ -61,7 +61,7 @@ func Test_ImageAttestationVerificationStandard(t *testing.T) {
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, "sbom/cyclone-dx", cert, "")
+	_, err = v.VerifyAttestationSignature(ctx, img, "sbom/cyclone-dx", cert, "")
 	assert.NoError(t, err)
 }
 
@@ -72,7 +72,7 @@ func Test_ImageAttestationVerificationFailNotFound(t *testing.T) {
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, "invalid", cert, "")
+	_, err = v.VerifyAttestationSignature(ctx, img, "invalid", cert, "")
 	assert.ErrorContains(t, err, "attestation verification failed, no attestations found for type: invalid")
 }
 
@@ -83,7 +83,7 @@ func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, "trivy/vulnerability-fail-test", cert, "")
+	_, err = v.VerifyAttestationSignature(ctx, img, "trivy/vulnerability-fail-test", cert, "")
 	assert.ErrorContains(t, err, "failed to verify signature with digest sha256:5e52184f10b19c69105e5dd5d3c875753cfd824d3d2f86cd2122e4107bd13d16, the signature's certificate chain does not contain any trusted certificate")
 }
 
@@ -94,6 +94,6 @@ func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, "application/vnd.cncf.notary.signature", cert, "")
+	_, err = v.VerifyAttestationSignature(ctx, img, "application/vnd.cncf.notary.signature", cert, "")
 	assert.ErrorContains(t, err, "make sure the artifact was signed successfully")
 }
