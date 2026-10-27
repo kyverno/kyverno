@@ -8067,6 +8067,36 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
     
     
       <tr>
+        <td><code>enabled</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Enabled specifies whether to generate pod controller rules.
+Optional. Defaults to &quot;true&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>controllers</code>
           
           <span style="color:blue;"> *</span>
@@ -8083,7 +8113,10 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
         <td>
           
 
-          
+          <p>Controllers specifies the list of pod controllers to generate rules for,
+for example DaemonSet, Deployment, Job, StatefulSet, ReplicaSet, ReplicationController, CronJob.
+Optional. Defaults to all supported pod controllers if not specified.</p>
+
 
           
 

@@ -92,6 +92,8 @@ github.com/ProtonMail/go-crypto v1.4.1 h1:9RfcZHqEQUvP8RzecWEUafnZVtEvrBVL9BiF67
 github.com/ProtonMail/go-crypto v1.4.1/go.mod h1:e1OaTyu5SYVrO9gKOEhTc+5UcXtTUa+P3uLudwcgPqo=
 github.com/ThalesIgnite/crypto11 v1.2.5 h1:1IiIIEqYmBvUYFeMnHqRft4bwf/O36jryEUpY+9ef8E=
 github.com/ThalesIgnite/crypto11 v1.2.5/go.mod h1:ILDKtnCKiQ7zRoNxcp36Y1ZR8LBPmR2E23+wTQe/MlE=
+github.com/aditip149209/api v0.0.0-20261004022431-748cf374f575 h1:0p3jS6vaTdq6obPIuW5g5mkBhMsKO3tJBWt6b76cMF0=
+github.com/aditip149209/api v0.0.0-20261004022431-748cf374f575/go.mod h1:fldpQuQfCtqRNffZAS6pvS8gdizji0Y/rFCnoQ+Bay4=
 github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa h1:LHTHcTQiSGT7VVbI0o4wBRNQIgn917usHWOd6VAffYI=
 github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa/go.mod h1:cEWa1LVoE5KvSD9ONXsZrj0z6KqySlCCNKHlLzbqAt4=
 github.com/alibabacloud-go/alibabacloud-gateway-spi v0.0.2/go.mod h1:sCavSAvdzOjul4cEqeVtvlSaSScfNsTQ+46HwlTL1hc=
@@ -573,8 +575,6 @@ github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
-github.com/kyverno/api v0.0.1-alpha.5 h1:tCTJ/n3PofUaYs8TVcTDKVNrEvI3fyrJjEyRZi+5Py8=
-github.com/kyverno/api v0.0.1-alpha.5/go.mod h1:fldpQuQfCtqRNffZAS6pvS8gdizji0Y/rFCnoQ+Bay4=
 github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877 h1:XOLJNGX/q6MVpI8p8MKvk6jGBMvO4CrdwrizMMSsaRU=
 github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877/go.mod h1:yzDHaKovQy16rjN4kFnjF+IdNoN4p1ndw+va6+B8zUU=
 github.com/kyverno/go-jmespath/internal/testify v1.5.2-0.20230630133209-945021c749d9 h1:lL311dF3a2aeNibJj8v+uhFU3XkvRHZmCtAdSPOrQYY=
