@@ -94,13 +94,19 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 	observedMAPbinding, mapBindingErr := c.getMutatingAdmissionPolicyBindingV1(mapBindingName)
 
 	if shouldDelete {
+		if mapErr != nil && !apierrors.IsNotFound(mapErr) {
+			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %w", mapName, mapErr)
+		}
+		if mapBindingErr != nil && !apierrors.IsNotFound(mapBindingErr) {
+			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %w", mapBindingName, mapBindingErr)
+		}
 		if mapErr == nil {
-			if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil {
+			if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
 		if mapBindingErr == nil {
-			if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil {
+			if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
@@ -197,13 +203,19 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 	observedMAPbinding, mapBindingErr := c.getMutatingAdmissionPolicyBinding(mapBindingName)
 
 	if shouldDelete {
+		if mapErr != nil && !apierrors.IsNotFound(mapErr) {
+			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %w", mapName, mapErr)
+		}
+		if mapBindingErr != nil && !apierrors.IsNotFound(mapBindingErr) {
+			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %w", mapBindingName, mapBindingErr)
+		}
 		if mapErr == nil {
-			if err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil {
+			if err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
 		if mapBindingErr == nil {
-			if err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil {
+			if err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
@@ -272,13 +284,19 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 	observedMAPbinding, mapBindingErr := c.getMutatingAdmissionPolicyBindingBeta(mapBindingName)
 
 	if shouldDelete {
+		if mapErr != nil && !apierrors.IsNotFound(mapErr) {
+			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %w", mapName, mapErr)
+		}
+		if mapBindingErr != nil && !apierrors.IsNotFound(mapBindingErr) {
+			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %w", mapBindingName, mapBindingErr)
+		}
 		if mapErr == nil {
-			if err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil {
+			if err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
 		if mapBindingErr == nil {
-			if err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil {
+			if err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}

@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -15,11 +16,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 )
@@ -163,4 +168,102 @@ func TestHandleMAPGeneration_JSONModeDeleteFailure(t *testing.T) {
 	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.True(t, updated.Status.Generated, "status.generated must not be cleared on failure")
+}
+
+type failingMAPIndexer struct {
+	cache.Indexer
+	err error
+}
+
+func (i failingMAPIndexer) GetByKey(string) (interface{}, bool, error) {
+	return nil, false, i.err
+}
+
+func TestHandleMAPGeneration_JSONModeCleanupErrors(t *testing.T) {
+	t.Parallel()
+	for _, version := range []admissionpolicy.MutatingAdmissionPolicyVersion{
+		admissionpolicy.MutatingAdmissionPolicyVersionV1,
+		admissionpolicy.MutatingAdmissionPolicyVersionV1beta1,
+		admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1,
+	} {
+		t.Run(string(version), func(t *testing.T) {
+			t.Parallel()
+			for _, scenario := range []string{"policy lookup error", "binding lookup error", "binding delete error", "already absent", "stale cache"} {
+				t.Run(scenario, func(t *testing.T) {
+					t.Parallel()
+					ctx := context.Background()
+					mpol := &policiesv1beta1.MutatingPolicy{
+						ObjectMeta: metav1.ObjectMeta{Name: "json-policy"},
+						Spec: policiesv1beta1.MutatingPolicySpec{
+							EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+						},
+						Status: policiesv1beta1.MutatingPolicyStatus{Generated: true},
+					}
+					mapMeta := metav1.ObjectMeta{Name: "mpol-" + mpol.Name}
+					bindingMeta := metav1.ObjectMeta{Name: constructBindingName(mapMeta.Name)}
+					var existingMAP, existingBinding runtime.Object
+					switch version {
+					case admissionpolicy.MutatingAdmissionPolicyVersionV1:
+						existingMAP = &admissionregistrationv1.MutatingAdmissionPolicy{ObjectMeta: mapMeta}
+						existingBinding = &admissionregistrationv1.MutatingAdmissionPolicyBinding{ObjectMeta: bindingMeta}
+					case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
+						existingMAP = &admissionregistrationv1beta1.MutatingAdmissionPolicy{ObjectMeta: mapMeta}
+						existingBinding = &admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{ObjectMeta: bindingMeta}
+					case admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1:
+						existingMAP = &admissionregistrationv1alpha1.MutatingAdmissionPolicy{ObjectMeta: mapMeta}
+						existingBinding = &admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding{ObjectMeta: bindingMeta}
+					}
+					kubeClient := kubefake.NewSimpleClientset()
+					if scenario != "stale cache" && scenario != "already absent" {
+						kubeClient = kubefake.NewSimpleClientset(existingMAP, existingBinding)
+					}
+					kyvernoClient := versionedfake.NewSimpleClientset(mpol)
+					mapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+					bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+					if scenario != "already absent" {
+						require.NoError(t, mapIndexer.Add(existingMAP))
+						require.NoError(t, bindingIndexer.Add(existingBinding))
+					}
+					var policyCache, bindingCache cache.Indexer = mapIndexer, bindingIndexer
+					wantErr := errors.New("cleanup unavailable")
+					switch scenario {
+					case "policy lookup error":
+						policyCache = failingMAPIndexer{Indexer: mapIndexer, err: wantErr}
+					case "binding lookup error":
+						bindingCache = failingMAPIndexer{Indexer: bindingIndexer, err: wantErr}
+					case "binding delete error":
+						kubeClient.PrependReactor("delete", "mutatingadmissionpolicybindings", func(k8stesting.Action) (bool, runtime.Object, error) {
+							return true, nil, wantErr
+						})
+					}
+					c := &controller{client: kubeClient, kyvernoClient: kyvernoClient}
+					switch version {
+					case admissionpolicy.MutatingAdmissionPolicyVersionV1:
+						c.mapV1Lister = admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(policyCache)
+						c.mapbindingV1Lister = admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(bindingCache)
+					case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
+						c.mapBetaLister = admissionregistrationv1beta1listers.NewMutatingAdmissionPolicyLister(policyCache)
+						c.mapbindingBetaLister = admissionregistrationv1beta1listers.NewMutatingAdmissionPolicyBindingLister(bindingCache)
+					case admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1:
+						c.mapAlphaLister = admissionregistrationv1alpha1listers.NewMutatingAdmissionPolicyLister(policyCache)
+						c.mapbindingAlphaLister = admissionregistrationv1alpha1listers.NewMutatingAdmissionPolicyBindingLister(bindingCache)
+					}
+					err := c.handleMAPGeneration(ctx, mpol)
+					failed := scenario != "already absent" && scenario != "stale cache"
+					if failed {
+						require.ErrorIs(t, err, wantErr)
+						require.Empty(t, kyvernoClient.Actions(), "status must not be updated on cleanup failure")
+					} else {
+						require.NoError(t, err)
+					}
+					updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.Name, metav1.GetOptions{})
+					require.NoError(t, err)
+					assert.Equal(t, failed, updated.Status.Generated)
+					if scenario == "policy lookup error" || scenario == "binding lookup error" {
+						assert.Empty(t, kubeClient.Actions(), "lookup errors must be checked before deleting either resource")
+					}
+				})
+			}
+		})
+	}
 }
