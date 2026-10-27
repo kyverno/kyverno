@@ -8,6 +8,7 @@ import shlex
 import shutil
 import subprocess
 import tarfile
+import tempfile
 import unittest
 from unittest.mock import patch
 import uuid
@@ -1027,6 +1028,7 @@ class RetryAndGates(unittest.TestCase):
             retained, "output",
             side_effect=[
                 json.dumps([{"artifacts": []}]),
+                json.dumps([]),
                 json.dumps([{"workflow_runs": [prior_run]}]),
             ],
         ) as output, patch.dict(os.environ, {
@@ -1040,6 +1042,31 @@ class RetryAndGates(unittest.TestCase):
                 retained.main()
             self.assertIn("workflows/prepare-release.yaml/runs", output.call_args.args[-1])
             rebuild.assert_not_called()
+
+    def test_new_dispatch_never_rebuilds_an_existing_tag_without_its_original_candidate(self):
+        for existing_tag in ("v1.20.2", "v1.20.20"):
+            with self.subTest(tag=existing_tag), tempfile.TemporaryDirectory() as directory, patch.object(
+                retained, "output", side_effect=[
+                    json.dumps([{"artifacts": []}]),
+                    json.dumps([{"ref": f"refs/tags/{existing_tag}"}]),
+                    json.dumps([{"workflow_runs": []}]),
+                ],
+            ), patch.dict(os.environ, {
+                "GITHUB_REPOSITORY": "kyverno/kyverno",
+                "GITHUB_RUN_ID": "2",
+                "GITHUB_EVENT_NAME": "workflow_dispatch",
+                "GITHUB_RUN_ATTEMPT": "1",
+                "GITHUB_OUTPUT": str(Path(directory) / "output"),
+                "RELEASE_TAG": "v1.20.2",
+                "RELEASE_SHA": SHA,
+            }), patch.object(retained.subprocess, "run") as rebuild:
+                if existing_tag == "v1.20.2":
+                    with self.assertRaisesRegex(ValueError, "tag exists without its original"):
+                        retained.main()
+                else:
+                    retained.main()
+                    self.assertIn("artifact-0=false", (Path(directory) / "output").read_text())
+                rebuild.assert_not_called()
 
     def test_existing_asset_compares_api_download_not_graphql_id_and_never_clobbers(self):
         data = b"immutable archive"

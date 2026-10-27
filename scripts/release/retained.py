@@ -19,6 +19,12 @@ def main():
     ))
     artifacts = {item["name"]: item for page in pages for item in page["artifacts"]}
     if os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch" and "release-candidate" not in artifacts:
+        refs = json.loads(output(
+            "gh", "api",
+            f"repos/{os.environ['GITHUB_REPOSITORY']}/git/matching-refs/tags/{os.environ['RELEASE_TAG']}",
+        ))
+        if any(ref["ref"] == f"refs/tags/{os.environ['RELEASE_TAG']}" for ref in refs):
+            raise ValueError("Release tag exists without its original retained candidate; refusing to rebuild")
         pages = json.loads(output(
             "gh", "api", "--paginate", "--slurp",
             f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/workflows/prepare-release.yaml/runs"
