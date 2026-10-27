@@ -1913,6 +1913,32 @@ func TestLoadPoliciesFromGitStopsOnLegacyPolicies(t *testing.T) {
 	assert.Empty(t, skipped.loadErrors)
 }
 
+// TestCommandReportsPoliciesThatCouldNotBeLoadedBeforeALegacyPolicy checks that files skipped in
+// an earlier policy path are still reported when a later path stops apply with a legacy policy.
+func TestCommandReportsPoliciesThatCouldNotBeLoadedBeforeALegacyPolicy(t *testing.T) {
+	policies, pod := writePolicyLoadErrorFixtures(t)
+	legacy := "../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/policy.yaml"
+
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{policies, legacy},
+		ResourcePaths: []string{pod},
+	}
+	_, _, skipped, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
+	require.Len(t, skipped.loadErrors, 1)
+	assert.Equal(t, filepath.Join(policies, "typo.yaml"), skipped.loadErrors[0].name)
+
+	cmd := Command()
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{policies, legacy, "--resource", pod})
+	require.Error(t, cmd.Execute())
+	assert.Contains(t, stderr.String(), "Policies Not Loaded:")
+	assert.Contains(t, stderr.String(), filepath.Join(policies, "typo.yaml"))
+}
+
 // TestPrintPolicyLoadErrors checks the Policies Not Loaded section and that nothing is printed
 // without errors.
 func TestPrintPolicyLoadErrors(t *testing.T) {

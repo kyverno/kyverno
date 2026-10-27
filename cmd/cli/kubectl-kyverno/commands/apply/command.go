@@ -317,10 +317,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	var store store.Store
 
 	celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, envoyPols, httpPols, err := c.loadPolicies(ctx, out)
+	// paths loaded before a fatal error may already have skipped files, keep them for the error output
+	skippedInvalidPolicies.loadErrors = c.policyLoadErrors
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-	skippedInvalidPolicies.loadErrors = c.policyLoadErrors
 	if err := c.failOnDeprecationWarnings(); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
