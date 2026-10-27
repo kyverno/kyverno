@@ -37,12 +37,12 @@
    are evaluated with the admitted trigger's request, also as in the background controller.
    The whole target pass, trigger checks included, only runs when targets are supplied, and they are registered
    by `targetResourceContext` (`target_context.go`) before the trigger checks, because they exist before the
-   trigger is admitted. Without a cluster they are added to the processor's own `FakeContextProvider`. The
-   policies' compiled CEL (matchConditions, variables, mutations) is bound to that provider when the policies
-   are compiled (`libs.LibraryContext`), so every `resource.get()`/`resource.list()` sees them there; the
-   engine's context argument does not change that. The CEL target expression, which `discoverCELTargets`
-   compiles and evaluates itself, gets the supplied targets laid over that context in both modes
-   (`targetOverlayContext`): a supplied target wins over an object with the same identity and everything else
+   trigger is admitted. Without a cluster they are added to the processor's own `FakeContextProvider`, so the
+   trigger checks see them too. Every evaluation binds the context it is given to `resource.get()`/
+   `resource.list()` (`libs.BindRequestContext`), so which context the target engine gets matters:
+   `targetEngineContext` gives it the target context without a cluster and the live one with `--cluster`.
+   The CEL target expression, which `discoverCELTargets` compiles and evaluates itself, gets the supplied
+   targets laid over that context in both modes (`targetOverlayContext`): a supplied target wins over an object with the same identity and everything else
    still comes from the context underneath. Without a cluster the overlay also makes a cluster-wide list include
    the supplied targets of every namespace, which the `FakeContextProvider` alone does not, and it sits behind
    `labelFilterContext` because that provider ignores label selectors (`matchesLabels` follows the API server's

@@ -228,6 +228,25 @@ func TestDiscoverCELTargets_WithCluster(t *testing.T) {
 	assert.True(t, selected[triggered[0]][celTargetKey(schema.GroupKind{Kind: "ConfigMap"}, "test-ns", "supplied-only")])
 }
 
+// TestTargetEngineContext checks that with a cluster the target policies read the live objects, not the
+// supplied targets laid over them, while without a cluster they see the supplied targets.
+func TestTargetEngineContext(t *testing.T) {
+	live := newLiveContext(t, configMap("settings", map[string]string{"source": "live"}))
+	targetContext := targetResourceContext(live, []*unstructured.Unstructured{configMap("settings", map[string]string{"source": "supplied"})}, testRESTMapper())
+
+	for _, tt := range []struct {
+		cluster bool
+		want    string
+	}{
+		{cluster: true, want: "live"},
+		{cluster: false, want: "supplied"},
+	} {
+		object, err := targetEngineContext(tt.cluster, live, targetContext).GetResource("v1", "configmaps", "test-ns", "settings")
+		require.NoError(t, err)
+		assert.Equal(t, tt.want, object.GetLabels()["source"], "cluster=%t", tt.cluster)
+	}
+}
+
 // TestTargetResourceContext_SuppliedTargetReplacesStaleLiveCopy checks that a supplied target replaces the
 // live object with the same identity in a list even when only the live copy still matches the selector.
 func TestTargetResourceContext_SuppliedTargetReplacesStaleLiveCopy(t *testing.T) {

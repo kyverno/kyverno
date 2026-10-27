@@ -13,9 +13,9 @@ import (
 // resource.get() and resource.list() see the supplied target resources. The targets are laid over the given
 // context: they win over objects with the same identity, everything else still comes from that context, and
 // a cluster-wide list includes the supplied targets of every namespace. Without a cluster the processor works
-// on a FakeContextProvider: the targets are also registered in it, so the policies' compiled CEL, which is
-// bound to that provider, sees them too, and lists go through labelFilterContext because that provider
-// ignores label selectors. With a cluster a supplied target that does not exist there can still be selected.
+// on a FakeContextProvider: the targets are also registered in it, so the policies' other CEL sees them too,
+// and lists go through labelFilterContext because that provider ignores label selectors. With a cluster a
+// supplied target that does not exist there can still be selected.
 func targetResourceContext(contextProvider libs.Context, targets []*unstructured.Unstructured, restMapper meta.RESTMapper) libs.Context {
 	fake, isFake := contextProvider.(*libs.FakeContextProvider)
 	overlay := &targetOverlayContext{Context: contextProvider, targets: map[schema.GroupVersionResource][]*unstructured.Unstructured{}}
@@ -34,6 +34,17 @@ func targetResourceContext(contextProvider libs.Context, targets []*unstructured
 		return &labelFilterContext{Context: overlay}
 	}
 	return overlay
+}
+
+// targetEngineContext returns the context the target policies are evaluated with. The engine binds it to
+// every CEL resource.get() and resource.list() of their mutations, so without a cluster it is the target
+// context, and with a cluster it is the live one: there only the CEL target expression sees the supplied
+// targets.
+func targetEngineContext(cluster bool, contextProvider, targetContext libs.Context) libs.Context {
+	if cluster {
+		return contextProvider
+	}
+	return targetContext
 }
 
 // labelFilterContext applies the label selector of resource lists, which the FakeContextProvider ignores.

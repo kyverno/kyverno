@@ -319,7 +319,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if len(triggeredPolicies) > 0 {
 				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
 				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers
-				mutExistEng := mpolengine.NewEngine(provider, nsResolver, nil, tcm, targetContext)
+				mutExistEng := mpolengine.NewEngine(provider, nsResolver, nil, tcm, targetEngineContext(p.Cluster, contextProvider, targetContext))
 				targetMatcher := matching.NewMatcher()
 				celTargets, err := discoverCELTargets(provider, targetContext, &resource, triggeredPolicies)
 				if err != nil {
