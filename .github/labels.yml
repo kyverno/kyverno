@@ -40,8 +40,6 @@ area/validation:
     - changed-files:
         - any-glob-to-any-file:
             - pkg/engine/validate/**
-            - pkg/engine/validation.go
-            - pkg/engine/validation_test.go
             - pkg/validation/**
 
 area/mutation:
@@ -51,10 +49,6 @@ area/mutation:
     - changed-files:
         - any-glob-to-any-file:
             - pkg/engine/mutate/**
-            - pkg/engine/mutation.go
-            - pkg/engine/mutation_test.go
-            - pkg/engine/forceMutate.go
-            - pkg/engine/forceMutate_test.go
 
 area/generation:
   color: 0052cc
@@ -62,7 +56,6 @@ area/generation:
   rules:
     - changed-files:
         - any-glob-to-any-file:
-            - pkg/engine/generation.go
             - pkg/background/**
 
 # ── Area: Image Verification (indigo #3F51B5) ───────────────────────────────
@@ -72,8 +65,6 @@ area/image-verify:
   rules:
     - changed-files:
         - any-glob-to-any-file:
-            - pkg/engine/image_verify.go
-            - pkg/engine/image_verify_test.go
             - pkg/image/**
 
 area/cosign:
@@ -579,3 +570,14 @@ stale:
 no-stale:
   color: C2E0C6
   description: Exempt from stale-author, automatic closure, and idle-review handling
+
+# ── PSA release issues (.github/workflows/psa-release-issues.yaml) ───────────
+# Set by scripts/psa-release-issues.py on the issue for a PSA release. The script uses it to find existing issues.
+psa-cel-update:
+  color: 0E8A16
+  description: A Pod Security Admission release that may need PSS CEL policy updates
+
+# Set by scripts/psa-release-issues.py when it can't map a change with confidence.
+needs-manual-review:
+  color: D93F0B
+  description: Changes the PSA release check couldn't map with confidence

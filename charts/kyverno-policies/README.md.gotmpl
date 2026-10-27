@@ -6,12 +6,20 @@
 
 ## About
 
-**1.20 notice.** This chart's templates render `kyverno.io/v1` `ClusterPolicy` resources, the
-legacy policy type. Starting with Kyverno 1.20, Kyverno no longer executes legacy `kyverno.io`
-policies and rejects their create and update requests: installing or upgrading this chart against
-a 1.20 or later Kyverno cluster fails instead of storing unenforced `ClusterPolicy` objects. Wait
-for this chart to migrate its templates to the `policies.kyverno.io` policy types before relying
-on it for enforcement on a 1.20 cluster; track the migration at https://github.com/kyverno/kyverno.
+**1.20 notice.** This chart's built-in PSS templates render `policies.kyverno.io` policy types.
+Kyverno 1.20 no longer executes legacy `kyverno.io` policies and rejects their create and update
+requests. Anything you pass through `.Values.customPolicies` keeps the group, version, and kind
+you supply — the chart renders it verbatim — so a legacy `kyverno.io/v1` `ClusterPolicy` supplied
+that way is denied at admission and the release fails to apply. Use a supported
+`policies.kyverno.io` kind for custom manifests.
+
+**Review your legacy objects before upgrading.** The `policyType` option is gone, and this chart
+converts nothing. If you previously installed it with `policyType: ClusterPolicy`, upgrading
+deletes the `ClusterPolicy` objects the release owns, because Helm removes resources that are no
+longer in the rendered manifest. The chart installs `ValidatingPolicy` equivalents of its own PSS
+policies, so that coverage continues, but the old objects are removed rather than converted and
+any legacy manifest you supplied through `.Values.customPolicies` is neither converted nor
+replaced. Migrate anything you rely on before you upgrade.
 
 This chart contains Kyverno's implementation of the Kubernetes Pod Security Standards (PSS) as documented at https://kubernetes.io/docs/concepts/security/pod-security-standards/ and are a Helm packaged version of those found at https://github.com/kyverno/policies/tree/main/pod-security. The goal of the PSS controls is to provide a good starting point for general Kubernetes cluster operational security. These controls are broken down into two categories, Baseline and Restricted. Baseline policies implement the most basic of Pod security controls while Restricted implements more strict controls. Restricted is cumulative and encompasses those listed in Baseline.
 
@@ -50,15 +58,15 @@ For the latest version of these PSS policies, always refer to the kyverno/polici
 If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`:
 ````yaml
 customPolicies:
-  - apiVersion: kyverno.io/v1
-    kind: ClusterPolicy
+  - apiVersion: policies.kyverno.io/v1beta1
+    kind: ValidatingPolicy
     metadata: # metadata
     spec: # spec
 ````
 
 ## Installing the Chart
 
-These PSS policies presently have a minimum requirement of Kyverno 1.6.0.
+These PSS policies presently have a minimum requirement of Kyverno 1.17.0.
 
 ```console
 ## Add the Kyverno Helm repository

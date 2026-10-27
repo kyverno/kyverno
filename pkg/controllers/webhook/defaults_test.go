@@ -438,7 +438,7 @@ func TestReconcileGenerationLabelProtectionWithoutAutoUpdate(t *testing.T) {
 			t.Parallel()
 			c := &controller{servicePort: 443, defaultTimeout: 10, caSecretName: "root-ca"}
 			// The builder leaves the namespace selector and the rule scope for the API server to fill in.
-			stored := c.buildGenerationLabelProtectionWebhook([]byte("ca"))
+			stored := c.buildGenerationLabelProtectionWebhook(t.Context(), []byte("ca"))
 			stored.NamespaceSelector = &metav1.LabelSelector{}
 			stored.Rules[0].Scope = ptr.To(admissionregistrationv1.AllScopes)
 			// Policy routing is user-managed in this mode and must be kept as is.

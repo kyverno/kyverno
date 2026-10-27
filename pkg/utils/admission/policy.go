@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/api"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -12,18 +11,6 @@ import (
 
 func UnmarshalPolicy(kind string, raw []byte) (api.GenericPolicy, error) {
 	switch kind {
-	case "ClusterPolicy":
-		var policy *kyvernov1.ClusterPolicy
-		if err := json.Unmarshal(raw, &policy); err != nil {
-			return nil, err
-		}
-		return api.NewKyvernoPolicy(policy), nil
-	case "Policy":
-		var policy *kyvernov1.Policy
-		if err := json.Unmarshal(raw, &policy); err != nil {
-			return nil, err
-		}
-		return api.NewKyvernoPolicy(policy), nil
 	case "ValidatingPolicy":
 		var policy *v1beta1.ValidatingPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
