@@ -17,6 +17,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -38,10 +39,15 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -84,6 +90,8 @@ type ApplyCommandConfig struct {
 	Context                   string
 	Namespace                 string
 	MutateLogPath             string
+	OutputDir                 string
+	OutputFile                string
 	Variables                 []string
 	ValuesFile                string
 	UserInfoPath              string
@@ -155,6 +163,10 @@ func Command() *cobra.Command {
 			out := cmd.OutOrStdout()
 			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
+			table, err = applyCommandConfig.resolveOutputFlags(cmd, table, detailedResults)
+			if err != nil {
+				return err
+			}
 			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
 			if err != nil {
 				// a later step failed, still say which policies were skipped before returning that error
@@ -200,15 +212,7 @@ func Command() *cobra.Command {
 						}
 					}
 					if len(failedRules) > 0 {
-						auditWarn := false
-						if applyCommandConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
-							auditWarn = true
-						}
-						if auditWarn {
-							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed as audit warning:")
-						} else {
-							fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
-						}
+						fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
 						for i, rule := range failedRules {
 							msg := rule.Message()
 							if msg == "" {
@@ -233,13 +237,17 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.TargetResourcePaths, "target-resources", "", []string{}, "Path to a directory containing target resources files for policies that have mutate existing")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated/generated resources in provided file/directory")
+	cmd.Flags().StringVar(&applyCommandConfig.OutputDir, "output-dir", "", "Directory for mutated/generated resources")
+	cmd.Flags().StringVar(&applyCommandConfig.OutputFile, "output-file", "", "File for mutated/generated resources")
+	_ = cmd.Flags().MarkDeprecated("output", "use --output-dir or --output-file instead; -o/--output will select the output format in a future release")
+	cmd.MarkFlagsMutuallyExclusive("output", "output-dir", "output-file")
 	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&applyCommandConfig.UserInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Variables, "set", "s", nil, "Variables that are required")
 	cmd.Flags().StringVarP(&applyCommandConfig.ValuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().StringVarP(&applyCommandConfig.ContextPath, "context-file", "", "", "File containing context data for CEL policies")
 	cmd.Flags().BoolVarP(&applyCommandConfig.PolicyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
-	cmd.Flags().StringVarP(&applyCommandConfig.OutputFormat, "output-format", "", "yaml", "Specifies the policy report format (json or yaml). Default: yaml.")
+	cmd.Flags().StringVarP(&applyCommandConfig.OutputFormat, "output-format", "", "yaml", "Output format: json or yaml for policy reports/exceptions, or table for evaluation results")
 	cmd.Flags().StringVarP(&applyCommandConfig.Namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
 	cmd.Flags().BoolVar(&applyCommandConfig.RegistryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
@@ -249,7 +257,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
 	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
 	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy, MutatingPolicy, GeneratingPolicy, ImageValidatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, the images it checked, and its validations, the mutations it ran, the generate entries it ran or its delete conditions. The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive")
-	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
+	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "Currently has no effect; ValidatingPolicy audit support is tracked by https://github.com/kyverno/kyverno/issues/16485")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
 	cmd.Flags().BoolVar(&applyCommandConfig.warningsAsErrors, "warnings-as-errors", false, "Treat deprecation warnings as errors")
@@ -286,13 +294,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	c.policyLoadErrors = nil
 	err := c.checkArguments()
 	if err != nil {
-		return nil, nil, skippedInvalidPolicies, nil, err
-	}
-	mutateLogPathIsDir, err := c.getMutateLogPathIsDir()
-	if err != nil {
-		return nil, nil, skippedInvalidPolicies, nil, err
-	}
-	if err := c.cleanPreviousContent(mutateLogPathIsDir); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	crdProcessor := data.NewCRDProcessor(nil)
@@ -461,6 +462,15 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		httpRequests = append(httpRequests, request)
 	}
 
+	// Create output files only after loading inputs to avoid truncating existing files on load errors.
+	mutateLogPathIsDir, err := c.getMutateLogPathIsDir()
+	if err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
+	if err := c.cleanPreviousContent(mutateLogPathIsDir); err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
+
 	rc, resources1, responses1, err := c.applyPolicies(
 		out,
 		&store,
@@ -522,6 +532,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 }
 
 func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
+	if c.OutputDir != "" || c.OutputFile != "" {
+		isDir := c.OutputDir != ""
+		c.MutateLogPath = c.OutputFile
+		if isDir {
+			c.MutateLogPath = c.OutputDir
+		}
+		if info, err := os.Stat(c.MutateLogPath); err == nil && info.IsDir() != isDir {
+			return false, fmt.Errorf("output destination %q has the wrong type", c.MutateLogPath)
+		}
+		return isDir, createFileOrFolder(c.MutateLogPath, isDir)
+	}
 	mutateLogPathIsDir, err := checkMutateLogPath(c.MutateLogPath)
 	if err != nil {
 		return false, fmt.Errorf("failed to create file/folder (%w)", err)
@@ -559,6 +580,103 @@ func (c *ApplyCommandConfig) applyPolicies(
 	for i, p := range parameterResources {
 		params[i] = p
 	}
+
+	crdPreloaded := false
+	crdPreloadFailed := false
+	if len(c.CrdPaths) > 0 {
+		crdPreloaded = true
+		for _, crdPath := range c.CrdPaths {
+			if strings.TrimSpace(crdPath) == "" {
+				continue
+			}
+			if err := common.LoadCrdsFromPath(crdPath); err != nil {
+				if !c.ContinueOnFail {
+					return &rc, resources, responses, err
+				}
+				log.Log.V(2).Info(fmt.Sprintf("failed to load CRDs from %s: %v", crdPath, err))
+				rc.IncrementError(1)
+				crdPreloaded = false
+				crdPreloadFailed = true
+				break
+			}
+		}
+	}
+
+	var restMapper meta.RESTMapper
+	var contextProvider libs.Context
+	var vpolProvider vpolengine.Provider
+	var vpolProviderErr error
+	var vpolJSONProvider vpolengine.Provider
+	var vpolJSONProviderErr error
+	var mpolProvider mpolengine.Provider
+	var mpolProviderErr error
+
+	if !crdPreloadFailed && (len(resources) > 0 || len(jsonPayloads) > 0) && (len(vpols) != 0 || len(gpols) != 0 || len(mpols) != 0) {
+		var err error
+		restMapper, err = utils.GetRESTMapper(dClient)
+		if err != nil {
+			if !c.ContinueOnFail {
+				return &rc, resources, responses, err
+			}
+			rc.IncrementError(1)
+		} else {
+			contextProvider, err = processor.NewContextProvider(dClient, restMapper, nil, c.ContextPath, true, !c.Cluster, nil, store.GetHTTPMockIndex())
+			if err != nil {
+				if !c.ContinueOnFail {
+					return &rc, resources, responses, err
+				}
+				rc.IncrementError(1)
+				contextProvider = nil
+			} else {
+				if len(vpols) != 0 {
+					compiler := vpolcompiler.NewCompilerWithTrace(c.Explain)
+					var jsonPolicies []policiesv1beta1.ValidatingPolicyLike
+					var k8sPolicies []policiesv1beta1.ValidatingPolicyLike
+					for i := range vpols {
+						pol := vpols[i]
+						if pol.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+							jsonPolicies = append(jsonPolicies, pol)
+						} else {
+							k8sPolicies = append(k8sPolicies, pol)
+						}
+					}
+					if len(k8sPolicies) > 0 && len(resources) > 0 {
+						vpolProvider, err = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
+						if err != nil {
+							if !c.ContinueOnFail {
+								return &rc, resources, responses, err
+							}
+							vpolProvider = nil
+							vpolProviderErr = err
+						}
+					}
+					if len(jsonPolicies) > 0 {
+						vpolJSONProvider, err = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
+						if err != nil {
+							if !c.ContinueOnFail {
+								return &rc, resources, responses, err
+							}
+							vpolJSONProvider = nil
+							vpolJSONProviderErr = err
+						}
+					}
+				}
+
+				if len(mpols) != 0 {
+					compiler := mpolcompiler.NewCompilerWithTrace(c.Explain)
+					mpolProvider, err = mpolengine.NewProvider(compiler, mpols, celExceptions, contextProvider)
+					if err != nil {
+						if !c.ContinueOnFail {
+							return &rc, resources, responses, err
+						}
+						mpolProvider = nil
+						mpolProviderErr = err
+					}
+				}
+			}
+		}
+	}
+
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
 			Store:                             store,
@@ -589,6 +707,15 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
+			CrdPreloaded:                      crdPreloaded,
+			RESTMapper:                        restMapper,
+			ContextProvider:                   contextProvider,
+			VpolProvider:                      vpolProvider,
+			VpolProviderErr:                   vpolProviderErr,
+			VpolJSONProvider:                  vpolJSONProvider,
+			VpolJSONProviderErr:               vpolJSONProviderErr,
+			MpolProvider:                      mpolProvider,
+			MpolProviderErr:                   mpolProviderErr,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -628,6 +755,15 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
+			CrdPreloaded:                      crdPreloaded,
+			RESTMapper:                        restMapper,
+			ContextProvider:                   contextProvider,
+			VpolProvider:                      vpolProvider,
+			VpolProviderErr:                   vpolProviderErr,
+			VpolJSONProvider:                  vpolJSONProvider,
+			VpolJSONProviderErr:               vpolJSONProviderErr,
+			MpolProvider:                      mpolProvider,
+			MpolProviderErr:                   mpolProviderErr,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -680,7 +816,14 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	}
 	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster, nil, nil)
 	if err != nil {
-		return nil, err
+		if !c.ContinueOnFail {
+			return nil, err
+		}
+		log.Log.V(2).Info(fmt.Sprintf("failed to initialize context for image validating policies: %v", err))
+		if rc != nil {
+			rc.IncrementError(1)
+		}
+		return nil, nil
 	}
 
 	// Compilation captures the CLI library defaults, so initialize them first.
@@ -830,9 +973,8 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	dclient dclient.Interface,
 	payloadType string,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions)
-	if err != nil {
-		return nil, err
+	if len(dps) == 0 || len(resources) == 0 {
+		return nil, nil
 	}
 
 	restMapper, err := utils.GetRESTMapper(dclient)
@@ -841,6 +983,19 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	}
 
 	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster, nil, nil)
+	if err != nil {
+		if !c.ContinueOnFail {
+			return nil, err
+		}
+		log.Log.V(2).Info(fmt.Sprintf("failed to initialize context for deleting policies: %v", err))
+		if rc != nil {
+			rc.IncrementError(1)
+		}
+		return nil, nil
+	}
+
+	// Compilation captures the CLI library defaults, so initialize them first.
+	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions)
 	if err != nil {
 		return nil, err
 	}

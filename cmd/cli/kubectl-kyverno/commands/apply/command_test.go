@@ -629,6 +629,206 @@ func Test_Apply_JsonPayload_K8sMode_NoSegfault(t *testing.T) {
 	assert.Equal(t, 0, len(responses), "K8s-mode policies should be skipped for JSON payloads")
 }
 
+func Test_Apply_JsonPayload_UnusedK8sPolicy_SkippedCompilation(t *testing.T) {
+	// A K8s-mode ValidatingPolicy with an invalid CEL expression should NOT be compiled
+	// when evaluating JSON-only payloads, allowing valid JSON policies to succeed.
+	tmpDir := t.TempDir()
+	invalidK8sPolicy := filepath.Join(tmpDir, "invalid-k8s-policy.yaml")
+	err := os.WriteFile(invalidK8sPolicy, []byte(`
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: invalid-k8s-policy
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["pods"]
+  validations:
+  - expression: "this_is_an_invalid_cel_syntax((("
+    message: "syntax error"
+`), 0o600)
+	require.NoError(t, err)
+
+	config := ApplyCommandConfig{
+		PolicyPaths: []string{
+			invalidK8sPolicy,
+			"../../../../../test/cli/test-validating-policy/json-check-dockerfile/policy.yaml",
+		},
+		JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/payload.json"},
+		PolicyReport: true,
+	}
+	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), io.Discard)
+	assert.NoError(t, err, "unused invalid k8s policy must not fail JSON-only evaluation")
+	assert.NotEmpty(t, responses, "JSON policy should have evaluated successfully")
+}
+
+func Test_Apply_ContinueOnFail_DefersFailures(t *testing.T) {
+	tmpDir := t.TempDir()
+	invalidK8sPolicy := filepath.Join(tmpDir, "invalid-k8s-policy.yaml")
+	err := os.WriteFile(invalidK8sPolicy, []byte(`
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: invalid-k8s-policy
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["pods"]
+  validations:
+  - expression: "this_is_an_invalid_cel_syntax((("
+    message: "syntax error"
+`), 0o600)
+	require.NoError(t, err)
+
+	invalidContextFile := filepath.Join(tmpDir, "invalid-context.yaml")
+	err = os.WriteFile(invalidContextFile, []byte(`: invalid: yaml: [`), 0o600)
+	require.NoError(t, err)
+
+	validDeletingPolicy := "../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/policy.yaml"
+	validDeletingResource := "../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/resource.yaml"
+
+	validK8sPolicy := "../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"
+	validPod := "../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"
+
+	missingCRDPath := filepath.Join(tmpDir, "nonexistent-crd.yaml")
+
+	testCases := []struct {
+		name              string
+		config            ApplyCommandConfig
+		expectErr         bool
+		expectResponses   bool
+		expectNoResponses bool
+		expectRcError     bool
+	}{
+		{
+			name: "policy compilation failure without continue-on-fail fails fast",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{invalidK8sPolicy, validDeletingPolicy},
+				ResourcePaths:  []string{validDeletingResource},
+				ContinueOnFail: false,
+			},
+			expectErr:       true,
+			expectResponses: false,
+		},
+		{
+			name: "policy compilation failure with continue-on-fail evaluates subsequent resources",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{invalidK8sPolicy, validDeletingPolicy},
+				ResourcePaths:  []string{validDeletingResource},
+				ContinueOnFail: true,
+			},
+			expectErr:       false,
+			expectResponses: true,
+		},
+		{
+			name: "context file failure without continue-on-fail fails fast",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validK8sPolicy},
+				ResourcePaths:  []string{validPod},
+				ContextPath:    invalidContextFile,
+				ContinueOnFail: false,
+			},
+			expectErr:       true,
+			expectResponses: false,
+		},
+		{
+			name: "context file failure with continue-on-fail defers and continues",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validK8sPolicy},
+				ResourcePaths:  []string{validPod},
+				ContextPath:    invalidContextFile,
+				ContinueOnFail: true,
+			},
+			expectErr:         false,
+			expectNoResponses: true,
+		},
+		{
+			name: "deleting policy context failure without continue-on-fail fails fast",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validDeletingPolicy},
+				ResourcePaths:  []string{validDeletingResource},
+				ContextPath:    invalidContextFile,
+				ContinueOnFail: false,
+			},
+			expectErr:       true,
+			expectResponses: false,
+		},
+		{
+			name: "deleting policy context failure with continue-on-fail skips deletion and continues",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validDeletingPolicy},
+				ResourcePaths:  []string{validDeletingResource},
+				ContextPath:    invalidContextFile,
+				ContinueOnFail: true,
+			},
+			expectErr:         false,
+			expectNoResponses: true,
+		},
+		{
+			name: "missing CRD path without continue-on-fail fails fast",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validK8sPolicy},
+				ResourcePaths:  []string{validPod},
+				CrdPaths:       []string{missingCRDPath},
+				ContinueOnFail: false,
+			},
+			expectErr:       true,
+			expectResponses: false,
+		},
+		{
+			name: "missing CRD path with continue-on-fail defers and continues",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validK8sPolicy},
+				ResourcePaths:  []string{validPod},
+				CrdPaths:       []string{missingCRDPath},
+				ContinueOnFail: true,
+			},
+			expectErr:         false,
+			expectNoResponses: true,
+			expectRcError:     true,
+		},
+		{
+			name: "unused invalid CEL policy does not block HTTP-only evaluation",
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{
+					invalidK8sPolicy,
+					"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml",
+				},
+				HTTPPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/http-allow/request.json"},
+				ContinueOnFail:   false,
+			},
+			expectErr:       false,
+			expectResponses: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			rc, _, _, responses, err := tc.config.applyCommandHelper(context.TODO(), io.Discard)
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			if tc.expectResponses {
+				assert.NotEmpty(t, responses, "expected responses from later valid evaluation")
+			}
+			if tc.expectNoResponses {
+				assert.Empty(t, responses, "missing CRD should prevent resource evaluation")
+			}
+			if tc.expectRcError {
+				assert.True(t, rc != nil && rc.Error > 0, "expected rc.Error > 0")
+			}
+		})
+	}
+}
+
 func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
@@ -725,6 +925,66 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
+}
+
+func Test_Apply_ImageVerification_InvalidContext_ErrorCountAndExit(t *testing.T) {
+	tmpDir := t.TempDir()
+	invalidContextFile := filepath.Join(tmpDir, "invalid-context.yaml")
+	err := os.WriteFile(invalidContextFile, []byte(`: invalid: yaml: [`), 0o600)
+	require.NoError(t, err)
+
+	cfg := ApplyCommandConfig{
+		PolicyPaths:    []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/policy.yaml"},
+		ResourcePaths:  []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml"},
+		ContextPath:    invalidContextFile,
+		ContinueOnFail: true,
+	}
+	rc, _, _, _, err := cfg.applyCommandHelper(context.TODO(), io.Discard)
+	assert.NoError(t, err, "helper should not return error under continue-on-fail")
+	assert.Greater(t, rc.Error, 0, "rc.Error should be incremented when image policy context initialization fails")
+
+	exitErr := exit(io.Discard, rc, 0, false)
+	assert.Error(t, exitErr, "exit should return error when rc.Error > 0")
+}
+
+func Test_Apply_Deleting_InvalidContext_ErrorCountAndExit(t *testing.T) {
+	tmpDir := t.TempDir()
+	invalidContextFile := filepath.Join(tmpDir, "invalid-context.yaml")
+	err := os.WriteFile(invalidContextFile, []byte(`: invalid: yaml: [`), 0o600)
+	require.NoError(t, err)
+
+	cfg := ApplyCommandConfig{
+		PolicyPaths:    []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/policy.yaml"},
+		ResourcePaths:  []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/resource.yaml"},
+		ContextPath:    invalidContextFile,
+		ContinueOnFail: true,
+	}
+	rc, _, _, _, err := cfg.applyCommandHelper(context.TODO(), io.Discard)
+	assert.NoError(t, err, "helper should not return error under continue-on-fail")
+	assert.Greater(t, rc.Error, 0, "rc.Error should be incremented when deleting policy context initialization fails")
+
+	exitErr := exit(io.Discard, rc, 0, false)
+	assert.Error(t, exitErr, "exit should return error when rc.Error > 0")
+}
+
+func Test_Apply_ValidatingPolicy_InvalidContext_ErrorCountAndExit(t *testing.T) {
+	tmpDir := t.TempDir()
+	invalidContextFile := filepath.Join(tmpDir, "invalid-context.yaml")
+	err := os.WriteFile(invalidContextFile, []byte(`: invalid: yaml: [`), 0o600)
+	require.NoError(t, err)
+
+	cfg := ApplyCommandConfig{
+		PolicyPaths:    []string{"../../../../../test/conformance/chainsaw/validating-policies/validation-rules/accept/policy.yaml"},
+		ResourcePaths:  []string{"../../../../../test/conformance/chainsaw/validating-policies/validation-rules/accept/deployment.yaml"},
+		ContextPath:    invalidContextFile,
+		ContinueOnFail: true,
+	}
+	rc, _, _, _, err := cfg.applyCommandHelper(context.TODO(), io.Discard)
+	assert.NoError(t, err, "helper should not return error under continue-on-fail")
+	assert.Greater(t, rc.Error, 0, "rc.Error should be incremented when validating policy context initialization fails")
+
+	exitErr := exit(io.Discard, rc, 0, false)
+	assert.Error(t, exitErr, "exit should return error when rc.Error > 0")
 }
 
 func Test_Apply_DeletingPolicies(t *testing.T) {

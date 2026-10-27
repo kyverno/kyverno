@@ -1,0 +1,156 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: PSA release issues
+
+# Checks each Kubernetes Pod Security Admission (PSA) minor release after the
+# baseline in scripts/psa-release-issues.yaml against the previous minor, and
+# opens one psa-cel-update issue for each release whose upstream changes the
+# PSS CEL policies may need. Patches and pre-releases are skipped. A change
+# that can't be mapped with confidence also gets the needs-manual-review
+# label. See scripts/psa-release-issues.py and
+# docs/dev/psa-release-issues/README.md.
+#
+# Scheduled runs are off until the repository variable PSA_CEL_UPDATE_ISSUES is
+# 'true'. A manual run is a dry run unless you clear dry-run.
+
+on:
+  schedule:
+    # Quarterly, on January, April, July, and October 1 at 06:23 UTC.
+    - cron: '23 6 1 1,4,7,10 *'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Write the issues to the job summary instead of opening them
+        type: boolean
+        default: true
+      tag:
+        description: Check only this minor release tag, for example kubernetes-1.38.0
+        type: string
+        default: ''
+      since:
+        description: Override the baseline tag in scripts/psa-release-issues.yaml
+        type: string
+        default: ''
+      repository:
+        description: For testing, read releases from this PSA fork, such as https://github.com/OWNER/pod-security-admission
+        type: string
+        default: ''
+  pull_request:
+    branches:
+      - main
+    paths:
+      - scripts/psa-release-issues.py
+      - scripts/test-psa-release-issues.py
+      - scripts/psa-release-issues.yaml
+      - .github/workflows/psa-release-issues.yaml
+      # The tests check that the policies and CLI tests the config maps to exist.
+      - charts/kyverno-policies/**
+      - test/cli/test-validating-policy/**
+
+permissions: {}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        run: |
+          set -e
+          python3 -m venv "$RUNNER_TEMP/psa-release"
+          "$RUNNER_TEMP/psa-release/bin/python" -m pip install --disable-pip-version-check PyYAML==6.0.3
+          echo "PSA_PYTHON=$RUNNER_TEMP/psa-release/bin/python" >> "$GITHUB_ENV"
+      - name: Run the tests
+        run: |
+          set -e
+          "$PSA_PYTHON" scripts/test-psa-release-issues.py
+
+  check:
+    name: Check releases
+    needs:
+      - test
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && vars.PSA_CEL_UPDATE_ISSUES == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # One run at a time per repository, whatever the ref, so two runs never
+    # create issues at once. Queued runs wait in order; none is cancelled.
+    concurrency:
+      group: psa-cel-update-issues-${{ github.repository }}
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      issues: write
+    env:
+      # Only a run of the default branch opens issues.
+      DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry-run) || github.ref_name != github.event.repository.default_branch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        run: |
+          set -e
+          python3 -m venv "$RUNNER_TEMP/psa-release"
+          "$RUNNER_TEMP/psa-release/bin/python" -m pip install --disable-pip-version-check PyYAML==6.0.3
+          echo "PSA_PYTHON=$RUNNER_TEMP/psa-release/bin/python" >> "$GITHUB_ENV"
+      - name: Check releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          SINCE: ${{ inputs.since }}
+          # Empty, and so kubernetes/pod-security-admission, unless a manual run sets it.
+          REPOSITORY: ${{ inputs.repository }}
+        run: |
+          args=(--repo "$REPO" --out "$RUNNER_TEMP/psa-release-out")
+          [ "$DRY_RUN" = "true" ] && args+=(--dry-run)
+          [ -n "$TAG" ] && args+=(--tag "$TAG")
+          [ -n "$SINCE" ] && args+=(--since "$SINCE")
+          [ -n "$REPOSITORY" ] && args+=(--repository "$REPOSITORY")
+          rc=0
+          "$PSA_PYTHON" scripts/psa-release-issues.py "${args[@]}" > "$RUNNER_TEMP/psa-release.md" || rc=$?
+          cat "$RUNNER_TEMP/psa-release.md" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" != "0" ]; then
+            echo "::error title=PSA release check failed::Some releases weren't handled (exit code $rc). See the job summary."
+            exit "$rc"
+          fi
+      - name: Upload the issue bodies
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: psa-release-issues
+          path: ${{ runner.temp }}/psa-release-out/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  sync-issue:
+    if: always() && github.event_name == 'schedule' && vars.PSA_CEL_UPDATE_ISSUES == 'true'
+    needs:
+      - test
+      - check
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Sync issue
+        uses: $/.github/actions/workflow/failure-issue
+        with:
+          conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
+          needs: ${{ toJSON(needs) }}
