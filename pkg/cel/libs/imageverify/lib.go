@@ -30,12 +30,17 @@ var evaluationContextType = cel.ObjectType("imageverify.EvaluationContext")
 // EvaluationContext is an opaque receiver for image verification callbacks.
 // Its context is supplied at evaluation time, never retained by compiled bindings.
 type EvaluationContext struct {
-	ctx context.Context //nolint:containedctx
+	ctx    context.Context //nolint:containedctx
+	images imagedataloader.ImageContext
 }
 
 // NewEvaluationContext binds image verification work to the current evaluation.
-func NewEvaluationContext(ctx context.Context) EvaluationContext {
-	return EvaluationContext{ctx: ctx}
+func NewEvaluationContext(ctx context.Context, images ...imagedataloader.ImageContext) EvaluationContext {
+	request := EvaluationContext{ctx: ctx}
+	if len(images) > 0 {
+		request.images = images[0]
+	}
+	return request
 }
 
 type lib struct {
@@ -155,6 +160,9 @@ func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
 					// compiled closure or losing deferred payloads between function calls.
 					callback := *impl
 					callback.requestCtx = request.ctx
+					if request.images != nil {
+						callback.imgCtx = request.images
+					}
 					return fn.call(&callback, args[1:])
 				}))),
 		)

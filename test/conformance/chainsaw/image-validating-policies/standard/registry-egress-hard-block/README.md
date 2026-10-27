@@ -1,7 +1,8 @@
 # ImageValidatingPolicy registry egress proof
 
-This policy calls the ImageValidatingPolicy `getImageData` helper on the Pod's
-first image during validation. The metadata and loopback fixtures must fail
+This policy explicitly extracts regular, init and ephemeral container images into
+the guarded resource image set before validation. It then calls `getImageData`
+for regular container images. The metadata and loopback fixtures must fail
 specifically with `connection blocked to network host`. The unmatched Pod remains
 admissible. No reachable metadata service or private registry is required.
 
@@ -21,8 +22,9 @@ kubectl-kyverno apply policy.yaml --resource unmatched-pod.yaml --policy-report
 
 The first two commands must fail and include the blocked-host error in their policy reports. The last
 must succeed or skip the unmatched policy. The `getImageData` helper uses the
-actual image loader in standalone CLI mode, so these commands exercise the request
-guard without supplying mock image metadata.
+actual image loader in standalone CLI mode. Explicit extractors keep workload
+prefetch guarded even without a request GVR. Author-selected references outside
+the resource image set are intentionally not restricted.
 
 The same three cases can be checked automatically from the repository root:
 

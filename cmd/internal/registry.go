@@ -41,15 +41,8 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 		imagePullSecrets,
 		registryCredentialHelpers, allowInsecureRegistry, registryclient.WithLogger(logger))
 
-	// Guarded policy clients own a separate instance; SDK clients keep their global.
 	guardedregistry.SetupGlobalRegistryClient(ms, config.KyvernoNamespace(), imagePullSecrets, registryCredentialHelpers, allowInsecureRegistry, privateRegistryAllowlist, privateRegistryEgressMode)
 	return registryClient, ms
-}
-
-// setupRegistryEgress preserves the default image lookup credentials without
-// starting Secret informers or enabling registry credential helpers.
-func setupRegistryEgress() {
-	guardedregistry.SetupGlobalRegistryClient(nil, "", "", "", false, privateRegistryAllowlist, privateRegistryEgressMode)
 }
 
 func parseSecretReference(secretRef string, defaultNamespace string) (namespace string, name string) {
@@ -60,6 +53,10 @@ func parseSecretReference(secretRef string, defaultNamespace string) (namespace 
 		return parts[0], parts[1]
 	}
 	return defaultNamespace, secretRef
+}
+
+func setupRegistryEgress() {
+	guardedregistry.SetupGlobalRegistryClient(nil, "", "", "", false, privateRegistryAllowlist, privateRegistryEgressMode)
 }
 
 func validateRegistryClientConfig(allowlist, mode string) error {

@@ -30,7 +30,7 @@
 {{- end -}}
 {{- end -}}
 
-{{/* Registry egress settings also apply to cleanup, without credential flags. */}}
+{{/* Egress settings apply only to workload image registry requests. */}}
 {{- define "kyverno.registryClient.egressFlags" -}}
 {{- include "kyverno.registryClient.validate" . -}}
 {{- $flags := list (print "--privateRegistryEgressMode=" .privateRegistryEgressMode) -}}

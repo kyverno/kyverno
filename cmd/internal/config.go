@@ -96,7 +96,7 @@ func WithRegistryClient() ConfigurationOption {
 	}
 }
 
-// WithRegistryEgress configures image lookup egress without registry credentials
+// WithRegistryEgress configures workload image egress without registry credentials
 // or Secret informers.
 func WithRegistryEgress() ConfigurationOption {
 	return func(c *configuration) {

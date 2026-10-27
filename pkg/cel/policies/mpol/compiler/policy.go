@@ -111,7 +111,7 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 		return false
 	}
 
-	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider)
+	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider, data[compiler.ObjectKey], data[compiler.OldObjectKey])
 	p.appendVariables(ctx, data)
 
 	result, err := p.match(ctx, data, p.matchConditions)
@@ -136,7 +136,7 @@ func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.At
 	if err != nil {
 		return nil, err
 	}
-	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider)
+	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider, data[compiler.ObjectKey], data[compiler.OldObjectKey])
 	p.appendVariables(ctx, data)
 	out, _, err := p.targetExpression.ContextEval(ctx, data)
 	if err != nil {
@@ -189,7 +189,7 @@ func (p *Policy) evaluate(
 		return &EvaluationResult{Error: err}
 	}
 
-	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider)
+	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider, data[compiler.ObjectKey], data[compiler.OldObjectKey])
 
 	allowedImages := make([]string, 0)
 	allowedValues := make([]string, 0)

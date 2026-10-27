@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -18,25 +19,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFetchImageDescriptorBlocksPrivateLiteral(t *testing.T) {
+func TestNativeClientAllowsAuthorChosenLoopback(t *testing.T) {
 	t.Parallel()
-	_, err := New(WithAllowInsecureRegistry(true)).FetchImageDescriptor(
-		context.Background(),
-		"127.0.0.1:5000/example/image:latest",
-	)
-	require.Error(t, err)
-	require.True(t, errors.Is(err, ErrRegistryAddressBlocked), err.Error())
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/vnd.oci.image.manifest.v1+json")
+		_, _ = io.WriteString(writer, `{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json"}`)
+	}))
+	defer server.Close()
+	configured := New(WithAllowInsecureRegistry(true))
+	image := strings.TrimPrefix(server.URL, "http://") + "/example/image:latest"
+	_, err := configured.FetchImageDescriptor(context.Background(), image)
+	require.NoError(t, err)
+	opts, names, err := configured.Options(context.Background())
+	require.NoError(t, err)
+	reference, err := name.ParseReference(image, names...)
+	require.NoError(t, err)
+	_, err = gcrremote.Get(reference, opts...)
+	require.NoError(t, err)
 }
 
 func TestImageVerificationCredentialOptionsBlockPrivateLiteral(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	opts, nameOpts := OptsFromImageVerificationCredentials(ctx, nil, policiesv1alpha1.Credentials{
+	opts, nameOpts := ResourceImageOptionsFromCredentials(nil, policiesv1alpha1.Credentials{
 		AllowInsecureRegistry: true,
 	}, "kyverno")
 	reference, err := name.ParseReference("127.0.0.1:5000/example/image:latest", nameOpts...)
 	require.NoError(t, err)
-	_, err = gcrremote.Get(reference, opts...)
+	_, err = gcrremote.Get(reference, append(opts, gcrremote.WithContext(ctx))...)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, ErrRegistryAddressBlocked), err.Error())
 }
@@ -58,12 +68,11 @@ func TestRegistryClientsShareConnectionPools(t *testing.T) {
 func TestRegistryInvalidConfigFailsBeforeCredentials(t *testing.T) {
 	t.Parallel()
 	inner := &contextKeychain{}
-	c := New(WithPrivateRegistryAllowlist("*.internal"), WithKeychain(inner))
-	_, _, err := c.Options(context.Background())
-	require.Error(t, err)
-	resource, err := name.NewRegistry("8.8.8.8")
+	c := New(WithPrivateRegistryAllowlist("*.internal"), WithKeychain(inner)).(*client)
+	opts, names := c.resourceImageOptions()
+	resource, err := name.ParseReference("8.8.8.8/image:latest", names...)
 	require.NoError(t, err)
-	_, err = c.Keychain().Resolve(resource)
+	_, err = gcrremote.Get(resource, opts...)
 	require.Error(t, err)
 	require.Zero(t, inner.calls)
 }

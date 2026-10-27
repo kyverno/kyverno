@@ -76,6 +76,15 @@ func (f *ivfuncs) requestContext() context.Context {
 	return context.Background()
 }
 
+func (f *ivfuncs) validateResourceImage(ctx context.Context, image string) error {
+	if scoped, ok := f.imgCtx.(interface {
+		ValidateResourceImage(context.Context, string) error
+	}); ok {
+		return scoped.ValidateResourceImage(ctx, image)
+	}
+	return nil
+}
+
 func ImageVerifyCELFuncs(
 	logger logr.Logger,
 	imgCtx imagedataloader.ImageContext,
@@ -113,7 +122,7 @@ func ImageVerifyCELFuncs(
 		creds:                 spec.Credentials,
 		imgRules:              imgRules,
 		attestationList:       attestationMap(ivpol),
-		cosignVerifier:        cosign.NewVerifier(lister, logger),
+		cosignVerifier:        cosign.NewVerifier(lister, logger, authOpts),
 		notaryVerifier:        notary.NewVerifier(logger),
 		ivCache:               ivCache,
 		nameOpts:              nameOpts,
@@ -195,6 +204,9 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			return f.NativeToValue(count)
 		}
 		f.logger.V(4).Info("verifyImageSignatures called", "image", image, "attestorCount", len(attestors))
+		if err := f.validateResourceImage(ctx, image); err != nil {
+			return types.WrapErr(err)
+		}
 
 		// create a rule with the given attestors
 		cacheRule, cacheRuleErr := attestorCacheRule(signatureCacheRule, "", attestors)
@@ -281,6 +293,9 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			return f.NativeToValue(count)
 		}
 		f.logger.V(4).Info("verifyAttestationSignatures called", "image", image, "attestation", attestation, "attestorCount", len(attestors))
+		if err := f.validateResourceImage(ctx, image); err != nil {
+			return types.WrapErr(err)
+		}
 		attest, ok := f.attestationList[attestation]
 		if !ok {
 			return types.NewErr("attestation not found in policy: %s", attestation)

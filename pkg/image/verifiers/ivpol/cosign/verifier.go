@@ -11,9 +11,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
@@ -30,14 +32,20 @@ import (
 )
 
 type Verifier struct {
-	secretLister corev1listers.SecretLister
-	log          logr.Logger
+	secretLister  corev1listers.SecretLister
+	log           logr.Logger
+	authorOptions []remote.Option
 }
 
-func NewVerifier(secretLister corev1listers.SecretLister, logger logr.Logger) *Verifier {
+func NewVerifier(secretLister corev1listers.SecretLister, logger logr.Logger, authorOptions ...[]remote.Option) *Verifier {
+	opts, _ := registryclient.GlobalImageDataOptions()
+	if len(authorOptions) > 0 {
+		opts = authorOptions[0]
+	}
 	return &Verifier{
-		log:          logging.WithName("Cosign"),
-		secretLister: secretLister,
+		log:           logging.WithName("Cosign"),
+		secretLister:  secretLister,
+		authorOptions: opts,
 	}
 }
 
@@ -45,16 +53,17 @@ func NewVerifier(secretLister corev1listers.SecretLister, logger logr.Logger) *V
 // referrers attached to the image, so verification can reuse the same bounded read
 // instead of asking cosign to enumerate referrers again.
 func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attestor *policiesv1beta1.Cosign, image *imagedataloader.ImageData) (*cosign.CheckOpts, []*sgbundle.Bundle, *v1.Hash, error) {
-	cOpts, err := checkOptions(ctx, attestor, image.RemoteOpts(), image.NameOpts(), v.secretLister)
+	opts := image.RemoteOpts()
+	if attestor.Source != nil && attestor.Source.Repository != "" {
+		opts = v.authorOptions
+	}
+	cOpts, err := checkOptions(ctx, attestor, opts, image.NameOpts(), v.secretLister)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	bundles, hash := v.loadBundles(image.NameRef(), cOpts.RegistryClientOpts)
+	bundles, hash := v.loadBundles(verificationReference(image), cOpts.RegistryClientOpts)
 	cOpts.NewBundleFormat = len(bundles) > 0
-	if err := validateBundleTrust(cOpts); err != nil {
-		return nil, nil, nil, err
-	}
 	if cOpts.NewBundleFormat && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
 		cOpts.UseSignedTimestamps = true
 	}
@@ -62,18 +71,11 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 	return cOpts, bundles, hash, nil
 }
 
-func validateBundleTrust(opts *cosign.CheckOpts) error {
-	// PEM keys and certificates remain sufficient for legacy verification.
-	// Modern bundles need trusted-root material for identity, transparency-log,
-	// or timestamp verification; offline public-key verification does not.
-	// Cosign enables SCT verification only without a SigVerifier; its WithKey
-	// policy rejects certificate bundles. IgnoreSCT therefore adds no trust
-	// requirement to the offline public-key case below.
-	if opts.NewBundleFormat && opts.TrustedMaterial == nil &&
-		(opts.SigVerifier == nil || !opts.IgnoreTlog || opts.UseSignedTimestamps) {
-		return fmt.Errorf("modern Sigstore bundle verification requires trusted root material for identity, transparency log, or timestamp verification")
+func verificationReference(image *imagedataloader.ImageData) name.Reference {
+	if reference, err := name.ParseReference(image.ResolvedImage, image.NameOpts()...); err == nil {
+		return reference
 	}
-	return nil
+	return image.NameRef()
 }
 
 // bundleLayerMediaTypePrefix identifies the layer of a cosign v3 sigstore bundle referrer.
@@ -291,7 +293,7 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	if len(bundles) > 0 {
 		sigs, verified, err = verifyBundles(ctx, cOpts, bundles, hash)
 	} else {
-		sigs, verified, err = cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
+		sigs, verified, err = cosign.VerifyImageSignatures(ctx, verificationReference(image), cOpts)
 	}
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
@@ -355,7 +357,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	if len(bundles) > 0 {
 		sigs, verified, err = verifyBundles(ctx, cOpts, bundles, hash)
 	} else {
-		sigs, verified, err = cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
+		sigs, verified, err = cosign.VerifyImageAttestations(ctx, verificationReference(image), cOpts)
 	}
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")

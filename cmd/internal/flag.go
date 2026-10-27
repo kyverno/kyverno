@@ -168,8 +168,8 @@ func initRegistryClientFlags() {
 }
 
 func initRegistryEgressFlags() {
-	flag.StringVar(&privateRegistryAllowlist, "privateRegistryAllowlist", "", "Comma-separated exact hosts, IP addresses, or CIDRs permitted for private registry and signature services in enforce mode. Unsafe addresses remain blocked.")
-	flag.StringVar(&privateRegistryEgressMode, "privateRegistryEgressMode", "audit", "Registry egress policy: audit permits private addresses and logs enforce violations; enforce requires an allowlist. Both modes block metadata and unsafe addresses.")
+	flag.StringVar(&privateRegistryAllowlist, "privateRegistryAllowlist", "", "Comma-separated exact hosts, IP addresses, or CIDRs permitted for workload image registries and their token/redirect destinations in enforce mode. Unsafe addresses remain blocked.")
+	flag.StringVar(&privateRegistryEgressMode, "privateRegistryEgressMode", "audit", "Workload image registry egress policy: audit permits private addresses and logs enforce violations; enforce requires an allowlist. Author-controlled requests are unaffected.")
 }
 
 func initRegistryFlags(config Configuration) {

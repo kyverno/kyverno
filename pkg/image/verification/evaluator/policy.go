@@ -75,7 +75,7 @@ type compiledPolicy struct {
 	attestors            []*variables.CompiledAttestor
 	attestationList      map[string]string
 	auditAnnotations     map[string]cel.Program
-	authOpts             []remote.Option
+	resourceOpts         []remote.Option
 	nameOpts             []name.Option
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
@@ -92,8 +92,12 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if err != nil {
 		return nil, err
 	}
-	data[engine.ImageDataKey] = libs.ImageDataContext(ctx, context)
-	data[imageverify.RequestContextKey] = imageverify.NewEvaluationContext(ctx)
+	data[engine.ImageDataKey] = libs.ImageDataContext(ctx, context, data[engine.ObjectKey], data[engine.OldObjectKey])
+	imagesContext, err := imageverify.NewResourceImageContext(ictx, resourceImageReferences(attr, request), c.resourceOpts, c.nameOpts)
+	if err != nil {
+		return nil, err
+	}
+	data[imageverify.RequestContextKey] = imageverify.NewEvaluationContext(ctx, imagesContext)
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -186,11 +190,16 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 
 	// Prefetch image data through Get() one image at a time to avoid triggering
 	// racy concurrent map writes in the SDK AddImages() implementation.
+	imagesContext, err = imageverify.NewResourceImageContext(imagesContext, imgList, c.resourceOpts, c.nameOpts)
+	if err != nil {
+		return nil, err
+	}
 	for _, image := range imgList {
-		if _, err := ictx.Get(ctx, image, c.authOpts, c.nameOpts); err != nil {
+		if _, err := imagesContext.Get(ctx, image, c.resourceOpts, c.nameOpts); err != nil {
 			return nil, err
 		}
 	}
+	data[imageverify.RequestContextKey] = imageverify.NewEvaluationContext(ctx, imagesContext)
 
 	data[engine.ImagesKey] = filteredImages
 	data[engine.AttestationsKey] = c.attestationList
@@ -325,8 +334,12 @@ func (c *compiledPolicy) MutateDigest(
 	if err != nil {
 		return nil, err
 	}
-	data[engine.ImageDataKey] = libs.ImageDataContext(ctx, c.imageContext)
-	data[imageverify.RequestContextKey] = imageverify.NewEvaluationContext(ctx)
+	data[engine.ImageDataKey] = libs.ImageDataContext(ctx, c.imageContext, data[engine.ObjectKey], data[engine.OldObjectKey])
+	imagesContext, err := imageverify.NewResourceImageContext(ictx, resourceImageReferences(attr, request), c.resourceOpts, c.nameOpts)
+	if err != nil {
+		return nil, err
+	}
+	data[imageverify.RequestContextKey] = imageverify.NewEvaluationContext(ctx, imagesContext)
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -357,6 +370,16 @@ func (c *compiledPolicy) MutateDigest(
 	if err != nil {
 		return nil, err
 	}
+	var resourceImages []string
+	for _, infos := range imagesByCategory {
+		for _, info := range infos {
+			resourceImages = append(resourceImages, info.String())
+		}
+	}
+	imagesContext, err = imageverify.NewResourceImageContext(imagesContext, resourceImages, c.resourceOpts, c.nameOpts)
+	if err != nil {
+		return nil, err
+	}
 
 	var patches []jsonpatch.JsonPatchOperation
 	var errs []error
@@ -372,7 +395,7 @@ func (c *compiledPolicy) MutateDigest(
 			} else if !apply {
 				continue
 			}
-			data, err := ictx.Get(ctx, image, c.authOpts, c.nameOpts)
+			data, err := imagesContext.Get(ctx, image, c.resourceOpts, c.nameOpts)
 			if err != nil {
 				// Record the failure and carry on: an image that cannot be resolved must not
 				// cost the images that can their digest. ClusterPolicy pins each image

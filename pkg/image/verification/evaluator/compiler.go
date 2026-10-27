@@ -80,6 +80,10 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	if spec.Credentials != nil {
 		authOpts, nameOpts = registryclient.ImageDataOptsFromImageVerificationCredentials(c.lister, *spec.Credentials, config.KyvernoNamespace())
 	}
+	resourceOpts, _ := registryclient.ResourceImageOptions()
+	if spec.Credentials != nil {
+		resourceOpts, _ = registryclient.ResourceImageOptionsFromCredentials(c.lister, *spec.Credentials, config.KyvernoNamespace())
+	}
 
 	// keep required failing closed rather than reading from nil
 	if verifications == nil {
@@ -190,7 +194,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		attestors:            compiledAttestors,
 		attestationList:      getAttestations(spec.Attestations),
 		nameOpts:             nameOpts,
-		authOpts:             authOpts,
+		resourceOpts:         resourceOpts,
 		exceptions:           compiledExceptions,
 		variables:            variables,
 		validationConfig:     spec.ValidationConfigurations,

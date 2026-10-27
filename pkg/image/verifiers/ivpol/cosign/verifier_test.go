@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
-	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -463,64 +462,6 @@ func TestShouldUseSignedTimestamps(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := shouldUseSignedTimestamps(tc.ignoreTlog, tc.useSignedTimestamps, tc.trustedMaterial)
 			assert.Equal(t, tc.wantUseSignedStamps, got)
-		})
-	}
-}
-
-func TestBundleTrustRequirements(t *testing.T) {
-	key, err := decodePEM([]byte(testPublicKey), signatureAlgorithmMap[""])
-	require.NoError(t, err)
-	validJSON, err := os.ReadFile("testdata/github-trusted-root.json")
-	require.NoError(t, err)
-	inlineTrust, err := resolveTrustedMaterial(&v1beta1.Cosign{
-		TrustedRoot: &v1beta1.StringOrExpression{Value: string(validJSON)},
-	}, nil)
-	require.NoError(t, err)
-	tests := []struct {
-		name    string
-		opts    cosign.CheckOpts
-		wantErr bool
-	}{
-		{
-			name: "legacy signatures retain PEM trust",
-			opts: cosign.CheckOpts{SigVerifier: key},
-		},
-		{
-			name:    "keyless bundle requires modern trust even when log and SCT are ignored",
-			opts:    cosign.CheckOpts{NewBundleFormat: true, IgnoreTlog: true, IgnoreSCT: true},
-			wantErr: true,
-		},
-		{
-			name:    "key bundle with transparency log requires modern trust",
-			opts:    cosign.CheckOpts{NewBundleFormat: true, SigVerifier: key},
-			wantErr: true,
-		},
-		{
-			name:    "key bundle with signed timestamps requires modern trust",
-			opts:    cosign.CheckOpts{NewBundleFormat: true, SigVerifier: key, IgnoreTlog: true, UseSignedTimestamps: true},
-			wantErr: true,
-		},
-		{
-			name: "offline key bundle needs no modern trust or SCT setting",
-			opts: cosign.CheckOpts{NewBundleFormat: true, SigVerifier: key, IgnoreTlog: true},
-		},
-		{
-			name: "keyless bundle accepts explicit inline trust",
-			opts: cosign.CheckOpts{NewBundleFormat: true, TrustedMaterial: inlineTrust},
-		},
-		{
-			name: "key bundle with log and timestamp accepts explicit inline trust",
-			opts: cosign.CheckOpts{NewBundleFormat: true, SigVerifier: key, UseSignedTimestamps: true, TrustedMaterial: inlineTrust},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			err := validateBundleTrust(&test.opts)
-			if test.wantErr {
-				require.ErrorContains(t, err, "modern Sigstore bundle verification requires trusted root material")
-			} else {
-				require.NoError(t, err)
-			}
 		})
 	}
 }

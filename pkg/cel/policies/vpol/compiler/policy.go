@@ -91,7 +91,7 @@ func (p *Policy) evaluateWithData(
 		compiler.ObjectKey:          data.Object,
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
-		compiler.ImageDataKey:       libs.ImageDataContext(ctx, data.Context),
+		compiler.ImageDataKey:       libs.ImageDataContext(ctx, data.Context, data.Object, data.OldObject),
 	}
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {

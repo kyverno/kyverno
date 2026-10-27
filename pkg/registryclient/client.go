@@ -96,6 +96,7 @@ type client struct {
 	configErr    error
 	imageOptions []gcrremote.Option
 	imageNames   []name.Option
+	sdkOptions   []sdkregistryclient.Option
 }
 
 type sharedEgress struct {
@@ -144,8 +145,7 @@ func (t invalidTransport) RoundTrip(request *http.Request) (*http.Response, erro
 	return nil, t.err
 }
 
-// New creates a registry client with network egress and credential confinement.
-// Invalid programmatic settings fail closed; controllers validate them at startup.
+// New creates a native registry client for policy-author-controlled requests.
 func New(opts ...Option) Client {
 	var config options
 	for _, option := range opts {
@@ -163,47 +163,20 @@ func New(opts ...Option) Client {
 	} else {
 		c.policy, c.transport = shared.policy, shared.transport
 	}
-	sdkOptions := append(config.sdkOptions,
-		sdkregistryclient.WithLogger(logging.GlobalLogger()),
+	c.sdkOptions = append(config.sdkOptions, sdkregistryclient.WithLogger(logging.GlobalLogger()))
+	c.Client = sdkregistryclient.New(c.sdkOptions...)
+	c.imageOptions, c.imageNames = sdkregistryclient.NewRemoteOptions(c.sdkOptions...)
+	return c
+}
+
+func (c *client) resourceImageOptions() ([]gcrremote.Option, []name.Option) {
+	opts := append(slices.Clone(c.sdkOptions),
 		sdkregistryclient.WithTransport(c.transport),
 		sdkregistryclient.WithKeychainWrapper(func(inner authn.Keychain) authn.Keychain {
 			return &guardedKeychain{inner: inner, policy: c.policy, configErr: c.configErr}
 		}),
 	)
-	c.Client = sdkregistryclient.New(sdkOptions...)
-	c.imageOptions, c.imageNames = sdkregistryclient.NewRemoteOptions(sdkOptions...)
-	return c
-}
-
-// EgressTransport shares the configured network guard with Sigstore HTTP clients.
-// It carries no registry credentials and never mutates http.DefaultTransport.
-func EgressTransport() http.RoundTripper {
-	if configured, ok := globalClient.(*client); ok {
-		return configured.transport
-	}
-	shared, err := sharedTransport(egress.Config{})
-	if err != nil {
-		return invalidTransport{err: err}
-	}
-	return shared.transport
-}
-
-// GuardKeychain applies the process egress policy to additional credential sources,
-// such as a policy's separate signature repository credentials.
-func GuardKeychain(inner authn.Keychain) authn.Keychain {
-	if configured, ok := globalClient.(*client); ok {
-		return &guardedKeychain{inner: inner, policy: configured.policy, configErr: configured.configErr}
-	}
-	shared, err := sharedTransport(egress.Config{})
-	if err != nil {
-		return &guardedKeychain{inner: inner, configErr: err}
-	}
-	return &guardedKeychain{inner: inner, policy: shared.policy}
-}
-
-// EgressHTTPClient guards each request, including redirects, with bounded latency.
-func EgressHTTPClient() *http.Client {
-	return &http.Client{Transport: EgressTransport(), Timeout: 30 * time.Second}
+	return sdkregistryclient.NewRemoteOptions(opts...)
 }
 
 type guardedKeychain struct {
@@ -243,14 +216,6 @@ func (c *client) optionsWithoutPuller(ctx context.Context) ([]gcrremote.Option, 
 	return append(opts, gcrremote.WithContext(ctx)), names
 }
 
-// Options returns go-containerregistry options for this client.
-func (c *client) Options(ctx context.Context) ([]gcrremote.Option, []name.Option, error) {
-	if c.configErr != nil {
-		return nil, nil, c.configErr
-	}
-	return c.Client.Options(ctx)
-}
-
 // NewSecretsKeychain delegates request-aware, refreshable credential resolution
 // to the SDK. Policy namespace authorization stays with the supplied lister.
 func NewSecretsKeychain(lister corev1listers.SecretLister, namespace string, references ...string) authn.Keychain {
@@ -262,7 +227,7 @@ var (
 	globalOnce   sync.Once
 )
 
-// SetupGlobalRegistryClient initializes the process-wide guarded registry client.
+// SetupGlobalRegistryClient initializes native clients and workload egress settings.
 func SetupGlobalRegistryClient(
 	secretLister corev1listers.SecretLister,
 	defaultNamespace string,
@@ -296,7 +261,7 @@ func SetupGlobalRegistryClient(
 	return globalClient
 }
 
-// GlobalOptsOrDefault returns guarded options from the global client or secure defaults.
+// GlobalOptsOrDefault returns native options for policy-author-controlled requests.
 func GlobalOptsOrDefault(ctx context.Context) ([]gcrremote.Option, []name.Option) {
 	if configured, ok := globalClient.(*client); ok {
 		return configured.optionsWithoutPuller(ctx)
@@ -313,13 +278,49 @@ func GlobalImageDataOptions() ([]gcrremote.Option, []name.Option) {
 	return New().(*client).imageDataOptions()
 }
 
+// ResourceImageOptions returns guarded options only for workload-origin images.
+// It never reuses a native SDK puller or pusher.
+func ResourceImageOptions() ([]gcrremote.Option, []name.Option) {
+	if configured, ok := globalClient.(*client); ok {
+		return configured.resourceImageOptions()
+	}
+	return New().(*client).resourceImageOptions()
+}
+
+// ResourceImageOptionsFromCredentials confines workload image credentials and requests.
+func ResourceImageOptionsFromCredentials(lister corev1listers.SecretLister, credentials policiesv1alpha1.Credentials, namespace string) ([]gcrremote.Option, []name.Option) {
+	return imageVerificationClient(lister, credentials, namespace).resourceImageOptions()
+}
+
+// ValidateResourceImage checks workload destinations before image or verification cache reads.
+func ValidateResourceImage(ctx context.Context, image string, names ...name.Option) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	configured, ok := globalClient.(*client)
+	if !ok {
+		configured = New().(*client)
+	}
+	if configured.configErr != nil {
+		return configured.configErr
+	}
+	ref, err := name.ParseReference(image, names...)
+	if err != nil {
+		return err
+	}
+	validationCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	_, err = configured.policy.ResolveAndValidate(validationCtx, ref.Context().RegistryStr())
+	return err
+}
+
 // ImageDataOptsFromImageVerificationCredentials keeps credentials refreshable and
 // lets the image data loader bind each request's cancellation and deadline.
 func ImageDataOptsFromImageVerificationCredentials(lister corev1listers.SecretLister, credentials policiesv1alpha1.Credentials, defaultNamespace string) ([]gcrremote.Option, []name.Option) {
 	return imageVerificationClient(lister, credentials, defaultNamespace).imageDataOptions()
 }
 
-// OptsFromImageVerificationCredentials builds guarded registry options for
+// OptsFromImageVerificationCredentials builds native registry options for
 // credentials embedded in an ImageValidatingPolicy.
 func OptsFromImageVerificationCredentials(
 	ctx context.Context,
