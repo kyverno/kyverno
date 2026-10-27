@@ -5,4 +5,4 @@ metadata:
 spec:
   containers:
   - name: test-container
-    (starts_with(image, 'ghcr.io/vishal-chdhry/artifact-attestation-example:artifact-attestation@sha256:')): true
+    image: ghcr.io/vishal-chdhry/artifact-attestation-example@sha256:efa668a830d52350a94f2d8a759b51780b171fcdaa95d637cc4779f949012b45
