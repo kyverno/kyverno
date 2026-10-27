@@ -1195,6 +1195,9 @@ class RetryAndGates(unittest.TestCase):
                 self.assertRegex(f"{prefix}release-publish.yaml@{ref}", identity)
                 self.assertRegex(f"{prefix}release-publish.yaml@{ref}", blob)
             for url in (
+                f"{prefix}release-publish.yaml@refs/tags/v1.20.2",
+                f"{prefix}release-publish.yaml@refs/tags/v1.20.2-rc.30",
+                f"{prefix}release-publish.yaml@refs/tags/v1x20x2-rcx3",
                 f"{prefix}release-publish.yaml@{'b' * 40}",
                 f"{prefix}arbitrary.yaml@{SHA}",
                 f"{prefix}release-publish.yaml@refs/heads/untrusted-feature",

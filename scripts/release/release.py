@@ -532,7 +532,7 @@ def workflow_identity(metadata, workflows=("release", "prepare-release", "releas
     return (
         rf"^https://github\.com/{re.escape(os.environ['GH_REPO'])}/\.github/workflows/"
         rf"({'|'.join(workflows)})\.yaml@"
-        rf"(refs/(tags/v.*|heads/(main|release-[0-9]+\.[0-9]+))|{re.escape(metadata['sha'])})$"
+        rf"(refs/(tags/{re.escape(metadata['tag'])}|heads/(main|release-[0-9]+\.[0-9]+))|{re.escape(metadata['sha'])})$"
     )
 
 
