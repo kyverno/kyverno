@@ -1198,6 +1198,42 @@ func TestPrintTestResultExcludedResources(t *testing.T) {
 			wantSkip: 1,
 			wantFail: 0,
 		},
+		{
+			name:     "unqualified policy excludes a namespaced trigger response",
+			policy:   "same-name",
+			resource: "test",
+			result:   openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Pod,default,test": {
+					engineapi.NewEngineResponse(
+						unstructured.Unstructured{},
+						engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+							ObjectMeta: metav1.ObjectMeta{Name: "same-name", Namespace: "test-ns"},
+						}),
+						nil,
+					),
+				},
+			},
+			wantFail: 1,
+		},
+		{
+			name:     "qualified policy accepts its namespaced trigger response",
+			policy:   "test-ns/same-name",
+			resource: "test",
+			result:   openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Pod,default,test": {
+					engineapi.NewEngineResponse(
+						unstructured.Unstructured{},
+						engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+							ObjectMeta: metav1.ObjectMeta{Name: "same-name", Namespace: "test-ns"},
+						}),
+						nil,
+					),
+				},
+			},
+			wantSkip: 1,
+		},
 	}
 
 	for _, tt := range tests {

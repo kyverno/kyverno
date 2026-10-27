@@ -3,6 +3,7 @@ package admissionpolicygenerator
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -173,6 +174,33 @@ func TestHandleMAPGeneration_JSONModeDeleteFailure(t *testing.T) {
 type failingMAPIndexer struct {
 	cache.Indexer
 	err error
+}
+
+func TestHandleMAPGeneration_JSONTransitionWithoutListers(t *testing.T) {
+	t.Parallel()
+	for _, generate := range []bool{false, true} {
+		t.Run(fmt.Sprint(generate), func(t *testing.T) {
+			t.Parallel()
+			mpol := &policiesv1beta1.MutatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "json-policy"},
+				Spec: policiesv1beta1.MutatingPolicySpec{
+					EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+				},
+				Status: policiesv1beta1.MutatingPolicyStatus{Generated: true},
+			}
+			if generate {
+				mpol.Spec.AutogenConfiguration = mapGenEnabled()
+			}
+			kyvernoClient := versionedfake.NewSimpleClientset(mpol)
+			c := &controller{kyvernoClient: kyvernoClient}
+			err := c.handleMAPGeneration(context.Background(), mpol)
+			require.ErrorContains(t, err, "cannot clean up generated MutatingAdmissionPolicy")
+			require.Empty(t, kyvernoClient.Actions(), "missing informers must not clear generated status")
+			updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(context.Background(), mpol.Name, metav1.GetOptions{})
+			require.NoError(t, err)
+			require.True(t, updated.Status.Generated)
+		})
+	}
 }
 
 func (i failingMAPIndexer) GetByKey(string) (interface{}, bool, error) {

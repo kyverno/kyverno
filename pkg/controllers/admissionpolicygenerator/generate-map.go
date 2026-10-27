@@ -35,6 +35,9 @@ func (c *controller) preferredMAPVersion() (admissionpolicy.MutatingAdmissionPol
 func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy) error {
 	version, ok := c.preferredMAPVersion()
 	if !ok {
+		if celpolicies.IsJSONMutatingPolicy(mpol) && mpol.Status.Generated {
+			return fmt.Errorf("cannot clean up generated MutatingAdmissionPolicy for JSON policy %s: no MutatingAdmissionPolicy API/informers are available", mpol.GetName())
+		}
 		logger.V(2).Info("No MutatingAdmissionPolicy lister available, skipping MAP generation", "policy", mpol.GetName())
 		if mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
 			genericPolicy := engineapi.NewMutatingPolicy(mpol)

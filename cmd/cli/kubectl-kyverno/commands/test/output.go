@@ -263,7 +263,7 @@ func printTestResult(
 					if response.Policy().GetName() != policyName {
 						continue
 					}
-					if policyNamespace != "" && response.Policy().GetNamespace() != policyNamespace {
+					if response.Policy().GetNamespace() != policyNamespace {
 						continue
 					}
 
