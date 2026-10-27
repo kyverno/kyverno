@@ -84,6 +84,54 @@ func TestJSONMutationTestRollback(t *testing.T) {
 	require.Equal(t, string(document.Raw), string(processor.JSONPatchedDocuments["transform"].Raw))
 }
 
+func TestJSONMutationReusesCompiledEngine(t *testing.T) {
+	t.Parallel()
+	policy := jsonMutationPolicy(t, `[JSONPatch{op: "replace", path: "", value: [object]}]`)
+	kubernetesPolicy := policy.DeepCopy()
+	kubernetesPolicy.Name = "kubernetes"
+	kubernetesPolicy.Spec.EvaluationConfiguration = nil
+	policies := []policiesv1beta1.MutatingPolicyLike{policy, kubernetesPolicy}
+	engine, err := NewJSONMutationEngine(policies, nil)
+	require.NoError(t, err)
+	// The compiled engine must not re-read expressions while evaluating a batch.
+	policy.Spec.Mutations[0].JSONPatch.Expression = "invalid("
+	for _, input := range []string{`{"id":9007199254740993}`, `[1,null]`, `null`} {
+		document := &payload.Document{Name: "input.json", Raw: json.RawMessage(input)}
+		processor := PolicyProcessor{
+			JSONDocument: document, JSONEngine: engine, MutatingPolicies: policies,
+			Rc: &ResultCounts{}, Out: io.Discard,
+		}
+		responses, err := processor.ApplyPoliciesOnResource()
+		require.NoError(t, err)
+		require.Equal(t, "["+input+"]", string(document.Raw))
+		require.Equal(t, 1, processor.Rc.Pass)
+		require.Equal(t, 1, processor.Rc.Skip)
+		require.Len(t, responses, 2)
+		require.Equal(t, string(document.Raw), string(processor.JSONPatchedDocuments["transform"].Raw))
+	}
+}
+
+func TestJSONMutationReusesCompilationError(t *testing.T) {
+	t.Parallel()
+	policy := jsonMutationPolicy(t, "invalid(")
+	policies := []policiesv1beta1.MutatingPolicyLike{policy}
+	engine, compileErr := NewJSONMutationEngine(policies, nil)
+	require.Error(t, compileErr)
+	policy.Spec.Mutations[0].JSONPatch.Expression = `[JSONPatch{op: "replace", path: "", value: true}]`
+	for range 2 {
+		document := &payload.Document{Name: "input.json", Raw: json.RawMessage(`null`)}
+		processor := PolicyProcessor{
+			JSONDocument: document, JSONEngine: engine, JSONEngineErr: compileErr,
+			MutatingPolicies: policies, Rc: &ResultCounts{}, Out: io.Discard,
+		}
+		_, err := processor.ApplyPoliciesOnResource()
+		require.ErrorIs(t, err, compileErr)
+		require.Equal(t, "null", string(document.Raw))
+		require.Equal(t, 1, processor.Rc.Error)
+		require.Empty(t, processor.JSONPatchedDocuments)
+	}
+}
+
 func TestJSONMutationValidationRequiresObjectRoot(t *testing.T) {
 	t.Parallel()
 	var validation policiesv1beta1.ValidatingPolicy

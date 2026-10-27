@@ -11,6 +11,7 @@ import (
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -104,6 +105,21 @@ func TestJSONEngineSequential(t *testing.T) {
 	require.Equal(t, `{"count":3,"result":6}`, compactJSON(t, response.Document))
 	require.Equal(t, map[string]string{"count": "3"}, response.Policies[0].AuditAnnotations)
 	require.Equal(t, "z-first", response.Policies[0].Policy)
+}
+
+func TestJSONEnginePreservesRequestBudget(t *testing.T) {
+	t.Parallel()
+	engine, err := NewJSONEngine([]policiesv1beta1.MutatingPolicyLike{
+		jsonMutationPolicy("test", `[JSONPatch{op:"add",path:"/ok",value:true}]`),
+	}, nil)
+	require.NoError(t, err)
+	ctx, _ := requestbudget.Ensure(context.Background())
+	require.ErrorIs(t, requestbudget.Charge(ctx, ^uint64(0)), requestbudget.ErrBudgetExceeded)
+
+	response, err := engine.HandleJSON(ctx, json.RawMessage(`{}`))
+	require.ErrorIs(t, err, requestbudget.ErrBudgetExceeded)
+	require.Nil(t, response.Document)
+	require.Equal(t, JSONPolicyError, response.Policies[0].Status)
 }
 
 func TestJSONEnginePerPolicyDocuments(t *testing.T) {

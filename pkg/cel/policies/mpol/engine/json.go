@@ -9,6 +9,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 )
 
 type JSONPolicyStatus string
@@ -86,6 +87,7 @@ func NewJSONEngine(policies []policiesv1beta1.MutatingPolicyLike, exceptions []*
 // HandleJSON accepts exactly one JSON value, including arrays, scalars and null.
 // On any error Document is absent: callers must not consume partial mutations.
 func (e *JSONEngine) HandleJSON(ctx context.Context, document json.RawMessage) (JSONResponse, error) {
+	ctx, _ = requestbudget.Ensure(ctx)
 	var response JSONResponse
 	if err := ctx.Err(); err != nil {
 		return response, err

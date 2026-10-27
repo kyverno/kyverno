@@ -13,6 +13,17 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
+// NewJSONMutationEngine compiles the JSON-mode subset once for an apply/test batch.
+func NewJSONMutationEngine(policies []policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*mpolengine.JSONEngine, error) {
+	var jsonPolicies []policiesv1beta1.MutatingPolicyLike
+	for _, policy := range policies {
+		if celpolicies.IsJSONMutatingPolicy(policy) {
+			jsonPolicies = append(jsonPolicies, policy)
+		}
+	}
+	return mpolengine.NewJSONEngine(jsonPolicies, exceptions)
+}
+
 func (p *PolicyProcessor) applyPoliciesOnJSON(ctx context.Context) ([]engineapi.EngineResponse, error) {
 	if p.Out == nil {
 		p.Out = io.Discard
@@ -23,7 +34,6 @@ func (p *PolicyProcessor) applyPoliciesOnJSON(ctx context.Context) ([]engineapi.
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	var policies []policiesv1beta1.MutatingPolicyLike
 	byName := make(map[string]policiesv1beta1.MutatingPolicyLike)
 	var responses []engineapi.EngineResponse
 	p.JSONPatchedDocuments = make(map[string]*payload.Document)
@@ -39,7 +49,6 @@ func (p *PolicyProcessor) applyPoliciesOnJSON(ctx context.Context) ([]engineapi.
 			continue
 		}
 
-		policies = append(policies, policy)
 		key := mpolengine.PolicyKey(policy)
 		if byName[key] != nil {
 			p.Rc.IncrementError(1)
@@ -47,7 +56,10 @@ func (p *PolicyProcessor) applyPoliciesOnJSON(ctx context.Context) ([]engineapi.
 		}
 		byName[key] = policy
 	}
-	eng, err := mpolengine.NewJSONEngine(policies, p.CELExceptions)
+	eng, err := p.JSONEngine, p.JSONEngineErr
+	if eng == nil && err == nil {
+		eng, err = NewJSONMutationEngine(p.MutatingPolicies, p.CELExceptions)
+	}
 	if err != nil {
 		p.Rc.IncrementError(1)
 		return responses, err

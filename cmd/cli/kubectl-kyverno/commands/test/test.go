@@ -37,6 +37,7 @@ import (
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -562,6 +563,11 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	// arbitrary JSON objects (not full Kubernetes resources) and are evaluated
 	// without an explicit operation. Results are stored under the payload's
 	// file name in testResponse.Trigger.
+	var jsonEngine *mpolengine.JSONEngine
+	var jsonEngineErr error
+	if len(jsonPayloads) > 0 {
+		jsonEngine, jsonEngineErr = processor.NewJSONMutationEngine(results.MutatingPolicies, polexLoader.CELExceptions)
+	}
 	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
 			Store:                             &store,
@@ -574,6 +580,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			ValidatingPolicies:                results.ValidatingPolicies,
 			TargetResources:                   targetResources,
 			JSONDocument:                      jp,
+			JSONEngine:                        jsonEngine,
+			JSONEngineErr:                     jsonEngineErr,
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,

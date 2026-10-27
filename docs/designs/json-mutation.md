@@ -183,8 +183,9 @@ Initial core limits:
 - One JSON value per invocation; input and each intermediate document are at most
   1 MiB.
 - At most 1,024 patch operations per policy, across all its mutations.
-- Each CEL program uses Kubernetes' runtime CEL cost ceiling and context
-  interruption checks. This is a per-expression budget, not a request-wide SLA.
+- Each CEL program uses Kyverno's shared cost limits and context interruption
+  checks. The engine shares a request-wide cost budget across all policies and
+  preserves a budget supplied by its caller; this is not a wall-clock SLA.
 - Patch-value conversion has a size/node budget; patch serialization and output
   growth are checked. Copy operations have a per-call size-growth limit.
 

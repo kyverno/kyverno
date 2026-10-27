@@ -111,6 +111,8 @@ type PolicyProcessor struct {
 	VpolJSONProviderErr  error
 	MpolProvider         mpolengine.Provider
 	MpolProviderErr      error
+	JSONEngine           *mpolengine.JSONEngine
+	JSONEngineErr        error
 	// Explain compiles validating and mutating policies with tracing on and prints, for each
 	// policy, how it arrived at its result (scope, match conditions, variables, the validations
 	// or mutations it ran, and verdict).

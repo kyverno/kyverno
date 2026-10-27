@@ -790,6 +790,11 @@ func (c *ApplyCommandConfig) applyPolicies(
 		}
 		responses = append(responses, ers...)
 	}
+	var jsonEngine *mpolengine.JSONEngine
+	var jsonEngineErr error
+	if len(jsonPayloads) > 0 {
+		jsonEngine, jsonEngineErr = processor.NewJSONMutationEngine(mpols, celExceptions)
+	}
 	for _, resource := range jsonPayloads {
 		processor := processor.PolicyProcessor{
 			Store:                             store,
@@ -800,6 +805,8 @@ func (c *ApplyCommandConfig) applyPolicies(
 			MutatingAdmissionPolicies:         maps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
 			JSONDocument:                      resource,
+			JSONEngine:                        jsonEngine,
+			JSONEngineErr:                     jsonEngineErr,
 			CELExceptions:                     celExceptions,
 			MutateLogPath:                     c.MutateLogPath,
 			MutateLogPathIsDir:                mutateLogPathIsDir,

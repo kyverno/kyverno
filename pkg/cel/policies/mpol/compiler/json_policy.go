@@ -22,7 +22,6 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"k8s.io/apiserver/pkg/cel/common"
 	"k8s.io/apiserver/pkg/cel/library"
 	"k8s.io/apiserver/pkg/cel/mutation"
@@ -135,7 +134,7 @@ func CompileJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*polici
 		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
 		cel.Variable(celcompiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 	)
-	env, err := cel.NewEnv(opts...)
+	env, err := celcompiler.NewEnv(opts...)
 	if err != nil {
 		return nil, field.ErrorList{field.InternalError(path, err)}
 	}
@@ -155,7 +154,7 @@ func CompileJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*polici
 		if issues.Err() != nil {
 			return nil, field.ErrorList{field.Invalid(vpath.Child("expression"), variable.Expression, issues.Err().Error())}
 		}
-		program, err := newJSONProgram(env, ast)
+		program, err := celcompiler.NewProgram(env, ast)
 		if err != nil {
 			return nil, field.ErrorList{field.InternalError(vpath, err)}
 		}
@@ -176,7 +175,7 @@ func CompileJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*polici
 			errs = append(errs, field.Invalid(path, expression, fmt.Sprintf("unexpected output type %s", ast.OutputType())))
 			return nil
 		}
-		program, err := newJSONProgram(env, ast)
+		program, err := celcompiler.NewProgram(env, ast)
 		if err != nil {
 			errs = append(errs, field.InternalError(path, err))
 		}
@@ -207,10 +206,6 @@ func CompileJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*polici
 		return nil, errs
 	}
 	return result, nil
-}
-
-func newJSONProgram(env *cel.Env, ast *cel.Ast) (cel.Program, error) {
-	return env.Program(ast, cel.CostLimit(uint64(celconfig.RuntimeCELCostBudget)), cel.InterruptCheckFrequency(100))
 }
 
 // EvaluateJSON returns no document on error and never mutates the caller's input.
