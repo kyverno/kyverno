@@ -5,7 +5,17 @@ name: Conformance tests
 permissions: {}
 
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      release-candidate:
+        type: boolean
+        default: false
+      release-sha:
+        type: string
+        default: ""
+
+env:
+  RELEASE_CANDIDATE: ${{ inputs.release-candidate }}
 
 jobs:
   kubernetes-matrix:
@@ -20,6 +30,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -38,6 +51,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -57,6 +73,9 @@ jobs:
         shard-index: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -77,6 +96,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -95,6 +117,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -113,6 +138,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -131,6 +159,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.beta-versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -151,6 +182,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.stable-versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -170,6 +204,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -189,6 +226,9 @@ jobs:
         shard-index: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -211,6 +251,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -230,6 +273,9 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -250,6 +296,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -269,6 +318,9 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -289,6 +341,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.beta-versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -308,6 +363,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.stable-versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -327,6 +385,9 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -347,6 +408,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -366,6 +430,9 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -387,6 +454,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -405,6 +475,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -424,6 +497,9 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -444,6 +520,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -463,6 +542,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -482,6 +564,9 @@ jobs:
         shard-index: [0, 1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -502,6 +587,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -520,6 +608,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -539,6 +630,9 @@ jobs:
         shard-index: [0, 1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -559,6 +653,9 @@ jobs:
         k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -574,10 +671,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.smoke-versions) }}
+        k8s-version: ${{ fromJSON(inputs.release-candidate && needs.kubernetes-matrix.outputs.versions || needs.kubernetes-matrix.outputs.smoke-versions) }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -624,10 +724,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.smoke-versions) }}
+        k8s-version: ${{ fromJSON(inputs.release-candidate && needs.kubernetes-matrix.outputs.versions || needs.kubernetes-matrix.outputs.smoke-versions) }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
+      - if: inputs.release-candidate
+        uses: ./.github/actions/release/restore
       # install tools
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -659,7 +764,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw/cli && chainsaw test --config .chainsaw.yaml
+          mkdir -p "$GITHUB_WORKSPACE/release-reports"
+          cd ./test/conformance/chainsaw/cli
+          chainsaw test --config .chainsaw.yaml --report-format JSON --report-path "$GITHUB_WORKSPACE/release-reports" --report-name cli
+      - name: Retain CLI conformance test results
+        if: always() && inputs.release-candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-conformance-cli-${{ matrix.k8s-version }}-${{ github.run_attempt }}
+          path: release-reports
+          retention-days: 90
 
   helm-tests:
     needs: kubernetes-matrix
@@ -671,6 +785,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -747,6 +864,9 @@ jobs:
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -793,6 +913,9 @@ jobs:
         kyverno-version: ["3.6"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - name: Install helm
         uses: ./.github/actions/tools/helm
       # create cluster
@@ -845,10 +968,13 @@ jobs:
         # rollback behavior this job exercises are k8s-version-independent,
         # and version skew is already covered by the helm-upgrade and
         # conformance matrices above. Kept as a one-element matrix so
-        # widening it later is a one-line change.
-        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.smoke-versions) }}
+        # widening it later is a one-line change. Releases always run the full matrix.
+        k8s-version: ${{ fromJSON(inputs.release-candidate && needs.kubernetes-matrix.outputs.versions || needs.kubernetes-matrix.outputs.smoke-versions) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -889,7 +1015,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.smoke-versions) }}
+        k8s-version: ${{ fromJSON(inputs.release-candidate && needs.kubernetes-matrix.outputs.versions || needs.kubernetes-matrix.outputs.smoke-versions) }}
         key-algorithm:
           - name: rsa
             test-dir: rsa-cert-manager
@@ -900,6 +1026,9 @@ jobs:
     name: ${{ matrix.k8s-version }} - cert-manager ${{ matrix.key-algorithm.name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -917,7 +1046,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.smoke-versions) }}
+        k8s-version: ${{ fromJSON(inputs.release-candidate && needs.kubernetes-matrix.outputs.versions || needs.kubernetes-matrix.outputs.smoke-versions) }}
         key-algorithm:
           - name: ecdsa
             test-dir: ecdsa-self-signed
@@ -928,6 +1057,9 @@ jobs:
     name: ${{ matrix.k8s-version }} - self-signed ${{ matrix.key-algorithm.name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
