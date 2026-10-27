@@ -511,6 +511,10 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 		return err
 	}
 	defaultValidatingWebhooks(desired.Webhooks)
+	if len(desired.Webhooks) == 0 {
+		// the API server omits an empty list, so the stored configuration holds nil
+		desired.Webhooks = nil
+	}
 	observed, err := c.vwcLister.Get(desired.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -554,6 +558,10 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 		return err
 	}
 	defaultMutatingWebhooks(desired.Webhooks)
+	if len(desired.Webhooks) == 0 {
+		// the API server omits an empty list, so the stored configuration holds nil
+		desired.Webhooks = nil
+	}
 	observed, err := c.mwcLister.Get(desired.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {

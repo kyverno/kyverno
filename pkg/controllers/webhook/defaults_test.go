@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -270,6 +271,93 @@ func TestReconcileWebhookConfigurationDefaults(t *testing.T) {
 	}
 }
 
+// newTestIndexer returns an indexer holding objs.
+func newTestIndexer(t *testing.T, objs ...any) cache.Indexer {
+	t.Helper()
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	for _, obj := range objs {
+		require.NoError(t, indexer.Add(obj))
+	}
+	return indexer
+}
+
+// newResourceWebhookTestController returns a controller that can run the complete
+// resource webhook builders with the given ValidatingPolicies and MutatingPolicies.
+func newResourceWebhookTestController(t *testing.T, client *fake.Clientset, webhooks cache.Indexer, vpols, mpols []any) *controller {
+	t.Helper()
+	return &controller{
+		autoUpdateWebhooks: true,
+		configuration:      config.NewDefaultConfiguration(false),
+		caSecretName:       "root-ca",
+		secretLister: corev1listers.NewSecretLister(newTestIndexer(t, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "root-ca", Namespace: config.KyvernoNamespace()},
+			Data:       map[string][]byte{corev1.TLSCertKey: []byte("ca")},
+		})),
+		leaseLister: coordinationv1listers.NewLeaseLister(newTestIndexer(t, &coordinationv1.Lease{ObjectMeta: metav1.ObjectMeta{
+			Name: "kyverno-health", Namespace: config.KyvernoNamespace(),
+			Annotations: map[string]string{AnnotationLastRequestTime: time.Now().Format(time.RFC3339)},
+		}})),
+		clusterroleLister:  rbacv1listers.NewClusterRoleLister(newTestIndexer(t)),
+		vpolLister:         policiesv1beta1listers.NewValidatingPolicyLister(newTestIndexer(t, vpols...)),
+		mpolLister:         policiesv1beta1listers.NewMutatingPolicyLister(newTestIndexer(t, mpols...)),
+		nvpolLister:        policiesv1beta1listers.NewNamespacedValidatingPolicyLister(newTestIndexer(t)),
+		gpolLister:         policiesv1beta1listers.NewGeneratingPolicyLister(newTestIndexer(t)),
+		ngpolLister:        policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(newTestIndexer(t)),
+		ivpolLister:        policiesv1beta1listers.NewImageValidatingPolicyLister(newTestIndexer(t)),
+		nivpolLister:       policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(newTestIndexer(t)),
+		nmpolLister:        policiesv1beta1listers.NewNamespacedMutatingPolicyLister(newTestIndexer(t)),
+		vwcLister:          admissionregistrationv1listers.NewValidatingWebhookConfigurationLister(webhooks),
+		mwcLister:          admissionregistrationv1listers.NewMutatingWebhookConfigurationLister(webhooks),
+		vwcClient:          client.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		mwcClient:          client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
+		stateRecorder:      NewStateRecorder(nil),
+		celExpressionCache: NewExpressionCache(),
+	}
+}
+
+// TestReconcileResourceWebhooksWithoutPolicies runs the complete resource builders
+// without any policy. The mutating configuration then has no webhooks, and the API
+// server stores that empty list as an omitted field, so later watchdog ticks must
+// compare it as equal instead of updating the configuration every time.
+func TestReconcileResourceWebhooksWithoutPolicies(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []string{"validating", "mutating"} {
+		t.Run(kind, func(t *testing.T) {
+			t.Parallel()
+			client := fake.NewSimpleClientset()
+			webhooks := newTestIndexer(t)
+			c := newResourceWebhookTestController(t, client, webhooks, nil, nil)
+			reconcile := c.reconcileResourceValidatingWebhookConfiguration
+			if kind == "mutating" {
+				reconcile = c.reconcileResourceMutatingWebhookConfiguration
+			}
+			require.NoError(t, reconcile(t.Context()))
+			actions := client.Actions()
+			require.Len(t, actions, 1)
+			require.Equal(t, "create", actions[0].GetVerb())
+			written := actions[0].(clienttesting.CreateAction).GetObject()
+
+			// Store the write as the API server returns it, after its JSON round trip.
+			data, err := json.Marshal(written)
+			require.NoError(t, err)
+			var stored runtime.Object = &admissionregistrationv1.ValidatingWebhookConfiguration{}
+			if kind == "mutating" {
+				stored = &admissionregistrationv1.MutatingWebhookConfiguration{}
+			}
+			require.NoError(t, json.Unmarshal(data, stored))
+			if obj, ok := stored.(*admissionregistrationv1.MutatingWebhookConfiguration); ok {
+				require.Nil(t, obj.Webhooks, "an empty webhook list is not stored")
+			}
+			require.NoError(t, webhooks.Add(stored))
+			client.ClearActions()
+			for range 3 {
+				require.NoError(t, reconcile(t.Context()))
+			}
+			require.Empty(t, client.Actions(), "subsequent watchdog ticks must not send updates")
+		})
+	}
+}
+
 // TestReconcileResourceWebhooksWithOmittedRuleScope runs the complete resource
 // builders for CEL policies whose otherwise identical rules differ only in an
 // omitted versus explicit scope. Both must reconcile without panicking, collapse
@@ -286,55 +374,20 @@ func TestReconcileResourceWebhooksWithOmittedRuleScope(t *testing.T) {
 			},
 		}}}
 	}
-	newIndexer := func(objs ...any) cache.Indexer {
-		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-		for _, obj := range objs {
-			require.NoError(t, indexer.Add(obj))
-		}
-		return indexer
+	vpols := []any{
+		&policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "omitted-scope"}, Spec: policiesv1beta1.ValidatingPolicySpec{MatchConstraints: rule(nil)}},
+		&policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "explicit-scope"}, Spec: policiesv1beta1.ValidatingPolicySpec{MatchConstraints: rule(ptr.To(admissionregistrationv1.AllScopes))}},
 	}
-	newController := func(t *testing.T, client *fake.Clientset, webhooks cache.Indexer) *controller {
-		return &controller{
-			autoUpdateWebhooks: true,
-			configuration:      config.NewDefaultConfiguration(false),
-			caSecretName:       "root-ca",
-			secretLister: corev1listers.NewSecretLister(newIndexer(&corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Name: "root-ca", Namespace: config.KyvernoNamespace()},
-				Data:       map[string][]byte{corev1.TLSCertKey: []byte("ca")},
-			})),
-			leaseLister: coordinationv1listers.NewLeaseLister(newIndexer(&coordinationv1.Lease{ObjectMeta: metav1.ObjectMeta{
-				Name: "kyverno-health", Namespace: config.KyvernoNamespace(),
-				Annotations: map[string]string{AnnotationLastRequestTime: time.Now().Format(time.RFC3339)},
-			}})),
-			clusterroleLister: rbacv1listers.NewClusterRoleLister(newIndexer()),
-			vpolLister: policiesv1beta1listers.NewValidatingPolicyLister(newIndexer(
-				&policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "omitted-scope"}, Spec: policiesv1beta1.ValidatingPolicySpec{MatchConstraints: rule(nil)}},
-				&policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "explicit-scope"}, Spec: policiesv1beta1.ValidatingPolicySpec{MatchConstraints: rule(ptr.To(admissionregistrationv1.AllScopes))}},
-			)),
-			mpolLister: policiesv1beta1listers.NewMutatingPolicyLister(newIndexer(
-				&policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "omitted-scope"}, Spec: policiesv1beta1.MutatingPolicySpec{MatchConstraints: rule(nil)}},
-				&policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "explicit-scope"}, Spec: policiesv1beta1.MutatingPolicySpec{MatchConstraints: rule(ptr.To(admissionregistrationv1.AllScopes))}},
-			)),
-			nvpolLister:        policiesv1beta1listers.NewNamespacedValidatingPolicyLister(newIndexer()),
-			gpolLister:         policiesv1beta1listers.NewGeneratingPolicyLister(newIndexer()),
-			ngpolLister:        policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(newIndexer()),
-			ivpolLister:        policiesv1beta1listers.NewImageValidatingPolicyLister(newIndexer()),
-			nivpolLister:       policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(newIndexer()),
-			nmpolLister:        policiesv1beta1listers.NewNamespacedMutatingPolicyLister(newIndexer()),
-			vwcLister:          admissionregistrationv1listers.NewValidatingWebhookConfigurationLister(webhooks),
-			mwcLister:          admissionregistrationv1listers.NewMutatingWebhookConfigurationLister(webhooks),
-			vwcClient:          client.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
-			mwcClient:          client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
-			stateRecorder:      NewStateRecorder(nil),
-			celExpressionCache: NewExpressionCache(),
-		}
+	mpols := []any{
+		&policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "omitted-scope"}, Spec: policiesv1beta1.MutatingPolicySpec{MatchConstraints: rule(nil)}},
+		&policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "explicit-scope"}, Spec: policiesv1beta1.MutatingPolicySpec{MatchConstraints: rule(ptr.To(admissionregistrationv1.AllScopes))}},
 	}
 	for _, kind := range []string{"validating", "mutating"} {
 		t.Run(kind, func(t *testing.T) {
 			t.Parallel()
 			client := fake.NewSimpleClientset()
-			webhooks := newIndexer()
-			c := newController(t, client, webhooks)
+			webhooks := newTestIndexer(t)
+			c := newResourceWebhookTestController(t, client, webhooks, vpols, mpols)
 			reconcile := c.reconcileResourceValidatingWebhookConfiguration
 			if kind == "mutating" {
 				reconcile = c.reconcileResourceMutatingWebhookConfiguration
