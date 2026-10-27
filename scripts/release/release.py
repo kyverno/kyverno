@@ -259,22 +259,28 @@ def verify_images(rendered, metadata):
     for keys, reference in metadata.get("chart_images", {}).items():
         expected[IMAGE_VALUES[keys]].add(reference)
 
-    def visit(value):
+    def visit(value, owned):
         if isinstance(value, dict):
             for key, child in value.items():
                 if key == "image" and isinstance(child, str):
+                    matched = False
                     for name, references in expected.items():
                         if child.rsplit(":", 1)[0] in {ref.rsplit(":", 1)[0] for ref in references}:
+                            matched = True
                             if child not in references:
                                 raise ValueError(f"Stale image reference: {child}; expected {sorted(references)}")
                             found.add(name)
-                visit(child)
+                    if owned and not matched:
+                        raise ValueError(f"Unexpected image reference in Kyverno template: {child}")
+                visit(child, owned)
         elif isinstance(value, list):
             for child in value:
-                visit(child)
+                visit(child, owned)
 
-    for document in yaml.safe_load_all(rendered):
-        visit(document)
+    for document in re.split(r"(?m)^---[ \t]*$", rendered):
+        # Helm's source comments distinguish our templates from dependency images.
+        dependency = re.search(r"(?m)^# Source: kyverno/charts/", document)
+        visit(yaml.safe_load(document), not dependency)
     # CLI migration and cleanup hooks can be conditional. Validate their values separately.
     required = {"kyverno", "kyvernopre", "background-controller",
                 "cleanup-controller", "reports-controller"}

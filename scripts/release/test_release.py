@@ -127,6 +127,22 @@ class Versions(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Stale image"):
             release.verify_images(rendered.replace("v1.20.2-rc3", "latest"), metadata)
 
+    def test_every_repeated_image_is_verified_without_rejecting_dependency_images(self):
+        metadata = release.plan("v1.20.2-rc3", SHA, MAPPING)
+        readiness = metadata["images"]["readiness-checker"]
+        rendered = yaml.safe_dump({"spec": {"containers": [
+            {"image": image} for image in [*metadata["images"].values(), readiness]
+        ]}})
+        rendered += (
+            "---\n# Source: kyverno/charts/reports-server/templates/deployment.yaml\n"
+            "spec:\n  containers:\n  - image: external.example/reports-server:v1.0.0\n"
+        )
+        self.assertEqual(release.verify_images(rendered, metadata), set(release.IMAGES))
+        for replacement in ("other.example/readiness-checker:v1.20.2-rc3",
+                            "ghcr.io/kyverno/unexpected:v1.20.2-rc3"):
+            with self.subTest(image=replacement), self.assertRaisesRegex(ValueError, "Unexpected image"):
+                release.verify_images(rendered.replace(readiness, replacement, 1), metadata)
+
 
 class LocalArtifacts(unittest.TestCase):
     def setUp(self):
