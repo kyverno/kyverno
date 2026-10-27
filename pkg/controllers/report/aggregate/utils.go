@@ -34,10 +34,22 @@ type Maps struct {
 	Mpol   sets.Set[string]
 }
 
+// mergeLatestResult keeps the latest recorded (Seconds, Nanos) timestamp.
+// Exact ties keep the first-seen value. Legacy timestamps with Nanos=0
+// may have lost precision, so actual evaluation order may be unknowable.
+func mergeLatestResult(accumulator map[string]openreportsv1alpha1.ReportResult, key string, result openreportsv1alpha1.ReportResult) {
+	old, exists := accumulator[key]
+	if !exists ||
+		old.Timestamp.Seconds < result.Timestamp.Seconds ||
+		(old.Timestamp.Seconds == result.Timestamp.Seconds && old.Timestamp.Nanos < result.Timestamp.Nanos) {
+		accumulator[key] = result
+	}
+}
+
 // MergeReports merges the results of the given reports into accumulator, keyed
-// by (source, policy, [rule], uid). On a key collision it keeps the result with
-// the later Timestamp.Seconds (and the first-seen result when timestamps are
-// equal), and it drops results whose policy is not present in maps.
+// by (source, policy, [rule], uid). On a key collision it keeps the result
+// with the later recorded (Seconds, Nanos) timestamp, dropping results whose
+// policy is not present in maps.
 //
 // accumulator must be non-nil.
 // Pure: no I/O, no clients, no clock.
@@ -51,66 +63,38 @@ func MergeReports(maps Maps, accumulator map[string]openreportsv1alpha1.ReportRe
 			case reportutils.SourceValidatingPolicy:
 				if maps.Vpol != nil && maps.Vpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceImageValidatingPolicy:
 				if maps.Ivpol != nil && maps.Ivpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceGeneratingPolicy:
 				if maps.Gpol != nil && maps.Gpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceValidatingAdmissionPolicy:
 				if maps.Vap != nil && maps.Vap.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceMutatingAdmissionPolicy:
 				if maps.Mappol != nil && maps.Mappol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceMutatingPolicy:
 				if maps.Mpol != nil && maps.Mpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			default:
 				currentPolicy := maps.Pol[result.Policy]
 				if currentPolicy.Rules != nil && currentPolicy.Rules.Has(result.Rule) {
 					key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			}
 		}
