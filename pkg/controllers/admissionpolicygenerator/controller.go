@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
-	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -238,9 +237,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
-		// A policy switched to JSON mode must still clean up a MAP generated
-		// while the toggle was on, so it bypasses the generation toggle.
-		if !generateMutatingAdmissionPolicy && !celpolicies.IsJSONMutatingPolicy(mpol) {
+		if !generateMutatingAdmissionPolicy {
 			if !mpol.Spec.GenerateMutatingAdmissionPolicyEnabled() {
 				return nil
 			}

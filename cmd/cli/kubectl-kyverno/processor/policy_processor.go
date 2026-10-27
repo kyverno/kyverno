@@ -1,14 +1,12 @@
 package processor
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -20,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
@@ -30,7 +27,6 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
-	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
@@ -73,9 +69,6 @@ type PolicyProcessor struct {
 	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
-	JSONDocument                      *payload.Document
-	JSONPatchedDocuments              map[string]*payload.Document
-	DeferredMutationOutputs           *[]func() error
 	// Operation is the admission operation to simulate (CREATE, UPDATE or DELETE).
 	// When empty, the `request.operation` global value from the values file is
 	// honored, defaulting to CREATE.
@@ -111,8 +104,6 @@ type PolicyProcessor struct {
 	VpolJSONProviderErr  error
 	MpolProvider         mpolengine.Provider
 	MpolProviderErr      error
-	JSONEngine           *mpolengine.JSONEngine
-	JSONEngineErr        error
 	// Explain compiles validating and mutating policies with tracing on and prints, for each
 	// policy, how it arrived at its result (scope, match conditions, variables, the validations
 	// or mutations it ran, and verdict).
@@ -120,22 +111,6 @@ type PolicyProcessor struct {
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
-	return p.ApplyPoliciesOnResourceWithContext(context.Background())
-}
-
-// ApplyPoliciesOnResourceWithContext is ApplyPoliciesOnResource with a caller
-// supplied context, used to bound JSON document mutation.
-func (p *PolicyProcessor) ApplyPoliciesOnResourceWithContext(ctx context.Context) ([]engineapi.EngineResponse, error) {
-	if p.JSONDocument != nil {
-		return p.applyPoliciesOnJSON(ctx)
-	}
-	kubernetesPolicies := make([]policiesv1beta1.MutatingPolicyLike, 0, len(p.MutatingPolicies))
-	for _, policy := range p.MutatingPolicies {
-		if !celpolicies.IsJSONMutatingPolicy(policy) {
-			kubernetesPolicies = append(kubernetesPolicies, policy)
-		}
-	}
-	p.MutatingPolicies = kubernetesPolicies
 	resource := p.Resource
 	if !p.CrdPreloaded && len(p.CrdPaths) > 0 {
 		if err := p.loadCrds(); err != nil {
@@ -215,7 +190,16 @@ func (p *PolicyProcessor) ApplyPoliciesOnResourceWithContext(ctx context.Context
 		}
 	}
 	// MutatingPolicies
-	if len(p.MutatingPolicies) != 0 {
+	mutatingPolicies := p.MutatingPolicies
+	if resource.Object == nil {
+		mutatingPolicies = nil
+		for _, policy := range p.MutatingPolicies {
+			if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+				mutatingPolicies = append(mutatingPolicies, policy)
+			}
+		}
+	}
+	if len(mutatingPolicies) != 0 {
 		compiler := mpolcompiler.NewCompilerWithTrace(p.Explain)
 		contextProvider := p.ContextProvider
 		if contextProvider == nil {
@@ -234,9 +218,50 @@ func (p *PolicyProcessor) ApplyPoliciesOnResourceWithContext(ctx context.Context
 		provider := p.MpolProvider
 		if provider == nil {
 			var err error
-			provider, err = mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions, contextProvider)
+			provider, err = mpolengine.NewProvider(compiler, mutatingPolicies, p.CELExceptions, contextProvider)
 			if err != nil {
 				return nil, err
+			}
+		}
+		hasJSONPolicy := slices.ContainsFunc(mutatingPolicies, func(policy policiesv1beta1.MutatingPolicyLike) bool {
+			return policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+		})
+		applyJSON := func(object *unstructured.Unstructured) error {
+			if !hasJSONPolicy {
+				return nil
+			}
+			eng := mpolengine.NewEngine(provider, nil, nil, nil, contextProvider)
+			reps, evaluationErr := eng.Handle(context.TODO(), celengine.RequestFromJSON(contextProvider, object), func(policy policiesv1beta1.MutatingPolicyLike) bool {
+				return policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+			})
+			for _, r := range reps.Policies {
+				response := engineapi.EngineResponse{
+					Resource:       *object,
+					PolicyResponse: engineapi.PolicyResponse{Rules: r.Rules},
+				}.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
+				if r.PatchedResource != nil {
+					response.PatchedResource = *r.PatchedResource
+				}
+				responses = append(responses, response)
+				if evaluationErr == nil && r.PatchedResource != nil && len(r.Rules) > 0 {
+					if err := p.processMutateEngineResponse(response, "JSON payload"); err != nil {
+						return err
+					}
+				} else {
+					p.Rc.addMutateResponse(response)
+				}
+			}
+			if evaluationErr != nil {
+				return evaluationErr
+			}
+			if reps.PatchedResource != nil {
+				*object = *reps.PatchedResource
+			}
+			return nil
+		}
+		if p.JsonPayload.Object != nil {
+			if err := applyJSON(&p.JsonPayload); err != nil {
+				return responses, err
 			}
 		}
 		if resource.Object != nil {
@@ -284,7 +309,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResourceWithContext(ctx context.Context
 				nil,
 			)
 			// Skip inline mutation for policies with active target constraints, as admission does.
-			reps, err := eng.Handle(context.TODO(), request, mpolengine.NoTargetMatchConstraintPolicy())
+			reps, err := eng.Handle(context.TODO(), request, func(policy policiesv1beta1.MutatingPolicyLike) bool {
+				return policy.GetSpec().EvaluationMode() != policieskyvernoio.EvaluationModeJSON &&
+					mpolengine.NoTargetMatchConstraintPolicy()(policy)
+			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
@@ -318,6 +346,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResourceWithContext(ctx context.Context
 
 				responses = append(responses, response)
 				resource = response.PatchedResource
+			}
+			if err := applyJSON(&resource); err != nil {
+				return responses, err
 			}
 			// mutateExisting MutatingPolicies - process target resources
 			if len(p.TargetResources) > 0 {
@@ -752,23 +783,7 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 }
 
 func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.EngineResponse, resourcePath string, isGenerate bool) error {
-	if p.DeferredMutationOutputs != nil {
-		snapshot := *p
-		snapshot.DeferredMutationOutputs = nil
-		if object, ok := resource.(map[string]interface{}); ok {
-			resource = runtime.DeepCopyJSON(object)
-		}
-		*p.DeferredMutationOutputs = append(*p.DeferredMutationOutputs, func() error {
-			return snapshot.printOutput(resource, response, resourcePath, isGenerate)
-		})
-		return nil
-	}
 	yamlEncodedResource, err := yaml.Marshal(resource)
-	if raw, ok := resource.(json.RawMessage); ok {
-		var formatted bytes.Buffer
-		err = json.Indent(&formatted, raw, "", "  ")
-		yamlEncodedResource = formatted.Bytes()
-	}
 	if err != nil {
 		return fmt.Errorf("failed to marshal (%w)", err)
 	}
@@ -792,11 +807,7 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 		resource := string(yamlEncodedResource) + string("\n---")
 		if len(strings.TrimSpace(resource)) > 0 {
 			if !p.Stdin {
-				if p.JSONDocument != nil {
-					fmt.Fprintf(p.Out, "\nJSON document %s:", resourcePath)
-				} else {
-					fmt.Fprintf(p.Out, "\npolicy %s applied to %s:", response.Policy().GetName(), resourcePath)
-				}
+				fmt.Fprintf(p.Out, "\npolicy %s applied to %s:", response.Policy().GetName(), resourcePath)
 			}
 			fmt.Fprint(p.Out, "\n"+resource+"\n")
 			if len(yamlEncodedTargetResources) > 0 {
@@ -812,22 +823,15 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 	var file *os.File
 	mutateLogPath := filepath.Clean(p.MutateLogPath)
 	filename := p.Resource.GetName() + "-mutated"
-	extension := ".yaml"
-	if p.JSONDocument != nil {
-		sum := sha256.Sum256([]byte(p.JSONDocument.Name))
-		filename = fmt.Sprintf("%s-%x-mutated", strings.TrimSuffix(filepath.Base(p.JSONDocument.Name), filepath.Ext(p.JSONDocument.Name)), sum[:4])
-		extension = ".json"
+	if p.JsonPayload.Object != nil {
+		filename = response.Policy().GetName() + "-mutated"
 	}
 	if isGenerate {
 		filename = response.Policy().GetName() + "-generated"
 	}
 
 	if p.MutateLogPathIsDir {
-		flags := os.O_CREATE | os.O_WRONLY | os.O_APPEND
-		if p.JSONDocument != nil {
-			flags = os.O_CREATE | os.O_WRONLY | os.O_TRUNC
-		}
-		file, err = os.OpenFile(filepath.Join(mutateLogPath, filename+extension), flags, 0o600) // #nosec G304
+		file, err = os.OpenFile(filepath.Join(mutateLogPath, filename+".yaml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) // #nosec G304
 		if err != nil {
 			return err
 		}
@@ -838,12 +842,7 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 			return err
 		}
 	}
-	defer file.Close()
-	suffix := "\n---\n\n"
-	if p.JSONDocument != nil && (p.MutateLogPathIsDir || filepath.Ext(mutateLogPath) == ".json") {
-		suffix = "\n"
-	}
-	if _, err := file.Write([]byte(string(yamlEncodedResource) + suffix)); err != nil {
+	if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
 		return err
 	}
 

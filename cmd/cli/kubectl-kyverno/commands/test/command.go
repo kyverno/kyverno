@@ -9,13 +9,13 @@ import (
 	"regexp"
 
 	"github.com/go-git/go-billy/v5"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
@@ -223,19 +223,15 @@ func checkResult(
 	rule engineapi.RuleResponse,
 	actualResource unstructured.Unstructured,
 	removeColor bool,
-	jsonDocument ...*payload.Document,
 ) (bool, string, string) {
 	expected := test.Result
 	expectedPatchResources := test.PatchedResources
 	if expectedPatchResources != "" {
-		var equals bool
-		var diff string
-		var err error
-		if len(jsonDocument) > 0 {
-			equals, diff, err = compareJSONDocument(jsonDocument[0], fs, filepath.Join(resourcePath, expectedPatchResources))
-		} else {
-			equals, diff, err = getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources")
+		jsonMode := false
+		if policy := response.Policy().AsMutatingPolicyLike(); policy != nil {
+			jsonMode = policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
 		}
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources", jsonMode)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -250,7 +246,7 @@ func checkResult(
 		}
 	}
 	if test.GeneratedResource != "" && len(test.GeneratedResources) == 0 {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource")
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource", false)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -268,7 +264,7 @@ func checkResult(
 		var lastDiff string
 		var lastErr error
 		for _, expectedRes := range test.GeneratedResources {
-			equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedRes), "GeneratedResources")
+			equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedRes), "GeneratedResources", false)
 			if err != nil {
 				lastErr = err
 				continue

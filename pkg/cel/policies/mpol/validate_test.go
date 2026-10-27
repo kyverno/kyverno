@@ -3,12 +3,47 @@ package mpol
 import (
 	"testing"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	vpol "github.com/kyverno/kyverno/pkg/cel/policies/vpol"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
+
+func TestJSONPolicyAdmissionMatchesValidation(t *testing.T) {
+	t.Parallel()
+	mpol := &v1beta1.MutatingPolicy{Spec: v1beta1.MutatingPolicySpec{
+		EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+		Mutations: []admissionregistrationv1alpha1.Mutation{{
+			PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+			JSONPatch: &admissionregistrationv1alpha1.JSONPatch{Expression: `[JSONPatch{op:"add",path:"/ok",value:true}]`},
+		}},
+	}}
+	vp := &v1beta1.ValidatingPolicy{Spec: v1beta1.ValidatingPolicySpec{
+		EvaluationConfiguration: &v1beta1.EvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+		Validations:             []v1.Validation{{Expression: "true"}},
+	}}
+	_, mutationErr := Validate(mpol)
+	_, validationErr := vpol.Validate(vp)
+	require.ErrorContains(t, mutationErr, "matchConstraints")
+	require.ErrorContains(t, validationErr, "matchConstraints")
+	constraints := &v1.MatchResources{ResourceRules: []v1.NamedRuleWithOperations{{
+		RuleWithOperations: v1.RuleWithOperations{
+			Operations: []v1.OperationType{v1.Create},
+			Rule:       v1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"configmaps"}},
+		},
+	}}}
+	mpol.Spec.MatchConstraints = constraints
+	vp.Spec.MatchConstraints = constraints
+	_, mutationErr = Validate(mpol)
+	_, validationErr = vpol.Validate(vp)
+	require.NoError(t, mutationErr)
+	require.NoError(t, validationErr)
+}
 
 func TestValidate(t *testing.T) {
 	tests := []struct {

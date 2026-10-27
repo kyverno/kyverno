@@ -6,7 +6,6 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
-	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -35,9 +34,6 @@ func (c *controller) preferredMAPVersion() (admissionpolicy.MutatingAdmissionPol
 func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy) error {
 	version, ok := c.preferredMAPVersion()
 	if !ok {
-		if celpolicies.IsJSONMutatingPolicy(mpol) && mpol.Status.Generated {
-			return fmt.Errorf("cannot clean up generated MutatingAdmissionPolicy for JSON policy %s: no MutatingAdmissionPolicy API/informers are available", mpol.GetName())
-		}
 		logger.V(2).Info("No MutatingAdmissionPolicy lister available, skipping MAP generation", "policy", mpol.GetName())
 		if mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
 			genericPolicy := engineapi.NewMutatingPolicy(mpol)
@@ -51,16 +47,6 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1be
 
 func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, version admissionpolicy.MutatingAdmissionPolicyVersion) error {
 	genericPolicy := engineapi.NewMutatingPolicy(mpol)
-	mapName := "mpol-" + mpol.GetName()
-	mapBindingName := constructBindingName(mapName)
-
-	// A policy switched to JSON mode must not keep enforcing through a previously generated MAP,
-	// so cleanup runs before the generation permission gates below can return early.
-	if celpolicies.IsJSONMutatingPolicy(mpol) {
-		reason, _ := mapGenerationSkipReason(mpol)
-		return c.dispatchMAPVersion(ctx, mpol, version, mapName, mapBindingName, true, reason, genericPolicy)
-	}
-
 	if !admissionpolicy.HasMutatingAdmissionPolicyPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicies")
 		c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies")
@@ -72,14 +58,15 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 		return nil
 	}
 
+	mapName := "mpol-" + mpol.GetName()
+	mapBindingName := constructBindingName(mapName)
+
 	reason, err := mapGenerationSkipReason(mpol)
 	if err != nil {
 		return fmt.Errorf("failed to compute autogen configs for %s: %w", mpol.GetName(), err)
 	}
-	return c.dispatchMAPVersion(ctx, mpol, version, mapName, mapBindingName, reason != "", reason, genericPolicy)
-}
+	shouldDelete := reason != ""
 
-func (c *controller) dispatchMAPVersion(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, version admissionpolicy.MutatingAdmissionPolicyVersion, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {
 	switch version {
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1:
 		return c.handleMAPV1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy)
@@ -97,19 +84,13 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 	observedMAPbinding, mapBindingErr := c.getMutatingAdmissionPolicyBindingV1(mapBindingName)
 
 	if shouldDelete {
-		if mapErr != nil && !apierrors.IsNotFound(mapErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %w", mapName, mapErr)
-		}
-		if mapBindingErr != nil && !apierrors.IsNotFound(mapBindingErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %w", mapBindingName, mapBindingErr)
-		}
 		if mapErr == nil {
-			if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil {
 				return err
 			}
 		}
 		if mapBindingErr == nil {
-			if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil {
 				return err
 			}
 		}
@@ -177,12 +158,6 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 // generated MAP (which becomes the sole admission path once status.generated is set) would drop the
 // mutation. Pod-controller autogen is likewise incompatible with MAP generation.
 func mapGenerationSkipReason(mpol *policiesv1beta1.MutatingPolicy) (string, error) {
-	// Checked before the per-policy switch because the cluster-wide
-	// GenerateMutatingAdmissionPolicy toggle reaches this function for every
-	// MutatingPolicy, and a JSON document policy has no admission equivalent.
-	if celpolicies.IsJSONMutatingPolicy(mpol) {
-		return "skip generating MutatingAdmissionPolicy: JSON evaluation mode has no admission equivalent.", nil
-	}
 	if !mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
 		return "skip generating MutatingAdmissionPolicy: not enabled.", nil
 	}
@@ -206,19 +181,13 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 	observedMAPbinding, mapBindingErr := c.getMutatingAdmissionPolicyBinding(mapBindingName)
 
 	if shouldDelete {
-		if mapErr != nil && !apierrors.IsNotFound(mapErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %w", mapName, mapErr)
-		}
-		if mapBindingErr != nil && !apierrors.IsNotFound(mapBindingErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %w", mapBindingName, mapBindingErr)
-		}
 		if mapErr == nil {
-			if err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil {
 				return err
 			}
 		}
 		if mapBindingErr == nil {
-			if err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil {
 				return err
 			}
 		}
@@ -287,19 +256,13 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 	observedMAPbinding, mapBindingErr := c.getMutatingAdmissionPolicyBindingBeta(mapBindingName)
 
 	if shouldDelete {
-		if mapErr != nil && !apierrors.IsNotFound(mapErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %w", mapName, mapErr)
-		}
-		if mapBindingErr != nil && !apierrors.IsNotFound(mapBindingErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %w", mapBindingName, mapBindingErr)
-		}
 		if mapErr == nil {
-			if err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil {
 				return err
 			}
 		}
 		if mapBindingErr == nil {
-			if err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Delete(ctx, mapBindingName, metav1.DeleteOptions{}); err != nil {
 				return err
 			}
 		}

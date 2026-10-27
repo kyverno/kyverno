@@ -61,8 +61,9 @@ func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
 }
 
 type MutatingPolicyResponse struct {
-	Policy policiesv1beta1.MutatingPolicyLike
-	Rules  []engineapi.RuleResponse
+	Policy          policiesv1beta1.MutatingPolicyLike
+	Rules           []engineapi.RuleResponse
+	PatchedResource *unstructured.Unstructured
 	// Trace explains how this policy reached its result. It is nil unless the policy was
 	// compiled with tracing on, so callers must nil-check it. Mirrors vpol's
 	// ValidatingPolicyResponse.Trace (pkg/cel/engine/response.go).
@@ -117,7 +118,7 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 
 	for _, mpol := range mpols {
 		if predicate != nil && predicate(mpol.Policy) {
-			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, requestMapFn, true)
+			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, requestMapFn, true, nil)
 			response.Policies = append(response.Policies, r)
 			if patched != nil {
 				response.PatchedResource = patched
@@ -148,6 +149,29 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	ctx, _ = requestbudget.Ensure(ctx)
 	var response EngineResponse
 	mpols := e.provider.Fetch(ctx, false)
+	if request.JsonPayload != nil {
+		response.Resource = request.JsonPayload
+		response.PatchedResource = request.JsonPayload.DeepCopy()
+		for _, mpol := range mpols {
+			if predicate != nil && !predicate(mpol.Policy) {
+				continue
+			}
+			result, patched := e.handlePolicy(ctx, mpol, nil, request.Request, nil, nil, false, response.PatchedResource)
+			if patched != nil {
+				response.PatchedResource = patched
+			}
+			for _, rule := range result.Rules {
+				if rule.Status() == engineapi.RuleStatusError {
+					response.PatchedResource = nil
+					response.Policies = append(response.Policies, result)
+					return response, fmt.Errorf("JSON policy %s: %s", PolicyKey(mpol.Policy), rule.Message())
+				}
+			}
+			result.PatchedResource = response.PatchedResource.DeepCopy()
+			response.Policies = append(response.Policies, result)
+		}
+		return response, nil
+	}
 
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
 	if err != nil {
@@ -194,7 +218,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue
 		}
-		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace, requestMapFn, false)
+		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace, requestMapFn, false, nil)
 		response.Policies = append(response.Policies, ruleResponse)
 		if patchedResource != nil {
 			response.PatchedResource = patchedResource
@@ -240,7 +264,7 @@ func annotateTraces(policies []MutatingPolicyResponse, resource *unstructured.Un
 	}
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error), target bool) (MutatingPolicyResponse, *unstructured.Unstructured) {
+func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error), target bool, jsonPayload *unstructured.Unstructured) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
 		Policy: mpol.Policy,
 		Rules:  []engineapi.RuleResponse{},
@@ -255,7 +279,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	// is itself the trigger, so its matchConditions must still be evaluated - not skipped in
 	// favor of the near-always-empty targetMatchConditions.
 	hasExplicitTarget := len(targetConstraints.ResourceRules) > 0 || targetConstraints.Expression != ""
-	if e.matcher != nil {
+	if e.matcher != nil && jsonPayload == nil {
 		constraints := mpol.Policy.GetMatchConstraints()
 		if target && hasExplicitTarget {
 			constraints = targetConstraints.MatchResources
@@ -278,10 +302,10 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			return ruleResponse, nil
 		}
 	} else if tracing {
-		// unlike vpol, mpol has no JSON-payload mode: a nil matcher means a mutate-existing engine
-		// (the CLI's and the background controller's), whose caller already picked this resource
 		reason := "evaluated without a matcher (mutate-existing), so matchConstraints were not checked here"
-		if target && hasExplicitTarget {
+		if jsonPayload != nil {
+			reason = "evaluated against a JSON payload, so no matchConstraints apply"
+		} else if target && hasExplicitTarget {
 			reason = "mutate-existing target, selected by the policy's targetMatchConstraints before evaluation"
 		}
 		scope = trace.ScopeTrace{Applied: true, Reason: reason}
@@ -302,7 +326,9 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		return ruleResponse, nil
 	}
 	var result *compiler.EvaluationResult
-	if target && hasExplicitTarget {
+	if jsonPayload != nil {
+		result = mpol.CompiledPolicy.EvaluateJSON(ctx, jsonPayload)
+	} else if target && hasExplicitTarget {
 		result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
 	} else {
 		result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)

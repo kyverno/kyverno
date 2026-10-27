@@ -6,7 +6,6 @@ import (
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
-	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -207,10 +206,6 @@ func FetchMutatingPolicies(mpolLister policiesv1beta1listers.MutatingPolicyListe
 		return nil, err
 	} else {
 		for _, pol := range pols {
-			// JSON policies have no cluster resources to scan or report on.
-			if celpolicies.IsJSONMutatingPolicy(pol) {
-				continue
-			}
 			policies = append(policies, *pol)
 		}
 	}
@@ -233,9 +228,6 @@ func FetchNamespacedMutatingPolicies(nmpolLister policiesv1beta1listers.Namespac
 	}
 	policies := make([]policiesv1beta1.NamespacedMutatingPolicy, 0, len(pols))
 	for _, pol := range pols {
-		if celpolicies.IsJSONMutatingPolicy(pol) {
-			continue
-		}
 		policies = append(policies, *pol)
 	}
 	return policies, nil

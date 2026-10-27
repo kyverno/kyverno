@@ -10,11 +10,11 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/parser"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
-	"github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
@@ -64,16 +64,15 @@ func NewCompilerWithTrace(trace bool) Compiler {
 
 type compilerImpl struct{ trace bool }
 
-// Compile builds a Kubernetes-mode policy. JSON-mode policies are rejected here
-// rather than silently compiled against admission attributes: every Kubernetes
-// lifecycle path (reconciler, static provider, background processor, reports
-// scanner) funnels through this method, so the error is the last line of defence
-// when an upstream mode gate is missed. Use CompileJSON for JSON documents.
 func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
-	var allErrs field.ErrorList
-	if policies.IsJSONMutatingPolicy(policy) {
-		return nil, append(allErrs, field.Forbidden(field.NewPath("spec", "evaluation", "mode"), "JSON mode policies are evaluated by the JSON document engine, not the Kubernetes compiler"))
+	if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+		return c.compileForJSON(policy, exceptions)
 	}
+	return c.compileForKubernetes(policy, exceptions)
+}
+
+func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
+	var allErrs field.ErrorList
 	libCtx := libs.GetLibsCtx()
 
 	extendedCompiler, variablesProvider, err := c.newExtendedEnv(libCtx, policy.GetNamespace())

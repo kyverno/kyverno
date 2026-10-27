@@ -288,17 +288,7 @@ func printTestResult(
 								r = response.PatchedResource
 							}
 
-							var ok bool
-							var message, reason string
-							if documents, isJSON := responses.JSONDocuments[resource]; isJSON && rule.RuleType() == engineapi.Mutation {
-								key := response.Policy().GetName()
-								if response.Policy().GetNamespace() != "" {
-									key = response.Policy().GetNamespace() + "/" + key
-								}
-								ok, message, reason = checkResult(test, fs, resourcePath, response, rule, r, removeColor, documents[key])
-							} else {
-								ok, message, reason = checkResult(test, fs, resourcePath, response, rule, r, removeColor)
-							}
+							ok, message, reason := checkResult(test, fs, resourcePath, response, rule, r, removeColor)
 							if !test.FailOnMissingResources && strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue

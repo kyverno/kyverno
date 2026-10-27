@@ -26,6 +26,7 @@ import (
 )
 
 type Policy struct {
+	jsonMutations         []cel.Program
 	patchers              []Patcher
 	matchConditions       []cel.Program
 	targetMatchConditions []cel.Program
@@ -196,6 +197,16 @@ func (p *Policy) Evaluate(
 	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
+	if p.jsonMutations != nil {
+		if attr == nil {
+			return &EvaluationResult{Error: fmt.Errorf("JSON evaluation requires an object")}
+		}
+		object, ok := attr.GetObject().(*unstructured.Unstructured)
+		if !ok {
+			return &EvaluationResult{Error: fmt.Errorf("JSON evaluation requires an unstructured object")}
+		}
+		return p.EvaluateJSON(ctx, object)
+	}
 	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, contextProvider, false)
 }
 

@@ -69,11 +69,11 @@ kyverno apply [flags]
   -b, --git-branch string                  test git repository branch
   -h, --help                               help for apply
       --http-payload strings               Path to HTTP check request payload files (JSON)
-      --json strings                       Paths to JSON documents (any root type); JSON-mode mutation runs before validation
+      --json strings                       Path to JSON payload files
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
-      --output-dir string                  Directory for mutated/generated resources or JSON documents
-      --output-file string                 File for mutated/generated resources or JSON documents (.json for a single JSON document)
+      --output-dir string                  Directory for mutated/generated resources
+      --output-file string                 File for mutated/generated resources
       --output-format string               Output format: json or yaml for policy reports/exceptions, or table for evaluation results (default "yaml")
       --parameter-resource strings         Path to resource files that act as ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters
       --password string                    Password for connecting to git repository

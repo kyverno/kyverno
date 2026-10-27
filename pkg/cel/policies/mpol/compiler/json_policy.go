@@ -21,10 +21,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/cel/common"
 	"k8s.io/apiserver/pkg/cel/library"
 	"k8s.io/apiserver/pkg/cel/mutation"
+	kjson "sigs.k8s.io/json"
 )
 
 const (
@@ -32,13 +34,7 @@ const (
 	MaxJSONPatchOperations = 1024
 )
 
-// JSONPolicy is an immutable, document-native policy, independent of admission attributes.
-type JSONPolicy struct {
-	policy    Policy
-	mutations []cel.Program
-}
-
-type JSONEvaluationResult struct {
+type jsonEvaluationResult struct {
 	Document         json.RawMessage
 	Skipped          bool
 	Exceptions       []*policiesv1beta1.PolicyException
@@ -81,9 +77,7 @@ func (t *documentPatchType) Val(fields map[string]ref.Val) ref.Val {
 	return t.JSONPatchType.Val(fields)
 }
 
-// CompileJSON compiles only JSON-mode policies. It does not enable JSON policies
-// in the Kubernetes compiler, provider, or admission pipeline.
-func CompileJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*JSONPolicy, field.ErrorList) {
+func (c *compilerImpl) compileForJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	path := field.NewPath("spec")
 	if policy == nil || (reflect.ValueOf(policy).Kind() == reflect.Pointer && reflect.ValueOf(policy).IsNil()) {
 		return nil, field.ErrorList{field.Required(path, "policy is required")}
@@ -143,11 +137,11 @@ func CompileJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*polici
 	if err != nil {
 		return nil, field.ErrorList{field.InternalError(path, err)}
 	}
-	result := &JSONPolicy{}
-	result.policy.variables = make(map[string]cel.Program)
+	result := &Policy{jsonMutations: make([]cel.Program, 0, len(spec.Mutations))}
+	result.variables = make(map[string]cel.Program)
 	for i, variable := range spec.Variables {
 		vpath := path.Child("variables").Index(i)
-		if _, exists := result.policy.variables[variable.Name]; exists {
+		if _, exists := result.variables[variable.Name]; exists {
 			return nil, field.ErrorList{field.Duplicate(vpath.Child("name"), variable.Name)}
 		}
 		ast, issues := env.Compile(variable.Expression)
@@ -159,7 +153,7 @@ func CompileJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*polici
 			return nil, field.ErrorList{field.InternalError(vpath, err)}
 		}
 		provider.RegisterField(variable.Name, ast.OutputType())
-		result.policy.variables[variable.Name] = program
+		result.variables[variable.Name] = program
 	}
 	compile := func(path *field.Path, expression string, allowed ...*cel.Type) cel.Program {
 		ast, issues := env.Compile(expression)
@@ -182,7 +176,7 @@ func CompileJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*polici
 		return program
 	}
 	for i, condition := range spec.MatchConditions {
-		result.policy.matchConditions = append(result.policy.matchConditions, compile(path.Child("matchConditions").Index(i).Child("expression"), condition.Expression, cel.BoolType))
+		result.matchConditions = append(result.matchConditions, compile(path.Child("matchConditions").Index(i).Child("expression"), condition.Expression, cel.BoolType))
 	}
 	for i, exception := range exceptions {
 		if exception == nil {
@@ -193,14 +187,14 @@ func CompileJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*polici
 		for j, condition := range exception.Spec.MatchConditions {
 			compiled.MatchConditions = append(compiled.MatchConditions, compile(field.NewPath("exceptions").Index(i).Child("matchConditions").Index(j).Child("expression"), condition.Expression, cel.BoolType))
 		}
-		result.policy.exceptions = append(result.policy.exceptions, compiled)
+		result.exceptions = append(result.exceptions, compiled)
 	}
-	result.policy.auditAnnotations = make(map[string]cel.Program)
+	result.auditAnnotations = make(map[string]cel.Program)
 	for i, annotation := range spec.AuditAnnotations {
-		result.policy.auditAnnotations[annotation.Key] = compile(path.Child("auditAnnotations").Index(i).Child("valueExpression"), annotation.ValueExpression, cel.StringType, cel.NullType)
+		result.auditAnnotations[annotation.Key] = compile(path.Child("auditAnnotations").Index(i).Child("valueExpression"), annotation.ValueExpression, cel.StringType, cel.NullType)
 	}
 	for i, m := range spec.Mutations {
-		result.mutations = append(result.mutations, compile(path.Child("mutations").Index(i).Child("jsonPatch", "expression"), m.JSONPatch.Expression, cel.ListType(jsonPatchType)))
+		result.jsonMutations = append(result.jsonMutations, compile(path.Child("mutations").Index(i).Child("jsonPatch", "expression"), m.JSONPatch.Expression, cel.ListType(jsonPatchType)))
 	}
 	if len(errs) > 0 {
 		return nil, errs
@@ -208,28 +202,52 @@ func CompileJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*polici
 	return result, nil
 }
 
-// EvaluateJSON returns no document on error and never mutates the caller's input.
-// A failed test operation rolls back the whole policy and marks it skipped.
-func (p *JSONPolicy) EvaluateJSON(ctx context.Context, document json.RawMessage) (JSONEvaluationResult, error) {
+// EvaluateJSON evaluates an object-root payload without admission attributes.
+func (p *Policy) EvaluateJSON(ctx context.Context, object *unstructured.Unstructured) *EvaluationResult {
+	if p.jsonMutations == nil {
+		return &EvaluationResult{Error: fmt.Errorf("cannot evaluate Kubernetes-mode policy against a JSON payload")}
+	}
+	if object == nil || object.Object == nil {
+		return &EvaluationResult{Error: fmt.Errorf("JSON payload requires an object root")}
+	}
+	raw, err := object.MarshalJSON()
+	if err != nil {
+		return &EvaluationResult{Error: err}
+	}
+	result, err := p.evaluateJSONDocument(ctx, raw)
+	if err != nil {
+		return &EvaluationResult{Error: err}
+	}
+	var patched map[string]any
+	if err := kjson.UnmarshalCaseSensitivePreserveInts(result.Document, &patched); err != nil || patched == nil {
+		return &EvaluationResult{Error: fmt.Errorf("JSON mutation must preserve an object root")}
+	}
+	return &EvaluationResult{
+		PatchedResource: &unstructured.Unstructured{Object: patched},
+		Skipped:         result.Skipped && len(result.Exceptions) == 0, Exceptions: result.Exceptions, AuditAnnotations: result.AuditAnnotations,
+	}
+}
+
+func (p *Policy) evaluateJSONDocument(ctx context.Context, document json.RawMessage) (jsonEvaluationResult, error) {
 	if err := ctx.Err(); err != nil {
-		return JSONEvaluationResult{}, err
+		return jsonEvaluationResult{}, err
 	}
 	object, err := decodeJSONDocument(document)
 	if err != nil {
-		return JSONEvaluationResult{}, err
+		return jsonEvaluationResult{}, err
 	}
 	data := map[string]any{celcompiler.ObjectKey: object, celcompiler.ExceptionsKey: libs.Exception{}}
-	p.policy.appendVariables(ctx, data, nil)
+	p.appendVariables(ctx, data, nil)
 	var exceptions []*policiesv1beta1.PolicyException
 	scopes := libs.Exception{}
 	fullExemption := false
-	for _, exception := range p.policy.exceptions {
-		match, err := p.policy.match(ctx, data, exception.MatchConditions, nil)
+	for _, exception := range p.exceptions {
+		match, err := p.match(ctx, data, exception.MatchConditions, nil)
 		if err != nil {
 			if fullExemption {
 				continue
 			}
-			return JSONEvaluationResult{}, fmt.Errorf("exception %s: %w", exception.Exception.Name, err)
+			return jsonEvaluationResult{}, fmt.Errorf("exception %s: %w", exception.Exception.Name, err)
 		}
 		if match {
 			exceptions = append(exceptions, exception.Exception.DeepCopy())
@@ -241,72 +259,75 @@ func (p *JSONPolicy) EvaluateJSON(ctx context.Context, document json.RawMessage)
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return JSONEvaluationResult{}, err
+		return jsonEvaluationResult{}, err
 	}
 	if fullExemption {
-		return JSONEvaluationResult{Document: bytes.Clone(document), Skipped: true, Exceptions: exceptions}, nil
+		return jsonEvaluationResult{Document: bytes.Clone(document), Skipped: true, Exceptions: exceptions}, nil
 	}
 	data[celcompiler.ExceptionsKey] = scopes
-	p.policy.appendVariables(ctx, data, nil)
-	match, err := p.policy.match(ctx, data, p.policy.matchConditions, nil)
+	p.appendVariables(ctx, data, nil)
+	match, err := p.match(ctx, data, p.matchConditions, nil)
 	if err != nil {
-		return JSONEvaluationResult{}, fmt.Errorf("match conditions: %w", err)
+		return jsonEvaluationResult{}, fmt.Errorf("match conditions: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
-		return JSONEvaluationResult{}, err
+		return jsonEvaluationResult{}, err
 	}
 	if !match {
-		return JSONEvaluationResult{Document: bytes.Clone(document), Skipped: true}, nil
+		return jsonEvaluationResult{Document: bytes.Clone(document), Skipped: true}, nil
 	}
 	patched := bytes.Clone(document)
 	operations := 0
-	for i, program := range p.mutations {
+	for i, program := range p.jsonMutations {
 		if err := ctx.Err(); err != nil {
-			return JSONEvaluationResult{}, err
+			return jsonEvaluationResult{}, err
 		}
 		out, _, err := program.ContextEval(ctx, data)
 		if err != nil {
-			return JSONEvaluationResult{}, fmt.Errorf("mutation %d: %w", i, err)
+			return jsonEvaluationResult{}, fmt.Errorf("mutation %d: %w", i, err)
 		}
 		var skipped bool
 		patched, skipped, err = applyDocumentPatch(ctx, patched, out, &operations)
 		if err != nil {
-			return JSONEvaluationResult{}, fmt.Errorf("mutation %d: %w", i, err)
+			return jsonEvaluationResult{}, fmt.Errorf("mutation %d: %w", i, err)
 		}
 		if err := ctx.Err(); err != nil {
-			return JSONEvaluationResult{}, err
+			return jsonEvaluationResult{}, err
 		}
 		if skipped {
-			return JSONEvaluationResult{Document: bytes.Clone(document), Skipped: true}, nil
+			return jsonEvaluationResult{Document: bytes.Clone(document), Skipped: true}, nil
 		}
 		data[celcompiler.ObjectKey], err = decodeJSONDocument(patched)
 		if err != nil {
-			return JSONEvaluationResult{}, fmt.Errorf("mutation %d output: %w", i, err)
+			return jsonEvaluationResult{}, fmt.Errorf("mutation %d output: %w", i, err)
 		}
 		// Variables are memoized per activation; rebind them after object changes.
-		p.policy.appendVariables(ctx, data, nil)
+		if _, ok := data[celcompiler.ObjectKey].(map[string]any); !ok {
+			return jsonEvaluationResult{}, fmt.Errorf("JSON mutation must preserve an object root")
+		}
+		p.appendVariables(ctx, data, nil)
 	}
 	annotations := make(map[string]string)
-	for name, program := range p.policy.auditAnnotations {
+	for name, program := range p.auditAnnotations {
 		out, _, err := program.ContextEval(ctx, data)
 		if err != nil {
-			return JSONEvaluationResult{}, fmt.Errorf("audit annotation %s: %w", name, err)
+			return jsonEvaluationResult{}, fmt.Errorf("audit annotation %s: %w", name, err)
 		}
 		if out == types.NullValue {
 			continue
 		}
 		value, ok := out.(types.String)
 		if !ok {
-			return JSONEvaluationResult{}, fmt.Errorf("audit annotation %s: expected string or null", name)
+			return jsonEvaluationResult{}, fmt.Errorf("audit annotation %s: expected string or null", name)
 		}
 		if value != "" {
 			annotations[name] = string(value)
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return JSONEvaluationResult{}, err
+		return jsonEvaluationResult{}, err
 	}
-	return JSONEvaluationResult{Document: patched, AuditAnnotations: annotations}, nil
+	return jsonEvaluationResult{Document: patched, AuditAnnotations: annotations}, nil
 }
 
 // jsonAutogenPodControllers reports whether the policy asks for Pod controller

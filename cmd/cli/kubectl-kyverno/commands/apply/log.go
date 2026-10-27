@@ -16,7 +16,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 		}
 		spath := strings.Split(mutateLogPath, "/")
 		sfileName := strings.Split(spath[len(spath)-1], ".")
-		if sfileName[len(sfileName)-1] == "yml" || sfileName[len(sfileName)-1] == "yaml" || sfileName[len(sfileName)-1] == "json" {
+		if sfileName[len(sfileName)-1] == "yml" || sfileName[len(sfileName)-1] == "yaml" {
 			mutateLogPathIsDir = false
 		} else {
 			mutateLogPathIsDir = true

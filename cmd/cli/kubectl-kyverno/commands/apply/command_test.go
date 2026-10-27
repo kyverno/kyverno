@@ -47,6 +47,78 @@ func TestPrintSkippedAndInvalidPolicies(t *testing.T) {
 	assert.Contains(t, printed, "variables cannot be referenced")
 }
 
+func TestApplyJSONMutationUsesExistingOutput(t *testing.T) {
+	base := "../../../../../test/cli/test-mutating-policy/json-document-mutation/"
+	output := t.TempDir()
+	config := &ApplyCommandConfig{
+		PolicyPaths: []string{base + "policy.yaml"},
+		JSONPaths:   []string{base + "input.json", base + "nested/input.json"},
+		OutputDir:   output,
+	}
+	rc, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.NoError(t, err)
+	require.Equal(t, 4, rc.Pass)
+	require.Zero(t, rc.Error)
+	content, err := os.ReadFile(filepath.Join(output, "add-region-mutated.yaml"))
+	require.NoError(t, err)
+	require.Equal(t, 2, strings.Count(string(content), "region: west"))
+	require.Contains(t, string(content), "9007199254740993")
+}
+
+func TestApplyJSONMutationRejectsNonObject(t *testing.T) {
+	for _, root := range []string{"[]", "null", "true"} {
+		t.Run(root, func(t *testing.T) {
+			input := filepath.Join(t.TempDir(), "input.json")
+			require.NoError(t, os.WriteFile(input, []byte(root), 0o600))
+			config := &ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-mutating-policy/json-document-mutation/policy.yaml"},
+				JSONPaths:   []string{input},
+			}
+			_, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+			require.ErrorContains(t, err, "top-level object")
+		})
+	}
+}
+
+func TestApplyJSONMutationSkipsUnusedKubernetesPolicy(t *testing.T) {
+	base := "../../../../../test/cli/test-mutating-policy/json-document-mutation/"
+	policies, err := os.ReadFile(base + "policy.yaml")
+	require.NoError(t, err)
+	policies = append(policies, []byte(`
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: unused-kubernetes-policy
+spec:
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: 'undefinedVariable'
+`)...)
+	path := filepath.Join(t.TempDir(), "policies.yaml")
+	require.NoError(t, os.WriteFile(path, policies, 0o600))
+	config := &ApplyCommandConfig{PolicyPaths: []string{path}, JSONPaths: []string{base + "input.json"}}
+	rc, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.NoError(t, err)
+	require.Equal(t, 2, rc.Pass)
+	require.Zero(t, rc.Error)
+}
+
+func TestApplyJSONMutationOnKubernetesObject(t *testing.T) {
+	input := filepath.Join(t.TempDir(), "resource.json")
+	require.NoError(t, os.WriteFile(input, []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"input"},"id":1}`), 0o600))
+	config := &ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-mutating-policy/json-document-mutation/policy.yaml"},
+		ResourcePaths: []string{input},
+	}
+	rc, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.NoError(t, err)
+	require.Equal(t, 2, rc.Pass)
+	require.Zero(t, rc.Fail)
+	require.Zero(t, rc.Error)
+}
+
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
 		expectedReports []openreportsv1alpha1.Report

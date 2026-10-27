@@ -1,32 +1,17 @@
-# JSON document mutation
+# JSON mutation
 
-**Status:** in implementation; document-native core and CLI apply/test integration
-and policy lifecycle isolation implemented on the `feat/json-document-mutation`
-worktree branch. This feature is not released.
+**Status:** implementation proposal; not released.
 
-This proposal is maintained in this repository at the maintainers' request while
-the KDP process is being replaced. It is not a claim that the feature is released.
+This proposal is maintained in this repository while the KDP process is being
+replaced.
 
-**Related work:** [kyverno/kyverno#13751](https://github.com/kyverno/kyverno/issues/13751),
-[kyverno/kyverno#13913](https://github.com/kyverno/kyverno/pull/13913) (closed, unmerged),
-and the existing [non-Kubernetes design](https://github.com/kyverno/KDP/blob/main/proposals/kyverno_non_k8s.md).
+## Scope
 
-## Motivation and scope
-
-Kyverno supports JSON Patch mutation of Kubernetes resources, but not mutation
-of arbitrary JSON documents through the CLI. ValidatingPolicy already supports
-`spec.evaluation.mode: JSON`. Extend the CEL MutatingPolicy model to support
-stateless JSON transformations, without representing documents as Kubernetes
-AdmissionReviews or requiring resource discovery, GVKs, namespaces, or OpenAPI.
-
-The existing external `github.com/kyverno/api` dependency defines the JSON mode
-field for MutatingPolicy. No new policy kind or patch type is necessary.
-The document evaluator is separate from the Kubernetes compiler and engine.
-Kubernetes routing must explicitly exclude JSON-mode policies.
-
-## Policy syntax
-
-The document compiler accepts this policy without Kubernetes match constraints:
+Extend `MutatingPolicy` JSON evaluation to match the existing `ValidatingPolicy`
+model. Inputs and outputs are JSON objects represented by
+`unstructured.Unstructured`; they do not need Kubernetes metadata, a kind, or
+an API version. Nested arrays and mixed JSON values are supported, but
+array/scalar/null roots and root-type transitions are out of scope.
 
 ```yaml
 apiVersion: policies.kyverno.io/v1
@@ -36,220 +21,87 @@ metadata:
 spec:
   evaluation:
     mode: JSON
-  matchConditions:
-    - name: region-missing
-      expression: "!has(object.region)"
   mutations:
-    - patchType: JSONPatch
-      jsonPatch:
-        expression: >
-          [JSONPatch{op: "add", path: "/region", value: "us-west-2"}]
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: >
+        [JSONPatch{op: "add", path: "/region", value: "us-west-2"}]
 ```
 
-This example is accepted by the core API and CLI JSON mutation path:
-
 ```shell
-kyverno apply policy.yaml --json input.json -o output/
+kyverno apply policy.yaml --json input.json
+kyverno apply policy.yaml --json input.json --output-dir patched/
 kyverno test test/cli/test-mutating-policy/json-document-mutation
 ```
 
-The output contains the transformed JSON document. CLI result summaries remain
-separate from document output. Multiple inputs retain stable file identities;
-same-basename files must not overwrite each other.
+## Existing paths, not a second engine
 
-For one document, `-o patched.json` writes JSON. Directory output uses
-`<basename>-<path-hash>-mutated.json`, where the hash is the first four SHA-256
-bytes of the input path, formatted as eight lowercase hexadecimal characters.
-Multiple inputs may also be written to a YAML output file.
+- The existing mutation compiler dispatches between JSON and Kubernetes
+  compilation based on `spec.evaluation.mode`, as the validation compiler does.
+- The existing provider compiles policies once and can be reused across inputs.
+- The existing mutation engine handles `EngineRequest.JsonPayload` directly,
+  without constructing admission attributes for CLI JSON input.
+- Results use the existing `EngineResponse` and `MutatingPolicyResponse`.
+  Per-policy patched resources retain independent snapshots.
+- CLI apply/test use the existing payload loader, processor, mutation output,
+  result comparison, and exception reporting. JSON mutations run before JSON
+  validation; image-validation and deletion evaluate the resulting object.
+- Output follows normal mutation output conventions (YAML on stdout or in
+  output files). Directory output uses `<policy-name>-mutated.yaml` for JSON
+  payloads without resource names. Multiple inputs append documents as in the
+  existing mutation output path. There is no batch-wide output transaction.
 
-Test result resource identifiers are the exact declared `jsonPayloads` paths.
-`patchedResources` compares the complete document produced by that policy:
+## In-cluster behavior
 
-```yaml
-jsonPayloads:
-  - nested/input.json
-results:
-  - policy: default-region
-    isMutatingPolicy: true
-    resources:
-      - nested/input.json
-    patchedResources: nested/expected.json
-    result: pass
-```
+JSON-mode MutatingPolicies follow the same lifecycle as JSON-mode
+ValidatingPolicies. JSON mode is not itself a reason to reject policy storage,
+remove the policy from providers, disable webhooks, bypass normal matching, or
+add special controller cleanup logic.
 
-JSON-mode MutatingPolicies are excluded from Kubernetes input; non-JSON
-MutatingPolicies skip JSON input with an explicit result. Mutation errors can be
-tested with `result: error`. YAML payloads and expected documents must contain
-exactly one YAML document.
+Policy admission retains the existing requirements, including `matchConstraints`
+with resource rules. The CLI's JSON path does not require these constraints.
+When a policy is evaluated through admission, normal resource matching still
+applies and the compiler evaluates its JSON expressions against the object.
+Kubernetes-only mutation features unsupported by the JSON compiler produce
+validation/compilation errors rather than being silently reinterpreted.
 
-### Field and expression contract
+This change does not add a different cluster-storage contract for mutation or
+change the existing validation-policy lifecycle.
 
-- `object` is the current JSON value. It may be an object, array, string, number,
-  boolean, or null. A mutation can change the root type.
-- Variables are lazy, declared in dependency order, and refreshed after each
-  mutation so references to `object` see the latest value.
-- Match conditions run once per policy. A false condition produces a skipped
-  result. Evaluation errors are explicit, regardless of admission failurePolicy.
-- JSONPatch expressions use the existing `JSONPatch{op, path, from, value}` CEL
-  type and `jsonpatch.escapeKey()`. Mixed-type JSON maps/lists are permitted.
-- PolicyException references are matched by policy kind/name, as in the existing
-  provider. Full exemptions skip mutation; partial allowedImages/allowedValues
-  are exposed through `exceptions`. Exception results include copied exceptions.
-- Audit annotations are evaluated on the final document; empty strings and null
-  are omitted.
-- Only JSONPatch is accepted. ApplyConfiguration, enabled Pod-controller/native
-  admission-policy autogen, mutate-existing enabled, target matching, server-side
-  apply, and non-Never reinvocation are rejected. Empty/defaulted autogen objects
-  are accepted.
-- Kubernetes match constraints, admission/background switches, webhook settings,
-  and failurePolicy do not control this stateless core. Admission defaults must
-  not cause a JSON policy to enter the Kubernetes evaluation plane.
-- The initial environment includes shared pure CEL extensions, but deliberately
-  does not expose `request`, `oldObject`, `namespace`, typed `Object` constructors,
-  or network/cluster-context libraries. Broader JSON-mode library compatibility
-  can be added explicitly, not through implicit client dependencies.
+## Expression and patch contract
 
-## Core API and architecture
+`object` is the current JSON object. Variables are lazy and are refreshed after
+each mutation. Match conditions run once per policy. Policies run in provider
+order; each sees the preceding policy's successful output.
 
-`pkg/cel/policies/mpol/compiler.CompileJSON` returns an immutable `JSONPolicy`.
-It uses shared CEL options, variable-provider support, and matching helpers, but
-does not use Kubernetes patch.Request, runtime.Object, or type conversion.
+Only `JSONPatch` mutations are supported in JSON mode. Expressions return a
+list of `JSONPatch{op, path, from, value}` values and can use
+`jsonpatch.escapeKey()`. The RFC 6902 operations add/remove/replace/copy/move/test
+and RFC 6901 escaped pointers are supported. A failed `test` rolls back that
+policy and reports a skip; invalid operations report errors. Non-object
+mutation outputs are errors.
 
-`pkg/cel/policies/mpol/engine.NewJSONEngine(policies, exceptions)` compiles a fixed
-policy set. `HandleJSON(ctx, json.RawMessage)` returns a `JSONResponse` containing
-the transformed document and per-policy outcomes (`applied`, `skipped`, `error`).
-Policy names are namespace-qualified where appropriate. Duplicate keys and
-non-JSON policies are constructor errors. Empty policy sets are identity
-transformations of valid, size-bounded JSON input.
+Integer literals within int64 remain exact through loading, evaluation and
+output, including values above 2^53. Fractional JSON numbers use the existing
+double representation. Patch `test` comparisons normalize CEL doubles through
+their shortest round-trip decimal representation and compare numeric values
+exactly, so `0.1` matches `0.1` without conflating adjacent large integers.
 
-```go
-eng, err := mpolengine.NewJSONEngine(policies, exceptions)
-if err != nil {
-    return err
-}
-response, err := eng.HandleJSON(ctx, json.RawMessage(input))
-if err != nil {
-    return err
-}
-// response.Document is the transformed JSON, including literal null if appropriate.
-```
+Full PolicyExceptions use existing exception result reporting. Scoped
+exceptions expose their allowed values/images to expressions. Audit
+annotations are attached to successful rule results.
 
-Policies run in caller-supplied order, exactly once. This avoids silently imposing
-alphabetical order on an existing CLI workflow. A CLI using discovered policies
-must establish deterministic ordering before constructing the engine.
+CEL programs use the shared Kyverno environment, cost limits, request-wide
+budget and cancellation checks. Documents/intermediate values are limited to
+1 MiB and a policy to 1,024 patch operations.
 
-For expected-output comparisons, each `JSONPolicyResponse.Document` contains the
-raw document after that policy ran, including unchanged output for skipped
-policies. The CLI uses one ordered engine invocation and consumes these snapshots
-only after overall success, without evaluating a policy twice. Snapshots from
-earlier successful policies may be present in the engine's error response for
-diagnostics; they are not a successful invocation output.
+## Tests and follow-up
 
-Each call owns its activation, variables, input copy, and patch state. Compiled
-programs are shared safely between concurrent calls.
+Focused engine tests cover compilation through the normal provider, sequential
+mutations, independent snapshots, numeric fidelity, failed-test rollback, root
+restrictions, cancellation and budget/size limits. CLI fixtures cover mutation
+before validation, path-based result selection, exceptions, skips and errors.
+Existing Kubernetes mutation tests exercise the unchanged evaluation branch.
 
-## Patch semantics, atomicity, and limits
-
-All six JSON Patch operations are supported. Paths use RFC 6901 pointers:
-empty is the document root; invalid escapes and negative array indices are
-rejected. Array indices must be canonical (no leading zeroes or plus signs).
-Required constructor fields are checked, including an explicit `from`
-for copy/move even when it is the empty root pointer.
-
-The existing direct dependency `github.com/evanphx/json-patch/v5` applies patches.
-A private `{"document": <input>}` envelope and translated pointers make scalars,
-arrays, and null addressable without depending on the library's root support.
-The envelope is never exposed to CEL or callers.
-
-Mutations and policies see previous successful mutations. A failed `test`
-operation rolls back the **entire current policy** and returns skipped, retaining
-Kyverno's no-op convention while avoiding partial mutation. Removing the root
-is rejected because an absent document is not a JSON value. Moving a value into
-its descendant is also rejected.
-
-Test comparisons follow JSON structural equality, including numeric equality
-(`1`, `1.0`, and `1e0` compare equal). Testing a missing location fails, including
-a missing key tested against null; absent and null are not conflated.
-
-Any other evaluation, patch, annotation, cancellation, or limit error stops the
-invocation. The top-level response carries outcomes, but **no final document**.
-Per-policy snapshots from earlier successful policies remain available for
-diagnostics; the erroring policy's snapshot is absent. Consumers must check the
-invocation error before publishing any document. The caller's input is never
-modified. Literal JSON null is distinct from an absent error result.
-
-Initial core limits:
-
-- One JSON value per invocation; input and each intermediate document are at most
-  1 MiB.
-- At most 1,024 patch operations per policy, across all its mutations.
-- Each CEL program uses Kyverno's shared cost limits and context interruption
-  checks. The engine shares a request-wide cost budget across all policies and
-  preserves a budget supplied by its caller; this is not a wall-clock SLA.
-- Patch-value conversion has a size/node budget; patch serialization and output
-  growth are checked. Copy operations have a per-call size-growth limit.
-
-Consumers must still bound policy count and supply context deadlines. Network
-operations are unavailable. These limits are initial core constants, not new
-cluster feature flags.
-
-## Numeric fidelity
-
-Input/output uses raw JSON bytes. The CEL activation decodes integers as int64,
-not float64, so integers above 2^53 remain exact within the signed int64 range.
-Out-of-range integer literals and overflowing doubles return errors instead of
-silently rounding. Fractional/exponent-form values use CEL doubles; arithmetic
-therefore follows IEEE 754 semantics. Untouched numeric lexemes retain their
-precision through patching; patch values serialize native CEL integers directly,
-without protobuf Value's float64 conversion. When the CLI hands a mutated
-document to JSON validation, it applies the same rules: integer literals stay
-exact `int64` values, and out-of-range numbers are rejected rather than rounded.
-
-Duplicate object keys currently follow the JSON decoder's last-key-wins behavior.
-Whitespace and property ordering are not preserved as a public contract.
-
-## Delivery phases and acceptance
-
-1. **Document-native core (this change).** Dedicated compiler/engine, root-value
-   support, sequential evaluation, exceptions, atomic failures, limits, and unit
-   tests. No existing admission, provider, or CLI call site is redirected.
-2. **CLI apply/test integration (implemented).** Route JSON-mode MutatingPolicies
-   through the new engine; preserve raw documents of every root type; reuse
-   output paths and expected patched-document fixtures. Run mutation before JSON
-   validation and report mode mismatches explicitly. Document identities derive
-   from input paths, not Kubernetes metadata. Stage output until evaluation
-   succeeds, avoiding truncation or partially published mutation results.
-   JSON validation/image-validation/deletion paths that require object roots
-   return actionable errors when given a non-object transformed document.
-3. **Policy lifecycle isolation (implemented).** JSON policy validation uses the
-   document compiler without requiring resource match constraints or admission
-   evaluation. A shared mode gate excludes JSON policies from the Kubernetes
-   compiler/provider, webhook resource rules, Pod autogen, native admission-policy
-   generation, reporting resource scans, and background mutation. Reconciliation
-   evicts policies switched to JSON mode from the Kubernetes provider. Status
-   reconciliation treats webhook configuration and cluster mutation RBAC as
-   inapplicable. Already queued background requests are skipped (a terminal
-   state, so they are not retried) rather than performing document policies
-   against cluster resources. Generated MutatingAdmissionPolicies are removed
-   regardless of the admission-policy generation toggle or controller RBAC.
-4. **Documentation and release.** Update the website policy comparison and JSON
-   examples (MutatingPolicy JSON-mode docs: kyverno/website#2188), generate affected schemas/manifests if necessary, and publish
-   end-to-end CLI examples. SDK/HTTP service integration is a later project.
-
-Core acceptance includes every root type, root-type transitions, all patch
-operations, escaping, null values, precision above 2^53, policy ordering, variable
-refresh, matching/exceptions, test rollback, missing paths, cancellation, size
-and operation limits, and concurrent evaluation under the race detector.
-Existing mpol compiler/engine tests must continue to pass.
-
-## Alternatives and non-goals
-
-Fake admission attributes were explored in the unmerged implementation, but
-couple documents to Kubernetes serialization and mutate-existing semantics.
-A shared EngineRequest refactor would unnecessarily change all other policy
-engines. Both are avoided in the core implementation.
-
-Generic merge/ApplyConfiguration semantics require a separate design; no
-schema-free SSA substitute is introduced. This work does not add HTTP endpoints,
-background mutation, Kubernetes reports for documents, legacy policy support,
-or convergence with the separate kyverno-json product.
+Arbitrary-root JSON transformations, transactional batch publication and
+additional expression libraries can be proposed separately.

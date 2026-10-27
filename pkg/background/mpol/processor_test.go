@@ -51,7 +51,6 @@ type fakeStatusControl struct {
 	failedCalled  bool
 	failedMsg     string
 	successCalled bool
-	skipCalled    bool
 }
 
 func (f *fakeStatusControl) Failed(name, msg string, genResources []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
@@ -65,7 +64,6 @@ func (f *fakeStatusControl) Success(name string, genResources []kyverno.Resource
 }
 func (f *fakeStatusControl) Skip(name string, genResources []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	f.successCalled = true
-	f.skipCalled = true
 	return &kyvernov2.UpdateRequest{}, nil
 }
 
