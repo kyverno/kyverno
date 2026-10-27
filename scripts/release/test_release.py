@@ -1143,6 +1143,8 @@ class RetryAndGates(unittest.TestCase):
                     "conformance", "k6", "performance", "manifests"}
         self.assertEqual(set(jobs["gate"]["needs"]), expected)
         self.assertNotIn("policy-library", jobs)
+        builder = (ROOT / "scripts/release/build.py").read_text()
+        self.assertNotIn("https://github.com/kyverno/policies.git", builder)
         last = jobs["gate"]["steps"][-1]
         self.assertIn('j["result"]=="success"', last["run"])
         for job in expected:

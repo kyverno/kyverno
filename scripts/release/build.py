@@ -62,9 +62,6 @@ def main():
     metadata = json.loads(Path(".release/plan.json").read_text())
     if output("git", "rev-parse", "HEAD") != metadata["sha"]:
         raise ValueError("Checkout does not match the requested release SHA")
-    metadata["policy_library_sha"] = output(
-        "git", "ls-remote", "https://github.com/kyverno/policies.git", "HEAD"
-    ).split()[0]
     metadata["chart_images"] = chart_image_references(read("charts/kyverno/values.yaml"), metadata)
     Path(".release/assets").mkdir(parents=True, exist_ok=True)
     Path(".release/sboms").mkdir(parents=True, exist_ok=True)

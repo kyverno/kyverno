@@ -120,7 +120,7 @@ Preparation preserves each chart's own `kubeVersion`, rather than imposing one
 global constraint. External chart dependencies must match `Chart.lock`; their
 exact versions are retained while local dependency versions and the lock digest
 are updated in the isolated workspace. The candidate records downloaded
-dependency checksums and the policy-library commit.
+dependency checksums.
 
 External archive SHA-256 pins are committed in `config/releases.yaml`.
 Preparation verifies the first download against these pins, rejects byte changes
@@ -225,7 +225,7 @@ is **not** completion. The release is complete only when every mandatory
 publication/remote-verification job succeeds and the GitHub release is non-draft.
 
 The validation and publication summaries include the exact SHA, application and
-chart versions, image digests, policy-library commit, every job/Kubernetes/shard
+chart versions, image digests, every job/Kubernetes/shard
 result, first failed step, log links, and reproduction/retry commands. Retained
 reports include per-test JSON for the shared conformance runner and custom Sigstore,
 plus failed-job logs for special suites and publication jobs. K6
