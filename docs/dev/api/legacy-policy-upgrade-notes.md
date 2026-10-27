@@ -64,11 +64,21 @@ both in `charts/kyverno/templates/`, that run on different conditions:
 
 | Method | `lookup` gate | Hook `Job` |
 |---|---|---|
-| Real `helm install`/`helm upgrade` (or `--dry-run=server`) | Runs | Runs |
-| Flux's `helm-controller` (`HelmRelease`) | Runs — it performs a genuine Helm install/upgrade, not just templating | Runs |
+| Real `helm install`/`helm upgrade` | Runs | Runs¹ |
+| `helm install --dry-run=server`/`helm upgrade --dry-run=server` | Runs | **Does not run** — a dry run never creates the Job, server-side validation notwithstanding |
+| Flux's `helm-controller` (`HelmRelease`) | Runs — it performs a genuine Helm install/upgrade, not just templating | Runs¹ |
 | ArgoCD's native Helm source type | **Does not run** — ArgoCD renders with `helm template`, it does not install/upgrade a Helm release | Runs, via ArgoCD's own Helm-hook-to-sync-wave translation, unless hooks are skipped for that app/resource |
-| Plain `helm template` (even with `--kube-context` set), or any pipeline that renders the chart once and applies/commits the resulting plain YAML | **Does not run** | **Does not run** — no hook execution model outside a real Helm install/upgrade |
+| Plain `helm template` (even with `--kube-context` set, or `--dry-run=server`), or any pipeline that renders the chart once and applies/commits the resulting plain YAML | **Does not run** | **Does not run** — no hook execution model outside a real Helm install/upgrade |
 | The published release `install.yaml` asset, or `config/install-latest-testing.yaml` | **Does not run** | **Does not run** |
+
+¹ "Runs" here means the chart renders the Job and Helm executes a real install/upgrade — not that
+nothing can skip it. Three independent, generic bypasses still apply regardless of install method:
+this chart's own `upgrade.legacyPolicyCheck.enabled=false` (omits the Job from the render entirely —
+`templates/hooks/pre-install-check-legacy-policies.yaml`), Helm's own `--no-hooks` flag (skips every
+hook on that invocation, chart-agnostic), and Flux's `HelmRelease.spec.install.disableHooks` /
+`spec.upgrade.disableHooks` (same, for a Flux-managed release). Any of these means the preflight did
+not actually run even though the install/upgrade itself was real — treat "Runs" above as the default,
+not a guarantee, and run the manual check below if any of these are in play.
 
 **For any of the paths marked "does not run" above**, run the same check the hook `Job` would have run,
 manually, before upgrading:
