@@ -136,6 +136,8 @@ def complete(metadata):
     release = existing_release(metadata["tag"])
     if release is None:
         raise ValueError("Draft release disappeared")
+    if not release["isDraft"]:
+        raise ValueError("Release is no longer a draft; refusing to finalize public content")
     notes = ""
     # Read the changelog without allowing Make to rebuild any artifacts.
     changelog = Path("CHANGELOG.md").read_text()

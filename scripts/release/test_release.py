@@ -1302,6 +1302,16 @@ class RetryAndGates(unittest.TestCase):
                     assets.complete(metadata)
                 mutate.assert_not_called()
 
+    def test_finalize_rejects_a_release_already_public_before_its_first_read(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        with patch.object(assets, "existing_release", return_value={"isDraft": False}), \
+                patch.object(assets, "should_be_latest") as latest, \
+                patch.object(assets, "run") as mutate:
+            with self.assertRaisesRegex(ValueError, "no longer a draft"):
+                assets.complete(metadata)
+            latest.assert_not_called()
+            mutate.assert_not_called()
+
     def test_finalize_rechecks_tag_after_reading_current_draft(self):
         metadata = release.plan("v1.20.2", SHA, MAPPING)
         with patch.object(assets, "existing_release", return_value={"isDraft": True}), \
