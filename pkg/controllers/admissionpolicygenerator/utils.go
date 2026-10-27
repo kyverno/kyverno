@@ -9,6 +9,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // getValidatngPolicy gets the Kyverno ValidatingPolicy
@@ -127,15 +128,29 @@ func (c *controller) getCELExceptions(policyName, kind string) ([]policiesv1beta
 // that match the policy. The generated VAP/MAP bake those exceptions in and are otherwise only
 // regenerated on policy or exception events, so without this an expired exception would keep
 // being honored by the API server until something else touched the policy.
+//
+// The exceptions are matched here without the expiry filter on purpose: an exception that
+// expired while the policy was being generated is already dropped by getCELExceptions, yet it
+// may still be baked into the VAP/MAP that was just written. NextExceptionExpiry turns such a
+// past deadline into an immediate requeue, so the next reconcile regenerates without it.
 func (c *controller) requeueAtExceptionExpiry(key, kind, name string) {
-	exceptions, err := c.getCELExceptions(name, kind)
+	if !c.polexEnabled {
+		return
+	}
+	lister := celengine.NewPolicyExceptionLister(c.celpolexLister, c.exceptionNamespace)
+	exceptions, err := lister.List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list exceptions to schedule regeneration at their expiry", "policy", name)
 		return
 	}
-	matched := make([]*policiesv1beta1.PolicyException, 0, len(exceptions))
-	for i := range exceptions {
-		matched = append(matched, &exceptions[i])
+	var matched []*policiesv1beta1.PolicyException
+	for _, exception := range exceptions {
+		for _, ref := range exception.Spec.PolicyRefs {
+			if ref.Name == name && ref.Kind == kind {
+				matched = append(matched, exception)
+				break
+			}
+		}
 	}
 	if requeueAfter, ok := celengine.NextExceptionExpiry(matched, time.Now()); ok {
 		c.queue.AddAfter(key, requeueAfter)

@@ -168,16 +168,30 @@ func (q *recordingQueue) AddAfter(item any, duration time.Duration) {
 // that exception's expiresAt.
 func TestReconcile_RequeuesAtExceptionExpiry(t *testing.T) {
 	inAnHour := metav1.NewTime(time.Now().Add(time.Hour))
+	justExpired := metav1.NewTime(time.Now().Add(-time.Second))
 	tests := []struct {
 		name         string
 		expiresAt    *metav1.Time
 		polexEnabled bool
 		wantRequeue  bool
+		wantMin      time.Duration
+		wantMax      time.Duration
 	}{{
 		name:         "expiring exception requeues the policy for its deadline",
 		expiresAt:    &inAnHour,
 		polexEnabled: true,
 		wantRequeue:  true,
+		wantMin:      59 * time.Minute,
+		wantMax:      time.Hour,
+	}, {
+		// an exception that expired while the policy was being generated is no longer part of
+		// the filtered list, but may still be in the VAP that was just written: requeue at once
+		name:         "already expired exception requeues immediately",
+		expiresAt:    &justExpired,
+		polexEnabled: true,
+		wantRequeue:  true,
+		wantMin:      0,
+		wantMax:      time.Second,
 	}, {
 		name:         "exception without expiresAt does not requeue",
 		polexEnabled: true,
@@ -223,8 +237,8 @@ func TestReconcile_RequeuesAtExceptionExpiry(t *testing.T) {
 			requeueAfter, requeued := q.after[key]
 			assert.Equal(t, tt.wantRequeue, requeued)
 			if tt.wantRequeue {
-				assert.Greater(t, requeueAfter, 59*time.Minute, "the policy must be requeued for the exception's expiresAt")
-				assert.LessOrEqual(t, requeueAfter, time.Hour)
+				assert.Greater(t, requeueAfter, tt.wantMin, "the policy must be requeued for the exception's expiresAt")
+				assert.LessOrEqual(t, requeueAfter, tt.wantMax)
 			}
 		})
 	}
