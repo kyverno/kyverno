@@ -65,7 +65,15 @@ func NewCompilerWithTrace(trace bool) Compiler {
 type compilerImpl struct{ trace bool }
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
-	if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+	path := field.NewPath("spec")
+	if policy == nil || (reflect.ValueOf(policy).Kind() == reflect.Pointer && reflect.ValueOf(policy).IsNil()) {
+		return nil, field.ErrorList{field.Required(path, "policy is required")}
+	}
+	spec := policy.GetSpec()
+	if spec == nil {
+		return nil, field.ErrorList{field.Required(path, "spec is required")}
+	}
+	if spec.EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
 		return c.compileForJSON(policy, exceptions)
 	}
 	return c.compileForKubernetes(policy, exceptions)

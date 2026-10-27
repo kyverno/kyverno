@@ -24,7 +24,9 @@ func applyDocumentPatch(ctx context.Context, document json.RawMessage, value ref
 	if !ok {
 		return nil, false, fmt.Errorf("expected a list of JSONPatch values")
 	}
-	envelope, err := json.Marshal(map[string]json.RawMessage{"document": document})
+	envelope, err := json.Marshal(struct {
+		Document json.RawMessage `json:"document"`
+	}{Document: document})
 	if err != nil {
 		return nil, false, err
 	}
@@ -117,12 +119,14 @@ func applyDocumentPatch(ctx context.Context, document json.RawMessage, value ref
 		if err != nil {
 			return nil, false, fmt.Errorf("operation %d (%s %q): %w", *operations-1, op.Op, op.Path, err)
 		}
-		var result map[string]json.RawMessage
+		var result struct {
+			Document json.RawMessage `json:"document"`
+		}
 		if err := json.Unmarshal(envelope, &result); err != nil {
 			return nil, false, err
 		}
-		document, ok = result["document"]
-		if !ok {
+		document = result.Document
+		if document == nil {
 			return nil, false, fmt.Errorf("operation %d removed the document root", *operations-1)
 		}
 		if len(document) > MaxJSONDocumentBytes {

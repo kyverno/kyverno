@@ -112,11 +112,17 @@ func TestApplyJSONMutationOnKubernetesObject(t *testing.T) {
 		PolicyPaths:   []string{"../../../../../test/cli/test-mutating-policy/json-document-mutation/policy.yaml"},
 		ResourcePaths: []string{input},
 	}
-	rc, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+	rc, resources, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
 	require.NoError(t, err)
 	require.Equal(t, 2, rc.Pass)
 	require.Zero(t, rc.Fail)
 	require.Zero(t, rc.Error)
+	require.Len(t, resources, 1)
+	require.Equal(t, "ConfigMap", resources[0].GetKind())
+	require.Equal(t, "input", resources[0].GetName())
+	require.Len(t, responses, 2)
+	require.Equal(t, "ConfigMap", responses[0].PatchedResource.GetKind())
+	require.Equal(t, "west", responses[0].PatchedResource.Object["region"])
 }
 
 func Test_Apply(t *testing.T) {

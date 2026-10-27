@@ -2,13 +2,46 @@ package compiler
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 )
+
+func BenchmarkJSONDocumentPatch(b *testing.B) {
+	for _, count := range []int{1, 32, 1024} {
+		b.Run(fmt.Sprintf("operations=%d", count), func(b *testing.B) {
+			expression := "[" + strings.TrimSuffix(strings.Repeat(`JSONPatch{op:"add",path:"/value",value:1},`, count), ",") + "]"
+			policy := &v1beta1.MutatingPolicy{Spec: v1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+				Mutations: []admissionregistrationv1alpha1.Mutation{{
+					PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+					JSONPatch: &admissionregistrationv1alpha1.JSONPatch{Expression: expression},
+				}},
+			}}
+			compiled, errs := NewCompiler().Compile(policy, nil)
+			require.Empty(b, errs)
+			ctx := context.Background()
+			value, _, err := compiled.jsonMutations[0].ContextEval(ctx, map[string]any{})
+			require.NoError(b, err)
+			document := []byte(`{"data":"` + strings.Repeat("x", 4096) + `"}`)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for b.Loop() {
+				operations := 0
+				_, skipped, err := applyDocumentPatch(ctx, document, value, &operations)
+				if err != nil || skipped {
+					b.Fatalf("patch failed: skipped=%t err=%v", skipped, err)
+				}
+			}
+		})
+	}
+}
 
 // compileJSONPatcher compiles a MutatingPolicy carrying a single JSONPatch mutation and
 // returns its patcher, so the expressions below travel the same path they do in the

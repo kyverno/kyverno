@@ -79,13 +79,7 @@ func (t *documentPatchType) Val(fields map[string]ref.Val) ref.Val {
 
 func (c *compilerImpl) compileForJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	path := field.NewPath("spec")
-	if policy == nil || (reflect.ValueOf(policy).Kind() == reflect.Pointer && reflect.ValueOf(policy).IsNil()) {
-		return nil, field.ErrorList{field.Required(path, "policy is required")}
-	}
 	spec := policy.GetSpec()
-	if spec == nil {
-		return nil, field.ErrorList{field.Required(path, "spec is required")}
-	}
 	if spec.EvaluationConfiguration == nil || spec.EvaluationConfiguration.Mode != policieskyvernoio.EvaluationModeJSON {
 		return nil, field.ErrorList{field.Invalid(path.Child("evaluation", "mode"), "", "JSON mode is required")}
 	}
