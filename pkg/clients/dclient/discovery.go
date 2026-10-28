@@ -125,7 +125,12 @@ func (c *serverResources) OnChanged(callback func()) {
 }
 
 func (c *serverResources) notify() {
-	for _, callback := range c.callbacks {
+	c.mux.RLock()
+	callbacks := make([]func(), len(c.callbacks))
+	copy(callbacks, c.callbacks)
+	c.mux.RUnlock()
+
+	for _, callback := range callbacks {
 		callback()
 	}
 }
