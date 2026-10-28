@@ -24,7 +24,6 @@ status:
               - deployments
           matchImageReferences:
           - glob: ghcr.io/kyverno/test-verify-image-rollback:*
-          - glob: ghcr.io/kyverno/test-verify-image:*
           matchConstraints:
             resourceRules:
             - apiGroups:
