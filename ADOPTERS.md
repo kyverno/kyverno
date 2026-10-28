@@ -61,7 +61,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Okteto](https://www.okteto.com/) | Our managed service uses Kyverno to ensure that our customer's clusters remain compliant with our internal devops and security policies. |
 | [Miro](https://www.miro.com/) | Miro Compute platform leverages Kyverno as the backbone of our Policy as a Code strategy. Beyond standard compliance validation during admission, we utilize Kyverno’s mutating policies to shift critical platform logic directly into the control plane. |
 | [Akamai Technologies](https://www.akamai.com/) | Kyverno is a default one-click add on for policy enforcement in the Akamai App Platform ― a fully cloud native Internal Developer Platform (IDP) built on CNCF projects. |
-| [Wordfully](https://wordfully.ai) | Wordfully uses Kyverno to check Kubernetes workload configurations against its deployment policies. |
+| [Wordfully](https://wordfully.ai) | Wordfully is an AI rephraser and grammar checker. It uses Kyverno to check Kubernetes workload configurations against its deployment policies. |
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->
