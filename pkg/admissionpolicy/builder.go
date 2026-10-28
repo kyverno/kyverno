@@ -267,6 +267,54 @@ func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException
 	return result
 }
 
+// mapNamedRules preserves a nil rule list while converting its elements.
+func mapNamedRules[T any](rules []admissionregistrationv1.NamedRuleWithOperations, convert func(admissionregistrationv1.NamedRuleWithOperations) T) []T {
+	if rules == nil {
+		return nil
+	}
+	return slicesutils.Map(rules, convert)
+}
+
+func matchResourcesAlpha(source *admissionregistrationv1.MatchResources) *admissionregistrationv1alpha1.MatchResources {
+	if source == nil {
+		return nil
+	}
+	constraints := source.DeepCopy()
+	convertRule := func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1alpha1.NamedRuleWithOperations {
+		return admissionregistrationv1alpha1.NamedRuleWithOperations{
+			ResourceNames:      rule.ResourceNames,
+			RuleWithOperations: rule.RuleWithOperations,
+		}
+	}
+	return &admissionregistrationv1alpha1.MatchResources{
+		NamespaceSelector:    constraints.NamespaceSelector,
+		ObjectSelector:       constraints.ObjectSelector,
+		ResourceRules:        mapNamedRules(constraints.ResourceRules, convertRule),
+		ExcludeResourceRules: mapNamedRules(constraints.ExcludeResourceRules, convertRule),
+		MatchPolicy:          (*admissionregistrationv1alpha1.MatchPolicyType)(constraints.MatchPolicy),
+	}
+}
+
+func matchResourcesBeta(source *admissionregistrationv1.MatchResources) *admissionregistrationv1beta1.MatchResources {
+	if source == nil {
+		return nil
+	}
+	constraints := source.DeepCopy()
+	convertRule := func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1beta1.NamedRuleWithOperations {
+		return admissionregistrationv1beta1.NamedRuleWithOperations{
+			ResourceNames:      rule.ResourceNames,
+			RuleWithOperations: rule.RuleWithOperations,
+		}
+	}
+	return &admissionregistrationv1beta1.MatchResources{
+		NamespaceSelector:    constraints.NamespaceSelector,
+		ObjectSelector:       constraints.ObjectSelector,
+		ResourceRules:        mapNamedRules(constraints.ResourceRules, convertRule),
+		ExcludeResourceRules: mapNamedRules(constraints.ExcludeResourceRules, convertRule),
+		MatchPolicy:          (*admissionregistrationv1beta1.MatchPolicyType)(constraints.MatchPolicy),
+	}
+}
+
 // BuildMutatingAdmissionPolicy is used to build a Kubernetes MutatingAdmissionPolicy from a MutatingPolicy
 func BuildMutatingAdmissionPolicy(
 	mapol *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
@@ -290,16 +338,9 @@ func BuildMutatingAdmissionPolicy(
 	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	// set policy spec
 	mapol.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{
-		MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1alpha1.NamedRuleWithOperations {
-				return admissionregistrationv1alpha1.NamedRuleWithOperations{
-					ResourceNames:      rule.ResourceNames,
-					RuleWithOperations: rule.RuleWithOperations,
-				}
-			}),
-		},
-		MatchConditions: matchConditions,
-		Mutations:       mp.Spec.Mutations,
+		MatchConstraints: matchResourcesAlpha(mp.Spec.MatchConstraints),
+		MatchConditions:  matchConditions,
+		Mutations:        mp.Spec.Mutations,
 		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1alpha1.Variable {
 			return admissionregistrationv1alpha1.Variable(v)
 		}),
@@ -345,15 +386,8 @@ func BuildMutatingAdmissionPolicyV1(
 
 	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	mapol.Spec = admissionregistrationv1.MutatingAdmissionPolicySpec{
-		MatchConstraints: &admissionregistrationv1.MatchResources{
-			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1.NamedRuleWithOperations {
-				return admissionregistrationv1.NamedRuleWithOperations{
-					ResourceNames:      rule.ResourceNames,
-					RuleWithOperations: rule.RuleWithOperations,
-				}
-			}),
-		},
-		MatchConditions: matchConditions,
+		MatchConstraints: mp.Spec.MatchConstraints.DeepCopy(),
+		MatchConditions:  matchConditions,
 		Mutations: slicesutils.Map(mp.Spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1.Mutation {
 			mut := admissionregistrationv1.Mutation{PatchType: admissionregistrationv1.PatchType(m.PatchType)}
 			if m.ApplyConfiguration != nil {
@@ -412,15 +446,8 @@ func BuildMutatingAdmissionPolicyBeta(
 	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	// set policy spec
 	mapol.Spec = admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
-		MatchConstraints: &admissionregistrationv1beta1.MatchResources{
-			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1beta1.NamedRuleWithOperations {
-				return admissionregistrationv1beta1.NamedRuleWithOperations{
-					ResourceNames:      rule.ResourceNames,
-					RuleWithOperations: rule.RuleWithOperations,
-				}
-			}),
-		},
-		MatchConditions: matchConditions,
+		MatchConstraints: matchResourcesBeta(mp.Spec.MatchConstraints),
+		MatchConditions:  matchConditions,
 		Mutations: slicesutils.Map(mp.Spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1beta1.Mutation {
 			mut := admissionregistrationv1beta1.Mutation{
 				PatchType: admissionregistrationv1beta1.PatchType(m.PatchType),

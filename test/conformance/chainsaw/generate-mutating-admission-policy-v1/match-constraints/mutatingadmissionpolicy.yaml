@@ -1,0 +1,26 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: mpol-map-scope-repro
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+spec:
+  matchConstraints:
+    matchPolicy: Exact
+    namespaceSelector:
+      matchLabels:
+        environment: development
+    objectSelector:
+      matchLabels:
+        mutate: "yes"
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [configmaps]
+    excludeResourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [configmaps]
+      resourceNames: [do-not-touch]

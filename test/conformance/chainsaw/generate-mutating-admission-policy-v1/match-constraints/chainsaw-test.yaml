@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: match-constraints
+spec:
+  concurrent: false
+  steps:
+  - name: create namespaces
+    try:
+    - create:
+        file: namespaces.yaml
+  - name: wait for native policy and binding
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+    - assert:
+        file: mutatingadmissionpolicy.yaml
+    - assert:
+        file: mutatingadmissionpolicybinding.yaml
+  - name: create configmaps after native generation
+    try:
+    - create:
+        file: resources.yaml
+    - assert:
+        file: resources-assert.yaml
