@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: rollback-image-verification
+spec:
+  concurrent: false
+  timeouts:
+    delete: 2m
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-image-validating-policy-ready
+    use:
+      template: ../../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-rollback-image-verification
+  - name: check autogen policy
+    try:
+    - assert:
+        file: check-autogen.yaml
+  # This test usually runs first in its shard, right after Kyverno starts, and the policy can
+  # report ready a moment before admission requests are actually checked against it (same race
+  # documented in ../autogen-deployments-cronjobs/chainsaw-test.yaml).
+  - name: wait-webhook
+    try:
+    - sleep:
+        duration: 5s
+  - name: create the first deployment revision
+    try:
+    - apply:
+        file: deployment_old.yaml
+    - script:
+        content: kubectl -n ivpol-rollback-verification rollout status deployment/nginx-deployment --timeout=60s
+  - name: update to the second deployment revision
+    try:
+    - apply:
+        file: deployment_new.yaml
+    - script:
+        content: kubectl -n ivpol-rollback-verification rollout status deployment/nginx-deployment --timeout=60s
+    - assert:
+        file: deployment-assert.yaml
+  - name: roll back the deployment
+    try:
+    - script:
+        content: |
+          kubectl -n ivpol-rollback-verification rollout undo deployment nginx-deployment
+          kubectl -n ivpol-rollback-verification rollout status deployment/nginx-deployment --timeout=60s
+  - name: assert the rollback reverted to the first, already-verified image
+    try:
+    - assert:
+        file: chainsaw-step-04-assert-1.yaml
+  # Negative control. Everything above asserts that something was NOT denied, which would
+  # hold just as well if verification never ran. This proves the policy is live on the same
+  # Deployment UPDATE path: an unsigned image is rejected.
+  - name: reject an unsigned image on the same update path
+    try:
+    - apply:
+        file: deployment_unsigned.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'failed to verify image with cosign key')): true
+  - name: assert the denied update left the rolled-back image in place
+    try:
+    - assert:
+        file: chainsaw-step-04-assert-1.yaml
