@@ -63,5 +63,3 @@ func TestNotifyAllowsReentrantOnChanged(t *testing.T) {
 		t.Fatalf("inner callback ran %d times, want 1", got)
 	}
 }
-
-
