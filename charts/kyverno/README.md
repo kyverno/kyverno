@@ -940,8 +940,9 @@ loopback, unspecified, multicast, and broadcast addresses are blocked in both mo
 
 The guard covers untrusted resource images, including regular, init, and ephemeral
 containers. Policy-authored image registry context, signature repository, key,
-certificate, Rekor, Fulcio, TSA, TUF, and manifest/bundle endpoints retain native
+certificate, Rekor, Fulcio, CT, TSA, TUF, and `validate.manifests` endpoints retain native
 network behavior and are not subject to these egress settings.
+Sigstore bundle registry requests derived from workload images remain guarded.
 
 Before enabling `enforce`, add the exact hostnames, IP addresses, or CIDRs for your
 private registries and token services to `features.registryClient.privateRegistryAllowlist`.

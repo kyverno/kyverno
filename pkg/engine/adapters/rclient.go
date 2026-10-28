@@ -35,7 +35,7 @@ func (a *rclientAdapter) ValidateImage(ctx context.Context, imageRef string) err
 	}); ok {
 		return scoped.ValidateImage(ctx, imageRef)
 	}
-	return nil
+	return fmt.Errorf("registry client does not support workload-image destination validation")
 }
 
 func (a *rclientAdapter) ForRef(ctx context.Context, ref string) (*engineapi.ImageData, error) {

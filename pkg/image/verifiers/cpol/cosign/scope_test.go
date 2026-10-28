@@ -108,4 +108,14 @@ func TestPolicySignatureRepositoryUsesNativeOptions(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, repository+"@"+digest.String(), resolved.String())
+	for _, unvalidated := range []verifiers.Client{
+		struct{ verifiers.Client }{client},
+		adapters.RegistryClient(struct{ registryclient.Client }{registryclient.New()}),
+	} {
+		resolved, err := resourceReference(context.Background(), verifiers.Options{
+			Client: unvalidated, ImageRef: image.Context().Digest(digest.String()).String(), Repository: repository,
+		})
+		require.ErrorContains(t, err, "registry client does not support workload-image destination validation")
+		require.Nil(t, resolved)
+	}
 }

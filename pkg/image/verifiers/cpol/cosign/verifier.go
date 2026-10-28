@@ -180,12 +180,14 @@ func resourceReference(ctx context.Context, opts verifiers.Options) (name.Refere
 		return nil, err
 	}
 	if digest, pinned := ref.(name.Digest); pinned {
-		if scoped, ok := opts.Client.(interface {
+		scoped, ok := opts.Client.(interface {
 			ValidateImage(context.Context, string) error
-		}); ok {
-			if err := scoped.ValidateImage(ctx, opts.ImageRef); err != nil {
-				return nil, err
-			}
+		})
+		if !ok {
+			return nil, fmt.Errorf("registry client does not support workload-image destination validation")
+		}
+		if err := scoped.ValidateImage(ctx, opts.ImageRef); err != nil {
+			return nil, err
 		}
 		return repository.Digest(digest.DigestStr()), nil
 	}
