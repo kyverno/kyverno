@@ -143,6 +143,10 @@ spec:
             {{- end }}
             {{- end }}
             {{- $features := mergeOverwrite (deepCopy .Values.features) .Values.cleanupController.featuresOverride }}
+            {{- $registryOverride := .Values.cleanupController.featuresOverride.registryClient | default dict }}
+            {{- if hasKey $registryOverride "privateRegistryAllowlist" }}
+            {{- $_ := set $features.registryClient "privateRegistryAllowlist" $registryOverride.privateRegistryAllowlist }}
+            {{- end }}
             {{- include "kyverno.features.flags" (pick $features
               "deferredLoading"
               "dumpPayload"

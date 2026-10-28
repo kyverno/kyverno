@@ -60,11 +60,10 @@ type CompiledPolicy interface {
 	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, func() (map[string]any, error), libs.Context) (*EvaluationResult, error)
 	EnforceRequired(images []string) error
 	// requestMapFn: same memoization contract as Evaluate's.
-	MutateDigest(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration) ([]jsonpatch.JsonPatchOperation, error)
+	MutateDigest(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration, libs.Context) ([]jsonpatch.JsonPatchOperation, error)
 }
 
 type compiledPolicy struct {
-	imageContext         libs.Context
 	namespace            string
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	verifyDigest         bool
@@ -315,6 +314,7 @@ func (c *compiledPolicy) MutateDigest(
 	resource unstructured.Unstructured,
 	requestMapFn func() (map[string]any, error),
 	cfg config.Configuration,
+	libctx libs.Context,
 ) ([]jsonpatch.JsonPatchOperation, error) {
 	// Same single-assembly rule as Evaluate: build the activation data once and
 	// let both match calls (matchConditions, exception matchConditions) consume
@@ -324,7 +324,7 @@ func (c *compiledPolicy) MutateDigest(
 		return nil, err
 	}
 	resourceImages := resourceImageReferences(data, c.resourceImagePaths)
-	data[engine.ImageDataKey] = libs.ImageDataContextWithResourceImages(ctx, c.imageContext, resourceImages)
+	data[engine.ImageDataKey] = libs.ImageDataContextWithResourceImages(ctx, libctx, resourceImages)
 	imagesContext, err := imageverify.NewResourceImageContext(ictx, resourceImages, c.resourceOpts, c.nameOpts)
 	if err != nil {
 		return nil, err

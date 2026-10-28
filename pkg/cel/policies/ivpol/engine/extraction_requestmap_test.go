@@ -247,6 +247,7 @@ func (c *countingNilThunkCompiledPolicy) MutateDigest(
 	unstructured.Unstructured,
 	func() (map[string]any, error),
 	config.Configuration,
+	libs.Context,
 ) ([]jsonpatch.JsonPatchOperation, error) {
 	c.t.Fatal("MutateDigest must not be called by evaluateExtractedIv")
 	return nil, nil

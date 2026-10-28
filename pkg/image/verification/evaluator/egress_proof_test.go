@@ -37,11 +37,12 @@ import (
 type proofImageContext struct {
 	imagedataloader.ImageContext
 	images []string
+	digest string
 }
 
 func (c *proofImageContext) Get(_ context.Context, image string, _ []remote.Option, _ []name.Option) (*imagedataloader.ImageData, error) {
 	c.images = append(c.images, image)
-	return &imagedataloader.ImageData{}, nil
+	return &imagedataloader.ImageData{Digest: c.digest}, nil
 }
 
 func TestRegistryEgressProofGuardsResourceImages(t *testing.T) {
@@ -212,11 +213,10 @@ func TestResourceImageLookupsGuardSelectedFields(test *testing.T) {
 			images := &proofImageContext{}
 			compiled, errs := NewCompiler(images, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(policy, nil, nil)
 			require.Empty(test, errs)
-			compiled.(*compiledPolicy).imageContext = provider
 			attributes = scopeOldObjectAttributes{Attributes: attributes, old: old}
 			var err error
 			if testCase.phase == "mutation match" {
-				patches, mutationErr := compiled.MutateDigest(context.Background(), images, attributes, request, nil, pod, nil, config.NewDefaultConfiguration(false))
+				patches, mutationErr := compiled.MutateDigest(context.Background(), images, attributes, request, nil, pod, nil, config.NewDefaultConfiguration(false), provider)
 				require.Empty(test, patches)
 				err = mutationErr
 			} else {
@@ -230,17 +230,42 @@ func TestResourceImageLookupsGuardSelectedFields(test *testing.T) {
 }
 
 func TestResourceDigestMutationGuardsAllContainerKinds(test *testing.T) {
+	const digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	for _, field := range []string{"containers", "initContainers", "ephemeralContainers"} {
 		test.Run(field, func(test *testing.T) {
-			compiled, errs := NewCompiler(nil, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(&policiesv1beta1.ImageValidatingPolicy{}, nil, nil)
-			require.Empty(test, errs)
-			request, attributes, pod := buildRequestMapHoistRequestAndAttr(test, admissionv1.Create)
-			require.NoError(test, unstructured.SetNestedSlice(pod.Object, []any{map[string]any{"name": "main", "image": "169.254.169.254/image:tag"}}, "spec", field))
-			images := &proofImageContext{}
-			patches, err := compiled.MutateDigest(context.Background(), images, attributes, request, nil, pod, nil, config.NewDefaultConfiguration(false))
-			require.ErrorContains(test, err, "connection blocked to network host")
-			require.Empty(test, patches)
-			require.Empty(test, images.images)
+			for _, testCase := range []struct {
+				image   string
+				blocked bool
+			}{
+				{image: "169.254.169.254/image:tag", blocked: true},
+				{image: "198.51.100.10/image:tag"},
+			} {
+				test.Run(testCase.image, func(test *testing.T) {
+					compiled, errs := NewCompiler(nil, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(&policiesv1beta1.ImageValidatingPolicy{}, nil, nil)
+					require.Empty(test, errs)
+					request, attributes, pod := buildRequestMapHoistRequestAndAttr(test, admissionv1.Create)
+					require.NoError(test, unstructured.SetNestedSlice(pod.Object, []any{map[string]any{"name": "main", "image": testCase.image}}, "spec", field))
+					author := &proofImageContext{}
+					workload := &proofImageContext{digest: digest}
+					images := imageverify.WithResourceImageContextFactory(author, func() (imagedataloader.ImageContext, error) {
+						return workload, nil
+					})
+					patches, err := compiled.MutateDigest(context.Background(), images, attributes, request, nil, pod, nil, config.NewDefaultConfiguration(false), libs.NewFakeContextProvider())
+					require.Empty(test, author.images)
+					if testCase.blocked {
+						require.ErrorContains(test, err, "connection blocked to network host")
+						require.Empty(test, patches)
+						require.Empty(test, workload.images)
+					} else {
+						require.NoError(test, err)
+						require.Equal(test, []string{testCase.image}, workload.images)
+						require.Len(test, patches, 1)
+						require.Equal(test, "replace", patches[0].Operation)
+						require.Equal(test, "/spec/"+field+"/0/image", patches[0].Path)
+						require.Equal(test, testCase.image+"@"+digest, patches[0].Value)
+					}
+				})
+			}
 		})
 	}
 }
@@ -264,7 +289,6 @@ func TestPolicyImageLiteralIgnoresUnrelatedResourceStrings(test *testing.T) {
 				images := &proofImageContext{}
 				compiled, errs := NewCompiler(images, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(policy, nil, nil)
 				require.Empty(test, errs)
-				compiled.(*compiledPolicy).imageContext = provider
 				request, attributes, pod := buildRequestMapHoistRequestAndAttr(test, admissionv1.Update)
 				for _, path := range [][]string{{"metadata", "annotations", "description"}, {"metadata", "labels", "description"}, {"spec", "description"}} {
 					require.NoError(test, unstructured.SetNestedField(pod.Object, policyImage, path...))
@@ -278,7 +302,7 @@ func TestPolicyImageLiteralIgnoresUnrelatedResourceStrings(test *testing.T) {
 				request.OldObject.Raw, err = old.MarshalJSON()
 				require.NoError(test, err)
 				if phase == "mutation match" {
-					patches, err := compiled.MutateDigest(context.Background(), images, attributes, request, nil, pod, nil, config.NewDefaultConfiguration(false))
+					patches, err := compiled.MutateDigest(context.Background(), images, attributes, request, nil, pod, nil, config.NewDefaultConfiguration(false), provider)
 					require.NoError(test, err)
 					require.Empty(test, patches)
 				} else {

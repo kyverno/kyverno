@@ -7,6 +7,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/sdk/extensions/cel/utils"
@@ -164,7 +165,7 @@ func TestMutateDigest_RequestMapBuiltOnceRegardlessOfExceptions(t *testing.T) {
 	require.NoError(t, err)
 
 	requestMapFn, calls := countingRequestMapFn(request)
-	_, err = compiled.MutateDigest(context.Background(), ictx, attr, request, nil, pod, requestMapFn, config.NewDefaultConfiguration(false))
+	_, err = compiled.MutateDigest(context.Background(), ictx, attr, request, nil, pod, requestMapFn, config.NewDefaultConfiguration(false), libs.NewFakeContextProvider())
 	require.NoError(t, err)
 	assert.Equal(t, 1, *calls, "MutateDigest must call requestMapFn exactly once per invocation, regardless of matchConditions/exception count")
 }

@@ -58,10 +58,10 @@ type destinationPool struct {
 	retired   atomic.Bool
 }
 
-// WrapTransport clones base, preserving TLS and pooling settings. A proxy is
-// trusted to resolve the downstream destination, but its target is still locally
-// resolved and validated on every request. Direct and proxy connections are
-// pinned to their validated addresses; exemptions never skip these checks.
+// WrapTransport clones base, preserving TLS and pooling settings. Targets and
+// proxies are locally resolved and validated on every request. Direct connections
+// pin the target address; proxy connections pin only the proxy address. The proxy
+// owns downstream DNS and routing, which these local checks cannot pin.
 func (p *Policy) WrapTransport(base *http.Transport) *Transport {
 	if base == nil {
 		base = &http.Transport{}

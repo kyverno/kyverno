@@ -296,7 +296,7 @@ func (e *engineImpl) handleMutation(
 			// compile errors are surfaced by the validating webhook, skip mutation
 			continue
 		}
-		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, requestMapFn, e.configuration)
+		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
 		if err != nil {
 			// Record the failure as a policy result and carry on with the remaining
 			// policies rather than returning an error, which would abandon their

@@ -67,6 +67,12 @@ func TestPolicySignatureRepositoryUsesNativeOptions(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ociremote.Signatures(reference, opts.RegistryClientOpts...)
 	require.NoError(t, err, "policy-controlled repositories must not inherit the workload guard")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	opts, err = checkOptions(ctx, attestor, native, names, nil)
+	require.NoError(t, err)
+	_, err = ociremote.Signatures(reference, opts.RegistryClientOpts...)
+	require.ErrorIs(t, err, context.Canceled, "native repository requests must retain the evaluation context")
 }
 
 func TestPolicyPublicKeyURLUsesUpstreamLoader(t *testing.T) {

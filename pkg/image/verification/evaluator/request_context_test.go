@@ -97,7 +97,7 @@ func TestImageFunctionsUseEvaluationContext(t *testing.T) {
 					}
 					var err error
 					if testCase.phase == "mutation match" {
-						_, err = compiled.MutateDigest(ctx, images, nil, resource, nil, unstructured.Unstructured{}, nil, nil)
+						_, err = compiled.MutateDigest(ctx, images, nil, resource, nil, unstructured.Unstructured{}, nil, nil, libs.NewFakeContextProvider())
 					} else {
 						_, err = compiled.Evaluate(ctx, images, nil, resource, nil, false, nil, libs.NewFakeContextProvider())
 					}
@@ -117,4 +117,33 @@ func TestImageFunctionsUseEvaluationContext(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMutateDigestUsesRuntimeMetadataProvider(test *testing.T) {
+	previous := libs.LibraryContext
+	test.Cleanup(func() { libs.LibraryContext = previous })
+	compileProvider := &metadataScopeContext{Context: libs.NewFakeContextProvider()}
+	libs.LibraryContext = compileProvider
+	const image = "169.254.169.254/author:tag"
+	policy := &policiesv1beta1.ImageValidatingPolicy{Spec: policiesv1beta1.ImageValidatingPolicySpec{
+		MatchConditions: []admissionregistrationv1.MatchCondition{{
+			Name:       "runtime-provider",
+			Expression: "image.GetMetadata(" + strconv.Quote(image) + ") == null",
+		}},
+		Validations: []admissionregistrationv1.Validation{{Expression: "true"}},
+	}}
+	images := &proofImageContext{}
+	compiled, errs := NewCompiler(images, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(policy, nil, nil)
+	require.Empty(test, errs)
+	first := &metadataScopeContext{Context: libs.NewFakeContextProvider()}
+	second := &metadataScopeContext{Context: libs.NewFakeContextProvider()}
+	for _, provider := range []*metadataScopeContext{first, second} {
+		patches, err := compiled.MutateDigest(context.Background(), images, nil, obj(image), nil, unstructured.Unstructured{}, nil, nil, provider)
+		require.NoError(test, err)
+		require.Empty(test, patches)
+	}
+	require.Empty(test, compileProvider.lookups)
+	require.Equal(test, []string{image}, first.lookups)
+	require.Equal(test, []string{image}, second.lookups)
+	require.Empty(test, images.images)
 }
