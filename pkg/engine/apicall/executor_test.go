@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -771,4 +772,41 @@ func Test_DialContext_DeadlineRespectsShorterParent(t *testing.T) {
 	assert.Assert(t, err != nil)
 	assert.Assert(t, got.Sub(parent).Abs() < 50*time.Millisecond,
 		"the caller's shorter deadline must win over dialTimeout")
+}
+
+func Test_ExecuteServiceCall_MaxResponseLength(t *testing.T) {
+	withEmptyEgressBlocklist(t)
+
+	for _, tc := range []struct {
+		desc    string
+		limit   int64
+		status  int
+		body    string
+		wantErr string
+	}{
+		{desc: "under the limit", limit: 10, status: http.StatusOK, body: "123456789"},
+		{desc: "exactly the limit", limit: 10, status: http.StatusOK, body: "1234567890"},
+		{desc: "over the limit", limit: 10, status: http.StatusOK, body: "12345678901", wantErr: "response length must be less than max allowed response length of 10"},
+		{desc: "no limit", limit: 0, status: http.StatusOK, body: strings.Repeat("x", 4096)},
+		{desc: "max int64 limit", limit: math.MaxInt64, status: http.StatusOK, body: "123456789"},
+		{desc: "error status under the limit", limit: 10, status: http.StatusInternalServerError, body: "bad", wantErr: "HTTP 500 Internal Server Error: bad"},
+		{desc: "error status over the limit", limit: 10, status: http.StatusInternalServerError, body: "12345678901", wantErr: "HTTP 500 Internal Server Error"},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+
+			executor := NewExecutor(logr.Discard(), "test", &mockClient{}, APICallConfiguration{maxAPICallResponseLength: tc.limit})
+			got, err := executor.Execute(context.Background(), getServiceCall(srv.URL))
+			if tc.wantErr != "" {
+				assert.Error(t, err, tc.wantErr)
+				return
+			}
+			assert.NilError(t, err)
+			assert.Equal(t, string(got), tc.body)
+		})
+	}
 }
