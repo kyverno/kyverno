@@ -117,10 +117,9 @@ own `upgrade.legacyPolicyCheck.enabled=false` and `global.templating.enabled=tru
 the Job from the render entirely — `templates/hooks/pre-install-check-legacy-policies.yaml` is gated
 on both), Helm's own `--no-hooks` flag (skips every hook on that invocation, chart-agnostic), and
 Flux's `HelmRelease.spec.install.disableHooks` / `spec.upgrade.disableHooks` (same, for a Flux-managed
-release). Note that `global.templating.enabled` suppresses only the hook `Job`; it does not disable
-`validate-legacy-policies.yaml`, so the `lookup` gate still applies. Any of these means the preflight
-did not actually run even though the install/upgrade itself was real — treat "Runs" above as the
-default, not a guarantee, and run the manual check below if any of these are in play.
+Note that `global.templating.enabled` suppresses only the hook `Job`; it does not disable
+`validate-legacy-policies.yaml`, so the `lookup` gate still applies. The other hook bypasses above likewise
+skip only the hook during a real Helm install/upgrade. Run the manual check only when neither layer runs,
 
 **For any path where neither column above runs** — plain `helm template`, render-then-apply
 pipelines, the published `install.yaml` asset, or any real install/upgrade where one of the three
