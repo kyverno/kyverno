@@ -9,6 +9,8 @@ This applies to `context[].imageRegistry.imageRegistryCredentials.secrets` and
 `verifyImages[].imageRegistryCredentials.secrets`, including nested context
 entries. Context credential references remain literal names. `verifyImages`
 continues to substitute rule variables, then checks the resulting references.
+Validation checks those references even when `required` is false or an image is
+excluded by `skipImageReferences`; neither path needs to load the Secret.
 
 For a Policy in `tenant-a`, both `regcred` and `tenant-a/regcred` select the Secret
 in `tenant-a`. A reference to `kyverno/regcred` or `tenant-b/regcred` is rejected.
@@ -65,6 +67,8 @@ Move tenant parameters to an appropriate namespaced resource such as a ConfigMap
 If cluster-wide parameters are required, use an administrator-managed
 ClusterPolicy. Native Kubernetes ValidatingAdmissionPolicy and
 MutatingAdmissionPolicy parameter behavior is unchanged.
+CleanupPolicy and ClusterCleanupPolicy context lookups also retain their existing
+cluster-scoped behavior; cleanup resource selection still respects policy namespace.
 
 The namespace boundary takes effect on upgrade. Stored Policies using forbidden
 credentials or parameters report an error on evaluation and must be corrected

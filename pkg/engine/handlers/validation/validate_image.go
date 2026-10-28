@@ -138,6 +138,8 @@ func (h validateImageHandler) Process(
 	passedImages := make([]string, 0)
 	for _, v := range ruleCopy.VerifyImages {
 		imageVerify := v.Convert()
+		credentials, scopeErr := handlers.ScopeImageRegistryCredentials(policyContext.Policy(), imageVerify.ImageRegistryCredentials)
+		imageVerify.ImageRegistryCredentials = credentials
 		// GetMatchingImages appends an image once per matching verifyImages
 		// entry, so images holds duplicates whenever entries overlap. Each
 		// verification is registry and signature work now, so do each distinct
@@ -158,7 +160,7 @@ func (h validateImageHandler) Process(
 			}
 
 			logger.V(4).Info("validating image", "image", image)
-			status, err := h.validateImage(ctx, logger, policyContext, resourceNamespace, imagePullSecrets, *ruleCopy, *imageVerify, imageInfo)
+			status, err := h.validateImage(ctx, logger, policyContext, resourceNamespace, imagePullSecrets, *ruleCopy, *imageVerify, imageInfo, scopeErr)
 			switch status {
 			case engineapi.RuleStatusFail:
 				return resource, handlers.WithFail(rule, engineapi.ImageVerify, err.Error())
@@ -200,6 +202,7 @@ func (h validateImageHandler) validateImage(
 	rule kyvernov1.Rule,
 	imageVerify kyvernov1.ImageVerification,
 	imageInfo apiutils.ImageInfo,
+	credentialScopeErr error,
 ) (engineapi.RuleStatus, error) {
 	image := imageInfo.String()
 
@@ -209,6 +212,10 @@ func (h validateImageHandler) validateImage(
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
 		logger.V(2).Info("missing digest", "image", image)
 		return engineapi.RuleStatusFail, fmt.Errorf("missing digest for %s", image)
+	}
+
+	if credentialScopeErr != nil {
+		return engineapi.RuleStatusError, fmt.Errorf("invalid registry credential scope: %w", credentialScopeErr)
 	}
 
 	if !imageVerify.Required || policyContext.NewResource().Object == nil {
@@ -234,12 +241,8 @@ func (h validateImageHandler) validateImage(
 		return engineapi.RuleStatusError, fmt.Errorf("no registry client configured to verify %s", image)
 	}
 
-	credentials, err := handlers.ScopeImageRegistryCredentials(policyContext.Policy(), imageVerify.ImageRegistryCredentials)
-	if err != nil {
-		return engineapi.RuleStatusError, fmt.Errorf("invalid registry credential scope: %w", err)
-	}
 	policyNamespace, _ := engineapi.PolicyNamespace(policyContext.Policy())
-	rclient, err := engineapi.RegistryClientForPolicy(ctx, h.rclientFactory, credentials, resourceNamespace, imagePullSecrets, policyNamespace)
+	rclient, err := engineapi.RegistryClientForPolicy(ctx, h.rclientFactory, imageVerify.ImageRegistryCredentials, resourceNamespace, imagePullSecrets, policyNamespace)
 	if err != nil {
 		return engineapi.RuleStatusError, fmt.Errorf("failed to fetch registry credentials for %s: %w", image, err)
 	}

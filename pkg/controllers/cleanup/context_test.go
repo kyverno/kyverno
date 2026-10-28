@@ -42,13 +42,12 @@ type eagerCleanupContext struct{ toggle.Toggles }
 
 func (eagerCleanupContext) EnableDeferredLoading() bool { return false }
 
-func TestCleanupContextRespectsPolicyScope(t *testing.T) {
+func TestCleanupContextIsNotNamespaceClamped(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		name            string
-		entry           kyvernov1.ContextEntry
-		path            string
-		namespacedError string
+		name  string
+		entry kyvernov1.ContextEntry
+		path  string
 	}{
 		{
 			name: "same namespace API call",
@@ -62,21 +61,18 @@ func TestCleanupContextRespectsPolicyScope(t *testing.T) {
 			entry: kyvernov1.ContextEntry{Name: "objects", APICall: &kyvernov1.ContextAPICall{
 				APICall: kyvernov1.APICall{URLPath: "/api/v1/namespaces/shared/configmaps"},
 			}},
-			path:            "/api/v1/namespaces/shared/configmaps",
-			namespacedError: "different from the policy namespace tenant-a",
+			path: "/api/v1/namespaces/shared/configmaps",
 		},
 		{
 			name: "cluster API call",
 			entry: kyvernov1.ContextEntry{Name: "objects", APICall: &kyvernov1.ContextAPICall{
 				APICall: kyvernov1.APICall{URLPath: "/api/v1/namespaces"},
 			}},
-			path:            "/api/v1/namespaces",
-			namespacedError: "required for namespaced policies",
+			path: "/api/v1/namespaces",
 		},
 		{
-			name:            "global reference",
-			entry:           kyvernov1.ContextEntry{Name: "objects", GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "shared-context"}},
-			namespacedError: "globalReference is not allowed in namespaced policies",
+			name:  "global reference",
+			entry: kyvernov1.ContextEntry{Name: "objects", GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "shared-context"}},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -99,12 +95,6 @@ func TestCleanupContextRespectsPolicyScope(t *testing.T) {
 					ctx := context.Background()
 					ctx = toggle.NewContext(ctx, eagerCleanupContext{toggle.FromContext(ctx)})
 					err := c.cleanup(ctx, logr.Discard(), policy)
-					if namespace != "" && test.namespacedError != "" {
-						require.ErrorContains(t, err, test.namespacedError)
-						require.Empty(t, client.paths, "forbidden context must not reach the API client")
-						require.Zero(t, entry.calls, "forbidden context must not read global context data")
-						return
-					}
 					require.NoError(t, err)
 					if test.path != "" {
 						require.Equal(t, []string{test.path}, client.paths)
