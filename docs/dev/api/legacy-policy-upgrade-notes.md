@@ -37,7 +37,9 @@ was deleted isn't swept by this path. The controller's ordinary re-queue trigger
 gap but is not a substitute for the sweep, and the difference matters:
 
 - **The startup sweep reaches both scopes.** `enqueueAllReports` lists namespaced reports and
-  cluster-scoped reports separately, queueing every one.
+  cluster-scoped reports separately, queueing every one. Both lists are filtered by Kyverno's
+  managed-report selector, so report objects without that label — third-party or hand-created ones
+  — are never queued or pruned by this sweep at all.
 - **The ordinary trigger reaches namespaced reports only, while the cache is cold.** Adding,
   updating, or deleting any `policies.kyverno.io`, VAP, or MAP policy calls
   `enqueueReportsForPolicy`. That function checks the namespaced reports first, and when the
@@ -50,8 +52,8 @@ gap but is not a substitute for the sweep, and the difference matters:
   cluster-scoped reports become reachable on a *later* policy event. On a cluster that only ever has
   cluster-scoped reports, nothing populates the cache through this path, and they stay stale.
 
-The practical consequence: for a `ClusterPolicyReport`/`ClusterReport` carrying stale legacy results,
-the startup sweep is effectively the only reliable cleanup path. If the legacy policies were deleted
+The practical consequence: for a managed `ClusterPolicyReport`/`ClusterReport` carrying stale legacy
+results, the startup sweep is effectively the only reliable cleanup path. If the legacy policies were deleted
 before the restart into 1.20, the sweep is skipped and those cluster-scoped stale results can persist
 indefinitely. Namespaced reports are much more likely to be cleaned up incidentally.
 
@@ -110,13 +112,15 @@ both in `charts/kyverno/templates/`, that run on different conditions:
 | The published release `install.yaml` asset, or `config/install-latest-testing.yaml` | **Does not run** | **Does not run** |
 
 ¹ "Runs" here means the chart renders the Job and Helm executes a real install/upgrade — not that
-nothing can skip it. Three independent, generic bypasses still apply regardless of install method:
-this chart's own `upgrade.legacyPolicyCheck.enabled=false` (omits the Job from the render entirely —
-`templates/hooks/pre-install-check-legacy-policies.yaml`), Helm's own `--no-hooks` flag (skips every
-hook on that invocation, chart-agnostic), and Flux's `HelmRelease.spec.install.disableHooks` /
-`spec.upgrade.disableHooks` (same, for a Flux-managed release). Any of these means the preflight did
-not actually run even though the install/upgrade itself was real — treat "Runs" above as the default,
-not a guarantee, and run the manual check below if any of these are in play.
+nothing can skip it. Four independent bypasses still apply regardless of install method: this chart's
+own `upgrade.legacyPolicyCheck.enabled=false` and `global.templating.enabled=true` (either one omits
+the Job from the render entirely — `templates/hooks/pre-install-check-legacy-policies.yaml` is gated
+on both), Helm's own `--no-hooks` flag (skips every hook on that invocation, chart-agnostic), and
+Flux's `HelmRelease.spec.install.disableHooks` / `spec.upgrade.disableHooks` (same, for a Flux-managed
+release). Note that `global.templating.enabled` suppresses only the hook `Job`; it does not disable
+`validate-legacy-policies.yaml`, so the `lookup` gate still applies. Any of these means the preflight
+did not actually run even though the install/upgrade itself was real — treat "Runs" above as the
+default, not a guarantee, and run the manual check below if any of these are in play.
 
 **For any path where neither column above runs** — plain `helm template`, render-then-apply
 pipelines, the published `install.yaml` asset, or any real install/upgrade where one of the three
@@ -153,9 +157,15 @@ means the operator has to decide to proceed, same as setting that value would.
 `scripts/verify-legacy-policy-migration.sh`'s scenario A5 (`helm rollback <release> <pre-1.20 revision>`)
 is the only rollback path this project verifies, and it passes: CR counts and per-object spec hashes
 across all five legacy kinds are unchanged by the upgrade/rollback round trip, CRDs and webhook rules
-return to their pre-upgrade shape, enforcement resumes exactly as before 1.20 (a violating pod is
-denied again), and the 1.20 write-time block itself is gone (a new legacy policy can be created again),
-since 1.19's binaries never had it.
+return to their pre-upgrade shape, and the 1.20 write-time block itself is gone (a new legacy policy
+can be created again), since 1.19's binaries never had it.
+
+Note what "enforcement resumes" covers there. The script re-asserts enforcement only for its
+validating `ClusterPolicy` and `Policy` fixtures — a violating pod is denied again by both. The other
+three legacy kinds (`CleanupPolicy`, `ClusterCleanupPolicy`, `PolicyException`) are verified for
+object counts, spec hashes, and write behavior across the round trip, but their pre-1.20 *enforcement*
+is not re-exercised after the rollback. Treat restored enforcement as proven for the validating
+policy path and assumed, not demonstrated, for the rest.
 
 Known limits, not exercised by that verification:
 
