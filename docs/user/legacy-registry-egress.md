@@ -11,9 +11,11 @@ Policy authors already have HTTP access through policy context. Policy-authored
 `imageRegistry` context destinations and explicit image signature repository
 settings are therefore outside this guard, even when their values use policy
 variables. Public-key and certificate references, Rekor, Fulcio, CT, TSA, TUF,
-and manifest/bundle verification retain their upstream native clients and trust
-behavior. They do not use this registry allowlist or egress mode. This is not a
-process-wide network policy.
+and `validate.manifests` integrations retain their upstream native clients and
+trust behavior. They do not use this registry allowlist or egress mode, including
+in `enforce` mode. Operators must use network security controls to restrict those
+destinations. This is not a process-wide network policy. Sigstore bundle requests
+derived from workload images still use the guarded registry client.
 
 An explicit image signature repository does not exempt the resource image: its
 destination is checked and tags are resolved through the guarded client before
@@ -26,8 +28,9 @@ the destination. DNS resolution and dial attempts share a five-second deadline,
 shortened by the request deadline. IPv4 and IPv6 attempts can race for fallback.
 
 Azure credential exchange uses the SDK's official Azure Container Registry
-provider checks, including sovereign clouds. Other cloud credential bootstrap
-calls retain their provider SDK networking.
+provider hostname checks, including sovereign clouds. Provider-internal credential
+bootstrap and exchange requests, including Azure's, retain their native SDK
+networking; those hostname checks do not imply guarded transport coverage.
 
 ## Release behavior and migration
 

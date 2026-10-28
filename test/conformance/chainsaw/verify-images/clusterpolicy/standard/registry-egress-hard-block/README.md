@@ -15,8 +15,11 @@ container. Unit coverage in `pkg/registryclient/scope_test.go` also extracts and
 blocks regular, init, and ephemeral container images in both modes.
 
 Policy-authored image registry context, signature repository, key, certificate,
-Rekor, Fulcio, TSA, TUF, and manifest/bundle endpoints are outside this guard and
-retain upstream native behavior. Their positive reachability regressions use
+Rekor, Fulcio, CT, TSA, TUF, and `validate.manifests` endpoints are outside this
+guard, even in enforce mode, and retain upstream native behavior. Workload-image
+Sigstore bundle requests remain guarded. Positive reachability regressions for
+policy-selected context and signature repositories, public keys, Rekor, and
+manifest bundles use
 local HTTP test servers rather than blocked-endpoint proof fixtures.
 
 Run against a cluster with the changed Kyverno controller installed. Helm passes
