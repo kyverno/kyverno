@@ -4,5 +4,5 @@ metadata:
   name: zulu
 spec:
   containers:
-  - image: ghcr.io/kyverno/zulu
+  - image: ghcr.io/kyverno/zulu:v0.0.14
     name: zulu
