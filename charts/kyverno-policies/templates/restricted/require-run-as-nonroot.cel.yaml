@@ -13,6 +13,7 @@ metadata:
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    kyverno.io/pod-security-version: "{{ include "kyverno-policies.psaVersionAnnotation" . }}"
     policies.kyverno.io/description: >-
       Containers must be required to run as non-root users. This policy ensures
       `runAsNonRoot` is set to `true`. A known issue prevents a policy such as this
@@ -47,10 +48,20 @@ spec:
         && variables.ctnrs.all(c, c.?securityContext.?runAsNonRoot.orValue(true) == true))
         || variables.ctnrs.all(c, c.?securityContext.?runAsNonRoot.orValue(false) == true)
       message: >-
+<<<<<<< HEAD
         Running as root is not allowed. Either the field spec.securityContext.runAsNonRoot
         must be set to `true`, or the fields spec.containers[*].securityContext.runAsNonRoot,
         spec.initContainers[*].securityContext.runAsNonRoot, and spec.ephemeralContainers[*].securityContext.runAsNonRoot
         must be set to `true`.{{ if .Values.podSecurityUserNamespaces }}
+=======
+        Running as root is not allowed. The field spec.securityContext.runAsNonRoot
+        must be unset or set to `true`. The fields
+        spec.containers[*].securityContext.runAsNonRoot,
+        spec.initContainers[*].securityContext.runAsNonRoot, and
+        spec.ephemeralContainers[*].securityContext.runAsNonRoot must be unset or set to
+        `true` when the pod-level field is `true`, and must be set to `true` when the
+        pod-level field is unset.{{ if eq (include "kyverno-policies.psaUserNamespaces" .) "true" }}
+>>>>>>> c07352676 (feat(charts): select the Pod Security Admission version for policies (#18268))
         This policy does not apply to Pods that set spec.hostUsers to `false`.{{ end }}
   {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}

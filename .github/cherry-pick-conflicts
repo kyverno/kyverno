@@ -1,0 +1,13 @@
+Source commit: c07352676fa13ab6e0af34d07ef1961772fdec99
+Conflicted paths:
+.github/workflows/check-ct-lint.yaml
+Makefile
+charts/kyverno-policies/README.md
+charts/kyverno-policies/templates/_helpers.tpl
+charts/kyverno-policies/templates/baseline/disallow-host-probes.cel.yaml
+charts/kyverno-policies/templates/baseline/disallow-proc-mount.cel.yaml
+charts/kyverno-policies/templates/baseline/disallow-selinux.cel.yaml
+charts/kyverno-policies/templates/baseline/restrict-sysctls.cel.yaml
+charts/kyverno-policies/templates/restricted/disallow-proc-mount-strict.cel.yaml
+charts/kyverno-policies/templates/restricted/require-run-as-nonroot.cel.yaml
+charts/kyverno-policies/values.yaml

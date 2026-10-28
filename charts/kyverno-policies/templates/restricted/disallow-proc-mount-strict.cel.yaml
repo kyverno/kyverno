@@ -1,5 +1,9 @@
 {{- $name := "disallow-proc-mount-strict" }}
+<<<<<<< HEAD
 {{- if and .Values.podSecurityUserNamespaces (eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+=======
+{{- if and (eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.psaUserNamespaces" .) "true") }}
+>>>>>>> c07352676 (feat(charts): select the Pod Security Admission version for policies (#18268))
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
@@ -13,6 +17,7 @@ metadata:
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    kyverno.io/pod-security-version: "{{ include "kyverno-policies.psaVersionAnnotation" . }}"
     policies.kyverno.io/description: >-
       The Restricted profile requires the default /proc masks even for Pods that run in a
       user namespace. This policy ensures the `procMount` field is unset or set to `Default`,

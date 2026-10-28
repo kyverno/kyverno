@@ -35,8 +35,26 @@ podSecurityPolicies: []
 # set `spec.hostUsers` to `false`. A Pod that omits `hostUsers` or sets it to `true` is
 # always checked. The Restricted `disallow-proc-mount-strict` ValidatingPolicy never
 # relaxes, and neither does `disallow-proc-mount` when the Restricted profile is installed.
+<<<<<<< HEAD
 # This setting has no effect on legacy `ClusterPolicy` templates.
+=======
+# When `podSecurityVersion` is pinned below `v1.35`, the relaxation does not apply,
+# because Kubernetes Pod Security Admission added it in `v1.35`.
+# From `v1.35`, Pod Security Admission always applies the relaxation, so with this set to `false`
+# a pinned `v1.35` or later denies some `hostUsers: false` Pods that Pod Security Admission allows.
+>>>>>>> c07352676 (feat(charts): select the Pod Security Admission version for policies (#18268))
 podSecurityUserNamespaces: false
+
+# -- Kubernetes Pod Security Admission version that the Pod Security Standards policies match,
+# the same as the `pod-security.kubernetes.io/enforce-version` namespace label.
+# Use `latest` or a version from `v1.25` to `v1.37`, for example `v1.34`.
+# A version newer than `v1.37` uses `v1.37`.
+# `latest` uses the cluster's Kubernetes minor version when you install or upgrade the chart,
+# and keeps the allow-lists of earlier chart releases, so Pods that pass today keep passing.
+# Because of that, `latest` can allow more than Pod Security Admission does for that version.
+# Each version-aware policy shows the version in its `kyverno.io/pod-security-version` annotation,
+# for example `v1.34` for a pinned version or `latest (v1.30)` for `latest` on Kubernetes 1.30.
+podSecurityVersion: latest
 
 # -- Additional policies to include from `other`.
 includeOtherPolicies: []

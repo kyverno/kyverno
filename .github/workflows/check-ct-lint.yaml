@@ -48,6 +48,49 @@ jobs:
           helm repo update
       - name: Run chart-testing (lint)
         run: ct lint --all --check-version-increment=false --validate-maintainers=false
+<<<<<<< HEAD
+=======
+      - name: Verify legacy CRD retention
+        # Asserts the five legacy policy CRDs still carry
+        # helm.sh/resource-policy: keep (#17489). The annotation reaches the
+        # chart through codegen from a kubebuilder marker, so nothing in the
+        # chart pins it; this renders the chart and checks. It needs no
+        # cluster, which is why it lives here rather than in the conformance
+        # helm-tests job.
+        run: |
+          set -e
+          make verify-legacy-crd-retention
+      - name: Verify legacy CRD snapshot
+        # Asserts the frozen legacy kyverno.io CRD schemas and the frozen
+        # UpdateRequest v1beta1 block (#17713) stay byte-identical to the
+        # 1.20 compatibility snapshot. verify-codegen alone cannot catch a
+        # PR that commits an edit to these bytes.
+        run: |
+          set -e
+          make verify-legacy-crd-snapshot
+      - name: Verify background controller RBAC
+        # Asserts the background controller holds every permission the chart
+        # aggregates into admin/edit/view, so generate rules can still bind
+        # those roles after a chart RBAC change. PyYAML comes from the
+        # chart-testing virtualenv activated above (yamllint depends on it).
+        run: |
+          set -e
+          make verify-background-controller-rbac
+      - name: Verify scale-to-zero release scope
+        run: bash scripts/verify-scale-to-zero-hook.sh
+      - name: Verify restrict-sysctls allow-list
+        # Renders restrict-sysctls at each Kubernetes version gate and checks
+        # the allow-list against the PSA list for that version.
+        run: |
+          set -e
+          make verify-policies-sysctls
+      - name: Verify podSecurityVersion rendering
+        # Renders the policies at each PSA version gate and checks the
+        # behavior against PSA for that version.
+        run: |
+          set -e
+          make verify-policies-psa-version
+>>>>>>> c07352676 (feat(charts): select the Pod Security Admission version for policies (#18268))
 
   sync-issue:
     if: always() && github.event_name == 'push'

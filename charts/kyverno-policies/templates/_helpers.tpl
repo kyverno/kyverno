@@ -254,15 +254,107 @@ auditAnnotations:
 {{- end -}}
 {{- end -}}
 
+{{/* Oldest and newest Pod Security Admission (PSA) versions the chart implements.
+     Bump psaMaxVersion when the chart is synced with a new PSA minor version. */}}
+{{- define "kyverno-policies.psaMinVersion" -}}1.25{{- end -}}
+{{- define "kyverno-policies.psaMaxVersion" -}}1.37{{- end -}}
+
+{{/* "true" when podSecurityVersion is "latest". */}}
+{{- define "kyverno-policies.psaLatest" -}}
+{{- eq (toString (.Values.podSecurityVersion | default "latest")) "latest" -}}
+{{- end -}}
+
+{{/* PSA version to match, as "1.x".
+     "latest" uses the cluster's Kubernetes minor version. Like PSA, a version newer
+     than psaMaxVersion uses psaMaxVersion. A pinned version older than psaMinVersion
+     or in the wrong format fails the render. */}}
+{{- define "kyverno-policies.psaVersion" -}}
+{{- $min := include "kyverno-policies.psaMinVersion" . -}}
+{{- $max := include "kyverno-policies.psaMaxVersion" . -}}
+{{- $want := toString (.Values.podSecurityVersion | default "latest") -}}
+{{- $version := "" -}}
+{{- if eq $want "latest" -}}
+  {{- $kube := semver .Capabilities.KubeVersion.Version -}}
+  {{- $version = printf "%d.%d" $kube.Major $kube.Minor -}}
+{{- else if regexMatch "^v1\\.(0|[1-9][0-9]*)$" $want -}}
+  {{- $version = trimPrefix "v" $want -}}
+  {{- if semverCompare (printf "<%s" $min) $version -}}
+    {{- fail (printf "podSecurityVersion %s is not supported, use latest or v%s to v%s" $want $min $max) -}}
+  {{- end -}}
+{{- else -}}
+  {{- fail (printf "podSecurityVersion must be latest or v1.x, got %q. Quote the value so YAML reads it as a string, for example podSecurityVersion: \"v1.30\"" $want) -}}
+{{- end -}}
+{{- if semverCompare (printf ">%s" $max) $version -}}
+  {{- $version = $max -}}
+{{- end -}}
+{{- $version -}}
+{{- end -}}
+
+{{/* Value of the kyverno.io/pod-security-version annotation.
+     A pinned version shows as "v1.x". "latest" shows as "latest (v1.x)", because it keeps
+     the allow-lists of earlier chart releases and can allow more than PSA v1.x. */}}
+{{- define "kyverno-policies.psaVersionAnnotation" -}}
+{{- if eq (include "kyverno-policies.psaLatest" .) "true" -}}
+latest (v{{ include "kyverno-policies.psaVersion" . }})
+{{- else -}}
+v{{ include "kyverno-policies.psaVersion" . }}
+{{- end -}}
+{{- end -}}
+
+{{/* "true" when the PSA version is at least .min. Receives dict with "min" ("1.x") and "ctx" (the root context). */}}
+{{- define "kyverno-policies.psaAtLeast" -}}
+{{- semverCompare (printf ">=%s" .min) (include "kyverno-policies.psaVersion" .ctx) -}}
+{{- end -}}
+
+{{/* "true" when the user namespace relaxation applies.
+     PSA relaxes these checks from v1.35. With "latest" the podSecurityUserNamespaces
+     setting alone decides, so existing installs keep their behavior. */}}
+{{- define "kyverno-policies.psaUserNamespaces" -}}
+{{- and .Values.podSecurityUserNamespaces (or (eq (include "kyverno-policies.psaLatest" .) "true") (eq (include "kyverno-policies.psaAtLeast" (dict "min" "1.35" "ctx" .)) "true")) -}}
+{{- end -}}
+
 {{/* CEL clause that relaxes a check for user namespace pods.
      Kubernetes Pod Security Admission relaxes only procMount (Baseline),
      runAsNonRoot and runAsUser (Restricted) when spec.hostUsers is explicitly
      false. An absent or true hostUsers must never relax, so the clause tests
-     for an explicit false. Emits nothing unless podSecurityUserNamespaces is
-     enabled, so call sites guard it with `with` and indent it themselves.
+     for an explicit false. Emits nothing unless the relaxation applies (see
+     psaUserNamespaces), so call sites guard it with `with` and indent it themselves.
      Do not use it in any other policy. */}}
 {{- define "kyverno-policies.userNamespaceRelaxation" -}}
-{{- if .Values.podSecurityUserNamespaces -}}
+{{- if eq (include "kyverno-policies.psaUserNamespaces" .) "true" -}}
 {{- "object.spec.?hostUsers.orValue(true) == false ||" -}}
 {{- end -}}
 {{- end -}}
+<<<<<<< HEAD
+=======
+
+{{/* Safe sysctls allowed by PSA for the PSA version.
+     With "latest" the list never drops below the v1.29 one, so Pods that pass today keep passing. */}}
+{{- define "kyverno-policies.allowedSysctls" -}}
+{{- $latest := eq (include "kyverno-policies.psaLatest" .) "true" -}}
+{{- $sysctls := list "kernel.shm_rmid_forced" "net.ipv4.ip_local_port_range" "net.ipv4.tcp_syncookies" "net.ipv4.ping_group_range" "net.ipv4.ip_unprivileged_port_start" -}}
+{{- if or $latest (eq (include "kyverno-policies.psaAtLeast" (dict "min" "1.27" "ctx" .)) "true") -}}
+{{- $sysctls = append $sysctls "net.ipv4.ip_local_reserved_ports" -}}
+{{- end -}}
+{{- if or $latest (eq (include "kyverno-policies.psaAtLeast" (dict "min" "1.29" "ctx" .)) "true") -}}
+{{- $sysctls = concat $sysctls (list "net.ipv4.tcp_keepalive_time" "net.ipv4.tcp_fin_timeout" "net.ipv4.tcp_keepalive_intvl" "net.ipv4.tcp_keepalive_probes") -}}
+{{- end -}}
+{{- if eq (include "kyverno-policies.psaAtLeast" (dict "min" "1.32" "ctx" .)) "true" -}}
+{{- $sysctls = concat $sysctls (list "net.ipv4.tcp_rmem" "net.ipv4.tcp_wmem") -}}
+{{- end -}}
+{{- if eq (include "kyverno-policies.psaAtLeast" (dict "min" "1.37" "ctx" .)) "true" -}}
+{{- $sysctls = concat $sysctls (list "net.ipv4.tcp_slow_start_after_idle" "net.ipv4.tcp_notsent_lowat") -}}
+{{- end -}}
+{{- range $i, $s := $sysctls }}{{ if $i }}, {{ end }}'{{ $s }}'{{ end -}}
+{{- end -}}
+
+{{/* SELinux types allowed by PSA for the PSA version, as a CEL list body.
+     container_engine_t is allowed from v1.31, and always with "latest" to keep today's behavior. */}}
+{{- define "kyverno-policies.allowedSELinuxTypes" -}}
+{{- $types := list "" "container_t" "container_init_t" "container_kvm_t" -}}
+{{- if or (eq (include "kyverno-policies.psaLatest" .) "true") (eq (include "kyverno-policies.psaAtLeast" (dict "min" "1.31" "ctx" .)) "true") -}}
+{{- $types = append $types "container_engine_t" -}}
+{{- end -}}
+{{- include "kyverno-policies.celStringList" $types -}}
+{{- end -}}
+>>>>>>> c07352676 (feat(charts): select the Pod Security Admission version for policies (#18268))

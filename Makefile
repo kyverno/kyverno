@@ -1010,6 +1010,51 @@ helm-test: $(HELM) ## Run helm test
 	@$(HELM) dependency build ./charts/kyverno
 	@$(HELM) test --namespace kyverno kyverno
 
+<<<<<<< HEAD
+=======
+.PHONY: verify-legacy-crd-retention
+verify-legacy-crd-retention: helm-setup-dependency-charts ## Verify the five legacy policy CRDs keep their helm.sh/resource-policy annotation (no cluster needed)
+	@echo Verify legacy CRD retention... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-crd-retention.sh
+
+.PHONY: verify-legacy-crd-snapshot
+verify-legacy-crd-snapshot: ## Verify frozen legacy kyverno.io CRD schemas are byte-identical to the 1.20 compatibility snapshot
+verify-legacy-crd-snapshot: $(CRD_SPLICE)
+	@CRD_SPLICE=$(CRD_SPLICE) CRDS_DIR=$(CRDS_PATH)/kyverno \
+	FROZEN_FILES="$(KYVERNO_CRDS_FROZEN_FILES)" FROZEN_VERSIONS="$(KYVERNO_CRDS_FROZEN_VERSIONS)" \
+	./scripts/verify-legacy-crd-snapshot.sh
+
+.PHONY: verify-background-controller-rbac
+verify-background-controller-rbac: helm-setup-dependency-charts ## Verify the background controller holds everything the chart aggregates into admin/edit/view (no cluster needed)
+	@echo Verify background controller RBAC... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-background-controller-rbac.sh
+
+.PHONY: verify-policies-psa-version
+verify-policies-psa-version: $(HELM) ## Verify the policies chart renders the PSA behavior for each podSecurityVersion and the pss-psa-version CLI test policies are up to date (no cluster needed)
+	@echo Verify podSecurityVersion rendering... >&2
+	@HELM=$(HELM) ./scripts/verify-policies-psa-version.sh
+
+.PHONY: verify-policies-sysctls
+verify-policies-sysctls: $(HELM) ## Verify the restrict-sysctls allow-list matches PSA for each Kubernetes version (no cluster needed)
+	@echo Verify restrict-sysctls allow-list... >&2
+	@HELM=$(HELM) ./scripts/verify-policies-sysctls.sh
+
+.PHONY: verify-legacy-policy-gate
+verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-policy Helm gate blocks and opts out correctly (needs a reachable cluster as the current kube context)
+	@echo Verify legacy policy gate... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-policy-gate.sh
+
+.PHONY: verify-legacy-policy-hook
+verify-legacy-policy-hook: helm-setup-dependency-charts ## Verify the legacy-policy pre-install/pre-upgrade hook Job (needs exclusive use of a disposable cluster with Kyverno installed and the local CLI image loaded; briefly stops admission/cleanup controllers)
+	@echo Verify legacy policy hook... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) LOCAL_REGISTRY=$(LOCAL_REGISTRY) LOCAL_CLI_REPO=$(LOCAL_CLI_REPO) GIT_SHA=$(GIT_SHA) ./scripts/verify-legacy-policy-hook.sh
+
+.PHONY: verify-legacy-policy-migration
+verify-legacy-policy-migration: helm-setup-dependency-charts ## Verify 1.19->1.20 retains legacy data without execution, restores enforcement on rollback, blocks unacknowledged upgrades, and migrates to CEL (needs exclusive use of a kind cluster with local images loaded)
+	@echo Verify legacy policy migration... >&2
+	@HELM=$(HELM) ./scripts/verify-legacy-policy-migration.sh
+
+>>>>>>> c07352676 (feat(charts): select the Pod Security Admission version for policies (#18268))
 #################
 # RELEASE NOTES #
 #################
