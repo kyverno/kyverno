@@ -184,7 +184,7 @@ func TestValidate_UnknownKindInEarlierRuleCannotHideUnsafeLaterRule(t *testing.T
 			t.Parallel()
 			earlier := orderValidationRule("unknown-kind")
 			orderKindLocations()["match.any"](&earlier)
-			_, err := Validate(orderPolicy(earlier, *test.rule.DeepCopy()), nil, orderClient(), false, "", "")
+			_, err := Validate(orderPolicy(earlier, *test.rule.DeepCopy()), nil, orderClient(), false, generateOrderBackgroundSA, generateOrderReportsSA)
 			require.ErrorContains(t, err, test.err)
 			assert.Contains(t, err.Error(), "spec.rules[1]")
 		})
