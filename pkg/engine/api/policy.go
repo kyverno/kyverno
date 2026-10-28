@@ -389,7 +389,7 @@ func NewMutatingAdmissionPolicyAlpha(pol *admissionregistrationv1alpha1.Mutating
 		ObjectMeta: pol.ObjectMeta,
 		Spec: admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
 			ParamKind:          convertParamKind(pol.Spec.ParamKind),
-			MatchConstraints:   convertMatchConstraints(pol.Spec.MatchConstraints),
+			MatchConstraints:   convertMatchResources(pol.Spec.MatchConstraints),
 			Variables:          convertVariables(pol.Spec.Variables),
 			Mutations:          convertMutations(pol.Spec.Mutations),
 			FailurePolicy:      (*admissionregistrationv1beta1.FailurePolicyType)(pol.Spec.FailurePolicy),
@@ -414,14 +414,18 @@ func convertParamKind(paramKind *admissionregistrationv1alpha1.ParamKind) *admis
 	}
 }
 
-func convertMatchConstraints(matchConstraints *admissionregistrationv1alpha1.MatchResources) *admissionregistrationv1beta1.MatchResources {
-	if matchConstraints == nil {
+// convertMatchResources preserves all alpha match fields when normalizing a policy or binding.
+func convertMatchResources(resources *admissionregistrationv1alpha1.MatchResources) *admissionregistrationv1beta1.MatchResources {
+	if resources == nil {
 		return nil
 	}
+	resources = resources.DeepCopy()
 	return &admissionregistrationv1beta1.MatchResources{
-		ResourceRules:        convertResourceRules(matchConstraints.ResourceRules),
-		ExcludeResourceRules: convertResourceRules(matchConstraints.ExcludeResourceRules),
-		MatchPolicy:          (*admissionregistrationv1beta1.MatchPolicyType)(matchConstraints.MatchPolicy),
+		NamespaceSelector:    resources.NamespaceSelector,
+		ObjectSelector:       resources.ObjectSelector,
+		ResourceRules:        convertResourceRules(resources.ResourceRules),
+		ExcludeResourceRules: convertResourceRules(resources.ExcludeResourceRules),
+		MatchPolicy:          (*admissionregistrationv1beta1.MatchPolicyType)(resources.MatchPolicy),
 	}
 }
 
@@ -514,7 +518,7 @@ func ConvertMutatingAdmissionPolicyBindingsAlpha(bindings []admissionregistratio
 			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
 				PolicyName:     binding.Spec.PolicyName,
 				ParamRef:       convertParamRef(binding.Spec.ParamRef),
-				MatchResources: convertMatchResourcesForBinding(binding.Spec.MatchResources),
+				MatchResources: convertMatchResources(binding.Spec.MatchResources),
 			},
 		}
 	}
@@ -530,17 +534,6 @@ func convertParamRef(paramRef *admissionregistrationv1alpha1.ParamRef) *admissio
 		Namespace:               paramRef.Namespace,
 		Selector:                paramRef.Selector,
 		ParameterNotFoundAction: (*admissionregistrationv1beta1.ParameterNotFoundActionType)(paramRef.ParameterNotFoundAction),
-	}
-}
-
-func convertMatchResourcesForBinding(matchResources *admissionregistrationv1alpha1.MatchResources) *admissionregistrationv1beta1.MatchResources {
-	if matchResources == nil {
-		return nil
-	}
-	return &admissionregistrationv1beta1.MatchResources{
-		ResourceRules:        convertResourceRules(matchResources.ResourceRules),
-		ExcludeResourceRules: convertResourceRules(matchResources.ExcludeResourceRules),
-		MatchPolicy:          (*admissionregistrationv1beta1.MatchPolicyType)(matchResources.MatchPolicy),
 	}
 }
 
