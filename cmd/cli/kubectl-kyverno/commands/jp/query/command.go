@@ -11,7 +11,7 @@ import (
 	gojmespath "github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/jmespath"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )

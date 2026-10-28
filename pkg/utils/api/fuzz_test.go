@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/jmespath"
 )
 
 var fuzzCfg = config.NewDefaultConfiguration(false)

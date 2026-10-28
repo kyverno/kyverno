@@ -47,6 +47,8 @@ pkg/                  # Core library code
   image/              #   Image signature/attestation verification (cosign + notary verifiers live under
                       #   image/verifiers/{cpol,ivpol}/{cosign,notary}; pkg/cosign and pkg/notary no longer exist)
   sigstoretuf/        #   TUF root/trust management for sigstore, used by pkg/image's cosign verifiers
+  jmespath/           #   Custom JMESPath function registry backing GlobalContextEntry projections
+                      #   (moved from pkg/engine/jmespath; it is not part of the legacy engine)
   utils/              #   Shared utilities
 ext/                  # Small standalone utility packages
 charts/               # Helm charts

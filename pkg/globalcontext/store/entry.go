@@ -1,6 +1,6 @@
 package store
 
-import "github.com/kyverno/kyverno/pkg/engine/jmespath"
+import "github.com/kyverno/kyverno/pkg/jmespath"
 
 type Projection struct {
 	Name string

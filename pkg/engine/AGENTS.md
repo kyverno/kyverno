@@ -24,9 +24,9 @@ an engine in its own right.
 - `variables` no longer exists: `ReplaceAllVars`/`SubstituteAll`, condition evaluation
   (`AnyAllConditions`/`Condition`/`ConditionOperator`), and `variables/regex` were deleted with the legacy
   rule-evaluation engine and `api/kyverno/v1` (#17713 section 3) and no longer exist here.
-- `jmespath`: the custom JMESPath function registry (`NewFunctionRegistry`), used by the global context
-  controller/store (`pkg/controllers/globalcontext`, `pkg/globalcontext/**`), the CLI, and
-  `cmd/internal`/`cmd/background-controller` bootstrap — not by `pkg/cel`.
+- `jmespath` no longer lives here: the custom JMESPath function registry moved to `pkg/jmespath`
+  (it serves GlobalContextEntry projections, not rule evaluation, so the `pkg/engine` prefix was
+  misleading).
 - `anchor`, `pattern`, `validate`, `operator`, `wildcards`: pattern/anchor matching and JSON
   traversal primitives, originally written for legacy rule validation. Still live in the admission path:
   `anchor` is imported by `wildcards`, `validate`, and `mutate/patch` (which is itself on the
