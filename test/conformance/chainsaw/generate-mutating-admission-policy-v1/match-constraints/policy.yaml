@@ -3,6 +3,11 @@ kind: MutatingPolicy
 metadata:
   name: map-scope-repro
 spec:
+  evaluation:
+    admission:
+      enabled: false
+    mutateExisting:
+      enabled: true
   autogen:
     mutatingAdmissionPolicy:
       enabled: true

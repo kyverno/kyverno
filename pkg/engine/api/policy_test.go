@@ -37,10 +37,6 @@ func TestAlphaMutatingAdmissionPolicyMatchResources(t *testing.T) {
 		}},
 		MatchPolicy: &exact,
 	}
-	want, err := json.Marshal(source)
-	if !assert.NoError(t, err) {
-		return
-	}
 	for _, tc := range []struct {
 		name    string
 		convert func(*admissionregistrationv1alpha1.MatchResources) *admissionregistrationv1beta1.MatchResources
@@ -59,19 +55,44 @@ func TestAlphaMutatingAdmissionPolicyMatchResources(t *testing.T) {
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.convert(source)
-			if !assert.NotNil(t, got) {
-				return
+			for _, input := range []struct {
+				name      string
+				resources *admissionregistrationv1alpha1.MatchResources
+			}{
+				{"all fields", source},
+				{"nil constraints", nil},
+				{"rules only", &admissionregistrationv1alpha1.MatchResources{ResourceRules: source.ResourceRules}},
+			} {
+				t.Run(input.name, func(t *testing.T) {
+					got := tc.convert(input.resources)
+					if input.resources == nil {
+						assert.Nil(t, got)
+						return
+					}
+					if !assert.NotNil(t, got) {
+						return
+					}
+					want, err := json.Marshal(input.resources)
+					if !assert.NoError(t, err) {
+						return
+					}
+					converted, err := json.Marshal(got)
+					if !assert.NoError(t, err) {
+						return
+					}
+					assert.JSONEq(t, string(want), string(converted))
+					if input.name == "all fields" {
+						got.NamespaceSelector.MatchLabels["environment"] = "production"
+						got.ObjectSelector.MatchLabels["mutate"] = "no"
+						assert.Equal(t, "development", source.NamespaceSelector.MatchLabels["environment"])
+						assert.Equal(t, "yes", source.ObjectSelector.MatchLabels["mutate"])
+					} else {
+						assert.Nil(t, got.NamespaceSelector)
+						assert.Nil(t, got.ObjectSelector)
+						assert.Empty(t, got.ExcludeResourceRules)
+					}
+				})
 			}
-			converted, err := json.Marshal(got)
-			if !assert.NoError(t, err) {
-				return
-			}
-			assert.JSONEq(t, string(want), string(converted))
-			got.NamespaceSelector.MatchLabels["environment"] = "production"
-			got.ObjectSelector.MatchLabels["mutate"] = "no"
-			assert.Equal(t, "development", source.NamespaceSelector.MatchLabels["environment"])
-			assert.Equal(t, "yes", source.ObjectSelector.MatchLabels["mutate"])
 		})
 	}
 }
