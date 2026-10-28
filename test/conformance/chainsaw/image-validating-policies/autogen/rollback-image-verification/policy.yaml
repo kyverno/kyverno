@@ -20,6 +20,9 @@ spec:
         resources: ["pods"]
   matchImageReferences:
     - glob: ghcr.io/kyverno/test-verify-image-rollback:*
+    # Covers the unsigned image used by the negative-control step, so the deny case runs
+    # through this same policy rather than a second one.
+    - glob: ghcr.io/kyverno/test-verify-image:*
   validationConfigurations:
     mutateDigest: true
     verifyDigest: false
