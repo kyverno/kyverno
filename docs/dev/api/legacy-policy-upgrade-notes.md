@@ -26,21 +26,34 @@ on that pass, as is any result carrying an unknown or empty source.
 
 **A report left with no results at all is deleted, not emptied.** When the merge yields zero results,
 `backReconcile` calls `deleteReport` and the `PolicyReport`/`ClusterPolicyReport` object (or its
-`Report`/`ClusterReport` equivalent under OpenReports) is removed.
-On a cluster whose results came only from legacy policies, that means the reports themselves
+`Report`/`ClusterReport` equivalent under OpenReports) is removed. On a cluster whose results came
+only from legacy policies, that means the reports themselves
 disappear on the sweep rather than remaining as empty shells. This is expected, not data loss: the
 objects held nothing but results that no longer have a producing policy.
 
 If no legacy policy objects exist at startup, the sweep itself is skipped as unnecessary work. A
 report that already held stale `SourceKyverno` results *before* the legacy policy that produced them
-was deleted isn't swept by this path — but it is still reached by the controller's ordinary re-queue
-triggers, which in practice fire on most clusters: adding, updating, or deleting any
-`policies.kyverno.io`, VAP, or MAP policy calls `enqueueReportsForPolicy`, and that re-queues *every*
-report whenever its report-to-policy cache is empty, which it always is immediately after start while
-the policy informers replay their initial Add events. A report missing from that cache is re-queued
-too. So on any cluster running at least one CEL, VAP, or MAP policy, stale results are cleared at the
-next controller start regardless of the legacy gate; indefinite staleness needs a cluster with no
-such policies at all.
+was deleted isn't swept by this path. The controller's ordinary re-queue trigger covers part of that
+gap but is not a substitute for the sweep, and the difference matters:
+
+- **The startup sweep reaches both scopes.** `enqueueAllReports` lists namespaced reports and
+  cluster-scoped reports separately, queueing every one.
+- **The ordinary trigger reaches namespaced reports only, while the cache is cold.** Adding,
+  updating, or deleting any `policies.kyverno.io`, VAP, or MAP policy calls
+  `enqueueReportsForPolicy`. That function checks the namespaced reports first, and when the
+  report-to-policy cache is empty — which it always is immediately after start, while the policy
+  informers replay their initial Add events — it queues those and **returns**, before it ever reaches
+  its cluster-scoped branch. So a cold-cache policy event never queues a
+  `ClusterPolicyReport`/`ClusterReport`. On a cluster with no namespaced reports at all, the cache
+  stays empty through this path and that early return queues nothing whatsoever.
+- Once the cache has been populated (by reports that did get reconciled), both branches run, so
+  cluster-scoped reports become reachable on a *later* policy event. On a cluster that only ever has
+  cluster-scoped reports, nothing populates the cache through this path, and they stay stale.
+
+The practical consequence: for a `ClusterPolicyReport`/`ClusterReport` carrying stale legacy results,
+the startup sweep is effectively the only reliable cleanup path. If the legacy policies were deleted
+before the restart into 1.20, the sweep is skipped and those cluster-scoped stale results can persist
+indefinitely. Namespaced reports are much more likely to be cleaned up incidentally.
 
 If the presence check itself errors, the sweep is skipped for that start rather than risking a
 cluster-wide read burst against an already-unhealthy API server. Nothing retries it inside the
@@ -53,12 +66,12 @@ This covers both report backends: when OpenReports is enabled (`orClient != nil`
 objects being read, merged, and written back are `Report`/`ClusterReport`, not
 `PolicyReport`/`ClusterPolicyReport` — same mechanism, different CRD kind.
 
-Practically: if legacy policies are still present when a cluster restarts into 1.20, every report
-gets its legacy-sourced results pruned on that one pass, with no manual cleanup step, and any report
-left holding nothing else is deleted. If every legacy policy was already deleted *before* that
-restart, the startup sweep has nothing to trigger it, and any report still carrying stale results
-keeps them until it's next reconciled — which a single CEL, VAP, or MAP policy event is enough to
-cause.
+Practically: if legacy policies are still present when a cluster restarts into 1.20, every report in
+both scopes gets its legacy-sourced results pruned on that one pass, with no manual cleanup step, and
+any report left holding nothing else is deleted. If every legacy policy was already deleted *before*
+that restart, the startup sweep has nothing to trigger it. Namespaced reports still carrying stale
+results are then likely to be cleared incidentally by the next policy event; cluster-scoped ones
+quite possibly are not, and may need the operator to delete or re-trigger them by hand.
 
 ## Non-Helm / GitOps preflight
 
