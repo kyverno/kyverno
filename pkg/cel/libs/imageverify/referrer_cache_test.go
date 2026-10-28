@@ -162,10 +162,11 @@ func Test_impl_verify_referrer_attestation_cache_hit_restores_verified_referrer(
 func Test_impl_verify_referrer_attestation_degraded_cache_entry_reverifies(t *testing.T) {
 	t.Parallel()
 	tests := map[string]map[string][]byte{
-		"presence only":            nil,
-		"not json":                 {sbomType: []byte(`not json`)},
-		"empty list":               {sbomType: []byte(`[]`)},
-		"descriptor of other type": {sbomType: []byte(`[{"digest":"sha256:` + strings.Repeat("a", 64) + `","artifactType":"other"}]`)},
+		"presence only":             nil,
+		"not json":                  {sbomType: []byte(`not json`)},
+		"empty list":                {sbomType: []byte(`[]`)},
+		"descriptor without digest": {sbomType: []byte(`[{"artifactType":"sbom/cyclone-dx"}]`)},
+		"descriptor of other type":  {sbomType: []byte(`[{"digest":"sha256:` + strings.Repeat("a", 64) + `","artifactType":"other"}]`)},
 	}
 	for name, cached := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -184,6 +185,18 @@ func Test_impl_verify_referrer_attestation_degraded_cache_entry_reverifies(t *te
 			assert.Equal(t, map[string]any{"signed": true}, payload().Value())
 		})
 	}
+}
+
+func Test_impl_verify_referrer_attestation_failure_is_not_cached(t *testing.T) {
+	t.Parallel()
+	rt := newReferrerTest(t)
+	rt.push(t, `{"signed":false}`)
+
+	for range 2 {
+		count, _ := rt.admit(t)
+		require.Equal(t, int64(0), count.Value())
+	}
+	assert.Equal(t, 2, rt.notary.calls, "a failed verification must not be cached")
 }
 
 func Test_verifiedReferrersPayload_dedupes_and_keeps_only_restore_fields(t *testing.T) {

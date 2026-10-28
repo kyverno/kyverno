@@ -481,14 +481,15 @@ func verifiedReferrersPayload(attest v1beta1.Attestation, verified []gcrv1.Descr
 }
 
 // decodeVerifiedReferrers decodes what verifiedReferrersPayload cached. Each
-// descriptor must be of artifactType, the type ImageData records it under.
+// descriptor needs a digest to fetch by, and must be of artifactType, the type
+// ImageData records it under.
 func decodeVerifiedReferrers(data []byte, artifactType string) ([]gcrv1.Descriptor, bool) {
 	var descs []gcrv1.Descriptor
 	if err := json.Unmarshal(data, &descs); err != nil || len(descs) == 0 {
 		return nil, false
 	}
 	for _, d := range descs {
-		if d.ArtifactType != artifactType {
+		if d.Digest.Hex == "" || d.ArtifactType != artifactType {
 			return nil, false
 		}
 	}
