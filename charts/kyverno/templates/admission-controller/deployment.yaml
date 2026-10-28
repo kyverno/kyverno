@@ -252,6 +252,13 @@ spec:
               {{- $bindAddress = $features.controllerRuntimeMetrics.bindAddress | toString }}
             {{- end }}
           {{- end }}
+          {{- with .Values.admissionController.container.extraArgs }}
+            {{- if hasKey . "controllerRuntimeMetricsAddress" }}
+              {{- $bindAddress = (index . "controllerRuntimeMetricsAddress") | toString }}
+            {{- else if hasKey . "--controllerRuntimeMetricsAddress" }}
+              {{- $bindAddress = (index . "--controllerRuntimeMetricsAddress") | toString }}
+            {{- end }}
+          {{- end }}
           {{- $port := last (splitList ":" $bindAddress) | int }}
           {{- if and (ne $bindAddress "0") (ne $bindAddress ":0") (gt $port 0) }}
           - containerPort: {{ $port }}

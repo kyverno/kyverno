@@ -1,0 +1,15 @@
+---
+admissionController:
+  featuresOverride:
+    controllerRuntimeMetrics:
+      bindAddress: ":9090"
+  container:
+    extraArgs:
+      controllerRuntimeMetricsAddress: ":9091"
+
+backgroundController:
+  featuresOverride:
+    controllerRuntimeMetrics:
+      bindAddress: ":0"
+  extraArgs:
+    controllerRuntimeMetricsAddress: "0"
