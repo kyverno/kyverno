@@ -19,8 +19,8 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.19.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
-	github.com/go-git/go-billy/v5 v5.9.0
-	github.com/go-git/go-git/v5 v5.19.2
+	github.com/go-git/go-billy/v5 v5.9.2
+	github.com/go-git/go-git/v5 v5.19.3
 	github.com/go-logr/logr v1.4.4
 	github.com/go-logr/zerologr v1.2.3
 	github.com/gobwas/glob v0.2.3
@@ -269,7 +269,6 @@ require (
 	github.com/jedisct1/go-minisign v0.0.0-20230811132847-661be99b8267 // indirect
 	github.com/jellydator/ttlcache/v3 v3.4.1 // indirect
 	github.com/kevinburke/ssh_config v1.4.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.4 // indirect
 	github.com/lestrrat-go/dsig v1.2.1 // indirect
@@ -305,7 +304,7 @@ require (
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/pjbgf/sha1cd v0.6.0 // indirect
+	github.com/pjbgf/sha1cd v0.7.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
