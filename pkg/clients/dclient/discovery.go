@@ -123,7 +123,8 @@ func (c *serverResources) OnChanged(callback func()) {
 	defer c.mux.Unlock()
 	c.callbacks = append(c.callbacks, callback)
 }
-
+// notify calls every registered callback. It snapshots the callbacks under the
+// read lock and invokes them after unlocking, so callbacks may call OnChanged.
 func (c *serverResources) notify() {
 	c.mux.RLock()
 	callbacks := make([]func(), len(c.callbacks))
