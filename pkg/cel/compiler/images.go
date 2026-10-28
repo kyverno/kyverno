@@ -57,6 +57,7 @@ var (
 
 type ImageExtractor struct {
 	cel.Program
+	ResourcePaths [][]string
 }
 
 func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1beta1.ImageExtractor {
@@ -110,7 +111,8 @@ func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVer
 			return nil, append(allErrs, field.Invalid(path, m.Expression, err.Error()))
 		}
 		compiled[m.Name] = ImageExtractor{
-			Program: prog,
+			Program:       prog,
+			ResourcePaths: ImageResourcePaths(ast),
 		}
 	}
 	return compiled, nil

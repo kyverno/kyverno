@@ -142,7 +142,8 @@ spec:
             - --transportCreds={{ . }}
             {{- end }}
             {{- end }}
-            {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.cleanupController.featuresOverride)
+            {{- $features := mergeOverwrite (deepCopy .Values.features) .Values.cleanupController.featuresOverride }}
+            {{- include "kyverno.features.flags" (pick $features
               "deferredLoading"
               "dumpPayload"
               "globalContext"
@@ -150,7 +151,7 @@ spec:
               "ttlController"
               "protectManagedResources"
             ) | nindent 12 }}
-            {{- include "kyverno.registryClient.egressFlags" (mergeOverwrite (deepCopy .Values.features) .Values.cleanupController.featuresOverride).registryClient | nindent 12 }}
+            {{- include "kyverno.registryClient.egressFlags" $features.registryClient | nindent 12 }}
             {{- range $key, $value := .Values.cleanupController.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}

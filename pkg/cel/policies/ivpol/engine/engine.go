@@ -248,6 +248,7 @@ func (e *engineImpl) handleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
+	ictx = imageverify.WithResourceImageContextFactory(ictx, e.newImageContext)
 	c := eval.NewCompiler(ictx, e.lister, request.RequestResource, imageverifycache.DisabledImageVerifyCache())
 
 	// Built at most once for the whole loop, lazily: matching happens per policy
@@ -521,6 +522,7 @@ func (e *engineImpl) evaluatePolicies(
 	if err != nil {
 		return nil, err
 	}
+	ictx = imageverify.WithResourceImageContextFactory(ictx, e.newImageContext)
 	c := eval.NewCompiler(ictx, e.lister, requestResource, e.ivCache)
 	// Extraction-mode policies are evaluated against a synthesized v1/Pod,
 	// not the real admitted resource (a custom workload CRD) - and their

@@ -93,6 +93,7 @@ func WithCosign() ConfigurationOption {
 func WithRegistryClient() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesRegistryClient = true
+		c.usesRegistryEgress = true
 	}
 }
 
@@ -244,7 +245,7 @@ func (c *configuration) UsesRegistryClient() bool {
 }
 
 func (c *configuration) UsesRegistryEgress() bool {
-	return c.usesRegistryEgress || c.usesRegistryClient
+	return c.usesRegistryEgress
 }
 
 func (c *configuration) UsesImageVerifyCache() bool {

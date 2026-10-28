@@ -72,6 +72,7 @@ type compiledPolicy struct {
 	matchImageReferences []engine.MatchImageReference
 	validations          []engine.Validation
 	imageExtractors      map[string]engine.ImageExtractor
+	resourceImagePaths   [][]string
 	attestors            []*variables.CompiledAttestor
 	attestationList      map[string]string
 	auditAnnotations     map[string]cel.Program
@@ -92,8 +93,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if err != nil {
 		return nil, err
 	}
-	data[engine.ImageDataKey] = libs.ImageDataContext(ctx, context, data[engine.ObjectKey], data[engine.OldObjectKey])
-	imagesContext, err := imageverify.NewResourceImageContext(ictx, resourceImageReferences(attr, request), c.resourceOpts, c.nameOpts)
+	resourceImages := resourceImageReferences(data, c.resourceImagePaths)
+	data[engine.ImageDataKey] = libs.ImageDataContextWithResourceImages(ctx, context, resourceImages)
+	imagesContext, err := imageverify.NewResourceImageContext(ictx, resourceImages, c.resourceOpts, c.nameOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -187,19 +189,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if result != nil || err != nil {
 		return result, err
 	}
-
-	// Prefetch image data through Get() one image at a time to avoid triggering
-	// racy concurrent map writes in the SDK AddImages() implementation.
-	imagesContext, err = imageverify.NewResourceImageContext(imagesContext, imgList, c.resourceOpts, c.nameOpts)
-	if err != nil {
-		return nil, err
-	}
-	for _, image := range imgList {
-		if _, err := imagesContext.Get(ctx, image, c.resourceOpts, c.nameOpts); err != nil {
-			return nil, err
-		}
-	}
-	data[imageverify.RequestContextKey] = imageverify.NewEvaluationContext(ctx, imagesContext)
 
 	data[engine.ImagesKey] = filteredImages
 	data[engine.AttestationsKey] = c.attestationList
@@ -334,8 +323,9 @@ func (c *compiledPolicy) MutateDigest(
 	if err != nil {
 		return nil, err
 	}
-	data[engine.ImageDataKey] = libs.ImageDataContext(ctx, c.imageContext, data[engine.ObjectKey], data[engine.OldObjectKey])
-	imagesContext, err := imageverify.NewResourceImageContext(ictx, resourceImageReferences(attr, request), c.resourceOpts, c.nameOpts)
+	resourceImages := resourceImageReferences(data, c.resourceImagePaths)
+	data[engine.ImageDataKey] = libs.ImageDataContextWithResourceImages(ctx, c.imageContext, resourceImages)
+	imagesContext, err := imageverify.NewResourceImageContext(ictx, resourceImages, c.resourceOpts, c.nameOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +360,6 @@ func (c *compiledPolicy) MutateDigest(
 	if err != nil {
 		return nil, err
 	}
-	var resourceImages []string
 	for _, infos := range imagesByCategory {
 		for _, info := range infos {
 			resourceImages = append(resourceImages, info.String())

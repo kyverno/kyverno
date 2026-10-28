@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,7 +15,114 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/admission"
 )
+
+type countingImageContext struct {
+	*libs.FakeContextProvider
+	calls atomic.Int64
+}
+
+func (provider *countingImageContext) GetImageData(image string, options []remote.Option) (map[string]any, error) {
+	provider.calls.Add(1)
+	return provider.FakeContextProvider.GetImageData(image, options)
+}
+
+const allowedBaseImagesExpression = `object.spec.containers.all(container, has(image.GetMetadata(container.image).manifest.annotations) && image.GetMetadata(container.image).manifest.annotations != null && 'org.opencontainers.image.base.name' in image.GetMetadata(container.image).manifest.annotations && image.GetMetadata(container.image).manifest.annotations['org.opencontainers.image.base.name'] in variables.allowedBaseImages)`
+
+func TestEvaluate_RequestScopedImageContext(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "allowed-base-images"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "allowedBaseImages",
+				Expression: `["docker.io/library/alpine:3"]`,
+			}},
+			Validations: []admissionregistrationv1.Validation{{Expression: allowedBaseImagesExpression}},
+		},
+	}
+	compiled, errs := NewCompiler().Compile(policy, nil)
+	require.Empty(t, errs)
+
+	metadata := map[string]any{"manifest": map[string]any{"annotations": map[string]any{
+		"org.opencontainers.image.base.name": "docker.io/library/alpine:3",
+	}}}
+	evaluate := func(ctx context.Context, provider libs.Context, images ...string) (*EvaluationResult, error) {
+		containers := make([]any, 0, len(images))
+		for _, image := range images {
+			containers = append(containers, map[string]any{"name": "c", "image": image})
+		}
+		object := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata":   map[string]any{"name": "p", "namespace": "default"},
+			"spec":       map[string]any{"containers": containers},
+		}}
+		attr := admission.NewAttributesRecord(object, nil, schema.GroupVersionKind{Version: "v1", Kind: "Pod"},
+			"default", "p", schema.GroupVersionResource{Version: "v1", Resource: "pods"}, "", admission.Create, nil, false, nil)
+		return compiled.Evaluate(ctx, nil, attr, nil, nil, func() (map[string]any, error) { return map[string]any{}, nil }, provider)
+	}
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	tests := []struct {
+		name        string
+		ctx         context.Context
+		evaluations [][]string
+		wantCalls   int64
+		wantErr     bool
+	}{{
+		name:        "one container, four GetMetadata calls fetch once",
+		ctx:         context.Background(),
+		evaluations: [][]string{{"198.51.100.10/one:v1"}},
+		wantCalls:   1,
+	}, {
+		name:        "two distinct images fetch twice",
+		ctx:         context.Background(),
+		evaluations: [][]string{{"198.51.100.10/one:v1", "198.51.100.10/one:v1", "198.51.100.10/two:v1"}},
+		wantCalls:   2,
+	}, {
+		name:        "separate evaluations fetch separately",
+		ctx:         context.Background(),
+		evaluations: [][]string{{"198.51.100.10/one:v1"}, {"198.51.100.10/one:v1"}},
+		wantCalls:   2,
+	}, {
+		name:        "missing image is reported in the result",
+		ctx:         context.Background(),
+		evaluations: [][]string{{"198.51.100.10/missing:v1"}},
+		wantCalls:   1,
+		wantErr:     true,
+	}, {
+		name:        "cancelled context is reported in the result",
+		ctx:         cancelled,
+		evaluations: [][]string{{"198.51.100.10/one:v1"}},
+		wantCalls:   0,
+		wantErr:     true,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			provider := &countingImageContext{FakeContextProvider: libs.NewFakeContextProvider()}
+			provider.AddImageData("198.51.100.10/one:v1", metadata)
+			provider.AddImageData("198.51.100.10/two:v1", metadata)
+			for _, images := range test.evaluations {
+				result, err := evaluate(test.ctx, provider, images...)
+				require.NoError(t, err)
+				require.NotNil(t, result)
+				if test.wantErr {
+					assert.Error(t, result.Error)
+					assert.False(t, result.Result)
+				} else {
+					assert.NoError(t, result.Error)
+					assert.True(t, result.Result, "message: %s", result.Message)
+				}
+			}
+			assert.EqualValues(t, test.wantCalls, provider.calls.Load())
+		})
+	}
+}
 
 type policyImageContext struct {
 	libs.Context

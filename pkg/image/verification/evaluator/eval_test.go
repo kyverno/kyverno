@@ -7,9 +7,13 @@ import (
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
@@ -105,6 +109,64 @@ func Test_Eval_NonMatchingImage(t *testing.T) {
 	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: ivpol}}, obj(nonMatchingImage), nil, nil, nil)
 	assert.NoError(t, err)
 	assert.True(t, result[ivpol.Name].Result)
+}
+
+type cachedImageVerification struct {
+	imageverifycache.Client
+	images []string
+}
+
+func (cache *cachedImageVerification) Get(_ context.Context, _ metav1.Object, _ string, image string, _ bool) (bool, error) {
+	cache.images = append(cache.images, image)
+	return true, nil
+}
+
+func (cache *cachedImageVerification) IsEnabled() bool {
+	return true
+}
+
+func TestEvaluateCacheHitSkipsImageFetch(test *testing.T) {
+	const digest = "@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+	for _, testCase := range []struct {
+		name    string
+		image   string
+		blocked bool
+	}{
+		{name: "cached public image", image: "93.184.216.34/image" + digest},
+		{name: "blocked image before cache", image: "169.254.169.254/image" + digest, blocked: true},
+	} {
+		test.Run(testCase.name, func(test *testing.T) {
+			policy := ivpol.DeepCopy()
+			policy.Spec.MatchImageReferences[0].Glob = "*"
+			policy.Spec.ValidationConfigurations.Required = ptr.To(true)
+			policy.Spec.Validations = policy.Spec.Validations[:1]
+			author := &evaluationImageContext{}
+			workload := &evaluationImageContext{}
+			factoryCalls := 0
+			images := imageverify.WithResourceImageContextFactory(author, func() (imagedataloader.ImageContext, error) {
+				factoryCalls++
+				return workload, nil
+			})
+			cache := &cachedImageVerification{Client: imageverifycache.DisabledImageVerifyCache()}
+			compiled, errs := NewCompiler(images, nil, nil, cache).Compile(policy, nil, nil)
+			require.Empty(test, errs)
+			result, err := compiled.Evaluate(context.Background(), images, nil, obj(testCase.image), nil, false, nil, nil)
+			if testCase.blocked {
+				require.ErrorContains(test, err, "connection blocked to network host")
+				require.Nil(test, result)
+				require.Empty(test, cache.images)
+			} else {
+				require.NoError(test, err)
+				require.NotNil(test, result)
+				require.True(test, result.Result)
+				require.NoError(test, compiled.EnforceRequired(result.MatchedImages))
+				require.Equal(test, []string{testCase.image}, cache.images)
+			}
+			require.Zero(test, factoryCalls)
+			require.Empty(test, author.contexts)
+			require.Empty(test, workload.contexts)
+		})
+	}
 }
 
 func Test_Eval(t *testing.T) {

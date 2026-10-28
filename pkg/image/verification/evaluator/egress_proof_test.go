@@ -5,14 +5,19 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -22,9 +27,10 @@ import (
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 )
 
@@ -48,37 +54,24 @@ func TestRegistryEgressProofGuardsResourceImages(t *testing.T) {
 		t.Run(category, func(t *testing.T) {
 			for _, host := range []string{"127.0.0.1:5000", "169.254.169.254"} {
 				t.Run(host, func(t *testing.T) {
-					resource := map[string]any{"spec": map[string]any{category: []any{map[string]any{"image": host + "/app:latest"}}}}
+					spec := map[string]any{"containers": []any{}}
+					spec[category] = []any{map[string]any{"image": host + "/app:latest"}}
+					resource := map[string]any{"spec": spec}
 					candidate := policy.DeepCopy()
-					candidate.Spec.Validations = []admissionregistrationv1.Validation{{Expression: "true"}}
-					gvr := &metav1.GroupVersionResource{Version: "v1", Resource: "pods"}
 					if category == "custom" {
-						gvr = nil
 						candidate.Spec.ImageExtractors = []policiesv1beta1.ImageExtractor{{Name: category, Expression: "object.spec.custom.map(item, item.image)"}}
+						candidate.Spec.Validations = []admissionregistrationv1.Validation{{Expression: "images.custom.all(image, getImageData(image) != null)"}}
 					}
 					images := &proofImageContext{}
-					compiled, errs := NewCompiler(images, nil, gvr, imageverifycache.DisabledImageVerifyCache()).Compile(candidate, nil, nil)
+					compiled, errs := NewCompiler(images, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(candidate, nil, nil)
 					require.Empty(t, errs)
 					_, err := compiled.Evaluate(context.Background(), images, nil, resource, nil, false, nil, libs.NewFakeContextProvider())
-					require.ErrorIs(t, err, registryclient.ErrRegistryAddressBlocked)
+					require.ErrorContains(t, err, "connection blocked to network host")
 					require.Empty(t, images.images, "author-populated image data must never satisfy a workload lookup")
 				})
 			}
 		})
 	}
-}
-
-func TestAuthorChosenImageLookupRemainsNative(t *testing.T) {
-	policy := ivpol.DeepCopy()
-	policy.Spec.ImageExtractors = nil
-	policy.Spec.Validations = []admissionregistrationv1.Validation{{Expression: `getImageData("127.0.0.1:5000/author/image:latest") != null`}}
-	images := &proofImageContext{}
-	compiled, errs := NewCompiler(images, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(policy, nil, nil)
-	require.Empty(t, errs)
-	result, err := compiled.Evaluate(context.Background(), images, nil, map[string]any{}, nil, false, nil, libs.NewFakeContextProvider())
-	require.NoError(t, err)
-	require.True(t, result.Result)
-	require.Equal(t, []string{"127.0.0.1:5000/author/image:latest"}, images.images)
 }
 
 func TestResourceCacheDoesNotReuseAuthorImageData(t *testing.T) {
@@ -103,61 +96,249 @@ func TestResourceCacheDoesNotReuseAuthorImageData(t *testing.T) {
 	require.Same(t, cached, retained)
 }
 
-func TestResourceImageCallbacksAreGuardedBeforeExtraction(t *testing.T) {
-	for _, category := range []string{"containers", "initContainers", "ephemeralContainers"} {
-		for _, phase := range []string{"match", "variable", "validation", "mutation match", "mutation"} {
-			t.Run(category+"/"+phase, func(t *testing.T) {
-				policy := ivpol.DeepCopy()
-				policy.Spec.EvaluationConfiguration = nil
-				policy.Spec.MatchImageReferences = []policiesv1beta1.MatchImageReference{{Glob: "*"}}
-				policy.Spec.ImageExtractors = nil
-				policy.Spec.Validations = []admissionregistrationv1.Validation{{Expression: "true"}}
-				expression := "getImageData(object.spec." + category + "[0].image) != null"
-				switch phase {
-				case "match", "mutation match":
-					policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "lookup", Expression: expression}}
-				case "variable":
-					policy.Spec.Variables = []admissionregistrationv1.Variable{{Name: "lookup", Expression: expression}}
-					policy.Spec.Validations[0].Expression = "variables.lookup"
-				case "validation":
-					policy.Spec.Validations[0].Expression = expression
+type scopeOldObjectAttributes struct {
+	admission.Attributes
+	old runtime.Object
+}
+
+func (attributes scopeOldObjectAttributes) GetOldObject() runtime.Object { return attributes.old }
+
+type metadataScopeContext struct {
+	libs.Context
+	lookups []string
+}
+
+func (provider *metadataScopeContext) GetImageData(image string, _ []remote.Option) (map[string]any, error) {
+	provider.lookups = append(provider.lookups, image)
+	return map[string]any{}, nil
+}
+
+type imageExtractorEvaluationCounter struct {
+	cel.Program
+	calls int
+}
+
+func (extractor *imageExtractorEvaluationCounter) ContextEval(ctx context.Context, variables any) (ref.Val, *cel.EvalDetails, error) {
+	extractor.calls++
+	return extractor.Program.ContextEval(ctx, variables)
+}
+
+func TestResourceImageFetchUsesIsolatedProvider(test *testing.T) {
+	const image = "93.184.216.34/workload:tag"
+	policy := ivpol.DeepCopy()
+	policy.Spec.MatchImageReferences[0].Glob = "*"
+	policy.Spec.ValidationConfigurations.Required = ptr.To(false)
+	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "image", Expression: "getImageData(object.foo.bar) != null"}}
+	policy.Spec.Validations = []admissionregistrationv1.Validation{{Expression: "getImageData(images.bar[0]) != null"}}
+	author := &proofImageContext{}
+	workload := &proofImageContext{}
+	factoryCalls := 0
+	images := imageverify.WithResourceImageContextFactory(author, func() (imagedataloader.ImageContext, error) {
+		factoryCalls++
+		return workload, nil
+	})
+	compiled, errs := NewCompiler(images, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(policy, nil, nil)
+	require.Empty(test, errs)
+	policyImpl := compiled.(*compiledPolicy)
+	extractor := policyImpl.imageExtractors["bar"]
+	counter := &imageExtractorEvaluationCounter{Program: extractor.Program}
+	extractor.Program = counter
+	policyImpl.imageExtractors["bar"] = extractor
+	result, err := compiled.Evaluate(context.Background(), images, nil, obj(image), nil, false, nil, libs.NewFakeContextProvider())
+	require.NoError(test, err)
+	require.NotNil(test, result)
+	require.True(test, result.Result)
+	require.Equal(test, 1, counter.calls)
+	require.Equal(test, 1, factoryCalls)
+	require.Empty(test, author.images)
+	require.Equal(test, []string{image, image}, workload.images)
+}
+
+func TestResourceImageLookupsGuardSelectedFields(test *testing.T) {
+	for _, testCase := range []struct {
+		source, field, function, phase string
+	}{
+		{"object", "containers", "getImageData", "validation"},
+		{"object", "initContainers", "image.GetMetadata", "match"},
+		{"object", "ephemeralContainers", "image.GetMetadata", "validation"},
+		{"oldObject", "containers", "image.GetMetadata", "validation"},
+		{"oldObject", "initContainers", "getImageData", "match"},
+		{"oldObject", "ephemeralContainers", "getImageData", "validation"},
+		{"object", "artifact", "getImageData", "validation"},
+		{"oldObject", "artifact", "image.GetMetadata", "validation"},
+		{"object", "artifact", "getImageData", "mutation match"},
+		{"oldObject", "artifact", "image.GetMetadata", "mutation match"},
+		{"object", "containers", "getImageData", "variable"},
+		{"oldObject", "initContainers", "image.GetMetadata", "variable"},
+		{"object", "artifact", "getImageData", "canonical match"},
+		{"object", "artifact", "image.GetMetadata", "canonical match"},
+	} {
+		test.Run(testCase.source+"/"+testCase.field+"/"+testCase.function+"/"+testCase.phase, func(test *testing.T) {
+			request, attributes, pod := buildRequestMapHoistRequestAndAttr(test, admissionv1.Update)
+			old := pod.DeepCopy()
+			resource := &pod
+			if testCase.source == "oldObject" {
+				resource = old
+			}
+			const workloadImage = "169.254.169.254/workload"
+			lookup := testCase.source + ".spec." + testCase.field
+			policy := &policiesv1beta1.ImageValidatingPolicy{Spec: policiesv1beta1.ImageValidatingPolicySpec{
+				ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{Required: ptr.To(false), VerifyDigest: ptr.To(false)},
+				Validations:              []admissionregistrationv1.Validation{{Expression: "true"}},
+			}}
+			if testCase.field == "artifact" {
+				require.NoError(test, unstructured.SetNestedField(resource.Object, workloadImage, "spec", testCase.field))
+				policy.Spec.ImageExtractors = []policiesv1beta1.ImageExtractor{{Name: "custom", Expression: "[" + lookup + "]"}}
+				if testCase.phase == "validation" {
+					lookup = "images.custom[0]"
 				}
-				resource := unstructured.Unstructured{Object: map[string]any{
-					"apiVersion": "v1", "kind": "Pod", "metadata": map[string]any{"name": "resource-scope"},
-					"spec": map[string]any{category: []any{map[string]any{"name": "app", "image": "127.0.0.1:5000/app:latest"}}},
+			} else {
+				require.NoError(test, unstructured.SetNestedSlice(resource.Object, []any{map[string]any{"name": "workload", "image": workloadImage}}, "spec", testCase.field))
+				lookup += "[0].image"
+			}
+			if testCase.phase == "canonical match" {
+				lookup = strconv.Quote(workloadImage + ":latest")
+			}
+			lookup = testCase.function + "(" + lookup + ")"
+			if testCase.phase == "validation" {
+				policy.Spec.Validations[0].Expression = lookup + " != null"
+			} else if testCase.phase == "variable" {
+				policy.Spec.Variables = []admissionregistrationv1.Variable{{Name: "lookup", Expression: lookup + " != null"}}
+				policy.Spec.Validations[0].Expression = "variables.lookup"
+			} else {
+				policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "image", Expression: lookup + " == null"}}
+			}
+			provider := &metadataScopeContext{Context: libs.NewFakeContextProvider()}
+			images := &proofImageContext{}
+			compiled, errs := NewCompiler(images, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(policy, nil, nil)
+			require.Empty(test, errs)
+			compiled.(*compiledPolicy).imageContext = provider
+			attributes = scopeOldObjectAttributes{Attributes: attributes, old: old}
+			var err error
+			if testCase.phase == "mutation match" {
+				patches, mutationErr := compiled.MutateDigest(context.Background(), images, attributes, request, nil, pod, nil, config.NewDefaultConfiguration(false))
+				require.Empty(test, patches)
+				err = mutationErr
+			} else {
+				_, err = compiled.Evaluate(context.Background(), images, attributes, request, nil, true, nil, provider)
+			}
+			require.ErrorContains(test, err, "connection blocked to network host")
+			require.Empty(test, images.images)
+			require.Empty(test, provider.lookups)
+		})
+	}
+}
+
+func TestResourceDigestMutationGuardsAllContainerKinds(test *testing.T) {
+	for _, field := range []string{"containers", "initContainers", "ephemeralContainers"} {
+		test.Run(field, func(test *testing.T) {
+			compiled, errs := NewCompiler(nil, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(&policiesv1beta1.ImageValidatingPolicy{}, nil, nil)
+			require.Empty(test, errs)
+			request, attributes, pod := buildRequestMapHoistRequestAndAttr(test, admissionv1.Create)
+			require.NoError(test, unstructured.SetNestedSlice(pod.Object, []any{map[string]any{"name": "main", "image": "169.254.169.254/image:tag"}}, "spec", field))
+			images := &proofImageContext{}
+			patches, err := compiled.MutateDigest(context.Background(), images, attributes, request, nil, pod, nil, config.NewDefaultConfiguration(false))
+			require.ErrorContains(test, err, "connection blocked to network host")
+			require.Empty(test, patches)
+			require.Empty(test, images.images)
+		})
+	}
+}
+
+func TestPolicyImageLiteralIgnoresUnrelatedResourceStrings(test *testing.T) {
+	const policyImage = "169.254.169.254/author:tag"
+	for _, function := range []string{"getImageData", "image.GetMetadata"} {
+		for _, phase := range []string{"evaluation", "mutation match"} {
+			test.Run(function+"/"+phase, func(test *testing.T) {
+				lookup := function + "(" + strconv.Quote(policyImage) + ")"
+				policy := &policiesv1beta1.ImageValidatingPolicy{Spec: policiesv1beta1.ImageValidatingPolicySpec{
+					ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{Required: ptr.To(false), VerifyDigest: ptr.To(false)},
+					ImageExtractors:          []policiesv1beta1.ImageExtractor{{Name: "custom", Expression: "[" + strconv.Quote(policyImage) + "]"}},
+					MatchConditions:          []admissionregistrationv1.MatchCondition{{Name: "image", Expression: lookup + " != null"}},
+					Validations:              []admissionregistrationv1.Validation{{Expression: lookup + " != null"}, {Expression: function + "(images.custom[0]) != null"}},
 				}}
-				request, attr, _ := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
-				attr.GetObject().(*unstructured.Unstructured).Object = resource.Object
+				if phase == "mutation match" {
+					policy.Spec.MatchConditions[0].Expression = lookup + " == null"
+				}
+				provider := &metadataScopeContext{Context: libs.NewFakeContextProvider()}
 				images := &proofImageContext{}
 				compiled, errs := NewCompiler(images, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(policy, nil, nil)
-				require.Empty(t, errs)
-				var err error
-				if phase == "mutation" || phase == "mutation match" {
-					_, err = compiled.MutateDigest(context.Background(), images, attr, request, nil, resource, nil, config.NewDefaultConfiguration(false))
-				} else {
-					_, err = compiled.Evaluate(context.Background(), images, attr, request, nil, true, nil, libs.NewFakeContextProvider())
+				require.Empty(test, errs)
+				compiled.(*compiledPolicy).imageContext = provider
+				request, attributes, pod := buildRequestMapHoistRequestAndAttr(test, admissionv1.Update)
+				for _, path := range [][]string{{"metadata", "annotations", "description"}, {"metadata", "labels", "description"}, {"spec", "description"}} {
+					require.NoError(test, unstructured.SetNestedField(pod.Object, policyImage, path...))
 				}
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "connection blocked to network host")
-				require.Empty(t, images.images)
+				require.NoError(test, unstructured.SetNestedSlice(pod.Object, []any{map[string]any{"name": "workload", "image": "169.254.169.254/workload:tag"}}, "spec", "containers"))
+				old := pod.DeepCopy()
+				attributes = scopeOldObjectAttributes{Attributes: attributes, old: old}
+				var err error
+				request.Object.Raw, err = pod.MarshalJSON()
+				require.NoError(test, err)
+				request.OldObject.Raw, err = old.MarshalJSON()
+				require.NoError(test, err)
+				if phase == "mutation match" {
+					patches, err := compiled.MutateDigest(context.Background(), images, attributes, request, nil, pod, nil, config.NewDefaultConfiguration(false))
+					require.NoError(test, err)
+					require.Empty(test, patches)
+				} else {
+					result, err := compiled.Evaluate(context.Background(), images, attributes, request, nil, true, nil, provider)
+					require.NoError(test, err)
+					require.True(test, result.Result)
+				}
+				if function == "getImageData" {
+					require.NotEmpty(test, images.images)
+					for _, image := range images.images {
+						require.Equal(test, policyImage, image)
+					}
+					require.Empty(test, provider.lookups)
+				} else {
+					require.Equal(test, []string{policyImage}, provider.lookups)
+					require.Empty(test, images.images)
+				}
 			})
 		}
 	}
 }
 
-func TestResourceOldImageCallbackIsGuarded(t *testing.T) {
-	policy := ivpol.DeepCopy()
-	policy.Spec.EvaluationConfiguration = nil
-	policy.Spec.ImageExtractors = nil
-	policy.Spec.Validations = []admissionregistrationv1.Validation{{Expression: `getImageData(oldObject.spec.ephemeralContainers[0].image) != null`}}
-	request, current, _ := buildRequestMapHoistRequestAndAttr(t, admissionv1.Update)
-	old := current.GetObject().(*unstructured.Unstructured).DeepCopy()
-	old.Object["spec"] = map[string]any{"ephemeralContainers": []any{map[string]any{"name": "debug", "image": "127.0.0.1:5000/app:latest"}}}
-	attr := admission.NewAttributesRecord(current.GetObject(), old, current.GetKind(), current.GetNamespace(), current.GetName(), current.GetResource(), current.GetSubresource(), admission.Update, nil, false, nil)
-	images := &proofImageContext{}
-	compiled, errs := NewCompiler(images, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(policy, nil, nil)
-	require.Empty(t, errs)
-	_, err := compiled.Evaluate(context.Background(), images, attr, request, nil, true, nil, libs.NewFakeContextProvider())
-	require.ErrorContains(t, err, "connection blocked to network host")
-	require.Empty(t, images.images)
+func TestResourceImageReferencesUseSelectedPaths(test *testing.T) {
+	test.Parallel()
+	data := map[string]any{
+		engine.ObjectKey: map[string]any{
+			"metadata": map[string]string{"name": "169.254.169.254/author:tag"},
+			"spec": map[string]any{
+				"containers": []map[string]string{{"image": "169.254.169.254/container:tag", "name": "169.254.169.254/author:tag"}},
+				"unrelated":  "169.254.169.254/author:tag",
+				"artifacts":  []map[string]string{{"image": "169.254.169.254/custom:tag", "description": "169.254.169.254/author:tag"}},
+			},
+			"foo": map[string]string{"bar": "169.254.169.254/typed:tag"},
+		},
+		engine.OldObjectKey: map[string]any{"spec": map[string]any{
+			"ephemeralContainers": []map[string]string{{"image": "169.254.169.254/old:tag"}},
+		}},
+	}
+	images := resourceImageReferences(data, [][]string{
+		{engine.ObjectKey, "spec", "artifacts", "*", "image"},
+		{engine.ObjectKey, "foo", "bar"},
+	})
+	require.ElementsMatch(test, []string{
+		"169.254.169.254/container:tag",
+		"169.254.169.254/custom:tag",
+		"169.254.169.254/typed:tag",
+		"169.254.169.254/old:tag",
+	}, images)
+}
+
+func TestResourceImagePathsResolveVariableAliases(test *testing.T) {
+	test.Parallel()
+	env, err := cel.NewEnv(cel.Variable(engine.ObjectKey, cel.DynType), cel.Variable(engine.VariablesKey, cel.DynType))
+	require.NoError(test, err)
+	paths := compileResourceImagePaths(env, map[string]engine.ImageExtractor{
+		"custom": {ResourcePaths: [][]string{{engine.VariablesKey, "alias"}, {engine.VariablesKey, "literal"}}},
+	}, []admissionregistrationv1.Variable{
+		{Name: "image", Expression: "object.spec.artifact"},
+		{Name: "alias", Expression: "variables.image"},
+		{Name: "literal", Expression: "'169.254.169.254/author:tag'"},
+	})
+	require.Equal(test, [][]string{{engine.ObjectKey, "spec", "artifact"}}, paths)
 }

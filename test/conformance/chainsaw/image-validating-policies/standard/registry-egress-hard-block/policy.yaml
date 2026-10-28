@@ -17,18 +17,15 @@ spec:
       - UPDATE
       resources:
       - pods
+      - pods/ephemeralcontainers
     objectSelector:
       matchLabels:
         test.kyverno.io/registry-egress: 'true'
   validations:
-  - expression: images.containers.all(image, getImageData(image) != null)
-  imageExtractors:
-  - name: containers
-    expression: object.spec.?containers.orValue([]).map(container, container.image)
-  - name: initContainers
-    expression: object.spec.?initContainers.orValue([]).map(container, container.image)
-  - name: ephemeralContainers
-    expression: object.spec.?ephemeralContainers.orValue([]).map(container, container.image)
+  - expression: >-
+      object.spec.containers.all(c, getImageData(c.image) != null) &&
+      object.spec.?initContainers.orValue([]).all(c, getImageData(c.image) != null) &&
+      object.spec.?ephemeralContainers.orValue([]).all(c, getImageData(c.image) != null)
   matchImageReferences:
   - glob: '*'
   validationConfigurations:

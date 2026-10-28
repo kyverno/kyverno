@@ -53,6 +53,10 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, requ
 		return nil, err
 	}
 
+	ictx = imageverify.WithResourceImageContextFactory(ictx, func() (imagedataloader.ImageContext, error) {
+		return imagedataloader.NewImageContext(lister, nil, nil)
+	})
+
 	results := make(map[string]*EvaluationResult, len(policies))
 	// shared by every policy compiled below, so required sees cross-policy evidence
 	verifications := imageverify.NewImageVerificationResults()

@@ -3,7 +3,9 @@ package libs
 import (
 	"context"
 	"errors"
+	"sync"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
@@ -11,6 +13,18 @@ import (
 )
 
 type imageDataFunc func(string, []remote.Option) (map[string]any, error)
+
+type imageKey struct {
+	image string
+	nopts int
+	opts  *remote.Option
+}
+
+type imageResult struct {
+	once sync.Once
+	data map[string]any
+	err  error
+}
 
 func (f imageDataFunc) GetImageData(image string, options []remote.Option) (map[string]any, error) {
 	return f(image, options)
@@ -21,7 +35,23 @@ func (f imageDataFunc) GetImageData(image string, options []remote.Option) (map[
 // reused concurrently. Providers without the context extension retain their
 // existing behavior, including CLI fixtures.
 func ImageDataContext(ctx context.Context, provider imagedata.ContextInterface, objects ...any) imagedata.Context {
-	resourceImages := collectResourceImages(objects...)
+	return imageDataContext(ctx, provider, collectResourceImages(objects...))
+}
+
+func ImageDataContextWithResourceImages(ctx context.Context, provider imagedata.ContextInterface, resourceImages []string) imagedata.Context {
+	images := make(map[string]struct{}, len(resourceImages))
+	for _, image := range resourceImages {
+		images[image] = struct{}{}
+		if reference, err := name.ParseReference(image); err == nil {
+			images[reference.Name()] = struct{}{}
+		}
+	}
+	return imageDataContext(ctx, provider, images)
+}
+
+func imageDataContext(ctx context.Context, provider imagedata.ContextInterface, resourceImages map[string]struct{}) imagedata.Context {
+	var resourceOptions sync.Map
+	var images sync.Map
 	if provider == nil {
 		provider = LibraryContext
 	}
@@ -29,22 +59,49 @@ func ImageDataContext(ctx context.Context, provider imagedata.ContextInterface, 
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if _, resource := resourceImages[image]; resource {
-			var err error
-			options, err = registryclient.GuardResourceImageOptions(ctx, image, options)
-			if err != nil {
-				return nil, err
+		_, resource := resourceImages[image]
+		if !resource {
+			if reference, err := name.ParseReference(image); err == nil {
+				_, resource = resourceImages[reference.Name()]
 			}
+		}
+		if resource {
+			key := imageKey{image: image, nopts: len(options)}
+			if len(options) > 0 {
+				key.opts = &options[0]
+			}
+			cached, loaded := resourceOptions.Load(key)
+			if !loaded {
+				guardedOptions, err := registryclient.GuardResourceImageOptions(ctx, image, options)
+				if err != nil {
+					return nil, err
+				}
+				cached, _ = resourceOptions.LoadOrStore(key, guardedOptions)
+			}
+			options = cached.([]remote.Option)
 		}
 		if provider == nil {
 			return nil, errors.New("image metadata context is not configured")
 		}
-		if contextual, ok := provider.(interface {
-			GetImageDataWithContext(context.Context, string, []remote.Option) (map[string]any, error)
-		}); ok {
-			return contextual.GetImageDataWithContext(ctx, image, options)
+		key := imageKey{image: image, nopts: len(options)}
+		if len(options) > 0 {
+			key.opts = &options[0]
 		}
-		return provider.GetImageData(image, options)
+		cached, loaded := images.Load(key)
+		if !loaded {
+			cached, _ = images.LoadOrStore(key, &imageResult{})
+		}
+		result := cached.(*imageResult)
+		result.once.Do(func() {
+			if contextual, ok := provider.(interface {
+				GetImageDataWithContext(context.Context, string, []remote.Option) (map[string]any, error)
+			}); ok {
+				result.data, result.err = contextual.GetImageDataWithContext(ctx, image, options)
+			} else {
+				result.data, result.err = provider.GetImageData(image, options)
+			}
+		})
+		return result.data, result.err
 	})}
 }
 
@@ -57,11 +114,15 @@ func collectResourceImages(objects ...any) map[string]struct{} {
 		}
 		for _, path := range [][]string{{"spec"}, {"spec", "template", "spec"}, {"spec", "jobTemplate", "spec", "template", "spec"}} {
 			for _, category := range []string{"containers", "initContainers", "ephemeralContainers"} {
-				containers, _, _ := unstructured.NestedSlice(fields, append(path, category)...)
+				value, _, _ := unstructured.NestedFieldNoCopy(fields, append(path, category)...)
+				containers, _ := value.([]any)
 				for _, container := range containers {
 					if fields, ok := container.(map[string]any); ok {
 						if image, ok := fields["image"].(string); ok && image != "" {
 							images[image] = struct{}{}
+							if reference, err := name.ParseReference(image); err == nil {
+								images[reference.Name()] = struct{}{}
+							}
 						}
 					}
 				}

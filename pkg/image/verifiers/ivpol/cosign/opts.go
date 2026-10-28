@@ -89,6 +89,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	keyOrCert := att.Keyless == nil && (att.Key != nil || att.Certificate != nil)
 	skipSigstoreInfra := keyOrCert && ignoreTlog
 	cosignRemoteOpts := []ociremote.Option{}
+	baseROpts = slices.Clip(baseROpts)
 
 	if att.Source != nil {
 		remoteOpts, err := sourceRemoteOpts(secretLister, att.Source)

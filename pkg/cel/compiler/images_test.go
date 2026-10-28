@@ -10,6 +10,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -201,4 +202,52 @@ func Test_Match(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestImageResourcePaths(test *testing.T) {
+	environment, err := cel.NewEnv(
+		cel.Variable("object", cel.DynType),
+		cel.Variable("oldObject", cel.DynType),
+		cel.Variable("variables", cel.DynType),
+		cel.OptionalTypes(),
+	)
+	require.NoError(test, err)
+	for _, testCase := range []struct {
+		expression string
+		paths      [][]string
+	}{
+		{expression: `["author"]`},
+		{expression: `[object.spec.artifact]`, paths: [][]string{{"object", "spec", "artifact"}}},
+		{expression: `[oldObject.spec.artifacts[12]]`, paths: [][]string{{"oldObject", "spec", "artifacts", "12"}}},
+		{expression: `[variables.image]`, paths: [][]string{{"variables", "image"}}},
+		{expression: `[object["spec"]["artifact"]]`, paths: [][]string{{"object", "spec", "artifact"}}},
+		{expression: `object.metadata.name == "x" ? ["author"] : [object.spec.artifact]`, paths: [][]string{{"object", "spec", "artifact"}}},
+		{expression: `object.spec.artifact == "x" ? ["author"] : ["other"]`},
+		{expression: `[object.spec.first] + [oldObject.spec.second]`, paths: [][]string{{"object", "spec", "first"}, {"oldObject", "spec", "second"}}},
+		{expression: `[object.spec.artifact + ":tag"]`},
+		{expression: `[string(object.spec.artifact)]`},
+		{expression: `[object.spec.?artifact.orValue("author")]`, paths: [][]string{{"object", "spec", "artifact"}}},
+		{expression: `[object.spec.artifacts[?0].orValue("author")]`, paths: [][]string{{"object", "spec", "artifacts", "0"}}},
+		{expression: `object.spec.artifacts.map(entry, entry.image)`, paths: [][]string{{"object", "spec", "artifacts", "*", "image"}}},
+		{expression: `object.spec.artifacts.map(entry, "author")`},
+		{expression: `object.spec.artifacts.map(entry, entry.enabled, "author")`},
+		{expression: `object.spec.artifacts.map(entry, entry.enabled, entry.image)`, paths: [][]string{{"object", "spec", "artifacts", "*", "image"}}},
+		{expression: `object.spec.artifacts.filter(entry, entry.enabled).map(entry, entry.image)`, paths: [][]string{{"object", "spec", "artifacts", "*", "image"}}},
+		{expression: `[object.spec.artifact].map(entry, entry)`, paths: [][]string{{"object", "spec", "artifact"}}},
+		{expression: `(object != null ? object : oldObject).spec.?containers.orValue([]).map(entry, entry.image)`, paths: [][]string{{"object", "spec", "containers", "*", "image"}, {"oldObject", "spec", "containers", "*", "image"}}},
+		{expression: `[("author" in object.spec.artifacts)]`},
+		{expression: `[has(object.spec.artifact)]`},
+		{expression: `[["author", object.spec.artifact][0]]`},
+		{expression: `[(object != null ? ["author", object.spec.artifact] : ["other"])[0]]`},
+	} {
+		test.Run(testCase.expression, func(test *testing.T) {
+			expression, issues := environment.Compile(testCase.expression)
+			require.NoError(test, issues.Err())
+			require.Equal(test, testCase.paths, ImageResourcePaths(expression))
+		})
+	}
+	require.Nil(test, ImageResourcePaths(nil))
+	unchecked, issues := environment.Parse(`[object.spec.artifact]`)
+	require.NoError(test, issues.Err())
+	require.Nil(test, ImageResourcePaths(unchecked))
 }

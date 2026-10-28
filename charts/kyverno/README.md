@@ -379,7 +379,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.policyExceptions.namespace | string | `""` | Restrict policy exceptions to a single namespace Set to "*" to allow exceptions in all namespaces |
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
-| features.registryClient.privateRegistryEgressMode | string | `"audit"` | Workload image registry egress policy: audit permits private addresses and logs requests enforce would block; enforce requires an allowlist entry. Author-controlled CEL calls and verification endpoints are unaffected. |
+| features.registryClient.privateRegistryEgressMode | string | `"audit"` | Workload image egress policy in admission, background, reports, and cleanup controllers: audit permits private addresses and logs requests enforce would block; enforce requires an allowlist entry. Both modes block metadata and other unsafe addresses. Policy-authored endpoints are unaffected. |
 | features.registryClient.privateRegistryAllowlist | list | `[]` | Exact registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Entries must be non-empty strings without commas; use one list item per entry. Metadata and other unsafe addresses remain blocked. |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
@@ -932,9 +932,9 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 
 ## Registry egress policy
 
-The workload image registry egress guard in admission, background, reports and cleanup controllers defaults to
-`features.registryClient.privateRegistryEgressMode: audit`. Policy-author CEL calls, explicit signature
-repositories and Sigstore/TUF endpoints retain native behavior, including cleanup author calls.
+The workload image guard in admission, background, reports, and cleanup controllers defaults to
+`features.registryClient.privateRegistryEgressMode: audit`. Policy-authored CEL image lookups,
+signature repository overrides, keys, certificates, and Sigstore trust services retain native behavior.
 Private registry destinations remain reachable during upgrades, while requests that
 would be blocked in `enforce` mode are logged at verbosity 2. Metadata, link-local,
 loopback, unspecified, multicast, and broadcast addresses are blocked in both modes.
@@ -943,6 +943,9 @@ Before enabling `enforce`, add the exact hostnames, IP addresses, or CIDRs for y
 private registries and token services to `features.registryClient.privateRegistryAllowlist`.
 Use an empty list (`[]`) when no entries are needed; empty list elements are rejected.
 An allowlist entry never bypasses the address categories that are always blocked.
+Cleanup applies these settings to DeletingPolicy metadata lookups of workload images,
+without enabling registry credential helpers or image-pull Secret informers. Override its settings
+under `cleanupController.featuresOverride.registryClient`.
 See the [registry egress guide](https://github.com/kyverno/kyverno/blob/release-1.19/docs/user/registry-egress.md)
 for rollout examples and proxy behavior.
 

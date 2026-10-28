@@ -191,6 +191,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		validations:          validations,
 		auditAnnotations:     auditAnnotations,
 		imageExtractors:      imageExtractors,
+		resourceImagePaths:   compileResourceImagePaths(env, imageExtractors, spec.Variables),
 		attestors:            compiledAttestors,
 		attestationList:      getAttestations(spec.Attestations),
 		nameOpts:             nameOpts,

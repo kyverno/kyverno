@@ -85,6 +85,13 @@ func (f *ivfuncs) validateResourceImage(ctx context.Context, image string) error
 	return nil
 }
 
+func (f *ivfuncs) imageDataForValidatedImage(ctx context.Context, image string) (*imagedataloader.ImageData, error) {
+	if scoped, ok := f.imgCtx.(*resourceImageContext); ok {
+		return scoped.imageDataForValidatedImage(ctx, image, f.authOpts, f.nameOpts)
+	}
+	return f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+}
+
 func ImageVerifyCELFuncs(
 	logger logr.Logger,
 	imgCtx imagedataloader.ImageContext,
@@ -229,7 +236,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 
 		// Fetch image data once before the loop: the image reference and
 		// credentials are the same for every attestor.
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imageDataForValidatedImage(ctx, image)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -335,7 +342,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				}
 			}
 		}
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imageDataForValidatedImage(ctx, image)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}

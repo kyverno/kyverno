@@ -1,45 +1,43 @@
-# Registry client ownership
+# Registry client ownership and scope
 
-The Kyverno SDK owns registry parsing, credential composition, Secret refresh,
-request options and descriptor fetching. `pkg/registryclient` adapts controller
-and policy configuration without replacing those operations.
+The Kyverno SDK owns registry parsing, credential composition and Secret refresh,
+remote option construction, pullers/pushers, and descriptor fetching.
+`pkg/registryclient` only adapts operator configuration and resource-image egress.
 
-## Trust boundary
+`GlobalImageDataOptions` and `ImageDataOptsFromImageVerificationCredentials` return
+native SDK `NewRemoteOptions` for policy-authored CEL lookups. They carry no egress
+transport or guarded keychain and bind the evaluation context at runtime.
+The CEL image receiver adds scoped guards when a lookup uses a known current/old
+resource image value, preserving its passed credentials. Other author-selected
+references remain native, even when they use the same registry host.
+`ResourceImageOptions` and `ResourceImageOptionsFromCredentials` construct
+separate guarded options for resource image verification. Do not append a transport
+to SDK `Options` containing `remote.Reuse`: those pullers already own their transport.
 
-General registry clients and author-selected CEL `image()`/image-data/context
-references use native SDK options. Recognized workload image references use
-scoped options instead. Policy authors can already make HTTP requests; registry
-egress settings are not a policy-author sandbox.
+The image-verification runtime records built-in image fields and resource-field paths
+selected by custom image extractors before CEL match conditions. This includes
+container/initContainer/ephemeralContainer images in templates. Canonical reference
+aliases share their resource scope; unrelated resource strings and policy literals do
+not expand the resource-image set. Extractors are not evaluated an extra time.
+`ValidateResourceImage` runs before verification-cache hits. Resource image fetches use
+a separate request-local image context, so a native policy preload cannot seed an
+unguarded `ImageData` or remote options into resource verification. Callers provide a
+fresh-context factory through `WithResourceImageContextFactory`, preserving their
+lister and provider configuration. It is invoked only for a validated resource fetch,
+not a verification-cache hit; unsupported providers return an error instead of being
+silently replaced with a network loader.
 
-`image.GetMetadata` also recognizes workload container references from current
-and old objects. Its scoped wrapper validates before fetching, appends a guarded
-transport, and preserves policy-specific authentication options. An author-chosen
-reference on the same registry remains native unless it is a workload image.
+The guarded SDK constructor uses `WithTransport` and `WithKeychainWrapper` to protect
+registry, token, redirect, and referrer requests, and validate before credentials.
+Operator-equivalent settings share connection pools, not credentials or request state.
+Secret namespace authorization remains with the supplied lister.
 
-Cleanup retains egress-only operator configuration for workload-origin lookups,
-without enabling registry credential helpers or Secret informers.
+Cosign receives the policy's native remote options separately. An explicit
+`source.Repository` replaces resource options before source credentials are applied;
+without that override, signature downloads retain the resource guard. Sigstore/TUF,
+public-key/certificate, Rekor/Fulcio/TSA, and trust URL handling stays upstream-native.
+Provider-internal cloud credential exchanges and KMS clients are unchanged.
 
-`ResourceImageOptions` and `ResourceImageOptionsFromCredentials` are separate
-builders for workload-origin image requests only. They install the egress
-transport and wrap the SDK credential chain before credential resolution. They
-use `NewRemoteOptions`, never `Client.Options` plus an appended transport: SDK
-`Options` may retain pullers/pushers created with the original transport.
-
-IVPOL binds well-known workload container references before match conditions,
-variables and validations, even without a request GVR. Extracted resource image
-references extend that set before prefetch and verification. The resource cache
-is separate from the author cache; preloaded author data cannot replace guarded
-resource data. Resource `ImageData` retains guarded remote options for manifests,
-configs, signatures, attestations and referrers, including token/redirect targets.
-The scoped cache belongs to one policy evaluation rather than being shared
-across policy credentials.
-
-An explicitly configured Cosign signature repository uses native author options,
-including its own credentials and token/redirect requests. Verification uses the
-already-fetched resource digest, avoiding native re-resolution of the workload
-tag. A default signature repository continues to use resource options. Sigstore,
-TUF, key/certificate URLs, Rekor, Fulcio and TSA retain upstream native behavior.
-
-Image loaders bind request context at evaluation time; credentials remain
-refreshable. Namespace authorization stays with the Secret lister. The Azure
-provider's internal SDK/Flux credential exchange remains outside this transport.
+Cosign verification uses the already-resolved image digest for bundle enumeration,
+signature verification, and attestation verification. Switching to native source options
+must not re-resolve a workload tag through the unguarded policy transport.

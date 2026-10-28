@@ -1,40 +1,46 @@
-# Workload image registry egress
+# Workload image verification egress
 
-## Scope and trust boundary
+The guard applies to untrusted image references from admitted resources, including
+container, initContainer, ephemeralContainer, nested workload template, and custom
+image-extractor fields. CEL `image.getMetadata` calls on known workload values and
+ImageValidatingPolicy image metadata, signature/attestation verification, and digest
+mutation use guarded registry options for those references.
+Resource destinations are checked before verification-cache hits. Resource image data
+uses a separate request-local cache so policy-authored preloads cannot bypass the guard.
 
-ImageValidatingPolicy guards registry destinations taken from untrusted workload
-images: `containers`, `initContainers`, `ephemeralContainers`, Pod controller
-and CronJob templates, and resource image references selected by image extractors.
-The same guard applies during digest mutation and subsequent verification reads.
-Well-known workload image references are recognized before match conditions,
-variables and validations, including evaluation without GVR-derived extractors.
-Workload image values consumed by the CEL `image.GetMetadata` library are guarded
-too, using current and old resource objects; an author-selected literal on the
-same registry remains native when it is outside the workload image set.
+Policy authors already have the CEL HTTP library. CEL image metadata/data/context
+lookups of author-chosen references (rather than workload values), signature repository overrides (`source.Repository`),
+key and certificate URLs, Rekor, Fulcio, TSA, and TUF/trust URLs retain native upstream
+behavior. This is not a general policy-author or process-wide network restriction.
 
-Policy authors are trusted to choose network destinations and already have HTTP
-access. These settings do **not** restrict author-selected CEL `image()` calls,
-image-data/network/context lookups, or image references outside the resource image
-set. Policy-authored key/certificate URLs, Rekor, Fulcio, TSA, trusted roots and
-TUF endpoints retain native upstream behavior; no custom Sigstore/TUF HTTP client,
-cache migration or trust-material implementation is installed.
+Resource recognition reads built-in image fields and resource-field paths returned by
+custom image extractors, including variable aliases and collection projections. It
+does not scan unrelated resource strings or evaluate extractors an extra time.
+Matching text in labels, annotations, or other unrelated fields does not turn a
+policy-authored reference into a workload image. Arbitrary policy transformations
+are not treated as resource provenance.
 
-An explicit signature repository/source override is author-controlled and uses
-native options, even when verifying a guarded workload image. The workload image
-itself is still fetched through the guard; verification uses its resolved digest
-without re-fetching its tag using native options. Without an explicit repository
-override, signature, attestation and referrer registry reads remain guarded.
-Author and resource image data use separate caches to prevent author-preloaded
-data or native remote options from crossing this boundary.
+## Registry requests and credentials
 
-## Modes and configuration
+For resource images, the guard covers the initial registry, registry token challenges,
+redirects, and subsequent signature/referrer downloads. It validates the destination
+before invoking credential providers. Explicit policy signature repositories use native
+options and their configured credentials instead of inheriting the resource guard.
 
-The default `privateRegistryEgressMode` is `audit`. Ordinary private addresses
-(RFC1918, IPv6 unique-local and carrier-grade NAT) remain reachable, while
-verbosity-2 logs identify requests `enforce` would reject. `enforce` requires an
-allowlist entry for those private destinations. Both modes always block metadata,
-link-local, loopback, unspecified, multicast and broadcast addresses. Allowlist
-entries never exempt those hard blocks. Invalid settings fail controller startup.
+Direct connections are pinned to validated addresses. DNS resolution and dialing share
+a five-second budget, shortened by the request deadline. Credential Secrets remain
+refreshable and evaluation cancellation propagates to registry requests.
+
+Provider-internal cloud credential exchanges (including the SDK/Flux Azure client) and
+KMS networking retain their provider clients; the registry guard is not injected there.
+
+## Rollout
+
+`privateRegistryEgressMode` defaults to `audit`: ordinary private registry addresses
+remain reachable and enforce-mode violations are logged at verbosity 2. Both modes
+reject metadata, link-local, loopback, unspecified, multicast, and broadcast addresses
+for resource images, even when allowlisted. In `enforce`, private destinations require
+an operator allowlist entry. Policy-authored endpoints are unaffected in either mode.
 
 ```yaml
 features:
@@ -47,52 +53,21 @@ features:
       - fd12:3456:789a::/64
 ```
 
-Equivalent flags are `--privateRegistryEgressMode=enforce` and
-`--privateRegistryAllowlist=registry.corp.example,auth.corp.example,10.20.30.0/24,fd12:3456:789a::/64`.
-Entries accept exact hostnames, IP addresses and CIDRs, not wildcard patterns,
-URLs or empty entries. A hostname permission applies across ports. Use `[]` for
-an empty Helm list, with one non-empty, comma-free item per entry.
+Include private registry token and redirect services. Entries must be exact hosts,
+IP literals, or CIDRs; wildcards, URLs, empty elements, and commas inside entries are
+invalid. Use `[]` for no exceptions. Invalid configuration fails controller startup.
+The equivalent flags are `--privateRegistryEgressMode` and `--privateRegistryAllowlist`.
+Admission, background, reports, and cleanup controllers support these options. Cleanup
+applies them to DeletingPolicy metadata lookups of workload images without enabling
+registry credential helpers or image-pull Secret informers. Its settings can be overridden under
+`cleanupController.featuresOverride.registryClient`. Author-chosen image references
+remain outside the guard in cleanup, just as in the other controllers.
 
-Resource registry token services and redirect destinations are checked on every
-request and need their own private-address allowlist entries in enforce mode.
-Allowing a registry never grants another destination its credentials. These
-checks are not applied to endpoints chosen by an explicit author repository
-or verification-service override.
-
-Audit mode preserves private connectivity; it is not protection against access
-to arbitrary ordinary private addresses. Exercise workload verification, review
-logs, add required registry/token/redirect destinations, then enable enforce.
-Admission, background, reports and cleanup controllers accept these settings,
-including `featuresOverride.registryClient`. Cleanup/DeletingPolicy author calls
-remain native; only workload-origin lookups consume these settings. Cleanup does
-not enable registry credential helpers or image-pull Secret informers.
-
-## DNS, proxies and credential helpers
-
-Direct connections are pinned to validated IP addresses. DNS and connection
-attempts share a five-second budget, shortened by the admission deadline.
-An operator HTTP(S) proxy can use an ordinary private address without an
-allowlist entry, but hard-blocked proxy addresses remain forbidden. The target
-is checked independently; a private proxy does not exempt a private target.
-An HTTP proxy resolves upstream hostnames itself, so enforce matching DNS and
-egress controls on that trusted proxy. `NO_PROXY` keeps native behavior.
-
-The guard runs before workload registry credential resolution. Azure's internal
-SDK/Flux credential exchange uses its existing client and is outside this
-transport; this is not a process-wide network policy.
-
-## Validation
-
-Render the example with `helm template kyverno charts/kyverno --namespace kyverno
--f docs/user/registry-egress/enforce-values.yaml`. To check chart arguments without
-a cluster, run `python3 scripts/check-registry-egress-helm.py --render-only` with
-Helm and PyYAML available.
-
-The conformance proof at
-`test/conformance/chainsaw/image-validating-policies/standard/registry-egress-hard-block`
-explicitly extracts all three container categories before fetching image data.
-It rejects metadata/loopback workload images and preserves unmatched Pods.
-Run `python3 scripts/check-ivpol-registry-egress.py --cli /path/to/kubectl-kyverno`
-with a CLI built from this checkout, or run that directory with Chainsaw.
-Focused Go regressions also cover early callbacks, custom resource image fields,
-cache isolation, native author lookups and native signature repository overrides.
+Proxies retain the existing environment configuration, which is treated as trusted
+operator configuration. Ordinary private proxy addresses do not require an allowlist
+entry in either `audit` or `enforce`, but hard blocks still apply to proxy endpoints.
+Proxy endpoints and downstream workload destinations are validated separately;
+using a proxy does not exempt the target registry from egress restrictions, including
+the allowlist requirement for private targets in `enforce`. The proxy itself remains
+responsible for downstream DNS, so operators must trust its routing and resolver
+configuration.

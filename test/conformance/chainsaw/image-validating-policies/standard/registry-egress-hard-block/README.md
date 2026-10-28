@@ -1,33 +1,19 @@
-# ImageValidatingPolicy registry egress proof
+# Workload image egress proof
 
-This policy explicitly extracts regular, init and ephemeral container images into
-the guarded resource image set before validation. It then calls `getImageData`
-for regular container images. The metadata and loopback fixtures must fail
-specifically with `connection blocked to network host`. The unmatched Pod remains
-admissible. No reachable metadata service or private registry is required.
+The policy calls `getImageData` on Pod container, initContainer, and ephemeralContainer
+image values. Metadata and loopback references must fail with
+`connection blocked to network host`, while unmatched Pods remain admissible.
+The ephemeral case updates the `ephemeralcontainers` subresource of an existing Pod.
+The init/ephemeral cases also resolve a public pause image and need registry access.
 
-Run against a cluster with this patch:
+Run against a cluster using this patch:
 
 ```sh
 chainsaw test --test-dir test/conformance/chainsaw/image-validating-policies/standard/registry-egress-hard-block
 ```
 
-Run locally from this directory with a CLI built from this patch:
-
-```sh
-kubectl-kyverno apply policy.yaml --resource metadata-pod.yaml --policy-report
-kubectl-kyverno apply policy.yaml --resource loopback-pod.yaml --policy-report
-kubectl-kyverno apply policy.yaml --resource unmatched-pod.yaml --policy-report
-```
-
-The first two commands must fail and include the blocked-host error in their policy reports. The last
-must succeed or skip the unmatched policy. The `getImageData` helper uses the
-actual image loader in standalone CLI mode. Explicit extractors keep workload
-prefetch guarded even without a request GVR. Author-selected references outside
-the resource image set are intentionally not restricted.
-
-The same three cases can be checked automatically from the repository root:
-
-```sh
-python3 scripts/check-ivpol-registry-egress.py --cli /path/to/kubectl-kyverno
-```
+Policy literals, signature repository overrides, and trust/key URLs remain native.
+Generic CEL `image.getMetadata` calls are guarded only for known workload image values.
+Focused Go
+regressions exercise native policy access, resource preloads and verification caches,
+credential ordering, and token/redirect destinations using local registry fixtures.

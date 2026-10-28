@@ -63,6 +63,11 @@ def main():
         cases.append((f"{role} override",
                       {section: {"featuresOverride": {"registryClient": config}}},
                       {role: config}))
+    cleanup_override = {"privateRegistryEgressMode": "audit", "privateRegistryAllowlist": []}
+    cases.append(("cleanup overrides global enforce",
+                  {"features": {"registryClient": config},
+                   "cleanupController": {"featuresOverride": {"registryClient": cleanup_override}}},
+                  {**enforced, "cleanup-controller": cleanup_override}))
 
     for name, values, expected in cases:
         result = render(values)
@@ -87,13 +92,13 @@ def main():
             if settings.get("privateRegistryAllowlist"):
                 allowed = ",".join(settings["privateRegistryAllowlist"])
                 expected_args.append("--privateRegistryAllowlist=" + allowed)
-            if role == "cleanup-controller":
-                credential_flags = ("--allowInsecureRegistry=", "--registryCredentialHelpers=",
-                                    "--imagePullSecrets=")
-                check(not any(arg.startswith(credential_flags) for arg in rendered_args),
-                      f"{name}: cleanup must not enable registry credentials")
             check(sorted(egress_args) == sorted(expected_args),
                   f"{name}: unexpected {role} registry flags: {egress_args}")
+            if role == "cleanup-controller":
+                credential_flags = ("--imagePullSecrets=", "--registryCredentialHelpers=",
+                                    "--allowInsecureRegistry=", "--imageVerifyPayloadLimit=")
+                check(not any(arg.startswith(credential_flags) for arg in rendered_args),
+                      f"{name}: cleanup must not enable registry credentials: {rendered_args}")
             if binaries:
                 parsed = subprocess.run([str(binaries[role]), *rendered_args, "--help"],
                                         capture_output=True, text=True, check=False, timeout=30)
@@ -101,8 +106,8 @@ def main():
                       f"{name}: {role} rejected rendered arguments:\n{parsed.stderr}\n{parsed.stdout}")
         missing = set(CONTROLLERS) - seen
         check(not missing, f"{name}: missing controller deployments: {missing}")
-        detail = ("all four controller parsers accept their rendered arguments" if binaries
-                  else "all four deployments have the expected registry flags")
+        detail = ("all workload-image controller parsers accept their rendered arguments" if binaries
+                  else "all workload-image deployments have the expected registry flags")
         print(f"PASS: {name}: {detail}")
 
     scopes = [("global", "features")]

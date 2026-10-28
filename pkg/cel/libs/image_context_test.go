@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
@@ -119,4 +121,71 @@ func TestImageDataContextPreservesFixtureProviders(t *testing.T) {
 	cancel()
 	_, err = ImageDataContext(ctx, provider).GetImageData("fixture", nil)
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+type scopedImageProvider struct {
+	*FakeContextProvider
+	calls int
+}
+
+func (provider *scopedImageProvider) GetImageData(string, []remote.Option) (map[string]any, error) {
+	provider.calls++
+	return map[string]any{}, nil
+}
+
+func TestImageDataContextResourceScope(test *testing.T) {
+	test.Parallel()
+	const workload = "169.254.169.254/workload:latest"
+	for _, category := range []string{"containers", "initContainers", "ephemeralContainers"} {
+		for _, location := range []string{"pod", "template", "cronjob"} {
+			test.Run(category+"/"+location, func(test *testing.T) {
+				test.Parallel()
+				object := map[string]any{"spec": map[string]any{category: []any{map[string]any{"image": workload, "unrelated": 1}}}}
+				if location != "pod" {
+					object = map[string]any{"spec": map[string]any{"template": object}}
+				}
+				if location == "cronjob" {
+					object = map[string]any{"spec": map[string]any{"jobTemplate": object}}
+				}
+				provider := &scopedImageProvider{FakeContextProvider: NewFakeContextProvider()}
+				for _, objects := range [][]any{{object}, {nil, object}} {
+					images := ImageDataContext(test.Context(), provider, objects...)
+					for _, reference := range []string{workload, workload, strings.TrimSuffix(workload, ":latest")} {
+						_, err := images.GetImageData(reference, nil)
+						require.ErrorIs(test, err, registryclient.ErrRegistryAddressBlocked)
+					}
+					require.Zero(test, provider.calls)
+					_, err := images.GetImageData("169.254.169.254/policy:latest", nil)
+					require.NoError(test, err)
+					require.Equal(test, 1, provider.calls)
+					provider.calls = 0
+				}
+			})
+		}
+	}
+	object := map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"image": "nginx"}}}}
+	images := collectResourceImages(object)
+	require.Contains(test, images, "nginx")
+	require.Contains(test, images, "index.docker.io/library/nginx:latest")
+}
+
+func TestImageDataContextMemoSeparatesRemoteOptions(test *testing.T) {
+	test.Parallel()
+	const image = "198.51.100.10/workload:latest"
+	object := map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"image": image}}}}
+	provider := &scopedImageProvider{FakeContextProvider: NewFakeContextProvider()}
+	ctx, cancel := context.WithCancel(test.Context())
+	defer cancel()
+	images := ImageDataContext(ctx, provider, object)
+	first := []remote.Option{remote.WithAuth(&authn.Basic{Username: "first"})}
+	second := []remote.Option{remote.WithAuth(&authn.Basic{Username: "second"})}
+	for _, options := range [][]remote.Option{first, first, second, second, nil, nil} {
+		_, err := images.GetImageData(image, options)
+		require.NoError(test, err)
+	}
+	require.Equal(test, 3, provider.calls)
+	cancel()
+	_, err := images.GetImageData(image, first)
+	require.ErrorIs(test, err, context.Canceled)
+	require.Equal(test, 3, provider.calls)
 }

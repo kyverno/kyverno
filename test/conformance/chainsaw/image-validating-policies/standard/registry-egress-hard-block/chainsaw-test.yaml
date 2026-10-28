@@ -36,3 +36,22 @@ spec:
     try:
     - create:
         file: unmatched-pod.yaml
+  - name: reject-init-image
+    try:
+    - create:
+        file: init-pod.yaml
+        expect:
+        - check:
+            (contains($error, 'connection blocked to network host')): true
+  - name: reject-ephemeral-image
+    try:
+    - create:
+        file: ephemeral-pod.yaml
+    - script:
+        content: |
+          if output=$(kubectl -n "$NAMESPACE" patch pod registry-egress-ephemeral --subresource=ephemeralcontainers --type=merge --patch-file ephemeral-patch.yaml 2>&1); then
+            echo "ephemeral image was unexpectedly admitted"
+            exit 1
+          fi
+          echo "$output"
+          echo "$output" | grep -F 'connection blocked to network host'

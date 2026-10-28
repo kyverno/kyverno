@@ -11,11 +11,10 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/kyverno/kyverno/pkg/utils/egress"
-
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/utils/egress"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,8 +46,7 @@ func TestImageVerificationCredentialOptionsBlockPrivateLiteral(t *testing.T) {
 	reference, err := name.ParseReference("127.0.0.1:5000/example/image:latest", nameOpts...)
 	require.NoError(t, err)
 	_, err = gcrremote.Get(reference, append(opts, gcrremote.WithContext(ctx))...)
-	require.Error(t, err)
-	require.True(t, errors.Is(err, ErrRegistryAddressBlocked), err.Error())
+	require.ErrorIs(t, err, ErrRegistryAddressBlocked)
 }
 
 func TestSplitList(t *testing.T) {
@@ -77,54 +75,63 @@ func TestRegistryInvalidConfigFailsBeforeCredentials(t *testing.T) {
 	require.Zero(t, inner.calls)
 }
 
-func TestGuardedKeychainBlocksWithExplicitError(t *testing.T) {
-	t.Parallel()
+func TestGuardedKeychainPreservesRequestContext(test *testing.T) {
+	test.Parallel()
 	inner := &contextKeychain{}
 	policy, err := egress.New(egress.Config{Mode: "enforce"})
-	require.NoError(t, err)
-	g := &guardedKeychain{inner: inner, policy: policy}
-	resource, err := name.NewRegistry("10.0.0.1")
-	require.NoError(t, err)
-	_, err = g.ResolveContext(context.Background(), resource)
-	require.ErrorIs(t, err, ErrRegistryAddressBlocked)
-	require.Zero(t, inner.calls)
-}
-
-func TestGuardedKeychainPreservesRequestContext(t *testing.T) {
-	t.Parallel()
-	policy, err := egress.New(egress.Config{})
-	require.NoError(t, err)
-	resource, err := name.NewRegistry("8.8.8.8")
-	require.NoError(t, err)
-	inner := &contextKeychain{}
-	g := &guardedKeychain{inner: inner, policy: policy}
+	require.NoError(test, err)
+	keychain := &guardedKeychain{inner: inner, policy: policy}
+	resource := name.MustParseReference("192.0.2.1/image:tag").Context()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	_, err = g.ResolveContext(ctx, resource)
-	require.NoError(t, err)
-	deadline, ok := ctx.Deadline()
-	require.True(t, ok)
-	require.Equal(t, deadline, inner.deadline)
-	require.Equal(t, 1, inner.calls)
+	_, err = keychain.ResolveContext(ctx, resource)
+	require.NoError(test, err)
+	require.Same(test, ctx, inner.context)
+	require.Equal(test, 1, inner.calls)
 	cancel()
-	_, err = g.ResolveContext(ctx, resource)
-	require.ErrorIs(t, err, context.Canceled)
-	require.Equal(t, 1, inner.calls)
+	_, err = keychain.ResolveContext(ctx, resource)
+	require.ErrorIs(test, err, context.Canceled)
+	_, err = keychain.Resolve(name.MustParseReference("10.0.0.1/image:tag").Context())
+	require.ErrorIs(test, err, ErrRegistryAddressBlocked)
+	require.Equal(test, 1, inner.calls)
 }
 
 type contextKeychain struct {
-	calls    int
-	deadline time.Time
+	calls   int
+	context context.Context
+	resolve func(context.Context, authn.Resource) (authn.Authenticator, error)
 }
 
-func (c *contextKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
+func (keychain *contextKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
 	return nil, errors.New("context-aware keychain was called without context")
 }
 
-func (c *contextKeychain) ResolveContext(ctx context.Context, _ authn.Resource) (authn.Authenticator, error) {
-	c.calls++
-	c.deadline, _ = ctx.Deadline()
+func (keychain *contextKeychain) ResolveContext(ctx context.Context, resource authn.Resource) (authn.Authenticator, error) {
+	keychain.calls++
+	keychain.context = ctx
+	if keychain.resolve != nil {
+		return keychain.resolve(ctx, resource)
+	}
 	return authn.Anonymous, ctx.Err()
+}
+
+type offlineCredentialTransport struct {
+	requests []*http.Request
+	manifest []byte
+}
+
+func (transport *offlineCredentialTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	transport.requests = append(transport.requests, request.Clone(request.Context()))
+	if transport.manifest == nil {
+		return nil, errors.New("unexpected registry request")
+	}
+	return &http.Response{
+		StatusCode:    http.StatusOK,
+		Header:        http.Header{"Content-Type": {"application/vnd.docker.distribution.manifest.v2+json"}},
+		Body:          io.NopCloser(strings.NewReader(string(transport.manifest))),
+		ContentLength: int64(len(transport.manifest)),
+		Request:       request,
+	}, nil
 }
 
 type trackedRequestBody struct {
