@@ -12,4 +12,4 @@ backgroundController:
     controllerRuntimeMetrics:
       bindAddress: ":0"
   extraArgs:
-    controllerRuntimeMetricsAddress: "0"
+    --controllerRuntimeMetricsAddress: "0"
