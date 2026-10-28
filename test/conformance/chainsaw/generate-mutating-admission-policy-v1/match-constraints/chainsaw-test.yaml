@@ -20,6 +20,36 @@ spec:
         file: mutatingadmissionpolicy.yaml
     - assert:
         file: mutatingadmissionpolicybinding.yaml
+  - name: wait for native admission mutation
+    try:
+    - script:
+        timeout: 90s
+        content: |
+          set -eu
+          trap 'kubectl delete configmap map-scope-probe -n map-scope-dev --ignore-not-found >/dev/null' EXIT
+          attempt=0
+          while [ "$attempt" -lt 30 ]; do
+            attempt=$((attempt + 1))
+            managed=$(kubectl create -f - -o jsonpath='{.data.managed}' <<'EOF'
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: map-scope-probe
+            namespace: map-scope-dev
+            labels:
+              mutate: "yes"
+          data:
+            original: value
+          EOF
+            )
+            kubectl delete configmap map-scope-probe -n map-scope-dev --wait=true >/dev/null
+            if [ "$managed" = "true" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "native admission did not mutate the probe ConfigMap" >&2
+          exit 1
   - name: create configmaps after native generation
     try:
     - create:
