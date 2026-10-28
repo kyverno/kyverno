@@ -17,16 +17,19 @@ import (
 	"time"
 
 	"github.com/digitorus/timestamp"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/secure-systems-lab/go-securesystemslib/dsse"
 	pbundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	common "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
 	pdsse "github.com/sigstore/protobuf-specs/gen/pb-go/dsse"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
+	"github.com/sigstore/sigstore-go/pkg/fulcio/certificate"
 	"github.com/sigstore/sigstore-go/pkg/verify"
+	"gotest.tools/v3/assert"
 )
 
-func policyTestCertificate(t *testing.T, parent *x509.Certificate, parentKey *ecdsa.PrivateKey, usage x509.ExtKeyUsage) (*x509.Certificate, *ecdsa.PrivateKey, string) {
+func policyTestCertificate(t *testing.T, parent *x509.Certificate, parentKey *ecdsa.PrivateKey, usage x509.ExtKeyUsage, extensions ...pkix.Extension) (*x509.Certificate, *ecdsa.PrivateKey, string) {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -40,6 +43,7 @@ func policyTestCertificate(t *testing.T, parent *x509.Certificate, parentKey *ec
 		SerialNumber: serial, Subject: pkix.Name{CommonName: serial.String()},
 		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
 		BasicConstraintsValid: true, KeyUsage: x509.KeyUsageDigitalSignature,
+		ExtraExtensions: extensions,
 	}
 	if parent == nil {
 		template.IsCA = true
@@ -68,14 +72,21 @@ func policyTestCertificate(t *testing.T, parent *x509.Certificate, parentKey *ec
 }
 
 func TestPolicyBundleTrust(t *testing.T) {
+	const issuer = "https://issuer.example.test"
+	issuerDER, err := asn1.MarshalWithParams(issuer, "utf8")
+	assert.NilError(t, err)
 	signCA, signKey, signPEM := policyTestCertificate(t, nil, nil, 0)
-	signLeaf, leafKey, leafPEM := policyTestCertificate(t, signCA, signKey, x509.ExtKeyUsageCodeSigning)
+	signLeaf, leafKey, leafPEM := policyTestCertificate(t, signCA, signKey, x509.ExtKeyUsageCodeSigning,
+		pkix.Extension{Id: certificate.OIDIssuerV2, Value: issuerDER})
 	tsaCA, tsaKey, tsaPEM := policyTestCertificate(t, nil, nil, 0)
 	tsaLeaf, tsaLeafKey, tsaLeafPEM := policyTestCertificate(t, tsaCA, tsaKey, x509.ExtKeyUsageTimeStamping)
 	_, _, unrelatedPEM := policyTestCertificate(t, nil, nil, 0)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	opts := verifiers.Options{Roots: signPEM, TSACertChain: tsaLeafPEM + tsaPEM, IgnoreTlog: true, IgnoreSCT: true}
+	opts := verifiers.Options{
+		Roots: signPEM, TSACertChain: tsaLeafPEM + tsaPEM, IgnoreTlog: true, IgnoreSCT: true,
+		Issuer: issuer, Subject: "signer@example.test",
+	}
 
 	payload := []byte(`{"_type":"https://in-toto.io/Statement/v0.1","subject":[{"name":"image","digest":{"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}}],"predicateType":"test","predicate":{"status":"active"}}`)
 	payloadType := "application/vnd.in-toto+json"
@@ -109,7 +120,9 @@ func TestPolicyBundleTrust(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy := verify.NewPolicy(verify.WithArtifactDigest("sha256", make([]byte, 32)), verify.WithoutIdentitiesUnsafe())
+	desc := &v1.Descriptor{Digest: v1.Hash{Algorithm: "sha256", Hex: strings.Repeat("0", 64)}}
+	policy, err := buildPolicy(desc, opts)
+	assert.NilError(t, err)
 	for _, tc := range []struct {
 		name    string
 		signing string
@@ -153,6 +166,11 @@ func TestPolicyBundleTrust(t *testing.T) {
 				if _, err := v.Verify(b, wrongDigest); err == nil {
 					t.Fatal("wrong image digest accepted")
 				}
+				options.Subject = "other@example.test"
+				wrongIdentity, err := buildPolicy(desc, options)
+				assert.NilError(t, err)
+				_, err = v.Verify(b, wrongIdentity)
+				assert.ErrorContains(t, err, "identity")
 			}
 		})
 	}
@@ -174,11 +192,15 @@ func TestPolicyBundleTrust(t *testing.T) {
 		{"too many TSA roots", verifiers.Options{Roots: signPEM, TSACertChain: strings.Repeat(tsaPEM, maxRootCerts+1), IgnoreTlog: true}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			tc.opts.IgnoreSCT = true
 			if _, err := getBundleTrustedRoot(ctx, tc.opts); err == nil {
 				t.Fatal("invalid policy trust must fail without TUF fallback")
 			}
 		})
 	}
+	opts.IgnoreSCT = false
+	_, err = getBundleTrustedRoot(ctx, opts)
+	assert.ErrorContains(t, err, "requires ignoreSCT")
 }
 
 func TestPolicyBundleVerifyOptions(t *testing.T) {

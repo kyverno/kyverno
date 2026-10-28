@@ -396,13 +396,13 @@ func (iv *ImageVerification) Validate(isAuditFailureAction bool, path *field.Pat
 
 	asPath := path.Child("attestations")
 	for i, attestation := range copy.Attestations {
-		attestationErrors := attestation.Validate(asPath.Index(i))
+		attestationErrors := attestation.validate(asPath.Index(i), copy.GetType())
 		errs = append(errs, attestationErrors...)
 	}
 
 	attestorsPath := path.Child("attestors")
 	for i, as := range copy.Attestors {
-		attestorErrors := as.Validate(attestorsPath.Index(i))
+		attestorErrors := validateAttestorSet(&as, attestorsPath.Index(i), copy.GetType())
 		errs = append(errs, attestorErrors...)
 	}
 
@@ -423,23 +423,27 @@ func (iv *ImageVerification) Validate(isAuditFailureAction bool, path *field.Pat
 }
 
 func (a *Attestation) Validate(path *field.Path) (errs field.ErrorList) {
+	return a.validate(path, Cosign)
+}
+
+func (a *Attestation) validate(path *field.Path, verificationType ImageVerificationType) (errs field.ErrorList) {
 	if len(a.Attestors) == 0 {
 		return
 	}
 
 	attestorsPath := path.Child("attestors")
 	for i, as := range a.Attestors {
-		attestorErrors := as.Validate(attestorsPath.Index(i))
+		attestorErrors := validateAttestorSet(&as, attestorsPath.Index(i), verificationType)
 		errs = append(errs, attestorErrors...)
 	}
 	return errs
 }
 
 func (as *AttestorSet) Validate(path *field.Path) (errs field.ErrorList) {
-	return validateAttestorSet(as, path)
+	return validateAttestorSet(as, path, Cosign)
 }
 
-func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorList) {
+func validateAttestorSet(as *AttestorSet, path *field.Path, verificationType ImageVerificationType) (errs field.ErrorList) {
 	if as.Count != nil {
 		if *as.Count > len(as.Entries) {
 			errs = append(errs, field.Invalid(path, as, "Count cannot exceed length of entries"))
@@ -452,7 +456,7 @@ func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorLis
 
 	entriesPath := path.Child("entries")
 	for i, e := range as.Entries {
-		attestorErrors := e.Validate(entriesPath.Index(i))
+		attestorErrors := e.validate(entriesPath.Index(i), verificationType)
 		errs = append(errs, attestorErrors...)
 	}
 
@@ -460,6 +464,10 @@ func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorLis
 }
 
 func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
+	return a.validate(path, Cosign)
+}
+
+func (a *Attestor) validate(path *field.Path, verificationType ImageVerificationType) (errs field.ErrorList) {
 	if (a.Keys != nil && (a.Certificates != nil || a.Keyless != nil || a.Attestor != nil)) ||
 		(a.Certificates != nil && (a.Keys != nil || a.Keyless != nil || a.Attestor != nil)) ||
 		(a.Keyless != nil && (a.Certificates != nil || a.Keys != nil || a.Attestor != nil)) ||
@@ -484,6 +492,9 @@ func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
 		keylessPath := path.Child("keyless")
 		keylessErrors := a.Keyless.Validate(keylessPath)
 		errs = append(errs, keylessErrors...)
+		if verificationType == SigstoreBundle {
+			errs = append(errs, a.Keyless.validateBundleTrust(keylessPath)...)
+		}
 	}
 
 	if a.Attestor != nil {
@@ -493,7 +504,7 @@ func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
 			fieldErr := field.Invalid(attestorPath, a.Attestor, err.Error())
 			errs = append(errs, fieldErr)
 		} else {
-			attestorErrors := validateAttestorSet(attestorSet, attestorPath)
+			attestorErrors := validateAttestorSet(attestorSet, attestorPath, verificationType)
 			errs = append(errs, attestorErrors...)
 		}
 	}
@@ -539,6 +550,26 @@ func (ka *KeylessAttestor) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, field.Invalid(path, ka, "An URL is required"))
 	}
 
+	return errs
+}
+
+func (ka *KeylessAttestor) validateBundleTrust(path *field.Path) (errs field.ErrorList) {
+	hasTSA := ka.CTLog != nil && ka.CTLog.TSACertChain != ""
+	if ka.Roots == "" && !hasTSA {
+		return nil
+	}
+	if ka.Roots == "" {
+		errs = append(errs, field.Required(path.Child("roots"), "policy bundle trust requires both roots and tsaCertChain"))
+	}
+	if !hasTSA {
+		errs = append(errs, field.Required(path.Child("ctlog", "tsaCertChain"), "policy bundle trust requires both roots and tsaCertChain"))
+	}
+	if ka.Rekor == nil || !ka.Rekor.IgnoreTlog {
+		errs = append(errs, field.Invalid(path.Child("rekor", "ignoreTlog"), false, "policy bundle trust requires ignoreTlog to be enabled"))
+	}
+	if ka.CTLog == nil || !ka.CTLog.IgnoreSCT {
+		errs = append(errs, field.Invalid(path.Child("ctlog", "ignoreSCT"), false, "policy bundle trust requires ignoreSCT to be enabled"))
+	}
 	return errs
 }
 

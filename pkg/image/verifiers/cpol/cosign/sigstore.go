@@ -191,8 +191,8 @@ func buildVerifyOptions(opts verifiers.Options) []verify.VerifierOption {
 		verifierOptions = append(verifierOptions, verify.WithSignedTimestamps(1))
 	}
 	if !opts.IgnoreSCT {
-		// Observer timestamps (e.g. Rekor SETs) are required independently of a
-		// configured TSA chain, so a TSA chain must not suppress SCT handling.
+		// Preserve the existing bundle behavior: ignoreSCT controls observer
+		// timestamps (RFC3161 or Rekor SETs), not CT Signed Certificate Timestamps.
 		verifierOptions = append(verifierOptions, verify.WithObserverTimestamps(1))
 	}
 	if len(verifierOptions) == 0 {
@@ -232,6 +232,8 @@ func getTrustedMaterial(ctx context.Context, opts verifiers.Options) (root.Trust
 // falling back to TUF. Policy trust is all-or-nothing: both roots and
 // tsaCertChain must be present, and partial, malformed, or rootless chains are
 // rejected rather than silently falling back to TUF.
+// Signing certificates must still satisfy buildPolicy's Fulcio OIDC issuer
+// extension and subject alternative name checks; an X.509 issuer DN is not enough.
 func getBundleTrustedRoot(ctx context.Context, opts verifiers.Options) (root.TrustedMaterial, error) {
 	if opts.Roots == "" && opts.TSACertChain == "" {
 		return getTrustedRoot(ctx)
@@ -245,6 +247,11 @@ func getBundleTrustedRoot(ctx context.Context, opts verifiers.Options) (root.Tru
 	// failing every otherwise-valid bundle at verification time.
 	if !opts.IgnoreTlog {
 		return nil, fmt.Errorf("policy bundle trust requires ignoreTlog to be enabled")
+	}
+	// Policy trust has no CT-log keys. A TSA timestamp is not an SCT, so
+	// require an explicit opt-out rather than implying SCT verification.
+	if !opts.IgnoreSCT {
+		return nil, fmt.Errorf("policy bundle trust requires ignoreSCT to be enabled")
 	}
 	// Cheap pre-check on the raw PEM to reject oversized chains before doing
 	// expensive ASN.1 parsing and certificate path building (CVE-2026-32280).
