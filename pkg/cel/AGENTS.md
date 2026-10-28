@@ -44,11 +44,12 @@ instantiated per kind. `pkg/cel/libs/context.go` is the glue between CEL and liv
 `Test_Validate_NamespacedPolicyRejectsGlobalContext`). Global context is cluster-scoped external data; deliberately
 disallowed at namespace scope.
 
-## `pkg/cel/autogen` is a separate reimplementation of `pkg/autogen`, not a shared library
+## `pkg/cel/autogen` is the only autogen implementation
 
-Structurally parallel to (not code-shared with) the legacy `pkg/autogen`. Actively being generalized beyond built-in
-pod-controller kinds to custom workload CRDs (e.g. JobSet) — check recent commits before assuming the autogen
-surface is fixed.
+The legacy `pkg/autogen` (autogen for `kyverno.io` rules) was deleted in #17710 PR 4; `pkg/cel/autogen` is now the
+sole autogen implementation, for `policies.kyverno.io` types only. It is actively being generalized beyond
+built-in pod-controller kinds to custom workload CRDs (e.g. JobSet) — check recent commits before assuming the
+autogen surface is fixed.
 
 ## `gpol`'s generation model is templates, not rule replication
 

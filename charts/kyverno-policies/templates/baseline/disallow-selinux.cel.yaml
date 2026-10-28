@@ -1,5 +1,6 @@
 {{- $name := "disallow-selinux" }}
 {{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
+{{- $types := include "kyverno-policies.allowedSELinuxTypes" . }}
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
@@ -12,7 +13,9 @@ metadata:
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    kyverno.io/pod-security-version: "{{ include "kyverno-policies.psaVersionAnnotation" . }}"
     policies.kyverno.io/description: >-
       Setting custom SELinux options may be used to bypass discretionary access control and
       should not be allowed. This policy ensures SELinux options are restricted.
@@ -37,25 +40,25 @@ spec:
     - expression: >-
         (!has(object.spec.securityContext) || 
          !has(object.spec.securityContext.seLinuxOptions) || 
-         (!has(object.spec.securityContext.seLinuxOptions.type) || object.spec.securityContext.seLinuxOptions.type in ['', 'container_t', 'container_init_t', 'container_kvm_t', 'container_engine_t']) &&
+         (!has(object.spec.securityContext.seLinuxOptions.type) || object.spec.securityContext.seLinuxOptions.type in [{{ $types }}]) &&
          (!has(object.spec.securityContext.seLinuxOptions.user) || object.spec.securityContext.seLinuxOptions.user == '') &&
          (!has(object.spec.securityContext.seLinuxOptions.role) || object.spec.securityContext.seLinuxOptions.role == '')) &&
         (!has(object.spec.containers) || object.spec.containers.all(c, 
           !has(c.securityContext) || 
           !has(c.securityContext.seLinuxOptions) || 
-          (!has(c.securityContext.seLinuxOptions.type) || c.securityContext.seLinuxOptions.type in ['', 'container_t', 'container_init_t', 'container_kvm_t', 'container_engine_t']) &&
+          (!has(c.securityContext.seLinuxOptions.type) || c.securityContext.seLinuxOptions.type in [{{ $types }}]) &&
           (!has(c.securityContext.seLinuxOptions.user) || c.securityContext.seLinuxOptions.user == '') &&
           (!has(c.securityContext.seLinuxOptions.role) || c.securityContext.seLinuxOptions.role == ''))) &&
         (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
           !has(c.securityContext) || 
           !has(c.securityContext.seLinuxOptions) || 
-          (!has(c.securityContext.seLinuxOptions.type) || c.securityContext.seLinuxOptions.type in ['', 'container_t', 'container_init_t', 'container_kvm_t', 'container_engine_t']) &&
+          (!has(c.securityContext.seLinuxOptions.type) || c.securityContext.seLinuxOptions.type in [{{ $types }}]) &&
           (!has(c.securityContext.seLinuxOptions.user) || c.securityContext.seLinuxOptions.user == '') &&
           (!has(c.securityContext.seLinuxOptions.role) || c.securityContext.seLinuxOptions.role == ''))) &&
         (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
           !has(c.securityContext) || 
           !has(c.securityContext.seLinuxOptions) || 
-          (!has(c.securityContext.seLinuxOptions.type) || c.securityContext.seLinuxOptions.type in ['', 'container_t', 'container_init_t', 'container_kvm_t', 'container_engine_t']) &&
+          (!has(c.securityContext.seLinuxOptions.type) || c.securityContext.seLinuxOptions.type in [{{ $types }}]) &&
           (!has(c.securityContext.seLinuxOptions.user) || c.securityContext.seLinuxOptions.user == '') &&
           (!has(c.securityContext.seLinuxOptions.role) || c.securityContext.seLinuxOptions.role == '')))
       message: >-

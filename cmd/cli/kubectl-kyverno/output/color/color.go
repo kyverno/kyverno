@@ -83,3 +83,11 @@ func ResultSkip() string {
 func InvalidPolicy() string {
 	return color.BoldYellow.Sprint("Invalid Policy")
 }
+
+func FunctionName(name string) string {
+	return color.BoldFgCyan.Sprint(name)
+}
+
+func FunctionNote(note string) string {
+	return color.BoldYellow.Sprint(note)
+}
