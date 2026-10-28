@@ -22,7 +22,8 @@ func TestNewBackgroundContextOperation(t *testing.T) {
 		storedOperation  admissionv1.Operation
 		admissionRequest *admissionv1.AdmissionRequest
 		wantOperation    kyvernov1.AdmissionOperation
-		wantOldResource bool
+		wantOldResource  bool
+		wantOldSource    string
 	}{
 		{
 			name:          "policy-generated UR defaults to CREATE",
@@ -38,6 +39,7 @@ func TestNewBackgroundContextOperation(t *testing.T) {
 			storedOperation: admissionv1.Delete,
 			wantOperation:   kyvernov1.Delete,
 			wantOldResource: true,
+			wantOldSource:   "trigger",
 		},
 		{
 			name:            "admission UR takes operation from request",
@@ -50,6 +52,20 @@ func TestNewBackgroundContextOperation(t *testing.T) {
 			},
 			wantOperation: kyvernov1.Update,
 		},
+		{
+			name:            "admission DELETE preserves request old resource",
+			storedOperation: admissionv1.Create,
+			admissionRequest: &admissionv1.AdmissionRequest{
+				Operation: admissionv1.Delete,
+				Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+				Name:      "trigger-secret",
+				Namespace: "repro",
+				OldObject: runtime.RawExtension{Raw: []byte("{\"apiVersion\":\"v1\",\"kind\":\"Secret\",\"metadata\":{\"name\":\"trigger-secret\",\"namespace\":\"repro\",\"annotations\":{\"source\":\"admission\"}}}")},
+			},
+			wantOperation:   kyvernov1.Delete,
+			wantOldResource: true,
+			wantOldSource:   "admission",
+		},
 	}
 
 	cfg := config.NewDefaultConfiguration(false)
@@ -60,6 +76,9 @@ func TestNewBackgroundContextOperation(t *testing.T) {
 		"metadata": map[string]interface{}{
 			"namespace": "repro",
 			"name":      "trigger-secret",
+			"annotations": map[string]interface{}{
+				"source": "trigger",
+			},
 		},
 	}}
 
@@ -83,11 +102,15 @@ func TestNewBackgroundContextOperation(t *testing.T) {
 			require.Equal(t, string(tt.wantOperation), operation)
 
 			if tt.wantOldResource {
-				require.Equal(t, trigger.GetName(), policyContext.OldResource().GetName())
-				require.Equal(t, trigger.GetNamespace(), policyContext.OldResource().GetNamespace())
+				oldResource := policyContext.OldResource()
+				require.Equal(t, trigger.GetName(), oldResource.GetName())
+				require.Equal(t, trigger.GetNamespace(), oldResource.GetNamespace())
 				oldName, err := policyContext.JSONContext().Query("request.oldObject.metadata.name")
 				require.NoError(t, err)
 				require.Equal(t, trigger.GetName(), oldName)
+				oldSource, err := policyContext.JSONContext().Query("request.oldObject.metadata.annotations.source")
+				require.NoError(t, err)
+				require.Equal(t, tt.wantOldSource, oldSource)
 			}
 		})
 	}
@@ -133,6 +156,12 @@ func TestNewBackgroundContextOperationsMatching(t *testing.T) {
 			name:            "explicit UPDATE still matches UPDATE only",
 			storedOperation: admissionv1.Update,
 			matchOperations: []kyvernov1.AdmissionOperation{kyvernov1.Update},
+			wantMatch:       true,
+		},
+		{
+			name:            "explicit DELETE still matches DELETE only",
+			storedOperation: admissionv1.Delete,
+			matchOperations: []kyvernov1.AdmissionOperation{kyvernov1.Delete},
 			wantMatch:       true,
 		},
 	}
