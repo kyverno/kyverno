@@ -18,14 +18,4 @@ limitations under the License.
 
 package v2beta1
 
-type CleanupPolicyExpansion interface{}
-
-type ClusterCleanupPolicyExpansion interface{}
-
-type ClusterPolicyExpansion interface{}
-
 type GlobalContextEntryExpansion interface{}
-
-type PolicyExpansion interface{}
-
-type PolicyExceptionExpansion interface{}
