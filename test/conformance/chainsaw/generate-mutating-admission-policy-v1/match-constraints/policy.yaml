@@ -30,6 +30,9 @@ spec:
       operations: [CREATE]
       resources: [configmaps]
       resourceNames: [do-not-touch]
+  matchConditions:
+  - name: create-only
+    expression: request.operation == "CREATE"
   mutations:
   - patchType: JSONPatch
     jsonPatch:
