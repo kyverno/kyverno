@@ -403,6 +403,10 @@ func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyve
 			if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
 				continue
 			}
+			if resource.Data == nil {
+				logger.Error(errors.New("missing cached resource data"), "cannot identify stale downstream safely", "name", resource.Name, "namespace", resource.Namespace)
+				continue
+			}
 			if _, ok := desiredKeys[downstreamKey(resource.Data.GroupVersionKind(), resource.Namespace, resource.Name)]; !ok {
 				uidsToDelete = append(uidsToDelete, uid)
 			}
@@ -417,12 +421,42 @@ func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
 	return gvk.String() + "/" + namespace + "/" + name
 }
 
-// deleteCachedDownstream deletes one generated object and drops its cache entry
-// when the delete succeeds or the object is already gone. Any other error keeps
-// the entry so a later pass can retry.
+// deleteCachedDownstream deletes only the cached Kubernetes object identity.
+// A same-named replacement must never be removed by cleanup. NotFound and a
+// confirmed replacement retire the stale entry; uncertain failures keep it.
 func (wm *WatchManager) deleteCachedDownstream(logger logr.Logger, watcher *watcher, uid types.UID, res Resource) {
-	logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-	err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
+	// The map key is the observed UID. Data may contain a desired-state copy
+	// with a cleared or stale UID following propagation/recreation.
+	if uid == "" || res.Data == nil {
+		logger.Error(errors.New("missing cached UID or resource data"), "refusing unguarded downstream deletion", "name", res.Name, "namespace", res.Namespace)
+		return
+	}
+	if res.Name == "" || res.Data.GetAPIVersion() == "" || res.Data.GetKind() == "" {
+		logger.Error(errors.New("incomplete cached resource identity"), "refusing downstream deletion", "name", res.Name, "namespace", res.Namespace)
+		return
+	}
+
+	logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace, "uid", uid)
+	options := metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &uid}}
+	err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, options)
+	if apierrors.IsConflict(err) {
+		// Read only to decide whether the old cache entry is obsolete.
+		// The DELETE itself is protected atomically by the API server.
+		live, getErr := wm.client.GetResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name)
+		switch {
+		case apierrors.IsNotFound(getErr):
+			logger.V(4).Info("downstream disappeared after guarded delete conflict", "name", res.Name, "namespace", res.Namespace)
+			delete(watcher.metadataCache, uid)
+		case getErr != nil:
+			logger.Error(getErr, "failed to verify downstream after guarded delete conflict", "name", res.Name, "namespace", res.Namespace)
+		case live != nil && live.GetUID() != "" && live.GetUID() != uid:
+			logger.V(4).Info("downstream name reused; retiring old cached UID", "name", res.Name, "namespace", res.Namespace, "cachedUID", uid, "liveUID", live.GetUID())
+			delete(watcher.metadataCache, uid)
+		default:
+			logger.Error(err, "downstream delete conflicted without confirmed replacement; keeping cached UID", "name", res.Name, "namespace", res.Namespace)
+		}
+		return
+	}
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
 		return
@@ -471,13 +505,8 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 					// delete the downstream if the policy is deleted and it is the only source that generated it.
 					if deleteDownstream {
 						if _, exists := res.Labels[common.GenerateSourceUIDLabel]; !exists {
-							logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-							err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
-							if err != nil {
-								logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
-							} else {
-								logger.V(4).Info("downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
-							}
+							// Apply the same UID guard on optional policy teardown.
+							wm.deleteCachedDownstream(logger, watcher, uid, res)
 						}
 					}
 					// remove the resource from the metadata cache
