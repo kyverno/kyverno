@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -176,26 +177,87 @@ func TestDownstreamCleanupPathsPreserveSameNamedReplacement(t *testing.T) {
 	}
 }
 
-// Invalid cache data must not crash stale-desired-set cleanup.
+// A nil-Data cache entry must be recovered or retired, without touching a
+// same-named replacement or forgetting an identity after a transient failure.
 func TestCleanupStaleDownstreamsNilData(t *testing.T) {
+	const uid types.UID = "cached-uid"
 	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
-	labels := map[string]string{
-		common.GeneratePolicyLabel:     "policy",
-		common.GenerateTriggerUIDLabel: "trigger",
+	gvk := schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}
+	notFound := apierrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "settings")
+	unavailable := apierrors.NewServiceUnavailable("API temporarily unavailable")
+	tests := []struct {
+		name, resourceName string
+		liveUID            types.UID
+		getErr             error
+		desired, noMapper  bool
+		wantGets, wantDels int
+		wantCache, wantData bool
+	}{
+		{name: "stale original deleted with UID", resourceName: "settings", liveUID: uid, wantGets: 1, wantDels: 1},
+		{name: "desired object safely recovered", resourceName: "settings", liveUID: uid, desired: true, wantGets: 1, wantCache: true, wantData: true},
+		{name: "replacement preserved and stale cache retired", resourceName: "settings", liveUID: "replacement", wantGets: 1},
+		{name: "NotFound retires cache", resourceName: "settings", getErr: notFound, wantGets: 1},
+		{name: "transient GET failure retains cache", resourceName: "settings", getErr: unavailable, wantGets: 1, wantCache: true},
+		{name: "empty live UID keeps cache for retry", resourceName: "settings", wantGets: 1, wantCache: true},
+		{name: "missing mapper keeps cache for retry", resourceName: "settings", noMapper: true, wantCache: true},
+		{name: "missing name retires invalid cache", resourceName: ""},
 	}
-	w := &watcher{metadataCache: map[types.UID]Resource{
-		"cached-uid": {Name: "settings", Namespace: "app", Labels: labels},
-	}}
-	client := &MockClient{deleteFn: func(_ context.Context, _, _, _, _ string, _ bool, _ metav1.DeleteOptions) error {
-		t.Fatal("must not send DELETE without cached resource data")
-		return nil
-	}}
-	wm := &WatchManager{
-		log:             logging.WithName("test"),
-		client:          client,
-		policyRefs:      map[string][]schema.GroupVersionResource{"policy": {gvr}},
-		dynamicWatchers: map[schema.GroupVersionResource]*watcher{gvr: w},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			labels := map[string]string{
+				common.GeneratePolicyLabel:     "policy",
+				common.GenerateTriggerUIDLabel: "trigger",
+			}
+			entry := Resource{Name: tt.resourceName, Namespace: "app", Labels: labels, Hash: "old-desired-hash"}
+			w := &watcher{metadataCache: map[types.UID]Resource{uid: entry}}
+			var desired []*unstructured.Unstructured
+			if tt.desired {
+				desired = []*unstructured.Unstructured{makeUnstructured("", "", "v1", "ConfigMap", "settings", "app", uid, labels)}
+			}
+			gets, deletes := 0, 0
+			client := &MockClient{
+				getFn: func(_ context.Context, apiVersion, kind, namespace, name string) (*unstructured.Unstructured, error) {
+					gets++
+					assert.Equal(t, "v1", apiVersion)
+					assert.Equal(t, "ConfigMap", kind)
+					assert.Equal(t, "app", namespace)
+					assert.Equal(t, "settings", name)
+					if tt.getErr != nil {
+						return nil, tt.getErr
+					}
+					return makeUnstructured("", "", "v1", "ConfigMap", "settings", "app", tt.liveUID, labels), nil
+				},
+				deleteFn: func(_ context.Context, _, _, _, _ string, _ bool, opts metav1.DeleteOptions) error {
+					deletes++
+					require.NotNil(t, opts.Preconditions, "DELETE must use UID preconditions")
+					require.NotNil(t, opts.Preconditions.UID)
+					assert.Equal(t, uid, *opts.Preconditions.UID)
+					return nil
+				},
+			}
+			wm := &WatchManager{
+				client:          client,
+				log:             logging.WithName("test"),
+				policyRefs:      map[string][]schema.GroupVersionResource{"policy": {gvr}},
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{gvr: w},
+			}
+			if !tt.noMapper {
+				mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+				mapper.Add(gvk, meta.RESTScopeNamespace)
+				wm.restMapper = mapper
+			}
+			wm.CleanupStaleDownstreams("policy", &kyverno.ResourceSpec{UID: "trigger"}, desired)
+			assert.Equal(t, tt.wantGets, gets)
+			assert.Equal(t, tt.wantDels, deletes)
+			got, ok := w.metadataCache[uid]
+			assert.Equal(t, tt.wantCache, ok)
+			if tt.wantData {
+				require.NotNil(t, got.Data)
+				assert.Equal(t, uid, got.Data.GetUID())
+				assert.Empty(t, got.Hash, "a live snapshot must not masquerade as desired policy state")
+			} else if tt.wantCache {
+				assert.Nil(t, got.Data)
+			}
+		})
 	}
-	wm.CleanupStaleDownstreams("policy", &kyverno.ResourceSpec{UID: "trigger"}, nil)
-	assert.Contains(t, w.metadataCache, types.UID("cached-uid"))
 }
