@@ -2124,27 +2124,52 @@ spec:
 `
 	require.NoError(t, os.WriteFile(resourcesFile, []byte(resourcesYAML), 0o600))
 
-	config := ApplyCommandConfig{
-		PolicyPaths:   []string{policyFile},
-		ResourcePaths: []string{resourcesFile},
-		PolicyReport:  true,
-	}
-	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), io.Discard)
-	require.NoError(t, err)
+	// same objects, but the PDB comes from --target-resource
+	split := strings.LastIndex(resourcesYAML, "---\n")
+	deploymentsFile := filepath.Join(dir, "deployments.yaml")
+	require.NoError(t, os.WriteFile(deploymentsFile, []byte(resourcesYAML[:split]), 0o600))
+	pdbFile := filepath.Join(dir, "pdb.yaml")
+	require.NoError(t, os.WriteFile(pdbFile, []byte(resourcesYAML[split+len("---\n"):]), 0o600))
 
-	clustered, _ := report.ComputePolicyReports(false, responses...)
-	merged := report.MergeClusterReports(clustered)
-	assert.Equal(t, 1, merged.Summary.Pass)
-	assert.Equal(t, 1, merged.Summary.Fail)
+	tests := []struct {
+		name   string
+		config ApplyCommandConfig
+	}{{
+		name: "pdb in resources",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{policyFile},
+			ResourcePaths: []string{resourcesFile},
+			PolicyReport:  true,
+		},
+	}, {
+		name: "pdb in target resources",
+		config: ApplyCommandConfig{
+			PolicyPaths:         []string{policyFile},
+			ResourcePaths:       []string{deploymentsFile},
+			TargetResourcePaths: []string{pdbFile},
+			PolicyReport:        true,
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, _, responses, err := tt.config.applyCommandHelper(context.TODO(), io.Discard)
+			require.NoError(t, err)
 
-	results := map[string]openreportsv1alpha1.Result{}
-	for _, r := range merged.Results {
-		for _, s := range r.Subjects {
-			results[s.Name] = r.Result
-		}
+			clustered, _ := report.ComputePolicyReports(false, responses...)
+			merged := report.MergeClusterReports(clustered)
+			assert.Equal(t, 1, merged.Summary.Pass)
+			assert.Equal(t, 1, merged.Summary.Fail)
+
+			results := map[string]openreportsv1alpha1.Result{}
+			for _, r := range merged.Results {
+				for _, s := range r.Subjects {
+					results[s.Name] = r.Result
+				}
+			}
+			assert.Equal(t, map[string]openreportsv1alpha1.Result{
+				"web-app":    "pass",
+				"api-server": "fail",
+			}, results)
+		})
 	}
-	assert.Equal(t, map[string]openreportsv1alpha1.Result{
-		"web-app":    "pass",
-		"api-server": "fail",
-	}, results)
 }

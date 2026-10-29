@@ -468,6 +468,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		mapBindings,
 		resources,
 		parameterResources,
+		targetResources,
 		jsonPayloads,
 		celExceptions,
 		&skippedInvalidPolicies,
@@ -547,6 +548,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
 	parameterResources []*unstructured.Unstructured,
+	targetResources []*unstructured.Unstructured,
 	jsonPayloads []*unstructured.Unstructured,
 	celExceptions []*policiesv1beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
@@ -607,7 +609,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 				contextProvider = nil
 			} else {
 				if !c.Cluster {
-					if err := addLocalResourcesToContext(contextProvider, restMapper, resources, parameterResources); err != nil {
+					if err := addLocalResourcesToContext(contextProvider, restMapper, resources, targetResources, parameterResources); err != nil {
 						if !c.ContinueOnFail {
 							return &rc, resources, responses, err
 						}
