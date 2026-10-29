@@ -175,6 +175,44 @@ func TestFakeContextProvider_AddResource(t *testing.T) {
 	}
 }
 
+func TestFakeContextProvider_ListResources_LabelSelector(t *testing.T) {
+	cp := NewFakeContextProvider()
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	for name, lbls := range map[string]map[string]string{
+		"web":  {"app": "web", "tier": "frontend"},
+		"api":  {"app": "api"},
+		"bare": nil,
+	} {
+		cm := &corev1.ConfigMap{
+			TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "ConfigMap"},
+			ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns", Name: name, Labels: lbls},
+		}
+		assert.NoError(t, cp.AddResource(gvr, cm))
+	}
+	names := func(list *unstructured.UnstructuredList) []string {
+		var out []string
+		for _, item := range list.Items {
+			out = append(out, item.GetName())
+		}
+		return out
+	}
+	{
+		got, err := cp.ListResources("v1", "configmaps", "test-ns", map[string]string{"app": "web"})
+		assert.NoError(t, err)
+		assert.Equal(t, []string{"web"}, names(got))
+	}
+	{
+		got, err := cp.ListResources("v1", "configmaps", "test-ns", map[string]string{"app": "web", "tier": "backend"})
+		assert.NoError(t, err)
+		assert.Empty(t, got.Items)
+	}
+	{
+		got, err := cp.ListResources("v1", "configmaps", "test-ns", map[string]string{})
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, []string{"web", "api", "bare"}, names(got))
+	}
+}
+
 func TestFakeContextProvider_Clone(t *testing.T) {
 	original := &FakeContextProvider{
 		generatedResources: make([]*unstructured.Unstructured, 0),

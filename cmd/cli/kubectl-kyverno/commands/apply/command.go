@@ -569,20 +569,14 @@ func (c *ApplyCommandConfig) applyPolicies(
 	crdPreloadFailed := false
 	if len(c.CrdPaths) > 0 {
 		crdPreloaded = true
-		for _, crdPath := range c.CrdPaths {
-			if strings.TrimSpace(crdPath) == "" {
-				continue
+		if err := common.LoadCrdsFromPaths(c.CrdPaths); err != nil {
+			if !c.ContinueOnFail {
+				return &rc, resources, responses, err
 			}
-			if err := common.LoadCrdsFromPath(crdPath); err != nil {
-				if !c.ContinueOnFail {
-					return &rc, resources, responses, err
-				}
-				log.Log.V(2).Info(fmt.Sprintf("failed to load CRDs from %s: %v", crdPath, err))
-				rc.IncrementError(1)
-				crdPreloaded = false
-				crdPreloadFailed = true
-				break
-			}
+			log.Log.V(2).Info(err.Error())
+			rc.IncrementError(1)
+			crdPreloaded = false
+			crdPreloadFailed = true
 		}
 	}
 
