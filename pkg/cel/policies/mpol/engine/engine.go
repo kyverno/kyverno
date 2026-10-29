@@ -25,6 +25,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
@@ -32,6 +33,7 @@ import (
 
 type Engine interface {
 	Handle(context.Context, engine.EngineRequest, Predicate) (EngineResponse, error)
+	HandleWithAttributes(context.Context, admission.Attributes, engine.EngineRequest, Predicate) (EngineResponse, error)
 	Evaluate(context.Context, admission.Attributes, admissionv1.AdmissionRequest, Predicate) (EngineResponse, error)
 	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
 	GetCompiledPolicy(name string) (Policy, error) // todo: support namespaced as well
@@ -143,6 +145,10 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 }
 
 func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate Predicate) (EngineResponse, error) {
+	return e.HandleWithAttributes(ctx, nil, request, predicate)
+}
+
+func (e *engineImpl) HandleWithAttributes(ctx context.Context, attr admission.Attributes, request engine.EngineRequest, predicate Predicate) (EngineResponse, error) {
 	// A shared CEL cost budget for every policy this call evaluates (requestbudget.Ensure
 	// is a no-op if the webhook handler already set one on ctx).
 	ctx, _ = requestbudget.Ensure(ctx)
@@ -159,19 +165,41 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		dryRun = *request.Request.DryRun
 	}
 
-	attr := admission.NewAttributesRecord(
-		&object,
-		&oldObject,
-		schema.GroupVersionKind(request.Request.Kind),
-		request.Request.Namespace,
-		request.Request.Name,
-		schema.GroupVersionResource(request.Request.Resource),
-		request.Request.SubResource,
-		admission.Operation(request.Request.Operation),
-		nil,
-		dryRun,
-		admissionpolicy.NewUser(request.Request.UserInfo),
-	)
+	if attr == nil {
+		attr = admission.NewAttributesRecord(
+			&object,
+			&oldObject,
+			schema.GroupVersionKind(request.Request.Kind),
+			request.Request.Namespace,
+			request.Request.Name,
+			schema.GroupVersionResource(request.Request.Resource),
+			request.Request.SubResource,
+			admission.Operation(request.Request.Operation),
+			nil,
+			dryRun,
+			admissionpolicy.NewUser(request.Request.UserInfo),
+		)
+	} else {
+		var evolvingObj runtime.Object = attr.GetObject()
+		if request.Request.Operation == admissionv1.Delete {
+			evolvingObj = &object
+		} else if curObj, ok := attr.GetObject().(*unstructured.Unstructured); ok {
+			response.Resource = curObj
+		}
+		attr = admission.NewAttributesRecord(
+			evolvingObj,
+			&oldObject,
+			schema.GroupVersionKind(request.Request.Kind),
+			request.Request.Namespace,
+			request.Request.Name,
+			schema.GroupVersionResource(request.Request.Resource),
+			request.Request.SubResource,
+			admission.Operation(request.Request.Operation),
+			nil,
+			dryRun,
+			admissionpolicy.NewUser(request.Request.UserInfo),
+		)
+	}
 
 	var namespace *corev1.Namespace
 	if ns := request.Request.Namespace; ns != "" {

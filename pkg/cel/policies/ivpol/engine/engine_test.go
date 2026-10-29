@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -27,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 )
@@ -1332,4 +1334,117 @@ func TestShouldReplaceResponse(t *testing.T) {
 			assert.Equal(t, tc.wantReplace, got)
 		})
 	}
+}
+
+func TestHandleValidating_OldObjectForPolicy(t *testing.T) {
+	pol1 := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-oldobj-1"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "match-prod",
+					Expression: "oldObject.metadata.labels['env'] == 'prod'",
+				},
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			Validations:          []admissionregistrationv1.Validation{{Expression: "false", Message: "policy-1 triggered"}},
+		},
+	}
+	pol2 := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-oldobj-2"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "match-stage",
+					Expression: "oldObject.metadata.labels['env'] == 'stage'",
+				},
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			Validations:          []admissionregistrationv1.Validation{{Expression: "false", Message: "policy-2 triggered"}},
+		},
+	}
+
+	c := iveval.NewCompiler(nil)
+	prov, err := NewProvider(c, []policiesv1beta1.ImageValidatingPolicyLike{pol1, pol2}, nil)
+	require.NoError(t, err)
+
+	podObj := `{
+		"apiVersion":"v1",
+		"kind":"Pod",
+		"metadata":{"name":"test-pod","namespace":"default"},
+		"spec":{"containers":[{"name":"main","image":"docker.io/library/busybox:latest"}]}
+	}`
+	oldPod1 := `{
+		"apiVersion":"v1",
+		"kind":"Pod",
+		"metadata":{"name":"test-pod","namespace":"default","labels":{"env":"prod"}},
+		"spec":{"containers":[{"name":"main","image":"docker.io/library/busybox:latest"}]}
+	}`
+	oldPod2 := `{
+		"apiVersion":"v1",
+		"kind":"Pod",
+		"metadata":{"name":"test-pod","namespace":"default","labels":{"env":"dev"}},
+		"spec":{"containers":[{"name":"main","image":"docker.io/library/busybox:latest"}]}
+	}`
+
+	var old1Unstr, old2Unstr unstructured.Unstructured
+	require.NoError(t, json.Unmarshal([]byte(oldPod1), &old1Unstr.Object))
+	require.NoError(t, json.Unmarshal([]byte(oldPod2), &old2Unstr.Object))
+
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation:       v1.Update,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object:          apiruntime.RawExtension{Raw: []byte(podObj)},
+		},
+		Context: libs.NewFakeContextProvider(),
+		OldObjectForPolicy: func(polName string) apiruntime.Object {
+			if polName == "ivpol-oldobj-1" {
+				return &old1Unstr
+			}
+			if polName == "ivpol-oldobj-2" {
+				return &old2Unstr
+			}
+			return nil
+		},
+	}
+
+	eng := NewEngine(prov, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
+	require.NoError(t, err)
+	// Only pol1 should match and fail validation, pol2 should be skipped due to oldObject match condition
+	require.Len(t, resp.Policies, 1)
+	assert.Equal(t, "ivpol-oldobj-1", resp.Policies[0].Policy.GetName())
+	assert.Equal(t, engineapi.RuleStatusFail, resp.Policies[0].Result.Status())
+	assert.Equal(t, "policy-1 triggered", resp.Policies[0].Result.Message())
 }

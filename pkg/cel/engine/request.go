@@ -12,9 +12,10 @@ import (
 )
 
 type EngineRequest struct {
-	JsonPayload *unstructured.Unstructured
-	Request     admissionv1.AdmissionRequest
-	Context     libs.Context
+	JsonPayload        *unstructured.Unstructured
+	Request            admissionv1.AdmissionRequest
+	Context            libs.Context
+	OldObjectForPolicy func(policyName string) runtime.Object
 }
 
 func RequestFromAdmission(context libs.Context, request admissionv1.AdmissionRequest) EngineRequest {
