@@ -70,12 +70,17 @@ func applyFieldPathAndProjections(jp jmespath.Interface, entry v1alpha1.GlobalCo
 	if len(entry.Projections) == 0 {
 		return root, nil
 	}
+	// One shared CEL cost ceiling for every projection in this entry, matching
+	// buildGlobalContextStore - otherwise an entry with N CEL projections would get N
+	// independent budgets instead of one ceiling for the whole entry.
+	ctx, release := requestbudget.EnsureBackground(context.Background())
+	defer release()
 	out := make(map[string]interface{}, len(entry.Projections))
 	for _, p := range entry.Projections {
 		if p.Name == "" {
 			return nil, fmt.Errorf("globalContextEntries %q projection name must not be empty", entry.Name)
 		}
-		v, err := evaluateMockProjection(jp, entry.Name, p, root)
+		v, err := evaluateMockProjection(ctx, jp, entry.Name, p, root)
 		if err != nil {
 			return nil, err
 		}
@@ -89,15 +94,14 @@ func applyFieldPathAndProjections(jp jmespath.Interface, entry v1alpha1.GlobalCo
 // jp.Search, Expression via the same compiled-CEL-program path
 // (compiler.CompileGlobalContextProjection + gctxstore.Projection.Evaluate) the real
 // GlobalContextEntry controller and `kyverno apply`'s buildGlobalContextStore use, so a
-// mocked CEL projection behaves identically to a live one.
-func evaluateMockProjection(jp jmespath.Interface, entryName string, p v1alpha1.GlobalContextProjection, root interface{}) (interface{}, error) {
+// mocked CEL projection behaves identically to a live one. ctx carries the budget shared
+// across every projection of this entry (see applyFieldPathAndProjections).
+func evaluateMockProjection(ctx context.Context, jp jmespath.Interface, entryName string, p v1alpha1.GlobalContextProjection, root interface{}) (interface{}, error) {
 	if p.Expression != "" {
 		prog, errs := compiler.CompileGlobalContextProjection(field.NewPath("expression"), p.Expression)
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("globalContextEntries %q projection %q expression %q: %w", entryName, p.Name, p.Expression, errs.ToAggregate())
 		}
-		ctx, release := requestbudget.EnsureBackground(context.Background())
-		defer release()
 		v, err := (gctxstore.Projection{Name: p.Name, Program: prog}).Evaluate(ctx, root)
 		if err != nil {
 			return nil, fmt.Errorf("globalContextEntries %q projection %q expression %q: %w", entryName, p.Name, p.Expression, err)

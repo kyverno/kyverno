@@ -37,6 +37,41 @@ func TestUsedFunctionNames(t *testing.T) {
 			expr: "length(items)",
 			want: nil,
 		},
+		{
+			name: "function-shaped text inside a string literal is not a call",
+			expr: "'add(foo)'",
+			want: nil,
+		},
+		{
+			name: "function-shaped text inside a double-quoted literal is not a call",
+			expr: `"add(foo)"`,
+			want: nil,
+		},
+		{
+			name: "function-shaped text inside a backtick JSON literal is not a call",
+			expr: "`{\"k\": \"add(foo)\"}`",
+			want: nil,
+		},
+		{
+			name: "real call alongside a literal containing function-shaped text",
+			expr: "add('not_a_call(x)', replicas)",
+			want: []string{"add"},
+		},
+		{
+			name: "escaped quote inside a literal does not end it early",
+			expr: `'it\'s not add(foo)'`,
+			want: nil,
+		},
+		{
+			name: "real call survives after an escaped-quote literal",
+			expr: `trim('it\'s a literal') + add(replicas, 1)`,
+			want: []string{"add", "trim"},
+		},
+		{
+			name: "unterminated literal blanks the remainder instead of panicking",
+			expr: "add(replicas) + 'unterminated add(foo)",
+			want: []string{"add"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

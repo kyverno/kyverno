@@ -27,7 +27,7 @@ var knownFunctionNames = func() map[string]struct{} {
 // the result as a metric label without risking unbounded cardinality from the expression text
 // itself.
 func UsedFunctionNames(expr string) []string {
-	matches := callPattern.FindAllString(expr, -1)
+	matches := callPattern.FindAllString(stripQuotedLiterals(expr), -1)
 	if len(matches) == 0 {
 		return nil
 	}
@@ -48,4 +48,42 @@ func UsedFunctionNames(expr string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// stripQuotedLiterals blanks out every single-quoted (raw string), double-quoted (quoted
+// identifier), and backtick-quoted (JSON literal) span in expr, replacing each byte of the
+// span - including the delimiters and any escaped character inside it - with a space. The
+// result has the same length as expr, so callPattern's match offsets would still line up if
+// ever needed, and content outside a span is untouched. This exists so a literal like
+// 'add(foo)' is never mistaken for a call to the known function add: without it, callPattern
+// scans raw text and can't tell a call site from the same text appearing inside a string.
+// An unterminated quote blanks the remainder of expr rather than panicking, treating it as
+// literal text with no further call sites.
+func stripQuotedLiterals(expr string) string {
+	out := []byte(expr)
+	i := 0
+	for i < len(out) {
+		quote := out[i]
+		if quote != '\'' && quote != '"' && quote != '`' {
+			i++
+			continue
+		}
+		out[i] = ' '
+		i++
+		for i < len(out) {
+			if out[i] == '\\' && i+1 < len(out) {
+				out[i] = ' '
+				out[i+1] = ' '
+				i += 2
+				continue
+			}
+			closed := out[i] == quote
+			out[i] = ' '
+			i++
+			if closed {
+				break
+			}
+		}
+	}
+	return string(out)
 }
