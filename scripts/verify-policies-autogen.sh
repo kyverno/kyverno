@@ -88,6 +88,15 @@ check_fails() {
   log "  OK   \"$1\" fails to render"
 }
 
+# check_fails_bool requires that rendering with the unquoted boolean autogenControllers=$1 fails.
+check_fails_bool() {
+  printf 'autogenControllers: %s\n' "$1" >"${TMP_DIR}/values.yaml"
+  if render -f "${TMP_DIR}/values.yaml" >/dev/null 2>&1; then
+    fail "autogenControllers=$1 (boolean) should fail to render"
+  fi
+  log "  OK   boolean $1 fails to render"
+}
+
 log "rendering ${CHART_DIR}"
 check "" ""
 check "none" "\[\]"
@@ -100,4 +109,6 @@ check_fails "Deployment,"
 check_fails ",Deployment"
 check_fails "Deployment,,Job"
 check_fails "ReplicationController"
+check_fails_bool false
+check_fails_bool true
 log "all checks passed"
