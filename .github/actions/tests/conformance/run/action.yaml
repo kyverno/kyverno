@@ -4,6 +4,12 @@ inputs:
   k8s-version:
     description: Kubernetes version
     required: true
+  node-image:
+    description: Digest-pinned kind node image
+    default: ''
+  kind-version:
+    description: kind version compatible with the node image
+    default: v0.33.0
   kind-config:
     description: Kind cluster config
     default: ./scripts/config/kind/default.yaml
@@ -60,7 +66,9 @@ runs:
       uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
       continue-on-error: true
       with:
-        node_image: kindest/node:${{ inputs.k8s-version }}
+        version: ${{ inputs.kind-version }}
+        kubectl_version: ${{ inputs.k8s-version }}
+        node_image: ${{ inputs.node-image || format('kindest/node:{0}', inputs.k8s-version) }}
         cluster_name: kind
         config: ${{ inputs.kind-config }}
     - name: Clean up the failed kind cluster
@@ -74,7 +82,9 @@ runs:
       if: steps.kind.outcome == 'failure'
       uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
       with:
-        node_image: kindest/node:${{ inputs.k8s-version }}
+        version: ${{ inputs.kind-version }}
+        kubectl_version: ${{ inputs.k8s-version }}
+        node_image: ${{ inputs.node-image || format('kindest/node:{0}', inputs.k8s-version) }}
         cluster_name: kind
         config: ${{ inputs.kind-config }}
     # deploy kyverno
@@ -132,6 +142,7 @@ runs:
     - name: Wait for kyverno ready
       uses: ./.github/actions/kyverno/wait-ready
     - name: Add excluded tests
+      if: env.RELEASE_CANDIDATE != 'true'
       shell: bash
       run: |
         TESTS_ROOT="$(cd "./test/conformance/chainsaw/${{ inputs.tests-path }}" && pwd)"
@@ -171,12 +182,21 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -e
+        mkdir -p "$GITHUB_WORKSPACE/conformance-results"
         cd ./test/conformance/chainsaw/${{ inputs.tests-path }}
         chainsaw test \
+          --report-format JSON --report-path "$GITHUB_WORKSPACE/conformance-results" --report-name results \
           --config .chainsaw.yaml \
           --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' \
           --shard-index ${{ inputs.shard-index }} \
           --shard-count ${{ inputs.shard-count }}
+    - name: Retain per-test release results
+      if: always() && env.RELEASE_CANDIDATE == 'true'
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: release-conformance-${{ github.job }}-${{ inputs.k8s-version }}-${{ strategy.job-index }}-${{ github.run_attempt }}
+        path: conformance-results
+        retention-days: 90
     # debug
     - name: Debug failure
       if: failure()
