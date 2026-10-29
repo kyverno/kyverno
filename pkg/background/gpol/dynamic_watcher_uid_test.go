@@ -186,11 +186,11 @@ func TestCleanupStaleDownstreamsNilData(t *testing.T) {
 	notFound := apierrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "settings")
 	unavailable := apierrors.NewServiceUnavailable("API temporarily unavailable")
 	tests := []struct {
-		name, resourceName string
-		liveUID            types.UID
-		getErr             error
-		desired, noMapper  bool
-		wantGets, wantDels int
+		name, resourceName  string
+		liveUID             types.UID
+		getErr              error
+		desired, noMapper   bool
+		wantGets, wantDels  int
 		wantCache, wantData bool
 	}{
 		{name: "stale original deleted with UID", resourceName: "settings", liveUID: uid, wantGets: 1, wantDels: 1},
