@@ -16,6 +16,9 @@ For release instructions, see: [create-a-release.md](releases/create-a-release.m
 
 For the `kyverno oci` bundle format, see: [docs/dev/oci/bundle-spec.md](oci/bundle-spec.md).
 
+For the issues that track the PSS CEL policy updates each Pod Security Admission release needs, see:
+[psa-release-issues/README.md](psa-release-issues/README.md).
+
 ## Performance benchmarks
 
 A `perf` job in the post-merge `check-tests` workflow

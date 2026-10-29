@@ -63,8 +63,9 @@ GOLANGCI_LINT                      ?= $(TOOLS_DIR)/golangci-lint
 GOLANGCI_LINT_VERSION              ?= v2.14.0
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
+CRD_SPLICE                         ?= $(TOOLS_DIR)/crd-splice
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(GOLANGCI_LINT) $(CLIENT_WRAPPER)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(GOLANGCI_LINT) $(CLIENT_WRAPPER) $(CRD_SPLICE)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -135,6 +136,10 @@ $(API_GROUP_RESOURCES):
 $(CLIENT_WRAPPER):
 	@echo Install client-wrapper... >&2
 	@cd ./hack/client-wrapper && GOBIN=$(TOOLS_DIR) go install
+
+$(CRD_SPLICE): $(wildcard hack/crd-splice/*.go)
+	@echo Install crd-splice... >&2
+	@cd ./hack/crd-splice && GOBIN=$(TOOLS_DIR) go install
 
 .PHONY: install-tools
 install-tools: ## Install tools
@@ -500,7 +505,6 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--output-dir ./pkg/client/clientset \
 		--output-pkg $(CLIENTSET_PACKAGE) \
 		--input-base github.com/kyverno \
-		--input kyverno/api/kyverno/v1 \
 		--input kyverno/api/kyverno/v2 \
 		--input kyverno/api/kyverno/v2alpha1 \
 		--input kyverno/api/kyverno/v2beta1 \
@@ -517,7 +521,6 @@ codegen-client-listers: $(LISTER_GEN)
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-dir ./pkg/client/listers \
 		--output-pkg $(LISTERS_PACKAGE) \
-		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
 		./api/kyverno/v2beta1 \
@@ -536,7 +539,6 @@ codegen-client-informers: $(INFORMER_GEN)
 		--output-pkg $(INFORMERS_PACKAGE) \
 		--versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned \
 		--listers-package $(LISTERS_PACKAGE) \
-		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
 		./api/kyverno/v2beta1 \
@@ -563,19 +565,27 @@ codegen-client-all: codegen-client-wrappers
 	@echo "Tidying modules after client generation..."
 	@go mod tidy
 
+# Single owner of the 1.20 compatibility classification; see config/crds/kyverno/README.md.
+KYVERNO_CRDS_FROZEN_FILES    := kyverno.io_clusterpolicies.yaml kyverno.io_policies.yaml \
+	kyverno.io_policyexceptions.yaml kyverno.io_cleanuppolicies.yaml kyverno.io_clustercleanuppolicies.yaml
+KYVERNO_CRDS_FROZEN_VERSIONS := kyverno.io_updaterequests.yaml=v1beta1
+
 .PHONY: codegen-crds-kyverno
-codegen-crds-kyverno: ## Generate kyverno CRDs
+codegen-crds-kyverno: ## Regenerate kyverno.io CRDs from Go, keeping the frozen 1.20 compatibility schemas (see config/crds/kyverno/README.md)
 codegen-crds-kyverno: $(CONTROLLER_GEN)
+codegen-crds-kyverno: $(CRD_SPLICE)
 	@echo Generate kyverno crds... >&2
-	@rm -rf $(CRDS_PATH)/kyverno && mkdir -p $(CRDS_PATH)/kyverno
-	@$(CONTROLLER_GEN) \
-		paths=./api/kyverno/v1/... \
-		paths=./api/kyverno/v1beta1/... \
+	@tmp=$$(mktemp -d) && \
+	$(CONTROLLER_GEN) \
 		paths=./api/kyverno/v2/... \
 		paths=./api/kyverno/v2alpha1/... \
 		paths=./api/kyverno/v2beta1/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
-		output:dir=$(CRDS_PATH)/kyverno
+		output:dir=$$tmp && \
+	$(CRD_SPLICE) splice --generated $$tmp --target $(CRDS_PATH)/kyverno \
+		$(addprefix --frozen-file=,$(KYVERNO_CRDS_FROZEN_FILES)) \
+		$(addprefix --freeze=,$(KYVERNO_CRDS_FROZEN_VERSIONS)) && \
+	rm -rf $$tmp
 
 .PHONY: codegen-crds-policies
 codegen-crds-policies: ## Generate policies CRDs
@@ -704,11 +714,15 @@ endef
 
 .PHONY: helm-setup-dependency-charts
 helm-setup-dependency-charts: $(HELM) ## Add dependency helm repos and build dependencies
+ifneq ($(RELEASE_MODE),true)
 	@echo Setting up helm dependencies... >&2
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) repo add reports-server https://kyverno.github.io/reports-server
 	@$(HELM) repo add kyverno-api https://kyverno.github.io/api
 	@$(HELM) dependency update ./charts/kyverno
+else
+	@test -f .release/plan.json || (echo "Missing retained release workspace" >&2; exit 1)
+endif
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
@@ -957,7 +971,7 @@ test-cli-local-maps: $(CLI_BIN) ## Run local CLI MAP tests
 .PHONY: helm-test
 helm-test: $(HELM) ## Run helm test
 	@echo Running helm test... >&2
-	@$(HELM) dependency build ./charts/kyverno
+	@if [ "$(RELEASE_MODE)" != "true" ]; then $(HELM) dependency build ./charts/kyverno; fi
 	@$(HELM) test --namespace kyverno kyverno
 
 .PHONY: verify-legacy-crd-retention
@@ -965,10 +979,22 @@ verify-legacy-crd-retention: helm-setup-dependency-charts ## Verify the five leg
 	@echo Verify legacy CRD retention... >&2
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-crd-retention.sh
 
+.PHONY: verify-legacy-crd-snapshot
+verify-legacy-crd-snapshot: ## Verify frozen legacy kyverno.io CRD schemas are byte-identical to the 1.20 compatibility snapshot
+verify-legacy-crd-snapshot: $(CRD_SPLICE)
+	@CRD_SPLICE=$(CRD_SPLICE) CRDS_DIR=$(CRDS_PATH)/kyverno \
+	FROZEN_FILES="$(KYVERNO_CRDS_FROZEN_FILES)" FROZEN_VERSIONS="$(KYVERNO_CRDS_FROZEN_VERSIONS)" \
+	./scripts/verify-legacy-crd-snapshot.sh
+
 .PHONY: verify-background-controller-rbac
 verify-background-controller-rbac: helm-setup-dependency-charts ## Verify the background controller holds everything the chart aggregates into admin/edit/view (no cluster needed)
 	@echo Verify background controller RBAC... >&2
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-background-controller-rbac.sh
+
+.PHONY: verify-policies-psa-version
+verify-policies-psa-version: $(HELM) ## Verify the policies chart renders the PSA behavior for each podSecurityVersion and the pss-psa-version CLI test policies are up to date (no cluster needed)
+	@echo Verify podSecurityVersion rendering... >&2
+	@HELM=$(HELM) ./scripts/verify-policies-psa-version.sh
 
 .PHONY: verify-policies-sysctls
 verify-policies-sysctls: $(HELM) ## Verify the restrict-sysctls allow-list matches PSA for each Kubernetes version (no cluster needed)
@@ -1094,9 +1120,10 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 	@$(KIND) load image-archive kyverno.tar --name $(KIND_NAME)
 
 .PHONY: kind-install-kyverno
+KYVERNO_TEST_CHART ?= ./charts/kyverno
 kind-install-kyverno: helm-setup-dependency-charts ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
-	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait $(KYVERNO_TEST_CHART) \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
 		--set admissionController.container.image.tag=$(GIT_SHA) \

@@ -143,7 +143,8 @@ Generated files follow these patterns:
 - `zz_generated.deepcopy.go` — deep copy functions in API packages
 - `zz_generated.register.go` — API type registrations
 - `pkg/client/` — generated clientset, listers, informers
-- `config/crds/` — generated CRD YAML manifests
+- `config/crds/` — generated CRD YAML manifests; `config/crds/kyverno/` is a frozen compatibility snapshot
+  during the CEL migration — only GCE and UR `v2` regenerate, see `config/crds/kyverno/README.md`
 
 ### Docker Images (ko)
 
@@ -210,7 +211,7 @@ documentation, tests, and user documentation for current behavior.
 ## Coding Conventions
 
 - **Import aliases:** Enforced by `importas` linter. Key patterns:
-  - `github.com/kyverno/kyverno/api/<group>/<version>` → `<group><version>` (e.g., `kyvernov1`)
+  - `github.com/kyverno/kyverno/api/<group>/<version>` → `<group><version>` (e.g., `kyvernov2`)
   - `k8s.io/api/<group>/<version>` → `<group><version>` (e.g., `corev1`)
   - See `.golangci.yml` for the full alias table
 - **Logging:** Uses `logr` with `zerologr` backend. Default level is 2. See `docs/dev/logging/logging.md`:

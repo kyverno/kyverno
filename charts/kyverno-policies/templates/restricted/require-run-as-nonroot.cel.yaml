@@ -12,7 +12,9 @@ metadata:
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    kyverno.io/pod-security-version: "{{ include "kyverno-policies.psaVersionAnnotation" . }}"
     policies.kyverno.io/description: >-
       Containers must be required to run as non-root users. This policy ensures
       `runAsNonRoot` is set to `true`. A known issue prevents a policy such as this
@@ -55,7 +57,7 @@ spec:
         spec.initContainers[*].securityContext.runAsNonRoot, and
         spec.ephemeralContainers[*].securityContext.runAsNonRoot must be unset or set to
         `true` when the pod-level field is `true`, and must be set to `true` when the
-        pod-level field is unset.{{ if .Values.podSecurityUserNamespaces }}
+        pod-level field is unset.{{ if eq (include "kyverno-policies.psaUserNamespaces" .) "true" }}
         This policy does not apply to Pods that set spec.hostUsers to `false`.{{ end }}
   {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}

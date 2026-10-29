@@ -8,7 +8,6 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
@@ -79,13 +78,13 @@ func (p *testProvider) Get(context.Context, string) (gpolengine.Policy, error) {
 
 type testStatusControl struct{}
 
-func (testStatusControl) Failed(string, string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (testStatusControl) Failed(string, string, []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	return nil, nil
 }
-func (testStatusControl) Success(string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (testStatusControl) Success(string, []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	return nil, nil
 }
-func (testStatusControl) Skip(string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (testStatusControl) Skip(string, []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	return nil, nil
 }
 
@@ -105,24 +104,51 @@ func (e *errorEngine) Handle(_ context.Context, _ celengine.EngineRequest, p gpo
 	}, nil
 }
 
+// skippedEngine returns a rule skipped by an exception, mirroring what a CEL
+// GeneratingPolicy's exception match produces (gpol/engine/engine.go:238).
+type skippedEngine struct{}
+
+func (e *skippedEngine) Handle(_ context.Context, _ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "skip-trigger", Namespace: "tenant-a"},
+	}
+	return gpolengine.EngineResponse{
+		// A real trigger, not an empty Unstructured{}, so the event's resource key is exercised.
+		Trigger: makeUnstructured("", "", "v1", "ConfigMap", "trigger-cm", "tenant-a", "trigger-uid", nil),
+		Policies: []gpolengine.GeneratingPolicyResponse{{
+			Policy: p.Policy,
+			Result: engineapi.RuleSkip("rule", engineapi.Generation, "excluded by policy exception", nil).
+				WithExceptions([]engineapi.GenericException{engineapi.NewCELPolicyException(polex)}),
+		}},
+	}, nil
+}
+
+type recordingEventGen struct {
+	events []event.Info
+}
+
+func (r *recordingEventGen) Add(infos ...event.Info) {
+	r.events = append(r.events, infos...)
+}
+
 type recordingStatusControl struct {
 	failed  bool
 	success bool
 	message string
 }
 
-func (r *recordingStatusControl) Failed(_ string, message string, _ []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (r *recordingStatusControl) Failed(_ string, message string, _ []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	r.failed = true
 	r.message = message
 	return nil, nil
 }
 
-func (r *recordingStatusControl) Success(string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (r *recordingStatusControl) Success(string, []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	r.success = true
 	return nil, nil
 }
 
-func (r *recordingStatusControl) Skip(string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (r *recordingStatusControl) Skip(string, []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	return nil, nil
 }
 
@@ -174,7 +200,7 @@ func TestProcessUR_FilteredTriggerSkipsEngine(t *testing.T) {
 			Policy: policyName,
 			RuleContext: []kyvernov2.RuleContext{{
 				Rule: "rule",
-				Trigger: kyvernov1.ResourceSpec{
+				Trigger: kyverno.ResourceSpec{
 					APIVersion: trigger.GetAPIVersion(),
 					Kind:       trigger.GetKind(),
 					Namespace:  trigger.GetNamespace(),
@@ -275,7 +301,7 @@ func TestProcessUR_ConcurrentCacheRestoreAndGenerateExistingDoesNotDeleteDownstr
 				RuleContext: []kyvernov2.RuleContext{{
 					Rule:         "rule",
 					CacheRestore: cacheRestore,
-					Trigger: kyvernov1.ResourceSpec{
+					Trigger: kyverno.ResourceSpec{
 						APIVersion: trigger.GetAPIVersion(),
 						Kind:       trigger.GetKind(),
 						Namespace:  trigger.GetNamespace(),
@@ -471,7 +497,7 @@ func TestProcessUR_SyncWatchersMustCompleteBeforeReturn(t *testing.T) {
 				// like TestProcessUR_ErrorResultMarksURFailed below) only
 				// overrides GetResource, not ListResource -- matches the same
 				// UID-less pattern that test already uses for the same reason.
-				Trigger: kyvernov1.ResourceSpec{
+				Trigger: kyverno.ResourceSpec{
 					APIVersion: trigger.GetAPIVersion(),
 					Kind:       trigger.GetKind(),
 					Namespace:  trigger.GetNamespace(),
@@ -562,7 +588,7 @@ func TestProcessUR_ErrorResultMarksURFailed(t *testing.T) {
 			Policy: policyName,
 			RuleContext: []kyvernov2.RuleContext{{
 				Rule: "rule",
-				Trigger: kyvernov1.ResourceSpec{
+				Trigger: kyverno.ResourceSpec{
 					APIVersion: trigger.GetAPIVersion(),
 					Kind:       trigger.GetKind(),
 					Namespace:  trigger.GetNamespace(),
@@ -576,6 +602,68 @@ func TestProcessUR_ErrorResultMarksURFailed(t *testing.T) {
 	assert.True(t, statusControl.failed, "UR should be marked as Failed")
 	assert.False(t, statusControl.success, "UR should not be marked as Completed")
 	assert.Contains(t, statusControl.message, "failed to evaluate policy")
+}
+
+// A gpol rule skipped by a CEL exception must emit a PolicySkipped event; deleting
+// generate_controller.go's RuleStatusSkip arm leaves this green by accident otherwise.
+func TestProcessUR_SkippedByExceptionEmitsEvent(t *testing.T) {
+	policyName := "test-gpol"
+	trigger := makeUnstructured("", "", "v1", "ConfigMap", "trigger-cm", "tenant-a", "trigger-uid", nil)
+	prevReportingCfg := reportutils.ReportingCfg
+	reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+	t.Cleanup(func() { reportutils.ReportingCfg = prevReportingCfg })
+	statusControl := &recordingStatusControl{}
+	eventGen := &recordingEventGen{}
+	controller := &CELGenerateController{
+		client: &triggerClient{
+			MockClient: &MockClient{},
+			trigger:    trigger,
+		},
+		restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+			return &meta.RESTMapping{Resource: schema.GroupVersionResource{Group: gk.Group, Version: version, Resource: "configmaps"}}, nil
+		}},
+		context:       libs.NewFakeContextProvider(),
+		engine:        &skippedEngine{},
+		provider:      &testProvider{policy: gpolengine.Policy{Policy: &policiesv1beta1.GeneratingPolicy{ObjectMeta: metav1.ObjectMeta{Name: policyName}}}},
+		watchManager:  &WatchManager{},
+		statusControl: statusControl,
+		eventGen:      eventGen,
+		log:           logging.WithName("test-gpol-controller"),
+	}
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-skipped-result"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.CELGenerate,
+			Policy: policyName,
+			RuleContext: []kyvernov2.RuleContext{{
+				Rule: "rule",
+				Trigger: kyverno.ResourceSpec{
+					APIVersion: trigger.GetAPIVersion(),
+					Kind:       trigger.GetKind(),
+					Namespace:  trigger.GetNamespace(),
+					Name:       trigger.GetName(),
+				},
+			}},
+		},
+	}
+
+	require.NoError(t, controller.ProcessUR(ur))
+	assert.False(t, statusControl.failed, "UR should not be marked as Failed")
+
+	var sawException bool
+	for _, e := range eventGen.events {
+		if e.Reason == event.PolicySkipped && e.Regarding.Kind == "CELPolicyException" {
+			sawException = true
+			// The resource key must name the real trigger, not fall back to an empty "/".
+			assert.Contains(t, e.Message, "ConfigMap/tenant-a/trigger-cm", "event message should identify the trigger resource")
+			require.NotNil(t, e.Related, "event should carry the trigger as a related object")
+			assert.Equal(t, "ConfigMap", e.Related.Kind)
+			assert.Equal(t, "tenant-a", e.Related.Namespace)
+			assert.Equal(t, "trigger-cm", e.Related.Name)
+		}
+	}
+	assert.True(t, sawException, "skipped gpol rule with an exception should emit a PolicySkipped event")
 }
 
 const (
@@ -735,7 +823,7 @@ func newMirrorFixture(t *testing.T, policy policiesv1beta1.GeneratingPolicyLike,
 			RuleContext: []kyvernov2.RuleContext{{
 				Rule:        "rule",
 				Synchronize: true,
-				Trigger: kyvernov1.ResourceSpec{
+				Trigger: kyverno.ResourceSpec{
 					APIVersion: trigger.GetAPIVersion(),
 					Kind:       trigger.GetKind(),
 					Namespace:  trigger.GetNamespace(),

@@ -3,7 +3,7 @@ package policy
 import (
 	"context"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -63,10 +63,10 @@ func newUrMeta() *kyvernov2.UpdateRequest {
 	}
 }
 
-func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyvernov1.ResourceSpec, deleteDownstream, synchronize, cacheRestore bool) {
+func addRuleContext(ur *kyvernov2.UpdateRequest, ruleName string, trigger kyverno.ResourceSpec, deleteDownstream, synchronize, cacheRestore bool) {
 	ur.Spec.RuleContext = append(ur.Spec.RuleContext, kyvernov2.RuleContext{
 		Rule: ruleName,
-		Trigger: kyvernov1.ResourceSpec{
+		Trigger: kyverno.ResourceSpec{
 			Kind:       trigger.GetKind(),
 			Namespace:  trigger.GetNamespace(),
 			Name:       trigger.GetName(),
