@@ -34,7 +34,11 @@ func (w *metricWrapper) Evaluate(ctx context.Context, attr admission.Attributes,
 }
 
 func (w *metricWrapper) Handle(ctx context.Context, request engine.EngineRequest, predicate Predicate) (EngineResponse, error) {
-	response, err := w.inner.Handle(ctx, request, predicate)
+	return w.HandleWithAttributes(ctx, nil, request, predicate)
+}
+
+func (w *metricWrapper) HandleWithAttributes(ctx context.Context, attr admission.Attributes, request engine.EngineRequest, predicate Predicate) (EngineResponse, error) {
+	response, err := w.inner.HandleWithAttributes(ctx, attr, request, predicate)
 	if err != nil {
 		return response, err
 	}

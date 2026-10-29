@@ -53,6 +53,11 @@ func (m *mockEngine) Handle(_ context.Context, _ celengine.EngineRequest, _ mpol
 	return mpolengine.EngineResponse{}, nil
 }
 
+func (m *mockEngine) HandleWithAttributes(_ context.Context, _ admission.Attributes, _ celengine.EngineRequest, _ mpolengine.Predicate) (mpolengine.EngineResponse, error) {
+	m.handleCalls.Add(1)
+	return mpolengine.EngineResponse{}, nil
+}
+
 func (m *mockEngine) Evaluate(_ context.Context, _ admission.Attributes, _ admissionv1.AdmissionRequest, _ mpolengine.Predicate) (mpolengine.EngineResponse, error) {
 	return mpolengine.EngineResponse{}, nil
 }
