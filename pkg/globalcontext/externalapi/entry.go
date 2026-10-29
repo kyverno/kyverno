@@ -30,6 +30,9 @@ type entry struct {
 	err         error
 	stop        func()
 	stopOnce    sync.Once
+	publishMu   sync.Mutex // serializes shutdown with cache and event publication
+	statusMu    sync.Mutex // serializes status refreshes with completed shutdown
+	stopped     bool       // guarded by publishMu
 	projections []store.Projection
 }
 
@@ -49,17 +52,6 @@ func New(
 	jp jmespath.Interface,
 ) (store.Entry, error) {
 	var group wait.Group
-	var stopOnce sync.Once
-	ctx, cancel := context.WithCancel(ctx)
-	stop := func() {
-		stopOnce.Do(func() {
-			// Signal the background polling worker (started below via
-			// group.StartWithContext) to stop
-			cancel()
-			// Wait for the group to terminate
-			group.Wait()
-		})
-	}
 
 	projections := make([]store.Projection, 0)
 	for _, p := range gce.Spec.Projections {
@@ -73,10 +65,25 @@ func New(
 		})
 	}
 
+	// Establish the poll context only after validation succeeds, so failed
+	// projection compilation does not leak a child context.
+	ctx, cancel := context.WithCancel(ctx)
 	e := &entry{
 		dataMap:     make(map[string]any),
-		stop:        stop,
 		projections: projections,
+	}
+	// Cancel before waiting for any in-flight I/O. statusMu prevents a
+	// refresh from surviving the transition to stopped; publishMu guards
+	// cache and event publication. Neither gate blocks cancellation itself.
+	e.stop = func() {
+		cancel()
+		e.statusMu.Lock()
+		e.publishMu.Lock()
+		e.stopped = true
+		e.publishMu.Unlock()
+		e.statusMu.Unlock()
+		// Wait only after releasing both locks to avoid worker deadlocks.
+		group.Wait()
 	}
 
 	group.StartWithContext(ctx, func(ctx context.Context) {
@@ -84,33 +91,70 @@ func New(
 		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
-			if data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit); err != nil {
-				e.setData(nil, err)
+			data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit)
+			// Publish cache updates and events behind the shutdown gate.
+			// Kubernetes status I/O must not run while holding publishMu:
+			// Stop needs to cancel an in-flight status request.
+			e.publish(ctx, func() {
+				if err != nil {
+					e.setData(nil, err)
 
-				logger.Error(err, "failed to get data from api caller")
+					logger.Error(err, "failed to get data from api caller")
 
-				eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
-					APIVersion: gce.APIVersion,
-					Kind:       gce.Kind,
-					Name:       gce.Name,
-					Namespace:  gce.Namespace,
-					UID:        gce.UID,
-				}, err))
-			} else {
-				e.setData(data, nil)
+					eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+						APIVersion: gce.APIVersion,
+						Kind:       gce.Kind,
+						Name:       gce.Name,
+						Namespace:  gce.Namespace,
+						UID:        gce.UID,
+					}, err))
+				} else {
+					e.setData(data, nil)
 
-				logger.V(4).Info("api call success", "data", data)
-
-				if shouldUpdateStatus {
-					if updateErr := updateStatus(ctx, gce, kyvernoClient); updateErr != nil {
-						logger.Error(updateErr, "failed to update status")
-					}
+					logger.V(4).Info("api call success", "data", data)
 				}
+			})
+
+			// Status publication uses a separate gate from cache/events.
+			// Stop cancels the context before waiting for statusMu, so an
+			// in-flight Kubernetes request can exit on cancellation.
+			if err == nil && shouldUpdateStatus {
+				e.refreshStatus(ctx, gce, kyvernoClient, logger)
 			}
 		}, period)
 	})
 
 	return e, nil
+}
+
+// refreshStatus prevents a status update from outliving the stopped state.
+// Do not acquire publishMu while holding statusMu: Stop acquires statusMu
+// before marking stopped under publishMu.
+func (e *entry) refreshStatus(
+	ctx context.Context,
+	gce *kyvernov2beta1.GlobalContextEntry,
+	kyvernoClient versioned.Interface,
+	logger logr.Logger,
+) {
+	e.statusMu.Lock()
+	defer e.statusMu.Unlock()
+	if ctx.Err() != nil {
+		return
+	}
+	if err := updateStatus(ctx, gce, kyvernoClient); err != nil && ctx.Err() == nil {
+		logger.Error(err, "failed to update status")
+	}
+}
+
+// publish guards cache and event publication against completed shutdown.
+// Callbacks must not perform blocking Kubernetes I/O or call Stop.
+func (e *entry) publish(ctx context.Context, fn func()) {
+	e.publishMu.Lock()
+	defer e.publishMu.Unlock()
+	if e.stopped || ctx.Err() != nil {
+		return
+	}
+	fn()
 }
 
 func (e *entry) Get(projection string) (any, error) {
@@ -176,8 +220,12 @@ func doCall(ctx context.Context, caller apicall.Executor, call kyverno.APICall, 
 	}
 
 	retryError := retry.OnError(backoff, func(err error) bool {
-		return err != nil
+		// Do not retry cancellation failures during entry teardown.
+		return err != nil && ctx.Err() == nil
 	}, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		var exeErr error
 		result, exeErr = caller.Execute(ctx, &call)
 		return exeErr
