@@ -144,7 +144,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:
 </em>
 </td>
 <td>
-<p>Projections defines the list of JMESPath expressions to extract values from the cached resource.</p>
+<p>Projections defines the list of projections to extract values from the cached resource.</p>
 </td>
 </tr>
 </table>
@@ -460,6 +460,17 @@ int
 <a href="#kyverno.io/v2.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
 </p>
 <p>
+<p>GlobalContextEntryProjection extracts a named value from the cached resource using
+exactly one of JMESPath or Expression.</p>
+<p>The bound input, <code>object</code> for Expression or <code>@</code> for JMESPath, is exactly the value
+returned by <code>globalContext.Get(name)</code> with no projection:
+- For an APICall entry, <code>object</code> is the parsed API response, typically
+<code>{&quot;items&quot;: [...]}</code> for a list endpoint, so a projection reads <code>object.items.size()</code>.
+- For a KubernetesResource entry, <code>object</code> is the list of matching resources
+directly, so the equivalent projection reads <code>object.size()</code>.</p>
+<p>Numeric values extracted via Expression keep their CEL-native type (<code>int</code>,
+<code>uint</code>, or <code>double</code>), which may differ from the <code>float64</code> JMESPath always produces;
+arithmetic written against one is not guaranteed to type-check against the other.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -488,7 +499,20 @@ string
 </em>
 </td>
 <td>
-<p>JMESPath is the JMESPath expression to extract the value from the cached resource.</p>
+<p>JMESPath is the JMESPath expression to extract the value from the cached resource.
+Mutually exclusive with Expression.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Expression is the CEL expression to extract the value from the cached resource.
+Mutually exclusive with JMESPath.</p>
 </td>
 </tr>
 </tbody>
@@ -553,7 +577,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:
 </em>
 </td>
 <td>
-<p>Projections defines the list of JMESPath expressions to extract values from the cached resource.</p>
+<p>Projections defines the list of projections to extract values from the cached resource.</p>
 </td>
 </tr>
 </tbody>
@@ -1181,7 +1205,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:
 </em>
 </td>
 <td>
-<p>Projections defines the list of JMESPath expressions to extract values from the cached resource.</p>
+<p>Projections defines the list of projections to extract values from the cached resource.</p>
 </td>
 </tr>
 </table>
@@ -1272,6 +1296,17 @@ int
 <a href="#kyverno.io/v2alpha1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
 </p>
 <p>
+<p>GlobalContextEntryProjection extracts a named value from the cached resource using
+exactly one of JMESPath or Expression.</p>
+<p>The bound input, <code>object</code> for Expression or <code>@</code> for JMESPath, is exactly the value
+returned by <code>globalContext.Get(name)</code> with no projection:
+- For an APICall entry, <code>object</code> is the parsed API response, typically
+<code>{&quot;items&quot;: [...]}</code> for a list endpoint, so a projection reads <code>object.items.size()</code>.
+- For a KubernetesResource entry, <code>object</code> is the list of matching resources
+directly, so the equivalent projection reads <code>object.size()</code>.</p>
+<p>Numeric values extracted via Expression keep their CEL-native type (<code>int</code>,
+<code>uint</code>, or <code>double</code>), which may differ from the <code>float64</code> JMESPath always produces;
+arithmetic written against one is not guaranteed to type-check against the other.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -1300,7 +1335,20 @@ string
 </em>
 </td>
 <td>
-<p>JMESPath is the JMESPath expression to extract the value from the cached resource.</p>
+<p>JMESPath is the JMESPath expression to extract the value from the cached resource.
+Mutually exclusive with Expression.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Expression is the CEL expression to extract the value from the cached resource.
+Mutually exclusive with JMESPath.</p>
 </td>
 </tr>
 </tbody>
@@ -1365,7 +1413,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:
 </em>
 </td>
 <td>
-<p>Projections defines the list of JMESPath expressions to extract values from the cached resource.</p>
+<p>Projections defines the list of projections to extract values from the cached resource.</p>
 </td>
 </tr>
 </tbody>
@@ -1601,7 +1649,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:
 </em>
 </td>
 <td>
-<p>Projections defines the list of JMESPath expressions to extract values from the cached resource.</p>
+<p>Projections defines the list of projections to extract values from the cached resource.</p>
 </td>
 </tr>
 </table>
@@ -1692,6 +1740,17 @@ int
 <a href="#kyverno.io/v2beta1.GlobalContextEntrySpec">GlobalContextEntrySpec</a>)
 </p>
 <p>
+<p>GlobalContextEntryProjection extracts a named value from the cached resource using
+exactly one of JMESPath or Expression.</p>
+<p>The bound input, <code>object</code> for Expression or <code>@</code> for JMESPath, is exactly the value
+returned by <code>globalContext.Get(name)</code> with no projection:
+- For an APICall entry, <code>object</code> is the parsed API response, typically
+<code>{&quot;items&quot;: [...]}</code> for a list endpoint, so a projection reads <code>object.items.size()</code>.
+- For a KubernetesResource entry, <code>object</code> is the list of matching resources
+directly, so the equivalent projection reads <code>object.size()</code>.</p>
+<p>Numeric values extracted via Expression keep their CEL-native type (<code>int</code>,
+<code>uint</code>, or <code>double</code>), which may differ from the <code>float64</code> JMESPath always produces;
+arithmetic written against one is not guaranteed to type-check against the other.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -1720,7 +1779,20 @@ string
 </em>
 </td>
 <td>
-<p>JMESPath is the JMESPath expression to extract the value from the cached resource.</p>
+<p>JMESPath is the JMESPath expression to extract the value from the cached resource.
+Mutually exclusive with Expression.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Expression is the CEL expression to extract the value from the cached resource.
+Mutually exclusive with JMESPath.</p>
 </td>
 </tr>
 </tbody>
@@ -1785,7 +1857,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:
 </em>
 </td>
 <td>
-<p>Projections defines the list of JMESPath expressions to extract values from the cached resource.</p>
+<p>Projections defines the list of projections to extract values from the cached resource.</p>
 </td>
 </tr>
 </tbody>

@@ -189,9 +189,9 @@ func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
 //   - For a KubernetesResource entry, `object` is the list of matching resources
 //     directly, so the equivalent projection reads `object.size()`.
 //
-// Numeric values extracted via Expression keep their CEL-native type (`int` or
-// `double`), which may differ from the `float64` JMESPath always produces; arithmetic
-// written against one is not guaranteed to type-check against the other.
+// Numeric values extracted via Expression keep their CEL-native type (`int`,
+// `uint`, or `double`), which may differ from the `float64` JMESPath always produces;
+// arithmetic written against one is not guaranteed to type-check against the other.
 // +kubebuilder:validation:XValidation:rule="has(self.jmesPath) != has(self.expression)",message="exactly one of jmesPath or expression must be set"
 type GlobalContextEntryProjection struct {
 	// Name is the name to use for the extracted value in the context.

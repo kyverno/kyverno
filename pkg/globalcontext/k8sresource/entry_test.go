@@ -121,6 +121,22 @@ func TestEntry_Get_WithProjection(t *testing.T) {
 	assert.Equal(t, []string{"cm1", "cm2"}, names)
 }
 
+func TestEntry_Get_WithPresentNilValue(t *testing.T) {
+	// A projection evaluating to CEL null (or an empty optional) caches as a present
+	// key with a nil value, which must be distinguishable from a missing key.
+	e := &entry{
+		projectedMu: sync.RWMutex{},
+		projected: map[string]interface{}{
+			"empty": nil,
+		},
+	}
+
+	result, err := e.Get("empty")
+
+	assert.NoError(t, err)
+	assert.Nil(t, result)
+}
+
 func TestEntry_Get_ProjectionNotFound(t *testing.T) {
 	e := &entry{
 		projectedMu: sync.RWMutex{},

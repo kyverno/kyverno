@@ -105,6 +105,21 @@ func TestEntry_Get_WithNilData(t *testing.T) {
 	assert.Nil(t, got)
 }
 
+func TestEntry_Get_WithPresentNilValue(t *testing.T) {
+	// A projection evaluating to CEL null (or an empty optional) caches as a present
+	// key with a nil value, which must be distinguishable from a missing key.
+	e := &entry{
+		dataMap: map[string]any{
+			"projection1": nil,
+		},
+		err: nil,
+	}
+
+	got, err := e.Get("projection1")
+	assert.NoError(t, err)
+	assert.Nil(t, got)
+}
+
 func TestEntry_Get_EmptyProjectionName(t *testing.T) {
 	e := &entry{
 		dataMap: map[string]any{

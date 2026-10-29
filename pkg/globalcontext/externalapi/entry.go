@@ -134,8 +134,8 @@ func (e *entry) Get(projection string) (any, error) {
 		return nil, e.err
 	}
 
-	data := e.dataMap[projection]
-	if data == nil {
+	data, ok := e.dataMap[projection]
+	if !ok {
 		return nil, fmt.Errorf("no data available")
 	}
 
