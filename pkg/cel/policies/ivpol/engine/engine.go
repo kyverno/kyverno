@@ -138,7 +138,7 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 	} else {
 		relevant = policies
 	}
-	responses, err := e.handleValidation(ctx, relevant, attr, &request.Request, namespace, request.Context)
+	responses, err := e.handleValidation(ctx, relevant, attr, &request.Request, namespace, request.Context, request.OldObjectForPolicy)
 	if err != nil {
 		return response, err
 	}
@@ -496,10 +496,11 @@ func (e *engineImpl) handleValidation(
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	libctx libs.Context,
+	oldObjectForPolicy func(string) runtime.Object,
 ) ([]eval.ImageVerifyPolicyResponse, error) {
-	responses, filteredPolicies, scopes := e.filterPolicies(policies, attr, namespace, false)
+	responses, filteredPolicies, scopes := e.filterPolicies(policies, attr, namespace, false, oldObjectForPolicy)
 	var err error
-	responses, err = e.evaluatePolicies(ctx, filteredPolicies, attr, request, namespace, libctx, responses, scopes)
+	responses, err = e.evaluatePolicies(ctx, filteredPolicies, attr, request, namespace, libctx, responses, scopes, oldObjectForPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -514,11 +515,31 @@ func (e *engineImpl) handleValidation(
 	return out, nil
 }
 
+func cloneAttributesWithOldObject(attr admission.Attributes, oldObj runtime.Object) admission.Attributes {
+	if attr == nil {
+		return nil
+	}
+	return admission.NewAttributesRecord(
+		attr.GetObject(),
+		oldObj,
+		attr.GetKind(),
+		attr.GetNamespace(),
+		attr.GetName(),
+		attr.GetResource(),
+		attr.GetSubresource(),
+		attr.GetOperation(),
+		attr.GetOperationOptions(),
+		attr.IsDryRun(),
+		attr.GetUserInfo(),
+	)
+}
+
 func (e *engineImpl) filterPolicies(
 	policies []Policy,
 	attr admission.Attributes,
 	namespace runtime.Object,
 	includeUnmatched bool,
+	oldObjectForPolicy func(string) runtime.Object,
 ) (map[string]eval.ImageVerifyPolicyResponse, []Policy, []trace.ScopeTrace) {
 	results := make(map[string]eval.ImageVerifyPolicyResponse, len(policies))
 	filtered := make([]Policy, 0, len(policies))
@@ -532,7 +553,13 @@ func (e *engineImpl) filterPolicies(
 		return results, policies, scopes
 	}
 	for _, pol := range policies {
-		matches, err := e.matchPolicy(pol, attr, namespace)
+		polAttr := attr
+		if oldObjectForPolicy != nil {
+			if polOld := oldObjectForPolicy(pol.Policy.GetName()); polOld != nil {
+				polAttr = cloneAttributesWithOldObject(attr, polOld)
+			}
+		}
+		matches, err := e.matchPolicy(pol, polAttr, namespace)
 		response := eval.ImageVerifyPolicyResponse{
 			Policy:     pol.Policy,
 			Actions:    pol.Actions,
@@ -541,7 +568,7 @@ func (e *engineImpl) filterPolicies(
 		traced := tracing(pol)
 		var scope trace.ScopeTrace
 		if traced {
-			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(pol.Policy.GetSpec().MatchConstraints, attr, namespace, matches)}
+			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(pol.Policy.GetSpec().MatchConstraints, polAttr, namespace, matches)}
 		}
 		key := policyKey(pol.Policy)
 		if err != nil {
@@ -550,7 +577,7 @@ func (e *engineImpl) filterPolicies(
 				response.Trace = withTraceHeader(&trace.Decision{
 					Scope:   trace.ScopeTrace{Reason: "failed to evaluate matchConstraints: " + err.Error()},
 					Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()},
-				}, pol, attr)
+				}, pol, polAttr)
 			}
 			results[key] = response
 			continue
@@ -570,7 +597,7 @@ func (e *engineImpl) filterPolicies(
 				response.Trace = withTraceHeader(&trace.Decision{
 					Scope:   scope,
 					Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "the policy does not apply to this resource"},
-				}, pol, attr)
+				}, pol, polAttr)
 				results[key] = response
 			}
 		}
@@ -615,11 +642,12 @@ func (e *engineImpl) evaluatePolicies(
 	libctx libs.Context,
 	responses map[string]eval.ImageVerifyPolicyResponse,
 	scopes []trace.ScopeTrace,
+	oldObjectForPolicy func(string) runtime.Object,
 ) (map[string]eval.ImageVerifyPolicyResponse, error) {
 	// Built at most once for the whole evaluation: the thunk is only invoked
 	// when a policy's Evaluate reaches prepareK8sData, and memoized so every
 	// policy after the first reuses the same map.
-	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+	defaultRequestMapFn := sync.OnceValues(func() (map[string]any, error) {
 		return celcompiler.BuildRawRequestMap(request)
 	})
 	// Shared by every policy evaluated below, so required sees cross-policy evidence.
@@ -697,10 +725,26 @@ func (e *engineImpl) evaluatePolicies(
 
 			ictx := imageContexts[i]
 
+			polAttr := attr
+			polRequest := request
+			reqMapFn := defaultRequestMapFn
+
+			if oldObjectForPolicy != nil {
+				if polOld := oldObjectForPolicy(ivpol.Policy.GetName()); polOld != nil {
+					polAttr = cloneAttributesWithOldObject(attr, polOld)
+					reqCopy := *request
+					reqCopy.OldObject = runtime.RawExtension{Object: polOld}
+					polRequest = &reqCopy
+					reqMapFn = sync.OnceValues(func() (map[string]any, error) {
+						return celcompiler.BuildRawRequestMap(&reqCopy)
+					})
+				}
+			}
+
 			if ivpol.ExtractionMode {
-				evaluation.result, evaluation.err = e.evaluateExtractedIv(ctx, evaluation.compiled, ictx, e.ivCache, verifications, attr, request, namespace, libctx)
+				evaluation.result, evaluation.err = e.evaluateExtractedIv(ctx, evaluation.compiled, ictx, e.ivCache, verifications, polAttr, polRequest, namespace, libctx)
 			} else {
-				evaluation.result, evaluation.err = evaluation.compiled.Evaluate(ctx, ictx, e.ivCache, verifications, attr, request, namespace, true, requestMapFn, libctx)
+				evaluation.result, evaluation.err = evaluation.compiled.Evaluate(ctx, ictx, e.ivCache, verifications, polAttr, polRequest, namespace, true, reqMapFn, libctx)
 			}
 		}(i)
 	}
@@ -715,6 +759,12 @@ func (e *engineImpl) evaluatePolicies(
 		response := evaluation.response
 		startTime := evaluation.startTime
 		traced := tracing(ivpol)
+		polAttr := attr
+		if oldObjectForPolicy != nil {
+			if polOld := oldObjectForPolicy(ivpol.Policy.GetName()); polOld != nil {
+				polAttr = cloneAttributesWithOldObject(attr, polOld)
+			}
+		}
 		// attach puts the evaluation's trace, with its scope and header, on the response
 		attach := func(d *trace.Decision) {
 			if !traced || d == nil {
@@ -723,7 +773,7 @@ func (e *engineImpl) evaluatePolicies(
 			if i < len(scopes) {
 				d.Scope = scopes[i]
 			}
-			response.Trace = withTraceHeader(d, ivpol, attr)
+			response.Trace = withTraceHeader(d, ivpol, polAttr)
 		}
 
 		key := policyKey(ivpol.Policy)

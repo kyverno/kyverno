@@ -89,6 +89,11 @@ func (f *fakeEngine) Handle(ctx context.Context, engine engine.EngineRequest, fi
 	return args.Get(0).(mpolengine.EngineResponse), args.Error(1)
 }
 
+func (f *fakeEngine) HandleWithAttributes(ctx context.Context, attr admission.Attributes, engine engine.EngineRequest, filter mpolengine.Predicate) (mpolengine.EngineResponse, error) {
+	args := f.Called()
+	return args.Get(0).(mpolengine.EngineResponse), args.Error(1)
+}
+
 func (f *fakeEngine) MatchedMutateExistingPolicies(ctx context.Context, engine engine.EngineRequest) []string {
 	args := f.Called()
 	return args.Get(0).([]string)

@@ -478,7 +478,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
+	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation(), variables)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -773,6 +773,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 	operation string,
+	vars *variables.Variables,
 ) ([]engineapi.EngineResponse, error) {
 	if len(ivps) == 0 {
 		return nil, nil
@@ -810,14 +811,13 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		return nil, nil
 	}
 
-	// Compilation captures the CLI library defaults, so initialize them first.
-	provider, err := ivpolengine.NewProvider(eval.NewCompilerWithTrace(lister, c.Explain), ivps, celExceptions)
+	compiler := eval.NewCompilerWithTrace(lister, c.Explain)
+	singleProvider, err := ivpolengine.NewProvider(compiler, ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
-
-	engine := ivpolengine.NewEngine(
-		provider,
+	eng := ivpolengine.NewEngine(
+		singleProvider,
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
@@ -841,7 +841,11 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		if userInfo != nil {
 			user = userInfo.AdmissionUserInfo
 		}
-		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
+		var oldRes *unstructured.Unstructured
+		if vars != nil {
+			oldRes = vars.OldObject(resource, resource.GetName(), "")
+		}
+		op, object, oldObject := processor.AdmissionRequestShape(operation, resource, oldRes)
 		request := celengine.Request(
 			contextProvider,
 			resource.GroupVersionKind(),
@@ -856,7 +860,16 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			false,
 			nil,
 		)
-		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
+		if vars != nil {
+			request.OldObjectForPolicy = func(polName string) runtime.Object {
+				if obj := vars.OldObject(resource, resource.GetName(), polName); obj != nil {
+					_, _, polOld := processor.AdmissionRequestShape(operation, resource, obj)
+					return polOld
+				}
+				return nil
+			}
+		}
+		engineResponse, err := eng.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -872,8 +885,6 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		for _, r := range engineResponse.Policies {
 			c.printTrace(out, r.Trace)
 			if r.Result.Name() == "" {
-				// a traced policy that did not apply, or that a match condition skipped: it is only
-				// returned for its trace and has no result, like the untraced run, which omits it
 				continue
 			}
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
@@ -882,7 +893,6 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			responses = append(responses, resp)
 		}
 	}
-
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
 

@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/values"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -274,4 +275,349 @@ func TestVariables_ComputeVariables(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVariables_OldObject(t *testing.T) {
+	base := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "my-pod",
+				"namespace": "default",
+				"labels": map[string]interface{}{
+					"app": "demo",
+				},
+			},
+		},
+	}
+
+	t.Run("nil valuesSpec returns nil", func(t *testing.T) {
+		v := Variables{}
+		assert.Nil(t, v.OldObject(base, "my-pod"))
+	})
+
+	t.Run("empty valuesSpec returns nil", func(t *testing.T) {
+		v := Variables{values: &v1alpha1.ValuesSpec{}}
+		assert.Nil(t, v.OldObject(base, "my-pod"))
+	})
+
+	t.Run("globalValues with full object request.oldObject", func(t *testing.T) {
+		v := Variables{
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
+					"request.oldObject": map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "Pod",
+						"metadata": map[string]interface{}{
+							"name": "old-pod",
+						},
+					},
+				},
+			},
+		}
+		got := v.OldObject(base, "my-pod")
+		assert.NotNil(t, got)
+		assert.Equal(t, "old-pod", got.GetName())
+	})
+
+	t.Run("globalValues with dot-notation overrides on base", func(t *testing.T) {
+		v := Variables{
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
+					"request.oldObject.metadata.labels.existing-label": "foo",
+				},
+			},
+		}
+		got := v.OldObject(base, "my-pod")
+		assert.NotNil(t, got)
+		assert.Equal(t, "my-pod", got.GetName())
+		labels := got.GetLabels()
+		assert.Equal(t, "foo", labels["existing-label"])
+		assert.Equal(t, "demo", labels["app"])
+		assert.Equal(t, map[string]string{"app": "demo"}, base.GetLabels())
+	})
+
+	t.Run("canonical request.oldObject takes precedence over oldObject alias deterministically", func(t *testing.T) {
+		v := Variables{
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
+					"oldObject": map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "Pod",
+						"metadata": map[string]interface{}{
+							"name": "alias-pod",
+						},
+					},
+					"request.oldObject": map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "Pod",
+						"metadata": map[string]interface{}{
+							"name": "canonical-pod",
+						},
+					},
+				},
+			},
+		}
+		got := v.OldObject(base, "my-pod")
+		assert.NotNil(t, got)
+		assert.Equal(t, "canonical-pod", got.GetName())
+	})
+
+	t.Run("policy-specific resource values takes precedence over globalValues", func(t *testing.T) {
+		v := Variables{
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
+					"request.oldObject": map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "Pod",
+						"metadata": map[string]interface{}{
+							"name": "global-old-pod",
+						},
+					},
+				},
+				Policies: []v1alpha1.Policy{
+					{
+						Name: "vpol-test",
+						Resources: []v1alpha1.Resource{
+							{
+								Name: "my-pod",
+								Values: map[string]interface{}{
+									"request.oldObject": map[string]interface{}{
+										"apiVersion": "v1",
+										"kind":       "Pod",
+										"metadata": map[string]interface{}{
+											"name": "policy-old-pod",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		// Matching policy sees policy-specific value
+		gotPolicy := v.OldObject(base, "my-pod", "vpol-test")
+		assert.NotNil(t, gotPolicy)
+		assert.Equal(t, "policy-old-pod", gotPolicy.GetName())
+
+		// Non-matching policy falls back to global value
+		gotOther := v.OldObject(base, "my-pod", "other-policy")
+		assert.NotNil(t, gotOther)
+		assert.Equal(t, "global-old-pod", gotOther.GetName())
+	})
+
+	t.Run("resource matching by namespace/name", func(t *testing.T) {
+		v := Variables{
+			values: &v1alpha1.ValuesSpec{
+				Policies: []v1alpha1.Policy{
+					{
+						Name: "vpol-test",
+						Resources: []v1alpha1.Resource{
+							{
+								Name: "default/my-pod",
+								Values: map[string]interface{}{
+									"request.oldObject": map[string]interface{}{
+										"metadata": map[string]interface{}{
+											"name": "ns-old-pod",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		got := v.OldObject(base, "my-pod", "vpol-test")
+		assert.NotNil(t, got)
+		assert.Equal(t, "ns-old-pod", got.GetName())
+	})
+
+	t.Run("CLI variables override", func(t *testing.T) {
+		v := Variables{
+			variables: map[string]string{
+				"request.oldObject.metadata.labels.cli-label": "bar",
+			},
+		}
+		got := v.OldObject(base, "my-pod")
+		assert.NotNil(t, got)
+		assert.Equal(t, "bar", got.GetLabels()["cli-label"])
+	})
+
+	t.Run("distinct oldObject per policy for the same resource", func(t *testing.T) {
+		v := Variables{
+			values: &v1alpha1.ValuesSpec{
+				Policies: []v1alpha1.Policy{
+					{
+						Name: "policy-alpha",
+						Resources: []v1alpha1.Resource{
+							{
+								Name: "my-pod",
+								Values: map[string]interface{}{
+									"request.oldObject": map[string]interface{}{
+										"metadata": map[string]interface{}{
+											"name": "alpha-old-pod",
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						Name: "policy-beta",
+						Resources: []v1alpha1.Resource{
+							{
+								Name: "my-pod",
+								Values: map[string]interface{}{
+									"request.oldObject": map[string]interface{}{
+										"metadata": map[string]interface{}{
+											"name": "beta-old-pod",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		gotAlpha := v.OldObject(base, "my-pod", "policy-alpha")
+		assert.NotNil(t, gotAlpha)
+		assert.Equal(t, "alpha-old-pod", gotAlpha.GetName())
+
+		gotBeta := v.OldObject(base, "my-pod", "policy-beta")
+		assert.NotNil(t, gotBeta)
+		assert.Equal(t, "beta-old-pod", gotBeta.GetName())
+	})
+
+	t.Run("global full object with policy dot override and CLI variable override", func(t *testing.T) {
+		v := Variables{
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
+					"request.oldObject": map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "Pod",
+						"metadata": map[string]interface{}{
+							"name": "global-pod",
+							"labels": map[string]interface{}{
+								"app": "web",
+								"env": "prod",
+							},
+						},
+					},
+				},
+				Policies: []v1alpha1.Policy{
+					{
+						Name: "vpol-test",
+						Resources: []v1alpha1.Resource{
+							{
+								Name: "my-pod",
+								Values: map[string]interface{}{
+									"request.oldObject.metadata.labels.env": "staging",
+								},
+							},
+						},
+					},
+				},
+			},
+			variables: map[string]string{
+				"request.oldObject.metadata.labels.tier": "backend",
+			},
+		}
+
+		// Targeted policy gets global full object merged with policy-specific dot override and CLI dot override
+		gotTargeted := v.OldObject(base, "my-pod", "vpol-test")
+		assert.NotNil(t, gotTargeted)
+		assert.Equal(t, "global-pod", gotTargeted.GetName())
+		labelsTargeted := gotTargeted.GetLabels()
+		assert.Equal(t, "web", labelsTargeted["app"])
+		assert.Equal(t, "staging", labelsTargeted["env"])
+		assert.Equal(t, "backend", labelsTargeted["tier"])
+
+		// Other policy gets global full object without vpol-test's dot override, but with CLI override
+		gotOther := v.OldObject(base, "my-pod", "other-policy")
+		assert.NotNil(t, gotOther)
+		assert.Equal(t, "global-pod", gotOther.GetName())
+		labelsOther := gotOther.GetLabels()
+		assert.Equal(t, "web", labelsOther["app"])
+		assert.Equal(t, "prod", labelsOther["env"])
+		assert.Equal(t, "backend", labelsOther["tier"])
+	})
+	t.Run("alias precedence between request.oldObject and oldObject", func(t *testing.T) {
+		// global has request.oldObject, policy has oldObject alias
+		v1 := Variables{
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
+					"request.oldObject": map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "Pod",
+						"metadata": map[string]interface{}{
+							"name": "global-request-pod",
+						},
+					},
+				},
+				Policies: []v1alpha1.Policy{
+					{
+						Name: "vpol-test",
+						Resources: []v1alpha1.Resource{
+							{
+								Name: "my-pod",
+								Values: map[string]interface{}{
+									"oldObject": map[string]interface{}{
+										"apiVersion": "v1",
+										"kind":       "Pod",
+										"metadata": map[string]interface{}{
+											"name": "resource-alias-pod",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		got1 := v1.OldObject(base, "my-pod", "vpol-test")
+		assert.NotNil(t, got1)
+		assert.Equal(t, "resource-alias-pod", got1.GetName())
+
+		// reverse: global has oldObject alias, policy has request.oldObject
+		v2 := Variables{
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
+					"oldObject": map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "Pod",
+						"metadata": map[string]interface{}{
+							"name": "global-alias-pod",
+						},
+					},
+				},
+				Policies: []v1alpha1.Policy{
+					{
+						Name: "vpol-test",
+						Resources: []v1alpha1.Resource{
+							{
+								Name: "my-pod",
+								Values: map[string]interface{}{
+									"request.oldObject": map[string]interface{}{
+										"apiVersion": "v1",
+										"kind":       "Pod",
+										"metadata": map[string]interface{}{
+											"name": "resource-request-pod",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		got2 := v2.OldObject(base, "my-pod", "vpol-test")
+		assert.NotNil(t, got2)
+		assert.Equal(t, "resource-request-pod", got2.GetName())
+	})
 }
