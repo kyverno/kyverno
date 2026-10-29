@@ -90,6 +90,8 @@ type ApplyCommandConfig struct {
 	Context                   string
 	Namespace                 string
 	MutateLogPath             string
+	OutputDir                 string
+	OutputFile                string
 	Variables                 []string
 	ValuesFile                string
 	UserInfoPath              string
@@ -162,6 +164,10 @@ func Command() *cobra.Command {
 			}
 			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
+			table, err = applyCommandConfig.resolveOutputFlags(cmd, table, detailedResults)
+			if err != nil {
+				return err
+			}
 			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
 			if err != nil {
 				return err
@@ -224,13 +230,17 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.TargetResourcePaths, "target-resources", "", []string{}, "Path to a directory containing target resources files for policies that have mutate existing")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated/generated resources in provided file/directory")
+	cmd.Flags().StringVar(&applyCommandConfig.OutputDir, "output-dir", "", "Directory for mutated/generated resources")
+	cmd.Flags().StringVar(&applyCommandConfig.OutputFile, "output-file", "", "File for mutated/generated resources")
+	_ = cmd.Flags().MarkDeprecated("output", "use --output-dir or --output-file instead; -o/--output will select the output format in a future release")
+	cmd.MarkFlagsMutuallyExclusive("output", "output-dir", "output-file")
 	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&applyCommandConfig.UserInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Variables, "set", "s", nil, "Variables that are required")
 	cmd.Flags().StringVarP(&applyCommandConfig.ValuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().StringVarP(&applyCommandConfig.ContextPath, "context-file", "", "", "File containing context data for CEL policies")
 	cmd.Flags().BoolVarP(&applyCommandConfig.PolicyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
-	cmd.Flags().StringVarP(&applyCommandConfig.OutputFormat, "output-format", "", "yaml", "Specifies the policy report format (json or yaml). Default: yaml.")
+	cmd.Flags().StringVarP(&applyCommandConfig.OutputFormat, "output-format", "", "yaml", "Output format: json or yaml for policy reports/exceptions, or table for evaluation results")
 	cmd.Flags().StringVarP(&applyCommandConfig.Namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
 	cmd.Flags().BoolVar(&applyCommandConfig.RegistryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
@@ -273,13 +283,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	c.deprecationWarnings = nil
 	err := c.checkArguments()
 	if err != nil {
-		return nil, nil, skippedInvalidPolicies, nil, err
-	}
-	mutateLogPathIsDir, err := c.getMutateLogPathIsDir()
-	if err != nil {
-		return nil, nil, skippedInvalidPolicies, nil, err
-	}
-	if err := c.cleanPreviousContent(mutateLogPathIsDir); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	crdProcessor := data.NewCRDProcessor(nil)
@@ -446,6 +449,15 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		httpRequests = append(httpRequests, request)
 	}
 
+	// Create output files only after loading inputs to avoid truncating existing files on load errors.
+	mutateLogPathIsDir, err := c.getMutateLogPathIsDir()
+	if err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
+	if err := c.cleanPreviousContent(mutateLogPathIsDir); err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
+
 	rc, resources1, responses1, err := c.applyPolicies(
 		out,
 		&store,
@@ -507,6 +519,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 }
 
 func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
+	if c.OutputDir != "" || c.OutputFile != "" {
+		isDir := c.OutputDir != ""
+		c.MutateLogPath = c.OutputFile
+		if isDir {
+			c.MutateLogPath = c.OutputDir
+		}
+		if info, err := os.Stat(c.MutateLogPath); err == nil && info.IsDir() != isDir {
+			return false, fmt.Errorf("output destination %q has the wrong type", c.MutateLogPath)
+		}
+		return isDir, createFileOrFolder(c.MutateLogPath, isDir)
+	}
 	mutateLogPathIsDir, err := checkMutateLogPath(c.MutateLogPath)
 	if err != nil {
 		return false, fmt.Errorf("failed to create file/folder (%w)", err)

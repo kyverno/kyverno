@@ -1,6 +1,6 @@
 # AGENTS.md — api/
 
-API types for `kyverno.io` (`v1`, `v1beta1`, `v2`, `v2beta1`, `v2alpha1`), `wgpolicyk8s.io` (as `policyreport`), and
+API types for `kyverno.io` (`v2`, `v2beta1`, `v2alpha1`), `wgpolicyk8s.io` (as `policyreport`), and
 `reports.kyverno.io`. **`policies.kyverno.io` (the CEL-based types) is not here** — it lives in the external
 `github.com/kyverno/api` module. See [docs/context/shared/api-versioning.md](../docs/context/shared/api-versioning.md)
 for versioning rules (canonical copy — don't restate them here) and
@@ -13,17 +13,20 @@ kubebuilder markers on these types the way controller-runtime projects typically
 admission webhook config in the repo: `pkg/controllers/webhook` builds and reconciles
 `ValidatingWebhookConfiguration`/`MutatingWebhookConfiguration` resources dynamically at runtime, and
 `test/conformance/` has static ones for test fixtures — just none of it originates from a marker in this tree.
-Each policy type still has a hand-written `Validate(...)` method on the Go type, but after #17710 PR 4 most of
-them are unreachable from server code: `ClusterPolicy.Validate(clusterResources sets.Set[string]) (warnings
-[]string, errs field.ErrorList)` (`clusterpolicy_types.go`) has no caller left — `pkg/validation/policy.Validate()`,
-which used to call it from `pkg/webhooks/policy`, no longer exists, and `pkg/webhooks/policy` now only validates
-CEL policy kinds. Likewise `CleanupPolicy`/`ClusterCleanupPolicy.Validate(clusterResources)` has no caller;
-`cmd/cleanup-controller/handlers/admission/policy` and `pkg/validation/cleanuppolicy.Validate()` are both gone, and
-new writes to those kinds are now unconditionally denied by the webhook (see
-[pkg/deprecations/AGENTS.md](../pkg/deprecations/AGENTS.md)) rather than validated. The one still-live method is
-`PolicyException.Validate()` (`policy_exception_types.go`), called from `pkg/webhooks/celexception` — `polex` is a
-`kyvernov2` type shared by the CEL exception path, not legacy-only. Validation is genuinely two-layered regardless
-of which type: CRD
+`ClusterPolicy`,
+`Policy`, `CleanupPolicy`, and `ClusterCleanupPolicy` no longer exist in Go at all — #17713 section 3 deleted
+`api/kyverno/v1`, `api/kyverno/v1beta1`, and the doomed `v2`/`v2beta1` cleanup and policy roots, since
+`pkg/validation/policy.Validate()` and `pkg/validation/cleanuppolicy.Validate()` had no caller left after
+#17710 PR 4 removed the handlers that called them. The Kubernetes APIs for those kinds stay served during the
+1.20 compatibility period (see `config/crds/kyverno/README.md`); new writes to them are now unconditionally
+denied by the webhook (see [pkg/deprecations/AGENTS.md](../pkg/deprecations/AGENTS.md)) rather than validated
+in Go. See `docs/dev/api/removed-legacy-go-api.md` for the full removed-symbol table. The hand-written
+`Validate(...)` methods that remain all belong to `GlobalContextEntry` — the same five in each of
+`api/kyverno/v2`, `v2alpha1`, and `v2beta1`, covering the type plus its
+`Spec`/`KubernetesResource`/`ExternalAPICall`/`Projection` helpers.
+`PolicyException.Validate()` went with the `kyvernov2`/`kyvernov2beta1` exception roots; `pkg/webhooks/celexception`
+validates `policies.kyverno.io` types from the external `github.com/kyverno/api` module instead.
+Validation is genuinely two-layered regardless of which type: CRD
 OpenAPI schema validation from `+kubebuilder:validation:...` markers, enforced by the Kubernetes API server itself,
 *and* Kyverno's own semantic `Validate()` for cross-field checks the schema can't express. If you're adding a new
 validation rule, decide which layer it belongs in — a marker if it's expressible as schema, a `Validate()` addition
@@ -42,34 +45,36 @@ Every version's `doc.go` is boilerplate (`+k8s:openapi-gen=true`, `+k8s:deepcopy
 `+groupName=kyverno.io`) with no description of what changed in that version. **Don't go looking for an in-package
 changelog** — version history has to come from git log or `CHANGELOG.md`, not from `doc.go`.
 
-## `v1.ClusterPolicy` itself carries a deprecation marker pointing at the CEL replacement
+## The `kyverno.io/v1` and `v1beta1` Go packages are gone; the served APIs are not
 
-```go
-// +kubebuilder:deprecatedversion:warning="kyverno.io/v1 ClusterPolicy is deprecated and will be removed in a
-// future release; migrate to ValidatingPolicy, MutatingPolicy, GeneratingPolicy or ImageValidatingPolicy
-// (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/"
-```
-This is the concrete evidence behind `pkg/deprecations`' legacy-kind mapping — if you're wondering whether v1
-policy kinds are actually on a deprecation path or just conceptually superseded, this marker (and the matching
-runtime warning in `pkg/deprecations/deprecations.go`) confirms it's real and in effect today.
+`api/kyverno/v1` (`ClusterPolicy`, `Policy`, and their legacy rule schema) and `api/kyverno/v1beta1`
+(`UpdateRequest` `v1beta1`) carried a `+kubebuilder:deprecatedversion:warning` marker pointing at the CEL
+replacement (`ValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`, `ImageValidatingPolicy` under
+`policies.kyverno.io`). #17713 section 3 deleted both Go packages outright, along with the doomed cleanup and
+policy-exception roots in `v2`/`v2beta1`, because nothing in `pkg/`, `cmd/`, or `test/` reachably used them —
+see `docs/dev/api/removed-legacy-go-api.md` for the removed-import and removed-symbol tables and their
+replacements. The *served* Kubernetes CRDs are unaffected: `config/crds/kyverno` stays byte-identical through
+the deletion (see `config/crds/kyverno/README.md` and the frozen-file list in the kyverno-crds codegen target),
+so clusters upgrading to 1.20 keep reading and writing the legacy kinds through the API server; only the Go
+types and their generated clients are gone.
 
 ## Shared types live in the unversioned `api/kyverno` package
 
-`ResourceSpec`, `APICall`, `ServiceCall`, `Method`, `RequestData`, and `HTTPHeader` are defined once in the
-version-less `api/kyverno` root package (alongside `Any`), not in any versioned subpackage. `api/kyverno/v1`
-re-exports them as `type X = kyverno.X` aliases so legacy consumers keep compiling; other versions and `pkg/`
-import `api/kyverno` directly. Retained (regenerated) CRD types must reference `kyverno.*` directly and never
-these aliases: controller-gen takes a non-inline field's description from the type name it sees, so a generated
-type naming an alias would pick up the alias's doc comment. `config/crds/kyverno` is a 1.20 compatibility
-snapshot (see `config/crds/kyverno/README.md`): only the five legacy policy CRDs and the UpdateRequest
-`v1beta1` block are frozen byte-for-byte and digest-checked by `make verify-legacy-crd-snapshot`; GlobalContextEntry
-and UpdateRequest `v2` keep regenerating from Go under `make verify-codegen`. The root
-package must not import any versioned `api/kyverno/*` package — that's what lets `v1` alias these types without
-an import cycle (a versioned package like `v2` already imports `v1` for other types, so hosting shared types
-there would cycle). Because the root package has no version segment, `genref`/`gen-crd-api-reference-docs` can't
-scan it as a documented page; it's registered as an external package pointing at pkg.go.dev instead (see
-`docs/user/config-api.yaml` and `docs/user/config.json`). The `v1` aliases are transitional: they go away once
-#17713 section 3 removes `v1`/`v1beta1`.
+`ResourceSpec`, `APICall`, `ServiceCall`, `Method`, `RequestData`, `HTTPHeader`, and `Any` are defined once in
+the version-less `api/kyverno` root package. It is the only home for types shared across versions — nothing
+moves into a versioned subpackage to keep an unreachable consumer compiling (#17713 section 3 deleted several
+dead `pkg/` consumers rather than add aliases for them). Retained (regenerated) CRD types reference `kyverno.*`
+directly: controller-gen takes a non-inline field's description from the type name it sees, so a generated type
+naming an alias would pick up the alias's doc comment instead of its own. `config/crds/kyverno` is a 1.20
+compatibility snapshot (see `config/crds/kyverno/README.md`): the five legacy policy CRDs are frozen
+byte-for-byte and digest-checked by `make verify-legacy-crd-snapshot`, and the UpdateRequest `v1beta1`
+version is frozen in place inside an otherwise-regenerated file (`KYVERNO_CRDS_FROZEN_VERSIONS`,
+`Makefile:571`). GlobalContextEntry and UpdateRequest `v2` keep regenerating from Go under
+`make verify-codegen`. The root package must not import any versioned
+`api/kyverno/*` package, to keep the dependency direction one-way (versioned packages import the root, never
+the reverse). Because the root package has no version segment, `genref`/`gen-crd-api-reference-docs` can't scan
+it as a documented page; it's registered as an external package pointing at pkg.go.dev instead (see
+`docs/user/config-api.yaml`).
 
 ## A genuinely new kind still goes to `v2alpha1` — its current occupant is just further along its own lifecycle
 

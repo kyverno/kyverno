@@ -505,7 +505,6 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--output-dir ./pkg/client/clientset \
 		--output-pkg $(CLIENTSET_PACKAGE) \
 		--input-base github.com/kyverno \
-		--input kyverno/api/kyverno/v1 \
 		--input kyverno/api/kyverno/v2 \
 		--input kyverno/api/kyverno/v2alpha1 \
 		--input kyverno/api/kyverno/v2beta1 \
@@ -522,7 +521,6 @@ codegen-client-listers: $(LISTER_GEN)
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-dir ./pkg/client/listers \
 		--output-pkg $(LISTERS_PACKAGE) \
-		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
 		./api/kyverno/v2beta1 \
@@ -541,7 +539,6 @@ codegen-client-informers: $(INFORMER_GEN)
 		--output-pkg $(INFORMERS_PACKAGE) \
 		--versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned \
 		--listers-package $(LISTERS_PACKAGE) \
-		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
 		./api/kyverno/v2beta1 \
@@ -717,11 +714,15 @@ endef
 
 .PHONY: helm-setup-dependency-charts
 helm-setup-dependency-charts: $(HELM) ## Add dependency helm repos and build dependencies
+ifneq ($(RELEASE_MODE),true)
 	@echo Setting up helm dependencies... >&2
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) repo add reports-server https://kyverno.github.io/reports-server
 	@$(HELM) repo add kyverno-api https://kyverno.github.io/api
 	@$(HELM) dependency update ./charts/kyverno
+else
+	@test -f .release/plan.json || (echo "Missing retained release workspace" >&2; exit 1)
+endif
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
@@ -970,7 +971,7 @@ test-cli-local-maps: $(CLI_BIN) ## Run local CLI MAP tests
 .PHONY: helm-test
 helm-test: $(HELM) ## Run helm test
 	@echo Running helm test... >&2
-	@$(HELM) dependency build ./charts/kyverno
+	@if [ "$(RELEASE_MODE)" != "true" ]; then $(HELM) dependency build ./charts/kyverno; fi
 	@$(HELM) test --namespace kyverno kyverno
 
 .PHONY: verify-legacy-crd-retention
@@ -989,6 +990,11 @@ verify-legacy-crd-snapshot: $(CRD_SPLICE)
 verify-background-controller-rbac: helm-setup-dependency-charts ## Verify the background controller holds everything the chart aggregates into admin/edit/view (no cluster needed)
 	@echo Verify background controller RBAC... >&2
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-background-controller-rbac.sh
+
+.PHONY: verify-policies-psa-version
+verify-policies-psa-version: $(HELM) ## Verify the policies chart renders the PSA behavior for each podSecurityVersion and the pss-psa-version CLI test policies are up to date (no cluster needed)
+	@echo Verify podSecurityVersion rendering... >&2
+	@HELM=$(HELM) ./scripts/verify-policies-psa-version.sh
 
 .PHONY: verify-policies-sysctls
 verify-policies-sysctls: $(HELM) ## Verify the restrict-sysctls allow-list matches PSA for each Kubernetes version (no cluster needed)
@@ -1109,9 +1115,10 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 	@$(KIND) load image-archive kyverno.tar --name $(KIND_NAME)
 
 .PHONY: kind-install-kyverno
+KYVERNO_TEST_CHART ?= ./charts/kyverno
 kind-install-kyverno: helm-setup-dependency-charts ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
-	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait $(KYVERNO_TEST_CHART) \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
 		--set admissionController.container.image.tag=$(GIT_SHA) \
