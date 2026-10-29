@@ -140,6 +140,10 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 }
 
 func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option) (map[string]any, error) {
+	return cp.GetImageDataContext(context.TODO(), image, remoteOpts)
+}
+
+func (cp *contextProvider) GetImageDataContext(ctx context.Context, image string, remoteOpts []remote.Option) (map[string]any, error) {
 	// NOTE: we deliberately not pass name options here because there is currently only one
 	// name option we build, which is name.Insecure. This option already gets build and passed
 	// during the fetching of the global registry client options and then building the image data
@@ -147,7 +151,7 @@ func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option
 	// the current state means we are using the flags of the registry client to denote whether we use the name insecure option here
 	// so we aren't honoring it per policy. but if we did per policy, then a policy without anything wouldn't pass this opt
 	// but the if the flag is set, the registry client opts will come with the name insecure option
-	data, err := cp.imagedata.FetchImageData(context.TODO(), image, remoteOpts, nil)
+	data, err := cp.imagedata.FetchImageData(ctx, image, remoteOpts, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -155,6 +159,10 @@ func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option
 }
 
 func (cp *contextProvider) ListResources(apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
+	return cp.ListResourcesContext(context.TODO(), apiVersion, resource, namespace, l)
+}
+
+func (cp *contextProvider) ListResourcesContext(ctx context.Context, apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
@@ -176,12 +184,16 @@ func (cp *contextProvider) ListResources(apiVersion, resource, namespace string,
 		labelSelector = labels.SelectorFromSet(l)
 	}
 
-	return resourceInteface.List(context.TODO(), metav1.ListOptions{
+	return resourceInteface.List(ctx, metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 }
 
 func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+	return cp.GetResourceContext(context.TODO(), apiVersion, resource, namespace, name)
+}
+
+func (cp *contextProvider) GetResourceContext(ctx context.Context, apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
@@ -201,7 +213,7 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	}
 
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{}, subresources...)
+	return resourceInteface.Get(ctx, name, metav1.GetOptions{}, subresources...)
 }
 
 func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {

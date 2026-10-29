@@ -436,3 +436,68 @@ func TestEvaluate_TracingOn_ChainedMutationsMatchTracingOff(t *testing.T) {
 	assert.Empty(t, traced.Trace.Mutations[1].Error)
 	assert.Equal(t, trace.VerdictPass, traced.Trace.Verdict.Status)
 }
+
+// TestEvaluateTarget_TracingRecordsTargetMatchConditions: EvaluateTarget checks the policy's
+// targetMatchConditions, not its matchConditions, so its trace must come from the target
+// conditions. The two sets have different names here, so a trace taken from the wrong slice shows
+// up as the trigger's condition name.
+func TestEvaluateTarget_TracingRecordsTargetMatchConditions(t *testing.T) {
+	tests := []struct {
+		name        string
+		namespace   string
+		wantResult  string
+		wantSkipped bool
+	}{{
+		name:       "target condition holds",
+		namespace:  "prod",
+		wantResult: "true",
+	}, {
+		name:        "target condition excludes the resource",
+		namespace:   "staging",
+		wantResult:  "false",
+		wantSkipped: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := buildMutationTracePolicy(applyConfigMutation(addTeamLabelExpr))
+			policy.Spec.TargetMatchConditions = []admissionregistrationv1.MatchCondition{{
+				Name:       "target-in-prod",
+				Expression: "object.metadata.namespace == 'prod'",
+			}}
+			p, errs := NewCompilerWithTrace(true).Compile(policy, nil)
+			require.Empty(t, errs)
+			res := p.EvaluateTarget(context.Background(), &mutTraceAttrs{obj: podObject(tt.namespace, nil)}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
+			require.NotNil(t, res)
+			require.NoError(t, res.Error)
+			require.NotNil(t, res.Trace)
+
+			require.Len(t, res.Trace.Match, 1, "only the target condition runs, not the trigger's not-kube-system")
+			assert.Equal(t, "target-in-prod", res.Trace.Match[0].Name)
+			assert.Equal(t, tt.wantResult, res.Trace.Match[0].Result)
+			assert.Equal(t, tt.wantSkipped, res.Skipped)
+			if tt.wantSkipped {
+				assert.Equal(t, trace.VerdictSkip, res.Trace.Verdict.Status)
+				assert.Contains(t, res.Trace.Verdict.Message, "target-in-prod")
+			} else {
+				assert.Equal(t, trace.VerdictPass, res.Trace.Verdict.Status)
+				require.NotNil(t, res.PatchedResource)
+			}
+		})
+	}
+}
+
+// TestEvaluate_TracingOn_MutationWithANonRepeatableCallIsNotReRun: a mutation that calls random()
+// gets no tracking twin, so it is evaluated once; its trace says why it has no breakdown, and the
+// patched object is the one tracing off would produce, shape-wise (the value is random).
+func TestEvaluate_TracingOn_MutationWithANonRepeatableCallIsNotReRun(t *testing.T) {
+	policy := buildMutationTracePolicy(applyConfigMutation(`Object{metadata: Object.metadata{labels: {"token": random('[a-z]{8}')}}}`))
+	traced := compileMutAndEvaluate(t, true, policy, podObject("prod", nil))
+	require.NotNil(t, traced)
+	require.NoError(t, traced.Error)
+	require.NotNil(t, traced.PatchedResource)
+	assert.Len(t, traced.PatchedResource.GetLabels()["token"], 8)
+	require.NotNil(t, traced.Trace)
+	require.Len(t, traced.Trace.Mutations, 1)
+	assert.Empty(t, traced.Trace.Mutations[0].Nodes)
+	assert.Equal(t, "it calls random, which is not run a second time", traced.Trace.Mutations[0].NoBreakdown)
+}
