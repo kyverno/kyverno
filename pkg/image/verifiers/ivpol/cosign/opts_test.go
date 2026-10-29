@@ -19,6 +19,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
+	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore/pkg/tuf"
 	"github.com/stretchr/testify/assert"
@@ -303,6 +304,30 @@ func TestCheckOptions_WithSource(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotEmpty(t, opts.RegistryClientOpts)
+}
+
+// The signature repository from source.repository must keep the base name
+// options, so an insecure (plain-HTTP) registry is not switched to HTTPS.
+func TestCheckOptions_WithSourceKeepsInsecureRegistry(t *testing.T) {
+	ctx := context.TODO()
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+		},
+		Source: &v1beta1.Source{
+			Repository: "registry.kyverno.test:5000/example/signatures",
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, []remote.Option{}, []name.Option{name.Insecure}, nil)
+	require.NoError(t, err)
+	targetRepo := ociremote.TargetRepositoryFromOptions(opts.RegistryClientOpts...)
+	assert.Equal(t, "registry.kyverno.test:5000/example/signatures", targetRepo.String())
+	assert.Equal(t, "http", targetRepo.Scheme())
 }
 
 func TestCheckOptions_InvalidPublicKey(t *testing.T) {

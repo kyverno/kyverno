@@ -97,7 +97,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 		}
 		baseROpts = append(baseROpts, remoteOpts...)
 		if len(att.Source.Repository) > 0 {
-			signatureRepo, err := name.NewRepository(att.Source.Repository)
+			signatureRepo, err := name.NewRepository(att.Source.Repository, baseNOpts...)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse signature repository %s: %w", att.Source.Repository, err)
 			}
