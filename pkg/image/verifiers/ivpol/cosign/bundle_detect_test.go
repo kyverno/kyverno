@@ -434,7 +434,7 @@ func Test_BundleDetection_InsecureSourceRepositoryKeepsHTTP(t *testing.T) {
 
 	att := bundleTestAttestor()
 	att.Source = &v1beta1.Source{Repository: host + "/test/img"}
-	opts, err := checkOptions(context.TODO(), att, []remote.Option{remote.WithTransport(transport)}, []name.Option{name.Insecure}, nil)
+	opts, err := checkOptions(context.TODO(), att, ref.Context().RegistryStr(), []remote.Option{remote.WithTransport(transport)}, []name.Option{name.Insecure}, nil)
 	require.NoError(t, err)
 
 	v := NewVerifier(nil, logr.Discard())

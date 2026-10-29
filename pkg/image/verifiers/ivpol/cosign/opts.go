@@ -82,7 +82,11 @@ func countPEMCertBlocks(pem []byte) int {
 	return bytes.Count(pem, pemCertBlockHeader)
 }
 
-func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister) (*cosign.CheckOpts, error) {
+// checkOptions builds the cosign check options for an attestor. imageRegistry
+// is the registry of the image being verified (empty if unknown); it limits
+// the image's name options, such as name.Insecure, to a source.repository on
+// that same registry.
+func checkOptions(ctx context.Context, att *v1beta1.Cosign, imageRegistry string, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister) (*cosign.CheckOpts, error) {
 	// Key/certificate verification with the transparency log ignored needs no
 	// Sigstore infrastructure (TUF, Rekor, CTLog), mirroring cosign.
 	ignoreTlog := att.CTLog != nil && att.CTLog.InsecureIgnoreTlog
@@ -97,9 +101,19 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 		}
 		baseROpts = append(baseROpts, remoteOpts...)
 		if len(att.Source.Repository) > 0 {
-			signatureRepo, err := name.NewRepository(att.Source.Repository, baseNOpts...)
+			signatureRepo, err := name.NewRepository(att.Source.Repository)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse signature repository %s: %w", att.Source.Repository, err)
+			}
+			// Keep the image's name options (e.g. allowInsecureRegistry) only
+			// when the signature repository is on the image's registry, so the
+			// insecure flag and the source pull secrets do not reach another
+			// host over plain HTTP.
+			if imageRegistry != "" && signatureRepo.RegistryStr() == imageRegistry {
+				signatureRepo, err = name.NewRepository(att.Source.Repository, baseNOpts...)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse signature repository %s: %w", att.Source.Repository, err)
+				}
 			}
 
 			cosignRemoteOpts = append(cosignRemoteOpts, ociremote.WithTargetRepository(signatureRepo))

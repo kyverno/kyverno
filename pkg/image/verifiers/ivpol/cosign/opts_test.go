@@ -185,7 +185,7 @@ func TestCheckOptions_KeyBased(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotNil(t, opts.SigVerifier)
@@ -215,7 +215,7 @@ func TestCheckOptions_Keyless(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.Len(t, opts.Identities, 1)
@@ -247,7 +247,7 @@ func TestCheckOptions_KeylessWithRegex(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.Equal(t, ".*token.actions.githubusercontent.com", opts.Identities[0].IssuerRegExp)
@@ -278,7 +278,7 @@ func TestCheckOptions_MultipleIdentities(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	assert.Len(t, opts.Identities, 2)
 }
@@ -300,7 +300,7 @@ func TestCheckOptions_WithSource(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotEmpty(t, opts.RegistryClientOpts)
@@ -323,11 +323,38 @@ func TestCheckOptions_WithSourceKeepsInsecureRegistry(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, []remote.Option{}, []name.Option{name.Insecure}, nil)
+	opts, err := checkOptions(ctx, cosignCfg, "registry.kyverno.test:5000", []remote.Option{}, []name.Option{name.Insecure}, nil)
 	require.NoError(t, err)
 	targetRepo := ociremote.TargetRepositoryFromOptions(opts.RegistryClientOpts...)
 	assert.Equal(t, "registry.kyverno.test:5000/example/signatures", targetRepo.String())
 	assert.Equal(t, "http", targetRepo.Scheme())
+}
+
+// allowInsecureRegistry applies to the image's registry only: a
+// source.repository on another host must stay on HTTPS, so its pull secrets
+// are never sent over plain HTTP.
+func TestCheckOptions_WithSourceOnOtherRegistryStaysSecure(t *testing.T) {
+	ctx := context.TODO()
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+		},
+		Source: &v1beta1.Source{
+			Repository: "signatures.kyverno.test:5000/example/signatures",
+		},
+	}
+
+	for _, imageRegistry := range []string{"registry.kyverno.test:5000", ""} {
+		opts, err := checkOptions(ctx, cosignCfg, imageRegistry, []remote.Option{}, []name.Option{name.Insecure}, nil)
+		require.NoError(t, err)
+		targetRepo := ociremote.TargetRepositoryFromOptions(opts.RegistryClientOpts...)
+		assert.Equal(t, "signatures.kyverno.test:5000/example/signatures", targetRepo.String())
+		assert.Equal(t, "https", targetRepo.Scheme(), "image registry %q", imageRegistry)
+	}
 }
 
 func TestCheckOptions_InvalidPublicKey(t *testing.T) {
@@ -343,7 +370,7 @@ func TestCheckOptions_InvalidPublicKey(t *testing.T) {
 		},
 	}
 
-	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	_, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load public key")
 }
@@ -365,7 +392,7 @@ func TestCheckOptions_InvalidSourceRepository(t *testing.T) {
 		},
 	}
 
-	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	_, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse signature repository")
 }
@@ -384,7 +411,7 @@ func TestCheckOptions_RekorOfflineMode(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	assert.False(t, opts.Offline)
 }
@@ -801,7 +828,7 @@ func TestCheckOptions_CTLogConfiguration(t *testing.T) {
 				CTLog: tt.ctlog,
 			}
 
-			opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+			opts, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantSCT, opts.IgnoreSCT)
 			assert.Equal(t, tt.wantTlog, opts.IgnoreTlog)
@@ -866,7 +893,7 @@ func TestCheckOptions_VerifierTypes(t *testing.T) {
 			ctx := context.TODO()
 			baseROpts, baseNOpts := baseOpts()
 
-			opts, err := checkOptions(ctx, tt.cosignCfg, baseROpts, baseNOpts, nil)
+			opts, err := checkOptions(ctx, tt.cosignCfg, "", baseROpts, baseNOpts, nil)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -917,7 +944,7 @@ func TestCheckOptions_TSACertChain_UseSignedTimestamps(t *testing.T) {
 				},
 			}
 
-			opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+			opts, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantUseSignedTS, opts.UseSignedTimestamps)
 			if tt.wantTSARootCerts {
@@ -947,7 +974,7 @@ func TestCheckOptions_Keyless_TSACertChainTrustedMaterial(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(context.Background(), cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(context.Background(), cosignCfg, "", baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	require.NotNil(t, opts.TrustedMaterial)
 
@@ -973,7 +1000,7 @@ func TestCheckOptions_KeyBased_AirGapped(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotNil(t, opts.SigVerifier)
@@ -1010,7 +1037,7 @@ func TestCheckOptions_Keyless_InsecureIgnoreTlog_NoURL(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.True(t, opts.IgnoreTlog)
@@ -1043,7 +1070,7 @@ func TestCheckOptions_FallbackViaInitTUFAndFetch(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, "", baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotNil(t, opts.RootCerts)
@@ -1093,7 +1120,7 @@ func TestCheckOptions_KeylessAdditionalExtensions(t *testing.T) {
 		},
 		CTLog: &v1beta1.CTLog{URL: "https://rekor.sigstore.dev", InsecureIgnoreSCT: true},
 	}
-	opts, err := checkOptions(context.TODO(), cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(context.TODO(), cosignCfg, "", baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "kyverno/kyverno", opts.CertGithubWorkflowRepository)
 }
