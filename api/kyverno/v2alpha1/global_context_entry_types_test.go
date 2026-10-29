@@ -377,6 +377,12 @@ func TestGlobalContextEntryProjectionValidate_ErrorShape(t *testing.T) {
 // explicitly empty JMESPath alongside a set Expression is treated as expression-only: the
 // JMESPath compiler is never invoked, so an empty string can't surface as an "invalid
 // JMESPath" error.
+//
+// This is defence in depth, not the user-facing contract. The CRD schema is stricter:
+// minLength rejects `jmesPath: ""`, and the XValidation rule counts an explicitly present
+// empty string, so the API server refuses this input before any webhook runs. Go cannot
+// tell an absent string from an empty one, so Validate stays lenient rather than reporting
+// a bogus "invalid JMESPath" for a field the user never set.
 func TestGlobalContextEntryProjectionValidate_EmptyJMESPathDoesNotCompile(t *testing.T) {
 	p := GlobalContextEntryProjection{
 		Name:       "example",
