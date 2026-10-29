@@ -12,12 +12,14 @@ import (
 	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/externalapi"
 	"github.com/kyverno/kyverno/pkg/globalcontext/k8sresource"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -153,7 +155,34 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 		}
 		return err
 	}
+	// Recorded only once the entry has actually settled into the store: addGTXEntry/
+	// updateGTXEntry already skip re-enqueueing on an unchanged spec, and a store-full
+	// requeue returns above before reaching here, so this doesn't repeat on every informer
+	// resync or capacity retry - it reflects spec changes, not reconcile churn.
+	c.recordProjectionMetrics(ctx, gce)
 	return nil
+}
+
+// recordProjectionMetrics tracks, per projection, which language it's written in (jmespath vs
+// cel) and - for jmespath projections - which of Kyverno's known custom JMESPath functions it
+// calls. Both are bounded-cardinality counters: language has exactly two values, and function
+// names are drawn from the fixed registry in pkg/engine/jmespath, never from the expression text
+// itself.
+func (c *controller) recordProjectionMetrics(ctx context.Context, gce *kyvernov2beta1.GlobalContextEntry) {
+	m := metrics.GetGlobalContextMetrics()
+	if m == nil {
+		return
+	}
+	for _, p := range gce.Spec.Projections {
+		language := deprecations.ProjectionLanguage(p.JMESPath, p.Expression)
+		m.RecordProjectionLanguage(ctx, language)
+		if language != deprecations.ProjectionLanguageJMESPath {
+			continue
+		}
+		for _, fn := range jmespath.UsedFunctionNames(p.JMESPath) {
+			m.RecordJMESPathFunctionUsage(ctx, fn)
+		}
+	}
 }
 
 func (c *controller) requeueStoreFull(logger logr.Logger, key any) {

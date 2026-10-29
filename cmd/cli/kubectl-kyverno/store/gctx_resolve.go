@@ -1,13 +1,18 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 var defaultGctxJMESPath = jmespath.New(config.NewDefaultConfiguration(false))
@@ -70,13 +75,40 @@ func applyFieldPathAndProjections(jp jmespath.Interface, entry v1alpha1.GlobalCo
 		if p.Name == "" {
 			return nil, fmt.Errorf("globalContextEntries %q projection name must not be empty", entry.Name)
 		}
-		v, err := jp.Search(p.Path, root)
+		v, err := evaluateMockProjection(jp, entry.Name, p, root)
 		if err != nil {
-			return nil, fmt.Errorf("globalContextEntries %q projection %q path %q: %w", entry.Name, p.Name, p.Path, err)
+			return nil, err
 		}
 		out[p.Name] = v
 	}
 	return out, nil
+}
+
+// evaluateMockProjection evaluates one mock projection against root, mirroring the real
+// GlobalContextEntryProjection's exactly-one-of jmesPath/expression contract: Path via
+// jp.Search, Expression via the same compiled-CEL-program path
+// (compiler.CompileGlobalContextProjection + gctxstore.Projection.Evaluate) the real
+// GlobalContextEntry controller and `kyverno apply`'s buildGlobalContextStore use, so a
+// mocked CEL projection behaves identically to a live one.
+func evaluateMockProjection(jp jmespath.Interface, entryName string, p v1alpha1.GlobalContextProjection, root interface{}) (interface{}, error) {
+	if p.Expression != "" {
+		prog, errs := compiler.CompileGlobalContextProjection(field.NewPath("expression"), p.Expression)
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("globalContextEntries %q projection %q expression %q: %w", entryName, p.Name, p.Expression, errs.ToAggregate())
+		}
+		ctx, release := requestbudget.EnsureBackground(context.Background())
+		defer release()
+		v, err := (gctxstore.Projection{Name: p.Name, Program: prog}).Evaluate(ctx, root)
+		if err != nil {
+			return nil, fmt.Errorf("globalContextEntries %q projection %q expression %q: %w", entryName, p.Name, p.Expression, err)
+		}
+		return v, nil
+	}
+	v, err := jp.Search(p.Path, root)
+	if err != nil {
+		return nil, fmt.Errorf("globalContextEntries %q projection %q path %q: %w", entryName, p.Name, p.Path, err)
+	}
+	return v, nil
 }
 
 // rawExtensionListToObjects decodes []RawExtension into []interface{}.

@@ -105,6 +105,73 @@ func TestResolveGlobalContextMockData(t *testing.T) {
 			t.Fatal("expected error")
 		}
 	})
+
+	t.Run("CEL expression projection", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Data: raw(map[string]interface{}{
+				"deployments": []interface{}{
+					map[string]interface{}{"name": "a"},
+					map[string]interface{}{"name": "b"},
+				},
+			}),
+			Projections: []v1alpha1.GlobalContextProjection{
+				{Name: "count", Expression: "object.deployments.size()"},
+			},
+		}
+		got, err := resolveGlobalContextMockData(jp, entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m, ok := got.(map[string]interface{})
+		if !ok {
+			t.Fatalf("got %T", got)
+		}
+		count, ok := m["count"].(int64)
+		if !ok || count != 2 {
+			t.Fatalf("count: %#v", m["count"])
+		}
+	})
+
+	t.Run("CEL expression and JMESPath projections together", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Data: raw(map[string]interface{}{
+				"deployments": []interface{}{
+					map[string]interface{}{"name": "a"},
+				},
+			}),
+			Projections: []v1alpha1.GlobalContextProjection{
+				{Name: "fromCEL", Expression: "object.deployments.size()"},
+				{Name: "fromJMESPath", Path: "deployments"},
+			},
+		}
+		got, err := resolveGlobalContextMockData(jp, entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := got.(map[string]interface{})
+		if m["fromCEL"].(int64) != 1 {
+			t.Fatalf("fromCEL: %#v", m["fromCEL"])
+		}
+		if items, ok := m["fromJMESPath"].([]interface{}); !ok || len(items) != 1 {
+			t.Fatalf("fromJMESPath: %#v", m["fromJMESPath"])
+		}
+	})
+
+	t.Run("invalid CEL expression", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Data: raw(map[string]interface{}{"a": 1}),
+			Projections: []v1alpha1.GlobalContextProjection{
+				{Name: "x", Expression: "object.sizee()"},
+			},
+		}
+		_, err := resolveGlobalContextMockData(jp, entry)
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
 }
 
 func TestResolveResourcesMockData(t *testing.T) {
