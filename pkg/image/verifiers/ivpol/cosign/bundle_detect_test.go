@@ -442,3 +442,29 @@ func Test_BundleDetection_InsecureSourceRepositoryKeepsHTTP(t *testing.T) {
 	require.NotNil(t, hash, "the subject digest must resolve over HTTP")
 	assert.Len(t, bundles, 1, "the bundle referrer must be fetched from source.repository over HTTP")
 }
+
+// Test_BundleDetection_InsecureSourceRepositoryViaImage runs the production
+// caller: buildCheckOptsWithBundleDetection must pass the image's registry to
+// checkOptions, so a source.repository on the image's plain-HTTP registry
+// keeps name.Insecure and its bundle is loaded.
+func Test_BundleDetection_InsecureSourceRepositoryViaImage(t *testing.T) {
+	repo, _ := newBundleRegistry(t)
+	subject := pushSubject(t, repo, "subject")
+	pushReferrer(t, repo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
+
+	transport, port := plainHTTPTransport(t, repo)
+	host := "registry.kyverno.test:" + port
+
+	idf, err := imagedataloader.New(nil, nil, nil)
+	require.NoError(t, err)
+	img, err := idf.FetchImageData(context.TODO(), host+"/test/img:subject", []remote.Option{remote.WithTransport(transport)}, []name.Option{name.Insecure})
+	require.NoError(t, err)
+
+	att := bundleTestAttestor()
+	att.Source = &v1beta1.Source{Repository: host + "/test/img"}
+	v := NewVerifier(nil, logr.Discard())
+	cOpts, bundles, _, err := v.buildCheckOptsWithBundleDetection(context.TODO(), att, img)
+	require.NoError(t, err)
+	assert.Len(t, bundles, 1, "the bundle referrer must be fetched from source.repository over HTTP")
+	assert.True(t, cOpts.NewBundleFormat)
+}

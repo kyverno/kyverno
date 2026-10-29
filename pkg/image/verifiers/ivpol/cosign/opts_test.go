@@ -330,9 +330,9 @@ func TestCheckOptions_WithSourceKeepsInsecureRegistry(t *testing.T) {
 	assert.Equal(t, "http", targetRepo.Scheme())
 }
 
-// allowInsecureRegistry applies to the image's registry only: a
-// source.repository on another host must stay on HTTPS, so its pull secrets
-// are never sent over plain HTTP.
+// allowInsecureRegistry applies to the image's registry only: the image's
+// name.Insecure option must not switch a source.repository on another host
+// to plain HTTP.
 func TestCheckOptions_WithSourceOnOtherRegistryStaysSecure(t *testing.T) {
 	ctx := context.TODO()
 

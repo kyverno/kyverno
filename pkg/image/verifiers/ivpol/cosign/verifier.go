@@ -129,7 +129,11 @@ func (v *Verifier) candidateStore(ctx context.Context, image *imagedataloader.Im
 // referrers attached to the image, so verification can reuse the same bounded read
 // instead of asking cosign to enumerate referrers again.
 func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attestor *policiesv1beta1.Cosign, image *imagedataloader.ImageData) (*cosign.CheckOpts, []*sgbundle.Bundle, *v1.Hash, error) {
-	cOpts, err := checkOptions(ctx, attestor, image.NameRef().Context().RegistryStr(), image.RemoteOpts(), image.NameOpts(), v.secretLister)
+	imageRegistry := ""
+	if ref := image.NameRef(); ref != nil {
+		imageRegistry = ref.Context().RegistryStr()
+	}
+	cOpts, err := checkOptions(ctx, attestor, imageRegistry, image.RemoteOpts(), image.NameOpts(), v.secretLister)
 	if err != nil {
 		return nil, nil, nil, err
 	}

@@ -105,10 +105,10 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, imageRegistry string
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse signature repository %s: %w", att.Source.Repository, err)
 			}
-			// Keep the image's name options (e.g. allowInsecureRegistry) only
-			// when the signature repository is on the image's registry, so the
-			// insecure flag and the source pull secrets do not reach another
-			// host over plain HTTP.
+			// Keep the image's name options (e.g. name.Insecure from
+			// allowInsecureRegistry) only when the signature repository is on
+			// the image's registry, so the insecure flag does not switch
+			// another host to plain HTTP.
 			if imageRegistry != "" && signatureRepo.RegistryStr() == imageRegistry {
 				signatureRepo, err = name.NewRepository(att.Source.Repository, baseNOpts...)
 				if err != nil {
