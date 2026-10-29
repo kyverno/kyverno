@@ -86,7 +86,7 @@ require (
 	gotest.tools/v3 v3.5.2
 	k8s.io/api v0.36.4
 	k8s.io/apiextensions-apiserver v0.36.4
-	k8s.io/apimachinery v0.36.4
+	k8s.io/apimachinery v0.37.1
 	k8s.io/apiserver v0.36.4
 	k8s.io/cli-runtime v0.36.4
 	k8s.io/client-go v0.36.4
@@ -199,7 +199,7 @@ require (
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fluxcd/pkg/oci v0.45.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
-	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.1 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.7 // indirect
 	github.com/go-chi/chi/v5 v5.3.1 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
@@ -373,7 +373,7 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/component-base v0.36.4 // indirect
-	k8s.io/streaming v0.36.4 // indirect
+	k8s.io/streaming v0.37.1 // indirect
 	oras.land/oras-go/v2 v2.6.2 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
