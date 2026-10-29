@@ -2178,4 +2178,19 @@ func TestCommandWithColorAndRemoveColor(t *testing.T) {
 		assert.Contains(t, output, "kind: ClusterReport")
 		assert.NotContains(t, output, "\x1b[")
 	})
+
+	t.Run("suppress color in stdin mode", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--stdin"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "failed:")
+		assert.NotContains(t, output, "\x1b[")
+	})
 }
