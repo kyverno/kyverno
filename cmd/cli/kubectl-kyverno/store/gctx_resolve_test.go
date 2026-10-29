@@ -178,7 +178,25 @@ func TestResolveGlobalContextMockData(t *testing.T) {
 				Expression: "(object.blob + object.blob).size()",
 			})
 		}
-		_, err := resolveGlobalContextMockData(jp, entry)
+		// Control: one projection over the same blob must succeed. Without this, the
+		// six-projection refusal below would also pass if a single evaluation already
+		// exceeded the ceiling on its own, which would prove nothing about sharing.
+		single := v1alpha1.GlobalContextEntryValue{
+			Name: entry.Name,
+			Data: entry.Data,
+			Projections: []v1alpha1.GlobalContextProjection{
+				{Name: "p0", Expression: "(object.blob + object.blob).size()"},
+			},
+		}
+		got, err := resolveGlobalContextMockData(jp, single)
+		if err != nil {
+			t.Fatalf("a single projection must fit the ceiling, got %v", err)
+		}
+		if m, ok := got.(map[string]interface{}); !ok || m["p0"] == nil {
+			t.Fatalf("expected a value from the single projection, got %#v", got)
+		}
+
+		_, err = resolveGlobalContextMockData(jp, entry)
 		if err == nil {
 			t.Fatal("expected the shared per-entry budget to be exceeded")
 		}
