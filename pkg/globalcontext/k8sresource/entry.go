@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
@@ -225,6 +226,14 @@ func (e *entry) recomputeProjections(ctx context.Context) {
 		}, err))
 		return
 	}
+
+	// One shared CEL cost ceiling for every projection recomputed this cycle, so an entry
+	// with many CEL projections can't retain an unbounded multiple of the per-program limit
+	// by spreading cost across projections. Background-sized: this runs in the informer
+	// handler goroutine in every binary that wires up this controller, including
+	// cmd/kyverno, so the admission-sized ceiling would be wrong for the other two.
+	ctx, release := requestbudget.EnsureBackground(ctx)
+	defer release()
 
 	for _, proj := range e.projections {
 		result, err := proj.Evaluate(ctx, list)

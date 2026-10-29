@@ -2,8 +2,11 @@ package externalapi
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -428,6 +432,75 @@ func TestEntry_SetData_WithCELExpressionError(t *testing.T) {
 	require.Error(t, e.err)
 	// "bad" alone is the projection name; assert the eval failure is what surfaced.
 	assert.Contains(t, e.err.Error(), "failed to apply projection \"bad\"")
+}
+
+// TestEntry_SetData_RequestBudgetExhaustion verifies, rather than assumes, the exhaustion
+// behavior of the per-refresh-cycle requestbudget.EnsureBackground call wired into setData:
+// a cheap projection and three near-per-program-limit CEL projections (each ~880,000 cost
+// units, the same dual-charge shape as pkg/cel/compiler's nearLimitVariableExpr) consume
+// EnsureBackground's 3,000,000 ceiling by the fourth, so the fifth (also near-limit) is
+// refused by requestbudget.Exhausted before it runs at all. setData stops at the first
+// projection error, so e.err is set for the whole cycle and dataMap is left untouched --
+// not just the refused projection. The next cycle gets a fresh budget and recovers fully.
+func TestEntry_SetData_RequestBudgetExhaustion(t *testing.T) {
+	cheapQuery := &mockJMESPathQuery{result: "cheap-ok"}
+
+	// Same shape as pkg/cel/compiler's nearLimitVariableExpr: concatenating a dyn string
+	// with itself costs ~880,000 at blobSize=2,200,000, just under the 1,000,000
+	// per-program limit, so no single projection is refused by the program's own cost
+	// limit -- only by the shared request budget accumulating across projections.
+	const (
+		costlyExpr    = `object.blob + object.blob`
+		costlyBlobLen = 2_200_000
+	)
+	costlyProg, errs := compiler.CompileGlobalContextProjection(nil, costlyExpr)
+	require.Empty(t, errs)
+
+	blob := strings.Repeat("b", costlyBlobLen)
+	jsonData, err := json.Marshal(map[string]any{"blob": blob})
+	require.NoError(t, err)
+
+	newEntry := func() *entry {
+		return &entry{
+			dataMap: map[string]any{
+				"stale": "prior-cycle-value",
+			},
+			projections: []store.Projection{
+				{Name: "cheap", JP: cheapQuery},
+				{Name: "costly1", Program: costlyProg},
+				{Name: "costly2", Program: costlyProg},
+				{Name: "costly3", Program: costlyProg},
+				{Name: "costly4", Program: costlyProg},
+			},
+		}
+	}
+
+	e := newEntry()
+	e.setData(context.Background(), jsonData, nil)
+
+	require.Error(t, e.err, "the fourth costly projection must exhaust the 3,000,000 background budget")
+	assert.True(t, errors.Is(e.err, requestbudget.ErrBudgetExceeded), "expected a requestbudget.ErrBudgetExceeded, got: %v", e.err)
+	assert.Contains(t, e.err.Error(), `"costly4"`, "expected the fourth costly projection, not an earlier or later one, to be named as the one that tipped the budget over")
+	assert.Equal(t, map[string]any{"stale": "prior-cycle-value"}, e.dataMap,
+		"setData stops at the first error, so dataMap must be left exactly as it was before this cycle, not partially updated")
+
+	// Recovery: the next refresh cycle gets a fresh budget (setData calls
+	// requestbudget.EnsureBackground again on a ctx with no budget attached). The same
+	// four-near-limit-projection workload against the same oversized blob would exhaust a
+	// fresh 3,000,000 budget again every cycle -- that would be a correctly-enforced
+	// ceiling, not a "recovery". To isolate the recovery behavior, the next cycle's data is
+	// small (as a real apiCall response normally is; the prior response was the unusual,
+	// oversized one), so every projection costs almost nothing and all five succeed.
+	smallBlob := "small"
+	smallJSON, err := json.Marshal(map[string]any{"blob": smallBlob})
+	require.NoError(t, err)
+
+	e.setData(context.Background(), smallJSON, nil)
+	require.NoError(t, e.err, "the next cycle's fresh budget must admit all five projections once the workload is back under budget")
+	for _, name := range []string{"costly1", "costly2", "costly3", "costly4"} {
+		assert.Equal(t, smallBlob+smallBlob, e.dataMap[name], "projection %q should hold the concatenated blob after recovery", name)
+	}
+	assert.Equal(t, "cheap-ok", e.dataMap["cheap"])
 }
 
 // TestEntry_New_BadCELExpressionFails confirms a bad CEL expression fails New with an

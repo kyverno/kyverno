@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
@@ -166,8 +167,18 @@ func (e *entry) setData(ctx context.Context, data any, err error) {
 		}
 		newDataMap := make(map[string]any)
 		newDataMap[""] = jsonData
+
+		// One shared CEL cost ceiling for every projection recomputed this cycle, so an
+		// entry with many CEL projections can't retain an unbounded multiple of the
+		// per-program limit by spreading cost across projections. Background-sized: this
+		// runs on the poll-tick worker in every binary that wires up this controller,
+		// including cmd/kyverno, so the admission-sized ceiling would be wrong for the
+		// other two.
+		budgetCtx, release := requestbudget.EnsureBackground(ctx)
+		defer release()
+
 		for _, projection := range e.projections {
-			result, err := projection.Evaluate(ctx, jsonData)
+			result, err := projection.Evaluate(budgetCtx, jsonData)
 			if err != nil {
 				if projection.Program != nil {
 					err = fmt.Errorf("failed to apply projection %q: %w (object is the parsed API response)", projection.Name, err)

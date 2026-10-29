@@ -7,6 +7,7 @@ import (
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -73,6 +74,14 @@ func buildGlobalContextStore(
 			objects = append(objects, unstructList.Items[i].Object)
 		}
 
+		// One shared CEL cost ceiling for every projection evaluated for this entry, so
+		// an entry with many CEL projections can't retain an unbounded multiple of the
+		// per-program limit by spreading cost across projections. Background-sized to
+		// match the controller's own setData/recomputeProjections paths that this CLI
+		// build mirrors offline.
+		budgetCtx, release := requestbudget.EnsureBackground(ctx)
+		defer release()
+
 		projections := make(map[string]interface{})
 		for _, p := range gce.Spec.Projections {
 			var proj gctxstore.Projection
@@ -92,7 +101,7 @@ func buildGlobalContextStore(
 				}
 				proj = gctxstore.Projection{Name: p.Name, JP: query}
 			}
-			result, err := proj.Evaluate(ctx, objects)
+			result, err := proj.Evaluate(budgetCtx, objects)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply projection %q for GlobalContextEntry %s: %w", p.Name, gce.Name, err)
 			}

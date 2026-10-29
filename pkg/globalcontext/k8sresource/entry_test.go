@@ -2,6 +2,7 @@ package k8sresource
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -582,6 +583,91 @@ func TestEntry_RecomputeProjections_CELExpressionError(t *testing.T) {
 
 	assert.Len(t, eventGen.events, 1, "should generate error event for projection failure")
 	assert.Equal(t, "previous-value", e.projected["count"], "prior cached value is kept on eval error")
+}
+
+// TestEntry_RecomputeProjections_RequestBudgetExhaustion verifies, rather than assumes, the
+// exhaustion behavior of the per-refresh-cycle requestbudget.EnsureBackground call wired
+// into recomputeProjections: a cheap JMESPath projection (never touches the CEL budget at
+// all) and three near-per-program-limit CEL projections (each ~880,000 cost units, the
+// same dual-charge shape as pkg/cel/compiler's nearLimitVariableExpr) consume
+// EnsureBackground's 3,000,000 ceiling by the fourth. Unlike externalapi's setData,
+// recomputeProjections does not stop at the first error: a fifth, otherwise-trivial CEL
+// projection placed after the exhausting one is still attempted and is refused by
+// requestbudget.Exhausted before it runs, purely because the shared counter is already
+// spent -- not because it is itself costly. Both failures retain their prior cached value;
+// the next refresh cycle gets a fresh budget and recovers.
+func TestEntry_RecomputeProjections_RequestBudgetExhaustion(t *testing.T) {
+	// Same shape as pkg/cel/compiler's nearLimitVariableExpr: concatenating a dyn string
+	// with itself costs ~880,000 at blobSize=2,200,000, just under the 1,000,000
+	// per-program limit, so no single projection is refused by the program's own cost
+	// limit -- only by the shared request budget accumulating across projections. Indexed
+	// off object[0] because, for a kubernetesResource entry, object is the list of matching
+	// objects directly, not a single object.
+	const costlyBlobLen = 2_200_000
+	costlyProg, errs := compiler.CompileGlobalContextProjection(nil, "object[0].blob + object[0].blob")
+	require.Empty(t, errs)
+
+	trivialProg, errs := compiler.CompileGlobalContextProjection(nil, "true")
+	require.Empty(t, errs)
+
+	blob := strings.Repeat("b", costlyBlobLen)
+	bigObj := &unstructured.Unstructured{
+		Object: map[string]interface{}{"blob": blob},
+	}
+
+	mockQuery := &mockJMESPathQuery{result: "cheap-ok"}
+
+	eventGen := &mockEventGen{}
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-gce"},
+	}
+
+	e := &entry{
+		lister:   &mockLister{objects: []runtime.Object{bigObj}},
+		eventGen: eventGen,
+		gce:      gce,
+		projections: []store.Projection{
+			{Name: "cheap", JP: mockQuery},
+			{Name: "costly1", Program: costlyProg},
+			{Name: "costly2", Program: costlyProg},
+			{Name: "costly3", Program: costlyProg},
+			{Name: "costly4", Program: costlyProg},
+			{Name: "trivial", Program: trivialProg},
+		},
+		projected: map[string]interface{}{
+			"costly4": "prior-costly4-value",
+			"trivial": "prior-trivial-value",
+		},
+		projectedMu: sync.RWMutex{},
+	}
+
+	e.recomputeProjections(context.Background())
+
+	require.Len(t, eventGen.events, 2, "costly4 (budget exhausted) and trivial (refused before running) should each generate one error event")
+	assert.Equal(t, "cheap-ok", e.projected["cheap"], "a JMESPath projection never touches the CEL budget")
+	assert.Equal(t, blob+blob, e.projected["costly1"])
+	assert.Equal(t, blob+blob, e.projected["costly2"])
+	assert.Equal(t, blob+blob, e.projected["costly3"])
+	assert.Equal(t, "prior-costly4-value", e.projected["costly4"], "prior cached value is kept when the budget is exhausted mid-cycle")
+	assert.Equal(t, "prior-trivial-value", e.projected["trivial"], "prior cached value is kept even for a trivial projection refused only because the shared budget is already spent")
+
+	// Recovery: the next refresh cycle gets a fresh budget (recomputeProjections calls
+	// requestbudget.EnsureBackground again on a ctx with no budget attached). Using the
+	// same oversized blob would exhaust a fresh 3,000,000 budget again every cycle -- a
+	// correctly enforced ceiling, not a "recovery". To isolate the recovery behavior, the
+	// next cycle's listed object is small (as real cluster objects normally are; the prior
+	// one was the unusual, oversized one), so every projection costs almost nothing.
+	smallBlob := "small"
+	smallObj := &unstructured.Unstructured{
+		Object: map[string]interface{}{"blob": smallBlob},
+	}
+	e.lister = &mockLister{objects: []runtime.Object{smallObj}}
+
+	e.recomputeProjections(context.Background())
+
+	assert.Empty(t, eventGen.events[2:], "no new error events on the recovered cycle")
+	assert.Equal(t, smallBlob+smallBlob, e.projected["costly4"], "costly4 must succeed once the workload is back under budget")
+	assert.Equal(t, true, e.projected["trivial"], "trivial must succeed once the shared budget is no longer already spent")
 }
 
 // TestEntry_New_BadCELExpressionFails confirms a bad CEL expression fails New with an error
