@@ -2,25 +2,23 @@ package policy
 
 import (
 	"context"
+	"sync"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.opentelemetry.io/otel/metric"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 )
 
 type controller struct {
 	ruleInfo metrics.PolicyRuleMetrics
 
-	// listers
-	cpolLister kyvernov1listers.ClusterPolicyLister
-	polLister  kyvernov1listers.PolicyLister
+	// series contributed by the policies present in the cluster, computed once
+	// per policy event and replayed by the metrics callback on every scrape
+	snapshot *policySnapshot
 
 	waitGroup *wait.Group
 }
@@ -32,15 +30,26 @@ func NewController(
 	waitGroup *wait.Group,
 ) {
 	c := controller{
-		ruleInfo:   metrics.GetPolicyInfoMetrics(),
-		cpolLister: cpolInformer.Lister(),
-		polLister:  polInformer.Lister(),
-		waitGroup:  waitGroup,
+		ruleInfo:  metrics.GetPolicyInfoMetrics(),
+		snapshot:  newPolicySnapshot(),
+		waitGroup: waitGroup,
 	}
-	if _, err := controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
+	// handlers are registered directly instead of through controllerutils.AddEventHandlers,
+	// whose delete wrapper discards the DeletedFinalStateUnknown tombstone; the delete
+	// handlers below need the tombstone key to drop a policy from the snapshot when the
+	// deleted object is no longer available
+	if _, err := cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addPolicy,
+		UpdateFunc: c.updatePolicy,
+		DeleteFunc: c.deletePolicy,
+	}); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-	if _, err := controllerutils.AddEventHandlers(polInformer.Informer(), c.addNsPolicy, c.updateNsPolicy, c.deleteNsPolicy); err != nil {
+	if _, err := polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addNsPolicy,
+		UpdateFunc: c.updateNsPolicy,
+		DeleteFunc: c.deleteNsPolicy,
+	}); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 	if c.ruleInfo != nil {
@@ -55,31 +64,42 @@ func (c *controller) report(ctx context.Context, observer metric.Observer) error
 	if c.ruleInfo == nil {
 		return nil
 	}
-	pols, err := c.polLister.Policies(metav1.NamespaceAll).List(labels.Everything())
-	if err != nil {
-		logger.Error(err, "failed to list policies")
-		return err
-	}
-	for _, policy := range pols {
-		err := c.ruleInfo.RecordPolicyRuleInfo(ctx, policy, observer)
-		if err != nil {
-			logger.Error(err, "failed to report policy metric", "policy", policy)
-			return err
+	// the metrics ConfigMap can be reloaded at runtime, so the namespace filter
+	// has to be evaluated against the current configuration instead of the one
+	// in effect when the policy event was handled
+	config := metrics.GetManager().Config()
+	c.snapshot.rangeObservations(func(obs policyObservation) {
+		if !config.CheckNamespace(obs.namespace) {
+			return
 		}
-	}
-	cpols, err := c.cpolLister.List(labels.Everything())
-	if err != nil {
-		logger.Error(err, "failed to list cluster policies")
-		return err
-	}
-	for _, policy := range cpols {
-		err := c.ruleInfo.RecordPolicyRuleInfo(ctx, policy, observer)
-		if err != nil {
-			logger.Error(err, "failed to report policy metric", "policy", policy)
-			return err
-		}
-	}
+		c.ruleInfo.RecordPolicyRuleObservations(obs.series, observer)
+	})
 	return nil
+}
+
+func (c *controller) buildObservations(policy kyvernov1.PolicyInterface) metrics.PolicyRuleObservation {
+	if c.ruleInfo == nil {
+		return nil
+	}
+	obs, err := c.ruleInfo.BuildPolicyRuleObservations(policy)
+	if err != nil {
+		logger.Error(err, "failed to compute policy rule metric", "name", policy.GetName())
+		return nil
+	}
+	return obs
+}
+
+// storeObservations refreshes the snapshot entry of a policy. A nil observation
+// means the policy contributes no series anymore, either because its build
+// failed or because metrics are not initialized, so any entry it may have is
+// dropped.
+func (c *controller) storeObservations(policy kyvernov1.PolicyInterface) {
+	obs := c.buildObservations(policy)
+	if obs == nil {
+		c.snapshot.remove(policy)
+		return
+	}
+	c.snapshot.upsert(policy, obs)
 }
 
 func (c *controller) startRoutine(routine func()) {
@@ -88,17 +108,20 @@ func (c *controller) startRoutine(routine func()) {
 
 func (c *controller) addPolicy(obj interface{}) {
 	p := obj.(*kyvernov1.ClusterPolicy)
+	c.storeObservations(p)
 	// register kyverno_policy_changes_total metric concurrently
 	c.startRoutine(func() { c.registerPolicyChangesMetricAddPolicy(context.TODO(), logger, p) })
 }
 
 func (c *controller) updatePolicy(old, cur interface{}) {
 	oldP, curP := old.(*kyvernov1.ClusterPolicy), cur.(*kyvernov1.ClusterPolicy)
+	c.storeObservations(curP)
 	// register kyverno_policy_changes_total metric concurrently
 	c.startRoutine(func() { c.registerPolicyChangesMetricUpdatePolicy(context.TODO(), logger, oldP, curP) })
 }
 
 func (c *controller) deletePolicy(obj interface{}) {
+	c.snapshot.remove(obj)
 	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
 	if !ok {
 		logger.Info("Failed to get deleted object", "obj", obj)
@@ -110,17 +133,20 @@ func (c *controller) deletePolicy(obj interface{}) {
 
 func (c *controller) addNsPolicy(obj interface{}) {
 	p := obj.(*kyvernov1.Policy)
+	c.storeObservations(p)
 	// register kyverno_policy_changes_total metric concurrently
 	c.startRoutine(func() { c.registerPolicyChangesMetricAddPolicy(context.TODO(), logger, p) })
 }
 
 func (c *controller) updateNsPolicy(old, cur interface{}) {
 	oldP, curP := old.(*kyvernov1.Policy), cur.(*kyvernov1.Policy)
+	c.storeObservations(curP)
 	// register kyverno_policy_changes_total metric concurrently
 	c.startRoutine(func() { c.registerPolicyChangesMetricUpdatePolicy(context.TODO(), logger, oldP, curP) })
 }
 
 func (c *controller) deleteNsPolicy(obj interface{}) {
+	c.snapshot.remove(obj)
 	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
 	if !ok {
 		logger.Info("Failed to get deleted object", "obj", obj)
@@ -128,4 +154,68 @@ func (c *controller) deleteNsPolicy(obj interface{}) {
 	}
 	// register kyverno_policy_changes_total metric concurrently
 	c.startRoutine(func() { c.registerPolicyChangesMetricDeletePolicy(context.TODO(), logger, p) })
+}
+
+// policyObservation pairs the series a policy contributes with the namespace
+// the metrics configuration filters on. The namespace is kept so the filter can
+// be applied when the metric is reported: the metrics ConfigMap is reloadable,
+// so an observation built while a namespace was included must disappear if the
+// configuration later excludes it, and the other way around.
+type policyObservation struct {
+	namespace string
+	series    metrics.PolicyRuleObservation
+}
+
+// policySnapshot holds the series contributed by the policies currently present
+// in the cluster, keyed by namespace/name (or just name for cluster-wide
+// policies). It is written by the informer event handlers and read by the
+// metrics callback, which can run concurrently, so every access goes through
+// the mutex.
+type policySnapshot struct {
+	mux      sync.RWMutex
+	policies map[string]policyObservation
+}
+
+func newPolicySnapshot() *policySnapshot {
+	return &policySnapshot{
+		policies: make(map[string]policyObservation),
+	}
+}
+
+func (s *policySnapshot) upsert(policy kyvernov1.PolicyInterface, obs metrics.PolicyRuleObservation) {
+	key, err := cache.MetaNamespaceKeyFunc(policy)
+	if err != nil {
+		logger.Error(err, "failed to compute policy key", "name", policy.GetName())
+		return
+	}
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	s.policies[key] = policyObservation{
+		namespace: policy.GetNamespace(),
+		series:    obs,
+	}
+}
+
+func (s *policySnapshot) remove(obj interface{}) {
+	// delete events may carry a cache.DeletedFinalStateUnknown, in which case
+	// the key it holds is the only way to identify the policy
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		logger.Error(err, "failed to compute policy key")
+		return
+	}
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	delete(s.policies, key)
+}
+
+// rangeObservations calls fn for every observation in the snapshot while
+// holding the read lock. It avoids allocating a copy of the policies on every
+// metrics scrape.
+func (s *policySnapshot) rangeObservations(fn func(policyObservation)) {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	for _, obs := range s.policies {
+		fn(obs)
+	}
 }

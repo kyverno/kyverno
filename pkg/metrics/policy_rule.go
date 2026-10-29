@@ -1,14 +1,19 @@
 package metrics
 
 import (
-	"context"
-
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
+
+// PolicyRuleObservation holds the series a single policy contributes to the
+// kyverno_policy_rule_info_total gauge. Building it once per policy event
+// allows the scrape callback to replay it instead of walking the policy again.
+// Namespace filtering is left to the caller because the metrics configuration
+// can change between the policy event and the scrape.
+type PolicyRuleObservation []metric.ObserveOption
 
 func GetPolicyInfoMetrics() PolicyRuleMetrics {
 	if metricsConfig == nil {
@@ -19,7 +24,8 @@ func GetPolicyInfoMetrics() PolicyRuleMetrics {
 }
 
 type PolicyRuleMetrics interface {
-	RecordPolicyRuleInfo(ctx context.Context, policy kyvernov1.PolicyInterface, observer metric.Observer) error
+	BuildPolicyRuleObservations(policy kyvernov1.PolicyInterface) (PolicyRuleObservation, error)
+	RecordPolicyRuleObservations(obs PolicyRuleObservation, observer metric.Observer)
 	RegisterCallback(f metric.Callback) (metric.Registration, error)
 }
 
@@ -51,39 +57,49 @@ func (m *policyRuleMetrics) init(meter metric.Meter) {
 	}
 }
 
-func (m *policyRuleMetrics) RecordPolicyRuleInfo(ctx context.Context, policy kyvernov1.PolicyInterface, observer metric.Observer) error {
+func (m *policyRuleMetrics) BuildPolicyRuleObservations(policy kyvernov1.PolicyInterface) (PolicyRuleObservation, error) {
 	if m.infoMetric == nil {
-		return nil
+		return nil, nil
 	}
 
 	name, namespace, policyType, backgroundMode, validationMode, err := GetPolicyInfos(policy)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if GetManager().Config().CheckNamespace(namespace) {
-		if policyType == Cluster {
-			namespace = "-"
-		}
-		policyAttributes := []attribute.KeyValue{
-			attribute.String("policy_namespace", namespace),
-			attribute.String("policy_name", name),
-			attribute.Bool("status_ready", policy.IsReady()),
-			attribute.String("policy_validation_mode", string(validationMode)),
-			attribute.String("policy_type", string(policyType)),
-			attribute.String("policy_background_mode", string(backgroundMode)),
-		}
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
-			ruleType := ParseRuleType(rule)
-			ruleAttributes := make([]attribute.KeyValue, 0, 2+len(policyAttributes))
-			ruleAttributes = append(ruleAttributes,
-				attribute.String("rule_name", rule.Name),
-				attribute.String("rule_type", string(ruleType)),
-			)
-			observer.ObserveFloat64(m.infoMetric, 1, metric.WithAttributes(append(ruleAttributes, policyAttributes...)...))
-		}
+	if policyType == Cluster {
+		namespace = "-"
 	}
-	return nil
+	policyAttributes := []attribute.KeyValue{
+		attribute.String("policy_namespace", namespace),
+		attribute.String("policy_name", name),
+		attribute.Bool("status_ready", policy.IsReady()),
+		attribute.String("policy_validation_mode", string(validationMode)),
+		attribute.String("policy_type", string(policyType)),
+		attribute.String("policy_background_mode", string(backgroundMode)),
+	}
+	rules := autogen.Default.ComputeRules(policy, "")
+	observations := make(PolicyRuleObservation, 0, len(rules))
+	for _, rule := range rules {
+		ruleType := ParseRuleType(rule)
+		ruleAttributes := make([]attribute.KeyValue, 0, 2+len(policyAttributes))
+		ruleAttributes = append(ruleAttributes,
+			attribute.String("rule_name", rule.Name),
+			attribute.String("rule_type", string(ruleType)),
+		)
+		observations = append(observations, metric.WithAttributes(append(ruleAttributes, policyAttributes...)...))
+	}
+	return observations, nil
+}
+
+func (m *policyRuleMetrics) RecordPolicyRuleObservations(obs PolicyRuleObservation, observer metric.Observer) {
+	if m.infoMetric == nil {
+		return
+	}
+
+	for _, o := range obs {
+		observer.ObserveFloat64(m.infoMetric, 1, o)
+	}
 }
 
 func (m *policyRuleMetrics) RegisterCallback(f metric.Callback) (metric.Registration, error) {
