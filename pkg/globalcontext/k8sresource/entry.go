@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -112,6 +114,17 @@ func New(
 	var projections []store.Projection
 	if len(gce.Spec.Projections) > 0 {
 		for _, p := range gce.Spec.Projections {
+			if p.Expression != "" {
+				prog, errs := compiler.CompileGlobalContextProjection(field.NewPath("expression"), p.Expression)
+				if len(errs) > 0 {
+					return nil, fmt.Errorf("failed to compile CEL expression for projection %q: %w", p.Name, errs.ToAggregate())
+				}
+				projections = append(projections, store.Projection{
+					Name:    p.Name,
+					Program: prog,
+				})
+				continue
+			}
 			jpQuery, err := jp.Query(p.JMESPath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse jmespath query for projection %q: %w", p.Name, err)
@@ -137,9 +150,9 @@ func New(
 	// This avoids unnecessary processing when projections are not used
 	if len(projections) > 0 {
 		_, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { e.recomputeProjections() },
-			UpdateFunc: func(oldObj, newObj interface{}) { e.recomputeProjections() },
-			DeleteFunc: func(obj interface{}) { e.recomputeProjections() },
+			AddFunc:    func(obj interface{}) { e.recomputeProjections(ctx) },
+			UpdateFunc: func(oldObj, newObj interface{}) { e.recomputeProjections(ctx) },
+			DeleteFunc: func(obj interface{}) { e.recomputeProjections(ctx) },
 		})
 		if err != nil {
 			return nil, err
@@ -175,7 +188,7 @@ func New(
 
 	// Compute initial projections after cache sync
 	if len(projections) > 0 {
-		e.recomputeProjections()
+		e.recomputeProjections(ctx)
 	}
 
 	return e, nil
@@ -200,7 +213,7 @@ func (e *entry) listObjects() ([]interface{}, error) {
 	return list, nil
 }
 
-func (e *entry) recomputeProjections() {
+func (e *entry) recomputeProjections(ctx context.Context) {
 	list, err := e.listObjects()
 	if err != nil {
 		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
@@ -214,15 +227,20 @@ func (e *entry) recomputeProjections() {
 	}
 
 	for _, proj := range e.projections {
-		result, err := proj.JP.Search(list)
+		result, err := proj.Evaluate(ctx, list)
 		if err != nil {
+			if proj.Program != nil {
+				err = fmt.Errorf("failed to apply projection %q: %w (for kubernetesResource entries, object is the list of matching objects, not {\"items\": [...]})", proj.Name, err)
+			} else {
+				err = fmt.Errorf("failed to apply projection %q: %w", proj.Name, err)
+			}
 			e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 				APIVersion: e.gce.APIVersion,
 				Kind:       e.gce.Kind,
 				Name:       e.gce.Name,
 				Namespace:  e.gce.Namespace,
 				UID:        e.gce.UID,
-			}, fmt.Errorf("failed to apply projection %q: %w", proj.Name, err)))
+			}, err))
 			continue
 		}
 		e.projectedMu.Lock()

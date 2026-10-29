@@ -1,19 +1,27 @@
 package k8sresource
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"testing"
 
+	"github.com/go-logr/logr"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -341,7 +349,7 @@ func TestEntry_RecomputeProjections_Success(t *testing.T) {
 		projectedMu: sync.RWMutex{},
 	}
 
-	e.recomputeProjections()
+	e.recomputeProjections(context.Background())
 
 	assert.Equal(t, "projected-result", e.projected["test-proj"])
 	assert.Empty(t, eventGen.events, "no error events should be generated")
@@ -369,7 +377,7 @@ func TestEntry_RecomputeProjections_ListerError(t *testing.T) {
 		projectedMu: sync.RWMutex{},
 	}
 
-	e.recomputeProjections()
+	e.recomputeProjections(context.Background())
 
 	assert.Len(t, eventGen.events, 1, "should generate error event")
 }
@@ -406,7 +414,7 @@ func TestEntry_RecomputeProjections_ProjectionError(t *testing.T) {
 		projectedMu: sync.RWMutex{},
 	}
 
-	e.recomputeProjections()
+	e.recomputeProjections(context.Background())
 
 	assert.Len(t, eventGen.events, 1, "should generate error event for projection failure")
 }
@@ -443,7 +451,7 @@ func TestEntry_RecomputeProjections_MultipleProjections(t *testing.T) {
 		projectedMu: sync.RWMutex{},
 	}
 
-	e.recomputeProjections()
+	e.recomputeProjections(context.Background())
 
 	assert.Equal(t, "result1", e.projected["proj1"])
 	assert.Equal(t, "result2", e.projected["proj2"])
@@ -475,6 +483,122 @@ func TestEntry_ConcurrentAccess(t *testing.T) {
 
 	// Should not panic or race
 	assert.Equal(t, "initial", e.projected["test"])
+}
+
+// TestEntry_RecomputeProjections_CELExpression exercises an expression-only projection:
+// for a KubernetesResource entry, `object` is the list of matching objects directly (not
+// wrapped in {"items": [...]}), so `object.size()` is the CEL equivalent of the entry's
+// zero-projection read, and it yields an int64 (not JMESPath's float64).
+func TestEntry_RecomputeProjections_CELExpression(t *testing.T) {
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{"name": "test"},
+		},
+	}
+
+	lister := &mockLister{
+		objects: []runtime.Object{obj},
+	}
+
+	prog, errs := compiler.CompileGlobalContextProjection(nil, "object.size()")
+	require.Empty(t, errs)
+
+	eventGen := &mockEventGen{}
+
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-gce"},
+	}
+
+	e := &entry{
+		lister:   lister,
+		eventGen: eventGen,
+		gce:      gce,
+		projections: []store.Projection{
+			{Name: "count", Program: prog},
+		},
+		projected:   make(map[string]interface{}),
+		projectedMu: sync.RWMutex{},
+	}
+
+	e.recomputeProjections(context.Background())
+
+	assert.Equal(t, int64(1), e.projected["count"])
+	assert.IsType(t, int64(0), e.projected["count"])
+	assert.Empty(t, eventGen.events, "no error events should be generated")
+}
+
+// TestEntry_RecomputeProjections_CELExpressionError mirrors the apiCall-only "items |
+// length(@)" trap: object is the list of objects directly, so object.items.size() has no
+// "items" field and the projection eval fails, keeping the prior cached value, same as a
+// failing JMESPath projection does today.
+func TestEntry_RecomputeProjections_CELExpressionError(t *testing.T) {
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{"name": "test"},
+	}
+
+	lister := &mockLister{
+		objects: []runtime.Object{obj},
+	}
+
+	prog, errs := compiler.CompileGlobalContextProjection(nil, "object.items.size()")
+	require.Empty(t, errs)
+
+	eventGen := &mockEventGen{}
+
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-gce"},
+	}
+
+	e := &entry{
+		lister:   lister,
+		eventGen: eventGen,
+		gce:      gce,
+		projections: []store.Projection{
+			{Name: "count", Program: prog},
+		},
+		projected: map[string]interface{}{
+			"count": "previous-value",
+		},
+		projectedMu: sync.RWMutex{},
+	}
+
+	e.recomputeProjections(context.Background())
+
+	assert.Len(t, eventGen.events, 1, "should generate error event for projection failure")
+	assert.Equal(t, "previous-value", e.projected["count"], "prior cached value is kept on eval error")
+}
+
+// TestEntry_New_BadCELExpressionFails confirms a bad CEL expression fails New with an error
+// naming the projection, before any informer is started.
+func TestEntry_New_BadCELExpressionFails(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	scheme := runtime.NewScheme()
+	dClient := dynamicfake.NewSimpleDynamicClient(scheme)
+
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-gce"},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			Projections: []kyvernov2beta1.GlobalContextEntryProjection{
+				{Name: "bad", Expression: "object.sizee()"},
+			},
+		},
+	}
+
+	_, err := New(
+		context.Background(),
+		gce,
+		&mockEventGen{},
+		dClient,
+		logr.Discard(),
+		gvr,
+		"",
+		jmespath.New(config.NewDefaultConfiguration(false)),
+	)
+
+	require.Error(t, err)
+	// "bad" alone is the projection name and would match without any compile failure;
+	// also assert the error names the actual failure.
+	assert.Contains(t, err.Error(), "failed to compile CEL expression for projection \"bad\"")
 }
 
 // TestEntry_Stop_Idempotent exercises the production stop closure created by

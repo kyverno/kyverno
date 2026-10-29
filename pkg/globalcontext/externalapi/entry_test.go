@@ -11,9 +11,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -209,7 +213,7 @@ func TestEntry_SetData_WithValidJSON(t *testing.T) {
 	}
 
 	jsonData := []byte(`{"name": "test", "value": 123}`)
-	e.setData(jsonData, nil)
+	e.setData(context.Background(), jsonData, nil)
 
 	assert.Nil(t, e.err, "error should be nil after successful setData")
 	assert.NotNil(t, e.dataMap[""], "default projection should be set")
@@ -227,7 +231,7 @@ func TestEntry_SetData_WithInvalidJSON(t *testing.T) {
 	}
 
 	invalidJSON := []byte(`{invalid json}`)
-	e.setData(invalidJSON, nil)
+	e.setData(context.Background(), invalidJSON, nil)
 
 	assert.Error(t, e.err, "error should be set for invalid JSON")
 	assert.Contains(t, e.err.Error(), "invalid character")
@@ -241,7 +245,7 @@ func TestEntry_SetData_WithError(t *testing.T) {
 	}
 
 	expectedErr := fmt.Errorf("api call error")
-	e.setData(nil, expectedErr)
+	e.setData(context.Background(), nil, expectedErr)
 
 	assert.Equal(t, expectedErr, e.err, "error should be set")
 }
@@ -254,7 +258,7 @@ func TestEntry_SetData_WithNonByteData(t *testing.T) {
 	}
 
 	// Pass a string instead of []byte
-	e.setData("not a byte array", nil)
+	e.setData(context.Background(), "not a byte array", nil)
 
 	assert.Error(t, e.err, "error should be set for non-byte data")
 	assert.Contains(t, e.err.Error(), "data is not a byte array")
@@ -278,7 +282,7 @@ func TestEntry_SetData_WithProjections(t *testing.T) {
 	}
 
 	jsonData := []byte(`{"key": "value"}`)
-	e.setData(jsonData, nil)
+	e.setData(context.Background(), jsonData, nil)
 
 	assert.Nil(t, e.err, "error should be nil")
 	assert.NotNil(t, e.dataMap[""], "default projection should be set")
@@ -305,7 +309,7 @@ func TestEntry_SetData_WithMultipleProjections(t *testing.T) {
 	}
 
 	jsonData := []byte(`{"data": "test"}`)
-	e.setData(jsonData, nil)
+	e.setData(context.Background(), jsonData, nil)
 
 	assert.Nil(t, e.err)
 	assert.NotNil(t, e.dataMap[""])
@@ -332,9 +336,117 @@ func TestEntry_SetData_WithProjectionError(t *testing.T) {
 	}
 
 	jsonData := []byte(`{"key": "value"}`)
-	e.setData(jsonData, nil)
+	e.setData(context.Background(), jsonData, nil)
 
 	assert.Equal(t, projectionErr, e.err, "projection error should be set")
+}
+
+// TestEntry_SetData_WithCELExpressionProjection pins the apiCall shape: object is the
+// parsed API response ({"items": [...]} for a list endpoint), so object.items.size() is
+// the CEL equivalent of the entry's zero-projection read, and it yields an int64 (not
+// JMESPath's float64, which the sibling test below pins for the same input).
+func TestEntry_SetData_WithCELExpressionProjection(t *testing.T) {
+	prog, errs := compiler.CompileGlobalContextProjection(nil, "object.items.size()")
+	require.Empty(t, errs)
+
+	e := &entry{
+		dataMap: make(map[string]any),
+		projections: []store.Projection{
+			{Name: "count", Program: prog},
+		},
+	}
+
+	jsonData := []byte(`{"items": [1, 2, 3]}`)
+	e.setData(context.Background(), jsonData, nil)
+
+	assert.Nil(t, e.err)
+	assert.Equal(t, int64(3), e.dataMap["count"])
+	assert.IsType(t, int64(0), e.dataMap["count"])
+}
+
+// TestEntry_SetData_WithCELAndJMESPathSideBySide evaluates a CEL and a JMESPath
+// projection over the identical apiCall response, pinning the design's deliberate
+// decision not to normalize CEL numerics to float64.
+func TestEntry_SetData_WithCELAndJMESPathSideBySide(t *testing.T) {
+	prog, errs := compiler.CompileGlobalContextProjection(nil, "object.items.size()")
+	require.Empty(t, errs)
+
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	jpQuery, err := jp.Query("items | length(@)")
+	require.NoError(t, err)
+
+	e := &entry{
+		dataMap: make(map[string]any),
+		projections: []store.Projection{
+			{Name: "celCount", Program: prog},
+			{Name: "jmesCount", JP: jpQuery},
+		},
+	}
+
+	jsonData := []byte(`{"items": [1, 2, 3]}`)
+	e.setData(context.Background(), jsonData, nil)
+
+	assert.Nil(t, e.err)
+	assert.Equal(t, int64(3), e.dataMap["celCount"])
+	assert.IsType(t, int64(0), e.dataMap["celCount"], "CEL object.items.size() yields int64")
+	assert.Equal(t, float64(3), e.dataMap["jmesCount"])
+	assert.IsType(t, float64(0), e.dataMap["jmesCount"], "JMESPath items | length(@) yields float64")
+}
+
+// TestEntry_SetData_WithCELExpressionError exercises a CEL projection that fails to
+// evaluate (reference to a field absent from the apiCall response); the eval error is
+// surfaced as the entry error, naming the projection.
+func TestEntry_SetData_WithCELExpressionError(t *testing.T) {
+	prog, errs := compiler.CompileGlobalContextProjection(nil, "object.missingField.size()")
+	require.Empty(t, errs)
+
+	e := &entry{
+		dataMap: make(map[string]any),
+		projections: []store.Projection{
+			{Name: "bad", Program: prog},
+		},
+	}
+
+	jsonData := []byte(`{"items": [1, 2, 3]}`)
+	e.setData(context.Background(), jsonData, nil)
+
+	require.Error(t, e.err)
+	// "bad" alone is the projection name; assert the eval failure is what surfaced.
+	assert.Contains(t, e.err.Error(), "failed to apply projection \"bad\"")
+}
+
+// TestEntry_New_BadCELExpressionFails confirms a bad CEL expression fails New with an
+// error naming the projection, before any apiCall worker starts.
+func TestEntry_New_BadCELExpressionFails(t *testing.T) {
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-gce"},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			Projections: []kyvernov2beta1.GlobalContextEntryProjection{
+				{Name: "bad", Expression: "object.sizee()"},
+			},
+			APICall: &kyvernov2beta1.ExternalAPICall{},
+		},
+	}
+
+	_, err := New(
+		context.Background(),
+		gce,
+		event.NewFake(),
+		nil,
+		nil,
+		logr.Discard(),
+		nil,
+		kyverno.APICall{},
+		0,
+		0,
+		0,
+		false,
+		jmespath.New(config.NewDefaultConfiguration(false)),
+	)
+
+	require.Error(t, err)
+	// "bad" alone is the projection name; assert the compile failure is what surfaced.
+	assert.Contains(t, err.Error(), "failed to compile CEL expression for projection \"bad\"")
 }
 
 func TestEntry_SetData_EmptyJSON(t *testing.T) {
@@ -345,7 +457,7 @@ func TestEntry_SetData_EmptyJSON(t *testing.T) {
 	}
 
 	jsonData := []byte(`{}`)
-	e.setData(jsonData, nil)
+	e.setData(context.Background(), jsonData, nil)
 
 	assert.Nil(t, e.err)
 	assert.NotNil(t, e.dataMap[""])
@@ -361,7 +473,7 @@ func TestEntry_SetData_JSONArray(t *testing.T) {
 	}
 
 	jsonData := []byte(`[1, 2, 3]`)
-	e.setData(jsonData, nil)
+	e.setData(context.Background(), jsonData, nil)
 
 	assert.Nil(t, e.err)
 	assert.NotNil(t, e.dataMap[""])
@@ -387,7 +499,7 @@ func TestEntry_SetData_ComplexJSON(t *testing.T) {
 			"version": "1.0"
 		}
 	}`)
-	e.setData(jsonData, nil)
+	e.setData(context.Background(), jsonData, nil)
 
 	assert.Nil(t, e.err)
 	assert.NotNil(t, e.dataMap[""])
@@ -409,7 +521,7 @@ func TestEntry_SetData_NilByteArray(t *testing.T) {
 	}
 
 	var nilBytes []byte
-	e.setData(nilBytes, nil)
+	e.setData(context.Background(), nilBytes, nil)
 
 	assert.Error(t, e.err)
 	assert.Contains(t, e.err.Error(), "unexpected end of JSON input")
@@ -425,7 +537,7 @@ func TestEntry_SetData_OverwritesPreviousData(t *testing.T) {
 	}
 
 	jsonData := []byte(`{"new": "data"}`)
-	e.setData(jsonData, nil)
+	e.setData(context.Background(), jsonData, nil)
 
 	assert.Nil(t, e.err)
 	data := e.dataMap[""].(map[string]any)
@@ -443,7 +555,7 @@ func TestEntry_SetData_ClearsErrorOnSuccess(t *testing.T) {
 	}
 
 	jsonData := []byte(`{"key": "value"}`)
-	e.setData(jsonData, nil)
+	e.setData(context.Background(), jsonData, nil)
 
 	// After a successful call, the error must be cleared so that
 	// Get() returns the fresh data instead of the stale error.
@@ -517,7 +629,7 @@ func TestEntry_SetData_MultipleScenarios(t *testing.T) {
 				projections: tt.projections,
 			}
 
-			e.setData(tt.data, tt.err)
+			e.setData(context.Background(), tt.data, tt.err)
 
 			if tt.wantErr {
 				assert.Error(t, e.err)
@@ -556,7 +668,7 @@ func TestEntry_Stop_DoesNotHoldLockWhileWaitingForWorker(t *testing.T) {
 		close(workerReady)
 		<-release
 		// needs e.Lock(); deadlocks if Stop still holds it while waiting
-		e.setData([]byte(`{"key":"val"}`), nil)
+		e.setData(context.Background(), []byte(`{"key":"val"}`), nil)
 	}()
 
 	<-workerReady
@@ -614,7 +726,7 @@ func TestEntry_SetData_AtomicProjectionUpdates(t *testing.T) {
 		},
 	}
 
-	e.setData([]byte(`{"key":"new"}`), nil)
+	e.setData(context.Background(), []byte(`{"key":"new"}`), nil)
 
 	assert.Error(t, e.err)
 	assert.Contains(t, e.err.Error(), "projection evaluation error")
