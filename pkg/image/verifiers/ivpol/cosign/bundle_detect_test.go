@@ -376,6 +376,22 @@ func Test_BundleDetection_MatchesCosign_TwoGenuineBundles(t *testing.T) {
 	detectionEquivalence(t, repo, true)
 }
 
+// plainHTTPTransport returns a transport that routes every connection to the
+// plain-HTTP test registry behind repo, whatever the host, and the registry's
+// port, so a test can address that registry by a non-local hostname.
+func plainHTTPTransport(t *testing.T, repo name.Repository) (*http.Transport, string) {
+	t.Helper()
+	addr := repo.RegistryStr()
+	dialer := &net.Dialer{}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return dialer.DialContext(ctx, network, addr)
+	}
+	_, port, err := net.SplitHostPort(addr)
+	require.NoError(t, err)
+	return transport, port
+}
+
 // Test_BundleDetection_InsecureRegistryKeepsHTTP covers a plain-HTTP registry
 // reached by a hostname that go-containerregistry does not treat as local
 // (localhost, loopback and RFC 1918 literals default to HTTP anyway). With
@@ -387,15 +403,7 @@ func Test_BundleDetection_InsecureRegistryKeepsHTTP(t *testing.T) {
 	subject := pushSubject(t, repo, "subject")
 	pushReferrer(t, repo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
 
-	// Route every connection to the plain-HTTP test registry, whatever the host.
-	addr := repo.RegistryStr()
-	dialer := &net.Dialer{}
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
-		return dialer.DialContext(ctx, network, addr)
-	}
-	_, port, err := net.SplitHostPort(addr)
-	require.NoError(t, err)
+	transport, port := plainHTTPTransport(t, repo)
 
 	ref, err := name.ParseReference("registry.kyverno.test:"+port+"/test/img:subject", name.Insecure)
 	require.NoError(t, err)
@@ -407,4 +415,30 @@ func Test_BundleDetection_InsecureRegistryKeepsHTTP(t *testing.T) {
 	})
 	require.NotNil(t, hash, "the subject digest must resolve over HTTP")
 	assert.Len(t, bundles, 1, "the bundle referrer must be fetched over HTTP, like the referrers list")
+}
+
+// Test_BundleDetection_InsecureSourceRepositoryKeepsHTTP covers the
+// source.repository path: the signature repository that checkOptions builds
+// becomes the target repository of loadBundles, so it must keep name.Insecure
+// as well, or the bundle referrer is requested over HTTPS and skipped.
+func Test_BundleDetection_InsecureSourceRepositoryKeepsHTTP(t *testing.T) {
+	repo, _ := newBundleRegistry(t)
+	subject := pushSubject(t, repo, "subject")
+	pushReferrer(t, repo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
+
+	transport, port := plainHTTPTransport(t, repo)
+	host := "registry.kyverno.test:" + port
+
+	ref, err := name.ParseReference(host+"/test/img:subject", name.Insecure)
+	require.NoError(t, err)
+
+	att := bundleTestAttestor()
+	att.Source = &v1beta1.Source{Repository: host + "/test/img"}
+	opts, err := checkOptions(context.TODO(), att, []remote.Option{remote.WithTransport(transport)}, []name.Option{name.Insecure}, nil)
+	require.NoError(t, err)
+
+	v := NewVerifier(nil, logr.Discard())
+	bundles, hash := v.loadBundles(ref, opts.RegistryClientOpts)
+	require.NotNil(t, hash, "the subject digest must resolve over HTTP")
+	assert.Len(t, bundles, 1, "the bundle referrer must be fetched from source.repository over HTTP")
 }
