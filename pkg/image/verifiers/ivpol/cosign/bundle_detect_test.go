@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
@@ -373,4 +374,37 @@ func Test_BundleDetection_MatchesCosign_TwoGenuineBundles(t *testing.T) {
 	bundle2, _ := signV3Bundle(t, subject.Digest.Hex, "https://example.com/predicate")
 	pushReferrer(t, repo, subject, bundle2, testBundleMediaType, testBundleMediaType)
 	detectionEquivalence(t, repo, true)
+}
+
+// Test_BundleDetection_InsecureRegistryKeepsHTTP covers a plain-HTTP registry
+// reached by a hostname that go-containerregistry does not treat as local
+// (localhost, loopback and RFC 1918 literals default to HTTP anyway). With
+// allowInsecureRegistry the image reference carries name.Insecure, and every
+// referrer reference built from it must keep that flag, otherwise the referrer
+// manifest is requested over HTTPS and the bundle is silently skipped.
+func Test_BundleDetection_InsecureRegistryKeepsHTTP(t *testing.T) {
+	repo, _ := newBundleRegistry(t)
+	subject := pushSubject(t, repo, "subject")
+	pushReferrer(t, repo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
+
+	// Route every connection to the plain-HTTP test registry, whatever the host.
+	addr := repo.RegistryStr()
+	dialer := &net.Dialer{}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return dialer.DialContext(ctx, network, addr)
+	}
+	_, port, err := net.SplitHostPort(addr)
+	require.NoError(t, err)
+
+	ref, err := name.ParseReference("registry.kyverno.test:"+port+"/test/img:subject", name.Insecure)
+	require.NoError(t, err)
+	require.Equal(t, "http", ref.Context().Scheme())
+
+	v := NewVerifier(nil, logr.Discard())
+	bundles, hash := v.loadBundles(ref, []ociremote.Option{
+		ociremote.WithRemoteOptions(remote.WithTransport(transport)),
+	})
+	require.NotNil(t, hash, "the subject digest must resolve over HTTP")
+	assert.Len(t, bundles, 1, "the bundle referrer must be fetched over HTTP, like the referrers list")
 }

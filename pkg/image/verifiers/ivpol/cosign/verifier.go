@@ -175,11 +175,10 @@ func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremot
 
 	var bundles []*sgbundle.Bundle
 	for _, result := range index.Manifests {
-		st, err := name.ParseReference(fmt.Sprintf("%s@%s", bundleRepo, result.Digest.String()))
-		if err != nil {
-			v.log.V(2).Info("skipping referrer: cannot parse referrer reference", "digest", result.Digest.String(), "err", err.Error())
-			continue
-		}
+		// Build the referrer reference from bundleRepo instead of re-parsing its
+		// string form: parsing without the image's name options would drop
+		// name.Insecure, so a plain-HTTP registry would be contacted over HTTPS.
+		st := bundleRepo.Digest(result.Digest.String())
 		// ociremote carries the attestor's source credentials and name options, so
 		// the referrer manifest must be fetched through it and not through remote.
 		img, err := ociremote.SignedImage(st, registryClientOpts...)
