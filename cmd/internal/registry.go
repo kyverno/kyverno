@@ -42,6 +42,12 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 		registryCredentialHelpers, allowInsecureRegistry,
 		registryclient.WithLogger(logger))
 
+	// WithSecretClient does not change how this lister resolves secrets. It wraps ms so that
+	// namespaced ivpol credential resolution can opt into an authorized, bounded GET for a secret
+	// in the policy's own namespace, which has no informer. Secrets() is not overridden, so every
+	// other consumer - the legacy image-verification engine, the shared CEL context provider and
+	// resource imagePullSecrets - keeps ms's cache-only behavior and still gets NotFound for
+	// unconfigured namespaces. See pkg/utils/kube/AGENTS.md.
 	return registryClient, kubeutils.WithSecretClient(ctx, ms, client.CoreV1())
 }
 
