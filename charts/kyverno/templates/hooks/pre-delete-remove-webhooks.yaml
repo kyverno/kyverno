@@ -3,8 +3,9 @@
 {{- $automountSAToken := .Values.webhooksCleanup.serviceAccount.automountServiceAccountToken }}
 {{/* kyverno.fullname is already capped at 63 chars, so cap the suffixed names too: a long release
      name would otherwise push the Job name over 63 chars and its job-name Pod label would be invalid. */}}
-{{- $saName := printf "%s-rm-webhooks" (include "kyverno.fullname" . | trunc 51 | trimSuffix "-") -}}
-{{- $roleName := printf "%s:rm-webhooks" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" | trimSuffix ":" -}}
+{{- $baseName := include "kyverno.fullname" . | trunc 51 | trimSuffix "-" | trimSuffix ":" -}}
+{{- $saName := printf "%s-rm-webhooks" $baseName -}}
+{{- $roleName := printf "%s:rm-webhooks" $baseName -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -16,16 +17,23 @@ metadata:
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
     helm.sh/hook-weight: "95"
 rules:
+  # The delete-webhooks command lists webhook configurations by label and deletes
+  # them; it never reads a single object, so get is not needed.
   - apiGroups:
       - admissionregistration.k8s.io
     resources:
       - mutatingwebhookconfigurations
       - validatingwebhookconfigurations
+    verbs:
+      - delete
+      - list
+  # ValidatingAdmissionPolicies are only deleted, never listed.
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
       - validatingadmissionpolicies
     verbs:
       - delete
-      - get
-      - list
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1

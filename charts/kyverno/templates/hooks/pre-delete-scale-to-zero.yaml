@@ -17,15 +17,14 @@ metadata:
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
     helm.sh/hook-weight: "80"
 rules:
+  # The scale-deploy command lists the Kyverno deployments by label and updates
+  # spec.replicas on each of them; it does not use get, patch or the scale subresource.
   - apiGroups:
       - apps
     resources:
       - deployments
-      - deployments/scale
     verbs:
-      - get
       - list
-      - patch
       - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1

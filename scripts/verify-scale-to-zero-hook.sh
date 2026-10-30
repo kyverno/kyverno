@@ -37,6 +37,46 @@ verify kyverno-prod release-ns release-ns custom-kyverno --set fullnameOverride=
 verify kyverno-prod release-ns workload-ns custom-kyverno --set namespaceOverride=workload-ns --set fullnameOverride=custom-kyverno
 printf 'Scale-to-zero release scope verified\n'
 
+# kyverno.fullname is capped at 63 chars. The pre-delete hooks append a suffix to it, so
+# the base name has to be truncated first: otherwise the suffix is cut off, the two hooks
+# end up with identical names, and the Job name can exceed the 63 chars allowed in the
+# job-name Pod label.
+verify_long_fullname_hook_names() {
+  local base render got want
+  base="$(head -c 63 /dev/zero | tr '\0' 'k')"
+  render="$("${HELM}" template kyverno "${ROOT_DIR}/charts/kyverno" \
+    --namespace kyverno --kube-version "${KUBE_VERSION}" \
+    --set fullnameOverride="${base}" \
+    --show-only templates/hooks/pre-delete-scale-to-zero.yaml \
+    --show-only templates/hooks/pre-delete-remove-webhooks.yaml)"
+  # print "<kind> <metadata.name>" for every rendered object
+  got="$(awk '
+    /^kind: / { kind = $2 }
+    /^metadata:/ { meta = 1; next }
+    meta && /^  name: / { print kind " " $2; meta = 0 }
+  ' <<< "${render}")"
+  while IFS= read -r want; do
+    if ! grep -Fxq -- "${want}" <<< "${got}"; then
+      printf 'Missing or wrong hook object for a 63-char fullname: %s\nRendered:\n%s\n' "${want}" "${got}" >&2
+      return 1
+    fi
+  done <<EOF
+ServiceAccount ${base:0:49}-scale-to-zero
+Job ${base:0:49}-scale-to-zero
+Role ${base:0:49}:scale-to-zero
+ServiceAccount ${base:0:51}-rm-webhooks
+Job ${base:0:51}-rm-webhooks
+ClusterRole ${base:0:51}:rm-webhooks
+EOF
+  if awk '{ if (length($2) > 63) bad = 1 } END { exit !bad }' <<< "${got}"; then
+    printf 'A hook object name exceeds 63 chars:\n%s\n' "${got}" >&2
+    return 1
+  fi
+}
+
+verify_long_fullname_hook_names
+printf 'Hook names stay distinct and within 63 chars for a 63-char fullname\n'
+
 verify_image_registry() {
   local release="$1" expected_image="$2"
   shift 2
