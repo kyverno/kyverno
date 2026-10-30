@@ -663,6 +663,9 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | backgroundController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | backgroundController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
+| backgroundController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| backgroundController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| backgroundController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | backgroundController.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | backgroundController.tolerations | list | `[]` | List of node taints to tolerate |
 | backgroundController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
@@ -870,6 +873,9 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | reportsController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | reportsController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
+| reportsController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| reportsController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| reportsController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | reportsController.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | reportsController.tolerations | list | `[]` | List of node taints to tolerate |
 | reportsController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |

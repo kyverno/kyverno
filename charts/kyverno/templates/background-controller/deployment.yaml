@@ -190,6 +190,18 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- with .Values.backgroundController.startupProbe }}
+          startupProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.backgroundController.livenessProbe }}
+          livenessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.backgroundController.readinessProbe }}
+          readinessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           {{- with .Values.backgroundController.lifecycle }}
           lifecycle:
             {{- toYaml . | nindent 12 }}
