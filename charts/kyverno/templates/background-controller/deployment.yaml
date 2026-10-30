@@ -118,9 +118,9 @@ spec:
             {{- end }}
             {{- end }}
             - --disableMetrics={{ .Values.backgroundController.metering.disabled }}
+            - --metricsPort={{ .Values.backgroundController.metering.port }}
             {{- if not .Values.backgroundController.metering.disabled }}
             - --otelConfig={{ .Values.backgroundController.metering.config }}
-            - --metricsPort={{ .Values.backgroundController.metering.port }}
             {{- if .Values.backgroundController.metering.secure }}
             - --metricsCASecretName={{ template "kyverno.background-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
             - --metricsTLSSecretName={{ template "kyverno.background-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
@@ -190,20 +190,21 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- $isGrpc := and (not .Values.backgroundController.metering.disabled) (eq .Values.backgroundController.metering.config "grpc") }}
           {{- with .Values.backgroundController.startupProbe }}
-          {{- if or (ne $.Values.backgroundController.metering.config "grpc") (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
+          {{- if or (not $isGrpc) (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
           startupProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- end }}
           {{- with .Values.backgroundController.livenessProbe }}
-          {{- if or (ne $.Values.backgroundController.metering.config "grpc") (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
+          {{- if or (not $isGrpc) (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
           livenessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- end }}
           {{- with .Values.backgroundController.readinessProbe }}
-          {{- if or (ne $.Values.backgroundController.metering.config "grpc") (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
+          {{- if or (not $isGrpc) (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
