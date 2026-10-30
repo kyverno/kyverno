@@ -496,7 +496,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 					k8sPolicies = append(k8sPolicies, pol)
 				}
 			}
-			if len(k8sPolicies) > 0 {
+			if len(k8sPolicies) > 0 && len(uniques) > 0 {
 				vpolProvider, vpolProviderErr = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
 				if hookVpolProviderCreated != nil {
 					hookVpolProviderCreated()
