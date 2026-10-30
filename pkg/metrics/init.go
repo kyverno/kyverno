@@ -73,6 +73,20 @@ func InitMetrics(
 
 	SetManager(metricsConfig)
 
+	var meterProvider metric.MeterProvider
+	var metricsServerMux *http.ServeMux
+
+	probeHandler := func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	if otelProvider == "prometheus" {
+		metricsServerMux = http.NewServeMux()
+		metricsServerMux.HandleFunc(config.LivenessServicePath, probeHandler)
+		metricsServerMux.HandleFunc(config.ReadinessServicePath, probeHandler)
+		metricsServerMux.HandleFunc("/healthz", probeHandler)
+	}
+
 	if disableMetricsExport {
 		err = metricsConfig.initializeMetrics(otel.GetMeterProvider())
 		if err != nil {
@@ -80,11 +94,8 @@ func InitMetrics(
 			return nil, nil, nil, nil, err
 		}
 
-		return metricsConfig, nil, nil, nil, nil
+		return metricsConfig, tlsProvider, metricsServerMux, nil, nil
 	}
-
-	var meterProvider metric.MeterProvider
-	var metricsServerMux *http.ServeMux
 
 	switch otelProvider {
 	case "grpc":
@@ -107,7 +118,6 @@ func InitMetrics(
 			return nil, nil, nil, nil, err
 		}
 
-		metricsServerMux = http.NewServeMux()
 		metricsServerMux.Handle(config.MetricsPath, promhttp.Handler())
 	}
 
