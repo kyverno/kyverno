@@ -74,12 +74,12 @@ change the existing validation-policy lifecycle.
 each mutation. Match conditions run once per policy. Policies run in provider
 order; each sees the preceding policy's successful output.
 
-Only `JSONPatch` mutations are supported in JSON mode. Expressions return a
-list of `JSONPatch{op, path, from, value}` values and can use
-`jsonpatch.escapeKey()`. The RFC 6902 operations add/remove/replace/copy/move/test
-and RFC 6901 escaped pointers are supported. A failed `test` rolls back that
-policy and reports a skip; invalid operations report errors. Non-object
-mutation outputs are errors.
+`JSONPatch` and `ApplyConfiguration` mutations use the existing mutation
+patchers in JSON mode. JSON Patch expressions return a list of
+`JSONPatch{op, path, from, value}` values and can use `jsonpatch.escapeKey()`.
+The RFC 6902 operations add/remove/replace/copy/move/test and RFC 6901 escaped
+pointers are supported. A failed `test` rolls back that policy and reports a
+skip; invalid operations report errors. Non-object mutation outputs are errors.
 
 Integer literals within int64 remain exact through loading, evaluation and
 output, including values above 2^53. Fractional JSON numbers use the existing
@@ -92,8 +92,8 @@ exceptions expose their allowed values/images to expressions. Audit
 annotations are attached to successful rule results.
 
 CEL programs use the shared Kyverno environment, cost limits, request-wide
-budget and cancellation checks. Documents/intermediate values are limited to
-1 MiB and a policy to 1,024 patch operations.
+budget and cancellation checks. ApplyConfiguration uses the deduced type
+converter for schemaless JSON objects.
 
 ## Tests and follow-up
 

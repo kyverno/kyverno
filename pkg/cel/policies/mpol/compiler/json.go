@@ -5,6 +5,7 @@ import (
 	gojson "encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"google.golang.org/protobuf/types/known/structpb"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,6 +25,7 @@ import (
 	"k8s.io/apiserver/pkg/cel/mutation"
 	"k8s.io/apiserver/pkg/cel/mutation/dynamic"
 	pointer "k8s.io/utils/ptr"
+	kjson "sigs.k8s.io/json"
 )
 
 // JSONPatchCondition contains the inputs needed to compile and evaluate a cel expression
@@ -90,6 +93,37 @@ func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchR
 	}
 
 	return newVersionedObject, eval, nil
+}
+
+func (e *jsonPatcher) PatchJSON(ctx context.Context, evalData map[string]any, runtimeCELCostBudget int64) (*unstructured.Unstructured, MutationEval, error) {
+	patchObj, _, eval, err := e.evaluatePatchExpression(ctx, runtimeCELCostBudget, evalData)
+	if err != nil {
+		return nil, eval, err
+	}
+	object, ok := evalData[celcompiler.ObjectKey].(map[string]any)
+	if !ok {
+		return nil, eval, fmt.Errorf("JSON Patch requires an object root")
+	}
+	objJS, err := gojson.Marshal(object)
+	if err != nil {
+		return nil, eval, fmt.Errorf("failed to encode JSON object: %w", err)
+	}
+	patchedJS, err := patchObj.Apply(objJS)
+	if errors.Is(err, jsonpatch.ErrTestFailed) {
+		eval.NotApplied = "a test operation failed, so the object was left unchanged"
+		return &unstructured.Unstructured{Object: object}, eval, nil
+	}
+	if err != nil {
+		return nil, eval, fmt.Errorf("JSON Patch: %w", err)
+	}
+	var patched map[string]any
+	if err := kjson.UnmarshalCaseSensitivePreserveInts(patchedJS, &patched); err != nil || patched == nil {
+		if err == nil {
+			err = fmt.Errorf("JSON mutation must preserve an object root")
+		}
+		return nil, eval, err
+	}
+	return &unstructured.Unstructured{Object: patched}, eval, nil
 }
 
 func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudget int64, evalData map[string]any) (jsonpatch.Patch, int64, MutationEval, error) {
@@ -161,6 +195,15 @@ func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudg
 // for the objects inside them.
 func patchValueToJSON(val ref.Val) (gojson.RawMessage, error) {
 	switch typed := val.(type) {
+	case types.Int:
+		return marshalPatchValue(int64(typed))
+	case types.Uint:
+		if uint64(typed) > math.MaxInt64 {
+			return nil, fmt.Errorf("JSON Patch unsigned integer %d exceeds the int64 range", uint64(typed))
+		}
+		return marshalPatchValue(uint64(typed))
+	case types.Double:
+		return marshalPatchValue(float64(typed))
 	case *dynamic.ObjectVal:
 		// TODO: Object initializers are insufficiently type checked.
 		// In the interim, we use this sanity check to detect type mismatches

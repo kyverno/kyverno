@@ -105,24 +105,90 @@ spec:
 	require.Zero(t, rc.Error)
 }
 
-func TestApplyJSONMutationOnKubernetesObject(t *testing.T) {
+func TestApplyJSONMutationDoesNotMutateKubernetesObject(t *testing.T) {
 	input := filepath.Join(t.TempDir(), "resource.json")
 	require.NoError(t, os.WriteFile(input, []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"input"},"id":1}`), 0o600))
+	policy := filepath.Join(t.TempDir(), "json-policy.yaml")
+	require.NoError(t, os.WriteFile(policy, []byte(`
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: json-only
+spec:
+  evaluation:
+    mode: JSON
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "add", path: "/region", value: "west"}]'
+`), 0o600))
 	config := &ApplyCommandConfig{
-		PolicyPaths:   []string{"../../../../../test/cli/test-mutating-policy/json-document-mutation/policy.yaml"},
+		PolicyPaths:   []string{policy},
 		ResourcePaths: []string{input},
 	}
 	rc, resources, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
 	require.NoError(t, err)
-	require.Equal(t, 2, rc.Pass)
+	require.Zero(t, rc.Pass)
 	require.Zero(t, rc.Fail)
 	require.Zero(t, rc.Error)
 	require.Len(t, resources, 1)
 	require.Equal(t, "ConfigMap", resources[0].GetKind())
 	require.Equal(t, "input", resources[0].GetName())
-	require.Len(t, responses, 2)
-	require.Equal(t, "ConfigMap", responses[0].PatchedResource.GetKind())
-	require.Equal(t, "west", responses[0].PatchedResource.Object["region"])
+	require.Empty(t, responses)
+	require.NotContains(t, resources[0].Object, "region")
+}
+
+func TestApplyJSONMutationSkipDoesNotPrintSuccess(t *testing.T) {
+	base := "../../../../../test/cli/test-mutating-policy/json-document-mutation/"
+	for _, tc := range []struct {
+		name       string
+		match      string
+		expression string
+	}{
+		{
+			name:       "match condition",
+			match:      "false",
+			expression: `[JSONPatch{op: "add", path: "/region", value: "west"}]`,
+		},
+		{
+			name:       "failed patch test",
+			expression: `[JSONPatch{op: "test", path: "/id", value: 1}, JSONPatch{op: "add", path: "/region", value: "west"}]`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			policy := filepath.Join(t.TempDir(), "skip-policy.yaml")
+			matchCondition := ""
+			if tc.match != "" {
+				matchCondition = fmt.Sprintf(`
+  matchConditions:
+  - name: excluded
+    expression: %q`, tc.match)
+			}
+			require.NoError(t, os.WriteFile(policy, []byte(fmt.Sprintf(`
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: skip-json-mutation
+spec:
+  evaluation:
+    mode: JSON
+%s
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: %q
+`, matchCondition, tc.expression)), 0o600))
+			var out bytes.Buffer
+			config := &ApplyCommandConfig{PolicyPaths: []string{policy}, JSONPaths: []string{base + "input.json"}}
+			rc, _, _, responses, err := config.applyCommandHelper(context.Background(), &out)
+			require.NoError(t, err)
+			require.Equal(t, 1, rc.Skip)
+			require.Zero(t, rc.Pass)
+			require.Len(t, responses, 1)
+			require.NotContains(t, out.String(), "Mutation has been applied successfully")
+			require.NotContains(t, out.String(), "region: west")
+		})
+	}
 }
 
 func Test_Apply(t *testing.T) {

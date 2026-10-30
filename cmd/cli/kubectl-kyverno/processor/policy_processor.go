@@ -223,46 +223,37 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				return nil, err
 			}
 		}
-		hasJSONPolicy := slices.ContainsFunc(mutatingPolicies, func(policy policiesv1beta1.MutatingPolicyLike) bool {
-			return policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
-		})
-		applyJSON := func(object *unstructured.Unstructured) error {
-			if !hasJSONPolicy {
-				return nil
-			}
+		if p.JsonPayload.Object != nil {
 			eng := mpolengine.NewEngine(provider, nil, nil, nil, contextProvider)
-			reps, evaluationErr := eng.Handle(context.TODO(), celengine.RequestFromJSON(contextProvider, object), func(policy policiesv1beta1.MutatingPolicyLike) bool {
+			reps, evaluationErr := eng.Handle(context.TODO(), celengine.RequestFromJSON(contextProvider, &p.JsonPayload), func(policy policiesv1beta1.MutatingPolicyLike) bool {
 				return policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
 			})
 			p.explainMutations(reps.Policies)
 			for _, r := range reps.Policies {
 				response := engineapi.EngineResponse{
-					Resource:       *object,
+					Resource:       p.JsonPayload,
 					PolicyResponse: engineapi.PolicyResponse{Rules: r.Rules},
 				}.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
 				if r.PatchedResource != nil {
 					response.PatchedResource = *r.PatchedResource
 				}
 				responses = append(responses, response)
-				if evaluationErr == nil && r.PatchedResource != nil && len(r.Rules) > 0 {
+				hasPassingRule := slices.ContainsFunc(r.Rules, func(rule engineapi.RuleResponse) bool {
+					return rule.Status() == engineapi.RuleStatusPass
+				})
+				if evaluationErr == nil && r.PatchedResource != nil && hasPassingRule {
 					if err := p.processMutateEngineResponse(response, "JSON payload"); err != nil {
-						return err
+						return responses, err
 					}
 				} else {
 					p.Rc.addMutateResponse(response)
 				}
 			}
 			if evaluationErr != nil {
-				return evaluationErr
+				return responses, evaluationErr
 			}
 			if reps.PatchedResource != nil {
-				*object = *reps.PatchedResource
-			}
-			return nil
-		}
-		if p.JsonPayload.Object != nil {
-			if err := applyJSON(&p.JsonPayload); err != nil {
-				return responses, err
+				p.JsonPayload = *reps.PatchedResource
 			}
 		}
 		if resource.Object != nil {
@@ -347,9 +338,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 
 				responses = append(responses, response)
 				resource = response.PatchedResource
-			}
-			if err := applyJSON(&resource); err != nil {
-				return responses, err
 			}
 			// mutateExisting MutatingPolicies - process target resources
 			if len(p.TargetResources) > 0 {

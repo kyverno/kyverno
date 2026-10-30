@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
@@ -60,7 +59,7 @@ func TestJSONMutation(t *testing.T) {
 		{"large integer", `{"id":9007199254740993}`, `[JSONPatch{op:"add",path:"/copy",value:object.id}]`, `{"id":9007199254740993,"copy":9007199254740993}`, engineapi.RuleStatusPass},
 		{"fractional equality", `{"n":0.1}`, `[JSONPatch{op:"test",path:"/n",value:0.1},JSONPatch{op:"add",path:"/ok",value:true}]`, `{"n":0.1,"ok":true}`, engineapi.RuleStatusPass},
 		{"mixed numeric inequality rolls back", `{"n":9007199254740993}`, `[JSONPatch{op:"add",path:"/partial",value:true},JSONPatch{op:"test",path:"/n",value:9007199254740992.0}]`, `{"n":9007199254740993}`, engineapi.RuleStatusSkip},
-		{"invalid pointer", `{}`, `[JSONPatch{op:"add",path:"/bad~2key",value:true}]`, "", engineapi.RuleStatusError},
+		{"invalid pointer follows shared patcher behavior", `{}`, `[JSONPatch{op:"add",path:"/bad~2key",value:true}]`, `{"bad~2key":true}`, engineapi.RuleStatusPass},
 		{"root type change", `{}`, `[JSONPatch{op:"replace",path:"",value:[1,2]}]`, "", engineapi.RuleStatusError},
 		{"null root", `{}`, `[JSONPatch{op:"replace",path:"",value:null}]`, "", engineapi.RuleStatusError},
 	} {
@@ -168,7 +167,7 @@ func TestJSONMutationTracing(t *testing.T) {
 	}
 }
 
-func TestJSONMutationLimits(t *testing.T) {
+func TestJSONMutationBudgetAndCancellation(t *testing.T) {
 	t.Parallel()
 	policy := jsonMutationPolicy("test", `[JSONPatch{op:"add",path:"/ok",value:true}]`)
 	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
@@ -191,13 +190,52 @@ func TestJSONMutationLimits(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, response.PatchedResource)
 	})
-	t.Run("size", func(t *testing.T) {
-		t.Parallel()
-		input := &unstructured.Unstructured{Object: map[string]any{"value": strings.Repeat("x", compiler.MaxJSONDocumentBytes)}}
-		response, err := engine.Handle(context.Background(), celengine.RequestFromJSON(nil, input), nil)
-		require.ErrorContains(t, err, "exceeds")
-		require.Nil(t, response.PatchedResource)
-	})
+}
+
+func TestJSONApplyConfigurationMutation(t *testing.T) {
+	t.Parallel()
+	policy := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "apply-config"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"mutated": "true"}}}`,
+				},
+			}},
+		},
+	}
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
+	require.NoError(t, err)
+	response, err := NewEngine(provider, nil, nil, nil, nil).Handle(
+		context.Background(),
+		celengine.RequestFromJSON(nil, jsonObject(t, `{"metadata":{"labels":{"existing":"yes"}}}`)),
+		nil,
+	)
+	require.NoError(t, err)
+	require.Len(t, response.Policies, 1)
+	require.Equal(t, engineapi.RuleStatusPass, response.Policies[0].Rules[0].Status())
+	labels, found, err := unstructured.NestedStringMap(response.PatchedResource.Object, "metadata", "labels")
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, map[string]string{"existing": "yes", "mutated": "true"}, labels)
+}
+
+func TestJSONModeDoesNotGenerateAutogenPolicies(t *testing.T) {
+	t.Parallel()
+	policy := jsonMutationPolicy("json-pod", `[JSONPatch{op:"add",path:"/metadata/labels/mutated",value:"yes"}]`)
+	policy.Spec.MatchConstraints = &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+				Rule:       admissionregistrationv1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"pods"}},
+			},
+		}},
+	}
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
+	require.NoError(t, err)
+	require.Len(t, provider.Fetch(context.Background(), false), 1)
 }
 
 func TestJSONMutationAdmissionUsesNormalMatching(t *testing.T) {
