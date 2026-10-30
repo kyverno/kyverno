@@ -8,6 +8,10 @@
   through that client is guarded; this is a registry-client boundary, not a process-wide
   network restriction. Image references are validated where they are fetched, so no caller
   needs to decide whether a reference came from the resource or from the policy author.
+- `registry.go` builds options for policies that declare their own `spec.credentials`.
+  Those cannot go through the global client, and `regcreds.RemoteOptsFromIvpolCredentials`
+  pins `regcreds.DefaultTransport`, so they would escape the guard. Any new caller that
+  needs policy-declared credentials must use `GuardedRemoteOptions`, not `regcreds`.
 - Sigstore infrastructure (Rekor, Fulcio, TSA, TUF), KMS, and the CEL HTTP library do not use
   the registry client and are therefore untouched here.
 - Credential composition belongs to the SDK. `GuardKeychain` only validates the destination
@@ -18,6 +22,12 @@
 ## Security invariants
 - `Policy` is immutable after construction. Validate every DNS answer, even for allowlisted
   hosts, including mapped/embedded IPv4; exemptions never override hard-block rules.
+- Allowlist entries are host-granular. Reject ports rather than stripping them:
+  `resolveAndValidate` only ever receives a hostname, so a port could not be enforced and a
+  stripped one would silently exempt every port on that host.
+- `registryclient.New` only builds the Secret keychain when a lister is present, so declared
+  Secrets with a nil lister would fall back to the default keychain and fetch
+  unauthenticated. `requiredSecretsKeychain` keeps that failure explicit; do not drop it.
 - Audit permits ordinary private destinations with logging; enforce requires exemptions.
   Metadata, loopback, link-local, unspecified, multicast, and broadcast remain blocked.
 - Validate every request, including reused connections, redirects, and token requests routed
