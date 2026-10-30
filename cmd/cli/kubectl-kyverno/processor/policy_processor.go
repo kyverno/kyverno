@@ -54,7 +54,6 @@ import (
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
 
-
 var (
 	HookFallbackVpolCompiled     func()
 	HookFallbackVpolJSONCompiled func()
