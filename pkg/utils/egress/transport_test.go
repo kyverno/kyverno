@@ -519,3 +519,73 @@ func TestTransportPoolKeyIgnoresTargetBehindProxy(t *testing.T) {
 		transport.destinationPool(proxied("192.0.2.9")),
 		"a direct pool was reused for a proxied request")
 }
+
+// A proxy owns downstream DNS, so a registry that only it can resolve must still be reachable.
+// Failing here would break those deployments in every mode, including audit.
+func TestTransportDefersUnresolvableTargetToProxy(t *testing.T) {
+	t.Parallel()
+	policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{"proxy.example": {"198.51.100.7"}})
+	reachedDial := errors.New("dial sentinel")
+	var dialed []string
+	base := &http.Transport{
+		Proxy: http.ProxyURL(&url.URL{Scheme: "http", Host: "proxy.example"}),
+		DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
+			dialed = append(dialed, address)
+			return nil, reachedDial
+		},
+	}
+	transport := policy.WrapTransport(base)
+
+	// "registry.internal" is absent from the resolver answers, so the local lookup reports
+	// not-found. The request must still be attempted, against the proxy.
+	request, err := http.NewRequest(http.MethodGet, "https://registry.internal/v2/", nil)
+	require.NoError(t, err)
+	_, err = transport.RoundTrip(request)
+	// hostError keeps resolved addresses out of the message but still unwraps to the cause.
+	require.ErrorIs(t, err, reachedDial)
+	require.NotEmpty(t, dialed, "the request never reached the proxy")
+	assert.Equal(t, "198.51.100.7:80", dialed[0], "dialled something other than the proxy")
+}
+
+// Deferring to the proxy must not become a way around the hard blocks: a literal address
+// never reaches the resolver, so it cannot be excused as not-found.
+func TestTransportBlocksLiteralAddressBehindProxy(t *testing.T) {
+	t.Parallel()
+	policy := testPolicy(t, Config{}, map[string][]string{"proxy.example": {"198.51.100.7"}})
+	base := &http.Transport{
+		Proxy: http.ProxyURL(&url.URL{Scheme: "http", Host: "proxy.example"}),
+		DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
+			t.Errorf("dialled %q for a blocked destination", address)
+			return nil, errors.New("unreachable")
+		},
+	}
+	transport := policy.WrapTransport(base)
+
+	request, err := http.NewRequest(http.MethodGet, "https://169.254.169.254/v2/", nil)
+	require.NoError(t, err)
+	_, err = transport.RoundTrip(request)
+	require.ErrorIs(t, err, ErrAddressBlocked)
+}
+
+// A resolver failure that is not a plain not-found still fails closed, with or without a proxy.
+func TestTransportFailsClosedOnResolverError(t *testing.T) {
+	t.Parallel()
+	policy := testPolicy(t, Config{}, map[string][]string{"proxy.example": {"198.51.100.7"}})
+	policy.lookupNetIP = func(_ context.Context, _, host string) ([]netip.Addr, error) {
+		if host == "proxy.example" {
+			return []netip.Addr{netip.MustParseAddr("198.51.100.7")}, nil
+		}
+		return nil, &net.DNSError{Err: "server misbehaving", Name: host, IsTemporary: true}
+	}
+	base := &http.Transport{
+		Proxy: http.ProxyURL(&url.URL{Scheme: "http", Host: "proxy.example"}),
+		DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
+			t.Errorf("dialled %q despite an unresolved destination", address)
+			return nil, errors.New("unreachable")
+		},
+	}
+	request, err := http.NewRequest(http.MethodGet, "https://registry.internal/v2/", nil)
+	require.NoError(t, err)
+	_, err = policy.WrapTransport(base).RoundTrip(request)
+	require.ErrorContains(t, err, "failed to resolve")
+}

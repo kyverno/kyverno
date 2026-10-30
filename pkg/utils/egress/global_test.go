@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/stretchr/testify/require"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -110,6 +112,21 @@ func TestGuardedRemoteOptions(t *testing.T) {
 	opts, nameOpts := GuardedRemoteOptions(nil, "kyverno", nil, nil, false)
 	require.NotEmpty(t, opts)
 	require.Empty(t, nameOpts)
+
+	// Exercise the options rather than counting them: a non-empty slice says nothing about
+	// whether the guard reached them. A literal metadata address needs no DNS and no network,
+	// so the guard rejects it before the first byte is written.
+	//
+	// This pins that the options carry a guard, not which one. go-containerregistry resolves
+	// the keychain before the transport pings, so with both wired the keychain reports first
+	// and dropping either one alone still fails the fetch. They are pinned individually
+	// elsewhere: TestGuardKeychainValidatesBeforeResolving covers the keychain, and
+	// transport_test.go covers the transport, including the redirect and token paths that run
+	// after credentials have already resolved and only the transport can catch.
+	blocked, err := name.ParseReference("169.254.169.254/app:v1")
+	require.NoError(t, err)
+	_, err = gcrremote.Get(blocked, opts...)
+	require.ErrorIs(t, err, ErrAddressBlocked, "the returned options did not carry the guard")
 
 	// allowInsecureRegistry must still reach the SDK, which adds name.Insecure for it.
 	_, insecureNameOpts := GuardedRemoteOptions(nil, "kyverno", nil, nil, true)

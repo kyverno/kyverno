@@ -92,3 +92,10 @@ blocks still apply to the proxy endpoint itself. The proxy and the target regist
 separately: routing through a proxy does not exempt the target from the allowlist requirement in
 `enforce`. Because the proxy performs its own DNS and routing, Kyverno cannot pin what it connects
 to downstream — that remains the proxy's responsibility.
+
+A registry that resolves only from the proxy's network is still reachable. When a proxy is
+configured and the controller's own resolver reports the name as not found, the destination is
+left to the proxy and the request proceeds; the skip is logged at verbosity 2. This applies only
+to that one case. A name that does resolve is validated as usual, a literal IP address never
+consults the resolver and so can never be excused this way, and any other resolver failure still
+fails closed.
