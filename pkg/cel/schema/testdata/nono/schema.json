@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "required": ["backend", "request"],
+  "additionalProperties": true,
+  "properties": {
+    "backend": {"type": "string", "maxLength": 128},
+    "request": {
+      "type": "object",
+      "required": ["capability_type", "request_id", "session_id"],
+      "additionalProperties": true,
+      "properties": {
+        "capability_type": {"type": "string", "enum": ["command", "endpoint"]},
+        "request_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "session_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "child_pid": {"type": "integer", "minimum": 0},
+        "command": {"type": "string", "maxLength": 256},
+        "caller": {"type": "string", "maxLength": 256},
+        "args": {"type": "array", "maxItems": 256, "items": {"type": "string", "maxLength": 4096}},
+        "intercept_rule": {"type": "string", "maxLength": 256},
+        "method": {"type": "string", "maxLength": 32},
+        "path": {"type": "string", "maxLength": 8192},
+        "route_id": {"type": "string", "maxLength": 256},
+        "upstream": {"type": "string", "maxLength": 512},
+        "rule_label": {"type": "string", "maxLength": 512}
+      }
+    }
+  }
+}
