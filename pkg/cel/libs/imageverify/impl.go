@@ -144,12 +144,16 @@ func NewIvFuncs(
 		return nil, scopeErrs.ToAggregate()
 	}
 	lister = kubeutils.ScopeSecretLister(lister, ivpol.GetNamespace())
+	// Resolve bare Secret names in the policy's own namespace; only a
+	// cluster-scoped policy falls back to Kyverno's. See compiler.go for why
+	// this is defence in depth rather than the thing correctness rests on.
+	credentialNamespace := kubeutils.CredentialNamespace(lister, config.KyvernoNamespace())
 	spec := ivpol.GetSpec()
 
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
 	if spec.Credentials != nil {
-		authOpts, nameOpts = imagecredentials.RemoteOptions(lister, *spec.Credentials, config.KyvernoNamespace(), logger)
+		authOpts, nameOpts = imagecredentials.RemoteOptions(lister, *spec.Credentials, credentialNamespace, logger)
 	}
 
 	return &IvFuncs{

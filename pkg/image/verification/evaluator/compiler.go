@@ -72,12 +72,19 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}
 
 	lister := kubeutils.ScopeSecretLister(c.lister, ivpolicy.GetNamespace())
+	// A bare Secret name belongs to the policy's own namespace, and only a
+	// cluster-scoped policy falls back to Kyverno's. ScopePolicy has already
+	// rewritten namespaced references to canonical namespace/name, so this is
+	// belt-and-braces today, but it keeps a future path that reaches
+	// RemoteOptions without ScopePolicy from silently resolving bare names in
+	// the installation namespace again.
+	credentialNamespace := kubeutils.CredentialNamespace(lister, config.KyvernoNamespace())
 	spec := ivpolicy.GetSpec()
 
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
 	if spec.Credentials != nil {
-		authOpts, nameOpts = imagecredentials.RemoteOptions(lister, *spec.Credentials, config.KyvernoNamespace(), logging.GlobalLogger())
+		authOpts, nameOpts = imagecredentials.RemoteOptions(lister, *spec.Credentials, credentialNamespace, logging.GlobalLogger())
 	}
 
 	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts)

@@ -18,6 +18,7 @@ import (
 	imagecredentials "github.com/kyverno/kyverno/pkg/image/verification/credentials"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/sigstoretuf"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/sigstore/cosign/v3/pkg/blob"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
@@ -448,7 +449,13 @@ func sourceRemoteOpts(secretLister corev1listers.SecretLister, src *v1beta1.Sour
 		for _, s := range src.SignaturePullSecrets {
 			signaturePullSecrets = append(signaturePullSecrets, s.Name)
 		}
-		kc := imagecredentials.NewSecretsKeychain(secretLister, config.KyvernoNamespace(), logging.GlobalLogger(), signaturePullSecrets...)
+		// No policy is in scope here, so take the namespace from the lister the
+		// verifier was built with: NewIvFuncs confines it to the policy
+		// namespace for a namespaced policy and leaves it unconfined for a
+		// cluster-scoped one, which is exactly the distinction a bare
+		// signaturePullSecrets name needs.
+		namespace := kubeutils.CredentialNamespace(secretLister, config.KyvernoNamespace())
+		kc := imagecredentials.NewSecretsKeychain(secretLister, namespace, logging.GlobalLogger(), signaturePullSecrets...)
 		opts = append(opts, remote.WithAuthFromKeychain(kc))
 	}
 	return opts, nil
