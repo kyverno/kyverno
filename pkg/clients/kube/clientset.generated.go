@@ -348,7 +348,7 @@ func (c *clientset) StoragemigrationV1beta1() k8s_io_client_go_kubernetes_typed_
 
 func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, m metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes.Interface {
 	return &clientset{
-		discovery:                     discovery.WithMetrics(inner.Discovery(), metrics.ClusteredClientQueryRecorder(m, "Discoverys", clientType)),
+		discovery:                     discovery.WithMetrics(inner.Discovery(), metrics.ClusteredClientQueryRecorder(m, "Discovery", clientType)),
 		admissionregistrationv1:       admissionregistrationv1.WithMetrics(inner.AdmissionregistrationV1(), m, clientType),
 		admissionregistrationv1alpha1: admissionregistrationv1alpha1.WithMetrics(inner.AdmissionregistrationV1alpha1(), m, clientType),
 		admissionregistrationv1beta1:  admissionregistrationv1beta1.WithMetrics(inner.AdmissionregistrationV1beta1(), m, clientType),

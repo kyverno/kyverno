@@ -30,7 +30,7 @@ func (c *clientset) ApiregistrationV1beta1() k8s_io_kube_aggregator_pkg_client_c
 
 func WrapWithMetrics(inner k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset.Interface, m metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset.Interface {
 	return &clientset{
-		discovery:              discovery.WithMetrics(inner.Discovery(), metrics.ClusteredClientQueryRecorder(m, "Discoverys", clientType)),
+		discovery:              discovery.WithMetrics(inner.Discovery(), metrics.ClusteredClientQueryRecorder(m, "Discovery", clientType)),
 		apiregistrationv1:      apiregistrationv1.WithMetrics(inner.ApiregistrationV1(), m, clientType),
 		apiregistrationv1beta1: apiregistrationv1beta1.WithMetrics(inner.ApiregistrationV1beta1(), m, clientType),
 	}

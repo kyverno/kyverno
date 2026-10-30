@@ -30,7 +30,7 @@ func (c *clientset) ApiextensionsV1beta1() k8s_io_apiextensions_apiserver_pkg_cl
 
 func WrapWithMetrics(inner k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.Interface, m metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.Interface {
 	return &clientset{
-		discovery:            discovery.WithMetrics(inner.Discovery(), metrics.ClusteredClientQueryRecorder(m, "Discoverys", clientType)),
+		discovery:            discovery.WithMetrics(inner.Discovery(), metrics.ClusteredClientQueryRecorder(m, "Discovery", clientType)),
 		apiextensionsv1:      apiextensionsv1.WithMetrics(inner.ApiextensionsV1(), m, clientType),
 		apiextensionsv1beta1: apiextensionsv1beta1.WithMetrics(inner.ApiextensionsV1beta1(), m, clientType),
 	}
