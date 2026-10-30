@@ -15,6 +15,55 @@
 {{- end -}}
 {{- end -}}
 
+{{/*
+Merge a controller's featuresOverride onto .Values.features.
+
+mergeOverwrite ignores empty values, so an override that sets a list back to [] would
+otherwise be silently dropped and the global value would survive. Re-apply list-valued
+registry keys explicitly whenever the override declares them, so [] clears the global.
+
+Usage: include "kyverno.features.merged" (dict "features" .Values.features "override" .Values.xController.featuresOverride) | fromYaml
+*/}}
+{{- define "kyverno.features.merged" -}}
+{{- $override := .override | default dict -}}
+{{- $features := mergeOverwrite (deepCopy .features) (deepCopy $override) -}}
+{{- $registryOverride := $override.registryClient | default dict -}}
+{{- if hasKey $registryOverride "privateRegistryAllowlist" -}}
+  {{- $_ := set $features.registryClient "privateRegistryAllowlist" $registryOverride.privateRegistryAllowlist -}}
+{{- end -}}
+{{- $features | toYaml -}}
+{{- end -}}
+
+{{/* Validate registry allowlist entries before serializing them into a CSV flag. */}}
+{{- define "kyverno.registryClient.validate" -}}
+{{- range $index, $entry := .privateRegistryAllowlist -}}
+  {{- if not (kindIs "string" $entry) -}}
+    {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must be a non-empty string" $index) -}}
+  {{- end -}}
+  {{- if eq (trim $entry) "" -}}
+    {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must be a non-empty string" $index) -}}
+  {{- end -}}
+  {{- if contains "," $entry -}}
+    {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must not contain commas; use a separate list item for each entry" $index) -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Egress flags are rendered separately from kyverno.features.flags because the cleanup and
+background controllers must receive them without "registryClient" in their pick list: the
+cleanup controller never registers --allowInsecureRegistry, so picking that key would make
+it exit on an unknown flag.
+*/}}
+{{- define "kyverno.registryClient.egressFlags" -}}
+{{- include "kyverno.registryClient.validate" . -}}
+{{- $flags := list (print "--privateRegistryEgressMode=" .privateRegistryEgressMode) -}}
+{{- with .privateRegistryAllowlist -}}
+  {{- $flags = append $flags (print "--privateRegistryAllowlist=" (join "," .)) -}}
+{{- end -}}
+{{- $flags | toYaml -}}
+{{- end -}}
+
 {{- define "kyverno.features.flags" -}}
 {{- $flags := list -}}
 {{- with .admissionReports -}}

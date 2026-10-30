@@ -1038,6 +1038,10 @@ features:
   registryClient:
     # -- Allow insecure registry
     allowInsecure: false
+    # -- Egress policy for image registry requests in the admission, background, reports, and cleanup controllers: `audit` permits private addresses and logs requests `enforce` would block; `enforce` requires an allowlist entry. Both modes block cloud metadata, loopback, link-local, and other unsafe addresses. Sigstore (Rekor, Fulcio, TSA, TUF) and KMS endpoints are unaffected.
+    privateRegistryEgressMode: audit
+    # -- Exact registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in `enforce` mode. Include private token and redirect services. Entries must be non-empty strings without commas; use one list item per entry. Metadata and other unsafe addresses stay blocked even when listed.
+    privateRegistryAllowlist: []
     # -- Enable registry client helpers
     credentialHelpers:
     - default

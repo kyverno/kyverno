@@ -89,6 +89,9 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	keyOrCert := att.Keyless == nil && (att.Key != nil || att.Certificate != nil)
 	skipSigstoreInfra := keyOrCert && ignoreTlog
 	cosignRemoteOpts := []ociremote.Option{}
+	// Compiled policies share their option slice across admission requests, so appending
+	// to it in place would let one request's source credentials leak into another's.
+	baseROpts = slices.Clip(baseROpts)
 
 	if att.Source != nil {
 		remoteOpts, err := sourceRemoteOpts(secretLister, att.Source)

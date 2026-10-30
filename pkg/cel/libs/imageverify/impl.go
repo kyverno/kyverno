@@ -22,9 +22,9 @@ import (
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
+	"github.com/kyverno/kyverno/pkg/utils/egress"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
-	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -118,6 +118,15 @@ func WithRequestContext(ctx context.Context, opts []remote.Option) []remote.Opti
 	return append(slices.Clip(opts), remote.WithContext(ctx))
 }
 
+// CredentialHelpers converts the policy's providers to the names the registry client takes.
+func CredentialHelpers(creds v1beta1.Credentials) []string {
+	providers := make([]string, len(creds.Providers))
+	for i, provider := range creds.Providers {
+		providers[i] = string(provider)
+	}
+	return providers
+}
+
 func NewIvFuncs(
 	logger logr.Logger,
 	ivpol v1beta1.ImageValidatingPolicyLike,
@@ -130,7 +139,8 @@ func NewIvFuncs(
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
 	if spec.Credentials != nil {
-		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace(), logger)
+		authOpts, nameOpts = egress.GuardedRemoteOptions(lister, config.KyvernoNamespace(),
+			spec.Credentials.Secrets, CredentialHelpers(*spec.Credentials), spec.Credentials.AllowInsecureRegistry)
 	}
 
 	return &IvFuncs{
