@@ -46,12 +46,25 @@ func NewBackgroundContext(
 		return nil, fmt.Errorf("trigger resource does not exist")
 	}
 
+	// A non-admission DELETE has no admission OldObject to extract. Keep the
+	// trigger as the old resource so generation cleanup can still find it.
+	if urContext.AdmissionRequestInfo.AdmissionRequest == nil &&
+		kyvernov1.AdmissionOperation(urContext.AdmissionRequestInfo.Operation) == kyvernov1.Delete {
+		old = *trigger
+	}
+
 	var policyContext *engine.PolicyContext
 	if urContext.AdmissionRequestInfo.AdmissionRequest == nil {
+		operation := kyvernov1.AdmissionOperation(urContext.AdmissionRequestInfo.Operation)
+		if operation == "" {
+			// Policy reconciliation and periodic resync have no admission request.
+			// Evaluate existing triggers as CREATE, consistent with GeneratingPolicy.
+			operation = kyvernov1.Create
+		}
 		policyContext, err = engine.NewPolicyContext(
 			jp,
 			*trigger,
-			kyvernov1.AdmissionOperation(urContext.AdmissionRequestInfo.Operation),
+			operation,
 			&urContext.UserRequestInfo,
 			cfg,
 		)
