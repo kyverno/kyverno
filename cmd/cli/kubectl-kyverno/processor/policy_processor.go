@@ -1101,29 +1101,22 @@ func GetNamespaceResolver(vars *variables.Variables, client dclient.Interface, c
 			var resolved *corev1.Namespace
 			var isNotFound bool
 			if kubeClient := client.GetKubeClient(); kubeClient != nil {
-				func() {
-					defer func() { _ = recover() }()
-					ns, err := kubeClient.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
-					if err == nil && ns != nil {
-						resolved = ns
-					} else if apierrors.IsNotFound(err) {
-						isNotFound = true
+				ns, err := kubeClient.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+				if err == nil && ns != nil {
+					resolved = ns
+				} else if apierrors.IsNotFound(err) {
+					isNotFound = true
+				}
+			} else {
+				res, err := client.GetResource(ctx, "v1", "Namespace", "", name)
+				if err == nil && res != nil {
+					var ns corev1.Namespace
+					if err := runtime.DefaultUnstructuredConverter.FromUnstructured(res.UnstructuredContent(), &ns); err == nil {
+						resolved = &ns
 					}
-				}()
-			}
-			if resolved == nil && !isNotFound {
-				func() {
-					defer func() { _ = recover() }()
-					res, err := client.GetResource(ctx, "v1", "Namespace", "", name)
-					if err == nil && res != nil {
-						var ns corev1.Namespace
-						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(res.UnstructuredContent(), &ns); err == nil {
-							resolved = &ns
-						}
-					} else if apierrors.IsNotFound(err) {
-						isNotFound = true
-					}
-				}()
+				} else if apierrors.IsNotFound(err) {
+					isNotFound = true
+				}
 			}
 
 			// Cache confirmed results: either a found namespace or confirmed 404 (not found).
