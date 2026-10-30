@@ -50,4 +50,4 @@ spec:
   mutations:
   - patchType: JSONPatch
     jsonPatch:
-      expression: '[JSONPatch{op: "replace", path: "/absent", value: true}]'
+      expression: '[JSONPatch{op: "replace", path: "/absent/child", value: true}]'
