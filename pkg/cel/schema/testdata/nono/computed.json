@@ -1,0 +1,4 @@
+[
+  {"name": "argv", "expression": "!has(object.request.args) || size(object.request.args) <= 1 ? [] : object.request.args.slice(1, size(object.request.args))"},
+  {"name": "isMutatingKubectl", "expression": "object.request.capability_type == 'command' && object.request.command == 'kubectl' && derived.argv.exists(a, a in ['apply','delete','scale','patch','edit','create','replace','rollout'])"}
+]
