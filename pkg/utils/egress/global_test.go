@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/stretchr/testify/require"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // resetGlobal restores whatever Guard was installed, so these tests can run alongside others
@@ -119,6 +120,25 @@ func TestGuardedRemoteOptions(t *testing.T) {
 	nativeOpts, _ := GuardedRemoteOptions(nil, "kyverno", nil, nil, false)
 	require.NotEmpty(t, nativeOpts)
 }
+
+// A policy that declares Secrets with no lister to read them from must fail loudly rather
+// than quietly fetching unauthenticated, which is what registryclient.New would do on its
+// own. Reachable from the CLI, which has no cluster client to build a lister from.
+func TestRequiredSecretsKeychain(t *testing.T) {
+	t.Parallel()
+
+	keychain := requiredSecretsKeychain(nil, "kyverno", []string{"regcred"})
+	require.NotNil(t, keychain, "declared Secrets with no lister must still produce a keychain")
+	_, err := keychain.Resolve(registryResource("registry.example.com"))
+	require.ErrorContains(t, err, "secret lister is not configured")
+
+	// Nothing to enforce: no declared Secrets, so the default chain is correct.
+	require.Nil(t, requiredSecretsKeychain(nil, "kyverno", nil))
+	// A real lister is handled by registryclient.New itself.
+	require.Nil(t, requiredSecretsKeychain(fakeSecretLister{}, "kyverno", []string{"regcred"}))
+}
+
+type fakeSecretLister struct{ corev1listers.SecretLister }
 
 func TestValidateConfigMatchesNew(t *testing.T) {
 	t.Parallel()
