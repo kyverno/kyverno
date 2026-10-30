@@ -36,6 +36,10 @@
   Custom TLS dialers must not bypass the validated dial path.
 - Validate proxy and target separately: a private proxy does not exempt private targets.
   The proxy still owns downstream DNS/routing, so local checks cannot pin its destination.
+  Because of that, a proxied target the local resolver reports as not-found is deferred to the
+  proxy rather than failing closed — otherwise proxy-only-resolvable registries break in every
+  mode. Keep `dnsNotFound` narrow: literal addresses never reach the resolver, and
+  `ErrAddressBlocked` plus every other resolver failure must stay fatal.
 - DNS and connection attempts share `DialTimeout` or the shorter caller deadline.
   Preserve the original request context for response bodies; close rejected request bodies.
 - Keep resolved IPs/DNS server details out of returned `hostError` messages while retaining

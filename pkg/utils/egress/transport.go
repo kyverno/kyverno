@@ -3,6 +3,7 @@ package egress
 import (
 	"container/list"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -151,16 +152,27 @@ func (t *Transport) RoundTrip(request *http.Request) (*http.Response, error) {
 	}
 	ctx, cancel := context.WithDeadline(request.Context(), deadline)
 	defer cancel()
-	targetIPs, err := t.policy.ResolveAndValidate(ctx, request.URL.Hostname())
-	if err != nil {
-		return nil, err
-	}
-	plan := &dialPlan{target: canonicalAddress(request.URL), targetIPs: targetIPs, deadline: deadline}
+	plan := &dialPlan{target: canonicalAddress(request.URL), deadline: deadline}
+	// Resolve the proxy decision first: whether a target has to be resolvable here depends
+	// on it.
+	var err error
 	if t.proxy != nil {
 		plan.proxy, err = t.proxy(request)
 		if err != nil {
 			return nil, err
 		}
+	}
+	plan.targetIPs, err = t.policy.ResolveAndValidate(ctx, request.URL.Hostname())
+	if err != nil {
+		// A proxy owns downstream DNS, so a registry only it can resolve is not evidence of
+		// a bad destination, and failing here would break those deployments in every mode.
+		// Anything that does resolve is still validated, and a literal address never reaches
+		// the resolver at all, so a blocked destination cannot be reached this way.
+		if plan.proxy == nil || !dnsNotFound(err) {
+			return nil, err
+		}
+		logging.WithName("egress").V(2).Info("network destination left to the proxy's resolver", "host", request.URL.Hostname())
+		plan.targetIPs = nil
 	}
 	if plan.proxy != nil {
 		// Clone operator configuration before storing it with a request.
@@ -256,6 +268,17 @@ func (b *pooledResponseBody) Close() error {
 	// when they become idle rather than interrupting the response body.
 	b.pool.closeIfRetired()
 	return err
+}
+
+// dnsNotFound reports whether the local resolver simply does not know the name, as opposed to
+// the policy having rejected it. Only the former may be deferred to a proxy: ErrAddressBlocked
+// and every other resolver failure still fail closed.
+func dnsNotFound(err error) bool {
+	if errors.Is(err, ErrAddressBlocked) {
+		return false
+	}
+	var dnsErr *net.DNSError
+	return errors.As(err, &dnsErr) && dnsErr.IsNotFound
 }
 
 func canonicalAddress(u *url.URL) string {
