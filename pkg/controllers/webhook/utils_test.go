@@ -5,9 +5,9 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
@@ -17,7 +17,7 @@ func Test_webhook_isEmpty(t *testing.T) {
 	empty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore, []admissionregistrationv1.MatchCondition{})
 	assert.Equal(t, empty.isEmpty(), true)
 	notEmpty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore, []admissionregistrationv1.MatchCondition{})
-	notEmpty.set("", "v1", "pods", "", admissionregistrationv1.NamespacedScope, kyvernov1.Create)
+	notEmpty.set("", "v1", "pods", "", admissionregistrationv1.NamespacedScope, admissionv1.Create)
 	assert.Equal(t, notEmpty.isEmpty(), false)
 }
 
@@ -28,8 +28,8 @@ func TestBuildRulesWithOperations(t *testing.T) {
 		expectedResult []admissionregistrationv1.RuleWithOperations
 	}{{
 		rules: sets.New[ruleEntry](
-			ruleEntry{"", "v1", "configmaps", "", admissionregistrationv1.NamespacedScope, kyvernov1.Create},
-			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, kyvernov1.Create},
+			ruleEntry{"", "v1", "configmaps", "", admissionregistrationv1.NamespacedScope, admissionv1.Create},
+			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, admissionv1.Create},
 		),
 		expectedResult: []admissionregistrationv1.RuleWithOperations{{
 			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -42,9 +42,9 @@ func TestBuildRulesWithOperations(t *testing.T) {
 		}},
 	}, {
 		rules: sets.New[ruleEntry](
-			ruleEntry{"", "v1", "configmaps", "", admissionregistrationv1.NamespacedScope, kyvernov1.Create},
-			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, kyvernov1.Create},
-			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, kyvernov1.Update},
+			ruleEntry{"", "v1", "configmaps", "", admissionregistrationv1.NamespacedScope, admissionv1.Create},
+			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, admissionv1.Create},
+			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, admissionv1.Update},
 		),
 		expectedResult: []admissionregistrationv1.RuleWithOperations{{
 			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},

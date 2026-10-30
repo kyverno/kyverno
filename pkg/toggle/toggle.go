@@ -21,6 +21,11 @@ const (
 	ProtectManagedResourcesDescription = "Set the flag to 'true', to enable managed resources protection."
 	protectManagedResourcesEnvVar      = "FLAG_PROTECT_MANAGED_RESOURCES"
 	defaultProtectManagedResources     = false
+	// protect generation labels
+	ProtectGenerationLabelsFlagName    = "protectGenerationLabels"
+	ProtectGenerationLabelsDescription = "Set the flag to 'false', to disable generation label protection webhook."
+	protectGenerationLabelsEnvVar      = "FLAG_PROTECT_GENERATION_LABELS"
+	defaultProtectGenerationLabels     = true
 	// force failure policy ignore
 	ForceFailurePolicyIgnoreFlagName    = "forceFailurePolicyIgnore"
 	ForceFailurePolicyIgnoreDescription = "Set the flag to 'true', to force set Failure Policy to 'ignore'."
@@ -62,6 +67,7 @@ const (
 
 var (
 	ProtectManagedResources           = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
+	ProtectGenerationLabels           = newToggle(defaultProtectGenerationLabels, protectGenerationLabelsEnvVar)
 	ForceFailurePolicyIgnore          = newToggle(defaultForceFailurePolicyIgnore, forceFailurePolicyIgnoreEnvVar)
 	EnableDeferredLoading             = newToggle(defaultEnableDeferredLoading, enableDeferredLoadingEnvVar)
 	GenerateValidatingAdmissionPolicy = newToggle(defaultGenerateValidatingAdmissionPolicy, generateValidatingAdmissionPolicyEnvVar)

@@ -1,7 +1,6 @@
 # Areas of code where owners always wants to be a reviewer/notified.
 *                       @kyverno/kyverno-core-maintainers
 /api                    @eddycharly @realshuting @kyverno/kyverno-core-maintainers 
-/api/kyverno/v1         @eddycharly @kyverno/kyverno-core-maintainers 
 /charts                 @eddycharly @realshuting @kyverno/kyverno-core-maintainers 
 /docs                   @yrsuthari @kyverno/kyverno-core-maintainers 
 /pkg/background         @realshuting @kyverno/kyverno-core-maintainers

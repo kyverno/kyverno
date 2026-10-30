@@ -228,6 +228,33 @@ helm_uninstall_if_present() {
 
 # --- fixture manifests -------------------------------------------------------
 
+# Exercise the filter field shipped in 1.19.2, not just fields present before
+# the release branch diverged. No probe pod is created, so this storage-only
+# rule never performs image verification or contacts a registry.
+image_filter_rule_manifest() {
+  cat <<EOF
+  - name: preserve-image-filter
+    match:
+      resources:
+        kinds:
+        - Pod
+        names:
+        - legacy-filter-probe-${RUN_ID}
+    imageExtractors:
+      Pod:
+      - path: /spec/containers/*
+        key: name
+        value: image
+        filter: migration-filter-probe
+    verifyImages:
+    - imageReferences:
+      - "registry.invalid/migration-filter-probe:*"
+      mutateDigest: false
+      verifyDigest: false
+      required: false
+EOF
+}
+
 # Emitted rather than applied directly so apply_legacy_fixture can retry
 # through wait_for_allow (defined below): applied right after a fresh
 # install/rollback, where the webhook may not be serving yet.
@@ -253,6 +280,7 @@ spec:
         metadata:
           labels:
             app: "?*"
+$(image_filter_rule_manifest)
 EOF
 }
 
@@ -304,7 +332,17 @@ spec:
         metadata:
           labels:
             app: "?*"
+$(image_filter_rule_manifest)
 EOF
+}
+
+assert_image_filter_stored() {
+  local context="$1" resource="$2" name="$3"
+  shift 3
+  kubectl get "${resource}" "${name}" "$@" -o json \
+    | jq -e '.spec.rules[] | select(.name == "preserve-image-filter") |
+        .imageExtractors.Pod[0].filter == "migration-filter-probe"' >/dev/null \
+    || fail "${context}: ${resource} ${name} did not retain imageExtractors[].filter"
 }
 
 
@@ -1189,6 +1227,10 @@ wait_for_allow "A1 pre-upgrade compliant pod" "${WORK_DIR}/compliant-pod.yaml"
 kubectl delete -f "${WORK_DIR}/compliant-pod.yaml" --ignore-not-found >/dev/null
 
 log "A2: snapshotting the baseline (CRD versions/spec hash/storedVersions, per-kind spec hashes, legacy CR counts across all five kinds, webhook rules)"
+# Prove the sentinel reached storage before hashing: otherwise an older
+# baseline could prune it on create and make every later hash agree on loss.
+assert_image_filter_stored "A2" clusterpolicies.kyverno.io "${CLUSTERPOLICY_NAME}"
+assert_image_filter_stored "A2" policies.kyverno.io "${POLICY_NAME}" -n "${TEST_NAMESPACE}"
 snapshot_crds "baseline"
 BASELINE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
 BASELINE_CR_COUNTS="$(legacy_cr_counts_snapshot)"

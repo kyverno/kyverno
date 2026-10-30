@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -172,79 +171,58 @@ func TestMergePatch(t *testing.T) {
 
 func Test_PolicyDeserilize(t *testing.T) {
 	var expectBytes = []byte(`{"apiVersion": "apps/v1","kind": "Deployment","metadata": {"name": "wordpress","labels": {"app": "wordpress"}},"spec": {"selector": {"matchLabels": {"app": "wordpress"}},"strategy": {"type": "Recreate"},"template": {"metadata": {"labels": {"app": "wordpress"}},"spec": {"containers": [{"name": "nginx","image": "nginx"},{"image": "wordpress:4.8-apache","name": "wordpress","ports": [{"containerPort": 80,"name": "wordpress"}],"volumeMounts": [{"name": "wordpress-persistent-storage","mountPath": "/var/www/html"}],"env": [{"name": "WORDPRESS_DB_HOST","value": "$(MYSQL_SERVICE)"},{"name": "WORDPRESS_DB_PASSWORD","valueFrom": {"secretKeyRef": {"name": "mysql-pass","key": "password"}}}]}],"volumes": [{"name": "wordpress-persistent-storage"}],"initContainers": [{"name": "init-command","image": "debian","command": ["echo $(WORDPRESS_SERVICE)","echo $(MYSQL_SERVICE)"]}]}}}}`)
-	rawPolicy := []byte(`
+	// The patchStrategicMerge field of a mutate rule is an arbitrary embedded JSON document;
+	// exercise strategicMergePatch directly against it rather than round-tripping through a
+	// legacy ClusterPolicy type.
+	patchStrategicMerge := []byte(`
 {
-  "apiVersion": "kyverno.io/v1",
-  "kind": "ClusterPolicy",
-  "metadata": {
-    "name": "set-image-pull-policy"
-  },
   "spec": {
-    "rules": [
-      {
-        "name": "set-image-pull-policy",
-        "match": {
-          "resources": {
-            "kinds": [
-              "Pod"
-            ]
-          }
-        },
-        "mutate": {
-          "patchStrategicMerge": {
-            "spec": {
-              "template": {
-                "spec": {
-                  "containers": [
-                    {
-                      "name": "nginx",
-                      "image": "nginx"
-                    },
-                    {
-                      "name": "wordpress",
-                      "env": [
-                        {
-                          "name": "WORDPRESS_DB_HOST",
-                          "value": "$(MYSQL_SERVICE)"
-                        },
-                        {
-                          "name": "WORDPRESS_DB_PASSWORD",
-                          "valueFrom": {
-                            "secretKeyRef": {
-                              "name": "mysql-pass",
-                              "key": "password"
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "initContainers": [
-                    {
-                      "name": "init-command",
-                      "image": "debian",
-                      "command": [
-                        "echo $(WORDPRESS_SERVICE)",
-                        "echo $(MYSQL_SERVICE)"
-                      ]
-                    }
-                  ]
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "name": "nginx",
+            "image": "nginx"
+          },
+          {
+            "name": "wordpress",
+            "env": [
+              {
+                "name": "WORDPRESS_DB_HOST",
+                "value": "$(MYSQL_SERVICE)"
+              },
+              {
+                "name": "WORDPRESS_DB_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "mysql-pass",
+                    "key": "password"
+                  }
                 }
               }
-            }
+            ]
           }
-        }
+        ],
+        "initContainers": [
+          {
+            "name": "init-command",
+            "image": "debian",
+            "command": [
+              "echo $(WORDPRESS_SERVICE)",
+              "echo $(MYSQL_SERVICE)"
+            ]
+          }
+        ]
       }
-    ]
+    }
   }
 }
 `)
 
-	var policy kyvernov1.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
+	var overlayPatches interface{}
+	err := json.Unmarshal(patchStrategicMerge, &overlayPatches)
 	assert.NilError(t, err)
 
-	overlayPatches := policy.Spec.Rules[0].Mutation.GetPatchStrategicMerge()
 	patchString, err := json.Marshal(overlayPatches)
 	assert.NilError(t, err)
 

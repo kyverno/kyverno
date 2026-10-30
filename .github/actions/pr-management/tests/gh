@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""Offline gh protocol fixture. Unexpected calls fail closed."""
+import datetime
+import json
+import os
+from pathlib import Path
+import sys
+
+args = sys.argv[1:]
+fixture_path = Path(os.environ["GH_FIXTURE"])
+fixture = json.loads(fixture_path.read_text())
+with open(os.environ["GH_CALLS"], "a") as log:
+    log.write(json.dumps(args) + "\n")
+
+
+def emit(value):
+    print(json.dumps(value))
+    sys.exit(0)
+
+
+def fail(message):
+    print(message, file=sys.stderr)
+    sys.exit(1)
+
+
+if args[:2] == ["api", "graphql"]:
+    query = next(a[6:] for a in args if a.startswith("query="))
+    if fixture.get("graphql_errors"):
+        emit({"data": None, "errors": [{"message": "denied"}]})
+    if "search(" in query:
+        emit({"data": {"search": fixture["discovery"]}})
+    number = next((int(a[7:]) for a in args if a.startswith("number=")), None)
+    if "after:" not in query and number in fixture.get("fail_detail_numbers", []):
+        fail(f"detail fetch failed for #{number}")
+    if "after:" not in query and number is not None and "stale_pr" not in fixture:
+        emit({"data": {"repository": {"pullRequest": dict(fixture["readiness_pr"], number=number)}}})
+    if "after:" in query and "reviewThreads(" in query:
+        emit({"data": {"repository": {"pullRequest": {"reviewThreads": fixture["thread_page"]}}}})
+    if "before:" in query and "comments(" in query:
+        emit({"data": {"repository": {"pullRequest": {"comments": fixture["comment_page"]}}}})
+    if "before:" in query and "timelineItems(" in query:
+        emit({"data": {"repository": {"pullRequest": {"timelineItems": fixture["timeline_page"]}}}})
+    if "after:" in query:
+        # Keep the connection truncated for testing the real pagination cap.
+        emit({"data": {"repository": {"pullRequest": fixture["readiness_pr"]}}})
+    emit({"data": {"repository": {"pullRequest": fixture.get("stale_pr", fixture.get("readiness_pr"))}}})
+
+if args[:2] == ["pr", "list"]:
+    labels = [label["name"] for label in fixture["stale_pr"]["labels"]["nodes"]]
+    search = args[args.index("--search") + 1]
+    matches = True
+    for word in search.split():
+        if word.startswith("label:"):
+            matches &= word[6:] in labels
+        if word.startswith("-label:"):
+            matches &= word[7:] not in labels
+    if matches:
+        print("1")
+    sys.exit(0)
+
+if args[:2] == ["pr", "view"]:
+    emit([])
+
+if args[:1] == ["api"]:
+    endpoint = args[1]
+    if "/actions/runs?" in endpoint:
+        if fixture.get("gated_failure"):
+            fail("approval lookup failed")
+        print(fixture.get("gated_count", 0))
+        sys.exit(0)
+    if "/pulls/" in endpoint:
+        emit(fixture["live_pr"])
+    if "/comments" in endpoint:
+        if "--paginate" not in args:
+            fail("comments must be fully paginated")
+        print(fixture.get("comment_bodies", ""))
+        sys.exit(0)
+    if "/labels?" in endpoint:
+        if fixture.get("labels_failure"):
+            fail("labels lookup failed")
+        emit(fixture.get("label_pages", [[]]))
+    if "/labels" in endpoint and "--method" in args:
+        if fixture.get("write_failure"):
+            fail("label mutation failed")
+        emit({})
+
+if args[:1] == ["pr"] and args[1] in {"edit", "comment", "close"}:
+    if fixture.get("write_failure"):
+        fail("mutation failed")
+    # Persist enough GitHub behavior to test marking and closing in the same production sweep.
+    if "stale_pr" in fixture:
+        pr = fixture["stale_pr"]
+        now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if "--add-label" in args:
+            name = args[args.index("--add-label") + 1]
+            if not any(label["name"] == name for label in pr["labels"]["nodes"]):
+                pr["labels"]["nodes"].append({"name": name})
+                pr["timelineItems"]["nodes"].append({
+                    "__typename": "LabeledEvent", "createdAt": now, "actor": {"__typename": "Bot"},
+                    "label": {"name": name},
+                })
+        if args[1] == "comment":
+            body = Path(args[args.index("--body-file") + 1]).read_text()
+            pr["comments"]["nodes"].append({
+                "author": {"login": "github-actions[bot]", "__typename": "Bot"},
+                "createdAt": now, "body": body,
+            })
+        fixture_path.write_text(json.dumps(fixture))
+    sys.exit(0)
+
+fail(f"Unexpected gh invocation: {args}")

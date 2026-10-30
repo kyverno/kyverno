@@ -40,7 +40,6 @@ type MetricsConfig struct {
 	kyvernoInfoMetric    metric.Int64Gauge
 	breakerMetrics       *breakerMetrics
 	controllerMetrics    *controllerMetrics
-	cleanupMetrics       *cleanupMetrics
 	deletingMetrics      *deletingMetrics
 	updateRequestMetrics *updateRequestMetrics
 	ttlInfoMetrics       *ttlInfoMetrics
@@ -64,7 +63,6 @@ type MetricsConfigManager interface {
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 	BreakerMetrics() BreakerMetrics
 	ControllerMetrics() ControllerMetrics
-	CleanupMetrics() CleanupMetrics
 	DeletingMetrics() DeletingMetrics
 	UpdateRequestMetrics() UpdateRequestMetrics
 	TTLInfoMetrics() TTLInfoMetrics
@@ -89,10 +87,6 @@ func (m *MetricsConfig) BreakerMetrics() BreakerMetrics {
 
 func (m *MetricsConfig) ControllerMetrics() ControllerMetrics {
 	return m.controllerMetrics
-}
-
-func (m *MetricsConfig) CleanupMetrics() CleanupMetrics {
-	return m.cleanupMetrics
 }
 
 func (m *MetricsConfig) DeletingMetrics() DeletingMetrics {
@@ -165,7 +159,6 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 
 	m.breakerMetrics.init(meter)
 	m.controllerMetrics.init(meter)
-	m.cleanupMetrics.init(meter)
 	m.deletingMetrics.init(meter)
 	m.updateRequestMetrics.init(meter)
 	m.ttlInfoMetrics.init(meter)
@@ -316,7 +309,6 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		config:               metricsConfiguration,
 		breakerMetrics:       &breakerMetrics{logger: logger.WithName("circuit-breaker")},
 		controllerMetrics:    &controllerMetrics{logger: logger.WithName("controller")},
-		cleanupMetrics:       &cleanupMetrics{logger: logger.WithName("cleanup")},
 		deletingMetrics:      &deletingMetrics{logger: logger.WithName("deleting")},
 		updateRequestMetrics: &updateRequestMetrics{logger: logger.WithName("updaterequest")},
 		ttlInfoMetrics:       &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
