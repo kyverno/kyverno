@@ -201,19 +201,19 @@ spec:
           {{- end }}
           {{- $isGrpc := and (not .Values.reportsController.metering.disabled) (eq .Values.reportsController.metering.config "grpc") }}
           {{- with .Values.reportsController.startupProbe }}
-          {{- if or (not $isGrpc) (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
+          {{- if or (not $isGrpc) (not (and .httpGet (has (tpl .httpGet.path $) (list "/health/liveness" "/health/readiness" "/healthz")))) }}
           startupProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- end }}
           {{- with .Values.reportsController.livenessProbe }}
-          {{- if or (not $isGrpc) (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
+          {{- if or (not $isGrpc) (not (and .httpGet (has (tpl .httpGet.path $) (list "/health/liveness" "/health/readiness" "/healthz")))) }}
           livenessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- end }}
           {{- with .Values.reportsController.readinessProbe }}
-          {{- if or (not $isGrpc) (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
+          {{- if or (not $isGrpc) (not (and .httpGet (has (tpl .httpGet.path $) (list "/health/liveness" "/health/readiness" "/healthz")))) }}
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
