@@ -91466,16 +91466,16 @@ spec:
             failureThreshold: 20
             httpGet:
               path: /health/liveness
-              port: 8000
-              scheme: HTTP
+              port: '8000'
+              scheme: 'HTTP'
             initialDelaySeconds: 2
             periodSeconds: 6
           livenessProbe:
             failureThreshold: 2
             httpGet:
               path: /health/liveness
-              port: 8000
-              scheme: HTTP
+              port: '8000'
+              scheme: 'HTTP'
             initialDelaySeconds: 15
             periodSeconds: 30
             successThreshold: 1
@@ -91484,8 +91484,8 @@ spec:
             failureThreshold: 6
             httpGet:
               path: /health/readiness
-              port: 8000
-              scheme: HTTP
+              port: '8000'
+              scheme: 'HTTP'
             initialDelaySeconds: 5
             periodSeconds: 10
             successThreshold: 1
@@ -91797,16 +91797,16 @@ spec:
             failureThreshold: 20
             httpGet:
               path: /health/liveness
-              port: 8000
-              scheme: HTTP
+              port: '8000'
+              scheme: 'HTTP'
             initialDelaySeconds: 2
             periodSeconds: 6
           livenessProbe:
             failureThreshold: 2
             httpGet:
               path: /health/liveness
-              port: 8000
-              scheme: HTTP
+              port: '8000'
+              scheme: 'HTTP'
             initialDelaySeconds: 15
             periodSeconds: 30
             successThreshold: 1
@@ -91815,8 +91815,8 @@ spec:
             failureThreshold: 6
             httpGet:
               path: /health/readiness
-              port: 8000
-              scheme: HTTP
+              port: '8000'
+              scheme: 'HTTP'
             initialDelaySeconds: 5
             periodSeconds: 10
             successThreshold: 1
