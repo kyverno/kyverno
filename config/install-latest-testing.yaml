@@ -91411,8 +91411,8 @@ spec:
           
           args:
             - --disableMetrics=false
-            - --otelConfig=prometheus
             - --metricsPort=8000
+            - --otelConfig=prometheus
             - --resyncPeriod=15m
             - --crdWatcher=false
             - --enableConfigMapCaching=true
@@ -91466,7 +91466,7 @@ spec:
             failureThreshold: 20
             httpGet:
               path: /health/liveness
-              port: '8000'
+              port: metrics
               scheme: 'HTTP'
             initialDelaySeconds: 2
             periodSeconds: 6
@@ -91474,7 +91474,7 @@ spec:
             failureThreshold: 2
             httpGet:
               path: /health/liveness
-              port: '8000'
+              port: metrics
               scheme: 'HTTP'
             initialDelaySeconds: 15
             periodSeconds: 30
@@ -91484,7 +91484,7 @@ spec:
             failureThreshold: 6
             httpGet:
               path: /health/readiness
-              port: '8000'
+              port: metrics
               scheme: 'HTTP'
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -91731,9 +91731,9 @@ spec:
           
           args:
             - --disableMetrics=false
+            - --metricsPort=8000
             - --openreportsEnabled=false
             - --otelConfig=prometheus
-            - --metricsPort=8000
             - --resyncPeriod=15m
             - --admissionReports=true
             - --aggregateReports=true
@@ -91797,7 +91797,7 @@ spec:
             failureThreshold: 20
             httpGet:
               path: /health/liveness
-              port: '8000'
+              port: metrics
               scheme: 'HTTP'
             initialDelaySeconds: 2
             periodSeconds: 6
@@ -91805,7 +91805,7 @@ spec:
             failureThreshold: 2
             httpGet:
               path: /health/liveness
-              port: '8000'
+              port: metrics
               scheme: 'HTTP'
             initialDelaySeconds: 15
             periodSeconds: 30
@@ -91815,7 +91815,7 @@ spec:
             failureThreshold: 6
             httpGet:
               path: /health/readiness
-              port: '8000'
+              port: metrics
               scheme: 'HTTP'
             initialDelaySeconds: 5
             periodSeconds: 10
