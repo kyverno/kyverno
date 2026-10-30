@@ -32,6 +32,19 @@ policy went through the global client. Both call sites —
 `registryclient.NewRemoteOptions` and adds the two guard options. If a third site ever needs
 policy-declared credentials, it must do the same.
 
+Swapping in `registryclient.NewRemoteOptions` changes one behavior that has to be restored by
+hand. It only builds the Secret keychain when a lister is present:
+
+```go
+if len(o.imagePullSecrets) > 0 && o.secretLister != nil {
+```
+
+where `regcreds` built it regardless and failed at resolution with `secret lister is not
+configured`. Without that, a policy declaring Secrets with no lister falls back to
+`authn.DefaultKeychain` and fetches unauthenticated — silently. `requiredSecretsKeychain` keeps
+the failure explicit. This is reachable from the CLI, which has no cluster client to build a
+lister from.
+
 With no guard installed (CLI, unit tests) `egress.Global()` returns nil and both guard options are
 no-ops, leaving the SDK's native behavior.
 
