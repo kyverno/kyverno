@@ -552,6 +552,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.replicas | int | `nil` | Desired number of pods |
 | backgroundController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | backgroundController.resyncPeriod | string | `"15m"` | Resync period for informers |
+| backgroundController.crdWatcher | bool | `false` | Enable/Disable custom resource watcher to invalidate cache |
 | backgroundController.podLabels | object | `{}` | Additional labels to add to each pod |
 | backgroundController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | backgroundController.labels | object | `{}` | Deployment labels. |
