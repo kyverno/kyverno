@@ -176,6 +176,11 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 		}
 	}
 
+	// Same presence check as Authorization: an explicit Content-Type, even "", is kept.
+	if req.Method == "POST" && len(req.Header.Values("Content-Type")) == 0 {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
 	return nil
 }
 
