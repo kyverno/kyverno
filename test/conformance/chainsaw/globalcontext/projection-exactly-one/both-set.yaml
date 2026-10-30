@@ -1,0 +1,18 @@
+---
+apiVersion: kyverno.io/v2beta1
+kind: GlobalContextEntry
+metadata:
+  name: projection-both-set
+spec:
+  apiCall:
+    service:
+      url: https://svc.kyverno/example
+      caBundle: |-
+        -----BEGIN CERTIFICATE-----
+        -----REDACTED-----
+        -----END CERTIFICATE-----
+    refreshInterval: 1h
+  projections:
+    - name: count
+      jmesPath: items | length(@)
+      expression: object.items.size()
