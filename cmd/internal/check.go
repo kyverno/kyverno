@@ -16,6 +16,7 @@ func check(logger logr.Logger) {
 	checkEnvVar(logger, "INIT_CONFIG")
 	checkEnvVar(logger, "METRICS_CONFIG")
 	checkAutoMemLimitRatio(logger)
+	checkError(logger, validateRegistryClientConfig(privateRegistryAllowlist, privateRegistryEgressMode), "invalid registry egress configuration")
 }
 
 func checkAutoMemLimitRatio(logger logr.Logger) {

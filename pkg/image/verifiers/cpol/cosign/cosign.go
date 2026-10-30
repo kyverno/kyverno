@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/attestation"
 	"github.com/sigstore/cosign/v3/pkg/oci"
@@ -49,7 +50,13 @@ func countPEMCertBlocks(pem []byte) int {
 func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.CheckOpts, error) {
 	var err error
 
-	options, _, err := opts.Client.Options(ctx)
+	registryClient := opts.Client
+	if opts.Repository != "" {
+		if scoped, ok := registryClient.(interface{ PolicyClient() registryclient.Client }); ok {
+			registryClient = scoped.PolicyClient()
+		}
+	}
+	options, _, err := registryClient.Options(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("constructing cosign remote options: %w", err)
 	}

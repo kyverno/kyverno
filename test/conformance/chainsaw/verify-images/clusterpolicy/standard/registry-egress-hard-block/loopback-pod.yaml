@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: registry-egress-loopback
+  labels:
+    test.kyverno.io/registry-egress: hard-block
+spec:
+  containers:
+  - name: loopback
+    image: 127.0.0.1:5000/egress-proof:latest
