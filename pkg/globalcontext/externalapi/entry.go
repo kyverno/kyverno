@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
@@ -41,7 +41,7 @@ func New(
 	gceLister kyvernov2beta1listers.GlobalContextEntryLister,
 	logger logr.Logger,
 	client apicall.ClientInterface,
-	call kyvernov1.APICall,
+	call kyverno.APICall,
 	period time.Duration,
 	maxResponseLength int64,
 	apiCallTimeout time.Duration,
@@ -166,7 +166,7 @@ func (e *entry) setData(data any, err error) {
 	}
 }
 
-func doCall(ctx context.Context, caller apicall.Executor, call kyvernov1.APICall, retryLimit int) (any, error) {
+func doCall(ctx context.Context, caller apicall.Executor, call kyverno.APICall, retryLimit int) (any, error) {
 	var result any
 	backoff := wait.Backoff{
 		Duration: retry.DefaultBackoff.Duration,

@@ -46,7 +46,8 @@ spec:
             kind: Deployment
             name: test-deployment-nivpol-background
           results:
-          - message: failed to verify image with notary cert
+          # the policy's message, then why Notary rejected the image
+          - "(starts_with(message, 'failed to verify image with notary cert; verification details: '))": true
             result: fail
             scored: true
             source: KyvernoImageValidatingPolicy

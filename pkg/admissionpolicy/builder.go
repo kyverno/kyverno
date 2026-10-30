@@ -1,17 +1,15 @@
 package admissionpolicy
 
 import (
+	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	slicesutils "github.com/kyverno/kyverno/pkg/utils/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -33,75 +31,7 @@ func BuildValidatingAdmissionPolicy(
 	var auditAnnotations []admissionregistrationv1.AuditAnnotation
 	var variables []admissionregistrationv1.Variable
 
-	if cpol := policy.AsKyvernoPolicy(); cpol != nil {
-		// construct the rules
-		var matchRules, excludeRules []admissionregistrationv1.NamedRuleWithOperations
-
-		rule := cpol.GetSpec().Rules[0]
-
-		// convert the match block
-		match := rule.MatchResources
-		if !match.ResourceDescription.IsEmpty() {
-			if err := translateResource(discoveryClient, &matchResources, &matchRules, match.ResourceDescription, true); err != nil {
-				return err
-			}
-		}
-
-		if match.Any != nil {
-			if err := translateResourceFilters(discoveryClient, &matchResources, &matchRules, match.Any, true); err != nil {
-				return err
-			}
-		}
-		if match.All != nil {
-			if err := translateResourceFilters(discoveryClient, &matchResources, &matchRules, match.All, true); err != nil {
-				return err
-			}
-		}
-
-		// convert the exclude block
-		if exclude := rule.ExcludeResources; exclude != nil {
-			if !exclude.ResourceDescription.IsEmpty() {
-				if err := translateResource(discoveryClient, &matchResources, &excludeRules, exclude.ResourceDescription, false); err != nil {
-					return err
-				}
-			}
-
-			if exclude.Any != nil {
-				if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, exclude.Any, false); err != nil {
-					return err
-				}
-			}
-			if exclude.All != nil {
-				if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, exclude.All, false); err != nil {
-					return err
-				}
-			}
-		}
-
-		// convert the exceptions if exist
-		for _, exception := range exceptions {
-			if polex := exception.AsException(); polex != nil {
-				match := polex.Spec.Match
-				if match.Any != nil {
-					if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, match.Any, false); err != nil {
-						return err
-					}
-				}
-
-				if match.All != nil {
-					if err := translateResourceFilters(discoveryClient, &matchResources, &excludeRules, match.All, false); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		matchConditions = rule.CELPreconditions
-		paramKind = rule.Validation.CEL.ParamKind
-		validations = rule.Validation.CEL.Expressions
-		auditAnnotations = rule.Validation.CEL.AuditAnnotations
-		variables = rule.Validation.CEL.Variables
-	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
+	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		matchResources = *vpol.Spec.MatchConstraints
 		matchConditions = vpol.Spec.MatchConditions
 		validations = vpol.Spec.Validations
@@ -120,23 +50,23 @@ func BuildValidatingAdmissionPolicy(
 					})
 				}
 				if len(celpolex.Spec.Images) > 0 {
-					quotedImages := make([]string, len(celpolex.Spec.Images))
-					for i, img := range celpolex.Spec.Images {
-						quotedImages[i] = fmt.Sprintf("'%s'", img)
+					expression, err := celStringListLiteral(celpolex.Spec.Images)
+					if err != nil {
+						return err
 					}
 					variables = append(variables, admissionregistrationv1.Variable{
 						Name:       "allowedImages",
-						Expression: fmt.Sprintf("[%s]", strings.Join(quotedImages, ", ")),
+						Expression: expression,
 					})
 				}
 				if len(celpolex.Spec.AllowedValues) > 0 {
-					quotedValues := make([]string, len(celpolex.Spec.AllowedValues))
-					for i, val := range celpolex.Spec.AllowedValues {
-						quotedValues[i] = fmt.Sprintf("'%s'", val)
+					expression, err := celStringListLiteral(celpolex.Spec.AllowedValues)
+					if err != nil {
+						return err
 					}
 					variables = append(variables, admissionregistrationv1.Variable{
 						Name:       "allowedValues",
-						Expression: fmt.Sprintf("[%s]", strings.Join(quotedValues, ", ")),
+						Expression: expression,
 					})
 				}
 			}
@@ -193,28 +123,7 @@ func BuildValidatingAdmissionPolicyBinding(
 	var paramRef *admissionregistrationv1.ParamRef
 	var policyName string
 
-	if cpol := policy.AsKyvernoPolicy(); cpol != nil {
-		rule := cpol.GetSpec().Rules[0]
-		validateAction := rule.Validation.FailureAction
-		if validateAction != nil {
-			if validateAction.Enforce() {
-				validationActions = append(validationActions, admissionregistrationv1.Deny)
-			} else if validateAction.Audit() {
-				validationActions = append(validationActions, admissionregistrationv1.Audit)
-				validationActions = append(validationActions, admissionregistrationv1.Warn)
-			}
-		} else {
-			validateAction := cpol.GetSpec().ValidationFailureAction
-			if validateAction.Enforce() {
-				validationActions = append(validationActions, admissionregistrationv1.Deny)
-			} else if validateAction.Audit() {
-				validationActions = append(validationActions, admissionregistrationv1.Audit)
-				validationActions = append(validationActions, admissionregistrationv1.Warn)
-			}
-		}
-		paramRef = rule.Validation.CEL.ParamRef
-		policyName = "cpol-" + cpol.GetName()
-	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
+	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		validationActions = vpol.Spec.ValidationActions()
 		policyName = "vpol-" + vpol.GetName()
 	}
@@ -462,179 +371,15 @@ func BuildMutatingAdmissionPolicyBindingBeta(
 	controllerutils.SetManagedByKyvernoLabel(mapbinding)
 }
 
-func translateResourceFilters(discoveryClient dclient.IDiscovery,
-	matchResources *admissionregistrationv1.MatchResources,
-	rules *[]admissionregistrationv1.NamedRuleWithOperations,
-	resFilters kyvernov1.ResourceFilters,
-	isMatch bool,
-) error {
-	for _, filter := range resFilters {
-		err := translateResource(discoveryClient, matchResources, rules, filter.ResourceDescription, isMatch)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func translateResource(
-	discoveryClient dclient.IDiscovery,
-	matchResources *admissionregistrationv1.MatchResources,
-	rules *[]admissionregistrationv1.NamedRuleWithOperations,
-	res kyvernov1.ResourceDescription,
-	isMatch bool,
-) error {
-	err := constructValidatingAdmissionPolicyRules(discoveryClient, rules, res, isMatch)
+// celStringListLiteral encodes values as a CEL list-of-strings literal.
+//
+// A JSON array of strings is also a valid CEL list literal, and the JSON encoder
+// escapes quotes and backslashes, so an exception-supplied value stays a string
+// instead of breaking out of the literal and becoming expression code.
+func celStringListLiteral(values []string) (string, error) {
+	encoded, err := json.Marshal(values)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("failed to encode %v as a CEL list literal: %w", values, err)
 	}
-
-	if isMatch {
-		matchResources.ResourceRules = *rules
-		if len(res.Namespaces) > 0 {
-			namespaceSelector := &metav1.LabelSelector{
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{
-						Key:      "kubernetes.io/metadata.name",
-						Operator: "In",
-						Values:   res.Namespaces,
-					},
-				},
-			}
-			matchResources.NamespaceSelector = namespaceSelector
-		} else {
-			matchResources.NamespaceSelector = res.NamespaceSelector
-		}
-		matchResources.ObjectSelector = res.Selector
-	} else {
-		matchResources.ExcludeResourceRules = *rules
-	}
-	return nil
-}
-
-func constructValidatingAdmissionPolicyRules(
-	discoveryClient dclient.IDiscovery,
-	rules *[]admissionregistrationv1.NamedRuleWithOperations,
-	res kyvernov1.ResourceDescription,
-	isMatch bool,
-) error {
-	// translate operations to their corresponding values in validating admission policy.
-	ops := translateOperations(res.GetOperations())
-
-	resourceNames := res.Names
-	if res.Name != "" {
-		resourceNames = append(resourceNames, res.Name)
-	}
-
-	// get kinds from kyverno policies and translate them to rules in validating admission policies.
-	// matched resources in kyverno policies are written in the following format:
-	// group/version/kind/subresource
-	// whereas matched resources in validating admission policies are written in the following format:
-	// apiGroups:   ["group"]
-	// apiVersions: ["version"]
-	// resources:   ["resource"]
-	for _, kind := range res.Kinds {
-		var r admissionregistrationv1.NamedRuleWithOperations
-
-		if kind == "*" {
-			r = buildNamedRuleWithOperations(resourceNames, "*", "*", ops, "*")
-			*rules = append(*rules, r)
-		} else {
-			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-			gvrss, err := discoveryClient.FindResources(group, version, kind, subresource)
-			if err != nil {
-				return err
-			}
-			if len(gvrss) != 1 {
-				return fmt.Errorf("no unique match for kind %s", kind)
-			}
-
-			for topLevelApi, apiResource := range gvrss {
-				resources := []string{apiResource.Name}
-
-				// Add pods/ephemeralcontainers if pods resource.
-				if apiResource.Name == "pods" {
-					resources = append(resources, "pods/ephemeralcontainers")
-				}
-
-				// Check if there's an existing rule for the same group and version.
-				var isNewRule bool = true
-				for i := range *rules {
-					if slices.Contains((*rules)[i].APIGroups, topLevelApi.Group) && slices.Contains((*rules)[i].APIVersions, topLevelApi.Version) {
-						(*rules)[i].Resources = append((*rules)[i].Resources, resources...)
-						slices.Sort((*rules)[i].Resources)
-						isNewRule = false
-						break
-					}
-				}
-
-				// If no existing rule found, create a new one.
-				if isNewRule {
-					r = buildNamedRuleWithOperations(resourceNames, topLevelApi.Group, topLevelApi.Version, ops, resources...)
-					*rules = append(*rules, r)
-				}
-			}
-		}
-	}
-
-	// if exclude block has namespaces but no kinds, we need to add a rule for the namespaces
-	if !isMatch && len(res.Namespaces) > 0 && len(res.Kinds) == 0 {
-		r := admissionregistrationv1.NamedRuleWithOperations{
-			ResourceNames: res.Namespaces,
-			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-				Rule: admissionregistrationv1.Rule{
-					Resources:   []string{"namespaces"},
-					APIGroups:   []string{""},
-					APIVersions: []string{"v1"},
-				},
-				Operations: ops,
-			},
-		}
-		*rules = append(*rules, r)
-	}
-	return nil
-}
-
-func buildNamedRuleWithOperations(
-	resourceNames []string,
-	group, version string,
-	operations []admissionregistrationv1.OperationType,
-	resources ...string,
-) admissionregistrationv1.NamedRuleWithOperations {
-	slices.Sort(resources)
-	return admissionregistrationv1.NamedRuleWithOperations{
-		ResourceNames: resourceNames,
-		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-			Rule: admissionregistrationv1.Rule{
-				Resources:   resources,
-				APIGroups:   []string{group},
-				APIVersions: []string{version},
-			},
-			Operations: operations,
-		},
-	}
-}
-
-func translateOperations(operations []string) []admissionregistrationv1.OperationType {
-	var vapOperations []admissionregistrationv1.OperationType
-	for _, op := range operations {
-		if op == string(kyvernov1.Create) {
-			vapOperations = append(vapOperations, admissionregistrationv1.Create)
-		} else if op == string(kyvernov1.Update) {
-			vapOperations = append(vapOperations, admissionregistrationv1.Update)
-		} else if op == string(kyvernov1.Connect) {
-			vapOperations = append(vapOperations, admissionregistrationv1.Connect)
-		} else if op == string(kyvernov1.Delete) {
-			vapOperations = append(vapOperations, admissionregistrationv1.Delete)
-		}
-	}
-
-	// set default values for operations since it's a required field in ValidatingAdmissionPolicies
-	if len(vapOperations) == 0 {
-		vapOperations = append(vapOperations, admissionregistrationv1.Create)
-		vapOperations = append(vapOperations, admissionregistrationv1.Update)
-		vapOperations = append(vapOperations, admissionregistrationv1.Connect)
-		vapOperations = append(vapOperations, admissionregistrationv1.Delete)
-	}
-	return vapOperations
+	return string(encoded), nil
 }

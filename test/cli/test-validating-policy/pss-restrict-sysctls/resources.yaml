@@ -1,0 +1,99 @@
+# kernel.msgmax is not on the safe list: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unsafe-sysctl
+spec:
+  securityContext:
+    sysctls:
+    - name: kernel.msgmax
+      value: "65536"
+  containers:
+  - name: app
+    image: nginx
+---
+# One safe sysctl mixed with one unsafe one: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mixed-sysctls
+spec:
+  securityContext:
+    sysctls:
+    - name: net.ipv4.tcp_rmem
+      value: "4096 87380 6291456"
+    - name: net.ipv4.conf.all.forwarding
+      value: "1"
+  containers:
+  - name: app
+    image: nginx
+---
+# All 14 safe sysctls Kubernetes allows at policy version 1.37: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: all-safe-sysctls
+spec:
+  securityContext:
+    sysctls:
+    - name: kernel.shm_rmid_forced
+      value: "0"
+    - name: net.ipv4.ip_local_port_range
+      value: "32768 60999"
+    - name: net.ipv4.tcp_syncookies
+      value: "1"
+    - name: net.ipv4.ping_group_range
+      value: "1 65535"
+    - name: net.ipv4.ip_unprivileged_port_start
+      value: "1024"
+    - name: net.ipv4.ip_local_reserved_ports
+      value: "8080"
+    - name: net.ipv4.tcp_keepalive_time
+      value: "7200"
+    - name: net.ipv4.tcp_fin_timeout
+      value: "60"
+    - name: net.ipv4.tcp_keepalive_intvl
+      value: "75"
+    - name: net.ipv4.tcp_keepalive_probes
+      value: "9"
+    - name: net.ipv4.tcp_rmem
+      value: "4096 87380 6291456"
+    - name: net.ipv4.tcp_wmem
+      value: "4096 16384 4194304"
+    - name: net.ipv4.tcp_slow_start_after_idle
+      value: "0"
+    - name: net.ipv4.tcp_notsent_lowat
+      value: "16384"
+  containers:
+  - name: app
+    image: nginx
+---
+# The four names added in Kubernetes 1.32 and 1.37, on their own: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: new-safe-sysctls
+spec:
+  securityContext:
+    sysctls:
+    - name: net.ipv4.tcp_rmem
+      value: "4096 87380 6291456"
+    - name: net.ipv4.tcp_wmem
+      value: "4096 16384 4194304"
+    - name: net.ipv4.tcp_slow_start_after_idle
+      value: "0"
+    - name: net.ipv4.tcp_notsent_lowat
+      value: "16384"
+  containers:
+  - name: app
+    image: nginx
+---
+# No sysctls at all: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-sysctls
+spec:
+  containers:
+  - name: app
+    image: nginx

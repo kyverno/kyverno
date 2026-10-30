@@ -2,6 +2,9 @@
 
 This test checks that policy reports are generated successfully as a result of applying the ValidatingAdmissionPolicy with its binding to a resource.
 
+The deployment uses a zero pod termination grace period so namespace cleanup does not wait
+for nginx pods to consume Chainsaw's cleanup deadline.
+
 ## Steps
 
 1.  - Create a `staging-ns-2` namespace whose label is `environment: staging-ns-2`

@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  annotations:
-    cloud.platformzero.com/serviceClass: xl2
-  labels:
-    app-type: corp
-  name: mytestingns

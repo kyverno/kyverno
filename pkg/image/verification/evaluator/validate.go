@@ -3,6 +3,7 @@ package evaluator
 import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -22,6 +23,10 @@ type ImageVerifyPolicyResponse struct {
 	Exceptions []*policiesv1beta1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 	Result     engineapi.RuleResponse
+	// Trace explains how the policy reached Result. It is nil unless the policy was compiled
+	// with tracing on (NewCompilerWithTrace). A traced policy that did not apply, or that a
+	// match condition skipped, is still returned so its trace is not lost, with an empty Result.
+	Trace *trace.Decision
 }
 
 func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister) ([]string, error) {

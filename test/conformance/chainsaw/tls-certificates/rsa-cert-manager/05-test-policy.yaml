@@ -1,22 +1,17 @@
-# Simple ClusterPolicy to verify webhook functionality
+# Simple ValidatingPolicy to verify webhook functionality
 # This policy requires pods to have the app.kubernetes.io/name label
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
 metadata:
   name: require-labels-test
 spec:
-  validationFailureAction: Audit
-  background: true
-  rules:
-  - name: require-app-label
-    match:
-      any:
-      - resources:
-          kinds:
-          - Pod
-    validate:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [CREATE]
+      resources:   [pods]
+  validations:
+    - expression: >-
+        has(object.metadata.labels) && 'app.kubernetes.io/name' in object.metadata.labels
       message: "The label 'app.kubernetes.io/name' is required."
-      pattern:
-        metadata:
-          labels:
-            app.kubernetes.io/name: "?*"

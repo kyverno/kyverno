@@ -2,13 +2,14 @@ package exception
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/logging"
-	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_Validate(t *testing.T) {
@@ -68,9 +69,10 @@ func Test_Validate(t *testing.T) {
 	}
 	for _, c := range tc {
 		t.Run(c.name, func(t *testing.T) {
-			polex, err := admissionutils.UnmarshalPolicyException(c.args.resource)
+			var meta metav1.PartialObjectMetadata
+			err := json.Unmarshal(c.args.resource, &meta)
 			assert.NilError(t, err)
-			warnings := ValidateNamespace(context.Background(), logging.GlobalLogger(), polex.GetNamespace(), c.args.opts)
+			warnings := ValidateNamespace(context.Background(), logging.GlobalLogger(), meta.GetNamespace(), c.args.opts)
 			assert.Assert(t, len(warnings) == c.want)
 		})
 	}

@@ -18,7 +18,8 @@ metadata:
     process: background scan
   scored: true
 (results[?source == 'KyvernoImageValidatingPolicy']):
-- message: failed to verify image with notary cert
+# the policy's message, then why Notary rejected the image
+- "(starts_with(message, 'failed to verify image with notary cert; verification details: '))": true
   policy: report-background-sample
   result: fail
   properties:

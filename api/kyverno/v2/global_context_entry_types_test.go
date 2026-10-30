@@ -1,12 +1,14 @@
 package v2
 
 import (
+	"encoding/json"
 	"math/rand"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -33,7 +35,7 @@ func TestGlobalContextEntrySpecValidate(t *testing.T) {
 			name: "valid APICall",
 			spec: GlobalContextEntrySpec{
 				APICall: &ExternalAPICall{
-					APICall: kyvernov1.APICall{
+					APICall: kyverno.APICall{
 						URLPath: "/api/v1/namespaces",
 					},
 					RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -50,7 +52,7 @@ func TestGlobalContextEntrySpecValidate(t *testing.T) {
 					Resource: "deployments",
 				},
 				APICall: &ExternalAPICall{
-					APICall: kyvernov1.APICall{
+					APICall: kyverno.APICall{
 						URLPath: "/api/v1/namespaces",
 					},
 					RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -146,7 +148,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "valid ExternalAPICall",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					URLPath: "/api/v1/namespaces",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -156,7 +158,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "missing RefreshInterval",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					URLPath: "/api/v1/namespaces",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 0 * time.Second},
@@ -166,8 +168,8 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "both Service and URLPath",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
-					Service: &kyvernov1.ServiceCall{},
+				APICall: kyverno.APICall{
+					Service: &kyverno.ServiceCall{},
 					URLPath: "/api/v1/namespaces",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -177,7 +179,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "missing Service and URLPath",
 			apiCall: ExternalAPICall{
-				APICall:         kyvernov1.APICall{},
+				APICall:         kyverno.APICall{},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
 			},
 			wantErr: true,
@@ -185,7 +187,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "POST method without data",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					Method: "POST",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -196,9 +198,9 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "non-POST method with data",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					Method: "GET",
-					Data: []kyvernov1.RequestData{
+					Data: []kyverno.RequestData{
 						{Key: "example-key", Value: &apiextv1.JSON{Raw: []byte(`{"field": "value"}`)}},
 					},
 				},
@@ -281,6 +283,42 @@ func TestGlobalContextEntryProjectionValidate(t *testing.T) {
 	}
 }
 
+func TestExternalAPICallInlineEmbedding(t *testing.T) {
+	in := GlobalContextEntry{
+		Spec: GlobalContextEntrySpec{
+			APICall: &ExternalAPICall{
+				APICall: kyverno.APICall{
+					URLPath: "/api/v1/namespaces",
+					Method:  "GET",
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+			},
+		},
+	}
+	b, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatalf("unmarshal to map: %v", err)
+	}
+	apiCall, ok := m["spec"].(map[string]any)["apiCall"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected spec.apiCall to be an object: %s", b)
+	}
+	for _, key := range []string{"urlPath", "method", "refreshInterval"} {
+		if _, ok := apiCall[key]; !ok {
+			t.Fatalf("expected inline key %q at apiCall level: %s", key, b)
+		}
+	}
+
+	copyOut := in.DeepCopy()
+	if !reflect.DeepEqual(in, *copyOut) {
+		t.Fatalf("deepcopy not equal: in=%+v copy=%+v", in, *copyOut)
+	}
+}
+
 func generateRandomVersion() string {
 	rand.NewSource(time.Now().UnixNano())
 	for {
@@ -288,5 +326,61 @@ func generateRandomVersion() string {
 		if version != "v1" {
 			return version
 		}
+	}
+}
+
+// TestGlobalContextEntryDeepCopyIsolatesSharedTypes proves GlobalContextEntry.DeepCopy still
+// deep-copies the api/kyverno types it embeds. reflect.DeepEqual alone would pass on a shallow
+// slice copy, so mutate the copy and assert the original is untouched.
+func TestGlobalContextEntryDeepCopyIsolatesSharedTypes(t *testing.T) {
+	in := GlobalContextEntry{
+		Spec: GlobalContextEntrySpec{
+			APICall: &ExternalAPICall{
+				APICall: kyverno.APICall{
+					URLPath: "/api/v1/namespaces",
+					Method:  "POST",
+					Data: []kyverno.RequestData{
+						{Key: "original-key", Value: &apiextv1.JSON{Raw: []byte(`"original-value"`)}},
+					},
+					Service: &kyverno.ServiceCall{
+						URL:      "https://svc.ns:443/path",
+						CABundle: "original-bundle",
+						Headers: []kyverno.HTTPHeader{
+							{Key: "original-header", Value: "original-header-value"},
+						},
+					},
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+			},
+		},
+	}
+
+	out := in.DeepCopy()
+	if !reflect.DeepEqual(in, *out) {
+		t.Fatalf("deepcopy not equal: in=%+v copy=%+v", in, *out)
+	}
+
+	copied := out.Spec.APICall
+	copied.Data[0].Key = "mutated"
+	copied.Data[0].Value.Raw[1] = 'X' // in place: a replacement would miss a shared backing array
+	copied.Service.Headers[0].Value = "mutated"
+	copied.Service.CABundle = "mutated"
+	copied.RefreshInterval.Duration = time.Hour
+
+	original := in.Spec.APICall
+	if original.Data[0].Key != "original-key" {
+		t.Errorf("Data slice is shared: key became %q", original.Data[0].Key)
+	}
+	if string(original.Data[0].Value.Raw) != `"original-value"` {
+		t.Errorf("RequestData.Value.Raw buffer is shared: raw became %s", original.Data[0].Value.Raw)
+	}
+	if original.Service.Headers[0].Value != "original-header-value" {
+		t.Errorf("Service.Headers slice is shared: value became %q", original.Service.Headers[0].Value)
+	}
+	if original.Service.CABundle != "original-bundle" {
+		t.Errorf("Service pointer is shared: CABundle became %q", original.Service.CABundle)
+	}
+	if original.RefreshInterval.Duration != 10*time.Minute {
+		t.Errorf("RefreshInterval pointer is shared: duration became %v", original.RefreshInterval.Duration)
 	}
 }

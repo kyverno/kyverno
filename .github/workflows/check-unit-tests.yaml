@@ -25,15 +25,10 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-    - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-      with:
-        android: true
-        docker-images: false
-        dotnet: false
-        haskell: false
-        large-packages: false
-        swap-storage: false
-        tool-cache: false
+    - name: Record initial disk headroom
+      run: |
+        echo '### Disk before Go setup' >> "$GITHUB_STEP_SUMMARY"
+        df -h . /tmp | tee -a "$GITHUB_STEP_SUMMARY"
     - name: Setup Go
       id: setup-go
       uses: ./.github/actions/go/setup
@@ -42,6 +37,11 @@ jobs:
         gobuild-cache-include-run-id: 'true'
     - name: Unit test
       run: make test-unit
+    - name: Record final disk headroom
+      if: always()
+      run: |
+        echo '### Disk after unit tests' >> "$GITHUB_STEP_SUMMARY"
+        df -h . /tmp | tee -a "$GITHUB_STEP_SUMMARY"
     - name: Save gobuild cache
       if: |
         github.event_name == 'push' &&

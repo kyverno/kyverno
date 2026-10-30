@@ -1,6 +1,7 @@
 package admissionpolicy
 
 import (
+	celgo "github.com/google/cel-go/cel"
 	kyvernocompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -25,11 +26,32 @@ func NewCompiler(
 	matchConditions []admissionregistrationv1.MatchCondition,
 	variables []admissionregistrationv1.Variable,
 ) (*Compiler, error) {
-	baseEnv := environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion())
-	extendedEnv, err := baseEnv.Extend(environment.VersionedOptions{
-		IntroducedVersion: version.MajorMinor(1, 0),
-		EnvOptions:        kyvernocompiler.OrValueCompatEnvOptions(),
-	})
+	// kyvernocompiler.BaseEnvSet, not MustBaseEnvSet + base.Extend: registers CostLib last
+	// (see pkg/cel/compiler/env.go). This is the legacy kyverno.io/v1 / VAP-MAP path; the
+	// apiserver's own composited compiler declares object/oldObject as cel.DynType, so it
+	// has the identical cost-blindness the rest of this package fixes and needs the same
+	// pricing, limit, and guards.
+	//
+	// cel.NewCompositedCompiler below re-Extends this EnvSet with environment.StrictCostOpt
+	// (k8s.io/apiserver/pkg/admission/plugin/cel/compile.go's createEnvForOpts), which sets
+	// cel.CostTracking(&library.CostEstimator{}) -- a plain, last-registration-wins field
+	// assignment that replaces CostLib's own Estimator for every dyn call (empty
+	// OverloadID()), taking the fold rule, the generic rule, and the parser floor with it.
+	// LegacyDynCostFallback (costlib.go) is registered here as a second VersionedOptions
+	// entry to survive that: it is a cel.CostTrackerOptions entry keyed on the empty
+	// overload ID, which costCall (interpreter/runtimecost.go) checks before ever
+	// consulting Estimator, so it is not last-wins and is unaffected by what
+	// cel.NewCompositedCompiler adds afterward.
+	extendedEnv, err := kyvernocompiler.BaseEnvSet(environment.DefaultCompatibilityVersion(),
+		environment.VersionedOptions{
+			IntroducedVersion: version.MajorMinor(1, 0),
+			EnvOptions:        kyvernocompiler.OrValueCompatEnvOptions(),
+		},
+		environment.VersionedOptions{
+			IntroducedVersion: version.MajorMinor(1, 0),
+			ProgramOptions:    []celgo.ProgramOption{kyvernocompiler.LegacyDynCostFallback()},
+		},
+	)
 	if err != nil {
 		return nil, err
 	}

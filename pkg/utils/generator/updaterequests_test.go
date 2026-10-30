@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -201,5 +202,121 @@ func TestGenerate_MetadataListError_ReturnsError(t *testing.T) {
 	}
 	if result != nil {
 		t.Fatalf("expected no UpdateRequest on error")
+	}
+}
+func TestGenerate_CleanupEnabled_AppliesLabel(t *testing.T) {
+	ctx := context.Background()
+
+	cfg := config.NewDefaultConfiguration(false)
+	mockConfigMap := &corev1.ConfigMap{
+		Data: map[string]string{
+			"updateRequestThreshold":     "10",
+			"enableUpdateRequestCleanup": "true",
+			"updateRequestCleanupTTL":    "1h",
+		},
+	}
+	cfg.Load(mockConfigMap)
+
+	scheme := runtime.NewScheme()
+	metav1.AddMetaToScheme(scheme)
+	metaClient := metadatafake.NewSimpleMetadataClient(scheme)
+	kyvernoClient := fake.NewSimpleClientset()
+	gen := NewUpdateRequestGenerator(cfg, metaClient)
+
+	resource := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-ur-ttl",
+		},
+	}
+
+	_, err := gen.Generate(ctx, kyvernoClient, resource, logr.Discard())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	createdUR, err := kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(ctx, "test-ur-ttl", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("failed to get created UpdateRequest: %v", err)
+	}
+
+	if createdUR.Labels == nil || createdUR.Labels[kyverno.LabelCleanupTtl] != "1h" {
+		t.Fatalf("expected label %s to be 1h, got %v", kyverno.LabelCleanupTtl, createdUR.Labels)
+	}
+}
+
+func TestGenerate_CleanupDisabled_NoLabel(t *testing.T) {
+	ctx := context.Background()
+
+	cfg := config.NewDefaultConfiguration(false)
+	mockConfigMap := &corev1.ConfigMap{
+		Data: map[string]string{
+			"updateRequestThreshold":     "10",
+			"enableUpdateRequestCleanup": "false",
+			"updateRequestCleanupTTL":    "1h", // Even with TTL, it shouldn't apply if cleanup is disabled
+		},
+	}
+	cfg.Load(mockConfigMap)
+
+	scheme := runtime.NewScheme()
+	metav1.AddMetaToScheme(scheme)
+	metaClient := metadatafake.NewSimpleMetadataClient(scheme)
+	kyvernoClient := fake.NewSimpleClientset()
+	gen := NewUpdateRequestGenerator(cfg, metaClient)
+
+	resource := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-ur-nottl",
+		},
+	}
+
+	_, err := gen.Generate(ctx, kyvernoClient, resource, logr.Discard())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if createdUR, err := kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(ctx, "test-ur-nottl", metav1.GetOptions{}); err != nil {
+		t.Fatalf("failed to get created UpdateRequest: %v", err)
+	} else if _, present := createdUR.Labels[kyverno.LabelCleanupTtl]; present {
+		t.Fatalf("expected no ttl label, got %v", createdUR.Labels[kyverno.LabelCleanupTtl])
+	}
+}
+
+func TestGenerate_CleanupEnabled_InvalidTTL_NoLabel(t *testing.T) {
+	ctx := context.Background()
+
+	cfg := config.NewDefaultConfiguration(false)
+	mockConfigMap := &corev1.ConfigMap{
+		Data: map[string]string{
+			"updateRequestThreshold":     "10",
+			"enableUpdateRequestCleanup": "true",
+			"updateRequestCleanupTTL":    "invalid", // This is the bad value
+		},
+	}
+	cfg.Load(mockConfigMap)
+
+	scheme := runtime.NewScheme()
+	metav1.AddMetaToScheme(scheme)
+	metaClient := metadatafake.NewSimpleMetadataClient(scheme)
+	kyvernoClient := fake.NewSimpleClientset()
+	gen := NewUpdateRequestGenerator(cfg, metaClient)
+
+	resource := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-ur-invalid-ttl",
+		},
+	}
+
+	_, err := gen.Generate(ctx, kyvernoClient, resource, logr.Discard())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	createdUR, err := kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(ctx, "test-ur-invalid-ttl", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("failed to get created UpdateRequest: %v", err)
+	}
+
+	if _, ok := createdUR.Labels[kyverno.LabelCleanupTtl]; ok {
+		t.Fatalf("expected no ttl label, got %v", createdUR.Labels[kyverno.LabelCleanupTtl])
 	}
 }

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -143,7 +143,7 @@ func TestEntry_Stop_NoDeadlockWithInflightCall(t *testing.T) {
 	gce := &kyvernov2beta1.GlobalContextEntry{
 		Spec: kyvernov2beta1.GlobalContextEntrySpec{
 			APICall: &kyvernov2beta1.ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					URLPath: "/apis",
 					Method:  "GET",
 				},

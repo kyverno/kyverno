@@ -58,34 +58,6 @@ func GetGVR(group, version, resource string) schema.GroupVersionResource {
 	return schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
 }
 
-func (e2e *E2EClient) ClusterPolicyReady(policyName string) bool {
-	return GetWithRetry(1*time.Second, 15, func() error {
-		if cpol, err := e2e.KClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{}); err != nil {
-			return err
-		} else {
-			if !cpol.IsReady() {
-				return fmt.Errorf("cluster policy %s is not ready", policyName)
-			}
-			time.Sleep(2 * time.Second)
-			return nil
-		}
-	}) == nil
-}
-
-func (e2e *E2EClient) PolicyReady(namespace string, policyName string) bool {
-	return GetWithRetry(1*time.Second, 15, func() error {
-		if pol, err := e2e.KClient.KyvernoV1().Policies(namespace).Get(context.TODO(), policyName, metav1.GetOptions{}); err != nil {
-			return err
-		} else {
-			if !pol.IsReady() {
-				return fmt.Errorf("cluster policy %s is not ready", policyName)
-			}
-			time.Sleep(2 * time.Second)
-			return nil
-		}
-	}) != nil
-}
-
 // CleanClusterPolicies ;- Deletes all the cluster policies
 func (e2e *E2EClient) CleanClusterPolicies(gvr schema.GroupVersionResource) error {
 	namespace := ""

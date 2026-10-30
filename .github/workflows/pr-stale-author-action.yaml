@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: PR stale author action
+
+permissions: {}
+
+concurrency:
+  group: pr-stale-author-action
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only print what would be done
+        type: boolean
+        default: true
+      stale_days:
+        description: Days without a new commit before marking stale
+        default: "7"
+      review_nudge_days:
+        description: Days without maintainer activity before nudging reviewers
+        default: "7"
+  schedule:
+    - cron: "17 6 * * *"
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: ./.github/actions/pr-management
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          mode: stale
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+          stale-days: ${{ inputs.stale_days || '7' }}
+          review-nudge-days: ${{ inputs.review_nudge_days || '7' }}

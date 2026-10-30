@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -57,6 +58,9 @@ type Test struct {
 
 	// Results are the results to be checked in the test
 	Results []TestResult `json:"results,omitempty"`
+
+	// Checks are the verifications to be checked in the test
+	Checks []CheckResult `json:"checks,omitempty"`
 
 	// Values are the values to be used in the test
 	Values *ValuesSpec `json:"values,omitempty"`
@@ -324,6 +328,19 @@ func RawExtensionToObject(raw runtime.RawExtension) (interface{}, error) {
 	return v, nil
 }
 
+type CheckResult struct {
+	// Match tells how to match relevant rule responses
+	Match CheckMatch `json:"match,omitempty"`
+
+	// Assert contains assertion to be performed on the relevant rule responses
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Assert kyverno.Any `json:"assert"`
+
+	// Error contains negative assertion to be performed on the relevant rule responses
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Error kyverno.Any `json:"error"`
+}
+
 type TestResourceSpec struct {
 	Group       string `json:"group,omitempty"`
 	Version     string `json:"version,omitempty"`
@@ -331,4 +348,18 @@ type TestResourceSpec struct {
 	Namespace   string `json:"namespace,omitempty"`
 	Subresource string `json:"subresource,omitempty"`
 	Name        string `json:"name,omitempty"`
+}
+
+type CheckMatch struct {
+	// Resource filters engine responses
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Resource *kyverno.Any `json:"resource,omitempty"`
+
+	// Policy filters engine responses
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Policy *kyverno.Any `json:"policy,omitempty"`
+
+	// Rule filters rule responses
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Rule *kyverno.Any `json:"rule,omitempty"`
 }

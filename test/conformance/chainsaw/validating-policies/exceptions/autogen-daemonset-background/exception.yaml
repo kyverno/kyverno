@@ -1,0 +1,18 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: exclude-privileged-daemonset
+spec:
+  policyRefs:
+    - name: autogen-daemonset-background
+      kind: ValidatingPolicy
+  matchConditions:
+    - name: "check-privileged"
+      expression: >-
+        object.spec.containers.exists(c, has(c.securityContext) &&
+        has(c.securityContext.allowPrivilegeEscalation) &&
+        c.securityContext.allowPrivilegeEscalation == true)
+    - name: "check-request-object"
+      expression: >-
+        has(request.object.spec.template) || true
+  reportResult: skip

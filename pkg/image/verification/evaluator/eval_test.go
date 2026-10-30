@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
@@ -117,7 +118,8 @@ func Test_Eval(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, len(result) == 1)
 	assert.False(t, result[ivpol.Name].Result)
-	assert.Equal(t, result[ivpol.Name].Message, "failed to verify image with notary cert")
+	// the policy's message, then why Notary rejected the image
+	assert.True(t, strings.HasPrefix(result[ivpol.Name].Message, `failed to verify image with notary cert; verification details: image "`+unsignedImage+`", attestor "notary": `), result[ivpol.Name].Message)
 }
 
 func Test_Eval_VerifyDigest_ImageWithoutDigest_Fails(t *testing.T) {

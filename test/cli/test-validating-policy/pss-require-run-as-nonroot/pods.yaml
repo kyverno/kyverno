@@ -1,0 +1,118 @@
+# The security gap this closes: PSA reports the pod as a bad setter even when
+# every container sets runAsNonRoot: true. The old third disjunct passed it.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-false-containers-true
+spec:
+  securityContext:
+    runAsNonRoot: false
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      runAsNonRoot: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-false-containers-unset
+spec:
+  securityContext:
+    runAsNonRoot: false
+  containers:
+  - name: app
+    image: nginx:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-unset-containers-true
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      runAsNonRoot: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-unset-containers-unset
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+---
+# Container-level inheritance from a pod-level true.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-true-containers-unset
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: nginx:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-true-container-false
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      runAsNonRoot: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-true-init-container-false
+spec:
+  securityContext:
+    runAsNonRoot: true
+  initContainers:
+  - name: init
+    image: busybox:latest
+    securityContext:
+      runAsNonRoot: false
+  containers:
+  - name: app
+    image: nginx:latest
+---
+# Ephemeral containers inherit the pod-level fallback like any other container.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-unset-ephemeral-unset
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      runAsNonRoot: true
+  ephemeralContainers:
+  - name: debugger
+    image: busybox:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-true-all-scopes-unset
+spec:
+  securityContext:
+    runAsNonRoot: true
+  initContainers:
+  - name: init
+    image: busybox:latest
+  containers:
+  - name: app
+    image: nginx:latest
+  ephemeralContainers:
+  - name: debugger
+    image: busybox:latest

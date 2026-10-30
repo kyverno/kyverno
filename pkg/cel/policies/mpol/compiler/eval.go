@@ -5,6 +5,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -17,6 +18,14 @@ type EvaluationResult struct {
 	Exceptions       []*policiesv1beta1.PolicyException
 	AuditAnnotations map[string]string
 	Error            error
+	// Trace is the decision trace for this evaluation. It is nil unless the policy was compiled
+	// with tracing on, so callers must nil-check it. Mirrors vpol's EvaluationResult.Trace
+	// (pkg/cel/policies/vpol/compiler/eval.go).
+	Trace *trace.Decision
+	// Skipped is set when a match condition excluded the resource. Without tracing that case
+	// returns a nil result, and it still does; a non-nil skipped result is only returned when
+	// tracing is on, so the match traces are not lost. Mirrors vpol's EvaluationResult.Skipped.
+	Skipped bool
 }
 
 // prepareData assembles the CEL activation data for a single evaluation.

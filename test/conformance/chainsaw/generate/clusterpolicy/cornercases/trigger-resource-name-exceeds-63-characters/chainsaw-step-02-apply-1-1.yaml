@@ -1,4 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: trigger-resource-name-exceeds-63-characters-ns

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -285,8 +285,8 @@ func TestToPolicyReportResult_ConcurrentAccess(t *testing.T) {
 		sharedProps,
 	)
 
-	// Minimal ClusterPolicy to satisfy GenericPolicy interface.
-	pol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+	// Minimal ValidatingPolicy to satisfy GenericPolicy interface.
+	pol := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "require-labels",
 		},
@@ -313,4 +313,26 @@ func TestToPolicyReportResult_ConcurrentAccess(t *testing.T) {
 		assert.Equal(t, openreportsv1alpha1.Result(openreports.StatusPass), r.Result, "goroutine %d", i)
 		assert.Equal(t, "resource is compliant", r.Description, "goroutine %d", i)
 	}
+}
+
+func TestToPolicyReportResultPreservesSubsecondTimestamp(t *testing.T) {
+	t.Parallel()
+
+	pol := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-label"},
+	})
+	rule := engineapi.NewRuleResponse(
+		"check-label", engineapi.Validation, "label missing",
+		engineapi.RuleStatusFail, nil,
+	)
+
+	before := time.Now()
+	result := ToPolicyReportResult(pol, *rule, nil)
+	after := time.Now()
+	recorded := time.Unix(result.Timestamp.Seconds, int64(result.Timestamp.Nanos))
+
+	assert.False(t, recorded.Before(before), "timestamp was truncated before evaluation")
+	assert.False(t, recorded.After(after), "timestamp exceeds evaluation interval")
+	assert.GreaterOrEqual(t, result.Timestamp.Nanos, int32(0))
+	assert.Less(t, result.Timestamp.Nanos, int32(time.Second))
 }

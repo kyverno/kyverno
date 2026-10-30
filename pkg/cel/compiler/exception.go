@@ -43,7 +43,9 @@ func CompileExceptionsWithValidations(env *cel.Env, exceptions []*policiesv1beta
 		}
 		validationsPath := path.Child("validations")
 		for i, rule := range polex.Spec.Validations {
-			validation, errs := CompileValidation(validationsPath.Index(i), env, rule)
+			// an exception's own compensating-control validations are not traced (no Exceptions
+			// layer exists on trace.Decision yet), so trace is always false here
+			validation, errs := CompileValidation(validationsPath.Index(i), env, rule, false)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}

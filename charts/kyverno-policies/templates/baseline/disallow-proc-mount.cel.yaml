@@ -1,8 +1,8 @@
 {{- $name := "disallow-proc-mount" }}
+{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
 {{/* PSA's Restricted procMount check overrides the Baseline one, so the user
      namespace relaxation must not apply once the strict policy is installed. */}}
-{{- $relax := and .Values.podSecurityUserNamespaces (ne (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" "disallow-proc-mount-strict") .)) "true") }}
-{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+{{- $relax := and (eq (include "kyverno-policies.psaUserNamespaces" .) "true") (ne (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" "disallow-proc-mount-strict") .)) "true") }}
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
@@ -15,7 +15,9 @@ metadata:
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    kyverno.io/pod-security-version: "{{ include "kyverno-policies.psaVersionAnnotation" . }}"
     policies.kyverno.io/description: >-
       The default /proc masks are set up to reduce attack surface and should be required.
       This policy ensures the `procMount` field is unset or set to `Default`.

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/steptemplate-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: StepTemplate
+metadata:
+  name: validating-policy-generated-vap-ready
+spec:
+  try:
+  # For a ValidatingPolicy that Kyverno turns into a ValidatingAdmissionPolicy.
+  # Once the VAP is generated, WebhookConfigured switches to the message below,
+  # so waiting for "Webhook configured." only passes if the check runs first.
+  # A policy that reads exceptions.allowedImages or exceptions.allowedValues is
+  # not converted until a matching exception exists, so it uses
+  # validating-policy-ready.yaml instead.
+  - assert:
+      template: true
+      resource:
+        apiVersion: policies.kyverno.io/v1beta1
+        kind: ValidatingPolicy
+        metadata:
+          name: ($name)
+        status:
+          conditionStatus:
+            (conditions[?type == 'WebhookConfigured']):
+            - message: Admission is enforced by the generated ValidatingAdmissionPolicy.
+              reason: Succeeded
+              status: "True"
+              type: WebhookConfigured
+            (conditions[?type == 'RBACPermissionsGranted']):
+            - message: Policy is ready for reporting.
+              reason: Succeeded
+              status: "True"
+              type: RBACPermissionsGranted
+            ready: true
+          generated: true

@@ -1,0 +1,167 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: good-deployment
+spec:
+  selector:
+    matchLabels:
+      app: good
+  template:
+    metadata:
+      labels:
+        app: good
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-deployment
+spec:
+  selector:
+    matchLabels:
+      app: bad
+  template:
+    metadata:
+      labels:
+        app: bad
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skipped-deployment
+spec:
+  selector:
+    matchLabels:
+      app: skipped
+  template:
+    metadata:
+      labels:
+        app: skipped
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: good-statefulset
+spec:
+  serviceName: good
+  selector:
+    matchLabels:
+      app: good
+  template:
+    metadata:
+      labels:
+        app: good
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: bad-statefulset
+spec:
+  serviceName: bad
+  selector:
+    matchLabels:
+      app: bad
+  template:
+    metadata:
+      labels:
+        app: bad
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: skipped-statefulset
+spec:
+  serviceName: skipped
+  selector:
+    matchLabels:
+      app: skipped
+  template:
+    metadata:
+      labels:
+        app: skipped
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: good-cronjob
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: busybox
+            image: busybox:latest
+            securityContext:
+              allowPrivilegeEscalation: false
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bad-cronjob
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: busybox
+            image: busybox:latest
+            securityContext:
+              allowPrivilegeEscalation: true
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: skipped-cronjob
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: busybox
+            image: busybox:latest
+            securityContext:
+              allowPrivilegeEscalation: true
+          restartPolicy: OnFailure

@@ -1,0 +1,8 @@
+name: Install release signing tools
+description: Pin the signing and SBOM attachment format for retryable release publication
+runs:
+  using: composite
+  steps:
+    - uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+      with:
+        cosign-release: v2.6.1

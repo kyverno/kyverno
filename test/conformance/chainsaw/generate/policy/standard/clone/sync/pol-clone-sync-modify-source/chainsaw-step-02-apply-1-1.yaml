@@ -1,7 +1,0 @@
-apiVersion: v1
-data:
-  sj: js
-kind: ConfigMap
-metadata:
-  name: cm-2
-  namespace: poltest
