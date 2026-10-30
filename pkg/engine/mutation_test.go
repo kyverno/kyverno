@@ -2214,6 +2214,7 @@ func Test_mutate_existing_context_isolation(t *testing.T) {
 	tests := []struct {
 		name                 string
 		policyRaw            []byte
+		target0Status        engineapi.RuleStatus
 		target1Status        engineapi.RuleStatus
 		expectedTarget0Token string
 		assertTarget1        func(t *testing.T, rr engineapi.RuleResponse)
@@ -2266,7 +2267,8 @@ func Test_mutate_existing_context_isolation(t *testing.T) {
 								],
 								"patchStrategicMerge": {
 									"data": {
-										"token": "{{ injectedVar || 'isolated-default' }}"
+										"token": "{{ injectedVar || 'isolated-default' }}",
+										"targetName": "{{ target.metadata.name }}"
 									}
 								}
 							}
@@ -2283,6 +2285,7 @@ func Test_mutate_existing_context_isolation(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, found)
 				require.Equal(t, "isolated-default", data1["token"])
+				require.Equal(t, "target-two", data1["targetName"])
 			},
 		},
 		{
@@ -2442,6 +2445,83 @@ func Test_mutate_existing_context_isolation(t *testing.T) {
 				require.Contains(t, rr.Message(), "preconditions not met")
 			},
 		},
+		{
+			name: "target-one skips after loading context and does not leak to target-two",
+			policyRaw: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-context-isolation-skip-leak"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "mutate-targets-skip-leak",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": ["ConfigMap"],
+											"names": ["cm-trigger"]
+										}
+									}
+								]
+							},
+							"mutate": {
+								"mutateExistingOnPolicyUpdate": false,
+								"targets": [
+									{
+										"apiVersion": "v1",
+										"kind": "ConfigMap",
+										"name": "target-one",
+										"namespace": "bar",
+										"context": [
+											{
+												"name": "transientVar",
+												"variable": {
+													"value": "leaked-value"
+												}
+											}
+										],
+										"preconditions": {
+											"all": [
+												{
+													"key": "always-fail",
+													"operator": "Equals",
+													"value": "never-match"
+												}
+											]
+										}
+									},
+									{
+										"apiVersion": "v1",
+										"kind": "ConfigMap",
+										"name": "target-two",
+										"namespace": "bar"
+									}
+								],
+								"patchStrategicMerge": {
+									"data": {
+										"token": "{{ transientVar || 'clean-context' }}"
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			target0Status:        engineapi.RuleStatusSkip,
+			target1Status:        engineapi.RuleStatusPass,
+			expectedTarget0Token: "",
+			assertTarget1: func(t *testing.T, rr engineapi.RuleResponse) {
+				patched1, _, _ := rr.PatchedTarget()
+				require.NotNil(t, patched1)
+				data1, found, err := unstructured.NestedStringMap(patched1.UnstructuredContent(), "data")
+				require.NoError(t, err)
+				require.True(t, found)
+				require.Equal(t, "clean-context", data1["token"], "target-two must not see transientVar from skipped target-one")
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -2461,15 +2541,26 @@ func Test_mutate_existing_context_isolation(t *testing.T) {
 
 			er := testMutate(context.TODO(), dclient, registryclient.New(), policyContext, nil)
 			require.Equal(t, 2, len(er.PolicyResponse.Rules))
-			require.Equal(t, engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].Status())
+			expectedTarget0Status := engineapi.RuleStatusPass
+			if tc.target0Status != "" {
+				expectedTarget0Status = tc.target0Status
+			}
+			require.Equal(t, expectedTarget0Status, er.PolicyResponse.Rules[0].Status())
 			require.Equal(t, tc.target1Status, er.PolicyResponse.Rules[1].Status())
 
 			patched0, _, _ := er.PolicyResponse.Rules[0].PatchedTarget()
-			require.NotNil(t, patched0)
-			data0, found, err := unstructured.NestedStringMap(patched0.UnstructuredContent(), "data")
-			require.NoError(t, err)
-			require.True(t, found)
-			require.Equal(t, tc.expectedTarget0Token, data0["token"])
+			if expectedTarget0Status == engineapi.RuleStatusPass {
+				require.NotNil(t, patched0)
+				data0, found, err := unstructured.NestedStringMap(patched0.UnstructuredContent(), "data")
+				require.NoError(t, err)
+				require.True(t, found)
+				require.Equal(t, tc.expectedTarget0Token, data0["token"])
+				if tc.name == "fallback default when variable is unpopulated in target-two" {
+					require.Equal(t, "target-one", data0["targetName"])
+				}
+			} else {
+				require.Nil(t, patched0)
+			}
 
 			tc.assertTarget1(t, er.PolicyResponse.Rules[1])
 		})
