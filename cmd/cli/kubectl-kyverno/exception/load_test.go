@@ -8,7 +8,6 @@ import (
 	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -257,11 +256,13 @@ func Test_SelectFrom_MalformedCELExceptionSurfacesError(t *testing.T) {
 }
 
 func Test_SelectFrom_BlocksLegacyException(t *testing.T) {
-	resources := toUnstructured(t,
-		&kyvernov2.PolicyException{TypeMeta: v1.TypeMeta{
-			Kind: ExceptionV2.Kind, APIVersion: ExceptionV2.GroupVersion().String()},
+	resources := []*unstructured.Unstructured{{Object: map[string]interface{}{
+		"apiVersion": ExceptionV2.GroupVersion().String(),
+		"kind":       ExceptionV2.Kind,
+		"metadata": map[string]interface{}{
+			"name": "legacy-exception",
 		},
-	)
+	}}}
 
 	_, err := SelectFrom(resources)
 	require.Error(t, err)

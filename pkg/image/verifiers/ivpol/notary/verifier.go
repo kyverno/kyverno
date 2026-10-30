@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	gcrv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/notaryproject/notation-go"
 	notationlog "github.com/notaryproject/notation-go/log"
@@ -54,24 +55,26 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	return nil
 }
 
+// VerifyAttestationSignature records the referrers of referrerType it verifies
+// on image and returns them.
 func (v *Verifier) VerifyAttestationSignature(
 	ctx context.Context,
 	image *imagedataloader.ImageData,
 	referrerType, certsData, tsaCertsData string,
-) error {
+) ([]gcrv1.Descriptor, error) {
 	logger := v.log.WithValues("image", image.Image, "digest", image.Digest) // TODO: use attestor and attestation names
 	logger.V(2).Info("verifying notary image signature", "image", image.Image)
 	vInfo, err := getVerificationInfo(image, certsData, tsaCertsData)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to setup notation verification data")
 		logger.Error(err, "image verification failed")
-		return err
+		return nil, err
 	}
 	referrers, err := image.FetchReferrers(referrerType)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to fetch referrers")
 		logger.Error(err, "image attestation verification failed")
-		return err
+		return nil, err
 	}
 	var errs []error
 	for _, r := range referrers {
@@ -101,11 +104,11 @@ func (v *Verifier) VerifyAttestationSignature(
 		}
 
 		image.AddVerifiedReferrer(r)
-		return nil
+		return []gcrv1.Descriptor{r}, nil
 	}
 
 	if len(errs) == 0 {
-		return fmt.Errorf("attestation verification failed, no attestations found for type: %s", referrerType)
+		return nil, fmt.Errorf("attestation verification failed, no attestations found for type: %s", referrerType)
 	}
-	return multierr.Combine(errs...)
+	return nil, multierr.Combine(errs...)
 }

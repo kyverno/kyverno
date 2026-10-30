@@ -5,9 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/logging"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,16 +35,15 @@ var (
 )
 
 type imageExtractor struct {
-	Fields   []string
-	Key      string
-	Value    string
-	Name     string
-	JMESPath string
+	Fields []string
+	Key    string
+	Value  string
+	Name   string
 }
 
 func (i *imageExtractor) ExtractFromResource(resource interface{}, cfg config.Configuration) (map[string]ImageInfo, error) {
 	imageInfo := map[string]ImageInfo{}
-	if err := extract(resource, []string{}, i.Key, i.Value, i.Fields, i.JMESPath, &imageInfo, cfg, []string{}); err != nil {
+	if err := extract(resource, []string{}, i.Key, i.Value, i.Fields, &imageInfo, cfg, []string{}); err != nil {
 		return nil, err
 	}
 	return imageInfo, nil
@@ -58,7 +55,6 @@ func extract(
 	keyPath string,
 	valuePath string,
 	fields []string,
-	jmesPath string,
 	imageInfos *map[string]ImageInfo,
 	cfg config.Configuration,
 	pullSecrets []string,
@@ -72,11 +68,11 @@ func extract(
 			for i, v := range typedObj {
 				switch v.(type) {
 				case map[string]interface{}:
-					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], imageInfos, cfg, pullSecrets); err != nil {
 						return err
 					}
 				case []interface{}:
-					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields, jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields, imageInfos, cfg, pullSecrets); err != nil {
 						return err
 					}
 				}
@@ -86,7 +82,7 @@ func extract(
 			for i, v := range typedObj {
 				switch v.(type) {
 				case map[string]interface{}, []interface{}:
-					if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+					if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], imageInfos, cfg, pullSecrets); err != nil {
 						return err
 					}
 				}
@@ -122,23 +118,6 @@ func extract(
 			logging.V(4).Info("image information is not present", "pointer", pointer)
 			return nil
 		}
-		if jmesPath != "" {
-			// TODO: should be injected
-			jp := jmespath.New(cfg)
-			q, err := jp.Query(jmesPath)
-			if err != nil {
-				return fmt.Errorf("invalid jmespath %s: %v", jmesPath, err)
-			}
-			result, err := q.Search(value)
-			if err != nil {
-				return fmt.Errorf("failed to apply jmespath %s: %v", jmesPath, err)
-			}
-			resultStr, ok := result.(string)
-			if !ok {
-				return fmt.Errorf("jmespath %s must produce a string, but produced %v", jmesPath, result)
-			}
-			value = resultStr
-		}
 		if imageInfo, err := imageutils.GetImageInfo(value, cfg); err != nil {
 			return fmt.Errorf("invalid image '%s' (%s)", value, err.Error())
 		} else {
@@ -148,7 +127,7 @@ func extract(
 		return nil
 	}
 	currentPath := fields[0]
-	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets)
+	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], imageInfos, cfg, pullSecrets)
 }
 
 func BuildStandardExtractors(tags ...string) []imageExtractor {
@@ -163,49 +142,15 @@ func BuildStandardExtractors(tags ...string) []imageExtractor {
 	return extractors
 }
 
-func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) []imageExtractor {
-	if configs != nil {
-		if extractorConfigs, ok := configs[kind]; ok {
-			extractors := make([]imageExtractor, 0, len(extractorConfigs))
-			for _, c := range extractorConfigs {
-				fields := func(input []string) []string {
-					output := []string{}
-					for _, i := range input {
-						o := strings.Trim(i, " ")
-						if o != "" {
-							output = append(output, o)
-						}
-					}
-					return output
-				}(strings.Split(c.Path, "/"))
-				name := c.Name
-				if name == "" {
-					name = "custom"
-				}
-				value := c.Value
-				if value == "" {
-					value = fields[len(fields)-1]
-					fields = fields[:len(fields)-1]
-				}
-				extractors = append(extractors, imageExtractor{
-					Fields:   fields,
-					Key:      c.Key,
-					Name:     name,
-					Value:    value,
-					JMESPath: c.JMESPath,
-				})
-			}
-			return extractors
-		}
-	}
+func lookupImageExtractor(kind string) []imageExtractor {
 	return registeredExtractors[kind]
 }
 
-func ExtractImagesFromResource(resource unstructured.Unstructured, configs kyvernov1.ImageExtractorConfigs, cfg config.Configuration) (map[string]map[string]ImageInfo, error) {
+func ExtractImagesFromResource(resource unstructured.Unstructured, cfg config.Configuration) (map[string]map[string]ImageInfo, error) {
 	infos := map[string]map[string]ImageInfo{}
 
 	// Extract images using existing logic (imagePullSecrets are now part of ImageInfo struct)
-	extractors := lookupImageExtractor(resource.GetKind(), configs)
+	extractors := lookupImageExtractor(resource.GetKind())
 	if extractors != nil && len(extractors) == 0 {
 		return nil, fmt.Errorf("no extractors found for %s", resource.GetKind())
 	}

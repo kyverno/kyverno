@@ -143,6 +143,9 @@ it exit on an unknown flag.
 {{- with .protectManagedResources -}}
   {{- $flags = append $flags (print "--protectManagedResources=" .enabled) -}}
 {{- end -}}
+{{- with .protectGenerationLabels -}}
+  {{- $flags = append $flags (print "--protectGenerationLabels=" .enabled) -}}
+{{- end -}}
 {{- with .registryClient -}}
   {{- $flags = append $flags (print "--allowInsecureRegistry=" .allowInsecure) -}}
   {{- $flags = append $flags (print "--registryCredentialHelpers=" (join "," .credentialHelpers)) -}}

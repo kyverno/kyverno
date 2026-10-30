@@ -12,7 +12,7 @@ builds:
       - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 
   - id: cli
-    main: ./cmd/cli
+    main: ./cmd/cli/kubectl-kyverno
     ldflags:
       - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 

@@ -7,7 +7,6 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -306,7 +305,7 @@ func TestController_StartupSweepDeletesLegacyOnlyReport(t *testing.T) {
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: legacyOnlyPolr.ObjectMeta}, metav1.CreateOptions{})
 
 	// seed a legacy ClusterPolicy in the metadata client so the startup sweep gate opens
-	cpolGVR := kyvernov1.SchemeGroupVersion.WithResource("clusterpolicies")
+	cpolGVR := schema.GroupVersionResource{Group: "kyverno.io", Version: "v1", Resource: "clusterpolicies"}
 	_, err := upstream.Resource(cpolGVR).(metafake.MetadataClient).CreateFake(&metav1.PartialObjectMetadata{
 		ObjectMeta: metav1.ObjectMeta{Name: "legacy-cpol"},
 	}, metav1.CreateOptions{})

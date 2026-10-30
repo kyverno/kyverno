@@ -18,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// legacyPolicyCheckTimeout bounds the direct-list count plus the Deployment
+// legacyPolicyCheckTimeout bounds the metadata-list count plus the Deployment
 // lookup and Event creation below, so a slow or unreachable API server can't
 // block kyverno-init -- and therefore the main container it gates -- forever.
 // A timeout is treated like any other failure here: logged, never fatal.
@@ -27,11 +27,11 @@ const legacyPolicyCheckTimeout = 30 * time.Second
 // checkLegacyPolicies counts the legacy (non policies.kyverno.io) policy
 // custom resources still present in the cluster -- ClusterPolicy, Policy,
 // CleanupPolicy, ClusterCleanupPolicy, and legacy PolicyException -- using a
-// direct list through the typed client, since kyverno-init runs once at
-// startup, before any controller has a synced cache. When any of them are
-// still present, it emits a single L0 error log and a single aggregate
-// Warning Event attached to the admission-controller Deployment, with
-// migration guidance.
+// metadata-only list through the metadata client, since kyverno-init runs
+// once at startup, before the 30 s refresher used by the long-running
+// controllers exists. When any of them are still present, it emits a single
+// L0 error log and a single aggregate Warning Event attached to the
+// admission-controller Deployment, with migration guidance.
 //
 // This is purely observational: it fires whenever legacy CRs exist,
 // independent of any policy cleanup outcome or write-path enforcement
@@ -67,79 +67,12 @@ func checkLegacyPolicies(ctx context.Context, setup internal.SetupResult) {
 	}
 }
 
-// countLegacyPolicies is a thin adapter from the typed client to
+// countLegacyPolicies is a thin adapter from the metadata client to
 // deprecations.CountLegacyPolicies, the shared pure counting core also used
-// by the admission-controller and cleanup-controller gauge callbacks (which
-// instead adapt from synced informer listers).
+// by the admission-controller and cleanup-controller gauge callbacks.
 func countLegacyPolicies(ctx context.Context, setup internal.SetupResult) (map[string]int, error) {
-	counters := map[string]deprecations.KindCounter{
-		"ClusterPolicy": func() (int, error) {
-			list, err := setup.KyvernoClient.KyvernoV1().ClusterPolicies().List(ctx, metav1.ListOptions{})
-			if err != nil {
-				// A missing legacy CRD (for example when PolicyException is not
-				// installed) lists as NotFound; treat it as zero present so one
-				// absent kind does not abort counting the others.
-				if apierrors.IsNotFound(err) {
-					return 0, nil
-				}
-				return 0, err
-			}
-			return len(list.Items), nil
-		},
-		"Policy": func() (int, error) {
-			list, err := setup.KyvernoClient.KyvernoV1().Policies(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
-			if err != nil {
-				// A missing legacy CRD (for example when PolicyException is not
-				// installed) lists as NotFound; treat it as zero present so one
-				// absent kind does not abort counting the others.
-				if apierrors.IsNotFound(err) {
-					return 0, nil
-				}
-				return 0, err
-			}
-			return len(list.Items), nil
-		},
-		"CleanupPolicy": func() (int, error) {
-			list, err := setup.KyvernoClient.KyvernoV2().CleanupPolicies(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
-			if err != nil {
-				// A missing legacy CRD (for example when PolicyException is not
-				// installed) lists as NotFound; treat it as zero present so one
-				// absent kind does not abort counting the others.
-				if apierrors.IsNotFound(err) {
-					return 0, nil
-				}
-				return 0, err
-			}
-			return len(list.Items), nil
-		},
-		"ClusterCleanupPolicy": func() (int, error) {
-			list, err := setup.KyvernoClient.KyvernoV2().ClusterCleanupPolicies().List(ctx, metav1.ListOptions{})
-			if err != nil {
-				// A missing legacy CRD (for example when PolicyException is not
-				// installed) lists as NotFound; treat it as zero present so one
-				// absent kind does not abort counting the others.
-				if apierrors.IsNotFound(err) {
-					return 0, nil
-				}
-				return 0, err
-			}
-			return len(list.Items), nil
-		},
-		"PolicyException": func() (int, error) {
-			list, err := setup.KyvernoClient.KyvernoV2().PolicyExceptions(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
-			if err != nil {
-				// A missing legacy CRD (for example when PolicyException is not
-				// installed) lists as NotFound; treat it as zero present so one
-				// absent kind does not abort counting the others.
-				if apierrors.IsNotFound(err) {
-					return 0, nil
-				}
-				return 0, err
-			}
-			return len(list.Items), nil
-		},
-	}
-	return deprecations.CountLegacyPolicies(counters)
+	return deprecations.CountLegacyPolicies(ctx, deprecations.MetadataKindCounters(
+		setup.MetadataClient, "ClusterPolicy", "Policy", "CleanupPolicy", "ClusterCleanupPolicy", "PolicyException"))
 }
 
 // emitDeprecationEvent creates a single Warning Event of the given reason, with the given note,

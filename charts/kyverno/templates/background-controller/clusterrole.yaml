@@ -37,11 +37,6 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - policies
-      - policies/status
-      - clusterpolicies
-      - clusterpolicies/status
-      - policyexceptions
       - updaterequests
       - updaterequests/status
       - globalcontextentries
@@ -94,11 +89,15 @@ rules:
   # templates/rbac/). Generate rules that create a RoleBinding to those roles
   # are rejected by the RBAC escalation check unless the background controller
   # holds every permission they grant.
+  # Includes the legacy policies/clusterpolicies rows of admin:policies and view:policies
+  # until those roles drop them in 1.21.
   - apiGroups:
       - kyverno.io
     resources:
       - cleanuppolicies
       - clustercleanuppolicies
+      - policies
+      - clusterpolicies
     verbs:
       {{- toYaml $aggregatedVerbs | nindent 6 }}
   - apiGroups:

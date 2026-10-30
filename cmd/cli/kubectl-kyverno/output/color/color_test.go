@@ -2,6 +2,8 @@ package color
 
 import (
 	"testing"
+
+	fatihcolor "github.com/fatih/color"
 )
 
 func TestInit(t *testing.T) {
@@ -189,6 +191,74 @@ func TestResultSkip(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ResultSkip(); got != tt.want {
 				t.Errorf("ResultSkip() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFunctionName(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(true)
+	})
+
+	tests := []struct {
+		name         string
+		functionName string
+		noColor      bool
+		want         string
+	}{{
+		name:         "color disabled",
+		functionName: "truncate",
+		noColor:      true,
+		want:         "truncate",
+	}, {
+		name:         "color enabled",
+		functionName: "truncate",
+		noColor:      false,
+		want:         "\x1b[36;1mtruncate\x1b[0;22m",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.noColor
+			Init(tt.noColor)
+			if got := FunctionName(tt.functionName); got != tt.want {
+				t.Errorf("FunctionName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFunctionNote(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(true)
+	})
+
+	tests := []struct {
+		name    string
+		note    string
+		noColor bool
+		want    string
+	}{{
+		name:    "color disabled",
+		note:    "sample note",
+		noColor: true,
+		want:    "sample note",
+	}, {
+		name:    "color enabled",
+		note:    "sample note",
+		noColor: false,
+		want:    "\x1b[33;1msample note\x1b[0;22m",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.noColor
+			Init(tt.noColor)
+			if got := FunctionNote(tt.note); got != tt.want {
+				t.Errorf("FunctionNote() = %q, want %q", got, tt.want)
 			}
 		})
 	}

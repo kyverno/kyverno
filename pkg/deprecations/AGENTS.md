@@ -1,8 +1,9 @@
 # AGENTS.md — pkg/deprecations
 
 This package owns the 1.20 write-time denial of legacy `kyverno.io` policy APIs. It decides
-admission outcomes from raw request metadata only and must never import a typed policy API, because
-it has to keep working after #17713 deletes `api/kyverno/v1` and the generated clients.
+admission outcomes from raw request metadata only and must never import a typed policy API: #17713
+has already deleted `api/kyverno/v1`, `api/kyverno/v1beta1`, and their generated clients, and this
+package must keep working regardless of what else gets removed from `api/kyverno` later.
 
 ## The invariant
 
@@ -59,10 +60,9 @@ legacy execution code.
 the `policywarnings` subpackage, so that extraction removes their direct type dependency from
 `deprecations.go`.
 
-One transitive path remains: `block.go` imports `pkg/utils/admission` for the finalizer check, and
-that package still carries typed helpers such as `policy.go`. Those are consumed only by the legacy
-handlers, so #17710 deletes them with their callers before #17713 deletes the types. If that ordering
-ever changes, split the type-free helpers out rather than reintroducing typed code here.
+`block.go` imports `pkg/utils/admission` for the finalizer check. That package no longer carries any
+`api/kyverno/v1`/`v1beta1`-typed helpers; its remaining typed helper (`policy.go`) is scoped to the
+CEL `policies.kyverno.io` types, not the legacy ones #17713 removed.
 
 ## Webhook rules
 

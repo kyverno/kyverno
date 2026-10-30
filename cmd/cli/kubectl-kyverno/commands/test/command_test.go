@@ -13,7 +13,6 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
@@ -124,7 +123,7 @@ func TestCommandHelp(t *testing.T) {
 }
 
 func TestCheckResultDetectsMismatch(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{}
+	policy := &policiesv1beta1.ValidatingPolicy{}
 	policy.SetName("test-policy")
 
 	resource := unstructured.Unstructured{
@@ -217,7 +216,7 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 
 			response := engineapi.NewEngineResponse(
 				resource,
-				engineapi.NewKyvernoPolicy(policy),
+				engineapi.NewValidatingPolicy(policy),
 				nil,
 			).WithPolicyResponse(engineapi.PolicyResponse{
 				Rules: []engineapi.RuleResponse{rule},
@@ -239,7 +238,7 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 }
 
 func TestCheckRuleResultOnly_GenerationNoGeneratedResources(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{}
+	policy := &policiesv1beta1.ValidatingPolicy{}
 	policy.SetName("test-policy")
 
 	resource := unstructured.Unstructured{
@@ -258,7 +257,7 @@ func TestCheckRuleResultOnly_GenerationNoGeneratedResources(t *testing.T) {
 
 	response := engineapi.NewEngineResponse(
 		resource,
-		engineapi.NewKyvernoPolicy(policy),
+		engineapi.NewValidatingPolicy(policy),
 		nil,
 	).WithPolicyResponse(engineapi.PolicyResponse{
 		Rules: []engineapi.RuleResponse{rule},
@@ -901,7 +900,7 @@ func TestLookupRuleResponses(t *testing.T) {
 }
 
 func TestCheckResultGeneratedResources(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{}
+	policy := &policiesv1beta1.ValidatingPolicy{}
 	policy.SetName("test-policy")
 
 	actual := unstructured.Unstructured{
@@ -941,7 +940,7 @@ spec:
 	rule := *engineapi.RulePass("test-rule", engineapi.Generation, "generated", nil)
 	response := engineapi.NewEngineResponse(
 		actual,
-		engineapi.NewKyvernoPolicy(policy),
+		engineapi.NewValidatingPolicy(policy),
 		nil,
 	).WithPolicyResponse(engineapi.PolicyResponse{
 		Rules: []engineapi.RuleResponse{rule},
@@ -1187,7 +1186,7 @@ func TestPrintTestResultExcludedResources(t *testing.T) {
 				"v1,Pod,default,test": {
 					engineapi.NewEngineResponse(
 						unstructured.Unstructured{},
-						engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "disallow-latest-tag",
 							},
@@ -1478,7 +1477,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "competing-policy",
 						},
@@ -1507,7 +1506,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+					engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "test-policy",
 							Namespace: "test-ns-2",
@@ -1537,7 +1536,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test-policy",
 						},
@@ -1565,7 +1564,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+					engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "test-policy",
 							Namespace: "test-ns",
@@ -1624,11 +1623,11 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			}
 			var genericPolicy engineapi.GenericPolicy
 			if tt.policyNamespace != "" {
-				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+				genericPolicy = engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
 					ObjectMeta: policyMeta,
 				})
 			} else {
-				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				genericPolicy = engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 					ObjectMeta: policyMeta,
 				})
 			}
@@ -1650,7 +1649,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			} else {
 				targetList = append(targetList, engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "competing-policy",
 						},
