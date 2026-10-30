@@ -509,7 +509,8 @@ func TestTransportPoolKeyIgnoresTargetBehindProxy(t *testing.T) {
 	direct := func(target string) *dialPlan {
 		return &dialPlan{targetIPs: []netip.Addr{netip.MustParseAddr(target)}}
 	}
-	assert.NotSame(t, direct("192.0.2.1"), direct("192.0.2.2"),
+	assert.NotSame(t, transport.destinationPool(direct("192.0.2.1")),
+		transport.destinationPool(direct("192.0.2.2")),
 		"a direct request must not reuse a pool pinned to a different address")
 
 	// The two key shapes must never collide: validation rejects an empty address set, so a

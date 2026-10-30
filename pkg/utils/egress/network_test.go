@@ -13,6 +13,10 @@ import (
 
 type fakeConn struct{ net.Conn }
 
+// Close keeps the drain path safe: when a losing family connects after the race is already
+// won, dialRace closes that connection, and the embedded net.Conn here is nil.
+func (fakeConn) Close() error { return nil }
+
 // dialScript answers per address family so a test can make one family fail or stall.
 func dialScript(t *testing.T, answer func(ip net.IP) (net.Conn, error)) DialContextFunc {
 	t.Helper()
@@ -90,7 +94,9 @@ func TestDialRacePrefersPrimaryError(t *testing.T) {
 // A cancelled caller must not be kept waiting for the fallback timer.
 func TestDialRaceHonoursCancellation(t *testing.T) {
 	t.Parallel()
+	var dialed atomic.Int32
 	dial := dialScript(t, func(net.IP) (net.Conn, error) {
+		dialed.Add(1)
 		return nil, errors.New("unreachable")
 	})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -99,7 +105,10 @@ func TestDialRaceHonoursCancellation(t *testing.T) {
 	start := time.Now()
 	_, err := DialAddresses(ctx, dial, "tcp", "443",
 		[]net.IP{net.ParseIP("10.0.0.1"), net.ParseIP("fd00::1")})
-	require.Error(t, err)
+	// Assert the cancellation specifically: any error would otherwise satisfy this test even
+	// if the context were ignored and the dial simply failed on its own.
+	require.ErrorIs(t, err, context.Canceled)
+	require.Zero(t, dialed.Load(), "dialled despite the context already being cancelled")
 	require.Less(t, time.Since(start), fallbackDelay, "cancellation waited for the fallback timer")
 }
 
