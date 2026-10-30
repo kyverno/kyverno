@@ -1794,8 +1794,8 @@ backgroundController:
   startupProbe:
     httpGet:
       path: /health/liveness
-      port: '{{ .Values.backgroundController.metering.port }}'
-      scheme: '{{ if .Values.backgroundController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
+      port: '{{ if .Values.backgroundController.metering.disabled }}8000{{ else }}{{ .Values.backgroundController.metering.port }}{{ end }}'
+      scheme: '{{ if and (not .Values.backgroundController.metering.disabled) .Values.backgroundController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
     failureThreshold: 20
     initialDelaySeconds: 2
     periodSeconds: 6
@@ -1807,8 +1807,8 @@ backgroundController:
   livenessProbe:
     httpGet:
       path: /health/liveness
-      port: '{{ .Values.backgroundController.metering.port }}'
-      scheme: '{{ if .Values.backgroundController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
+      port: '{{ if .Values.backgroundController.metering.disabled }}8000{{ else }}{{ .Values.backgroundController.metering.port }}{{ end }}'
+      scheme: '{{ if and (not .Values.backgroundController.metering.disabled) .Values.backgroundController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
     initialDelaySeconds: 15
     periodSeconds: 30
     timeoutSeconds: 5
@@ -1822,8 +1822,8 @@ backgroundController:
   readinessProbe:
     httpGet:
       path: /health/readiness
-      port: '{{ .Values.backgroundController.metering.port }}'
-      scheme: '{{ if .Values.backgroundController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
+      port: '{{ if .Values.backgroundController.metering.disabled }}8000{{ else }}{{ .Values.backgroundController.metering.port }}{{ end }}'
+      scheme: '{{ if and (not .Values.backgroundController.metering.disabled) .Values.backgroundController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
     initialDelaySeconds: 5
     periodSeconds: 10
     timeoutSeconds: 5
@@ -2608,8 +2608,8 @@ reportsController:
   startupProbe:
     httpGet:
       path: /health/liveness
-      port: '{{ .Values.reportsController.metering.port }}'
-      scheme: '{{ if .Values.reportsController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
+      port: '{{ if .Values.reportsController.metering.disabled }}8000{{ else }}{{ .Values.reportsController.metering.port }}{{ end }}'
+      scheme: '{{ if and (not .Values.reportsController.metering.disabled) .Values.reportsController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
     failureThreshold: 20
     initialDelaySeconds: 2
     periodSeconds: 6
@@ -2621,8 +2621,8 @@ reportsController:
   livenessProbe:
     httpGet:
       path: /health/liveness
-      port: '{{ .Values.reportsController.metering.port }}'
-      scheme: '{{ if .Values.reportsController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
+      port: '{{ if .Values.reportsController.metering.disabled }}8000{{ else }}{{ .Values.reportsController.metering.port }}{{ end }}'
+      scheme: '{{ if and (not .Values.reportsController.metering.disabled) .Values.reportsController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
     initialDelaySeconds: 15
     periodSeconds: 30
     timeoutSeconds: 5
@@ -2636,8 +2636,8 @@ reportsController:
   readinessProbe:
     httpGet:
       path: /health/readiness
-      port: '{{ .Values.reportsController.metering.port }}'
-      scheme: '{{ if .Values.reportsController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
+      port: '{{ if .Values.reportsController.metering.disabled }}8000{{ else }}{{ .Values.reportsController.metering.port }}{{ end }}'
+      scheme: '{{ if and (not .Values.reportsController.metering.disabled) .Values.reportsController.metering.secure }}HTTPS{{ else }}HTTP{{ end }}'
     initialDelaySeconds: 5
     periodSeconds: 10
     timeoutSeconds: 5
