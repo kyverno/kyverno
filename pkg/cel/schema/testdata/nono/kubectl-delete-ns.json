@@ -1,0 +1,1 @@
+{"backend":"kyverno","request":{"capability_type":"command","request_id":"req-002","session_id":"test-session","child_pid":1235,"command":"kubectl","caller":"claude","args":["/usr/local/bin/nono-shim","delete","namespace","production"],"intercept_rule":"kubectl"}}

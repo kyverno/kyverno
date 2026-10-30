@@ -1,0 +1,1 @@
+{"backend":"kyverno","request":{"capability_type":"command","session_id":"s","command":"kubectl","args":["/x","get"]}}
