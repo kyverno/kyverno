@@ -114,6 +114,9 @@ type Interface interface {
 
 	// AddJSON  merges the json map with context
 	addJSON(dataMap map[string]interface{}, overwriteMaps bool) error
+
+	// Persist marks a context entry as persistent across checkpoints
+	Persist(name string)
 }
 
 // DefaultMaxContextSize is the default maximum size of context data in bytes (2MB)
@@ -141,6 +144,7 @@ type context struct {
 	deferred           DeferredLoaders
 	contextSize        int64
 	maxContextSize     int64
+	persistentKeys     map[string]bool
 }
 
 // NewContext returns a new context
@@ -585,6 +589,11 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 
 	if restore {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
+		for key := range ctx.persistentKeys {
+			if val, ok := ctx.jsonRaw[key]; ok {
+				jsonRawCheckpoint[key] = runtime.DeepCopyJSONValue(val)
+			}
+		}
 		ctx.jsonRaw = jsonRawCheckpoint
 		if len(ctx.imagesCheckpoints) > n {
 			ctx.images = ctx.imagesCheckpoints[n]
@@ -609,6 +618,13 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 func (ctx *context) AddDeferredLoader(dl DeferredLoader) error {
 	ctx.deferred.Add(dl, len(ctx.jsonRawCheckpoints))
 	return nil
+}
+
+func (ctx *context) Persist(name string) {
+	if ctx.persistentKeys == nil {
+		ctx.persistentKeys = make(map[string]bool)
+	}
+	ctx.persistentKeys[name] = true
 }
 
 // checkContextSizeLimit checks if adding additionalSize bytes would exceed the context size limit
