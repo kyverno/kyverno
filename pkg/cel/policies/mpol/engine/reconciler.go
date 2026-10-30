@@ -113,7 +113,11 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		autogenPolicy := policy.DeepCopyObject().(policiesv1beta1.MutatingPolicyLike)
 		*autogenPolicy.GetSpec() = *gen.Spec
 
-		compiled, errs := r.compiler.Compile(autogenPolicy, exceptions)
+		rewrittenExceptions, err := autogen.RewriteExceptions(exceptions, config)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		compiled, errs := r.compiler.Compile(autogenPolicy, rewrittenExceptions)
 		if len(errs) > 0 {
 			return ctrl.Result{}, errs.ToAggregate()
 		}

@@ -752,3 +752,108 @@ func TestAutogenPodControllersEnabled(t *testing.T) {
 		}}, result[autogen.AutogenDefaults].Targets)
 	})
 }
+
+func TestRewriteExceptions(t *testing.T) {
+	newException := func(expression, validationExpr, messageExpr string) *policiesv1beta1.PolicyException {
+		polex := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "exception"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "policy", Kind: "MutatingPolicy"},
+				},
+			},
+		}
+		if expression != "" {
+			polex.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{
+				{Name: "match", Expression: expression},
+			}
+		}
+		if validationExpr != "" || messageExpr != "" {
+			polex.Spec.Validations = []admissionregistrationv1.Validation{
+				{Expression: validationExpr, MessageExpression: messageExpr},
+			}
+		}
+		return polex
+	}
+	twoConditions := newException("object.spec.containers.size() > 0", "", "")
+	twoConditions.Spec.MatchConditions = append(twoConditions.Spec.MatchConditions,
+		admissionregistrationv1.MatchCondition{Name: "second", Expression: "object.spec.initContainers.size() == 0"})
+
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		config     string
+		want       []string
+	}{
+		{
+			name:       "every match condition is rewritten, not only the first",
+			exceptions: []*policiesv1beta1.PolicyException{twoConditions},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"object.spec.template.spec.containers.size() > 0", "object.spec.template.spec.initContainers.size() == 0"},
+		},
+		{
+			name:       "defaults: containers expression is rewritten for deployments",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')", "", "")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"object.spec.template.spec.containers.exists(c, c.name == 'nginx')"},
+		},
+		{
+			name:       "cronjobs: containers expression is rewritten",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')", "", "")},
+			config:     autogen.AutogenCronjobs,
+			want:       []string{"object.spec.jobTemplate.spec.template.spec.containers.exists(c, c.name == 'nginx')"},
+		},
+		{
+			name:       "extract: expressions are not rewritten",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')", "", "")},
+			config:     autogen.ExtractionReplacementsRef,
+			want:       []string{"object.spec.containers.exists(c, c.name == 'nginx')"},
+		},
+		{
+			name:       "metadata is preserved while spec is rewritten",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.metadata.labels.app == 'nginx' && object.spec.containers.size() > 0", "", "")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"object.metadata.labels.app == 'nginx' && object.spec.template.spec.containers.size() > 0"},
+		},
+		{
+			name:       "validations expression and message expression are rewritten",
+			exceptions: []*policiesv1beta1.PolicyException{newException("", "object.spec.containers.exists(c, c.name == 'nginx')", "oldObject.spec.containers.exists(c, c.name == 'nginx') ? 'yes' : 'no'")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"object.spec.template.spec.containers.exists(c, c.name == 'nginx')", "oldObject.spec.template.spec.containers.exists(c, c.name == 'nginx') ? 'yes' : 'no'"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rewritten, err := RewriteExceptions(test.exceptions, test.config)
+			assert.NoError(t, err)
+			got := make([]string, 0)
+			for _, polex := range rewritten {
+				for _, condition := range polex.Spec.MatchConditions {
+					got = append(got, condition.Expression)
+				}
+				if len(polex.Spec.Validations) > 0 {
+					if polex.Spec.Validations[0].Expression != "" {
+						got = append(got, polex.Spec.Validations[0].Expression)
+					}
+					if polex.Spec.Validations[0].MessageExpression != "" {
+						got = append(got, polex.Spec.Validations[0].MessageExpression)
+					}
+				}
+			}
+			assert.Equal(t, test.want, got)
+		})
+	}
+
+	t.Run("original exceptions are not mutated", func(t *testing.T) {
+		exceptions := []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')", "", "")}
+		_, err := RewriteExceptions(exceptions, autogen.AutogenDefaults)
+		assert.NoError(t, err)
+		assert.Equal(t, "object.spec.containers.exists(c, c.name == 'nginx')", exceptions[0].Spec.MatchConditions[0].Expression)
+	})
+
+	t.Run("empty exceptions returns as-is", func(t *testing.T) {
+		rewritten, err := RewriteExceptions(nil, autogen.AutogenDefaults)
+		assert.NoError(t, err)
+		assert.Nil(t, rewritten)
+	})
+}
