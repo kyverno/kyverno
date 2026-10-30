@@ -190,6 +190,7 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- if ne .Values.backgroundController.metering.config "grpc" }}
           {{- with .Values.backgroundController.startupProbe }}
           startupProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
@@ -201,6 +202,7 @@ spec:
           {{- with .Values.backgroundController.readinessProbe }}
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           {{- end }}
           {{- with .Values.backgroundController.lifecycle }}
           lifecycle:
