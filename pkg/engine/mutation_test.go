@@ -2212,10 +2212,11 @@ func Test_mutate_existing_context_isolation(t *testing.T) {
 	}`)
 
 	tests := []struct {
-		name          string
-		policyRaw     []byte
-		target1Status engineapi.RuleStatus
-		assertTarget1 func(t *testing.T, rr engineapi.RuleResponse)
+		name                 string
+		policyRaw            []byte
+		target1Status        engineapi.RuleStatus
+		expectedTarget0Token string
+		assertTarget1        func(t *testing.T, rr engineapi.RuleResponse)
 	}{
 		{
 			name: "fallback default when variable is unpopulated in target-two",
@@ -2273,7 +2274,8 @@ func Test_mutate_existing_context_isolation(t *testing.T) {
 					]
 				}
 			}`),
-			target1Status: engineapi.RuleStatusPass,
+			target1Status:        engineapi.RuleStatusPass,
+			expectedTarget0Token: "secret-token-from-target-0",
 			assertTarget1: func(t *testing.T, rr engineapi.RuleResponse) {
 				patched1, _, _ := rr.PatchedTarget()
 				require.NotNil(t, patched1)
@@ -2281,6 +2283,81 @@ func Test_mutate_existing_context_isolation(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, found)
 				require.Equal(t, "isolated-default", data1["token"])
+			},
+		},
+		{
+			name: "target override does not leak into next target",
+			policyRaw: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "test-context-isolation-override"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "mutate-targets-override",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": ["ConfigMap"],
+											"names": ["cm-trigger"]
+										}
+									}
+								]
+							},
+							"context": [
+								{
+									"name": "sharedVar",
+									"variable": {
+										"value": "rule-level-base"
+									}
+								}
+							],
+							"mutate": {
+								"mutateExistingOnPolicyUpdate": false,
+								"targets": [
+									{
+										"apiVersion": "v1",
+										"kind": "ConfigMap",
+										"name": "target-one",
+										"namespace": "bar",
+										"context": [
+											{
+												"name": "sharedVar",
+												"variable": {
+													"value": "target-one-override"
+												}
+											}
+										]
+									},
+									{
+										"apiVersion": "v1",
+										"kind": "ConfigMap",
+										"name": "target-two",
+										"namespace": "bar"
+									}
+								],
+								"patchStrategicMerge": {
+									"data": {
+										"token": "{{ sharedVar }}"
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			target1Status:        engineapi.RuleStatusPass,
+			expectedTarget0Token: "target-one-override",
+			assertTarget1: func(t *testing.T, rr engineapi.RuleResponse) {
+				patched1, _, _ := rr.PatchedTarget()
+				require.NotNil(t, patched1)
+				data1, found, err := unstructured.NestedStringMap(patched1.UnstructuredContent(), "data")
+				require.NoError(t, err)
+				require.True(t, found)
+				require.Equal(t, "rule-level-base", data1["token"], "target-two must observe the reverted rule-level base value")
 			},
 		},
 		{
@@ -2357,7 +2434,8 @@ func Test_mutate_existing_context_isolation(t *testing.T) {
 					]
 				}
 			}`),
-			target1Status: engineapi.RuleStatusSkip,
+			target1Status:        engineapi.RuleStatusSkip,
+			expectedTarget0Token: "applied",
 			assertTarget1: func(t *testing.T, rr engineapi.RuleResponse) {
 				patched1, _, _ := rr.PatchedTarget()
 				require.Nil(t, patched1, "skipped target must not produce a patched target")
@@ -2391,11 +2469,7 @@ func Test_mutate_existing_context_isolation(t *testing.T) {
 			data0, found, err := unstructured.NestedStringMap(patched0.UnstructuredContent(), "data")
 			require.NoError(t, err)
 			require.True(t, found)
-			if tc.name == "fallback default when variable is unpopulated in target-two" {
-				require.Equal(t, "secret-token-from-target-0", data0["token"])
-			} else {
-				require.Equal(t, "applied", data0["token"])
-			}
+			require.Equal(t, tc.expectedTarget0Token, data0["token"])
 
 			tc.assertTarget1(t, er.PolicyResponse.Rules[1])
 		})

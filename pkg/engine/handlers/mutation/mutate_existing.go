@@ -82,7 +82,6 @@ func (h mutateExistingHandler) Process(
 			continue
 		}
 		policyContext.JSONContext().Reset()
-		policyContext := policyContext.Copy()
 		if err := policyContext.JSONContext().SetTargetResource(target.unstructured.Object); err != nil {
 			logger.Error(err, "failed to add target resource to the context")
 			continue
