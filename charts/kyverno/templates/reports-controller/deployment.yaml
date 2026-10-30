@@ -199,16 +199,20 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if ne .Values.reportsController.metering.config "grpc" }}
           {{- with .Values.reportsController.startupProbe }}
+          {{- if or (ne $.Values.reportsController.metering.config "grpc") (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
           startupProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
+          {{- end }}
           {{- with .Values.reportsController.livenessProbe }}
+          {{- if or (ne $.Values.reportsController.metering.config "grpc") (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
           livenessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
+          {{- end }}
           {{- with .Values.reportsController.readinessProbe }}
+          {{- if or (ne $.Values.reportsController.metering.config "grpc") (not (and .httpGet (has .httpGet.path (list "/health/liveness" "/health/readiness" "/healthz")))) }}
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
