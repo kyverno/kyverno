@@ -11,16 +11,18 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
 
 type imageDataLoader struct {
-	ctx            context.Context //nolint:containedctx
-	logger         logr.Logger
-	entry          kyvernov1.ContextEntry
-	enginectx      enginecontext.Interface
-	jp             jmespath.Interface
-	rclientFactory engineapi.RegistryClientFactory
-	data           []byte
+	ctx             context.Context //nolint:containedctx
+	logger          logr.Logger
+	entry           kyvernov1.ContextEntry
+	enginectx       enginecontext.Interface
+	jp              jmespath.Interface
+	rclientFactory  engineapi.RegistryClientFactory
+	policyNamespace string
+	data            []byte
 }
 
 func NewImageDataLoader(
@@ -30,14 +32,16 @@ func NewImageDataLoader(
 	enginectx enginecontext.Interface,
 	jp jmespath.Interface,
 	rclientFactory engineapi.RegistryClientFactory,
+	policyNamespace string,
 ) enginecontext.Loader {
 	return &imageDataLoader{
-		ctx:            ctx,
-		logger:         logger,
-		entry:          entry,
-		enginectx:      enginectx,
-		jp:             jp,
-		rclientFactory: rclientFactory,
+		ctx:             ctx,
+		logger:          logger,
+		entry:           entry,
+		enginectx:       enginectx,
+		jp:              jp,
+		rclientFactory:  rclientFactory,
+		policyNamespace: policyNamespace,
 	}
 }
 
@@ -86,10 +90,20 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
 	}
 
+	credentials := entry.ImageRegistry.ImageRegistryCredentials
+	if idl.policyNamespace != "" && credentials != nil {
+		scopedSecrets, err := kubeutils.ScopeSecretReferences(credentials.Secrets, idl.policyNamespace)
+		if err != nil {
+			return nil, fmt.Errorf("context entry %s: %w", entry.Name, err)
+		}
+		credentials = credentials.DeepCopy()
+		credentials.Secrets = scopedSecrets
+	}
+
 	resourceNamespace := getNamespaceFromContext(idl.enginectx)
-	// For ConfigMap context entries, imagePullSecrets are not available from image extraction
+	// For imageRegistry context entries, imagePullSecrets are not available from image extraction.
 	// They must be specified explicitly in ImageRegistryCredentials
-	client, err := idl.rclientFactory.GetClient(idl.ctx, entry.ImageRegistry.ImageRegistryCredentials, resourceNamespace, nil)
+	client, err := engineapi.RegistryClientForPolicy(idl.ctx, idl.rclientFactory, credentials, resourceNamespace, nil, idl.policyNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry client %s: %v", entry.Name, err)
 	}

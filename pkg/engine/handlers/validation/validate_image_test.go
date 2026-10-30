@@ -303,6 +303,62 @@ func (nilClientRegistryClientFactory) GetClient(context.Context, *kyvernov1.Imag
 	return nil, nil
 }
 
+func TestValidateImage_CredentialScopeBeforeOptionalOrSkippedImages(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name         string
+		required     bool
+		skip         bool
+		verifyDigest bool
+		unmatched    bool
+		status       engineapi.RuleStatus
+		message      string
+	}{
+		{name: "optional", status: engineapi.RuleStatusError, message: "instead of policy namespace"},
+		{name: "skipped", required: true, skip: true, status: engineapi.RuleStatusError, message: "instead of policy namespace"},
+		{name: "optional missing digest", verifyDigest: true, status: engineapi.RuleStatusFail, message: "missing digest"},
+		{name: "skipped missing digest", required: true, skip: true, verifyDigest: true, status: engineapi.RuleStatusFail, message: "missing digest"},
+		{name: "unmatched foreign credentials before missing digest", unmatched: true, status: engineapi.RuleStatusFail, message: "missing digest"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var policy kyvernov1.Policy
+			require.NoError(t, json.Unmarshal([]byte(verifyImageAttestorPolicy), &policy))
+			policy.Kind = "Policy"
+			policy.Namespace = "tenant-a"
+			verification := &policy.Spec.Rules[0].VerifyImages[0]
+			verification.Required = test.required
+			verification.VerifyDigest = test.verifyDigest
+			verification.ImageRegistryCredentials = &kyvernov1.ImageRegistryCredentials{Secrets: []string{"{{ credentialSecret }}"}}
+			if test.skip {
+				verification.SkipImageReferences = []string{"*"}
+			}
+			if test.unmatched {
+				verification.ImageReferences = []string{"ghcr.io/unmatched/*"}
+				policy.Spec.Rules[0].VerifyImages = append(policy.Spec.Rules[0].VerifyImages, kyvernov1.ImageVerification{
+					ImageReferences: []string{"ghcr.io/verified/*"}, VerifyDigest: true,
+				})
+			}
+			resource, err := kubeutils.BytesToUnstructured([]byte(unpinnedImagePod))
+			require.NoError(t, err)
+			cfg := config.NewDefaultConfiguration(false)
+			policyContext, err := policycontext.NewPolicyContext(jmespath.New(cfg), *resource, kyvernov1.Create, nil, cfg)
+			require.NoError(t, err)
+			policyContext = policyContext.WithPolicy(&policy).WithNewResource(*resource)
+			require.NoError(t, policyContext.JSONContext().AddVariable("credentialSecret", "tenant-b/pull-secret"))
+			rule := policy.Spec.Rules[0]
+			handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, nil, nil, nil, false)
+			require.NoError(t, err)
+			require.NotNil(t, handler)
+			_, responses := handler.Process(context.Background(), logr.Discard(), policyContext, *resource, rule, nil, nil)
+			require.Len(t, responses, 1)
+			assert.Equal(t, test.status, responses[0].Status())
+			assert.Contains(t, responses[0].Message(), test.message)
+			assert.Equal(t, []string{"{{ credentialSecret }}"}, verification.ImageRegistryCredentials.Secrets)
+		})
+	}
+}
+
 // TestVerifyDigestFailsClosedBeforeSkipMapping pins the ordering the design
 // requires: a verifyDigest rule against an unpinned image fails closed, and
 // this check runs before "no attestors/attestations configured" is mapped to

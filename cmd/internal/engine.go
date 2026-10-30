@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -46,7 +47,7 @@ func NewEngine(
 		configuration,
 		jp,
 		adapters.Client(client),
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(registryclient.MustRegistryClient()), secretLister),
+		factories.DefaultRegistryClientFactory(adapters.RegistryClient(registryclient.MustRegistryClient()), kubeutils.WithSecretClient(ctx, secretLister, kubeClient.CoreV1())),
 		ivCache,
 		factories.DefaultContextLoaderFactory(configMapResolver, factories.WithAPICallConfig(apiCallConfig), factories.WithGlobalContextStore(gctxStore)),
 		exceptionsSelector,

@@ -275,7 +275,7 @@ func newGctxController() *controller {
 	}
 }
 
-func Test_Cleanup_NamespacedPolicyContextIsClamped(t *testing.T) {
+func Test_Cleanup_NamespacedPolicyContextIsNotClamped(t *testing.T) {
 	policy := &kyvernov2.CleanupPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "tenant-a"},
 		Spec: kyvernov2.CleanupPolicySpec{
@@ -286,7 +286,7 @@ func Test_Cleanup_NamespacedPolicyContextIsClamped(t *testing.T) {
 	ctx := toggle.NewContext(context.Background(), noDeferredLoading{})
 	err := newGctxController().cleanup(ctx, logr.Discard(), policy)
 
-	assert.ErrorContains(t, err, "globalReference is not allowed in namespaced policies")
+	assert.ErrorContains(t, err, "failed to fetch entry key=some-entry")
 }
 
 func Test_Cleanup_ClusterPolicyContextIsNotClamped(t *testing.T) {

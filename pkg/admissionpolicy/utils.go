@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -151,8 +152,27 @@ func IsValidatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (boo
 	return false, nil
 }
 
-// Collect params collects parameter resources from a live cluster
+// CollectParams retains the native Kubernetes admission-policy parameter semantics.
 func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1.ParamKind, paramRef *admissionregistrationv1.ParamRef, namespace string) ([]runtime.Object, error) {
+	return CollectParamsForPolicy(ctx, client, paramKind, paramRef, namespace, &kyvernov1.ClusterPolicy{})
+}
+
+// CollectParamsForPolicy collects parameter resources while confining a
+// namespaced Policy to parameter resources in its own namespace. Every caller
+// must provide an explicit policy scope, including cluster-scoped policies.
+func CollectParamsForPolicy(
+	ctx context.Context,
+	client engineapi.Client,
+	paramKind *admissionregistrationv1.ParamKind,
+	paramRef *admissionregistrationv1.ParamRef,
+	resourceNamespace string,
+	policy engineapi.PolicyScope,
+) ([]runtime.Object, error) {
+	policyNamespace, err := engineapi.PolicyNamespace(policy)
+	if err != nil {
+		return nil, err
+	}
+
 	var params []runtime.Object
 
 	apiVersion := paramKind.APIVersion
@@ -162,9 +182,10 @@ func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 		return nil, fmt.Errorf("can't parse the parameter resource group version")
 	}
 
-	// If `paramKind` is cluster-scoped, then paramRef.namespace MUST be unset.
-	// If `paramKind` is namespace-scoped, the namespace of the object being evaluated for admission will be used
-	// when paramRef.namespace is left unset.
+	// A namespaced Policy is confined to namespaced parameters in the policy
+	// namespace. Other callers retain Kubernetes ValidatingAdmissionPolicy
+	// semantics: cluster-scoped params have no namespace and namespaced params
+	// default to the admitted resource's namespace.
 	var paramsNamespace string
 	isNamespaced, err := client.IsNamespaced(gv.Group, gv.Version, kind)
 	if err != nil {
@@ -173,14 +194,22 @@ func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 
 	// check if `paramKind` is namespace-scoped
 	if isNamespaced {
-		// set params namespace to the incoming object's namespace by default.
-		paramsNamespace = namespace
-		if paramRef.Namespace != "" {
+		if policyNamespace != "" {
+			if paramRef.Namespace != "" && paramRef.Namespace != policyNamespace {
+				return nil, fmt.Errorf("paramRef.namespace %q must match policy namespace %q", paramRef.Namespace, policyNamespace)
+			}
+			paramsNamespace = policyNamespace
+		} else if paramRef.Namespace != "" {
 			paramsNamespace = paramRef.Namespace
-		} else if paramsNamespace == "" {
+		} else if resourceNamespace != "" {
+			paramsNamespace = resourceNamespace
+		} else {
 			return nil, fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
 		}
 	} else {
+		if policyNamespace != "" {
+			return nil, fmt.Errorf("cluster-scoped paramKind is not allowed in namespaced policies")
+		}
 		// It isn't allowed to set namespace for cluster-scoped params
 		if paramRef.Namespace != "" {
 			return nil, fmt.Errorf("paramRef.namespace must not be provided for a cluster-scoped `paramKind`")

@@ -1,0 +1,95 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: namespaced-credential-scope
+spec:
+  concurrent: true
+  steps:
+  - name: context-bare
+    bindings:
+    - name: name
+      value: context-bare
+    - name: secret
+      value: regcred
+    try:
+    - create:
+        file: context.yaml
+  - name: context-local
+    bindings:
+    - name: name
+      value: context-local
+    - name: secret
+      value: (join('/', [$namespace, 'regcred']))
+    try:
+    - create:
+        file: context.yaml
+  - name: context-foreign
+    bindings:
+    - name: name
+      value: context-foreign
+    - name: secret
+      value: tenant-foreign/regcred
+    try:
+    - create:
+        file: context.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: context-installation
+    bindings:
+    - name: name
+      value: context-installation
+    - name: secret
+      value: kyverno/regcred
+    try:
+    - create:
+        file: context.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: verify-images-bare
+    bindings:
+    - name: name
+      value: verify-images-bare
+    - name: secret
+      value: regcred
+    try:
+    - create:
+        file: verify-images.yaml
+  - name: verify-images-local
+    bindings:
+    - name: name
+      value: verify-images-local
+    - name: secret
+      value: (join('/', [$namespace, 'regcred']))
+    try:
+    - create:
+        file: verify-images.yaml
+  - name: verify-images-foreign
+    bindings:
+    - name: name
+      value: verify-images-foreign
+    - name: secret
+      value: tenant-foreign/regcred
+    try:
+    - create:
+        file: verify-images.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: verify-images-installation
+    bindings:
+    - name: name
+      value: verify-images-installation
+    - name: secret
+      value: kyverno/regcred
+    try:
+    - create:
+        file: verify-images.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
