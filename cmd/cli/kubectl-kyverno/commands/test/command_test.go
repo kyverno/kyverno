@@ -2192,3 +2192,47 @@ func TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger(t *testing.T)
 		assert.NotEqual(t, triggerIdentity, describe(*patchedTarget), "target response must not be the trigger")
 	})
 }
+
+func TestRunTest_GitBackedClusterScopedCRD(t *testing.T) {
+	// a test read from a git repository: every file lives in the billy filesystem only
+	srcDir := filepath.Join("..", "..", "..", "..", "..", "test", "cli", "test-mutating-policy", "mutate-cluster-scoped-crd")
+	fs := memfs.New()
+	err := filepath.WalkDir(srcDir, func(p string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		rel, err := filepath.Rel(srcDir, p)
+		if err != nil {
+			return err
+		}
+		content, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		f, err := fs.Create(filepath.ToSlash(rel))
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = f.Write(content)
+		return err
+	})
+	require.NoError(t, err)
+
+	testCases := test.LoadTest(fs, "kyverno-test.yaml")
+	require.Len(t, testCases, 1)
+	require.NoError(t, testCases[0].Err)
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
+	require.NoError(t, err, out.String())
+	var found bool
+	for _, responses := range testResponse.Trigger {
+		for _, r := range responses {
+			if r.Policy().GetName() == "set-annotations-for-gadget" {
+				found = true
+				assert.Empty(t, r.Resource.GetNamespace())
+			}
+		}
+	}
+	assert.True(t, found, "expected an engine response for set-annotations-for-gadget")
+}

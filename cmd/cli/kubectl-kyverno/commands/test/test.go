@@ -198,6 +198,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			}
 		}
 		// Resources are loaded below, and a cluster-scoped custom kind would get the default namespace if its CRD was not known yet.
+		// The processors below must not load them again: for a git-backed test the paths only exist in testCase.Fs.
 		if err := common.RegisterCRDs(clusterCRDs); err != nil {
 			return nil, err
 		}
@@ -491,6 +492,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			ConfigMapResolver:                 cmResolver,
 			RESTMapper:                        restMapper,
 			CrdPaths:                          crdPaths,
+			CrdPreloaded:                      true,
 		}
 		ers, err := pp.ApplyPoliciesOnResource()
 		if err != nil {
@@ -605,6 +607,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
 			CrdPaths:                          crdPaths,
+			CrdPreloaded:                      true,
 			RESTMapper:                        restMapper,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
