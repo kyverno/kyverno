@@ -149,3 +149,94 @@ func mustJSON(v map[string]interface{}) []byte {
 	}
 	return b
 }
+
+func TestCheckpointReloadIsNotDoubleCharged(t *testing.T) {
+	ctx := NewContextWithMaxSize(nil, 30)
+	entry := []byte(`{"key":"0123456789"}`) // 20 bytes
+	assert.NilError(t, ctx.AddContextEntry("entry", entry))
+
+	ctx.Checkpoint()
+	assert.NilError(t, ctx.AddContextEntry("other", []byte(`"012345"`))) // 8 bytes -> 28
+	ctx.Restore()
+
+	// without restoring the size accounting, this would be 28 + 8 = 36 > 30
+	ctx.Checkpoint()
+	assert.NilError(t, ctx.AddContextEntry("other", []byte(`"012345"`)))
+	ctx.Restore()
+}
+
+func TestContextEntryCharges(t *testing.T) {
+	ctx := NewContextWithMaxSize(nil, 30)
+	entry := []byte(`{"key":"0123456789"}`) // 20 bytes
+	assert.NilError(t, ctx.AddContextEntry("added", entry))
+	assert.NilError(t, ctx.ReplaceContextEntry("replaced", []byte(`"0123"`))) // 6 bytes -> 26
+
+	ctx.Checkpoint()
+	// added data is merged into the existing entry, so it accumulates (26 + 20 = 46)
+	assert.ErrorContains(t, ctx.AddContextEntry("added", entry), "context size limit exceeded")
+	// replaced data releases the previous charge (26 - 6 + 8 = 28)
+	assert.NilError(t, ctx.ReplaceContextEntry("replaced", []byte(`"012345"`)))
+	assert.ErrorContains(t, ctx.AddContextEntry("new", []byte(`"0123"`)), "context size limit exceeded")
+	ctx.Restore()
+
+	// restoring the checkpoint restores the per-entry charges (20 + 6 = 26)
+	assert.NilError(t, ctx.AddContextEntry("new", []byte(`"0"`)))
+}
+
+func TestClearingContextEntryIsFree(t *testing.T) {
+	ctx := NewContextWithMaxSize(nil, 1)
+	assert.NilError(t, ctx.AddContextEntry("entry", []byte(`1`))) // at the limit
+
+	// a null entry holds no data, so clearing is never charged, even at the limit
+	assert.NilError(t, ctx.ReplaceContextEntry("entry", []byte("null")))
+	assert.NilError(t, ctx.AddContextEntry("entry", []byte(`2`)))
+}
+
+func TestClearedContextEntryCanShrink(t *testing.T) {
+	ctx := NewContextWithMaxSize(nil, 30)
+	assert.NilError(t, ctx.AddContextEntry("a", []byte(`{"key":"0123456789"}`))) // 20 bytes
+	assert.NilError(t, ctx.AddContextEntry("b", []byte(`"012345"`)))             // 8 bytes -> 28
+
+	// clearing an entry by replacing it resets its charge, so a reload that shrinks one
+	// entry and grows another is charged for what the context actually holds (5 + 20)
+	ctx.Checkpoint()
+	assert.NilError(t, ctx.ReplaceContextEntry("a", []byte("null")))
+	assert.NilError(t, ctx.ReplaceContextEntry("b", []byte("null")))
+	assert.NilError(t, ctx.AddContextEntry("a", []byte(`"012"`)))
+	assert.NilError(t, ctx.AddContextEntry("b", []byte(`{"key":"0123456789"}`)))
+	ctx.Restore()
+}
+
+// entryLoader replays its cached payload with AddContextEntry, like the ConfigMap and API call loaders
+type entryLoader struct {
+	ctx    Interface
+	name   string
+	data   []byte
+	loaded bool
+}
+
+func (l *entryLoader) HasLoaded() bool { return l.loaded }
+func (l *entryLoader) LoadData() error {
+	l.loaded = true
+	return l.ctx.AddContextEntry(l.name, l.data)
+}
+
+func TestRestoreReloadedEntryIsNotDoubleCharged(t *testing.T) {
+	ctx := newContext()
+	ctx.maxContextSize = 45
+	dl, err := NewDeferredLoader("cm", &entryLoader{ctx: ctx, name: "cm", data: []byte(`{"key":"0123456789"}`)}, logger) // 20 bytes
+	assert.NilError(t, err)
+	assert.NilError(t, ctx.AddDeferredLoader(dl))
+	_, err = ctx.Query("cm")
+	assert.NilError(t, err)
+
+	// restoring the checkpoint replays the loaded entry, which replaces the entry already held
+	// by the checkpoint instead of being charged again (20 + 8 = 28, not 20 + 20 + 8 = 48)
+	ctx.Checkpoint()
+	ctx.Restore()
+	assert.NilError(t, ctx.AddContextEntry("other", []byte(`"012345"`)))
+
+	got, err := ctx.Query("cm.key")
+	assert.NilError(t, err)
+	assert.Equal(t, "0123456789", got)
+}

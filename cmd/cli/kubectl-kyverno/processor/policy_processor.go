@@ -853,12 +853,9 @@ func (p *PolicyProcessor) makePolicyContext(
 		WithPolicy(policy).
 		WithNamespaceLabels(namespaceLabels).
 		WithResourceKind(gvk, subresource)
-	for key, value := range resourceValues {
-		err = policyContext.JSONContext().AddVariable(key, value)
-		if err != nil {
-			log.Log.Error(err, "failed to add variable to context", "key", key, "value", value)
-			return nil, fmt.Errorf("failed to add variable to context %s (%w)", key, err)
-		}
+	if err := store.AddValues(policyContext.JSONContext(), resourceValues); err != nil {
+		log.Log.Error(err, "failed to add values to context")
+		return nil, err
 	}
 	// we need to get the resources back from the context to account for injected variables
 	switch operation {

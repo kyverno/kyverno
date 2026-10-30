@@ -1,6 +1,7 @@
 package context
 
 import (
+	"bytes"
 	cont "context"
 	"encoding/csv"
 	"fmt"
@@ -134,13 +135,22 @@ type context struct {
 	jp                 jmespath.Interface
 	jsonRaw            map[string]interface{}
 	jsonRawCheckpoints []map[string]interface{}
+	sizeCheckpoints    []sizeCheckpoint
 	images             map[string]map[string]apiutils.ImageInfo
 	imagesCheckpoints  []map[string]map[string]apiutils.ImageInfo
 	imageInfoLoader    *ImageInfoLoader
 	operation          kyvernov1.AdmissionOperation
 	deferred           DeferredLoaders
 	contextSize        int64
+	entrySizes         map[string]int64
 	maxContextSize     int64
+	// reloaded tracks the entries reloaded by deferred loaders while resetting to a checkpoint
+	reloaded map[string]bool
+}
+
+type sizeCheckpoint struct {
+	contextSize int64
+	entrySizes  map[string]int64
 }
 
 // NewContext returns a new context
@@ -222,7 +232,15 @@ func (ctx *context) AddVariable(key string, value interface{}) error {
 }
 
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
-	if err := ctx.checkContextSizeLimit(int64(len(dataRaw))); err != nil {
+	// a loader reloading its data after a checkpoint reset provides the entry's full data, which the
+	// checkpoint may already hold, so the first reload of an entry replaces it instead of merging
+	if ctx.reloaded != nil && !ctx.reloaded[name] {
+		ctx.reloaded[name] = true
+		return ctx.ReplaceContextEntry(name, dataRaw)
+	}
+	// data is merged into any existing entry, so its size is added to the entry's charge
+	size := entrySize(dataRaw)
+	if err := ctx.checkContextSizeLimit(size); err != nil {
 		return err
 	}
 	var data interface{}
@@ -230,12 +248,14 @@ func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
 		logger.Error(err, "failed to unmarshal the resource")
 		return err
 	}
-	ctx.contextSize += int64(len(dataRaw))
+	ctx.setEntrySize(name, ctx.entrySizes[name]+size)
 	return addToContext(ctx, data, false, name)
 }
 
 func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
-	if err := ctx.checkContextSizeLimit(int64(len(dataRaw))); err != nil {
+	// the entry's previous data is replaced, so only the difference counts against the limit
+	size := entrySize(dataRaw)
+	if err := ctx.checkContextSizeLimit(size - ctx.entrySizes[name]); err != nil {
 		return err
 	}
 	var data interface{}
@@ -248,8 +268,27 @@ func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
 		logger.Error(err, "unable to replace context entry", "context entry name", name)
 		return err
 	}
-	ctx.contextSize += int64(len(dataRaw))
+	ctx.setEntrySize(name, size)
 	return addToContext(ctx, data, false, name)
+}
+
+// entrySize returns the size charged for context entry data. A null entry holds no data,
+// so replacing an entry with null clears its charge.
+func entrySize(dataRaw []byte) int64 {
+	if bytes.Equal(bytes.TrimSpace(dataRaw), []byte("null")) {
+		return 0
+	}
+	return int64(len(dataRaw))
+}
+
+// setEntrySize records the size charged for a context entry, so that replacing or clearing
+// an entry releases its previous charge instead of accumulating it.
+func (ctx *context) setEntrySize(name string, size int64) {
+	if ctx.entrySizes == nil {
+		ctx.entrySizes = map[string]int64{}
+	}
+	ctx.contextSize += size - ctx.entrySizes[name]
+	ctx.entrySizes[name] = size
 }
 
 // AddResource data at path: request.object
@@ -529,6 +568,7 @@ func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
 func (ctx *context) Checkpoint() {
 	jsonRawCheckpoint := ctx.copyContext(ctx.jsonRaw)
 	ctx.jsonRawCheckpoints = append(ctx.jsonRawCheckpoints, jsonRawCheckpoint)
+	ctx.sizeCheckpoints = append(ctx.sizeCheckpoints, sizeCheckpoint{ctx.contextSize, maps.Clone(ctx.entrySizes)})
 	ctx.imagesCheckpoints = append(ctx.imagesCheckpoints, ctx.copyImages(ctx.images))
 	if ctx.imageInfoLoader != nil {
 		ctx.imageInfoLoader.checkpoint()
@@ -571,6 +611,8 @@ func (ctx *context) Reset() {
 
 func (ctx *context) reset(restore bool) {
 	if ctx.resetCheckpoint(restore) {
+		ctx.reloaded = map[string]bool{}
+		defer func() { ctx.reloaded = nil }()
 		ctx.deferred.Reset(restore, len(ctx.jsonRawCheckpoints))
 	}
 }
@@ -582,9 +624,13 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 
 	n := len(ctx.jsonRawCheckpoints) - 1
 	jsonRawCheckpoint := ctx.jsonRawCheckpoints[n]
+	sizes := ctx.sizeCheckpoints[n]
+	ctx.contextSize = sizes.contextSize
 
 	if restore {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
+		ctx.sizeCheckpoints = ctx.sizeCheckpoints[:n]
+		ctx.entrySizes = sizes.entrySizes
 		ctx.jsonRaw = jsonRawCheckpoint
 		if len(ctx.imagesCheckpoints) > n {
 			ctx.images = ctx.imagesCheckpoints[n]
@@ -594,6 +640,7 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 			ctx.imageInfoLoader.restore(n)
 		}
 	} else {
+		ctx.entrySizes = maps.Clone(sizes.entrySizes)
 		ctx.jsonRaw = ctx.copyContext(jsonRawCheckpoint)
 		if len(ctx.imagesCheckpoints) > n {
 			ctx.images = ctx.copyImages(ctx.imagesCheckpoints[n])

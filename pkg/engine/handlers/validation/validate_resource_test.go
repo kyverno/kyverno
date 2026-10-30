@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -83,7 +84,6 @@ func Test_validateForEach_ListEvalError_ReturnsError(t *testing.T) {
 		return nil
 	}
 
-	// Use a policy with an invalid list expression that will fail evaluation
 	policyContext := buildTestNamespaceLabelsContext(t, validateForeachInvalidListPolicy, resource, oldResource)
 	rule := policyContext.Policy().GetSpec().Rules[0]
 	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
@@ -91,9 +91,29 @@ func Test_validateForEach_ListEvalError_ReturnsError(t *testing.T) {
 	ctx := context.TODO()
 	resp := v.validateForEach(ctx)
 
-	// Should return error response instead of nil when list evaluation fails
 	assert.NotNil(t, resp, "validateForEach should return error response when list evaluation fails")
 	assert.Equal(t, api.RuleStatusError, resp.Status(), "status should be Error when list evaluation fails")
+}
+
+// Test_validateOldObjectContextReload verifies that rule-level context variables
+// are re-evaluated against the old resource, not reused from the new resource.
+func Test_validateOldObjectContextReload(t *testing.T) {
+	contextLoaderFactory := factories.DefaultContextLoaderFactory(nil)
+	policyContext := buildTestNamespaceLabelsContext(t, validateContextVarPolicy, podWithProdLabel, podWithDevLabel)
+	rule := policyContext.Policy().GetSpec().Rules[0]
+	loader := contextLoaderFactory(policyContext.Policy(), rule)
+
+	engineCL := func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+		return loader.Load(ctx, jp, nil, nil, contextEntries, jsonContext)
+	}
+
+	// simulate engine pre-loading rule context before calling the handler
+	assert.NoError(t, engineCL(context.TODO(), rule.Context, policyContext.JSONContext()))
+
+	v := newValidator(logr.Discard(), engineCL, policyContext, rule)
+	resp := v.validate(context.TODO())
+	assert.NotNil(t, resp)
+	assert.Equal(t, api.RuleStatusFail, resp.Status())
 }
 
 var (
@@ -322,7 +342,6 @@ var (
 		}
 	}`
 
-	// Policy with forEach + context entries to test per-element error handling
 	validateForeachWithContextPolicy = `{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
@@ -354,7 +373,6 @@ var (
 		}
 	}`
 
-	// Policy with invalid JMESPath list expression to test error handling
 	validateForeachInvalidListPolicy = `{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
@@ -371,6 +389,80 @@ var (
 					}]
 				}
 			}]
+		}
+	}`
+
+	validateContextVarPolicy = `{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "check-env-label"
+		},
+		"spec": {
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "deny-prod-env",
+			  "context": [
+				{
+				  "name": "currentEnv",
+				  "variable": {
+					"jmesPath": "request.object.metadata.labels.env || ''"
+				  }
+				}
+			  ],
+			  "match": {
+				"any": [
+				  {
+					"resources": {
+					  "kinds": ["Pod"],
+					  "operations": ["UPDATE"]
+					}
+				  }
+				]
+			  },
+			  "validate": {
+				"failureAction": "Enforce",
+				"allowExistingViolations": true,
+				"message": "prod env is not allowed",
+				"deny": {
+				  "conditions": {
+					"all": [
+					  {
+						"key": "{{ currentEnv }}",
+						"operator": "Equals",
+						"value": "prod"
+					  }
+					]
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	}`
+
+	podWithProdLabel = `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "test",
+		  "labels": {"env": "prod"}
+		},
+		"spec": {
+		  "containers": [{"name": "c", "image": "nginx"}]
+		}
+	}`
+
+	podWithDevLabel = `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		  "name": "test",
+		  "labels": {"env": "dev"}
+		},
+		"spec": {
+		  "containers": [{"name": "c", "image": "nginx"}]
 		}
 	}`
 )
