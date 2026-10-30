@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/stretchr/testify/require"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -82,7 +83,7 @@ func TestNonTriggerRequiresControllerProvenance(t *testing.T) {
 				// Exercise non-trigger dispatch: no matching trigger policy is needed
 				// for the vulnerable oldObject path to run.
 				pctx := nonTriggerContext(t, target, operation)
-				h.handleNonTrigger(t.Context(), pctx)
+				h.handleNonTrigger(t.Context(), admissionv1.AdmissionRequest{}, pctx)
 				if !tc.wantQueued {
 					require.Empty(t, recorder.specs, "untrusted metadata must not enqueue generation")
 					return
@@ -126,7 +127,7 @@ func TestCloneSourceVerifiesEveryActualDownstream(t *testing.T) {
 			dyn := dynamicfake.NewSimpleDynamicClient(scheme, target, unsigned, copied, staleSource)
 			h, recorder := provenanceHandler(t, store, policy)
 			h.client = dclient.NewFakeClientWithDisco(dyn, kube, dclient.NewFakeDiscoveryClient(nil))
-			require.NoError(t, h.processRequest(t.Context(), nonTriggerContext(t, source, operation)))
+			require.NoError(t, h.processRequest(t.Context(), admissionv1.AdmissionRequest{}, nonTriggerContext(t, source, operation)))
 			require.Len(t, recorder.specs, 1)
 			require.Len(t, recorder.specs[0].RuleContext, 1)
 			require.Equal(t, operation == kyvernov1.Delete, recorder.specs[0].RuleContext[0].DeleteDownstream)
@@ -148,7 +149,7 @@ func TestNonTriggerProvenanceFailsClosed(t *testing.T) {
 				policy = nil
 			}
 			h, recorder := provenanceHandler(t, store, policy)
-			err := h.processRequest(t.Context(), nonTriggerContext(t, target, kyvernov1.Delete))
+			err := h.processRequest(t.Context(), admissionv1.AdmissionRequest{}, nonTriggerContext(t, target, kyvernov1.Delete))
 			if missingPolicy {
 				require.NoError(t, err)
 			} else {
