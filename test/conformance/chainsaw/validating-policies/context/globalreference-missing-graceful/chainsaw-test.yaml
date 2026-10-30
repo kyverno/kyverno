@@ -66,6 +66,23 @@ spec:
         file: pod-test-2.yaml
     - assert:
         file: pod-test-2.yaml
+  - name: verify jmespath deprecation warning
+    # gctxentry.yaml deliberately still uses jmesPath (not expression), so this repo keeps
+    # exercising the deprecation path here. kubectl apply computes a client-side merge patch
+    # and skips the request entirely when nothing changed, so re-applying the unchanged file
+    # would not reach the webhook; delete and recreate via script to force a real CREATE that
+    # the webhook sees, and capture the warning it returns on stderr. Chainsaw already tracks
+    # this GlobalContextEntry's name for cleanup from the apply step above, so recreating it
+    # under the same name here doesn't change ownership of that cleanup.
+    try:
+    - script:
+        content: |
+          kubectl delete -f gctxentry.yaml --ignore-not-found
+          kubectl apply -f gctxentry.yaml
+        check:
+          (contains($stderr, 'spec.projections[0].jmesPath is deprecated and will be removed in 1.21')): true
+    - assert:
+        file: gctxentry.yaml
   - name: cleanup
     try:
     - delete:
@@ -80,3 +97,8 @@ spec:
           kind: Pod
           name: test-pod-with-gctx
           namespace: test-globalcontext-missing
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v2alpha1
+          kind: GlobalContextEntry
+          name: gctxentry-test-deployments
