@@ -42,8 +42,11 @@ func MatchPolicyContext(ctx context.Context, logger logr.Logger, client engineap
 func checkResourceFilters(configuration config.Configuration, gvk schema.GroupVersionKind, subresource string, resources ...unstructured.Unstructured) bool {
 	for _, resource := range resources {
 		if resource.Object != nil {
-			// TODO: account for generate name here ?
-			if configuration.ToFilter(gvk, subresource, resource.GetNamespace(), resource.GetName()) {
+			name := resource.GetName()
+			if name == "" {
+				name = resource.GetGenerateName()
+			}
+			if configuration.ToFilter(gvk, subresource, resource.GetNamespace(), name) {
 				return false
 			}
 		}
