@@ -47,8 +47,15 @@ reachable, and requests that `enforce` would reject are logged at verbosity 2. R
 first and collect those log lines to build the allowlist.
 
 Both modes always reject cloud metadata, loopback, link-local, unspecified, multicast, and
-broadcast addresses, including addresses reached through a listed hostname and IPv4 addresses
-embedded in IPv6 (NAT64, 6to4, IPv4-compatible). No allowlist entry overrides those.
+broadcast addresses, including addresses reached through a listed hostname. No allowlist entry
+overrides those.
+
+IPv4 addresses embedded in IPv6 are decoded before that check, so a blocked address cannot be
+reached by spelling it as IPv6. This covers the NAT64 well-known prefix (`64:ff9b::/96`), 6to4
+(`2002::/16`), and IPv4-compatible (`::a.b.c.d`) forms. A cluster using its own
+network-specific NAT64 prefix instead of the well-known one is not decoded, because that prefix
+is a local choice Kyverno cannot infer — treat the hard-block list as covering the well-known
+form only.
 
 In `enforce`, a private destination must match an allowlist entry:
 

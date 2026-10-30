@@ -205,6 +205,10 @@ func (p *Policy) allowedAddress(address, embedded netip.Addr) bool {
 var (
 	carrierGradeNAT = netip.MustParsePrefix("100.64.0.0/10")
 	zeroNetwork     = netip.MustParsePrefix("0.0.0.0/8")
+	// RFC 2544 benchmarking space. net.IP reports it as global unicast and not private, so
+	// without this it would be reachable in enforce mode with no allowlist entry despite
+	// never being globally routable.
+	benchmarkNetwork = netip.MustParsePrefix("198.18.0.0/15")
 	// Some cloud metadata services use otherwise private or public addresses.
 	metadataAddresses = map[netip.Addr]struct{}{
 		netip.MustParseAddr("100.100.100.200"): {},
@@ -219,7 +223,7 @@ func hardBlocked(address netip.Addr) bool {
 }
 
 func privateAddress(address netip.Addr) bool {
-	return address.IsPrivate() || carrierGradeNAT.Contains(address)
+	return address.IsPrivate() || carrierGradeNAT.Contains(address) || benchmarkNetwork.Contains(address)
 }
 
 func addressCandidates(address netip.Addr) []netip.Addr {
