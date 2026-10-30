@@ -59,6 +59,9 @@ func New(config Config) (*Policy, error) {
 			policy.prefixes = append(policy.prefixes, prefix.Masked())
 			continue
 		}
+		if hasPort(entry) {
+			return nil, fmt.Errorf("invalid egress allowlist entry %q: ports are not supported, use the bare host or IP address", entry)
+		}
 		host, err := normalizeHost(entry)
 		if err != nil {
 			return nil, fmt.Errorf("invalid egress allowlist entry %q: %w", entry, err)
@@ -71,6 +74,19 @@ func New(config Config) (*Policy, error) {
 		}
 	}
 	return policy, nil
+}
+
+// hasPort reports whether an allowlist entry carries a port. Exemptions are matched against
+// a destination host alone -- resolveAndValidate only ever receives a hostname -- so a port
+// written here could never be enforced and would silently exempt every port on that host.
+// Reject it at startup instead. Bare IPv6 literals are not ports despite their colons, and
+// CIDRs are rejected by SplitHostPort before reaching this.
+func hasPort(entry string) bool {
+	if _, err := netip.ParseAddr(entry); err == nil {
+		return false
+	}
+	_, _, err := net.SplitHostPort(entry)
+	return err == nil
 }
 
 func normalizeHost(authority string) (string, error) {

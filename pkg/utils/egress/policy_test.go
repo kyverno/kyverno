@@ -62,7 +62,7 @@ func TestPrivateNetworkCompatibilityAndExemptions(t *testing.T) {
 			policy = testPolicy(t, Config{Mode: ModeEnforce}, answers)
 			_, err = policy.ResolveAndValidate(context.Background(), "registry.internal")
 			require.ErrorIs(t, err, ErrAddressBlocked)
-			policy = testPolicy(t, Config{Mode: ModeEnforce, Allowlist: []string{"Registry.Internal.:5000"}}, answers)
+			policy = testPolicy(t, Config{Mode: ModeEnforce, Allowlist: []string{"Registry.Internal."}}, answers)
 			resolved, err = policy.ResolveAndValidate(context.Background(), "registry.internal")
 			require.NoError(t, err)
 			assert.Equal(t, []netip.Addr{netip.MustParseAddr(address)}, resolved, "an exempt hostname must still be resolved and pinned")
@@ -72,7 +72,10 @@ func TestPrivateNetworkCompatibilityAndExemptions(t *testing.T) {
 
 func TestAllowlistValidation(t *testing.T) {
 	t.Parallel()
-	for _, entry := range []string{"", " ", "*.internal", "https://registry.internal", "registry.internal/path", "user@registry.internal", "10.0.0.0/99", "10.0.0.999", "010.0.0.1", "registry..internal", "registry:bad", "registry:65536", "registry:", "fe80::1%eth0", "-registry.example"} {
+	// Port-bearing entries are rejected rather than silently exempting every port on the
+	// host: exemptions are matched against the destination host alone, so a port written
+	// here could never be enforced.
+	for _, entry := range []string{"", " ", "*.internal", "https://registry.internal", "registry.internal/path", "user@registry.internal", "10.0.0.0/99", "10.0.0.999", "010.0.0.1", "registry..internal", "registry:bad", "registry:65536", "registry:", "fe80::1%eth0", "-registry.example", "registry.internal:5000", "[fd01::1]:443", "10.0.0.1:443"} {
 		t.Run(entry, func(t *testing.T) {
 			t.Parallel()
 			_, err := New(Config{Allowlist: []string{entry}})
@@ -85,7 +88,7 @@ func TestAllowlistValidation(t *testing.T) {
 
 func TestCIDRAndIPExemptions(t *testing.T) {
 	t.Parallel()
-	policy := testPolicy(t, Config{Mode: ModeEnforce, Allowlist: []string{"10.0.0.0/16", "[fd01::1]:443", "192.168.1.1"}}, map[string][]string{
+	policy := testPolicy(t, Config{Mode: ModeEnforce, Allowlist: []string{"10.0.0.0/16", "fd01::1", "192.168.1.1"}}, map[string][]string{
 		"allowed.example":  {"10.0.1.2", "fd01::1", "192.168.1.1"},
 		"mixed.example":    {"10.0.1.2", "10.1.1.1"},
 		"embedded.example": {"64:ff9b::a00:102"},

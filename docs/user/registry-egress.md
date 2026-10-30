@@ -65,6 +65,10 @@ be exact hostnames, IP literals, or CIDRs; wildcards, URLs, empty elements, and 
 entry are rejected. Use `[]` for no exemptions. Invalid configuration fails controller startup
 rather than being ignored at request time.
 
+Ports are rejected too — write `registry.corp.example`, not `registry.corp.example:5000`. An
+exemption is matched against the destination host, so a port could not be enforced and would
+quietly exempt every port on that host. Allowlisting is host-granular by design.
+
 The equivalent flags are `--privateRegistryEgressMode` and `--privateRegistryAllowlist` (the
 latter comma-separated). The admission, background, reports, and cleanup controllers all accept
 them. Cleanup applies them to DeletingPolicy image metadata lookups without enabling registry
