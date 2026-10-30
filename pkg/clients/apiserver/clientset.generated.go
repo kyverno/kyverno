@@ -13,12 +13,12 @@ import (
 )
 
 type clientset struct {
-	discovery            k8s_io_client_go_discovery.DiscoveryInterface
+	discovery            k8s_io_client_go_discovery.DiscoveryInterfaces
 	apiextensionsv1      k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset_typed_apiextensions_v1.ApiextensionsV1Interface
 	apiextensionsv1beta1 k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset_typed_apiextensions_v1beta1.ApiextensionsV1beta1Interface
 }
 
-func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
+func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterfaces {
 	return c.discovery
 }
 func (c *clientset) ApiextensionsV1() k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset_typed_apiextensions_v1.ApiextensionsV1Interface {
@@ -30,7 +30,7 @@ func (c *clientset) ApiextensionsV1beta1() k8s_io_apiextensions_apiserver_pkg_cl
 
 func WrapWithMetrics(inner k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.Interface, m metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.Interface {
 	return &clientset{
-		discovery:            discovery.WithMetrics(inner.Discovery(), metrics.ClusteredClientQueryRecorder(m, "Discovery", clientType)),
+		discovery:            discovery.WithMetrics(inner.Discovery(), metrics.ClusteredClientQueryRecorder(m, "Discoverys", clientType)),
 		apiextensionsv1:      apiextensionsv1.WithMetrics(inner.ApiextensionsV1(), m, clientType),
 		apiextensionsv1beta1: apiextensionsv1beta1.WithMetrics(inner.ApiextensionsV1beta1(), m, clientType),
 	}
