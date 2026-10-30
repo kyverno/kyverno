@@ -1,0 +1,1 @@
+{"backend":"kyverno","request":{"capability_type":"endpoint","request_id":"req-003","session_id":"test-session","method":"GET","path":"/v1/models","route_id":"r1","upstream":"api.example.com","rule_label":"models"}}
