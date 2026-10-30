@@ -2,8 +2,15 @@
 {{- if not .Values.global.templating.enabled -}}
 {{- $automountSAToken := .Values.webhooksCleanup.serviceAccount.automountServiceAccountToken }}
 {{/* kyverno.fullname is already capped at 63 chars, so cap the suffixed names too: a long release
-     name would otherwise push the Job name over 63 chars and its job-name Pod label would be invalid. */}}
-{{- $baseName := include "kyverno.fullname" . | trunc 51 | trimSuffix "-" | trimSuffix ":" -}}
+     name would otherwise push the Job name over 63 chars and its job-name Pod label would be invalid.
+     A shortened name keeps a hash of the full name, so releases whose fullnames only differ after
+     the cut still get distinct hook resources, including the cluster-scoped ones. Names that already
+     fit are left unchanged. */}}
+{{- $fullName := include "kyverno.fullname" . -}}
+{{- $baseName := $fullName -}}
+{{- if gt (len $fullName) 51 -}}
+{{- $baseName = printf "%s-%s" ($fullName | trunc 42 | trimSuffix "-") (sha256sum $fullName | trunc 8) -}}
+{{- end -}}
 {{- $saName := printf "%s-rm-webhooks" $baseName -}}
 {{- $roleName := printf "%s:rm-webhooks" $baseName -}}
 apiVersion: rbac.authorization.k8s.io/v1

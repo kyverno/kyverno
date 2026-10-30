@@ -1,10 +1,17 @@
 {{- if .Values.webhooksCleanup.enabled -}}
 {{- if not .Values.global.templating.enabled -}}
 {{- $automountSAToken := .Values.webhooksCleanup.serviceAccount.automountServiceAccountToken }}
-{{/* kyverno.fullname is already capped at 63 chars, so truncate the base name before appending
-     the suffix to keep the Job name within 63 chars without losing the distinguishing suffix. */}}
-{{- $saName := printf "%s-scale-to-zero" (include "kyverno.fullname" . | trunc 49 | trimSuffix "-" | trimSuffix ":") -}}
-{{- $roleName := printf "%s:scale-to-zero" (include "kyverno.fullname" . | trunc 49 | trimSuffix "-" | trimSuffix ":") -}}
+{{/* kyverno.fullname is already capped at 63 chars, so shorten the base name before appending
+     the suffix to keep the Job name within 63 chars without losing the distinguishing suffix.
+     A shortened name keeps a hash of the full name, so releases whose fullnames only differ after
+     the cut still get distinct hook resources. Names that already fit are left unchanged. */}}
+{{- $fullName := include "kyverno.fullname" . -}}
+{{- $baseName := $fullName -}}
+{{- if gt (len $fullName) 49 -}}
+{{- $baseName = printf "%s-%s" ($fullName | trunc 40 | trimSuffix "-") (sha256sum $fullName | trunc 8) -}}
+{{- end -}}
+{{- $saName := printf "%s-scale-to-zero" $baseName -}}
+{{- $roleName := printf "%s:scale-to-zero" $baseName -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

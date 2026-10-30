@@ -38,35 +38,40 @@ verify kyverno-prod release-ns workload-ns custom-kyverno --set namespaceOverrid
 printf 'Scale-to-zero release scope verified\n'
 
 # kyverno.fullname is capped at 63 chars. The pre-delete hooks append a suffix to it, so
-# the base name has to be truncated first: otherwise the suffix is cut off, the two hooks
-# end up with identical names, and the Job name can exceed the 63 chars allowed in the
-# job-name Pod label.
-verify_long_fullname_hook_names() {
-  local base render got want
-  base="$(head -c 63 /dev/zero | tr '\0' 'k')"
+# a long fullname is shortened first, keeping a hash of the full name: otherwise the suffix
+# is cut off, the Job name can exceed the 63 chars allowed in the job-name Pod label, and
+# releases whose fullnames share a long prefix would get the same hook resources.
+# Prints "<kind> <metadata.name>" for every object of both hooks rendered for a fullname.
+render_hook_objects() {
+  local fullname="$1" render
   render="$("${HELM}" template kyverno "${ROOT_DIR}/charts/kyverno" \
     --namespace kyverno --kube-version "${KUBE_VERSION}" \
-    --set fullnameOverride="${base}" \
+    --set fullnameOverride="${fullname}" \
     --show-only templates/hooks/pre-delete-scale-to-zero.yaml \
     --show-only templates/hooks/pre-delete-remove-webhooks.yaml)"
-  # print "<kind> <metadata.name>" for every rendered object
-  got="$(awk '
+  awk '
     /^kind: / { kind = $2 }
     /^metadata:/ { meta = 1; next }
     meta && /^  name: / { print kind " " $2; meta = 0 }
-  ' <<< "${render}")"
+  ' <<< "${render}"
+}
+
+verify_long_fullname_hook_names() {
+  local fullname="$1" got hash want
+  got="$(render_hook_objects "${fullname}")"
+  hash="$(printf '%s' "${fullname}" | sha256sum | cut -c1-8)"
   while IFS= read -r want; do
     if ! grep -Fxq -- "${want}" <<< "${got}"; then
-      printf 'Missing or wrong hook object for a 63-char fullname: %s\nRendered:\n%s\n' "${want}" "${got}" >&2
+      printf 'Missing or wrong hook object for fullname %s: %s\nRendered:\n%s\n' "${fullname}" "${want}" "${got}" >&2
       return 1
     fi
   done <<EOF
-ServiceAccount ${base:0:49}-scale-to-zero
-Job ${base:0:49}-scale-to-zero
-Role ${base:0:49}:scale-to-zero
-ServiceAccount ${base:0:51}-rm-webhooks
-Job ${base:0:51}-rm-webhooks
-ClusterRole ${base:0:51}:rm-webhooks
+ServiceAccount ${fullname:0:40}-${hash}-scale-to-zero
+Job ${fullname:0:40}-${hash}-scale-to-zero
+Role ${fullname:0:40}-${hash}:scale-to-zero
+ServiceAccount ${fullname:0:42}-${hash}-rm-webhooks
+Job ${fullname:0:42}-${hash}-rm-webhooks
+ClusterRole ${fullname:0:42}-${hash}:rm-webhooks
 EOF
   if awk '{ if (length($2) > 63) bad = 1 } END { exit !bad }' <<< "${got}"; then
     printf 'A hook object name exceeds 63 chars:\n%s\n' "${got}" >&2
@@ -74,8 +79,17 @@ EOF
   fi
 }
 
-verify_long_fullname_hook_names
-printf 'Hook names stay distinct and within 63 chars for a 63-char fullname\n'
+long_a="$(head -c 63 /dev/zero | tr '\0' 'k')"
+long_b="${long_a:0:62}j"
+verify_long_fullname_hook_names "${long_a}"
+verify_long_fullname_hook_names "${long_b}"
+sa_a="$(render_hook_objects "${long_a}" | grep -m1 '^ServiceAccount ')"
+sa_b="$(render_hook_objects "${long_b}" | grep -m1 '^ServiceAccount ')"
+if [[ "${sa_a}" == "${sa_b}" ]]; then
+  printf 'Releases with fullnames sharing a 62-char prefix got the same hook ServiceAccount: %s\n' "${sa_a}" >&2
+  exit 1
+fi
+printf 'Hook names stay unique and within 63 chars for long fullnames\n'
 
 verify_image_registry() {
   local release="$1" expected_image="$2"
