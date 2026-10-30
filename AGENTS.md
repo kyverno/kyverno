@@ -182,6 +182,7 @@ working in that area: [`api/`](./api/AGENTS.md), [`pkg/engine/`](./pkg/engine/AG
 [`pkg/clients/`](./pkg/clients/AGENTS.md), [`pkg/admissionpolicy/`](./pkg/admissionpolicy/AGENTS.md), [`pkg/toggle/`](./pkg/toggle/AGENTS.md),
 [`pkg/controllers/`](./pkg/controllers/AGENTS.md), [`pkg/config/`](./pkg/config/AGENTS.md),
 [`pkg/deprecations/`](./pkg/deprecations/AGENTS.md), [`pkg/utils/admission/`](./pkg/utils/admission/AGENTS.md),
+[`pkg/utils/egress/`](./pkg/utils/egress/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/exception/`](./cmd/cli/kubectl-kyverno/exception/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/commands/test/`](./cmd/cli/kubectl-kyverno/commands/test/AGENTS.md). Every claim in them is grounded in code actually read in the
 session that wrote them, not inferred from directory structure — if one goes stale, fix it in place rather than
@@ -271,4 +272,5 @@ Use this checklist before every push to avoid repeated CI failures:
 - [Feature Flags](./docs/dev/feature-flags/README.md) — How to add and use feature toggles
 - [Reports Design](./docs/dev/reports/README.md) — Report architecture
 - [OCI Policy Bundle Spec](./docs/dev/oci/bundle-spec.md) — Normative spec for the `kyverno oci` bundle format
+- [Registry Client](./docs/dev/registry-client.md) — What the SDK owns, and where the egress guard must be passed explicitly
 - [Kyverno Docs](https://kyverno.io) — User-facing documentation

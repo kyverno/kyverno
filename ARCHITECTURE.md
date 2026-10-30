@@ -120,6 +120,13 @@ See also [api/AGENTS.md](api/AGENTS.md).
 - **User-facing outcomes:** `pkg/event`, not ad hoc logging (see above).
 - **Outbound HTTP:** `pkg/tracing`'s OTel-instrumented `http.RoundTripper`, used by `pkg/engine/apicall` for
   external context calls. There is no separate generic HTTP client package beyond this.
+- **Registry access:** the SDK's `registryclient` global, set up once by `cmd/internal.Setup`. Kyverno adds an
+  egress guard to it (`pkg/utils/egress`) that validates and pins the destination of every registry request, so
+  an attacker-chosen image reference cannot steer a fetch at cloud metadata or a loopback address. Anything
+  fetching through that client inherits the guard. The exception is a policy declaring its own
+  `spec.credentials`: `regcreds.RemoteOptsFromIvpolCredentials` pins its own transport, so those call sites must
+  use `egress.GuardedRemoteOptions` instead. Sigstore (Rekor/Fulcio/TSA/TUF) and KMS do not use this client and
+  are deliberately out of scope. Full detail: [docs/dev/registry-client.md](docs/dev/registry-client.md).
 
 ## Generated / no-edit zones
 

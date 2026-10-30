@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/utils/egress"
 )
 
 func check(logger logr.Logger) {
@@ -16,6 +17,7 @@ func check(logger logr.Logger) {
 	checkEnvVar(logger, "INIT_CONFIG")
 	checkEnvVar(logger, "METRICS_CONFIG")
 	checkAutoMemLimitRatio(logger)
+	checkError(logger, egress.ValidateConfig(egressConfig()), "invalid registry egress configuration")
 }
 
 func checkAutoMemLimitRatio(logger logr.Logger) {

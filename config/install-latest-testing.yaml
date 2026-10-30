@@ -91251,6 +91251,7 @@ spec:
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
+            - --privateRegistryEgressMode=audit
             
           resources:
             limits:
@@ -91426,6 +91427,7 @@ spec:
             - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=false
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
+            - --privateRegistryEgressMode=audit
             
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
@@ -91557,6 +91559,7 @@ spec:
             - --v=2
             - --protectManagedResources=false
             - --ttlReconciliationInterval=1m
+            - --privateRegistryEgressMode=audit
             
           env:
           - name: KYVERNO_DEPLOYMENT
@@ -91728,6 +91731,7 @@ spec:
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
+            - --privateRegistryEgressMode=audit
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-reports-controller
