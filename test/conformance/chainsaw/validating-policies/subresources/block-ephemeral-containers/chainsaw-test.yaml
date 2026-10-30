@@ -21,13 +21,22 @@ spec:
   - name: create ephemeral container
     try:
     - script:
+        # WebhookConfigured can turn true before the API server sends
+        # pods/ephemeralcontainers requests to Kyverno, so retry the
+        # side-effect-free dry-run until it is denied.
         content: |
-          if output=$(kubectl -n test-vpol-subresource-namespace patch pod test-pod \
-            --subresource=ephemeralcontainers --type=merge \
-            --patch='{"spec":{"ephemeralContainers":[{"name":"debugger","image":"busybox:1.35","targetContainerName":"busybox"}]}}' \
-            --dry-run=server 2>&1); then
-            echo "expected ephemeral container request to be denied" >&2
-            exit 1
-          fi
-          echo "$output"
-          echo "$output" | grep -F "Ephemeral (debug) containers are not permitted."
+          for i in $(seq 1 15); do
+            if output=$(kubectl -n test-vpol-subresource-namespace patch pod test-pod \
+              --subresource=ephemeralcontainers --type=merge \
+              --patch='{"spec":{"ephemeralContainers":[{"name":"debugger","image":"busybox:1.35","targetContainerName":"busybox"}]}}' \
+              --dry-run=server 2>&1); then
+              echo "attempt $i: ephemeral container request was allowed, retrying" >&2
+              sleep 2
+              continue
+            fi
+            echo "$output"
+            echo "$output" | grep -F "Ephemeral (debug) containers are not permitted."
+            exit $?
+          done
+          echo "expected ephemeral container request to be denied" >&2
+          exit 1
