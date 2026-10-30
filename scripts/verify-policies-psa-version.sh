@@ -207,9 +207,11 @@ log "kyverno.io/pod-security-version annotation"
 expect "v1.34 annotation" 'kyverno.io/pod-security-version: "v1.34"' "$(annotations v1.37.0 v1.34)"
 expect "latest on Kubernetes 1.36 annotation" 'kyverno.io/pod-security-version: "latest (v1.36)"' "$(annotations v1.36.0 latest)"
 expect "latest on Kubernetes 1.40 annotation" 'kyverno.io/pod-security-version: "latest (v1.37)"' "$(annotations v1.40.0 latest)"
+# A missing value, as after helm upgrade --reuse-values from an older release, means latest.
+expect "null on Kubernetes 1.30 annotation" 'kyverno.io/pod-security-version: "latest (v1.30)"' "$(annotations v1.30.0 null)"
 
 log "invalid values fail the render"
-for version in foo 1.34 v2.0 v1.034 v1.24; do
+for version in foo 1.34 v2.0 v1.034 v1.24 '' 0; do
   if render v1.37.0 "${version}" >/dev/null 2>&1; then
     fail "podSecurityVersion=${version} rendered, want an error"
   fi

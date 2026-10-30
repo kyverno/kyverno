@@ -259,9 +259,20 @@ auditAnnotations:
 {{- define "kyverno-policies.psaMinVersion" -}}1.25{{- end -}}
 {{- define "kyverno-policies.psaMaxVersion" -}}1.37{{- end -}}
 
+{{/* podSecurityVersion as a string. Only a missing or null value means "latest", for example
+     after `helm upgrade --reuse-values` from a release without it. An empty string or 0 is
+     passed through, so psaVersion rejects it. */}}
+{{- define "kyverno-policies.psaWant" -}}
+{{- if kindIs "invalid" .Values.podSecurityVersion -}}
+latest
+{{- else -}}
+{{- toString .Values.podSecurityVersion -}}
+{{- end -}}
+{{- end -}}
+
 {{/* "true" when podSecurityVersion is "latest". */}}
 {{- define "kyverno-policies.psaLatest" -}}
-{{- eq (toString (.Values.podSecurityVersion | default "latest")) "latest" -}}
+{{- eq (include "kyverno-policies.psaWant" .) "latest" -}}
 {{- end -}}
 
 {{/* PSA version to match, as "1.x".
@@ -271,7 +282,7 @@ auditAnnotations:
 {{- define "kyverno-policies.psaVersion" -}}
 {{- $min := include "kyverno-policies.psaMinVersion" . -}}
 {{- $max := include "kyverno-policies.psaMaxVersion" . -}}
-{{- $want := toString (.Values.podSecurityVersion | default "latest") -}}
+{{- $want := include "kyverno-policies.psaWant" . -}}
 {{- $version := "" -}}
 {{- if eq $want "latest" -}}
   {{- $kube := semver .Capabilities.KubeVersion.Version -}}
