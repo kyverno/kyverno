@@ -58,6 +58,13 @@ configurations (the legacy `PolicyException` webhook in `cmd/kyverno/main.go` an
 `config.matchConditions` value (for example "skip this service account") would otherwise exempt a principal from
 the legacy-write denial for those two configurations. Do not pass it to a resource-facing webhook.
 
+## Admission-policy generation status
+
+Generation and policy-status controllers both update CEL policy status. The admission-policy generator must
+return status-write errors through reconciliation so the workqueue retries resource-version conflicts using a
+fresh informer object. Logging and swallowing a conflict can leave `status.generated` false indefinitely even
+after the native admission policy and binding were created.
+
 ## Two confirmed-stale rows in `docs/dev/controllers/README.md`
 
 That table lists `admission-report-controller` and `update-request-controller` as if they were `pkg/controllers/*`

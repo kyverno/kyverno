@@ -7057,6 +7057,17 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            filter:
+                              description: |-
+                                Filter is an optional value to match against 'key' during wildcard array expansion.
+                                When set, only array elements where the field named by 'key' equals this value
+                                are extracted as image references. Requires 'key' to be set.
+                                This is useful when a wildcard path expands an array containing both image and
+                                non-image elements, and only specific elements should be treated as images.
+                                Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                paths are expanded without filtering.
+                                Filter only applies to wildcard expansion over arrays, not maps.
+                              type: string
                             jmesPath:
                               description: |-
                                 JMESPath is an optional JMESPath expression to apply to the image value.
@@ -12163,6 +12174,17 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                filter:
+                                  description: |-
+                                    Filter is an optional value to match against 'key' during wildcard array expansion.
+                                    When set, only array elements where the field named by 'key' equals this value
+                                    are extracted as image references. Requires 'key' to be set.
+                                    This is useful when a wildcard path expands an array containing both image and
+                                    non-image elements, and only specific elements should be treated as images.
+                                    Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                    paths are expanded without filtering.
+                                    Filter only applies to wildcard expansion over arrays, not maps.
+                                  type: string
                                 jmesPath:
                                   description: |-
                                     JMESPath is an optional JMESPath expression to apply to the image value.
@@ -17158,6 +17180,17 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            filter:
+                              description: |-
+                                Filter is an optional value to match against 'key' during wildcard array expansion.
+                                When set, only array elements where the field named by 'key' equals this value
+                                are extracted as image references. Requires 'key' to be set.
+                                This is useful when a wildcard path expands an array containing both image and
+                                non-image elements, and only specific elements should be treated as images.
+                                Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                paths are expanded without filtering.
+                                Filter only applies to wildcard expansion over arrays, not maps.
+                              type: string
                             jmesPath:
                               description: |-
                                 JMESPath is an optional JMESPath expression to apply to the image value.
@@ -22198,6 +22231,17 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                filter:
+                                  description: |-
+                                    Filter is an optional value to match against 'key' during wildcard array expansion.
+                                    When set, only array elements where the field named by 'key' equals this value
+                                    are extracted as image references. Requires 'key' to be set.
+                                    This is useful when a wildcard path expands an array containing both image and
+                                    non-image elements, and only specific elements should be treated as images.
+                                    Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                    paths are expanded without filtering.
+                                    Filter only applies to wildcard expansion over arrays, not maps.
+                                  type: string
                                 jmesPath:
                                   description: |-
                                     JMESPath is an optional JMESPath expression to apply to the image value.
@@ -25994,22 +26038,46 @@ spec:
                 - version
                 type: object
               projections:
-                description: Projections defines the list of JMESPath expressions
-                  to extract values from the cached resource.
+                description: Projections defines the list of projections to extract
+                  values from the cached resource.
                 items:
+                  description: |-
+                    GlobalContextEntryProjection extracts a named value from the cached resource using
+                    exactly one of JMESPath or Expression.
+
+                    The bound input, `object` for Expression or `@` for JMESPath, is exactly the value
+                    returned by `globalContext.Get(name)` with no projection:
+                      - For an APICall entry, `object` is the parsed API response, typically
+                        `{"items": [...]}` for a list endpoint, so a projection reads `object.items.size()`.
+                      - For a KubernetesResource entry, `object` is the list of matching resources
+                        directly, so the equivalent projection reads `object.size()`.
+
+                    Numeric values extracted via Expression keep their CEL-native type (`int`,
+                    `uint`, or `double`), which may differ from the `float64` JMESPath always produces;
+                    arithmetic written against one is not guaranteed to type-check against the other.
                   properties:
+                    expression:
+                      description: |-
+                        Expression is the CEL expression to extract the value from the cached resource.
+                        Mutually exclusive with JMESPath.
+                      minLength: 1
+                      type: string
                     jmesPath:
-                      description: JMESPath is the JMESPath expression to extract
-                        the value from the cached resource.
+                      description: |-
+                        JMESPath is the JMESPath expression to extract the value from the cached resource.
+                        Mutually exclusive with Expression.
+                      minLength: 1
                       type: string
                     name:
                       description: Name is the name to use for the extracted value
                         in the context.
                       type: string
                   required:
-                  - jmesPath
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of jmesPath or expression must be set
+                    rule: has(self.jmesPath) != has(self.expression)
                 type: array
             type: object
           status:
@@ -26247,22 +26315,46 @@ spec:
                 - version
                 type: object
               projections:
-                description: Projections defines the list of JMESPath expressions
-                  to extract values from the cached resource.
+                description: Projections defines the list of projections to extract
+                  values from the cached resource.
                 items:
+                  description: |-
+                    GlobalContextEntryProjection extracts a named value from the cached resource using
+                    exactly one of JMESPath or Expression.
+
+                    The bound input, `object` for Expression or `@` for JMESPath, is exactly the value
+                    returned by `globalContext.Get(name)` with no projection:
+                      - For an APICall entry, `object` is the parsed API response, typically
+                        `{"items": [...]}` for a list endpoint, so a projection reads `object.items.size()`.
+                      - For a KubernetesResource entry, `object` is the list of matching resources
+                        directly, so the equivalent projection reads `object.size()`.
+
+                    Numeric values extracted via Expression keep their CEL-native type (`int`,
+                    `uint`, or `double`), which may differ from the `float64` JMESPath always produces;
+                    arithmetic written against one is not guaranteed to type-check against the other.
                   properties:
+                    expression:
+                      description: |-
+                        Expression is the CEL expression to extract the value from the cached resource.
+                        Mutually exclusive with JMESPath.
+                      minLength: 1
+                      type: string
                     jmesPath:
-                      description: JMESPath is the JMESPath expression to extract
-                        the value from the cached resource.
+                      description: |-
+                        JMESPath is the JMESPath expression to extract the value from the cached resource.
+                        Mutually exclusive with Expression.
+                      minLength: 1
                       type: string
                     name:
                       description: Name is the name to use for the extracted value
                         in the context.
                       type: string
                   required:
-                  - jmesPath
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of jmesPath or expression must be set
+                    rule: has(self.jmesPath) != has(self.expression)
                 type: array
             type: object
           status:
@@ -26500,22 +26592,46 @@ spec:
                 - version
                 type: object
               projections:
-                description: Projections defines the list of JMESPath expressions
-                  to extract values from the cached resource.
+                description: Projections defines the list of projections to extract
+                  values from the cached resource.
                 items:
+                  description: |-
+                    GlobalContextEntryProjection extracts a named value from the cached resource using
+                    exactly one of JMESPath or Expression.
+
+                    The bound input, `object` for Expression or `@` for JMESPath, is exactly the value
+                    returned by `globalContext.Get(name)` with no projection:
+                      - For an APICall entry, `object` is the parsed API response, typically
+                        `{"items": [...]}` for a list endpoint, so a projection reads `object.items.size()`.
+                      - For a KubernetesResource entry, `object` is the list of matching resources
+                        directly, so the equivalent projection reads `object.size()`.
+
+                    Numeric values extracted via Expression keep their CEL-native type (`int`,
+                    `uint`, or `double`), which may differ from the `float64` JMESPath always produces;
+                    arithmetic written against one is not guaranteed to type-check against the other.
                   properties:
+                    expression:
+                      description: |-
+                        Expression is the CEL expression to extract the value from the cached resource.
+                        Mutually exclusive with JMESPath.
+                      minLength: 1
+                      type: string
                     jmesPath:
-                      description: JMESPath is the JMESPath expression to extract
-                        the value from the cached resource.
+                      description: |-
+                        JMESPath is the JMESPath expression to extract the value from the cached resource.
+                        Mutually exclusive with Expression.
+                      minLength: 1
                       type: string
                     name:
                       description: Name is the name to use for the extracted value
                         in the context.
                       type: string
                   required:
-                  - jmesPath
                   - name
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of jmesPath or expression must be set
+                    rule: has(self.jmesPath) != has(self.expression)
                 type: array
             type: object
           status:
@@ -28210,6 +28326,17 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            filter:
+                              description: |-
+                                Filter is an optional value to match against 'key' during wildcard array expansion.
+                                When set, only array elements where the field named by 'key' equals this value
+                                are extracted as image references. Requires 'key' to be set.
+                                This is useful when a wildcard path expands an array containing both image and
+                                non-image elements, and only specific elements should be treated as images.
+                                Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                paths are expanded without filtering.
+                                Filter only applies to wildcard expansion over arrays, not maps.
+                              type: string
                             jmesPath:
                               description: |-
                                 JMESPath is an optional JMESPath expression to apply to the image value.
@@ -33317,6 +33444,17 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                filter:
+                                  description: |-
+                                    Filter is an optional value to match against 'key' during wildcard array expansion.
+                                    When set, only array elements where the field named by 'key' equals this value
+                                    are extracted as image references. Requires 'key' to be set.
+                                    This is useful when a wildcard path expands an array containing both image and
+                                    non-image elements, and only specific elements should be treated as images.
+                                    Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                    paths are expanded without filtering.
+                                    Filter only applies to wildcard expansion over arrays, not maps.
+                                  type: string
                                 jmesPath:
                                   description: |-
                                     JMESPath is an optional JMESPath expression to apply to the image value.
@@ -38313,6 +38451,17 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            filter:
+                              description: |-
+                                Filter is an optional value to match against 'key' during wildcard array expansion.
+                                When set, only array elements where the field named by 'key' equals this value
+                                are extracted as image references. Requires 'key' to be set.
+                                This is useful when a wildcard path expands an array containing both image and
+                                non-image elements, and only specific elements should be treated as images.
+                                Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                paths are expanded without filtering.
+                                Filter only applies to wildcard expansion over arrays, not maps.
+                              type: string
                             jmesPath:
                               description: |-
                                 JMESPath is an optional JMESPath expression to apply to the image value.
@@ -43353,6 +43502,17 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                filter:
+                                  description: |-
+                                    Filter is an optional value to match against 'key' during wildcard array expansion.
+                                    When set, only array elements where the field named by 'key' equals this value
+                                    are extracted as image references. Requires 'key' to be set.
+                                    This is useful when a wildcard path expands an array containing both image and
+                                    non-image elements, and only specific elements should be treated as images.
+                                    Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                    paths are expanded without filtering.
+                                    Filter only applies to wildcard expansion over arrays, not maps.
+                                  type: string
                                 jmesPath:
                                   description: |-
                                     JMESPath is an optional JMESPath expression to apply to the image value.

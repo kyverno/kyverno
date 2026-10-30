@@ -8,7 +8,11 @@ on:
   workflow_call: {}
 
 jobs:
+  kubernetes-matrix:
+    uses: ./.github/workflows/kubernetes-matrix.yaml
+
   policy-library:
+    needs: kubernetes-matrix
     # Disabled: the kyverno/policies library this job checks out is written as
     # ClusterPolicy/Policy resources, which the write-time legacy-policy denial
     # (#17710) now rejects unconditionally, and the "legacy-policies" install
@@ -20,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     steps:
       - name: Checkout kyverno/kyverno
@@ -52,7 +56,9 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
-          node_image: kindest/node:${{ matrix.k8s-version }}
+          version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
+          kubectl_version: ${{ matrix.k8s-version }}
+          node_image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno

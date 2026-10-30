@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: projection-exactly-one
+spec:
+  concurrent: false
+  steps:
+    - name: step-01-both-set-rejected
+      try:
+        - apply:
+            file: both-set.yaml
+            expect:
+              - check:
+                  ($error): |-
+                    GlobalContextEntry.kyverno.io "projection-both-set" is invalid: spec.projections[0]: Invalid value: exactly one of jmesPath or expression must be set
+    - name: step-02-neither-set-rejected
+      try:
+        - apply:
+            file: neither-set.yaml
+            expect:
+              - check:
+                  ($error): |-
+                    GlobalContextEntry.kyverno.io "projection-neither-set" is invalid: spec.projections[0]: Invalid value: exactly one of jmesPath or expression must be set
+    - name: step-03-expression-only-accepted
+      try:
+        - apply:
+            file: expression-only.yaml
+        - assert:
+            file: expression-only-assert.yaml

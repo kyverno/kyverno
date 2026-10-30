@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -25,7 +26,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
-	"golang.org/x/exp/maps"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -503,7 +503,15 @@ func (e *engineImpl) handleValidation(
 	if err != nil {
 		return nil, err
 	}
-	return maps.Values(responses), nil
+	out := make([]eval.ImageVerifyPolicyResponse, 0, len(responses))
+	for _, pol := range policies {
+		key := policyKey(pol.Policy)
+		if resp, ok := responses[key]; ok {
+			delete(responses, key)
+			out = append(out, resp)
+		}
+	}
+	return out, nil
 }
 
 func (e *engineImpl) filterPolicies(
@@ -535,6 +543,7 @@ func (e *engineImpl) filterPolicies(
 		if traced {
 			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(pol.Policy.GetSpec().MatchConstraints, attr, namespace, matches)}
 		}
+		key := policyKey(pol.Policy)
 		if err != nil {
 			response.Result = *engineapi.RuleError("match", engineapi.ImageVerify, "failed to execute matching", err, nil)
 			if traced {
@@ -543,7 +552,7 @@ func (e *engineImpl) filterPolicies(
 					Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()},
 				}, pol, attr)
 			}
-			results[pol.Policy.GetName()] = response
+			results[key] = response
 			continue
 		}
 		if matches {
@@ -552,17 +561,17 @@ func (e *engineImpl) filterPolicies(
 			continue
 		}
 		if includeUnmatched {
-			results[pol.Policy.GetName()] = response
+			results[key] = response
 		} else if traced {
 			// a traced policy that did not apply is kept, with an empty Result, for its trace. Its
 			// autogen variants share its name and come after it, so keep the first: the policy as
 			// written, not a generated variant; an evaluated variant replaces it below.
-			if _, seen := results[pol.Policy.GetName()]; !seen {
+			if _, seen := results[key]; !seen {
 				response.Trace = withTraceHeader(&trace.Decision{
 					Scope:   scope,
 					Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "the policy does not apply to this resource"},
 				}, pol, attr)
-				results[pol.Policy.GetName()] = response
+				results[key] = response
 			}
 		}
 	}
@@ -717,6 +726,7 @@ func (e *engineImpl) evaluatePolicies(
 			response.Trace = withTraceHeader(d, ivpol, attr)
 		}
 
+		key := policyKey(ivpol.Policy)
 		if evaluation.err != nil {
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", evaluation.err, nil)
 			response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
@@ -726,7 +736,7 @@ func (e *engineImpl) evaluatePolicies(
 			} else {
 				attach(&trace.Decision{Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: evaluation.err.Error()}})
 			}
-			responses[ivpol.Policy.GetName()] = response
+			storeResponse(responses, key, response)
 			continue
 		}
 		result := evaluation.result
@@ -737,23 +747,23 @@ func (e *engineImpl) evaluatePolicies(
 			// only returned with tracing on: a match condition excluded the resource. It has no
 			// Result, exactly like the nil case, and is kept only for its trace.
 			attach(result.Trace)
-			responses[ivpol.Policy.GetName()] = response
+			storeResponse(responses, key, response)
 			continue
 		}
 		if len(result.Exceptions) > 0 {
 			exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
 			var keys []string
 			for i := range result.Exceptions {
-				key, err := cache.MetaNamespaceKeyFunc(result.Exceptions[i])
+				exKey, err := cache.MetaNamespaceKeyFunc(result.Exceptions[i])
 				if err != nil {
-					response.Result = *engineapi.RuleError("exception", engineapi.Validation, "failed to compute exception key", err, nil)
+					response.Result = *engineapi.RuleError("exception", engineapi.ImageVerify, "failed to compute exception key", err, nil)
 					continue
 				}
-				keys = append(keys, key)
+				keys = append(keys, exKey)
 				exceptions = append(exceptions, engineapi.NewCELPolicyException(result.Exceptions[i]))
 			}
 			if response.Result.Name() == "" {
-				response.Result = *engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions)
+				response.Result = *engineapi.RuleSkip("exception", engineapi.ImageVerify, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions)
 			}
 			if result.Trace != nil {
 				// the verdict follows the rule reported above
@@ -769,7 +779,8 @@ func (e *engineImpl) evaluatePolicies(
 			} else if result.Result {
 				response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", result.AuditAnnotations)
 				pendingRequired = append(pendingRequired, pendingRequiredCheck{
-					name:             ivpol.Policy.GetName(),
+					key:              key,
+					name:             ruleName,
 					compiled:         evaluation.compiled,
 					images:           result.MatchedImages,
 					auditAnnotations: result.AuditAnnotations,
@@ -781,7 +792,7 @@ func (e *engineImpl) evaluatePolicies(
 		}
 		attach(result.Trace)
 		response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-		responses[ivpol.Policy.GetName()] = response
+		storeResponse(responses, key, response)
 	}
 	enforceRequired(pendingRequired, responses, verifications)
 	return responses, nil
@@ -790,6 +801,7 @@ func (e *engineImpl) evaluatePolicies(
 // pendingRequiredCheck defers a passing policy's required check until every
 // policy in the request has contributed its verifications.
 type pendingRequiredCheck struct {
+	key              string
 	name             string
 	compiled         eval.CompiledPolicy
 	images           []string
@@ -805,8 +817,8 @@ func enforceRequired(checks []pendingRequiredCheck, responses map[string]eval.Im
 		if err == nil {
 			continue
 		}
-		response, ok := responses[check.name]
-		if !ok {
+		response, ok := responses[check.key]
+		if !ok || isFailure(response) || response.Result.Status() == engineapi.RuleStatusSkip {
 			continue
 		}
 		result := *engineapi.RuleFail(check.name, engineapi.ImageVerify, err.Error(), check.auditAnnotations)
@@ -819,6 +831,45 @@ func enforceRequired(checks []pendingRequiredCheck, responses map[string]eval.Im
 				Message: "every validation passed, but validationConfigurations.required failed: " + err.Error(),
 			}
 		}
-		responses[check.name] = response
+		responses[check.key] = response
 	}
+}
+
+func policyKey(p policiesv1beta1.ImageValidatingPolicyLike) string {
+	return celpolicies.PolicyKey(p)
+}
+
+func isFailure(resp eval.ImageVerifyPolicyResponse) bool {
+	status := resp.Result.Status()
+	return status == engineapi.RuleStatusFail || status == engineapi.RuleStatusError
+}
+
+func storeResponse(responses map[string]eval.ImageVerifyPolicyResponse, key string, resp eval.ImageVerifyPolicyResponse) {
+	if existing, exists := responses[key]; !exists || shouldReplaceResponse(existing, resp) {
+		responses[key] = resp
+	}
+}
+
+func responseRank(resp eval.ImageVerifyPolicyResponse) int {
+	if resp.Result.Name() == "" {
+		return 0
+	}
+	switch resp.Result.Status() {
+	case engineapi.RuleStatusSkip:
+		return 1
+	case engineapi.RuleStatusPass:
+		return 2
+	case engineapi.RuleStatusFail, engineapi.RuleStatusError:
+		return 3
+	default:
+		return 0
+	}
+}
+
+// shouldReplaceResponse determines whether a subsequent evaluation response for the same
+// policy (e.g. overlapping autogen variants) should replace an existing response.
+// Rankings follow empty (0) < skip (1) < pass (2) < fail/error (3), ensuring failures
+// are never masked and pass takes precedence over skip.
+func shouldReplaceResponse(existing, candidate eval.ImageVerifyPolicyResponse) bool {
+	return responseRank(candidate) >= responseRank(existing)
 }
