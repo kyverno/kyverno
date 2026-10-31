@@ -69,6 +69,8 @@ type TestResponse struct {
 	DeletingPolicies   map[string]struct{}
 }
 
+// deletingPolicyKey returns the key used to record DeletingPolicy results. Namespaced
+// policies use "<namespace>/<name>"; cluster-scoped policies use the name alone.
 func deletingPolicyKey(namespace, name string) string {
 	if namespace == "" {
 		return name
@@ -697,6 +699,14 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	return &testResponse, nil
 }
 
+// responseTargetsResource reports whether an engine response can be correlated with the given
+// target resource. It first looks for a patched target extracted from the response. Otherwise,
+// for a mutating-policy-like response whose resource identity matches, a rule with target
+// provenance qualifies it; a ruleless response qualifies when target match constraints contain
+// an expression or resource rule, or when ordinary match constraints contain resource rules.
+// These checks only test that the constraint data is present; they do not evaluate the
+// constraints against targetResource. Raw JSON deleting-policy payloads take a separate path:
+// their delete condition is evaluated directly without applying matchConstraints.
 func responseTargetsResource(targetResource *unstructured.Unstructured, response engineapi.EngineResponse) bool {
 	if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), response); r != nil {
 		return true
@@ -896,11 +906,13 @@ func applyImageValidatingPolicies(
 	return responses, nil
 }
 
-// applyDeletingPolicies evaluates DeletingPolicies against the given
-// resources. DeletingPolicies may be cluster-scoped or namespaced; they are
-// not admission-driven. The caller invokes this helper in the default
-// resource pass or in the separate JSON-payload pass.
-// Results are accumulated into a flat slice of EngineResponse values.
+// applyDeletingPolicies evaluates DeletingPolicies against the given resources. For resource
+// inputs, matchConstraints determine whether a policy is selected; a selected resource whose
+// CEL delete condition is true produces a pass, while a selected resource whose condition is
+// false produces a fail. Resources excluded by matchConstraints produce no result, and
+// evaluation errors produce error responses. Raw JSON payloads are evaluated on a separate path
+// that evaluates the delete condition directly without applying matchConstraints. Results are
+// accumulated into a flat slice of EngineResponse values.
 func applyDeletingPolicies(
 	dps []policiesv1beta1.DeletingPolicyLike,
 	resources []*unstructured.Unstructured,
@@ -1035,10 +1047,10 @@ func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Un
 	return resources
 }
 
-// buildHTTPMockIndex constructs an in-memory lookup table for HTTP API-call
-// mock responses. Keys use "[METHOD:]URL"; omitting METHOD creates a URL-only
-// fallback for both GET and POST after the method-specific lookup. Values
-// contain the response body and status code for the engine context.
+// buildHTTPMockIndex constructs an in-memory lookup table for configured CEL HTTP mock
+// responses. Each entry is keyed by its resolved URL, or by "METHOD:URL" when a method is
+// specified; values contain the decoded response body and status code. It returns an error
+// when a response body is not valid JSON.
 func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]interface{}, error) {
 	if len(mocks) == 0 {
 		return nil, nil
@@ -1061,9 +1073,8 @@ func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]inter
 	return index, nil
 }
 
-// wrapHTTPResponse wraps a raw response body with its HTTP status code into
-// the standard shape expected by the CEL http() context function. A missing
-// status code is defaulted to 200.
+// wrapHTTPResponse wraps a decoded response body and status code in the shape consumed by
+// the CEL HTTP mock context. A missing status code defaults to 200.
 func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
 	if statusCode == 0 {
 		statusCode = 200
