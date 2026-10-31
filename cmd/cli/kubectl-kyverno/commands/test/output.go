@@ -475,14 +475,25 @@ func createExcludedRow(test v1alpha1.TestResult, testCount int, resource string,
 }
 
 func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, ruleName string, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
+	var kind, namespace, name string
 	resourceParts := strings.Split(resourceGVKAndName, "/")
+	if len(resourceParts) > 0 {
+		name = resourceParts[len(resourceParts)-1]
+	}
+	if len(resourceParts) >= 3 {
+		namespace = resourceParts[len(resourceParts)-2]
+		kind = strings.Join(resourceParts[:len(resourceParts)-2], "/")
+	} else if len(resourceParts) == 2 {
+		kind = resourceParts[0]
+	}
+
 	rows := []table.Row{}
 	row := table.Row{
 		RowCompact: table.RowCompact{
 			ID:        *globalTestCounter,
 			Policy:    color.Policy("", test.Policy),
 			Rule:      color.Rule(ruleName),
-			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+			Resource:  color.Resource(kind, namespace, name),
 			Reason:    reason,
 			IsFailure: !success,
 		},
@@ -509,7 +520,7 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 				ID:        *globalTestCounter,
 				Policy:    color.Policy("", test.Policy),
 				Rule:      color.Rule(test.Rule),
-				Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]), // todo: handle namespace
+				Resource:  color.Resource(kind, namespace, name),
 				Result:    color.ResultPass(),
 				Reason:    color.Excluded(),
 				IsFailure: false,
