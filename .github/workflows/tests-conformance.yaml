@@ -169,7 +169,6 @@ jobs:
           kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,generate-mutating-admission-policy
-          quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy
 
@@ -191,7 +190,6 @@ jobs:
           node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
           kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard,generate-mutating-admission-policy
-          quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy-v1
 
