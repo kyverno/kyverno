@@ -216,17 +216,17 @@ func (p Pointer) String() string {
 
 // Append will return a Pointer with the strings appended.
 func (p Pointer) Append(s ...string) Pointer {
-	return append(p, s...)
+	return append(p[:len(p):len(p)], s...)
 }
 
 // Prepend will return a Pointer prefixed with the specified strings.
 func (p Pointer) Prepend(s ...string) Pointer {
-	return append(s, p...)
+	return append(s[:len(s):len(s)], p...)
 }
 
 // AppendPath will parse the string as a JSON pointer and return a new pointer.
 func (p Pointer) AppendPath(s string) Pointer {
-	return append(p, ParsePath(s)...)
+	return append(p[:len(p):len(p)], ParsePath(s)...)
 }
 
 // SkipN will return a new Pointer where the first N element are stripped.
