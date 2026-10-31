@@ -64,21 +64,39 @@ func (l *managerPolicyExceptionLister) List(selector labels.Selector) ([]*polici
 	return out, nil
 }
 
-func ListExceptions(lister PolicyExceptionLister, kind, name string) ([]*policiesv1beta1.PolicyException, error) {
+// ListExceptions returns the live exceptions that apply to the policy identified by kind,
+// namespace and name. namespace is empty for a cluster-scoped policy.
+func ListExceptions(lister PolicyExceptionLister, kind, namespace, name string) ([]*policiesv1beta1.PolicyException, error) {
 	exceptions, err := lister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
+	return MatchExceptions(exceptions, kind, namespace, name), nil
+}
+
+// MatchExceptions returns the exceptions in exceptions that apply to the policy identified by
+// kind, namespace and name, skipping expired ones.
+//
+// A PolicyRef carries no namespace, so for a namespaced policy the exception's own namespace
+// is the scope: only an exception in the policy's namespace applies to it. Without that, an
+// exception in one namespace would exempt resources from every same-named namespaced policy in
+// the cluster. A cluster-scoped policy (empty namespace) accepts exceptions from any namespace
+// the lister serves.
+func MatchExceptions(exceptions []*policiesv1beta1.PolicyException, kind, namespace, name string) []*policiesv1beta1.PolicyException {
 	var out []*policiesv1beta1.PolicyException
 	for _, exception := range exceptions {
-		if exception.IsExpired() {
+		if exception == nil || exception.IsExpired() {
+			continue
+		}
+		if namespace != "" && exception.GetNamespace() != namespace {
 			continue
 		}
 		for _, ref := range exception.Spec.PolicyRefs {
 			if ref.Name == name && ref.Kind == kind {
 				out = append(out, exception)
+				break
 			}
 		}
 	}
-	return out, nil
+	return out
 }
