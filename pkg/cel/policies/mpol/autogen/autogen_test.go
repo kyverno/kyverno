@@ -5,12 +5,14 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 )
 
 func normalize(s string) string {
@@ -680,4 +682,73 @@ func TestMutationConversionEdgeCases(t *testing.T) {
 			assert.Equal(t, normalize(tt.expected), normalize(result))
 		})
 	}
+}
+
+func TestAutogenPodControllersEnabled(t *testing.T) {
+	newPolicy := func(pc *policiesv1beta1.PodControllersGenerationConfiguration) *policiesv1beta1.MutatingPolicy {
+		return &policiesv1beta1.MutatingPolicy{
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							},
+						},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{spec: Object.spec{}}`,
+						},
+					},
+				},
+				AutogenConfiguration: &policiesv1beta1.MutatingPolicyAutogenConfiguration{
+					PodControllers: pc,
+				},
+			},
+		}
+	}
+
+	t.Run("enabled=false skips autogen entirely", func(t *testing.T) {
+		policy := newPolicy(&policiesv1beta1.PodControllersGenerationConfiguration{
+			Enabled: ptr.To(false),
+		})
+		result, err := Autogen(policy)
+		assert.NoError(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("enabled=false takes precedence over controllers list", func(t *testing.T) {
+		policy := newPolicy(&policiesv1beta1.PodControllersGenerationConfiguration{
+			Enabled:     ptr.To(false),
+			Controllers: []string{"deployments"},
+		})
+		result, err := Autogen(policy)
+		assert.NoError(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("enabled=true generates autogen rules", func(t *testing.T) {
+		policy := newPolicy(&policiesv1beta1.PodControllersGenerationConfiguration{
+			Enabled:     ptr.To(true),
+			Controllers: []string{"deployments"},
+		})
+		result, err := Autogen(policy)
+		assert.NoError(t, err)
+		assert.Len(t, result, 1)
+		assert.Contains(t, result, autogen.AutogenDefaults)
+		assert.Equal(t, []policiesv1beta1.Target{{
+			Group:    "apps",
+			Version:  "v1",
+			Resource: "deployments",
+			Kind:     "Deployment",
+		}}, result[autogen.AutogenDefaults].Targets)
+	})
 }
