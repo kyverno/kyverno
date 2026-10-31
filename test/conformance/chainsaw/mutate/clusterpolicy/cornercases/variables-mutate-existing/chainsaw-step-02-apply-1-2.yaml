@@ -1,9 +1,0 @@
-apiVersion: v1
-data:
-  fookey: fakeval
-kind: ConfigMap
-metadata:
-  labels:
-    kyverno.io/watch: "true"
-  name: mycm
-  namespace: foo

@@ -74,9 +74,7 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov2.Updat
 	l := logger.WithValues("ruleType", urSpec.GetRequestType(), "resource", urSpec.GetResource().String())
 	var queryLabels labels.Set
 
-	if urSpec.GetRequestType() == kyvernov2.Mutate {
-		queryLabels = common.MutateLabelsSet(urSpec.Policy, urSpec.GetResource())
-	} else if urSpec.GetRequestType() == kyvernov2.Generate {
+	if urSpec.GetRequestType() == kyvernov2.Generate {
 		queryLabels = common.GenerateLabelsSet(urSpec.Policy)
 	}
 

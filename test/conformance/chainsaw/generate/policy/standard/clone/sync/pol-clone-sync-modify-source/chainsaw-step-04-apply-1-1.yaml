@@ -1,8 +1,0 @@
-apiVersion: v1
-data:
-  foo: aGVyZWlzY2hhbmdlZGRhdGE=
-kind: Secret
-metadata:
-  name: regcred
-  namespace: poltest
-type: Opaque

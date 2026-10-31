@@ -44,6 +44,15 @@ func (c *Client) RawAbsPath(ctx context.Context, path string, method string, dat
 		method = "GET"
 	}
 
+	// Non-GET methods are writes, so route to the fake client only, same as every
+	// other write method on this wrapper (PatchResource, DeleteResource, etc). The
+	// fake client always errors on a non-GET RawAbsPath call (see
+	// dclient.rawAbsPathForFakeClient), so falling back to c.inner here would let
+	// every raw write (POST/PUT/DELETE/PATCH) reach the real cluster.
+	if method != "GET" {
+		return c.fake.RawAbsPath(ctx, path, method, dataReader)
+	}
+
 	// Try fake client first (for testing scenarios)
 	if result, err := c.fake.RawAbsPath(ctx, path, method, dataReader); err == nil {
 		return result, nil

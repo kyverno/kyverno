@@ -152,7 +152,26 @@ func (c *client) getGroupVersionMapper(apiVersion string, kind string) schema.Gr
 
 // GetResource returns the resource in unstructured/json format
 func (c *client) GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	if err := validateSubresources(subresources); err != nil {
+		return nil, err
+	}
 	return c.getResourceInterface(apiVersion, kind, namespace).Get(ctx, name, metav1.GetOptions{}, subresources...)
+}
+
+// validateSubresources rejects any subresource segment that could escape its
+// intended path position (GHSA-4pqm-wqq6-h9q2). An empty segment is a no-op
+// here (unlike pkg/cel/libs, callers such as pkg/admissionpolicy pass "" to
+// mean "no subresource" and that must stay harmless).
+func validateSubresources(subresources []string) error {
+	for _, s := range subresources {
+		if s == "" {
+			continue
+		}
+		if err := ValidatePathSegment("subresource", s); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *client) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
@@ -318,6 +337,9 @@ func (c *client) CreateResource(ctx context.Context, apiVersion string, kind str
 
 // UpdateResource updates object for the specified resource/namespace
 func (c *client) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
+	if err := validateSubresources(subresources); err != nil {
+		return nil, err
+	}
 	options := metav1.UpdateOptions{}
 	if dryRun {
 		options = metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
@@ -344,6 +366,9 @@ func (c *client) UpdateStatusResource(ctx context.Context, apiVersion string, ki
 
 // ApplyResource updates object for the specified resource/namespace
 func (c *client) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string, subresources ...string) (*unstructured.Unstructured, error) {
+	if err := validateSubresources(subresources); err != nil {
+		return nil, err
+	}
 	// We have a different field manager for different situations, so a generated object that then goes through admission control
 	// won't have the changes wiped out by any use of server-side apply in the mutation path
 	options := metav1.ApplyOptions{FieldManager: "kyverno-" + fieldManager, Force: true}

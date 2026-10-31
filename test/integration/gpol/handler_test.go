@@ -44,6 +44,10 @@ func TestMain(m *testing.M) {
 	var err error
 	testEnv, err = framework.NewTestEnv(
 		"../../../config/crds/policies.kyverno.io",
+		// A third party CRD, so the sync tests can cover custom resource downstreams. It is installed
+		// up front rather than from inside a test because the dclient caches discovery, and a CRD that
+		// appears later is not visible to a client that already looked the group up.
+		"testdata/crds",
 	)
 	if err != nil {
 		panic(err)

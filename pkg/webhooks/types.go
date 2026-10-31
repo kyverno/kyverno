@@ -48,10 +48,6 @@ type PolicyHandlers struct {
 }
 
 type ResourceHandlers struct {
-	// Mutation performs the mutation of kube resources
-	Mutation Handler
-	// Validation performs the validation check on kube resources
-	Validation Handler
 	// ValidatingPolicies evaluates validating policies against kube resources
 	ValidatingPolicies Handler
 	// NamespacedValidatingPolicies evaluates namespaced validating policies against kube resources

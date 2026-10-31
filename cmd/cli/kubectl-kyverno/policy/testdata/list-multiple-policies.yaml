@@ -1,44 +1,32 @@
 apiVersion: v1
 kind: List
 items:
-- apiVersion: kyverno.io/v1
-  kind: ClusterPolicy
+- apiVersion: policies.kyverno.io/v1alpha1
+  kind: ValidatingPolicy
   metadata:
     name: require-labels
   spec:
-    validationFailureAction: audit
-    background: true
-    rules:
-    - name: check-for-labels
-      match:
-        any:
-        - resources:
-            kinds:
-            - Pod
-      validate:
-        message: "The label 'app.kubernetes.io/name' is required."
-        pattern:
-          metadata:
-            labels:
-              app.kubernetes.io/name: "?*"
-- apiVersion: kyverno.io/v1
-  kind: Policy
+    validations:
+    - expression: "has(object.metadata.labels) && 'app.kubernetes.io/name' in object.metadata.labels"
+      message: "The label 'app.kubernetes.io/name' is required."
+    matchConstraints:
+      resourceRules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+- apiVersion: policies.kyverno.io/v1beta1
+  kind: NamespacedValidatingPolicy
   metadata:
     name: namespace-policy
     namespace: default
   spec:
-    validationFailureAction: enforce
-    background: true
-    rules:
-    - name: check-namespace
-      match:
-        any:
-        - resources:
-            kinds:
-            - Service
-      validate:
-        message: "Service must have specific annotation"
-        pattern:
-          metadata:
-            annotations:
-              service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    validations:
+    - expression: "object.metadata.annotations['service.beta.kubernetes.io/aws-load-balancer-type'] == 'nlb'"
+      message: "Service must have specific annotation"
+    matchConstraints:
+      resourceRules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["services"]

@@ -198,3 +198,41 @@ func TestEvaluateWithData_FullExemptionPrecedence(t *testing.T) {
 		assert.Equal(t, errNoSuchKey.Error(), result.MessageExpressionError.Error())
 	})
 }
+
+func TestEvaluateWithData_AuditAnnotationError(t *testing.T) {
+	errNoSuchKey := fmt.Errorf("no such key: team")
+	brokenAnnotation := map[string]cel.Program{"team": &mockVpolProgram{err: errNoSuchKey}}
+
+	t.Run("failed validation stays a failure", func(t *testing.T) {
+		p := &Policy{
+			validations:      []compiler.Validation{{Program: &mockVpolProgram{retVal: types.Bool(false)}, Message: "team label is required"}},
+			auditAnnotations: brokenAnnotation,
+		}
+		result, err := p.evaluateWithData(context.Background(), evaluationData{})
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.NoError(t, result.Error)
+		assert.False(t, result.Result)
+		assert.Equal(t, "team label is required", result.Message)
+		assert.Nil(t, result.AuditAnnotations)
+	})
+
+	t.Run("passed validation still returns the error", func(t *testing.T) {
+		p := &Policy{
+			validations:      []compiler.Validation{{Program: &mockVpolProgram{retVal: types.Bool(true)}}},
+			auditAnnotations: brokenAnnotation,
+		}
+		_, err := p.evaluateWithData(context.Background(), evaluationData{})
+		assert.ErrorIs(t, err, errNoSuchKey)
+	})
+
+	t.Run("failed validation keeps working annotations", func(t *testing.T) {
+		p := &Policy{
+			validations:      []compiler.Validation{{Program: &mockVpolProgram{retVal: types.Bool(false)}, Message: "team label is required"}},
+			auditAnnotations: map[string]cel.Program{"team": &mockVpolProgram{retVal: types.String("none")}},
+		}
+		result, err := p.evaluateWithData(context.Background(), evaluationData{})
+		assert.NoError(t, err)
+		assert.Equal(t, map[string]string{"team": "none"}, result.AuditAnnotations)
+	})
+}

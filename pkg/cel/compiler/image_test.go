@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"context"
 	"testing"
 
 	"github.com/gobwas/glob"
@@ -31,7 +32,7 @@ func Test_matchGlob_Match(t *testing.T) {
 			m := &matchGlob{
 				Glob: glob.MustCompile(tt.glob),
 			}
-			got, err := m.Match(tt.image)
+			got, err := m.Match(context.Background(), tt.image)
 			assert.Equal(t, tt.want, got)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -68,7 +69,7 @@ func Test_matchCel_Match(t *testing.T) {
 				Expression: tt.expression,
 			})
 			assert.Nil(t, errs)
-			got, err := match.Match(tt.image)
+			got, err := match.Match(context.Background(), tt.image)
 			assert.Equal(t, tt.want, got)
 			if tt.wantErr {
 				assert.Error(t, err)

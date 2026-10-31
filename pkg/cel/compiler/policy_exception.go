@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -96,7 +97,13 @@ func getPolicyExceptionEnvSet() (*environment.EnvSet, error) {
 			cel.Types(RequestType.CelType()),
 		)
 		envOptions = append(envOptions, declOptions...)
-		policyExceptionEnvSet, errPolicyExceptionEnvSet = base.Extend(environment.VersionedOptions{
+
+		// Register the resource library so PolicyException match conditions
+		// can validate expressions using resource.Get().
+		envOptions = append(envOptions, resource.Lib(nil, "", resource.Latest()))
+
+		// BaseEnvSet, not base.Extend: registers CostLib last (see env.go).
+		policyExceptionEnvSet, errPolicyExceptionEnvSet = BaseEnvSet(environment.DefaultCompatibilityVersion(), environment.VersionedOptions{
 			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions:        envOptions,
 		})

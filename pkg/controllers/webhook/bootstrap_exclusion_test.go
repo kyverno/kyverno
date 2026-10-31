@@ -1,15 +1,11 @@
 package webhook
 
 import (
-	"context"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
 
@@ -145,34 +141,4 @@ func TestBootstrapExclusionExpressionCompiles(t *testing.T) {
 		compiled := cache.GetOrCompile(mc)
 		assert.True(t, compiled.isValid, "expression must compile: %v", compiled.errors)
 	}
-}
-
-// TestBuildDefaultResourceValidatingWebhookConfiguration_ExcludesBootstrapResources
-// confirms the wiring end to end: with the flag on, the static wildcard webhook
-// config (autoUpdateWebhooks=false) emits the exclusion on its Fail webhook and
-// leaves the Ignore webhook untouched.
-func TestBuildDefaultResourceValidatingWebhookConfiguration_ExcludesBootstrapResources(t *testing.T) {
-	c := &controller{
-		defaultTimeout:            10,
-		servicePort:               443,
-		excludeBootstrapResources: true,
-		clusterroleLister:         rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-	}
-
-	vwc, err := c.buildDefaultResourceValidatingWebhookConfiguration(context.TODO(), config.NewDefaultConfiguration(false), nil)
-	require.NoError(t, err)
-
-	byName := make(map[string]admissionregistrationv1.ValidatingWebhook, len(vwc.Webhooks))
-	for _, w := range vwc.Webhooks {
-		byName[w.Name] = w
-	}
-
-	failWebhook, ok := byName[config.ValidatingWebhookName+"-fail"]
-	require.True(t, ok, "fail webhook must exist")
-	require.Len(t, failWebhook.MatchConditions, 1)
-	assert.Equal(t, bootstrapExclusionMatchConditionName, failWebhook.MatchConditions[0].Name)
-
-	ignoreWebhook, ok := byName[config.ValidatingWebhookName+"-ignore"]
-	require.True(t, ok, "ignore webhook must exist")
-	assert.Empty(t, ignoreWebhook.MatchConditions)
 }

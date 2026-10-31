@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -35,9 +36,9 @@ func TestImageExtractorProfilesMatchRequestCompilation(t *testing.T) {
 				if deleting {
 					data[ObjectKey], data[OldObjectKey] = nil, object
 				}
-				expected, err := ExtractImages(data, legacy)
+				expected, err := ExtractImages(context.Background(), data, legacy)
 				require.NoError(t, err)
-				actual, err := ExtractImages(data, profiles.ForResource(gvr))
+				actual, err := ExtractImages(context.Background(), data, profiles.ForResource(gvr))
 				require.NoError(t, err)
 				require.Equal(t, expected, actual)
 			}

@@ -1,9 +1,3 @@
-{{- if and (eq .Values.cleanupController.enabled true) (eq .Values.crds.groups.kyverno.cleanuppolicies false) }}
-{{- fail "CRD cleanuppolicies disabled while cleanupController enabled" }}
-{{- end }}
-{{- if and (eq .Values.cleanupController.enabled true) (eq .Values.crds.groups.kyverno.clustercleanuppolicies false) }}
-{{- fail "CRD clustercleanuppolicies disabled while cleanupController enabled" }}
-{{- end }}
 {{- if and (eq .Values.reportsController.enabled true) (eq .Values.reportsController.sanityChecks true) (eq .Values.crds.groups.wgpolicyk8s.clusterpolicyreports false) (eq .Values.crds.reportsServer.enabled false) }}
 {{- fail "CRD clusterpolicyreports disabled while reportsController enabled" }}
 {{- end }}
@@ -30,6 +24,34 @@
 
 {{- if eq (include "kyverno.namespace" .) "kube-system" -}}
   {{- fail "Kyverno cannot be installed in namespace kube-system." -}}
+{{- end -}}
+
+{{- if or (hasKey .Values.features "blockLegacyPolicyAPIs") (hasKey .Values.admissionController.featuresOverride "blockLegacyPolicyAPIs") (hasKey .Values.cleanupController.featuresOverride "blockLegacyPolicyAPIs") -}}
+  {{- fail (join "\n" (list
+    ""
+    ""
+    "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+    "  | features.blockLegacyPolicyAPIs (and admissionController/cleanupController featuresOverride.blockLegacyPolicyAPIs) was removed in 1.20:"
+    "  | legacy kyverno.io policies are never executed; see upgrade.acknowledgeLegacyPoliciesNotEnforced"
+    "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+    ""
+    ))
+  -}}
+{{- end -}}
+
+{{- if hasKey .Values.upgrade "allowLegacyPolicies" -}}
+  {{- if .Values.upgrade.allowLegacyPolicies -}}
+    {{- fail (join "\n" (list
+      ""
+      ""
+      "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+      "  | upgrade.allowLegacyPolicies was removed in 1.20. Legacy kyverno.io policies found on this cluster"
+      "  | are no longer enforced. If you accept that, set upgrade.acknowledgeLegacyPoliciesNotEnforced=true."
+      "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+      ""
+      ))
+    -}}
+  {{- end -}}
 {{- end -}}
 
 {{- if not .Values.upgrade.fromV2 -}}

@@ -12,9 +12,11 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
@@ -77,12 +79,31 @@ func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionReq
 	if err != nil {
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
+	logDecisionTraces(logger, response)
 	var group wait.Group
 	defer group.Wait()
 	group.Start(func() {
 		h.audit(ctx, logger, admissionRequest, request, response)
 	})
-	return h.admissionResponse(request, response)
+	return h.admissionResponse(ctx, request, response)
+}
+
+// logDecisionTraces writes the decision trace of every policy that has one to the log. A policy
+// only has one when the admission controller compiles policies with tracing on, so this does
+// nothing otherwise. The traces are written in their own goroutine, outside the audit group the
+// handler waits for, so that logging them never holds up the admission response; they are not
+// part of that response either.
+func logDecisionTraces(logger logr.Logger, response vpolengine.EngineResponse) {
+	var traces []*trace.Decision
+	for _, p := range response.Policies {
+		if p.Trace != nil {
+			traces = append(traces, p.Trace)
+		}
+	}
+	if len(traces) == 0 {
+		return
+	}
+	go webhookutils.LogDecisionTraces(logger, traces...)
 }
 
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request vpolengine.EngineRequest, response vpolengine.EngineResponse) {
@@ -141,17 +162,25 @@ func (h *handler) admissionEvent(_ context.Context, responses []engineapi.Engine
 	}
 }
 
-func (h *handler) admissionResponse(request vpolengine.EngineRequest, response vpolengine.EngineResponse) handlers.AdmissionResponse {
+// an error carrying a refused exception means the policy itself failed, so it blocks regardless
+func errorBlocks(rule engineapi.RuleResponse, failurePolicy admissionregistrationv1.FailurePolicyType) bool {
+	return failurePolicy == admissionregistrationv1.Fail || len(rule.Exceptions()) > 0
+}
+
+func (h *handler) admissionResponse(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse) handlers.AdmissionResponse {
 	var errs []error
 	var warnings []string
 	for _, policy := range response.Policies {
+		failurePolicy := policy.Policy.GetFailurePolicy(toggle.FromContext(ctx).ForceFailurePolicyIgnore())
 		if policy.Actions.Has(admissionregistrationv1.Deny) {
 			for _, rule := range policy.Rules {
 				switch rule.Status() {
 				case engineapi.RuleStatusFail:
 					errs = append(errs, fmt.Errorf("Policy %s failed: %s", policy.Policy.GetName(), rule.Message()))
 				case engineapi.RuleStatusError:
-					errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), rule.Message()))
+					if errorBlocks(rule, failurePolicy) {
+						errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), rule.Message()))
+					}
 				}
 			}
 		}

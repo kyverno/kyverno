@@ -14,8 +14,10 @@ import (
 	kyvernocfg "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -75,6 +77,12 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 
 	if config.UsesRegistryClient() {
 		_, registrySecretLister = setupRegistryClient(ctx, logger, client)
+		verifiers.SetPayloadLimit(imageVerifyPayloadLimit)
+		// The ivpol attestation read goes through the SDK's own loader, which keeps
+		// a separate bound, so the flag has to reach both or that path stays fixed
+		// at the default.
+		imagedataloader.SetPayloadLimit(imageVerifyPayloadLimit)
+		logger.V(2).Info("image verification payload limit", "bytes", verifiers.PayloadLimit())
 	}
 
 	var imageVerifyCache imageverifycache.Client

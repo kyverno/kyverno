@@ -44,11 +44,12 @@ instantiated per kind. `pkg/cel/libs/context.go` is the glue between CEL and liv
 `Test_Validate_NamespacedPolicyRejectsGlobalContext`). Global context is cluster-scoped external data; deliberately
 disallowed at namespace scope.
 
-## `pkg/cel/autogen` is a separate reimplementation of `pkg/autogen`, not a shared library
+## `pkg/cel/autogen` is the only autogen implementation
 
-Structurally parallel to (not code-shared with) the legacy `pkg/autogen`. Actively being generalized beyond built-in
-pod-controller kinds to custom workload CRDs (e.g. JobSet) — check recent commits before assuming the autogen
-surface is fixed.
+The legacy `pkg/autogen` (autogen for `kyverno.io` rules) was deleted in #17710 PR 4; `pkg/cel/autogen` is now the
+sole autogen implementation, for `policies.kyverno.io` types only. It is actively being generalized beyond
+built-in pod-controller kinds to custom workload CRDs (e.g. JobSet) — check recent commits before assuming the
+autogen surface is fixed.
 
 ## `gpol`'s generation model is templates, not rule replication
 
@@ -56,6 +57,18 @@ surface is fixed.
 placeholder occupying an entire scalar value is spliced structurally; one embedded in a larger string is
 interpolated and must evaluate to a scalar; placeholders are not supported in mapping keys. This is why gpol has a
 `template/` package instead of `autogen/` — its generation mechanism is fundamentally different from vpol/mpol's.
+
+## GlobalContextEntry projection expressions get their own small env, not one of the five kinds' envs
+
+`pkg/cel/compiler/globalcontext_projection.go`'s `CompileGlobalContextProjection` builds a once-built, package-level
+`cel.Env` scoped to `DefaultEnvOptions()` plus a single `object` variable — no `http`, `globalContext`, or other
+Kyverno CEL libraries are registered, so a projection expression can read the value `globalContext.Get(name)`
+returned (via `object`) but can't make further API calls or re-enter global context from inside a projection. This
+is additive alongside the pre-existing `jmesPath` field on `GlobalContextEntryProjection`
+(`api/kyverno/v2`/`v2alpha1`/`v2beta1`): a projection accepts exactly one of the two, enforced both by a
+`+kubebuilder:validation:XValidation` marker on the type and by `GlobalContextEntryProjection.Validate()`.
+`pkg/validation/globalcontext/validate.go` is the only webhook-side CEL compile check, since CEL compilation can't
+live in `api/` (it already imports `api/kyverno/v2beta1`).
 
 ## PolicyException CEL match-conditions are grandfathered, not retroactively re-validated
 

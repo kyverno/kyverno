@@ -17,7 +17,7 @@ limitations under the License.
 package v2
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +34,7 @@ type UpdateRequestStatus struct {
 
 	// This will track the resources that are updated by the generate Policy.
 	// Will be used during clean up resources.
-	GeneratedResources []kyvernov1.ResourceSpec `json:"generatedResources,omitempty"`
+	GeneratedResources []kyverno.ResourceSpec `json:"generatedResources,omitempty"`
 
 	RetryCount int `json:"retryCount,omitempty"`
 }
@@ -101,7 +101,7 @@ type UpdateRequestSpec struct {
 	Synchronize bool `json:"synchronize,omitempty"`
 
 	// ResourceSpec is the information to identify the trigger resource.
-	Resource kyvernov1.ResourceSpec `json:"resource"`
+	Resource kyverno.ResourceSpec `json:"resource"`
 
 	// Context represents admission request context.
 	// It is used upon admission review only and is shared across rules within the same UR.
@@ -120,7 +120,7 @@ type RuleContext struct {
 	Synchronize bool `json:"synchronize,omitempty"`
 
 	// ResourceSpec is the information to identify the trigger resource.
-	Trigger kyvernov1.ResourceSpec `json:"trigger"`
+	Trigger kyverno.ResourceSpec `json:"trigger"`
 
 	// CacheRestore indicates whether the cache should be restored.
 	CacheRestore bool `json:"cacheRestore,omitempty"`
@@ -207,6 +207,6 @@ func (s *UpdateRequestSpec) GetSynchronize() bool {
 	return s.Synchronize
 }
 
-func (s *UpdateRequestSpec) GetResource() kyvernov1.ResourceSpec {
+func (s *UpdateRequestSpec) GetResource() kyverno.ResourceSpec {
 	return s.Resource
 }

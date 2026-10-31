@@ -78,7 +78,7 @@ func sameImageIvpol(n string) *policiesv1beta1.ImageValidatingPolicy {
 			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{VerifyDigest: ptr.To(false)},
 			MatchImageReferences:     []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
 			ImageExtractors:          []policiesv1beta1.ImageExtractor{{Name: "containers", Expression: "object.spec.containers.map(e, e.image)"}},
-			Validations:              []admissionregistrationv1.Validation{{Expression: "true", Message: "x"}},
+			Validations:              []admissionregistrationv1.Validation{{Expression: "images.containers.map(e, getImageData(e) != null).all(x, x)", Message: "x"}},
 		},
 	}
 }

@@ -13,6 +13,7 @@ spec:
       labels:
         app: nginx
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: nginx
         image: public.ecr.aws/docker/library/nginx
@@ -34,6 +35,7 @@ spec:
       labels:
         app: nginx
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: nginx
         image: public.ecr.aws/docker/library/nginx
