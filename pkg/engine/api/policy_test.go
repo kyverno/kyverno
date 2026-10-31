@@ -1,12 +1,99 @@
 package api
 
 import (
+	"encoding/json"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestAlphaMutatingAdmissionPolicyMatchResources(t *testing.T) {
+	exact := admissionregistrationv1alpha1.Exact
+	source := &admissionregistrationv1alpha1.MatchResources{
+		NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"environment": "development"}},
+		ObjectSelector:    &metav1.LabelSelector{MatchLabels: map[string]string{"mutate": "yes"}},
+		ResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+				Operations: []admissionregistrationv1alpha1.OperationType{admissionregistrationv1alpha1.Create},
+				Rule: admissionregistrationv1alpha1.Rule{
+					APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"configmaps"},
+				},
+			},
+		}},
+		ExcludeResourceRules: []admissionregistrationv1alpha1.NamedRuleWithOperations{{
+			ResourceNames: []string{"do-not-touch"},
+			RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+				Operations: []admissionregistrationv1alpha1.OperationType{admissionregistrationv1alpha1.Create},
+				Rule: admissionregistrationv1alpha1.Rule{
+					APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"configmaps"},
+				},
+			},
+		}},
+		MatchPolicy: &exact,
+	}
+	for _, tc := range []struct {
+		name    string
+		convert func(*admissionregistrationv1alpha1.MatchResources) *admissionregistrationv1beta1.MatchResources
+	}{
+		{"policy", func(resources *admissionregistrationv1alpha1.MatchResources) *admissionregistrationv1beta1.MatchResources {
+			policy := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
+				Spec: admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{MatchConstraints: resources},
+			}
+			return NewMutatingAdmissionPolicyAlpha(policy).AsMutatingAdmissionPolicy().GetDefinition().Spec.MatchConstraints
+		}},
+		{"binding", func(resources *admissionregistrationv1alpha1.MatchResources) *admissionregistrationv1beta1.MatchResources {
+			bindings := ConvertMutatingAdmissionPolicyBindingsAlpha([]admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding{{
+				Spec: admissionregistrationv1alpha1.MutatingAdmissionPolicyBindingSpec{MatchResources: resources},
+			}})
+			return bindings[0].Spec.MatchResources
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, input := range []struct {
+				name      string
+				resources *admissionregistrationv1alpha1.MatchResources
+			}{
+				{"all fields", source},
+				{"nil constraints", nil},
+				{"rules only", &admissionregistrationv1alpha1.MatchResources{ResourceRules: source.ResourceRules}},
+			} {
+				t.Run(input.name, func(t *testing.T) {
+					got := tc.convert(input.resources)
+					if input.resources == nil {
+						assert.Nil(t, got)
+						return
+					}
+					if !assert.NotNil(t, got) {
+						return
+					}
+					want, err := json.Marshal(input.resources)
+					if !assert.NoError(t, err) {
+						return
+					}
+					converted, err := json.Marshal(got)
+					if !assert.NoError(t, err) {
+						return
+					}
+					assert.JSONEq(t, string(want), string(converted))
+					if input.name == "all fields" {
+						got.NamespaceSelector.MatchLabels["environment"] = "production"
+						got.ObjectSelector.MatchLabels["mutate"] = "no"
+						assert.Equal(t, "development", source.NamespaceSelector.MatchLabels["environment"])
+						assert.Equal(t, "yes", source.ObjectSelector.MatchLabels["mutate"])
+					} else {
+						assert.Nil(t, got.NamespaceSelector)
+						assert.Nil(t, got.ObjectSelector)
+						assert.Empty(t, got.ExcludeResourceRules)
+					}
+				})
+			}
+		})
+	}
+}
 
 func TestGenericPolicy_NamespacedGeneratingPolicy(t *testing.T) {
 	ngpol := &policiesv1beta1.NamespacedGeneratingPolicy{
