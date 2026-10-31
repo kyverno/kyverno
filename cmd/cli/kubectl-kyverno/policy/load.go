@@ -31,6 +31,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 	"sigs.k8s.io/yaml"
 )
@@ -125,6 +126,7 @@ func (l *LoaderResults) addError(path string, err error) {
 	})
 }
 
+// addWarning records a warning, such as a deprecation notice, for the document at path.
 func (l *LoaderResults) addWarning(path, warning string) {
 	l.Warnings = append(l.Warnings, LoaderWarning{
 		Path:    path,
@@ -134,6 +136,14 @@ func (l *LoaderResults) addWarning(path, warning string) {
 
 type loader = func(string, []byte) (*LoaderResults, error)
 
+// splitDocuments splits a file into YAML documents. It is a variable so tests can simulate a read
+// error part way through a file.
+var splitDocuments = extyaml.SplitDocuments
+
+// ErrValidatorSetup is returned when the schema validator used by the loader cannot be built. It is
+// not caused by any input file, so callers that skip invalid files must still treat it as fatal.
+var ErrValidatorSetup = errors.New("failed to set up the policy schema validator")
+
 // Load loads policies from the given paths. Any legacy kyverno.io policy kind (ClusterPolicy, Policy,
 // CleanupPolicy, ClusterCleanupPolicy, PolicyException) is rejected with a migration hint, matching the
 // 1.20 admission-time block.
@@ -141,10 +151,52 @@ func Load(fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderRes
 	return LoadWithLoader(nil, fs, resourcePath, paths...)
 }
 
+// LoadSkippingInvalidFiles behaves like Load, except that a file which fails to load does not
+// abort the whole load. The failure is recorded in NonFatalErrors under that file's own path while
+// any valid documents from the same file are kept, so a single broken policy no longer hides the
+// valid policies around it, and the same goes for directory entries that cannot be read. Documents outside the
+// policy API groups (resources, test manifests, values files and so on) are ignored rather than
+// reported, since they are not policies to begin with. Legacy policy block errors and failures to
+// set up the schema validator (ErrValidatorSetup) still abort the load, since they are not caused by a
+// single file; they are the only errors this function returns.
+func LoadSkippingInvalidFiles(fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
+	if _, err := loaderDelegate(); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrValidatorSetup, err)
+	}
+	return loadWithLoader(skipInvalidFiles(validateLoader(true)), fs, resourcePath, true, paths...)
+}
+
+// skipInvalidFiles wraps a loader so that an ordinary error is recorded as a non fatal error for the
+// file, keeping any partial results, while legacy policy block errors are still returned.
+func skipInvalidFiles(l loader) loader {
+	return func(path string, content []byte) (*LoaderResults, error) {
+		results, err := l(path, content)
+		if err == nil || pkgdeprecations.IsLegacyPolicyBlockError(err) {
+			return results, err
+		}
+		// keep whatever the file did load (valid documents, warnings, document errors) and report
+		// the failure next to it instead of dropping the whole file
+		if results == nil {
+			results = &LoaderResults{}
+		}
+		results.addError(path, err)
+		return results, nil
+	}
+}
+
+// LoadWithLoader loads policies from paths with the given loader, or the default validating loader
+// when l is nil. The first path that fails to load fails the whole call.
 func LoadWithLoader(l loader, fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
 	if l == nil {
 		l = kubectlValidateLoader()
 	}
+	return loadWithLoader(l, fs, resourcePath, false, paths...)
+}
+
+// loadWithLoader reads every path from stdin, git, http or the local filesystem and merges the
+// results. With skipUnreadable set, a path that cannot be read is recorded under its own name instead
+// of failing the call.
+func loadWithLoader(l loader, fs billy.Filesystem, resourcePath string, skipUnreadable bool, paths ...string) (*LoaderResults, error) {
 	aggregateResults := &LoaderResults{}
 	for _, path := range paths {
 		var err error
@@ -156,9 +208,14 @@ func LoadWithLoader(l loader, fs billy.Filesystem, resourcePath string, paths ..
 		} else if source.IsHttp(path) {
 			results, err = httpLoad(l, path)
 		} else {
-			results, err = fsLoad(l, path)
+			results, err = fsLoad(l, path, skipUnreadable)
 		}
 		if err != nil {
+			// one path that cannot be read must not drop what the other paths loaded
+			if skipUnreadable && !pkgdeprecations.IsLegacyPolicyBlockError(err) {
+				aggregateResults.addError(path, err)
+				continue
+			}
 			return nil, err
 		}
 		aggregateResults.Merge(results)
@@ -178,15 +235,77 @@ var loaderDelegate = sync.OnceValues(func() (resourceloader.Loader, error) {
 	return factory, err
 })
 
-// kubectlValidateLoader returns a loader that rejects legacy kyverno.io policy kinds with a
-// migration-hint error, matching the 1.20 admission-time block.
+// legacyPolicyKinds are the policy kinds of the kyverno.io group, which also holds kinds that are not
+// policies (GlobalContextEntry, UpdateRequest) and gets no new policy kinds.
+var legacyPolicyKinds = sets.New("Policy", "ClusterPolicy", "CleanupPolicy", "ClusterCleanupPolicy", "PolicyException")
+
+// isPolicyGroupKind reports whether gvk is something the loader reads policies from. For
+// policies.kyverno.io it matches the whole group rather than the exact supported kinds and versions,
+// so a policy written for a newer CLI is still reported as a policy that could not be loaded.
+func isPolicyGroupKind(gvk schema.GroupVersionKind) bool {
+	switch gvk.Group {
+	case policiesv1.GroupVersion.Group:
+		return true
+	case "kyverno.io":
+		return legacyPolicyKinds.Has(gvk.Kind)
+	case admissionregistrationv1.GroupName:
+		return strings.Contains(gvk.Kind, "AdmissionPolicy")
+	}
+	return false
+}
+
+// documentError prefixes err with the kind and name of the document it belongs to, when they can be
+// read, so several broken policies in the same file can be told apart.
+func documentError(document []byte, err error) error {
+	var meta struct {
+		Kind     string `json:"kind"`
+		Metadata struct {
+			Name string `json:"name"`
+		} `json:"metadata"`
+	}
+	if yaml.Unmarshal(document, &meta) != nil {
+		return err
+	}
+	return namedError(meta.Kind, meta.Metadata.Name, err)
+}
+
+// namedError prefixes err with a document's kind and name, or returns it unchanged when either is
+// unknown.
+func namedError(kind, name string, err error) error {
+	if kind == "" || name == "" {
+		return err
+	}
+	return fmt.Errorf("%s %s: %w", kind, name, err)
+}
+
+// isValidYAML reports whether document parses as YAML.
+func isValidYAML(document []byte) bool {
+	_, err := yaml.YAMLToJSON(document)
+	return err == nil
+}
+
+// kubectlValidateLoader returns the strict loader, which rejects legacy kyverno.io policy kinds with a
+// migration-hint error, matching the 1.20 admission-time block. The first failing document fails the
+// whole file.
 func kubectlValidateLoader() loader {
+	return validateLoader(false)
+}
+
+// validateLoader builds the loader. Legacy kyverno.io policy kinds are always rejected. In lenient mode
+// every policy document that fails is recorded as a non fatal error and the rest of the file still loads,
+// and documents outside the policy API groups are ignored. Otherwise the first failing document fails
+// the whole file.
+func validateLoader(lenient bool) loader {
 	return func(path string, content []byte) (*LoaderResults, error) {
-		documents, err := extyaml.SplitDocuments(content)
-		if err != nil {
-			return nil, err
-		}
 		results := &LoaderResults{}
+		documents, err := splitDocuments(content)
+		if err != nil {
+			if !lenient {
+				return nil, err
+			}
+			// keep the documents that were read before the error and report the rest of the file
+			results.addError(path, err)
+		}
 		factory, err := loaderDelegate()
 		if err != nil {
 			return nil, err
@@ -203,11 +322,15 @@ func kubectlValidateLoader() loader {
 			if err != nil {
 				// Check if this is a List object and handle it explicitly
 				if gvk.Kind == "List" && gvk.Version == "v1" {
-					if err := handleListItems(document, path, results); err != nil {
+					if err := handleListItems(document, path, results, lenient); err != nil {
 						if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 							return nil, err
 						}
-						results.addError(path, fmt.Errorf("failed to process List: %w", err))
+						// a List whose shape is broken holds no policy we can identify, policy items that
+						// fail are reported by handleListItems itself
+						if !lenient {
+							results.addError(path, fmt.Errorf("failed to process List: %w", err))
+						}
 					}
 					continue
 				}
@@ -217,14 +340,26 @@ func kubectlValidateLoader() loader {
 				if blockErr, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
 					return nil, blockErr
 				}
+				// a document that is not even valid YAML could be a broken policy, so only skip
+				// documents we could read and that turned out not to be policies
+				if lenient && !isPolicyGroupKind(gvk) && isValidYAML(document) {
+					continue
+				}
 				msg := err.Error()
 				if strings.Contains(msg, "Invalid value: value provided for unknown field") {
+					if lenient {
+						results.addError(path, documentError(document, err))
+						continue
+					}
 					if pendingErr == nil {
 						pendingErr = err
 					}
 					continue
 				}
 				// skip non-Kubernetes YAMLs and invalid types
+				if lenient {
+					err = documentError(document, err)
+				}
 				results.addError(path, err)
 				continue
 			}
@@ -239,6 +374,12 @@ func kubectlValidateLoader() loader {
 				if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 					return nil, wrapped
 				}
+				if lenient {
+					if isPolicyGroupKind(gvk) {
+						results.addError(path, documentError(document, wrapped))
+					}
+					continue
+				}
 				if pendingErr == nil {
 					pendingErr = wrapped
 				}
@@ -249,7 +390,7 @@ func kubectlValidateLoader() loader {
 }
 
 // handleListItems processes a v1.List object by extracting and processing its items
-func handleListItems(document []byte, path string, results *LoaderResults) error {
+func handleListItems(document []byte, path string, results *LoaderResults, lenient bool) error {
 	var jsonData []byte
 	var parseErr error
 
@@ -275,7 +416,10 @@ func handleListItems(document []byte, path string, results *LoaderResults) error
 	for i, item := range listItems {
 		itemMap, ok := item.(map[string]interface{})
 		if !ok {
-			results.addError(path, fmt.Errorf("List item %d is not a valid object", i))
+			// an item that is not an object cannot be a policy
+			if !lenient {
+				results.addError(path, fmt.Errorf("List item %d is not a valid object", i))
+			}
 			continue
 		}
 
@@ -286,7 +430,15 @@ func handleListItems(document []byte, path string, results *LoaderResults) error
 			if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 				return fmt.Errorf("List item %d (%s): %w", i, itemGVK, err)
 			}
-			results.addError(path, fmt.Errorf("failed to process List item %d (%s): %w", i, itemGVK, err))
+			if lenient && !isPolicyGroupKind(itemGVK) {
+				continue
+			}
+			itemErr := fmt.Errorf("failed to process List item %d (%s): %w", i, itemGVK, err)
+			if lenient {
+				// name the item like other documents; the strict loader keeps its error text as it was
+				itemErr = namedError(itemGVK.Kind, itemUnstructured.GetName(), itemErr)
+			}
+			results.addError(path, itemErr)
 		}
 	}
 
@@ -420,7 +572,16 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 	return nil
 }
 
-func fsLoad(loader loader, path string) (*LoaderResults, error) {
+// fsLoad loads a file or walks a directory. When skipUnreadable is set, a directory entry that
+// cannot be read (a broken symlink, a permission error, a symlink back to a directory being walked)
+// is recorded under its own path and skipped instead of aborting the whole directory.
+func fsLoad(loader loader, path string, skipUnreadable bool) (*LoaderResults, error) {
+	return fsLoadWalking(loader, path, skipUnreadable, sets.New[string]())
+}
+
+// fsLoadWalking is fsLoad given the real paths of the directories being walked, so that the lenient
+// walk stops at a symlink loop instead of loading the same policies again on every level.
+func fsLoadWalking(loader loader, path string, skipUnreadable bool, walking sets.Set[string]) (*LoaderResults, error) {
 	fi, err := os.Stat(filepath.Clean(path))
 	if err != nil {
 		return nil, err
@@ -431,13 +592,45 @@ func fsLoad(loader loader, path string) (*LoaderResults, error) {
 	}
 	aggregateResults := &LoaderResults{}
 	if fi.IsDir() {
+		if skipUnreadable {
+			// resolve from an absolute path, a relative one would never match a symlink with an absolute target
+			absPath, err := filepath.Abs(path)
+			if err != nil {
+				return nil, err
+			}
+			realPath, err := filepath.EvalSymlinks(absPath)
+			if err != nil {
+				return nil, err
+			}
+			if walking.Has(realPath) {
+				return nil, errors.Errorf("symlink loop, %s is already being loaded", realPath)
+			}
+			walking.Insert(realPath)
+			defer walking.Delete(realPath)
+		}
 		files, err := os.ReadDir(path)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to read %s", path)
 		}
 		for _, file := range files {
-			results, err := fsLoad(loader, filepath.Join(path, file.Name()))
+			entry := filepath.Join(path, file.Name())
+			if skipUnreadable && strings.HasPrefix(file.Name(), ".") {
+				// skip hidden entries before touching them, so a broken hidden symlink is not reported
+				continue
+			}
+			results, err := fsLoadWalking(loader, entry, skipUnreadable, walking)
 			if err != nil {
+				if skipUnreadable && !pkgdeprecations.IsLegacyPolicyBlockError(err) {
+					// only report entries that could have held policies, other files are ignored anyway;
+					// a symlink is reported when it points at a directory, or when it has no extension
+					// and cannot be followed, since it may have pointed at one
+					ext := filepath.Ext(file.Name())
+					symlink := file.Type()&os.ModeSymlink != 0
+					if file.IsDir() || ext == ".yaml" || ext == ".yml" || (symlink && (ext == "" || isDirectory(entry))) {
+						aggregateResults.addError(entry, err)
+					}
+					continue
+				}
 				return nil, errors.Wrapf(err, "failed to load %s", path)
 			}
 			aggregateResults.Merge(results)
@@ -454,6 +647,12 @@ func fsLoad(loader loader, path string) (*LoaderResults, error) {
 		aggregateResults.Merge(results)
 	}
 	return aggregateResults, nil
+}
+
+// isDirectory reports whether path, following symlinks, is a directory.
+func isDirectory(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.IsDir()
 }
 
 var remoteHTTPTimeout = utils.RemoteHTTPTimeout
