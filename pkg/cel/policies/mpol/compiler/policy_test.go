@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -237,6 +238,42 @@ func TestEvaluate(t *testing.T) {
 		assert.NotNil(t, res)
 		assert.ErrorContains(t, res.Error, "failed to evaluate auditAnnotation \"bad\"")
 	})
+}
+
+func TestApplyConfigPatcher_MapLiteralInList(t *testing.T) {
+	// Regression test for https://github.com/kyverno/kyverno/issues/17734:
+	// bare map literals inside a list must be converted to plain maps before the merge.
+	pol := &policiesv1beta1.MutatingPolicy{
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{secrets: [{"name": "my-secret"}]}`,
+				},
+			}},
+		},
+	}
+	compiled, errs := NewCompiler().Compile(pol, nil)
+	assert.Empty(t, errs)
+	assert.Len(t, compiled.patchers, 1)
+
+	sa := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ServiceAccount",
+		"metadata": map[string]any{
+			"name":      "test-sa",
+			"namespace": "default",
+		},
+	}}
+	req := patch.Request{
+		VersionedAttributes: &admission.VersionedAttributes{VersionedObject: sa},
+		TypeConverter:       managedfields.NewDeducedTypeConverter(),
+	}
+	patched, err := compiled.patchers[0].Patch(context.TODO(), map[string]any{}, req, 0)
+	assert.NoError(t, err)
+	assert.NotNil(t, patched)
+	secrets, _, _ := unstructured.NestedSlice(patched.(*unstructured.Unstructured).Object, "secrets")
+	assert.Equal(t, []any{map[string]any{"name": "my-secret"}}, secrets)
 }
 
 type fakeProgram struct {
