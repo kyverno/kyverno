@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: expected-pass
+  namespace: default
+  annotations:
+    test-annotation: foo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: expected-fail
+  namespace: default
+  annotations:
+    test-annotation: bar
