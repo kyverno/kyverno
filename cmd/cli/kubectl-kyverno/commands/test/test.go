@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -85,7 +86,14 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
-	fmt.Fprintln(out, "Loading test", testCase.Test.Name, "(", testCase.Path, ")", "...")
+	testName := testCase.Test.GetName()
+	if testName == "" {
+		testName = testCase.Test.Name
+	}
+	if testName != "" {
+		testName = color.BoldCyan(testName)
+	}
+	fmt.Fprintln(out, "Loading test", testName, "(", testCase.Path, ")", "...")
 	isGit := testCase.Fs != nil
 	testDir := testCase.Dir()
 	var dClient dclient.Interface
@@ -147,12 +155,12 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 	if results != nil && results.NonFatalErrors != nil {
 		for _, e := range results.NonFatalErrors {
-			fmt.Fprintf(out, "  ERROR: %s: %s\n", e.Path, e.Error)
+			fmt.Fprintf(out, "  %s %s: %s\n", color.BoldRed("ERROR:"), e.Path, e.Error)
 		}
 	}
 	if results != nil && results.Warnings != nil {
 		for _, warning := range results.Warnings {
-			fmt.Fprintf(out, "  Warning: %s: %s\n", warning.Path, warning.Warning)
+			fmt.Fprintf(out, "  %s %s: %s\n", color.BoldYellow("Warning:"), warning.Path, warning.Warning)
 		}
 		if failOnWarnings && len(results.Warnings) > 0 {
 			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(results.Warnings))
@@ -176,7 +184,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	uniques, duplicates := resource.RemoveDuplicates(resources)
 	if len(duplicates) > 0 {
 		for dup := range duplicates {
-			fmt.Fprintln(out, "  warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
+			fmt.Fprintln(out, "  "+color.BoldYellow("warning:")+" found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
 	uniquesObjectArr := []runtime.Object{}
@@ -337,7 +345,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 	if polexLoader != nil && polexLoader.Warnings != nil {
 		for _, warning := range polexLoader.Warnings {
-			fmt.Fprintf(out, "  Warning: %s\n", warning)
+			fmt.Fprintf(out, "  %s %s\n", color.BoldYellow("Warning:"), warning)
 		}
 		if failOnWarnings && len(polexLoader.Warnings) > 0 {
 			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(polexLoader.Warnings))
