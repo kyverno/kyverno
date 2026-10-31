@@ -80,10 +80,7 @@ func Test_parseKinds(t *testing.T) {
 		want: []filter{},
 	}, {
 		args: args{"[]"},
-		// TODO: this looks strange
-		want: []filter{
-			{},
-		},
+		want: []filter{},
 	}, {
 		args: args{"[*]"},
 		want: []filter{
