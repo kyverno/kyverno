@@ -1,0 +1,27 @@
+apiVersion: cli.kyverno.io/v1alpha1
+exceptions:
+- exception.yaml
+jsonPayloads:
+- input.json
+kind: Test
+metadata:
+  name: json-skips-errors
+policies:
+- policy.yaml
+results:
+- isMutatingPolicy: true
+  kind: ""
+  policy: excluded
+  result: skip
+- isMutatingPolicy: true
+  kind: ""
+  policy: exempted
+  result: skip
+- isMutatingPolicy: true
+  kind: ""
+  policy: missing-path
+  result: error
+- isMutatingPolicy: true
+  kind: ""
+  policy: test-rollback
+  result: skip

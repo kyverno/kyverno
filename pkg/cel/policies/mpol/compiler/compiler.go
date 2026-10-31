@@ -10,6 +10,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/parser"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -64,6 +65,21 @@ func NewCompilerWithTrace(trace bool) Compiler {
 type compilerImpl struct{ trace bool }
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
+	path := field.NewPath("spec")
+	if policy == nil || (reflect.ValueOf(policy).Kind() == reflect.Pointer && reflect.ValueOf(policy).IsNil()) {
+		return nil, field.ErrorList{field.Required(path, "policy is required")}
+	}
+	spec := policy.GetSpec()
+	if spec == nil {
+		return nil, field.ErrorList{field.Required(path, "spec is required")}
+	}
+	if spec.EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+		return c.compileForJSON(policy, exceptions)
+	}
+	return c.compileForKubernetes(policy, exceptions)
+}
+
+func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	libCtx := libs.GetLibsCtx()
 
