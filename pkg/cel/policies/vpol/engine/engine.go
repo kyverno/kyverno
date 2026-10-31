@@ -428,7 +428,10 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 		}
 		last = result
 	}
-	if last == nil && len(allExceptions) > 0 {
+	// No template failed. An exempted template outranks a passing one: the
+	// workload is only admitted because of the exception, so it must still be
+	// reported, the same as when the exempted template is the only one.
+	if len(allExceptions) > 0 {
 		return &compiler.EvaluationResult{Exceptions: allExceptions}, nil
 	}
 	if last == nil && lastSkipped != nil {
