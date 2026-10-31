@@ -47,7 +47,7 @@ func TestReusableProgramsIsolateRuntime(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "runtime", UID: "runtime", ResourceVersion: "1"},
 		Spec:       policiesv1beta1.ImageValidatingPolicySpec{Attestations: []policiesv1beta1.Attestation{{Name: "proof", InToto: &policiesv1beta1.InToto{Type: "proof"}}}},
 	}
-	ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
+	ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
 	attestors := []policiesv1beta1.Attestor{{Name: "test"}}
 	for i := range 32 {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {

@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: namespaced-image-credential-scope
+spec:
+  concurrent: true
+  steps:
+  # The rejection steps below prove the policy-validating webhook is live: if it
+  # were unregistered or failing open they would not error at all. The acceptance
+  # steps need the opposite guard - a bare `create` with no assertion passes just
+  # because the API server stored the object, so each one is followed by a
+  # readiness step. Without that an accepted policy that never reconciled would
+  # look identical to one that did.
+  - name: image-policy-bare
+    bindings:
+    - name: name
+      value: image-policy-bare
+    - name: secret
+      value: regcred
+    try:
+    - create:
+        file: image-policy.yaml
+  - name: image-policy-bare-ready
+    use:
+      template: ../_step-templates/namespaced-image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: image-policy-bare
+  - name: image-policy-local
+    bindings:
+    - name: name
+      value: image-policy-local
+    - name: secret
+      value: (join('/', [$namespace, 'regcred']))
+    try:
+    - create:
+        file: image-policy.yaml
+  - name: image-policy-local-ready
+    use:
+      template: ../_step-templates/namespaced-image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: image-policy-local
+  - name: image-policy-foreign
+    bindings:
+    - name: name
+      value: image-policy-foreign
+    - name: secret
+      value: tenant-foreign/regcred
+    try:
+    - create:
+        file: image-policy.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  # Kyverno's own namespace is rejected like any other foreign namespace: a
+  # namespaced policy must not borrow the installation's registry credentials.
+  - name: image-policy-installation
+    bindings:
+    - name: name
+      value: image-policy-installation
+    - name: secret
+      value: kyverno/regcred
+    try:
+    - create:
+        file: image-policy.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: attestor-bare
+    bindings:
+    - name: name
+      value: attestor-bare
+    - name: secret
+      value: regcred
+    try:
+    - create:
+        file: attestor.yaml
+  - name: attestor-bare-ready
+    use:
+      template: ../_step-templates/namespaced-image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: attestor-bare
+  - name: attestor-local
+    bindings:
+    - name: name
+      value: attestor-local
+    - name: secret
+      value: (join('/', [$namespace, 'regcred']))
+    try:
+    - create:
+        file: attestor.yaml
+  - name: attestor-local-ready
+    use:
+      template: ../_step-templates/namespaced-image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: attestor-local
+  - name: attestor-foreign
+    bindings:
+    - name: name
+      value: attestor-foreign
+    - name: secret
+      value: tenant-foreign/regcred
+    try:
+    - create:
+        file: attestor.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: attestor-installation
+    bindings:
+    - name: name
+      value: attestor-installation
+    - name: secret
+      value: kyverno/regcred
+    try:
+    - create:
+        file: attestor.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
