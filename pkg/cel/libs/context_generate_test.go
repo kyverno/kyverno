@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/ptr"
 )
 
 func generateTestRESTMapper() meta.RESTMapper {
@@ -104,9 +105,10 @@ func TestGenerateResources_ExistingResourceReportedAsGenerated(t *testing.T) {
 				"name":      "data",
 				"namespace": "tenant-ns",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel:     "test-gpol",
-					common.GenerateTriggerUIDLabel: "trigger-uid",
+					kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:          "test-gpol",
+					common.GeneratePolicyNamespaceLabel: "tenant-ns",
+					common.GenerateTriggerUIDLabel:      "trigger-uid",
 				},
 			},
 		},
@@ -229,9 +231,10 @@ func TestGenerateResources_ExistingResourceUpdatedInPlace(t *testing.T) {
 				"name":      "data",
 				"namespace": "tenant-ns",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel:     "test-gpol",
-					common.GenerateTriggerUIDLabel: "trigger-uid",
+					kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:          "test-gpol",
+					common.GeneratePolicyNamespaceLabel: "tenant-ns",
+					common.GenerateTriggerUIDLabel:      "trigger-uid",
 				},
 			},
 			"data": map[string]any{"quota": "10"},
@@ -273,9 +276,10 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 				"name":      "data",
 				"namespace": "tenant-ns",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel:     "test-gpol",
-					common.GenerateTriggerUIDLabel: "trigger-uid",
+					kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:          "test-gpol",
+					common.GeneratePolicyNamespaceLabel: "tenant-ns",
+					common.GenerateTriggerUIDLabel:      "trigger-uid",
 				},
 			},
 		},
@@ -558,4 +562,42 @@ func TestGenerateResources_ServerSideApply_UnmanagedExistingResourceNotAdopted(t
 	require.NoError(t, err)
 	assert.False(t, mock.applyCalled, "ApplyResource must not be called for unmanaged pre-existing resources")
 	assert.Empty(t, cp.GetGeneratedResources(), "unmanaged pre-existing resources must not be adopted")
+}
+
+// A same-named policy in another namespace, or at cluster scope, must not
+// adopt a downstream. A downstream without the policy namespace label predates
+// it and belongs to the cluster-scoped policy.
+func TestIsManagedByPolicy_PolicyNamespace(t *testing.T) {
+	tests := []struct {
+		name            string
+		labelNamespace  *string
+		policyNamespace string
+		want            bool
+	}{
+		{name: "same namespace", labelNamespace: ptr.To("tenant-ns"), policyNamespace: "tenant-ns", want: true},
+		{name: "other namespace", labelNamespace: ptr.To("other-ns"), policyNamespace: "tenant-ns", want: false},
+		{name: "cluster label, namespaced policy", labelNamespace: ptr.To(""), policyNamespace: "tenant-ns", want: false},
+		{name: "namespaced label, cluster policy", labelNamespace: ptr.To("tenant-ns"), policyNamespace: "", want: false},
+		{name: "cluster label, cluster policy", labelNamespace: ptr.To(""), policyNamespace: "", want: true},
+		{name: "missing label, cluster policy", policyNamespace: "", want: true},
+		{name: "missing label, namespaced policy", policyNamespace: "tenant-ns", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			labels := map[string]string{
+				kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+				common.GeneratePolicyLabel:     "pol",
+				common.GenerateTriggerUIDLabel: "trigger-uid",
+			}
+			if tt.labelNamespace != nil {
+				labels[common.GeneratePolicyNamespaceLabel] = *tt.labelNamespace
+			}
+			obj := &unstructured.Unstructured{Object: map[string]any{}}
+			obj.SetLabels(labels)
+			cp := &contextProvider{}
+			cp.SetGenerateContext("pol", tt.policyNamespace, "trigger", "tenant-ns", "v1", "", "Secret", "trigger-uid", false, false)
+
+			assert.Equal(t, tt.want, cp.isManagedByPolicy(obj))
+		})
+	}
 }
