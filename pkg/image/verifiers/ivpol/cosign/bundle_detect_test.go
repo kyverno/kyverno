@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
@@ -373,4 +374,97 @@ func Test_BundleDetection_MatchesCosign_TwoGenuineBundles(t *testing.T) {
 	bundle2, _ := signV3Bundle(t, subject.Digest.Hex, "https://example.com/predicate")
 	pushReferrer(t, repo, subject, bundle2, testBundleMediaType, testBundleMediaType)
 	detectionEquivalence(t, repo, true)
+}
+
+// plainHTTPTransport returns a transport that routes every connection to the
+// plain-HTTP test registry behind repo, whatever the host, and the registry's
+// port, so a test can address that registry by a non-local hostname.
+func plainHTTPTransport(t *testing.T, repo name.Repository) (*http.Transport, string) {
+	t.Helper()
+	addr := repo.RegistryStr()
+	dialer := &net.Dialer{}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return dialer.DialContext(ctx, network, addr)
+	}
+	_, port, err := net.SplitHostPort(addr)
+	require.NoError(t, err)
+	return transport, port
+}
+
+// Test_BundleDetection_InsecureRegistryKeepsHTTP covers a plain-HTTP registry
+// reached by a hostname that go-containerregistry does not treat as local
+// (localhost, loopback and RFC 1918 literals default to HTTP anyway). With
+// allowInsecureRegistry the image reference carries name.Insecure, and every
+// referrer reference built from it must keep that flag, otherwise the referrer
+// manifest is requested over HTTPS and the bundle is silently skipped.
+func Test_BundleDetection_InsecureRegistryKeepsHTTP(t *testing.T) {
+	repo, _ := newBundleRegistry(t)
+	subject := pushSubject(t, repo, "subject")
+	pushReferrer(t, repo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
+
+	transport, port := plainHTTPTransport(t, repo)
+
+	ref, err := name.ParseReference("registry.kyverno.test:"+port+"/test/img:subject", name.Insecure)
+	require.NoError(t, err)
+	require.Equal(t, "http", ref.Context().Scheme())
+
+	v := NewVerifier(nil, logr.Discard())
+	bundles, hash := v.loadBundles(ref, []ociremote.Option{
+		ociremote.WithRemoteOptions(remote.WithTransport(transport)),
+	})
+	require.NotNil(t, hash, "the subject digest must resolve over HTTP")
+	assert.Len(t, bundles, 1, "the bundle referrer must be fetched over HTTP, like the referrers list")
+}
+
+// Test_BundleDetection_InsecureSourceRepositoryKeepsHTTP covers the
+// source.repository path: the signature repository that checkOptions builds
+// becomes the target repository of loadBundles, so it must keep name.Insecure
+// as well, or the bundle referrer is requested over HTTPS and skipped.
+func Test_BundleDetection_InsecureSourceRepositoryKeepsHTTP(t *testing.T) {
+	repo, _ := newBundleRegistry(t)
+	subject := pushSubject(t, repo, "subject")
+	pushReferrer(t, repo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
+
+	transport, port := plainHTTPTransport(t, repo)
+	host := "registry.kyverno.test:" + port
+
+	ref, err := name.ParseReference(host+"/test/img:subject", name.Insecure)
+	require.NoError(t, err)
+
+	att := bundleTestAttestor()
+	att.Source = &v1beta1.Source{Repository: host + "/test/img"}
+	opts, err := checkOptions(context.TODO(), att, ref.Context().RegistryStr(), []remote.Option{remote.WithTransport(transport)}, []name.Option{name.Insecure}, nil)
+	require.NoError(t, err)
+
+	v := NewVerifier(nil, logr.Discard())
+	bundles, hash := v.loadBundles(ref, opts.RegistryClientOpts)
+	require.NotNil(t, hash, "the subject digest must resolve over HTTP")
+	assert.Len(t, bundles, 1, "the bundle referrer must be fetched from source.repository over HTTP")
+}
+
+// Test_BundleDetection_InsecureSourceRepositoryViaImage runs the production
+// caller: buildCheckOptsWithBundleDetection must pass the image's registry to
+// checkOptions, so a source.repository on the image's plain-HTTP registry
+// keeps name.Insecure and its bundle is loaded.
+func Test_BundleDetection_InsecureSourceRepositoryViaImage(t *testing.T) {
+	repo, _ := newBundleRegistry(t)
+	subject := pushSubject(t, repo, "subject")
+	pushReferrer(t, repo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
+
+	transport, port := plainHTTPTransport(t, repo)
+	host := "registry.kyverno.test:" + port
+
+	idf, err := imagedataloader.New(nil, nil, nil)
+	require.NoError(t, err)
+	img, err := idf.FetchImageData(context.TODO(), host+"/test/img:subject", []remote.Option{remote.WithTransport(transport)}, []name.Option{name.Insecure})
+	require.NoError(t, err)
+
+	att := bundleTestAttestor()
+	att.Source = &v1beta1.Source{Repository: host + "/test/img"}
+	v := NewVerifier(nil, logr.Discard())
+	cOpts, bundles, _, err := v.buildCheckOptsWithBundleDetection(context.TODO(), att, img)
+	require.NoError(t, err)
+	assert.Len(t, bundles, 1, "the bundle referrer must be fetched from source.repository over HTTP")
+	assert.True(t, cOpts.NewBundleFormat)
 }
