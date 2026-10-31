@@ -446,6 +446,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		explicitOperations.Insert(res.Operation)
 	}
+	nsResolver := processor.GetNamespaceResolver(vars, dClient, len(testCase.Test.ClusterResources) > 0)
+
 	// evalResource is a closure that applies all loaded policies to a single
 	// resource under the given admission operation. The defaultRun flag controls
 	// whether DeletingPolicies are evaluated (they run only once, in the default
@@ -457,6 +459,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	evalResource := func(resource *unstructured.Unstructured, operation string, defaultRun bool) ([]engineapi.EngineResponse, error) {
 		// the policy processor is for multiple policies at once
 		pp := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             &store,
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
@@ -497,7 +500,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				nil,
 				[]*unstructured.Unstructured{resource},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				userInfo,
 				&resultCounts,
 				dClient,
@@ -522,7 +525,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{resource},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				&resultCounts,
 				dClient,
 				true,
@@ -586,6 +589,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             &store,
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
@@ -634,7 +638,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				[]*unstructured.Unstructured{{Object: jp.data}},
 				nil,
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				userInfo,
 				&resultCounts,
 				dClient,
@@ -658,7 +662,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{{Object: jp.data}},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				&resultCounts,
 				dClient,
 				true,

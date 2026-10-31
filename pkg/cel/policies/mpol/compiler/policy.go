@@ -235,7 +235,7 @@ func (p *Policy) evaluate(
 ) *EvaluationResult {
 	versionedAttributes := &admission.VersionedAttributes{
 		Attributes:      attr,
-		VersionedObject: attr.GetObject(),
+		VersionedObject: admission.NewLazyObject(attr.GetObject()),
 		VersionedKind:   attr.GetKind(),
 	}
 	data, err := prepareData(attr, &request, namespace, requestMapFn)
@@ -422,8 +422,7 @@ func (p *Policy) evaluate(
 			return &EvaluationResult{Skipped: true, Trace: decision()}
 		}
 
-		versionedAttributes.Dirty = true
-		versionedAttributes.VersionedObject = newVersionedObject
+		versionedAttributes.UpdateObject(newVersionedObject)
 
 		// the program data (the object) is supplied through the data map. we need to update
 		// the map to get the patched object from the previous patch
@@ -437,7 +436,7 @@ func (p *Policy) evaluate(
 	}
 
 	return &EvaluationResult{
-		PatchedResource:  versionedAttributes.VersionedObject.(*unstructured.Unstructured),
+		PatchedResource:  versionedAttributes.VersionedObject.Object().(*unstructured.Unstructured),
 		AuditAnnotations: auditAnnotations,
 		Trace:            decision(),
 	}

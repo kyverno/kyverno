@@ -69,7 +69,7 @@ func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchR
 	}
 	o := patchRequest.ObjectInterfaces
 	jsonSerializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, o.GetObjectCreater(), o.GetObjectTyper(), json.SerializerOptions{Pretty: false, Strict: true})
-	objJS, err := runtime.Encode(jsonSerializer, patchRequest.VersionedAttributes.VersionedObject)
+	objJS, err := runtime.Encode(jsonSerializer, patchRequest.VersionedAttributes.VersionedObject.Object())
 	if err != nil {
 		return nil, eval, fmt.Errorf("failed to create JSON patch: %w", err)
 	}
@@ -78,13 +78,13 @@ func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchR
 		if errors.Is(err, jsonpatch.ErrTestFailed) {
 			// If a json patch fails a test operation, the patch must not be applied
 			eval.NotApplied = "a test operation failed, so the object was left unchanged"
-			return patchRequest.VersionedAttributes.VersionedObject, eval, nil
+			return patchRequest.VersionedAttributes.VersionedObject.Object(), eval, nil
 		}
 		return nil, eval, fmt.Errorf("JSON Patch: %w", err)
 	}
 
 	var newVersionedObject runtime.Object
-	if _, ok := patchRequest.VersionedAttributes.VersionedObject.(*unstructured.Unstructured); ok {
+	if _, ok := patchRequest.VersionedAttributes.VersionedObject.Object().(*unstructured.Unstructured); ok {
 		newVersionedObject = &unstructured.Unstructured{}
 	} else {
 		newVersionedObject, err = o.GetObjectCreater().New(patchRequest.VersionedAttributes.VersionedKind)

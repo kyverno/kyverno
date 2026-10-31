@@ -496,7 +496,10 @@ type resource struct {
 }
 
 func (r resource) Kind() string {
-	return strings.ReplaceAll(r.Type.Name(), "Interface", "")
+	// client-go 0.37 returns discovery.DiscoveryInterfaces from Discovery();
+	// strip the plural too so the metric kind label stays "Discovery".
+	name := strings.TrimSuffix(r.Type.Name(), "Interfaces")
+	return strings.ReplaceAll(name, "Interface", "")
 }
 
 type resourceKey reflect.Method
