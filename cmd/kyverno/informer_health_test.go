@@ -13,7 +13,7 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/informers/health"
@@ -44,8 +44,8 @@ func TestAdmissionWatchReadinessRegression(t *testing.T) {
 	for _, mode := range []string{"list-eof", "watchlist-error"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
-			var policy kyvernov2beta1.GlobalContextEntry
-			require.NoError(t, json.Unmarshal([]byte(`{"apiVersion":"kyverno.io/v2beta1","kind":"GlobalContextEntry","metadata":{"name":"require-label","resourceVersion":"1","labels":{"approved":"old"}},"spec":{"kubernetesResource":{"version":"v1","resource":"configmaps"}}}`), &policy))
+			var policy kyvernov2.GlobalContextEntry
+			require.NoError(t, json.Unmarshal([]byte(`{"apiVersion":"kyverno.io/v2","kind":"GlobalContextEntry","metadata":{"name":"require-label","resourceVersion":"1","labels":{"approved":"old"}},"spec":{"kubernetesResource":{"version":"v1","resource":"configmaps"}}}`), &policy))
 			var mu sync.Mutex
 			disconnected := false
 			drop := make(chan struct{})
@@ -67,11 +67,11 @@ func TestAdmissionWatchReadinessRegression(t *testing.T) {
 				resource := path.Base(r.URL.Path)
 				kinds := map[string]string{"globalcontextentries": "GlobalContextEntry"}
 				kind, ok := kinds[resource]
-				if !ok {
+				if !ok || r.URL.Path != "/apis/kyverno.io/v2/globalcontextentries" {
 					http.NotFound(w, r)
 					return
 				}
-				apiVersion := "kyverno.io/v2beta1"
+				apiVersion := "kyverno.io/v2"
 				w.Header().Set("Content-Type", "application/json")
 				enc := json.NewEncoder(w)
 				if r.URL.Query().Get("watch") != "true" {
@@ -113,8 +113,8 @@ func TestAdmissionWatchReadinessRegression(t *testing.T) {
 			tracker := health.NewTracker(logr.Discard(), clock)
 			factory := kyvernoinformers.NewSharedInformerFactory(client, 0)
 			registerAdmissionInformers(factory, client, tracker)
-			gce := factory.Kyverno().V2beta1().GlobalContextEntries()
-			require.Same(t, gce.Informer(), factory.Kyverno().V2beta1().GlobalContextEntries().Informer())
+			gce := factory.Kyverno().V2().GlobalContextEntries()
+			require.Same(t, gce.Informer(), factory.Kyverno().V2().GlobalContextEntries().Informer())
 			factory.Start(ctx.Done())
 			defer factory.Shutdown() // Cancel before waiting for the factory below.
 			defer cancel()

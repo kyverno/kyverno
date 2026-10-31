@@ -78,8 +78,8 @@ it as a documented page; it's registered as an external package pointing at pkg.
 
 ## A genuinely new kind still goes to `v2alpha1` — its current occupant is just further along its own lifecycle
 
-`v2alpha1`'s sole occupant, `GlobalContextEntry`, has moved on to two further versions (`v2beta1`, the current CRD
-storage version, then `v2`, newer but not yet the storage version), and the `v2alpha1` copy is now the one marked
+`v2alpha1`'s sole occupant, `GlobalContextEntry`, is also served through `v2beta1` and `v2`. Runtime clients and CRD storage use
+`v2`; the older versions remain served, and the `v2alpha1` copy is marked
 deprecated — see
 [docs/context/shared/api-versioning.md](../docs/context/shared/api-versioning.md#a-real-worked-example-of-the-full-lifecycle-globalcontextentry).
 Check what a version actually contains before assuming its current role from the general rule alone.

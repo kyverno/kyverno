@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,7 +25,7 @@ func newMustReturn(t *testing.T, ctx context.Context, host string) {
 	t.Helper()
 	dyn, err := dynamic.NewForConfig(&rest.Config{Host: host})
 	require.NoError(t, err)
-	gce := &kyvernov2beta1.GlobalContextEntry{}
+	gce := &kyvernov2.GlobalContextEntry{}
 	gvr := schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "httproutes"}
 
 	type result struct {

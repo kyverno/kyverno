@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -55,7 +55,7 @@ func TestUnmarshalGlobalContext(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				var gctx *kyvernov2beta1.GlobalContextEntry
+				var gctx *kyvernov2.GlobalContextEntry
 				json.Unmarshal(test.raw, &gctx)
 				if !reflect.DeepEqual(result, gctx) {
 					t.Errorf("Expected %+v, got %+v", gctx, result)
@@ -154,7 +154,7 @@ func TestGetGlobalContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			g1, g2, _ := GetGlobalContextEntry(test.args.request)
-			var empty *kyvernov2beta1.GlobalContextEntry
+			var empty *kyvernov2.GlobalContextEntry
 			expectedG1, err := UnmarshalGlobalContextEntry(test.args.request.Object.Raw)
 			if err != nil {
 				expectedG2 := empty

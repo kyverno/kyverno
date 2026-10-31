@@ -13,7 +13,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -163,9 +163,9 @@ func (b *blockingAPIClient) RawAbsPath(ctx context.Context, _ string, _ string, 
 
 func TestEntry_Stop_NoDeadlockWithInflightCall(t *testing.T) {
 	client := &blockingAPIClient{started: make(chan struct{})}
-	gce := &kyvernov2beta1.GlobalContextEntry{
-		Spec: kyvernov2beta1.GlobalContextEntrySpec{
-			APICall: &kyvernov2beta1.ExternalAPICall{
+	gce := &kyvernov2.GlobalContextEntry{
+		Spec: kyvernov2.GlobalContextEntrySpec{
+			APICall: &kyvernov2.ExternalAPICall{
 				APICall: kyverno.APICall{
 					URLPath: "/apis",
 					Method:  "GET",
@@ -506,13 +506,13 @@ func TestEntry_SetData_RequestBudgetExhaustion(t *testing.T) {
 // TestEntry_New_BadCELExpressionFails confirms a bad CEL expression fails New with an
 // error naming the projection, before any apiCall worker starts.
 func TestEntry_New_BadCELExpressionFails(t *testing.T) {
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-gce"},
-		Spec: kyvernov2beta1.GlobalContextEntrySpec{
-			Projections: []kyvernov2beta1.GlobalContextEntryProjection{
+		Spec: kyvernov2.GlobalContextEntrySpec{
+			Projections: []kyvernov2.GlobalContextEntryProjection{
 				{Name: "bad", Expression: "object.sizee()"},
 			},
-			APICall: &kyvernov2beta1.ExternalAPICall{},
+			APICall: &kyvernov2.ExternalAPICall{},
 		},
 	}
 

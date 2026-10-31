@@ -612,6 +612,9 @@ func (c *ApplyCommandConfig) applyPolicies(
 				rc.IncrementError(1)
 				contextProvider = nil
 			} else {
+				if fakeContext, ok := contextProvider.(*libs.FakeContextProvider); ok {
+					fakeContext.SetGlobalContextStore(store.GetGlobalContextStore())
+				}
 				if len(vpols) != 0 {
 					compiler := vpolcompiler.NewCompilerWithTrace(c.Explain)
 					var jsonPolicies []policiesv1beta1.ValidatingPolicyLike

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -39,16 +39,16 @@ func TestGlobalContextValidate(t *testing.T) {
 	logger := logr.Discard()
 	now := time.Now()
 
-	validGctx := &kyvernov2beta1.GlobalContextEntry{
+	validGctx := &kyvernov2.GlobalContextEntry{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "GlobalContextEntry",
-			APIVersion: "kyverno.io/v2beta1",
+			APIVersion: "kyverno.io/v2",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "valid-entry",
 		},
-		Spec: kyvernov2beta1.GlobalContextEntrySpec{
-			KubernetesResource: &kyvernov2beta1.KubernetesResource{
+		Spec: kyvernov2.GlobalContextEntrySpec{
+			KubernetesResource: &kyvernov2.KubernetesResource{
 				Group:    "",
 				Version:  "v1",
 				Resource: "pods",
@@ -56,15 +56,15 @@ func TestGlobalContextValidate(t *testing.T) {
 		},
 	}
 
-	invalidGctx := &kyvernov2beta1.GlobalContextEntry{
+	invalidGctx := &kyvernov2.GlobalContextEntry{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "GlobalContextEntry",
-			APIVersion: "kyverno.io/v2beta1",
+			APIVersion: "kyverno.io/v2",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "invalid-entry",
 		},
-		Spec: kyvernov2beta1.GlobalContextEntrySpec{},
+		Spec: kyvernov2.GlobalContextEntrySpec{},
 	}
 
 	tests := []struct {

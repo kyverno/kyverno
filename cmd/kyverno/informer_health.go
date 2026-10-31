@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/informers/health"
@@ -23,7 +23,7 @@ func registerAdmissionInformers(factory kyvernoinformers.SharedInformerFactory, 
 			return tracker.NewInformer(lw, obj, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 		})
 	}
-	register(&kyvernov2beta1.GlobalContextEntry{}, admissionListWatch(client, client.KyvernoV2beta1().GlobalContextEntries().List, client.KyvernoV2beta1().GlobalContextEntries().Watch))
+	register(&kyvernov2.GlobalContextEntry{}, admissionListWatch(client, client.KyvernoV2().GlobalContextEntries().List, client.KyvernoV2().GlobalContextEntries().Watch))
 }
 
 func admissionListWatch[T runtime.Object](client any, list func(context.Context, metav1.ListOptions) (T, error), watch func(context.Context, metav1.ListOptions) (watch.Interface, error)) cache.ListerWatcher {

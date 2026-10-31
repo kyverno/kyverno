@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
-	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
+	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
@@ -37,7 +37,7 @@ const (
 
 type controller struct {
 	// listers
-	gceLister kyvernov2beta1listers.GlobalContextEntryLister
+	gceLister kyvernov2listers.GlobalContextEntryLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
@@ -55,7 +55,7 @@ type controller struct {
 }
 
 func NewController(
-	gceInformer kyvernov2beta1informers.GlobalContextEntryInformer,
+	gceInformer kyvernov2informers.GlobalContextEntryInformer,
 	kubeClient kubernetes.Interface,
 	dclient dclient.Interface,
 	kyvernoClient versioned.Interface,
@@ -91,12 +91,12 @@ func NewController(
 	return c
 }
 
-func (c *controller) addGTXEntry(obj *kyvernov2beta1.GlobalContextEntry) {
+func (c *controller) addGTXEntry(obj *kyvernov2.GlobalContextEntry) {
 	logger.V(4).Info("globalcontextentry created", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 
-func (c *controller) updateGTXEntry(old, obj *kyvernov2beta1.GlobalContextEntry) {
+func (c *controller) updateGTXEntry(old, obj *kyvernov2.GlobalContextEntry) {
 	if datautils.DeepEqual(old.Spec, obj.Spec) {
 		return
 	}
@@ -104,12 +104,12 @@ func (c *controller) updateGTXEntry(old, obj *kyvernov2beta1.GlobalContextEntry)
 	c.enqueueGCTXEntry(obj)
 }
 
-func (c *controller) deleteGTXEntry(obj *kyvernov2beta1.GlobalContextEntry) {
+func (c *controller) deleteGTXEntry(obj *kyvernov2.GlobalContextEntry) {
 	logger.V(4).Info("globalcontextentry deleted", "uid", obj.GetUID(), "kind", obj.Kind, "name", obj.GetName())
 	c.enqueueGCTXEntry(obj)
 }
 
-func (c *controller) enqueueGCTXEntry(gctxentry *kyvernov2beta1.GlobalContextEntry) {
+func (c *controller) enqueueGCTXEntry(gctxentry *kyvernov2.GlobalContextEntry) {
 	key, err := cache.MetaNamespaceKeyFunc(gctxentry)
 	if err != nil {
 		logger.Error(err, "failed to enqueue global context entry")
@@ -161,11 +161,11 @@ func (c *controller) requeueStoreFull(logger logr.Logger, key any) {
 	c.queue.AddAfter(key, storeFullRequeueDelay)
 }
 
-func (c *controller) getEntry(name string) (*kyvernov2beta1.GlobalContextEntry, error) {
+func (c *controller) getEntry(name string) (*kyvernov2.GlobalContextEntry, error) {
 	return c.gceLister.Get(name)
 }
 
-func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2beta1.GlobalContextEntry) (store.Entry, error) {
+func (c *controller) makeStoreEntry(ctx context.Context, gce *kyvernov2.GlobalContextEntry) (store.Entry, error) {
 	if gce.Spec.KubernetesResource != nil {
 		gvr := schema.GroupVersionResource{
 			Group:    gce.Spec.KubernetesResource.Group,

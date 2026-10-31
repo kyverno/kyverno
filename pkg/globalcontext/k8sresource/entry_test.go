@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -349,7 +349,7 @@ func TestEntry_RecomputeProjections_Success(t *testing.T) {
 
 	eventGen := &mockEventGen{}
 
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-gce",
 		},
@@ -379,7 +379,7 @@ func TestEntry_RecomputeProjections_ListerError(t *testing.T) {
 
 	eventGen := &mockEventGen{}
 
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-gce",
 		},
@@ -414,7 +414,7 @@ func TestEntry_RecomputeProjections_ProjectionError(t *testing.T) {
 
 	eventGen := &mockEventGen{}
 
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-gce",
 		},
@@ -450,7 +450,7 @@ func TestEntry_RecomputeProjections_MultipleProjections(t *testing.T) {
 
 	eventGen := &mockEventGen{}
 
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-gce",
 		},
@@ -522,7 +522,7 @@ func TestEntry_RecomputeProjections_CELExpression(t *testing.T) {
 
 	eventGen := &mockEventGen{}
 
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-gce"},
 	}
 
@@ -562,7 +562,7 @@ func TestEntry_RecomputeProjections_CELExpressionError(t *testing.T) {
 
 	eventGen := &mockEventGen{}
 
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-gce"},
 	}
 
@@ -618,7 +618,7 @@ func TestEntry_RecomputeProjections_RequestBudgetExhaustion(t *testing.T) {
 	mockQuery := &mockJMESPathQuery{result: "cheap-ok"}
 
 	eventGen := &mockEventGen{}
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-gce"},
 	}
 
@@ -677,10 +677,10 @@ func TestEntry_New_BadCELExpressionFails(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dClient := dynamicfake.NewSimpleDynamicClient(scheme)
 
-	gce := &kyvernov2beta1.GlobalContextEntry{
+	gce := &kyvernov2.GlobalContextEntry{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-gce"},
-		Spec: kyvernov2beta1.GlobalContextEntrySpec{
-			Projections: []kyvernov2beta1.GlobalContextEntryProjection{
+		Spec: kyvernov2.GlobalContextEntrySpec{
+			Projections: []kyvernov2.GlobalContextEntryProjection{
 				{Name: "bad", Expression: "object.sizee()"},
 			},
 		},
