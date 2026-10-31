@@ -85,6 +85,15 @@ func buildGlobalContextStore(
 		projections := make(map[string]interface{})
 		for _, p := range gce.Spec.Projections {
 			var proj gctxstore.Projection
+			// Mirror the CRD's exactly-one-of rule. Without this the branch below takes
+			// expression and silently discards jmesPath, so a manifest the API server
+			// rejects would pass offline - the opposite of what this command is for.
+			switch {
+			case p.Expression != "" && p.JMESPath != "":
+				return nil, fmt.Errorf("projection %q for GlobalContextEntry %s sets both jmesPath and expression: exactly one is allowed", p.Name, gce.Name)
+			case p.Expression == "" && p.JMESPath == "":
+				return nil, fmt.Errorf("projection %q for GlobalContextEntry %s sets neither jmesPath nor expression: exactly one is required", p.Name, gce.Name)
+			}
 			if p.Expression != "" {
 				prog, errs := compiler.CompileGlobalContextProjection(field.NewPath("expression"), p.Expression)
 				if len(errs) > 0 {
