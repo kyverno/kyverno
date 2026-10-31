@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v2beta1
+kind: GlobalContextEntry
+metadata:
+  name: runtime-custom-widgets
+spec:
+  kubernetesResource:
+    group: runtime.globalcontext.kyverno.io
+    version: v1alpha1
+    resource: widgets
+    namespace: test-globalcontext-runtime-custom-resource
