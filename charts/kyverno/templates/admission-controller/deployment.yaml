@@ -223,7 +223,11 @@ spec:
             ) | nindent 12 }}
             {{- range $key, $value := .Values.admissionController.container.extraArgs }}
             {{- if $value }}
+            {{- if hasPrefix "--" $key }}
+            - {{ $key }}={{ $value }}
+            {{- else }}
             - --{{ $key }}={{ $value }}
+            {{- end }}
             {{- end }}
             {{- end }}
             {{ if .Values.admissionController.profiling.enabled }}
@@ -245,6 +249,30 @@ spec:
           - containerPort: {{ .Values.admissionController.metering.port }}
             name: metrics-port
             protocol: TCP
+          {{- $features := mergeOverwrite (deepCopy .Values.features) .Values.admissionController.featuresOverride }}
+          {{- $bindAddress := ":8080" }}
+          {{- if and $features.controllerRuntimeMetrics (hasKey $features.controllerRuntimeMetrics "bindAddress") }}
+            {{- if ne ($features.controllerRuntimeMetrics.bindAddress | toString) "" }}
+              {{- $bindAddress = $features.controllerRuntimeMetrics.bindAddress | toString }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.admissionController.container.extraArgs }}
+            {{- $val := "" }}
+            {{- if hasKey . "controllerRuntimeMetricsAddress" }}
+              {{- $val = index . "controllerRuntimeMetricsAddress" }}
+            {{- else if hasKey . "--controllerRuntimeMetricsAddress" }}
+              {{- $val = index . "--controllerRuntimeMetricsAddress" }}
+            {{- end }}
+            {{- if $val }}
+              {{- $bindAddress = $val | toString }}
+            {{- end }}
+          {{- end }}
+          {{- $port := last (splitList ":" $bindAddress) | int }}
+          {{- if and (ne $bindAddress "0") (ne $bindAddress ":0") (gt $port 0) }}
+          - containerPort: {{ $port }}
+            name: cr-metrics
+            protocol: TCP
+          {{- end }}
           {{ if .Values.admissionController.profiling.enabled }}
           - containerPort: {{ .Values.admissionController.profiling.port }}
             name: profiling-port
