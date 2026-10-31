@@ -1107,16 +1107,6 @@ func GetNamespaceResolver(vars *variables.Variables, client dclient.Interface, c
 				} else if apierrors.IsNotFound(err) {
 					isNotFound = true
 				}
-			} else {
-				res, err := client.GetResource(ctx, "v1", "Namespace", "", name)
-				if err == nil && res != nil {
-					var ns corev1.Namespace
-					if err := runtime.DefaultUnstructuredConverter.FromUnstructured(res.UnstructuredContent(), &ns); err == nil {
-						resolved = &ns
-					}
-				} else if apierrors.IsNotFound(err) {
-					isNotFound = true
-				}
 			}
 
 			// Cache confirmed results: either a found namespace or confirmed 404 (not found).
