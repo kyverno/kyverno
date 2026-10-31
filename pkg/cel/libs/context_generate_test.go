@@ -3,9 +3,12 @@ package libs
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
@@ -14,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 func generateTestRESTMapper() meta.RESTMapper {
@@ -34,6 +38,83 @@ func clusterRoleBinding() map[string]any {
 		"apiVersion": "rbac.authorization.k8s.io/v1",
 		"kind":       "ClusterRoleBinding",
 		"metadata":   map[string]any{"name": "escalate"},
+	}
+}
+
+func TestAddGenerateLabels_TriggerNameLabel(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		triggerName string
+		wantLabel   bool
+	}{
+		{name: "over 63 characters", triggerName: strings.Repeat("a", 64)},
+		{name: "long name", triggerName: strings.Repeat("a", 100)},
+		{name: "hyphen at cutoff", triggerName: strings.Repeat("a", 62) + "-" + strings.Repeat("b", 20)},
+		{name: "exactly 63 characters", triggerName: strings.Repeat("a", 63), wantLabel: true},
+		{name: "long dotted name", triggerName: strings.Repeat("a.", 126) + "a"},
+		{name: "63 character dotted name", triggerName: strings.Repeat("a.", 31) + "a", wantLabel: true},
+		{name: "short dotted name", triggerName: "a.b.c", wantLabel: true},
+		{name: "short name", triggerName: "short-trigger", wantLabel: true},
+		{name: "invalid label value", triggerName: "-invalid"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cp := &contextProvider{}
+			cp.SetGenerateContext("test-gpol", "", tt.triggerName, "tenant-ns", "v1", "", "ConfigMap", "trigger-uid", false, false)
+
+			obj := &unstructured.Unstructured{}
+			obj.SetLabels(map[string]string{common.GenerateTriggerNameLabel: "stale-name", "custom": "keep"})
+			cp.addGenerateLabels(obj)
+
+			got, present := obj.GetLabels()[common.GenerateTriggerNameLabel]
+			assert.Equal(t, tt.wantLabel, present)
+			if tt.wantLabel {
+				assert.Equal(t, tt.triggerName, got)
+				assert.Empty(t, validation.IsValidLabelValue(got))
+			}
+			assert.Equal(t, "keep", obj.GetLabels()["custom"])
+		})
+	}
+}
+
+func TestAddGenerateLabels_LongTriggerNameResolvesByUID(t *testing.T) {
+	for _, tt := range []struct {
+		kind      string
+		group     string
+		namespace string
+	}{
+		{kind: "ConfigMap", namespace: "tenant-ns"},
+		{kind: "ClusterRoleBinding", group: "rbac.authorization.k8s.io"},
+	} {
+		t.Run(tt.kind, func(t *testing.T) {
+			trigger := &unstructured.Unstructured{}
+			gv := schema.GroupVersion{Group: tt.group, Version: "v1"}
+			trigger.SetAPIVersion(gv.String())
+			trigger.SetKind(tt.kind)
+			trigger.SetName(strings.Repeat("a.", 126) + "a")
+			trigger.SetNamespace(tt.namespace)
+			trigger.SetUID("trigger-uid")
+
+			client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, trigger)
+			require.NoError(t, err)
+			client.SetDiscovery(dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
+				{Group: tt.group, Version: "v1", Resource: "clusterrolebindings"},
+			}))
+
+			cp := &contextProvider{}
+			cp.SetGenerateContext("test-gpol", "", trigger.GetName(), tt.namespace, "v1", tt.group, tt.kind, string(trigger.GetUID()), false, false)
+			downstream := &unstructured.Unstructured{}
+			cp.addGenerateLabels(downstream)
+
+			spec := common.TriggerFromLabels(downstream.GetLabels())
+			got, err := common.GetResource(client, spec, kyvernov2.UpdateRequestSpec{}, logr.Discard())
+			require.NoError(t, err)
+			assert.Equal(t, trigger, got)
+			assert.Empty(t, spec.Name)
+			assert.Equal(t, trigger.GetUID(), spec.UID)
+			assert.Equal(t, trigger.GetNamespace(), spec.Namespace)
+			assert.Equal(t, trigger.GetAPIVersion(), spec.APIVersion)
+			assert.Equal(t, trigger.GetKind(), spec.Kind)
+		})
 	}
 }
 
