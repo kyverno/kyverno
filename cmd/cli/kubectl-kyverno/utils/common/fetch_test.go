@@ -233,7 +233,7 @@ func TestExtractResourcesFromPolicies_NewBranches(t *testing.T) {
 			}
 			info := &resourceTypeInfo{
 				gvkMap:         make(map[schema.GroupVersionKind]bool),
-				subresourceMap: make(map[schema.GroupVersionKind]v1alpha1.Subresource),
+				subresourceMap: make(map[subresourceKey]v1alpha1.Subresource),
 			}
 			// Should not panic; the branch assigns matchResources
 			// and getKindsFromPolicy handles the fake client gracefully.
@@ -373,7 +373,7 @@ func TestExtractResourcesFromPolicies_AllPolicyKinds(t *testing.T) {
 			}
 			info := &resourceTypeInfo{
 				gvkMap:         make(map[schema.GroupVersionKind]bool),
-				subresourceMap: make(map[schema.GroupVersionKind]v1alpha1.Subresource),
+				subresourceMap: make(map[subresourceKey]v1alpha1.Subresource),
 			}
 
 			rf.extractResourcesFromPolicies(info)
