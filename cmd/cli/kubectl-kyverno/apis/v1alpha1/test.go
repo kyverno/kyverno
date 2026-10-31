@@ -119,13 +119,13 @@ type GlobalContextProjection struct {
 
 	// Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.
 	// Mutually exclusive with Expression.
-	// +kubebuilder:validation:Optional
+	// +optional
 	Path string `json:"path,omitempty"`
 
 	// Expression is a CEL expression evaluated against the root after FieldPath (if any) is
 	// applied, bound to the `object` variable, matching the real GlobalContextEntry projection's
 	// expression field. Mutually exclusive with Path.
-	// +kubebuilder:validation:Optional
+	// +optional
 	Expression string `json:"expression,omitempty"`
 }
 
