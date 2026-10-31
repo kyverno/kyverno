@@ -119,10 +119,10 @@ spec:
             {{- end }}
             {{- end }}
             - --disableMetrics={{ .Values.reportsController.metering.disabled }}
+            - --metricsPort={{ .Values.reportsController.metering.port }}
             - --openreportsEnabled={{ .Values.openreports.enabled }}
             {{- if not .Values.reportsController.metering.disabled }}
             - --otelConfig={{ .Values.reportsController.metering.config }}
-            - --metricsPort={{ .Values.reportsController.metering.port }}
             {{- if .Values.reportsController.metering.secure }}
             - --metricsCASecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-ca
             - --metricsTLSSecretName={{ template "kyverno.reports-controller.name" . }}.{{ template "kyverno.namespace" . }}.metering.kyverno-tls-pair
@@ -198,6 +198,25 @@ spec:
           {{- with .Values.reportsController.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- $isGrpc := and (not .Values.reportsController.metering.disabled) (eq .Values.reportsController.metering.config "grpc") }}
+          {{- with .Values.reportsController.startupProbe }}
+          {{- if or (not $isGrpc) (not (and .httpGet (has (tpl .httpGet.path $) (list "/health/liveness" "/health/readiness" "/healthz")))) }}
+          startupProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.reportsController.livenessProbe }}
+          {{- if or (not $isGrpc) (not (and .httpGet (has (tpl .httpGet.path $) (list "/health/liveness" "/health/readiness" "/healthz")))) }}
+          livenessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.reportsController.readinessProbe }}
+          {{- if or (not $isGrpc) (not (and .httpGet (has (tpl .httpGet.path $) (list "/health/liveness" "/health/readiness" "/healthz")))) }}
+          readinessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           {{- end }}
           {{- with .Values.reportsController.lifecycle }}
           lifecycle:
