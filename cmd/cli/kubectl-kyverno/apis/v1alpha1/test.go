@@ -119,11 +119,13 @@ type GlobalContextProjection struct {
 
 	// Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.
 	// Mutually exclusive with Expression.
+	// +kubebuilder:validation:Optional
 	Path string `json:"path,omitempty"`
 
 	// Expression is a CEL expression evaluated against the root after FieldPath (if any) is
 	// applied, bound to the `object` variable, matching the real GlobalContextEntry projection's
 	// expression field. Mutually exclusive with Path.
+	// +kubebuilder:validation:Optional
 	Expression string `json:"expression,omitempty"`
 }
 
@@ -152,7 +154,8 @@ type GlobalContextEntryValue struct {
 	// FieldPath is an optional JMESPath applied to decoded Data (or the resources list) to produce the root before projections.
 	FieldPath string `json:"fieldPath,omitempty"`
 
-	// Projections are optional named JMESPath extracts (see GlobalContextProjection).
+	// Projections are optional named extracts, each written in either JMESPath or CEL
+	// (see GlobalContextProjection).
 	Projections []GlobalContextProjection `json:"projections,omitempty"`
 }
 

@@ -145,8 +145,9 @@ spec:
                   description: Name is the name of the GlobalContextEntry resource.
                   type: string
                 projections:
-                  description: Projections are optional named JMESPath extracts (see
-                    GlobalContextProjection).
+                  description: |-
+                    Projections are optional named extracts, each written in either JMESPath or CEL
+                    (see GlobalContextProjection).
                   items:
                     description: |-
                       GlobalContextProjection pairs a policy-visible name with a JMESPath or CEL expression over

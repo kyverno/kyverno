@@ -31,7 +31,7 @@ its downstream consumer, not just against the JMESPath source.
 |---|---|---|
 | `items \| length(@)` | `object.items.size()` | Result type differs: JMESPath always returns `float64`; `.size()` returns `int64`. |
 | `items[?metadata.name=='x']` | `object.items.filter(i, i.metadata.name == 'x')` | CEL `filter` is the direct analog of JMESPath's `[?...]`. |
-| `items[?metadata.name=='x'].metadata.labels.app` | `object.items.filter(i, i.metadata.name == 'x').map(i, i.metadata.labels.app)` | Filter projections return a list in both languages, even with exactly one match — don't collapse to a scalar unless the JMESPath source also had `\| [0]`. |
+| `items[?metadata.name=='x'].metadata.labels.app` | `object.items.filter(i, i.metadata.name == 'x').map(i, i.metadata.labels.app)` | Filter projections return a list in both languages, even with exactly one match — don't collapse to a scalar unless the JMESPath source also had `\| [0]`. **Missing keys differ:** where an item lacks `labels.app`, JMESPath skips it silently; CEL raises "no such key" and fails the whole projection. Use `has(i.metadata.labels) && 'app' in i.metadata.labels` in the filter when the field may be absent. |
 | `... \| [0]` | `...[0]` | **Not equivalent on an empty list.** JMESPath's `[0]` on an empty result returns `null`; CEL's `[0]` on an empty list throws a runtime error ("index out of bounds: 0") that surfaces as a projection evaluation failure. If the filtered list can legitimately be empty, guard it (e.g. with `.size() > 0 ? ...[0] : <default>`) instead of indexing directly — don't assume the two are interchangeable just because they look the same syntactically. |
 
 The `object` binding and numeric-type notes above apply to every row in this table: an `apiCall`
