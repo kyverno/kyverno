@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	fatihcolor "github.com/fatih/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -89,4 +91,112 @@ func TestCommandWithMutatingPolicyOutputFile(t *testing.T) {
 			assert.Equal(t, 1, strings.Count(string(written), "kind: Pod"))
 		})
 	}
+}
+
+const outputTestMutatingPolicyWithSkip = `
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: skip-mutate-policy
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [pods]
+  matchConditions:
+  - name: is-dev-namespace
+    expression: request.namespace == 'dev'
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"team": "a"}}}
+`
+
+func TestMutatingPolicyColorAndRemoveColor(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	dir := t.TempDir()
+	resourcePath := filepath.Join(dir, "resource.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(outputTestPod), 0o600))
+
+	errorPolicyPath := filepath.Join(dir, "error-policy.yaml")
+	require.NoError(t, os.WriteFile(errorPolicyPath, []byte(fmt.Sprintf(outputTestMutatingPolicy, `object.metadata.annotations["missing"]`)), 0o600))
+
+	skipPolicyPath := filepath.Join(dir, "skip-policy.yaml")
+	require.NoError(t, os.WriteFile(skipPolicyPath, []byte(outputTestMutatingPolicyWithSkip), 0o600))
+
+	t.Run("error with color", func(t *testing.T) {
+		t.Setenv("NO_COLOR", "")
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{errorPolicyPath, "--resource", resourcePath})
+		err := cmd.Execute()
+		require.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "\x1b[31;1merror while applying mutate policy\x1b[0;22m")
+		assert.Contains(t, output, "\x1b[36;1madd-team-label\x1b[0;22m")
+		assert.Contains(t, output, "\x1b[31;1merror:\x1b[0;22m")
+	})
+
+	t.Run("error with remove-color", func(t *testing.T) {
+		t.Setenv("NO_COLOR", "")
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{errorPolicyPath, "--resource", resourcePath, "--remove-color"})
+		err := cmd.Execute()
+		require.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "error while applying mutate policy")
+		assert.Contains(t, output, "add-team-label")
+		assert.Contains(t, output, "error:")
+		assert.NotContains(t, output, "\x1b[")
+	})
+
+	t.Run("skip with color", func(t *testing.T) {
+		t.Setenv("NO_COLOR", "")
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{skipPolicyPath, "--resource", resourcePath})
+		err := cmd.Execute()
+		require.NoError(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "\x1b[33;1mskipped mutate policy\x1b[0;22m")
+		assert.Contains(t, output, "\x1b[36;1mskip-mutate-policy\x1b[0;22m")
+	})
+
+	t.Run("skip with remove-color", func(t *testing.T) {
+		t.Setenv("NO_COLOR", "")
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{skipPolicyPath, "--resource", resourcePath, "--remove-color"})
+		err := cmd.Execute()
+		require.NoError(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "skipped mutate policy")
+		assert.Contains(t, output, "skip-mutate-policy")
+		assert.NotContains(t, output, "\x1b[")
+	})
 }
