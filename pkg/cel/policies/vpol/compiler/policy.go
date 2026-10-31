@@ -118,6 +118,10 @@ func (p *Policy) evaluateWithData(
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
 		for _, polex := range p.exceptions {
+			// Compiled exceptions can expire without a policy or exception update.
+			if polex.IsExpired() {
+				continue
+			}
 			match, err := p.match(ctx, dataNew, polex.MatchConditions, nil)
 			if err != nil {
 				if fullExemptionFound {

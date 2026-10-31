@@ -96,6 +96,10 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		for _, polex := range p.exceptions {
+			// Compiled exceptions can expire without a policy or exception update.
+			if polex.IsExpired() {
+				continue
+			}
 			match, err := p.match(ctx, dataNew, polex.MatchConditions, nil)
 			if err != nil {
 				if !p.trace {
