@@ -27,7 +27,7 @@ an engine in its own right.
 - `jmespath`: the custom JMESPath function registry (`NewFunctionRegistry`), used by the global context
   controller/store (`pkg/controllers/globalcontext`, `pkg/globalcontext/**`), the CLI, and
   `cmd/internal`/`cmd/background-controller` bootstrap — not by `pkg/cel`.
-- `anchor`, `pattern`, `validate`, `operator`, `wildcards`, `jsonutils`: pattern/anchor matching and JSON
+- `anchor`, `pattern`, `validate`, `operator`, `wildcards`: pattern/anchor matching and JSON
   traversal primitives, originally written for legacy rule validation. Still live in the admission path:
   `anchor` is imported by `wildcards`, `validate`, and `mutate/patch` (which is itself on the
   live `ivpol`/`mpol` admission handlers — see below); `pattern` is imported by `validate`, and

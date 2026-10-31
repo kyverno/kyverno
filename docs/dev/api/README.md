@@ -43,6 +43,10 @@ for what still regenerates. Shared types used by several `kyverno.io` versions (
 others) live in the version-less `api/kyverno` package and are documented on pkg.go.dev rather than on a
 per-version reference page, since `api/kyverno` has no version segment for the doc generators to key on.
 
+For what happens to existing `PolicyReport` results, what protects an install/upgrade that doesn't go
+through `helm install`/`helm upgrade`, and what a rollback does and doesn't restore, see
+[legacy policy upgrade notes](./legacy-policy-upgrade-notes.md).
+
 ## Concepts
 * https://kubernetes.io/docs/reference/using-api/api-concepts/ 
 * https://kubernetes.io/docs/reference/using-api/ 

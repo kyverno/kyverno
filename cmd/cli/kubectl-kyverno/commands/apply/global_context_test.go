@@ -1,11 +1,17 @@
 package apply
 
 import (
+	"context"
 	"testing"
 
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestExtractGlobalContextEntries(t *testing.T) {
@@ -82,4 +88,55 @@ func TestStaticEntry_GetProjectionNotFound(t *testing.T) {
 	_, err := entry.Get("missing")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "projection")
+}
+
+func newConfigMapGCE(name string, projections []kyvernov2.GlobalContextEntryProjection) *kyvernov2.GlobalContextEntry {
+	return &kyvernov2.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: kyvernov2.GlobalContextEntrySpec{
+			KubernetesResource: &kyvernov2.KubernetesResource{
+				Version:  "v1",
+				Resource: "configmaps",
+			},
+			Projections: projections,
+		},
+	}
+}
+
+func fakeConfigMapClient(t *testing.T) dclient.Interface {
+	cm := makeUnstructured("v1", "ConfigMap", "default", "my-cm")
+	client, err := dclient.NewFakeClient(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			{Group: "", Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+		},
+		cm,
+	)
+	require.NoError(t, err)
+	return client
+}
+
+func TestBuildGlobalContextStore_ExpressionOnly_NoJMESPathEngineRequired(t *testing.T) {
+	gce := newConfigMapGCE("my-cache", []kyvernov2.GlobalContextEntryProjection{
+		{Name: "count", Expression: "object.size()"},
+	})
+
+	s, err := buildGlobalContextStore(context.Background(), []*kyvernov2.GlobalContextEntry{gce}, fakeConfigMapClient(t), nil)
+	require.NoError(t, err)
+
+	entry, ok := s.Get("my-cache")
+	require.True(t, ok)
+	result, err := entry.Get("count")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), result)
+}
+
+func TestBuildGlobalContextStore_JMESPathProjectionRequiresEngine(t *testing.T) {
+	gce := newConfigMapGCE("my-cache", []kyvernov2.GlobalContextEntryProjection{
+		{Name: "count", JMESPath: "length(@)"},
+	})
+
+	_, err := buildGlobalContextStore(context.Background(), []*kyvernov2.GlobalContextEntry{gce}, fakeConfigMapClient(t), nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "JMESPath engine is required")
 }
