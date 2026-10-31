@@ -93,7 +93,9 @@ annotations are attached to successful rule results.
 
 CEL programs use the shared Kyverno environment, cost limits, request-wide
 budget and cancellation checks. ApplyConfiguration uses the deduced type
-converter for schemaless JSON objects.
+converter for schemaless JSON objects. JSON Patch evaluation limits documents
+and intermediate results to 1 MiB and each patch expression to 1,024
+operations.
 
 ## Tests and follow-up
 

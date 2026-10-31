@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
@@ -164,6 +165,40 @@ func TestJSONMutationTracing(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestJSONSkippedPoliciesDoNotHavePatchedSnapshots(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name       string
+		expression string
+		condition  string
+	}{
+		{"excluded by match condition", `[JSONPatch{op:"add",path:"/next",value:true}]`, "false"},
+		{"failed test operation", `[JSONPatch{op:"test",path:"/missing",value:true}]`, ""},
+	} {
+		for _, tracing := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/tracing=%t", tc.name, tracing), func(t *testing.T) {
+				policy := jsonMutationPolicy("skipped", tc.expression)
+				if tc.condition != "" {
+					policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "excluded", Expression: tc.condition}}
+				}
+				provider, err := NewProvider(compiler.NewCompilerWithTrace(tracing), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
+				require.NoError(t, err)
+				input := jsonObject(t, `{}`)
+				response, err := NewEngine(provider, nil, nil, nil, nil).Handle(
+					context.Background(),
+					celengine.RequestFromJSON(nil, input),
+					nil,
+				)
+				require.NoError(t, err)
+				require.Len(t, response.Policies, 1)
+				require.Equal(t, engineapi.RuleStatusSkip, response.Policies[0].Rules[0].Status())
+				require.Nil(t, response.Policies[0].PatchedResource)
+				require.Equal(t, input, response.PatchedResource)
+			})
+		}
 	}
 }
 

@@ -2,6 +2,8 @@ package compiler
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -207,4 +209,32 @@ func TestEvaluatePatchExpressionOperationMembers(t *testing.T) {
 	assert.JSONEq(t, `"/spec/b"`, string(*patch[0]["path"]))
 	_, hasValue := patch[0]["value"]
 	assert.False(t, hasValue, "a move operation should carry no value")
+}
+
+func TestPatchJSONLimits(t *testing.T) {
+	t.Run("input document size", func(t *testing.T) {
+		patcher := compileJSONPatcher(t, `[JSONPatch{op: "add", path: "/x", value: true}]`)
+		object := map[string]any{"large": strings.Repeat("x", maxJSONDocumentSize)}
+		_, _, err := patcher.PatchJSON(context.Background(), map[string]any{"object": object}, 10000000)
+		require.ErrorContains(t, err, "maximum size")
+	})
+
+	t.Run("intermediate document size", func(t *testing.T) {
+		patcher := compileJSONPatcher(t, `[
+			JSONPatch{op: "copy", from: "/large", path: "/copy1"},
+			JSONPatch{op: "copy", from: "/copy1", path: "/copy2"},
+			JSONPatch{op: "remove", path: "/copy2"}
+		]`)
+		object := map[string]any{"large": strings.Repeat("x", maxJSONDocumentSize/3)}
+		_, _, err := patcher.PatchJSON(context.Background(), map[string]any{"object": object}, 10000000)
+		require.ErrorContains(t, err, "maximum size")
+	})
+
+	t.Run("operation count", func(t *testing.T) {
+		operation := `JSONPatch{op: "add", path: "/x", value: true}`
+		expression := "[" + strings.TrimSuffix(strings.Repeat(operation+",", maxJSONPatchOperations), ",") + "," + operation + "]"
+		patcher := compileJSONPatcher(t, expression)
+		_, _, err := patcher.PatchJSON(context.Background(), map[string]any{"object": map[string]any{}}, 10000000)
+		require.ErrorContains(t, err, fmt.Sprintf("maximum of %d operations", maxJSONPatchOperations))
+	})
 }
