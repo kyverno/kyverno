@@ -123,7 +123,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	r.policies[req.NamespacedName.String()] = policies
-	return ctrl.Result{}, nil
+	return engine.ExceptionExpiryResult(exceptions), nil
 }
 
 func (r *reconciler) Fetch(ctx context.Context) ([]Policy, error) {

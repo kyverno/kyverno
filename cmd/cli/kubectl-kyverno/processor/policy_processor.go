@@ -605,7 +605,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
 		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 		for _, pol := range p.GeneratingPolicies {
-			compiled, errs := compiler.Compile(pol, p.CELExceptions)
+			exceptions := celengine.MatchExceptions(p.CELExceptions, pol.GetKind(), pol.GetName())
+			compiled, errs := compiler.Compile(pol, exceptions)
 			if len(errs) > 0 {
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
 			}

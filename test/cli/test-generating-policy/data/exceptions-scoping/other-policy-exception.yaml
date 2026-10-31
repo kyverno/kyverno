@@ -1,0 +1,11 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: exempt-team-a-from-another-policy
+spec:
+  policyRefs:
+  - name: some-other-policy
+    kind: GeneratingPolicy
+  matchConditions:
+    - name: check-namespace-name
+      expression: "object.metadata.name == 'team-a'"

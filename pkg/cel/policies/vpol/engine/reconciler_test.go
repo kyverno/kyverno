@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -198,6 +199,48 @@ func TestReconcile_ManagerCacheExceptionLister_SeesException(t *testing.T) {
 	// Fixed: the exception is honored and the rule is skipped instead of failing.
 	require.Equal(t, engineapi.RuleStatusSkip, resp.Policies[0].Rules[0].Status(),
 		"the manager-cache-backed lister must honor a PolicyException present in the same cache used to trigger reconciliation")
+}
+
+// TestReconcile_ExpiringException_RequeuesAndLapses covers the cached admission path. The
+// reconciler compiles live exceptions into the policy it caches and nothing else triggers a
+// reconcile when an exception's expiresAt passes, so the reconcile must requeue itself for that
+// deadline, and the requeued reconcile must stop applying the exception.
+func TestReconcile_ExpiringException_RequeuesAndLapses(t *testing.T) {
+	ctx := context.Background()
+	policy := denyMissingTeamLabelPolicy("require-team")
+	exception := fullExemption("exempt-for-an-hour", policy.Name)
+	inAnHour := metav1.NewTime(time.Now().Add(time.Hour))
+	exception.Spec.ExpiresAt = &inAnHour
+	fc := &fakeVpolClient{
+		policy:     policy,
+		exceptions: []policiesv1beta1.PolicyException{exception},
+	}
+	rec := newReconciler(compiler.NewCompiler(), fc, celengine.NewManagerPolicyExceptionLister(fc, ""), true)
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: policy.Name}}
+	status := func() engineapi.RuleStatus {
+		t.Helper()
+		eng := NewEngine(rec, nil, nil)
+		payload := &unstructured.Unstructured{Object: map[string]any{"name": "no-team-field"}}
+		resp, err := eng.Handle(ctx, celengine.RequestFromJSON(nil, payload), nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, 1)
+		require.Len(t, resp.Policies[0].Rules, 1)
+		return resp.Policies[0].Rules[0].Status()
+	}
+
+	result, err := rec.Reconcile(ctx, req)
+	require.NoError(t, err)
+	assert.Greater(t, result.RequeueAfter, 59*time.Minute, "the reconcile must requeue itself for the exception's expiresAt")
+	assert.LessOrEqual(t, result.RequeueAfter, time.Hour)
+	require.Equal(t, engineapi.RuleStatusSkip, status(), "a live exception must still be honored")
+
+	// The deadline passes; the requeued reconcile must recompile without the exception.
+	lapsed := metav1.NewTime(time.Now().Add(-time.Second))
+	fc.exceptions[0].Spec.ExpiresAt = &lapsed
+	result, err = rec.Reconcile(ctx, req)
+	require.NoError(t, err)
+	assert.Zero(t, result.RequeueAfter, "no live exception is left to wait for")
+	require.Equal(t, engineapi.RuleStatusFail, status(), "an expired exception must no longer be applied on the admission path")
 }
 
 // TestReconcile_ExtractionMode is the regression test for the gap that let the JobSet extraction

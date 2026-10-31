@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
@@ -13,6 +14,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -268,4 +270,52 @@ func variantOrder(policies []Policy) []string {
 		order = append(order, fmt.Sprintf("%s:%s:%t", p.Policy.GetName(), ruleNames, p.ExtractionMode))
 	}
 	return order
+}
+
+// fixedExceptionLister serves a fixed set of PolicyExceptions.
+type fixedExceptionLister []*policiesv1beta1.PolicyException
+
+func (l fixedExceptionLister) List(labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
+	return l, nil
+}
+
+// The reconciler compiles live exceptions into the cached policy and its autogen variants, so it
+// must requeue itself for the earliest expiresAt and stop attaching the exception once it lapses.
+func TestReconcile_ExpiringExceptionRequeuesAndLapses(t *testing.T) {
+	ctx := context.Background()
+	policy := autogennablePolicy("require-signed")
+	fc := &fakeClient{policies: map[string]*policiesv1beta1.ImageValidatingPolicy{policy.Name: policy}}
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: policy.Name}}
+	inAnHour := metav1.NewTime(time.Now().Add(time.Hour))
+	exception := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "exempt"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			ExpiresAt:  &inAnHour,
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: policy.Name, Kind: policy.GetKind()}},
+		},
+	}
+	lister := fixedExceptionLister{exception}
+	rec := newReconciler(iveval.NewCompiler(nil), fc, lister, true)
+
+	res, err := rec.Reconcile(ctx, req)
+	require.NoError(t, err)
+	assert.Greater(t, res.RequeueAfter, 59*time.Minute)
+	assert.LessOrEqual(t, res.RequeueAfter, time.Hour)
+	fetched, err := rec.Fetch(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, fetched)
+	for _, p := range fetched {
+		assert.Len(t, p.Exceptions, 1, "a live exception must be attached to the policy and every autogen variant")
+	}
+
+	lapsed := metav1.NewTime(time.Now().Add(-time.Second))
+	exception.Spec.ExpiresAt = &lapsed
+	res, err = rec.Reconcile(ctx, req)
+	require.NoError(t, err)
+	assert.Zero(t, res.RequeueAfter)
+	fetched, err = rec.Fetch(ctx)
+	require.NoError(t, err)
+	for _, p := range fetched {
+		assert.Empty(t, p.Exceptions, "an expired exception must no longer be attached")
+	}
 }
