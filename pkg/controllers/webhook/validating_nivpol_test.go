@@ -48,8 +48,7 @@ func TestBuildWebhookRulesFineGrainedNamespacedImagePolicyAutogen(t *testing.T) 
 		0,
 		nil,
 		[]engineapi.GenericPolicy{engineapi.NewNamespacedImageValidatingPolicy(policy)},
-		cache,
-	)
+		cache, 10)
 
 	if !assert.Len(t, webhooks, 1) {
 		return
