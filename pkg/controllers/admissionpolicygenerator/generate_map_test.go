@@ -4,14 +4,23 @@ import (
 	"context"
 	"testing"
 
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	kubefake "k8s.io/client-go/kubernetes/fake"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
 
@@ -149,6 +158,26 @@ func TestMapGenerationSkipReason(t *testing.T) {
 			wantSkip: false,
 		},
 		{
+			name: "admission disabled must not generate native MAP",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				AutogenConfiguration: mapGenEnabled(),
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					Admission: &policiesv1alpha1.AdmissionConfiguration{Enabled: ptr.To(false)},
+				},
+			}},
+			wantSkip:   true,
+			wantReason: "skip generating MutatingAdmissionPolicy: admission evaluation is disabled.",
+		},
+		{
+			name: "JSON evaluation cannot generate native MAP",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				AutogenConfiguration:    mapGenEnabled(),
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "JSON"},
+			}},
+			wantSkip:   true,
+			wantReason: "skip generating MutatingAdmissionPolicy: only Kubernetes evaluation mode is supported.",
+		},
+		{
 			name: "generation enabled with useServerSideApply",
 			policy: &policiesv1beta1.MutatingPolicy{
 				Spec: policiesv1beta1.MutatingPolicySpec{
@@ -244,4 +273,118 @@ func (m *mockMAPBindingAlphaLister) List(selector labels.Selector) ([]*admission
 
 func (m *mockMAPBindingAlphaLister) Get(name string) (*admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
 	return nil, nil
+}
+
+func TestHandleMAPGeneration_SkipsAndDeletesForUnsupportedCELException(t *testing.T) {
+	ctx := context.Background()
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			AutogenConfiguration: mapGenEnabled(),
+		},
+	}
+	mpol.Status.Generated = true
+	mapName := "mpol-" + mpol.GetName()
+	bindingName := constructBindingName(mapName)
+	existingMAP := &admissionregistrationv1.MutatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: mapName, ResourceVersion: "1"},
+	}
+	existingBinding := &admissionregistrationv1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName, ResourceVersion: "1"},
+	}
+	kubeClient := kubefake.NewSimpleClientset(existingMAP, existingBinding)
+	kyvernoClient := versionedfake.NewSimpleClientset(mpol)
+
+	mapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, mapIndexer.Add(existingMAP))
+	require.NoError(t, bindingIndexer.Add(existingBinding))
+
+	exception := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "unsupported-image-scope", Namespace: "default"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{
+				Name: mpol.GetName(),
+				Kind: "MutatingPolicy",
+			}},
+			Images: []string{"ghcr.io/example/app:v1"},
+		},
+	}
+
+	c := &controller{
+		client:             kubeClient,
+		kyvernoClient:      kyvernoClient,
+		discoveryClient:    dclient.NewEmptyFakeClient().Discovery(),
+		checker:            permissiveAuthChecker{},
+		mapV1Lister:        admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer),
+		mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(bindingIndexer),
+		celpolexLister:     newCELPolexLister(t, exception),
+		polexEnabled:       true,
+		exceptionNamespace: "*",
+		eventGen:           event.NewFake(),
+	}
+
+	err := c.handleMAPGenerationWithVersion(ctx, mpol, admissionpolicy.MutatingAdmissionPolicyVersionV1)
+	require.NoError(t, err)
+
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "existing native MAP should be deleted")
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "existing native MAP binding should be deleted")
+
+	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.GetName(), metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, updated.Status.Generated)
+	assert.Contains(t, updated.Status.GetConditionStatus().Message, "unsupported-image-scope")
+	assert.Contains(t, updated.Status.GetConditionStatus().Message, "cannot evaluate")
+}
+
+func TestHandleMAPGeneration_SkipsUndeclaredExceptionReferences(t *testing.T) {
+	ctx := context.Background()
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-exception-reference"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			AutogenConfiguration: mapGenEnabled(),
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "uses-kyverno-exceptions",
+				Expression: "exceptions.allowedImages.size() == 0",
+			}},
+		},
+	}
+	mpol.Status.Generated = true
+	mapName := "mpol-" + mpol.GetName()
+	bindingName := constructBindingName(mapName)
+	existingMAP := &admissionregistrationv1.MutatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: mapName, ResourceVersion: "1"},
+	}
+	existingBinding := &admissionregistrationv1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName, ResourceVersion: "1"},
+	}
+	kubeClient := kubefake.NewSimpleClientset(existingMAP, existingBinding)
+	kyvernoClient := versionedfake.NewSimpleClientset(mpol)
+	mapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, mapIndexer.Add(existingMAP))
+	require.NoError(t, bindingIndexer.Add(existingBinding))
+	c := &controller{
+		client:             kubeClient,
+		kyvernoClient:      kyvernoClient,
+		discoveryClient:    dclient.NewEmptyFakeClient().Discovery(),
+		checker:            permissiveAuthChecker{},
+		mapV1Lister:        admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer),
+		mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(bindingIndexer),
+		celpolexLister:     newCELPolexLister(t),
+		polexEnabled:       true,
+		exceptionNamespace: "*",
+		eventGen:           event.NewFake(),
+	}
+	require.NoError(t, c.handleMAPGenerationWithVersion(ctx, mpol, admissionpolicy.MutatingAdmissionPolicyVersionV1))
+	_, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "unsupported native MAP must be deleted")
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "native MAP binding must be deleted")
+	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.GetName(), metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, updated.Status.Generated)
+	assert.Contains(t, updated.Status.GetConditionStatus().Message, "Kyverno-only exceptions variable")
 }
