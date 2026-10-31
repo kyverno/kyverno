@@ -171,17 +171,23 @@ func (cl *ClusterLoader) executeTasks(ctx context.Context, tasks []LoadTask) ([]
 	var results []LoadTaskResult
 	expectedResults := len(tasks)
 
+	timeoutTimer := time.NewTimer(cl.resourceOptions.Timeout)
+	defer timeoutTimer.Stop()
+
+CollectResults:
 	for i := 0; i < expectedResults; i++ {
+		// Reset the timer for each result to implement a per-task timeout, avoiding time.After memory leak
+		timeoutTimer.Reset(cl.resourceOptions.Timeout)
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case result := <-cl.workerPool.GetResults():
 			results = append(results, result)
-		case <-time.After(cl.resourceOptions.Timeout):
+		case <-timeoutTimer.C:
 			if !cl.resourceOptions.ContinueOnError {
 				return nil, fmt.Errorf("timeout waiting for task results")
 			}
-			break
+			break CollectResults
 		}
 	}
 
