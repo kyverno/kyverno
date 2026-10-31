@@ -36,16 +36,28 @@ func NormalizeValuesOperation(operation string) (string, error) {
 // AdmissionRequestShape maps a CLI-declared operation to the admission operation
 // and the (object, oldObject) pair, mirroring the API server semantics:
 //   - CREATE (default): object is the resource, oldObject is null
-//   - UPDATE: object and oldObject are both the resource
-//   - DELETE: object is null, oldObject is the resource
-func AdmissionRequestShape(operation string, resource *unstructured.Unstructured) (admissionv1.Operation, runtime.Object, runtime.Object) {
+//   - UPDATE: object is the resource, oldObject is oldResource if provided, else resource
+//   - DELETE: object is null, oldObject is oldResource if provided, else resource
+func AdmissionRequestShape(operation string, resource *unstructured.Unstructured, oldResource ...*unstructured.Unstructured) (admissionv1.Operation, runtime.Object, runtime.Object) {
 	switch operation {
 	case "UPDATE":
-		return admissionv1.Update, resource, resource.DeepCopy()
+		var old runtime.Object
+		if len(oldResource) > 0 && oldResource[0] != nil {
+			old = oldResource[0].DeepCopy()
+		} else if resource != nil {
+			old = resource.DeepCopy()
+		}
+		return admissionv1.Update, resource, old
 	case "DELETE":
 		// deep copy so downstream mutations of the old state cannot leak into
 		// the shared resource object
-		return admissionv1.Delete, nil, resource.DeepCopy()
+		var old runtime.Object
+		if len(oldResource) > 0 && oldResource[0] != nil {
+			old = oldResource[0].DeepCopy()
+		} else if resource != nil {
+			old = resource.DeepCopy()
+		}
+		return admissionv1.Delete, nil, old
 	default:
 		return admissionv1.Create, resource, nil
 	}
@@ -65,4 +77,16 @@ func (p *PolicyProcessor) resolveOperation() string {
 		}
 	}
 	return ""
+}
+
+
+func (p *PolicyProcessor) resolveOldObject(resource *unstructured.Unstructured, policyName ...string) *unstructured.Unstructured {
+	if p.Variables == nil {
+		return nil
+	}
+	var resName string
+	if resource != nil {
+		resName = resource.GetName()
+	}
+	return p.Variables.OldObject(resource, resName, policyName...)
 }

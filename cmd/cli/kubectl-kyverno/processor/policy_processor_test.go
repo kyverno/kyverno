@@ -9,7 +9,9 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
@@ -643,4 +645,1010 @@ spec:
 			assert.Equal(t, err, expectedErr)
 		})
 	}
+}
+
+
+func Test_ApplyPoliciesOnResource_HonorsOldObjectOnUpdate(t *testing.T) {
+	prevLibraryContext := libs.LibraryContext
+	t.Cleanup(func() { libs.LibraryContext = prevLibraryContext })
+
+	vpolYAML := []byte(`
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: check-env-change
+spec:
+  validationActions: [Deny]
+  evaluation:
+    background:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: [UPDATE]
+      resources: ["pods"]
+  validations:
+  - expression: "oldObject.metadata.labels['env'] != object.metadata.labels['env']"
+    message: "env label must change"
+`)
+	podYAML := []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+  namespace: default
+  labels:
+    env: prod
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+`)
+
+	vpol := loadVpol(t, vpolYAML)
+	compiler := vpolcompiler.NewCompilerWithTrace(false)
+	vpolLikes := []policiesv1beta1.ValidatingPolicyLike{&vpol}
+	provider, err := vpolengine.NewProvider(compiler, vpolLikes, nil)
+	assert.NilError(t, err)
+
+	resList, err := resource.GetUnstructuredResources(podYAML)
+	assert.NilError(t, err)
+
+	contextProvider := libs.NewFakeContextProvider()
+
+	t.Run("without request.oldObject on UPDATE, oldObject is object so env change validation fails", func(t *testing.T) {
+		rc := &ResultCounts{}
+		p := PolicyProcessor{
+			Store:              &store.Store{},
+			ValidatingPolicies: vpolLikes,
+			Resource:           *resList[0],
+			Rc:                 rc,
+			Out:                os.Stdout,
+			Cluster:            false,
+			Operation:          "UPDATE",
+			ContextProvider:    contextProvider,
+			VpolProvider:       provider,
+		}
+		_, err := p.ApplyPoliciesOnResource()
+		assert.NilError(t, err)
+		assert.Equal(t, rc.Pass, 0)
+		assert.Equal(t, rc.Fail, 1)
+	})
+
+	t.Run("with request.oldObject from values on UPDATE, env change validation passes", func(t *testing.T) {
+		vals := &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "UPDATE",
+				"request.oldObject": map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata": map[string]interface{}{
+						"name":      "test-pod",
+						"namespace": "default",
+						"labels": map[string]interface{}{
+							"env": "staging",
+						},
+					},
+					"spec": map[string]interface{}{
+						"containers": []interface{}{
+							map[string]interface{}{
+								"name":  "nginx",
+								"image": "nginx",
+							},
+						},
+					},
+				},
+			},
+		}
+		vars, err := variables.New(nil, nil, "", "", vals)
+		assert.NilError(t, err)
+		rc := &ResultCounts{}
+		p := PolicyProcessor{
+			Store:              &store.Store{},
+			ValidatingPolicies: vpolLikes,
+			Resource:           *resList[0],
+			Rc:                 rc,
+			Out:                os.Stdout,
+			Cluster:            false,
+			Variables:          vars,
+			ContextProvider:    contextProvider,
+			VpolProvider:       provider,
+		}
+		_, err = p.ApplyPoliciesOnResource()
+		assert.NilError(t, err)
+		assert.Equal(t, rc.Pass, 1)
+		assert.Equal(t, rc.Fail, 0)
+	})
+}
+
+
+func Test_ApplyPoliciesOnResource_MultiplePoliciesWithDistinctOldObjects(t *testing.T) {
+	prevLibraryContext := libs.LibraryContext
+	t.Cleanup(func() { libs.LibraryContext = prevLibraryContext })
+
+	vpol1YAML := []byte(`
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: check-alpha
+spec:
+  validationActions: [Deny]
+  evaluation:
+    background:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: [UPDATE]
+      resources: ["pods"]
+  validations:
+  - expression: "oldObject.metadata.labels['env'] == 'alpha'"
+    message: "old env must be alpha"
+`)
+	vpol2YAML := []byte(`
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: check-beta
+spec:
+  validationActions: [Deny]
+  evaluation:
+    background:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: [UPDATE]
+      resources: ["pods"]
+  validations:
+  - expression: "oldObject.metadata.labels['env'] == 'beta'"
+    message: "old env must be beta"
+`)
+	podYAML := []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: multi-pod
+  namespace: default
+  labels:
+    env: prod
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+`)
+
+	vpol1 := loadVpol(t, vpol1YAML)
+	vpol2 := loadVpol(t, vpol2YAML)
+	compiler := vpolcompiler.NewCompilerWithTrace(false)
+	vpolLikes := []policiesv1beta1.ValidatingPolicyLike{&vpol1, &vpol2}
+	provider, err := vpolengine.NewProvider(compiler, vpolLikes, nil)
+	assert.NilError(t, err)
+
+	resList, err := resource.GetUnstructuredResources(podYAML)
+	assert.NilError(t, err)
+
+	contextProvider := libs.NewFakeContextProvider()
+
+	vals := &v1alpha1.ValuesSpec{
+		GlobalValues: map[string]interface{}{
+			"request.operation": "UPDATE",
+		},
+		Policies: []v1alpha1.Policy{
+			{
+				Name: "check-alpha",
+				Resources: []v1alpha1.Resource{
+					{
+						Name: "multi-pod",
+						Values: map[string]interface{}{
+							"request.oldObject": map[string]interface{}{
+								"apiVersion": "v1",
+								"kind":       "Pod",
+								"metadata": map[string]interface{}{
+									"name":      "multi-pod",
+									"namespace": "default",
+									"labels": map[string]interface{}{
+										"env": "alpha",
+									},
+								},
+								"spec": map[string]interface{}{
+									"containers": []interface{}{
+										map[string]interface{}{
+											"name":  "nginx",
+											"image": "nginx",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "check-beta",
+				Resources: []v1alpha1.Resource{
+					{
+						Name: "multi-pod",
+						Values: map[string]interface{}{
+							"request.oldObject": map[string]interface{}{
+								"apiVersion": "v1",
+								"kind":       "Pod",
+								"metadata": map[string]interface{}{
+									"name":      "multi-pod",
+									"namespace": "default",
+									"labels": map[string]interface{}{
+										"env": "beta",
+									},
+								},
+								"spec": map[string]interface{}{
+									"containers": []interface{}{
+										map[string]interface{}{
+											"name":  "nginx",
+											"image": "nginx",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	vars, err := variables.New(nil, nil, "", "", vals)
+	assert.NilError(t, err)
+
+	rc := &ResultCounts{}
+	p := PolicyProcessor{
+		Store:              &store.Store{},
+		ValidatingPolicies: vpolLikes,
+		Resource:           *resList[0],
+		Rc:                 rc,
+		Out:                os.Stdout,
+		Cluster:            false,
+		Variables:          vars,
+		ContextProvider:    contextProvider,
+		VpolProvider:       provider,
+	}
+	_, err = p.ApplyPoliciesOnResource()
+	assert.NilError(t, err)
+	// Both policies evaluate against their own distinct policy-specific oldObject and pass
+	assert.Equal(t, rc.Pass, 2)
+	assert.Equal(t, rc.Fail, 0)
+}
+
+
+func Test_ApplyPoliciesOnResource_MultipleMutatingPoliciesWithDistinctOldObjects(t *testing.T) {
+	mutateAlphaYAML := []byte(`
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: mutate-alpha
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  matchConditions:
+  - name: check-alpha
+    expression: "oldObject.metadata.labels['env'] == 'alpha'"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"mutated_alpha": "true"}}}
+`)
+
+	mutateBetaYAML := []byte(`
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: mutate-beta
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  matchConditions:
+  - name: check-beta
+    expression: "oldObject.metadata.labels['env'] == 'beta'"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"mutated_beta": "true"}}}
+`)
+
+	podYAML := []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: multi-mut-pod
+  namespace: default
+  labels:
+    app: test
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+`)
+
+	var alphaPol policiesv1beta1.MutatingPolicy
+	assert.NilError(t, yaml.Unmarshal(mutateAlphaYAML, &alphaPol))
+
+	var betaPol policiesv1beta1.MutatingPolicy
+	assert.NilError(t, yaml.Unmarshal(mutateBetaYAML, &betaPol))
+
+	mpolLikes := []policiesv1beta1.MutatingPolicyLike{&alphaPol, &betaPol}
+
+	resList, err := resource.GetUnstructuredResources(podYAML)
+	assert.NilError(t, err)
+
+	contextProvider := libs.NewFakeContextProvider()
+
+	vals := &v1alpha1.ValuesSpec{
+		GlobalValues: map[string]interface{}{
+			"request.operation": "UPDATE",
+		},
+		Policies: []v1alpha1.Policy{
+			{
+				Name: "mutate-alpha",
+				Resources: []v1alpha1.Resource{
+					{
+						Name: "multi-mut-pod",
+						Values: map[string]interface{}{
+							"request.oldObject": map[string]interface{}{
+								"apiVersion": "v1",
+								"kind":       "Pod",
+								"metadata": map[string]interface{}{
+									"name":      "multi-mut-pod",
+									"namespace": "default",
+									"labels": map[string]interface{}{
+										"env": "alpha",
+									},
+								},
+								"spec": map[string]interface{}{
+									"containers": []interface{}{
+										map[string]interface{}{
+											"name":  "nginx",
+											"image": "nginx",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "mutate-beta",
+				Resources: []v1alpha1.Resource{
+					{
+						Name: "multi-mut-pod",
+						Values: map[string]interface{}{
+							"request.oldObject": map[string]interface{}{
+								"apiVersion": "v1",
+								"kind":       "Pod",
+								"metadata": map[string]interface{}{
+									"name":      "multi-mut-pod",
+									"namespace": "default",
+									"labels": map[string]interface{}{
+										"env": "beta",
+									},
+								},
+								"spec": map[string]interface{}{
+									"containers": []interface{}{
+										map[string]interface{}{
+											"name":  "nginx",
+											"image": "nginx",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	vars, err := variables.New(nil, nil, "", "", vals)
+	assert.NilError(t, err)
+
+	rc := &ResultCounts{}
+	p := PolicyProcessor{
+		Store:            &store.Store{},
+		MutatingPolicies: mpolLikes,
+		Resource:         *resList[0],
+		Rc:               rc,
+		Out:              os.Stdout,
+		Cluster:          false,
+		Variables:        vars,
+		ContextProvider:  contextProvider,
+	}
+	responses, err := p.ApplyPoliciesOnResource()
+	assert.NilError(t, err)
+	assert.Equal(t, rc.Pass, 2)
+	assert.Equal(t, rc.Fail, 0)
+	assert.Assert(t, len(responses) >= 2)
+	lastPatched := responses[len(responses)-1].PatchedResource
+	assert.Equal(t, lastPatched.GetLabels()["mutated_alpha"], "true")
+	assert.Equal(t, lastPatched.GetLabels()["mutated_beta"], "true")
+}
+
+
+func Test_ApplyPoliciesOnResource_MutatingInlineFallbackToOriginalOldObject(t *testing.T) {
+	mutateOneYAML := []byte(`
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: mutate-one
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"mutated_one": "true"}}}
+`)
+
+	// mutate-two asserts that oldObject does NOT have mutated_one (i.e. oldObject is the pre-mutation original)
+	mutateTwoYAML := []byte(`
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: mutate-two
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  matchConditions:
+  - name: check-old-state-is-unmutated
+    expression: "!has(oldObject.metadata.labels) || !('mutated_one' in oldObject.metadata.labels)"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"mutated_two": "true"}}}
+`)
+
+	podYAML := []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: chained-pod
+  namespace: default
+  labels:
+    app: chained
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+`)
+
+	var onePol policiesv1beta1.MutatingPolicy
+	assert.NilError(t, yaml.Unmarshal(mutateOneYAML, &onePol))
+
+	var twoPol policiesv1beta1.MutatingPolicy
+	assert.NilError(t, yaml.Unmarshal(mutateTwoYAML, &twoPol))
+
+	mpolLikes := []policiesv1beta1.MutatingPolicyLike{&onePol, &twoPol}
+
+	resList, err := resource.GetUnstructuredResources(podYAML)
+	assert.NilError(t, err)
+
+	contextProvider := libs.NewFakeContextProvider()
+
+	vals := &v1alpha1.ValuesSpec{
+		GlobalValues: map[string]interface{}{
+			"request.operation": "UPDATE",
+		},
+	}
+	vars, err := variables.New(nil, nil, "", "", vals)
+	assert.NilError(t, err)
+
+	rc := &ResultCounts{}
+	p := PolicyProcessor{
+		Store:            &store.Store{},
+		MutatingPolicies: mpolLikes,
+		Resource:         *resList[0],
+		Rc:               rc,
+		Out:              os.Stdout,
+		Cluster:          false,
+		Variables:        vars,
+		ContextProvider:  contextProvider,
+	}
+	responses, err := p.ApplyPoliciesOnResource()
+	assert.NilError(t, err)
+	assert.Equal(t, rc.Pass, 2)
+	assert.Equal(t, rc.Fail, 0)
+	assert.Assert(t, len(responses) >= 2)
+	lastPatched := responses[len(responses)-1].PatchedResource
+	assert.Equal(t, lastPatched.GetLabels()["mutated_one"], "true")
+	assert.Equal(t, lastPatched.GetLabels()["mutated_two"], "true")
+}
+
+func Test_ApplyPoliciesOnResource_MutateExisting_PolicySpecificOldObject(t *testing.T) {
+	mutateExistingAlphaYAML := []byte(`
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: mut-exist-alpha
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  targetMatchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [configmaps]
+  matchConditions:
+  - name: check-alpha-old-object
+    expression: "oldObject.metadata.labels['env'] == 'alpha'"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"alpha_applied": "true"}}}
+`)
+
+	mutateExistingBetaYAML := []byte(`
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: mut-exist-beta
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  targetMatchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [configmaps]
+  matchConditions:
+  - name: check-beta-old-object
+    expression: "oldObject.metadata.labels['env'] == 'beta'"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"beta_applied": "true"}}}
+`)
+
+	podYAML := []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: trigger-pod
+  namespace: default
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+`)
+
+	cmYAML := []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: target-cm
+  namespace: default
+  labels:
+    app: target
+data:
+  key: value
+`)
+
+	var alphaPol policiesv1beta1.MutatingPolicy
+	assert.NilError(t, yaml.Unmarshal(mutateExistingAlphaYAML, &alphaPol))
+
+	var betaPol policiesv1beta1.MutatingPolicy
+	assert.NilError(t, yaml.Unmarshal(mutateExistingBetaYAML, &betaPol))
+
+	mpolLikes := []policiesv1beta1.MutatingPolicyLike{&alphaPol, &betaPol}
+
+	podList, err := resource.GetUnstructuredResources(podYAML)
+	assert.NilError(t, err)
+
+	cmList, err := resource.GetUnstructuredResources(cmYAML)
+	assert.NilError(t, err)
+
+	contextProvider := libs.NewFakeContextProvider()
+
+	vals := &v1alpha1.ValuesSpec{
+		GlobalValues: map[string]interface{}{
+			"request.operation": "UPDATE",
+		},
+		Policies: []v1alpha1.Policy{
+			{
+				Name: "mut-exist-alpha",
+				Resources: []v1alpha1.Resource{
+					{
+						Name: "trigger-pod",
+						Values: map[string]interface{}{
+							"request.oldObject": map[string]interface{}{
+								"apiVersion": "v1",
+								"kind":       "Pod",
+								"metadata": map[string]interface{}{
+									"name":      "trigger-pod",
+									"namespace": "default",
+									"labels": map[string]interface{}{
+										"env": "alpha",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "mut-exist-beta",
+				Resources: []v1alpha1.Resource{
+					{
+						Name: "trigger-pod",
+						Values: map[string]interface{}{
+							"request.oldObject": map[string]interface{}{
+								"apiVersion": "v1",
+								"kind":       "Pod",
+								"metadata": map[string]interface{}{
+									"name":      "trigger-pod",
+									"namespace": "default",
+									"labels": map[string]interface{}{
+										"env": "beta",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	vars, err := variables.New(nil, nil, "", "", vals)
+	assert.NilError(t, err)
+
+	rc := &ResultCounts{}
+	p := PolicyProcessor{
+		Store:            &store.Store{},
+		MutatingPolicies: mpolLikes,
+		Resource:         *podList[0],
+		TargetResources:  cmList,
+		Rc:               rc,
+		Out:              os.Stdout,
+		Cluster:          false,
+		Variables:        vars,
+		ContextProvider:  contextProvider,
+	}
+	responses, err := p.ApplyPoliciesOnResource()
+	assert.NilError(t, err)
+	assert.Assert(t, len(responses) >= 2)
+	var alphaTarget, betaTarget *unstructured.Unstructured
+	for _, resp := range responses {
+		for _, r := range resp.PolicyResponse.Rules {
+			if pt, _, _ := r.PatchedTarget(); pt != nil {
+				if pt.GetLabels()["alpha_applied"] == "true" {
+					alphaTarget = pt
+				}
+				if pt.GetLabels()["beta_applied"] == "true" {
+					betaTarget = pt
+				}
+			}
+		}
+	}
+	assert.Assert(t, alphaTarget != nil)
+	assert.Assert(t, betaTarget != nil)
+}
+
+func TestPolicyProcessor_MutatingPolicy_RequestObjectLoopInvariant(t *testing.T) {
+	// Policy 1 mutates the pod by adding label `step: "one"`
+	policy1YAML := []byte(`
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: mutate-step-one
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"step": "one"}}}
+`)
+
+	// Policy 2 asserts that:
+	// 1. `request.object` is the unmutated admission object (does not have label `step: "one"`).
+	// 2. `object` has the mutation from policy 1 (has label `step: "one"`).
+	// 3. `request.oldObject` is policy 2's configured oldObject.
+	policy2YAML := []byte(`
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: mutate-step-two
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  matchConditions:
+  - name: check-request-object-and-old-object
+    expression: >
+      !('step' in request.object.metadata.labels) &&
+      object.metadata.labels['step'] == 'one' &&
+      oldObject.metadata.labels['env'] == 'two-old'
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"step_two_applied": "true"}}}
+`)
+
+	podYAML := []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+  namespace: default
+  labels:
+    app: demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+`)
+
+	var pol1 policiesv1beta1.MutatingPolicy
+	assert.NilError(t, yaml.Unmarshal(policy1YAML, &pol1))
+	var pol2 policiesv1beta1.MutatingPolicy
+	assert.NilError(t, yaml.Unmarshal(policy2YAML, &pol2))
+
+	mpolLikes := []policiesv1beta1.MutatingPolicyLike{&pol1, &pol2}
+
+	podList, err := resource.GetUnstructuredResources(podYAML)
+	assert.NilError(t, err)
+
+	vals := &v1alpha1.ValuesSpec{
+		GlobalValues: map[string]interface{}{
+			"request.operation": "UPDATE",
+		},
+		Policies: []v1alpha1.Policy{
+			{
+				Name: "mutate-step-two",
+				Resources: []v1alpha1.Resource{
+					{
+						Name: "test-pod",
+						Values: map[string]interface{}{
+							"request.oldObject": map[string]interface{}{
+								"apiVersion": "v1",
+								"kind":       "Pod",
+								"metadata": map[string]interface{}{
+									"name":      "test-pod",
+									"namespace": "default",
+									"labels": map[string]interface{}{
+										"env": "two-old",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	vars, err := variables.New(nil, nil, "", "", vals)
+	assert.NilError(t, err)
+
+	contextProvider := libs.NewFakeContextProvider()
+	rc := &ResultCounts{}
+	p := PolicyProcessor{
+		Store:            &store.Store{},
+		MutatingPolicies: mpolLikes,
+		Resource:         *podList[0],
+		Rc:               rc,
+		Out:              os.Stdout,
+		Cluster:          false,
+		Variables:        vars,
+		ContextProvider:  contextProvider,
+	}
+
+	responses, err := p.ApplyPoliciesOnResource()
+	assert.NilError(t, err)
+	assert.Assert(t, len(responses) >= 2)
+	var finalPatched unstructured.Unstructured
+	for _, resp := range responses {
+		if resp.PatchedResource.Object != nil && len(resp.PolicyResponse.Rules) > 0 {
+			finalPatched = resp.PatchedResource
+		}
+	}
+	assert.Equal(t, finalPatched.GetLabels()["step"], "one")
+	assert.Equal(t, finalPatched.GetLabels()["step_two_applied"], "true")
+}
+
+func TestPolicyProcessor_MutateExisting_TriggerObservesInlineMutations(t *testing.T) {
+	// Inline MutatingPolicy adds label `inline_applied: "true"`
+	inlinePolicyYAML := []byte(`
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: inline-mut
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"inline_applied": "true"}}}
+`)
+
+	// MutateExisting policy matches when trigger request.object has `inline_applied: "true"`
+	// and oldObject has `env: "staging"`.
+	mutExistYAML := []byte(`
+apiVersion: policies.kyverno.io/v1alpha1
+kind: MutatingPolicy
+metadata:
+  name: mut-exist-trigger-inline
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  targetMatchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [configmaps]
+  matchConditions:
+  - name: check-inline-mutation-on-trigger
+    expression: "request.object.metadata.labels['inline_applied'] == 'true' && oldObject.metadata.labels['env'] == 'staging'"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"target_mutated": "true"}}}
+`)
+
+	podYAML := []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: trigger-pod
+  namespace: default
+  labels:
+    app: demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+`)
+
+	cmYAML := []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: target-cm
+  namespace: default
+  labels:
+    app: target
+data:
+  key: value
+`)
+
+	var inlinePol policiesv1beta1.MutatingPolicy
+	assert.NilError(t, yaml.Unmarshal(inlinePolicyYAML, &inlinePol))
+	var existPol policiesv1beta1.MutatingPolicy
+	assert.NilError(t, yaml.Unmarshal(mutExistYAML, &existPol))
+
+	mpolLikes := []policiesv1beta1.MutatingPolicyLike{&inlinePol, &existPol}
+
+	podList, err := resource.GetUnstructuredResources(podYAML)
+	assert.NilError(t, err)
+	cmList, err := resource.GetUnstructuredResources(cmYAML)
+	assert.NilError(t, err)
+
+	vals := &v1alpha1.ValuesSpec{
+		GlobalValues: map[string]interface{}{
+			"request.operation": "UPDATE",
+		},
+		Policies: []v1alpha1.Policy{
+			{
+				Name: "mut-exist-trigger-inline",
+				Resources: []v1alpha1.Resource{
+					{
+						Name: "trigger-pod",
+						Values: map[string]interface{}{
+							"request.oldObject": map[string]interface{}{
+								"apiVersion": "v1",
+								"kind":       "Pod",
+								"metadata": map[string]interface{}{
+									"name":      "trigger-pod",
+									"namespace": "default",
+									"labels": map[string]interface{}{
+										"env": "staging",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	vars, err := variables.New(nil, nil, "", "", vals)
+	assert.NilError(t, err)
+
+	contextProvider := libs.NewFakeContextProvider()
+	rc := &ResultCounts{}
+	p := PolicyProcessor{
+		Store:            &store.Store{},
+		MutatingPolicies: mpolLikes,
+		Resource:         *podList[0],
+		TargetResources:  cmList,
+		Rc:               rc,
+		Out:              os.Stdout,
+		Cluster:          false,
+		Variables:        vars,
+		ContextProvider:  contextProvider,
+	}
+
+	responses, err := p.ApplyPoliciesOnResource()
+	assert.NilError(t, err)
+	assert.Assert(t, len(responses) >= 2)
+	var targetPatched *unstructured.Unstructured
+	for _, resp := range responses {
+		for _, r := range resp.PolicyResponse.Rules {
+			if pt, _, _ := r.PatchedTarget(); pt != nil {
+				if pt.GetLabels()["target_mutated"] == "true" {
+					targetPatched = pt
+				}
+			}
+		}
+	}
+	assert.Assert(t, targetPatched != nil)
 }
