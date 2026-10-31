@@ -43,4 +43,4 @@ This package implements semantic terminal coloring and formatting for `kubectl-k
       color.Init(origNoColor)
   })
   ```
-- **Deterministic Color Tests**: To prevent test flakiness across developer machines and CI environments where `NO_COLOR` might be set, tests asserting ANSI escape sequences must explicitly clear `NO_COLOR` with `t.Setenv("NO_COLOR", "")` and set `fatihcolor.NoColor = false`.
+- **Deterministic Color Tests**: To ensure color output regardless of terminal detection or startup environment, tests asserting ANSI escape sequences must explicitly set `fatihcolor.NoColor = false`.

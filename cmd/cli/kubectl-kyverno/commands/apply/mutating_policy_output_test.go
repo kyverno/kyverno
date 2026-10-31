@@ -133,7 +133,6 @@ func TestMutatingPolicyColorAndRemoveColor(t *testing.T) {
 	require.NoError(t, os.WriteFile(skipPolicyPath, []byte(outputTestMutatingPolicyWithSkip), 0o600))
 
 	t.Run("error with color", func(t *testing.T) {
-		t.Setenv("NO_COLOR", "")
 		fatihcolor.NoColor = false
 		cmd := Command()
 		var out bytes.Buffer
@@ -150,7 +149,6 @@ func TestMutatingPolicyColorAndRemoveColor(t *testing.T) {
 	})
 
 	t.Run("error with remove-color", func(t *testing.T) {
-		t.Setenv("NO_COLOR", "")
 		fatihcolor.NoColor = false
 		cmd := Command()
 		var out bytes.Buffer
@@ -168,7 +166,6 @@ func TestMutatingPolicyColorAndRemoveColor(t *testing.T) {
 	})
 
 	t.Run("skip with color", func(t *testing.T) {
-		t.Setenv("NO_COLOR", "")
 		fatihcolor.NoColor = false
 		cmd := Command()
 		var out bytes.Buffer
@@ -184,7 +181,6 @@ func TestMutatingPolicyColorAndRemoveColor(t *testing.T) {
 	})
 
 	t.Run("skip with remove-color", func(t *testing.T) {
-		t.Setenv("NO_COLOR", "")
 		fatihcolor.NoColor = false
 		cmd := Command()
 		var out bytes.Buffer
