@@ -455,6 +455,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 
+	nsResolver := processor.GetNamespaceResolver(variables, dClient, c.Cluster)
 	rc, resources1, responses1, err := c.applyPolicies(
 		out,
 		&store,
@@ -474,21 +475,22 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		dClient,
 		userInfo,
 		mutateLogPathIsDir,
+		nsResolver,
 	)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
+	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, nsResolver, userInfo, rc, dClient, variables.GlobalOperation())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses5, err := c.applyDeletingPolicies(out, dps, resources1, celExceptions, variables.Namespace, rc, dClient, "resource")
+	responses5, err := c.applyDeletingPolicies(out, dps, resources1, celExceptions, nsResolver, rc, dClient, "resource")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses6, err := c.applyDeletingPolicies(out, dps, jsonPayloads, celExceptions, variables.Namespace, rc, dClient, "json")
+	responses6, err := c.applyDeletingPolicies(out, dps, jsonPayloads, celExceptions, nsResolver, rc, dClient, "json")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -553,6 +555,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	dClient dclient.Interface,
 	userInfo *kyvernov2.RequestInfo,
 	mutateLogPathIsDir bool,
+	nsResolver celengine.NamespaceResolver,
 ) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
 	if vars != nil {
 		vars.SetInStore(store)
@@ -661,8 +664,13 @@ func (c *ApplyCommandConfig) applyPolicies(
 		}
 	}
 
+	if nsResolver == nil {
+		nsResolver = processor.GetNamespaceResolver(vars, dClient, c.Cluster)
+	}
+
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             store,
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
@@ -713,6 +721,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	}
 	for _, resource := range jsonPayloads {
 		processor := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             store,
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
