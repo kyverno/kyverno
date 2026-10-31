@@ -40,6 +40,32 @@ func resourceMatches(match kyvernov1.ResourceDescription, res unstructured.Unstr
 	return true
 }
 
+// serverSideSelector returns the part of a selector that can be sent to the API server: the
+// matchLabels entries without wildcard characters and all matchExpressions. Wildcarded matchLabels
+// entries are left out and must be checked locally (see selectorMatches). It returns nil when
+// nothing is left to filter on.
+func serverSideSelector(selector *metav1.LabelSelector) *metav1.LabelSelector {
+	if selector == nil {
+		return nil
+	}
+	sanitized := &metav1.LabelSelector{
+		MatchExpressions: selector.MatchExpressions,
+	}
+	for k, v := range selector.MatchLabels {
+		if wildcard.ContainsWildcard(k) || wildcard.ContainsWildcard(v) {
+			continue
+		}
+		if sanitized.MatchLabels == nil {
+			sanitized.MatchLabels = map[string]string{}
+		}
+		sanitized.MatchLabels[k] = v
+	}
+	if len(sanitized.MatchLabels) == 0 && len(sanitized.MatchExpressions) == 0 {
+		return nil
+	}
+	return sanitized
+}
+
 // selectorMatches checks a resource's labels against a selector, resolving wildcard characters
 // in matchLabels keys/values against the resource's own labels. Kubernetes label selectors don't
 // support wildcards, so this is needed for resources that were listed without the selector applied
