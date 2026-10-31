@@ -82,6 +82,9 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 	if apiCall.Service == nil {
 		return nil, fmt.Errorf("missing service for APICall %s", a.name)
 	}
+	if a.config.maxAPICallResponseLength < 0 {
+		return nil, fmt.Errorf("invalid max allowed response length %d for APICall %s: must not be negative", a.config.maxAPICallResponseLength, a.name)
+	}
 
 	policy, transport, err := getServiceHTTP()
 	if err != nil {
@@ -129,11 +132,11 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 	}
 
 	body, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.name, err)
-	}
 	if a.config.maxAPICallResponseLength != 0 && int64(len(body)) > a.config.maxAPICallResponseLength {
 		return nil, fmt.Errorf("response length must be less than max allowed response length of %d", a.config.maxAPICallResponseLength)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.name, err)
 	}
 
 	a.logger.V(4).Info("executed service APICall", "name", a.name, "len", len(body))

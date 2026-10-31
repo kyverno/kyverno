@@ -246,6 +246,54 @@ func Test_ExecuteServiceCall_MaxInt64ResponseLengthDoesNotOverflow(t *testing.T)
 	assert.Equal(t, string(data), "1")
 }
 
+func Test_ExecuteServiceCall_MaxResponseLengthExceededWithReadError(t *testing.T) {
+	withEmptyEgressBlocklist(t)
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// declare a longer body than is sent so the response is truncated; the
+		// oversized-response error must still be reported over the read error
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("12345678901234567890"))
+	}))
+	defer s.Close()
+
+	config := NewAPICallConfiguration(10, 0)
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, config)
+	call := &kyvernov1.APICall{
+		Method: "GET",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL,
+		},
+	}
+
+	_, err := executor.Execute(context.TODO(), call)
+	assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10")
+}
+
+func Test_ExecuteServiceCall_NegativeMaxResponseLength(t *testing.T) {
+	withEmptyEgressBlocklist(t)
+	called := false
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("1"))
+	}))
+	defer s.Close()
+
+	config := NewAPICallConfiguration(-1, 0)
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, config)
+	call := &kyvernov1.APICall{
+		Method: "GET",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL,
+		},
+	}
+
+	_, err := executor.Execute(context.TODO(), call)
+	assert.ErrorContains(t, err, "invalid max allowed response length -1")
+	assert.Assert(t, !called)
+}
+
 // Helper function to check if string contains substring
 func contains(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
