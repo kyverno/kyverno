@@ -476,6 +476,8 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
 | features.protectGenerationLabels.enabled | bool | `true` | Enables generation label protection webhook |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
+| features.registryClient.privateRegistryEgressMode | string | `"audit"` | Egress policy for image registry requests in the admission, background, reports, and cleanup controllers: `audit` permits private addresses and logs requests `enforce` would block; `enforce` requires an allowlist entry. Both modes block cloud metadata, loopback, link-local, and other unsafe addresses. Sigstore (Rekor, Fulcio, TSA, TUF) and KMS endpoints are unaffected. |
+| features.registryClient.privateRegistryAllowlist | list | `[]` | Exact registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in `enforce` mode. Include private token and redirect services. Entries must be non-empty strings without commas or ports; use one list item per entry. Exemptions are host-granular, so a port would quietly exempt every port on that host and is rejected. Metadata and other unsafe addresses stay blocked even when listed. |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
 | features.tuf.enabled | bool | `false` | Enables the feature |

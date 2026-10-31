@@ -199,7 +199,8 @@ spec:
             - --imagePullSecrets={{- $secretNames := concat (keys .Values.imagePullSecrets | sortAlpha) (.Values.existingImagePullSecrets | sortAlpha) -}}
               {{- join "," $secretNames -}}
             {{- end }}
-            {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.admissionController.featuresOverride)
+            {{- $features := include "kyverno.features.merged" (dict "features" .Values.features "override" .Values.admissionController.featuresOverride) | fromYaml }}
+            {{- include "kyverno.features.flags" (pick $features
               "admissionReports"
               "autoUpdateWebhooks"
               "configMapCaching"
@@ -221,6 +222,7 @@ spec:
               "reporting"
               "tuf"
             ) | nindent 12 }}
+            {{- include "kyverno.registryClient.egressFlags" $features.registryClient | nindent 12 }}
             {{- range $key, $value := .Values.admissionController.container.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}
