@@ -78,7 +78,7 @@ rules:
       - deletecollection
   # Read-only: kyverno-init's startup inventory and the admission controller's
   # kyverno_legacy_policies_total gauge list the legacy kyverno.io kinds. Nothing in this
-  # pod creates, updates, or deletes them.
+  # pod creates, updates, or deletes them. PolicyException inventory also needs a watch.
   - apiGroups:
       - kyverno.io
     resources:
@@ -89,6 +89,12 @@ rules:
       - clustercleanuppolicies
     verbs:
       - list
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - policyexceptions
+    verbs:
+      - watch
   - apiGroups:
       - policies.kyverno.io
     resources:

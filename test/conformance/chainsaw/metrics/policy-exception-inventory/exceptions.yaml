@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: cel-inventory
+spec:
+  policyRefs:
+    - name: missing-cel-policy
+      kind: ValidatingPolicy
+    - name: other-missing-policy
+      kind: ImageValidatingPolicy
+    - name: missing-cel-policy
+      kind: ValidatingPolicy
+  matchConditions:
+    - name: never
+      expression: 'false'
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: retained-inventory
+spec:
+  policyRefs:
+    - name: retained-policy
+      kind: ValidatingPolicy
+  matchConditions:
+    - name: never
+      expression: 'false'
