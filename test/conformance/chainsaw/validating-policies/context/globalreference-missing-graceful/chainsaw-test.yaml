@@ -97,8 +97,3 @@ spec:
           kind: Pod
           name: test-pod-with-gctx
           namespace: test-globalcontext-missing
-    - delete:
-        ref:
-          apiVersion: kyverno.io/v2alpha1
-          kind: GlobalContextEntry
-          name: gctxentry-test-deployments
