@@ -23,7 +23,9 @@ spec:
     - script:
         # WebhookConfigured can turn true before the API server sends
         # pods/ephemeralcontainers requests to Kyverno, so retry the
-        # side-effect-free dry-run until it is denied.
+        # side-effect-free dry-run until it is denied. The timeout must exceed
+        # the retry window, because the default exec timeout is 5s.
+        timeout: 2m
         content: |
           for i in $(seq 1 15); do
             if output=$(kubectl -n test-vpol-subresource-namespace patch pod test-pod \
@@ -31,12 +33,13 @@ spec:
               --patch='{"spec":{"ephemeralContainers":[{"name":"debugger","image":"busybox:1.35","targetContainerName":"busybox"}]}}' \
               --dry-run=server 2>&1); then
               echo "attempt $i: ephemeral container request was allowed, retrying" >&2
-              sleep 2
-              continue
+            elif echo "$output" | grep -qF "Ephemeral (debug) containers are not permitted."; then
+              echo "$output"
+              exit 0
+            else
+              echo "attempt $i: unexpected error, retrying: $output" >&2
             fi
-            echo "$output"
-            echo "$output" | grep -F "Ephemeral (debug) containers are not permitted."
-            exit $?
+            sleep 2
           done
           echo "expected ephemeral container request to be denied" >&2
           exit 1
