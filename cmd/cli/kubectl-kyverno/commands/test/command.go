@@ -195,6 +195,12 @@ func testCommandExecute(
 			}
 		}
 	}
+	var passCount string
+	if rc.Pass+rc.Skip > 0 {
+		passCount = color.BoldGreen(rc.Pass + rc.Skip)
+	} else {
+		passCount = fmt.Sprintf("%d", rc.Pass+rc.Skip)
+	}
 	var failCount string
 	if rc.Fail > 0 {
 		failCount = color.BoldRed(rc.Fail)
@@ -202,7 +208,7 @@ func testCommandExecute(
 		failCount = color.BoldGreen(rc.Fail)
 	}
 	if !failOnly {
-		fmt.Fprintf(out, "\nTest Summary: %s tests passed and %s tests failed\n", color.BoldGreen(rc.Pass+rc.Skip), failCount)
+		fmt.Fprintf(out, "\nTest Summary: %s tests passed and %s tests failed\n", passCount, failCount)
 	} else {
 		fmt.Fprintf(out, "\nTest Summary: %s out of %d tests failed\n", failCount, rc.Pass+rc.Skip+rc.Fail)
 	}

@@ -2355,6 +2355,42 @@ results:
 	outNoColor := outBufferNoColor.String()
 	assert.Contains(t, outNoColor, "Test Summary: 1 tests passed and 1 tests failed")
 	assert.False(t, ansiRegex.MatchString(outNoColor), "expected plain output with --remove-color")
+
+	// 3. All tests fail: 0 passed should be neutral (not colored)
+	testAllFailYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- deployment2.yaml
+results:
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - bad-deployment
+  result: pass
+`
+	err = os.WriteFile(filepath.Join(tmpDir, "kyverno-test.yaml"), []byte(testAllFailYAML), 0o600)
+	require.NoError(t, err)
+
+	fatihcolor.NoColor = false
+	color.Init(false)
+	cmdAllFail := Command()
+	outBufferAllFail := bytes.NewBufferString("")
+	cmdAllFail.SetOut(outBufferAllFail)
+	cmdAllFail.SetErr(io.Discard)
+	cmdAllFail.SetArgs([]string{tmpDir})
+
+	err = cmdAllFail.Execute()
+	require.Error(t, err)
+
+	outAllFail := outBufferAllFail.String()
+	expectedAllFailSummary := fmt.Sprintf("Test Summary: 0 tests passed and %s tests failed", color.BoldRed(1))
+	assert.Contains(t, outAllFail, expectedAllFailSummary)
+	assert.NotContains(t, outAllFail, color.BoldGreen(0)+" tests passed")
 }
 
 func TestRunTest_WarningColor(t *testing.T) {
@@ -2394,4 +2430,3 @@ func TestRunTest_WarningColor(t *testing.T) {
 	assert.Contains(t, outNoColor, "warning: found duplicated resource")
 	assert.False(t, ansiRegex.MatchString(outNoColor), "expected warning to not contain ANSI codes when color disabled")
 }
-
