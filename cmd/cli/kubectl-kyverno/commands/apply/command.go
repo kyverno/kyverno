@@ -68,6 +68,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -363,6 +364,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+	c.recordGlobalContextEntryDeprecationWarnings(out, gctxEntries)
 
 	if !c.Cluster && (len(resources)+len(targetResources)+len(parameterResources)) > 0 {
 		dClient, err = createFakeClientFromResources(resources, targetResources, parameterResources)
@@ -1214,6 +1216,27 @@ func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []poli
 	for _, warning := range warnings {
 		msg := fmt.Sprintf("Warning: %s: %s", warning.Path, warning.Warning)
 		fmt.Fprintln(out, msg)
+		c.deprecationWarnings = append(c.deprecationWarnings, msg)
+	}
+}
+
+// recordGlobalContextEntryDeprecationWarnings warns, once per GlobalContextEntry, about any
+// projection still using jmesPath, routed through the same deprecationWarnings accumulator as
+// every other CLI deprecation warning so --warnings-as-errors picks it up for free.
+func (c *ApplyCommandConfig) recordGlobalContextEntryDeprecationWarnings(out io.Writer, gctxEntries []*kyvernov2.GlobalContextEntry) {
+	for _, gce := range gctxEntries {
+		var jmesPathFields []string
+		path := field.NewPath("spec", "projections")
+		for i, p := range gce.Spec.Projections {
+			if p.JMESPath != "" {
+				jmesPathFields = append(jmesPathFields, path.Index(i).Child("jmesPath").String())
+			}
+		}
+		if len(jmesPathFields) == 0 {
+			continue
+		}
+		msg := fmt.Sprintf("GlobalContextEntry %q: %s", gce.Name, pkgdeprecations.BuildProjectionWarning(jmesPathFields).Message)
+		fmt.Fprintln(out, "Warning: "+msg)
 		c.deprecationWarnings = append(c.deprecationWarnings, msg)
 	}
 }

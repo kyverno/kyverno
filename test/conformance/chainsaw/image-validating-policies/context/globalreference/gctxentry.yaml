@@ -8,4 +8,4 @@ spec:
     refreshInterval: 1h
   projections:
     - name: test-globalcontext-apicall-correct-projections_deployment_count
-      jmesPath: "items[?metadata.namespace=='test-globalcontext-apicall-correct'] | length(@)"
+      expression: "object.items.filter(i, i.metadata.namespace == 'test-globalcontext-apicall-correct').size()"
