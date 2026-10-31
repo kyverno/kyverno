@@ -196,7 +196,11 @@ func NewProvider(
 			autogenPolicy := policy.DeepCopyObject().(policiesv1beta1.MutatingPolicyLike)
 			*autogenPolicy.GetSpec() = *gen.Spec
 
-			compiled, errs := compiler.Compile(autogenPolicy, matchedExceptions)
+			rewrittenExceptions, err := autogen.RewriteExceptions(matchedExceptions, config)
+			if err != nil {
+				return nil, err
+			}
+			compiled, errs := compiler.Compile(autogenPolicy, rewrittenExceptions)
 			if len(errs) > 0 {
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
 			}

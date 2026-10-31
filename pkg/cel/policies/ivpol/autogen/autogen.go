@@ -11,6 +11,45 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// RewriteExceptions rewrites PolicyException match conditions and validations using the same
+// spec field-path replacements applied to the policy spec for the given autogen
+// config, so exceptions match against the autogen'd controller's shape
+// instead of the original Pod-shaped policy.
+func RewriteExceptions(exceptions []*policiesv1beta1.PolicyException, config string) ([]*policiesv1beta1.PolicyException, error) {
+	replacements := slices.DeleteFunc(slices.Clone(autogen.ReplacementsMap[config]), func(r autogen.Replacement) bool {
+		return r.From == "metadata"
+	})
+	if len(replacements) == 0 || len(exceptions) == 0 {
+		return exceptions, nil
+	}
+
+	out := make([]*policiesv1beta1.PolicyException, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polex := polex.DeepCopy()
+
+		for i := range polex.Spec.MatchConditions {
+			expr := polex.Spec.MatchConditions[i].Expression
+			if expr != "" {
+				polex.Spec.MatchConditions[i].Expression = string(autogen.ApplyCEL([]byte(expr), replacements...))
+			}
+		}
+
+		for i := range polex.Spec.Validations {
+			expr := polex.Spec.Validations[i].Expression
+			if expr != "" {
+				polex.Spec.Validations[i].Expression = string(autogen.ApplyCEL([]byte(expr), replacements...))
+			}
+			msgExpr := polex.Spec.Validations[i].MessageExpression
+			if msgExpr != "" {
+				polex.Spec.Validations[i].MessageExpression = string(autogen.ApplyCEL([]byte(msgExpr), replacements...))
+			}
+		}
+
+		out = append(out, polex)
+	}
+	return out, nil
+}
+
 // ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
 // callers of this package (e.g. the engine provider) don't need to import
 // pkg/cel/autogen directly just to check it.
