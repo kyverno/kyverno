@@ -82,12 +82,13 @@ func deletingPolicyKey(namespace, name string) string {
 	return namespace + "/" + name
 }
 
-// `kyverno test` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
 var (
 	hookVpolProviderCreated    func()
 	hookMpolProviderCreated    func()
 	hookContextProviderCreated func()
 )
+
+// `kyverno test` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
 
 func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
 	failOnWarnings := len(warningsAsErrors) > 0 && warningsAsErrors[0]
@@ -456,6 +457,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		explicitOperations.Insert(res.Operation)
 	}
+	nsResolver := processor.GetNamespaceResolver(vars, dClient, len(testCase.Test.ClusterResources) > 0)
+
 	var contextProvider libs.Context
 	var vpolProvider vpolengine.Provider
 	var vpolProviderErr error
@@ -529,6 +532,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	evalResource := func(resource *unstructured.Unstructured, operation string, defaultRun bool) ([]engineapi.EngineResponse, error) {
 		// the policy processor is for multiple policies at once
 		pp := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             &store,
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
@@ -576,7 +580,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				nil,
 				[]*unstructured.Unstructured{resource},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				userInfo,
 				&resultCounts,
 				dClient,
@@ -601,7 +605,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{resource},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				&resultCounts,
 				dClient,
 				true,
@@ -654,6 +658,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	// file name in testResponse.Trigger.
 	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             &store,
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
@@ -698,7 +703,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				[]*unstructured.Unstructured{{Object: jp.data}},
 				nil,
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				userInfo,
 				&resultCounts,
 				dClient,
@@ -722,7 +727,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{{Object: jp.data}},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				&resultCounts,
 				dClient,
 				true,
