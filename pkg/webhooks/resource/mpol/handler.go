@@ -136,6 +136,30 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		logger.Error(err, "mutation failures")
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
+
+	if len(resp.Patch) != 0 {
+		for _, policy := range response.Policies {
+			hasPass := false
+			var rules []string
+			for i := range policy.Rules {
+				rule := &policy.Rules[i]
+				if rule.Status() == engineapi.RuleStatusPass && !rule.IsException() {
+					hasPass = true
+					if rule.Name() != "" {
+						rules = append(rules, rule.Name())
+					}
+				}
+			}
+			if hasPass && policy.Policy != nil {
+				if len(rules) > 0 {
+					logger.V(2).Info("mutation rules from policy applied successfully", "policy", policy.Policy.GetName(), "rules", rules)
+				} else {
+					logger.V(2).Info("mutation rules from policy applied successfully", "policy", policy.Policy.GetName())
+				}
+			}
+		}
+	}
+
 	return resp
 }
 
