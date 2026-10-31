@@ -5,17 +5,20 @@ This package implements semantic terminal coloring and formatting for `kubectl-k
 ## Architecture and Global State
 
 1. **Color Primitives & Semantic Helpers**:
-   - Built on top of `github.com/fatih/color`.
-   - Wraps raw ANSI formatting into semantic color helpers:
-     - Policy/Rule naming: `Policy(prefix, name)`, `Rule(name)`, `RuleFail(name)`
-     - Status diagnostics: `BoldGreen(...)`, `BoldRed(...)`, `BoldYellow(...)`, `BoldCyan(...)`
+   - Built on top of `ext/output/color` (which wraps `github.com/fatih/color`).
+   - Wraps ANSI formatting into semantic CLI helpers:
+     - Resource / Policy / Rule naming: `Policy(namespace, name)`, `Rule(name)`, `Resource(kind, namespace, name)`
+     - Result statuses: `ResultPass()`, `ResultFail()`, `ResultWarn()`, `ResultError()`, `ResultSkip()`, `Excluded()`, `NotFound()`, `InvalidPolicy()`
+     - Diagnostic helpers: `BoldGreen(...)`, `BoldRed(...)`, `BoldYellow(...)`, `BoldCyan(...)`, `FunctionName(name)`, `FunctionNote(note)`
      - Table styling: `HeaderBgColor`, `HeaderFgColor`
 
 2. **Initialization and Linter Constraints**:
-   - **No `func init()`**: Global color primitives are declared and initialized directly at package level (`var ...`). The `gochecknoinits` linter strictly prohibits `func init()`.
-   - **`Init(removeColor bool)`**:
-     - When `removeColor` is `true`: calls `fatihcolor.NoColor = true` and resets table header colors (`HeaderBgColor = 0`, `HeaderFgColor = 0`).
-     - When `removeColor` is `false`: re-enables table header colors and sets `fatihcolor.NoColor = false` (unless the user environment specifies `NO_COLOR`).
+   - **No `func init()`**: Global color primitives in `ext/output/color` are declared and initialized directly at package level (`var ...`). The `gochecknoinits` linter strictly prohibits `func init()`.
+   - **`Init(noColor bool)`**:
+     - Delegates to `ext/output/color.Init(noColor, false)`, which re-instantiates package-level color objects (`BoldGreen`, `BoldRed`, `BoldYellow`, `BoldFgCyan`) and calls `c.DisableColor()` on each when `noColor` is `true`.
+     - When `noColor` is `false`: re-enables table header colors (`HeaderBgColor = tablewriter.BgBlackColor`, `HeaderFgColor = tablewriter.FgGreenColor`).
+     - When `noColor` is `true`: resets table header colors (`HeaderBgColor = 0`, `HeaderFgColor = 0`).
+     - **Per-instance vs Global Suppression (`fatihcolor.NoColor`)**: `Init` only modifies its own package-level `Color` instances and table header styling; **it never writes to `fatih/color.NoColor`**. Callers cannot rely on `color.Init` to set or clear the global `fatihcolor.NoColor` boolean.
 
 ## Structured-Output and Color Suppression Invariants
 
@@ -32,7 +35,7 @@ This package implements semantic terminal coloring and formatting for `kubectl-k
 
 ## Testing Invariants
 
-- **Global State Isolation**: Because `fatihcolor.NoColor` and `color.Init` mutate global state, every test altering color settings must restore the original state in `t.Cleanup`:
+- **Global State Isolation**: Because tests often modify `fatihcolor.NoColor` directly (e.g. `fatihcolor.NoColor = false`) to enable ANSI codes, and `color.Init` configures per-instance colors and table header state, every test altering color settings must restore `fatihcolor.NoColor` and call `color.Init(origNoColor)` in `t.Cleanup`:
   ```go
   origNoColor := fatihcolor.NoColor
   t.Cleanup(func() {

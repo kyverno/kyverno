@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 )
 
 func TestMain(m *testing.M) {
@@ -2177,6 +2178,25 @@ func TestCommandWithColorAndRemoveColor(t *testing.T) {
 		output := out.String()
 		assert.Contains(t, output, "kind: ClusterReport")
 		assert.NotContains(t, output, "\x1b[")
+	})
+
+	t.Run("suppress color in generate-exceptions structured output", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--generate-exceptions"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: PolicyException")
+		assert.NotContains(t, output, "\x1b[")
+
+		var parsed map[string]any
+		trimmed := bytes.TrimPrefix(out.Bytes(), []byte("---\n"))
+		require.NoError(t, yaml.Unmarshal(trimmed, &parsed))
 	})
 
 	t.Run("suppress color in stdin mode", func(t *testing.T) {
