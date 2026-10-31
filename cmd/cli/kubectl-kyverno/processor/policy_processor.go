@@ -54,6 +54,12 @@ import (
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
 
+var (
+	HookFallbackVpolCompiled     func()
+	HookFallbackVpolJSONCompiled func()
+	HookFallbackMpolCompiled     func()
+)
+
 type PolicyProcessor struct {
 	Store                             *store.Store
 	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
@@ -207,6 +213,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 		provider := p.MpolProvider
 		if provider == nil {
+			if HookFallbackMpolCompiled != nil {
+				HookFallbackMpolCompiled()
+			}
 			var err error
 			provider, err = mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions, contextProvider)
 			if err != nil {
@@ -445,6 +454,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				provider := p.VpolProvider
 				if provider == nil {
+					if HookFallbackVpolCompiled != nil {
+						HookFallbackVpolCompiled()
+					}
 					var err error
 					provider, err = vpolengine.NewProvider(compiler, k8sPolicies, p.CELExceptions)
 					if err != nil {
@@ -521,6 +533,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				provider := p.VpolJSONProvider
 				if provider == nil {
+					if HookFallbackVpolJSONCompiled != nil {
+						HookFallbackVpolJSONCompiled()
+					}
 					var err error
 					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
 					if err != nil {
@@ -561,6 +576,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				provider := p.VpolJSONProvider
 				if provider == nil {
+					if HookFallbackVpolJSONCompiled != nil {
+						HookFallbackVpolJSONCompiled()
+					}
 					var err error
 					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
 					if err != nil {
