@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,12 +44,12 @@ type Matcher struct {
 }
 
 func (m *Matcher) GetNamespace(name string) (metav1.Object, error) {
-	// Check for both nil interface and nil pointer
-	if m.Namespace == nil || reflect.ValueOf(m.Namespace).IsNil() {
+	// A nil interface and a typed nil pointer both mean the namespace was not loaded.
+	if m.namespaceUnresolved() {
 		return &minimalNamespace{
 			name: name,
 			labels: map[string]string{
-				"kubernetes.io/metadata.name": name,
+				corev1.LabelMetadataName: name,
 			},
 		}, nil
 	}
@@ -83,9 +84,7 @@ func (m *Matcher) GetNamespaceLabels(attr admission.Attributes) (map[string]stri
 	// the namespace in the namespaceLister, because a delete request is not
 	// going to change the object, and attr.Object will be a DeleteOptions
 	// rather than a namespace object.
-	if attr.GetResource().Resource == "namespaces" &&
-		len(attr.GetSubresource()) == 0 &&
-		(attr.GetOperation() == admission.Create || attr.GetOperation() == admission.Update) {
+	if namespaceObjectInRequest(attr) {
 		accessor, err := meta.Accessor(attr.GetObject())
 		if err != nil {
 			return nil, err
@@ -119,6 +118,19 @@ func (m *Matcher) MatchNamespaceSelector(p NamespaceSelectorProvider, attr admis
 		return true, nil
 	}
 
+	// The stand-in namespace only carries kubernetes.io/metadata.name. That is
+	// enough for a selector on the namespace name, which is how CLI mode avoids
+	// loading the namespace object. Any other label is unknown. Matching it as
+	// absent would skip a policy that should apply, or apply one that should
+	// not, and failurePolicy would never see the failed lookup.
+	if m.namespaceUnresolved() && !namespaceObjectInRequest(attr) && !selectorUsesOnlyMetadataName(selector) {
+		return false, apierrors.NewInternalError(fmt.Errorf(
+			"namespace %q was not loaded, and namespaceSelector uses labels other than %s",
+			namespaceName,
+			corev1.LabelMetadataName,
+		))
+	}
+
 	namespaceLabels, err := m.GetNamespaceLabels(attr)
 	// this means the namespace is not found, for backwards compatibility,
 	// return a 404
@@ -133,6 +145,32 @@ func (m *Matcher) MatchNamespaceSelector(p NamespaceSelectorProvider, attr admis
 		return false, apierrors.NewInternalError(err)
 	}
 	return selector.Matches(labels.Set(namespaceLabels)), nil
+}
+
+func (m *Matcher) namespaceUnresolved() bool {
+	if m.Namespace == nil {
+		return true
+	}
+	return reflect.ValueOf(m.Namespace).IsNil()
+}
+
+func namespaceObjectInRequest(attr admission.Attributes) bool {
+	return attr.GetResource().Resource == "namespaces" &&
+		len(attr.GetSubresource()) == 0 &&
+		(attr.GetOperation() == admission.Create || attr.GetOperation() == admission.Update)
+}
+
+func selectorUsesOnlyMetadataName(selector labels.Selector) bool {
+	requirements, selectable := selector.Requirements()
+	if !selectable {
+		return false
+	}
+	for i := range requirements {
+		if requirements[i].Key() != corev1.LabelMetadataName {
+			return false
+		}
+	}
+	return true
 }
 
 // minimalNamespace implements metav1.Object for CLI mode
