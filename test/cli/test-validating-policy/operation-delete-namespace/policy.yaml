@@ -1,0 +1,19 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: deny-critical-ns-deletion
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [DELETE]
+      resources:   [namespaces]
+    namespaceSelector:
+      matchLabels:
+        critical: "true"
+  validations:
+    - expression: "false"
+      message: "critical namespaces cannot be deleted"
