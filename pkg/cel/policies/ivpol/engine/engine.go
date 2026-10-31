@@ -428,7 +428,7 @@ func (e *engineImpl) evaluateExtractedIv(
 		// must not short-circuit the remaining templates, or a genuinely bad
 		// template later in the list would go unevaluated.
 		if len(result.Exceptions) > 0 {
-			allExceptions = append(allExceptions, result.Exceptions...)
+			allExceptions = engine.AppendExceptions(allExceptions, result.Exceptions)
 			lastExempt = result
 			continue
 		}
