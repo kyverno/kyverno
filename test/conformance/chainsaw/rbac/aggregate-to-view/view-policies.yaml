@@ -12,6 +12,7 @@ rules:
       - clustercleanuppolicies
       - policies
       - clusterpolicies
+      - policyexceptions
     verbs:
       - get
       - list
