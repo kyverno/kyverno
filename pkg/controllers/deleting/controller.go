@@ -339,18 +339,19 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	// In case it is the time to do the cleanup process
 	if time.Now().After(*executionTime) {
-		err := c.deleting(ctx, logger, policy)
-		if err != nil {
-			return err
+		// Attempt deletion but continue even if it fails.
+		if delErr := c.deleting(ctx, logger, policy); delErr != nil {
+			logger.Error(delErr, "failed to delete resources for DeletingPolicy")
 		}
-		if err := c.updateDeletingPolicyStatus(ctx, policy.Policy, time.Now()); err != nil {
-			logger.Error(err, "failed to update the deleting policy status")
-			return err
+		// Update status regardless of deletion outcome.
+		if updErr := c.updateDeletingPolicyStatus(ctx, policy.Policy, time.Now()); updErr != nil {
+			logger.Error(updErr, "failed to update the deleting policy status")
 		}
+		// Compute next execution time; on error fallback to current execution time.
 		nextExecutionTime, err = policy.Policy.GetNextExecutionTime(time.Now())
 		if err != nil {
 			logger.Error(err, "failed to get the policy next execution time")
-			return err
+			nextExecutionTime = executionTime
 		}
 	} else {
 		nextExecutionTime = executionTime
