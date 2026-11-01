@@ -867,6 +867,48 @@ func Test_SemverCompare(t *testing.T) {
 	}
 }
 
+func Test_SemverCompare_InvalidArgs(t *testing.T) {
+	testCases := []struct {
+		jmesPath    string
+		expectedMsg string
+	}{
+		{
+			jmesPath:    "semver_compare('invalid-version', '>=0.0.0')",
+			expectedMsg: "No Major.Minor.Patch elements found",
+		},
+		{
+			jmesPath:    "semver_compare('invalid-version', '==0.0.0')",
+			expectedMsg: "No Major.Minor.Patch elements found",
+		},
+		{
+			jmesPath:    "semver_compare('1.2', '>=1.0.0')",
+			expectedMsg: "No Major.Minor.Patch elements found",
+		},
+		{
+			jmesPath:    "semver_compare('v2.0.0', '<1.0.0')",
+			expectedMsg: `Invalid character(s) found in major number "v2"`,
+		},
+		{
+			jmesPath:    "semver_compare('', '>=0.0.0')",
+			expectedMsg: "Version string empty",
+		},
+		{
+			jmesPath:    "semver_compare('1.2.3', 'not-a-range')",
+			expectedMsg: `Could not get version from string: "not-a-range"`,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.jmesPath, func(t *testing.T) {
+			jp, err := jmespathInterface.Query(tc.jmesPath)
+			assert.NilError(t, err)
+
+			result, err := jp.Search("")
+			assert.ErrorContains(t, err, tc.expectedMsg)
+			assert.Assert(t, result != true)
+		})
+	}
+}
+
 func Test_Lookup(t *testing.T) {
 	testCases := []struct {
 		collection     string
