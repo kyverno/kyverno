@@ -40,6 +40,13 @@ func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Uns
 	}
 }
 
+func newUnstructuredWithLabels(apiVersion, kind, namespace, name string, labels map[string]string) *unstructured.Unstructured {
+	u := newUnstructured(apiVersion, kind, namespace, name)
+	metadata := u.Object["metadata"].(map[string]interface{})
+	metadata["labels"] = labels
+	return u
+}
+
 func newUnstructuredWithSpec(apiVersion, kind, namespace, name string, spec map[string]interface{}) *unstructured.Unstructured {
 	u := newUnstructured(apiVersion, kind, namespace, name)
 	u.Object["spec"] = spec
@@ -63,10 +70,10 @@ func newFixture(t *testing.T) *fixture {
 	}
 
 	objects := []runtime.Object{
-		newUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),
+		newUnstructuredWithLabels("group/version", "TheKind", "ns-foo", "name-foo", map[string]string{"toolkit.fluxcd.io/tenant": "team-a"}),
 		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-foo"),
 		newUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
-		newUnstructured("group/version", "TheKind", "ns-foo", "name-baz"),
+		newUnstructuredWithLabels("group/version", "TheKind", "ns-foo", "name-baz", map[string]string{"toolkit.fluxcd.io/tenant": "team-b"}),
 		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-baz"),
 		newUnstructured("apps/v1", "Deployment", config.KyvernoNamespace(), config.KyvernoDeploymentName()),
 	}
@@ -130,5 +137,30 @@ func TestEventInterface(t *testing.T) {
 	_, err := iEvent.Events(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		t.Errorf("Testing Event interface not working: %s", err)
+	}
+}
+
+func TestListResourceWithWildcardLabelSelector(t *testing.T) {
+	f := newFixture(t)
+	selector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"toolkit.fluxcd.io/tenant": "?*",
+		},
+	}
+
+	list, err := f.client.ListResource(context.TODO(), "", "thekind", "ns-foo", selector)
+	if err != nil {
+		t.Fatalf("ListResource should support wildcard label selectors: %s", err)
+	}
+	if len(list.Items) != 2 {
+		t.Fatalf("expected 2 matching resources, got %d", len(list.Items))
+	}
+
+	names := map[string]bool{}
+	for _, item := range list.Items {
+		names[item.GetName()] = true
+	}
+	if !names["name-foo"] || !names["name-baz"] {
+		t.Fatalf("expected wildcard selector to match name-foo and name-baz, got %#v", names)
 	}
 }
