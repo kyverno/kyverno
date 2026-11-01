@@ -179,3 +179,29 @@
 {{- toYaml $sortedRefs -}}
 {{- end -}}
 {{- end -}}
+
+{{/* Helper function to calculate controller-runtime metrics port */}}
+{{- define "kyverno.controllerRuntimeMetricsPort" -}}
+{{- $features := mergeOverwrite (deepCopy .features) (default dict .featuresOverride) -}}
+{{- $bindAddress := ":8080" -}}
+{{- if and $features.controllerRuntimeMetrics (hasKey $features.controllerRuntimeMetrics "bindAddress") -}}
+  {{- if ne ($features.controllerRuntimeMetrics.bindAddress | toString) "" -}}
+    {{- $bindAddress = $features.controllerRuntimeMetrics.bindAddress | toString -}}
+  {{- end -}}
+{{- end -}}
+{{- with .extraArgs -}}
+  {{- $val := "" -}}
+  {{- if hasKey . "controllerRuntimeMetricsAddress" -}}
+    {{- $val = index . "controllerRuntimeMetricsAddress" -}}
+  {{- else if hasKey . "--controllerRuntimeMetricsAddress" -}}
+    {{- $val = index . "--controllerRuntimeMetricsAddress" -}}
+  {{- end -}}
+  {{- if $val -}}
+    {{- $bindAddress = $val | toString -}}
+  {{- end -}}
+{{- end -}}
+{{- $port := last (splitList ":" $bindAddress) | int -}}
+{{- if and (ne $bindAddress "0") (ne $bindAddress ":0") (gt $port 0) -}}
+{{- $port -}}
+{{- end -}}
+{{- end -}}
