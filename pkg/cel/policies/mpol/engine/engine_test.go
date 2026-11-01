@@ -639,6 +639,72 @@ func TestEvaluate(t *testing.T) {
 		assert.Equal(t, "staging", labels["env"], "first policy mutation should be present")
 		assert.Equal(t, "backend", labels["team"], "second policy mutation should be present")
 	})
+
+	// namespaceObject must be the target's namespace in mutateExisting evaluation, the same as
+	// it is at admission time; the background controller and the CLI both evaluate targets here.
+	t.Run("namespaceObject is resolved for the target namespace", func(t *testing.T) {
+		mutateExisting := true
+		pol := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "copy-team-label"},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{Enabled: &mutateExisting},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"configmaps"},
+							},
+						},
+					}},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{{
+					Name:       "team-namespaces-only",
+					Expression: `has(namespaceObject.metadata.labels) && 'team' in namespaceObject.metadata.labels`,
+				}},
+				Mutations: []admissionregistrationv1alpha1.Mutation{{
+					PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+					ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+						Expression: `Object{metadata: Object.metadata{labels: {"team": namespaceObject.metadata.labels["team"]}}}`,
+					},
+				}},
+			},
+		}
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{pol}, nil, libs.NewFakeContextProvider())
+		if !assert.NoError(t, err) {
+			return
+		}
+		var resolved []string
+		nsResolver := func(ns string) *corev1.Namespace {
+			resolved = append(resolved, ns)
+			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{"team": "payments"}}}
+		}
+		target := &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]interface{}{"name": "cm", "namespace": "payments"},
+		}}
+		attr := admission.NewAttributesRecord(
+			target, nil, schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+			"payments", "cm", schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
+			"", admission.Update, nil, false, &user.DefaultInfo{},
+		)
+		// the trigger lives in another namespace: namespaceObject must follow the target
+		req := admissionv1.AdmissionRequest{Operation: admissionv1.Update, Namespace: "trigger", Name: "cm"}
+
+		eng := NewEngine(provider, nsResolver, nil, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+		resp, err := eng.Evaluate(ctx, attr, req, predicate)
+
+		assert.NoError(t, err)
+		if assert.Len(t, resp.Policies, 1) && assert.Len(t, resp.Policies[0].Rules, 1) {
+			rule := resp.Policies[0].Rules[0]
+			assert.Equal(t, engineapi.RuleStatusPass, rule.Status(), rule.Message())
+		}
+		if assert.NotNil(t, resp.PatchedResource, "the target should have been mutated") {
+			assert.Equal(t, "payments", resp.PatchedResource.GetLabels()["team"])
+		}
+		assert.Equal(t, []string{"payments"}, resolved)
+	})
 }
 
 func TestHandle(t *testing.T) {
