@@ -928,6 +928,8 @@ func jpModulo(arguments []any) (any, error) {
 	return op1.Modulo(op2)
 }
 
+// jpRound implements round(). It rounds the first argument to the number of
+// decimal places given by the second, which must be a non-negative integer.
 func jpRound(arguments []any) (any, error) {
 	op, err := validateArg(round, arguments, 0, reflect.Float64)
 	if err != nil {
@@ -942,7 +944,7 @@ func jpRound(arguments []any) (any, error) {
 		return nil, formatError(nonIntRoundError, round)
 	}
 	if intLength < 0 {
-		return nil, formatError(argOutOfBoundsError, round)
+		return nil, formatError(argOutOfBoundsError, round, 2, intLength)
 	}
 	shift := math.Pow(10, float64(intLength))
 	rounded := math.Round(op.Float()*shift) / shift
