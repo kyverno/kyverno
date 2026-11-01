@@ -2,11 +2,13 @@ package admissionpolicy
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -381,4 +383,706 @@ func TestCELStringListLiteral_Shapes(t *testing.T) {
 	expression, err = celStringListLiteral(nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "null", expression)
+}
+
+func TestNegateExceptionMatchConditions(t *testing.T) {
+	single := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "single"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "single-condition",
+				Expression: "object.metadata.name == 'skip'",
+			}},
+		},
+	}
+	got := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{single})
+	require.Equal(t, []admissionregistrationv1.MatchCondition{{
+		Name:       "single-condition",
+		Expression: "!(object.metadata.name == 'skip')",
+	}}, got)
+
+	multi := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "multi"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: "admission-only", Expression: "request.userInfo.username != ''"},
+				{Name: "match-legacy-resources", Expression: `request.resource.resource == "accessentries"`},
+			},
+		},
+	}
+	got = negateExceptionMatchConditions([]policiesv1beta1.PolicyException{multi})
+	require.Len(t, got, 1)
+	assert.Regexp(t, `^exception-[0-9a-f]{12}$`, got[0].Name)
+	assert.Equal(t, `!((request.userInfo.username != '') && (request.resource.resource == "accessentries"))`, got[0].Expression)
+
+	other := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "other"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "other-condition",
+				Expression: "object.metadata.namespace == 'skip'",
+			}},
+		},
+	}
+	got = negateExceptionMatchConditions([]policiesv1beta1.PolicyException{multi, other})
+	require.Len(t, got, 2)
+	assert.Equal(t, `!(object.metadata.namespace == 'skip')`, got[0].Expression)
+	assert.Equal(t, `!((request.userInfo.username != '') && (request.resource.resource == "accessentries"))`, got[1].Expression)
+}
+
+// An informer may return the same PolicyExceptions in any order. Native policy
+// generation must remain stable, including the full-exception short circuit.
+func TestNegateExceptionMatchConditions_DeterministicOrder(t *testing.T) {
+	first := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "a", Name: "first"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "first-condition", Expression: "true"}},
+		},
+	}
+	second := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "b", Name: "second"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "second-condition", Expression: "false"}},
+		},
+	}
+	ordered := []policiesv1beta1.PolicyException{first, second}
+	reversed := []policiesv1beta1.PolicyException{second, first}
+	expected := negateExceptionMatchConditions(ordered)
+	assert.Equal(t, expected, negateExceptionMatchConditions(reversed))
+	assert.Equal(t, "first-condition", expected[0].Name)
+	assert.Equal(t, "second-condition", expected[1].Name)
+	// Neither the caller's ordering nor its backing slice may be modified.
+	assert.Equal(t, second, reversed[0])
+	assert.Equal(t, first, reversed[1])
+
+	fullA := policiesv1beta1.PolicyException{ObjectMeta: metav1.ObjectMeta{Namespace: "a", Name: "global"}}
+	fullB := policiesv1beta1.PolicyException{ObjectMeta: metav1.ObjectMeta{Namespace: "b", Name: "global"}}
+	gotA := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{fullA, fullB})
+	gotB := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{fullB, fullA})
+	require.Len(t, gotA, 1)
+	assert.Equal(t, gotA, gotB)
+	assert.Equal(t, "false", gotA[0].Expression)
+	assert.Equal(t, exceptionMatchConditionName(fullA), gotA[0].Name)
+}
+
+func TestBuildValidatingAdmissionPolicy_MultiConditionCELException(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-standard-labels", UID: "policy-uid"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "not-deleting",
+				Expression: "!has(object.metadata.deletionTimestamp)",
+			}},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "true",
+				Message:    "must pass",
+			}},
+		},
+	}
+	exception := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "require-standard-labels-temp"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "admission-only",
+					Expression: `has(request.userInfo.username) && request.userInfo.username != ''`,
+				},
+				{
+					Name:       "match-legacy-resources",
+					Expression: `request.resource.resource == "accessentries"`,
+				},
+			},
+		},
+	}
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "vpol-require-standard-labels"},
+	}
+
+	err := BuildValidatingAdmissionPolicy(
+		nil,
+		vap,
+		engineapi.NewValidatingPolicy(policy),
+		[]engineapi.GenericException{engineapi.NewCELPolicyException(exception)},
+	)
+	require.NoError(t, err)
+	require.Len(t, vap.Spec.MatchConditions, 2)
+	assert.Equal(t, "not-deleting", vap.Spec.MatchConditions[0].Name)
+	assert.Equal(t, "!has(object.metadata.deletionTimestamp)", vap.Spec.MatchConditions[0].Expression)
+	assert.Regexp(t, `^exception-[0-9a-f]{12}$`, vap.Spec.MatchConditions[1].Name)
+	assert.Equal(t, `!((has(request.userInfo.username) && request.userInfo.username != '') && (request.resource.resource == "accessentries"))`, vap.Spec.MatchConditions[1].Expression)
+	assert.Len(t, vap.Spec.Validations, 1)
+	assert.Equal(t, "true", vap.Spec.Validations[0].Expression)
+}
+
+func TestNegateExceptionMatchConditions_FullAndScopedExceptions(t *testing.T) {
+	tests := []struct {
+		name      string
+		exception policiesv1beta1.PolicyException
+		wantCount int
+		wantExpr  string
+	}{
+		{
+			name: "full exception without match conditions",
+			exception: policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "full"},
+			},
+			wantCount: 1,
+			wantExpr:  "false",
+		},
+		{
+			name: "image-scoped exception without match conditions",
+			exception: policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "image-scoped"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					Images: []string{"ghcr.io/example/app:v1"},
+				},
+			},
+		},
+		{
+			name: "value-scoped exception without match conditions",
+			exception: policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "value-scoped"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					AllowedValues: []string{"allowed"},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{tt.exception})
+			require.Len(t, got, tt.wantCount)
+			if tt.wantCount == 0 {
+				return
+			}
+			assert.Regexp(t, "^exception-[0-9a-f]{12}$", got[0].Name)
+			assert.Equal(t, tt.wantExpr, got[0].Expression)
+		})
+	}
+}
+
+func TestNegateExceptionMatchConditions_MultipleConditionsEvaluation(t *testing.T) {
+	exception := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "multi"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: "admission-only", Expression: "request.userInfo.username != ''"},
+				{Name: "match-legacy-resources", Expression: "request.resource.resource == \"accessentries\""},
+			},
+		},
+	}
+	generated := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{exception})
+	require.Len(t, generated, 1)
+
+	env, err := cel.NewEnv(cel.Variable("request", cel.DynType))
+	require.NoError(t, err)
+	ast, issues := env.Compile(generated[0].Expression)
+	require.NoError(t, issues.Err())
+	program, err := env.Program(ast)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		request map[string]any
+		want    bool
+	}{
+		{
+			name: "only username condition matches; policy stays active",
+			request: map[string]any{
+				"userInfo": map[string]any{"username": "system:serviceaccount:kyverno:controller"},
+				"resource": map[string]any{"resource": "pods"},
+			},
+			want: true,
+		},
+		{
+			name: "both conditions match; policy is excluded",
+			request: map[string]any{
+				"userInfo": map[string]any{"username": "system:serviceaccount:kyverno:controller"},
+				"resource": map[string]any{"resource": "accessentries"},
+			},
+			want: false,
+		},
+		{
+			name: "only resource condition matches; policy stays active",
+			request: map[string]any{
+				"userInfo": map[string]any{"username": ""},
+				"resource": map[string]any{"resource": "accessentries"},
+			},
+			want: true,
+		},
+		{
+			name: "neither condition matches; policy stays active",
+			request: map[string]any{
+				"userInfo": map[string]any{"username": ""},
+				"resource": map[string]any{"resource": "pods"},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, _, err := program.Eval(map[string]any{"request": tt.request})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, out.Value())
+		})
+	}
+}
+
+func TestBuildValidatingAdmissionPolicy_DoesNotMutateCachedPolicy(t *testing.T) {
+	// Keep a sentinel in spare capacity: appending an exception must not write
+	// beyond the source slice's length, even if the source elements are unchanged.
+	conditions := []admissionregistrationv1.MatchCondition{
+		{Name: "scope", Expression: "exceptions.allowedImages.size() > 0"},
+		{Name: "sentinel", Expression: "false"},
+	}
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "cached-policy"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			MatchConditions:  conditions[:1],
+			Variables: []admissionregistrationv1.Variable{{
+				Name: "count", Expression: "exceptions.allowedImages.size()",
+			}},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression:        "exceptions.allowedImages.size() > 0",
+				MessageExpression: "string(exceptions.allowedValues.size())",
+			}},
+			AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+				Key: "scope", ValueExpression: "string(exceptions.allowedImages.size())",
+			}},
+		},
+	}
+	original := policy.DeepCopy()
+	exception := &policiesv1beta1.PolicyException{
+		Spec: policiesv1beta1.PolicyExceptionSpec{Images: []string{"example.com/app:v1"}},
+	}
+	fullException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "conditional-exemption"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "skip", Expression: "false"}},
+		},
+	}
+	var previous *admissionregistrationv1.ValidatingAdmissionPolicy
+	for range 2 {
+		vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+		err := BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(policy),
+			[]engineapi.GenericException{engineapi.NewCELPolicyException(exception), engineapi.NewCELPolicyException(fullException)})
+		require.NoError(t, err)
+		assert.Equal(t, original, policy)
+		assert.Equal(t, "sentinel", conditions[1].Name)
+		assert.Equal(t, "false", conditions[1].Expression)
+		if previous != nil {
+			assert.Equal(t, previous, vap, "repeated reconciliation must be stable")
+		}
+		previous = vap
+	}
+
+	// Removing the exception must rebuild empty scopes from the original policy,
+	// rather than keeping references or values from a previous reconciliation.
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+	require.NoError(t, BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(policy), nil))
+	assert.Equal(t, original, policy)
+	assert.Equal(t, "[].size() > 0", vap.Spec.MatchConditions[0].Expression)
+	require.Len(t, vap.Spec.Variables, 3)
+	assert.Equal(t, "[]", vap.Spec.Variables[0].Expression)
+	assert.Equal(t, "[]", vap.Spec.Variables[1].Expression)
+}
+
+func TestBuildValidatingAdmissionPolicy_InlinesMatchConditionScopes(t *testing.T) {
+	tests := []struct {
+		name   string
+		images []string
+		values []string
+		want   bool
+	}{
+		{name: "empty scopes", want: false},
+		{name: "images only", images: []string{"example.com/app:v1"}, want: true},
+		{name: "values only", values: []string{"blue"}, want: false},
+		{name: "images and values", images: []string{"example.com/app:v1"}, values: []string{"blue"}, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "match-condition-scopes"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					MatchConditions: []admissionregistrationv1.MatchCondition{{
+						Name: "scope", Expression: "exceptions.allowedImages.size() == 1 && exceptions.allowedValues.size() == 0",
+					}},
+					Validations: []admissionregistrationv1.Validation{{Expression: "true"}},
+				},
+			}
+			var exceptions []engineapi.GenericException
+			if len(tt.images)+len(tt.values) > 0 {
+				exceptions = []engineapi.GenericException{engineapi.NewCELPolicyException(&policiesv1beta1.PolicyException{
+					Spec: policiesv1beta1.PolicyExceptionSpec{Images: tt.images, AllowedValues: tt.values},
+				})}
+			}
+			vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+			require.NoError(t, BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(policy), exceptions))
+			require.Len(t, vap.Spec.MatchConditions, 1)
+			// Compile without either exceptions or variables in scope, as required by
+			// the native admission match-condition environment.
+			env, err := cel.NewEnv()
+			require.NoError(t, err)
+			ast, issues := env.Compile(vap.Spec.MatchConditions[0].Expression)
+			require.NoError(t, issues.Err())
+			program, err := env.Program(ast)
+			require.NoError(t, err)
+			out, _, err := program.Eval(map[string]any{})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, out.Value())
+		})
+	}
+}
+
+func TestBuildValidatingAdmissionPolicy_FullCELException(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-standard-labels", UID: "policy-uid"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "true",
+				Message:    "must pass",
+			}},
+		},
+	}
+	exception := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "full-exception"},
+	}
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+
+	err := BuildValidatingAdmissionPolicy(
+		nil,
+		vap,
+		engineapi.NewValidatingPolicy(policy),
+		[]engineapi.GenericException{engineapi.NewCELPolicyException(exception)},
+	)
+	require.NoError(t, err)
+	require.Len(t, vap.Spec.MatchConditions, 1)
+	assert.Regexp(t, "^exception-[0-9a-f]{12}$", vap.Spec.MatchConditions[0].Name)
+	assert.Equal(t, "false", vap.Spec.MatchConditions[0].Expression)
+	assert.Len(t, vap.Spec.Validations, 1)
+}
+
+func TestBuildMutatingAdmissionPolicyV1_FullCELException(t *testing.T) {
+	mp := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "mutate-policy", UID: "policy-uid"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+		},
+	}
+	exception := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "full-exception"},
+	}
+	mapol := &admissionregistrationv1.MutatingAdmissionPolicy{}
+
+	BuildMutatingAdmissionPolicyV1(mapol, mp, []policiesv1beta1.PolicyException{exception})
+
+	require.Len(t, mapol.Spec.MatchConditions, 1)
+	assert.Regexp(t, "^exception-[0-9a-f]{12}$", mapol.Spec.MatchConditions[0].Name)
+	assert.Equal(t, "false", mapol.Spec.MatchConditions[0].Expression)
+}
+
+func TestNegateExceptionMatchConditions_GlobalExceptionShortCircuits(t *testing.T) {
+	exceptions := []policiesv1beta1.PolicyException{
+		{ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "full-one"}},
+		{ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "full-two"}},
+	}
+
+	got := negateExceptionMatchConditions(exceptions)
+	require.Len(t, got, 1)
+	assert.Equal(t, "false", got[0].Expression)
+	assert.Regexp(t, "^exception-[0-9a-f]{12}$", got[0].Name)
+}
+
+func TestEnsureUniqueExceptionMatchConditionNames(t *testing.T) {
+	exception := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "collision"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: "first", Expression: "true"},
+				{Name: "second", Expression: "true"},
+			},
+		},
+	}
+	generated := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{exception})
+	require.Len(t, generated, 1)
+	collidingName := generated[0].Name
+	policyConditions := []admissionregistrationv1.MatchCondition{{
+		Name:       collidingName,
+		Expression: "true",
+	}}
+
+	got := ensureUniqueExceptionMatchConditionNames(generated, policyConditions)
+	assert.Equal(t, collidingName+"-2", got[0].Name)
+	assert.Equal(t, collidingName, policyConditions[0].Name)
+
+	duplicateExceptionNames := []admissionregistrationv1.MatchCondition{
+		{Name: "check-name", Expression: "true"},
+		{Name: "check-name", Expression: "false"},
+	}
+	got = ensureUniqueExceptionMatchConditionNames(duplicateExceptionNames, nil)
+	assert.Equal(t, "check-name", got[0].Name)
+	assert.Equal(t, "check-name-2", got[1].Name)
+
+	longName := strings.Repeat("a", 63)
+	got = ensureUniqueExceptionMatchConditionNames(
+		[]admissionregistrationv1.MatchCondition{{Name: longName, Expression: "true"}},
+		[]admissionregistrationv1.MatchCondition{{Name: longName, Expression: "true"}},
+	)
+	require.Len(t, got, 1)
+	assert.LessOrEqual(t, len(got[0].Name), 63)
+	assert.Equal(t, strings.Repeat("a", 61)+"-2", got[0].Name)
+}
+
+func TestEnsureUniqueExceptionMatchConditionNames_QualifiedName(t *testing.T) {
+	prefix := strings.Repeat("a", 60)
+	name := prefix + "/" + strings.Repeat("b", 63)
+	generated := []admissionregistrationv1.MatchCondition{
+		{Name: name, Expression: "false"},
+		{Name: name, Expression: "true"},
+	}
+	existing := []admissionregistrationv1.MatchCondition{{Name: name, Expression: "true"}}
+
+	got := ensureUniqueExceptionMatchConditionNames(generated, existing)
+	require.Len(t, got, 2)
+	assert.Equal(t, prefix+"/"+strings.Repeat("b", 61)+"-2", got[0].Name)
+	assert.Equal(t, prefix+"/"+strings.Repeat("b", 61)+"-3", got[1].Name)
+	assert.Equal(t, name, existing[0].Name)
+}
+
+func TestEnsureUniqueExceptionMatchConditionNames_MaxLength(t *testing.T) {
+	longName := strings.Repeat("a", 63)
+	existing := []admissionregistrationv1.MatchCondition{{Name: longName, Expression: "true"}}
+	generated := []admissionregistrationv1.MatchCondition{{Name: longName, Expression: "false"}}
+
+	got := ensureUniqueExceptionMatchConditionNames(generated, existing)
+	require.Len(t, got, 1)
+	assert.Len(t, got[0].Name, 63)
+	assert.Equal(t, strings.Repeat("a", 61)+"-2", got[0].Name)
+	assert.Equal(t, longName, existing[0].Name)
+}
+
+func TestBuildValidatingAdmissionPolicy_RewritesAllScopedExceptionFields(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "scoped-references", UID: "policy-uid"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "scopeCount",
+				Expression: "exceptions.allowedImages.size() + exceptions.allowedValues.size()",
+			}},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression:        "exceptions.allowedImages.size() > 0",
+				MessageExpression: "'allowed: ' + string(exceptions.allowedValues.size())",
+			}},
+			AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+				Key:             "example.com/image-count",
+				ValueExpression: "string(exceptions.allowedImages.size())",
+			}},
+		},
+	}
+	exception := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "only-images"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images: []string{"ghcr.io/example/app:v1"},
+		},
+	}
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+	err := BuildValidatingAdmissionPolicy(
+		nil, vap, engineapi.NewValidatingPolicy(policy),
+		[]engineapi.GenericException{engineapi.NewCELPolicyException(exception)},
+	)
+	require.NoError(t, err)
+	require.Len(t, vap.Spec.Variables, 3)
+	variableExpressions := make(map[string]string, len(vap.Spec.Variables))
+	for _, variable := range vap.Spec.Variables {
+		variableExpressions[variable.Name] = variable.Expression
+	}
+	assert.Equal(t, "variables.allowedImages.size() + variables.allowedValues.size()", variableExpressions["scopeCount"])
+	assert.Equal(t, `["ghcr.io/example/app:v1"]`, variableExpressions["allowedImages"])
+	assert.Equal(t, "[]", variableExpressions["allowedValues"])
+	require.Len(t, vap.Spec.Validations, 1)
+	assert.Equal(t, "variables.allowedImages.size() > 0", vap.Spec.Validations[0].Expression)
+	assert.Equal(t, `"allowed: " + string(variables.allowedValues.size())`, vap.Spec.Validations[0].MessageExpression)
+	require.Len(t, vap.Spec.AuditAnnotations, 1)
+	assert.Equal(t, "string(variables.allowedImages.size())", vap.Spec.AuditAnnotations[0].ValueExpression)
+}
+
+func TestBuildValidatingAdmissionPolicy_AggregatesScopedExceptionValues(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "scoped-exceptions", UID: "policy-uid"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "allowedImages",
+				Expression: "exceptions.allowedValues.size() > 0",
+			}},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression:        "exceptions.allowedImages.size() > 0",
+					Message:           "image list must exist",
+					MessageExpression: "exceptions.allowedValues.join(',')",
+				},
+				{Expression: "exceptions.allowedValues.size() > 0", Message: "value list must exist"},
+			},
+			AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+				Key:             "exception-images",
+				ValueExpression: "exceptions.allowedImages.join(',')",
+			}},
+		},
+	}
+	imageOne := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "image-one"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images:        []string{"ghcr.io/example/one:v1"},
+			AllowedValues: []string{"blue"},
+		},
+	}
+	imageTwo := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "image-two"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images:        []string{"ghcr.io/example/two:v1"},
+			AllowedValues: []string{"green"},
+		},
+	}
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+
+	err := BuildValidatingAdmissionPolicy(
+		nil,
+		vap,
+		engineapi.NewValidatingPolicy(policy),
+		[]engineapi.GenericException{
+			engineapi.NewCELPolicyException(imageOne),
+			engineapi.NewCELPolicyException(imageTwo),
+		},
+	)
+	require.NoError(t, err)
+
+	require.Len(t, vap.Spec.Variables, 3)
+	variables := make(map[string]string, len(vap.Spec.Variables))
+	for _, variable := range vap.Spec.Variables {
+		variables[variable.Name] = variable.Expression
+	}
+	assert.Equal(t, "variables.allowedValues.size() > 0", variables["allowedImages"])
+	assert.Equal(t, `["ghcr.io/example/one:v1","ghcr.io/example/two:v1"]`, variables["exceptionAllowedImages2"])
+	assert.Equal(t, `["blue","green"]`, variables["allowedValues"])
+	assert.Equal(t, "variables.exceptionAllowedImages2.size() > 0", vap.Spec.Validations[0].Expression)
+	assert.Equal(t, "variables.allowedValues.size() > 0", vap.Spec.Validations[1].Expression)
+	assert.Equal(t, `variables.allowedValues.join(",")`, vap.Spec.Validations[0].MessageExpression)
+	require.Len(t, vap.Spec.AuditAnnotations, 1)
+	assert.Equal(t, `variables.exceptionAllowedImages2.join(",")`, vap.Spec.AuditAnnotations[0].ValueExpression)
+}
+
+func TestBuildValidatingAdmissionPolicy_EmptyScopedExceptionValues(t *testing.T) {
+	tests := []struct {
+		name             string
+		exception        *policiesv1beta1.PolicyException
+		wantImages       string
+		wantValues       string
+		wantExpression   string
+		sourceExpression string
+	}{
+		{
+			name: "image-only exception declares empty allowed values",
+			exception: &policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "image-only"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					Images: []string{"ghcr.io/example/app:v1"},
+				},
+			},
+			wantImages:       `["ghcr.io/example/app:v1"]`,
+			wantValues:       "[]",
+			wantExpression:   "variables.allowedImages.size() > 0 && variables.allowedValues.size() == 0",
+			sourceExpression: "exceptions.allowedImages.size() > 0 && exceptions.allowedValues.size() == 0",
+		},
+		{
+			name: "value-only exception declares empty allowed images",
+			exception: &policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "value-only"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					AllowedValues: []string{"blue"},
+				},
+			},
+			wantImages:       "[]",
+			wantValues:       `["blue"]`,
+			wantExpression:   "variables.allowedImages.size() == 0 && variables.allowedValues.size() > 0",
+			sourceExpression: "exceptions.allowedImages.size() == 0 && exceptions.allowedValues.size() > 0",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "empty-scoped-exceptions"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: tt.sourceExpression,
+						Message:    "scope test",
+					}},
+				},
+			}
+			vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+			err := BuildValidatingAdmissionPolicy(
+				nil,
+				vap,
+				engineapi.NewValidatingPolicy(policy),
+				[]engineapi.GenericException{engineapi.NewCELPolicyException(tt.exception)},
+			)
+			require.NoError(t, err)
+			require.Len(t, vap.Spec.Variables, 2)
+			variables := make(map[string]string, len(vap.Spec.Variables))
+			for _, variable := range vap.Spec.Variables {
+				variables[variable.Name] = variable.Expression
+			}
+			assert.Equal(t, tt.wantImages, variables["allowedImages"])
+			assert.Equal(t, tt.wantValues, variables["allowedValues"])
+			assert.Equal(t, tt.wantExpression, vap.Spec.Validations[0].Expression)
+		})
+	}
+}
+
+func TestBuildValidatingAdmissionPolicy_DeterministicExceptionScopeOrder(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "sorted-exceptions", UID: "policy-uid"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "exceptions.allowedImages.size() > 0 && exceptions.allowedValues.size() > 0",
+				Message:    "scopes must exist",
+			}},
+		},
+	}
+	alpha := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "a-namespace", Name: "z-exception"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images:        []string{"ghcr.io/example/alpha:v1"},
+			AllowedValues: []string{"alpha"},
+		},
+	}
+	beta := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "b-namespace", Name: "a-exception"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images:        []string{"ghcr.io/example/beta:v1"},
+			AllowedValues: []string{"beta"},
+		},
+	}
+	build := func(first, second *policiesv1beta1.PolicyException) admissionregistrationv1.ValidatingAdmissionPolicySpec {
+		t.Helper()
+		var vap admissionregistrationv1.ValidatingAdmissionPolicy
+		err := BuildValidatingAdmissionPolicy(
+			nil, &vap, engineapi.NewValidatingPolicy(policy),
+			[]engineapi.GenericException{engineapi.NewCELPolicyException(first), engineapi.NewCELPolicyException(second)},
+		)
+		require.NoError(t, err)
+		return vap.Spec
+	}
+	inOrder := build(alpha, beta)
+	reversed := build(beta, alpha)
+	assert.Equal(t, inOrder, reversed)
+	require.Len(t, inOrder.Variables, 2)
+	assert.Equal(t, `["ghcr.io/example/alpha:v1","ghcr.io/example/beta:v1"]`, inOrder.Variables[0].Expression)
+	assert.Equal(t, `["alpha","beta"]`, inOrder.Variables[1].Expression)
 }
