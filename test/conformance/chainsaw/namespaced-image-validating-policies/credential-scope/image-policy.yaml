@@ -1,0 +1,35 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedImageValidatingPolicy
+metadata:
+  name: ($name)
+spec:
+  validationConfigurations:
+    mutateDigest: false
+    verifyDigest: false
+    required: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      resources:
+      - pods
+  validations:
+  - expression: 'true'
+  credentials:
+    secrets:
+    - ($secret)
+  attestors:
+  - name: signer
+    cosign:
+      key:
+        data: '-----BEGIN PUBLIC KEY-----
+
+          MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+
+          5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+
+          -----END PUBLIC KEY-----'
