@@ -975,3 +975,100 @@ func TestHandle_ExtractionMode_MultiTemplateTraceSelection(t *testing.T) {
 		})
 	}
 }
+
+func TestHandle_UnloadedNamespaceSelectorIsAnError(t *testing.T) {
+	fail := admissionregistrationv1.Fail
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "prod-only"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			FailurePolicy: &fail,
+			// Pod controllers are not part of this case. An empty list keeps autogen off
+			// so the response is the policy under test.
+			AutogenConfiguration: &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
+				PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
+					Controllers: []string{},
+				},
+			},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"env": "prod"},
+				},
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+						},
+					},
+				}},
+			},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "false",
+				Message:    "denied",
+			}},
+		},
+	}
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+
+	pod := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata":   map[string]any{"name": "web", "namespace": "prod"},
+	}}
+	req := celengine.Request(
+		nil,
+		schema.GroupVersionKind{Version: "v1", Kind: "Pod"},
+		schema.GroupVersionResource{Version: "v1", Resource: "pods"},
+		"",
+		"web",
+		"prod",
+		admissionv1.Create,
+		authenticationv1.UserInfo{},
+		pod,
+		nil,
+		false,
+		nil,
+	)
+
+	handle := func(t *testing.T, resolver celengine.NamespaceResolver) celengine.ValidatingPolicyResponse {
+		t.Helper()
+		eng := NewEngine(provider, resolver, matching.NewMatcher())
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, 1)
+		require.Equal(t, "prod-only", resp.Policies[0].Policy.GetName())
+		return resp.Policies[0]
+	}
+
+	t.Run("loaded namespace is denied by the validation", func(t *testing.T) {
+		got := handle(t, func(string) *corev1.Namespace {
+			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+				Name:   "prod",
+				Labels: map[string]string{"env": "prod"},
+			}}
+		})
+		require.Len(t, got.Rules, 1)
+		assert.Equal(t, engineapi.RuleStatusFail, got.Rules[0].Status())
+		assert.Contains(t, got.Rules[0].Message(), "denied")
+	})
+
+	t.Run("different labels are a skip", func(t *testing.T) {
+		got := handle(t, func(string) *corev1.Namespace {
+			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+				Name:   "prod",
+				Labels: map[string]string{"env": "dev"},
+			}}
+		})
+		assert.Empty(t, got.Rules)
+	})
+
+	t.Run("unloaded namespace is a match error", func(t *testing.T) {
+		got := handle(t, func(string) *corev1.Namespace { return nil })
+		require.Len(t, got.Rules, 1)
+		assert.Equal(t, engineapi.RuleStatusError, got.Rules[0].Status())
+		assert.Contains(t, got.Rules[0].Message(), "was not loaded")
+	})
+}
