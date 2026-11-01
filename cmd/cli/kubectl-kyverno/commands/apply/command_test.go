@@ -10,7 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	fatihcolor "github.com/fatih/color"
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
@@ -2035,4 +2037,32 @@ func Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition(t *testing.T) {
 			assert.Contains(t, out.String(), "evaluated against a JSON payload")
 		}
 	}
+}
+
+func Test_Apply_PolicyReport_DeprecatedUserInfoWarningNoColor(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+	fatihcolor.NoColor = false
+	color.Init(false)
+
+	policyPath := "../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"
+	resourcePath := "../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"
+	userInfoPath := "../../_testdata/user-infos/valid.yaml"
+
+	cmd := Command()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "-u", userInfoPath, "-p"})
+	err := cmd.Execute()
+	assert.Error(t, err)
+
+	output := out.String()
+	assert.Contains(t, output, "WARNING: user infos file")
+	assert.Contains(t, output, "uses a deprecated schema")
+	assert.Contains(t, output, "kind: ClusterReport")
+	assert.NotContains(t, output, "\x1b[")
 }
