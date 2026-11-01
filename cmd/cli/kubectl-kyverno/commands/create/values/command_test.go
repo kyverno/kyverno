@@ -3,6 +3,8 @@ package values
 import (
 	"bytes"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -155,4 +157,70 @@ func TestCommandValidationErrors(t *testing.T) {
 			assert.Error(t, err)
 		})
 	}
+}
+
+func TestCommandOutputNoTruncationOnError(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "values.yaml")
+	initialContent := []byte("original: preserved\n")
+
+	err := os.WriteFile(filePath, initialContent, 0o600)
+	assert.NoError(t, err)
+
+	cmd := Command()
+	cmd.SetArgs([]string{
+		"-o", filePath,
+		"-g", "invalid_no_equals",
+	})
+	err = cmd.Execute()
+	assert.Error(t, err)
+
+	// Verify that the existing file was NOT truncated or overwritten
+	content, err := os.ReadFile(filePath)
+	assert.NoError(t, err)
+	assert.Equal(t, string(initialContent), string(content))
+}
+
+func TestCommandOutputSuccess(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "values.yaml")
+
+	cmd := Command()
+	cmd.SetArgs([]string{
+		"-o", filePath,
+		"-g", "key=value",
+		"--rule", "pol1,rule1,k=v",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+
+	content, err := os.ReadFile(filePath)
+	assert.NoError(t, err)
+	assert.Contains(t, string(content), "key: value")
+	assert.Contains(t, string(content), "- name: pol1")
+}
+
+func TestCommandPolicyOrdering(t *testing.T) {
+	cmd := Command()
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{
+		"--rule", "policy-b,rule1,k=v",
+		"--rule", "policy-a,rule1,k=v",
+		"--resource", "policy-c,res1,k=v",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+
+	out, err := io.ReadAll(b)
+	assert.NoError(t, err)
+	outputStr := string(out)
+
+	idxB := strings.Index(outputStr, "- name: policy-b")
+	idxA := strings.Index(outputStr, "- name: policy-a")
+	idxC := strings.Index(outputStr, "- name: policy-c")
+
+	assert.True(t, idxB >= 0 && idxA >= 0 && idxC >= 0)
+	assert.True(t, idxB < idxA, "policy-b should appear before policy-a as specified in --rule flags")
+	assert.True(t, idxA < idxC, "rules-defined policies should appear before resource-only policies")
 }

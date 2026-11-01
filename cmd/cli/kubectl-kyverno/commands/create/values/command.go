@@ -27,15 +27,6 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			output := cmd.OutOrStdout()
-			if path != "" {
-				file, err := os.Create(path)
-				if err != nil {
-					return err
-				}
-				defer file.Close()
-				output = file
-			}
 			values := v1alpha1.ValuesSpec{}
 			values.GlobalValues = map[string]interface{}{}
 
@@ -135,6 +126,16 @@ func Command() *cobra.Command {
 					Rules:     pd.rules,
 					Resources: pd.resources,
 				})
+			}
+
+			output := cmd.OutOrStdout()
+			if path != "" {
+				file, err := os.Create(path)
+				if err != nil {
+					return err
+				}
+				defer file.Close()
+				output = file
 			}
 
 			return tmpl.Execute(output, values)
