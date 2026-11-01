@@ -12,7 +12,7 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-
+// hasOpenFD reports whether the current process holds an open descriptor whose target is the given path.
 func hasOpenFD(t *testing.T, target string) bool {
 	t.Helper()
 	entries, err := os.ReadDir("/proc/self/fd")
@@ -20,7 +20,7 @@ func hasOpenFD(t *testing.T, target string) bool {
 	for _, entry := range entries {
 		link, err := os.Readlink(filepath.Join("/proc/self/fd", entry.Name()))
 		if err != nil {
-		
+			// the descriptor used to read the directory itself may already be gone
 			continue
 		}
 		if link == target {
@@ -30,7 +30,7 @@ func hasOpenFD(t *testing.T, target string) bool {
 	return false
 }
 
-
+// A failed write to the mutate log must not leak the file descriptor.
 func TestPrintOutput_ClosesFileOnWriteError(t *testing.T) {
 	if _, err := os.Stat("/dev/full"); err != nil {
 		t.Skip("/dev/full is not available")
