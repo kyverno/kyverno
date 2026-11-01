@@ -147,16 +147,13 @@ func logDecisionTraces(logger logr.Logger, response eval.ImageVerifyEngineRespon
 // request as blocked, nor an empty result reach a report or an event. With tracing off nothing is
 // dropped and the response is returned as it is.
 func withoutTraceOnlyPolicies(response eval.ImageVerifyEngineResponse) eval.ImageVerifyEngineResponse {
-	traceOnly := func(p eval.ImageVerifyPolicyResponse) bool {
-		return p.Trace != nil && p.Result.Status() == ""
-	}
-	if !slices.ContainsFunc(response.Policies, traceOnly) {
+	if !slices.ContainsFunc(response.Policies, eval.ImageVerifyPolicyResponse.TraceOnly) {
 		return response
 	}
 	// a new slice: the traces logged above still belong to the engine's response
 	policies := make([]eval.ImageVerifyPolicyResponse, 0, len(response.Policies))
 	for _, p := range response.Policies {
-		if !traceOnly(p) {
+		if !p.TraceOnly() {
 			policies = append(policies, p)
 		}
 	}

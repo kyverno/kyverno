@@ -364,7 +364,7 @@ func main() {
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
-	flagset.BoolVar(&enableDecisionTraces, "enableDecisionTraces", false, "Set this flag to 'true' to log a decision trace for every ValidatingPolicy, MutatingPolicy and ImageValidatingPolicy admission decision: which expressions ran and what they resolved to. This is a debug mode: every expression is evaluated a second time to explain it, and the trace contains values read from the admitted resource (no values are logged for Secrets).")
+	flagset.BoolVar(&enableDecisionTraces, "enableDecisionTraces", false, "Set this flag to 'true' to log a decision trace for every ValidatingPolicy, MutatingPolicy and ImageValidatingPolicy admission decision: which expressions ran and what they resolved to. FAIL and ERROR decisions are logged at verbosity 2, PASS and SKIP decisions at verbosity 3, and policies that did not apply to the resource at verbosity 4. This is a debug mode: every expression is evaluated a second time to explain it, and the trace contains values read from the admitted resource (no values are logged for Secrets).")
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations (number of seconds, integer).")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")

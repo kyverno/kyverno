@@ -31,7 +31,7 @@ import (
 
 // traceTestPolicies are two image validating policies whose images never match
 // matchImageReferences, so nothing is fetched from a registry and no signature is verified.
-// require-team only audits; deployments-only denies, but never applies to a Pod.
+// require-team only audits; deployments-only denies every Deployment, but never applies to a Pod.
 const traceTestPolicies = `
 - metadata:
     name: require-team
@@ -83,7 +83,8 @@ const traceTestPolicies = `
         key:
           data: unused
     validations:
-    - expression: "true"
+    - expression: "false"
+      message: "deployments are denied"
 `
 
 // capturedLog collects what a logger writes. The decision traces are logged from a goroutine,
@@ -180,6 +181,31 @@ func tracePodRequest(name string, labels string) handlers.AdmissionRequest {
 	}
 }
 
+func traceDeploymentRequest(name string) handlers.AdmissionRequest {
+	return handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       types.UID("test-uid"),
+			Operation: admissionv1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+			Resource:  metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			Namespace: "default",
+			Name:      name,
+			Object: runtime.RawExtension{Raw: []byte(`{
+				"apiVersion": "apps/v1",
+				"kind": "Deployment",
+				"metadata": {"name": "` + name + `", "namespace": "default", "uid": "deployment-uid"},
+				"spec": {
+					"selector": {"matchLabels": {"app": "web"}},
+					"template": {
+						"metadata": {"labels": {"app": "web", "team": "payments"}},
+						"spec": {"containers": [{"name": "web", "image": "docker.io/library/nginx:1.27"}]}
+					}
+				}
+			}`)},
+		},
+	}
+}
+
 // TestValidate_DecisionTracesAreLogged runs admission requests through the ivpol handler with the
 // policies compiled for tracing, as --enableDecisionTraces does, and reads the log. With tracing
 // on, the engine also returns the policies that did not apply, or that a match condition skipped,
@@ -187,40 +213,44 @@ func tracePodRequest(name string, labels string) handlers.AdmissionRequest {
 // the events, which must be exactly what they are with tracing off.
 func TestValidate_DecisionTracesAreLogged(t *testing.T) {
 	tests := []struct {
-		name   string
-		pod    string
-		labels string
+		name    string
+		request handlers.AdmissionRequest
 		// want is the verdict logged per policy at verbosity 4, which logs every decision
 		want map[string]string
+		// denied is whether the request is rejected, by deployments-only
+		denied bool
 	}{{
-		name:   "a pod without a team label fails the audit",
-		pod:    "web",
-		labels: `{}`,
-		want:   map[string]string{"require-team": "FAIL", "deployments-only": "SKIP"},
+		name:    "a pod without a team label fails the audit",
+		request: tracePodRequest("web", `{}`),
+		want:    map[string]string{"require-team": "FAIL", "deployments-only": "SKIP"},
 	}, {
-		name:   "a pod with a team label passes",
-		pod:    "web",
-		labels: `{"team": "payments"}`,
-		want:   map[string]string{"require-team": "PASS", "deployments-only": "SKIP"},
+		name:    "a pod with a team label passes",
+		request: tracePodRequest("web", `{"team": "payments"}`),
+		want:    map[string]string{"require-team": "PASS", "deployments-only": "SKIP"},
 	}, {
-		name:   "a match condition skips a debug pod",
-		pod:    "debug-shell",
-		labels: `{}`,
-		want:   map[string]string{"require-team": "SKIP", "deployments-only": "SKIP"},
+		name:    "a match condition skips a debug pod",
+		request: tracePodRequest("debug-shell", `{}`),
+		want:    map[string]string{"require-team": "SKIP", "deployments-only": "SKIP"},
+	}, {
+		name:    "a deployment is denied",
+		request: traceDeploymentRequest("web"),
+		want:    map[string]string{"require-team": "PASS", "deployments-only": "FAIL"},
+		denied:  true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			untracedHandler, untracedEvents := traceTestHandler(t, false)
-			untraced := untracedHandler.ValidateClustered(context.Background(), logr.Discard(), tracePodRequest(tt.pod, tt.labels), "", time.Now())
+			untraced := untracedHandler.ValidateClustered(context.Background(), logr.Discard(), tt.request, "", time.Now())
 
 			var log capturedLog
 			tracedHandler, tracedEvents := traceTestHandler(t, true)
-			traced := tracedHandler.ValidateClustered(context.Background(), log.logger(4), tracePodRequest(tt.pod, tt.labels), "", time.Now())
+			traced := tracedHandler.ValidateClustered(context.Background(), log.logger(4), tt.request, "", time.Now())
 
 			require.Eventually(t, func() bool { return len(log.decisions()) == len(tt.want) }, 5*time.Second, 5*time.Millisecond)
 			assert.Equal(t, tt.want, log.decisions(), "every policy's decision is logged, including the ones that did not apply")
 
 			// the trace goes to the log only
+			assert.Equal(t, !tt.denied, traced.Allowed)
 			assert.Equal(t, untraced, traced, "the admission response is the one an untraced handler gives")
 			assert.Equal(t, untracedEvents.all(), tracedEvents.all(), "the events are the ones an untraced handler emits")
 		})
