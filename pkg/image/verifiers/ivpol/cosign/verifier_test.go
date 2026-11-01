@@ -6,8 +6,11 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"github.com/sigstore/cosign/v3/pkg/cosign"
+	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -466,6 +469,46 @@ func TestShouldUseSignedTimestamps(t *testing.T) {
 	}
 }
 
+// TestIgnoreTlog is a pure unit test (no registry access) for the ignoreTlog
+// helper shared by VerifyImageSignature and VerifyAttestationSignature. It
+// guards against a regression of https://github.com/kyverno/kyverno/issues/17109,
+// where VerifyAttestationSignature did not honor InsecureIgnoreTlog/InsecureIgnoreSCT
+// the way VerifyImageSignature does, breaking offline keyed attestation verification.
+func TestIgnoreTlog(t *testing.T) {
+	tests := []struct {
+		name     string
+		cosign   *v1beta1.Cosign
+		expected bool
+	}{
+		{
+			name:     "nil ctlog -> false",
+			cosign:   &v1beta1.Cosign{},
+			expected: false,
+		},
+		{
+			name:     "ctlog set but neither flag set -> false",
+			cosign:   &v1beta1.Cosign{CTLog: &v1beta1.CTLog{URL: "https://rekor.sigstore.dev"}},
+			expected: false,
+		},
+		{
+			name:     "InsecureIgnoreTlog set -> true",
+			cosign:   &v1beta1.Cosign{CTLog: &v1beta1.CTLog{InsecureIgnoreTlog: true}},
+			expected: true,
+		},
+		{
+			name:     "InsecureIgnoreSCT set -> true",
+			cosign:   &v1beta1.Cosign{CTLog: &v1beta1.CTLog{InsecureIgnoreSCT: true}},
+			expected: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, ignoreTlog(tc.cosign))
+		})
+	}
+}
+
 func TestMultiPlatformImages(t *testing.T) {
 	t.Run("multi-platform manifest list verification", func(t *testing.T) {
 		idf, err := imagedataloader.New(nil, nil, nil)
@@ -818,6 +861,70 @@ func TestVerifyAttestationSignature_ErrorCases(t *testing.T) {
 		err = v.VerifyAttestationSignature(context.TODO(), img, attestation, attestor)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to build cosign verification opts")
+	})
+}
+
+// TestVerifyAttestationSignature_IgnoreTlogGate stubs cosign.VerifyImageAttestations
+// (via verifyImageAttestationsFn) to force the verified=false/err=nil case that
+// VerifyImageSignature already tolerated but VerifyAttestationSignature did not,
+// and asserts the ignoreTlog(attestor.Cosign) gate added to VerifyAttestationSignature
+// behaves the same way in both directions.
+func TestVerifyAttestationSignature_IgnoreTlogGate(t *testing.T) {
+	idf, err := imagedataloader.New(nil, nil, nil)
+	require.NoError(t, err)
+
+	img, err := idf.FetchImageData(context.TODO(), v2KeyBasedImage, nil, nil)
+	if err != nil {
+		t.Skipf("test image not accessible: %v", err)
+	}
+
+	original := verifyImageAttestationsFn
+	defer func() { verifyImageAttestationsFn = original }()
+	verifyImageAttestationsFn = func(_ context.Context, _ name.Reference, _ *cosign.CheckOpts, _ ...name.Option) ([]oci.Signature, bool, error) {
+		return nil, false, nil
+	}
+
+	attestation := &v1beta1.Attestation{
+		Name: "test-attestation",
+		InToto: &v1beta1.InToto{
+			Type: "slsaprovenance",
+		},
+	}
+
+	v := Verifier{log: logr.Discard()}
+
+	t.Run("ignoreTlog=false rejects an unconfirmed bundle", func(t *testing.T) {
+		attestor := &v1beta1.Attestor{
+			Name: "no-ignore-tlog",
+			Cosign: &v1beta1.Cosign{
+				Key: &v1beta1.Key{Data: testPublicKey},
+			},
+		}
+
+		err := v.VerifyAttestationSignature(context.TODO(), img, attestation, attestor)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cosign bundle verification failed")
+	})
+
+	t.Run("ignoreTlog=true tolerates an unconfirmed bundle", func(t *testing.T) {
+		attestor := &v1beta1.Attestor{
+			Name: "ignore-tlog",
+			Cosign: &v1beta1.Cosign{
+				Key: &v1beta1.Key{Data: testPublicKey},
+				CTLog: &v1beta1.CTLog{
+					InsecureIgnoreTlog: true,
+					InsecureIgnoreSCT:  true,
+				},
+			},
+		}
+
+		err := v.VerifyAttestationSignature(context.TODO(), img, attestation, attestor)
+		// The bundle-verification gate is bypassed, so it never returns
+		// "cosign bundle verification failed"; it fails downstream instead
+		// because the stub returns no signatures to match the predicate type.
+		assert.Error(t, err)
+		assert.NotContains(t, err.Error(), "cosign bundle verification failed")
+		assert.Contains(t, err.Error(), "required predicate type")
 	})
 }
 
