@@ -100,6 +100,13 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 		Resource: object,
 	}
 
+	// namespaceObject is the target's namespace, same as at admission time. The target can live
+	// in a different namespace than the trigger, so it is resolved from attr, not from request.
+	var namespace *corev1.Namespace
+	if ns := attr.GetNamespace(); ns != "" {
+		namespace = e.nsResolver(ns)
+	}
+
 	// The request here is loop-invariant (attr is rebuilt per policy below,
 	// but the underlying admission request is not), so the `request` CEL
 	// activation value is built at most once for the whole loop instead of
@@ -117,7 +124,7 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 
 	for _, mpol := range mpols {
 		if predicate != nil && predicate(mpol.Policy) {
-			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, requestMapFn, true)
+			r, patched := e.handlePolicy(ctx, mpol, attr, request, namespace, requestMapFn, true)
 			response.Policies = append(response.Policies, r)
 			if patched != nil {
 				response.PatchedResource = patched
