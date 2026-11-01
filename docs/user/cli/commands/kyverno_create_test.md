@@ -22,6 +22,7 @@ kyverno create test [flags]
 ### Options
 
 ```
+      --error error        Expected error results
       --fail fail          Expected fail results
   -h, --help               help for test
   -n, --name string        Test name (default "test-name")
@@ -31,6 +32,7 @@ kyverno create test [flags]
   -r, --resource strings   List of resource files
       --skip skip          Expected skip results
   -f, --values string      Values file
+      --warn warn          Expected warn results
 ```
 
 ### Options inherited from parent commands
