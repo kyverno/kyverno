@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "apiVersion": "alpha.example.com/v1",
+      "kind": "Widget",
+      "metadata": {"name": "shared", "namespace": "default"},
+      "spec": {"allowed": true}
+    },
+    {
+      "apiVersion": "beta.example.com/v1",
+      "kind": "Widget",
+      "metadata": {"name": "shared", "namespace": "default"},
+      "spec": {"allowed": false}
+    }
+  ]
+}
