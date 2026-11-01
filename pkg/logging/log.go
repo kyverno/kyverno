@@ -50,6 +50,14 @@ func InitFlags(flags *flag.FlagSet) {
 		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	}
 	klog.InitFlags(flags)
+	// Opt into the new klog behavior where -stderrthreshold is honored even
+	// when -logtostderr=true (see kubernetes/klog#212, kubernetes/klog#432).
+	fs := flags
+	if fs == nil {
+		fs = flag.CommandLine
+	}
+	fs.Set("legacy_stderr_threshold_behavior", "false") //nolint:errcheck
+	fs.Set("stderrthreshold", "INFO")                   //nolint:errcheck
 }
 
 // Setup configures the logger with the supplied log format.
