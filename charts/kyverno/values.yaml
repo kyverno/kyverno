@@ -1957,7 +1957,7 @@ backgroundController:
     # -- Otel collector credentials
     creds: ''
 
-  # -- (deprecated) backgroundController server port.
+  # -- (object) Deprecated: backgroundController server port.
   # The background controller does not expose an HTTP/webhook server.
   server:
     port: 9443
@@ -2735,7 +2735,7 @@ reportsController:
     # -- (string) Otel collector credentials
     creds: ~
 
-  # -- (deprecated) reportsController server port.
+  # -- (object) Deprecated: reportsController server port.
   # The reports controller does not expose an HTTP/webhook server.
   server:
     port: 9443
