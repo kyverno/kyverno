@@ -87,25 +87,8 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.MutatingPolicyLike,
 				result.tracedMutations = append(result.tracedMutations, compiled)
 			}
 		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
-			if mutation.ApplyConfiguration == nil {
-				continue
-			}
-			compiled, errs := celcompiler.CompileMutationWithTrace(
-				path.Child("mutations").Index(i).Child("applyConfiguration"),
-				env,
-				mutation.ApplyConfiguration.Expression,
-				applyConfigObjectType,
-				c.trace,
-			)
-			if len(errs) > 0 {
-				return nil, errs
-			}
-			useServerSideApply := spec.EvaluationConfiguration != nil && spec.EvaluationConfiguration.UseServerSideApply
-			result.patchers = append(result.patchers, newApplyConfigPatcher(compiled.Program, useServerSideApply))
-			if c.trace {
-				compiled.Name = fmt.Sprintf("mutations[%d] (applyConfiguration)", i)
-				result.tracedMutations = append(result.tracedMutations, compiled)
-			}
+			errs := field.ErrorList{field.Forbidden(path.Child("mutations").Index(i), "ApplyConfiguration mutations are not supported in JSON mode")}
+			return nil, errs
 		}
 	}
 	return result, nil
@@ -140,9 +123,7 @@ func validateJSONSpec(spec *policiesv1beta1.MutatingPolicySpec) field.ErrorList 
 				errs = append(errs, field.Invalid(path.Child("mutations").Index(i), mutation.PatchType, "JSONPatch mutation requires jsonPatch and cannot include applyConfiguration"))
 			}
 		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
-			if mutation.ApplyConfiguration == nil || mutation.JSONPatch != nil {
-				errs = append(errs, field.Invalid(path.Child("mutations").Index(i), mutation.PatchType, "ApplyConfiguration mutation requires applyConfiguration and cannot include jsonPatch"))
-			}
+			errs = append(errs, field.Forbidden(path.Child("mutations").Index(i), "ApplyConfiguration mutations are not supported in JSON mode"))
 		default:
 			errs = append(errs, field.Invalid(path.Child("mutations").Index(i), mutation.PatchType, "only JSONPatch and ApplyConfiguration mutations are supported"))
 		}

@@ -57,6 +57,7 @@ func TestJSONMutation(t *testing.T) {
 		{"nested array", `{"items":[1,2]}`, `[JSONPatch{op:"add",path:"/items/-",value:3}]`, `{"items":[1,2,3]}`, engineapi.RuleStatusPass},
 		{"escaped key", `{}`, `[JSONPatch{op:"add",path:"/"+jsonpatch.escapeKey("a/b~c"),value:true}]`, `{"a/b~c":true}`, engineapi.RuleStatusPass},
 		{"copy and remove", `{"a":1}`, `[JSONPatch{op:"copy",from:"/a",path:"/b"},JSONPatch{op:"remove",path:"/a"}]`, `{"b":1}`, engineapi.RuleStatusPass},
+		{"copy document root", `{"a":1}`, `[JSONPatch{op:"copy",from:"",path:"/backup"}]`, `{"a":1,"backup":{"a":1}}`, engineapi.RuleStatusPass},
 		{"large integer", `{"id":9007199254740993}`, `[JSONPatch{op:"add",path:"/copy",value:object.id}]`, `{"id":9007199254740993,"copy":9007199254740993}`, engineapi.RuleStatusPass},
 		{"fractional equality", `{"n":0.1}`, `[JSONPatch{op:"test",path:"/n",value:0.1},JSONPatch{op:"add",path:"/ok",value:true}]`, `{"n":0.1,"ok":true}`, engineapi.RuleStatusPass},
 		{"mixed numeric inequality rolls back", `{"n":9007199254740993}`, `[JSONPatch{op:"add",path:"/partial",value:true},JSONPatch{op:"test",path:"/n",value:9007199254740992.0}]`, `{"n":9007199254740993}`, engineapi.RuleStatusSkip},
@@ -107,6 +108,25 @@ func TestJSONMutationReusesProviderAndSnapshots(t *testing.T) {
 		response.PatchedResource.Object["count"] = int64(99)
 		require.Equal(t, int64(2), response.Policies[0].PatchedResource.Object["count"])
 	}
+}
+
+func TestJSONMutationRefreshesVariables(t *testing.T) {
+	t.Parallel()
+	policy := jsonMutationPolicy("refresh-variables",
+		`[JSONPatch{op:"replace",path:"/count",value:2}]`,
+		`[JSONPatch{op:"add",path:"/observed",value:variables.count}]`,
+	)
+	policy.Spec.Variables = []admissionregistrationv1.Variable{{Name: "count", Expression: "object.count"}}
+	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "has-count", Expression: "variables.count == 1"}}
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
+	require.NoError(t, err)
+	response, err := NewEngine(provider, nil, nil, nil, nil).Handle(
+		context.Background(),
+		celengine.RequestFromJSON(nil, jsonObject(t, `{"count":1}`)),
+		nil,
+	)
+	require.NoError(t, err)
+	require.Equal(t, jsonObject(t, `{"count":2,"observed":2}`), response.PatchedResource)
 }
 
 func TestJSONMutationTracing(t *testing.T) {
@@ -225,36 +245,6 @@ func TestJSONMutationBudgetAndCancellation(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, response.PatchedResource)
 	})
-}
-
-func TestJSONApplyConfigurationMutation(t *testing.T) {
-	t.Parallel()
-	policy := &policiesv1beta1.MutatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "apply-config"},
-		Spec: policiesv1beta1.MutatingPolicySpec{
-			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
-			Mutations: []admissionregistrationv1alpha1.Mutation{{
-				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
-				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
-					Expression: `Object{metadata: Object.metadata{labels: {"mutated": "true"}}}`,
-				},
-			}},
-		},
-	}
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
-	require.NoError(t, err)
-	response, err := NewEngine(provider, nil, nil, nil, nil).Handle(
-		context.Background(),
-		celengine.RequestFromJSON(nil, jsonObject(t, `{"metadata":{"labels":{"existing":"yes"}}}`)),
-		nil,
-	)
-	require.NoError(t, err)
-	require.Len(t, response.Policies, 1)
-	require.Equal(t, engineapi.RuleStatusPass, response.Policies[0].Rules[0].Status())
-	labels, found, err := unstructured.NestedStringMap(response.PatchedResource.Object, "metadata", "labels")
-	require.NoError(t, err)
-	require.True(t, found)
-	require.Equal(t, map[string]string{"existing": "yes", "mutated": "true"}, labels)
 }
 
 func TestJSONModeDoesNotGenerateAutogenPolicies(t *testing.T) {

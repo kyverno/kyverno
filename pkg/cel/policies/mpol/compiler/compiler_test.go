@@ -3,6 +3,7 @@ package compiler
 import (
 	"testing"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -36,6 +37,25 @@ func TestCompileMissingPolicy(t *testing.T) {
 				assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
 			}
 		})
+	}
+}
+
+func TestCompileJSONApplyConfigurationIsUnsupported(t *testing.T) {
+	policy := &v1beta1.MutatingPolicy{
+		Spec: v1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{}`,
+				},
+			}},
+		},
+	}
+	compiled, errs := NewCompiler().Compile(policy, nil)
+	assert.Nil(t, compiled)
+	if assert.NotEmpty(t, errs) {
+		assert.Contains(t, errs[0].Error(), "ApplyConfiguration mutations are not supported in JSON mode")
 	}
 }
 

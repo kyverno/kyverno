@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 
+	jsonpatchv5 "github.com/evanphx/json-patch/v5"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -117,7 +118,7 @@ func (e *jsonPatcher) PatchJSON(ctx context.Context, evalData map[string]any, ru
 		return nil, eval, err
 	}
 	patchedJS, err := applyJSONPatchWithLimits(objJS, patchObj)
-	if errors.Is(err, jsonpatch.ErrTestFailed) {
+	if errors.Is(err, jsonpatchv5.ErrTestFailed) {
 		eval.NotApplied = "a test operation failed, so the object was left unchanged"
 		return &unstructured.Unstructured{Object: object}, eval, nil
 	}
@@ -178,7 +179,7 @@ func (e *jsonPatcher) evaluatePatchExpressionWithLimit(ctx context.Context, rema
 		resultOp := jsonpatch.Operation{}
 		resultOp["op"] = pointer.To(gojson.RawMessage(strconv.Quote(op.Op)))
 		resultOp["path"] = pointer.To(gojson.RawMessage(strconv.Quote(op.Path)))
-		if len(op.From) > 0 {
+		if op.Op == "copy" || op.Op == "move" {
 			resultOp["from"] = pointer.To(gojson.RawMessage(strconv.Quote(op.From)))
 		}
 		if op.Val != nil {
@@ -196,21 +197,46 @@ func (e *jsonPatcher) evaluatePatchExpressionWithLimit(ctx context.Context, rema
 }
 
 func applyJSONPatchWithLimits(document []byte, patchObj jsonpatch.Patch) ([]byte, error) {
-	patched := document
+	patchJSON, err := gojson.Marshal(patchObj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode JSON Patch: %w", err)
+	}
+	if err := checkJSONDocumentSize(len(patchJSON)); err != nil {
+		return nil, fmt.Errorf("JSON Patch: %w", err)
+	}
+
+	growthBudget := maxJSONDocumentSize - len(document)
 	for _, operation := range patchObj {
-		if value, ok := operation["value"]; ok && value != nil {
-			if err := checkJSONDocumentSize(len(*value)); err != nil {
-				return nil, fmt.Errorf("JSON Patch operation value: %w", err)
+		switch operation.Kind() {
+		case "add", "replace", "copy", "move":
+			encodedOperation, err := gojson.Marshal(operation)
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode JSON Patch operation: %w", err)
+			}
+			growthBudget -= len(encodedOperation)
+			if growthBudget < 0 {
+				return nil, fmt.Errorf("JSON Patch may exceed the maximum document size of %d bytes", maxJSONDocumentSize)
 			}
 		}
-		next, err := jsonpatch.Patch{operation}.Apply(patched)
-		if err != nil {
-			return nil, err
+	}
+	for _, operation := range patchObj {
+		if operation.Kind() == "copy" && growthBudget == 0 {
+			return nil, fmt.Errorf("JSON Patch copy operations exceed the maximum document size of %d bytes", maxJSONDocumentSize)
 		}
-		if err := checkJSONDocumentSize(len(next)); err != nil {
-			return nil, err
-		}
-		patched = next
+	}
+
+	patchV5, err := jsonpatchv5.DecodePatch(patchJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode JSON Patch: %w", err)
+	}
+	options := jsonpatchv5.NewApplyOptions()
+	options.AccumulatedCopySizeLimit = int64(growthBudget)
+	patched, err := patchV5.ApplyWithOptions(document, options)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkJSONDocumentSize(len(patched)); err != nil {
+		return nil, err
 	}
 	return patched, nil
 }

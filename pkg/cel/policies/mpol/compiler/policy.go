@@ -427,6 +427,9 @@ func (p *Policy) evaluate(
 		// the program data (the object) is supplied through the data map. we need to update
 		// the map to get the patched object from the previous patch
 		data[compiler.ObjectKey] = newVersionedObject.(*unstructured.Unstructured).Object
+		if p.jsonMode {
+			p.appendVariables(ctx, data, recordVariable)
+		}
 	}
 
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, data)
