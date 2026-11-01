@@ -145,6 +145,7 @@ func TestBuildWebhookRules_NamespaceObjectMatchConditionsNotOffloaded(t *testing
 				config.ValidatingPolicyWebhookName,
 				"/vpol",
 				0,
+				DefaultWebhookTimeout,
 				nil,
 				[]engineapi.GenericPolicy{engineapi.NewValidatingPolicy(vpol)},
 				expressionCache,
