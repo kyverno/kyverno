@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/go-git/go-billy/v5"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -38,6 +38,8 @@ import (
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -200,7 +202,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				var fileBytes []byte
 				fileBytes, loadErr = common.ReadFile(testCase.Fs, filepath.Join(testDir, jp))
 				if loadErr == nil {
-					loadErr = json.Unmarshal(fileBytes, &data)
+					data, loadErr = payload.Parse(jp, fileBytes)
 				}
 			} else {
 				data, loadErr = payload.Load(jp)
@@ -574,6 +576,17 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	// arbitrary JSON objects (not full Kubernetes resources) and are evaluated
 	// without an explicit operation. Results are stored under the payload's
 	// file name in testResponse.Trigger.
+	var mpolProvider mpolengine.Provider
+	var mpolProviderErr error
+	if len(jsonPayloads) > 0 && len(results.MutatingPolicies) > 0 {
+		var jsonPolicies []policiesv1beta1.MutatingPolicyLike
+		for _, policy := range results.MutatingPolicies {
+			if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+				jsonPolicies = append(jsonPolicies, policy)
+			}
+		}
+		mpolProvider, mpolProviderErr = mpolengine.NewProvider(mpolcompiler.NewCompiler(), jsonPolicies, polexLoader.CELExceptions, nil)
+	}
 	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
 			NamespaceResolver:                 nsResolver,
@@ -587,6 +600,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			ValidatingPolicies:                results.ValidatingPolicies,
 			TargetResources:                   targetResources,
 			JsonPayload:                       unstructured.Unstructured{Object: jp.data},
+			MpolProvider:                      mpolProvider,
+			MpolProviderErr:                   mpolProviderErr,
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,
@@ -606,7 +621,16 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
+			hasError := false
+			for _, response := range ers {
+				hasError = hasError || response.IsError()
+			}
+			if !hasError {
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %s (%w)", jp.name, err)
+			}
+		}
+		if processor.JsonPayload.Object != nil {
+			jp.data = processor.JsonPayload.Object
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(

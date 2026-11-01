@@ -653,7 +653,13 @@ func (c *ApplyCommandConfig) applyPolicies(
 
 				if len(mpols) != 0 {
 					compiler := mpolcompiler.NewCompilerWithTrace(c.Explain)
-					mpolProvider, err = mpolengine.NewProvider(compiler, mpols, celExceptions, contextProvider)
+					toCompile := mpols
+					if len(resources) == 0 {
+						toCompile = slices.DeleteFunc(slices.Clone(mpols), func(policy policiesv1beta1.MutatingPolicyLike) bool {
+							return policy.GetSpec().EvaluationMode() != policieskyvernoio.EvaluationModeJSON
+						})
+					}
+					mpolProvider, err = mpolengine.NewProvider(compiler, toCompile, celExceptions, contextProvider)
 					if err != nil {
 						if !c.ContinueOnFail {
 							return &rc, resources, responses, err
@@ -769,6 +775,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
+		*resource = processor.JsonPayload
 	}
 	return &rc, resources, responses, nil
 }
@@ -1082,7 +1089,11 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 				return nil, nil, fmt.Errorf("failed to load JSON payload (%w)", err)
 			}
 
-			jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: payload.(map[string]interface{})})
+			object, ok := payload.(map[string]interface{})
+			if !ok {
+				return nil, nil, fmt.Errorf("JSON payload %s must be a top-level object", path)
+			}
+			jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: object})
 		}
 	}
 	return resources, jsonPayloads, nil

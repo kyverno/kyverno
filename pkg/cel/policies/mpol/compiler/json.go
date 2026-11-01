@@ -5,13 +5,16 @@ import (
 	gojson "encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 
+	jsonpatchv5 "github.com/evanphx/json-patch/v5"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"google.golang.org/protobuf/types/known/structpb"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,6 +26,7 @@ import (
 	"k8s.io/apiserver/pkg/cel/mutation"
 	"k8s.io/apiserver/pkg/cel/mutation/dynamic"
 	pointer "k8s.io/utils/ptr"
+	kjson "sigs.k8s.io/json"
 )
 
 // JSONPatchCondition contains the inputs needed to compile and evaluate a cel expression
@@ -42,6 +46,11 @@ func (v *JSONPatchCondition) ReturnTypes() []*cel.Type {
 }
 
 var jsonPatchType = types.NewObjectType("JSONPatch")
+
+const (
+	maxJSONDocumentSize    = 1 << 20
+	maxJSONPatchOperations = 1024
+)
 
 // NewJSONPatcher creates a patcher that performs a JSON Patch mutation.
 func newJSONPatcher(prog cel.Program) Patcher {
@@ -92,7 +101,45 @@ func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchR
 	return newVersionedObject, eval, nil
 }
 
+func (e *jsonPatcher) PatchJSON(ctx context.Context, evalData map[string]any, runtimeCELCostBudget int64) (*unstructured.Unstructured, MutationEval, error) {
+	object, ok := evalData[celcompiler.ObjectKey].(map[string]any)
+	if !ok {
+		return nil, MutationEval{}, fmt.Errorf("JSON Patch requires an object root")
+	}
+	objJS, err := gojson.Marshal(object)
+	if err != nil {
+		return nil, MutationEval{}, fmt.Errorf("failed to encode JSON object: %w", err)
+	}
+	if err := checkJSONDocumentSize(len(objJS)); err != nil {
+		return nil, MutationEval{}, err
+	}
+	patchObj, _, eval, err := e.evaluatePatchExpressionWithLimit(ctx, runtimeCELCostBudget, evalData, maxJSONPatchOperations)
+	if err != nil {
+		return nil, eval, err
+	}
+	patchedJS, err := applyJSONPatchWithLimits(objJS, patchObj)
+	if errors.Is(err, jsonpatchv5.ErrTestFailed) {
+		eval.NotApplied = "a test operation failed, so the object was left unchanged"
+		return &unstructured.Unstructured{Object: object}, eval, nil
+	}
+	if err != nil {
+		return nil, eval, fmt.Errorf("JSON Patch: %w", err)
+	}
+	var patched map[string]any
+	if err := kjson.UnmarshalCaseSensitivePreserveInts(patchedJS, &patched); err != nil || patched == nil {
+		if err == nil {
+			err = fmt.Errorf("JSON mutation must preserve an object root")
+		}
+		return nil, eval, err
+	}
+	return &unstructured.Unstructured{Object: patched}, eval, nil
+}
+
 func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudget int64, evalData map[string]any) (jsonpatch.Patch, int64, MutationEval, error) {
+	return e.evaluatePatchExpressionWithLimit(ctx, remainingBudget, evalData, 0)
+}
+
+func (e *jsonPatcher) evaluatePatchExpressionWithLimit(ctx context.Context, remainingBudget int64, evalData map[string]any, maxOperations int) (jsonpatch.Patch, int64, MutationEval, error) {
 	var err error
 
 	refVal, _, err := e.prog.ContextEval(ctx, evalData)
@@ -114,6 +161,9 @@ func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudg
 	result := jsonpatch.Patch{}
 	for it := iter.Iterator(); it.HasNext() == types.True; {
 		v := it.Next()
+		if maxOperations > 0 && len(result) >= maxOperations {
+			return nil, -1, eval, fmt.Errorf("JSON Patch exceeds the maximum of %d operations", maxOperations)
+		}
 		patchObj, err := v.ConvertToNative(reflect.TypeOf(&mutation.JSONPatchVal{}))
 		if err != nil {
 			// Should never happen since return type is checked by compiler.
@@ -129,7 +179,7 @@ func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudg
 		resultOp := jsonpatch.Operation{}
 		resultOp["op"] = pointer.To(gojson.RawMessage(strconv.Quote(op.Op)))
 		resultOp["path"] = pointer.To(gojson.RawMessage(strconv.Quote(op.Path)))
-		if len(op.From) > 0 {
+		if op.Op == "copy" || op.Op == "move" {
 			resultOp["from"] = pointer.To(gojson.RawMessage(strconv.Quote(op.From)))
 		}
 		if op.Val != nil {
@@ -144,6 +194,71 @@ func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudg
 	}
 
 	return result, remainingBudget, eval, nil
+}
+
+func applyJSONPatchWithLimits(document []byte, patchObj jsonpatch.Patch) ([]byte, error) {
+	rawPatchSize := 0
+	for _, operation := range patchObj {
+		for _, rawValue := range operation {
+			if rawValue == nil {
+				continue
+			}
+			if len(*rawValue) > maxJSONDocumentSize-rawPatchSize {
+				return nil, fmt.Errorf("JSON Patch exceeds the maximum size of %d bytes", maxJSONDocumentSize)
+			}
+			rawPatchSize += len(*rawValue)
+		}
+	}
+
+	patchJSON, err := gojson.Marshal(patchObj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode JSON Patch: %w", err)
+	}
+	if err := checkJSONDocumentSize(len(patchJSON)); err != nil {
+		return nil, fmt.Errorf("JSON Patch: %w", err)
+	}
+
+	growthBudget := maxJSONDocumentSize - len(document)
+	for _, operation := range patchObj {
+		switch operation.Kind() {
+		case "add", "replace", "copy", "move":
+			encodedOperation, err := gojson.Marshal(operation)
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode JSON Patch operation: %w", err)
+			}
+			growthBudget -= len(encodedOperation)
+			if growthBudget < 0 {
+				return nil, fmt.Errorf("JSON Patch may exceed the maximum document size of %d bytes", maxJSONDocumentSize)
+			}
+		}
+	}
+	for _, operation := range patchObj {
+		if operation.Kind() == "copy" && growthBudget == 0 {
+			return nil, fmt.Errorf("JSON Patch copy operations exceed the maximum document size of %d bytes", maxJSONDocumentSize)
+		}
+	}
+
+	patchV5, err := jsonpatchv5.DecodePatch(patchJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode JSON Patch: %w", err)
+	}
+	options := jsonpatchv5.NewApplyOptions()
+	options.AccumulatedCopySizeLimit = int64(growthBudget)
+	patched, err := patchV5.ApplyWithOptions(document, options)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkJSONDocumentSize(len(patched)); err != nil {
+		return nil, err
+	}
+	return patched, nil
+}
+
+func checkJSONDocumentSize(size int) error {
+	if size > maxJSONDocumentSize {
+		return fmt.Errorf("JSON document exceeds the maximum size of %d bytes", maxJSONDocumentSize)
+	}
+	return nil
 }
 
 // patchValueToJSON encodes the value of a single JSON Patch operation.
@@ -161,6 +276,15 @@ func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudg
 // for the objects inside them.
 func patchValueToJSON(val ref.Val) (gojson.RawMessage, error) {
 	switch typed := val.(type) {
+	case types.Int:
+		return marshalPatchValue(int64(typed))
+	case types.Uint:
+		if uint64(typed) > math.MaxInt64 {
+			return nil, fmt.Errorf("JSON Patch unsigned integer %d exceeds the int64 range", uint64(typed))
+		}
+		return marshalPatchValue(uint64(typed))
+	case types.Double:
+		return marshalPatchValue(float64(typed))
 	case *dynamic.ObjectVal:
 		// TODO: Object initializers are insufficiently type checked.
 		// In the interim, we use this sanity check to detect type mismatches

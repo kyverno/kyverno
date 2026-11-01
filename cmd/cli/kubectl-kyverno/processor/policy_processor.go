@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -193,7 +194,16 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	}
 	// MutatingPolicies
-	if len(p.MutatingPolicies) != 0 {
+	mutatingPolicies := p.MutatingPolicies
+	if resource.Object == nil {
+		mutatingPolicies = nil
+		for _, policy := range p.MutatingPolicies {
+			if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+				mutatingPolicies = append(mutatingPolicies, policy)
+			}
+		}
+	}
+	if len(mutatingPolicies) != 0 {
 		compiler := mpolcompiler.NewCompilerWithTrace(p.Explain)
 		contextProvider := p.ContextProvider
 		if contextProvider == nil {
@@ -212,9 +222,42 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		provider := p.MpolProvider
 		if provider == nil {
 			var err error
-			provider, err = mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions, contextProvider)
+			provider, err = mpolengine.NewProvider(compiler, mutatingPolicies, p.CELExceptions, contextProvider)
 			if err != nil {
 				return nil, err
+			}
+		}
+		if p.JsonPayload.Object != nil {
+			eng := mpolengine.NewEngine(provider, nil, nil, nil, contextProvider)
+			reps, evaluationErr := eng.Handle(context.TODO(), celengine.RequestFromJSON(contextProvider, &p.JsonPayload), func(policy policiesv1beta1.MutatingPolicyLike) bool {
+				return policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+			})
+			p.explainMutations(reps.Policies)
+			for _, r := range reps.Policies {
+				response := engineapi.EngineResponse{
+					Resource:       p.JsonPayload,
+					PolicyResponse: engineapi.PolicyResponse{Rules: r.Rules},
+				}.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
+				if r.PatchedResource != nil {
+					response.PatchedResource = *r.PatchedResource
+				}
+				responses = append(responses, response)
+				hasPassingRule := slices.ContainsFunc(r.Rules, func(rule engineapi.RuleResponse) bool {
+					return rule.Status() == engineapi.RuleStatusPass
+				})
+				if evaluationErr == nil && r.PatchedResource != nil && hasPassingRule {
+					if err := p.processMutateEngineResponse(response, "JSON payload"); err != nil {
+						return responses, err
+					}
+				} else {
+					p.Rc.addMutateResponse(response)
+				}
+			}
+			if evaluationErr != nil {
+				return responses, evaluationErr
+			}
+			if reps.PatchedResource != nil {
+				p.JsonPayload = *reps.PatchedResource
 			}
 		}
 		if resource.Object != nil {
@@ -262,7 +305,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				nil,
 			)
 			// Skip inline mutation for policies with active target constraints, as admission does.
-			reps, err := eng.Handle(context.TODO(), request, mpolengine.NoTargetMatchConstraintPolicy())
+			reps, err := eng.Handle(context.TODO(), request, func(policy policiesv1beta1.MutatingPolicyLike) bool {
+				return policy.GetSpec().EvaluationMode() != policieskyvernoio.EvaluationModeJSON &&
+					mpolengine.NoTargetMatchConstraintPolicy()(policy)
+			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
@@ -770,6 +816,9 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 	var file *os.File
 	mutateLogPath := filepath.Clean(p.MutateLogPath)
 	filename := p.Resource.GetName() + "-mutated"
+	if p.JsonPayload.Object != nil {
+		filename = response.Policy().GetName() + "-mutated"
+	}
 	if isGenerate {
 		filename = response.Policy().GetName() + "-generated"
 	}
