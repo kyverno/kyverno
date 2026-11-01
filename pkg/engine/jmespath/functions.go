@@ -491,7 +491,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 			Handler: jpTimeToCron,
 		},
 		ReturnType: []jpType{jpString},
-		Note:       "converts a time (RFC 3339) to a cron expression (string).",
+		Note:       "converts a time (RFC 3339) to a cron expression (string). the time is converted to UTC first, so the expression is expressed in UTC.",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: timeAdd,
