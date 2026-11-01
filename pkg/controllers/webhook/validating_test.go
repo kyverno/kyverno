@@ -741,15 +741,15 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 					MatchConditions: []admissionregistrationv1.MatchCondition{
 						{
 							Name:       "autogen-check-prod-label",
-							Expression: "!((object.apiVersion == 'v1' && object.kind =='Pod')) || (has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true')",
+							Expression: "!((request.kind.group == '' && request.kind.version == 'v1' && request.kind.kind == 'Pod')) || (has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true')",
 						},
 						{
 							Name:       "autogen-cronjobs-check-prod-label",
-							Expression: "!((object.apiVersion == 'batch/v1' && object.kind =='CronJob')) || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true')",
+							Expression: "!((request.kind.group == 'batch' && request.kind.version == 'v1' && request.kind.kind == 'CronJob')) || (has(object.spec.jobTemplate.spec.template.metadata.labels) && has(object.spec.jobTemplate.spec.template.metadata.labels.prod) && object.spec.jobTemplate.spec.template.metadata.labels.prod == 'true')",
 						},
 						{
 							Name:       "autogen-defaults-check-prod-label",
-							Expression: "!((object.apiVersion == 'apps/v1' && object.kind =='DaemonSet') || (object.apiVersion == 'apps/v1' && object.kind =='Deployment') || (object.apiVersion == 'apps/v1' && object.kind =='ReplicaSet') || (object.apiVersion == 'apps/v1' && object.kind =='StatefulSet') || (object.apiVersion == 'batch/v1' && object.kind =='Job')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
+							Expression: "!((request.kind.group == 'apps' && request.kind.version == 'v1' && request.kind.kind == 'DaemonSet') || (request.kind.group == 'apps' && request.kind.version == 'v1' && request.kind.kind == 'Deployment') || (request.kind.group == 'apps' && request.kind.version == 'v1' && request.kind.kind == 'ReplicaSet') || (request.kind.group == 'apps' && request.kind.version == 'v1' && request.kind.kind == 'StatefulSet') || (request.kind.group == 'batch' && request.kind.version == 'v1' && request.kind.kind == 'Job')) || (has(object.spec.template.metadata.labels) && has(object.spec.template.metadata.labels.prod) && object.spec.template.metadata.labels.prod == 'true')",
 						},
 					},
 				},
