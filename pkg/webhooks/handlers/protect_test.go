@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/config"
+
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -317,6 +319,59 @@ func TestWithProtection_NonKyvernoManagedResource(t *testing.T) {
 	assert.True(t, response.Allowed, "Regular user should be allowed to modify non-Kyverno managed resources")
 }
 
+func TestWithProtection_UserAuthorization(t *testing.T) {
+	podRaw, _ := json.Marshal(map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]interface{}{
+			"name":      "test-pod",
+			"namespace": "default",
+			"labels":    map[string]interface{}{kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp},
+		},
+	})
+
+	tests := []struct {
+		name       string
+		username   string
+		wantCalled bool
+		wantAllow  bool
+	}{
+		{
+			name:       "Kyverno service account allowed",
+			username:   fmt.Sprintf("system:serviceaccount:%s:kyverno-admission-controller", config.KyvernoNamespace()),
+			wantCalled: true,
+			wantAllow:  true,
+		},
+		{
+			name:       "Non-Kyverno user rejected",
+			username:   "system:serviceaccount:default:other-sa",
+			wantCalled: false,
+			wantAllow:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			called := false
+			mockInner := AdmissionHandler(func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+				called = true
+				return admissionv1.AdmissionResponse{UID: request.UID, Allowed: true}
+			})
+
+			request := AdmissionRequest{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					UID:      types.UID("test-uid"),
+					UserInfo: authenticationv1.UserInfo{Username: tt.username},
+					Object:   runtime.RawExtension{Raw: podRaw},
+				},
+			}
+
+			response := mockInner.WithProtection(true)(context.Background(), logr.Discard(), request, time.Now())
+			assert.Equal(t, tt.wantCalled, called)
+			assert.Equal(t, tt.wantAllow, response.Allowed)
+		})
+	}
+}
 func TestWithGenerateLabelProtection(t *testing.T) {
 	t.Parallel()
 	const (
