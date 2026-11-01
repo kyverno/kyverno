@@ -3,6 +3,7 @@ package jmespath
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -97,6 +98,14 @@ func Test_TimeAdd(t *testing.T) {
 			assert.Equal(t, result, tc.expectedResult)
 		})
 	}
+}
+
+// A bad time_add argument should name time_add in the error, not another function.
+func Test_jpTimeAdd_ErrorAttributesToTimeAdd(t *testing.T) {
+	_, err := jpTimeAdd([]interface{}{123, "1h"})
+	assert.Assert(t, err != nil)
+	assert.Assert(t, strings.Contains(err.Error(), "time_add"))
+	assert.Assert(t, !strings.Contains(err.Error(), "time_to_cron"))
 }
 
 func Test_TimeParse(t *testing.T) {
