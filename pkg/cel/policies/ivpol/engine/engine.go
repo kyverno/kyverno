@@ -452,14 +452,19 @@ func (e *engineImpl) evaluateExtractedIv(
 		}
 		last = result
 	}
-	if last == nil {
-		if len(allExceptions) > 0 {
-			exempt := &eval.EvaluationResult{Exceptions: allExceptions, MatchedImages: allMatchedImages}
-			if lastExempt != nil {
-				exempt.Trace = lastExempt.Trace
-			}
-			return exempt, nil
+	// No template failed. An exempted template outranks a passing one: the
+	// workload is only admitted because of the exception, so it must still be
+	// reported, the same as when the exempted template is the only one.
+	// MatchedImages holds the images of the templates that passed, so required
+	// is still enforced for them.
+	if len(allExceptions) > 0 {
+		exempt := &eval.EvaluationResult{Exceptions: allExceptions, MatchedImages: allMatchedImages}
+		if lastExempt != nil {
+			exempt.Trace = lastExempt.Trace
 		}
+		return exempt, nil
+	}
+	if last == nil {
 		if lastSkipped != nil {
 			return lastSkipped, nil
 		}
@@ -764,6 +769,20 @@ func (e *engineImpl) evaluatePolicies(
 			}
 			if response.Result.Name() == "" {
 				response.Result = *engineapi.RuleSkip("exception", engineapi.ImageVerify, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions)
+				// extraction mode only: the images of the pod templates that were evaluated
+				// and passed, next to the exempted ones. The exception does not cover them,
+				// so required still applies to them.
+				if len(result.MatchedImages) > 0 {
+					pendingRequired = append(pendingRequired, pendingRequiredCheck{
+						key:              key,
+						name:             ivpol.Policy.GetName(),
+						compiled:         evaluation.compiled,
+						images:           result.MatchedImages,
+						auditAnnotations: result.AuditAnnotations,
+						startTime:        startTime,
+						partlyExempted:   true,
+					})
+				}
 			}
 			if result.Trace != nil {
 				// the verdict follows the rule reported above
@@ -807,6 +826,9 @@ type pendingRequiredCheck struct {
 	images           []string
 	auditAnnotations map[string]string
 	startTime        time.Time
+	// partlyExempted is set when an exception exempted some pod templates but not the ones
+	// these images come from, so the exception's skip must not shield them from required
+	partlyExempted bool
 }
 
 // enforceRequired turns a policy that passed its validations into a failure when
@@ -818,7 +840,7 @@ func enforceRequired(checks []pendingRequiredCheck, responses map[string]eval.Im
 			continue
 		}
 		response, ok := responses[check.key]
-		if !ok || isFailure(response) || response.Result.Status() == engineapi.RuleStatusSkip {
+		if !ok || isFailure(response) || (response.Result.Status() == engineapi.RuleStatusSkip && !check.partlyExempted) {
 			continue
 		}
 		result := *engineapi.RuleFail(check.name, engineapi.ImageVerify, err.Error(), check.auditAnnotations)
