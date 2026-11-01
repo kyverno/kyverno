@@ -2,12 +2,14 @@ package admissionpolicygenerator
 
 import (
 	"fmt"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // getValidatngPolicy gets the Kyverno ValidatingPolicy
@@ -120,6 +122,39 @@ func (c *controller) getCELExceptions(policyName, kind string) ([]policiesv1beta
 		exceptions = append(exceptions, *polex)
 	}
 	return exceptions, nil
+}
+
+// requeueAtExceptionExpiry re-enqueues key for the earliest expiresAt among the exceptions
+// that match the policy. The generated VAP/MAP bake those exceptions in and are otherwise only
+// regenerated on policy or exception events, so without this an expired exception would keep
+// being honored by the API server until something else touched the policy.
+//
+// The exceptions are matched here without the expiry filter on purpose: an exception that
+// expired while the policy was being generated is already dropped by getCELExceptions, yet it
+// may still be baked into the VAP/MAP that was just written. NextExceptionExpiry turns such a
+// past deadline into an immediate requeue, so the next reconcile regenerates without it.
+func (c *controller) requeueAtExceptionExpiry(key, kind, name string) {
+	if !c.polexEnabled {
+		return
+	}
+	lister := celengine.NewPolicyExceptionLister(c.celpolexLister, c.exceptionNamespace)
+	exceptions, err := lister.List(labels.Everything())
+	if err != nil {
+		logger.Error(err, "failed to list exceptions to schedule regeneration at their expiry", "policy", name)
+		return
+	}
+	var matched []*policiesv1beta1.PolicyException
+	for _, exception := range exceptions {
+		for _, ref := range exception.Spec.PolicyRefs {
+			if ref.Name == name && ref.Kind == kind {
+				matched = append(matched, exception)
+				break
+			}
+		}
+	}
+	if requeueAfter, ok := celengine.NextExceptionExpiry(matched, time.Now()); ok {
+		c.queue.AddAfter(key, requeueAfter)
+	}
 }
 
 func constructBindingName(polName string) string {

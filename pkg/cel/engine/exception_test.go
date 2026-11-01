@@ -162,3 +162,147 @@ func TestManagerPolicyExceptionLister_ReadsThroughSharedReader(t *testing.T) {
 		assert.Equal(t, "exempt", got[0].Name)
 	})
 }
+
+func TestMatchExceptions(t *testing.T) {
+	expired := metav1.NewTime(time.Now().Add(-1 * time.Hour))
+	future := metav1.NewTime(time.Now().Add(1 * time.Hour))
+
+	polex := func(name string, expiresAt *metav1.Time, refs ...policiesv1beta1.PolicyRef) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				ExpiresAt:  expiresAt,
+				PolicyRefs: refs,
+			},
+		}
+	}
+	ref := policiesv1beta1.PolicyRef{Name: "policy", Kind: "ValidatingPolicy"}
+
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		want       []string
+	}{{
+		name:       "no exceptions",
+		exceptions: nil,
+		want:       nil,
+	}, {
+		name:       "matching exception without expiry is returned",
+		exceptions: []*policiesv1beta1.PolicyException{polex("live", nil, ref)},
+		want:       []string{"live"},
+	}, {
+		name:       "exception expiring in the future is returned",
+		exceptions: []*policiesv1beta1.PolicyException{polex("not-yet-expired", &future, ref)},
+		want:       []string{"not-yet-expired"},
+	}, {
+		name:       "expired exception is skipped",
+		exceptions: []*policiesv1beta1.PolicyException{polex("expired", &expired, ref)},
+		want:       nil,
+	}, {
+		name: "only the live exception is returned",
+		exceptions: []*policiesv1beta1.PolicyException{
+			polex("expired", &expired, ref),
+			polex("live", nil, ref),
+		},
+		want: []string{"live"},
+	}, {
+		name:       "exception referencing another policy name is skipped",
+		exceptions: []*policiesv1beta1.PolicyException{polex("other", nil, policiesv1beta1.PolicyRef{Name: "other-policy", Kind: "ValidatingPolicy"})},
+		want:       nil,
+	}, {
+		name:       "exception referencing another policy kind is skipped",
+		exceptions: []*policiesv1beta1.PolicyException{polex("other-kind", nil, policiesv1beta1.PolicyRef{Name: "policy", Kind: "MutatingPolicy"})},
+		want:       nil,
+	}, {
+		name:       "duplicate policy refs return the exception once",
+		exceptions: []*policiesv1beta1.PolicyException{polex("dup", nil, ref, ref)},
+		want:       []string{"dup"},
+	}, {
+		name:       "nil exception is skipped",
+		exceptions: []*policiesv1beta1.PolicyException{nil, polex("live", nil, ref)},
+		want:       []string{"live"},
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MatchExceptions(tt.exceptions, "ValidatingPolicy", "policy")
+			names := make([]string, 0, len(got))
+			for _, e := range got {
+				names = append(names, e.GetName())
+			}
+			if tt.want == nil {
+				assert.Empty(t, names)
+				return
+			}
+			assert.Equal(t, tt.want, names)
+		})
+	}
+}
+
+func TestNextExceptionExpiry(t *testing.T) {
+	now := time.Date(2026, time.October, 27, 12, 0, 0, 0, time.UTC)
+	at := func(d time.Duration) *metav1.Time {
+		expiresAt := metav1.NewTime(now.Add(d))
+		return &expiresAt
+	}
+	polex := func(expiresAt *metav1.Time) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{ExpiresAt: expiresAt},
+		}
+	}
+
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		want       time.Duration
+		wantOK     bool
+	}{{
+		name:       "no exceptions",
+		exceptions: nil,
+		wantOK:     false,
+	}, {
+		name:       "exceptions without expiry never requeue",
+		exceptions: []*policiesv1beta1.PolicyException{polex(nil), nil},
+		wantOK:     false,
+	}, {
+		name:       "single expiring exception",
+		exceptions: []*policiesv1beta1.PolicyException{polex(at(time.Hour))},
+		want:       time.Hour,
+		wantOK:     true,
+	}, {
+		name: "earliest expiry wins",
+		exceptions: []*policiesv1beta1.PolicyException{
+			polex(at(2 * time.Hour)),
+			polex(nil),
+			polex(at(10 * time.Minute)),
+		},
+		want:   10 * time.Minute,
+		wantOK: true,
+	}, {
+		name:       "deadline already reached still requeues promptly",
+		exceptions: []*policiesv1beta1.PolicyException{polex(at(0))},
+		want:       time.Second,
+		wantOK:     true,
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := NextExceptionExpiry(tt.exceptions, now)
+			assert.Equal(t, tt.wantOK, ok)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestExceptionExpiryResult(t *testing.T) {
+	inAnHour := metav1.NewTime(time.Now().Add(time.Hour))
+
+	assert.Zero(t, ExceptionExpiryResult(nil), "no exceptions must not requeue")
+	assert.Zero(t, ExceptionExpiryResult([]*policiesv1beta1.PolicyException{{}}), "an exception without expiresAt must not requeue")
+
+	result := ExceptionExpiryResult([]*policiesv1beta1.PolicyException{{
+		Spec: policiesv1beta1.PolicyExceptionSpec{ExpiresAt: &inAnHour},
+	}})
+	assert.Greater(t, result.RequeueAfter, 59*time.Minute)
+	assert.LessOrEqual(t, result.RequeueAfter, time.Hour)
+}
