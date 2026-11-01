@@ -176,26 +176,31 @@ func LoadYAML[T any](f billy.Filesystem, filepath string, newInstance func() T) 
 }
 
 func LoadCrdsFromPath(path string) error {
-	absPath, err := getCrdFilePath(path)
-	if err != nil {
-		return err
-	}
-	crds, err := readCRDsFromFile(absPath)
-	if err != nil {
-		return err
-	}
+	return LoadCrdsFromPaths([]string{path})
+}
 
-	if len(crds) > 0 {
-		apiGroupResources := []*restmapper.APIGroupResources{}
+// LoadCrdsFromPaths registers the CRDs from all paths together, so one path does not replace another.
+func LoadCrdsFromPaths(paths []string) error {
+	apiGroupResources := []*restmapper.APIGroupResources{}
+	for _, path := range paths {
+		if strings.TrimSpace(path) == "" {
+			continue
+		}
+		absPath, err := getCrdFilePath(path)
+		if err != nil {
+			return fmt.Errorf("failed to load CRDs from %s: %w", path, err)
+		}
+		crds, err := readCRDsFromFile(absPath)
+		if err != nil {
+			return fmt.Errorf("failed to load CRDs from %s: %w", path, err)
+		}
 		for _, crd := range crds {
 			apiGroupResources = append(apiGroupResources, apiGroupResourcesFromCRD(crd))
 		}
-
-		if err = addResourceGroups(apiGroupResources); err != nil {
-			return err
-		}
 	}
-
+	if len(apiGroupResources) > 0 {
+		return addResourceGroups(apiGroupResources)
+	}
 	return nil
 }
 
