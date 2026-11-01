@@ -110,7 +110,8 @@ func (c *controller) getCELExceptions(policyName, kind string) ([]policiesv1beta
 	}
 
 	lister := celengine.NewPolicyExceptionLister(c.celpolexLister, c.exceptionNamespace)
-	polexs, err := celengine.ListExceptions(lister, kind, policyName)
+	// only cluster-scoped policies are generated, so there is no policy namespace to scope by
+	polexs, err := celengine.ListExceptions(lister, kind, "", policyName)
 	if err != nil {
 		return nil, err
 	}
