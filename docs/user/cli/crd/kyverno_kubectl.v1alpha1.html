@@ -2115,7 +2115,8 @@ Mutually exclusive with Data and Resources.</p>
         <td>
           
 
-          <p>Projections are optional named JMESPath extracts (see GlobalContextProjection).</p>
+          <p>Projections are optional named extracts, each written in either JMESPath or CEL
+(see GlobalContextProjection).</p>
 
 
           
@@ -2141,7 +2142,9 @@ Mutually exclusive with Data and Resources.</p>
     </p>
   
 
-  <p><p>GlobalContextProjection pairs a policy-visible name with a JMESPath over the mock root.</p>
+  <p><p>GlobalContextProjection pairs a policy-visible name with a JMESPath or CEL expression over
+the mock root. Mirrors GlobalContextEntryProjection's exactly-one-of jmesPath/expression
+contract (api/kyverno/v2beta1), so a test fixture can mock either kind of projection.</p>
 </p>
 
   
@@ -2195,7 +2198,33 @@ Mutually exclusive with Data and Resources.</p>
       <tr>
         <td><code>path</code>
           
-          <span style="color:blue;"> *</span>
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.
+Mutually exclusive with Expression.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
           
           </br>
 
@@ -2209,7 +2238,9 @@ Mutually exclusive with Data and Resources.</p>
         <td>
           
 
-          <p>Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.</p>
+          <p>Expression is a CEL expression evaluated against the root after FieldPath (if any) is
+applied, bound to the <code>object</code> variable, matching the real GlobalContextEntry projection's
+expression field. Mutually exclusive with Path.</p>
 
 
           

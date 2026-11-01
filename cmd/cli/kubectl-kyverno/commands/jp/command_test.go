@@ -64,3 +64,31 @@ func TestCommandHelp(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
 }
+
+// TestCommandHelpStaysAvailable guards against reaching for cobra's Deprecated field instead
+// of the custom notice: Deprecated hides a command from its parent's help listing, which
+// would bury the very command users need to debug JMESPath expressions during migration.
+func TestCommandHelpStaysAvailable(t *testing.T) {
+	cmd := Command()
+	assert.Empty(t, cmd.Deprecated)
+	assert.True(t, cmd.IsAvailableCommand())
+	for _, sub := range cmd.Commands() {
+		assert.Empty(t, sub.Deprecated, sub.Name())
+		assert.True(t, sub.IsAvailableCommand(), sub.Name())
+	}
+}
+
+// TestCommandPrintsDeprecationNoticeToStderr ensures the notice lands on stderr, not stdout,
+// so it never corrupts the output of a piped `jp query`/`jp parse` invocation.
+func TestCommandPrintsDeprecationNoticeToStderr(t *testing.T) {
+	cmd := Command()
+	outBuf := bytes.NewBufferString("")
+	errBuf := bytes.NewBufferString("")
+	cmd.SetOut(outBuf)
+	cmd.SetErr(errBuf)
+	cmd.SetArgs([]string{"function"})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+	assert.Contains(t, errBuf.String(), deprecationNotice)
+	assert.NotContains(t, outBuf.String(), deprecationNotice)
+}
