@@ -61,6 +61,7 @@ var (
 	HookFallbackVpolCompiled     func()
 	HookFallbackVpolJSONCompiled func()
 	HookFallbackMpolCompiled     func()
+	HookFallbackContextCreated   func()
 )
 
 type PolicyProcessor struct {
@@ -203,6 +204,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		compiler := mpolcompiler.NewCompilerWithTrace(p.Explain)
 		contextProvider := p.ContextProvider
 		if contextProvider == nil {
+			if HookFallbackContextCreated != nil {
+				HookFallbackContextCreated()
+			}
 			var err error
 			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 			if err != nil {
@@ -442,6 +446,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 		contextProvider := p.ContextProvider
 		if contextProvider == nil {
+			if HookFallbackContextCreated != nil {
+				HookFallbackContextCreated()
+			}
 			var err error
 			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 			if err != nil {
@@ -615,6 +622,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		// initialize the context provider before compiling to make it globally available
 		contextProvider := p.ContextProvider
 		if contextProvider == nil {
+			if HookFallbackContextCreated != nil {
+				HookFallbackContextCreated()
+			}
 			var err error
 			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 			if err != nil {

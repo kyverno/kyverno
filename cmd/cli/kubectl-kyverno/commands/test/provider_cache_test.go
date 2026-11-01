@@ -8,6 +8,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -116,13 +117,16 @@ spec:
 	var vpolCompileCount int
 	var contextBuildCount int
 	var fallbackCompileCount int
+	var fallbackContextCount int
 	hookVpolProviderCreated = func() { vpolCompileCount++ }
 	hookContextProviderCreated = func() { contextBuildCount++ }
 	processor.HookFallbackVpolCompiled = func() { fallbackCompileCount++ }
+	processor.HookFallbackContextCreated = func() { fallbackContextCount++ }
 	defer func() {
 		hookVpolProviderCreated = nil
 		hookContextProviderCreated = nil
 		processor.HookFallbackVpolCompiled = nil
+		processor.HookFallbackContextCreated = nil
 	}()
 
 	resp, err := runTest(context.TODO(), io.Discard, testCases[0], false)
@@ -133,6 +137,7 @@ spec:
 	assert.Equal(t, 1, vpolCompileCount, "VpolProvider should be constructed and compiled only once per testCase across all resources")
 	assert.Equal(t, 1, contextBuildCount, "ContextProvider should be constructed only once per testCase across all resources")
 	assert.Equal(t, 0, fallbackCompileCount, "PolicyProcessor should use the passed VpolProvider and never trigger fallback compilation")
+	assert.Equal(t, 0, fallbackContextCount, "PolicyProcessor should use the passed ContextProvider and never trigger fallback context creation")
 
 	key1 := "apps/v1,Deployment,default,app-deployment-1"
 	key2 := "apps/v1,Deployment,default,app-deployment-2"
@@ -238,13 +243,16 @@ spec:
 	var mpolCompileCount int
 	var contextBuildCount int
 	var fallbackCompileCount int
+	var fallbackContextCount int
 	hookMpolProviderCreated = func() { mpolCompileCount++ }
 	hookContextProviderCreated = func() { contextBuildCount++ }
 	processor.HookFallbackMpolCompiled = func() { fallbackCompileCount++ }
+	processor.HookFallbackContextCreated = func() { fallbackContextCount++ }
 	defer func() {
 		hookMpolProviderCreated = nil
 		hookContextProviderCreated = nil
 		processor.HookFallbackMpolCompiled = nil
+		processor.HookFallbackContextCreated = nil
 	}()
 
 	resp, err := runTest(context.TODO(), io.Discard, testCases[0], false)
@@ -255,6 +263,7 @@ spec:
 	assert.Equal(t, 1, mpolCompileCount, "MpolProvider should be constructed and compiled only once per testCase across all resources")
 	assert.Equal(t, 1, contextBuildCount, "ContextProvider should be constructed only once per testCase across all resources")
 	assert.Equal(t, 0, fallbackCompileCount, "PolicyProcessor should use the passed MpolProvider and never trigger fallback compilation")
+	assert.Equal(t, 0, fallbackContextCount, "PolicyProcessor should use the passed ContextProvider and never trigger fallback context creation")
 
 	key1 := "v1,Pod,default,pod-1"
 	key2 := "v1,Pod,default,pod-2"
@@ -345,13 +354,16 @@ spec:
 	var vpolCompileCount int
 	var contextBuildCount int
 	var fallbackCompileCount int
+	var fallbackContextCount int
 	hookVpolProviderCreated = func() { vpolCompileCount++ }
 	hookContextProviderCreated = func() { contextBuildCount++ }
 	processor.HookFallbackVpolJSONCompiled = func() { fallbackCompileCount++ }
+	processor.HookFallbackContextCreated = func() { fallbackContextCount++ }
 	defer func() {
 		hookVpolProviderCreated = nil
 		hookContextProviderCreated = nil
 		processor.HookFallbackVpolJSONCompiled = nil
+		processor.HookFallbackContextCreated = nil
 	}()
 
 	resp, err := runTest(context.TODO(), io.Discard, testCases[0], false)
@@ -362,6 +374,7 @@ spec:
 	assert.Equal(t, 1, vpolCompileCount, "VpolJSONProvider should be compiled only once for multiple JSON payloads")
 	assert.Equal(t, 1, contextBuildCount, "ContextProvider should be constructed only once for multiple JSON payloads")
 	assert.Equal(t, 0, fallbackCompileCount, "PolicyProcessor should use the passed VpolJSONProvider and never trigger fallback compilation")
+	assert.Equal(t, 0, fallbackContextCount, "PolicyProcessor should use the passed ContextProvider and never trigger fallback context creation")
 
 	require.Contains(t, resp.Trigger, "payload1.json")
 	require.Contains(t, resp.Trigger, "payload2.json")
@@ -372,4 +385,6 @@ spec:
 	assert.True(t, resp.Trigger["payload1.json"][0].IsSuccessful())
 	assert.True(t, resp.Trigger["payload2.json"][0].IsSuccessful())
 	assert.False(t, resp.Trigger["payload3.json"][0].IsSuccessful())
+	require.NotEmpty(t, resp.Trigger["payload3.json"][0].PolicyResponse.Rules)
+	assert.Equal(t, engineapi.RuleStatusFail, resp.Trigger["payload3.json"][0].PolicyResponse.Rules[0].Status())
 }
