@@ -19,7 +19,7 @@ import (
 // trigger, as admission does, so only the declared target receives the mutation.
 func Test_ApplyPoliciesOnResource_targetConstrainedMutatingPolicySkipsTrigger(t *testing.T) {
 	dir := filepath.Join("..", "..", "..", "..", "test", "cli", "test-mutating-policy", "mutate-existing")
-	results, err := policy.Load(nil, "", true, filepath.Join(dir, "policy.yaml"))
+	results, err := policy.Load(nil, "", filepath.Join(dir, "policy.yaml"))
 	assert.NilError(t, err)
 	assert.Equal(t, len(results.MutatingPolicies), 1)
 

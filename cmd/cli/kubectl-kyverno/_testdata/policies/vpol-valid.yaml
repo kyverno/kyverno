@@ -1,0 +1,14 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: require-account-label
+spec:
+  validations:
+  - expression: "has(object.metadata.labels) && 'account' in object.metadata.labels"
+    message: "pods must include an account label for charging"
+  matchConstraints:
+    resourceRules:
+    - operations: ["CREATE", "UPDATE"]
+      apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["pods"]

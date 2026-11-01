@@ -1,7 +1,7 @@
 # AGENTS.md — ext/wildcard
 
 Shell-style glob matching (`*`, `?`) for every wildcard-bearing field in the project. `Match` is a shared leaf
-helper with call sites across `pkg/engine`, `pkg/utils/match`, `pkg/policycache`, `pkg/pss`, `pkg/config` and the
+helper with call sites across `pkg/engine`, `pkg/utils/match`, `pkg/pss`, `pkg/config` and the
 CLI, and it is reached from the CEL side too — `pkg/background/mpol/processor.go` matches a MutatingPolicy's
 `matchConstraints` API groups, versions and resources through it. Treat a change here as touching all of them.
 

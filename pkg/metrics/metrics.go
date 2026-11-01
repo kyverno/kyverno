@@ -36,17 +36,13 @@ func SetManager(manager MetricsConfigManager) {
 
 type MetricsConfig struct {
 	// instruments
-	policyChangesMetric  metric.Int64Counter
 	clientQueriesMetric  metric.Int64Counter
 	kyvernoInfoMetric    metric.Int64Gauge
 	breakerMetrics       *breakerMetrics
 	controllerMetrics    *controllerMetrics
-	cleanupMetrics       *cleanupMetrics
 	deletingMetrics      *deletingMetrics
 	updateRequestMetrics *updateRequestMetrics
-	policyRuleMetrics    *policyRuleMetrics
 	ttlInfoMetrics       *ttlInfoMetrics
-	policyEngineMetrics  *policyEngineMetrics
 	eventMetrics         *eventMetrics
 	admissionMetrics     *admissionMetrics
 	deprecatedMetrics    *deprecatedAPIRequestMetrics
@@ -56,6 +52,7 @@ type MetricsConfig struct {
 	ivpolMetrics         *imageValidatingMetrics
 	mpolMetrics          *mutatingMetrics
 	gpolMetrics          *generatingMetrics
+	globalContextMetrics *globalContextMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -64,16 +61,12 @@ type MetricsConfig struct {
 
 type MetricsConfigManager interface {
 	Config() kconfig.MetricsConfiguration
-	RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 	BreakerMetrics() BreakerMetrics
 	ControllerMetrics() ControllerMetrics
-	CleanupMetrics() CleanupMetrics
 	DeletingMetrics() DeletingMetrics
 	UpdateRequestMetrics() UpdateRequestMetrics
-	PolicyRuleMetrics() PolicyRuleMetrics
 	TTLInfoMetrics() TTLInfoMetrics
-	PolicyEngineMetrics() PolicyEngineMetrics
 	EventMetrics() EventMetrics
 	AdmissionMetrics() AdmissionMetrics
 	DeprecatedAPIRequestMetrics() DeprecatedAPIRequestMetrics
@@ -83,6 +76,7 @@ type MetricsConfigManager interface {
 	IVPOLMetrics() ImageValidatingMetrics
 	MPOLMetrics() MutatingMetrics
 	GPOLMetrics() GeneratingMetrics
+	GlobalContextMetrics() GlobalContextMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
@@ -97,10 +91,6 @@ func (m *MetricsConfig) ControllerMetrics() ControllerMetrics {
 	return m.controllerMetrics
 }
 
-func (m *MetricsConfig) CleanupMetrics() CleanupMetrics {
-	return m.cleanupMetrics
-}
-
 func (m *MetricsConfig) DeletingMetrics() DeletingMetrics {
 	return m.deletingMetrics
 }
@@ -109,16 +99,8 @@ func (m *MetricsConfig) UpdateRequestMetrics() UpdateRequestMetrics {
 	return m.updateRequestMetrics
 }
 
-func (m *MetricsConfig) PolicyRuleMetrics() PolicyRuleMetrics {
-	return m.policyRuleMetrics
-}
-
 func (m *MetricsConfig) TTLInfoMetrics() TTLInfoMetrics {
 	return m.ttlInfoMetrics
-}
-
-func (m *MetricsConfig) PolicyEngineMetrics() PolicyEngineMetrics {
-	return m.policyEngineMetrics
 }
 
 func (m *MetricsConfig) EventMetrics() EventMetrics {
@@ -157,6 +139,10 @@ func (m *MetricsConfig) GPOLMetrics() GeneratingMetrics {
 	return m.gpolMetrics
 }
 
+func (m *MetricsConfig) GlobalContextMetrics() GlobalContextMetrics {
+	return m.globalContextMetrics
+}
+
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
@@ -164,11 +150,6 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 		return nil
 	}
 
-	m.policyChangesMetric, err = meter.Int64Counter("kyverno_policy_changes", metric.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
-	if err != nil {
-		m.Log.Error(err, "Failed to create instrument, kyverno_policy_changes")
-		return err
-	}
 	m.clientQueriesMetric, err = meter.Int64Counter("kyverno_client_queries", metric.WithDescription("can be used to track the number of client queries sent from Kyverno to the API-server"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_client_queries")
@@ -184,12 +165,9 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 
 	m.breakerMetrics.init(meter)
 	m.controllerMetrics.init(meter)
-	m.cleanupMetrics.init(meter)
 	m.deletingMetrics.init(meter)
 	m.updateRequestMetrics.init(meter)
-	m.policyRuleMetrics.init(meter)
 	m.ttlInfoMetrics.init(meter)
-	m.policyEngineMetrics.init(meter)
 	m.eventMetrics.init(meter)
 	m.admissionMetrics.init(meter)
 	m.deprecatedMetrics.init(meter)
@@ -199,6 +177,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.ivpolMetrics.init(meter)
 	m.mpolMetrics.init(meter)
 	m.gpolMetrics.init(meter)
+	m.globalContextMetrics.init(meter)
 
 	initKyvernoInfoMetric(m)
 	return nil
@@ -313,18 +292,6 @@ func NewPrometheusConfig(ctx context.Context, log logr.Logger, configuration kco
 	return provider, nil
 }
 
-func (m *MetricsConfig) RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string) {
-	commonLabels := []attribute.KeyValue{
-		attribute.String("policy_validation_mode", string(policyValidationMode)),
-		attribute.String("policy_type", string(policyType)),
-		attribute.String("policy_background_mode", string(policyBackgroundMode)),
-		attribute.String("policy_namespace", policyNamespace),
-		attribute.String("policy_name", policyName),
-		attribute.String("policy_change_type", policyChangeType),
-	}
-	m.policyChangesMetric.Add(ctx, 1, metric.WithAttributes(commonLabels...))
-}
-
 func (m *MetricsConfig) RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string) {
 	commonLabels := []attribute.KeyValue{
 		attribute.String("operation", string(clientQueryOperation)),
@@ -349,12 +316,9 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		config:               metricsConfiguration,
 		breakerMetrics:       &breakerMetrics{logger: logger.WithName("circuit-breaker")},
 		controllerMetrics:    &controllerMetrics{logger: logger.WithName("controller")},
-		cleanupMetrics:       &cleanupMetrics{logger: logger.WithName("cleanup")},
 		deletingMetrics:      &deletingMetrics{logger: logger.WithName("deleting")},
 		updateRequestMetrics: &updateRequestMetrics{logger: logger.WithName("updaterequest")},
-		policyRuleMetrics:    &policyRuleMetrics{logger: logger.WithName("policy-rule")},
 		ttlInfoMetrics:       &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
-		policyEngineMetrics:  &policyEngineMetrics{logger: logger.WithName("policy-engine")},
 		eventMetrics:         &eventMetrics{logger: logger.WithName("event")},
 		admissionMetrics:     &admissionMetrics{logger: logger.WithName("admission")},
 		deprecatedMetrics:    &deprecatedAPIRequestMetrics{logger: logger.WithName("deprecated-api-requests")},
@@ -364,6 +328,7 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		ivpolMetrics:         &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
 		mpolMetrics:          &mutatingMetrics{logger: logger.WithName("mutating-policy")},
 		gpolMetrics:          &generatingMetrics{logger: logger.WithName("generating-policy")},
+		globalContextMetrics: &globalContextMetrics{logger: logger.WithName("global-context")},
 	}
 
 	return config

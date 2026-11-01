@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    downstream: cpol-clone-create-on-trigger-deletion-manifest-ns
-  name: cpol-clone-create-on-trigger-deletion-trigger-ns

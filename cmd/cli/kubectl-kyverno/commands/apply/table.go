@@ -26,16 +26,11 @@ func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engin
 			row.ID = id
 			id++
 			row.Policy = color.Policy(policyNamespace, policyName)
-			if policy.AsKyvernoPolicy() != nil {
-				row.Rule = color.Rule(ruleResponse.Name())
-			}
 			row.Resource = color.Resource(resourceKind, resourceNamespace, resourceName)
 			if ruleResponse.Status() == engineapi.RuleStatusPass {
 				row.Result = color.ResultPass()
 			} else if ruleResponse.Status() == engineapi.RuleStatusFail {
 				if !scored {
-					row.Result = color.ResultWarn()
-				} else if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
 					row.Result = color.ResultWarn()
 				} else {
 					row.Result = color.ResultFail()

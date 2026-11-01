@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -15,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
@@ -224,39 +226,6 @@ func NewServer(
 			WithAdmission(resourceLogger.WithName("generate")).
 			ToHandlerFunc("NGPOL"),
 	)
-	registerWebhookHandlersWithAll(
-		mux,
-		"MUTATE",
-		config.MutatingWebhookServicePath,
-		resourceHandlers.Mutation,
-		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
-			return handler.
-				WithFilter(configuration).
-				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
-				WithDump(debugModeOpts.DumpPayload).
-				WithRoles(rbLister, crbLister).
-				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
-				WithMetrics(resourceLogger, metrics.WebhookMutating).
-				WithTopLevelGVK(discovery).
-				WithAdmission(resourceLogger.WithName("mutate"))
-		},
-	)
-	registerWebhookHandlersWithAll(
-		mux,
-		"VALIDATE",
-		config.ValidatingWebhookServicePath,
-		resourceHandlers.Validation,
-		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
-			return handler.
-				WithFilter(configuration).
-				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
-				WithDump(debugModeOpts.DumpPayload).
-				WithRoles(rbLister, crbLister).
-				WithMetrics(resourceLogger, metrics.WebhookValidating).
-				WithTopLevelGVK(discovery).
-				WithAdmission(resourceLogger.WithName("validate"))
-		},
-	)
 	mux.HandlerFunc(
 		"POST",
 		config.PolicyMutatingWebhookServicePath,
@@ -272,6 +241,7 @@ func NewServer(
 		handlerFunc("VALIDATE", policyHandlers.Validation, "").
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
+			WithLegacyPolicyDenial().
 			WithMetrics(policyLogger, metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
@@ -282,6 +252,7 @@ func NewServer(
 		handlerFunc("VALIDATE", exceptionHandlers.Validation, "").
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
+			WithLegacyPolicyDenial().
 			WithMetrics(exceptionLogger, metrics.WebhookValidating).
 			WithAdmission(exceptionLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
@@ -313,6 +284,13 @@ func NewServer(
 			WithAdmission(verifyLogger.WithName("mutate")).
 			ToHandlerFunc("VERIFY"),
 	)
+	// 1.20 upgrade compatibility for webhook configurations persisted by 1.19: the legacy resource
+	// admission path was removed (#17710), but a webhook configuration a 1.19 cluster registered (or
+	// one an operator manages themselves with autoUpdateWebhooks=false) may still point at these
+	// paths with failurePolicy: Fail. Answering 404 there would turn every matching request into a
+	// cluster-wide denial; legacy kyverno.io policies are no longer executed regardless, so "allow" is
+	// the correct answer, not "deny". Remove in 1.21 along with #17718.
+	registerLegacyCompatRoutes(mux, resourceLogger.WithName("legacy-compat"))
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{
@@ -411,33 +389,6 @@ func (s *server) cleanup(ctx context.Context) {
 	}
 }
 
-func registerWebhookHandlers(
-	mux *httprouter.Router,
-	name string,
-	basePath string,
-	handler Handler,
-	builder func(handler handlers.AdmissionHandler) handlers.HttpHandler,
-) {
-	ignore := handlerFunc(name, handler, "ignore")
-	fail := handlerFunc(name, handler, "fail")
-	mux.HandlerFunc("POST", basePath+"/ignore", builder(ignore).ToHandlerFunc(name))
-	mux.HandlerFunc("POST", basePath+"/fail", builder(fail).ToHandlerFunc(name))
-	mux.HandlerFunc("POST", basePath+"/ignore"+config.FineGrainedWebhookPath+"/*policy", builder(ignore).ToHandlerFunc(name))
-	mux.HandlerFunc("POST", basePath+"/fail"+config.FineGrainedWebhookPath+"/*policy", builder(fail).ToHandlerFunc(name))
-}
-
-func registerWebhookHandlersWithAll(
-	mux *httprouter.Router,
-	name string,
-	basePath string,
-	handler Handler,
-	builder func(handler handlers.AdmissionHandler) handlers.HttpHandler,
-) {
-	all := handlerFunc(name, handler, "all")
-	mux.HandlerFunc("POST", basePath, builder(all).ToHandlerFunc(name))
-	registerWebhookHandlers(mux, name, basePath, handler, builder)
-}
-
 func handlerFunc(name string, handler Handler, failurePolicy string) handlers.AdmissionHandler {
 	return handlers.FromAdmissionFunc(
 		name,
@@ -445,4 +396,35 @@ func handlerFunc(name string, handler Handler, failurePolicy string) handlers.Ad
 			return handler.Execute(ctx, logger, request, failurePolicy, startTime)
 		},
 	)
+}
+
+// legacyCompatRouteLogOnce ensures the "stale webhook configuration" notice is logged at most once
+// per process, no matter how many of the compat routes/requests get hit.
+var legacyCompatRouteLogOnce sync.Once
+
+// registerLegacyCompatRoutes serves the five path shapes the deleted legacy resource admission
+// path used to register under both config.ValidatingWebhookServicePath and
+// config.MutatingWebhookServicePath (<base>, <base>/ignore, <base>/fail, and the two fine-grained
+// per-policy variants), answering allow-only. Nothing is evaluated: no filter, roles, protection,
+// or metrics decorators. See the call site for why "allow" is correct here.
+func registerLegacyCompatRoutes(mux *httprouter.Router, logger logr.Logger) {
+	allowOnly := handlers.AdmissionHandler(
+		func(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+			legacyCompatRouteLogOnce.Do(func() {
+				logger.V(2).Info("legacy resource webhook path called; a stale webhook configuration still targets it")
+			})
+			return admissionutils.ResponseSuccess(request.UID)
+		},
+	).WithAdmission(logger)
+	for _, base := range []string{config.ValidatingWebhookServicePath, config.MutatingWebhookServicePath} {
+		for _, path := range []string{
+			base,
+			base + "/ignore",
+			base + "/fail",
+			base + "/ignore" + config.FineGrainedWebhookPath + "/*policy",
+			base + "/fail" + config.FineGrainedWebhookPath + "/*policy",
+		} {
+			mux.HandlerFunc("POST", path, allowOnly.ToHandlerFunc("LEGACY-COMPAT"))
+		}
+	}
 }

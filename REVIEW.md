@@ -41,8 +41,11 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
   carry no `// DO NOT EDIT` header, so this isn't always obvious from the file itself.
 - **Codegen freshness, code *and* docs**: CI runs this as two separate required checks —
   `.github/workflows/check-codegen.yaml`'s `verify-codegen-code` job (`make codegen-all-code` then
-  `make verify-codegen`) and `verify-codegen-docs` (`make codegen-all-docs` then the same check, which is just
-  `git diff --exit-code`). Running `make codegen-all` locally covers both before pushing; running only
+  `make verify-codegen`) and `verify-codegen-docs` (an explicit-success gate over isolated `codegen-api-docs`
+  and `codegen-cli-api-docs` matrix jobs, each followed by the same full-tree check, which is just
+  `git diff --exit-code`). These docs targets read source types and write disjoint `docs/user/crd/` and
+  `docs/user/cli/crd/` directories; keep the matrix in sync with `codegen-all-docs` if adding targets.
+  Running `make codegen-all` locally covers both before pushing; running only
   `codegen-all-code` can pass one job and still fail the other.
 - **CODEOWNERS coverage**: does the changed path have its listed owner as a reviewer, or at least aware?
 

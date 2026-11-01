@@ -1,5 +1,5 @@
 {{- $name := "require-run-as-non-root-user" }}
-{{- if and (eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+{{- if eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
@@ -12,7 +12,9 @@ metadata:
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    kyverno.io/pod-security-version: "{{ include "kyverno-policies.psaVersionAnnotation" . }}"
     policies.kyverno.io/description: >-
       Containers must be required to run as non-root users. This policy ensures
       `runAsUser` is not set to `0` (root).
@@ -56,7 +58,7 @@ spec:
         spec.securityContext.runAsUser,
         spec.containers[*].securityContext.runAsUser,
         spec.initContainers[*].securityContext.runAsUser, and
-        spec.ephemeralContainers[*].securityContext.runAsUser must not be set to `0`{{ if .Values.podSecurityUserNamespaces }},
+        spec.ephemeralContainers[*].securityContext.runAsUser must not be set to `0`{{ if eq (include "kyverno-policies.psaUserNamespaces" .) "true" }},
         unless the Pod sets spec.hostUsers to `false`{{ end }}.
   {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}

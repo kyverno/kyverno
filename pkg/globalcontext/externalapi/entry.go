@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
@@ -20,6 +22,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 )
@@ -41,7 +44,7 @@ func New(
 	gceLister kyvernov2beta1listers.GlobalContextEntryLister,
 	logger logr.Logger,
 	client apicall.ClientInterface,
-	call kyvernov1.APICall,
+	call kyverno.APICall,
 	period time.Duration,
 	maxResponseLength int64,
 	apiCallTimeout time.Duration,
@@ -63,8 +66,21 @@ func New(
 
 	projections := make([]store.Projection, 0)
 	for _, p := range gce.Spec.Projections {
+		if p.Expression != "" {
+			prog, errs := compiler.CompileGlobalContextProjection(field.NewPath("expression"), p.Expression)
+			if len(errs) > 0 {
+				cancel()
+				return nil, fmt.Errorf("failed to compile CEL expression for projection %q: %w", p.Name, errs.ToAggregate())
+			}
+			projections = append(projections, store.Projection{
+				Name:    p.Name,
+				Program: prog,
+			})
+			continue
+		}
 		jpQuery, err := jp.Query(p.JMESPath)
 		if err != nil {
+			cancel()
 			return nil, fmt.Errorf("failed to parse jmespath query: %s", err)
 		}
 		projections = append(projections, store.Projection{
@@ -85,7 +101,7 @@ func New(
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
 			if data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit); err != nil {
-				e.setData(nil, err)
+				e.setData(ctx, nil, err)
 
 				logger.Error(err, "failed to get data from api caller")
 
@@ -97,7 +113,7 @@ func New(
 					UID:        gce.UID,
 				}, err))
 			} else {
-				e.setData(data, nil)
+				e.setData(ctx, data, nil)
 
 				logger.V(4).Info("api call success", "data", data)
 
@@ -121,8 +137,8 @@ func (e *entry) Get(projection string) (any, error) {
 		return nil, e.err
 	}
 
-	data := e.dataMap[projection]
-	if data == nil {
+	data, ok := e.dataMap[projection]
+	if !ok {
 		return nil, fmt.Errorf("no data available")
 	}
 
@@ -133,7 +149,7 @@ func (e *entry) Stop() {
 	e.stopOnce.Do(e.stop)
 }
 
-func (e *entry) setData(data any, err error) {
+func (e *entry) setData(ctx context.Context, data any, err error) {
 	e.Lock()
 	defer e.Unlock()
 
@@ -153,9 +169,22 @@ func (e *entry) setData(data any, err error) {
 		}
 		newDataMap := make(map[string]any)
 		newDataMap[""] = jsonData
+
+		// One shared CEL cost ceiling for every projection recomputed this cycle, so an
+		// entry with many CEL projections can't retain an unbounded multiple of the
+		// per-program limit by spreading cost across projections. Background-sized: this
+		// runs on the poll-tick worker in every binary that wires up this controller,
+		// including cmd/kyverno, so the admission-sized ceiling would be wrong for the
+		// other two.
+		budgetCtx, release := requestbudget.EnsureBackground(ctx)
+		defer release()
+
 		for _, projection := range e.projections {
-			result, err := projection.JP.Search(jsonData)
+			result, err := projection.Evaluate(budgetCtx, jsonData)
 			if err != nil {
+				if projection.Program != nil {
+					err = fmt.Errorf("failed to apply projection %q: %w (object is the parsed API response)", projection.Name, err)
+				}
 				e.err = err
 				return
 			}
@@ -166,7 +195,7 @@ func (e *entry) setData(data any, err error) {
 	}
 }
 
-func doCall(ctx context.Context, caller apicall.Executor, call kyvernov1.APICall, retryLimit int) (any, error) {
+func doCall(ctx context.Context, caller apicall.Executor, call kyverno.APICall, retryLimit int) (any, error) {
 	var result any
 	backoff := wait.Backoff{
 		Duration: retry.DefaultBackoff.Duration,

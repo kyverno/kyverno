@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/template"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/sdk/extensions/cel/libs/generator"
-	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -126,8 +125,8 @@ func (p *Policy) Evaluate(
 		compiler.ObjectKey:          data.Object,
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
-		compiler.ResourceKey:        resource.Context{ContextInterface: data.Context},
 	}
+	libs.BindRequestContext(ctx, data.Context, dataNew)
 	// the *Traces slices are only appended to when p.trace is set, and decision() returns nil
 	// otherwise, so with tracing off none of this changes what Evaluate returns
 	var matchTraces, variableTraces []trace.NamedExpressionTrace

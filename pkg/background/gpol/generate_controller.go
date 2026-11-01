@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/breaker"
@@ -87,7 +87,7 @@ func NewCELGenerateController(
 
 func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
-	generatedResources := make([]kyvernov1.ResourceSpec, 0)
+	generatedResources := make([]kyverno.ResourceSpec, 0)
 	logger.V(2).Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
 	var failures []error
@@ -187,7 +187,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			} else {
 				resourcesToSync := res.Result.GeneratedResources()
 				for _, resource := range resourcesToSync {
-					generatedResources = append(generatedResources, kyvernov1.ResourceSpec{
+					generatedResources = append(generatedResources, kyverno.ResourceSpec{
 						Kind:       resource.GetKind(),
 						APIVersion: resource.GetAPIVersion(),
 						Name:       resource.GetName(),
@@ -233,7 +233,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	return updateURStatus(c.statusControl, *ur, multierr.Combine(failures...), generatedResources)
 }
 
-func (c *CELGenerateController) audit(ctx context.Context, engineResponse engineapi.EngineResponse, generatedResources []kyvernov1.ResourceSpec) error {
+func (c *CELGenerateController) audit(ctx context.Context, engineResponse engineapi.EngineResponse, generatedResources []kyverno.ResourceSpec) error {
 	if engineResponse.IsEmpty() {
 		return nil
 	}
@@ -254,7 +254,7 @@ func (c *CELGenerateController) audit(ctx context.Context, engineResponse engine
 		}
 	}
 	if engineResponse.IsFailed() || engineResponse.IsError() {
-		trigger := kyvernov1.ResourceSpec{
+		trigger := kyverno.ResourceSpec{
 			Kind:       engineResponse.Resource.GetKind(),
 			APIVersion: engineResponse.Resource.GetAPIVersion(),
 			Name:       engineResponse.Resource.GetName(),
@@ -302,7 +302,7 @@ func (c *CELGenerateController) needsReports(trigger unstructured.Unstructured) 
 	return createReport
 }
 
-func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec) error {
+func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error, genResources []kyverno.ResourceSpec) error {
 	if err != nil {
 		if _, err := statusControl.Failed(ur.GetName(), err.Error(), genResources); err != nil {
 			return err

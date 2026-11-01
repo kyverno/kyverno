@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Kubernetes test matrix
+
+permissions: {}
+
+on:
+  workflow_call:
+    outputs:
+      versions:
+        description: Supported Kubernetes versions, as a JSON array
+        value: ${{ jobs.matrix.outputs.versions }}
+      beta-versions:
+        description: Versions supporting the beta MutatingAdmissionPolicy API
+        value: ${{ jobs.matrix.outputs.beta-versions }}
+      stable-versions:
+        description: Versions supporting the stable MutatingAdmissionPolicy API
+        value: ${{ jobs.matrix.outputs.stable-versions }}
+      smoke-versions:
+        description: Single-version matrix for version-independent tests
+        value: ${{ jobs.matrix.outputs.smoke-versions }}
+      images:
+        description: Map of Kubernetes versions to digest-pinned kind node images
+        value: ${{ jobs.matrix.outputs.images }}
+      kind-version:
+        description: kind version compatible with the node images
+        value: ${{ jobs.matrix.outputs.kind-version }}
+
+jobs:
+  matrix:
+    runs-on: ubuntu-slim
+    outputs:
+      versions: ${{ steps.matrix.outputs.versions }}
+      beta-versions: ${{ steps.matrix.outputs.beta-versions }}
+      stable-versions: ${{ steps.matrix.outputs.stable-versions }}
+      smoke-versions: ${{ steps.matrix.outputs.smoke-versions }}
+      images: ${{ steps.matrix.outputs.images }}
+      kind-version: ${{ steps.matrix.outputs.kind-version }}
+    steps:
+      # Keep the data in the called workflow: checkout would otherwise read the
+      # caller's repository, not this workflow's pinned revision.
+      - name: Export matrix
+        id: matrix
+        env:
+          KIND_VERSION: v0.33.0
+          # Latest published images from kubernetes-sigs/kind v0.33.0.
+          # Kubernetes patch releases may precede their kind node images.
+          NODES: |
+            [
+              {
+                "version": "v1.34.11",
+                "image": "kindest/node:v1.34.11@sha256:44e222ee2132dab25ff87301682f89eb82c7880ea3a1bf543bfe9708fd08d67d",
+                "mutatingAdmissionPolicy": "v1beta1"
+              },
+              {
+                "version": "v1.35.8",
+                "image": "kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0",
+                "mutatingAdmissionPolicy": "v1beta1"
+              },
+              {
+                "version": "v1.36.4",
+                "image": "kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed",
+                "mutatingAdmissionPolicy": "v1"
+              },
+              {
+                "version": "v1.37.0",
+                "image": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+                "mutatingAdmissionPolicy": "v1"
+              }
+            ]
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '
+            (map(.version | capture("^v1\\.(?<minor>[0-9]+)\\.[0-9]+$").minor | tonumber) == [34, 35, 36, 37]) and
+            all(.[];
+              (. as $node | .image | startswith("kindest/node:" + $node.version + "@sha256:")) and
+              (.image | test("@sha256:[0-9a-f]{64}$")) and
+              (.mutatingAdmissionPolicy == "v1beta1" or .mutatingAdmissionPolicy == "v1"))
+          ' <<< "$NODES" > /dev/null
+          {
+            echo "versions=$(jq -c 'map(.version)' <<< "$NODES")"
+            echo "beta-versions=$(jq -c 'map(select(.mutatingAdmissionPolicy == "v1beta1") | .version)' <<< "$NODES")"
+            echo "stable-versions=$(jq -c 'map(select(.mutatingAdmissionPolicy == "v1") | .version)' <<< "$NODES")"
+            echo "smoke-versions=$(jq -c '[last.version]' <<< "$NODES")"
+            echo "images=$(jq -c 'map({key: .version, value: .image}) | from_entries' <<< "$NODES")"
+            echo "kind-version=$KIND_VERSION"
+          } >> "$GITHUB_OUTPUT"

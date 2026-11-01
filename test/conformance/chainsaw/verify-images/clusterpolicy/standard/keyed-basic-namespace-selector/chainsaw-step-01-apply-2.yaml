@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    signed: "false"
-  name: test-verify-images-unprotected

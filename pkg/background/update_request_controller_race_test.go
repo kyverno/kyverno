@@ -9,7 +9,7 @@ import (
 
 	openapi_v2 "github.com/google/gnostic-models/openapiv2"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
@@ -114,7 +114,54 @@ func (d *raceDelegate) WithLegacy() discovery.DiscoveryInterface {
 	panic("not used by the aggregated refresh path")
 }
 
-var _ discovery.AggregatedDiscoveryInterface = &raceDelegate{}
+// client-go 0.37's memory.NewMemCacheClient wraps a delegate that lacks the
+// context-aware methods, which hides GroupsAndMaybeResources; implement them
+// so the cache keeps taking the aggregated refresh path.
+func (d *raceDelegate) GroupsAndMaybeResourcesWithContext(context.Context) (*metav1.APIGroupList, map[schema.GroupVersion]*metav1.APIResourceList, map[schema.GroupVersion]error, error) {
+	return d.GroupsAndMaybeResources()
+}
+
+func (d *raceDelegate) ServerGroupsWithContext(context.Context) (*metav1.APIGroupList, error) {
+	return d.ServerGroups()
+}
+
+func (d *raceDelegate) ServerResourcesForGroupVersionWithContext(_ context.Context, gv string) (*metav1.APIResourceList, error) {
+	return d.ServerResourcesForGroupVersion(gv)
+}
+
+func (d *raceDelegate) ServerGroupsAndResourcesWithContext(context.Context) ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+	return d.ServerGroupsAndResources()
+}
+
+func (d *raceDelegate) ServerPreferredResourcesWithContext(context.Context) ([]*metav1.APIResourceList, error) {
+	return d.ServerPreferredResources()
+}
+
+func (d *raceDelegate) ServerPreferredNamespacedResourcesWithContext(context.Context) ([]*metav1.APIResourceList, error) {
+	return d.ServerPreferredNamespacedResources()
+}
+
+func (d *raceDelegate) ServerVersionWithContext(context.Context) (*version.Info, error) {
+	return d.ServerVersion()
+}
+
+func (d *raceDelegate) OpenAPISchemaWithContext(context.Context) (*openapi_v2.Document, error) {
+	return d.OpenAPISchema()
+}
+
+func (d *raceDelegate) OpenAPIV3WithContext(context.Context) openapi.ClientWithContext {
+	panic("not used by the aggregated refresh path")
+}
+
+func (d *raceDelegate) WithLegacyWithContext(context.Context) discovery.DiscoveryInterfaceWithContext {
+	panic("not used by the aggregated refresh path")
+}
+
+var (
+	_ discovery.AggregatedDiscoveryInterface            = &raceDelegate{}
+	_ discovery.AggregatedDiscoveryInterfaceWithContext = &raceDelegate{}
+	_ discovery.DiscoveryInterfaceWithContext           = &raceDelegate{}
+)
 
 // raceEngine stands in for the CEL engine's GenerateResources step: it
 // resolves the target GVR and calls client.CreateResource, same as production.
@@ -230,16 +277,10 @@ func testNewCRDDiscoveryRace(t *testing.T, readyAfter time.Duration) {
 	kyvernoClient := kyvernofake.NewSimpleClientset()
 	factory := kyvernoinformers.NewSharedInformerFactory(kyvernoClient, 0)
 	urInformer := factory.Kyverno().V2().UpdateRequests()
-	// syncUpdateRequest always looks up ur.Spec.Policy as a legacy policy
-	// too, so these listers must be non-nil even though the lookup misses.
-	cpolInformer := factory.Kyverno().V1().ClusterPolicies()
-	polInformer := factory.Kyverno().V1().Policies()
 
 	c := &controller{
 		client:        client,
 		kyvernoClient: kyvernoClient,
-		cpolLister:    cpolInformer.Lister(),
-		polLister:     polInformer.Lister(),
 		urLister:      urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
@@ -261,7 +302,7 @@ func testNewCRDDiscoveryRace(t *testing.T, readyAfter time.Duration) {
 	stop := make(chan struct{})
 	defer close(stop)
 	factory.Start(stop)
-	if !cache.WaitForCacheSync(stop, urInformer.Informer().HasSynced, cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced) {
+	if !cache.WaitForCacheSync(stop, urInformer.Informer().HasSynced) {
 		t.Fatal("failed to sync informers")
 	}
 
@@ -289,7 +330,7 @@ func testNewCRDDiscoveryRace(t *testing.T, readyAfter time.Duration) {
 			},
 			RuleContext: []kyvernov2.RuleContext{{
 				Rule: "generate-cilium-scrape-policy",
-				Trigger: kyvernov1.ResourceSpec{
+				Trigger: kyverno.ResourceSpec{
 					APIVersion: "v1",
 					Kind:       "Namespace",
 					Name:       "cnp-template-ns",

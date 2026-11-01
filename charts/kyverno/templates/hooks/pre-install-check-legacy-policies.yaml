@@ -1,5 +1,5 @@
 {{- if .Values.upgrade.legacyPolicyCheck.enabled -}}
-{{- if not .Values.upgrade.allowLegacyPolicies -}}
+{{- if not .Values.upgrade.acknowledgeLegacyPoliciesNotEnforced -}}
 {{- if not .Values.global.templating.enabled -}}
 {{- $automountSAToken := .Values.upgrade.legacyPolicyCheck.serviceAccount.automountServiceAccountToken }}
 {{/* kyverno.fullname is already capped at 63 chars, so cap the suffixed names too: a long release

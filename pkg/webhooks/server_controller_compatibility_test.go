@@ -44,8 +44,11 @@ func TestServerControllerManagedResourceCompatibility(t *testing.T) {
 			operation                      admissionv1.Operation
 			allowed                        bool
 		}{
-			{name: "update managed content", route: config.ValidatingWebhookServicePath, operation: admissionv1.Update, object: edited, oldObject: managed, allowed: caller.managedAllowed},
-			{name: "delete managed target", route: config.ValidatingWebhookServicePath, operation: admissionv1.Delete, oldObject: associated, allowed: caller.managedAllowed},
+			// The legacy resource-level "/validate" route is gone (removed with admission-time
+			// legacy execution); managed-resource protection now lives on the CEL policy routes,
+			// so this exercises the same decorator via "/vpol/policy" instead.
+			{name: "update managed content", route: "/vpol/policy", operation: admissionv1.Update, object: edited, oldObject: managed, allowed: caller.managedAllowed},
+			{name: "delete managed target", route: "/vpol/policy", operation: admissionv1.Delete, oldObject: associated, allowed: caller.managedAllowed},
 			{name: "create routing metadata", route: config.GenerationLabelProtectionWebhookServicePath, operation: admissionv1.Create, object: associated},
 			{name: "change routing metadata", route: config.GenerationLabelProtectionWebhookServicePath, operation: admissionv1.Update, object: retargeted, oldObject: associated},
 			{name: "preserve routing metadata", route: config.GenerationLabelProtectionWebhookServicePath, operation: admissionv1.Update, object: associated, oldObject: associated, allowed: true},
