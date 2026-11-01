@@ -41,6 +41,7 @@ import (
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	celutils "github.com/kyverno/sdk/extensions/cel/utils"
 	"go.yaml.in/yaml/v3"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -56,6 +57,15 @@ import (
 	"k8s.io/client-go/openapi"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
 )
+
+type staticMpolProvider struct {
+	mpolengine.Provider
+	policies []mpolengine.Policy
+}
+
+func (s staticMpolProvider) Fetch(context.Context, bool) []mpolengine.Policy {
+	return s.policies
+}
 
 type PolicyProcessor struct {
 	Store                             *store.Store
@@ -115,6 +125,7 @@ type PolicyProcessor struct {
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
 	resource := p.Resource
+	originalResource := resource.DeepCopy()
 	if !p.CrdPreloaded && len(p.CrdPaths) > 0 {
 		if err := p.loadCrds(); err != nil {
 			return nil, err
@@ -220,7 +231,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if resource.Object != nil {
 			tcm := mpolcompiler.NewStaticTypeConverterManager(p.openAPI())
 			nsResolver := p.getNamespaceResolver()
-			eng := mpolengine.NewEngine(provider, nsResolver, matching.NewMatcher(), tcm, contextProvider)
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
 				if !p.Cluster {
@@ -245,63 +255,111 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if p.UserInfo != nil {
 				user = p.UserInfo.AdmissionUserInfo
 			}
-			// create engine request
-			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
-			request := celengine.Request(
-				contextProvider,
-				gvk,
-				gvr,
-				subresource,
-				resource.GetName(),
-				resource.GetNamespace(),
-				operation,
-				user,
-				object,
-				oldObject,
-				false,
-				nil,
-			)
-			// Skip inline mutation for policies with active target constraints, as admission does.
-			reps, err := eng.Handle(context.TODO(), request, mpolengine.NoTargetMatchConstraintPolicy())
-			if err != nil {
-				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
+			mutateCtx, releaseMutateBudget := requestbudget.Ensure(context.TODO())
+			defer releaseMutateBudget()
+			compiledMPols := provider.Fetch(mutateCtx, false)
+			mpolMap := make(map[string][]mpolengine.Policy)
+			for _, mpol := range compiledMPols {
+				key := mpol.Policy.GetNamespace() + "/" + mpol.Policy.GetName()
+				mpolMap[key] = append(mpolMap[key], mpol)
 			}
-			p.explainMutations(reps.Policies)
-			for _, r := range reps.Policies {
-				if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
+
+			preCelResource := resource.DeepCopy()
+			currentResource := resource.DeepCopy()
+			seenMutatingPol := make(map[string]bool)
+			for _, pol := range p.MutatingPolicies {
+				key := pol.GetNamespace() + "/" + pol.GetName()
+				if seenMutatingPol[key] {
 					continue
 				}
-				patched := *reps.Resource
-				if reps.PatchedResource != nil {
-					patched = *reps.PatchedResource
+				seenMutatingPol[key] = true
+				compiledList := mpolMap[key]
+				if len(compiledList) == 0 {
+					continue
 				}
-
-				response := engineapi.EngineResponse{
-					Resource:        *reps.Resource,
-					PatchedResource: patched,
-					PolicyResponse: engineapi.PolicyResponse{
-						Rules: r.Rules,
-					},
+				oldRes := p.resolveOldObject(originalResource, pol.GetName())
+				if oldRes == nil {
+					oldRes = originalResource
 				}
-				response = response.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
-
-				// processMutateEngineResponse counts the response, so it is not counted here as well.
-				// A response with no rules, such as the autogen copy of a Pod policy evaluated against a
-				// Pod, mutated nothing, so it is not printed or written to the output file.
-				if len(r.Rules) > 0 {
-					if err := p.processMutateEngineResponse(response, resPath); err != nil {
-						return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+				operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), preCelResource, oldRes)
+				request := celengine.Request(
+					contextProvider,
+					gvk,
+					gvr,
+					subresource,
+					originalResource.GetName(),
+					originalResource.GetNamespace(),
+					operation,
+					user,
+					object,
+					oldObject,
+					false,
+					nil,
+				)
+				var attrObj runtime.Object = currentResource
+				if operation == admissionv1.Delete {
+					attrObj = nil
+				}
+				currentAttr := admission.NewAttributesRecord(
+					attrObj,
+					nil,
+					gvk,
+					originalResource.GetNamespace(),
+					originalResource.GetName(),
+					gvr,
+					subresource,
+					admission.Operation(operation),
+					nil,
+					false,
+					admissionpolicy.NewUser(user),
+				)
+				policyEng := mpolengine.NewEngine(staticMpolProvider{Provider: provider, policies: compiledList}, nsResolver, matching.NewMatcher(), tcm, contextProvider)
+				// Skip inline mutation for policies with active target constraints, as admission does.
+				reps, err := policyEng.HandleWithAttributes(mutateCtx, currentAttr, request, mpolengine.NoTargetMatchConstraintPolicy())
+				if err != nil {
+					return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", originalResource.GetName(), err)
+				}
+				p.explainMutations(reps.Policies)
+				for _, r := range reps.Policies {
+					if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
+						continue
 					}
-				}
+					patched := *reps.Resource
+					if reps.PatchedResource != nil {
+						patched = *reps.PatchedResource
+						currentResource = reps.PatchedResource.DeepCopy()
+					}
 
-				responses = append(responses, response)
-				resource = response.PatchedResource
+					response := engineapi.EngineResponse{
+						Resource:        *reps.Resource,
+						PatchedResource: patched,
+						PolicyResponse: engineapi.PolicyResponse{
+							Rules: r.Rules,
+						},
+					}
+					response = response.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
+
+					// processMutateEngineResponse counts the response, so it is not counted here as well.
+					// A response with no rules, such as the autogen copy of a Pod policy evaluated against a
+					// Pod, mutated nothing, so it is not printed or written to the output file.
+					if len(r.Rules) > 0 {
+						if err := p.processMutateEngineResponse(response, resPath); err != nil {
+							return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+						}
+					}
+
+					responses = append(responses, response)
+					resource = response.PatchedResource
+				}
 			}
 			// mutateExisting MutatingPolicies - process target resources
 			if len(p.TargetResources) > 0 {
-				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
-				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers
-				mutExistEng := mpolengine.NewEngine(provider, nsResolver, nil, tcm, contextProvider)
+				compiledMutExist := provider.Fetch(mutateCtx, true)
+				mutExistMap := make(map[string][]mpolengine.Policy)
+				for _, mpol := range compiledMutExist {
+					key := mpol.Policy.GetNamespace() + "/" + mpol.Policy.GetName()
+					mutExistMap[key] = append(mutExistMap[key], mpol)
+				}
 				targetMatcher := matching.NewMatcher()
 				// Register target resources with FakeContextProvider so CEL resource.List()/resource.Get() can find them
 				if fakeCtx, ok := contextProvider.(*libs.FakeContextProvider); ok {
@@ -325,66 +383,95 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						return nil, fmt.Errorf("failed to map target gvk to gvr %s: %w", targetGVK, err)
 					}
 					targetGVR := targetMapping.Resource
-					attr := admission.NewAttributesRecord(
-						target,
-						nil,
-						targetGVK,
-						target.GetNamespace(),
-						target.GetName(),
-						targetGVR,
-						"",
-						admission.Operation(""),
-						nil,
-						false,
-						nil,
-					)
-					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, targetMatchPredicate(targetMatcher, attr, celTargets))
-					if err != nil {
-						return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
-					}
-					p.explainMutations(evalResponse.Policies)
-					for _, r := range evalResponse.Policies {
-						if len(r.Rules) == 0 {
+
+					currentTarget := target.DeepCopy()
+					for _, pol := range p.MutatingPolicies {
+						key := pol.GetNamespace() + "/" + pol.GetName()
+						compiledList := mutExistMap[key]
+						if len(compiledList) == 0 {
 							continue
 						}
-						patched := *evalResponse.Resource
-						if evalResponse.PatchedResource != nil {
-							patched = *evalResponse.PatchedResource
+						triggerOldRes := p.resolveOldObject(originalResource, pol.GetName())
+						if triggerOldRes == nil {
+							triggerOldRes = originalResource
 						}
-						rules := make([]engineapi.RuleResponse, 0, len(r.Rules))
-						for _, rule := range r.Rules {
-							props := rule.Properties()
-							if props == nil {
-								props = make(map[string]string)
-							} else {
-								newProps := make(map[string]string, len(props)+1)
-								for k, v := range props {
-									newProps[k] = v
+						triggerOp, triggerObj, triggerOldObj := AdmissionRequestShape(p.resolveOperation(), &resource, triggerOldRes)
+						triggerReq := celengine.Request(
+							contextProvider,
+							gvk,
+							gvr,
+							subresource,
+							resource.GetName(),
+							resource.GetNamespace(),
+							triggerOp,
+							user,
+							triggerObj,
+							triggerOldObj,
+							false,
+							nil,
+						)
+						attr := admission.NewAttributesRecord(
+							currentTarget,
+							triggerOldObj,
+							targetGVK,
+							target.GetNamespace(),
+							target.GetName(),
+							targetGVR,
+							"",
+							admission.Operation(""),
+							nil,
+							false,
+							nil,
+						)
+						targetEng := mpolengine.NewEngine(staticMpolProvider{Provider: provider, policies: compiledList}, nsResolver, nil, tcm, contextProvider)
+						evalResponse, err := targetEng.Evaluate(mutateCtx, attr, triggerReq.Request, targetMatchPredicate(targetMatcher, attr, celTargets))
+						if err != nil {
+							return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
+						}
+						p.explainMutations(evalResponse.Policies)
+						for _, r := range evalResponse.Policies {
+							if len(r.Rules) == 0 {
+								continue
+							}
+							patched := *evalResponse.Resource
+							if evalResponse.PatchedResource != nil {
+								patched = *evalResponse.PatchedResource
+								currentTarget = evalResponse.PatchedResource
+							}
+							rules := make([]engineapi.RuleResponse, 0, len(r.Rules))
+							for _, rule := range r.Rules {
+								props := rule.Properties()
+								if props == nil {
+									props = make(map[string]string)
+								} else {
+									newProps := make(map[string]string, len(props)+1)
+									for k, v := range props {
+										newProps[k] = v
+									}
+									props = newProps
 								}
-								props = newProps
+								props["kyverno.io/target"] = "true"
+								rWithProp := rule.WithProperties(props)
+								if rule.Status() == engineapi.RuleStatusPass {
+									rules = append(rules, *rWithProp.WithPatchedTarget(&patched, metav1.GroupVersionResource(targetGVR), ""))
+								} else {
+									rules = append(rules, *rWithProp)
+								}
 							}
-							props["kyverno.io/target"] = "true"
-							rWithProp := rule.WithProperties(props)
-							if rule.Status() == engineapi.RuleStatusPass {
-								rules = append(rules, *rWithProp.WithPatchedTarget(&patched, metav1.GroupVersionResource(targetGVR), ""))
-							} else {
-								rules = append(rules, *rWithProp)
+							resp := engineapi.EngineResponse{
+								Resource: *target,
+								PolicyResponse: engineapi.PolicyResponse{
+									Rules: rules,
+								},
 							}
+							resp = resp.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
+							responses = append(responses, resp)
 						}
-						resp := engineapi.EngineResponse{
-							Resource: *target,
-							PolicyResponse: engineapi.PolicyResponse{
-								Rules: rules,
-							},
-						}
-						resp = resp.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
-						responses = append(responses, resp)
 					}
 				}
 			}
 		}
 	}
-	// validating admission policies
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
 	if len(p.ValidatingAdmissionPolicies) != 0 {
 		// map gvk to gvr
@@ -414,7 +501,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// validating policies
 	if len(p.ValidatingPolicies) != 0 {
-		ctx := context.TODO()
+		ctx, releaseBudget := requestbudget.Ensure(context.TODO())
+		defer releaseBudget()
 		compiler := vpolcompiler.NewCompilerWithTrace(p.Explain)
 		// Separate policies by evaluation mode to route them correctly.
 		// JSON-mode policies evaluate against raw JSON and must not go through the
@@ -455,7 +543,6 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						return nil, err
 					}
 				}
-				eng := vpolengine.NewEngine(provider, p.getNamespaceResolver(), matching.NewMatcher())
 				// map gvk to gvr
 				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 				if err != nil {
@@ -482,40 +569,70 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if p.UserInfo != nil {
 					user = p.UserInfo.AdmissionUserInfo
 				}
-				// create engine request
-				operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
-				request := celengine.Request(
-					contextProvider,
-					gvk,
-					gvr,
-					subresource,
-					resource.GetName(),
-					resource.GetNamespace(),
-					operation,
-					user,
-					object,
-					oldObject,
-					false,
-					nil,
-				)
-				reps, err := eng.Handle(ctx, request, nil)
+				compiledVPols, err := provider.Fetch(ctx)
 				if err != nil {
-					return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
+					return nil, fmt.Errorf("failed to fetch validating policies: %w", err)
 				}
-				p.explain(reps.Policies)
-				for _, r := range reps.Policies {
-					if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
+				vpolMap := make(map[string][]vpolengine.Policy)
+				for _, vp := range compiledVPols {
+					key := vp.Policy.GetNamespace() + "/" + vp.Policy.GetName()
+					vpolMap[key] = append(vpolMap[key], vp)
+				}
+
+				// create and evaluate an engine request per validating policy so policy-specific oldObject values are preserved
+				seenVPol := make(map[string]bool)
+				for _, pol := range k8sPolicies {
+					key := pol.GetNamespace() + "/" + pol.GetName()
+					if seenVPol[key] {
 						continue
 					}
-					response := engineapi.EngineResponse{
-						Resource: *reps.Resource,
-						PolicyResponse: engineapi.PolicyResponse{
-							Rules: r.Rules,
-						},
+					seenVPol[key] = true
+					compiledList := vpolMap[key]
+					if len(compiledList) == 0 {
+						continue
 					}
-					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
-					responses = append(responses, response)
+					oldRes := p.resolveOldObject(originalResource, pol.GetName())
+					if oldRes == nil {
+						oldRes = originalResource
+					}
+					operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource, oldRes)
+					request := celengine.Request(
+						contextProvider,
+						gvk,
+						gvr,
+						subresource,
+						resource.GetName(),
+						resource.GetNamespace(),
+						operation,
+						user,
+						object,
+						oldObject,
+						false,
+						nil,
+					)
+					singleVpolProvider := vpolengine.ProviderFunc(func(context.Context) ([]vpolengine.Policy, error) {
+						return compiledList, nil
+					})
+					policyEng := vpolengine.NewEngine(singleVpolProvider, p.getNamespaceResolver(), matching.NewMatcher())
+					reps, err := policyEng.Handle(ctx, request, nil)
+					if err != nil {
+						return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
+					}
+					p.explain(reps.Policies)
+					for _, r := range reps.Policies {
+						if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
+							continue
+						}
+						response := engineapi.EngineResponse{
+							Resource: *reps.Resource,
+							PolicyResponse: engineapi.PolicyResponse{
+								Rules: r.Rules,
+							},
+						}
+						response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
+						p.Rc.AddValidatingPolicyResponse(response)
+						responses = append(responses, response)
+					}
 				}
 			}
 			// Also evaluate JSON-mode policies against the K8s resource as raw JSON
@@ -645,23 +762,26 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if p.UserInfo != nil {
 				user = p.UserInfo.AdmissionUserInfo
 			}
-			// create engine request
-			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
-			request := celengine.Request(
-				contextProvider,
-				gvk,
-				gvr,
-				subresource,
-				resource.GetName(),
-				resource.GetNamespace(),
-				operation,
-				user,
-				object,
-				oldObject,
-				false,
-				nil,
-			)
 			for _, policy := range compiledPolicies {
+				oldRes := p.resolveOldObject(originalResource, policy.Policy.GetName())
+				if oldRes == nil {
+					oldRes = originalResource
+				}
+				operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource, oldRes)
+				request := celengine.Request(
+					contextProvider,
+					gvk,
+					gvr,
+					subresource,
+					resource.GetName(),
+					resource.GetNamespace(),
+					operation,
+					user,
+					object,
+					oldObject,
+					false,
+					nil,
+				)
 				engineResponse, err := engine.Handle(context.TODO(), request, policy, false)
 				if err != nil {
 					return nil, err

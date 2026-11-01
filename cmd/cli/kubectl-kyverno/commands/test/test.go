@@ -510,6 +510,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				restMapper,
 				gceMap,
 				operation,
+				vars,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -626,6 +627,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				restMapper,
 				gceMap,
 				"",
+				vars,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
@@ -758,6 +760,7 @@ func applyImageValidatingPolicies(
 	restMapper meta.RESTMapper,
 	gceMap map[string]interface{},
 	operation string,
+	vars *variables.Variables,
 ) ([]engineapi.EngineResponse, error) {
 	var lister corev1listers.SecretLister
 	if dclient != nil {
@@ -786,14 +789,13 @@ func applyImageValidatingPolicies(
 		return nil, err
 	}
 
-	// Compilation captures the CLI library defaults, so initialize them first.
-	provider, err := ivpolengine.NewProvider(eval.NewCompiler(lister), ivps, celExceptions)
+	compiler := eval.NewCompiler(lister)
+	singleProvider, err := ivpolengine.NewProvider(compiler, ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
-
-	engine := ivpolengine.NewEngine(
-		provider,
+	eng := ivpolengine.NewEngine(
+		singleProvider,
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
@@ -817,7 +819,11 @@ func applyImageValidatingPolicies(
 		if userInfo != nil {
 			user = userInfo.AdmissionUserInfo
 		}
-		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
+		var oldRes *unstructured.Unstructured
+		if vars != nil {
+			oldRes = vars.OldObject(resource, resource.GetName(), "")
+		}
+		op, object, oldObject := processor.AdmissionRequestShape(operation, resource, oldRes)
 		request := celengine.Request(
 			contextProvider,
 			resource.GroupVersionKind(),
@@ -832,7 +838,16 @@ func applyImageValidatingPolicies(
 			false,
 			nil,
 		)
-		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
+		if vars != nil {
+			request.OldObjectForPolicy = func(polName string) runtime.Object {
+				if obj := vars.OldObject(resource, resource.GetName(), polName); obj != nil {
+					_, _, polOld := processor.AdmissionRequestShape(operation, resource, obj)
+					return polOld
+				}
+				return nil
+			}
+		}
+		engineResponse, err := eng.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if continueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
