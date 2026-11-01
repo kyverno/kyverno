@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"text/template"
@@ -31,7 +32,7 @@ type options struct {
 func Command() *cobra.Command {
 	var path string
 	var options options
-	var pass, fail, skip []string
+	var pass, fail, warn, errs, skip []string
 	cmd := &cobra.Command{
 		Use:          "test",
 		Short:        command.FormatDescription(true, websiteUrl, false, description...),
@@ -44,23 +45,40 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			for _, result := range pass {
-				result := parseResult(result, "pass")
-				if result != nil {
-					options.Results = append(options.Results, result)
+			for _, entry := range pass {
+				result := parseResult(entry, "pass")
+				if result == nil {
+					return fmt.Errorf("invalid --pass entry %q: expected policy,rule,resource,namespace,kind[,patchedResource]", entry)
 				}
+				options.Results = append(options.Results, result)
 			}
-			for _, result := range fail {
-				result := parseResult(result, "fail")
-				if result != nil {
-					options.Results = append(options.Results, result)
+			for _, entry := range fail {
+				result := parseResult(entry, "fail")
+				if result == nil {
+					return fmt.Errorf("invalid --fail entry %q: expected policy,rule,resource,namespace,kind[,patchedResource]", entry)
 				}
+				options.Results = append(options.Results, result)
 			}
-			for _, result := range skip {
-				result := parseResult(result, "skip")
-				if result != nil {
-					options.Results = append(options.Results, result)
+			for _, entry := range warn {
+				result := parseResult(entry, "warn")
+				if result == nil {
+					return fmt.Errorf("invalid --warn entry %q: expected policy,rule,resource,namespace,kind[,patchedResource]", entry)
 				}
+				options.Results = append(options.Results, result)
+			}
+			for _, entry := range errs {
+				result := parseResult(entry, "error")
+				if result == nil {
+					return fmt.Errorf("invalid --error entry %q: expected policy,rule,resource,namespace,kind[,patchedResource]", entry)
+				}
+				options.Results = append(options.Results, result)
+			}
+			for _, entry := range skip {
+				result := parseResult(entry, "skip")
+				if result == nil {
+					return fmt.Errorf("invalid --skip entry %q: expected policy,rule,resource,namespace,kind[,patchedResource]", entry)
+				}
+				options.Results = append(options.Results, result)
 			}
 			output := cmd.OutOrStdout()
 			if path != "" {
@@ -81,31 +99,27 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&options.Values, "values", "f", "", "Values file")
 	cmd.Flags().StringArrayVar(&pass, "pass", nil, "Expected `pass` results")
 	cmd.Flags().StringArrayVar(&fail, "fail", nil, "Expected `fail` results")
+	cmd.Flags().StringArrayVar(&warn, "warn", nil, "Expected `warn` results")
+	cmd.Flags().StringArrayVar(&errs, "error", nil, "Expected `error` results")
 	cmd.Flags().StringArrayVar(&skip, "skip", nil, "Expected `skip` results")
 	return cmd
 }
 
 func parseResult(test string, status string) *result {
 	parts := strings.Split(test, ",")
-	if len(parts) == 5 {
-		return &result{
-			Policy:    parts[0],
-			Rule:      parts[1],
-			Resource:  parts[2],
-			Namespace: parts[3],
-			Kind:      parts[4],
-			Result:    status,
-		}
-	} else if len(parts) == 6 {
-		return &result{
-			Policy:          parts[0],
-			Rule:            parts[1],
-			Resource:        parts[2],
-			Namespace:       parts[3],
-			Kind:            parts[4],
-			PatchedResource: parts[5],
-			Result:          status,
-		}
+	if len(parts) < 5 || len(parts) > 6 || parts[0] == "" {
+		return nil
 	}
-	return nil
+	res := &result{
+		Policy:    parts[0],
+		Rule:      parts[1],
+		Resource:  parts[2],
+		Namespace: parts[3],
+		Kind:      parts[4],
+		Result:    status,
+	}
+	if len(parts) == 6 {
+		res.PatchedResource = parts[5]
+	}
+	return res
 }
