@@ -411,13 +411,9 @@ func TestBundleAutoDetection(t *testing.T) {
 // so it cannot be silently broken by future refactors of the bundle
 // detection/network logic in buildCheckOptsWithBundleDetection.
 func TestShouldUseSignedTimestamps(t *testing.T) {
-	att := &v1beta1.Cosign{
-		TrustedRoot: &v1beta1.StringOrExpression{},
-	}
 	validJSON, err := os.ReadFile("testdata/github-trusted-root.json")
 	require.NoError(t, err)
-	att.TrustedRoot.Value = string(validJSON)
-	trustedMaterial, err := resolveTrustedMaterial(att, nil)
+	trustedMaterial, err := parseInlineTrustedRoot(string(validJSON))
 	require.NoError(t, err)
 	require.NotNil(t, trustedMaterial)
 
