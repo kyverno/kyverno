@@ -975,3 +975,47 @@ func TestHandle_ExtractionMode_MultiTemplateTraceSelection(t *testing.T) {
 		})
 	}
 }
+
+// TestHandle_ExtractionMode_ExceptionsListedOnce: exceptions that exempt every pod template of a
+// JobSet are reported once each, not once per template.
+func TestHandle_ExtractionMode_ExceptionsListedOnce(t *testing.T) {
+	policy := buildDisallowLatestTagPolicy()
+	exceptions := []*policiesv1beta1.PolicyException{
+		buildException("default", "first", policy.GetName()),
+		buildException("default", "second", policy.GetName()),
+	}
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, exceptions)
+	require.NoError(t, err)
+	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+	req := celengine.Request(
+		nil,
+		schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+		schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+		"",
+		"multi-template-jobset",
+		"default",
+		admissionv1.Create,
+		authenticationv1.UserInfo{},
+		jobSetWithImages("a:latest", "b:latest", "c:latest"),
+		nil,
+		false,
+		nil,
+	)
+	resp, err := eng.Handle(context.Background(), req, nil)
+	require.NoError(t, err)
+
+	var fired []celengine.ValidatingPolicyResponse
+	for _, p := range resp.Policies {
+		if len(p.Rules) > 0 {
+			fired = append(fired, p)
+		}
+	}
+	require.Len(t, fired, 1)
+	require.Len(t, fired[0].Rules, 1)
+	rule := fired[0].Rules[0]
+	assert.Equal(t, engineapi.RuleStatusSkip, rule.Status())
+	assert.Equal(t, "rule is skipped due to policy exception: default/first, default/second", rule.Message())
+	require.Len(t, rule.Exceptions(), 2)
+	assert.Equal(t, "first", rule.Exceptions()[0].GetName())
+	assert.Equal(t, "second", rule.Exceptions()[1].GetName())
+}
