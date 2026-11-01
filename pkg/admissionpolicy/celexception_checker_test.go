@@ -27,6 +27,12 @@ func exception(namespace, name string, validations ...string) policiesv1beta1.Po
 	return polex
 }
 
+func exceptionWithCondition(namespace, name, expression string) policiesv1beta1.PolicyException {
+	polex := exception(namespace, name)
+	polex.Spec.MatchConditions[0].Expression = expression
+	return polex
+}
+
 func Test_CanGenerateNativePolicy(t *testing.T) {
 	testCases := []struct {
 		name       string
@@ -55,6 +61,28 @@ func Test_CanGenerateNativePolicy(t *testing.T) {
 		},
 		want:       false,
 		wantReason: "policy exception(s) default/guarded, other/also-guarded define compensating controls (spec.validations), which a generated ValidatingAdmissionPolicy cannot evaluate",
+	}, {
+		name: "exception with native match conditions",
+		exceptions: []policiesv1beta1.PolicyException{
+			exceptionWithCondition("default", "native", `namespaceObject.metadata.labels["team"] == "infra" && request.userInfo.username != ""`),
+		},
+		want: true,
+	}, {
+		name: "exception with a match condition using a Kyverno CEL library",
+		exceptions: []policiesv1beta1.PolicyException{
+			exceptionWithCondition("default", "native", "true"),
+			exceptionWithCondition("kyverno", "infra", `resource.Get("v1", "namespaces", "", object.metadata.namespace).metadata.labels["team"] == "infra"`),
+		},
+		want:       false,
+		wantReason: "policy exception(s) kyverno/infra use matchConditions that the API server cannot compile in a generated ValidatingAdmissionPolicy, such as calls to the Kyverno CEL libraries",
+	}, {
+		name: "both reasons are reported",
+		exceptions: []policiesv1beta1.PolicyException{
+			exception("default", "guarded", "true"),
+			exceptionWithCondition("kyverno", "infra", `resource.Get("v1", "namespaces", "", "default").metadata.name == "default"`),
+		},
+		want:       false,
+		wantReason: "policy exception(s) default/guarded define compensating controls (spec.validations), which a generated ValidatingAdmissionPolicy cannot evaluate; policy exception(s) kyverno/infra use matchConditions that the API server cannot compile in a generated ValidatingAdmissionPolicy, such as calls to the Kyverno CEL libraries",
 	}}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
