@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-signed-pod2
+  namespace: test-verify-images
+spec:
+  containers:
+  - image: ghcr.io/kyverno/test-verify-image:signed
+    name: test-signed2

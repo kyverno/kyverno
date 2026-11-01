@@ -1,0 +1,49 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-multiple-image-verification-attestations-trivy-vex-fail
+spec:
+  webhookConfiguration:
+    timeoutSeconds: 30
+  failurePolicy: Fail
+  validationActions:
+    - Deny
+  evaluation:
+    admission:
+      enabled: true
+    background:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE]
+        resources: [pods]
+  matchImageReferences:
+    - glob: ghcr.io/kyverno/test-verify-image*
+  validationConfigurations:
+    mutateDigest: true
+    verifyDigest: true
+    required: true
+  attestors:
+    - name: signer
+      notary:
+        certs:
+          expression: >-
+            resource.get('v1', 'configmaps', object.metadata.namespace, 'keys').data.certificate
+  validations:
+    - expression: >-
+        images.containers.size() > 0 && images.containers.all(image, verifyAttestationSignatures(image, attestations.trivy,
+        [attestors.signer]) > 0 && verifyAttestationSignatures(image, attestations.vex, [attestors.signer]) > 0)
+      message: Trivy and VEX attestation verification failed
+    - expression: >-
+        images.containers.all(image, extractPayload(image, attestations.trivy).Vulnerabilities.all(vulnerability,
+        vulnerability.VulnerabilityID in extractPayload(image, attestations.vex).vulnerabilities.map(vex, vex.id)))
+      message: All vulnerabilities in trivy and vex should be same
+  attestations:
+    - name: trivy
+      referrer:
+        type: trivy/vulnerability-fail-test
+    - name: vex
+      referrer:
+        type: vex/cyclone-dx

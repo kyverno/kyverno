@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: multiple-image-verification-attestations-trivy-vex-fail
+spec:
+  concurrent: false
+  steps:
+  - name: create attestation verification certificate
+    try:
+    - create:
+        file: configmap.yaml
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait for admission policy readiness
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: ImageValidatingPolicy
+          metadata:
+            name: ivpol-multiple-image-verification-attestations-trivy-vex-fail
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - message: Webhook configured.
+                reason: Succeeded
+                status: "True"
+                type: WebhookConfigured
+              (conditions[?type == 'RBACPermissionsGranted']):
+              - message: Background scanning disabled; reporting permissions not required.
+                reason: Succeeded
+                status: "True"
+                type: RBACPermissionsGranted
+              ready: true
+  - name: reject unmatched vulnerability IDs
+    try:
+    - create:
+        file: pod.yaml
+        expect:
+        - check:
+            ($error != null): true
+            "($error != null && contains($error, 'Policy ivpol-multiple-image-verification-attestations-trivy-vex-fail failed: All vulnerabilities in trivy and vex should be same'))": true
+    - error:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test
