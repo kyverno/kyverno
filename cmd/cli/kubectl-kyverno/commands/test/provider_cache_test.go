@@ -294,6 +294,7 @@ policies:
 jsonPayloads:
   - payload1.json
   - payload2.json
+  - payload3.json
 `
 
 	policyYAML := `apiVersion: policies.kyverno.io/v1beta1
@@ -332,6 +333,12 @@ spec:
 	require.NoError(t, err)
 	f4.Close()
 
+	f5, err := fs.Create("payload3.json")
+	require.NoError(t, err)
+	_, err = f5.Write([]byte(`{"user": "", "role": "guest"}`))
+	require.NoError(t, err)
+	f5.Close()
+
 	testCases := test.LoadTest(fs, "kyverno-test.yaml")
 	require.Len(t, testCases, 1)
 
@@ -358,8 +365,11 @@ spec:
 
 	require.Contains(t, resp.Trigger, "payload1.json")
 	require.Contains(t, resp.Trigger, "payload2.json")
+	require.Contains(t, resp.Trigger, "payload3.json")
 	require.NotEmpty(t, resp.Trigger["payload1.json"])
 	require.NotEmpty(t, resp.Trigger["payload2.json"])
+	require.NotEmpty(t, resp.Trigger["payload3.json"])
 	assert.True(t, resp.Trigger["payload1.json"][0].IsSuccessful())
 	assert.True(t, resp.Trigger["payload2.json"][0].IsSuccessful())
+	assert.False(t, resp.Trigger["payload3.json"][0].IsSuccessful())
 }
