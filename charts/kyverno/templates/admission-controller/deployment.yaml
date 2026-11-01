@@ -223,7 +223,11 @@ spec:
             ) | nindent 12 }}
             {{- range $key, $value := .Values.admissionController.container.extraArgs }}
             {{- if $value }}
+            {{- if hasPrefix "--" $key }}
+            - {{ $key }}={{ $value }}
+            {{- else }}
             - --{{ $key }}={{ $value }}
+            {{- end }}
             {{- end }}
             {{- end }}
             {{ if .Values.admissionController.profiling.enabled }}
@@ -245,6 +249,12 @@ spec:
           - containerPort: {{ .Values.admissionController.metering.port }}
             name: metrics-port
             protocol: TCP
+          {{- $crMetricsPort := include "kyverno.controllerRuntimeMetricsPort" (dict "features" .Values.features "featuresOverride" .Values.admissionController.featuresOverride "extraArgs" .Values.admissionController.container.extraArgs) }}
+          {{- if $crMetricsPort }}
+          - containerPort: {{ $crMetricsPort | int }}
+            name: cr-metrics
+            protocol: TCP
+          {{- end }}
           {{ if .Values.admissionController.profiling.enabled }}
           - containerPort: {{ .Values.admissionController.profiling.port }}
             name: profiling-port

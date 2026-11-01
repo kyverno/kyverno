@@ -97,12 +97,15 @@ spec:
           image: {{ include "kyverno.background-controller.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.backgroundController.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.backgroundController.image.pullPolicy }}
           ports:
-          - containerPort: {{ .Values.backgroundController.server.port }}
-            name: https
-            protocol: TCP
           - containerPort: {{ .Values.backgroundController.metering.port }}
             name: metrics
             protocol: TCP
+          {{- $crMetricsPort := include "kyverno.controllerRuntimeMetricsPort" (dict "features" .Values.features "featuresOverride" .Values.backgroundController.featuresOverride "extraArgs" .Values.backgroundController.extraArgs) }}
+          {{- if $crMetricsPort }}
+          - containerPort: {{ $crMetricsPort | int }}
+            name: cr-metrics
+            protocol: TCP
+          {{- end }}
           {{ if .Values.backgroundController.profiling.enabled }}
           - containerPort: {{ .Values.backgroundController.profiling.port }}
             name: profiling-port
@@ -155,7 +158,11 @@ spec:
             ) | nindent 12 }}
             {{- range $key, $value := .Values.backgroundController.extraArgs }}
             {{- if $value }}
+            {{- if hasPrefix "--" $key }}
+            - {{ $key }}={{ $value }}
+            {{- else }}
             - --{{ $key }}={{ $value }}
+            {{- end }}
             {{- end }}
             {{- end }}
             {{ if .Values.backgroundController.profiling.enabled }}
