@@ -197,6 +197,19 @@ func (e *jsonPatcher) evaluatePatchExpressionWithLimit(ctx context.Context, rema
 }
 
 func applyJSONPatchWithLimits(document []byte, patchObj jsonpatch.Patch) ([]byte, error) {
+	rawPatchSize := 0
+	for _, operation := range patchObj {
+		for _, rawValue := range operation {
+			if rawValue == nil {
+				continue
+			}
+			if len(*rawValue) > maxJSONDocumentSize-rawPatchSize {
+				return nil, fmt.Errorf("JSON Patch exceeds the maximum size of %d bytes", maxJSONDocumentSize)
+			}
+			rawPatchSize += len(*rawValue)
+		}
+	}
+
 	patchJSON, err := gojson.Marshal(patchObj)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode JSON Patch: %w", err)
