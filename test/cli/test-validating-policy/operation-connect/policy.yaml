@@ -1,0 +1,34 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: deny-connect
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [CONNECT]
+      resources:   [pods]
+  validations:
+    - expression: "false"
+      message: "CONNECT operations are blocked"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-env-label
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [CREATE]
+      resources:   [pods]
+  validations:
+    - expression: >-
+        has(object.metadata.labels) && 'env' in object.metadata.labels
+      message: "pods must have an env label"
