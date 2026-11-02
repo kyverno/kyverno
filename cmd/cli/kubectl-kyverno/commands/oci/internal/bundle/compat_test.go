@@ -68,6 +68,46 @@ func TestCheckKyvernoVersionUnknownForPseudoVersionWithReleaseBase(t *testing.T)
 	assert.Equal(t, CompatibilityUnknown, c)
 }
 
+// TestCheckKyvernoVersionUnknownForPseudoVersionWithBuildMetadata pins the "+dirty" build-metadata
+// case a hand-rolled "ends with +incompatible or nothing" regex would miss.
+func TestCheckKyvernoVersionUnknownForPseudoVersionWithBuildMetadata(t *testing.T) {
+	c, err := CheckKyvernoVersion(">=1.20", "v1.20.0-0.20261001123456-abcdef123456+dirty")
+	require.NoError(t, err)
+	assert.Equal(t, CompatibilityUnknown, c)
+}
+
+// TestCheckKyvernoVersionUnknownForPseudoVersionWithoutDottedBase pins the no-base pseudo-version
+// form, used when there's no earlier tag on the module's major version: no "0." (or "pre.0.")
+// segment precedes the timestamp.
+func TestCheckKyvernoVersionUnknownForPseudoVersionWithoutDottedBase(t *testing.T) {
+	c, err := CheckKyvernoVersion(">=1.0", "v1.0.0-20261001123456-abcdef123456")
+	require.NoError(t, err)
+	assert.Equal(t, CompatibilityUnknown, c)
+}
+
+// TestCheckKyvernoVersionIgnoresPrereleaseResemblingPseudoVersionTimestamp pins the inverse of the
+// above: a prerelease tag that happens to contain a 14-digit, dash, 12-hex-digit substring (for
+// example because someone embedded a date in an RC label) is not a Go pseudo-version and must
+// still normalize to its release line like any other prerelease.
+func TestCheckKyvernoVersionIgnoresPrereleaseResemblingPseudoVersionTimestamp(t *testing.T) {
+	c, err := CheckKyvernoVersion(">=1.20", "1.20.0-rc.20261001123456-abcdef123456")
+	require.NoError(t, err)
+	assert.Equal(t, CompatibilitySatisfied, c, "an RC label is not a pseudo-version even if it contains a timestamp-shaped substring")
+}
+
+// TestNormalizeKyvernoVersionPseudoVersionBothVSpellings pins that NormalizeKyvernoVersion treats
+// a pseudo-version identically whether or not the caller's string already has the "v" prefix --
+// pkg/version.Version() and descriptor values reach this function with either spelling.
+func TestNormalizeKyvernoVersionPseudoVersionBothVSpellings(t *testing.T) {
+	withV := "v1.20.0-0.20261001123456-abcdef123456"
+	withoutV := "1.20.0-0.20261001123456-abcdef123456"
+
+	_, okWithV := NormalizeKyvernoVersion(withV)
+	_, okWithoutV := NormalizeKyvernoVersion(withoutV)
+	assert.False(t, okWithV)
+	assert.False(t, okWithoutV)
+}
+
 func TestCheckKyvernoVersionMalformedConstraintErrors(t *testing.T) {
 	_, err := CheckKyvernoVersion("not a constraint", "1.20.0")
 	assert.Error(t, err)
