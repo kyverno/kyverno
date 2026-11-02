@@ -6,6 +6,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -109,7 +110,7 @@ func (cp *FakeContextProvider) ToGVR(apiVersion, kind string) (*schema.GroupVers
 	panic("not implemented")
 }
 
-func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
+func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
 	gv, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
@@ -119,8 +120,13 @@ func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace str
 	if resources == nil {
 		return nil, kerrors.NewBadRequest(fmt.Sprintf("%s resource not found", gvr.GroupResource()))
 	}
+	// match the live provider, which filters by label selector
+	selector := labels.SelectorFromSet(l)
 	var out unstructured.UnstructuredList
 	for _, obj := range resources[namespace] {
+		if !selector.Matches(labels.Set(obj.GetLabels())) {
+			continue
+		}
 		out.Items = append(out.Items, *obj)
 	}
 	return &out, nil

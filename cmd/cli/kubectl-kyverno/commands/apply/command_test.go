@@ -2036,3 +2036,140 @@ func Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition(t *testing.T) {
 		}
 	}
 }
+
+// Test_Apply_CrossResource_PDB_5498 covers issue #5498: a policy that lists
+// PodDisruptionBudgets with resource.List and checks that every Deployment has
+// a matching PDB. The lookup runs offline against the resources passed with
+// --resource. The file declares the Deployments before the PDB, so the whole
+// snapshot must be loaded before the first Deployment is evaluated.
+func Test_Apply_CrossResource_PDB_5498(t *testing.T) {
+	dir := t.TempDir()
+	policyFile := filepath.Join(dir, "policy.yaml")
+	policyYAML := `apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-pdb
+spec:
+  validationActions:
+  - Audit
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  variables:
+  - name: labels
+    expression: object.spec.template.metadata.?labels.orValue({})
+  - name: pdbs
+    expression: dyn(resource.List("policy/v1", "poddisruptionbudgets", object.metadata.namespace).items)
+  validations:
+  - expression: >-
+      variables.pdbs.exists(p, size(p.spec.selector.matchLabels) > 0 &&
+      p.spec.selector.matchLabels.all(k, k in variables.labels &&
+      variables.labels[k] == p.spec.selector.matchLabels[k]))
+    message: Deployment must have a matching PodDisruptionBudget.
+`
+	require.NoError(t, os.WriteFile(policyFile, []byte(policyYAML), 0o600))
+
+	resourcesFile := filepath.Join(dir, "resources.yaml")
+	resourcesYAML := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-server
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-server
+  template:
+    metadata:
+      labels:
+        app: api-server
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web-app-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: web-app
+`
+	require.NoError(t, os.WriteFile(resourcesFile, []byte(resourcesYAML), 0o600))
+
+	// same objects, but the PDB comes from --target-resource
+	split := strings.LastIndex(resourcesYAML, "---\n")
+	deploymentsFile := filepath.Join(dir, "deployments.yaml")
+	require.NoError(t, os.WriteFile(deploymentsFile, []byte(resourcesYAML[:split]), 0o600))
+	pdbFile := filepath.Join(dir, "pdb.yaml")
+	require.NoError(t, os.WriteFile(pdbFile, []byte(resourcesYAML[split+len("---\n"):]), 0o600))
+
+	tests := []struct {
+		name   string
+		config ApplyCommandConfig
+	}{{
+		name: "pdb in resources",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{policyFile},
+			ResourcePaths: []string{resourcesFile},
+			PolicyReport:  true,
+		},
+	}, {
+		name: "pdb in target resources",
+		config: ApplyCommandConfig{
+			PolicyPaths:         []string{policyFile},
+			ResourcePaths:       []string{deploymentsFile},
+			TargetResourcePaths: []string{pdbFile},
+			PolicyReport:        true,
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, _, responses, err := tt.config.applyCommandHelper(context.TODO(), io.Discard)
+			require.NoError(t, err)
+
+			clustered, _ := report.ComputePolicyReports(false, responses...)
+			merged := report.MergeClusterReports(clustered)
+			assert.Equal(t, 1, merged.Summary.Pass)
+			assert.Equal(t, 1, merged.Summary.Fail)
+
+			results := map[string]openreportsv1alpha1.Result{}
+			for _, r := range merged.Results {
+				for _, s := range r.Subjects {
+					results[s.Name] = r.Result
+				}
+			}
+			assert.Equal(t, map[string]openreportsv1alpha1.Result{
+				"web-app":    "pass",
+				"api-server": "fail",
+			}, results)
+		})
+	}
+}

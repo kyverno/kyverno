@@ -471,6 +471,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		mapBindings,
 		resources,
 		parameterResources,
+		targetResources,
 		jsonPayloads,
 		celExceptions,
 		&skippedInvalidPolicies,
@@ -551,6 +552,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
 	parameterResources []*unstructured.Unstructured,
+	targetResources []*unstructured.Unstructured,
 	jsonPayloads []*unstructured.Unstructured,
 	celExceptions []*policiesv1beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
@@ -574,20 +576,14 @@ func (c *ApplyCommandConfig) applyPolicies(
 	crdPreloadFailed := false
 	if len(c.CrdPaths) > 0 {
 		crdPreloaded = true
-		for _, crdPath := range c.CrdPaths {
-			if strings.TrimSpace(crdPath) == "" {
-				continue
+		if err := common.LoadCrdsFromPaths(c.CrdPaths); err != nil {
+			if !c.ContinueOnFail {
+				return &rc, resources, responses, err
 			}
-			if err := common.LoadCrdsFromPath(crdPath); err != nil {
-				if !c.ContinueOnFail {
-					return &rc, resources, responses, err
-				}
-				log.Log.V(2).Info(fmt.Sprintf("failed to load CRDs from %s: %v", crdPath, err))
-				rc.IncrementError(1)
-				crdPreloaded = false
-				crdPreloadFailed = true
-				break
-			}
+			log.Log.V(2).Info(err.Error())
+			rc.IncrementError(1)
+			crdPreloaded = false
+			crdPreloadFailed = true
 		}
 	}
 
@@ -617,6 +613,14 @@ func (c *ApplyCommandConfig) applyPolicies(
 				rc.IncrementError(1)
 				contextProvider = nil
 			} else {
+				if !c.Cluster {
+					if err := addLocalResourcesToContext(contextProvider, restMapper, resources, targetResources, parameterResources); err != nil {
+						if !c.ContinueOnFail {
+							return &rc, resources, responses, err
+						}
+						rc.IncrementError(1)
+					}
+				}
 				if len(vpols) != 0 {
 					compiler := vpolcompiler.NewCompilerWithTrace(c.Explain)
 					var jsonPolicies []policiesv1beta1.ValidatingPolicyLike
@@ -1383,6 +1387,35 @@ func (w WarnExitCodeError) Error() string {
 
 func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
 	return resource.FlattenResources(resources)
+}
+
+// addLocalResourcesToContext makes the local resources visible to CEL resource.List and resource.Get.
+func addLocalResourcesToContext(contextProvider libs.Context, restMapper meta.RESTMapper, resourceSets ...[]*unstructured.Unstructured) error {
+	fakeCtx, ok := contextProvider.(*libs.FakeContextProvider)
+	if !ok {
+		return nil
+	}
+	var all []*unstructured.Unstructured
+	for _, set := range resourceSets {
+		all = append(all, set...)
+	}
+	flat, err := flattenResources(all)
+	if err != nil {
+		return err
+	}
+	for _, r := range flat {
+		gvk := r.GroupVersionKind()
+		var gvr schema.GroupVersionResource
+		if mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version); err == nil {
+			gvr = mapping.Resource
+		} else {
+			gvr, _ = meta.UnsafeGuessKindToResource(gvk)
+		}
+		if err := fakeCtx.AddResource(gvr, r); err != nil {
+			return fmt.Errorf("failed to add local resource %s/%s to context: %w", r.GetNamespace(), r.GetName(), err)
+		}
+	}
+	return nil
 }
 
 func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
