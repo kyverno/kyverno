@@ -10,7 +10,7 @@ Validate a bundle directory or file, or a pushed OCI image, reporting exactly wh
 
   NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
 
-  For more information visit https://kyverno.io/docs/kyverno-cli/#pushing
+  For more information visit https://kyverno.io/docs/kyverno-cli/#oci
 
 ```
 kyverno oci validate [dir or file] [flags]

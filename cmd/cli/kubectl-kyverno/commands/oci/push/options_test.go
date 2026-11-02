@@ -832,3 +832,59 @@ func TestValidateRejectsUncompilableCompensatingControl(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "compensating control")
 }
+
+// TestValidateRejectsMalformedObjectSelector is TestValidateRejectsMalformedSelector's sibling for
+// objectSelector, the other half of checkSelectors' pair of checks.
+func TestValidateRejectsMalformedObjectSelector(t *testing.T) {
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "ValidatingPolicy", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "bad-object-selector"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ObjectSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Key: "env", Operator: "NotAnOperator", Values: []string{"prod"}},
+					},
+				},
+			},
+		},
+	}
+	results := &policy.LoaderResults{
+		ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{vp},
+	}
+	err := validate(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "objectSelector")
+}
+
+// TestValidateWarnsOnCompensatingControlForIgnoringKind pins the warning half of D7:
+// ValidateCompensatingControls, not ValidateCompensatingControlExpressions, fires when an
+// exception's compensating control references a kind other than ValidatingPolicy or
+// NamespacedValidatingPolicy, whose engine ignores spec.validations entirely.
+func TestValidateWarnsOnCompensatingControlForIgnoringKind(t *testing.T) {
+	polex := &policiesv1beta1.PolicyException{
+		TypeMeta:   metav1.TypeMeta{Kind: "PolicyException", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "ignored-control"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1alpha1.PolicyRef{{Name: "mutate-things", Kind: "MutatingPolicy"}},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true"},
+			},
+		},
+	}
+	mp := &policiesv1beta1.MutatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "MutatingPolicy", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "mutate-things"},
+	}
+	results := &policy.LoaderResults{
+		MutatingPolicies:    []policiesv1beta1.MutatingPolicyLike{mp},
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{polex},
+	}
+
+	var warnings []string
+	err := validate(results, bundle.Options{Warn: func(s string) { warnings = append(warnings, s) }})
+	require.NoError(t, err)
+	require.Len(t, warnings, 1)
+	assert.Contains(t, warnings[0], "ignored-control")
+	assert.Contains(t, warnings[0], "MutatingPolicy")
+}

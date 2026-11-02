@@ -1161,8 +1161,19 @@ spec:
 	// and ValidateForRead runs with strict=false, never reaching the expiry check at all.
 	require.NoError(t, ValidateForRead(b))
 
-	// push's own strict default only warns here too (D2); the bundle still writes successfully.
-	require.NoError(t, ValidateWithOptions(b, Options{}))
+	// Calling the unexported strict=false path directly, with a Warn sink that fails the test if
+	// invoked, pins the gate itself rather than just the "never rejects" property: if the expiry
+	// check were ever moved above "if !strict { continue }", this would catch it even though the
+	// error-only assertions in this test would stay green (a warning isn't an error).
+	warned := false
+	require.NoError(t, validate(b, false, Options{Warn: func(string) { warned = true }}))
+	assert.False(t, warned, "ValidateForRead's strict=false path must never warn on an expired exception")
+
+	// push's own strict default only warns here too (D2); the bundle still writes successfully,
+	// and this time the warning sink IS invoked, proving the check runs at all on the strict path.
+	pushWarned := false
+	require.NoError(t, ValidateWithOptions(b, Options{Warn: func(string) { pushWarned = true }}))
+	assert.True(t, pushWarned, "the strict path must warn on an expired exception")
 
 	img, err := Write(b, nil)
 	require.NoError(t, err)

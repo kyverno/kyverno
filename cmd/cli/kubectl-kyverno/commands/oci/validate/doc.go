@@ -1,6 +1,6 @@
 package validate
 
-var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#pushing`
+var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#oci`
 
 var description = []string{
 	`Validate a bundle directory or file, or a pushed OCI image, reporting exactly what` +

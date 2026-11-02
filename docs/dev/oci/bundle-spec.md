@@ -531,8 +531,10 @@ pass `kyvernoVersion` through as opaque metadata (reader MUST 5 already states t
 for compatibility) and MAY compare it against a Kyverno version. `kyverno oci validate` is a conformant reader
 that additionally applies the writer-policy checks on top of its reader role, so it, unlike `kyverno oci pull`,
 rejects a published bundle whose `kyvernoVersion` doesn't parse. `kyverno oci push` and `kyverno oci validate`
-compare `kyvernoVersion` against the running CLI's own version and warn on a mismatch, as CLI behavior over the
-format, not a format-level requirement.
+compare `kyvernoVersion` against a Kyverno version, as CLI behavior over the format, not a format-level
+requirement: `kyverno oci push` and a plain `kyverno oci validate` compare it against the running CLI's own
+version and warn on a mismatch; `kyverno oci validate --kyverno-version X` compares it against the explicit
+target `X` instead and fails, rather than warns, if `X` doesn't satisfy the constraint.
 
 **`formatVersion`, `sets`, and `resources` are the fields a writer MUST populate in format 1.0.** `name`,
 `version`, `description`, `kyvernoVersion`, `source`, and `created` are optional, and a writer without a

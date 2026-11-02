@@ -66,10 +66,10 @@ func isNativeAdmissionDocument(doc Document) bool {
 //
 // None of the above is a validation bypass: every input that was rejected before this change is
 // still rejected after it, by the same package, just not always by the same one of the two
-// checks. #17664 extends this with the accepted-version table, kyvernoVersion constraint
-// checking (see descriptor.go), writer-policy selector/expiry/compensating-control checks, and
-// widening the single-version pin to AcceptedAPIVersions; this move doesn't add or remove a
-// check.
+// checks. #17664 widened the single-version pin to AcceptedAPIVersions and added kyvernoVersion
+// constraint checking (see descriptor.go) and the writer-policy selector, expiry, and
+// compensating-control checks in ValidateWithOptions, below; it added no check to validateDocuments
+// or validateResults beyond the version widening.
 func Validate(b *Bundle) error {
 	return validate(b, true, Options{})
 }
@@ -168,12 +168,12 @@ func checkSelectors(kind, name string, mc *admissionregistrationv1.MatchResource
 	}
 	if mc.NamespaceSelector != nil {
 		if _, err := metav1.LabelSelectorAsSelector(mc.NamespaceSelector); err != nil {
-			return fmt.Errorf("validating %s %q: malformed namespaceSelector: %v", kind, name, err)
+			return fmt.Errorf("invalid spec.matchConstraints.%s in %s %q: %v", "namespaceSelector", kind, name, err)
 		}
 	}
 	if mc.ObjectSelector != nil {
 		if _, err := metav1.LabelSelectorAsSelector(mc.ObjectSelector); err != nil {
-			return fmt.Errorf("validating %s %q: malformed objectSelector: %v", kind, name, err)
+			return fmt.Errorf("invalid spec.matchConstraints.%s in %s %q: %v", "objectSelector", kind, name, err)
 		}
 	}
 	return nil
@@ -228,7 +228,7 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 		}
 		if strict {
 			mc := pol.GetMatchConstraints()
-			if err := checkSelectors("ValidatingPolicy", obj.GetName(), &mc); err != nil {
+			if err := checkSelectors(obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), &mc); err != nil {
 				return err
 			}
 		}
@@ -359,8 +359,9 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 		if !strict {
 			continue
 		}
-		if ex.Spec.ExpiresAt != nil && opts.now().After(ex.Spec.ExpiresAt.Time) {
-			opts.warn(fmt.Sprintf("policy exception %q expired at %s", ex.GetName(), ex.Spec.ExpiresAt.Time))
+		if now := opts.now(); ex.Spec.ExpiresAt != nil && now.After(ex.Spec.ExpiresAt.Time) {
+			opts.warn(fmt.Sprintf("policy exception %q expired at %s (validated at %s); the engine will ignore it",
+				ex.GetName(), ex.Spec.ExpiresAt.Time.UTC().Format(time.RFC3339), now.UTC().Format(time.RFC3339)))
 		}
 		if errs := exceptionvalidation.ValidateCompensatingControlExpressions(ex); len(errs) > 0 {
 			return fmt.Errorf("validating compensating controls in policy exception %q: %v", ex.GetName(), errs.ToAggregate())
