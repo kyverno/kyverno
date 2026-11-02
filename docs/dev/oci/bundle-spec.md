@@ -302,12 +302,14 @@ Kyverno-specific annotations:
 | `io.kyverno.bundle.kyverno-version` | Kyverno version constraint the bundle targets |
 
 A writer MAY add further annotations from the descriptor's `spec.annotations` (see
-[7. Bundle descriptor](#7-bundle-descriptor)), but a writer MUST NOT let `spec.annotations` override a reserved
-key: if the descriptor's `spec.annotations` names any `io.kyverno.bundle.*` key or any of the
-`org.opencontainers.image.*` keys listed above, the writer-computed value wins and the descriptor's value for that
-key is discarded (an author aiming to set an OCI standard annotation not in the list above, or a non-reserved
-key, is unaffected). `org.opencontainers.image.created` is **omitted unless** the descriptor sets `spec.created` or
-the environment sets `SOURCE_DATE_EPOCH`, so that a default push produces a reproducible manifest.
+[7. Bundle descriptor](#7-bundle-descriptor)), but a writer MUST NOT let `spec.annotations` set a key under either
+reserved **prefix**, `io.kyverno.bundle.` or `org.opencontainers.image.`: this reservation covers the whole
+prefix, not only the specific keys a writer currently computes (listed above) — a descriptor naming, for example,
+`io.kyverno.bundle.custom` or any other key under either prefix is discarded the same as one naming
+`io.kyverno.bundle.version` directly, even though this format defines no such key today. A key outside both
+prefixes is unaffected. `org.opencontainers.image.created` is **omitted unless** the descriptor sets
+`spec.created` or the environment sets `SOURCE_DATE_EPOCH`, so that a default push produces a reproducible
+manifest.
 
 **Without a descriptor, a writer MUST NOT derive `io.kyverno.bundle.name`, `io.kyverno.bundle.version`, or
 `org.opencontainers.image.version` from the push reference (repository path or tag) or from any other environment
@@ -346,10 +348,11 @@ The content layer is a gzip-compressed tar archive (`tar+gzip`) of the bundle ro
   general-purpose loader already errors on a `cli.kyverno.io` document (`policy type not supported` from
   `processDocumentItem`), and that error is fatal to the whole directory load, not a per-file, non-fatal warning:
   it aborts `fsLoad` for the entire tree, so `kyverno oci push` fails at `policy.Load`, in `execute`, before
-  `buildImage` is ever reached. A planned loader change (#17663) will instead make the loader skip `cli.kyverno.io`
-  documents when reading a raw source tree for `apply` or `test`, which is why the writer's own detection here
-  can't rely on the loader erroring — it needs to hold regardless of what a future loader does with the same input
-  on a different read path.
+  `buildImage` is ever reached. A loader change that makes the loader skip `cli.kyverno.io` documents when reading
+  a raw source tree for `apply` or `test` is not yet implemented, tracked under epic
+  [#17645](https://github.com/kyverno/kyverno/issues/17645), which is why the writer's own detection here can't
+  rely on the loader erroring — it needs to hold regardless of what a future loader does with the same input on a
+  different read path.
 - Single-file input archives that one file at the root of the layer.
 
 ### What a writer excludes
@@ -562,7 +565,11 @@ breaking a 1.0 reader.
 or both; the format doesn't require separating them. Each index entry names the set it belongs to, and each set
 has a `type` of `policies` or `exceptions` in format 1.0. Whether a tool defaults to keeping policies and
 exceptions in separate bundles, with an explicit option to mix them, is CLI behavior over this format, not a
-constraint this format imposes.
+constraint this format imposes. Whether that default means separate *bundles* or separate *sets within one
+bundle* is a reading epic [#17645](https://github.com/kyverno/kyverno/issues/17645) still needs to confirm
+(raised while implementing [#17663](https://github.com/kyverno/kyverno/issues/17663)). The sets-within-one-bundle
+reading is already what `kyverno oci push` implements, and it's what the rest of this document and
+[7. Bundle descriptor](#7-bundle-descriptor) assume.
 
 A future minor version may add a new `type` value (see [8. Format versioning and compatibility](#8-format-versioning-and-compatibility)).
 **A reader MUST accept a set whose `type` it doesn't recognize**, treating it as opaque metadata the same way it
@@ -665,11 +672,59 @@ reproducible, per [4. Artifact structure](#4-artifact-structure) and [6. Config 
 overriding the by-kind default described in [6. Config blob](#6-config-blob). **This document fixes only the
 format-level contract on set assignment, not the assignment algorithm itself**: every `resources[]` entry MUST
 have a non-empty `set` value that names an entry in `sets[]` (see [6. Config blob](#6-config-blob), "Resource-index
-entry"), and every `sets[]` entry SHOULD be named by at least one `resources[]` entry. How a writer resolves a
-resource matching zero of `spec.sets[].paths`, matching more than one, matching a set whose `type` doesn't fit the
-resource's kind (for example a `PolicyException` matched by a `policies`-typed set), or which glob dialect
-`paths` uses (whether `**` matches across path separators) is set-derivation logic that design section 2 assigns
-to #17663, not specified in this document. **Without a descriptor, a writer
+entry"), and every `sets[]` entry SHOULD be named by at least one `resources[]` entry.
+
+The remainder of this section states how `kyverno oci push` resolves `spec.sets[].paths`, as writer behavior over
+this format, not as a new obligation on readers; `crossCheckIndex` and reader MUST 8 keep their existing meaning.
+
+**Glob dialect.** `paths` entries compile with `gobwas/glob`, `/` as the path separator, matched against the
+whole archived path. `*` and `?` don't cross a `/`; `**` does. `\` is an escape character, not a separator. A
+pattern like `**/x.yaml` matches `team/x.yaml` but not a root-level `x.yaml`, because `**/` still requires at
+least one path segment before the filename; write `{x.yaml,**/x.yaml}` to match both. A path MUST NOT be empty,
+start with `/`, start with `./`, or end with `/`; a writer rejects each of these and, for the trailing-`/` case,
+suggests appending `**` to match everything under that directory.
+
+**Matching and type as a filter.** A set *matches* a document when any of its compiled patterns matches the
+document's archived path. A set *claims* a document when it matches and the document's kind fits the set's
+`type`: a `policies`-typed set claims only documents that aren't `PolicyException`; an `exceptions`-typed set
+claims only documents that are. Treating `type` as a filter, not an assertion, lets one glob cover a
+multi-document file that mixes a policy and its exception, each claimed by the typed set that fits it.
+
+**Resolution rules:**
+
+- A document claimed by zero sets falls back to the by-kind default (`policies` or `exceptions`) from
+  [6. Config blob](#6-config-blob).
+- A document claimed by two or more sets of fitting type is a push error naming the document and the sets.
+- A set literally named `policies` MUST have `type: policies`; a set named `exceptions` MUST have
+  `type: exceptions`.
+- Every declared set MUST claim at least one indexed document, counted after type filtering; this applies to the
+  two reserved default names as well as any other set name.
+
+A mixed-type set (one set holding both policies and exceptions) isn't representable in format 1.0.0; see
+[8. Format versioning and compatibility](#8-format-versioning-and-compatibility) for how a future minor version
+could add one.
+
+The descriptor itself follows these shape rules: it's exactly one non-empty YAML document; its `apiVersion` and
+`kind` MUST be exactly `cli.kyverno.io/v1alpha1` and `PolicyBundle`; an unknown field anywhere in the document is
+rejected; `metadata.namespace` and other `ObjectMeta` fields besides `metadata.name` are accepted and ignored;
+`spec.created`, when set, MUST parse as RFC 3339 and is carried through to the config verbatim, not reformatted.
+Only the exact filename `kyverno-bundle.yaml` at the bundle root is a descriptor — `kyverno-bundle.yml` is
+ordinary content, and since its group is `cli.kyverno.io`, writer MUST 4 rejects it as a bundle-layout error, the
+same way it rejects any other `cli.kyverno.io` document. A *directory* named `kyverno-bundle.yaml` isn't a
+descriptor either; a writer treats it as ordinary content under that directory name, the same as if no descriptor
+were present, so a tree that used that name for content before this section existed keeps working.
+
+**Every string field under `metadata.name`, `metadata.annotations`, and `spec` MUST be quoted when it could
+otherwise be read as a YAML number or boolean** (for example `version: "1.20"`, not `version: 1.20`; `version:
+"yes"`, not `version: yes`): YAML parses an unquoted `1.20` as the number `1.2` and an unquoted `yes` as the
+boolean `true`, either of which would otherwise reach the config blob silently reformatted. This applies
+everywhere in that scope, including through a YAML alias or a `<<` merge key, not only to directly written
+scalars, and it applies to both sides of an annotation entry: an unquoted annotation key (for example
+`spec.annotations: {1.20: release}`) coerces exactly the same way an unquoted value does. A writer MUST reject
+an unquoted numeric or boolean scalar anywhere in this scope, as a key or as a value, rather than publish the
+reformatted value.
+
+**Without a descriptor, a writer
 MUST NOT derive `name`, `version`, `description`, `kyvernoVersion`, `source`, or `created` from the push
 reference or the environment; it omits them, and falls back to the by-kind `policies`/`exceptions` default for
 `sets`** (see [6. Config blob](#6-config-blob) for why `sets` alone can be required without a descriptor). This
@@ -704,10 +759,11 @@ follows directly from the descriptor's shape: **today**, that loader returns a f
 `cli.kyverno.io` document it encounters, and that error fails the whole directory load, not just the one file —
 `kyverno apply <bundle-root>` skips **every** policy in the directory, logging one "skipping invalid YAML file"
 entry for the directory as a whole, not one entry for the descriptor alone. A `kyverno-bundle.yaml` sitting in the
-source tree therefore already breaks `apply` on the whole tree today, which is a stronger argument for the
-loader-skip rule in issue `#17663` than a per-file skip would be, not a weaker one. That planned change (`#17663`) is expected
-to make the loader skip `cli.kyverno.io` documents outright when reading a source tree for `apply` or `test`, the
-same way it's expected to change how a `kyverno-test.yaml` sitting next to policies is handled today. That's CLI
+source tree therefore already breaks `apply` on the whole tree today, which is a stronger argument for a
+loader-wide skip rule than a per-file skip would be, not a weaker one. That loader change, making the loader skip
+`cli.kyverno.io` documents outright when reading a source tree for `apply` or `test`, is not yet implemented,
+tracked under epic [#17645](https://github.com/kyverno/kyverno/issues/17645), the same way it isn't implemented
+for how a `kyverno-test.yaml` sitting next to policies is handled today. That's CLI
 read-path behavior over the source tree, not a statement about bytes in the registry or about what makes a bundle
 valid, so it isn't a bundle conformance requirement — see [9. Conformance](#9-conformance).
 
@@ -780,7 +836,8 @@ the requirement binds.
    `subject`) with exactly one layer, at index 0, with media type
    `application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip` (4, 5).
 2. Emit a config blob with media type `application/vnd.cncf.kyverno.bundle.config.v1+json`, `formatVersion` set,
-   `sets[]` set (by descriptor or by the by-kind default), and `resources[]` populated for every archived
+   `sets[]` set (by descriptor or by the by-kind default; derived from the descriptor's `spec.sets[].paths` under
+   the rules in [7. Bundle descriptor](#7-bundle-descriptor)), and `resources[]` populated for every archived
    document (6).
 3. Archive only `.yaml`/`.yml` files, at their original relative paths and original bytes, excluding hidden
    paths and the reserved `kyverno-bundle.yaml` descriptor filename at the bundle root, and rejecting the same
@@ -817,8 +874,10 @@ the requirement binds.
     `io.kyverno.bundle.version`, or `org.opencontainers.image.version` from the push reference or any
     environment value other than `SOURCE_DATE_EPOCH` for `created`; omit these fields and annotations when no
     descriptor supplies them (4, 6, 7).
-14. Not let the descriptor's `spec.annotations` override a reserved `io.kyverno.bundle.*` or
-    `org.opencontainers.image.*` annotation key; the writer-computed value for a reserved key always wins (4).
+14. Not let the descriptor's `spec.annotations` set any key under the reserved `io.kyverno.bundle.` or
+    `org.opencontainers.image.` prefix — the whole prefix is reserved, not only the keys a writer currently
+    computes; strip any such key from `spec.annotations` before merging it, so the writer-computed value for a
+    key it does compute always wins, and a key under either prefix it does not compute is simply discarded (4).
 15. Keep every `io.kyverno.bundle.*` and relevant `org.opencontainers.image.*` manifest annotation in agreement
     with the config blob's corresponding field; the config is canonical, annotations are duplicates for
     discoverability, and a writer MUST NOT emit an annotation the config contradicts (4).
@@ -1009,3 +1068,7 @@ The descriptor, `kyverno-bundle.yaml`, isn't in that listing: it's an input, not
 ## 12. Changelog
 
 - `1.0.0`: first version of this format, replacing the per-resource-layer format Kyverno 1.9 through 1.19 shipped.
+  - Set-derivation rules for the descriptor ([7. Bundle descriptor](#7-bundle-descriptor)) specified by #17663.
+    This has no byte-level effect on any config a 1.0.0 reader already accepts. It doesn't take a patch bump
+    because 1.0.0 hasn't shipped in a release yet; the first released version carries these rules from the
+    start.
