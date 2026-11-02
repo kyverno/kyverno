@@ -122,11 +122,15 @@ func InitMetrics(
 		// controller-runtime manager. Also gather controller-runtime's own
 		// registry (workqueue_*, rest client, leader election metrics for
 		// binaries that do run a controller-runtime manager) so everything is
-		// scraped from this single endpoint.
+		// scraped from this single endpoint. prometheus.DefaultGatherer is kept
+		// in the mix too, since promhttp.InstrumentMetricHandler below registers
+		// its own instrumentation metrics onto prometheus.DefaultRegisterer, and
+		// third-party/default-registry collectors would otherwise silently drop
+		// off of /metrics.
 		metricsServerMux.Handle(config.MetricsPath, promhttp.InstrumentMetricHandler(
 			prometheus.DefaultRegisterer,
 			promhttp.HandlerFor(
-				prometheus.Gatherers{legacyregistry.DefaultGatherer, crmetrics.Registry},
+				prometheus.Gatherers{prometheus.DefaultGatherer, legacyregistry.DefaultGatherer, crmetrics.Registry},
 				promhttp.HandlerOpts{},
 			),
 		))
