@@ -302,12 +302,14 @@ Kyverno-specific annotations:
 | `io.kyverno.bundle.kyverno-version` | Kyverno version constraint the bundle targets |
 
 A writer MAY add further annotations from the descriptor's `spec.annotations` (see
-[7. Bundle descriptor](#7-bundle-descriptor)), but a writer MUST NOT let `spec.annotations` override a reserved
-key: if the descriptor's `spec.annotations` names any `io.kyverno.bundle.*` key or any of the
-`org.opencontainers.image.*` keys listed above, the writer-computed value wins and the descriptor's value for that
-key is discarded (an author aiming to set an OCI standard annotation not in the list above, or a non-reserved
-key, is unaffected). `org.opencontainers.image.created` is **omitted unless** the descriptor sets `spec.created` or
-the environment sets `SOURCE_DATE_EPOCH`, so that a default push produces a reproducible manifest.
+[7. Bundle descriptor](#7-bundle-descriptor)), but a writer MUST NOT let `spec.annotations` set a key under either
+reserved **prefix**, `io.kyverno.bundle.` or `org.opencontainers.image.`: this reservation covers the whole
+prefix, not only the specific keys a writer currently computes (listed above) — a descriptor naming, for example,
+`io.kyverno.bundle.custom` or any other key under either prefix is discarded the same as one naming
+`io.kyverno.bundle.version` directly, even though this format defines no such key today. A key outside both
+prefixes is unaffected. `org.opencontainers.image.created` is **omitted unless** the descriptor sets
+`spec.created` or the environment sets `SOURCE_DATE_EPOCH`, so that a default push produces a reproducible
+manifest.
 
 **Without a descriptor, a writer MUST NOT derive `io.kyverno.bundle.name`, `io.kyverno.bundle.version`, or
 `org.opencontainers.image.version` from the push reference (repository path or tag) or from any other environment
@@ -872,8 +874,10 @@ the requirement binds.
     `io.kyverno.bundle.version`, or `org.opencontainers.image.version` from the push reference or any
     environment value other than `SOURCE_DATE_EPOCH` for `created`; omit these fields and annotations when no
     descriptor supplies them (4, 6, 7).
-14. Not let the descriptor's `spec.annotations` override a reserved `io.kyverno.bundle.*` or
-    `org.opencontainers.image.*` annotation key; the writer-computed value for a reserved key always wins (4).
+14. Not let the descriptor's `spec.annotations` set any key under the reserved `io.kyverno.bundle.` or
+    `org.opencontainers.image.` prefix — the whole prefix is reserved, not only the keys a writer currently
+    computes; strip any such key from `spec.annotations` before merging it, so the writer-computed value for a
+    key it does compute always wins, and a key under either prefix it does not compute is simply discarded (4).
 15. Keep every `io.kyverno.bundle.*` and relevant `org.opencontainers.image.*` manifest annotation in agreement
     with the config blob's corresponding field; the config is canonical, annotations are duplicates for
     discoverability, and a writer MUST NOT emit an annotation the config contradicts (4).

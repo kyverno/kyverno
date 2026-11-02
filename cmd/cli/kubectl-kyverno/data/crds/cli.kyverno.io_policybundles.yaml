@@ -45,9 +45,11 @@ spec:
                 additionalProperties:
                   type: string
                 description: |-
-                  Annotations are extra manifest annotations. A reserved io.kyverno.bundle.* or
-                  org.opencontainers.image.* key here is ignored; the writer-computed value always wins. Quote
-                  a key or value that could otherwise be read as a YAML number or boolean; push rejects either.
+                  Annotations are extra manifest annotations. A key under the reserved io.kyverno.bundle. or
+                  org.opencontainers.image. prefix here is discarded — the whole prefix is reserved, not only
+                  the specific keys a writer currently computes — and the writer-computed value for any key it
+                  does compute always wins. Quote a key or value that could otherwise be read as a YAML number
+                  or boolean; push rejects either.
                 type: object
               created:
                 description: |-

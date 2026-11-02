@@ -714,9 +714,10 @@ func TestDeriveSetsRejectsReservedNameSetWithNoClaimsEvenWithFallbackMembers(t *
 }
 
 // TestPolicyBundleSpecEveryLeafFieldIsString guards the assumption rejectCoercedScalars depends
-// on: every leaf under PolicyBundleSpec is a string, or a slice/map of strings. If a future field
-// is added that isn't, the gate would reject every legitimate value of it with no test failing
-// here to say why; this test is that failure point instead.
+// on: PolicyBundleSpec has scalar string fields, a map of strings, a nested object, and a list of
+// nested objects, but every leaf scalar at the bottom of all of that, however deep, is a string.
+// If a future field is added whose leaf scalars aren't, the gate would reject every legitimate
+// value of it with no test failing here to say why; this test is that failure point instead.
 func TestPolicyBundleSpecEveryLeafFieldIsString(t *testing.T) {
 	assertLeavesAreStrings(t, reflect.TypeOf(v1alpha1.PolicyBundleSpec{}), "PolicyBundleSpec")
 }

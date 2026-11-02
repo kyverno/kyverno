@@ -18,8 +18,10 @@ type PolicyBundle struct {
 	Spec PolicyBundleSpec `json:"spec,omitempty"`
 }
 
-// PolicyBundleSpec is the descriptor's spec. Every field here, and metadata.name and
-// metadata.annotations above, is a string (or a collection of strings): quote a value that could
+// PolicyBundleSpec is the descriptor's spec. Version, Description, FormatVersion, KyvernoVersion,
+// and Created are scalar strings; Annotations is a map of strings; Source is a nested object and
+// Sets is a list of nested objects, but every leaf scalar inside either of those, and
+// metadata.name and metadata.annotations above, is still a string. Quote a value that could
 // otherwise be read as a YAML number or boolean (for example "1.20", "yes", "0123456"). Push
 // rejects an unquoted one anywhere in this scope instead of letting YAML silently reformat it.
 type PolicyBundleSpec struct {
@@ -48,9 +50,11 @@ type PolicyBundleSpec struct {
 	// claimed by any set here falls back to the by-kind default set (policies or exceptions).
 	Sets []PolicyBundleSet `json:"sets,omitempty"`
 
-	// Annotations are extra manifest annotations. A reserved io.kyverno.bundle.* or
-	// org.opencontainers.image.* key here is ignored; the writer-computed value always wins. Quote
-	// a key or value that could otherwise be read as a YAML number or boolean; push rejects either.
+	// Annotations are extra manifest annotations. A key under the reserved io.kyverno.bundle. or
+	// org.opencontainers.image. prefix here is discarded — the whole prefix is reserved, not only
+	// the specific keys a writer currently computes — and the writer-computed value for any key it
+	// does compute always wins. Quote a key or value that could otherwise be read as a YAML number
+	// or boolean; push rejects either.
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
