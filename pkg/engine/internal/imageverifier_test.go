@@ -112,3 +112,109 @@ func Test_verifyAttestations_Coverage(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, val)
 }
+
+// Test_verifyAttestations_NoCrossPolicyLeak proves the fix for the leak where
+// a Persist()-marked attestation value survived the outermost checkpoint
+// restore and bled into the next policy's evaluation of the same, reused
+// JSONContext (JSONContext is shared across policies via
+// policycontext.PolicyContext.WithPolicy, which only swaps the policy
+// reference). It drives the exact sequence the engine uses: an outer,
+// per-policy Checkpoint/RestoreAndClearPersisted pair (mirroring
+// verifyAndPatchImages/validate) wrapping a rule that persists an attestation,
+// followed by a second, independent policy evaluation reusing the same
+// context. The second evaluation must not observe the first policy's
+// attestation value.
+func Test_verifyAttestations_NoCrossPolicyLeak(t *testing.T) {
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+
+	resource := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+		},
+	}
+
+	pc, err := policycontext.NewPolicyContext(jp, resource, kyvernov1.Create, nil, cfg)
+	assert.NoError(t, err)
+
+	rule := kyvernov1.Rule{Name: "test-rule"}
+	ivm := engineapi.ImageVerificationMetadata{}
+	rclient := adapters.RegistryClient(registryclient.New())
+	iv := &imageVerifier{
+		logger:        logr.Discard(),
+		rclient:       rclient,
+		ivCache:       imageverifycache.DisabledImageVerifyCache(),
+		policyContext: pc,
+		rule:          rule,
+		ivm:           &ivm,
+	}
+
+	imageVerify := kyvernov1.ImageVerification{
+		Attestations: []kyvernov1.Attestation{
+			{
+				Name: "myAttestation",
+				Type: "https://example.com/CodeReview/v1",
+				Attestors: []kyvernov1.AttestorSet{
+					{
+						Entries: []kyvernov1.Attestor{
+							{
+								Keys: &kyvernov1.StaticKeyAttestor{
+									PublicKeys: "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	imageInfo := apiutils.ImageInfo{
+		ImageInfo: imageutils.ImageInfo{
+			Registry: "ghcr.io",
+			Name:     "test-verify-image",
+			Path:     "kyverno/test-verify-image",
+			Tag:      "signed",
+		},
+	}
+
+	payloads := [][]byte{
+		[]byte(`{"payloadType":"https://example.com/CodeReview/v1","payload":"eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjAuMSIsInByZWRpY2F0ZVR5cGUiOiJodHRwczovL2V4YW1wbGUuY29tL0NvZGVSZXZpZXcvdjEiLCJzdWJqZWN0IjpbeyJuYW1lIjoiZ2hjci5pby9qaW1idWd3YWRpYS9wYXVzZTIiLCJkaWdlc3QiOnsic2hhMjU2IjoiYjMxYmZiNGQwMjEzZjI1NGQzNjFlMDA3OWRlYWFlYmVmYTRmODJiYTdhYTc2ZWY4MmU5MGI0OTM1YWQ1YjEwNSJ9fV0sInByZWRpY2F0ZSI6eyJhdXRob3IiOiJtYWlsdG86YWxpY2VAZXhhbXBsZS5jb20iLCJyZXBvIjp7ImJyYW5jaCI6Im1haW4iLCJ0eXBlIjoiZ2l0IiwidXJpIjoiaHR0cHM6Ly9naXRodWIuY29tL2V4YW1wbGUvbXktcHJvamVjdCJ9LCJyZXZpZXdlcnMiOlsibWFpbHRvOmJvYkBleGFtcGxlLmNvbSJdfX0=","signatures":[{"keyid":"","sig":"MEYCIQCrEr+vgPDmNCrqGDE/4z9iMLmCXMXcDlGKtSoiuMTSFgIhAN2riBaGk4accWzVl7ypi1XTRxyrPYHst8DesugPXgOf"}]}`),
+	}
+
+	err = cosign.SetMock(imageInfo.String(), payloads)
+	assert.NoError(t, err)
+	defer cosign.ClearMock()
+
+	// Simulate the outer, per-policy checkpoint that verifyAndPatchImages and
+	// validate take around a policy's whole rule loop.
+	iv.policyContext.JSONContext().Checkpoint()
+	resp, _ := iv.verifyAttestations(context.TODO(), imageVerify, imageInfo)
+	assert.NotNil(t, resp)
+	assert.Equal(t, engineapi.RuleStatusPass, resp.Status())
+
+	// Sanity check: within the same policy's evaluation, the persisted value
+	// is visible before the outer boundary is restored.
+	val, err := iv.policyContext.JSONContext().Query("myAttestation")
+	assert.NoError(t, err)
+	assert.NotNil(t, val)
+
+	// Unwind the outer checkpoint the way the engine does at the end of a
+	// policy's evaluation.
+	iv.policyContext.JSONContext().RestoreAndClearPersisted()
+
+	// A second, unrelated policy evaluation reuses the same JSONContext, the
+	// way policycontext.PolicyContext.WithPolicy does in the webhook (it only
+	// swaps the policy reference). It must not see the first policy's
+	// persisted attestation merely because it shares the variable name.
+	iv.policyContext.JSONContext().Checkpoint()
+	defer iv.policyContext.JSONContext().RestoreAndClearPersisted()
+
+	val, err = iv.policyContext.JSONContext().Query("myAttestation")
+	assert.Error(t, err)
+	assert.Nil(t, val)
+}

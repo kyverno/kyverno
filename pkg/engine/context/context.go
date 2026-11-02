@@ -110,6 +110,18 @@ type Interface interface {
 	// Restore sets the internal state to the last checkpoint, and removes the checkpoint.
 	Restore()
 
+	// RestoreAndClearPersisted behaves like Restore, but it additionally discards
+	// any keys marked via Persist (along with their current values) instead of
+	// carrying them forward. Callers that own the checkpoint representing an
+	// entire policy's evaluation (i.e. the outermost Checkpoint/Restore pair for
+	// that policy) must use this instead of Restore: the JSONContext is reused
+	// across policies (see policycontext.PolicyContext.WithPolicy, which only
+	// swaps the policy reference, not the context), so a value carried forward
+	// by Persist would otherwise leak from one policy's evaluation into the
+	// next. Intermediate restores within a single policy's rule loop should
+	// keep using Restore so persisted values remain visible to later rules.
+	RestoreAndClearPersisted()
+
 	// Reset sets the internal state to the last checkpoint, but does not remove the checkpoint.
 	Reset()
 
@@ -567,6 +579,18 @@ func (ctx *context) copyContext(in map[string]interface{}) map[string]interface{
 // Restore sets the internal state to the last checkpoint, and removes the checkpoint.
 func (ctx *context) Restore() {
 	ctx.reset(true)
+}
+
+// RestoreAndClearPersisted restores like Restore, and then discards any
+// Persist()-marked keys (and their current values) so they do not survive
+// past this boundary. See the Interface doc for when to use this instead of
+// Restore.
+func (ctx *context) RestoreAndClearPersisted() {
+	ctx.reset(true)
+	for key := range ctx.persistentKeys {
+		delete(ctx.jsonRaw, key)
+	}
+	ctx.persistentKeys = nil
 }
 
 // Reset sets the internal state to the last checkpoint, but does not remove the checkpoint.
