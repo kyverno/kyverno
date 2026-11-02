@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -307,4 +308,57 @@ func TestBindRequestContext_NilIsNoop(t *testing.T) {
 	BindRequestContext(context.Background(), nil, activation)
 	assert.Empty(t, activation)
 	assert.Nil(t, WithRequestContext(context.Background(), nil))
+}
+
+type fakeGenerateDClient struct {
+	dclient.Interface
+	getCtx    context.Context
+	createCtx context.Context
+}
+
+func (f *fakeGenerateDClient) GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	f.getCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return nil, apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: "configmaps"}, name)
+}
+
+func (f *fakeGenerateDClient) CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj *unstructured.Unstructured, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
+	f.createCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func TestRequestContext_GenerateResourcesUsesEvaluationContext(t *testing.T) {
+	client := &fakeGenerateDClient{}
+	provider := &contextProvider{
+		client:     client,
+		restMapper: generateTestRESTMapper(),
+	}
+	provider.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), ctxKey{}, "request-generate"))
+	reqCtx := WithRequestContext(ctx, provider)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name": "generated-cm",
+		},
+	}
+
+	err := reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.NotNil(t, client.getCtx)
+	require.NotNil(t, client.createCtx)
+	assert.Equal(t, "request-generate", client.getCtx.Value(ctxKey{}))
+	assert.Equal(t, "request-generate", client.createCtx.Value(ctxKey{}))
+
+	cancel()
+	err = reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	assert.ErrorIs(t, err, context.Canceled)
 }
