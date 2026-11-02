@@ -1,0 +1,121 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedImageValidatingPolicy
+metadata:
+  name: tenant-bare
+  namespace: team-a
+spec:
+  credentials:
+    secrets: [registry]
+  matchImageReferences:
+  - glob: no-match.invalid/*
+  validationConfigurations:
+    mutateDigest: false
+    verifyDigest: false
+    required: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      resources:
+      - pods
+  validations:
+  - expression: 'true'
+  attestors:
+  - name: signer
+    cosign:
+      key:
+        data: '-----BEGIN PUBLIC KEY-----
+
+          MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+
+          5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+
+          -----END PUBLIC KEY-----'
+      source:
+        PullSecrets:
+        - name: registry
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedImageValidatingPolicy
+metadata:
+  name: tenant-explicit
+  namespace: team-a
+spec:
+  credentials:
+    secrets: [team-a/registry]
+  matchImageReferences:
+  - glob: no-match.invalid/*
+  validationConfigurations:
+    mutateDigest: false
+    verifyDigest: false
+    required: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      resources:
+      - pods
+  validations:
+  - expression: 'true'
+  attestors:
+  - name: signer
+    cosign:
+      key:
+        data: '-----BEGIN PUBLIC KEY-----
+
+          MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+
+          5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+
+          -----END PUBLIC KEY-----'
+      source:
+        PullSecrets:
+        - name: team-a/registry
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: cluster-explicit
+spec:
+  credentials:
+    secrets: [team-b/registry]
+  matchImageReferences:
+  - glob: no-match.invalid/*
+  validationConfigurations:
+    mutateDigest: false
+    verifyDigest: false
+    required: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      resources:
+      - pods
+  validations:
+  - expression: 'true'
+  attestors:
+  - name: signer
+    cosign:
+      key:
+        data: '-----BEGIN PUBLIC KEY-----
+
+          MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+
+          5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+
+          -----END PUBLIC KEY-----'
+      source:
+        PullSecrets:
+        - name: team-b/registry
