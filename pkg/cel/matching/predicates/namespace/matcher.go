@@ -138,7 +138,7 @@ func (m *Matcher) GetNamespaceLabels(attr admission.Attributes) (map[string]stri
 	}
 
 	namespaceName := attr.GetNamespace()
-	if namespaceName == "" && isCoreNamespace(attr) && len(attr.GetSubresource()) == 0 {
+	if namespaceName == "" && isCoreNamespace(attr) {
 		namespaceName = attr.GetName()
 	}
 	namespace, err := m.GetNamespace(namespaceName)

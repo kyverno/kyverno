@@ -160,8 +160,22 @@ func TestGetNamespaceLabels(t *testing.T) {
 			expectedLabels: namespace2Labels,
 		},
 		{
-			name:           "request is for namespace/finalizer",
-			attr:           admission.NewAttributesRecord(nil, nil, schema.GroupVersionKind{}, namespace1.Name, "mock-name", schema.GroupVersionResource{Resource: "namespaces"}, "finalizers", admission.Create, &metav1.CreateOptions{}, false, nil),
+			// Real Kubernetes admission requests for namespace subresources have
+			// an empty namespace field; the target namespace name is in attr.GetName().
+			name:           "request is for namespace/finalizers with empty namespace field",
+			attr:           admission.NewAttributesRecord(nil, nil, schema.GroupVersionKind{}, "", namespace1.Name, schema.GroupVersionResource{Resource: "namespaces"}, "finalizers", admission.Update, &metav1.UpdateOptions{}, false, nil),
+			expectedLabels: namespace1Labels,
+		},
+		{
+			// Same as above but for the /status subresource.
+			name:           "request is for namespace/status with empty namespace field",
+			attr:           admission.NewAttributesRecord(nil, nil, schema.GroupVersionKind{}, "", namespace1.Name, schema.GroupVersionResource{Resource: "namespaces"}, "status", admission.Update, &metav1.UpdateOptions{}, false, nil),
+			expectedLabels: namespace1Labels,
+		},
+		{
+			// Namespace DELETE from API server: namespace field is empty, name is in attr.GetName().
+			name:           "request is for namespace DELETE with empty namespace field",
+			attr:           admission.NewAttributesRecord(nil, nil, schema.GroupVersionKind{}, "", namespace1.Name, schema.GroupVersionResource{Resource: "namespaces"}, "", admission.Delete, &metav1.DeleteOptions{}, false, nil),
 			expectedLabels: namespace1Labels,
 		},
 		{
