@@ -3,6 +3,7 @@ package bundle
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -12,6 +13,9 @@ import (
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	ivpolevaluator "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	exceptionvalidation "github.com/kyverno/kyverno/pkg/validation/exception"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // nativeAdmissionKinds are the admissionregistration.k8s.io kinds validateResults rejects with
@@ -62,28 +66,64 @@ func isNativeAdmissionDocument(doc Document) bool {
 //
 // None of the above is a validation bypass: every input that was rejected before this change is
 // still rejected after it, by the same package, just not always by the same one of the two
-// checks. #17664 extends this with the accepted-version table and kyvernoVersion constraint
-// checking; this move doesn't add or remove a check.
+// checks. #17664 extends this with the accepted-version table, kyvernoVersion constraint
+// checking (see descriptor.go), writer-policy selector/expiry/compensating-control checks, and
+// widening the single-version pin to AcceptedAPIVersions; this move doesn't add or remove a
+// check.
 func Validate(b *Bundle) error {
-	return validate(b, true)
+	return validate(b, true, Options{})
 }
 
-// ValidateForRead is Read's validation entry point: the same two checks as Validate, minus
-// exception-to-policy reference resolution. The spec is explicit that in-bundle resolution is
-// push's own strict default, not a format requirement (bundle-spec.md section 6, "Sets"; writer
-// MUST 12), and reader MUST 3 lists only the raw-document rejection, the kind and version
-// checks, the identity check, and CEL compilation as what a reader re-runs — not reference
-// resolution. A bundle whose PolicyException references a policy outside the bundle is
-// format-legal and must round-trip through Read.
+// Options configures the writer-policy checks ValidateWithOptions runs in addition to the
+// format checks Validate always runs. The zero value is Validate's own behavior: Now defaults to
+// time.Now and Warn discards warnings.
+type Options struct {
+	// Now returns the time expiry is evaluated against. Nil means time.Now. Deliberately not
+	// SOURCE_DATE_EPOCH: expiry is about the reader's clock, not the bundle's reproducibility.
+	Now func() time.Time
+	// Warn receives a warning message for content that is accepted but suspect (an expired
+	// exception, a compensating control naming a kind the engine ignores). Nil discards warnings.
+	Warn func(string)
+}
+
+func (o Options) now() time.Time {
+	if o.Now != nil {
+		return o.Now()
+	}
+	return time.Now()
+}
+
+func (o Options) warn(msg string) {
+	if o.Warn != nil {
+		o.Warn(msg)
+	}
+}
+
+// ValidateWithOptions is Validate plus the writer-policy checks: offline selector well-formedness,
+// exception expiry (warning only; promoting it to a failure is validate --strict's job, not this
+// package's), and PolicyException compensating-control checks. It is for push and
+// `kyverno oci validate`, never for the read path (see ValidateForRead).
+func ValidateWithOptions(b *Bundle, opts Options) error {
+	return validate(b, true, opts)
+}
+
+// ValidateForRead is Read's validation entry point: the same format checks as Validate, minus
+// exception-to-policy reference resolution and the writer-policy checks ValidateWithOptions adds.
+// The spec is explicit that in-bundle resolution is push's own strict default, not a format
+// requirement (bundle-spec.md section 6, "Sets"; writer MUST 12), and reader MUST 3 lists only
+// the raw-document rejection, the kind and version checks, the identity check, and CEL
+// compilation as what a reader re-runs — not reference resolution, selectors, expiry, or
+// compensating controls. A bundle whose PolicyException references a policy outside the bundle,
+// or whose exception has expired, is format-legal and must round-trip through Read.
 func ValidateForRead(b *Bundle) error {
-	return validate(b, false)
+	return validate(b, false, Options{})
 }
 
-func validate(b *Bundle, checkExceptionReferences bool) error {
+func validate(b *Bundle, strict bool, opts Options) error {
 	if err := validateDocuments(b.Documents); err != nil {
 		return err
 	}
-	return validateResults(b.Results, checkExceptionReferences)
+	return validateResults(b.Results, strict, opts)
 }
 
 // validateDocuments is an unchanged, pure move of pull/options.go's extractAndSavePolicies
@@ -100,13 +140,13 @@ func validateDocuments(documents []Document) error {
 			return fmt.Errorf("resource missing kind or metadata.name")
 		}
 		if internal.LegacyKinds[doc.Kind] {
-			return fmt.Errorf("legacy policy kind %q (apiVersion: %s) is no longer supported in OCI bundles; migrate to policies.kyverno.io/v1beta1 CEL policy kinds", doc.Kind, doc.APIVersion)
+			return fmt.Errorf("legacy policy kind %q (apiVersion: %s) is no longer supported in OCI bundles; migrate to %s CEL policy kinds", doc.Kind, doc.APIVersion, internal.AcceptedAPIVersionsText())
 		}
 		if isNativeAdmissionDocument(doc) {
 			continue
 		}
-		if doc.APIVersion != internal.SupportedAPIVersion || !internal.SupportedCELKinds[doc.Kind] {
-			return fmt.Errorf("unsupported resource %s/%s %q; only policies.kyverno.io/v1beta1 CEL policy kinds are supported in OCI bundles", doc.APIVersion, doc.Kind, doc.Name)
+		if !internal.IsAcceptedAPIVersion(doc.APIVersion) || !internal.SupportedCELKinds[doc.Kind] {
+			return fmt.Errorf("unsupported resource %s/%s %q; only %s CEL policy kinds are supported in OCI bundles", doc.APIVersion, doc.Kind, doc.Name, internal.AcceptedAPIVersionsText())
 		}
 
 		identity := fmt.Sprintf("%s/%s/%s", doc.Kind, doc.Namespace, doc.Name)
@@ -118,23 +158,45 @@ func validateDocuments(documents []Document) error {
 	return nil
 }
 
+// checkSelectors reports an error if mc's NamespaceSelector or ObjectSelector is structurally
+// malformed, via the same offline check pkg/cel/matching/criteria.go uses live. A selector that is
+// well-formed but matches nothing is not checkable offline and is out of scope (bundle-spec.md
+// section 9). mc may be nil (DeletingPolicySpec.MatchConstraints is a nilable pointer).
+func checkSelectors(kind, name string, mc *admissionregistrationv1.MatchResources) error {
+	if mc == nil {
+		return nil
+	}
+	if mc.NamespaceSelector != nil {
+		if _, err := metav1.LabelSelectorAsSelector(mc.NamespaceSelector); err != nil {
+			return fmt.Errorf("validating %s %q: malformed namespaceSelector: %v", kind, name, err)
+		}
+	}
+	if mc.ObjectSelector != nil {
+		if _, err := metav1.LabelSelectorAsSelector(mc.ObjectSelector); err != nil {
+			return fmt.Errorf("validating %s %q: malformed objectSelector: %v", kind, name, err)
+		}
+	}
+	return nil
+}
+
 // validateResults is an unchanged, pure move of push/options.go's buildImage checks (rejecting
 // legacy and native-Kubernetes resources, non-fatal loader errors, unsupported versions,
 // duplicate identity, CEL compilation, and exception-to-policy reference resolution); buildImage
 // itself is replaced by the Assemble/Validate/Write split. Only the error messages' prefix
 // changed, from "push rejected:" to the path-agnostic "bundle rejected:", because this function
 // now also runs on the read path (see Validate's docstring): a message that says "push" while
-// executing inside `kyverno oci pull` would be actively misleading. checkExceptionReferences
-// gates only the exception-to-policy reference resolution loop at the end: true for push (and
-// Validate), false for Read (see ValidateForRead).
-func validateResults(results *policy.LoaderResults, checkExceptionReferences bool) error {
+// executing inside `kyverno oci pull` would be actively misleading. strict gates the
+// exception-to-policy reference resolution loop at the end plus the writer-policy checks this
+// issue adds (selectors, expiry, compensating controls): true for push (and ValidateWithOptions),
+// false for Read (see ValidateForRead).
+func validateResults(results *policy.LoaderResults, strict bool, opts Options) error {
 	if results == nil {
 		results = &policy.LoaderResults{}
 	}
 	// Legacy kyverno.io policy/cleanup-policy/exception kinds are already rejected by policy.Load
 	// itself (migration-hint error) before results are ever returned, so no further check is needed here.
 	if len(results.VAPs) > 0 || len(results.VAPBindings) > 0 || len(results.MAPs) > 0 || len(results.MAPBindings) > 0 {
-		return fmt.Errorf("bundle rejected: directory contains native Kubernetes admission policy resources; only policies.kyverno.io/v1beta1 CEL kinds are supported in OCI bundles")
+		return fmt.Errorf("bundle rejected: directory contains native Kubernetes admission policy resources; only %s CEL kinds are supported in OCI bundles", internal.AcceptedAPIVersionsText())
 	}
 	if len(results.NonFatalErrors) > 0 {
 		return fmt.Errorf("bundle rejected: %d file(s) could not be loaded: %v", len(results.NonFatalErrors), results.NonFatalErrors[0].Error)
@@ -143,9 +205,9 @@ func validateResults(results *policy.LoaderResults, checkExceptionReferences boo
 	seen := make(map[string]bool)
 	checkResource := func(obj internal.Object) error {
 		gvk := obj.GetObjectKind().GroupVersionKind()
-		if gv := gvk.GroupVersion().String(); gv != internal.SupportedAPIVersion {
+		if gv := gvk.GroupVersion().String(); !internal.IsAcceptedAPIVersion(gv) {
 			return fmt.Errorf("unsupported resource %s/%s %q; only %s CEL kinds are supported in OCI bundles",
-				gv, gvk.Kind, obj.GetName(), internal.SupportedAPIVersion)
+				gv, gvk.Kind, obj.GetName(), internal.AcceptedAPIVersionsText())
 		}
 		key := fmt.Sprintf("%s/%s/%s", gvk.Kind, obj.GetNamespace(), obj.GetName())
 		if seen[key] {
@@ -164,6 +226,12 @@ func validateResults(results *policy.LoaderResults, checkExceptionReferences boo
 		if err := checkResource(obj); err != nil {
 			return err
 		}
+		if strict {
+			mc := pol.GetMatchConstraints()
+			if err := checkSelectors("ValidatingPolicy", obj.GetName(), &mc); err != nil {
+				return err
+			}
+		}
 		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
 		}
@@ -172,6 +240,12 @@ func validateResults(results *policy.LoaderResults, checkExceptionReferences boo
 		if err := checkResource(pol); err != nil {
 			return err
 		}
+		if strict {
+			mc := pol.GetMatchConstraints()
+			if err := checkSelectors("EnvoyPolicy", pol.GetName(), &mc); err != nil {
+				return err
+			}
+		}
 		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in EnvoyPolicy %q: %v", pol.GetName(), errs.ToAggregate())
 		}
@@ -179,6 +253,12 @@ func validateResults(results *policy.LoaderResults, checkExceptionReferences boo
 	for _, pol := range results.HTTPPolicies {
 		if err := checkResource(pol); err != nil {
 			return err
+		}
+		if strict {
+			mc := pol.GetMatchConstraints()
+			if err := checkSelectors("HTTPPolicy", pol.GetName(), &mc); err != nil {
+				return err
+			}
 		}
 		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in HTTPPolicy %q: %v", pol.GetName(), errs.ToAggregate())
@@ -194,6 +274,12 @@ func validateResults(results *policy.LoaderResults, checkExceptionReferences boo
 		if err := checkResource(obj); err != nil {
 			return err
 		}
+		if strict {
+			mc := pol.GetMatchConstraints()
+			if err := checkSelectors(obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), &mc); err != nil {
+				return err
+			}
+		}
 		if _, errs := mCompiler.Compile(pol, nil); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
 		}
@@ -207,6 +293,12 @@ func validateResults(results *policy.LoaderResults, checkExceptionReferences boo
 		}
 		if err := checkResource(obj); err != nil {
 			return err
+		}
+		if strict {
+			mc := pol.GetMatchConstraints()
+			if err := checkSelectors(obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), &mc); err != nil {
+				return err
+			}
 		}
 		if _, errs := gCompiler.Compile(pol, nil); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
@@ -222,6 +314,13 @@ func validateResults(results *policy.LoaderResults, checkExceptionReferences boo
 		if err := checkResource(obj); err != nil {
 			return err
 		}
+		if strict {
+			if spec := pol.GetDeletingPolicySpec(); spec != nil {
+				if err := checkSelectors(obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), spec.MatchConstraints); err != nil {
+					return err
+				}
+			}
+		}
 		if _, errs := dCompiler.Compile(pol, nil); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
 		}
@@ -235,6 +334,12 @@ func validateResults(results *policy.LoaderResults, checkExceptionReferences boo
 		}
 		if err := checkResource(obj); err != nil {
 			return err
+		}
+		if strict {
+			mc := pol.GetMatchConstraints()
+			if err := checkSelectors(obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), &mc); err != nil {
+				return err
+			}
 		}
 		if _, errs := ivpCompiler.Compile(pol, nil); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
@@ -251,8 +356,17 @@ func validateResults(results *policy.LoaderResults, checkExceptionReferences boo
 		if errs := celcompiler.CompilePolicyExceptionMatchConditions(ex.Spec.MatchConditions, nil); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in policy exception %q: %v", ex.GetName(), errs.ToAggregate())
 		}
-		if !checkExceptionReferences {
+		if !strict {
 			continue
+		}
+		if ex.Spec.ExpiresAt != nil && opts.now().After(ex.Spec.ExpiresAt.Time) {
+			opts.warn(fmt.Sprintf("policy exception %q expired at %s", ex.GetName(), ex.Spec.ExpiresAt.Time))
+		}
+		if errs := exceptionvalidation.ValidateCompensatingControlExpressions(ex); len(errs) > 0 {
+			return fmt.Errorf("validating compensating controls in policy exception %q: %v", ex.GetName(), errs.ToAggregate())
+		}
+		for _, warning := range exceptionvalidation.ValidateCompensatingControls(&ex.Spec) {
+			opts.warn(fmt.Sprintf("policy exception %q: %s", ex.GetName(), warning))
 		}
 		for _, ref := range ex.Spec.PolicyRefs {
 			// PolicyRef has no namespace field; check cluster-scoped and same-namespace forms.
