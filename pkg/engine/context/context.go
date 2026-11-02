@@ -582,13 +582,49 @@ func (ctx *context) Restore() {
 }
 
 // RestoreAndClearPersisted restores like Restore, and then discards any
-// Persist()-marked keys (and their current values) so they do not survive
-// past this boundary. See the Interface doc for when to use this instead of
+// value a Persist()-marked key picked up during this checkpoint scope,
+// instead of carrying it forward. A key that already had a value before this
+// checkpoint was taken (e.g. a preloaded context entry or variable unrelated
+// to this policy's Persist calls) is restored to that pre-checkpoint value
+// rather than deleted -- only keys that did not exist before this checkpoint
+// end up absent. See the Interface doc for when to use this instead of
 // Restore.
 func (ctx *context) RestoreAndClearPersisted() {
-	ctx.reset(true)
+	// resetCheckpoint (invoked by reset(true) below) copies each persisted
+	// key's current (live) value into the checkpoint being restored to, so
+	// that intra-policy Restore calls keep seeing the persisted value. That
+	// means the checkpoint snapshot is about to be mutated in place for every
+	// persisted key. Capture each persisted key's presence/value as it stood
+	// at the start of this checkpoint scope *before* that happens, so we can
+	// tell apart "existed before this checkpoint" (restore it) from "only
+	// appeared during this checkpoint's scope" (clear it).
+	var preCheckpoint map[string]interface{}
+	if n := len(ctx.jsonRawCheckpoints) - 1; n >= 0 {
+		preCheckpoint = ctx.jsonRawCheckpoints[n]
+	}
+	type priorValue struct {
+		value   interface{}
+		existed bool
+	}
+	priorValues := make(map[string]priorValue, len(ctx.persistentKeys))
 	for key := range ctx.persistentKeys {
-		delete(ctx.jsonRaw, key)
+		if preCheckpoint != nil {
+			if val, ok := preCheckpoint[key]; ok {
+				priorValues[key] = priorValue{value: val, existed: true}
+				continue
+			}
+		}
+		priorValues[key] = priorValue{}
+	}
+
+	ctx.reset(true)
+
+	for key, prior := range priorValues {
+		if prior.existed {
+			ctx.jsonRaw[key] = runtime.DeepCopyJSONValue(prior.value)
+		} else {
+			delete(ctx.jsonRaw, key)
+		}
 	}
 	ctx.persistentKeys = nil
 }

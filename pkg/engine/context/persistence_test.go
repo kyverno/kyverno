@@ -128,6 +128,48 @@ func Test_RestoreAndClearPersisted_NoCrossPolicyLeak(t *testing.T) {
 	ctx.RestoreAndClearPersisted()
 }
 
+func Test_RestoreAndClearPersisted_PreservesPreCheckpointValue(t *testing.T) {
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	ctx := NewContext(jp)
+
+	// "sharedVar" pre-exists before this policy's checkpoint -- e.g. a
+	// preloaded context entry or variable set by an earlier mechanism, not
+	// something this policy's Persist() call introduced.
+	err := ctx.AddContextEntry("sharedVar", []byte(`"pre-existing-value"`))
+	assert.NoError(t, err)
+
+	// Outer checkpoint, mirroring the per-policy Checkpoint taken by
+	// verifyAndPatchImages/validate around a policy's whole rule loop.
+	ctx.Checkpoint()
+
+	// A rule overwrites "sharedVar" (e.g. with fetched attestation data) and
+	// persists it so the new value survives restores across rules within
+	// this policy's rule loop. It also introduces a brand-new key that never
+	// existed before this checkpoint.
+	err = ctx.AddContextEntry("sharedVar", []byte(`"attested-value"`))
+	assert.NoError(t, err)
+	ctx.Persist("sharedVar")
+
+	err = ctx.AddContextEntry("newAttestation", []byte(`"new-value"`))
+	assert.NoError(t, err)
+	ctx.Persist("newAttestation")
+
+	// Unwinding the outer checkpoint at the end of this policy's evaluation
+	// must restore "sharedVar" to its pre-checkpoint value -- it is
+	// pre-existing shared context data, not attestation leakage -- while
+	// "newAttestation", which never existed before this checkpoint, must be
+	// absent (the original no-cross-policy-leak guarantee must not regress).
+	ctx.RestoreAndClearPersisted()
+
+	data, err := ctx.Query("sharedVar")
+	assert.NoError(t, err)
+	assert.Equal(t, "pre-existing-value", data)
+
+	data, err = ctx.Query("newAttestation")
+	assert.Error(t, err)
+	assert.Nil(t, data)
+}
+
 func Test_Persistence_WithReset(t *testing.T) {
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
 	ctx := NewContext(jp)
