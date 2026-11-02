@@ -388,6 +388,35 @@ func TestWriteStripsReservedAnnotationsFromDescriptorEvenWhenConfigLeavesThemEmp
 	assert.Equal(t, "team-a", manifest.Annotations["example.com/team"], "a non-reserved descriptor annotation must still pass through")
 }
 
+// TestWriteStripsReservedPrefixKeyTheWriterDoesNotItselfCompute is the regression test for the
+// exact-match gap: reservedAnnotationKeys used to list only the keys buildAnnotations itself
+// computes, so a reserved-prefix key outside that list (one this CLI has no current writer logic
+// for at all) published untouched, even though the documented contract reserves the whole
+// io.kyverno.bundle.* and org.opencontainers.image.* prefixes, not just the keys in use today.
+func TestWriteStripsReservedPrefixKeyTheWriterDoesNotItselfCompute(t *testing.T) {
+	dir := writeTree(t, map[string]string{"policy.yaml": validVP})
+	b, err := Assemble(dir)
+	require.NoError(t, err)
+	require.NoError(t, Validate(b))
+
+	d := &Descriptor{
+		Annotations: map[string]string{
+			"io.kyverno.bundle.custom":     "forged",
+			"org.opencontainers.image.foo": "forged",
+			"example.com/team":             "team-a",
+		},
+	}
+	img, err := Write(b, d)
+	require.NoError(t, err)
+
+	manifest, err := img.Manifest()
+	require.NoError(t, err)
+
+	assert.NotContains(t, manifest.Annotations, "io.kyverno.bundle.custom", "a descriptor must not set any io.kyverno.bundle.* key, even one this CLI doesn't itself compute")
+	assert.NotContains(t, manifest.Annotations, "org.opencontainers.image.foo", "a descriptor must not set any org.opencontainers.image.* key, even one this CLI doesn't itself compute")
+	assert.Equal(t, "team-a", manifest.Annotations["example.com/team"], "a non-reserved descriptor annotation must still pass through")
+}
+
 func TestWriteOmitsEmptySet(t *testing.T) {
 	dir := writeTree(t, map[string]string{"policy.yaml": validVP})
 	b, err := Assemble(dir)
