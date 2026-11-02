@@ -351,11 +351,13 @@ type CheckResult struct {
 
 	// Assert contains assertion to be performed on the relevant rule responses
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Assert *kyverno.Any `json:"assert,omitempty"`
+	// +optional
+	Assert kyverno.Any `json:"assert,omitempty"`
 
 	// Error contains negative assertion to be performed on the relevant rule responses
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Error *kyverno.Any `json:"error,omitempty"`
+	// +optional
+	Error kyverno.Any `json:"error,omitempty"`
 }
 
 type TestResourceSpec struct {

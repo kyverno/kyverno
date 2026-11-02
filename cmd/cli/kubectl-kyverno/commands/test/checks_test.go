@@ -227,7 +227,7 @@ func TestCollectUniqueCheckResponses(t *testing.T) {
 	assert.False(t, names["distinct"], "explicit operation responses must not reach checks via targets")
 	assert.True(t, names["target-only"])
 
-	check := v1alpha1.CheckResult{Assert: &kyverno.Any{Value: map[string]any{"status": "pass"}}}
+	check := v1alpha1.CheckResult{Assert: kyverno.Any{Value: map[string]any{"status": "pass"}}}
 	rc := &resultCounts{}
 	var resultsTable table.Table
 	require.NoError(t, printCheckResult([]v1alpha1.CheckResult{check}, responses, rc, &resultsTable))
@@ -283,7 +283,7 @@ func TestPrintCheckResultExcludesExplicitOperations(t *testing.T) {
 				},
 				Target: map[string][]engineapi.EngineResponse{"pod": {defaultResponse, operationResponse}},
 			}
-			check := v1alpha1.CheckResult{Assert: &kyverno.Any{Value: map[string]any{"status": "pass"}}}
+			check := v1alpha1.CheckResult{Assert: kyverno.Any{Value: map[string]any{"status": "pass"}}}
 			rc := &resultCounts{}
 			var resultsTable table.Table
 			require.NoError(t, printCheckResult([]v1alpha1.CheckResult{check}, responses, rc, &resultsTable))

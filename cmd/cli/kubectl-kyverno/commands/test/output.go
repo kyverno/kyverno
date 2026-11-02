@@ -75,7 +75,7 @@ func printCheckResult(
 ) error {
 	ctx := context.Background()
 	for i, check := range checks {
-		if (check.Assert == nil || check.Assert.Value == nil) && (check.Error == nil || check.Error.Value == nil) {
+		if (check.Assert.Value == nil) && (check.Error.Value == nil) {
 			return fmt.Errorf("checks[%d]: at least one of assert or error must be specified", i)
 		}
 	}
@@ -176,7 +176,7 @@ func printCheckResult(
 					}
 					data["patchedTargetSubresourceName"] = subresourceName
 				}
-				if check.Assert != nil && check.Assert.Value != nil {
+				if check.Assert.Value != nil {
 					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Assert.Value), data, nil)
 					if err != nil {
 						return err
@@ -207,7 +207,7 @@ func printCheckResult(
 					resultsTable.Add(row)
 					testCount++
 				}
-				if check.Error != nil && check.Error.Value != nil {
+				if check.Error.Value != nil {
 					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Error.Value), data, nil)
 					if err != nil {
 						return err
