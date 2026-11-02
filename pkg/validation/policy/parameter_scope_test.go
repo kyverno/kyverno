@@ -93,6 +93,33 @@ func TestValidateCELParamKindScopeSkipsClusterAndUnparameterizedRules(t *testing
 	require.NoError(t, validateCELParamKindScope(rule, true, nil))
 }
 
+// A rule that sets paramKind but no paramRef skips the scope guard because
+// HasParam() is false. That is not a hole a cluster-scoped paramKind could slip
+// through: the rule never reaches admission, because Validate rejects it first,
+// and no parameter is ever read.
+func TestValidateCELParamKindScopeParamKindWithoutParamRefIsRejectedEarlier(t *testing.T) {
+	t.Parallel()
+	for _, apiVersion := range []string{"cluster.example.com/v1", "cluster.example.com/v1beta1"} {
+		t.Run(apiVersion, func(t *testing.T) {
+			t.Parallel()
+			client, _ := newParameterScopeClient()
+			policy := parameterScopePolicy(t, apiVersion, "Parameter")
+			policy.Spec.Rules[0].Validation.CEL.ParamRef = nil
+
+			rule := policy.Spec.Rules[0]
+			require.False(t, rule.Validation.CEL.HasParam())
+			require.NoError(t, validateCELParamKindScope(rule, true, client))
+
+			// A non-empty reportsSA is what enables the validate-rule checker
+			// in validateActions, which owns the paramRef precondition.
+			const reportsSA = "system:serviceaccount:kyverno:kyverno-reports-controller"
+			_, err := Validate(policy, nil, client, false, reportsSA, reportsSA)
+			require.ErrorContains(t, err, "cel.paramRef is required")
+			require.Zero(t, client.parameterReads)
+		})
+	}
+}
+
 func TestValidateCELParamKindScopeRejectsUnavailableDiscovery(t *testing.T) {
 	t.Parallel()
 	rule := parameterScopePolicy(t, "tenant.example.com/v1", "Parameter").Spec.Rules[0]

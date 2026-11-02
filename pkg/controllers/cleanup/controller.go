@@ -171,7 +171,12 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	}
 	enginectx := enginecontext.NewContext(c.jp)
 	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
-	loader := ctxFactory(&kyvernov1.ClusterPolicy{}, kyvernov1.Rule{})
+	// Pass the cleanup policy itself so a namespaced CleanupPolicy keeps the
+	// context clamps release-1.19 already applies to it: globalReference is
+	// denied, configMap and apiCall entries are confined to the policy
+	// namespace. Substituting a cluster scope here would silently undo
+	// "fix: deny globalContext in namespaced policies" (#17455).
+	loader := ctxFactory(policy, kyvernov1.Rule{})
 	if err := loader.Load(
 		ctx,
 		c.jp,

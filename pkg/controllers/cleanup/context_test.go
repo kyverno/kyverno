@@ -42,12 +42,24 @@ type eagerCleanupContext struct{ toggle.Toggles }
 
 func (eagerCleanupContext) EnableDeferredLoading() bool { return false }
 
-func TestCleanupContextIsNotNamespaceClamped(t *testing.T) {
+// A namespaced CleanupPolicy carries the same context clamps as any other
+// namespaced policy: release-1.19 denies globalReference (#17455) and confines
+// apiCall paths to the policy namespace. A ClusterCleanupPolicy is unaffected.
+// The controller selects between the two purely by the scope of the policy it
+// hands to the context loader, so this pins that choice.
+func TestCleanupContextIsNamespaceClamped(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		name  string
+		name string
+		// entry is evaluated once as a namespaced CleanupPolicy and once as a
+		// ClusterCleanupPolicy.
 		entry kyvernov1.ContextEntry
-		path  string
+		// path is the API path the cluster-scoped policy is expected to reach,
+		// empty for a globalReference entry.
+		path string
+		// namespacedErr is the error a namespaced policy must fail with, empty
+		// when the entry is legitimately within the policy namespace.
+		namespacedErr string
 	}{
 		{
 			name: "same namespace API call",
@@ -61,18 +73,21 @@ func TestCleanupContextIsNotNamespaceClamped(t *testing.T) {
 			entry: kyvernov1.ContextEntry{Name: "objects", APICall: &kyvernov1.ContextAPICall{
 				APICall: kyvernov1.APICall{URLPath: "/api/v1/namespaces/shared/configmaps"},
 			}},
-			path: "/api/v1/namespaces/shared/configmaps",
+			path:          "/api/v1/namespaces/shared/configmaps",
+			namespacedErr: "which is different from the policy namespace tenant-a",
 		},
 		{
 			name: "cluster API call",
 			entry: kyvernov1.ContextEntry{Name: "objects", APICall: &kyvernov1.ContextAPICall{
 				APICall: kyvernov1.APICall{URLPath: "/api/v1/namespaces"},
 			}},
-			path: "/api/v1/namespaces",
+			path:          "/api/v1/namespaces",
+			namespacedErr: "does not contain a namespace segment",
 		},
 		{
-			name:  "global reference",
-			entry: kyvernov1.ContextEntry{Name: "objects", GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "shared-context"}},
+			name:          "global reference",
+			entry:         kyvernov1.ContextEntry{Name: "objects", GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "shared-context"}},
+			namespacedErr: "globalReference is not allowed in namespaced policies",
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -95,6 +110,15 @@ func TestCleanupContextIsNotNamespaceClamped(t *testing.T) {
 					ctx := context.Background()
 					ctx = toggle.NewContext(ctx, eagerCleanupContext{toggle.FromContext(ctx)})
 					err := c.cleanup(ctx, logr.Discard(), policy)
+
+					if namespace != "" && test.namespacedErr != "" {
+						require.ErrorContains(t, err, test.namespacedErr)
+						// The clamp must reject before the request leaves the
+						// controller, not after the data has been fetched.
+						require.Empty(t, client.paths)
+						require.Zero(t, entry.calls)
+						return
+					}
 					require.NoError(t, err)
 					if test.path != "" {
 						require.Equal(t, []string{test.path}, client.paths)

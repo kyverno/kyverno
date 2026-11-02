@@ -471,6 +471,15 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 // ValidateCELParamScope confines parameter resources used by namespaced
 // Policies to their own namespace.
 func (r *Rule) ValidateCELParamScope(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	// HasParam() requires both paramKind and paramRef, so a rule that sets only
+	// paramKind returns early here. That is safe rather than a gap: the single
+	// lookup path gates on the same predicate
+	// (pkg/engine/handlers/validation/validate_cel.go:115), so no parameter is
+	// ever read, and `params` is not even declared in the CEL environment -- a
+	// rule referencing it fails to compile. Such a rule is also rejected before
+	// admission by the "cel.paramRef is required" check in
+	// pkg/policy/validate/validate.go. This matches upstream ValidatingAdmission
+	// Policy, which evaluates with nil params when a binding omits paramRef.
 	if !namespaced || !r.HasValidateCEL() || !r.Validation.CEL.HasParam() {
 		return nil
 	}
@@ -481,6 +490,14 @@ func (r *Rule) ValidateCELParamScope(path *field.Path, namespaced bool, policyNa
 	if clusterResources.Has(paramKind.APIVersion + "/" + paramKind.Kind) {
 		errs = append(errs, field.Forbidden(paramPath.Child("paramKind"), "cluster-scoped paramKind is not allowed in namespaced policies"))
 	}
+	// An empty paramRef.namespace is permitted because it cannot widen the
+	// lookup: CollectParamsForPolicy resolves it to the policy's own namespace
+	// for a namespaced Policy (pkg/admissionpolicy/utils.go), for both the
+	// name and the selector form. Note this is deliberately stricter than the
+	// upstream VAP meaning of empty ("namespace of the object being admitted")
+	// and never means all-namespaces. Only an explicit foreign namespace is
+	// rejected here, so the author gets an admission-time error rather than a
+	// runtime one.
 	if paramRef.Namespace != "" && paramRef.Namespace != policyNamespace {
 		errs = append(errs, field.Invalid(paramPath.Child("paramRef", "namespace"), paramRef.Namespace, "must match the policy namespace"))
 	}
