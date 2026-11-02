@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/config"
 	kconfig "github.com/kyverno/kyverno/pkg/config"
 	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
@@ -240,7 +239,7 @@ func TestResolveExemplarFilterBehaviourConsistency(t *testing.T) {
 func TestResolveExemplarFilterWithMetricsConfiguration(t *testing.T) {
 	t.Parallel()
 
-	defaultConfig := config.NewDefaultMetricsConfiguration()
+	defaultConfig := kconfig.NewDefaultMetricsConfiguration()
 
 	tests := []struct {
 		name            string
