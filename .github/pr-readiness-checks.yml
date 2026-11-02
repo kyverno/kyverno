@@ -1,8 +1,9 @@
-# Checks pr-readiness-check.yaml reports on open PRs in the active release milestone. Each key becomes a possible
+# Checks the shared PR management action reports on eligible open PRs. Each key becomes a possible
 # finding; `test` and `message` are both jq expressions evaluated against the PR object that workflow's GraphQL
-# query fetches (see its `query` variable for the exact shape), with `$author` bound to the PR author's login —
+# query fetches (see .github/actions/pr-management/readiness.sh's detail_query for the exact shape), with `$author`
+# bound to the PR author's login —
 # `message` can name specifics from the PR's own data, not just return a fixed string. To add a check: add an
-# entry here — pr-readiness-check.yaml itself never needs to change.
+# entry here — the shared action itself never needs to change. Infrastructure exclusions below are engine-specific.
 
 # Every terminal-but-unsuccessful check conclusion GitHub defines — not just FAILURE/ERROR — so a timed-out or
 # cancelled check doesn't slip through as "ready." NEUTRAL and SKIPPED are excluded: GitHub treats those as

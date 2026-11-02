@@ -3,7 +3,6 @@ package api
 import (
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -14,9 +13,8 @@ var cfg = config.NewDefaultConfiguration(false)
 
 func Test_extractImageInfo(t *testing.T) {
 	tests := []struct {
-		extractionConfig kyvernov1.ImageExtractorConfigs
-		raw              []byte
-		images           map[string]map[string]ImageInfo
+		raw    []byte
+		images map[string]map[string]ImageInfo
 	}{
 		{
 			raw: []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "myapp"},"spec": {"initContainers": [{"name": "init","image": "index.docker.io/busybox:v1.2.3"}],"containers": [{"name": "nginx","image": "nginx:latest"}], "ephemeralContainers": [{"name": "ephemeral", "image":"test/nginx:latest"}]}}`),
@@ -201,281 +199,34 @@ func Test_extractImageInfo(t *testing.T) {
 				},
 			},
 		},
-		{
-			extractionConfig: kyvernov1.ImageExtractorConfigs{
-				"Task": []kyvernov1.ImageExtractorConfig{
-					{Path: "/spec/steps/*/image"},
-				},
-			},
-			raw: []byte(`{"apiVersion":"tekton.dev/v1beta1","kind":"Task","metadata":{"name":"example-task-name"},"spec":{"params":[{"name":"pathToDockerFile","type":"string","description":"The path to the dockerfile to build","default":"/workspace/workspace/Dockerfile"}],"resources":{"inputs":[{"name":"workspace","type":"git"}],"outputs":[{"name":"builtImage","type":"image"}]},"steps":[{"name":"ubuntu-example","image":"ubuntu","args":["ubuntu-build-example","SECRETS-example.md"]},{"image":"gcr.io/example-builders/build-example","command":["echo"],"args":["$(params.pathToDockerFile)"]},{"name":"dockerfile-pushexample","image":"gcr.io/example-builders/push-example","args":["push","$(resources.outputs.builtImage.url)"],"volumeMounts":[{"name":"docker-socket-example","mountPath":"/var/run/docker.sock"}]}],"volumes":[{"name":"example-volume","emptyDir":{}}]}}`),
-			images: map[string]map[string]ImageInfo{
-				"custom": {
-					"/spec/steps/0/image": {
-						imageutils.ImageInfo{
-							Registry:         "docker.io",
-							Name:             "ubuntu",
-							Path:             "ubuntu",
-							Tag:              "latest",
-							Reference:        "docker.io/ubuntu:latest",
-							ReferenceWithTag: "docker.io/ubuntu:latest",
-						},
-						"/spec/steps/0/image",
-						[]string{},
-					},
-					"/spec/steps/1/image": {
-						imageutils.ImageInfo{
-							Registry:         "gcr.io",
-							Name:             "build-example",
-							Path:             "example-builders/build-example",
-							Tag:              "latest",
-							Reference:        "gcr.io/example-builders/build-example:latest",
-							ReferenceWithTag: "gcr.io/example-builders/build-example:latest",
-						},
-						"/spec/steps/1/image",
-						[]string{},
-					},
-					"/spec/steps/2/image": {
-						imageutils.ImageInfo{
-							Registry:         "gcr.io",
-							Name:             "push-example",
-							Path:             "example-builders/push-example",
-							Tag:              "latest",
-							Reference:        "gcr.io/example-builders/push-example:latest",
-							ReferenceWithTag: "gcr.io/example-builders/push-example:latest",
-						},
-						"/spec/steps/2/image",
-						[]string{},
-					},
-				},
-			},
-		},
-		{
-			extractionConfig: kyvernov1.ImageExtractorConfigs{
-				"ClusterTask": []kyvernov1.ImageExtractorConfig{
-					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
-				},
-			},
-			raw: []byte(`{
-				"apiVersion":"tekton.dev/v1beta1",
-				"kind":"ClusterTask",
-				"metadata":{
-					"name":"hello"
-				},
-				"spec":{
-					"steps":{
-						"valid":{
-							"image":"nginx",
-							"name":"web"
-						},
-						"invalid":"scalar"
-					}
-				}
-			}`),
-			images: map[string]map[string]ImageInfo{
-				"steps": {
-					"web": {
-						imageutils.ImageInfo{
-							Registry:         "docker.io",
-							Name:             "nginx",
-							Path:             "nginx",
-							Tag:              "latest",
-							Reference:        "docker.io/nginx:latest",
-							ReferenceWithTag: "docker.io/nginx:latest",
-						},
-						"/spec/steps/valid/image",
-						[]string{},
-					},
-				},
-			},
-		},
-		{
-			extractionConfig: kyvernov1.ImageExtractorConfigs{
-				"Task": []kyvernov1.ImageExtractorConfig{
-					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
-				},
-			}, raw: []byte(`{"apiVersion":"tekton.dev/v1beta1","kind":"Task","metadata":{"name":"example-task-name"},"spec":{"steps":[{"name":"ubuntu-example","image":"ubuntu","args":["ubuntu-build-example","SECRETS-example.md"]},{"name":"dockerfile-pushexample","image":"gcr.io/example-builders/push-example","args":["push","$(resources.outputs.builtImage.url)"]}]}}`),
-			images: map[string]map[string]ImageInfo{
-				"steps": {
-					"dockerfile-pushexample": {
-						imageutils.ImageInfo{
-							Registry:         "gcr.io",
-							Name:             "push-example",
-							Path:             "example-builders/push-example",
-							Tag:              "latest",
-							Reference:        "gcr.io/example-builders/push-example:latest",
-							ReferenceWithTag: "gcr.io/example-builders/push-example:latest",
-						},
-						"/spec/steps/1/image",
-						[]string{},
-					},
-					"ubuntu-example": {
-						imageutils.ImageInfo{
-							Registry:         "docker.io",
-							Name:             "ubuntu",
-							Path:             "ubuntu",
-							Tag:              "latest",
-							Reference:        "docker.io/ubuntu:latest",
-							ReferenceWithTag: "docker.io/ubuntu:latest",
-						},
-						"/spec/steps/0/image",
-						[]string{},
-					},
-				},
-			},
-		},
-		{
-			extractionConfig: kyvernov1.ImageExtractorConfigs{
-				"ClusterTask": []kyvernov1.ImageExtractorConfig{
-					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
-				},
-			},
-			raw: []byte(`{"apiVersion":"tekton.dev/v1beta1","kind":"ClusterTask","metadata":{"name":"hello","resourceVersion":"5752181","uid":"395010b6-fe0e-4364-a7b4-6abb86974d54"},"spec":{"steps":[{"image":"alpine","name":"echo","resources":{},"script":"#!/bin/sh\necho \"Hello World\"\n"}]}}`),
-			images: map[string]map[string]ImageInfo{
-				"steps": {
-					"echo": {
-						imageutils.ImageInfo{
-							Registry:         "docker.io",
-							Name:             "alpine",
-							Path:             "alpine",
-							Tag:              "latest",
-							Reference:        "docker.io/alpine:latest",
-							ReferenceWithTag: "docker.io/alpine:latest",
-						},
-						"/spec/steps/0/image",
-						[]string{},
-					},
-				},
-			},
-		},
-		{
-			extractionConfig: kyvernov1.ImageExtractorConfigs{
-				"ClusterTask": []kyvernov1.ImageExtractorConfig{
-					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
-				},
-			},
-			raw: []byte(`{
-				"apiVersion":"tekton.dev/v1beta1",
-				"kind":"ClusterTask",
-				"metadata":{
-					"name":"hello"
-				},
-				"spec":{
-					"steps":[
-						{
-							"image":"alpine",
-							"name":"echo"
-						},
-						"hello",
-						123,
-						true,
-						null,
-						{
-							"image":"nginx",
-							"name":"web"
-						}
-					]
-				}
-			}`),
-			images: map[string]map[string]ImageInfo{
-				"steps": {
-					"echo": {
-						imageutils.ImageInfo{
-							Registry:         "docker.io",
-							Name:             "alpine",
-							Path:             "alpine",
-							Tag:              "latest",
-							Reference:        "docker.io/alpine:latest",
-							ReferenceWithTag: "docker.io/alpine:latest",
-						},
-						"/spec/steps/0/image",
-						[]string{},
-					},
-					"web": {
-						imageutils.ImageInfo{
-							Registry:         "docker.io",
-							Name:             "nginx",
-							Path:             "nginx",
-							Tag:              "latest",
-							Reference:        "docker.io/nginx:latest",
-							ReferenceWithTag: "docker.io/nginx:latest",
-						},
-						"/spec/steps/5/image",
-						[]string{},
-					},
-				},
-			},
-		},
-		{
-			extractionConfig: kyvernov1.ImageExtractorConfigs{
-				"ClusterTask": []kyvernov1.ImageExtractorConfig{
-					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
-				},
-			},
-			raw: []byte(`{
-				"apiVersion":"tekton.dev/v1beta1",
-				"kind":"ClusterTask",
-				"metadata":{
-					"name":"hello"
-				},
-				"spec":{
-					"steps":[
-						[
-							{
-								"image":"nginx",
-								"name":"nested"
-							}
-						],
-						"invalid"
-					]
-				}
-			}`),
-			images: map[string]map[string]ImageInfo{
-				"steps": {
-					"nested": {
-						imageutils.ImageInfo{
-							Registry:         "docker.io",
-							Name:             "nginx",
-							Path:             "nginx",
-							Tag:              "latest",
-							Reference:        "docker.io/nginx:latest",
-							ReferenceWithTag: "docker.io/nginx:latest",
-						},
-						"/spec/steps/0/0/image",
-						[]string{},
-					},
-				},
-			},
-		},
-		{
-			extractionConfig: kyvernov1.ImageExtractorConfigs{
-				"DataVolume": []kyvernov1.ImageExtractorConfig{
-					{Path: "/spec/source/registry/url", JMESPath: "trim_prefix(@, 'docker://')"},
-				},
-			},
-			raw: []byte(`{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"DataVolume","metadata":{"name":"registry-image-datavolume"},"spec":{"source":{"registry":{"url":"docker://kubevirt/fedora-cloud-registry-disk-demo"}},"pvc":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"5Gi"}}}}}`),
-			images: map[string]map[string]ImageInfo{
-				"custom": {
-					"/spec/source/registry/url": {
-						imageutils.ImageInfo{
-							Registry:         "docker.io",
-							Name:             "fedora-cloud-registry-disk-demo",
-							Path:             "kubevirt/fedora-cloud-registry-disk-demo",
-							Tag:              "latest",
-							Reference:        "docker.io/kubevirt/fedora-cloud-registry-disk-demo:latest",
-							ReferenceWithTag: "docker.io/kubevirt/fedora-cloud-registry-disk-demo:latest",
-						},
-						"/spec/source/registry/url",
-						[]string{},
-					},
-				},
-			},
-		},
 	}
 	for _, test := range tests {
 		resource, err := kubeutils.BytesToUnstructured(test.raw)
 		assert.NilError(t, err)
-		images, err := ExtractImagesFromResource(*resource, test.extractionConfig, cfg)
+		images, err := ExtractImagesFromResource(*resource, cfg)
 		assert.NilError(t, err)
 		assert.DeepEqual(t, test.images, images)
 	}
+}
+
+func Test_extractImageInfo_InvalidReference(t *testing.T) {
+	raw := []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"myapp"},"spec":{"containers":[{"name":"nginx","image":"!!invalid!!"}]}}`)
+	resource, err := kubeutils.BytesToUnstructured(raw)
+	assert.NilError(t, err)
+
+	images, err := ExtractImagesFromResource(*resource, cfg)
+	assert.ErrorContains(t, err, "invalid image")
+	assert.Assert(t, images == nil)
+}
+
+func Test_extractImageInfo_UnregisteredKind(t *testing.T) {
+	// No extractor is registered for this kind, so lookupImageExtractor returns nil
+	// and the result is empty rather than an error.
+	raw := []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"myapp"},"data":{"image":"nginx:latest"}}`)
+	resource, err := kubeutils.BytesToUnstructured(raw)
+	assert.NilError(t, err)
+
+	images, err := ExtractImagesFromResource(*resource, cfg)
+	assert.NilError(t, err)
+	assert.Equal(t, len(images), 0)
 }

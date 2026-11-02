@@ -1,6 +1,7 @@
 package deprecations
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -23,8 +24,8 @@ func TestCountLegacyPolicies(t *testing.T) {
 		{
 			name: "mixed zero and non-zero counts",
 			counters: map[string]KindCounter{
-				"ClusterPolicy": func() (int, error) { return 3, nil },
-				"Policy":        func() (int, error) { return 0, nil },
+				"ClusterPolicy": func(context.Context) (int, error) { return 3, nil },
+				"Policy":        func(context.Context) (int, error) { return 0, nil },
 			},
 			want: map[string]int{
 				"ClusterPolicy": 3,
@@ -34,8 +35,8 @@ func TestCountLegacyPolicies(t *testing.T) {
 		{
 			name: "all counters return non-zero",
 			counters: map[string]KindCounter{
-				"CleanupPolicy":        func() (int, error) { return 1, nil },
-				"ClusterCleanupPolicy": func() (int, error) { return 2, nil },
+				"CleanupPolicy":        func(context.Context) (int, error) { return 1, nil },
+				"ClusterCleanupPolicy": func(context.Context) (int, error) { return 2, nil },
 			},
 			want: map[string]int{
 				"CleanupPolicy":        1,
@@ -45,8 +46,8 @@ func TestCountLegacyPolicies(t *testing.T) {
 		{
 			name: "a failing counter is aggregated into the error but does not block others",
 			counters: map[string]KindCounter{
-				"ClusterPolicy": func() (int, error) { return 5, nil },
-				"Policy":        func() (int, error) { return 0, errors.New("list failed") },
+				"ClusterPolicy": func(context.Context) (int, error) { return 5, nil },
+				"Policy":        func(context.Context) (int, error) { return 0, errors.New("list failed") },
 			},
 			want: map[string]int{
 				"ClusterPolicy": 5,
@@ -57,7 +58,7 @@ func TestCountLegacyPolicies(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := CountLegacyPolicies(tt.counters)
+			got, err := CountLegacyPolicies(context.Background(), tt.counters)
 			if tt.wantErr && err == nil {
 				t.Fatalf("CountLegacyPolicies() expected an error, got nil")
 			}

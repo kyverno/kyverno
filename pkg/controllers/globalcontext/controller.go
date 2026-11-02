@@ -12,15 +12,19 @@ import (
 	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/externalapi"
 	"github.com/kyverno/kyverno/pkg/globalcontext/k8sresource"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	"go.opentelemetry.io/otel/metric"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -88,6 +92,12 @@ func NewController(
 		logger.Error(err, "failed to register event handlers")
 	}
 
+	if m := metrics.GetGlobalContextMetrics(); m != nil {
+		if _, err := m.RegisterCallback(c.reportProjectionMetrics); err != nil {
+			logger.Error(err, "failed to register callback for global context projection metrics")
+		}
+	}
+
 	return c
 }
 
@@ -152,6 +162,50 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 			return nil
 		}
 		return err
+	}
+	return nil
+}
+
+// reportProjectionMetrics is the metrics.GlobalContextMetrics scrape callback, registered once
+// in NewController. It recomputes, from every current GlobalContextEntry, how many projections
+// use each language (jmespath vs cel) and - for jmespath projections - each of Kyverno's known
+// custom JMESPath functions, and reports those as gauges. This is a scrape-time snapshot of
+// current spec state, not a per-reconcile counter: the globalcontext controller is not
+// leader-elected (runs on every replica), so a counter incremented per reconcile would multiply
+// by replica count, while every replica recomputing the same gauge value from the same lister
+// is harmless.
+func (c *controller) reportProjectionMetrics(ctx context.Context, observer metric.Observer) error {
+	m := metrics.GetGlobalContextMetrics()
+	if m == nil {
+		return nil
+	}
+	gces, err := c.gceLister.List(labels.Everything())
+	if err != nil {
+		logger.Error(err, "failed to list global context entries for projection metrics")
+		return err
+	}
+	languageCounts := map[string]int{
+		deprecations.ProjectionLanguageJMESPath: 0,
+		deprecations.ProjectionLanguageCEL:      0,
+	}
+	functionCounts := map[string]int{}
+	for _, gce := range gces {
+		for _, p := range gce.Spec.Projections {
+			language := deprecations.ProjectionLanguage(p.JMESPath, p.Expression)
+			languageCounts[language]++
+			if language != deprecations.ProjectionLanguageJMESPath {
+				continue
+			}
+			for _, fn := range jmespath.UsedFunctionNames(p.JMESPath) {
+				functionCounts[fn]++
+			}
+		}
+	}
+	for language, count := range languageCounts {
+		m.ObserveProjectionLanguage(ctx, observer, language, count)
+	}
+	for fn, count := range functionCounts {
+		m.ObserveJMESPathFunctionUsage(ctx, observer, fn, count)
 	}
 	return nil
 }

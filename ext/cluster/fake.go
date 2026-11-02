@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kdata "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/playground/backend/data"
 	"github.com/kyverno/playground/backend/pkg/resource"
 	"github.com/kyverno/playground/backend/pkg/utils"
@@ -45,10 +43,6 @@ func (c fakeCluster) Search(ctx context.Context, apiVersion string, kind string,
 
 func (c fakeCluster) Get(ctx context.Context, apiVersion string, kind string, namespace string, name string) (*unstructured.Unstructured, error) {
 	return nil, errors.New("getting resource not supported in fake cluster")
-}
-
-func (c fakeCluster) PolicyExceptionSelector(namespace string, exceptions ...*kyvernov2.PolicyException) engineapi.PolicyExceptionSelector {
-	return NewPolicyExceptionSelector(namespace, nil, exceptions...)
 }
 
 func (c fakeCluster) OpenAPIClient(version string) (openapi.Client, error) {

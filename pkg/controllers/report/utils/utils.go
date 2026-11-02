@@ -1,77 +1,23 @@
 package utils
 
 import (
-	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
 )
-
-func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
-	if !p.BackgroundProcessingEnabled() {
-		return false
-	}
-	if p.GetStatus().ValidatingAdmissionPolicy.Generated {
-		return false
-	}
-	if err := policyvalidation.ValidateVariables(p, true); err != nil {
-		return false
-	}
-	return true
-}
-
-func BuildKindSet(logger logr.Logger, policies ...kyvernov1.PolicyInterface) sets.Set[string] {
-	kinds := sets.New[string]()
-	for _, policy := range policies {
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
-			if rule.HasValidate() || rule.HasVerifyImages() {
-				kinds.Insert(rule.MatchResources.GetKinds()...)
-			}
-		}
-	}
-	return kinds
-}
-
-func RemoveNonBackgroundPolicies(policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
-	var backgroundPolicies []kyvernov1.PolicyInterface
-	for _, pol := range policies {
-		if CanBackgroundProcess(pol) {
-			backgroundPolicies = append(backgroundPolicies, pol)
-		}
-	}
-	return backgroundPolicies
-}
-
-func RemoveNonValidationPolicies(policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
-	var validationPolicies []kyvernov1.PolicyInterface
-	for _, pol := range policies {
-		spec := pol.GetSpec()
-		if spec.HasVerifyImages() || spec.HasValidate() || spec.HasVerifyManifests() {
-			validationPolicies = append(validationPolicies, pol)
-		}
-	}
-	return validationPolicies
-}
 
 func ReportsAreIdentical(before, after reportsv1.ReportInterface) bool {
 	if !datautils.DeepEqual(before.GetAnnotations(), after.GetAnnotations()) {
@@ -95,63 +41,6 @@ func ReportsAreIdentical(before, after reportsv1.ReportInterface) bool {
 		}
 	}
 	return true
-}
-
-func FetchClusterPolicies(cpolLister kyvernov1listers.ClusterPolicyLister) ([]kyvernov1.PolicyInterface, error) {
-	var policies []kyvernov1.PolicyInterface
-	r, err := getExcludeReportingLabelRequirement()
-	if err != nil {
-		return nil, err
-	}
-	if cpols, err := cpolLister.List(labels.Everything().Add(*r)); err != nil {
-		return nil, err
-	} else {
-		for _, cpol := range cpols {
-			policies = append(policies, cpol)
-		}
-	}
-	return policies, nil
-}
-
-func FetchPolicies(polLister kyvernov1listers.PolicyLister, namespace string) ([]kyvernov1.PolicyInterface, error) {
-	var policies []kyvernov1.PolicyInterface
-	r, err := getExcludeReportingLabelRequirement()
-	if err != nil {
-		return nil, err
-	}
-	if pols, err := polLister.Policies(namespace).List(labels.Everything().Add(*r)); err != nil {
-		return nil, err
-	} else {
-		for _, pol := range pols {
-			policies = append(policies, pol)
-		}
-	}
-	return policies, nil
-}
-
-func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, namespace string) ([]kyvernov2.PolicyException, error) {
-	var exceptions []kyvernov2.PolicyException
-	var polexs []*kyvernov2.PolicyException
-	var err error
-
-	if namespace == "*" {
-		polexs, err = polexLister.List(labels.Everything())
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		polexs, err = polexLister.PolicyExceptions(namespace).List(labels.Everything())
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	for _, polex := range polexs {
-		if polex.Spec.BackgroundProcessingEnabled() {
-			exceptions = append(exceptions, *polex)
-		}
-	}
-	return exceptions, nil
 }
 
 func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {

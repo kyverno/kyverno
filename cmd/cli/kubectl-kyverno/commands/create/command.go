@@ -2,7 +2,6 @@ package create
 
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/exception"
 	metricsconfig "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/metrics-config"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/role"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/test"
@@ -24,7 +23,6 @@ func Command() *cobra.Command {
 		},
 	}
 	cmd.AddCommand(
-		exception.Command(),
 		metricsconfig.Command(),
 		test.Command(),
 		userinfo.Command(),

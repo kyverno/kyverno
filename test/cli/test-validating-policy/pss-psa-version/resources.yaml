@@ -1,0 +1,800 @@
+# Pods that test the PSA behavior changes from v1.25 to v1.37.
+# Each version directory renders the chart with that podSecurityVersion.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: compliant
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+  containers:
+  - name: nginx
+    image: nginx
+---
+# Allowed from v1.27.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-v1-27
+spec:
+  securityContext:
+    sysctls:
+    - name: net.ipv4.ip_local_reserved_ports
+      value: "8080"
+  containers:
+  - name: nginx
+    image: nginx
+---
+# Allowed from v1.29.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-v1-29
+spec:
+  securityContext:
+    sysctls:
+    - name: net.ipv4.tcp_keepalive_time
+      value: "600"
+  containers:
+  - name: nginx
+    image: nginx
+---
+# Allowed from v1.32.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-v1-32
+spec:
+  securityContext:
+    sysctls:
+    - name: net.ipv4.tcp_rmem
+      value: "4096 87380 6291456"
+  containers:
+  - name: nginx
+    image: nginx
+---
+# Allowed from v1.37.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-v1-37
+spec:
+  securityContext:
+    sysctls:
+    - name: net.ipv4.tcp_notsent_lowat
+      value: "16384"
+  containers:
+  - name: nginx
+    image: nginx
+---
+# Allowed from v1.31.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: selinux-container-engine-t
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      seLinuxOptions:
+        type: container_engine_t
+---
+# Checked from v1.34.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-host
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    readinessProbe:
+      httpGet:
+        host: 10.0.0.1
+        port: 80
+---
+# The user namespace Pods below are allowed from v1.35, with podSecurityUserNamespaces.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proc-mount-host-users-false
+spec:
+  hostUsers: false
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      procMount: Unmasked
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: run-as-root-allowed-host-users-false
+spec:
+  hostUsers: false
+  containers:
+  - name: nginx
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: run-as-user-0-host-users-false
+spec:
+  hostUsers: false
+  securityContext:
+    runAsUser: 0
+  containers:
+  - name: nginx
+    image: nginx
+---
+# Never relaxed: hostUsers is unset.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proc-mount-host-users-unset
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      procMount: Unmasked
+---
+# Pods below are Restricted-compliant except for the field under test.
+# Their expected results come from upstream PSA v0.37.1 for each version.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-net-ipv4-ip-local-reserved-ports
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    sysctls:
+    - name: net.ipv4.ip_local_reserved_ports
+      value: '1'
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-net-ipv4-tcp-keepalive-time
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    sysctls:
+    - name: net.ipv4.tcp_keepalive_time
+      value: '1'
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-net-ipv4-tcp-fin-timeout
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    sysctls:
+    - name: net.ipv4.tcp_fin_timeout
+      value: '1'
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-net-ipv4-tcp-keepalive-intvl
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    sysctls:
+    - name: net.ipv4.tcp_keepalive_intvl
+      value: '1'
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-net-ipv4-tcp-keepalive-probes
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    sysctls:
+    - name: net.ipv4.tcp_keepalive_probes
+      value: '1'
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-net-ipv4-tcp-rmem
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    sysctls:
+    - name: net.ipv4.tcp_rmem
+      value: '1'
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-net-ipv4-tcp-wmem
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    sysctls:
+    - name: net.ipv4.tcp_wmem
+      value: '1'
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-net-ipv4-tcp-slow-start-after-idle
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    sysctls:
+    - name: net.ipv4.tcp_slow_start_after_idle
+      value: '1'
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-net-ipv4-tcp-notsent-lowat
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    sysctls:
+    - name: net.ipv4.tcp_notsent_lowat
+      value: '1'
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: selinux-pod-container-engine-t
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    seLinuxOptions:
+      type: container_engine_t
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: selinux-init-container-engine-t
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+  initContainers:
+  - name: i
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      seLinuxOptions:
+        type: container_engine_t
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: selinux-ephemeral-container-engine-t
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+  ephemeralContainers:
+  - name: e
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      seLinuxOptions:
+        type: container_engine_t
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-liveness-http-host
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    livenessProbe:
+      httpGet:
+        port: 80
+        host: 10.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-readiness-tcp-host
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    readinessProbe:
+      tcpSocket:
+        port: 80
+        host: 10.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-startup-http-host
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    startupProbe:
+      httpGet:
+        port: 80
+        host: 10.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-poststart-http-host
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    lifecycle:
+      postStart:
+        httpGet:
+          port: 80
+          host: 10.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-prestop-tcp-host
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    lifecycle:
+      preStop:
+        tcpSocket:
+          port: 80
+          host: 10.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-liveness-http-localhost
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    livenessProbe:
+      httpGet:
+        port: 80
+        host: localhost
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-init-poststart-host
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+  initContainers:
+  - name: i
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    lifecycle:
+      postStart:
+        httpGet:
+          port: 80
+          host: 10.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-ephemeral-prestop-host
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+  ephemeralContainers:
+  - name: e
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    lifecycle:
+      preStop:
+        httpGet:
+          port: 80
+          host: 10.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-liveness-http-empty
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    livenessProbe:
+      httpGet:
+        port: 80
+        host: ''
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: userns-false-run-as-non-root-false
+spec:
+  securityContext:
+    runAsNonRoot: false
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+  hostUsers: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: userns-false-ctr-run-as-non-root-false
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      runAsNonRoot: false
+  hostUsers: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: userns-true-no-run-as-non-root
+spec:
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+  hostUsers: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: userns-false-ctr-run-as-user-0
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      runAsUser: 0
+  hostUsers: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: userns-false-ephemeral-run-as-user-0
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+  hostUsers: false
+  ephemeralContainers:
+  - name: e
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      runAsUser: 0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: userns-unset-run-as-user-0
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    runAsUser: 0
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: userns-false-init-proc-mount-unmasked
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+  hostUsers: false
+  initContainers:
+  - name: i
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      procMount: Unmasked
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: userns-true-proc-mount-unmasked
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: c
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      procMount: Unmasked
+  hostUsers: true

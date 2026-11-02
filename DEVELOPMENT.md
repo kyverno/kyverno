@@ -83,6 +83,32 @@ To remove installed tools, run:
 make clean-tools
 ```
 
+## Kubernetes CI matrix
+
+The reusable workflow [`.github/workflows/kubernetes-matrix.yaml`](.github/workflows/kubernetes-matrix.yaml)
+is the source of truth for the Kubernetes conformance matrix in both `kyverno/kyverno`
+and `kyverno/policies`. It exports JSON version arrays, a version-to-image map, and
+the compatible kind version without checking out the caller's repository.
+
+Use the latest **published kind node image** for each supported minor (currently
+1.34 through 1.37), pinned by digest from the
+[kind release notes](https://github.com/kubernetes-sigs/kind/releases).
+Kubernetes patch releases can precede their kind images: do not update a version
+until its node image exists. Testing a newer patch before then requires building
+and publishing a custom node image; a Kubernetes release tag alone is insufficient.
+
+Update the workflow's `NODES` data and `KIND_VERSION` together when appropriate.
+The beta/stable MutatingAdmissionPolicy subsets preserve API-specific coverage;
+the smoke subset runs version-independent tests on the newest supported version.
+The 1.33-only alpha MutatingAdmissionPolicy jobs are no longer in the supported matrix.
+Keep release-branch matrices independent of changes to main.
+
+Kyverno calls the workflow using a relative path, so matrix changes are tested in
+the same revision. Policies pins the external workflow to a full commit SHA;
+after publishing a matrix update, update that pin (Dependabot also tracks GitHub
+Actions references). Roll out the shared workflow before its policies consumer.
+Do not resolve latest versions dynamically during a test run.
+
 ## Building local binaries
 
 The Kyverno repository contains code for three different binaries:

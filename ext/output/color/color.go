@@ -8,10 +8,10 @@ import (
 type Color = color.Color
 
 var (
-	BoldGreen  *Color
-	BoldRed    *Color
-	BoldYellow *Color
-	BoldFgCyan *Color
+	BoldGreen  = color.New(color.FgGreen).Add(color.Bold)
+	BoldRed    = color.New(color.FgRed).Add(color.Bold)
+	BoldYellow = color.New(color.FgYellow).Add(color.Bold)
+	BoldFgCyan = color.New(color.FgCyan).Add(color.Bold)
 )
 
 func Init(noColor bool, force bool) {

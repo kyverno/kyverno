@@ -5,6 +5,11 @@ Helps with the creation of various Kyverno resources.
 ### Synopsis
 
 Helps with the creation of various Kyverno resources.
+  
+  Note: "kyverno create exception" (which scaffolded a legacy kyverno.io/v2 PolicyException) was removed
+  in 1.20 along with legacy policy execution; there is no scaffolding replacement. See the
+  policies.kyverno.io PolicyException docs at https://kyverno.io/docs/guides/exceptions/
+  for the CEL PolicyException shape.
 
   For more information visit https://kyverno.io/docs/kyverno-cli/#create
 
@@ -59,7 +64,6 @@ kyverno create [flags]
 
 * [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
 * [kyverno create cluster-role](kyverno_create_cluster-role.md)	 - Create an aggregated role for given resource types
-* [kyverno create exception](kyverno_create_exception.md)	 - Create a Kyverno policy exception file.
 * [kyverno create metrics-config](kyverno_create_metrics-config.md)	 - Create a Kyverno metrics-config file.
 * [kyverno create test](kyverno_create_test.md)	 - Create a Kyverno test file.
 * [kyverno create user-info](kyverno_create_user-info.md)	 - Create a Kyverno user-info file.

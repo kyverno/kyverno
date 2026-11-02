@@ -704,7 +704,7 @@ spec:
 	_, statErr = os.Stat(filepath.Join(dst, "evil.sh"))
 	assert.True(t, os.IsNotExist(statErr), "the non-YAML file must never reach disk")
 
-	loaded, err := policy.Load(nil, "", false, dst)
+	loaded, err := policy.Load(nil, "", dst)
 	require.NoError(t, err)
 	var names []string
 	for _, vp := range loaded.ValidatingPolicies {

@@ -25,7 +25,8 @@ kyverno jp function [function_name]... [flags]
 ### Options
 
 ```
-  -h, --help   help for function
+  -h, --help           help for function
+      --remove-color   Remove any color from output
 ```
 
 ### Options inherited from parent commands

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -136,7 +136,7 @@ func Test_GeneratePatches_sortRemovalPatches(t *testing.T) {
 	expectedResource := []byte(`{"apiVersion": "apps/v1","kind": "Deployment","metadata": {"name": "nginx-deployment","labels": {"app": "nginx"}},"spec": {"selector": {"matchLabels": {"app": "nginx"}},"replicas": 1,"template": {"metadata": {"labels": {"app": "nginx"}},"spec": {"containers": [{"name": "nginx","image": "nginx:1.14.2","ports": [{"containerPort": 80}]}],"tolerations": [{"effect": "NoSchedule","key": "networkzone","operator": "Equal","value": "dmz"}]}}}}`)
 	generatedPatches, err := generatePatches(base, expectedResource)
 	assert.NoError(t, err)
-	patchedResource, err := engineutils.ApplyPatches(base, ConvertPatches(generatedPatches...))
+	patchedResource, err := applyPatchesWithOptions(base, jsonutils.JoinPatches(ConvertPatches(generatedPatches...)...))
 	assert.NoError(t, err)
 	assert.JSONEq(t, string(expectedResource), string(patchedResource))
 }

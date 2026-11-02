@@ -5,9 +5,12 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/version"
 )
 
@@ -146,4 +149,30 @@ func TestContextProvider_GetGlobalReference_EntryErrorFailsEvaluation(t *testing
 		"globalContext": globalcontext.Context{ContextInterface: cp},
 	})
 	require.ErrorContains(t, err, "api call failed")
+}
+
+// TestAddGenerateLabels_NeverWritesLegacyOnlyLabels pins that the CEL
+// generate path never writes GenerateRuleLabel or GeneratePolicyNamespaceLabel
+// onto downstream resources. The documented cleanup command for orphaned
+// legacy-generated resources (see #17707 release notes) selects on
+// `generate.kyverno.io/rule-name` specifically because gpol-managed
+// resources never carry it; if this test starts failing, that selector
+// would start deleting CEL-managed resources too.
+func TestAddGenerateLabels_NeverWritesLegacyOnlyLabels(t *testing.T) {
+	cp := &contextProvider{}
+	cp.SetGenerateContext(
+		"my-gpol", "", "trigger-name", "trigger-ns", "v1", "apps", "Deployment", "trigger-uid",
+		false, false,
+	)
+	obj := &unstructured.Unstructured{Object: map[string]interface{}{}}
+
+	cp.addGenerateLabels(obj)
+
+	labels := obj.GetLabels()
+	_, hasRuleLabel := labels[common.GenerateRuleLabel]
+	_, hasPolicyNamespaceLabel := labels[common.GeneratePolicyNamespaceLabel]
+	assert.False(t, hasRuleLabel, "addGenerateLabels must never write %s; the orphan-cleanup selector relies on its absence", common.GenerateRuleLabel)
+	assert.False(t, hasPolicyNamespaceLabel, "addGenerateLabels must never write %s", common.GeneratePolicyNamespaceLabel)
+	// Sanity: the labels it does write are still present.
+	assert.Equal(t, "my-gpol", labels[common.GeneratePolicyLabel])
 }

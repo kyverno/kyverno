@@ -216,6 +216,7 @@ spec:
               "omitEvents"
               "policyExceptions"
               "protectManagedResources"
+              "protectGenerationLabels"
               "registryClient"
               "reporting"
               "tuf"

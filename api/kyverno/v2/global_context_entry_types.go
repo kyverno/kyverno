@@ -4,7 +4,7 @@ import (
 	"time"
 
 	gojmespath "github.com/kyverno/go-jmespath"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -56,7 +56,7 @@ type GlobalContextEntrySpec struct {
 	// +kubebuilder:validation:Optional
 	APICall *ExternalAPICall `json:"apiCall,omitempty"`
 
-	// Projections defines the list of JMESPath expressions to extract values from the cached resource.
+	// Projections defines the list of projections to extract values from the cached resource.
 	// +kubebuilder:validation:Optional
 	Projections []GlobalContextEntryProjection `json:"projections,omitempty"`
 }
@@ -134,7 +134,7 @@ func (k *KubernetesResource) Validate(path *field.Path) (errs field.ErrorList) {
 }
 
 type ExternalAPICall struct {
-	kyvernov1.APICall `json:",inline,omitempty"`
+	kyverno.APICall `json:",inline,omitempty"`
 	// RefreshInterval defines the interval in duration at which to poll the APICall.
 	// The duration is a sequence of decimal numbers, each with optional fraction and a unit suffix,
 	// such as "300ms", "1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
@@ -163,13 +163,34 @@ func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
 	return errs
 }
 
+// GlobalContextEntryProjection extracts a named value from the cached resource using
+// exactly one of JMESPath or Expression.
+//
+// The bound input, `object` for Expression or `@` for JMESPath, is exactly the value
+// returned by `globalContext.Get(name)` with no projection:
+//   - For an APICall entry, `object` is the parsed API response, typically
+//     `{"items": [...]}` for a list endpoint, so a projection reads `object.items.size()`.
+//   - For a KubernetesResource entry, `object` is the list of matching resources
+//     directly, so the equivalent projection reads `object.size()`.
+//
+// Numeric values extracted via Expression keep their CEL-native type (`int`,
+// `uint`, or `double`), which may differ from the `float64` JMESPath always produces;
+// arithmetic written against one is not guaranteed to type-check against the other.
+// +kubebuilder:validation:XValidation:rule="has(self.jmesPath) != has(self.expression)",message="exactly one of jmesPath or expression must be set"
 type GlobalContextEntryProjection struct {
 	// Name is the name to use for the extracted value in the context.
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 	// JMESPath is the JMESPath expression to extract the value from the cached resource.
-	// +kubebuilder:validation:Required
-	JMESPath string `json:"jmesPath"`
+	// Mutually exclusive with Expression.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	JMESPath string `json:"jmesPath,omitempty"`
+	// Expression is the CEL expression to extract the value from the cached resource.
+	// Mutually exclusive with JMESPath.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	Expression string `json:"expression,omitempty"`
 }
 
 // Validate implements programmatic validation
@@ -180,12 +201,16 @@ func (p *GlobalContextEntryProjection) Validate(path *field.Path, gctxName strin
 	if p.Name == gctxName {
 		errs = append(errs, field.Required(path.Child("name"), "A projection entry requires a name different from the global context entry name"))
 	}
-	if p.JMESPath == "" {
-		errs = append(errs, field.Required(path.Child("jmesPath"), "A projection entry requires a JMESPath"))
-	}
-	_, err := gojmespath.Compile(p.JMESPath)
-	if err != nil {
-		errs = append(errs, field.Invalid(path.Child("jmesPath"), p.JMESPath, err.Error()))
+	hasJP, hasExpr := p.JMESPath != "", p.Expression != ""
+	switch {
+	case !hasJP && !hasExpr:
+		errs = append(errs, field.Required(path, "A projection entry requires exactly one of jmesPath or expression"))
+	case hasJP && hasExpr:
+		errs = append(errs, field.Forbidden(path.Child("expression"), "jmesPath and expression are mutually exclusive, set exactly one"))
+	case hasJP:
+		if _, err := gojmespath.Compile(p.JMESPath); err != nil {
+			errs = append(errs, field.Invalid(path.Child("jmesPath"), p.JMESPath, err.Error()))
+		}
 	}
 	return errs
 }

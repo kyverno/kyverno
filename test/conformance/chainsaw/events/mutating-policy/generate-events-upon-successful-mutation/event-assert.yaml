@@ -6,6 +6,11 @@ involvedObject:
   apiVersion: policies.kyverno.io/v1beta1
   kind: MutatingPolicy
   name: add-labels
+related:
+  apiVersion: v1
+  kind: ConfigMap
+  name: test-configmap
+  namespace: ($namespace)
 type: Normal
 reason: PolicyApplied
 action: Resource Mutated

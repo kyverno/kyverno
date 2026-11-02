@@ -1,0 +1,16 @@
+---
+apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: projection-neither-set
+spec:
+  apiCall:
+    service:
+      url: https://svc.kyverno/example
+      caBundle: |-
+        -----BEGIN CERTIFICATE-----
+        -----REDACTED-----
+        -----END CERTIFICATE-----
+    refreshInterval: 1h
+  projections:
+    - name: count

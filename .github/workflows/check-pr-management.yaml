@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: PR management regression tests
+
+on:
+  pull_request:
+    paths:
+      - .github/actions/pr-management/**
+      - .github/pr-management.json
+      - .github/pr-readiness-checks.yml
+      - .github/labels.yml
+      - .github/workflows/pr-labelling.yaml
+      - .github/workflows/pr-readiness-check.yaml
+      - .github/workflows/pr-stale-author-action.yaml
+      - .github/workflows/sync-label-colors.yaml
+      - .github/workflows/check-pr-management.yaml
+  push:
+    branches: [main]
+    paths:
+      - .github/actions/pr-management/**
+      - .github/pr-management.json
+      - .github/pr-readiness-checks.yml
+      - .github/labels.yml
+      - .github/workflows/pr-*.yaml
+      - .github/workflows/sync-label-colors.yaml
+      - .github/workflows/check-pr-management.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Offline regression tests
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -m unittest discover -s .github/actions/pr-management/tests -v
+      - name: Validate repository configuration without a token
+        uses: ./.github/actions/pr-management
+        with:
+          mode: validate
+      - name: Validate shell syntax
+        run: |
+          for script in .github/actions/pr-management/*.sh; do bash -n "$script"; done

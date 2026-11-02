@@ -399,13 +399,33 @@ func TestValidateGlobalContextEntries(t *testing.T) {
 			t.Fatalf("got %v", err)
 		}
 	})
-	t.Run("projection missing path", func(t *testing.T) {
+	t.Run("projection missing path and expression", func(t *testing.T) {
 		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
 			Name:        "g",
 			Data:        &runtime.RawExtension{Raw: []byte(`{}`)},
 			Projections: []GlobalContextProjection{{Name: "n", Path: " "}},
 		}})
-		if err == nil || !strings.Contains(err.Error(), "path is required") {
+		if err == nil || !strings.Contains(err.Error(), "one of path or expression is required") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("projection path and expression mutually exclusive", func(t *testing.T) {
+		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
+			Name:        "g",
+			Data:        &runtime.RawExtension{Raw: []byte(`{}`)},
+			Projections: []GlobalContextProjection{{Name: "n", Path: "p", Expression: "object"}},
+		}})
+		if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("projection expression only is valid", func(t *testing.T) {
+		err := ValidateGlobalContextEntries([]GlobalContextEntryValue{{
+			Name:        "g",
+			Data:        &runtime.RawExtension{Raw: []byte(`{}`)},
+			Projections: []GlobalContextProjection{{Name: "n", Expression: "object"}},
+		}})
+		if err != nil {
 			t.Fatalf("got %v", err)
 		}
 	})

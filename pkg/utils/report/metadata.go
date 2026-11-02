@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -73,12 +71,6 @@ func IsPolicyLabel(label string) bool {
 }
 
 func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
-	if policy.AsKyvernoPolicy() != nil {
-		if policy.IsNamespaced() {
-			return LabelPrefixPolicy
-		}
-		return LabelPrefixClusterPolicy
-	}
 	if policy.AsValidatingPolicyLike() != nil {
 		return LabelPrefixValidatingPolicy
 	}
@@ -91,7 +83,7 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	if policy.AsMutatingPolicyLike() != nil {
 		return LabelPrefixMutatingPolicy
 	}
-	if policy.AsDeletingPolicy() != nil || policy.AsCleanupPolicy() != nil {
+	if policy.AsDeletingPolicy() != nil {
 		return LabelPrefixDeletingPolicy
 	}
 	if policy.AsMutatingAdmissionPolicy() != nil {
@@ -104,19 +96,8 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	return LabelPrefixValidatingAdmissionPolicy
 }
 
-func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
-	if policy.IsNamespaced() {
-		return LabelDomainPolicy
-	}
-	return LabelDomainClusterPolicy
-}
-
 func PolicyLabel(policy engineapi.GenericPolicy) string {
 	return PolicyLabelPrefix(policy) + policy.GetName()
-}
-
-func PolicyExceptionLabel(exception kyvernov2.PolicyException) string {
-	return LabelPrefixPolicyException + exception.GetName()
 }
 
 func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) string {
@@ -202,10 +183,6 @@ func SetResourceVersionLabels(report reportsv1.ReportInterface, resource *unstru
 
 func SetPolicyLabel(report reportsv1.ReportInterface, policy engineapi.GenericPolicy) {
 	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
-}
-
-func SetPolicyExceptionLabel(report reportsv1.ReportInterface, exception kyvernov2.PolicyException) {
-	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
 }
 
 func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {

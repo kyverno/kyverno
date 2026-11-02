@@ -35,9 +35,13 @@ spec:
         file: bad-pod.yaml
   - name: create skipped-pod
     try:
-    - apply:
-        file: skipped-pod.yaml
+    - script:
+        content: kubectl create -n "$NAMESPACE" -f skipped-pod.yaml --dry-run=server -o name
+        check:
+          ($error == null): true
   - name: create good-pod
     try:
-    - apply:
-        file: good-pod.yaml
+    - script:
+        content: kubectl create -n "$NAMESPACE" -f good-pod.yaml --dry-run=server -o name
+        check:
+          ($error == null): true

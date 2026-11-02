@@ -1,34 +1,10 @@
 package metrics
 
-type PolicyValidationMode string
-
-const (
-	Enforce PolicyValidationMode = "enforce"
-	Audit   PolicyValidationMode = "audit"
-)
-
-type PolicyType string
-
-const (
-	Cluster    PolicyType = "cluster"
-	Namespaced PolicyType = "namespaced"
-)
-
 type PolicyBackgroundMode string
 
 const (
 	BackgroundTrue  PolicyBackgroundMode = "true"
 	BackgroundFalse PolicyBackgroundMode = "false"
-)
-
-type RuleType string
-
-const (
-	Validate      RuleType = "validate"
-	Mutate        RuleType = "mutate"
-	Generate      RuleType = "generate"
-	ImageVerify   RuleType = "imageVerify"
-	EmptyRuleType RuleType = "-"
 )
 
 type RuleResult string

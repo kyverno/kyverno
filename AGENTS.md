@@ -143,7 +143,8 @@ Generated files follow these patterns:
 - `zz_generated.deepcopy.go` — deep copy functions in API packages
 - `zz_generated.register.go` — API type registrations
 - `pkg/client/` — generated clientset, listers, informers
-- `config/crds/` — generated CRD YAML manifests
+- `config/crds/` — generated CRD YAML manifests; `config/crds/kyverno/` is a frozen compatibility snapshot
+  during the CEL migration — only GCE and UR `v2` regenerate, see `config/crds/kyverno/README.md`
 
 ### Docker Images (ko)
 
@@ -181,8 +182,10 @@ working in that area: [`api/`](./api/AGENTS.md), [`pkg/engine/`](./pkg/engine/AG
 [`pkg/clients/`](./pkg/clients/AGENTS.md), [`pkg/admissionpolicy/`](./pkg/admissionpolicy/AGENTS.md), [`pkg/toggle/`](./pkg/toggle/AGENTS.md),
 [`pkg/controllers/`](./pkg/controllers/AGENTS.md), [`pkg/config/`](./pkg/config/AGENTS.md),
 [`pkg/deprecations/`](./pkg/deprecations/AGENTS.md), [`pkg/utils/admission/`](./pkg/utils/admission/AGENTS.md),
+[`pkg/utils/kube/`](./pkg/utils/kube/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/exception/`](./cmd/cli/kubectl-kyverno/exception/AGENTS.md),
-[`cmd/cli/kubectl-kyverno/commands/test/`](./cmd/cli/kubectl-kyverno/commands/test/AGENTS.md). Every claim in them is grounded in code actually read in the
+[`cmd/cli/kubectl-kyverno/commands/test/`](./cmd/cli/kubectl-kyverno/commands/test/AGENTS.md),
+[`cmd/cli/kubectl-kyverno/output/color/`](./cmd/cli/kubectl-kyverno/output/color/AGENTS.md). Every claim in them is grounded in code actually read in the
 session that wrote them, not inferred from directory structure — if one goes stale, fix it in place rather than
 letting drift accumulate the way the old `pkg/cosign`/`cmd/tools` references did.
 
@@ -210,7 +213,7 @@ documentation, tests, and user documentation for current behavior.
 ## Coding Conventions
 
 - **Import aliases:** Enforced by `importas` linter. Key patterns:
-  - `github.com/kyverno/kyverno/api/<group>/<version>` → `<group><version>` (e.g., `kyvernov1`)
+  - `github.com/kyverno/kyverno/api/<group>/<version>` → `<group><version>` (e.g., `kyvernov2`)
   - `k8s.io/api/<group>/<version>` → `<group><version>` (e.g., `corev1`)
   - See `.golangci.yml` for the full alias table
 - **Logging:** Uses `logr` with `zerologr` backend. Default level is 2. See `docs/dev/logging/logging.md`:

@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -49,7 +49,7 @@ func TestGlobalContextEntrySpecValidate(t *testing.T) {
 			name: "valid APICall",
 			spec: GlobalContextEntrySpec{
 				APICall: &ExternalAPICall{
-					APICall: kyvernov1.APICall{
+					APICall: kyverno.APICall{
 						URLPath: "/api/v1/namespaces",
 					},
 					RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -66,7 +66,7 @@ func TestGlobalContextEntrySpecValidate(t *testing.T) {
 					Resource: "deployments",
 				},
 				APICall: &ExternalAPICall{
-					APICall: kyvernov1.APICall{
+					APICall: kyverno.APICall{
 						URLPath: "/api/v1/namespaces",
 					},
 					RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -162,7 +162,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "valid ExternalAPICall",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					URLPath: "/api/v1/namespaces",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -172,7 +172,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "missing RefreshInterval",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					URLPath: "/api/v1/namespaces",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 0 * time.Second},
@@ -182,8 +182,8 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "both Service and URLPath",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
-					Service: &kyvernov1.ServiceCall{},
+				APICall: kyverno.APICall{
+					Service: &kyverno.ServiceCall{},
 					URLPath: "/api/v1/namespaces",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -193,7 +193,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "missing Service and URLPath",
 			apiCall: ExternalAPICall{
-				APICall:         kyvernov1.APICall{},
+				APICall:         kyverno.APICall{},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
 			},
 			wantErr: true,
@@ -201,7 +201,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "POST method without data",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					Method: "POST",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -212,9 +212,9 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "non-POST method with data",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					Method: "GET",
-					Data: []kyvernov1.RequestData{
+					Data: []kyverno.RequestData{
 						{Key: "example-key", Value: &apiextv1.JSON{Raw: []byte(`{"field": "value"}`)}},
 					},
 				},
@@ -269,7 +269,7 @@ func TestGlobalContextEntryProjectionValidate(t *testing.T) {
 			wantErr:  true,
 		},
 		{
-			name: "missing JMESPath",
+			name: "neither JMESPath nor Expression",
 			projection: GlobalContextEntryProjection{
 				Name: "example",
 			},
@@ -285,6 +285,25 @@ func TestGlobalContextEntryProjectionValidate(t *testing.T) {
 			gctxName: "globalContext",
 			wantErr:  true,
 		},
+		{
+			name: "valid Expression only",
+			projection: GlobalContextEntryProjection{
+				Name:       "example",
+				Expression: "object.size()",
+			},
+			gctxName: "globalContext",
+			wantErr:  false,
+		},
+		{
+			name: "both JMESPath and Expression",
+			projection: GlobalContextEntryProjection{
+				Name:       "example",
+				JMESPath:   "metadata.name",
+				Expression: "object.size()",
+			},
+			gctxName: "globalContext",
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -294,6 +313,85 @@ func TestGlobalContextEntryProjectionValidate(t *testing.T) {
 				t.Errorf("GlobalContextEntryProjection.Validate() error = %v, wantErr %v", errs, tt.wantErr)
 			}
 		})
+	}
+}
+
+// TestGlobalContextEntryProjectionValidate_ErrorShape pins which field.Error each branch of
+// the jmesPath/expression exactly-one-of check reports, since wantErr alone can't
+// distinguish "both set" from "neither set" or tell an expression-only error from a
+// JMESPath-compile error.
+func TestGlobalContextEntryProjectionValidate_ErrorShape(t *testing.T) {
+	tests := []struct {
+		name         string
+		projection   GlobalContextEntryProjection
+		wantErrType  field.ErrorType
+		wantErrField string
+	}{
+		{
+			name: "neither set reports Required at the projection path",
+			projection: GlobalContextEntryProjection{
+				Name: "example",
+			},
+			wantErrType:  field.ErrorTypeRequired,
+			wantErrField: "projection",
+		},
+		{
+			name: "both set reports Forbidden at the expression field",
+			projection: GlobalContextEntryProjection{
+				Name:       "example",
+				JMESPath:   "metadata.name",
+				Expression: "object.size()",
+			},
+			wantErrType:  field.ErrorTypeForbidden,
+			wantErrField: "projection.expression",
+		},
+		{
+			name: "invalid JMESPath reports Invalid at the jmesPath field",
+			projection: GlobalContextEntryProjection{
+				Name:     "example",
+				JMESPath: "invalid[",
+			},
+			wantErrType:  field.ErrorTypeInvalid,
+			wantErrField: "projection.jmesPath",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.projection.Validate(field.NewPath("projection"), "globalContext")
+			var found *field.Error
+			for _, e := range errs {
+				if e.Type == tt.wantErrType && e.Field == tt.wantErrField {
+					found = e
+					break
+				}
+			}
+			if found == nil {
+				t.Fatalf("expected an error of type %v at field %q, got %v", tt.wantErrType, tt.wantErrField, errs)
+			}
+		})
+	}
+}
+
+// TestGlobalContextEntryProjectionValidate_EmptyJMESPathDoesNotCompile ensures an
+// explicitly empty JMESPath alongside a set Expression is treated as expression-only: the
+// JMESPath compiler is never invoked, so an empty string can't surface as an "invalid
+// JMESPath" error.
+//
+// This is defence in depth, not the user-facing contract. The CRD schema is stricter:
+// minLength rejects `jmesPath: ""`, and the XValidation rule counts an explicitly present
+// empty string, so the API server refuses this input before any webhook runs. Go cannot
+// tell an absent string from an empty one, so Validate stays lenient rather than reporting
+// a bogus "invalid JMESPath" for a field the user never set.
+func TestGlobalContextEntryProjectionValidate_EmptyJMESPathDoesNotCompile(t *testing.T) {
+	p := GlobalContextEntryProjection{
+		Name:       "example",
+		JMESPath:   "",
+		Expression: "object.size()",
+	}
+	errs := p.Validate(field.NewPath("projection"), "globalContext")
+	if len(errs) != 0 {
+		t.Errorf("expected no errors for expression-only projection with empty JMESPath, got %v", errs)
 	}
 }
 

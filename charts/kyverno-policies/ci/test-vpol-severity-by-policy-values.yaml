@@ -1,4 +1,3 @@
-policyType: ValidatingPolicy
 podSecurityStandard: restricted
 includeOtherPolicies:
   - require-non-root-groups

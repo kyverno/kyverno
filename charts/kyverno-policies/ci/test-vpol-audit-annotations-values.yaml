@@ -1,4 +1,3 @@
-policyType: ValidatingPolicy
 podSecurityStandard: baseline
 
 auditAnnotations:

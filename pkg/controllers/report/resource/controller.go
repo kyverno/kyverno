@@ -10,9 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
-	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	metaclient "github.com/kyverno/kyverno/pkg/clients/metadata"
@@ -31,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
@@ -93,8 +90,6 @@ type controller struct {
 	client dclient.Interface
 
 	// listers
-	polLister      kyvernov1listers.PolicyLister
-	cpolLister     kyvernov1listers.ClusterPolicyLister
 	vpolLister     policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister    policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister     policiesv1beta1listers.MutatingPolicyLister
@@ -118,8 +113,6 @@ type controller struct {
 
 func NewController(
 	client dclient.Interface,
-	polInformer kyvernov1informers.PolicyInformer,
-	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
@@ -133,9 +126,7 @@ func NewController(
 	metaClient metaclient.UpstreamInterface,
 ) Controller {
 	c := controller{
-		client:     client,
-		polLister:  polInformer.Lister(),
-		cpolLister: cpolInformer.Lister(),
+		client: client,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
@@ -202,12 +193,6 @@ func NewController(
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mapAlphaInformer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
-	}
-	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue); err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
-	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
-		logger.Error(err, "failed to register event handlers")
 	}
 	c.watchDeathChan = make(chan schema.GroupVersionResource, 100)
 	return &c
@@ -408,20 +393,7 @@ func kindsFromPolicyAndAutogen(matchConstraints *admissionregistrationv1.MatchRe
 func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	clusterPolicies, err := utils.FetchClusterPolicies(c.cpolLister)
-	if err != nil {
-		return err
-	}
-	policies, err := utils.FetchPolicies(c.polLister, metav1.NamespaceAll)
-	if err != nil {
-		return err
-	}
-	kinds := utils.BuildKindSet(logger, utils.RemoveNonValidationPolicies(append(clusterPolicies, policies...)...)...)
 	gvkToGvr := map[schema.GroupVersionKind]schema.GroupVersionResource{}
-	for _, policyKind := range sets.List(kinds) {
-		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)
-		c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-	}
 	restMapper, err := restmapper.GetRESTMapper(c.client)
 	if err != nil {
 		return err

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
-	loaders "github.com/kyverno/kyverno/pkg/engine/context/loaders"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -193,5 +192,5 @@ func TestMockGCtxStore_ResourcesBackedProjection(t *testing.T) {
 	}
 }
 
-var _ loaders.Store = (*mockGCtxStore)(nil)
-var _ loaders.Store = (*delegatingGCtxStore)(nil)
+var _ GCtxStore = (*mockGCtxStore)(nil)
+var _ GCtxStore = (*delegatingGCtxStore)(nil)

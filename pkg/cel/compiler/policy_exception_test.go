@@ -46,6 +46,20 @@ func TestCompilePolicyExceptionMatchConditions(t *testing.T) {
 			expression: "object.metadata.name",
 			wantErrors: true,
 		},
+		{
+			name: "resource.Get",
+			expression: `resource.Get(
+				"v1",
+				"namespaces",
+				"",
+				object.metadata.namespace
+			).metadata.labels["team"] == "infra"`,
+		},
+		{
+			name:       "resource invalid method",
+			expression: `resource.DoesNotExist("v1", "namespaces", "", "default") == true`,
+			wantErrors: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -63,6 +77,20 @@ func TestCompilePolicyExceptionMatchConditions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCompilePolicyExceptionMatchConditionsStoredResourceGet(t *testing.T) {
+	expression := `resource.Get("v1", "namespaces", "", object.metadata.namespace).metadata.labels["team"] == "infra"`
+
+	errs := CompilePolicyExceptionMatchConditions(
+		[]admissionregistrationv1.MatchCondition{{
+			Name:       "resource-get",
+			Expression: expression,
+		}},
+		map[string]bool{expression: true},
+	)
+
+	assert.Empty(t, errs)
 }
 
 func TestCompilePolicyExceptionMatchConditionsStructure(t *testing.T) {

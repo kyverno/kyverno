@@ -1,9 +1,22 @@
 name: K6 tests
 
-permissions: {}
+permissions:
+  contents: read
+  actions: read
 
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      release-candidate:
+        type: boolean
+        default: false
+      release-sha:
+        type: string
+        default: ""
+
+env:
+  RELEASE_CANDIDATE: ${{ inputs.release-candidate }}
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   k6:
@@ -15,6 +28,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Install helm
@@ -44,10 +60,18 @@ jobs:
           # Kyverno's policy webhook can still refuse connections right after the install,
           # so retry the policies install a couple of times.
           for i in 1 2 3; do
+            repository=()
+            if [[ "$RELEASE_CANDIDATE" == "true" ]]; then
+              chart=$(find .release/packages -name 'kyverno-policies-*.tgz')
+              test -f "$chart"
+            else
+              chart=kyverno-policies
+              repository=(--repo https://kyverno.github.io/kyverno/)
+            fi
             helm upgrade --install --wait --timeout 15m \
               --namespace kyverno --create-namespace \
-              --repo https://kyverno.github.io/kyverno/ \
-              kyverno-policies kyverno-policies && exit 0
+              "${repository[@]}" \
+              kyverno-policies "$chart" && exit 0
             helm uninstall kyverno-policies --namespace kyverno --ignore-not-found || true
             sleep 15
           done
@@ -88,7 +112,7 @@ jobs:
       - name: Upload k6 reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: k6-reports-${{ matrix.scenario }}
+          name: k6-reports-${{ matrix.scenario }}-${{ github.run_attempt }}
           path: |
             k6-summary.json
             k6.html
@@ -103,24 +127,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Download k6 reports (simple)
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: k6-reports-simple
-          path: summaries/simple
-        continue-on-error: true
-      - name: Download k6 reports (kyverno)
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: k6-reports-kyverno
-          path: summaries/kyverno
-        continue-on-error: true
-      - name: Download k6 reports (kyverno-pss)
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: k6-reports-kyverno-pss
-          path: summaries/kyverno-pss
-        continue-on-error: true
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
+      - name: Restore latest successful scenario reports across interrupted attempts
+        run: python3 scripts/release/artifacts.py k6
       - name: Aggregate and compare results
         run: |
           ./scripts/k6-aggregate-summary.sh summaries simple kyverno kyverno-pss >> $GITHUB_STEP_SUMMARY

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
@@ -53,16 +53,16 @@ type fakeStatusControl struct {
 	successCalled bool
 }
 
-func (f *fakeStatusControl) Failed(name, msg string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (f *fakeStatusControl) Failed(name, msg string, genResources []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	f.failedCalled = true
 	f.failedMsg = msg
 	return &kyvernov2.UpdateRequest{}, nil
 }
-func (f *fakeStatusControl) Success(name string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (f *fakeStatusControl) Success(name string, genResources []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	f.successCalled = true
 	return &kyvernov2.UpdateRequest{}, nil
 }
-func (f *fakeStatusControl) Skip(name string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (f *fakeStatusControl) Skip(name string, genResources []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	f.successCalled = true
 	return &kyvernov2.UpdateRequest{}, nil
 }

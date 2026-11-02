@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -434,7 +434,7 @@ func TestSyncWatchers_StaleRefCountRemovedWhenWatcherMissing(t *testing.T) {
 func TestSyncWatchers_GVRDropIsTriggerScoped(t *testing.T) {
 	cmGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	secretGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
-	triggerA := &v1.ResourceSpec{UID: "uid-trigger-a"}
+	triggerA := &kyverno.ResourceSpec{UID: "uid-trigger-a"}
 
 	cmA := makeUnstructured("1", "", "v1", "ConfigMap", "cm-a", "ns-a", "uid-cm-a", map[string]string{
 		common.GeneratePolicyLabel:     "p1",
@@ -491,7 +491,7 @@ func TestSyncWatchers_GVRDropIsTriggerScoped(t *testing.T) {
 	assert.ElementsMatch(t, []schema.GroupVersionResource{cmGVR, secretGVR}, wm.policyRefs["p1"])
 
 	// once trigger B's resources are gone too, dropping the GVR stops the watcher
-	wm.DeleteDownstreams("p1", &v1.ResourceSpec{UID: "uid-trigger-b"})
+	wm.DeleteDownstreams("p1", &kyverno.ResourceSpec{UID: "uid-trigger-b"})
 	err = wm.SyncWatchers("p1", triggerA, []*unstructured.Unstructured{secretA}, false)
 	require.NoError(t, err)
 	_, exists = wm.dynamicWatchers[cmGVR]
@@ -646,7 +646,7 @@ func TestDeleteDownstreams(t *testing.T) {
 		policyName     string
 		policyRefs     map[string][]schema.GroupVersionResource
 		dynamicW       map[schema.GroupVersionResource]*watcher
-		trigger        *v1.ResourceSpec
+		trigger        *kyverno.ResourceSpec
 		clientErr      error
 		wantDeleted    []string
 		wantCacheSizes map[schema.GroupVersionResource]int
@@ -683,7 +683,7 @@ func TestDeleteDownstreams(t *testing.T) {
 			name:       "trigger UID does not match",
 			policyName: "p1",
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
-			trigger:    &v1.ResourceSpec{UID: triggerUID},
+			trigger:    &kyverno.ResourceSpec{UID: triggerUID},
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
 					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
@@ -718,7 +718,7 @@ func TestDeleteDownstreams(t *testing.T) {
 			name:       "trigger UID matches deletes only those",
 			policyName: "p1",
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
-			trigger:    &v1.ResourceSpec{UID: triggerUID},
+			trigger:    &kyverno.ResourceSpec{UID: triggerUID},
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
 					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
@@ -882,7 +882,7 @@ func TestCleanupStaleDownstreams(t *testing.T) {
 				log:             logging.WithName("test"),
 			}
 
-			wm.CleanupStaleDownstreams("p1", &v1.ResourceSpec{UID: triggerUID}, tt.desired)
+			wm.CleanupStaleDownstreams("p1", &kyverno.ResourceSpec{UID: triggerUID}, tt.desired)
 
 			assert.ElementsMatch(t, tt.wantDeleted, client.deleted)
 			for gvr, wantSize := range tt.wantCacheSizes {
@@ -917,7 +917,7 @@ func TestCleanupStaleDownstreams_NotFoundDropsCache(t *testing.T) {
 		},
 	}
 
-	wm.CleanupStaleDownstreams("p1", &v1.ResourceSpec{UID: "trigger-123"}, nil)
+	wm.CleanupStaleDownstreams("p1", &kyverno.ResourceSpec{UID: "trigger-123"}, nil)
 
 	assert.Empty(t, wm.dynamicWatchers[gvr1].metadataCache)
 }

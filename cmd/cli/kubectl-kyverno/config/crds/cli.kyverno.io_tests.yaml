@@ -145,23 +145,32 @@ spec:
                   description: Name is the name of the GlobalContextEntry resource.
                   type: string
                 projections:
-                  description: Projections are optional named JMESPath extracts (see
-                    GlobalContextProjection).
+                  description: |-
+                    Projections are optional named extracts, each written in either JMESPath or CEL
+                    (see GlobalContextProjection).
                   items:
-                    description: GlobalContextProjection pairs a policy-visible name
-                      with a JMESPath over the mock root.
+                    description: |-
+                      GlobalContextProjection pairs a policy-visible name with a JMESPath or CEL expression over
+                      the mock root. Mirrors GlobalContextEntryProjection's exactly-one-of jmesPath/expression
+                      contract (api/kyverno/v2beta1), so a test fixture can mock either kind of projection.
                     properties:
+                      expression:
+                        description: |-
+                          Expression is a CEL expression evaluated against the root after FieldPath (if any) is
+                          applied, bound to the `object` variable, matching the real GlobalContextEntry projection's
+                          expression field. Mutually exclusive with Path.
+                        type: string
                       name:
                         description: Name is the key policies see on the mocked global
                           context object.
                         type: string
                       path:
-                        description: Path is a JMESPath expression evaluated against
-                          the root after FieldPath (if any) is applied.
+                        description: |-
+                          Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.
+                          Mutually exclusive with Expression.
                         type: string
                     required:
                     - name
-                    - path
                     type: object
                   type: array
                 resourceFiles:

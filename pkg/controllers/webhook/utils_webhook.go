@@ -1,7 +1,7 @@
 package webhook
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
@@ -23,7 +23,7 @@ type ruleEntry struct {
 	resource    string
 	subresource string
 	scope       admissionregistrationv1.ScopeType
-	operation   kyvernov1.AdmissionOperation
+	operation   admissionv1.Operation
 }
 
 type groupVersionScope struct {
@@ -71,7 +71,7 @@ func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePoli
 func (wh *webhook) hasRule(
 	group, version, resource, subresource string,
 	scope admissionregistrationv1.ScopeType,
-	operation kyvernov1.AdmissionOperation,
+	operation admissionv1.Operation,
 ) bool {
 	var scopes []admissionregistrationv1.ScopeType
 	if scope == admissionregistrationv1.AllScopes {
@@ -160,13 +160,13 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 			}
 			ops := gvs[resource]
 			switch rule.operation {
-			case kyvernov1.Create:
+			case admissionv1.Create:
 				ops.create = true
-			case kyvernov1.Update:
+			case admissionv1.Update:
 				ops.update = true
-			case kyvernov1.Delete:
+			case admissionv1.Delete:
 				ops.delete = true
-			case kyvernov1.Connect:
+			case admissionv1.Connect:
 				ops.connect = true
 			}
 			gvs[resource] = ops
@@ -210,7 +210,7 @@ func (wh *webhook) set(
 	resource string,
 	subresource string,
 	scope admissionregistrationv1.ScopeType,
-	operations ...kyvernov1.AdmissionOperation,
+	operations ...admissionv1.Operation,
 ) {
 	for _, operation := range operations {
 		wh.rules.Insert(ruleEntry{
