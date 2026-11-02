@@ -888,3 +888,33 @@ func TestValidateWarnsOnCompensatingControlForIgnoringKind(t *testing.T) {
 	assert.Contains(t, warnings[0], "ignored-control")
 	assert.Contains(t, warnings[0], "MutatingPolicy")
 }
+
+// TestValidateRejectsUncompilableCompensatingControlForIgnoringKind pins the writer-scoped fix: an
+// uncompilable spec.validations expression is a hard failure even when the exception's policyRefs
+// name only a kind (MutatingPolicy) whose engine ignores compensating controls. The shared
+// exceptionvalidation.ValidateCompensatingControlExpressions helper skips the compile entirely in
+// this case (the admission path relies on that skip), so this behavior comes from a writer-scoped
+// check in internal/bundle, not from that helper.
+func TestValidateRejectsUncompilableCompensatingControlForIgnoringKind(t *testing.T) {
+	polex := &policiesv1beta1.PolicyException{
+		TypeMeta:   metav1.TypeMeta{Kind: "PolicyException", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "bad-ignored-control"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1alpha1.PolicyRef{{Name: "mutate-things", Kind: "MutatingPolicy"}},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "invalid.syntax == ((("},
+			},
+		},
+	}
+	mp := &policiesv1beta1.MutatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "MutatingPolicy", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "mutate-things"},
+	}
+	results := &policy.LoaderResults{
+		MutatingPolicies:    []policiesv1beta1.MutatingPolicyLike{mp},
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{polex},
+	}
+	err := validate(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "compensating control")
+}

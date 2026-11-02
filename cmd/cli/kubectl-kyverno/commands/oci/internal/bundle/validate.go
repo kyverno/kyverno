@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -16,6 +17,7 @@ import (
 	exceptionvalidation "github.com/kyverno/kyverno/pkg/validation/exception"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // nativeAdmissionKinds are the admissionregistration.k8s.io kinds validateResults rejects with
@@ -363,7 +365,7 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 			opts.warn(fmt.Sprintf("policy exception %q expired at %s (validated at %s); the engine will ignore it",
 				ex.GetName(), ex.Spec.ExpiresAt.Time.UTC().Format(time.RFC3339), now.UTC().Format(time.RFC3339)))
 		}
-		if errs := exceptionvalidation.ValidateCompensatingControlExpressions(ex); len(errs) > 0 {
+		if errs := compileCompensatingControlExpressions(ex); len(errs) > 0 {
 			return fmt.Errorf("validating compensating controls in policy exception %q: %v", ex.GetName(), errs.ToAggregate())
 		}
 		for _, warning := range exceptionvalidation.ValidateCompensatingControls(&ex.Spec) {
@@ -380,4 +382,33 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 	}
 
 	return nil
+}
+
+// compileCompensatingControlExpressions is a writer-scoped sibling of
+// exceptionvalidation.ValidateCompensatingControlExpressions: it compiles spec.validations
+// unconditionally, regardless of which kinds the exception's policyRefs name. The shared helper
+// skips the compile entirely when no ref is a ValidatingPolicy or NamespacedValidatingPolicy,
+// which is correct for the admission path (pkg/webhooks/celexception/validate.go relies on that
+// skip) but wrong here: an exception referencing only, say, a MutatingPolicy still carries a
+// spec.validations the writer must reject if it fails to compile, per bundle-spec.md's
+// unconditional writer rule, even though the warning path (ValidateCompensatingControls) already
+// tells the author the field will be ignored for that kind.
+func compileCompensatingControlExpressions(polex *policiesv1beta1.PolicyException) field.ErrorList {
+	if len(polex.Spec.Validations) == 0 {
+		return nil
+	}
+	env, err := vpolcompiler.NewExceptionEnv(polex.GetNamespace())
+	if err != nil {
+		// failing to build our own environment is not the author's fault; the engine surfaces
+		// it on the policy itself if it ever happens
+		return nil
+	}
+	path := field.NewPath("spec", "validations")
+	var errs field.ErrorList
+	for i, validation := range polex.Spec.Validations {
+		if _, compileErrs := celcompiler.CompileValidation(path.Index(i), env, validation, false); compileErrs != nil {
+			errs = append(errs, compileErrs...)
+		}
+	}
+	return errs
 }

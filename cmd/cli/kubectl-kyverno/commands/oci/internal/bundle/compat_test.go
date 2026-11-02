@@ -59,6 +59,15 @@ func TestCheckKyvernoVersionUnknownForDevBuilds(t *testing.T) {
 	}
 }
 
+// TestCheckKyvernoVersionUnknownForPseudoVersionWithReleaseBase pins the case the base-0.0.0 check
+// alone misses: a Go pseudo-version whose embedded base is a real release line (as happens for a
+// build off a tag plus commits) must still report Unknown, not that release.
+func TestCheckKyvernoVersionUnknownForPseudoVersionWithReleaseBase(t *testing.T) {
+	c, err := CheckKyvernoVersion(">=1.20", "v1.20.0-0.20261001123456-abcdef123456")
+	require.NoError(t, err)
+	assert.Equal(t, CompatibilityUnknown, c)
+}
+
 func TestCheckKyvernoVersionMalformedConstraintErrors(t *testing.T) {
 	_, err := CheckKyvernoVersion("not a constraint", "1.20.0")
 	assert.Error(t, err)

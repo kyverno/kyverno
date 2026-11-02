@@ -2,10 +2,18 @@ package bundle
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
 )
+
+// pseudoVersionPattern matches a Go pseudo-version's distinctive suffix: a dot, a 14-digit UTC
+// timestamp, a dash, and a 12-hex-digit commit hash (see golang.org/x/mod/module's definition). A
+// prerelease like "1.20.0-rc.1" never matches this; only a pseudo-version like
+// "1.20.0-0.20261001123456-abcdef123456" does, and it must report Unknown rather than be stripped
+// down to "1.20.0" and treated as that release.
+var pseudoVersionPattern = regexp.MustCompile(`\.\d{14}-[0-9a-f]{12}(\+incompatible)?$`)
 
 // Compatibility is the three-state result of comparing a bundle's declared kyvernoVersion
 // constraint against a Kyverno version.
@@ -31,13 +39,18 @@ func ParseKyvernoVersionConstraint(s string) (*semver.Constraints, error) {
 
 // NormalizeKyvernoVersion strips a leading "v" and any prerelease/build metadata, so a release
 // candidate build of the engine (1.20.0-rc.1) checks against the same release line as its final
-// release (1.20.0) would. It returns ("", false) when version doesn't parse as semver at all, or
-// when it normalizes to 0.0.0 -- the value pkg/version.Version() returns for a Go pseudo-version,
-// "(devel)", or its own "---" placeholder, none of which name a release. Exported so
-// `kyverno oci validate --kyverno-version` can reject a target that isn't a release version using
-// the same rule CheckKyvernoVersion uses for Unknown.
+// release (1.20.0) would. It returns ("", false) when version doesn't parse as semver at all, when
+// it is a Go pseudo-version (pkg/version.Version() returns one whenever the build wasn't from a
+// tag, and its base version can be any release line, not just 0.0.0), or when it normalizes to
+// 0.0.0 -- the value pkg/version.Version() returns for "(devel)" or its own "---" placeholder.
+// None of these name a release. Exported so `kyverno oci validate --kyverno-version` can reject a
+// target that isn't a release version using the same rule CheckKyvernoVersion uses for Unknown.
 func NormalizeKyvernoVersion(version string) (string, bool) {
-	v, err := semver.NewVersion(strings.TrimPrefix(version, "v"))
+	trimmed := strings.TrimPrefix(version, "v")
+	if pseudoVersionPattern.MatchString(trimmed) {
+		return "", false
+	}
+	v, err := semver.NewVersion(trimmed)
 	if err != nil {
 		return "", false
 	}
