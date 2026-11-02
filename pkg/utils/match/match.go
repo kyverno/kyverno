@@ -68,6 +68,8 @@ func CheckMatchesResources(
 				)...,
 			)
 		}
+	} else {
+		return fmt.Errorf("no resource filter specified")
 	}
 	return multierr.Combine(errs...)
 }
