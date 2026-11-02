@@ -24,9 +24,11 @@ Everything that fetches through Kyverno's registry client:
 For each request the guard resolves the destination, rejects it or pins the connection to the
 addresses it just validated, and re-checks on every redirect and reused connection. Credentials
 the registry client's keychain resolves are resolved only after the destination passes, so a
-blocked host never causes a credential lookup. `source.signaturePullSecrets` is the exception:
-those secrets are read before the destination is checked. The transport still validates the
-destination and refuses the connection, so the credentials are never sent to a blocked host.
+blocked host normally causes no credential lookup; the exception is a proxied name the local
+resolver cannot find, described under Rollout. `source.signaturePullSecrets` is the other
+exception: those secrets are read before the destination is checked. In both cases the transport
+still validates the destination and refuses the connection, so the credentials are never sent to
+a blocked host.
 
 ## What is not covered
 
@@ -95,7 +97,11 @@ to downstream — that remains the proxy's responsibility.
 
 A registry that resolves only from the proxy's network is still reachable. When a proxy is
 configured and the controller's own resolver reports the name as not found, the destination is
-left to the proxy and the request proceeds; the skip is logged at verbosity 2. This applies only
-to that one case. A name that does resolve is validated as usual, a literal IP address never
+left to the proxy and the request proceeds; the skip is logged at verbosity 2. The same allowance
+is made during credential resolution, which happens first — otherwise the request would fail
+looking up credentials before the transport ever got to defer to the proxy. Credentials may
+therefore be resolved for a name the controller cannot resolve, but the destination is still
+validated before any connection is made, so they are never sent to a blocked host. This applies
+only to that one case. A name that does resolve is validated as usual, a literal IP address never
 consults the resolver and so can never be excused this way, and any other resolver failure still
 fails closed.

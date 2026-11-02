@@ -3,11 +3,13 @@ package egress
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/sdk/extensions/regcreds"
 )
 
@@ -84,12 +86,13 @@ func (g *Guard) GuardKeychain(inner authn.Keychain) authn.Keychain {
 	if g == nil || g.policy == nil {
 		return inner
 	}
-	return &guardedKeychain{inner: inner, policy: g.policy}
+	return &guardedKeychain{inner: inner, policy: g.policy, transport: g.transport}
 }
 
 type guardedKeychain struct {
-	inner  authn.Keychain
-	policy *Policy
+	inner     authn.Keychain
+	policy    *Policy
+	transport *Transport
 }
 
 var _ authn.ContextKeychain = (*guardedKeychain)(nil)
@@ -106,7 +109,32 @@ func (g *guardedKeychain) ResolveContext(ctx context.Context, resource authn.Res
 	_, err := g.policy.ResolveAndValidate(validationCtx, resource.RegistryStr())
 	cancel()
 	if err != nil {
-		return nil, err
+		// The transport leaves a registry only the proxy can resolve to the proxy. A keychain
+		// is resolved before the transport dials, so returning here would make that carve-out
+		// unreachable and the destination unusable after all. Deferring is not a grant: the
+		// transport still validates before connecting, so a blocked host is still refused and
+		// never receives these credentials.
+		if !dnsNotFound(err) || !g.proxied(resource.RegistryStr()) {
+			return nil, err
+		}
+		logging.WithName("egress").V(2).Info("resolving credentials for a destination left to the proxy's resolver", "registry", resource.RegistryStr())
 	}
 	return authn.Resolve(ctx, g.inner, resource)
+}
+
+// proxied reports whether a proxy is configured for this registry. A keychain is told only a
+// host, so both schemes are tried: go-containerregistry picks http for an insecure registry and
+// https otherwise, and either match is enough to know the transport will not dial it directly.
+// Erring towards true only defers a check the transport still makes.
+func (g *guardedKeychain) proxied(registry string) bool {
+	if g.transport == nil || g.transport.proxy == nil {
+		return false
+	}
+	for _, scheme := range []string{"https", "http"} {
+		proxy, err := g.transport.proxy(&http.Request{URL: &url.URL{Scheme: scheme, Host: registry}})
+		if err == nil && proxy != nil {
+			return true
+		}
+	}
+	return false
 }

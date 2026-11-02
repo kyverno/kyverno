@@ -40,6 +40,13 @@
   proxy rather than failing closed — otherwise proxy-only-resolvable registries break in every
   mode. Keep `dnsNotFound` narrow: literal addresses never reach the resolver, and
   `ErrAddressBlocked` plus every other resolver failure must stay fatal.
+- The keychain is resolved before the transport dials, so `Transport.RoundTrip`'s proxy carve-out
+  is only reachable if `guardedKeychain.ResolveContext` makes the same allowance; change one side
+  and the other must change with it, or the deferral becomes dead code and the destination
+  unusable after all. Deferring at the keychain is not a grant — the transport is still the
+  backstop that refuses a blocked host before credentials can be sent to it.
+  `guardedKeychain.proxied` tries both `https` and `http` because a keychain is given a host and
+  no scheme; erring towards true only defers a check the transport still makes.
 - DNS and connection attempts share `DialTimeout` or the shorter caller deadline.
   Preserve the original request context for response bodies; close rejected request bodies.
 - Keep resolved IPs/DNS server details out of returned `hostError` messages while retaining
