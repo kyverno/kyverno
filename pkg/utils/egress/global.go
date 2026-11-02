@@ -63,6 +63,13 @@ func Global() *Guard {
 	return global.Load()
 }
 
+// RestoreGlobal reinstalls a Guard captured from Global, including a nil one. SetGlobal builds
+// a Guard from configuration and so cannot express "no Guard at all"; a caller that installs
+// one temporarily uses this to put process-wide state back exactly as it found it.
+func RestoreGlobal(guard *Guard) {
+	global.Store(guard)
+}
+
 // Transport returns the guarded round tripper, or nil to leave the SDK's default in place.
 // Pass it to registryclient.WithTransport.
 func (g *Guard) Transport() http.RoundTripper {
@@ -111,9 +118,12 @@ func (g *guardedKeychain) ResolveContext(ctx context.Context, resource authn.Res
 	if err != nil {
 		// The transport leaves a registry only the proxy can resolve to the proxy. A keychain
 		// is resolved before the transport dials, so returning here would make that carve-out
-		// unreachable and the destination unusable after all. Deferring is not a grant: the
-		// transport still validates before connecting, so a blocked host is still refused and
-		// never receives these credentials.
+		// unreachable and the destination unusable after all. This matches what the transport
+		// then does rather than relying on it: for this same name it also skips the target
+		// check and hands the request to the proxy. So nothing about the final destination is
+		// validated on this path, and these credentials travel with that request. The carve-out
+		// is bounded by its precondition -- a proxy is configured and the local resolver cannot
+		// find the name, which is the operator delegating resolution to the proxy.
 		if !dnsNotFound(err) || !g.proxied(resource.RegistryStr()) {
 			return nil, err
 		}

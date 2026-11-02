@@ -25,10 +25,11 @@ Everything that fetches through Kyverno's registry client:
 For each request the guard resolves the destination, rejects it or pins the connection to the
 addresses it just validated, and re-checks on every redirect and reused connection. Credentials
 the registry client's keychain resolves are resolved only after the destination passes, so a
-blocked host normally causes no credential lookup; the exception is a proxied name the local
-resolver cannot find, described under Rollout. `source.signaturePullSecrets` is the other
-exception: those secrets are read before the destination is checked, but the transport still
-validates the destination and refuses the connection, so they are never sent to a blocked host.
+blocked host normally causes no credential lookup. `source.signaturePullSecrets` is read earlier,
+before the destination is checked, but the transport refuses a blocked destination it can
+resolve, so those secrets are not sent to it. One exception runs through both paths: a proxied
+name the local resolver cannot find is not checked at all, so credentials are resolved and sent
+for a destination only the proxy decides. See Rollout.
 
 ## What is not covered
 

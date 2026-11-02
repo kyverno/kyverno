@@ -3,6 +3,7 @@ package egress
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/netip"
 	"testing"
@@ -10,6 +11,21 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+// Fixtures standing in for an ordinary public registry or proxy address, shared by every test
+// in this package. The RFC 5737/3849 documentation ranges (192.0.2.0/24, 198.51.100.0/24,
+// 203.0.113.0/24, 2001:db8::/32) cannot play that role: policy.go classifies them as
+// private-class, so a fixture written there is logged as private in audit mode and rejected
+// outright in enforce mode. Use documentation addresses only where the point of the test is
+// that they are rejected. These are real public addresses, but nothing is ever contacted --
+// every resolver and dialer in these tests is stubbed.
+const (
+	publicIPv4    = "93.184.216.34"
+	publicIPv4Alt = "93.184.216.35"
+	publicIPv6    = "2606:2800:220:1:248:1893:25c8:1946"
+	// publicIPv4Nth formats distinct public addresses for tests that need a changing answer.
+	publicIPv4Nth = "93.184.216.%d"
 )
 
 func testPolicy(t *testing.T, config Config, answers map[string][]string) *Policy {
@@ -57,6 +73,7 @@ func TestPrivateNetworkCompatibilityAndExemptions(t *testing.T) {
 	for _, address := range []string{
 		"10.1.2.3", "172.16.1.1", "192.168.1.1", "100.64.1.1", "fd01::1", "64:ff9b::a01:203",
 		"192.0.0.1", "192.88.99.1", "240.0.0.1", "2001:0:4136:e378:8000:63bf:3fff:fdd2", "100::1",
+		"192.0.2.1", "198.51.100.1", "203.0.113.1", "2001:db8::1",
 		"::ffff:192.0.0.1", "64:ff9b::c000:1",
 	} {
 		t.Run(address, func(t *testing.T) {
@@ -89,6 +106,12 @@ func TestSpecialPurposeRangesAreExemptableByAddress(t *testing.T) {
 		{name: "reserved for future use", address: "240.0.0.1", exemption: "240.0.0.0/4"},
 		{name: "teredo", address: "2001:0:4136:e378:8000:63bf:3fff:fdd2", exemption: "2001::/23"},
 		{name: "IPv6 discard only", address: "100::1", exemption: "100::/64"},
+		// Documentation space is unroutable in public, not unroutable everywhere: a cluster is
+		// free to point it at an internal service, so it is private-class too.
+		{name: "documentation TEST-NET-1", address: "192.0.2.1", exemption: "192.0.2.0/24"},
+		{name: "documentation TEST-NET-2", address: "198.51.100.1", exemption: "198.51.100.0/24"},
+		{name: "documentation TEST-NET-3", address: "203.0.113.1", exemption: "203.0.113.0/24"},
+		{name: "IPv6 documentation", address: "2001:db8::1", exemption: "2001:db8::/32"},
 		{name: "IPv4 mapped protocol assignment", address: "::ffff:192.0.0.1", exemption: "192.0.0.0/24"},
 		{name: "NAT64 protocol assignment", address: "64:ff9b::c000:1", exemption: "192.0.0.0/24"},
 	} {
@@ -155,7 +178,7 @@ func TestResolutionFailuresAreNotExempt(t *testing.T) {
 func TestMetadataHostnamesCannotBeExempted(t *testing.T) {
 	t.Parallel()
 	for _, host := range []string{"metadata.internal", "metadata.google.internal", "instance-data.ec2.internal"} {
-		policy := testPolicy(t, Config{Allowlist: []string{host}}, map[string][]string{host: {"93.184.216.34"}})
+		policy := testPolicy(t, Config{Allowlist: []string{host}}, map[string][]string{host: {publicIPv4}})
 		_, err := policy.ResolveAndValidate(context.Background(), host)
 		require.ErrorIs(t, err, ErrAddressBlocked)
 	}
@@ -179,10 +202,10 @@ func TestDialAddressesFallsBackWithinSameFamily(t *testing.T) {
 			peer, expected := net.Pipe()
 			defer peer.Close()
 			defer expected.Close()
-			addresses := []net.IP{
-				net.ParseIP("192.0.2.1"), net.ParseIP("192.0.2.2"),
-				net.ParseIP("192.0.2.3"), net.ParseIP("192.0.2.4"),
-			}[:tc.candidates]
+			addresses := make([]net.IP, 0, tc.candidates)
+			for i := range tc.candidates {
+				addresses = append(addresses, net.ParseIP(fmt.Sprintf(publicIPv4Nth, i+1)))
+			}
 			var wantAttempts []string
 			for _, ip := range addresses {
 				wantAttempts = append(wantAttempts, net.JoinHostPort(ip.String(), "443"))
@@ -236,7 +259,7 @@ func TestDialAddressesCancellationStopsRemainingCandidates(t *testing.T) {
 				cancel()
 				<-attemptCtx.Done()
 				return nil, attemptCtx.Err()
-			}, "tcp", "443", []net.IP{net.ParseIP("192.0.2.1"), net.ParseIP("192.0.2.2")})
+			}, "tcp", "443", []net.IP{net.ParseIP(publicIPv4), net.ParseIP(publicIPv4Alt)})
 			require.ErrorIs(t, err, context.Canceled)
 			assert.Nil(t, connection)
 			if alreadyCanceled {
@@ -262,7 +285,7 @@ func TestDialAddressesWithoutDeadline(t *testing.T) {
 			return nil, errors.New("connection refused")
 		}
 		return expected, nil
-	}, "tcp", "443", []net.IP{net.ParseIP("192.0.2.1"), net.ParseIP("192.0.2.2")})
+	}, "tcp", "443", []net.IP{net.ParseIP(publicIPv4), net.ParseIP(publicIPv4Alt)})
 	require.NoError(t, err)
 	assert.Same(t, expected, connection)
 	assert.Equal(t, 2, attempts)

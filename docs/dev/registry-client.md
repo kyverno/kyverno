@@ -27,23 +27,30 @@ verifier, and cosign's `ociremote` options all derive from the global client's o
 `regcreds.RemoteOptsFromIvpolCredentials` pins `regcreds.DefaultTransport`. A policy that declares
 its own `spec.credentials` would therefore fetch through an unguarded transport while every other
 policy went through the global client. Both call sites —
-`pkg/image/verification/evaluator/compiler.go` and `pkg/cel/libs/imageverify/impl.go` — use
-`egress.GuardedRemoteOptions` instead, which builds the same credential chain through
-`registryclient.NewRemoteOptions` and adds the two guard options. If a third site ever needs
-policy-declared credentials, it must do the same.
+`pkg/image/verification/evaluator/compiler.go` and `pkg/cel/libs/imageverify/impl.go` — reach
+those credentials through `pkg/image/verification/credentials.RemoteOptions`, which is where the
+guard is applied. It builds the same credential chain through `registryclient.NewRemoteOptions`
+and adds the two guard options. If a third site ever needs policy-declared credentials, it must
+go through that function rather than `regcreds`.
 
-Swapping in `registryclient.NewRemoteOptions` changes one behavior that has to be restored by
-hand. It only builds the Secret keychain when a lister is present:
+One subtlety inside it: when the policy declares explicit Secrets, `RemoteOptions` appends a
+context-aware keychain with `remote.WithAuthFromKeychain`, which *replaces* the chain the SDK
+composed rather than layering on it. `registryclient.WithKeychainWrapper` only ever wrapped the
+SDK's own chain, so that branch applies `GuardKeychain` itself. Dropping that wrap would let a
+policy with explicit Secrets resolve credentials for a destination the guard would refuse.
+
+Swapping in `registryclient.NewRemoteOptions` also changes one behavior. It only builds the Secret
+keychain when a lister is present:
 
 ```go
 if len(o.imagePullSecrets) > 0 && o.secretLister != nil {
 ```
 
 where `regcreds` built it regardless and failed at resolution with `secret lister is not
-configured`. Without that, a policy declaring Secrets with no lister falls back to
-`authn.DefaultKeychain` and fetches unauthenticated — silently. `requiredSecretsKeychain` keeps
-the failure explicit. This is reachable from the CLI, which has no cluster client to build a
-lister from.
+configured`. Without that, a policy declaring Secrets with no lister would fall back to
+`authn.DefaultKeychain` and fetch unauthenticated — silently. The explicit-Secrets branch above
+preserves the loud failure, because its `NewSecretsKeychain` returns that same error for a nil
+lister. This is reachable from the CLI, which has no cluster client to build a lister from.
 
 With no guard installed (CLI, unit tests) `egress.Global()` returns nil and both guard options are
 no-ops, leaving the SDK's native behavior.

@@ -55,7 +55,7 @@ func TestTransportPinsExemptHostsAndSharesDeadline(t *testing.T) {
 
 func TestPrivateProxyDoesNotExemptDirectTraffic(t *testing.T) {
 	t.Parallel()
-	policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{"public.example": {"93.184.216.34"}, "proxy.internal": {"10.0.0.1"}})
+	policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{"public.example": {publicIPv4}, "proxy.internal": {"10.0.0.1"}})
 	proxy := &url.URL{Scheme: "http", Host: "proxy.internal:3128"}
 	var dialed []string
 	transport := policy.WrapTransport(&http.Transport{
@@ -85,11 +85,11 @@ func TestPrivateProxyDoesNotExemptDirectTraffic(t *testing.T) {
 	// A later direct request to the same endpoint must use its new validated
 	// address, not any private address previously cached for the proxy.
 	policy.lookupNetIP = func(context.Context, string, string) ([]netip.Addr, error) {
-		return []netip.Addr{netip.MustParseAddr("93.184.216.35")}, nil
+		return []netip.Addr{netip.MustParseAddr(publicIPv4Alt)}, nil
 	}
 	_, err = transport.RoundTrip(request)
 	require.Error(t, err)
-	assert.Equal(t, []string{"10.0.0.1:3128", "93.184.216.35:3128"}, dialed)
+	assert.Equal(t, []string{"10.0.0.1:3128", publicIPv4Alt + ":3128"}, dialed)
 }
 
 func TestProxyCannotForwardBlockedTarget(t *testing.T) {
@@ -118,11 +118,11 @@ func TestProxyCannotForwardBlockedTarget(t *testing.T) {
 
 func TestRedirectBlockedBeforeCredentialsReachDestination(t *testing.T) {
 	t.Parallel()
-	policy := testPolicy(t, Config{}, map[string][]string{"registry.example": {"93.184.216.34"}})
+	policy := testPolicy(t, Config{}, map[string][]string{"registry.example": {publicIPv4}})
 	var requests, dials atomic.Int32
 	transport := policy.WrapTransport(&http.Transport{DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
 		dials.Add(1)
-		if address != "93.184.216.34:80" {
+		if address != publicIPv4+":80" {
 			return nil, errors.New("unexpected destination")
 		}
 		client, server := net.Pipe()
@@ -157,7 +157,7 @@ func TestReusedConnectionStillValidatesEveryRequest(t *testing.T) {
 		if resolves.Add(1) > 2 {
 			return []netip.Addr{netip.MustParseAddr("169.254.169.254")}, nil
 		}
-		return []netip.Addr{netip.MustParseAddr("93.184.216.34")}, nil
+		return []netip.Addr{netip.MustParseAddr(publicIPv4)}, nil
 	}
 	transport := policy.WrapTransport(&http.Transport{DialContext: func(context.Context, string, string) (net.Conn, error) {
 		dials.Add(1)
@@ -208,10 +208,10 @@ func TestTransportPoolsFollowValidatedAddresses(t *testing.T) {
 			policy := testPolicy(t, Config{}, nil)
 			var generation atomic.Int32
 			policy.lookupNetIP = func(_ context.Context, _, host string) ([]netip.Addr, error) {
-				address := "192.0.2.1"
+				address := publicIPv4
 				if host == "proxy.example" || !proxy {
 					if generation.Load() > 0 {
-						address = "192.0.2.2"
+						address = publicIPv4Alt
 					}
 				}
 				return []netip.Addr{netip.MustParseAddr(address)}, nil
@@ -245,7 +245,7 @@ func TestTransportPoolsFollowValidatedAddresses(t *testing.T) {
 			for _, step := range []struct {
 				generation int32
 				want       string
-			}{{0, "192.0.2.1:80"}, {0, "192.0.2.1:80"}, {1, "192.0.2.2:80"}, {1, "192.0.2.2:80"}} {
+			}{{0, publicIPv4 + ":80"}, {0, publicIPv4 + ":80"}, {1, publicIPv4Alt + ":80"}, {1, publicIPv4Alt + ":80"}} {
 				generation.Store(step.generation)
 				request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://registry.example/v2/", nil)
 				require.NoError(t, err)
@@ -279,7 +279,7 @@ func TestDialAddressesRacesIPv4AndIPv6(t *testing.T) {
 		}
 		<-primaryStarted
 		return expected, nil
-	}, "tcp", "443", []net.IP{net.ParseIP("2001:db8::1"), net.ParseIP("93.184.216.34")})
+	}, "tcp", "443", []net.IP{net.ParseIP(publicIPv6), net.ParseIP(publicIPv4)})
 	require.NoError(t, err)
 	assert.Same(t, expected, connection)
 	select {
@@ -323,7 +323,7 @@ func TestTransportRejectsAlternateRequestAuthority(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			policy := testPolicy(t, Config{}, map[string][]string{"public.example": {"93.184.216.34"}, "proxy.internal": {"10.0.0.1"}})
+			policy := testPolicy(t, Config{}, map[string][]string{"public.example": {publicIPv4}, "proxy.internal": {"10.0.0.1"}})
 			var dials atomic.Int32
 			transport := policy.WrapTransport(&http.Transport{
 				Proxy: http.ProxyURL(&url.URL{Scheme: "http", Host: "proxy.internal:3128"}),
@@ -351,7 +351,7 @@ func TestTransportAcceptsCanonicalRequestAuthority(t *testing.T) {
 	for _, host := range []string{"", "public.example", "PUBLIC.EXAMPLE.", "public.example:80", "public.example:080"} {
 		t.Run(host, func(t *testing.T) {
 			t.Parallel()
-			policy := testPolicy(t, Config{}, map[string][]string{"public.example": {"93.184.216.34"}, "proxy.internal": {"10.0.0.1"}})
+			policy := testPolicy(t, Config{}, map[string][]string{"public.example": {publicIPv4}, "proxy.internal": {"10.0.0.1"}})
 			sentinel := errors.New("dial reached validated proxy")
 			var dialed string
 			transport := policy.WrapTransport(&http.Transport{
@@ -383,14 +383,14 @@ func TestTransportHTTP2PoolsFollowValidatedAddresses(t *testing.T) {
 	policy := testPolicy(t, Config{}, nil)
 	var generation, dials atomic.Int32
 	policy.lookupNetIP = func(context.Context, string, string) ([]netip.Addr, error) {
-		return []netip.Addr{netip.MustParseAddr(fmt.Sprintf("192.0.2.%d", generation.Load()+1))}, nil
+		return []netip.Addr{netip.MustParseAddr(fmt.Sprintf(publicIPv4Nth, generation.Load()+1))}, nil
 	}
 	transport := policy.WrapTransport(&http.Transport{
 		TLSClientConfig:   server.Client().Transport.(*http.Transport).TLSClientConfig.Clone(),
 		ForceAttemptHTTP2: true,
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 			dials.Add(1)
-			expected := fmt.Sprintf("192.0.2.%d:443", generation.Load()+1)
+			expected := fmt.Sprintf(publicIPv4Nth+":443", generation.Load()+1)
 			if address != expected {
 				return nil, fmt.Errorf("unexpected destination %s, want %s", address, expected)
 			}
@@ -418,13 +418,14 @@ func TestTransportPoolEvictionPreservesActiveResponses(t *testing.T) {
 	policy := testPolicy(t, Config{}, nil)
 	var generation atomic.Int32
 	policy.lookupNetIP = func(context.Context, string, string) ([]netip.Addr, error) {
-		return []netip.Addr{netip.MustParseAddr(fmt.Sprintf("192.0.2.%d", generation.Load()+1))}, nil
+		return []netip.Addr{netip.MustParseAddr(fmt.Sprintf(publicIPv4Nth, generation.Load()+1))}, nil
 	}
 	finishBody := make(chan struct{})
 	var finishOnce sync.Once
 	finish := func() { finishOnce.Do(func() { close(finishBody) }) }
 	t.Cleanup(finish)
 	firstClosed := make(chan struct{})
+	firstAddress := fmt.Sprintf(publicIPv4Nth+":80", 1)
 	transport := policy.WrapTransport(&http.Transport{DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
 		client, server := net.Pipe()
 		go func() {
@@ -433,13 +434,13 @@ func TestTransportPoolEvictionPreservesActiveResponses(t *testing.T) {
 			for {
 				request, err := http.ReadRequest(reader)
 				if err != nil {
-					if address == "192.0.2.1:80" {
+					if address == firstAddress {
 						close(firstClosed)
 					}
 					return
 				}
 				request.Body.Close()
-				if address == "192.0.2.1:80" {
+				if address == firstAddress {
 					if _, err := io.WriteString(server, "HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\none"); err != nil {
 						return
 					}
@@ -492,7 +493,8 @@ func TestTransportPoolKeyIgnoresTargetBehindProxy(t *testing.T) {
 	policy := testPolicy(t, Config{}, nil)
 	transport := policy.WrapTransport(nil)
 	proxy := &url.URL{Scheme: "http", Host: "proxy.example"}
-	proxyIPs := []netip.Addr{netip.MustParseAddr("192.0.2.9")}
+	shared := fmt.Sprintf(publicIPv4Nth, 9)
+	proxyIPs := []netip.Addr{netip.MustParseAddr(shared)}
 
 	proxied := func(target string) *dialPlan {
 		return &dialPlan{
@@ -501,22 +503,22 @@ func TestTransportPoolKeyIgnoresTargetBehindProxy(t *testing.T) {
 			targetIPs: []netip.Addr{netip.MustParseAddr(target)},
 		}
 	}
-	first := transport.destinationPool(proxied("192.0.2.1"))
-	second := transport.destinationPool(proxied("192.0.2.2"))
+	first := transport.destinationPool(proxied(publicIPv4))
+	second := transport.destinationPool(proxied(publicIPv4Alt))
 	assert.Same(t, first, second, "a changed target split the pool for an unchanged proxy")
 
 	// Direct requests still follow the target, since that is what they dial.
 	direct := func(target string) *dialPlan {
 		return &dialPlan{targetIPs: []netip.Addr{netip.MustParseAddr(target)}}
 	}
-	assert.NotSame(t, transport.destinationPool(direct("192.0.2.1")),
-		transport.destinationPool(direct("192.0.2.2")),
+	assert.NotSame(t, transport.destinationPool(direct(publicIPv4)),
+		transport.destinationPool(direct(publicIPv4Alt)),
 		"a direct request must not reuse a pool pinned to a different address")
 
 	// The two key shapes must never collide: validation rejects an empty address set, so a
 	// direct key always carries a target and a proxied key always carries a proxy.
-	assert.NotSame(t, transport.destinationPool(direct("192.0.2.9")),
-		transport.destinationPool(proxied("192.0.2.9")),
+	assert.NotSame(t, transport.destinationPool(direct(shared)),
+		transport.destinationPool(proxied(shared)),
 		"a direct pool was reused for a proxied request")
 }
 
@@ -524,7 +526,7 @@ func TestTransportPoolKeyIgnoresTargetBehindProxy(t *testing.T) {
 // Failing here would break those deployments in every mode, including audit.
 func TestTransportDefersUnresolvableTargetToProxy(t *testing.T) {
 	t.Parallel()
-	policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{"proxy.example": {"198.51.100.7"}})
+	policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{"proxy.example": {publicIPv4}})
 	reachedDial := errors.New("dial sentinel")
 	var dialed []string
 	base := &http.Transport{
@@ -544,14 +546,14 @@ func TestTransportDefersUnresolvableTargetToProxy(t *testing.T) {
 	// hostError keeps resolved addresses out of the message but still unwraps to the cause.
 	require.ErrorIs(t, err, reachedDial)
 	require.NotEmpty(t, dialed, "the request never reached the proxy")
-	assert.Equal(t, "198.51.100.7:80", dialed[0], "dialled something other than the proxy")
+	assert.Equal(t, publicIPv4+":80", dialed[0], "dialled something other than the proxy")
 }
 
 // Deferring to the proxy must not become a way around the hard blocks: a literal address
 // never reaches the resolver, so it cannot be excused as not-found.
 func TestTransportBlocksLiteralAddressBehindProxy(t *testing.T) {
 	t.Parallel()
-	policy := testPolicy(t, Config{}, map[string][]string{"proxy.example": {"198.51.100.7"}})
+	policy := testPolicy(t, Config{}, map[string][]string{"proxy.example": {publicIPv4}})
 	base := &http.Transport{
 		Proxy: http.ProxyURL(&url.URL{Scheme: "http", Host: "proxy.example"}),
 		DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
@@ -570,10 +572,10 @@ func TestTransportBlocksLiteralAddressBehindProxy(t *testing.T) {
 // A resolver failure that is not a plain not-found still fails closed, with or without a proxy.
 func TestTransportFailsClosedOnResolverError(t *testing.T) {
 	t.Parallel()
-	policy := testPolicy(t, Config{}, map[string][]string{"proxy.example": {"198.51.100.7"}})
+	policy := testPolicy(t, Config{}, map[string][]string{"proxy.example": {publicIPv4}})
 	policy.lookupNetIP = func(_ context.Context, _, host string) ([]netip.Addr, error) {
 		if host == "proxy.example" {
-			return []netip.Addr{netip.MustParseAddr("198.51.100.7")}, nil
+			return []netip.Addr{netip.MustParseAddr(publicIPv4)}, nil
 		}
 		return nil, &net.DNSError{Err: "server misbehaving", Name: host, IsTemporary: true}
 	}

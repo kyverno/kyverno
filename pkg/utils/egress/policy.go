@@ -211,16 +211,20 @@ var (
 	benchmarkNetwork = netip.MustParsePrefix("198.18.0.0/15")
 	// More special-purpose space Go reports as global unicast and not private. Each one can
 	// address local infrastructure or steer routing, so each is private-class: audit logs it
-	// and enforce needs an allowlist entry. The documentation ranges (192.0.2.0/24,
-	// 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32) are deliberately absent. The line drawn
-	// here is "can reach local infrastructure", not "is merely unroutable" -- a fetch to
-	// documentation space only ever fails to connect, and those ranges are this package's own
-	// test fixtures throughout.
-	protocolAssignments   = netip.MustParsePrefix("192.0.0.0/24")   // IETF assignments: 192.0.0.1 is the DS-Lite AFTR the local CPE answers on.
-	sixToFourRelayAnycast = netip.MustParsePrefix("192.88.99.0/24") // Deprecated 6to4 relay anycast: reaches whichever relay the local network advertises.
-	reservedNetwork       = netip.MustParsePrefix("240.0.0.0/4")    // Reserved for future use: only a local stack or appliance can answer here.
-	protocolAssignmentsV6 = netip.MustParsePrefix("2001::/23")      // IPv6 IETF assignments, including Teredo 2001::/32 tunnel endpoints.
-	discardOnlyV6         = netip.MustParsePrefix("100::/64")       // Discard-only: a route here is local policy, not a destination.
+	// and enforce needs an allowlist entry. The documentation ranges belong here for the same
+	// reason 240.0.0.0/4 does -- "never globally routable" is not "never routed". Nothing stops
+	// a cluster from pointing 203.0.113.0/24 at an internal service, and the address checked
+	// here is exactly the one dialed, so in enforce mode a registry fetch would otherwise reach
+	// it. An operator who genuinely runs a registry in any of these ranges allowlists it.
+	protocolAssignments   = netip.MustParsePrefix("192.0.0.0/24")    // IETF assignments: 192.0.0.1 is the DS-Lite AFTR the local CPE answers on.
+	sixToFourRelayAnycast = netip.MustParsePrefix("192.88.99.0/24")  // Deprecated 6to4 relay anycast: reaches whichever relay the local network advertises.
+	reservedNetwork       = netip.MustParsePrefix("240.0.0.0/4")     // Reserved for future use: only a local stack or appliance can answer here.
+	protocolAssignmentsV6 = netip.MustParsePrefix("2001::/23")       // IPv6 IETF assignments, including Teredo 2001::/32 tunnel endpoints.
+	discardOnlyV6         = netip.MustParsePrefix("100::/64")        // Discard-only: a route here is local policy, not a destination.
+	testNet1              = netip.MustParsePrefix("192.0.2.0/24")    // RFC 5737 TEST-NET-1: no public route exists, so a reply came from something the local network put there.
+	testNet2              = netip.MustParsePrefix("198.51.100.0/24") // RFC 5737 TEST-NET-2: likewise, only a local route can carry a fetch here.
+	testNet3              = netip.MustParsePrefix("203.0.113.0/24")  // RFC 5737 TEST-NET-3: likewise.
+	documentationV6       = netip.MustParsePrefix("2001:db8::/32")   // RFC 3849 IPv6 documentation space: disjoint from 2001::/23, and routed only where an operator chose to.
 	// Some cloud metadata services use otherwise private or public addresses.
 	metadataAddresses = map[netip.Addr]struct{}{
 		netip.MustParseAddr("100.100.100.200"): {},
@@ -241,7 +245,8 @@ func privateAddress(address netip.Addr) bool {
 	return address.IsPrivate() || carrierGradeNAT.Contains(address) || benchmarkNetwork.Contains(address) ||
 		protocolAssignments.Contains(address) || sixToFourRelayAnycast.Contains(address) ||
 		reservedNetwork.Contains(address) || protocolAssignmentsV6.Contains(address) ||
-		discardOnlyV6.Contains(address)
+		discardOnlyV6.Contains(address) || testNet1.Contains(address) || testNet2.Contains(address) ||
+		testNet3.Contains(address) || documentationV6.Contains(address)
 }
 
 func addressCandidates(address netip.Addr) []netip.Addr {

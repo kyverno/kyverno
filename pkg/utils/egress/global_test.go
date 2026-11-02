@@ -7,10 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
-	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/stretchr/testify/require"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // resetGlobal restores whatever Guard was installed, so these tests can run alongside others
@@ -125,7 +122,7 @@ func TestGuardKeychainDefersUnresolvableRegistryToProxy(t *testing.T) {
 	t.Parallel()
 
 	resolved := false
-	guarded := proxiedGuard(t, Config{Mode: ModeEnforce}, map[string][]string{"proxy.example": {"198.51.100.7"}}, true).
+	guarded := proxiedGuard(t, Config{Mode: ModeEnforce}, map[string][]string{"proxy.example": {publicIPv4}}, true).
 		GuardKeychain(keychainFunc(func(authn.Resource) (authn.Authenticator, error) {
 			resolved = true
 			return authn.Anonymous, nil
@@ -161,7 +158,7 @@ func TestGuardKeychainBlocksLiteralAddressBehindProxy(t *testing.T) {
 	t.Parallel()
 
 	resolved := false
-	guarded := proxiedGuard(t, Config{}, map[string][]string{"proxy.example": {"198.51.100.7"}}, true).
+	guarded := proxiedGuard(t, Config{}, map[string][]string{"proxy.example": {publicIPv4}}, true).
 		GuardKeychain(keychainFunc(func(authn.Resource) (authn.Authenticator, error) {
 			resolved = true
 			return authn.Anonymous, nil
@@ -171,60 +168,6 @@ func TestGuardKeychainBlocksLiteralAddressBehindProxy(t *testing.T) {
 	require.ErrorIs(t, err, ErrAddressBlocked)
 	require.False(t, resolved, "credentials were resolved for a blocked registry")
 }
-
-// GuardedRemoteOptions is the path a policy with its own spec.credentials takes. It must not
-// fall back to the SDK's pinned DefaultTransport while a Guard is installed.
-func TestGuardedRemoteOptions(t *testing.T) {
-	resetGlobal(t)
-	require.NoError(t, SetGlobal(Config{Mode: ModeEnforce}))
-
-	opts, nameOpts := GuardedRemoteOptions(nil, "kyverno", nil, nil, false)
-	require.NotEmpty(t, opts)
-	require.Empty(t, nameOpts)
-
-	// Exercise the options rather than counting them: a non-empty slice says nothing about
-	// whether the guard reached them. A literal metadata address needs no DNS and no network,
-	// so the guard rejects it before the first byte is written.
-	//
-	// This pins that the options carry a guard, not which one. go-containerregistry resolves
-	// the keychain before the transport pings, so with both wired the keychain reports first
-	// and dropping either one alone still fails the fetch. They are pinned individually
-	// elsewhere: TestGuardKeychainValidatesBeforeResolving covers the keychain, and
-	// transport_test.go covers the transport, including the redirect and token paths that run
-	// after credentials have already resolved and only the transport can catch.
-	blocked, err := name.ParseReference("169.254.169.254/app:v1")
-	require.NoError(t, err)
-	_, err = gcrremote.Get(blocked, opts...)
-	require.ErrorIs(t, err, ErrAddressBlocked, "the returned options did not carry the guard")
-
-	// allowInsecureRegistry must still reach the SDK, which adds name.Insecure for it.
-	_, insecureNameOpts := GuardedRemoteOptions(nil, "kyverno", nil, nil, true)
-	require.Len(t, insecureNameOpts, 1)
-
-	// With no Guard installed the same call must still produce usable native options.
-	global.Store(nil)
-	nativeOpts, _ := GuardedRemoteOptions(nil, "kyverno", nil, nil, false)
-	require.NotEmpty(t, nativeOpts)
-}
-
-// A policy that declares Secrets with no lister to read them from must fail loudly rather
-// than quietly fetching unauthenticated, which is what registryclient.New would do on its
-// own. Reachable from the CLI, which has no cluster client to build a lister from.
-func TestRequiredSecretsKeychain(t *testing.T) {
-	t.Parallel()
-
-	keychain := requiredSecretsKeychain(nil, "kyverno", []string{"regcred"})
-	require.NotNil(t, keychain, "declared Secrets with no lister must still produce a keychain")
-	_, err := keychain.Resolve(registryResource("registry.example.com"))
-	require.ErrorContains(t, err, "secret lister is not configured")
-
-	// Nothing to enforce: no declared Secrets, so the default chain is correct.
-	require.Nil(t, requiredSecretsKeychain(nil, "kyverno", nil))
-	// A real lister is handled by registryclient.New itself.
-	require.Nil(t, requiredSecretsKeychain(fakeSecretLister{}, "kyverno", []string{"regcred"}))
-}
-
-type fakeSecretLister struct{ corev1listers.SecretLister }
 
 func TestValidateConfigMatchesNew(t *testing.T) {
 	t.Parallel()

@@ -8,10 +8,11 @@
   through that client is guarded; this is a registry-client boundary, not a process-wide
   network restriction. Image references are validated where they are fetched, so no caller
   needs to decide whether a reference came from the resource or from the policy author.
-- `registry.go` builds options for policies that declare their own `spec.credentials`.
-  Those cannot go through the global client, and `regcreds.RemoteOptsFromIvpolCredentials`
-  pins `regcreds.DefaultTransport`, so they would escape the guard. Any new caller that
-  needs policy-declared credentials must use `GuardedRemoteOptions`, not `regcreds`.
+- Policies that declare their own `spec.credentials` cannot go through the global client, and
+  `regcreds.RemoteOptsFromIvpolCredentials` pins `regcreds.DefaultTransport`, so they would
+  escape the guard. They are built by `pkg/image/verification/credentials.RemoteOptions`
+  instead. Any new caller that needs policy-declared credentials must go through it, not
+  `regcreds`.
 - Sigstore infrastructure (Rekor, Fulcio, TSA, TUF), KMS, and the CEL HTTP library do not use
   the registry client and are therefore untouched here.
 - Credential composition belongs to the SDK. `GuardKeychain` only validates the destination
@@ -25,11 +26,17 @@
 - Allowlist entries are host-granular. Reject ports rather than stripping them:
   `resolveAndValidate` only ever receives a hostname, so a port could not be enforced and a
   stripped one would silently exempt every port on that host.
-- `registryclient.New` only builds the Secret keychain when a lister is present, so declared
-  Secrets with a nil lister would fall back to the default keychain and fetch
-  unauthenticated. `requiredSecretsKeychain` keeps that failure explicit; do not drop it.
+- `pkg/image/verification/credentials.RemoteOptions` is the only other place the guard is
+  wired. Its explicit-Secrets branch replaces the SDK-composed keychain rather than layering
+  on it, so that branch carries its own `GuardKeychain` wrap — `WithKeychainWrapper` cannot
+  reach a keychain appended after the SDK has composed its own. A nil lister with declared
+  Secrets still fails loudly there, via that package's context-aware `NewSecretsKeychain`.
 - Audit permits ordinary private destinations with logging; enforce requires exemptions.
   Metadata, loopback, link-local, unspecified, multicast, and broadcast remain blocked.
+- Private-class covers more than Go's `IsPrivate()`: it also holds the RFC 5737/3849
+  documentation ranges (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`, `2001:db8::/32`).
+  "Not globally routable" is not "not routed" — a cluster can point documentation space at an
+  internal service, and the address validated here is the one dialed.
 - Validate every request, including reused connections, redirects, and token requests routed
   through this transport. Reject opaque URLs and mismatched HTTP Host/URL authorities.
 - Pin direct dials to validated IPs without a second lookup; preserve Host/TLS SNI.
@@ -65,5 +72,12 @@
 - Pool eviction retires idle connections without interrupting active responses; retain
   atomic retirement tracking and cleanup when those response bodies close.
 - Run `go test -race ./pkg/utils/egress`; use injected resolvers/dialers and local fixtures.
+- Do not use RFC 5737/3849 documentation addresses (`192.0.2.x`, `198.51.100.x`, `203.0.113.x`,
+  `2001:db8::x`) as a stand-in for a reachable public registry or proxy — `privateAddress`
+  classifies them, so such a fixture is logged as private in audit mode and rejected in enforce
+  mode. Use the `publicIPv4` / `publicIPv4Alt` / `publicIPv6` / `publicIPv4Nth` constants in
+  `policy_test.go`; they are real public addresses that nothing ever contacts, because every
+  resolver and dialer here is stubbed. Documentation addresses belong only in tests whose point
+  is that they are rejected, such as `TestSpecialPurposeRangesAreExemptableByAddress`.
 - Preserve hard-block/proxy, DNS-change/HTTP2 pooling, eviction, deadline/fallback, and
   cancellation tests. See `docs/user/registry-egress.md` for the operator-facing boundary.
