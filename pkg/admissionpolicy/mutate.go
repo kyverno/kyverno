@@ -342,10 +342,9 @@ func mutateResource(
 				mapLogger.Error(err, "failed to apply patch for mutatingadmissionpolicy", "policy", policy.GetName(), "resource", fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName()))
 				return engineResponse, nil
 			}
-			versionedAttributes.Dirty = true
-			versionedAttributes.VersionedObject = newVersionedObject
+			versionedAttributes.UpdateObject(newVersionedObject)
 		}
-		patchedResource, err = celutils.ConvertObjectToUnstructured(versionedAttributes.VersionedObject)
+		patchedResource, err = celutils.ConvertObjectToUnstructured(versionedAttributes.VersionedObject.Object())
 		if err != nil {
 			mapLogger.Error(err, "failed to convert patched object to unstructured for mutatingadmissionpolicy", "policy", policy.GetName(), "resource", fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName()))
 			return engineResponse, err

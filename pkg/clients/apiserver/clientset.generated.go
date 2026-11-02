@@ -13,12 +13,12 @@ import (
 )
 
 type clientset struct {
-	discovery            k8s_io_client_go_discovery.DiscoveryInterface
+	discovery            k8s_io_client_go_discovery.DiscoveryInterfaces
 	apiextensionsv1      k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset_typed_apiextensions_v1.ApiextensionsV1Interface
 	apiextensionsv1beta1 k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset_typed_apiextensions_v1beta1.ApiextensionsV1beta1Interface
 }
 
-func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
+func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterfaces {
 	return c.discovery
 }
 func (c *clientset) ApiextensionsV1() k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset_typed_apiextensions_v1.ApiextensionsV1Interface {

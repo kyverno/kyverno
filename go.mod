@@ -33,13 +33,13 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
-	github.com/klauspost/compress v1.19.2
+	github.com/klauspost/compress v1.20.3
 	github.com/kyverno/api v0.0.1-alpha.5
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f
 	github.com/kyverno/pkg/ext v0.0.0-20250303002756-48769d003e55
 	github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2
-	github.com/kyverno/sdk v0.0.0-20261008171927-5a61cbc9e077
+	github.com/kyverno/sdk v0.0.0-20261029181513-303c2afde801
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/notaryproject/notation-go v1.3.2
 	github.com/onsi/ginkgo v1.16.5
@@ -78,25 +78,25 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/multierr v1.11.0
 	go.yaml.in/yaml/v3 v3.0.5
-	golang.org/x/crypto v0.57.0
+	golang.org/x/crypto v0.58.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/evanphx/json-patch.v4 v4.13.0
 	gopkg.in/inf.v0 v0.9.1
 	gotest.tools/v3 v3.5.2
-	k8s.io/api v0.36.4
-	k8s.io/apiextensions-apiserver v0.36.4
-	k8s.io/apimachinery v0.36.4
-	k8s.io/apiserver v0.36.4
-	k8s.io/cli-runtime v0.36.4
-	k8s.io/client-go v0.36.4
+	k8s.io/api v0.37.1
+	k8s.io/apiextensions-apiserver v0.37.1
+	k8s.io/apimachinery v0.37.1
+	k8s.io/apiserver v0.37.1
+	k8s.io/cli-runtime v0.37.1
+	k8s.io/client-go v0.37.1
 	k8s.io/klog/v2 v2.140.0
-	k8s.io/kube-aggregator v0.36.4
+	k8s.io/kube-aggregator v0.37.1
 	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad
-	k8s.io/pod-security-admission v0.36.2
+	k8s.io/pod-security-admission v0.37.1
 	k8s.io/utils v0.0.0-20260626114624-be93311217bd
-	sigs.k8s.io/controller-runtime v0.24.1
+	sigs.k8s.io/controller-runtime v0.25.2
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20260105161640-a97ccfaca20b
 	sigs.k8s.io/kustomize/api v0.21.1
 	sigs.k8s.io/kustomize/kyaml v0.21.2
@@ -198,9 +198,9 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
 	github.com/evanphx/json-patch v5.9.11+incompatible // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
-	github.com/fluxcd/pkg/oci v0.45.0 // indirect
+	github.com/fluxcd/pkg/oci v0.46.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
-	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.1 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.7 // indirect
 	github.com/go-chi/chi/v5 v5.3.1 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
@@ -232,7 +232,6 @@ require (
 	github.com/go-openapi/validate v0.26.3 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
@@ -346,9 +345,9 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	gitlab.com/gitlab-org/api/client-go v1.46.0 // indirect
-	go.etcd.io/etcd/api/v3 v3.6.8 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.6.8 // indirect
-	go.etcd.io/etcd/client/v3 v3.6.8 // indirect
+	go.etcd.io/etcd/api/v3 v3.7.0 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.7.0 // indirect
+	go.etcd.io/etcd/client/v3 v3.7.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.70.0 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
@@ -359,10 +358,10 @@ require (
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/term v0.46.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/term v0.47.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	google.golang.org/api v0.301.0 // indirect
 	google.golang.org/genproto v0.0.0-20260715232425-e75dac1f907d // indirect
@@ -372,10 +371,10 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/component-base v0.36.4 // indirect
-	k8s.io/streaming v0.36.4 // indirect
+	k8s.io/component-base v0.37.1 // indirect
+	k8s.io/streaming v0.37.1 // indirect
 	oras.land/oras-go/v2 v2.6.2 // indirect
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
+	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.36.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 )

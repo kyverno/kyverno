@@ -53,13 +53,13 @@ func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any,
 	}
 
 	patchObject := unstructured.Unstructured{Object: value}
-	patchObject.SetGroupVersionKind(patchRequest.VersionedAttributes.VersionedObject.GetObjectKind().GroupVersionKind())
+	patchObject.SetGroupVersionKind(patchRequest.VersionedAttributes.VersionedObject.Object().GetObjectKind().GroupVersionKind())
 
 	mergeFn := patch.ApplyStructuredMergeDiff
 	if a.useServerSideApply {
 		mergeFn = applyStructuredMergeDiff
 	}
-	patched, err := mergeFn(patchRequest.TypeConverter, patchRequest.VersionedAttributes.VersionedObject, &patchObject)
+	patched, err := mergeFn(patchRequest.TypeConverter, patchRequest.VersionedAttributes.VersionedObject.Object(), &patchObject)
 	if err != nil {
 		return nil, eval, fmt.Errorf("error applying patch: %w", err)
 	}
