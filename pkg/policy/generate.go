@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
@@ -246,6 +247,7 @@ func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.Polic
 	}
 
 	pc.log.V(4).Info("sync generate rule changes to downstream targets")
+	triggerNames := map[string]map[types.UID]string{}
 	for _, downstream := range downstreams.Items {
 		verified, err := pc.provenance.Verify(context.TODO(), policy, &downstream)
 		if err != nil {
@@ -257,6 +259,9 @@ func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.Polic
 		}
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
+		if trigger.Name == "" && trigger.UID != "" {
+			trigger.Name = pc.triggerName(triggerNames, trigger)
+		}
 		addRuleContext(ur, ruleName, trigger, deleteDownstream, false, false)
 		if policyDeletion {
 			addGeneratedResources(ur, downstream)
@@ -264,6 +269,28 @@ func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.Polic
 	}
 
 	return ur, nil
+}
+
+// triggerName resolves a trigger's name from its UID with one list per
+// apiVersion, kind and namespace. Downstreams labeled without the trigger name
+// would otherwise make the background controller list the trigger's namespace
+// once per downstream.
+func (pc *policyController) triggerName(index map[string]map[types.UID]string, trigger kyvernov1.ResourceSpec) string {
+	key := trigger.GetAPIVersion() + "/" + trigger.GetKind() + "/" + trigger.GetNamespace()
+	names, ok := index[key]
+	if !ok {
+		names = map[types.UID]string{}
+		index[key] = names
+		triggers, err := pc.client.ListResource(context.TODO(), trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), nil)
+		if err != nil {
+			pc.log.V(2).Info("failed to list triggers, falling back to per-trigger lookup", "key", key, "error", err.Error())
+			return ""
+		}
+		for _, item := range triggers.Items {
+			names[item.GetUID()] = item.GetName()
+		}
+	}
+	return names[trigger.UID]
 }
 
 func cleanupPatterns(pattern kyvernov1.GeneratePattern) []kyvernov1.GeneratePattern {

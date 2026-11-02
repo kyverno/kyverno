@@ -372,7 +372,7 @@ var PSS_controls = map[string][]RestrictedField{
 			},
 		},
 		{
-			Path: "spec.ephemeralContainers[*].seLinuxOptions.user",
+			Path: "spec.ephemeralContainers[*].securityContext.seLinuxOptions.user",
 			AllowedValues: []interface{}{
 				"",
 			},
@@ -398,7 +398,7 @@ var PSS_controls = map[string][]RestrictedField{
 			},
 		},
 		{
-			Path: "spec.ephemeralContainers[*].seLinuxOptions.role",
+			Path: "spec.ephemeralContainers[*].securityContext.seLinuxOptions.role",
 			AllowedValues: []interface{}{
 				"",
 			},
@@ -592,14 +592,14 @@ var PSS_controls = map[string][]RestrictedField{
 		{
 			Path: "spec.initContainers[*].securityContext.runAsNonRoot",
 			AllowedValues: []interface{}{
-				false,
+				true,
 				nil,
 			},
 		},
 		{
 			Path: "spec.ephemeralContainers[*].securityContext.runAsNonRoot",
 			AllowedValues: []interface{}{
-				false,
+				true,
 				nil,
 			},
 		},

@@ -19,12 +19,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	imagecredentials "github.com/kyverno/kyverno/pkg/image/verification/credentials"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
 	"github.com/kyverno/kyverno/pkg/logging"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
-	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -78,6 +79,15 @@ func ImageVerifyCELFuncs(
 	if ivpol == nil {
 		return nil, fmt.Errorf("nil image verification policy")
 	}
+	ivpol, scopeErrs := imagecredentials.ScopePolicy(ivpol)
+	if len(scopeErrs) != 0 {
+		return nil, scopeErrs.ToAggregate()
+	}
+	lister = kubeutils.ScopeSecretLister(lister, ivpol.GetNamespace())
+	// Resolve bare Secret names in the policy's own namespace; only a
+	// cluster-scoped policy falls back to Kyverno's. See compiler.go for why
+	// this is defence in depth rather than the thing correctness rests on.
+	credentialNamespace := kubeutils.CredentialNamespace(lister, config.KyvernoNamespace())
 	env, err := compiler.NewMatchImageEnv()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL image verification env: %v", err)
@@ -92,7 +102,7 @@ func ImageVerifyCELFuncs(
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
 	if spec.Credentials != nil {
-		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace(), logging.WithName("imageverify"))
+		authOpts, nameOpts = imagecredentials.RemoteOptions(lister, *spec.Credentials, credentialNamespace, logging.WithName("imageverify"))
 	}
 
 	return &ivfuncs{
@@ -177,6 +187,10 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](attestors); err != nil {
 		return types.WrapErr(err)
 	} else {
+		attestors, scopeErrs := imagecredentials.ScopeAttestors(f.policy, attestors)
+		if len(scopeErrs) != 0 {
+			return types.WrapErr(scopeErrs.ToAggregate())
+		}
 		count := 0
 		if match, err := matching.MatchImage(ctx, image, f.imgRules...); err != nil {
 			return types.WrapErr(err)
@@ -263,6 +277,10 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](args[2]); err != nil {
 		return types.WrapErr(err)
 	} else {
+		attestors, scopeErrs := imagecredentials.ScopeAttestors(f.policy, attestors)
+		if len(scopeErrs) != 0 {
+			return types.WrapErr(scopeErrs.ToAggregate())
+		}
 		count := 0
 		if match, err := matching.MatchImage(ctx, image, f.imgRules...); err != nil {
 			return types.WrapErr(err)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
@@ -15,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	crmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 type TlsProvider func() ([]byte, []byte, error)
@@ -108,7 +110,15 @@ func InitMetrics(
 		}
 
 		metricsServerMux = http.NewServeMux()
-		metricsServerMux.Handle(config.MetricsPath, promhttp.Handler())
+		// also serve controller-runtime's registry (workqueue_*, rest client, leader election)
+		// so those metrics are scraped from the same endpoint as Kyverno's own
+		metricsServerMux.Handle(config.MetricsPath, promhttp.InstrumentMetricHandler(
+			prometheus.DefaultRegisterer,
+			promhttp.HandlerFor(
+				prometheus.Gatherers{prometheus.DefaultGatherer, crmetrics.Registry},
+				promhttp.HandlerOpts{},
+			),
+		))
 	}
 
 	if meterProvider != nil {
