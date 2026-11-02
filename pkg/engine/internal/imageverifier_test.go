@@ -13,9 +13,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/cosign"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -42,7 +42,7 @@ func Test_verifyAttestations_Coverage(t *testing.T) {
 	}
 
 	ivm := engineapi.ImageVerificationMetadata{}
-	rclient := adapters.RegistryClient(registryclient.NewOrDie())
+	rclient := adapters.RegistryClient(registryclient.New())
 	iv := &imageVerifier{
 		logger:        logr.Discard(),
 		rclient:       rclient,
@@ -98,7 +98,16 @@ func Test_verifyAttestations_Coverage(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.Equal(t, engineapi.RuleStatusPass, resp.Status())
 
-	// Verify that "myAttestation" was persisted in the context
+	// Restore the checkpoint taken before verifyAttestations ran. Without
+	// Persist(name) being called on "myAttestation", this restore would wipe
+	// the context entry added by AddContextEntry; querying before restoring
+	// would pass even if Persist had never been wired up, which is exactly
+	// what this test must rule out.
+	iv.policyContext.JSONContext().Restore()
+
+	// Verify that "myAttestation" survived the restore, proving the value was
+	// actually persisted across the checkpoint rather than merely present
+	// because it was never checkpointed away.
 	val, err := iv.policyContext.JSONContext().Query("myAttestation")
 	assert.NoError(t, err)
 	assert.NotNil(t, val)
