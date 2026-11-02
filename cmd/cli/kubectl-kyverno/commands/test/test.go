@@ -39,6 +39,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
+	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
+	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
@@ -85,6 +87,8 @@ func deletingPolicyKey(namespace, name string) string {
 var (
 	hookVpolProviderCreated    func()
 	hookMpolProviderCreated    func()
+	hookGpolCompiled           func()
+	hookDpolProviderCreated    func()
 	hookContextProviderCreated func()
 )
 
@@ -466,8 +470,12 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	var vpolJSONProviderErr error
 	var mpolProvider mpolengine.Provider
 	var mpolProviderErr error
+	var gpolCompiledPolicies []gpolengine.Policy
+	var gpolCompiledPoliciesErr error
+	var dpolProvider dpolengine.ProviderFunc
+	var dpolProviderErr error
 
-	if (len(uniques) > 0 || len(jsonPayloads) > 0) && (len(results.ValidatingPolicies) != 0 || len(results.MutatingPolicies) != 0 || len(results.GeneratingPolicies) != 0) {
+	if (len(uniques) > 0 || len(jsonPayloads) > 0) && (len(results.ValidatingPolicies) != 0 || len(results.MutatingPolicies) != 0 || len(results.GeneratingPolicies) != 0 || len(results.DeletingPolicies) != 0) {
 		if restMapper == nil {
 			var err error
 			restMapper, err = utils.GetRESTMapper(dClient)
@@ -517,6 +525,33 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			mpolProvider, mpolProviderErr = mpolengine.NewProvider(compiler, results.MutatingPolicies, celExceptions, contextProvider)
 			if hookMpolProviderCreated != nil {
 				hookMpolProviderCreated()
+			}
+		}
+		if len(results.GeneratingPolicies) != 0 {
+			compiler := gpolcompiler.NewCompiler()
+			gpolCompiledPolicies = make([]gpolengine.Policy, 0, len(results.GeneratingPolicies))
+			for _, pol := range results.GeneratingPolicies {
+				compiled, errs := compiler.Compile(pol, celExceptions)
+				if len(errs) > 0 {
+					gpolCompiledPoliciesErr = fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
+					break
+				}
+				gpolCompiledPolicies = append(gpolCompiledPolicies, gpolengine.Policy{
+					Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
+					CompiledPolicy: compiled,
+				})
+			}
+			if hookGpolCompiled != nil {
+				hookGpolCompiled()
+			}
+		}
+		if len(results.DeletingPolicies) != 0 {
+			dpolProvider, dpolProviderErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions)
+			if dpolProviderErr != nil {
+				return nil, dpolProviderErr
+			}
+			if hookDpolProviderCreated != nil {
+				hookDpolProviderCreated()
 			}
 		}
 	}
@@ -569,6 +604,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			VpolJSONProviderErr:               vpolJSONProviderErr,
 			MpolProvider:                      mpolProvider,
 			MpolProviderErr:                   mpolProviderErr,
+			GpolCompiledPolicies:              gpolCompiledPolicies,
+			GpolCompiledPoliciesErr:           gpolCompiledPoliciesErr,
 		}
 		ers, err := pp.ApplyPoliciesOnResource()
 		if err != nil {
@@ -614,6 +651,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				!(len(testCase.Test.ClusterResources) > 0),
 				restMapper,
 				gceMap,
+				contextProvider,
+				dpolProvider,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -692,6 +731,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			VpolJSONProviderErr:               vpolJSONProviderErr,
 			MpolProvider:                      mpolProvider,
 			MpolProviderErr:                   mpolProviderErr,
+			GpolCompiledPolicies:              gpolCompiledPolicies,
+			GpolCompiledPoliciesErr:           gpolCompiledPoliciesErr,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -736,6 +777,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				true,
 				restMapper,
 				gceMap,
+				contextProvider,
+				dpolProvider,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.name, err)
@@ -1007,6 +1050,8 @@ func applyDeletingPolicies(
 	isFake bool,
 	restMapper meta.RESTMapper,
 	gceMap map[string]interface{},
+	cachedContext libs.Context,
+	cachedDpolProvider dpolengine.ProviderFunc,
 ) ([]engineapi.EngineResponse, error) {
 	if restMapper == nil {
 		var mapErr error
@@ -1015,13 +1060,23 @@ func applyDeletingPolicies(
 			return nil, mapErr
 		}
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
-	if err != nil {
-		return nil, err
+	contextProvider := cachedContext
+	if contextProvider == nil {
+		var err error
+		contextProvider, err = processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
-	if err != nil {
-		return nil, err
+	var provider dpolengine.ProviderFunc
+	if cachedDpolProvider != nil {
+		provider = cachedDpolProvider
+	} else {
+		var err error
+		provider, err = dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewMatcher())
