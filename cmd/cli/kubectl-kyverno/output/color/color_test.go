@@ -15,26 +15,43 @@ func TestInit(t *testing.T) {
 	})
 
 	tests := []struct {
-		name    string
-		noColor bool
-	}{{
-		name:    "color enabled",
-		noColor: false,
-	}, {
-		name:    "color disabled",
-		noColor: true,
-	}}
+		name              string
+		noColor           bool
+		fatihNoColor      bool
+		wantHeaderBgColor int
+		wantHeaderFgColor int
+	}{
+		{
+			name:              "color disabled by flag",
+			noColor:           true,
+			fatihNoColor:      false,
+			wantHeaderBgColor: 0,
+			wantHeaderFgColor: 0,
+		},
+		{
+			name:              "color enabled in TTY",
+			noColor:           false,
+			fatihNoColor:      false,
+			wantHeaderBgColor: tablewriter.BgBlackColor,
+			wantHeaderFgColor: tablewriter.FgGreenColor,
+		},
+		{
+			name:              "color suppressed in non-TTY",
+			noColor:           false,
+			fatihNoColor:      true,
+			wantHeaderBgColor: 0,
+			wantHeaderFgColor: 0,
+		},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.fatihNoColor
 			Init(tt.noColor)
-			if tt.noColor {
-				if HeaderBgColor != 0 || HeaderFgColor != 0 {
-					t.Errorf("expected header colors to be cleared, got bg=%d fg=%d", HeaderBgColor, HeaderFgColor)
-				}
-			} else {
-				if HeaderBgColor != tablewriter.BgBlackColor || HeaderFgColor != tablewriter.FgGreenColor {
-					t.Errorf("expected header colors to be set, got bg=%d fg=%d", HeaderBgColor, HeaderFgColor)
-				}
+			if HeaderBgColor != tt.wantHeaderBgColor {
+				t.Errorf("HeaderBgColor = %v, want %v", HeaderBgColor, tt.wantHeaderBgColor)
+			}
+			if HeaderFgColor != tt.wantHeaderFgColor {
+				t.Errorf("HeaderFgColor = %v, want %v", HeaderFgColor, tt.wantHeaderFgColor)
 			}
 		})
 	}
