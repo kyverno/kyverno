@@ -89,30 +89,30 @@ type PolicyProcessor struct {
 	Variables          *variables.Variables
 	ParameterResources []runtime.Object
 	// TODO
-	ContextFs            billy.Filesystem
-	ContextPath          string
-	GlobalContextEntries map[string]interface{}
-	Cluster              bool
-	UserInfo             *kyvernov2.RequestInfo
-	PolicyReport         bool
-	NamespaceSelectorMap map[string]map[string]string
-	NamespaceResolver    celengine.NamespaceResolver
-	Stdin                bool
-	Rc                   *ResultCounts
-	PrintPatchResource   bool
-	Client               dclient.Interface
-	AuditWarn            bool
-	Subresources         []v1alpha1.Subresource
-	Out                  io.Writer
-	CrdPaths             []string
-	CrdPreloaded         bool
-	ConfigMapResolver    engineapi.ConfigmapResolver
-	RESTMapper           meta.RESTMapper
-	ContextProvider      libs.Context
-	VpolProvider         vpolengine.Provider
-	VpolProviderErr      error
-	VpolJSONProvider     vpolengine.Provider
-	VpolJSONProviderErr  error
+	ContextFs               billy.Filesystem
+	ContextPath             string
+	GlobalContextEntries    map[string]interface{}
+	Cluster                 bool
+	UserInfo                *kyvernov2.RequestInfo
+	PolicyReport            bool
+	NamespaceSelectorMap    map[string]map[string]string
+	NamespaceResolver       celengine.NamespaceResolver
+	Stdin                   bool
+	Rc                      *ResultCounts
+	PrintPatchResource      bool
+	Client                  dclient.Interface
+	AuditWarn               bool
+	Subresources            []v1alpha1.Subresource
+	Out                     io.Writer
+	CrdPaths                []string
+	CrdPreloaded            bool
+	ConfigMapResolver       engineapi.ConfigmapResolver
+	RESTMapper              meta.RESTMapper
+	ContextProvider         libs.Context
+	VpolProvider            vpolengine.Provider
+	VpolProviderErr         error
+	VpolJSONProvider        vpolengine.Provider
+	VpolJSONProviderErr     error
 	MpolProvider            mpolengine.Provider
 	MpolProviderErr         error
 	GpolCompiledPolicies    []gpolengine.Policy

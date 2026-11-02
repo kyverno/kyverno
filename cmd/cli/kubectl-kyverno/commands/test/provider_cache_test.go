@@ -528,6 +528,96 @@ spec:
 	assert.Equal(t, "example-generate", resp.Trigger[key2][0].Policy().GetName())
 	assert.True(t, resp.Trigger[key1][0].IsSuccessful())
 	assert.True(t, resp.Trigger[key2][0].IsSuccessful())
+
+	require.NotEmpty(t, resp.Trigger[key1][0].PolicyResponse.Rules)
+	require.NotEmpty(t, resp.Trigger[key2][0].PolicyResponse.Rules)
+	gen1 := resp.Trigger[key1][0].PolicyResponse.Rules[0].GeneratedResources()
+	gen2 := resp.Trigger[key2][0].PolicyResponse.Rules[0].GeneratedResources()
+	require.NotEmpty(t, gen1)
+	require.NotEmpty(t, gen2)
+	assert.Equal(t, "app-1-config", gen1[0].GetName())
+	assert.Equal(t, "app-2-config", gen2[0].GetName())
+}
+
+func TestRunTest_ProviderCachingGeneratingPolicyCompileFailure(t *testing.T) {
+	fs := memfs.New()
+
+	kyvernoTestYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-gpol-compile-failure
+policies:
+  - gpolicy.yaml
+resources:
+  - gresources.yaml
+results:
+  - policy: invalid-generate
+    kind: Deployment
+    resources:
+      - app-1
+    result: fail
+`
+
+	policyYAML := `apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: invalid-generate
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["deployments"]
+  generate:
+    - expression: "invalid syntax !!!"
+`
+
+	resourcesYAML := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-1
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo1
+  template:
+    metadata:
+      labels:
+        app: demo1
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+`
+
+	f1, err := fs.Create("kyverno-test.yaml")
+	require.NoError(t, err)
+	_, err = f1.Write([]byte(kyvernoTestYAML))
+	require.NoError(t, err)
+	f1.Close()
+
+	f2, err := fs.Create("gpolicy.yaml")
+	require.NoError(t, err)
+	_, err = f2.Write([]byte(policyYAML))
+	require.NoError(t, err)
+	f2.Close()
+
+	f3, err := fs.Create("gresources.yaml")
+	require.NoError(t, err)
+	_, err = f3.Write([]byte(resourcesYAML))
+	require.NoError(t, err)
+	f3.Close()
+
+	testCases := test.LoadTest(fs, "kyverno-test.yaml")
+	require.Len(t, testCases, 1)
+
+	resp, err := runTest(context.TODO(), io.Discard, testCases[0], false)
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	assert.ErrorContains(t, err, "failed to compile policy invalid-generate")
 }
 
 func TestRunTest_ProviderCachingDeletingPolicy(t *testing.T) {
@@ -541,12 +631,19 @@ policies:
   - dpolicy.yaml
 resources:
   - dresources.yaml
+jsonPayloads:
+  - payload.json
 results:
   - policy: deleting-pod-by-name
     kind: Pod
     resources:
       - test-nginx-1
       - test-nginx-2
+    result: pass
+  - policy: deleting-pod-by-name
+    kind: Pod
+    resources:
+      - payload.json
     result: pass
 `
 
@@ -605,6 +702,12 @@ spec:
 	require.NoError(t, err)
 	f3.Close()
 
+	f4, err := fs.Create("payload.json")
+	require.NoError(t, err)
+	_, err = f4.Write([]byte(`{"apiVersion": "v1", "kind": "Pod", "metadata": {"name": "test-nginx-json", "namespace": "default"}}`))
+	require.NoError(t, err)
+	f4.Close()
+
 	testCases := test.LoadTest(fs, "kyverno-test.yaml")
 	require.Len(t, testCases, 1)
 
@@ -621,19 +724,24 @@ spec:
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	// Verify observable caching: exactly 1 dpolProvider and 1 context build across multiple resources
-	assert.Equal(t, 1, dpolProviderCount, "DpolProvider should be constructed and compiled only once per testCase across all resources")
-	assert.Equal(t, 1, contextBuildCount, "ContextProvider should be constructed only once per testCase across all resources")
+	// Verify observable caching: exactly 1 dpolProvider across resources and JSON payload,
+	// and 2 context builds (1 for cluster resources, 1 isolated fallback for JSON payload).
+	assert.Equal(t, 1, dpolProviderCount, "DpolProvider should be constructed and compiled only once per testCase across all resources and JSON payloads")
+	assert.Equal(t, 2, contextBuildCount, "ContextProvider should be constructed once for resources and once for JSON payload")
 
 	key1 := "v1,Pod,default,test-nginx-1"
 	key2 := "v1,Pod,default,test-nginx-2"
 
 	require.Contains(t, resp.Trigger, key1)
 	require.Contains(t, resp.Trigger, key2)
+	require.Contains(t, resp.Trigger, "payload.json")
 	require.NotEmpty(t, resp.Trigger[key1])
 	require.NotEmpty(t, resp.Trigger[key2])
+	require.NotEmpty(t, resp.Trigger["payload.json"])
 	assert.Equal(t, "deleting-pod-by-name", resp.Trigger[key1][0].Policy().GetName())
 	assert.Equal(t, "deleting-pod-by-name", resp.Trigger[key2][0].Policy().GetName())
+	assert.Equal(t, "deleting-pod-by-name", resp.Trigger["payload.json"][0].Policy().GetName())
 	assert.True(t, resp.Trigger[key1][0].IsSuccessful())
 	assert.True(t, resp.Trigger[key2][0].IsSuccessful())
+	assert.True(t, resp.Trigger["payload.json"][0].IsSuccessful())
 }

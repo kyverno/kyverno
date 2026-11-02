@@ -777,7 +777,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				true,
 				restMapper,
 				gceMap,
-				contextProvider,
+				nil,
 				dpolProvider,
 			)
 			if err != nil {
@@ -1067,6 +1067,9 @@ func applyDeletingPolicies(
 		if err != nil {
 			return nil, err
 		}
+		if hookContextProviderCreated != nil {
+			hookContextProviderCreated()
+		}
 	}
 	var provider dpolengine.ProviderFunc
 	if cachedDpolProvider != nil {
@@ -1076,6 +1079,9 @@ func applyDeletingPolicies(
 		provider, err = dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
 		if err != nil {
 			return nil, err
+		}
+		if hookDpolProviderCreated != nil {
+			hookDpolProviderCreated()
 		}
 	}
 
