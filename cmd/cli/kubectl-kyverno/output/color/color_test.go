@@ -4,20 +4,38 @@ import (
 	"testing"
 
 	fatihcolor "github.com/fatih/color"
+	"github.com/kataras/tablewriter"
 )
 
 func TestInit(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
 	tests := []struct {
 		name    string
 		noColor bool
 	}{{
-		noColor: true,
-	}, {
+		name:    "color enabled",
 		noColor: false,
+	}, {
+		name:    "color disabled",
+		noColor: true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			Init(tt.noColor)
+			if tt.noColor {
+				if HeaderBgColor != 0 || HeaderFgColor != 0 {
+					t.Errorf("expected header colors to be cleared, got bg=%d fg=%d", HeaderBgColor, HeaderFgColor)
+				}
+			} else {
+				if HeaderBgColor != tablewriter.BgBlackColor || HeaderFgColor != tablewriter.FgGreenColor {
+					t.Errorf("expected header colors to be set, got bg=%d fg=%d", HeaderBgColor, HeaderFgColor)
+				}
+			}
 		})
 	}
 }
@@ -200,7 +218,7 @@ func TestFunctionName(t *testing.T) {
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
 		fatihcolor.NoColor = origNoColor
-		Init(true)
+		Init(origNoColor)
 	})
 
 	tests := []struct {
@@ -234,7 +252,7 @@ func TestFunctionNote(t *testing.T) {
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
 		fatihcolor.NoColor = origNoColor
-		Init(true)
+		Init(origNoColor)
 	})
 
 	tests := []struct {
@@ -262,4 +280,48 @@ func TestFunctionNote(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBoldHelpers(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
+	t.Run("color disabled", func(t *testing.T) {
+		fatihcolor.NoColor = true
+		Init(true)
+
+		assert := func(got, want string) {
+			t.Helper()
+			if got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		}
+		assert(BoldGreen(1), "1")
+		assert(BoldRed(2), "2")
+		assert(BoldYellow(3), "3")
+		assert(BoldCyan(4), "4")
+		assert(BoldYellow("Policies Skipped:"), "Policies Skipped:")
+		assert(BoldRed("failed:"), "failed:")
+	})
+
+	t.Run("color enabled", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		Init(false)
+
+		assert := func(got, want string) {
+			t.Helper()
+			if got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		}
+		assert(BoldGreen(1), "\x1b[32;1m1\x1b[0;22m")
+		assert(BoldRed(2), "\x1b[31;1m2\x1b[0;22m")
+		assert(BoldYellow(3), "\x1b[33;1m3\x1b[0;22m")
+		assert(BoldCyan(4), "\x1b[36;1m4\x1b[0;22m")
+		assert(BoldYellow("Policies Skipped:"), "\x1b[33;1mPolicies Skipped:\x1b[0;22m")
+		assert(BoldRed("failed:"), "\x1b[31;1mfailed:\x1b[0;22m")
+	})
 }
