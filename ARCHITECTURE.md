@@ -124,8 +124,9 @@ See also [api/AGENTS.md](api/AGENTS.md).
   egress guard to it (`pkg/utils/egress`) that validates and pins the destination of every registry request, so
   an attacker-chosen image reference cannot steer a fetch at cloud metadata or a loopback address. Anything
   fetching through that client inherits the guard. The exception is a policy declaring its own
-  `spec.credentials`: `regcreds.RemoteOptsFromIvpolCredentials` pins its own transport, so those call sites must
-  use `egress.GuardedRemoteOptions` instead. Sigstore (Rekor/Fulcio/TSA/TUF) and KMS do not use this client and
+  `spec.credentials`: `regcreds.RemoteOptsFromIvpolCredentials` pins its own transport, so those call sites build
+  their options through `pkg/image/verification/credentials.RemoteOptions`, which applies the guard itself.
+  Sigstore (Rekor/Fulcio/TSA/TUF) and KMS do not use this client and
   are deliberately out of scope. Full detail: [docs/dev/registry-client.md](docs/dev/registry-client.md).
 
 ## Generated / no-edit zones

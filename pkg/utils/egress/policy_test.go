@@ -74,6 +74,7 @@ func TestPrivateNetworkCompatibilityAndExemptions(t *testing.T) {
 		"10.1.2.3", "172.16.1.1", "192.168.1.1", "100.64.1.1", "fd01::1", "64:ff9b::a01:203",
 		"192.0.0.1", "192.88.99.1", "240.0.0.1", "2001:0:4136:e378:8000:63bf:3fff:fdd2", "100::1",
 		"192.0.2.1", "198.51.100.1", "203.0.113.1", "2001:db8::1",
+		"fec0::1", "feff:ffff::1", "3fff::1", "5f00::1", "64:ff9b:1::1",
 		"::ffff:192.0.0.1", "64:ff9b::c000:1",
 	} {
 		t.Run(address, func(t *testing.T) {
@@ -112,6 +113,15 @@ func TestSpecialPurposeRangesAreExemptableByAddress(t *testing.T) {
 		{name: "documentation TEST-NET-2", address: "198.51.100.1", exemption: "198.51.100.0/24"},
 		{name: "documentation TEST-NET-3", address: "203.0.113.1", exemption: "203.0.113.0/24"},
 		{name: "IPv6 documentation", address: "2001:db8::1", exemption: "2001:db8::/32"},
+		// Go reports every one of these as ordinary global unicast with IsPrivate false, so
+		// each needs its own prefix or enforce mode lets a registry reference reach it.
+		{name: "deprecated IPv6 site local", address: "fec0::1", exemption: "fec0::/10"},
+		// fec0::/10 is adjacent to fe80::/10, not inside it, so the hard block on link-local
+		// does not reach the top of the range either.
+		{name: "deprecated IPv6 site local upper bound", address: "feff:ffff::1", exemption: "fec0::/10"},
+		{name: "IPv6 documentation RFC 9637", address: "3fff::1", exemption: "3fff::/20"},
+		{name: "SRv6 SID", address: "5f00::1", exemption: "5f00::/16"},
+		{name: "local use NAT64", address: "64:ff9b:1::1", exemption: "64:ff9b:1::/48"},
 		{name: "IPv4 mapped protocol assignment", address: "::ffff:192.0.0.1", exemption: "192.0.0.0/24"},
 		{name: "NAT64 protocol assignment", address: "64:ff9b::c000:1", exemption: "192.0.0.0/24"},
 	} {
@@ -124,6 +134,43 @@ func TestSpecialPurposeRangesAreExemptableByAddress(t *testing.T) {
 			policy = testPolicy(t, Config{Mode: ModeEnforce, Allowlist: []string{tc.exemption}}, answers)
 			resolved, err := policy.ResolveAndValidate(context.Background(), "registry.internal")
 			require.NoError(t, err)
+			assert.Equal(t, []netip.Addr{netip.MustParseAddr(tc.address)}, resolved)
+		})
+	}
+}
+
+// The private-class list is derived from the IANA special-purpose registries by taking every
+// "Globally Reachable: False" entry. The entries marked True are real routed services and must
+// stay reachable in enforce mode with no exemption, or this guard breaks ordinary fetches while
+// claiming to block only local infrastructure. This is the other half of the derivation rule in
+// policy.go: that list says what to include, and this test pins what deliberately stays out.
+func TestGloballyReachableSpecialPurposeRangesStayPublic(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ name, address string }{
+		{name: "AS112 v4", address: "192.31.196.1"},
+		{name: "AS112 v4 direct delegation", address: "192.175.48.1"},
+		{name: "AMT", address: "192.52.193.1"},
+		{name: "AS112 v6 direct delegation", address: "2620:4f:8000::1"},
+		// 6to4 carrying a public IPv4 is a public destination. 2002::/16 as a whole is not
+		// private-class; EmbeddedIPv4 unwraps it and the embedded address decides.
+		{name: "6to4 wrapping a public address", address: "2002:5db8:d822::1"},
+		// fec0::/10 sits directly above fe80::/10 and fc00::/7 directly below it. fe00::1 falls
+		// between ULA and link-local, so it catches any of the three over-reaching downward.
+		// The upper edge is pinned by the feff:ffff::1 case in the exemptable-ranges test.
+		{name: "between the ULA and link local ranges", address: "fe00::1"},
+		// 3fff::/20 ends at 3fff:0fff:..., well short of 3fff:ffff:..., and both sides of that
+		// edge are inside the 2000::/3 global unicast pool. 5f00::/16 ends at 5f00:ffff:...
+		{name: "above the RFC 9637 documentation range", address: "3fff:1000::1"},
+		{name: "above the SRv6 range", address: "5f01::1"},
+		// 64:ff9b:1::/48 is a /48, not the whole 64:ff9b::/32.
+		{name: "beside the local use NAT64 range", address: "64:ff9b:2::1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			answers := map[string][]string{"registry.example": {tc.address}}
+			policy := testPolicy(t, Config{Mode: ModeEnforce}, answers)
+			resolved, err := policy.ResolveAndValidate(context.Background(), "registry.example")
+			require.NoError(t, err, "enforce mode must not need an exemption for a globally routed address")
 			assert.Equal(t, []netip.Addr{netip.MustParseAddr(tc.address)}, resolved)
 		})
 	}

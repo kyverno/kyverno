@@ -33,10 +33,16 @@
   Secrets still fails loudly there, via that package's context-aware `NewSecretsKeychain`.
 - Audit permits ordinary private destinations with logging; enforce requires exemptions.
   Metadata, loopback, link-local, unspecified, multicast, and broadcast remain blocked.
-- Private-class covers more than Go's `IsPrivate()`: it also holds the RFC 5737/3849
-  documentation ranges (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`, `2001:db8::/32`).
-  "Not globally routable" is not "not routed" — a cluster can point documentation space at an
-  internal service, and the address validated here is the one dialed.
+- Private-class covers much more than Go's `IsPrivate()`, which only knows RFC 1918 and
+  `fc00::/7`. "Not globally routable" is not "not routed" — a cluster can point documentation
+  or site-local space at an internal service, and the address validated here is the one dialed.
+  The list in `policy.go` is **derived, not incremental**: it is every IANA special-purpose
+  registry entry marked "Globally Reachable: False" that Go does not already report as
+  loopback, link-local, unspecified, multicast or private. Entries marked True (`192.31.196.0/24`,
+  `192.175.48.0/24`, `192.52.193.0/24`, `2620:4f:8000::/48`) are deliberately excluded and
+  `TestGloballyReachableSpecialPurposeRangesStayPublic` pins that. Appending one range in
+  isolation is how `198.18.0.0/15`, the documentation ranges and `fec0::/10` each shipped a
+  round late — re-derive from the registries instead.
 - Validate every request, including reused connections, redirects, and token requests routed
   through this transport. Reject opaque URLs and mismatched HTTP Host/URL authorities.
 - Pin direct dials to validated IPs without a second lookup; preserve Host/TLS SNI.
@@ -72,8 +78,8 @@
 - Pool eviction retires idle connections without interrupting active responses; retain
   atomic retirement tracking and cleanup when those response bodies close.
 - Run `go test -race ./pkg/utils/egress`; use injected resolvers/dialers and local fixtures.
-- Do not use RFC 5737/3849 documentation addresses (`192.0.2.x`, `198.51.100.x`, `203.0.113.x`,
-  `2001:db8::x`) as a stand-in for a reachable public registry or proxy — `privateAddress`
+- Do not use documentation addresses (`192.0.2.x`, `198.51.100.x`, `203.0.113.x`, `2001:db8::x`,
+  `3fff::x`) as a stand-in for a reachable public registry or proxy — `privateAddress`
   classifies them, so such a fixture is logged as private in audit mode and rejected in enforce
   mode. Use the `publicIPv4` / `publicIPv4Alt` / `publicIPv6` / `publicIPv4Nth` constants in
   `policy_test.go`; they are real public addresses that nothing ever contacts, because every

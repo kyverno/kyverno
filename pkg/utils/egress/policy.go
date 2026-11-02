@@ -216,6 +216,14 @@ var (
 	// a cluster from pointing 203.0.113.0/24 at an internal service, and the address checked
 	// here is exactly the one dialed, so in enforce mode a registry fetch would otherwise reach
 	// it. An operator who genuinely runs a registry in any of these ranges allowlists it.
+	//
+	// This list was grown one range at a time across four review rounds, which is how a gap
+	// like fec0::/10 survived. It is now derived from the IANA special-purpose registries
+	// instead: every entry marked "Globally Reachable: False" that Go does not already report
+	// as loopback, link-local, unspecified, multicast or private is listed here or hard-blocked
+	// above. Entries marked True are deliberately absent -- 2620:4f:8000::/48, 192.31.196.0/24,
+	// 192.175.48.0/24 (AS112) and 192.52.193.0/24 (AMT) are real routed services. Re-derive from
+	// those registries when adding to this list; do not append a single range in isolation.
 	protocolAssignments   = netip.MustParsePrefix("192.0.0.0/24")    // IETF assignments: 192.0.0.1 is the DS-Lite AFTR the local CPE answers on.
 	sixToFourRelayAnycast = netip.MustParsePrefix("192.88.99.0/24")  // Deprecated 6to4 relay anycast: reaches whichever relay the local network advertises.
 	reservedNetwork       = netip.MustParsePrefix("240.0.0.0/4")     // Reserved for future use: only a local stack or appliance can answer here.
@@ -225,6 +233,10 @@ var (
 	testNet2              = netip.MustParsePrefix("198.51.100.0/24") // RFC 5737 TEST-NET-2: likewise, only a local route can carry a fetch here.
 	testNet3              = netip.MustParsePrefix("203.0.113.0/24")  // RFC 5737 TEST-NET-3: likewise.
 	documentationV6       = netip.MustParsePrefix("2001:db8::/32")   // RFC 3849 IPv6 documentation space: disjoint from 2001::/23, and routed only where an operator chose to.
+	siteLocalV6           = netip.MustParsePrefix("fec0::/10")       // Deprecated IPv6 site-local (RFC 3879). Adjacent to fe80::/10, not covered by it, and Go reports it as ordinary global unicast; stacks and appliances still answer here.
+	documentationV6Alt    = netip.MustParsePrefix("3fff::/20")       // RFC 9637 IPv6 documentation space, the 2024 addition alongside 2001:db8::/32.
+	segmentRoutingV6      = netip.MustParsePrefix("5f00::/16")       // RFC 9602 SRv6 SIDs: these name segments inside a routing domain, so a reply means local routing infrastructure.
+	localUseNAT64V6       = netip.MustParsePrefix("64:ff9b:1::/48")  // RFC 8215 local-use NAT64. Disjoint from the well-known 64:ff9b::/96 that EmbeddedIPv4 unwraps, and the translator it names is local by definition.
 	// Some cloud metadata services use otherwise private or public addresses.
 	metadataAddresses = map[netip.Addr]struct{}{
 		netip.MustParseAddr("100.100.100.200"): {},
@@ -240,13 +252,17 @@ func hardBlocked(address netip.Addr) bool {
 
 // privateAddress is only ever called on a candidate from addressCandidates, which has
 // already unmapped and extracted any embedded IPv4, so ::ffff:192.0.0.1, 64:ff9b::c000:1,
-// and 2002:c000:1:: cannot spell their way past an IPv4 prefix listed here.
+// and 2002:c000:1:: cannot spell their way past an IPv4 prefix listed here. The IPv6-only
+// prefixes need no equivalent: the mapped and embedded forms carry an IPv4 address and so
+// cannot spell one of them, and addressCandidates always keeps the original address too.
 func privateAddress(address netip.Addr) bool {
 	return address.IsPrivate() || carrierGradeNAT.Contains(address) || benchmarkNetwork.Contains(address) ||
 		protocolAssignments.Contains(address) || sixToFourRelayAnycast.Contains(address) ||
 		reservedNetwork.Contains(address) || protocolAssignmentsV6.Contains(address) ||
 		discardOnlyV6.Contains(address) || testNet1.Contains(address) || testNet2.Contains(address) ||
-		testNet3.Contains(address) || documentationV6.Contains(address)
+		testNet3.Contains(address) || documentationV6.Contains(address) || siteLocalV6.Contains(address) ||
+		documentationV6Alt.Contains(address) || segmentRoutingV6.Contains(address) ||
+		localUseNAT64V6.Contains(address)
 }
 
 func addressCandidates(address netip.Addr) []netip.Addr {
