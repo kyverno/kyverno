@@ -13,10 +13,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/config"
+<<<<<<< HEAD
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+=======
+	imagecredentials "github.com/kyverno/kyverno/pkg/image/verification/credentials"
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
@@ -30,8 +35,11 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/transform"
 	"github.com/kyverno/sdk/extensions/cel/libs/user"
 	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
+<<<<<<< HEAD
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/kyverno/sdk/extensions/regcreds"
+=======
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 	"github.com/kyverno/sdk/extensions/registryclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -71,15 +79,35 @@ type compilerImpl struct {
 	ivCache imageverifycache.Client
 }
 
+<<<<<<< HEAD
 func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException, verifications *imageverify.ImageVerificationResults) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
+=======
+func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
+	ivpolicy, allErrs := imagecredentials.ScopePolicy(ivpolicy)
+	if len(allErrs) != 0 {
+		return nil, allErrs
+	}
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 
+	lister := kubeutils.ScopeSecretLister(c.lister, ivpolicy.GetNamespace())
+	// A bare Secret name belongs to the policy's own namespace, and only a
+	// cluster-scoped policy falls back to Kyverno's. ScopePolicy has already
+	// rewritten namespaced references to canonical namespace/name, so this is
+	// belt-and-braces today, but it keeps a future path that reaches
+	// RemoteOptions without ScopePolicy from silently resolving bare names in
+	// the installation namespace again.
+	credentialNamespace := kubeutils.CredentialNamespace(lister, config.KyvernoNamespace())
 	spec := ivpolicy.GetSpec()
 
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
 	if spec.Credentials != nil {
+<<<<<<< HEAD
 		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(c.lister, *spec.Credentials, config.KyvernoNamespace(), logging.WithName("imageverify"))
+=======
+		authOpts, nameOpts = imagecredentials.RemoteOptions(lister, *spec.Credentials, credentialNamespace, logging.GlobalLogger())
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 	}
 
 	// keep required failing closed rather than reading from nil
@@ -177,7 +205,13 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		return nil, allErrs
 	}
 
+	ivFuncs, err := imageverify.NewIvFuncs(logging.WithName("ivpol/imageverify").WithValues("policy", ivpolicy.GetName(), "namespace", ivpolicy.GetNamespace()), ivpolicy, lister, env.CELTypeAdapter(), matchImageReferences)
+	if err != nil {
+		return nil, field.ErrorList{field.InternalError(path, err)}
+	}
+
 	return &compiledPolicy{
+<<<<<<< HEAD
 		namespace:            ivpolicy.GetNamespace(),
 		failurePolicy:        ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		verifyDigest:         spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest,
@@ -194,6 +228,27 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		variables:            variables,
 		validationConfig:     spec.ValidationConfigurations,
 		verifications:        verifications,
+=======
+		namespace:             ivpolicy.GetNamespace(),
+		failurePolicy:         ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		verifyDigest:          spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest,
+		matchConditions:       matchConditions,
+		matchImageReferences:  matchImageReferences,
+		validations:           validations,
+		auditAnnotations:      auditAnnotations,
+		imageExtractors:       imageExtractors,
+		attestors:             compiledAttestors,
+		attestationList:       getAttestations(spec.Attestations),
+		nameOpts:              nameOpts,
+		authOpts:              authOpts,
+		exceptions:            compiledExceptions,
+		variables:             variables,
+		validationConfig:      spec.ValidationConfigurations,
+		trace:                 c.trace,
+		tracedMatchConditions: tracedMatchConditions,
+		tracedVariables:       tracedVariables,
+		ivFuncs:               ivFuncs,
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 	}, nil
 }
 

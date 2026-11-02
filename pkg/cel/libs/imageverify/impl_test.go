@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+
 	"github.com/go-logr/logr"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -95,6 +98,10 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 	}
 
 	data := map[string]any{
+<<<<<<< HEAD
+=======
+		RuntimeKey:  NewRuntimeForPolicy(context.Background(), mustNewIvFuncs(t, logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)
@@ -134,6 +141,10 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 	}
 
 	data := map[string]any{
+<<<<<<< HEAD
+=======
+		RuntimeKey:  NewRuntimeForPolicy(context.Background(), mustNewIvFuncs(t, logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)
@@ -712,6 +723,132 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 	assert.NotNil(t, payload.Value())
 }
 
+<<<<<<< HEAD
+=======
+// Test_impl_getImageData evaluates getImageData() against a real registry image, which failed
+// to convert to a CEL value after cel-go v0.31.
+func Test_impl_getImageData(t *testing.T) {
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	env, err := cel.NewEnv(Lib())
+	assert.NoError(t, err)
+	ast, issues := env.Compile(`getImageData("ghcr.io/kyverno/test-verify-image:signed")`)
+	assert.Nil(t, issues.Err())
+	prog, err := env.Program(ast)
+	assert.NoError(t, err)
+
+	runtime := NewRuntimeForPolicy(context.Background(), mustNewIvFuncs(t, logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
+
+	out, _, err := prog.Eval(map[string]any{RuntimeKey: runtime})
+	assert.NoError(t, err, "getImageData on a real image must not fail at evaluation time")
+	if err == nil {
+		asMap, ok := out.Value().(map[string]any)
+		assert.True(t, ok, "getImageData result must convert to a CEL map, got %T", out.Value())
+		assert.Equal(t, "sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", asMap["digest"])
+	}
+}
+
+// Test_impl_getImageData_errors covers getImageData() failures that need no registry: a
+// reference that does not parse, and a registry nothing listens on.
+func Test_impl_getImageData_errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		image string
+	}{
+		{name: "invalid image reference", image: "not a valid::image"},
+		{name: "unreachable registry", image: "localhost:1/missing/image:v1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+			assert.NoError(t, err)
+			env, err := cel.NewEnv(Lib())
+			assert.NoError(t, err)
+			ast, issues := env.Compile(fmt.Sprintf("getImageData(%q)", tt.image))
+			assert.Nil(t, issues.Err())
+			prog, err := env.Program(ast)
+			assert.NoError(t, err)
+			runtime := NewRuntimeForPolicy(context.Background(), mustNewIvFuncs(t, logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
+
+			_, _, err = prog.Eval(map[string]any{RuntimeKey: runtime})
+			assert.ErrorContains(t, err, "failed to get imagedata")
+		})
+	}
+}
+
+// staticImages is an image context that never reaches a registry: every image resolves to the
+// same empty ImageData.
+type staticImages struct{}
+
+func (staticImages) AddImages(context.Context, []string, []remote.Option, []name.Option) error {
+	return nil
+}
+
+func (staticImages) Get(context.Context, string, []remote.Option, []name.Option) (*imagedataloader.ImageData, error) {
+	return &imagedataloader.ImageData{}, nil
+}
+
+// Test_impl_notary_failures_are_in_verification_diagnostics: a failed Notary verification, of a
+// signature or of an attestation, is recorded in the verification diagnostics the same way a
+// failed cosign one is, so the policy's failure message says which image and attestor failed
+// and why, instead of only logging it. An invalid certificate makes Notary fail before any
+// registry call, so the test runs offline.
+func Test_impl_notary_failures_are_in_verification_diagnostics(t *testing.T) {
+	const image = "example.com/app:1.0"
+	attestors := []v1beta1.Attestor{{
+		Name:   "notary",
+		Notary: &v1beta1.Notary{Certs: &v1beta1.StringOrExpression{Value: "not-a-valid-certificate"}},
+	}}
+	newRuntime := func() (Runtime, *ImageVerificationResults) {
+		results := NewImageVerificationResults()
+		f := &IvFuncs{
+			Adapter:        types.DefaultTypeAdapter,
+			logger:         logr.Discard(),
+			policy:         &v1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "notary-diagnostics"}},
+			notaryVerifier: notary.NewVerifier(logr.Discard()),
+			attestationList: map[string]v1beta1.Attestation{
+				"sbom": {Name: "sbom", Referrer: &v1beta1.Referrer{Type: "sbom/cyclone-dx"}},
+			},
+		}
+		return NewRuntimeForPolicy(context.Background(), f, staticImages{}, nil, results), results
+	}
+
+	tests := map[string]struct {
+		call func(f *IvFuncs) ref.Val
+		want string
+	}{
+		"image signature": {
+			call: func(f *IvFuncs) ref.Val {
+				return f.verify_image_signature_string_stringarray(f.NativeToValue(image), f.NativeToValue(attestors))
+			},
+			want: `image "example.com/app:1.0", attestor "notary": failed to setup notation verification data`,
+		},
+		"attestation signature": {
+			call: func(f *IvFuncs) ref.Val {
+				return f.verify_image_attestations_string_string_stringarray(f.NativeToValue(image), f.NativeToValue("sbom"), f.NativeToValue(attestors))
+			},
+			want: `image "example.com/app:1.0", attestor "notary", attestation "sbom": failed to setup notation verification data`,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			runtime, results := newRuntime()
+			out := tt.call(runtime.functions)
+
+			count, ok := out.Value().(int64)
+			require.True(t, ok, "expected a count, got: %v", out.Value())
+			assert.Zero(t, count, "an invalid certificate verifies nothing")
+			assert.Contains(t, runtime.VerificationDiagnostics(), tt.want, "the reason Notary failed must reach the policy's message")
+
+			verified, attempted := results.Status(image)
+			assert.True(t, attempted)
+			assert.False(t, verified)
+		})
+	}
+}
+
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 // Test_attestorCacheRule_BindsMaterialNotName pins that the cache rule tracks
 // what an attestor actually verifies with, not the label the policy gave it.
 // Attestor content is resolved per request from CEL expressions, so two
@@ -829,6 +966,7 @@ func Test_impl_verify_image_signature_kms_attestor_ignores_cache(t *testing.T) {
 	assert.Less(t, count, int64(len(attestors)), "a seeded entry must not be served for a KMS-backed attestor")
 }
 
+<<<<<<< HEAD
 // Test_impl_getImageData evaluates getImageData() against a real registry image, which failed
 // to convert to a CEL value after cel-go v0.31.
 func Test_impl_getImageData(t *testing.T) {
@@ -876,4 +1014,11 @@ func Test_impl_getImageData_errors(t *testing.T) {
 			assert.ErrorContains(t, err, "failed to get imagedata")
 		})
 	}
+=======
+func mustNewIvFuncs(t *testing.T, logger logr.Logger, policy v1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister, adapter types.Adapter, rules []compiler.MatchImageReference) *IvFuncs {
+	t.Helper()
+	funcs, err := NewIvFuncs(logger, policy, lister, adapter, rules)
+	require.NoError(t, err)
+	return funcs
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 }

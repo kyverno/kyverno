@@ -1,12 +1,20 @@
 package engine
 
 import (
+	"fmt"
+
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type Policy struct {
+<<<<<<< HEAD
+=======
+	CompiledPolicy eval.CompiledPolicy
+	// ScopeError retains stored credential-scope violations as enforcement failures.
+	ScopeError error
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 	Policy     policiesv1beta1.ImageValidatingPolicyLike
 	Exceptions []*policiesv1beta1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
@@ -16,4 +24,11 @@ type Policy struct {
 	// admitted object directly. Digest-pinning mutation is not supported
 	// for these targets yet - see HandleMutating.
 	ExtractionMode bool
+}
+
+func (p Policy) compilationError() error {
+	if p.ScopeError != nil {
+		return p.ScopeError
+	}
+	return fmt.Errorf("compiled policy is missing")
 }

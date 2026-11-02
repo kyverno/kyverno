@@ -290,9 +290,20 @@ func (e *engineImpl) handleMutation(
 		}
 		// digest mutation performs no verification, so it takes no part in the
 		// request-scoped verification results
+<<<<<<< HEAD
 		compiled, errList := c.Compile(ivpol.Policy, ivpol.Exceptions, nil)
 		if errList != nil {
 			// compile errors are surfaced by the validating webhook, skip mutation
+=======
+		compiled := ivpol.CompiledPolicy
+		if compiled == nil {
+			responses = append(responses, eval.ImageVerifyPolicyResponse{
+				Policy:     ivpol.Policy,
+				Actions:    ivpol.Actions,
+				Exceptions: ivpol.Exceptions,
+				Result:     *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", ivpol.compilationError(), nil),
+			})
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 			continue
 		}
 		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, requestMapFn, e.configuration)
@@ -541,7 +552,95 @@ func (e *engineImpl) evaluatePolicies(
 	})
 	// shared by every policy compiled below, so required sees cross-policy evidence
 	verifications := imageverify.NewImageVerificationResults()
+<<<<<<< HEAD
 	// resolved after the loop: evidence may come from a policy evaluated later
+=======
+
+	type evaluation struct {
+		response  eval.ImageVerifyPolicyResponse
+		compiled  eval.CompiledPolicy
+		result    *eval.EvaluationResult
+		err       error
+		startTime time.Time
+	}
+
+	results := make([]evaluation, len(policies))
+
+	// Each policy gets its own image context. The context caches the fetched
+	// image data and the verifiers mutate that data in place (for example
+	// ImageData.AddVerifiedIntotoPayloads), so sharing one context across the
+	// goroutines below would race on, and corrupt, the cached data when several
+	// policies verify the same image. The contexts are built here, before
+	// evaluation starts, so a construction failure is still returned as a
+	// request-level error, which rejects the request, rather than being
+	// downgraded to a per-policy result that a Warn or Audit policy would admit.
+	// Credentials and name options are left blank; each compiled policy supplies
+	// its own or the default global ones.
+	imageContexts := make([]imagedataloader.ImageContext, len(policies))
+	for i := range policies {
+		ictx, err := e.newImageContext()
+		if err != nil {
+			return nil, err
+		}
+		imageContexts[i] = ictx
+	}
+
+	// Evaluate all already-compiled policies concurrently.
+	//
+	// Each policy gets its own result slot. Responses and pendingRequired are
+	// processed sequentially below to preserve deterministic ordering and map
+	// writes.
+	var wg sync.WaitGroup
+
+	for i, ivpol := range policies {
+		results[i] = evaluation{
+			response: eval.ImageVerifyPolicyResponse{
+				Policy:     ivpol.Policy,
+				Actions:    ivpol.Actions,
+				Exceptions: ivpol.Exceptions,
+			},
+			compiled:  ivpol.CompiledPolicy,
+			startTime: time.Now(),
+		}
+
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			ivpol := policies[i]
+			evaluation := &results[i]
+
+			// An unrecovered panic in this goroutine would terminate the whole
+			// process, not just this request. Record it as this policy's
+			// evaluation error instead, so it is reported like any other failure
+			// to evaluate the policy and the other policies keep their results.
+			defer func() {
+				if r := recover(); r != nil {
+					evaluation.err = fmt.Errorf("panic while evaluating policy: %v", r)
+					logging.WithName("ivpol/evaluatePolicies").Error(evaluation.err, "recovered from a panic", "policy", ivpol.Policy.GetName(), "stack", string(debug.Stack()))
+				}
+			}()
+
+			if evaluation.compiled == nil {
+				evaluation.err = ivpol.compilationError()
+				return
+			}
+
+			ictx := imageContexts[i]
+
+			if ivpol.ExtractionMode {
+				evaluation.result, evaluation.err = e.evaluateExtractedIv(ctx, evaluation.compiled, ictx, e.ivCache, verifications, attr, request, namespace, libctx)
+			} else {
+				evaluation.result, evaluation.err = evaluation.compiled.Evaluate(ctx, ictx, e.ivCache, verifications, attr, request, namespace, true, requestMapFn, libctx)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Process results sequentially so response ordering and map writes remain
+	// deterministic, and required enforcement happens only after every policy
+	// has contributed its verification evidence.
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 	var pendingRequired []pendingRequiredCheck
 	for _, ivpol := range policies {
 		response := eval.ImageVerifyPolicyResponse{

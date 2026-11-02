@@ -171,7 +171,22 @@ Kyverno runs as multiple controllers in a Kubernetes cluster:
 - **Init Container** (`cmd/kyverno-init/`): Runs pre-flight cleanup before the admission controller starts.
 - **CLI** (`cmd/cli/kubectl-kyverno/`): Offline policy testing and validation tool.
 
+<<<<<<< HEAD
 Controller code is primarily in `pkg/controllers/`. Webhook handlers are in `pkg/webhooks/`. The policy engine is in `pkg/engine/`.
+=======
+These packages have real, package-specific gotchas that don't belong at root scope — read the relevant one before
+working in that area: [`api/`](./api/AGENTS.md), [`pkg/engine/`](./pkg/engine/AGENTS.md),
+[`pkg/cel/`](./pkg/cel/AGENTS.md), [`pkg/webhooks/`](./pkg/webhooks/AGENTS.md),
+[`pkg/background/`](./pkg/background/AGENTS.md), [`pkg/image/`](./pkg/image/AGENTS.md),
+[`pkg/clients/`](./pkg/clients/AGENTS.md), [`pkg/admissionpolicy/`](./pkg/admissionpolicy/AGENTS.md), [`pkg/toggle/`](./pkg/toggle/AGENTS.md),
+[`pkg/controllers/`](./pkg/controllers/AGENTS.md), [`pkg/config/`](./pkg/config/AGENTS.md),
+[`pkg/deprecations/`](./pkg/deprecations/AGENTS.md), [`pkg/utils/admission/`](./pkg/utils/admission/AGENTS.md),
+[`pkg/utils/kube/`](./pkg/utils/kube/AGENTS.md),
+[`cmd/cli/kubectl-kyverno/exception/`](./cmd/cli/kubectl-kyverno/exception/AGENTS.md),
+[`cmd/cli/kubectl-kyverno/commands/test/`](./cmd/cli/kubectl-kyverno/commands/test/AGENTS.md). Every claim in them is grounded in code actually read in the
+session that wrote them, not inferred from directory structure — if one goes stale, fix it in place rather than
+letting drift accumulate the way the old `pkg/cosign`/`cmd/tools` references did.
+>>>>>>> 7dbb202a9 (fix: scope namespaced image policy credentials by namespace (#17923))
 
 ## API Design Rules
 

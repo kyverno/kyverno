@@ -1,0 +1,14 @@
+Source commit: 7dbb202a954aed27457dcd40e455f7151cf86a25
+Conflicted paths:
+AGENTS.md
+pkg/cel/libs/imageverify/credentials_test.go
+pkg/cel/libs/imageverify/diagnostics_test.go
+pkg/cel/libs/imageverify/impl.go
+pkg/cel/libs/imageverify/impl_test.go
+pkg/cel/libs/imageverify/request_context_test.go
+pkg/cel/libs/imageverify/runtime_test.go
+pkg/cel/policies/ivpol/engine/engine.go
+pkg/cel/policies/ivpol/engine/policy.go
+pkg/cel/policies/ivpol/engine/reconciler.go
+pkg/image/verification/evaluator/compiler.go
+pkg/image/verifiers/ivpol/cosign/opts.go
