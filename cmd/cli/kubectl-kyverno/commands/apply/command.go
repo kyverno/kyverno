@@ -653,12 +653,12 @@ func (c *ApplyCommandConfig) applyPolicies(
 
 				if len(mpols) != 0 {
 					compiler := mpolcompiler.NewCompilerWithTrace(c.Explain)
-					toCompile := mpols
-					if len(resources) == 0 {
-						toCompile = slices.DeleteFunc(slices.Clone(mpols), func(policy policiesv1beta1.MutatingPolicyLike) bool {
-							return policy.GetSpec().EvaluationMode() != policieskyvernoio.EvaluationModeJSON
-						})
-					}
+					toCompile := slices.DeleteFunc(slices.Clone(mpols), func(policy policiesv1beta1.MutatingPolicyLike) bool {
+						if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+							return len(jsonPayloads) == 0
+						}
+						return len(resources) == 0
+					})
 					mpolProvider, err = mpolengine.NewProvider(compiler, toCompile, celExceptions, contextProvider)
 					if err != nil {
 						if !c.ContinueOnFail {

@@ -105,6 +105,88 @@ spec:
 	require.Zero(t, rc.Error)
 }
 
+func TestApplyResourceMutationSkipsUnusedJSONPolicy(t *testing.T) {
+	for _, mutation := range []struct {
+		name string
+		yaml string
+	}{
+		{"invalid expression", `- patchType: JSONPatch
+    jsonPatch:
+      expression: 'undefinedVariable'`},
+		{"unsupported patch type", `- patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: 'Object{}'`},
+	} {
+		for _, inputs := range []struct {
+			name               string
+			withResourcePolicy bool
+			withJSONInput      bool
+		}{
+			{"resource only", true, false},
+			{"no applicable policies", false, false},
+			{"applicable invalid JSON policy", false, true},
+		} {
+			t.Run(mutation.name+"/"+inputs.name, func(t *testing.T) {
+				dir := t.TempDir()
+				policy := filepath.Join(dir, "policies.yaml")
+				policies := fmt.Sprintf(`
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: invalid-json-policy
+spec:
+  evaluation:
+    mode: JSON
+  mutations:
+  %s
+`, mutation.yaml)
+				if inputs.withResourcePolicy {
+					policies += `
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: mutate-resource
+spec:
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "add", path: "/data/mutated", value: "yes"}]'
+`
+				}
+				require.NoError(t, os.WriteFile(policy, []byte(policies), 0o600))
+				resource := filepath.Join(dir, "resource.yaml")
+				require.NoError(t, os.WriteFile(resource, []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: input
+data: {}
+`), 0o600))
+				config := &ApplyCommandConfig{PolicyPaths: []string{policy}, ResourcePaths: []string{resource}}
+				if inputs.withJSONInput {
+					config.ResourcePaths = nil
+					config.JSONPaths = []string{"../../../../../test/cli/test-mutating-policy/json-document-mutation/input.json"}
+				}
+				rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+				if inputs.withJSONInput {
+					require.ErrorContains(t, err, "failed to compile policy invalid-json-policy")
+					return
+				}
+				require.NoError(t, err)
+				require.Zero(t, rc.Error)
+				if inputs.withResourcePolicy {
+					require.Equal(t, 1, rc.Pass)
+					require.Len(t, responses, 1)
+					require.Equal(t, map[string]any{"mutated": "yes"}, responses[0].PatchedResource.Object["data"])
+				} else {
+					require.Zero(t, rc.Pass)
+					require.Empty(t, responses)
+				}
+			})
+		}
+	}
+}
+
 func TestApplyJSONMutationDoesNotMutateKubernetesObject(t *testing.T) {
 	input := filepath.Join(t.TempDir(), "resource.json")
 	require.NoError(t, os.WriteFile(input, []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"input"},"id":1}`), 0o600))
