@@ -1,3 +1,5 @@
+{{- /* Validate podSecurityVersion even when no version-aware policy renders. */}}
+{{- $_ := include "kyverno-policies.psaVersion" . }}
 Thank you for installing {{ .Chart.Name }} {{ .Chart.Version }} 😀
 
 We have installed the "{{ .Values.podSecurityStandard }}" profile of Pod Security Standards and set them in {{ .Values.validationFailureAction }} mode.

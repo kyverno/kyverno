@@ -48,6 +48,10 @@ jobs:
           helm repo update
       - name: Run chart-testing (lint)
         run: ct lint --all --check-version-increment=false --validate-maintainers=false
+      - name: Verify podSecurityVersion rendering
+        # Renders the policies at each PSA version gate and checks the
+        # behavior against PSA for that version. Uses the helm on PATH.
+        run: bash scripts/verify-policies-psa-version.sh
 
   sync-issue:
     if: always() && github.event_name == 'push'
