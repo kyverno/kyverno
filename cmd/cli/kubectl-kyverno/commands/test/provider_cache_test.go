@@ -633,6 +633,7 @@ resources:
   - dresources.yaml
 jsonPayloads:
   - payload.json
+  - payload-2.json
 results:
   - policy: deleting-pod-by-name
     kind: Pod
@@ -644,6 +645,7 @@ results:
     kind: Pod
     resources:
       - payload.json
+      - payload-2.json
     result: pass
 `
 
@@ -702,11 +704,34 @@ spec:
 	require.NoError(t, err)
 	f3.Close()
 
+	clusterResourcesYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: ClusterResource
+metadata:
+  name: clusterresources
+spec:
+  resources:
+    - apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: default
+`
+	fc, err := fs.Create("clusterresources.yaml")
+	require.NoError(t, err)
+	_, err = fc.Write([]byte(clusterResourcesYAML))
+	require.NoError(t, err)
+	fc.Close()
+
 	f4, err := fs.Create("payload.json")
 	require.NoError(t, err)
 	_, err = f4.Write([]byte(`{"apiVersion": "v1", "kind": "Pod", "metadata": {"name": "test-nginx-json", "namespace": "default"}}`))
 	require.NoError(t, err)
 	f4.Close()
+
+	f5, err := fs.Create("payload-2.json")
+	require.NoError(t, err)
+	_, err = f5.Write([]byte(`{"apiVersion": "v1", "kind": "Pod", "metadata": {"name": "test-nginx-json-2", "namespace": "default"}}`))
+	require.NoError(t, err)
+	f5.Close()
 
 	testCases := test.LoadTest(fs, "kyverno-test.yaml")
 	require.Len(t, testCases, 1)
@@ -724,10 +749,10 @@ spec:
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	// Verify observable caching: exactly 1 dpolProvider across resources and JSON payload,
-	// and 2 context builds (1 for cluster resources, 1 isolated fallback for JSON payload).
+	// Verify observable caching: exactly 1 dpolProvider across resources and all JSON payloads,
+	// and 1 context build (reused across resources and all JSON payloads when clusterResources are absent).
 	assert.Equal(t, 1, dpolProviderCount, "DpolProvider should be constructed and compiled only once per testCase across all resources and JSON payloads")
-	assert.Equal(t, 2, contextBuildCount, "ContextProvider should be constructed once for resources and once for JSON payload")
+	assert.Equal(t, 1, contextBuildCount, "ContextProvider should be constructed once and reused across resources and all JSON payloads")
 
 	key1 := "v1,Pod,default,test-nginx-1"
 	key2 := "v1,Pod,default,test-nginx-2"
@@ -735,13 +760,167 @@ spec:
 	require.Contains(t, resp.Trigger, key1)
 	require.Contains(t, resp.Trigger, key2)
 	require.Contains(t, resp.Trigger, "payload.json")
+	require.Contains(t, resp.Trigger, "payload-2.json")
 	require.NotEmpty(t, resp.Trigger[key1])
 	require.NotEmpty(t, resp.Trigger[key2])
 	require.NotEmpty(t, resp.Trigger["payload.json"])
+	require.NotEmpty(t, resp.Trigger["payload-2.json"])
 	assert.Equal(t, "deleting-pod-by-name", resp.Trigger[key1][0].Policy().GetName())
 	assert.Equal(t, "deleting-pod-by-name", resp.Trigger[key2][0].Policy().GetName())
 	assert.Equal(t, "deleting-pod-by-name", resp.Trigger["payload.json"][0].Policy().GetName())
+	assert.Equal(t, "deleting-pod-by-name", resp.Trigger["payload-2.json"][0].Policy().GetName())
 	assert.True(t, resp.Trigger[key1][0].IsSuccessful())
 	assert.True(t, resp.Trigger[key2][0].IsSuccessful())
 	assert.True(t, resp.Trigger["payload.json"][0].IsSuccessful())
+	assert.True(t, resp.Trigger["payload-2.json"][0].IsSuccessful())
+}
+
+func TestRunTest_ProviderCachingDeletingPolicyWithClusterResources(t *testing.T) {
+	fs := memfs.New()
+
+	kyvernoTestYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-dpol-caching-cluster
+policies:
+  - dpolicy.yaml
+resources:
+  - dresources.yaml
+clusterResources:
+  - clusterresources.yaml
+jsonPayloads:
+  - payload.json
+  - payload-2.json
+results:
+  - policy: deleting-pod-by-name
+    kind: Pod
+    resources:
+      - test-nginx-1
+      - test-nginx-2
+    result: pass
+  - policy: deleting-pod-by-name
+    kind: Pod
+    resources:
+      - payload.json
+      - payload-2.json
+    result: pass
+`
+
+	policyYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: deleting-pod-by-name
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+  conditions:
+    - expression: object.metadata.name.startsWith("test-nginx")
+      name: check-pod-name
+  schedule: '*/1 * * * *'
+`
+
+	resourcesYAML := `apiVersion: v1
+kind: Pod
+metadata:
+  name: test-nginx-1
+  namespace: default
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-nginx-2
+  namespace: default
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+`
+
+	f1, err := fs.Create("kyverno-test.yaml")
+	require.NoError(t, err)
+	_, err = f1.Write([]byte(kyvernoTestYAML))
+	require.NoError(t, err)
+	f1.Close()
+
+	f2, err := fs.Create("dpolicy.yaml")
+	require.NoError(t, err)
+	_, err = f2.Write([]byte(policyYAML))
+	require.NoError(t, err)
+	f2.Close()
+
+	f3, err := fs.Create("dresources.yaml")
+	require.NoError(t, err)
+	_, err = f3.Write([]byte(resourcesYAML))
+	require.NoError(t, err)
+	f3.Close()
+
+	clusterResourcesYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: ClusterResource
+metadata:
+  name: clusterresources
+spec:
+  resources:
+    - apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: default
+`
+	fc, err := fs.Create("clusterresources.yaml")
+	require.NoError(t, err)
+	_, err = fc.Write([]byte(clusterResourcesYAML))
+	require.NoError(t, err)
+	fc.Close()
+
+	f4, err := fs.Create("payload.json")
+	require.NoError(t, err)
+	_, err = f4.Write([]byte(`{"apiVersion": "v1", "kind": "Pod", "metadata": {"name": "test-nginx-json", "namespace": "default"}}`))
+	require.NoError(t, err)
+	f4.Close()
+
+	f5, err := fs.Create("payload-2.json")
+	require.NoError(t, err)
+	_, err = f5.Write([]byte(`{"apiVersion": "v1", "kind": "Pod", "metadata": {"name": "test-nginx-json-2", "namespace": "default"}}`))
+	require.NoError(t, err)
+	f5.Close()
+
+	testCases := test.LoadTest(fs, "kyverno-test.yaml")
+	require.Len(t, testCases, 1)
+
+	var dpolProviderCount int
+	var contextBuildCount int
+	hookDpolProviderCreated = func() { dpolProviderCount++ }
+	hookContextProviderCreated = func() { contextBuildCount++ }
+	defer func() {
+		hookDpolProviderCreated = nil
+		hookContextProviderCreated = nil
+	}()
+
+	resp, err := runTest(context.TODO(), io.Discard, testCases[0], false)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// In mixed tests with cluster resources, exactly 2 context builds (1 cluster context, 1 isolated JSON context)
+	// and 2 dpolProvider compilations (1 for cluster context, 1 for JSON context).
+	// Neither provider is rebuilt across multiple resources or multiple JSON payloads.
+	assert.Equal(t, 2, dpolProviderCount, "DpolProvider should be compiled once for cluster resources and once for JSON context")
+	assert.Equal(t, 2, contextBuildCount, "ContextProvider should be built once for cluster resources and once for JSON context")
+
+	key1 := "v1,Pod,default,test-nginx-1"
+	key2 := "v1,Pod,default,test-nginx-2"
+
+	require.Contains(t, resp.Trigger, key1)
+	require.Contains(t, resp.Trigger, key2)
+	require.Contains(t, resp.Trigger, "payload.json")
+	require.Contains(t, resp.Trigger, "payload-2.json")
+	assert.True(t, resp.Trigger[key1][0].IsSuccessful())
+	assert.True(t, resp.Trigger[key2][0].IsSuccessful())
+	assert.True(t, resp.Trigger["payload.json"][0].IsSuccessful())
+	assert.True(t, resp.Trigger["payload-2.json"][0].IsSuccessful())
 }

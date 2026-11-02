@@ -474,6 +474,9 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	var gpolCompiledPoliciesErr error
 	var dpolProvider dpolengine.ProviderFunc
 	var dpolProviderErr error
+	var jsonContextProvider libs.Context
+	var dpolJSONProvider dpolengine.ProviderFunc
+	var dpolJSONProviderErr error
 
 	if (len(uniques) > 0 || len(jsonPayloads) > 0) && (len(results.ValidatingPolicies) != 0 || len(results.MutatingPolicies) != 0 || len(results.GeneratingPolicies) != 0 || len(results.DeletingPolicies) != 0) {
 		if restMapper == nil {
@@ -552,6 +555,33 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			}
 			if hookDpolProviderCreated != nil {
 				hookDpolProviderCreated()
+			}
+		}
+		if len(jsonPayloads) > 0 {
+			if len(testCase.Test.ClusterResources) == 0 {
+				jsonContextProvider = contextProvider
+				dpolJSONProvider = dpolProvider
+				dpolJSONProviderErr = dpolProviderErr
+			} else {
+				var err error
+				jsonContextProvider, err = processor.NewContextProvider(dClient, restMapper, testCase.Fs, contextPath, registryAccess, true, gceMap, store.GetHTTPMockIndex())
+				if err != nil {
+					return nil, err
+				}
+				if hookContextProviderCreated != nil {
+					hookContextProviderCreated()
+				}
+				if len(results.DeletingPolicies) != 0 {
+					dpolJSONProvider, dpolJSONProviderErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions)
+					if dpolJSONProviderErr != nil {
+						return nil, dpolJSONProviderErr
+					}
+					if hookDpolProviderCreated != nil {
+						hookDpolProviderCreated()
+					}
+				}
+				// Restore LibraryContext to cluster contextProvider for resource evaluation
+				libs.LibraryContext = contextProvider
 			}
 		}
 	}
@@ -724,7 +754,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			Out:                               io.Discard,
 			CrdPaths:                          crdPaths,
 			RESTMapper:                        restMapper,
-			ContextProvider:                   contextProvider,
+			ContextProvider:                   jsonContextProvider,
 			VpolProvider:                      vpolProvider,
 			VpolProviderErr:                   vpolProviderErr,
 			VpolJSONProvider:                  vpolJSONProvider,
@@ -777,8 +807,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				true,
 				restMapper,
 				gceMap,
-				nil,
-				dpolProvider,
+				jsonContextProvider,
+				dpolJSONProvider,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.name, err)
