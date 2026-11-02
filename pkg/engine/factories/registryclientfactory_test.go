@@ -12,12 +12,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/sdk/extensions/registryclient"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"gotest.tools/v3/assert"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 func TestGetClient_NilSecretsLister(t *testing.T) {
@@ -199,7 +201,11 @@ func TestRegistryClientFactory_GetClient(t *testing.T) {
 			// Reset tracking for each test
 			trackingLister.accessed = make(map[string]bool)
 
-			factory := DefaultRegistryClientFactory(&mockRegistryClient{}, trackingLister)
+			factory := DefaultRegistryClientFactory(
+				&mockRegistryClient{},
+				trackingLister,
+				WithPrivateRegistryAllowlist("index.docker.io"),
+			)
 
 			client, err := factory.GetClient(context.Background(), tt.creds, tt.resourceNamespace, tt.imagePullSecrets)
 			assert.NilError(t, err, tt.description)
@@ -280,7 +286,11 @@ func TestRegistryClientFactory_GetClient_NamespacePrefixing(t *testing.T) {
 				accessed:     make(map[string]bool),
 			}
 
-			factory := DefaultRegistryClientFactory(&mockRegistryClient{}, trackingLister)
+			factory := DefaultRegistryClientFactory(
+				&mockRegistryClient{},
+				trackingLister,
+				WithPrivateRegistryAllowlist("index.docker.io"),
+			)
 
 			client, err := factory.GetClient(context.Background(), nil, tt.resourceNamespace, tt.imagePullSecrets)
 			assert.NilError(t, err, tt.description)
@@ -328,4 +338,76 @@ func (m *mockRegistryClient) NameOptions() []name.Option {
 
 func (m *mockRegistryClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
 	return nil, nil
+}
+
+// Verify policy-specific clients retain the operator's egress policy, using only
+// credential resolution so the test never contacts an actual private registry.
+func TestRegistryClientFactory_PrivateRegistryEgress(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name      string
+		mode      string
+		allowlist string
+		host      string
+		wantAuth  bool
+	}{
+		{name: "default audit with empty allowlist", host: "10.1.2.3", wantAuth: true},
+		{name: "audit", mode: "audit", host: "10.1.2.3", wantAuth: true},
+		{name: "enforce rejects private", mode: "enforce", host: "10.1.2.3"},
+		{name: "enforce permits exact IP", mode: "enforce", allowlist: "10.1.2.3", host: "10.1.2.3", wantAuth: true},
+		{name: "enforce permits CIDR", mode: "enforce", allowlist: "10.1.0.0/16", host: "10.1.2.3", wantAuth: true},
+		{name: "audit blocks loopback", mode: "audit", allowlist: "127.0.0.1", host: "127.0.0.1"},
+		{name: "enforce blocks allowlisted metadata", mode: "enforce", allowlist: "169.254.169.254", host: "169.254.169.254"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			for _, policyCredentials := range []bool{false, true} {
+				caseName := "image pull secrets"
+				if policyCredentials {
+					caseName = "policy credentials"
+				}
+				t.Run(caseName, func(t *testing.T) {
+					t.Parallel()
+					namespace := config.KyvernoNamespace()
+					indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+					secret := &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: "registry-secret", Namespace: namespace},
+						Type:       corev1.SecretTypeDockerConfigJson,
+						Data: map[string][]byte{
+							corev1.DockerConfigJsonKey: []byte(`{"auths":{"` + tc.host + `":{"username":"registry-user","password":"registry-password"}}}`),
+						},
+					}
+					assert.NilError(t, indexer.Add(secret))
+					factory := DefaultRegistryClientFactory(
+						&mockRegistryClient{},
+						corev1listers.NewSecretLister(indexer),
+						WithPrivateRegistryAllowlist(tc.allowlist),
+						WithPrivateRegistryEgressMode(tc.mode),
+					)
+					var credentials *kyvernov1.ImageRegistryCredentials
+					var imagePullSecrets []string
+					if policyCredentials {
+						credentials = &kyvernov1.ImageRegistryCredentials{Secrets: []string{secret.Name}}
+					} else {
+						imagePullSecrets = []string{secret.Name}
+					}
+					client, err := factory.GetClient(context.Background(), credentials, namespace, imagePullSecrets)
+					assert.NilError(t, err)
+					registry, err := name.NewRegistry(tc.host)
+					assert.NilError(t, err)
+					keychainClient, ok := client.(interface{ Keychain() authn.Keychain })
+					assert.Assert(t, ok, "per-request registry client must expose its guarded keychain")
+					authenticator, err := keychainClient.Keychain().Resolve(registry)
+					if !tc.wantAuth {
+						assert.Assert(t, err != nil, "blocked destination must not resolve credentials")
+						return
+					}
+					assert.NilError(t, err)
+					authorization, err := authenticator.Authorization()
+					assert.NilError(t, err)
+					assert.Equal(t, authorization.Username != "", tc.wantAuth)
+				})
+			}
+		})
+	}
 }

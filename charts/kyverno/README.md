@@ -379,6 +379,8 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.policyExceptions.namespace | string | `""` | Restrict policy exceptions to a single namespace Set to "*" to allow exceptions in all namespaces |
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
+| features.registryClient.privateRegistryEgressMode | string | `"audit"` | Workload image registry egress policy for admission, background, and reports controllers: audit permits private addresses and logs enforce violations; enforce requires an allowlist entry. Both modes block metadata and unsafe resource-image destinations. Policy-authored endpoints are exempt. |
+| features.registryClient.privateRegistryAllowlist | list | `[]` | Exact workload image registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Use one non-empty string per entry, without commas. Metadata and unsafe resource-image destinations remain blocked. Policy-authored endpoints need no entries. |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
 | features.tuf.enabled | bool | `false` | Enables the feature |
@@ -927,6 +929,27 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | prometheusRule.additionalAnnotations | object | `{}` | Additional annotations to add to the PrometheusRule. |
 | prometheusRule.additionalLabels | object | `{}` | Additional labels to add to the PrometheusRule. Must match the `ruleSelector` configured on your Prometheus instance (e.g. `release: prometheus` for kube-prometheus-stack). |
 | prometheusRule.spec | list | `[]` | Alert rule groups. Provide your own rules here; the examples below use Kyverno's histogram metrics and can serve as starting points. Thresholds MUST be tuned to your environment's measured baseline — see https://kyverno.io/docs/guides/monitoring/#alerting for guidance. |
+
+## Registry egress policy
+
+The workload image registry egress guard in admission, background, and reports controllers defaults to
+`features.registryClient.privateRegistryEgressMode: audit`. Cleanup receives neither registry egress flag.
+Private registry destinations remain reachable during upgrades, while requests that
+would be blocked in `enforce` mode are logged at verbosity 2. Metadata, link-local,
+loopback, unspecified, multicast, and broadcast addresses are blocked in both modes.
+
+The guard covers untrusted resource images, including regular, init, and ephemeral
+containers. Policy-authored image registry context, signature repository, key,
+certificate, Rekor, Fulcio, CT, TSA, TUF, and `validate.manifests` endpoints retain native
+network behavior and are not subject to these egress settings.
+Sigstore bundle registry requests derived from workload images remain guarded.
+
+Before enabling `enforce`, add the exact hostnames, IP addresses, or CIDRs for your
+private registries and token services to `features.registryClient.privateRegistryAllowlist`.
+Use an empty list (`[]`) when no entries are needed; empty list elements are rejected.
+An allowlist entry never bypasses the address categories that are always blocked.
+See the [registry egress guide](https://github.com/kyverno/kyverno/blob/release-1.19/docs/user/legacy-registry-egress.md)
+for rollout examples and proxy behavior.
 
 ## TLS Configuration
 

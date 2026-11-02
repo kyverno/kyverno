@@ -89,7 +89,14 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 	resourceNamespace := getNamespaceFromContext(idl.enginectx)
 	// For ConfigMap context entries, imagePullSecrets are not available from image extraction
 	// They must be specified explicitly in ImageRegistryCredentials
-	client, err := idl.rclientFactory.GetClient(idl.ctx, entry.ImageRegistry.ImageRegistryCredentials, resourceNamespace, nil)
+	var client engineapi.RegistryClient
+	if factory, ok := idl.rclientFactory.(interface {
+		GetPolicyClient(context.Context, *kyvernov1.ImageRegistryCredentials, string) (engineapi.RegistryClient, error)
+	}); ok {
+		client, err = factory.GetPolicyClient(idl.ctx, entry.ImageRegistry.ImageRegistryCredentials, resourceNamespace)
+	} else {
+		client, err = idl.rclientFactory.GetClient(idl.ctx, entry.ImageRegistry.ImageRegistryCredentials, resourceNamespace, nil)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry client %s: %v", entry.Name, err)
 	}

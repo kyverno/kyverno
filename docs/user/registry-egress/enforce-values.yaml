@@ -1,0 +1,9 @@
+# Example only: replace these hosts and subnets with your registry destinations.
+features:
+  registryClient:
+    privateRegistryEgressMode: enforce
+    privateRegistryAllowlist:
+      - registry.corp.example
+      - auth.corp.example
+      - 10.20.30.0/24
+      - fd12:3456:789a::/64
