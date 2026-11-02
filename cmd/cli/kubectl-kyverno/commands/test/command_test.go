@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	fatihcolor "github.com/fatih/color"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
@@ -199,7 +200,7 @@ func TestCommandHelp(t *testing.T) {
 }
 
 func TestCheckResultDetectsMismatch(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{}
+	policy := &policiesv1beta1.ValidatingPolicy{}
 	policy.SetName("test-policy")
 
 	resource := unstructured.Unstructured{
@@ -292,7 +293,7 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 
 			response := engineapi.NewEngineResponse(
 				resource,
-				engineapi.NewKyvernoPolicy(policy),
+				engineapi.NewValidatingPolicy(policy),
 				nil,
 			).WithPolicyResponse(engineapi.PolicyResponse{
 				Rules: []engineapi.RuleResponse{rule},
@@ -314,7 +315,7 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 }
 
 func TestCheckRuleResultOnly_GenerationNoGeneratedResources(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{}
+	policy := &policiesv1beta1.ValidatingPolicy{}
 	policy.SetName("test-policy")
 
 	resource := unstructured.Unstructured{
@@ -333,7 +334,7 @@ func TestCheckRuleResultOnly_GenerationNoGeneratedResources(t *testing.T) {
 
 	response := engineapi.NewEngineResponse(
 		resource,
-		engineapi.NewKyvernoPolicy(policy),
+		engineapi.NewValidatingPolicy(policy),
 		nil,
 	).WithPolicyResponse(engineapi.PolicyResponse{
 		Rules: []engineapi.RuleResponse{rule},
@@ -976,7 +977,7 @@ func TestLookupRuleResponses(t *testing.T) {
 }
 
 func TestCheckResultGeneratedResources(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{}
+	policy := &policiesv1beta1.ValidatingPolicy{}
 	policy.SetName("test-policy")
 
 	actual := unstructured.Unstructured{
@@ -1016,7 +1017,7 @@ spec:
 	rule := *engineapi.RulePass("test-rule", engineapi.Generation, "generated", nil)
 	response := engineapi.NewEngineResponse(
 		actual,
-		engineapi.NewKyvernoPolicy(policy),
+		engineapi.NewValidatingPolicy(policy),
 		nil,
 	).WithPolicyResponse(engineapi.PolicyResponse{
 		Rules: []engineapi.RuleResponse{rule},
@@ -1262,7 +1263,7 @@ func TestPrintTestResultExcludedResources(t *testing.T) {
 				"v1,Pod,default,test": {
 					engineapi.NewEngineResponse(
 						unstructured.Unstructured{},
-						engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "disallow-latest-tag",
 							},
@@ -1273,6 +1274,42 @@ func TestPrintTestResultExcludedResources(t *testing.T) {
 			},
 			wantSkip: 1,
 			wantFail: 0,
+		},
+		{
+			name:     "unqualified policy excludes a namespaced trigger response",
+			policy:   "same-name",
+			resource: "test",
+			result:   openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Pod,default,test": {
+					engineapi.NewEngineResponse(
+						unstructured.Unstructured{},
+						engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+							ObjectMeta: metav1.ObjectMeta{Name: "same-name", Namespace: "test-ns"},
+						}),
+						nil,
+					),
+				},
+			},
+			wantFail: 1,
+		},
+		{
+			name:     "qualified policy accepts its namespaced trigger response",
+			policy:   "test-ns/same-name",
+			resource: "test",
+			result:   openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Pod,default,test": {
+					engineapi.NewEngineResponse(
+						unstructured.Unstructured{},
+						engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+							ObjectMeta: metav1.ObjectMeta{Name: "same-name", Namespace: "test-ns"},
+						}),
+						nil,
+					),
+				},
+			},
+			wantSkip: 1,
 		},
 	}
 
@@ -1411,7 +1448,7 @@ func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
 
 	_, err = runTest(context.TODO(), io.Discard, testCases[0], false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
 }
 
@@ -1427,7 +1464,7 @@ func Test_RunTestBlocksLegacyPolicyException(t *testing.T) {
 
 	_, err = runTest(context.TODO(), io.Discard, testCases[0], false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException: Kyverno v1.20 removed execution")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
 }
 
@@ -1553,7 +1590,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "competing-policy",
 						},
@@ -1582,7 +1619,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+					engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "test-policy",
 							Namespace: "test-ns-2",
@@ -1612,7 +1649,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test-policy",
 						},
@@ -1640,7 +1677,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+					engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "test-policy",
 							Namespace: "test-ns",
@@ -1699,11 +1736,11 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			}
 			var genericPolicy engineapi.GenericPolicy
 			if tt.policyNamespace != "" {
-				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+				genericPolicy = engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
 					ObjectMeta: policyMeta,
 				})
 			} else {
-				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				genericPolicy = engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 					ObjectMeta: policyMeta,
 				})
 			}
@@ -1725,7 +1762,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			} else {
 				targetList = append(targetList, engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "competing-policy",
 						},
@@ -2155,4 +2192,352 @@ metadata:
 		assert.Equal(t, "Fail", resultsTable.RawRows[0].Result)
 		assert.Equal(t, "Resource diff", resultsTable.RawRows[0].Reason)
 	})
+}
+
+// TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger pins CLI/admission parity
+// for MutatingPolicies that declare active targetMatchConstraints: such a policy is
+// excluded from inline mutation of the trigger that matched it (see
+// NoTargetMatchConstraintPolicy and pkg/webhooks/resource/mpol/handler.go) and is instead
+// evaluated against its targets alone. The CLI passed a nil predicate to Engine.Handle, so
+// the policy was also evaluated against the trigger and the *target-shaped* patch was
+// applied to the trigger itself.
+//
+// The fixture's own `results` cannot express this invariant: the mutation legitimate for
+// the target is exactly the mutation the defect applies to the trigger, so both runs pass.
+// The invariant is observable only on the engine responses, hence a Go test.
+func TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-mutating-policy", "mutate-existing")
+
+	// The fixture is checked in and is what proves the regression, so its absence is a
+	// failure rather than a skip.
+	require.DirExists(t, testDir, "mutate-existing fixture is required to prove the regression")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+
+	const (
+		policyName = "mutate-existing-configmap"
+		labelKey   = "mutated"
+		// Identity of the resources in the fixture: the Deployment triggers the policy and
+		// the ConfigMap is the resource the policy's mutations are meant to reach.
+		triggerAPIVersion = "apps/v1"
+		triggerKind       = "Deployment"
+		triggerNamespace  = "test-ns"
+		triggerName       = "test-deploy"
+		targetAPIVersion  = "v1"
+		targetKind        = "ConfigMap"
+		targetNamespace   = "test-ns"
+		targetName        = "test-configmap"
+		targetLabel       = "true"
+	)
+
+	// resourceKey renders a resource identity in the same shape the test harness uses to
+	// key its response maps (see generateResourceKey), so the trigger can be told apart
+	// from a patched target carried on the same response.
+	resourceKey := func(apiVersion, kind, namespace, name string) string {
+		return apiVersion + "," + kind + "," + namespace + "," + name
+	}
+	describe := func(u unstructured.Unstructured) string {
+		if u.Object == nil {
+			return "<nil>"
+		}
+		return resourceKey(u.GetAPIVersion(), u.GetKind(), u.GetNamespace(), u.GetName())
+	}
+	triggerIdentity := resourceKey(triggerAPIVersion, triggerKind, triggerNamespace, triggerName)
+	targetIdentity := resourceKey(targetAPIVersion, targetKind, targetNamespace, targetName)
+
+	t.Run("trigger is not evaluated inline and only the target is mutated", func(t *testing.T) {
+		responses := testResponse.Trigger[triggerIdentity]
+
+		// The defect evaluated the policy against the trigger itself: that inline response
+		// names the trigger and patches it with the target-shaped mutation.
+		for _, response := range responses {
+			assert.NotEqual(t, triggerIdentity, describe(response.Resource),
+				"policy %s must not be evaluated inline against trigger %s", response.Policy().GetName(), triggerIdentity)
+			assert.NotEqual(t, triggerIdentity, describe(response.PatchedResource),
+				"trigger %s was mutated with the target-shaped patch", triggerIdentity)
+		}
+
+		// What remains is the mutate-existing evaluation, which carries the target as its
+		// resource (see the mutateExisting branch of ApplyPoliciesOnResource) and no patch
+		// of its own.
+		require.Len(t, responses, 1, "expected exactly one engine response for trigger %s", triggerIdentity)
+		response := responses[0]
+		require.Equal(t, policyName, response.Policy().GetName())
+		assert.Equal(t, targetIdentity, describe(response.Resource),
+			"trigger %s response must be the mutate-existing evaluation of the target", triggerIdentity)
+		assert.Nil(t, response.PatchedResource.Object,
+			"trigger %s must not carry a patched resource", triggerIdentity)
+
+		// The target's patch is carried only as a patched target naming the ConfigMap.
+		require.Len(t, response.PolicyResponse.Rules, 1, "expected one rule response on trigger %s", triggerIdentity)
+		patchedTarget, _, _ := response.PolicyResponse.Rules[0].PatchedTarget()
+		require.NotNil(t, patchedTarget, "expected rule %s to carry a patched target",
+			response.PolicyResponse.Rules[0].Name())
+		assert.Equal(t, targetIdentity, describe(*patchedTarget),
+			"patched target must name the target ConfigMap")
+		assert.Equal(t, targetLabel, patchedTarget.GetLabels()[labelKey],
+			"patched target must carry the intended mutation")
+		assert.NotEqual(t, triggerIdentity, describe(*patchedTarget),
+			"rule patched target must not be the trigger itself")
+	})
+
+	t.Run("target response names the mutated target and is not the trigger", func(t *testing.T) {
+		responses := testResponse.Target[targetIdentity]
+		require.Len(t, responses, 1, "expected exactly one engine response for target %s", targetIdentity)
+
+		response := responses[0]
+		assert.Equal(t, policyName, response.Policy().GetName())
+		require.Len(t, response.PolicyResponse.Rules, 1, "expected one rule response for target")
+		patchedTarget, _, _ := response.PolicyResponse.Rules[0].PatchedTarget()
+		require.NotNil(t, patchedTarget, "expected target rule to carry a patched target")
+		assert.Equal(t, targetIdentity, describe(*patchedTarget))
+		assert.Equal(t, targetLabel, patchedTarget.GetLabels()[labelKey],
+			"expected target ConfigMap to receive mutated=%s", targetLabel)
+		assert.NotEqual(t, triggerIdentity, describe(*patchedTarget), "target response must not be the trigger")
+	})
+}
+
+func Test_ClusterNamespaceSelector(t *testing.T) {
+	color.Init(true)
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "cluster-namespace-selector")
+	require.DirExists(t, testDir)
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+	require.NotNil(t, testResponse)
+
+	rc := &resultCounts{}
+	var resultsTable table.Table
+	resourcePath := filepath.Dir(testCase.Path)
+	err = printTestResult(testCase.Test.Results, testResponse, rc, &resultsTable, testCase.Fs, resourcePath, true)
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc.Fail, "Expected 0 test failures, resultsTable: %v", resultsTable.RawRows)
+	assert.Equal(t, 2, rc.Pass)
+	assert.Equal(t, 1, rc.Skip)
+}
+
+func TestCommand_SummaryColorEnabled(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+	fatihcolor.NoColor = false
+	color.Init(false)
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{testDir})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	out := outBuffer.String()
+	assert.Contains(t, out, "Loading test "+color.BoldCyan("kyverno-test"))
+	assert.Contains(t, out, "Test Summary: "+color.BoldGreen(2)+" tests passed and "+color.BoldGreen(0)+" tests failed")
+	assert.True(t, ansiRegex.MatchString(out), "expected output to contain ANSI color codes")
+}
+
+func TestCommand_SummaryColorDisabled(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{testDir, "--remove-color"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	out := outBuffer.String()
+	assert.Contains(t, out, "Loading test kyverno-test")
+	assert.Contains(t, out, "Test Summary: 2 tests passed and 0 tests failed")
+	assert.False(t, ansiRegex.MatchString(out), "expected output to have no ANSI color codes")
+}
+
+func TestCommand_SummaryFailureCounts(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	sourceDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	tmpDir := t.TempDir()
+	for _, file := range []string{"policy.yaml", "deployment1.yaml", "deployment2.yaml"} {
+		content, err := os.ReadFile(filepath.Join(sourceDir, file))
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(tmpDir, file), content, 0o600)
+		require.NoError(t, err)
+	}
+
+	testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- deployment1.yaml
+- deployment2.yaml
+results:
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - bad-deployment
+  result: pass
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - good-deployment
+  result: pass
+`
+	err = os.WriteFile(filepath.Join(tmpDir, "kyverno-test.yaml"), []byte(testYAML), 0o600)
+	require.NoError(t, err)
+
+	// 1. Color enabled
+	fatihcolor.NoColor = false
+	color.Init(false)
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{tmpDir})
+
+	err = cmd.Execute()
+	require.Error(t, err)
+
+	out := outBuffer.String()
+	expectedSummary := fmt.Sprintf("Test Summary: %s tests passed and %s tests failed", color.BoldGreen(1), color.BoldRed(1))
+	assert.Contains(t, out, expectedSummary)
+	assert.True(t, ansiRegex.MatchString(out), "expected colored failure count")
+
+	// 2. Color disabled with --remove-color
+	cmdNoColor := Command()
+	outBufferNoColor := bytes.NewBufferString("")
+	cmdNoColor.SetOut(outBufferNoColor)
+	cmdNoColor.SetErr(io.Discard)
+	cmdNoColor.SetArgs([]string{tmpDir, "--remove-color"})
+
+	err = cmdNoColor.Execute()
+	require.Error(t, err)
+
+	outNoColor := outBufferNoColor.String()
+	assert.Contains(t, outNoColor, "Test Summary: 1 tests passed and 1 tests failed")
+	assert.False(t, ansiRegex.MatchString(outNoColor), "expected plain output with --remove-color")
+
+	// 3. All tests fail: 0 passed should be neutral (not colored)
+	testAllFailYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- deployment2.yaml
+results:
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - bad-deployment
+  result: pass
+`
+	err = os.WriteFile(filepath.Join(tmpDir, "kyverno-test.yaml"), []byte(testAllFailYAML), 0o600)
+	require.NoError(t, err)
+
+	fatihcolor.NoColor = false
+	color.Init(false)
+	cmdAllFail := Command()
+	outBufferAllFail := bytes.NewBufferString("")
+	cmdAllFail.SetOut(outBufferAllFail)
+	cmdAllFail.SetErr(io.Discard)
+	cmdAllFail.SetArgs([]string{tmpDir})
+
+	err = cmdAllFail.Execute()
+	require.Error(t, err)
+
+	outAllFail := outBufferAllFail.String()
+	expectedAllFailSummary := fmt.Sprintf("Test Summary: 0 tests passed and %s tests failed", color.BoldRed(1))
+	assert.Contains(t, outAllFail, expectedAllFailSummary)
+	assert.NotContains(t, outAllFail, color.BoldGreen(0)+" tests passed")
+}
+
+func TestRunTest_WarningColor(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+
+	// Duplicate a resource to trigger the duplicate resource warning in test execution
+	testCase := testCases[0]
+	testCase.Test.Resources = append(testCase.Test.Resources, testCase.Test.Resources[0])
+
+	// With color enabled
+	fatihcolor.NoColor = false
+	color.Init(false)
+	outBuffer := bytes.NewBufferString("")
+	_, _ = runTest(context.TODO(), outBuffer, testCase, false)
+	out := outBuffer.String()
+	assert.Contains(t, out, color.BoldYellow("warning:"))
+	assert.True(t, ansiRegex.MatchString(out), "expected warning to be colored when color enabled")
+
+	// With color disabled
+	color.Init(true)
+	outBufferNoColor := bytes.NewBufferString("")
+	_, _ = runTest(context.TODO(), outBufferNoColor, testCase, false)
+	outNoColor := outBufferNoColor.String()
+	assert.Contains(t, outNoColor, "warning: found duplicated resource")
+	assert.False(t, ansiRegex.MatchString(outNoColor), "expected warning to not contain ANSI codes when color disabled")
 }

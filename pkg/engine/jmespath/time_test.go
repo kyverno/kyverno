@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptible/supercronic/cronexpr"
 	"gotest.tools/v3/assert"
 )
 
@@ -46,11 +47,15 @@ func Test_TimeToCron(t *testing.T) {
 	}{
 		{
 			test:           "time_to_cron('2023-02-02T15:04:05Z')",
-			expectedResult: "4 15 2 2 4",
+			expectedResult: "4 15 2 2 *",
 		},
 		{
 			test:           "time_to_cron(time_utc('2023-02-02T15:04:05-07:00'))",
-			expectedResult: "4 22 2 2 4",
+			expectedResult: "4 22 2 2 *",
+		},
+		{
+			test:           "time_to_cron(time_add('2026-10-04T09:00:00Z', '336h'))",
+			expectedResult: "0 9 18 10 *",
 		},
 	}
 	for i, tc := range testCases {
@@ -65,6 +70,48 @@ func Test_TimeToCron(t *testing.T) {
 			assert.Assert(t, ok)
 
 			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}
+
+func Test_TimeToCronSchedule(t *testing.T) {
+	// the generated schedule must not fire before the requested time, which happens
+	// when both day-of-month and day-of-week are set because cron matches either one
+	testCases := []struct {
+		target string
+		from   string
+	}{
+		{
+			// a Sunday, two weeks after a Sunday
+			target: "2026-10-18T09:00:00Z",
+			from:   "2026-10-04T09:00:00Z",
+		},
+		{
+			// a Monday, with an earlier Monday in the same month
+			target: "2022-04-11T03:14:00Z",
+			from:   "2022-04-01T00:00:00Z",
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := jmespathInterface.Query(fmt.Sprintf("time_to_cron('%s')", tc.target))
+			assert.NilError(t, err)
+
+			res, err := query.Search("")
+			assert.NilError(t, err)
+
+			schedule, ok := res.(string)
+			assert.Assert(t, ok)
+
+			expr, err := cronexpr.Parse(schedule)
+			assert.NilError(t, err)
+
+			target, err := time.Parse(time.RFC3339, tc.target)
+			assert.NilError(t, err)
+			from, err := time.Parse(time.RFC3339, tc.from)
+			assert.NilError(t, err)
+
+			assert.Equal(t, expr.Next(from), target)
 		})
 	}
 }

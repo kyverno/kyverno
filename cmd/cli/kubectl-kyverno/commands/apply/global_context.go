@@ -6,12 +6,15 @@ import (
 	"fmt"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // staticEntry implements store.Entry for CLI offline use.
@@ -71,16 +74,43 @@ func buildGlobalContextStore(
 			objects = append(objects, unstructList.Items[i].Object)
 		}
 
-		if len(gce.Spec.Projections) > 0 && jp == nil {
-			return nil, fmt.Errorf("cannot build projections for GlobalContextEntry %s: JMESPath engine is required", gce.Name)
-		}
+		// One shared CEL cost ceiling for every projection evaluated for this entry, so
+		// an entry with many CEL projections can't retain an unbounded multiple of the
+		// per-program limit by spreading cost across projections. Background-sized to
+		// match the controller's own setData/recomputeProjections paths that this CLI
+		// build mirrors offline.
+		budgetCtx, release := requestbudget.EnsureBackground(ctx)
+		defer release()
+
 		projections := make(map[string]interface{})
 		for _, p := range gce.Spec.Projections {
-			query, err := jp.Query(p.JMESPath)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse projection %q for GlobalContextEntry %s: %w", p.Name, gce.Name, err)
+			var proj gctxstore.Projection
+			// Mirror the CRD's exactly-one-of rule. Without this the branch below takes
+			// expression and silently discards jmesPath, so a manifest the API server
+			// rejects would pass offline - the opposite of what this command is for.
+			switch {
+			case p.Expression != "" && p.JMESPath != "":
+				return nil, fmt.Errorf("projection %q for GlobalContextEntry %s sets both jmesPath and expression: exactly one is allowed", p.Name, gce.Name)
+			case p.Expression == "" && p.JMESPath == "":
+				return nil, fmt.Errorf("projection %q for GlobalContextEntry %s sets neither jmesPath nor expression: exactly one is required", p.Name, gce.Name)
 			}
-			result, err := query.Search(objects)
+			if p.Expression != "" {
+				prog, errs := compiler.CompileGlobalContextProjection(field.NewPath("expression"), p.Expression)
+				if len(errs) > 0 {
+					return nil, fmt.Errorf("failed to compile projection %q for GlobalContextEntry %s: %w", p.Name, gce.Name, errs.ToAggregate())
+				}
+				proj = gctxstore.Projection{Name: p.Name, Program: prog}
+			} else {
+				if jp == nil {
+					return nil, fmt.Errorf("cannot build projection %q for GlobalContextEntry %s: JMESPath engine is required", p.Name, gce.Name)
+				}
+				query, err := jp.Query(p.JMESPath)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse projection %q for GlobalContextEntry %s: %w", p.Name, gce.Name, err)
+				}
+				proj = gctxstore.Projection{Name: p.Name, JP: query}
+			}
+			result, err := proj.Evaluate(budgetCtx, objects)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply projection %q for GlobalContextEntry %s: %w", p.Name, gce.Name, err)
 			}

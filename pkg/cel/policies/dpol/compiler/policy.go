@@ -12,7 +12,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
-	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,9 +47,9 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 	dataNew := map[string]any{
 		compiler.NamespaceObjectKey: namespaceVal,
 		compiler.ObjectKey:          object.UnstructuredContent(),
-		compiler.ResourceKey:        resource.Context{ContextInterface: context},
 		compiler.VariablesKey:       vars,
 	}
+	libs.BindRequestContext(ctx, context, dataNew)
 	// conditionTraces and variableTraces are only appended to when p.trace is set, and decision()
 	// returns nil otherwise, so with tracing off none of this changes what Evaluate returns.
 	var conditionTraces, variableTraces []trace.NamedExpressionTrace

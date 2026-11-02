@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	entryevent "github.com/kyverno/kyverno/pkg/globalcontext/event"
@@ -17,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -29,7 +32,16 @@ import (
 // controller's single reconcile worker indefinitely; the workqueue retries
 // with backoff on error. Callers can enforce a shorter bound through the
 // deadline of the context passed to New.
-const cacheSyncTimeout = 30 * time.Second
+const (
+	cacheSyncTimeout        = 30 * time.Second
+	watchErrorEventInterval = time.Minute
+)
+
+// shouldReportWatchError bounds post-sync warning events to one per interval.
+// Initial sync failures are always reported separately by the watch handler.
+func shouldReportWatchError(now, last time.Time) bool {
+	return last.IsZero() || !now.Before(last.Add(watchErrorEventInterval))
+}
 
 type entry struct {
 	lister      cache.GenericLister
@@ -70,6 +82,22 @@ func New(
 	namespace string,
 	jp jmespath.Interface,
 ) (store.Entry, error) {
+	return newWithWatchErrorObserver(ctx, gce, eventGen, dClient, logger, gvr, namespace, jp, nil)
+}
+
+// newWithWatchErrorObserver lets regression tests observe callbacks that are
+// intentionally suppressed by event throttling. Production passes nil.
+func newWithWatchErrorObserver(
+	ctx context.Context,
+	gce *kyvernov2beta1.GlobalContextEntry,
+	eventGen event.Interface,
+	dClient dynamic.Interface,
+	logger logr.Logger,
+	gvr schema.GroupVersionResource,
+	namespace string,
+	jp jmespath.Interface,
+	observeWatchError func(error),
+) (store.Entry, error) {
 	if namespace == "" {
 		namespace = metav1.NamespaceAll
 	}
@@ -83,37 +111,73 @@ func New(
 	ctx, cancel := context.WithCancel(ctx)
 	stop := newOnceStop(cancel, &group)
 
-	err := informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
-		eventErr := fmt.Errorf("failed to run informer for %s", gvr)
-		eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
-			APIVersion: gce.APIVersion,
-			Kind:       gce.Kind,
-			Name:       gce.Name,
-			Namespace:  gce.Namespace,
-			UID:        gce.UID,
-		}, eventErr))
+	// Coordinate the transition from initial cache synchronization to normal
+	// operation with watch errors. A failing initial LIST must still abort New
+	// promptly, but errors after a successful sync must not kill the informer.
+	// The mutex also prevents returning an already-cancelled entry if an error
+	// races with the completion of initial synchronization.
+	var startupMu sync.Mutex
+	startupComplete := false
+	var lastWatchErrorEvent time.Time
 
-		// Only cancel the context here, never call stop(). This handler runs
-		// on the reflector's goroutine, which informer.Informer().Run (and
-		// therefore stop's group.Wait) transitively waits on: calling stop()
-		// from here self-deadlocks, wedging the entry forever and permanently
-		// blocking the globalcontext controller's single reconcile worker, so
-		// one entry referencing a non-existent CRD prevents every other
-		// GlobalContextEntry from loading (#15856). Cancelling the context
-		// lets the informer wind down; WaitForCacheSync below observes the
-		// cancellation and the error path performs the full stop().
-		cancel()
+	err := informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		// Observe even suppressed errors so tests can verify both callbacks.
+		if observeWatchError != nil {
+			observeWatchError(err)
+		}
+
+		// Fail fast only before initial cache synchronization. Once synced,
+		// leave retries and relisting to the client-go reflector (#18180).
+		// Serialize the decision with New's startup completion and throttle
+		// recurring diagnostics so an API outage cannot flood Warning Events.
+		// Never call stop() here: it would join the reflector's own goroutine.
+		startupMu.Lock()
+		initialFailure := !startupComplete && !informer.Informer().HasSynced()
+		if initialFailure {
+			cancel()
+		}
+		now := time.Now()
+		reportError := initialFailure || shouldReportWatchError(now, lastWatchErrorEvent)
+		if reportError {
+			lastWatchErrorEvent = now
+		}
+		startupMu.Unlock()
+
+		if reportError {
+			eventErr := fmt.Errorf("failed to run informer for %s: %w", gvr, err)
+			eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+				APIVersion: gce.APIVersion,
+				Kind:       gce.Kind,
+				Name:       gce.Name,
+				Namespace:  gce.Namespace,
+				UID:        gce.UID,
+			}, eventErr))
+		}
 	})
 	if err != nil {
 		logger.Error(err, "failed to set watch error handler")
+		cancel()
 		return nil, err
 	}
 
 	var projections []store.Projection
 	if len(gce.Spec.Projections) > 0 {
 		for _, p := range gce.Spec.Projections {
+			if p.Expression != "" {
+				prog, errs := compiler.CompileGlobalContextProjection(field.NewPath("expression"), p.Expression)
+				if len(errs) > 0 {
+					cancel()
+					return nil, fmt.Errorf("failed to compile CEL expression for projection %q: %w", p.Name, errs.ToAggregate())
+				}
+				projections = append(projections, store.Projection{
+					Name:    p.Name,
+					Program: prog,
+				})
+				continue
+			}
 			jpQuery, err := jp.Query(p.JMESPath)
 			if err != nil {
+				cancel()
 				return nil, fmt.Errorf("failed to parse jmespath query for projection %q: %w", p.Name, err)
 			}
 			projections = append(projections, store.Projection{
@@ -137,9 +201,9 @@ func New(
 	// This avoids unnecessary processing when projections are not used
 	if len(projections) > 0 {
 		_, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { e.recomputeProjections() },
-			UpdateFunc: func(oldObj, newObj interface{}) { e.recomputeProjections() },
-			DeleteFunc: func(obj interface{}) { e.recomputeProjections() },
+			AddFunc:    func(obj interface{}) { e.recomputeProjections(ctx) },
+			UpdateFunc: func(oldObj, newObj interface{}) { e.recomputeProjections(ctx) },
+			DeleteFunc: func(obj interface{}) { e.recomputeProjections(ctx) },
 		})
 		if err != nil {
 			return nil, err
@@ -173,9 +237,28 @@ func New(
 		return nil, err
 	}
 
+	// Publish a successfully synchronized entry only after closing the
+	// watch-error/startup race. If a pre-sync failure cancelled the context
+	// just as WaitForCacheSync reported success, do not retain a dead entry.
+	startupMu.Lock()
+	startupComplete = true
+	startupErr := ctx.Err()
+	startupMu.Unlock()
+	if startupErr != nil {
+		stop()
+		return nil, fmt.Errorf("failed to sync cache for %s: informer stopped (%w)", gvr, startupErr)
+	}
+
 	// Compute initial projections after cache sync
 	if len(projections) > 0 {
-		e.recomputeProjections()
+		e.recomputeProjections(ctx)
+	}
+
+	// A cancellation may occur while computing initial projections. Never
+	// publish an entry whose backing informer has already stopped.
+	if err := ctx.Err(); err != nil {
+		stop()
+		return nil, fmt.Errorf("failed to initialize cache for %s: informer stopped (%w)", gvr, err)
 	}
 
 	return e, nil
@@ -200,7 +283,7 @@ func (e *entry) listObjects() ([]interface{}, error) {
 	return list, nil
 }
 
-func (e *entry) recomputeProjections() {
+func (e *entry) recomputeProjections(ctx context.Context) {
 	list, err := e.listObjects()
 	if err != nil {
 		e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
@@ -213,16 +296,29 @@ func (e *entry) recomputeProjections() {
 		return
 	}
 
+	// One shared CEL cost ceiling for every projection recomputed this cycle, so an entry
+	// with many CEL projections can't retain an unbounded multiple of the per-program limit
+	// by spreading cost across projections. Background-sized: this runs in the informer
+	// handler goroutine in every binary that wires up this controller, including
+	// cmd/kyverno, so the admission-sized ceiling would be wrong for the other two.
+	ctx, release := requestbudget.EnsureBackground(ctx)
+	defer release()
+
 	for _, proj := range e.projections {
-		result, err := proj.JP.Search(list)
+		result, err := proj.Evaluate(ctx, list)
 		if err != nil {
+			if proj.Program != nil {
+				err = fmt.Errorf("failed to apply projection %q: %w (for kubernetesResource entries, object is the list of matching objects, not {\"items\": [...]})", proj.Name, err)
+			} else {
+				err = fmt.Errorf("failed to apply projection %q: %w", proj.Name, err)
+			}
 			e.eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 				APIVersion: e.gce.APIVersion,
 				Kind:       e.gce.Kind,
 				Name:       e.gce.Name,
 				Namespace:  e.gce.Namespace,
 				UID:        e.gce.UID,
-			}, fmt.Errorf("failed to apply projection %q: %w", proj.Name, err)))
+			}, err))
 			continue
 		}
 		e.projectedMu.Lock()

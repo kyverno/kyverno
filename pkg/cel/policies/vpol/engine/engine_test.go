@@ -315,6 +315,124 @@ func TestHandle_ExtractionMode_RefusedExceptionCarriesTemplatePath(t *testing.T)
 	})
 }
 
+// workloadWithReplicas builds a custom workload that keeps its pod templates
+// under map keys, the way PyTorchJob does with pytorchReplicaSpecs.Master/Worker.
+func workloadWithReplicas(masterImage, workerImage string) *unstructured.Unstructured {
+	replica := func(image string) map[string]any {
+		return map[string]any{
+			"template": map[string]any{
+				"spec": map[string]any{
+					"containers": []any{
+						map[string]any{"name": "trainer", "image": image},
+					},
+				},
+			},
+		}
+	}
+	return &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "example.com/v1",
+		"kind":       "Workload",
+		"metadata":   map[string]any{"name": "training", "namespace": "default"},
+		"spec": map[string]any{
+			"replicaSpecs": map[string]any{
+				"Master": replica(masterImage),
+				"Worker": replica(workerImage),
+			},
+		},
+	}}
+}
+
+func TestHandle_ExtractionMode_MapKeyedTemplatesReportFirstSortedPath(t *testing.T) {
+	policy := buildDisallowLatestTagPolicy()
+	policy.Spec.AutogenConfiguration.PodControllers.Controllers = []string{"workloads.v1.example.com"}
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+	// both templates fail, so the one reported is the first evaluated; it must
+	// be the first in sorted key order every time, not whichever map order won
+	for i := 0; i < 50; i++ {
+		req := celengine.Request(
+			nil,
+			schema.GroupVersionKind{Group: "example.com", Version: "v1", Kind: "Workload"},
+			schema.GroupVersionResource{Group: "example.com", Version: "v1", Resource: "workloads"},
+			"",
+			"training",
+			"default",
+			admissionv1.Create,
+			authenticationv1.UserInfo{},
+			workloadWithReplicas("trainer:latest", "trainer:latest"),
+			nil,
+			false,
+			nil,
+		)
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+		var fired []celengine.ValidatingPolicyResponse
+		for _, p := range resp.Policies {
+			if len(p.Rules) > 0 {
+				fired = append(fired, p)
+			}
+		}
+		require.Len(t, fired, 1)
+		require.Len(t, fired[0].Rules, 1)
+		rule := fired[0].Rules[0]
+		require.Equal(t, engineapi.RuleStatusFail, rule.Status(), "message: %s", rule.Message())
+		require.Contains(t, rule.Message(), "pod template at spec.replicaSpecs.Master.template", "run %d", i)
+	}
+}
+
+func TestHandle_ExtractionMode_TemplateNamespaceDoesNotEscapeMatchConditions(t *testing.T) {
+	for _, expression := range []string{
+		"object.metadata.namespace != 'kube-system'",
+		"request.namespace != 'kube-system'",
+	} {
+		t.Run(expression, func(t *testing.T) {
+			policy := buildDisallowLatestTagPolicy()
+			policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{
+				{Name: "skip-system-namespaces", Expression: expression},
+			}
+			provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+			require.NoError(t, err)
+			eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+			// the JobSet lives in default, so its pods are created in default no
+			// matter which namespace its pod template claims
+			jobSet := jobSetWithImage("nginx:latest")
+			replicatedJob := jobSet.Object["spec"].(map[string]any)["replicatedJobs"].([]any)[0].(map[string]any)
+			podTemplate := replicatedJob["template"].(map[string]any)["spec"].(map[string]any)["template"].(map[string]any)
+			podTemplate["metadata"] = map[string]any{"namespace": "kube-system"}
+
+			req := celengine.Request(
+				nil,
+				schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+				schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+				"",
+				"latest-tag-jobset",
+				"default",
+				admissionv1.Create,
+				authenticationv1.UserInfo{},
+				jobSet,
+				nil,
+				false,
+				nil,
+			)
+			resp, err := eng.Handle(context.Background(), req, nil)
+			require.NoError(t, err)
+			var fired []celengine.ValidatingPolicyResponse
+			for _, p := range resp.Policies {
+				if len(p.Rules) > 0 {
+					fired = append(fired, p)
+				}
+			}
+			require.Len(t, fired, 1)
+			require.Len(t, fired[0].Rules, 1)
+			rule := fired[0].Rules[0]
+			require.Equal(t, engineapi.RuleStatusFail, rule.Status(), "message: %s", rule.Message())
+		})
+	}
+}
+
 func TestWithValidationIndex(t *testing.T) {
 	t.Run("nil props", func(t *testing.T) {
 		out := withValidationIndex(nil, 3)
@@ -836,6 +954,20 @@ func TestHandle_ExtractionMode_MultiTemplateTraceSelection(t *testing.T) {
 	}, {
 		name:       "a failing template wins over skipped ones",
 		images:     []string{"skip/first:1.0", "bash:latest", "skip/third:1.0"},
+		wantStatus: engineapi.RuleStatusFail,
+		wantTrace:  trace.VerdictFail,
+		wantMatch:  "true",
+		wantImage:  "bash:latest",
+	}, {
+		name:       "a failing template wins over an earlier passing one",
+		images:     []string{"bash:1.0", "bash:latest"},
+		wantStatus: engineapi.RuleStatusFail,
+		wantTrace:  trace.VerdictFail,
+		wantMatch:  "true",
+		wantImage:  "bash:latest",
+	}, {
+		name:       "a failing template is not overridden by a later passing one",
+		images:     []string{"bash:latest", "bash:1.0"},
 		wantStatus: engineapi.RuleStatusFail,
 		wantTrace:  trace.VerdictFail,
 		wantMatch:  "true",

@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: PR branch advisory
+
+on:
+  pull_request_target:
+    branches:
+      - main
+      - release-1.19
+    types: [opened, synchronize, reopened, edited]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  advisory:
+    name: Branch routing (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # Reads PR metadata and changed-file names.
+    steps:
+      - name: Checkout trusted tooling only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Classify without executing PR code
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if ! python3 -B hack/pr-triage/pr-branch-triage.py \
+            --repo "$REPOSITORY" --pr "$PR_NUMBER" --diff-scan \
+            --out "$RUNNER_TEMP/branch-triage.md" --json "$RUNNER_TEMP/branch-triage.json"; then
+            echo "::warning::Branch classification unavailable; manual routing review required."
+            echo "## Branch routing unavailable" >> "$GITHUB_STEP_SUMMARY"
+            echo "Classification failed. Manual review is required; no PRs were modified." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 -B hack/pr-triage/branch-advisory.py \
+            --report "$RUNNER_TEMP/branch-triage.json" --summary "$GITHUB_STEP_SUMMARY"

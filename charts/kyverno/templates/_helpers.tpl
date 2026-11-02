@@ -62,9 +62,6 @@
 {{- with .forceFailurePolicyIgnore -}}
   {{- $flags = append $flags (print "--forceFailurePolicyIgnore=" .enabled) -}}
 {{- end -}}
-{{- with .blockLegacyPolicyAPIs -}}
-  {{- $flags = append $flags (print "--blockLegacyPolicyAPIs=" .enabled) -}}
-{{- end -}}
 {{- with .generateValidatingAdmissionPolicy -}}
   {{- $flags = append $flags (print "--generateValidatingAdmissionPolicy=" .enabled) -}}
 {{- end -}}
@@ -96,6 +93,9 @@
 {{- end -}}
 {{- with .protectManagedResources -}}
   {{- $flags = append $flags (print "--protectManagedResources=" .enabled) -}}
+{{- end -}}
+{{- with .protectGenerationLabels -}}
+  {{- $flags = append $flags (print "--protectGenerationLabels=" .enabled) -}}
 {{- end -}}
 {{- with .registryClient -}}
   {{- $flags = append $flags (print "--allowInsecureRegistry=" .allowInsecure) -}}

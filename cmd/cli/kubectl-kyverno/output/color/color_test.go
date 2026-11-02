@@ -2,20 +2,57 @@ package color
 
 import (
 	"testing"
+
+	fatihcolor "github.com/fatih/color"
+	"github.com/kataras/tablewriter"
 )
 
 func TestInit(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
 	tests := []struct {
-		name    string
-		noColor bool
-	}{{
-		noColor: true,
-	}, {
-		noColor: false,
-	}}
+		name              string
+		noColor           bool
+		fatihNoColor      bool
+		wantHeaderBgColor int
+		wantHeaderFgColor int
+	}{
+		{
+			name:              "color disabled by flag",
+			noColor:           true,
+			fatihNoColor:      false,
+			wantHeaderBgColor: 0,
+			wantHeaderFgColor: 0,
+		},
+		{
+			name:              "color enabled in TTY",
+			noColor:           false,
+			fatihNoColor:      false,
+			wantHeaderBgColor: tablewriter.BgBlackColor,
+			wantHeaderFgColor: tablewriter.FgGreenColor,
+		},
+		{
+			name:              "color suppressed in non-TTY",
+			noColor:           false,
+			fatihNoColor:      true,
+			wantHeaderBgColor: 0,
+			wantHeaderFgColor: 0,
+		},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.fatihNoColor
 			Init(tt.noColor)
+			if HeaderBgColor != tt.wantHeaderBgColor {
+				t.Errorf("HeaderBgColor = %v, want %v", HeaderBgColor, tt.wantHeaderBgColor)
+			}
+			if HeaderFgColor != tt.wantHeaderFgColor {
+				t.Errorf("HeaderFgColor = %v, want %v", HeaderFgColor, tt.wantHeaderFgColor)
+			}
 		})
 	}
 }
@@ -192,4 +229,116 @@ func TestResultSkip(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFunctionName(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
+	tests := []struct {
+		name         string
+		functionName string
+		noColor      bool
+		want         string
+	}{{
+		name:         "color disabled",
+		functionName: "truncate",
+		noColor:      true,
+		want:         "truncate",
+	}, {
+		name:         "color enabled",
+		functionName: "truncate",
+		noColor:      false,
+		want:         "\x1b[36;1mtruncate\x1b[0;22m",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.noColor
+			Init(tt.noColor)
+			if got := FunctionName(tt.functionName); got != tt.want {
+				t.Errorf("FunctionName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFunctionNote(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
+	tests := []struct {
+		name    string
+		note    string
+		noColor bool
+		want    string
+	}{{
+		name:    "color disabled",
+		note:    "sample note",
+		noColor: true,
+		want:    "sample note",
+	}, {
+		name:    "color enabled",
+		note:    "sample note",
+		noColor: false,
+		want:    "\x1b[33;1msample note\x1b[0;22m",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.noColor
+			Init(tt.noColor)
+			if got := FunctionNote(tt.note); got != tt.want {
+				t.Errorf("FunctionNote() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBoldHelpers(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
+	t.Run("color disabled", func(t *testing.T) {
+		fatihcolor.NoColor = true
+		Init(true)
+
+		assert := func(got, want string) {
+			t.Helper()
+			if got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		}
+		assert(BoldGreen(1), "1")
+		assert(BoldRed(2), "2")
+		assert(BoldYellow(3), "3")
+		assert(BoldCyan(4), "4")
+		assert(BoldYellow("Policies Skipped:"), "Policies Skipped:")
+		assert(BoldRed("failed:"), "failed:")
+	})
+
+	t.Run("color enabled", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		Init(false)
+
+		assert := func(got, want string) {
+			t.Helper()
+			if got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		}
+		assert(BoldGreen(1), "\x1b[32;1m1\x1b[0;22m")
+		assert(BoldRed(2), "\x1b[31;1m2\x1b[0;22m")
+		assert(BoldYellow(3), "\x1b[33;1m3\x1b[0;22m")
+		assert(BoldCyan(4), "\x1b[36;1m4\x1b[0;22m")
+		assert(BoldYellow("Policies Skipped:"), "\x1b[33;1mPolicies Skipped:\x1b[0;22m")
+		assert(BoldRed("failed:"), "\x1b[31;1mfailed:\x1b[0;22m")
+	})
 }

@@ -1,7 +1,0 @@
-apiVersion: test.kyverno.io/v1
-kind: TestResource
-metadata:
-  name: test-custom-resource
-  namespace: default
-spec:
-  replicas: 0

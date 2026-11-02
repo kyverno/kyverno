@@ -8,5 +8,4 @@ spec:
     refreshInterval: 1h
   projections:
     - name: test-globalcontext-apicall-correct-projections_deployment_count
-      jmesPath: "items | length(@)"
-
+      expression: "object.items.size()"

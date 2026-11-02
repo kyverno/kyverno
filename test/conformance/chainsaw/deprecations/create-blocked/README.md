@@ -3,8 +3,8 @@
 Verifies the 1.20 write-time hard block on legacy `kyverno.io` policy APIs
 (https://github.com/kyverno/kyverno/issues/17483): creating a `ClusterPolicy`, `Policy`,
 `ClusterCleanupPolicy`, `CleanupPolicy`, or legacy `PolicyException` — in any served version — is
-denied with a migration-guiding error, under the default `features.blockLegacyPolicyAPIs.enabled:
-true` setting.
+unconditionally denied with a migration-guiding error. There is no opt-out; the block always
+applies.
 
 This specifically covers `kyverno.io/v2` for `ClusterCleanupPolicy`/`CleanupPolicy`/
 `PolicyException`, which is each resource's storage version, to prove the admission webhook rules

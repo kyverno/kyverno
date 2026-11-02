@@ -39,6 +39,7 @@ func main() {
 		internal.WithOpenreports(),
 		internal.WithApiServerClient(),
 		internal.WithEventsClient(),
+		internal.WithMetadataClient(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)

@@ -21,6 +21,11 @@ const (
 	ProtectManagedResourcesDescription = "Set the flag to 'true', to enable managed resources protection."
 	protectManagedResourcesEnvVar      = "FLAG_PROTECT_MANAGED_RESOURCES"
 	defaultProtectManagedResources     = false
+	// protect generation labels
+	ProtectGenerationLabelsFlagName    = "protectGenerationLabels"
+	ProtectGenerationLabelsDescription = "Set the flag to 'false', to disable generation label protection webhook."
+	protectGenerationLabelsEnvVar      = "FLAG_PROTECT_GENERATION_LABELS"
+	defaultProtectGenerationLabels     = true
 	// force failure policy ignore
 	ForceFailurePolicyIgnoreFlagName    = "forceFailurePolicyIgnore"
 	ForceFailurePolicyIgnoreDescription = "Set the flag to 'true', to force set Failure Policy to 'ignore'."
@@ -58,15 +63,11 @@ const (
 	HTTPAllowlistFlagName    = "httpAllowlist"
 	HTTPAllowlistDescription = "Comma-separated list of URL prefixes (scheme+host[+path]) permitted in CEL http.Get/Post and apiCall.service calls. When set, only matching URLs are allowed. Example: 'https://api.example.com,https://webhook.corp/v1/'."
 	httpAllowlistEnvVar      = "FLAG_HTTP_ALLOWLIST"
-	// block legacy policy APIs (1.20 grace-window escape hatch, removed in 1.21)
-	BlockLegacyPolicyAPIsFlagName    = "blockLegacyPolicyAPIs"
-	BlockLegacyPolicyAPIsDescription = "Set the flag to 'false' to allow creating/updating legacy kyverno.io policy APIs during the 1.20 migration window. This is a temporary escape hatch and will be removed in 1.21."
-	blockLegacyPolicyAPIsEnvVar      = "FLAG_BLOCK_LEGACY_POLICY_APIS"
-	defaultBlockLegacyPolicyAPIs     = true
 )
 
 var (
 	ProtectManagedResources           = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
+	ProtectGenerationLabels           = newToggle(defaultProtectGenerationLabels, protectGenerationLabelsEnvVar)
 	ForceFailurePolicyIgnore          = newToggle(defaultForceFailurePolicyIgnore, forceFailurePolicyIgnoreEnvVar)
 	EnableDeferredLoading             = newToggle(defaultEnableDeferredLoading, enableDeferredLoadingEnvVar)
 	GenerateValidatingAdmissionPolicy = newToggle(defaultGenerateValidatingAdmissionPolicy, generateValidatingAdmissionPolicyEnvVar)
@@ -75,7 +76,6 @@ var (
 	AllowHTTPInNamespacedPolicies     = newToggle(defaultAllowHTTPInNamespacedPolicies, allowHTTPInNamespacedPoliciesEnvVar)
 	HTTPBlocklist                     = newStringSliceFlag(append([]string{}, defaultPolicyHTTPBlocklist...), httpBlocklistEnvVar)
 	HTTPAllowlist                     = newStringSliceFlag(nil, httpAllowlistEnvVar)
-	BlockLegacyPolicyAPIs             = newToggle(defaultBlockLegacyPolicyAPIs, blockLegacyPolicyAPIsEnvVar)
 )
 
 type ToggleFlag interface {

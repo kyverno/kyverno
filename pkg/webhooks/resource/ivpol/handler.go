@@ -3,6 +3,7 @@ package ivpol
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
@@ -108,12 +110,55 @@ func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionReq
 	if err != nil {
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
+	logDecisionTraces(logger, response)
+	response = withoutTraceOnlyPolicies(response)
 	var group wait.Group
 	defer group.Wait()
 	group.Start(func() {
 		h.audit(ctx, logger, admissionRequest, request, response)
 	})
 	return h.validationResponse(request, response)
+}
+
+// logDecisionTraces writes the decision trace of every policy that has one to the log. A policy
+// only has one when the admission controller compiles policies with tracing on, so this does
+// nothing otherwise. The traces are written in their own goroutine, outside the audit group the
+// handler waits for, so that logging them never holds up the admission response; they are not
+// part of that response either.
+func logDecisionTraces(logger logr.Logger, response eval.ImageVerifyEngineResponse) {
+	var traces []*trace.Decision
+	for _, p := range response.Policies {
+		if p.Trace != nil {
+			traces = append(traces, p.Trace)
+		}
+	}
+	if len(traces) == 0 {
+		return
+	}
+	go webhookutils.LogDecisionTraces(logger, traces...)
+}
+
+// withoutTraceOnlyPolicies drops the policies that are in the response only for their trace. With
+// tracing on, the engine also returns a policy that did not apply to the resource, or that a match
+// condition skipped, with an empty Result so that its trace is not lost (see
+// eval.ImageVerifyPolicyResponse.Trace); without tracing it returns no entry for them at all. The
+// admission response, the report and the events are built from the policies left, so they are
+// exactly what they are without tracing: a Deny policy that did not apply must not mark the
+// request as blocked, nor an empty result reach a report or an event. With tracing off nothing is
+// dropped and the response is returned as it is.
+func withoutTraceOnlyPolicies(response eval.ImageVerifyEngineResponse) eval.ImageVerifyEngineResponse {
+	if !slices.ContainsFunc(response.Policies, eval.ImageVerifyPolicyResponse.TraceOnly) {
+		return response
+	}
+	// a new slice: the traces logged above still belong to the engine's response
+	policies := make([]eval.ImageVerifyPolicyResponse, 0, len(response.Policies))
+	for _, p := range response.Policies {
+		if !p.TraceOnly() {
+			policies = append(policies, p)
+		}
+	}
+	response.Policies = policies
+	return response
 }
 
 func (h *handler) mutationResponse(request celengine.EngineRequest, response eval.ImageVerifyEngineResponse, rawPatches []byte) handlers.AdmissionResponse {

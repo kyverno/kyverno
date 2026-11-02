@@ -1,0 +1,20 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: generate-team-config
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+  generate:
+    # the namespace has no labels, so reading its team label fails and nothing is generated
+    - expression: >-
+        generator.Apply(variables.nsName, [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap"),
+        "metadata": dyn({"name": "team-config", "namespace": variables.nsName}),
+        "data": dyn({"team": object.metadata.labels.team})}])

@@ -11,6 +11,9 @@ import (
 
 func TestConfiguration_GetMaxContextSize_Default(t *testing.T) {
 	cfg := NewDefaultConfiguration(false)
+	// Verify default value is initialized in constructor
+	assert.Equal(t, DefaultMaxContextSize, cfg.GetMaxContextSize())
+
 	// Load with nil configmap to trigger unload which sets defaults
 	cfg.Load(nil)
 
@@ -204,4 +207,48 @@ func TestConfiguration_GetUpdateRequestCleanupTTL_Unload(t *testing.T) {
 	// unload should reset to empty string
 	cfg.Load(nil)
 	assert.Equal(t, "", cfg.GetUpdateRequestCleanupTTL())
+}
+
+func TestConfiguration_GetUpdateRequestThreshold(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	assert.Equal(t, int64(UpdateRequestThreshold), cfg.GetUpdateRequestThreshold())
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data: map[string]string{
+			"updateRequestThreshold": "500",
+		},
+	}
+	cfg.Load(cm)
+	assert.Equal(t, int64(500), cfg.GetUpdateRequestThreshold())
+
+	// Invalid value falls back to default
+	cmInvalid := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data: map[string]string{
+			"updateRequestThreshold": "invalid",
+		},
+	}
+	cfg.Load(cmInvalid)
+	assert.Equal(t, int64(UpdateRequestThreshold), cfg.GetUpdateRequestThreshold())
+}
+
+func TestConfiguration_Unload_ResetsUpdateRequestThresholdAndMatchConditions(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data: map[string]string{
+			"updateRequestThreshold": "250",
+			"matchConditions":        `[{"name":"test-condition","expression":"true"}]`,
+		},
+	}
+	cfg.Load(cm)
+	assert.Equal(t, int64(250), cfg.GetUpdateRequestThreshold())
+	assert.Len(t, cfg.GetMatchConditions(), 1)
+
+	// Unload by passing nil
+	cfg.Load(nil)
+	assert.Equal(t, int64(UpdateRequestThreshold), cfg.GetUpdateRequestThreshold())
+	assert.Nil(t, cfg.GetMatchConditions())
 }

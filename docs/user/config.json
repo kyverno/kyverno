@@ -8,6 +8,10 @@
     ],
     "externalPackages": [
         {
+            "typeMatchPrefix": "^github\\.com/kyverno/kyverno/api/kyverno\\.",
+            "docsURLTemplate": "https://pkg.go.dev/github.com/kyverno/kyverno/api/kyverno#{{.TypeIdentifier}}"
+        },
+        {
             "typeMatchPrefix": "^k8s\\.io/apimachinery/pkg/apis/meta/v1\\.Duration$",
             "docsURLTemplate": "https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration"
         },

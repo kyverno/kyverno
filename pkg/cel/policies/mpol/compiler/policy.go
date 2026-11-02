@@ -18,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/managedfields"
 	admission "k8s.io/apiserver/pkg/admission"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
@@ -26,6 +27,7 @@ import (
 )
 
 type Policy struct {
+	jsonMode              bool
 	patchers              []Patcher
 	matchConditions       []cel.Program
 	targetMatchConditions []cel.Program
@@ -152,6 +154,7 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 	if err != nil {
 		return false
 	}
+	libs.BindRequestContext(ctx, contextProvider, data)
 
 	p.appendVariables(ctx, data, nil)
 
@@ -169,7 +172,7 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 // mpol (processor.Process -> GetPolicy), so this is genuinely single-shot,
 // not a per-policy loop. There is no hoist benefit; building the request
 // map locally is correct here.
-func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace) (map[string]interface{}, error) {
+func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace, contextProvider libs.Context) (map[string]interface{}, error) {
 	if p.targetExpression == nil {
 		return nil, nil
 	}
@@ -177,6 +180,7 @@ func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.At
 	if err != nil {
 		return nil, err
 	}
+	libs.BindRequestContext(ctx, contextProvider, data)
 	p.appendVariables(ctx, data, nil)
 	out, _, err := p.targetExpression.ContextEval(ctx, data)
 	if err != nil {
@@ -194,7 +198,17 @@ func (p *Policy) Evaluate(
 	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, false)
+	if p.jsonMode {
+		if attr == nil {
+			return &EvaluationResult{Error: fmt.Errorf("JSON evaluation requires an object")}
+		}
+		object, ok := attr.GetObject().(*unstructured.Unstructured)
+		if !ok {
+			return &EvaluationResult{Error: fmt.Errorf("JSON evaluation requires an unstructured object")}
+		}
+		return p.EvaluateJSON(ctx, object)
+	}
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, contextProvider, false)
 }
 
 func (p *Policy) EvaluateTarget(
@@ -206,7 +220,7 @@ func (p *Policy) EvaluateTarget(
 	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, true)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, contextProvider, true)
 }
 
 func (p *Policy) evaluate(
@@ -216,17 +230,19 @@ func (p *Policy) evaluate(
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
 	requestMapFn func() (map[string]any, error),
+	contextProvider libs.Context,
 	target bool,
 ) *EvaluationResult {
 	versionedAttributes := &admission.VersionedAttributes{
 		Attributes:      attr,
-		VersionedObject: attr.GetObject(),
+		VersionedObject: admission.NewLazyObject(attr.GetObject()),
 		VersionedKind:   attr.GetKind(),
 	}
 	data, err := prepareData(attr, &request, namespace, requestMapFn)
 	if err != nil {
 		return &EvaluationResult{Error: err}
 	}
+	libs.BindRequestContext(ctx, contextProvider, data)
 
 	allowedImages := make([]string, 0)
 	allowedValues := make([]string, 0)
@@ -358,16 +374,32 @@ func (p *Policy) evaluate(
 
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	for i, patcher := range p.patchers {
+		var typeConverter managedfields.TypeConverter
+		if p.jsonMode {
+			typeConverter = managedfields.NewDeducedTypeConverter()
+		} else {
+			typeConverter = tcm.GetTypeConverter(versionedAttributes.VersionedKind)
+		}
 		patchRequest := patch.Request{
 			MatchedResource:     attr.GetResource(),
 			VersionedAttributes: versionedAttributes,
 			ObjectInterfaces:    o,
 			OptionalVariables:   plugincel.OptionalVariableBindings{VersionedParams: nil, Authorizer: nil},
 			Namespace:           namespace,
-			TypeConverter:       tcm.GetTypeConverter(versionedAttributes.VersionedKind),
+			TypeConverter:       typeConverter,
 		}
 
-		newVersionedObject, mutEval, err := patcher.Patch(ctx, data, patchRequest, celconfig.RuntimeCELCostBudget)
+		var newVersionedObject runtime.Object
+		var mutEval MutationEval
+		if p.jsonMode {
+			if jsonPatcher, ok := patcher.(*jsonPatcher); ok {
+				newVersionedObject, mutEval, err = jsonPatcher.PatchJSON(ctx, data, celconfig.RuntimeCELCostBudget)
+			} else {
+				newVersionedObject, mutEval, err = patcher.Patch(ctx, data, patchRequest, celconfig.RuntimeCELCostBudget)
+			}
+		} else {
+			newVersionedObject, mutEval, err = patcher.Patch(ctx, data, patchRequest, celconfig.RuntimeCELCostBudget)
+		}
 		if p.trace && i < len(p.tracedMutations) {
 			out := mutEval.Result
 			t := p.tracedMutations[i]
@@ -385,13 +417,19 @@ func (p *Policy) evaluate(
 			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
 			return &EvaluationResult{Error: err, Trace: decision()}
 		}
+		if p.jsonMode && mutEval.NotApplied != "" {
+			verdict.Status, verdict.Message = trace.VerdictSkip, mutEval.NotApplied
+			return &EvaluationResult{Skipped: true, Trace: decision()}
+		}
 
-		versionedAttributes.Dirty = true
-		versionedAttributes.VersionedObject = newVersionedObject
+		versionedAttributes.UpdateObject(newVersionedObject)
 
 		// the program data (the object) is supplied through the data map. we need to update
 		// the map to get the patched object from the previous patch
 		data[compiler.ObjectKey] = newVersionedObject.(*unstructured.Unstructured).Object
+		if p.jsonMode {
+			p.appendVariables(ctx, data, recordVariable)
+		}
 	}
 
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, data)
@@ -401,7 +439,7 @@ func (p *Policy) evaluate(
 	}
 
 	return &EvaluationResult{
-		PatchedResource:  versionedAttributes.VersionedObject.(*unstructured.Unstructured),
+		PatchedResource:  versionedAttributes.VersionedObject.Object().(*unstructured.Unstructured),
 		AuditAnnotations: auditAnnotations,
 		Trace:            decision(),
 	}
@@ -433,7 +471,10 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 	if ast != nil {
 		source = ast.Source().Content()
 	}
-	return trace.Build(source, ast, out, details)
+	et := trace.Build(source, ast, out, details)
+	// an expression with an external or non-repeatable call is never re-run to explain it
+	et.NoBreakdown = compiler.NoBreakdownReason(ast)
+	return et
 }
 
 // evaluateAuditAnnotations evaluates each auditAnnotation valueExpression and returns the

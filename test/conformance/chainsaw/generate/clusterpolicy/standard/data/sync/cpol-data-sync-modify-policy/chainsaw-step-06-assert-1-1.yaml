@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ResourceQuota
-metadata:
-  name: default-resourcequota
-  namespace: gemini-ape
-spec:
-  hard:
-    limits.cpu: "9"

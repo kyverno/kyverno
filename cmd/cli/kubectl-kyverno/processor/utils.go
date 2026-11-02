@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/go-git/go-billy/v5"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -12,16 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/informers"
 )
-
-func policyHasValidateOrVerifyImageChecks(policy kyvernov1.PolicyInterface) bool {
-	for _, rule := range policy.GetSpec().Rules {
-		//  engine.validate handles both validate and verifyImageChecks atm
-		if rule.HasValidate() || rule.HasVerifyImageChecks() {
-			return true
-		}
-	}
-	return false
-}
 
 func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool, globalContextEntries map[string]interface{}, httpMockIndex map[string]interface{}) (libs.Context, error) {
 	if dclient != nil && !isFake {

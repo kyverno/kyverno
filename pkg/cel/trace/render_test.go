@@ -225,3 +225,77 @@ func TestRender_MutationNotApplied(t *testing.T) {
 	assert.Contains(t, out, "(not applied: a test operation failed)")
 	assert.Equal(t, 1, strings.Count(out, "not applied"), "only the mutation that was not applied carries the note")
 }
+
+func TestRender_Generations(t *testing.T) {
+	d := &Decision{
+		PolicyKind: "GeneratingPolicy",
+		Generations: []GenerationTrace{
+			{
+				Name:            "generate[0] (expression)",
+				ExpressionTrace: ExpressionTrace{Source: "generator.Apply(ns, [cm])", Result: "true"},
+				Generated:       []string{"ConfigMap prod/zk-kafka-address"},
+			},
+			{Name: "generate[1] (template)"},
+			{
+				Name:            "generate[2] (expression)",
+				ExpressionTrace: ExpressionTrace{Nodes: []NodeTrace{{Expression: "object.a", Error: "no such key: a"}}},
+				Error:           "no such key: a",
+			},
+		},
+		Verdict: VerdictTrace{Status: VerdictPass},
+	}
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+	for _, want := range []string{
+		"GENERATE            generate[0] (expression): generator.Apply(ns, [cm])  ->  true",
+		"generated ConfigMap prod/zk-kafka-address",
+		"GENERATE            generate[1] (template)",
+		"generated nothing",
+		"GENERATE   ERROR    generate[2] (expression): no such key: a",
+		"object.a  ->  ERROR: no such key: a",
+		"VERDICT    PASS     completed; see GENERATE above for what ran",
+	} {
+		assert.Contains(t, out, want)
+	}
+	assert.NotContains(t, out, "no validations to evaluate")
+}
+
+func TestRender_Images(t *testing.T) {
+	var sb strings.Builder
+	Render(&sb, &Decision{
+		Images: &ImagesTrace{Found: []ImageTrace{
+			{Category: "containers", Image: "ghcr.io/x/app:1.0", Checked: true},
+			{Category: "containers", Image: "docker.io/busybox:1", Checked: false},
+		}},
+		Verdict: VerdictTrace{Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "true", Result: "true"}},
+	})
+	out := sb.String()
+	assert.Contains(t, out, "IMAGES     checked  containers: ghcr.io/x/app:1.0")
+	assert.Contains(t, out, "IMAGES     skipped  containers: docker.io/busybox:1  (not matched by matchImageReferences)")
+
+	sb.Reset()
+	Render(&sb, &Decision{Images: &ImagesTrace{}, Verdict: VerdictTrace{Status: VerdictPass}})
+	assert.Contains(t, sb.String(), "IMAGES              no images found on the resource")
+
+	sb.Reset()
+	Render(&sb, &Decision{Verdict: VerdictTrace{Status: VerdictPass}})
+	assert.NotContains(t, sb.String(), "IMAGES", "no IMAGES layer for policy kinds that do not extract images")
+}
+
+func TestRender_NoBreakdownNote(t *testing.T) {
+	var sb strings.Builder
+	Render(&sb, &Decision{Verdict: VerdictTrace{
+		Status:          VerdictFail,
+		ExpressionTrace: ExpressionTrace{Source: "verify(x) > 0", Result: "false", NoBreakdown: "it verifies images"},
+	}})
+	assert.Contains(t, sb.String(), "(no breakdown: it verifies images)")
+
+	sb.Reset()
+	Render(&sb, &Decision{Verdict: VerdictTrace{
+		Status:          VerdictPass,
+		ExpressionTrace: ExpressionTrace{Source: "verify(x) > 0", Result: "true", NoBreakdown: "it verifies images"},
+	}})
+	assert.NotContains(t, sb.String(), "no breakdown", "a pass shows no breakdown, so no note either")
+
+}

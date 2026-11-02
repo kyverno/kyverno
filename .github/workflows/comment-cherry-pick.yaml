@@ -15,6 +15,7 @@ jobs:
   execute:
     name: Cherry pick
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: |
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/cherry-pick')
@@ -48,10 +49,21 @@ jobs:
             core.setOutput('branch', match[1]);
 
       - name: React to comment
-        uses: dkershner6/reaction-action@97ede302a1b145b3739dec3ca84a489a34ef48b5 # v2.2.1
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          reaction: "+1"
+          script: |
+            try {
+              await github.rest.reactions.createForIssueComment({
+                ...context.repo,
+                comment_id: context.payload.comment.id,
+                content: '+1'
+              });
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+              core.warning('Comment no longer exists; continuing without a reaction');
+            }
 
       - name: Normalize GitHub App private key
         id: normalize-key
@@ -99,6 +111,7 @@ jobs:
           repositories: ${{ github.event.repository.name }}
           permission-contents: write
           permission-pull-requests: write
+          permission-workflows: write
 
       - name: Check if PR is merged
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -120,7 +133,7 @@ jobs:
         if: ${{ fromJSON(steps.check-merged.outputs.result).merged == false && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
         uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           message: |
             Commits from this PR will automatically be cherry-picked once this PR gets merged.
 
@@ -145,17 +158,24 @@ jobs:
           merge-commit: ${{ fromJson(steps.check-merged.outputs.result).mergeCommit }}
 
       - name: Comment Cherry-pick Fail
-        if: ${{ steps.cherry-pick.outcome == 'failure' || steps.cherry-pick.outputs.success == 'false' }}
-        uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
+        if: ${{ !cancelled() && steps.command.outcome == 'success' && (failure() || steps.cherry-pick.outcome == 'failure' || steps.cherry-pick.outputs.success == 'false') }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          TARGET_BRANCH: ${{ steps.command.outputs.branch }}
+          FAILURE_STAGE: ${{ steps.normalize-key.outcome == 'failure' && 'private-key validation' || steps.app-token.outcome == 'failure' && 'App token creation' || steps.check-merged.outcome == 'failure' && 'source PR lookup' || steps.cherry-pick.outcome == 'failure' && 'cherry-pick, push, or PR creation' || 'workflow setup' }}
         with:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          message: |
-            :no_entry_sign: Cherry picking merge commit `${{ fromJSON(steps.check-merged.outputs.result).mergeCommit}}` failed. 
-
-            Please check workflow logs.
+          script: |
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `Cherry-pick to \`${process.env.TARGET_BRANCH}\` failed in: ${process.env.FAILURE_STAGE}. See [workflow logs](${run}).`;
+            await core.summary.addHeading('Cherry-pick failed').addRaw(body).write();
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body
+            });
 
       - name: Fail on unsuccessful cherry-pick
-        if: ${{ steps.cherry-pick.outcome == 'failure' || steps.cherry-pick.outputs.success == 'false' }}
+        if: ${{ !cancelled() && (steps.cherry-pick.outcome == 'failure' || steps.cherry-pick.outputs.success == 'false') }}
         run: |
           echo "::error::Cherry-pick failed; see the workflow logs"
           exit 1

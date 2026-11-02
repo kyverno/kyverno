@@ -8,16 +8,17 @@ import (
 // mockToggles implements Toggles interface for testing
 type mockToggles struct {
 	protectManagedResources           bool
+	protectGenerationLabels           bool
 	forceFailurePolicyIgnore          bool
 	enableDeferredLoading             bool
 	generateValidatingAdmissionPolicy bool
 	generateMutatingAdmissionPolicy   bool
 	dumpMutatePatches                 bool
 	allowHTTPInNamespacedPolicies     bool
-	blockLegacyPolicyAPIs             bool
 }
 
 func (m mockToggles) ProtectManagedResources() bool  { return m.protectManagedResources }
+func (m mockToggles) ProtectGenerationLabels() bool  { return m.protectGenerationLabels }
 func (m mockToggles) ForceFailurePolicyIgnore() bool { return m.forceFailurePolicyIgnore }
 func (m mockToggles) EnableDeferredLoading() bool    { return m.enableDeferredLoading }
 func (m mockToggles) GenerateValidatingAdmissionPolicy() bool {
@@ -26,7 +27,6 @@ func (m mockToggles) GenerateValidatingAdmissionPolicy() bool {
 func (m mockToggles) GenerateMutatingAdmissionPolicy() bool { return m.generateMutatingAdmissionPolicy }
 func (m mockToggles) DumpMutatePatches() bool               { return m.dumpMutatePatches }
 func (m mockToggles) AllowHTTPInNamespacedPolicies() bool   { return m.allowHTTPInNamespacedPolicies }
-func (m mockToggles) BlockLegacyPolicyAPIs() bool           { return m.blockLegacyPolicyAPIs }
 
 func TestNewContext(t *testing.T) {
 	tests := []struct {
@@ -147,6 +147,7 @@ func TestFromContext(t *testing.T) {
 func TestFromContextReturnsStoredToggles(t *testing.T) {
 	expected := mockToggles{
 		protectManagedResources:           true,
+		protectGenerationLabels:           true,
 		forceFailurePolicyIgnore:          true,
 		enableDeferredLoading:             true,
 		generateValidatingAdmissionPolicy: true,
@@ -159,6 +160,9 @@ func TestFromContextReturnsStoredToggles(t *testing.T) {
 
 	if result.ProtectManagedResources() != expected.ProtectManagedResources() {
 		t.Error("ProtectManagedResources mismatch")
+	}
+	if result.ProtectGenerationLabels() != expected.ProtectGenerationLabels() {
+		t.Error("ProtectGenerationLabels mismatch")
 	}
 	if result.ForceFailurePolicyIgnore() != expected.ForceFailurePolicyIgnore() {
 		t.Error("ForceFailurePolicyIgnore mismatch")
@@ -187,6 +191,7 @@ func TestDefaultToggles(t *testing.T) {
 
 	// Default toggles should be returned - verify the interface is implemented
 	_ = result.ProtectManagedResources()
+	_ = result.ProtectGenerationLabels()
 	_ = result.ForceFailurePolicyIgnore()
 	_ = result.EnableDeferredLoading()
 	_ = result.GenerateValidatingAdmissionPolicy()

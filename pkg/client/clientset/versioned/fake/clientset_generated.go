@@ -20,8 +20,6 @@ package fake
 
 import (
 	clientset "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
-	fakekyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1/fake"
 	kyvernov2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2"
 	fakekyvernov2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2/fake"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
@@ -110,11 +108,6 @@ var (
 	_ clientset.Interface = &Clientset{}
 	_ testing.FakeClient  = &Clientset{}
 )
-
-// KyvernoV1 retrieves the KyvernoV1Client
-func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
-	return &fakekyvernov1.FakeKyvernoV1{Fake: &c.Fake}
-}
 
 // KyvernoV2 retrieves the KyvernoV2Client
 func (c *Clientset) KyvernoV2() kyvernov2.KyvernoV2Interface {

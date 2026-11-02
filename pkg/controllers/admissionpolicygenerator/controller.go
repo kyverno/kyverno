@@ -6,14 +6,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -42,7 +37,6 @@ const (
 )
 
 // This controller is responsible for the following:
-// - Generating ValidatingAdmissionPolicies and their bindings from Kyverno ClusterPolicies
 // - Generating ValidatingAdmissionPolicies and their bindings from Kyverno ValidatingPolicies
 // - Generating MutatingAdmissionPolicies and their bindings from Kyverno MutatingPolicies
 type controller struct {
@@ -52,12 +46,10 @@ type controller struct {
 	discoveryClient dclient.IDiscovery
 
 	// listers
-	cpolLister            kyvernov1listers.ClusterPolicyLister
 	vpolLister            policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister           policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister            policiesv1beta1listers.MutatingPolicyLister
 	nmpolLister           policiesv1beta1listers.NamespacedMutatingPolicyLister
-	polexLister           kyvernov2listers.PolicyExceptionLister
 	celpolexLister        policiesv1beta1listers.PolicyExceptionLister
 	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister      admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
@@ -85,12 +77,10 @@ func NewController(
 	client kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	discoveryClient dclient.IDiscovery,
-	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
 	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
-	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	celpolexInformer policiesv1beta1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
@@ -113,12 +103,10 @@ func NewController(
 		client:          client,
 		kyvernoClient:   kyvernoClient,
 		discoveryClient: discoveryClient,
-		cpolLister:      cpolInformer.Lister(),
 		vpolLister:      vpolInformer.Lister(),
 		nvpolLister:     nvpolInformer.Lister(),
 		mpolLister:      mpolInformer.Lister(),
 		nmpolLister:     nmpolInformer.Lister(),
-		polexLister:     polexInformer.Lister(),
 		celpolexLister:  celpolexInformer.Lister(),
 		queue:           queue,
 		eventGen:        eventGen,
@@ -126,11 +114,6 @@ func NewController(
 
 		polexEnabled:       polexEnabled,
 		exceptionNamespace: exceptionNamespace,
-	}
-
-	// Set up an event handler for when Kyverno policies change
-	if _, err := controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
-		logger.Error(err, "failed to register event handlers")
 	}
 
 	// Set up an event handler for when validating policies change
@@ -145,11 +128,6 @@ func NewController(
 
 	// Set up an event handler for when namespaced mutating policies change
 	if _, err := controllerutils.AddEventHandlersT(nmpolInformer.Informer(), c.addMP, c.updateMP, c.deleteMP); err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
-
-	// Set up an event handler for when policy exceptions change
-	if _, err := controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addException, c.updateException, c.deleteException); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 
@@ -231,29 +209,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	var policy engineapi.GenericPolicy
 
 	polType := strings.Split(key, "/")[0]
-	if polType == "ClusterPolicy" {
-		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-		if !generateValidatingAdmissionPolicy {
-			return nil
-		}
-		cpol, err := c.getClusterPolicy(name)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil
-			}
-			logger.Error(err, "unable to get the policy from policy informer")
-			return err
-		}
-		spec := cpol.GetSpec()
-		if !spec.HasValidate() {
-			return nil
-		}
-		policy = engineapi.NewKyvernoPolicy(cpol)
-		err = c.handleVAPGeneration(ctx, polType, policy)
-		if err != nil {
-			return err
-		}
-	} else if polType == "ValidatingPolicy" {
+	if polType == "ValidatingPolicy" {
 		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
 		if !generateValidatingAdmissionPolicy {
 			return nil
@@ -267,7 +223,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 		policy = engineapi.NewValidatingPolicy(vpol)
-		err = c.handleVAPGeneration(ctx, polType, policy)
+		err = c.handleVAPGeneration(ctx, policy)
 		if err != nil {
 			return err
 		}
@@ -295,20 +251,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.GenericPolicy, generated bool, msg string) {
-	if pol := policy.AsKyvernoPolicy(); pol != nil {
-		cpol := pol.(*kyvernov1.ClusterPolicy)
-		latest := cpol.DeepCopy()
-		latest.Status.ValidatingAdmissionPolicy.Generated = generated
-		latest.Status.ValidatingAdmissionPolicy.Message = msg
-
-		new, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
-		if err != nil {
-			logging.Error(err, "failed to update cluster policy status", "name", cpol.GetName(), "status", latest.Status)
-			return
-		}
-		logging.V(3).Info("updated cluster policy status", "name", cpol.GetName(), "status", new.Status)
-	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
+func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.GenericPolicy, generated bool, msg string) error {
+	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		latest := vpol.DeepCopy()
 		latest.Status.Generated = generated
 		latest.Status.GetConditionStatus().Message = msg
@@ -316,7 +260,7 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		new, err := c.kyvernoClient.PoliciesV1beta1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
 			logging.Error(err, "failed to update validating policy status", "name", vpol.GetName(), "status", latest.Status)
-			return
+			return err
 		}
 
 		logging.V(3).Info("updated validating policy status", "name", vpol.GetName(), "status", new.Status)
@@ -328,9 +272,10 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		new, err := c.kyvernoClient.PoliciesV1beta1().MutatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
 			logging.Error(err, "failed to update mutating policy status", "name", mpol.GetName(), "status", latest.Status)
-			return
+			return err
 		}
 
 		logging.V(3).Info("updated mutating policy status", "name", mpol.GetName(), "status", new.Status)
 	}
+	return nil
 }

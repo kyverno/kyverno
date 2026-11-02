@@ -32,8 +32,13 @@ type TracedProgram struct {
 
 // tracingProgram builds the explain-only twin of a program: same AST, with state tracking on.
 // It goes through NewProgram like every other program, so the twin's own evaluation is priced
-// and charged: it runs the expression a second time and that work is as real as the first.
+// and charged: it runs the expression a second time and that work is as real as the first. An
+// expression that calls a function that must not run twice (see NotRepeatable) gets no twin, so
+// TraceDetails has nothing to re-run and the trace shows only its result.
 func tracingProgram(env *cel.Env, ast *cel.Ast) (cel.Program, error) {
+	if NotRepeatable(ast) != "" {
+		return nil, nil
+	}
 	return NewProgram(env, ast, cel.EvalOptions(cel.OptTrackState))
 }
 
@@ -406,6 +411,37 @@ func CompileGeneration(path *field.Path, env *cel.Env, generation policiesv1beta
 		}
 		return prog, allErrs
 	}
+}
+
+// CompileGenerationWithTrace is the tracing-aware twin of CompileGeneration. With trace false
+// it compiles exactly as CompileGeneration does and Traced and AST are nil. With trace true
+// Program is still built exactly as without tracing and is the one that decides; Traced is its
+// explain-only tracking twin and AST is retained (see TracedProgram). CompileGeneration itself is
+// left unchanged.
+func CompileGenerationWithTrace(path *field.Path, env *cel.Env, generation policiesv1beta1.Generation, trace bool) (TracedProgram, field.ErrorList) {
+	if !trace {
+		prog, errs := CompileGeneration(path, env, generation)
+		return TracedProgram{Program: prog}, errs
+	}
+	var allErrs field.ErrorList
+	path = path.Child("expression")
+	ast, err := Compile(env, generation.Expression)
+	if err != nil {
+		return TracedProgram{}, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
+	}
+	if !ast.OutputType().IsExactType(types.BoolType) {
+		msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
+		return TracedProgram{}, append(allErrs, field.Invalid(path, generation.Expression, msg))
+	}
+	prog, err := NewProgram(env, ast)
+	if err != nil {
+		return TracedProgram{}, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
+	}
+	traced, err := tracingProgram(env, ast)
+	if err != nil {
+		return TracedProgram{}, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
+	}
+	return TracedProgram{Program: prog, Traced: traced, AST: ast}, allErrs
 }
 
 func CompileGenerations(path *field.Path, env *cel.Env, generations ...policiesv1beta1.Generation) (result []cel.Program, allErrs field.ErrorList) {

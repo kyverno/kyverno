@@ -52,6 +52,8 @@ const (
 	PolicyValidatingWebhookName = "validate-policy.kyverno.svc"
 	// ValidatingWebhookName ...
 	ValidatingWebhookName = "validate.kyverno.svc"
+	// GenerationLabelProtectionWebhookName validates controller-owned generation labels.
+	GenerationLabelProtectionWebhookName = "protect-generation-labels.kyverno.svc"
 	// PolicyMutatingWebhookName default policy mutating webhook name
 	PolicyMutatingWebhookName = "mutate-policy.kyverno.svc"
 	// MutatingWebhookName default resource mutating webhook name
@@ -86,6 +88,8 @@ const (
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
 	// ValidatingWebhookServicePath is the path for validation webhook
 	ValidatingWebhookServicePath = "/validate"
+	// GenerationLabelProtectionWebhookServicePath validates generation metadata without evaluating policies.
+	GenerationLabelProtectionWebhookServicePath = "/protect-generation-labels"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
 	// CELExceptionValidatingWebhookServicePath is the path for CEL PolicyException validation webhook(used to validate CEL PolicyException resource)
@@ -304,6 +308,8 @@ func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 		skipResourceFilters:           skipResourceFilters,
 		defaultRegistry:               "docker.io",
 		enableDefaultRegistryMutation: true,
+		updateRequestThreshold:        UpdateRequestThreshold,
+		maxContextSize:                DefaultMaxContextSize,
 	}
 }
 
@@ -596,15 +602,15 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	}
 	threshold, ok := data[updateRequestThreshold]
 	if !ok {
-		logger.V(2).Info("enableDefaultRegistryMutation not set")
+		logger.V(2).Info("updateRequestThreshold not set")
 	} else {
-		logger := logger.WithValues("enableDefaultRegistryMutation", enableDefaultRegistryMutation)
+		logger := logger.WithValues("updateRequestThreshold", threshold)
 		urThreshold, err := strconv.ParseInt(threshold, 10, 64)
 		if err != nil {
-			logger.Error(err, "enableDefaultRegistryMutation is not a boolean")
+			logger.Error(err, "updateRequestThreshold is not an integer")
 		} else {
 			cd.updateRequestThreshold = urThreshold
-			logger.V(2).Info("enableDefaultRegistryMutation configured")
+			logger.V(2).Info("updateRequestThreshold configured")
 		}
 	}
 	// load enableUpdateRequestCleanup
@@ -677,6 +683,8 @@ func (cd *configuration) unload() {
 	cd.webhook = WebhookConfig{}
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
+	cd.matchConditions = nil
+	cd.updateRequestThreshold = UpdateRequestThreshold
 	cd.maxContextSize = DefaultMaxContextSize
 	cd.enableUpdateRequestCleanup = false
 	cd.updateRequestCleanupTTL = ""

@@ -1,6 +1,10 @@
 package extract
 
-import "fmt"
+import (
+	"fmt"
+	"maps"
+	"slices"
+)
 
 // Extracted is a single pod-template-shaped subtree found inside a custom
 // workload resource, together with the path it was found at (for
@@ -26,6 +30,10 @@ type Extracted struct {
 //
 // Once a match is found at a node, ExtractPodTemplates does not descend
 // further into it - a pod template does not contain a nested pod template.
+//
+// The result order is stable: list items are visited by index and map keys
+// in sorted order. Callers stop at the first failing template, so a random
+// order would make the reported template change from one call to the next.
 func ExtractPodTemplates(obj map[string]any) []Extracted {
 	spec, ok := obj["spec"].(map[string]any)
 	if !ok {
@@ -43,8 +51,8 @@ func walk(node any, path string, out *[]Extracted) {
 			*out = append(*out, Extracted{Template: v, Path: path})
 			return
 		}
-		for key, val := range v {
-			walk(val, joinPath(path, key), out)
+		for _, key := range slices.Sorted(maps.Keys(v)) {
+			walk(v[key], joinPath(path, key), out)
 		}
 	case []any:
 		for i, val := range v {

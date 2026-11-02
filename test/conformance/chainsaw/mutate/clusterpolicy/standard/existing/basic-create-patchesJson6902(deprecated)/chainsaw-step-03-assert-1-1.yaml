@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Secret
-metadata:
-  labels:
-    env: staging-4
-  name: test-secret-4
-  namespace: staging-4

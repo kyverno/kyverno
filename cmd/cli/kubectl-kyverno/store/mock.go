@@ -4,16 +4,15 @@ import (
 	"fmt"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
-	loaders "github.com/kyverno/kyverno/pkg/engine/context/loaders"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 )
 
 type delegatingGCtxStore struct {
 	mock *mockGCtxStore
-	real loaders.Store
+	real GCtxStore
 }
 
-func newDelegatingGCtxStore(mock *mockGCtxStore, real loaders.Store) *delegatingGCtxStore {
+func newDelegatingGCtxStore(mock *mockGCtxStore, real GCtxStore) *delegatingGCtxStore {
 	return &delegatingGCtxStore{mock: mock, real: real}
 }
 
