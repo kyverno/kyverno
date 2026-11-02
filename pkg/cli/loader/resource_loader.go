@@ -168,9 +168,17 @@ func (cl *ClusterLoader) executeTasks(ctx context.Context, tasks []LoadTask) ([]
 	// Submit tasks from a separate goroutine so this call can start draining
 	// results concurrently; SubmitTask now blocks until a task is queued, and
 	// workers can only make room in the queue by publishing results back.
+	// The producer is cancelled and joined on every exit so it cannot outlive this call.
+	submitCtx, cancelSubmit := context.WithCancel(ctx)
+	producerDone := make(chan struct{})
+	defer func() {
+		cancelSubmit()
+		<-producerDone
+	}()
 	go func() {
+		defer close(producerDone)
 		for _, task := range tasks {
-			cl.workerPool.SubmitTask(ctx, task)
+			cl.workerPool.SubmitTask(submitCtx, task)
 		}
 	}()
 
@@ -187,9 +195,8 @@ resultLoop:
 			return nil, ctx.Err()
 		case result := <-cl.workerPool.GetResults():
 			results = append(results, result)
-			if !timer.Stop() {
-				<-timer.C
-			}
+			// Go 1.23+ timers never leave a stale value after Stop, so no drain is needed.
+			timer.Stop()
 			timer.Reset(cl.resourceOptions.Timeout)
 		case <-timer.C:
 			if !cl.resourceOptions.ContinueOnError {
