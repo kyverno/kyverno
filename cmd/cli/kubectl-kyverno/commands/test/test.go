@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -221,7 +220,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				var fileBytes []byte
 				fileBytes, loadErr = common.ReadFile(testCase.Fs, filepath.Join(testDir, jp))
 				if loadErr == nil {
-					loadErr = json.Unmarshal(fileBytes, &data)
+					data, loadErr = payload.Parse(jp, fileBytes)
 				}
 			} else {
 				data, loadErr = payload.Load(jp)
@@ -521,8 +520,18 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			}
 		}
 		if len(results.MutatingPolicies) != 0 {
+			var policies []policiesv1beta1.MutatingPolicyLike
+			for _, policy := range results.MutatingPolicies {
+				if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+					if len(jsonPayloads) > 0 {
+						policies = append(policies, policy)
+					}
+				} else if len(uniques) > 0 {
+					policies = append(policies, policy)
+				}
+			}
 			compiler := mpolcompiler.NewCompiler()
-			mpolProvider, mpolProviderErr = mpolengine.NewProvider(compiler, results.MutatingPolicies, celExceptions, contextProvider)
+			mpolProvider, mpolProviderErr = mpolengine.NewProvider(compiler, policies, celExceptions, contextProvider)
 			if hookMpolProviderCreated != nil {
 				hookMpolProviderCreated()
 			}
@@ -703,7 +712,16 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
+			hasError := false
+			for _, response := range ers {
+				hasError = hasError || response.IsError()
+			}
+			if !hasError {
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %s (%w)", jp.name, err)
+			}
+		}
+		if processor.JsonPayload.Object != nil {
+			jp.data = processor.JsonPayload.Object
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(

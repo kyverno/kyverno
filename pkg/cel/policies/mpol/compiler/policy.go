@@ -18,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/managedfields"
 	admission "k8s.io/apiserver/pkg/admission"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
@@ -26,6 +27,7 @@ import (
 )
 
 type Policy struct {
+	jsonMode              bool
 	patchers              []Patcher
 	matchConditions       []cel.Program
 	targetMatchConditions []cel.Program
@@ -196,6 +198,16 @@ func (p *Policy) Evaluate(
 	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
+	if p.jsonMode {
+		if attr == nil {
+			return &EvaluationResult{Error: fmt.Errorf("JSON evaluation requires an object")}
+		}
+		object, ok := attr.GetObject().(*unstructured.Unstructured)
+		if !ok {
+			return &EvaluationResult{Error: fmt.Errorf("JSON evaluation requires an unstructured object")}
+		}
+		return p.EvaluateJSON(ctx, object)
+	}
 	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, contextProvider, false)
 }
 
@@ -362,16 +374,32 @@ func (p *Policy) evaluate(
 
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	for i, patcher := range p.patchers {
+		var typeConverter managedfields.TypeConverter
+		if p.jsonMode {
+			typeConverter = managedfields.NewDeducedTypeConverter()
+		} else {
+			typeConverter = tcm.GetTypeConverter(versionedAttributes.VersionedKind)
+		}
 		patchRequest := patch.Request{
 			MatchedResource:     attr.GetResource(),
 			VersionedAttributes: versionedAttributes,
 			ObjectInterfaces:    o,
 			OptionalVariables:   plugincel.OptionalVariableBindings{VersionedParams: nil, Authorizer: nil},
 			Namespace:           namespace,
-			TypeConverter:       tcm.GetTypeConverter(versionedAttributes.VersionedKind),
+			TypeConverter:       typeConverter,
 		}
 
-		newVersionedObject, mutEval, err := patcher.Patch(ctx, data, patchRequest, celconfig.RuntimeCELCostBudget)
+		var newVersionedObject runtime.Object
+		var mutEval MutationEval
+		if p.jsonMode {
+			if jsonPatcher, ok := patcher.(*jsonPatcher); ok {
+				newVersionedObject, mutEval, err = jsonPatcher.PatchJSON(ctx, data, celconfig.RuntimeCELCostBudget)
+			} else {
+				newVersionedObject, mutEval, err = patcher.Patch(ctx, data, patchRequest, celconfig.RuntimeCELCostBudget)
+			}
+		} else {
+			newVersionedObject, mutEval, err = patcher.Patch(ctx, data, patchRequest, celconfig.RuntimeCELCostBudget)
+		}
 		if p.trace && i < len(p.tracedMutations) {
 			out := mutEval.Result
 			t := p.tracedMutations[i]
@@ -389,12 +417,19 @@ func (p *Policy) evaluate(
 			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
 			return &EvaluationResult{Error: err, Trace: decision()}
 		}
+		if p.jsonMode && mutEval.NotApplied != "" {
+			verdict.Status, verdict.Message = trace.VerdictSkip, mutEval.NotApplied
+			return &EvaluationResult{Skipped: true, Trace: decision()}
+		}
 
 		versionedAttributes.UpdateObject(newVersionedObject)
 
 		// the program data (the object) is supplied through the data map. we need to update
 		// the map to get the patched object from the previous patch
 		data[compiler.ObjectKey] = newVersionedObject.(*unstructured.Unstructured).Object
+		if p.jsonMode {
+			p.appendVariables(ctx, data, recordVariable)
+		}
 	}
 
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, data)
