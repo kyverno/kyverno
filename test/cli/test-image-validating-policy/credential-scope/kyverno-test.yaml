@@ -15,13 +15,13 @@ results:
   result: pass
 - isImageValidatingPolicy: true
   kind: Pod
-  policy: tenant-bare
+  policy: team-a/tenant-bare
   resources:
   - scope-proof
   result: pass
 - isImageValidatingPolicy: true
   kind: Pod
-  policy: tenant-explicit
+  policy: team-a/tenant-explicit
   resources:
   - scope-proof
   result: pass
