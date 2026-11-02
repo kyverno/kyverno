@@ -6,7 +6,8 @@ metadata, verify signatures, or resolve a digest. Without a destination check, a
 as `169.254.169.254/app:v1` turns admission control into a request against the cluster's cloud
 metadata service.
 
-Kyverno validates the destination of every request its image registry client makes. The check
+Kyverno validates the destination of every request its image registry client makes, with one
+exception for proxied registries the controller cannot resolve, described under Rollout. The check
 happens where the image is fetched, so it covers any reference that reaches a registry — one read
 from the admission object, one written into the policy, or one produced by a CEL expression. No
 part of Kyverno has to decide which of those a reference was.
@@ -26,9 +27,8 @@ addresses it just validated, and re-checks on every redirect and reused connecti
 the registry client's keychain resolves are resolved only after the destination passes, so a
 blocked host normally causes no credential lookup; the exception is a proxied name the local
 resolver cannot find, described under Rollout. `source.signaturePullSecrets` is the other
-exception: those secrets are read before the destination is checked. In both cases the transport
-still validates the destination and refuses the connection, so the credentials are never sent to
-a blocked host.
+exception: those secrets are read before the destination is checked, but the transport still
+validates the destination and refuses the connection, so they are never sent to a blocked host.
 
 ## What is not covered
 
@@ -50,7 +50,9 @@ first and collect those log lines to build the allowlist.
 
 Both modes always reject cloud metadata, loopback, link-local, unspecified, multicast, and
 broadcast addresses, including addresses reached through a listed hostname. No allowlist entry
-overrides those.
+overrides those. The one destination these checks do not reach is a proxied name the controller
+cannot resolve, described below: Kyverno never learns an address for it, so it has nothing to
+compare against the list.
 
 IPv4 addresses embedded in IPv6 are decoded before that check, so a blocked address cannot be
 reached by spelling it as IPv6. This covers the NAT64 well-known prefix (`64:ff9b::/96`), 6to4
@@ -99,9 +101,16 @@ A registry that resolves only from the proxy's network is still reachable. When 
 configured and the controller's own resolver reports the name as not found, the destination is
 left to the proxy and the request proceeds; the skip is logged at verbosity 2. The same allowance
 is made during credential resolution, which happens first — otherwise the request would fail
-looking up credentials before the transport ever got to defer to the proxy. Credentials may
-therefore be resolved for a name the controller cannot resolve, but the destination is still
-validated before any connection is made, so they are never sent to a blocked host. This applies
-only to that one case. A name that does resolve is validated as usual, a literal IP address never
-consults the resolver and so can never be excused this way, and any other resolver failure still
-fails closed.
+looking up credentials before the transport ever got to defer to the proxy.
+
+Deferring means Kyverno never learns an address for that name, so it validates nothing about the
+final destination: neither the allowlist nor the hard-block list is applied to it. The connection
+is pinned to the proxy, and wherever the proxy resolves the name to is where the request goes,
+along with any credentials resolved for it. Restricting what the proxy connects to is the proxy's
+responsibility. If that matters for your cluster, either configure the proxy to refuse the
+destinations you care about, or give the controller a resolver that can see these names so the
+ordinary checks apply.
+
+This applies only to that one case. A name that does resolve is validated as usual, a literal IP
+address never consults the resolver and so can never be excused this way, and any other resolver
+failure still fails closed.

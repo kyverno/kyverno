@@ -209,6 +209,18 @@ var (
 	// without this it would be reachable in enforce mode with no allowlist entry despite
 	// never being globally routable.
 	benchmarkNetwork = netip.MustParsePrefix("198.18.0.0/15")
+	// More special-purpose space Go reports as global unicast and not private. Each one can
+	// address local infrastructure or steer routing, so each is private-class: audit logs it
+	// and enforce needs an allowlist entry. The documentation ranges (192.0.2.0/24,
+	// 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32) are deliberately absent. The line drawn
+	// here is "can reach local infrastructure", not "is merely unroutable" -- a fetch to
+	// documentation space only ever fails to connect, and those ranges are this package's own
+	// test fixtures throughout.
+	protocolAssignments   = netip.MustParsePrefix("192.0.0.0/24")   // IETF assignments: 192.0.0.1 is the DS-Lite AFTR the local CPE answers on.
+	sixToFourRelayAnycast = netip.MustParsePrefix("192.88.99.0/24") // Deprecated 6to4 relay anycast: reaches whichever relay the local network advertises.
+	reservedNetwork       = netip.MustParsePrefix("240.0.0.0/4")    // Reserved for future use: only a local stack or appliance can answer here.
+	protocolAssignmentsV6 = netip.MustParsePrefix("2001::/23")      // IPv6 IETF assignments, including Teredo 2001::/32 tunnel endpoints.
+	discardOnlyV6         = netip.MustParsePrefix("100::/64")       // Discard-only: a route here is local policy, not a destination.
 	// Some cloud metadata services use otherwise private or public addresses.
 	metadataAddresses = map[netip.Addr]struct{}{
 		netip.MustParseAddr("100.100.100.200"): {},
@@ -222,8 +234,14 @@ func hardBlocked(address netip.Addr) bool {
 	return !address.IsValid() || !address.IsGlobalUnicast() || address.IsLoopback() || address.IsLinkLocalUnicast() || zeroNetwork.Contains(address) || metadata
 }
 
+// privateAddress is only ever called on a candidate from addressCandidates, which has
+// already unmapped and extracted any embedded IPv4, so ::ffff:192.0.0.1, 64:ff9b::c000:1,
+// and 2002:c000:1:: cannot spell their way past an IPv4 prefix listed here.
 func privateAddress(address netip.Addr) bool {
-	return address.IsPrivate() || carrierGradeNAT.Contains(address) || benchmarkNetwork.Contains(address)
+	return address.IsPrivate() || carrierGradeNAT.Contains(address) || benchmarkNetwork.Contains(address) ||
+		protocolAssignments.Contains(address) || sixToFourRelayAnycast.Contains(address) ||
+		reservedNetwork.Contains(address) || protocolAssignmentsV6.Contains(address) ||
+		discardOnlyV6.Contains(address)
 }
 
 func addressCandidates(address netip.Addr) []netip.Addr {

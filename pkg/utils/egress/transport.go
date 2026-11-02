@@ -61,8 +61,9 @@ type destinationPool struct {
 
 // WrapTransport clones base, preserving TLS and pooling settings. Direct
 // connections pin target addresses; proxied connections pin only proxy addresses.
-// The target is still resolved and validated locally on every request, but the
-// proxy owns downstream DNS and routing, which are not pinned by this transport.
+// The target is resolved and validated locally on every request it can be
+// resolved for, but the proxy owns downstream DNS and routing, which are not
+// pinned by this transport; see RoundTrip for the name it cannot resolve.
 // Exemptions never skip these checks.
 func (p *Policy) WrapTransport(base *http.Transport) *Transport {
 	if base == nil {
@@ -167,7 +168,10 @@ func (t *Transport) RoundTrip(request *http.Request) (*http.Response, error) {
 		// A proxy owns downstream DNS, so a registry only it can resolve is not evidence of
 		// a bad destination, and failing here would break those deployments in every mode.
 		// Anything that does resolve is still validated, and a literal address never reaches
-		// the resolver at all, so a blocked destination cannot be reached this way.
+		// the resolver at all, so neither can be excused this way. A name the proxy resolves
+		// is the real gap: no address for it is ever known here, so it is checked against
+		// neither the hard-block list nor the allowlist, and the proxy alone decides what
+		// that name connects to.
 		if plan.proxy == nil || !dnsNotFound(err) {
 			return nil, err
 		}

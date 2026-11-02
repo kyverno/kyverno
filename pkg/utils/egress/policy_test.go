@@ -51,7 +51,14 @@ func TestHardBlocksCannotBeExempted(t *testing.T) {
 
 func TestPrivateNetworkCompatibilityAndExemptions(t *testing.T) {
 	t.Parallel()
-	for _, address := range []string{"10.1.2.3", "172.16.1.1", "192.168.1.1", "100.64.1.1", "fd01::1", "64:ff9b::a01:203"} {
+	// The special-purpose ranges below are reported as global unicast and not private by Go,
+	// so each one is here to prove it is still private-class: reachable in audit mode, and in
+	// enforce mode only with an exemption. The last two are alternate spellings of 192.0.0.1.
+	for _, address := range []string{
+		"10.1.2.3", "172.16.1.1", "192.168.1.1", "100.64.1.1", "fd01::1", "64:ff9b::a01:203",
+		"192.0.0.1", "192.88.99.1", "240.0.0.1", "2001:0:4136:e378:8000:63bf:3fff:fdd2", "100::1",
+		"::ffff:192.0.0.1", "64:ff9b::c000:1",
+	} {
 		t.Run(address, func(t *testing.T) {
 			t.Parallel()
 			answers := map[string][]string{"registry.internal": {address}}
@@ -66,6 +73,35 @@ func TestPrivateNetworkCompatibilityAndExemptions(t *testing.T) {
 			resolved, err = policy.ResolveAndValidate(context.Background(), "registry.internal")
 			require.NoError(t, err)
 			assert.Equal(t, []netip.Addr{netip.MustParseAddr(address)}, resolved, "an exempt hostname must still be resolved and pinned")
+		})
+	}
+}
+
+// Special-purpose space is private-class rather than hard-blocked, so an operator who
+// genuinely runs a registry there can still reach it with an address or CIDR exemption.
+func TestSpecialPurposeRangesAreExemptableByAddress(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, address, exemption string
+	}{
+		{name: "IETF protocol assignments", address: "192.0.0.1", exemption: "192.0.0.1"},
+		{name: "6to4 relay anycast", address: "192.88.99.1", exemption: "192.88.99.0/24"},
+		{name: "reserved for future use", address: "240.0.0.1", exemption: "240.0.0.0/4"},
+		{name: "teredo", address: "2001:0:4136:e378:8000:63bf:3fff:fdd2", exemption: "2001::/23"},
+		{name: "IPv6 discard only", address: "100::1", exemption: "100::/64"},
+		{name: "IPv4 mapped protocol assignment", address: "::ffff:192.0.0.1", exemption: "192.0.0.0/24"},
+		{name: "NAT64 protocol assignment", address: "64:ff9b::c000:1", exemption: "192.0.0.0/24"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			answers := map[string][]string{"registry.internal": {tc.address}}
+			policy := testPolicy(t, Config{Mode: ModeEnforce}, answers)
+			_, err := policy.ResolveAndValidate(context.Background(), "registry.internal")
+			require.ErrorIs(t, err, ErrAddressBlocked)
+			policy = testPolicy(t, Config{Mode: ModeEnforce, Allowlist: []string{tc.exemption}}, answers)
+			resolved, err := policy.ResolveAndValidate(context.Background(), "registry.internal")
+			require.NoError(t, err)
+			assert.Equal(t, []netip.Addr{netip.MustParseAddr(tc.address)}, resolved)
 		})
 	}
 }

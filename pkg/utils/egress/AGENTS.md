@@ -40,13 +40,20 @@
   proxy rather than failing closed — otherwise proxy-only-resolvable registries break in every
   mode. Keep `dnsNotFound` narrow: literal addresses never reach the resolver, and
   `ErrAddressBlocked` plus every other resolver failure must stay fatal.
+- A deferred target is unvalidated, not merely unpinned. `plan.targetIPs` is nil and the dial
+  goes to `plan.proxyIPs`, so no address for that name is ever compared against the hard-block
+  list or the allowlist, and the proxy decides what it connects to. That is the accepted cost of
+  the deferral, not an oversight: validating it would require resolving a name the controller
+  cannot resolve. Do not restore a guarantee here that the guard cannot keep — if the deferral
+  ever needs tightening, narrow when it applies rather than claiming the destination is checked.
 - The keychain is resolved before the transport dials, so `Transport.RoundTrip`'s proxy carve-out
   is only reachable if `guardedKeychain.ResolveContext` makes the same allowance; change one side
   and the other must change with it, or the deferral becomes dead code and the destination
-  unusable after all. Deferring at the keychain is not a grant — the transport is still the
-  backstop that refuses a blocked host before credentials can be sent to it.
-  `guardedKeychain.proxied` tries both `https` and `http` because a keychain is given a host and
-  no scheme; erring towards true only defers a check the transport still makes.
+  unusable after all. Where both sides defer, nothing stops the resolved credentials from
+  reaching whatever the proxy connects to; the transport is a backstop only for destinations it
+  can resolve. `guardedKeychain.proxied` tries both `https` and `http` because a keychain is
+  given a host and no scheme; erring towards true only defers a check the transport still makes
+  when no proxy is actually configured for the request.
 - DNS and connection attempts share `DialTimeout` or the shorter caller deadline.
   Preserve the original request context for response bodies; close rejected request bodies.
 - Keep resolved IPs/DNS server details out of returned `hostError` messages while retaining
