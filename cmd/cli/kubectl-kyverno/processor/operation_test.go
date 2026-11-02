@@ -91,6 +91,28 @@ func TestAdmissionRequestShape(t *testing.T) {
 		assert.Nil(t, object)
 		assert.Equal(t, resource.Object, oldObject.(*unstructured.Unstructured).Object)
 	})
+	t.Run("UPDATE with explicit oldResource", func(t *testing.T) {
+		oldRes := &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata":   map[string]interface{}{"name": "old-pod"},
+		}}
+		op, object, oldObject := AdmissionRequestShape("UPDATE", resource, oldRes)
+		assert.Equal(t, admissionv1.Update, op)
+		assert.Equal(t, resource, object)
+		assert.Equal(t, "old-pod", oldObject.(*unstructured.Unstructured).GetName())
+	})
+	t.Run("DELETE with explicit oldResource", func(t *testing.T) {
+		oldRes := &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata":   map[string]interface{}{"name": "old-pod"},
+		}}
+		op, object, oldObject := AdmissionRequestShape("DELETE", resource, oldRes)
+		assert.Equal(t, admissionv1.Delete, op)
+		assert.Nil(t, object)
+		assert.Equal(t, "old-pod", oldObject.(*unstructured.Unstructured).GetName())
+	})
 }
 
 func TestResolveOperation(t *testing.T) {
@@ -114,5 +136,22 @@ func TestAdmissionRequestShapeUpdateDeepCopy(t *testing.T) {
 	}}
 	_, object, oldObject := AdmissionRequestShape("UPDATE", resource)
 	object.(*unstructured.Unstructured).SetLabels(map[string]string{"mutated": "true"})
+	assert.Empty(t, oldObject.(*unstructured.Unstructured).GetLabels())
+}
+
+
+func TestAdmissionRequestShapeExplicitOldDeepCopy(t *testing.T) {
+	resource := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata":   map[string]interface{}{"name": "new-pod"},
+	}}
+	oldRes := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata":   map[string]interface{}{"name": "old-pod"},
+	}}
+	_, _, oldObject := AdmissionRequestShape("UPDATE", resource, oldRes)
+	oldRes.SetLabels(map[string]string{"mutated": "true"})
 	assert.Empty(t, oldObject.(*unstructured.Unstructured).GetLabels())
 }
