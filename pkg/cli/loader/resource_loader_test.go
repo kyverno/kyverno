@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -16,7 +17,7 @@ func TestNewClusterLoader(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
 		_, cancel := context.WithCancel(context.Background())
-		loader, err := NewClusterLoader(client, ResourceOptions{
+		loader, err := NewClusterLoader(context.Background(), client, ResourceOptions{
 			ResourceTypes: []schema.GroupVersionKind{{Kind: "Pod"}},
 			Concurrency:   2,
 			BatchSize:     100,
@@ -27,7 +28,7 @@ func TestNewClusterLoader(t *testing.T) {
 	})
 
 	t.Run("nil client", func(t *testing.T) {
-		_, err := NewClusterLoader(nil, ResourceOptions{})
+		_, err := NewClusterLoader(context.Background(), nil, ResourceOptions{})
 		assert.Error(t, err)
 	})
 }
@@ -46,7 +47,7 @@ func TestClusterLoader_LoadResources(t *testing.T) {
 		}
 
 		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil, obj)
-		loader, _ := NewClusterLoader(client, ResourceOptions{
+		loader, _ := NewClusterLoader(context.Background(), client, ResourceOptions{
 			ResourceTypes: []schema.GroupVersionKind{
 				{
 					Group:   "",
@@ -71,7 +72,7 @@ func TestClusterLoader_LoadResources(t *testing.T) {
 
 	t.Run("closed loader", func(t *testing.T) {
 		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
-		loader, _ := NewClusterLoader(client, ResourceOptions{
+		loader, _ := NewClusterLoader(context.Background(), client, ResourceOptions{
 			ResourceTypes: []schema.GroupVersionKind{
 				{
 					Group:   "",
@@ -128,11 +129,40 @@ func TestClusterLoader_Tasks(t *testing.T) {
 func TestClusterLoader_Close(t *testing.T) {
 	t.Run("double close", func(t *testing.T) {
 		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
-		loader, _ := NewClusterLoader(client, ResourceOptions{
+		loader, _ := NewClusterLoader(context.Background(), client, ResourceOptions{
 			ResourceTypes: []schema.GroupVersionKind{{Kind: "Pod"}},
 		})
 		_, cancel := context.WithCancel(context.Background())
 		assert.NoError(t, loader.Close(cancel))
 		assert.NoError(t, loader.Close(cancel))
+	})
+}
+
+func TestClusterLoader_executeTasks_Timeout(t *testing.T) {
+	// A pool with no workers never produces results, so the only way out is the timer.
+	newLoader := func(continueOnError bool) *ClusterLoader {
+		ctx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		wp := NewWorkerPool(ctx, WorkerPoolConfig{Workers: 0, QueueSize: 4, Logger: logrus.New()})
+		return &ClusterLoader{
+			workerPool: wp,
+			resourceOptions: ResourceOptions{
+				Timeout:         50 * time.Millisecond,
+				ContinueOnError: continueOnError,
+			},
+		}
+	}
+	tasks := []LoadTask{{ID: "task-0"}, {ID: "task-1"}}
+
+	t.Run("continue on error returns partial results", func(t *testing.T) {
+		results, err := newLoader(true).executeTasks(context.Background(), tasks)
+		assert.NoError(t, err)
+		assert.Empty(t, results)
+	})
+
+	t.Run("timeout is an error without continue on error", func(t *testing.T) {
+		results, err := newLoader(false).executeTasks(context.Background(), tasks)
+		assert.Error(t, err)
+		assert.Nil(t, results)
 	})
 }
