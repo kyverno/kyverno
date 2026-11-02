@@ -11,12 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
-// jmespathMultiSelectIdentifiers matches a JMESPath expression that starts with a multi-select list
-// e.g. "[allPods, static]" or "[allPods, static] []" and captures the comma-separated identifiers.
-// Note: This pattern does not support nested brackets (e.g., [[a, b], c]) or quoted identifiers.
-// Only simple identifier names are validated; trailing operators (e.g., [] flatten, | pipes) are ignored.
-var jmespathMultiSelectIdentifiers = regexp.MustCompile(`^\s*\[\s*([^\[\]]+)\]\s*`)
-
 // MockContext is used for testing and validation of variables
 type MockContext struct {
 	mutex           sync.RWMutex
@@ -55,41 +49,157 @@ func (ctx *MockContext) Query(query string) (interface{}, error) {
 
 	// strip escaped quotes from JMESPath variables with dashes e.g. {{ \"my-map.data\".key }}
 	query = strings.Replace(query, "\"", "", -1)
-	if ctx.re != nil && ctx.re.MatchString(query) {
-		return emptyResult, nil
+
+	if err := ctx.validateExpression(query); err != nil {
+		return emptyResult, err
 	}
 
-	if ctx.isVariableDefined(query) {
-		return emptyResult, nil
+	return emptyResult, nil
+}
+
+// validateExpression validates that every context variable referenced by a JMESPath
+// expression is allowed, i.e. it matches either the configured allow-list regex (ctx.re)
+// or one of the registered wildcard variable patterns.
+//
+// Multi-select list expressions (e.g. "[a, b]") are handled before falling back to the
+// whole-expression regex/pattern check below, so that a leading allowed element (e.g.
+// "request.object") can't cause a disallowed trailing element (e.g. "typo") to be skipped.
+func (ctx *MockContext) validateExpression(expr string) error {
+	expr = strings.TrimSpace(expr)
+	if expr == "" {
+		return nil
 	}
 
-	if submatches := jmespathMultiSelectIdentifiers.FindStringSubmatch(query); len(submatches) == 2 {
-		identifiersStr := strings.TrimSpace(submatches[1])
-		for _, ident := range strings.Split(identifiersStr, ",") {
-			ident = strings.TrimSpace(ident)
-			if ident == "" {
-				continue
-			}
-			if ctx.re != nil && ctx.re.MatchString(ident) {
-				continue
-			}
-			if ctx.isVariableDefined(ident) {
-				continue
-			}
-			return emptyResult, InvalidVariableError{
-				variable:        ident,
+	if strings.HasPrefix(expr, "[") {
+		return ctx.validateMultiSelect(expr)
+	}
+
+	return ctx.validateVariable(expr)
+}
+
+// validateVariable validates a single, non multi-select JMESPath fragment against the
+// allow-list regex and the registered wildcard variable patterns.
+func (ctx *MockContext) validateVariable(variable string) error {
+	if ctx.re != nil && ctx.re.MatchString(variable) {
+		return nil
+	}
+
+	if ctx.isVariableDefined(variable) {
+		return nil
+	}
+
+	return InvalidVariableError{
+		variable:        variable,
+		re:              ctx.re,
+		allowedPatterns: ctx.allowedPatterns,
+	}
+}
+
+// validateMultiSelect validates a JMESPath expression that starts with a multi-select list,
+// e.g. "[a, b]" or "[a, b] | c". It splits the bracketed content into its top-level,
+// comma-separated elements -- tracking bracket/brace/paren nesting so that nested
+// multi-select lists (e.g. "[[a, b], c]") and elements that carry their own brackets (e.g.
+// "a[]") are split correctly instead of being excluded by a bracket-free pattern -- then
+// validates every element individually (recursing for nested multi-selects), and finally
+// validates whatever trails the closing bracket (e.g. a piped expression such as "| c"),
+// so no referenced variable is ignored.
+func (ctx *MockContext) validateMultiSelect(expr string) error {
+	elements, rest, ok := splitMultiSelect(expr)
+	if !ok {
+		// Not a well-formed multi-select list (e.g. unbalanced brackets); fall back to
+		// validating the raw fragment rather than silently accepting it.
+		return ctx.validateVariable(expr)
+	}
+
+	for _, element := range elements {
+		element = strings.TrimSpace(element)
+		if element == "" {
+			return InvalidVariableError{
+				variable:        expr,
 				re:              ctx.re,
 				allowedPatterns: ctx.allowedPatterns,
 			}
 		}
-		return emptyResult, nil
+
+		if err := ctx.validateExpression(element); err != nil {
+			return err
+		}
 	}
 
-	return emptyResult, InvalidVariableError{
-		variable:        query,
-		re:              ctx.re,
-		allowedPatterns: ctx.allowedPatterns,
+	return ctx.validateMultiSelectSuffix(rest)
+}
+
+// validateMultiSelectSuffix validates whatever follows the closing bracket of a
+// multi-select list. Bare flatten/projection operators ("[]", "[*]") apply to the
+// preceding result and don't reference a new variable, so they're skipped; anything
+// else -- most commonly a piped expression, e.g. "| c" -- is validated like any other
+// JMESPath fragment.
+func (ctx *MockContext) validateMultiSelectSuffix(rest string) error {
+	rest = stripBareProjectionSuffix(rest)
+	if rest == "" {
+		return nil
 	}
+
+	rest = strings.TrimPrefix(rest, "|")
+	return ctx.validateExpression(rest)
+}
+
+// stripBareProjectionSuffix repeatedly strips leading bare flatten ("[]") or projection
+// ("[*]") operators and surrounding whitespace, returning whatever (if anything) remains.
+func stripBareProjectionSuffix(s string) string {
+	for {
+		trimmed := strings.TrimSpace(s)
+		switch {
+		case strings.HasPrefix(trimmed, "[]"):
+			s = trimmed[len("[]"):]
+		case strings.HasPrefix(trimmed, "[*]"):
+			s = trimmed[len("[*]"):]
+		default:
+			return trimmed
+		}
+	}
+}
+
+// splitMultiSelect splits a JMESPath expression that begins with a multi-select list (e.g.
+// "[a, b] | c") into its top-level, comma-separated elements ("a", "b") and the remainder
+// of the expression following the matching closing bracket (" | c"). Bracket/brace/paren
+// nesting is tracked so that elements containing their own brackets (e.g. "a[]") or nested
+// multi-select lists (e.g. "[a, b]") aren't split incorrectly. ok is false if expr doesn't
+// start with "[" or its brackets are unbalanced.
+func splitMultiSelect(expr string) (elements []string, rest string, ok bool) {
+	trimmed := strings.TrimSpace(expr)
+	if !strings.HasPrefix(trimmed, "[") {
+		return nil, "", false
+	}
+
+	depth := 0
+	start := -1
+	for i, r := range trimmed {
+		switch r {
+		case '[', '(', '{':
+			depth++
+			if depth == 1 {
+				start = i + 1
+			}
+		case ']', ')', '}':
+			depth--
+			if depth < 0 {
+				return nil, "", false
+			}
+			if depth == 0 {
+				elements = append(elements, trimmed[start:i])
+				return elements, trimmed[i+1:], true
+			}
+		case ',':
+			if depth == 1 {
+				elements = append(elements, trimmed[start:i])
+				start = i + 1
+			}
+		}
+	}
+
+	// unbalanced brackets
+	return nil, "", false
 }
 
 func (ctx *MockContext) QueryOperation() string {
