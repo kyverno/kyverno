@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -31,11 +32,12 @@ type target struct {
 	preconditions apiextensions.JSON
 }
 
-func loadTargets(ctx context.Context, client engineapi.Client, targets []kyvernov1.TargetResourceSpec, policyCtx engineapi.PolicyContext, logger logr.Logger) ([]target, error) {
+func loadTargets(ctx context.Context, client engineapi.Client, configuration config.Configuration, targets []kyvernov1.TargetResourceSpec, policyCtx engineapi.PolicyContext, logger logr.Logger) ([]target, error) {
 	var targetObjects []target
 	var errors []error
 	for i := range targets {
 		preconditions := targets[i].GetAnyAllConditions()
+		targetContext := targets[i].Context
 		spec, err := resolveSpec(i, targets[i], policyCtx, logger)
 		if err != nil {
 			errors = append(errors, err)
@@ -47,14 +49,28 @@ func loadTargets(ctx context.Context, client engineapi.Client, targets []kyverno
 			continue
 		}
 		for _, obj := range objs {
+			if isFilteredTarget(configuration, obj) {
+				logger.V(3).Info("target resource is filtered out by resource filters", "kind", obj.unstructured.GetKind(), "namespace", obj.unstructured.GetNamespace(), "name", obj.unstructured.GetName(), "subresource", obj.subresource)
+				continue
+			}
 			targetObjects = append(targetObjects, target{
 				resourceInfo:  obj,
-				context:       targets[i].Context,
+				context:       targetContext,
 				preconditions: preconditions,
 			})
 		}
 	}
 	return targetObjects, multierr.Combine(errors...)
+}
+
+// isFilteredTarget reports whether a resolved target matches the configured resourceFilters
+// (for example the kyverno namespace when excludeKyvernoNamespace is enabled). Such resources
+// are never admission triggers, so they must not be patched as mutate-existing targets either.
+func isFilteredTarget(configuration config.Configuration, obj resourceInfo) bool {
+	if configuration == nil {
+		return false
+	}
+	return configuration.ToFilter(obj.unstructured.GroupVersionKind(), obj.subresource, obj.unstructured.GetNamespace(), obj.unstructured.GetName())
 }
 
 func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) (kyvernov1.TargetSelector, error) {
