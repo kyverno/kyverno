@@ -480,6 +480,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	var mpolProviderErr error
 	var gpolCompiledPolicies []gpolengine.Policy
 	var gpolCompiledPoliciesErr error
+	var gpolCompiledJSONPolicies []gpolengine.Policy
+	var gpolCompiledJSONPoliciesErr error
 	var dpolProvider dpolengine.ProviderFunc
 	var dpolProviderErr error
 	var jsonContextProvider libs.Context
@@ -568,6 +570,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			if len(testCase.Test.ClusterResources) == 0 {
 				jsonContextProvider = contextProvider
 				dpolJSONProvider = dpolProvider
+				gpolCompiledJSONPolicies = gpolCompiledPolicies
+				gpolCompiledJSONPoliciesErr = gpolCompiledPoliciesErr
 			} else {
 				var err error
 				jsonContextProvider, err = processor.NewContextProvider(dClient, restMapper, testCase.Fs, contextPath, registryAccess, true, gceMap, store.GetHTTPMockIndex())
@@ -576,6 +580,24 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				}
 				if hookContextProviderCreated != nil {
 					hookContextProviderCreated()
+				}
+				if len(results.GeneratingPolicies) != 0 {
+					compiler := gpolcompiler.NewCompiler()
+					gpolCompiledJSONPolicies = make([]gpolengine.Policy, 0, len(results.GeneratingPolicies))
+					for _, pol := range results.GeneratingPolicies {
+						compiled, errs := compiler.Compile(pol, celExceptions)
+						if len(errs) > 0 {
+							gpolCompiledJSONPoliciesErr = fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
+							break
+						}
+						gpolCompiledJSONPolicies = append(gpolCompiledJSONPolicies, gpolengine.Policy{
+							Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
+							CompiledPolicy: compiled,
+						})
+					}
+					if hookGpolCompiled != nil {
+						hookGpolCompiled()
+					}
 				}
 				if len(results.DeletingPolicies) != 0 {
 					var dpolErr error
@@ -768,8 +790,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			VpolJSONProviderErr:               vpolJSONProviderErr,
 			MpolProvider:                      mpolProvider,
 			MpolProviderErr:                   mpolProviderErr,
-			GpolCompiledPolicies:              gpolCompiledPolicies,
-			GpolCompiledPoliciesErr:           gpolCompiledPoliciesErr,
+			GpolCompiledPolicies:              gpolCompiledJSONPolicies,
+			GpolCompiledPoliciesErr:           gpolCompiledJSONPoliciesErr,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {

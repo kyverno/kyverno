@@ -620,6 +620,191 @@ spec:
 	assert.ErrorContains(t, err, "failed to compile policy invalid-generate")
 }
 
+func TestRunTest_ProviderCachingGeneratingPolicyWithClusterResources(t *testing.T) {
+	fs := memfs.New()
+
+	kyvernoTestYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-gpol-caching-cluster
+policies:
+  - gpolicy.yaml
+resources:
+  - gresources.yaml
+clusterResources:
+  - clusterresources.yaml
+jsonPayloads:
+  - payload.json
+  - payload-2.json
+results:
+  - policy: example-generate
+    kind: Deployment
+    resources:
+      - app-1
+      - app-2
+    result: pass
+`
+
+	policyYAML := `apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: example-generate
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["deployments"]
+  generate:
+    - expression: >
+        generator.Apply(object.metadata.namespace, [{
+          "apiVersion": dyn("v1"),
+          "kind": dyn("ConfigMap"),
+          "metadata": dyn({
+            "name": dyn(object.metadata.name + "-config"),
+            "namespace": dyn(object.metadata.namespace)
+          })
+        }])
+`
+
+	resourcesYAML := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-1
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo1
+  template:
+    metadata:
+      labels:
+        app: demo1
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-2
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo2
+  template:
+    metadata:
+      labels:
+        app: demo2
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+`
+
+	clusterResourcesYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: ClusterResource
+metadata:
+  name: clusterresources
+spec:
+  resources:
+    - apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: default
+`
+
+	f1, err := fs.Create("kyverno-test.yaml")
+	require.NoError(t, err)
+	_, err = f1.Write([]byte(kyvernoTestYAML))
+	require.NoError(t, err)
+	f1.Close()
+
+	f2, err := fs.Create("gpolicy.yaml")
+	require.NoError(t, err)
+	_, err = f2.Write([]byte(policyYAML))
+	require.NoError(t, err)
+	f2.Close()
+
+	f3, err := fs.Create("gresources.yaml")
+	require.NoError(t, err)
+	_, err = f3.Write([]byte(resourcesYAML))
+	require.NoError(t, err)
+	f3.Close()
+
+	fc, err := fs.Create("clusterresources.yaml")
+	require.NoError(t, err)
+	_, err = fc.Write([]byte(clusterResourcesYAML))
+	require.NoError(t, err)
+	fc.Close()
+
+	f4, err := fs.Create("payload.json")
+	require.NoError(t, err)
+	_, err = f4.Write([]byte(`{"apiVersion": "v1", "kind": "Pod", "metadata": {"name": "test-pod", "namespace": "default"}}`))
+	require.NoError(t, err)
+	f4.Close()
+
+	f5, err := fs.Create("payload-2.json")
+	require.NoError(t, err)
+	_, err = f5.Write([]byte(`{"apiVersion": "v1", "kind": "Pod", "metadata": {"name": "test-pod-2", "namespace": "default"}}`))
+	require.NoError(t, err)
+	f5.Close()
+
+	testCases := test.LoadTest(fs, "kyverno-test.yaml")
+	require.Len(t, testCases, 1)
+
+	var gpolCompileCount int
+	var contextBuildCount int
+	var fallbackCompileCount int
+	var fallbackContextCount int
+	hookGpolCompiled = func() { gpolCompileCount++ }
+	hookContextProviderCreated = func() { contextBuildCount++ }
+	processor.HookFallbackGpolCompiled = func() { fallbackCompileCount++ }
+	processor.HookFallbackContextCreated = func() { fallbackContextCount++ }
+	defer func() {
+		hookGpolCompiled = nil
+		hookContextProviderCreated = nil
+		processor.HookFallbackGpolCompiled = nil
+		processor.HookFallbackContextCreated = nil
+	}()
+
+	resp, err := runTest(context.TODO(), io.Discard, testCases[0], false)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// In mixed tests with cluster resources, exactly 2 context builds (1 cluster context, 1 isolated JSON context)
+	// and 2 GeneratingPolicy compilations (1 for cluster context, 1 for JSON context).
+	// Neither is re-compiled across multiple resources or multiple JSON payloads.
+	assert.Equal(t, 2, gpolCompileCount, "GeneratingPolicies should be compiled once for cluster context and once for JSON context")
+	assert.Equal(t, 2, contextBuildCount, "ContextProvider should be built once for cluster resources and once for JSON context")
+	assert.Equal(t, 0, fallbackCompileCount, "PolicyProcessor should use the passed GpolCompiledPolicies and never trigger fallback compilation")
+	assert.Equal(t, 0, fallbackContextCount, "PolicyProcessor should use the passed ContextProvider and never trigger fallback context creation")
+
+	key1 := "apps/v1,Deployment,default,app-1"
+	key2 := "apps/v1,Deployment,default,app-2"
+
+	require.Contains(t, resp.Trigger, key1)
+	require.Contains(t, resp.Trigger, key2)
+	assert.Equal(t, "example-generate", resp.Trigger[key1][0].Policy().GetName())
+	assert.Equal(t, "example-generate", resp.Trigger[key2][0].Policy().GetName())
+	assert.True(t, resp.Trigger[key1][0].IsSuccessful())
+	assert.True(t, resp.Trigger[key2][0].IsSuccessful())
+
+	require.NotEmpty(t, resp.Trigger[key1][0].PolicyResponse.Rules)
+	require.NotEmpty(t, resp.Trigger[key2][0].PolicyResponse.Rules)
+	gen1 := resp.Trigger[key1][0].PolicyResponse.Rules[0].GeneratedResources()
+	gen2 := resp.Trigger[key2][0].PolicyResponse.Rules[0].GeneratedResources()
+	require.NotEmpty(t, gen1)
+	require.NotEmpty(t, gen2)
+	assert.Equal(t, "app-1-config", gen1[0].GetName())
+	assert.Equal(t, "app-2-config", gen2[0].GetName())
+}
+
 func TestRunTest_ProviderCachingDeletingPolicy(t *testing.T) {
 	fs := memfs.New()
 
