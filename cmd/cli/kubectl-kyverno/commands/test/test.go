@@ -476,7 +476,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	var dpolProviderErr error
 	var jsonContextProvider libs.Context
 	var dpolJSONProvider dpolengine.ProviderFunc
-	var dpolJSONProviderErr error
 
 	if (len(uniques) > 0 || len(jsonPayloads) > 0) && (len(results.ValidatingPolicies) != 0 || len(results.MutatingPolicies) != 0 || len(results.GeneratingPolicies) != 0 || len(results.DeletingPolicies) != 0) {
 		if restMapper == nil {
@@ -561,7 +560,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			if len(testCase.Test.ClusterResources) == 0 {
 				jsonContextProvider = contextProvider
 				dpolJSONProvider = dpolProvider
-				dpolJSONProviderErr = dpolProviderErr
 			} else {
 				var err error
 				jsonContextProvider, err = processor.NewContextProvider(dClient, restMapper, testCase.Fs, contextPath, registryAccess, true, gceMap, store.GetHTTPMockIndex())
@@ -572,9 +570,10 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 					hookContextProviderCreated()
 				}
 				if len(results.DeletingPolicies) != 0 {
-					dpolJSONProvider, dpolJSONProviderErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions)
-					if dpolJSONProviderErr != nil {
-						return nil, dpolJSONProviderErr
+					var dpolErr error
+					dpolJSONProvider, dpolErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions)
+					if dpolErr != nil {
+						return nil, dpolErr
 					}
 					if hookDpolProviderCreated != nil {
 						hookDpolProviderCreated()
