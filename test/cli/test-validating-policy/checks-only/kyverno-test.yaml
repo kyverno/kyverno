@@ -2,6 +2,7 @@ apiVersion: cli.kyverno.io/v1alpha1
 checks:
 - assert:
     status: fail
+  error: null
   match:
     policy:
       metadata:
