@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
@@ -147,7 +148,7 @@ func TestPrintCheckResultIncludesGeneratedAndPatchedFields(t *testing.T) {
 			"kind":       "Pod",
 			"metadata":   map[string]any{"name": "target", "namespace": "default"},
 		}},
-		engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{ObjectMeta: metav1.ObjectMeta{Name: "target-policy"}}),
+		engineapi.NewMutatingPolicy(&policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "target-policy"}}),
 		nil,
 	)
 	response.PolicyResponse.Rules = []engineapi.RuleResponse{*rule}
@@ -193,7 +194,7 @@ func TestCollectUniqueCheckResponses(t *testing.T) {
 				"kind":       "Pod",
 				"metadata":   map[string]any{"name": name},
 			}},
-			engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{ObjectMeta: metav1.ObjectMeta{Name: "test-policy"}}),
+			engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "test-policy"}}),
 			nil,
 		)
 		response.PolicyResponse.Rules = []engineapi.RuleResponse{*engineapi.RulePass("rule", engineapi.Validation, "", nil)}
@@ -226,7 +227,7 @@ func TestCollectUniqueCheckResponses(t *testing.T) {
 	assert.False(t, names["distinct"], "explicit operation responses must not reach checks via targets")
 	assert.True(t, names["target-only"])
 
-	check := v1alpha1.CheckResult{Assert: &kyvernov1.Any{Value: map[string]any{"status": "pass"}}}
+	check := v1alpha1.CheckResult{Assert: &kyverno.Any{Value: map[string]any{"status": "pass"}}}
 	rc := &resultCounts{}
 	var resultsTable table.Table
 	require.NoError(t, printCheckResult([]v1alpha1.CheckResult{check}, responses, rc, &resultsTable))
@@ -282,7 +283,7 @@ func TestPrintCheckResultExcludesExplicitOperations(t *testing.T) {
 				},
 				Target: map[string][]engineapi.EngineResponse{"pod": {defaultResponse, operationResponse}},
 			}
-			check := v1alpha1.CheckResult{Assert: &kyvernov1.Any{Value: map[string]any{"status": "pass"}}}
+			check := v1alpha1.CheckResult{Assert: &kyverno.Any{Value: map[string]any{"status": "pass"}}}
 			rc := &resultCounts{}
 			var resultsTable table.Table
 			require.NoError(t, printCheckResult([]v1alpha1.CheckResult{check}, responses, rc, &resultsTable))
