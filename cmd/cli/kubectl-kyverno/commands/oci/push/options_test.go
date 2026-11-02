@@ -2,6 +2,7 @@ package push
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,19 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// writeTree writes files (bundle-root-relative path -> content) under a fresh temp directory and
+// returns its path.
+func writeTree(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for rel, content := range files {
+		full := filepath.Join(dir, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o750))
+		require.NoError(t, os.WriteFile(full, []byte(content), 0o600))
+	}
+	return dir
+}
 
 // validate is a shorthand for the ported buildImage tests: they exercise only error behavior
 // over a hand-built policy.LoaderResults, not the archived-content shape, so a bundle.Bundle
@@ -397,4 +411,262 @@ func TestValidateRejectsInvalidValidatingPolicyCELExpression(t *testing.T) {
 	err := validate(results)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "validating CEL expression in ValidatingPolicy")
+}
+
+const descriptorPolicyYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-labels
+spec:
+  validations:
+  - expression: "object.metadata.labels != null"
+    message: "labels are required"
+`
+
+const descriptorExceptionYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: exempt-labels
+spec:
+  policyRefs:
+  - name: require-labels
+    kind: ValidatingPolicy
+`
+
+// TestPushWithDescriptorRecordsNamedSetsInConfig drives the whole push pipeline
+// (Assemble -> Validate -> LoadDescriptor -> Write) over a descriptor that names both default
+// sets explicitly, and checks the resulting config and manifest annotations.
+func TestPushWithDescriptorRecordsNamedSetsInConfig(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"policies/require-labels.yaml":  descriptorPolicyYAML,
+		"exceptions/exempt-labels.yaml": descriptorExceptionYAML,
+		internal.DescriptorFilename: `apiVersion: cli.kyverno.io/v1alpha1
+kind: PolicyBundle
+metadata:
+  name: baseline
+spec:
+  sets:
+  - name: policies
+    type: policies
+    paths: ["policies/**"]
+  - name: exceptions
+    type: exceptions
+    paths: ["exceptions/**"]
+`,
+	})
+
+	b, err := bundle.Assemble(dir)
+	require.NoError(t, err)
+	require.NoError(t, bundle.Validate(b))
+	d, err := bundle.LoadDescriptor(dir, b.Documents)
+	require.NoError(t, err)
+	require.NotNil(t, d)
+
+	img, err := bundle.Write(b, d)
+	require.NoError(t, err)
+
+	configBytes, err := img.RawConfigFile()
+	require.NoError(t, err)
+	var cfg bundle.Config
+	require.NoError(t, json.Unmarshal(configBytes, &cfg))
+
+	assert.ElementsMatch(t, []bundle.ConfigSet{
+		{Name: "policies", Type: "policies"},
+		{Name: "exceptions", Type: "exceptions"},
+	}, cfg.Sets)
+	assert.Equal(t, "baseline", cfg.Name)
+
+	bySet := map[string]string{}
+	for _, r := range cfg.Resources {
+		bySet[r.Name] = r.Set
+	}
+	assert.Equal(t, "policies", bySet["require-labels"])
+	assert.Equal(t, "exceptions", bySet["exempt-labels"])
+
+	manifest, err := img.Manifest()
+	require.NoError(t, err)
+	assert.Equal(t, "baseline", manifest.Annotations[internal.AnnotationName])
+}
+
+// TestPushWithDescriptorOrdersNonReservedSetAfterDefaults pins the order assignSets already
+// guarantees (default sets first, by first appearance): a descriptor-declared, non-reserved set
+// name appears after the default sets that have members.
+func TestPushWithDescriptorOrdersNonReservedSetAfterDefaults(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"team-a/require-labels.yaml": descriptorPolicyYAML,
+		"other/other-policy.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: other-policy
+spec:
+  validations:
+  - expression: "true"
+`,
+		internal.DescriptorFilename: `apiVersion: cli.kyverno.io/v1alpha1
+kind: PolicyBundle
+metadata:
+  name: baseline
+spec:
+  sets:
+  - name: team-a
+    type: policies
+    paths: ["team-a/**"]
+`,
+	})
+
+	b, err := bundle.Assemble(dir)
+	require.NoError(t, err)
+	require.NoError(t, bundle.Validate(b))
+	d, err := bundle.LoadDescriptor(dir, b.Documents)
+	require.NoError(t, err)
+
+	img, err := bundle.Write(b, d)
+	require.NoError(t, err)
+
+	configBytes, err := img.RawConfigFile()
+	require.NoError(t, err)
+	var cfg bundle.Config
+	require.NoError(t, json.Unmarshal(configBytes, &cfg))
+
+	var names []string
+	for _, s := range cfg.Sets {
+		names = append(names, s.Name)
+	}
+	require.Contains(t, names, "policies")
+	require.Contains(t, names, "team-a")
+	policiesIdx := indexOf(names, "policies")
+	teamAIdx := indexOf(names, "team-a")
+	assert.Less(t, policiesIdx, teamAIdx, "the default set must appear before the non-reserved descriptor set")
+}
+
+// TestPushWithDescriptorNonReservedSetKeepsDeclaredType pins that a non-reserved set's type in the
+// config comes from the descriptor, not a hardcoded default: a regression that always wrote
+// Type: "policies" would stay green under every other test in this file.
+func TestPushWithDescriptorNonReservedSetKeepsDeclaredType(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"team-x/require-labels.yaml": descriptorPolicyYAML,
+		"team-x/exempt-labels.yaml":  descriptorExceptionYAML,
+		internal.DescriptorFilename: `apiVersion: cli.kyverno.io/v1alpha1
+kind: PolicyBundle
+metadata:
+  name: baseline
+spec:
+  sets:
+  - name: team-x
+    type: exceptions
+    paths: ["team-x/**"]
+`,
+	})
+
+	b, err := bundle.Assemble(dir)
+	require.NoError(t, err)
+	require.NoError(t, bundle.Validate(b))
+	d, err := bundle.LoadDescriptor(dir, b.Documents)
+	require.NoError(t, err)
+
+	img, err := bundle.Write(b, d)
+	require.NoError(t, err)
+
+	configBytes, err := img.RawConfigFile()
+	require.NoError(t, err)
+	var cfg bundle.Config
+	require.NoError(t, json.Unmarshal(configBytes, &cfg))
+
+	assert.Contains(t, cfg.Sets, bundle.ConfigSet{Name: "team-x", Type: "exceptions"})
+	bySet := map[string]string{}
+	for _, r := range cfg.Resources {
+		bySet[r.Name] = r.Set
+	}
+	assert.Equal(t, "team-x", bySet["exempt-labels"])
+	assert.Equal(t, "policies", bySet["require-labels"], "the policy falls back to the by-kind default; team-x's exceptions type doesn't fit it")
+}
+
+func indexOf(ss []string, v string) int {
+	for i, s := range ss {
+		if s == v {
+			return i
+		}
+	}
+	return -1
+}
+
+// TestPushWithoutDescriptorIsUnchanged pins that the new LoadDescriptor call is a no-op for a
+// tree with no kyverno-bundle.yaml: the config carries only default sets and no name.
+func TestPushWithoutDescriptorIsUnchanged(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"policies/require-labels.yaml": descriptorPolicyYAML,
+	})
+
+	b, err := bundle.Assemble(dir)
+	require.NoError(t, err)
+	require.NoError(t, bundle.Validate(b))
+	d, err := bundle.LoadDescriptor(dir, b.Documents)
+	require.NoError(t, err)
+	assert.Nil(t, d)
+
+	img, err := bundle.Write(b, d)
+	require.NoError(t, err)
+
+	configBytes, err := img.RawConfigFile()
+	require.NoError(t, err)
+	var cfg bundle.Config
+	require.NoError(t, json.Unmarshal(configBytes, &cfg))
+	require.Len(t, cfg.Sets, 1)
+	assert.Equal(t, "policies", cfg.Sets[0].Name)
+	assert.Empty(t, cfg.Name)
+}
+
+// TestPushDescriptorRoundTripsThroughRead asserts the descriptor itself is never archived (it's
+// excluded at Assemble time) and that Read still succeeds against the named-set config it
+// produced.
+func TestPushDescriptorRoundTripsThroughRead(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"policies/require-labels.yaml": descriptorPolicyYAML,
+		internal.DescriptorFilename: `apiVersion: cli.kyverno.io/v1alpha1
+kind: PolicyBundle
+metadata:
+  name: baseline
+spec:
+  sets:
+  - name: policies
+    type: policies
+    paths: ["policies/**"]
+`,
+	})
+
+	b, err := bundle.Assemble(dir)
+	require.NoError(t, err)
+	require.NoError(t, bundle.Validate(b))
+	d, err := bundle.LoadDescriptor(dir, b.Documents)
+	require.NoError(t, err)
+
+	img, err := bundle.Write(b, d)
+	require.NoError(t, err)
+
+	dst := t.TempDir()
+	got, err := bundle.Read(img, dst)
+	require.NoError(t, err)
+	require.Len(t, got.Documents, 1)
+
+	_, statErr := os.Stat(filepath.Join(dst, internal.DescriptorFilename))
+	assert.True(t, os.IsNotExist(statErr), "the descriptor is never archived, so it must not appear in the extracted tree")
+}
+
+// TestPushRejectsDescriptorWithYmlExtensionViaGroupCheck pins the existing message so the spec
+// statement that only the exact filename kyverno-bundle.yaml is a descriptor stays true: a
+// kyverno-bundle.yml is ordinary content, rejected by Assemble's existing cli.kyverno.io group
+// check, not by LoadDescriptor.
+func TestPushRejectsDescriptorWithYmlExtensionViaGroupCheck(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"policies/require-labels.yaml": descriptorPolicyYAML,
+		"kyverno-bundle.yml": `apiVersion: cli.kyverno.io/v1alpha1
+kind: PolicyBundle
+metadata:
+  name: baseline
+`,
+	})
+
+	_, err := bundle.Assemble(dir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cli.kyverno.io")
 }

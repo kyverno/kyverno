@@ -41,9 +41,11 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 		return err
 	}
 
-	// No descriptor support yet: #17663 parses kyverno-bundle.yaml into a *bundle.Descriptor
-	// and passes it here. Until then every push uses the no-descriptor defaults.
-	img, err := bundle.Write(b, nil)
+	d, err := bundle.LoadDescriptor(dir, b.Documents)
+	if err != nil {
+		return err
+	}
+	img, err := bundle.Write(b, d)
 	if err != nil {
 		return fmt.Errorf("writing bundle image: %w", err)
 	}
