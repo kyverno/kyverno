@@ -109,6 +109,7 @@ func New(
 	})
 	if err != nil {
 		logger.Error(err, "failed to set watch error handler")
+		cancel()
 		return nil, err
 	}
 
@@ -118,6 +119,7 @@ func New(
 			if p.Expression != "" {
 				prog, errs := compiler.CompileGlobalContextProjection(field.NewPath("expression"), p.Expression)
 				if len(errs) > 0 {
+					cancel()
 					return nil, fmt.Errorf("failed to compile CEL expression for projection %q: %w", p.Name, errs.ToAggregate())
 				}
 				projections = append(projections, store.Projection{
@@ -128,6 +130,7 @@ func New(
 			}
 			jpQuery, err := jp.Query(p.JMESPath)
 			if err != nil {
+				cancel()
 				return nil, fmt.Errorf("failed to parse jmespath query for projection %q: %w", p.Name, err)
 			}
 			projections = append(projections, store.Projection{

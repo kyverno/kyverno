@@ -187,14 +187,15 @@ func Test_impl_verify_referrer_attestation_degraded_cache_entry_reverifies(t *te
 	}
 }
 
-func Test_impl_verify_referrer_attestation_failure_is_not_cached(t *testing.T) {
+func Test_impl_verify_referrer_attestation_failure_is_not_cached_or_exposed(t *testing.T) {
 	t.Parallel()
 	rt := newReferrerTest(t)
 	rt.push(t, `{"signed":false}`)
 
 	for range 2 {
-		count, _ := rt.admit(t)
+		count, payload := rt.admit(t)
 		require.Equal(t, int64(0), count.Value())
+		assert.True(t, types.IsError(payload()), "extractPayload() must not return a referrer nobody verified")
 	}
 	assert.Equal(t, 2, rt.notary.calls, "a failed verification must not be cached")
 }

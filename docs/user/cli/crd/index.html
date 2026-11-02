@@ -1003,7 +1003,8 @@ string
 </em>
 </td>
 <td>
-<p>Projections are optional named JMESPath extracts (see GlobalContextProjection).</p>
+<p>Projections are optional named extracts, each written in either JMESPath or CEL
+(see GlobalContextProjection).</p>
 </td>
 </tr>
 </tbody>
@@ -1016,7 +1017,9 @@ string
 <a href="#cli.kyverno.io/v1alpha1.GlobalContextEntryValue">GlobalContextEntryValue</a>)
 </p>
 <p>
-<p>GlobalContextProjection pairs a policy-visible name with a JMESPath over the mock root.</p>
+<p>GlobalContextProjection pairs a policy-visible name with a JMESPath or CEL expression over
+the mock root. Mirrors GlobalContextEntryProjection&rsquo;s exactly-one-of jmesPath/expression
+contract (api/kyverno/v2beta1), so a test fixture can mock either kind of projection.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -1045,7 +1048,23 @@ string
 </em>
 </td>
 <td>
-<p>Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.</p>
+<em>(Optional)</em>
+<p>Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.
+Mutually exclusive with Expression.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>expression</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Expression is a CEL expression evaluated against the root after FieldPath (if any) is
+applied, bound to the <code>object</code> variable, matching the real GlobalContextEntry projection&rsquo;s
+expression field. Mutually exclusive with Path.</p>
 </td>
 </tr>
 </tbody>
