@@ -56,4 +56,5 @@ kyverno oci [flags]
 * [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
 * [kyverno oci pull](kyverno_oci_pull.md)	 - Pulls policie(s) that are included in an OCI image from OCI registry and saves them to a local directory.
 * [kyverno oci push](kyverno_oci_push.md)	 - Push policie(s) that are included in an OCI image to OCI registry.
+* [kyverno oci validate](kyverno_oci_validate.md)	 - Validate a bundle directory or file, or a pushed OCI image, reporting exactly what "kyverno oci push" would reject, without pushing anything.
 

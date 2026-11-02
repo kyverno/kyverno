@@ -131,7 +131,9 @@ in `docs/context/shared/api-versioning.md`, before it can go into a bundle.
   artifact without evaluating policies against it — is not bound by the "Reader MUST" list; design D11 scopes
   re-validation and the index cross-check to the readers whose output feeds policy evaluation, not to every
   possible consumer of the OCI artifact. Unqualified "reader" in this document means a conformant reader unless a
-  sentence says "generic consumer."
+  sentence says "generic consumer." `kyverno oci validate` is both a conformant reader, in reference mode
+  (`--image`), and a writer-policy checker: it additionally applies the checks in the "Writer-policy checks"
+  subsection of [9. Conformance](#9-conformance), which bind no other reader.
 - **Writer**: anything that produces a bundle, today only `kyverno oci push`.
 
 ## 3. Supported resources
@@ -172,25 +174,20 @@ a permitted version yet is a statement about that build, not about the format.
 | Version | Format status | 1.20 CLI accepts it? | Earliest release serving this version |
 |---|---|---|---|
 | `policies.kyverno.io/v1beta1` | Permitted (storage version) | **Yes** | 1.16 |
-| `policies.kyverno.io/v1` | Permitted (served, stable-named) | **No — see below** | 1.17 |
+| `policies.kyverno.io/v1` | Permitted (served, stable-named) | **Yes** | 1.17 |
 | `policies.kyverno.io/v1alpha1` | Rejected | No | 1.14 |
 
-**The 1.20 CLI accepts only `policies.kyverno.io/v1beta1`.** `internal.SupportedAPIVersion` in
-`cmd/cli/kubectl-kyverno/commands/oci/internal` is pinned to `v1beta1`, and both of the checks that enforce it —
-`validateDocuments`' raw `apiVersion` comparison and `validateResults`' `checkResource` — reject every `v1`
-document today, even though this table's "Format status" column permits `v1`. A bundle whose only resources are
-`v1beta1` round-trips through the 1.20 CLI; a bundle containing a `v1` resource does not, regardless of what the
-format itself would allow. **Widening the 1.20 CLI to accept `v1` is issue `#17664`'s job, not this document's or
-this implementation's** — see that issue's design record for why the accepted-version *check* is scoped there
-rather than to the `Assemble`/`Validate`/`Write`/`Read` split this document describes. An author targeting today's
-`kyverno oci push`/`pull` implementation MUST use `v1beta1`; `v1` is a format-permitted version whose CLI support
-is not yet built.
+**The 1.20 CLI accepts `policies.kyverno.io/v1beta1` and `policies.kyverno.io/v1`.**
+`internal.AcceptedAPIVersions` in `cmd/cli/kubectl-kyverno/commands/oci/internal` is this table's code form, built
+from `policiesv1beta1.GroupVersion` and `policiesv1.GroupVersion`; `internal.IsAcceptedAPIVersion` is what
+`validateDocuments` and `validateResults`' `checkResource` both call. A bundle whose resources are `v1beta1`, `v1`,
+or a mix of the two round-trips through the 1.20 CLI. `v1alpha1` stays rejected: every `v1alpha1` type in
+`github.com/kyverno/api` carries `+kubebuilder:deprecatedversion`, and the alpha tier carries no compatibility
+guarantee (see the stability table in `docs/context/shared/api-versioning.md`).
 
-`v1beta1` and `v1` are type aliases of one another in `github.com/kyverno/api`, so once a future CLI's accepted
-set includes both, a bundle can carry either, or both, without loss: a `v1` document stays `v1` in the archive
-and in the index, and a writer MUST NOT rewrite `apiVersion`. `v1alpha1` is rejected, by every CLI release, because
-every `v1alpha1` type in `github.com/kyverno/api` carries `+kubebuilder:deprecatedversion`, and the alpha tier
-carries no compatibility guarantee (see the stability table in `docs/context/shared/api-versioning.md`).
+`v1beta1` and `v1` have identical JSON schemas in `github.com/kyverno/api`, and the CLI's loader converts both
+into one set of Go types, so a bundle can carry either, or both, without loss: a `v1` document stays `v1` in the
+archive and in the index, and a writer MUST NOT rewrite `apiVersion`.
 
 This table's "Format status" column is governed by the same rules as `docs/context/shared/api-versioning.md`, not
 by this document's own semver: a version becomes format-permitted once it's served, and stops being
@@ -214,17 +211,16 @@ A writer and a reader both MUST reject:
   `MutatingAdmissionPolicy`, `MutatingAdmissionPolicyBinding`.
 - Any kind not in the table above.
 - Any `policies.kyverno.io` resource whose `apiVersion` the running release doesn't accept — for the 1.20 CLI,
-  anything other than `v1beta1` (see "Accepted API versions" above), which today includes `v1alpha1` permanently
-  and `v1` until `#17664` lands.
+  anything other than `v1beta1` or `v1` (see "Accepted API versions" above).
 
 ### Identity
 
 A resource's identity is `Kind/namespace/name`, with the API version deliberately excluded: once a CLI accepts
 more than one version for the same kind, a `v1` and a `v1beta1` document with the same kind, namespace, and name
 would name the same cluster object, and a bundle carrying both would be a duplicate, not two resources. This is a
-format-level rule, stated for whatever set of versions a given CLI accepts; the 1.20 CLI's accepted set is just
-`v1beta1` (see "Accepted API versions" above), so this rule has no `v1`-vs-`v1beta1` case to actually apply until
-`#17664` widens it. `namespace` is the resource's `metadata.namespace` field taken exactly as written, not forced
+format-level rule, stated for whatever set of versions a given CLI accepts; the 1.20 CLI's accepted set is both
+`v1beta1` and `v1` (see "Accepted API versions" above), so a `v1` and a `v1beta1` document with the same kind,
+namespace, and name are a duplicate identity today. `namespace` is the resource's `metadata.namespace` field taken exactly as written, not forced
 blank for a cluster-scoped kind: `ValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`, `DeletingPolicy`, and
 `ImageValidatingPolicy` are cluster-scoped and conventionally carry no `metadata.namespace`, but if an author's
 manifest sets one anyway, that value is part of the resource's identity, matching the existing push
@@ -524,11 +520,19 @@ generates. It's not something an author writes by hand; the author-facing input 
 | `name` | string | No | Bundle name |
 | `version` | string (semver) | No | Bundle version |
 | `description` | string | No | Free-text description |
-| `kyvernoVersion` | string (semver constraint) | No | Kyverno version constraint the bundle targets |
+| `kyvernoVersion` | string (semver constraint, for example `">=1.20"`; `Masterminds/semver` dialect) | No | Kyverno version constraint the bundle targets |
 | `source` | object (`url`, `revision`) | No | Where the bundle's source lives |
 | `created` | string (RFC 3339) | No | Creation time; omitted unless set explicitly (see below) |
 | `sets` | array of set objects | **Yes** | See "Set object" below |
 | `resources` | array of resource-index entries | **Yes** | See "Resource-index entry" below |
+
+A writer MUST reject a descriptor whose `kyvernoVersion` isn't a valid constraint in this dialect. A reader MUST
+pass `kyvernoVersion` through as opaque metadata (reader MUST 5 already states that the config is authoritative
+for compatibility) and MAY compare it against a Kyverno version. `kyverno oci validate` is a conformant reader
+that additionally applies the writer-policy checks on top of its reader role, so it, unlike `kyverno oci pull`,
+rejects a published bundle whose `kyvernoVersion` doesn't parse. `kyverno oci push` and `kyverno oci validate`
+compare `kyvernoVersion` against the running CLI's own version and warn on a mismatch, as CLI behavior over the
+format, not a format-level requirement.
 
 **`formatVersion`, `sets`, and `resources` are the fields a writer MUST populate in format 1.0.** `name`,
 `version`, `description`, `kyvernoVersion`, `source`, and `created` are optional, and a writer without a
@@ -881,6 +885,28 @@ the requirement binds.
 15. Keep every `io.kyverno.bundle.*` and relevant `org.opencontainers.image.*` manifest annotation in agreement
     with the config blob's corresponding field; the config is canonical, annotations are duplicates for
     discoverability, and a writer MUST NOT emit an annotation the config contradicts (4).
+16. Reject a descriptor whose `kyvernoVersion` isn't a valid semver constraint (6).
+
+### Writer-policy checks
+
+`kyverno oci push` and `kyverno oci validate` additionally apply these checks as their own strict defaults, not
+as format requirements:
+
+- Resolve every `PolicyException`'s policy references within the bundle (already covered by writer MUST 12).
+- Reject a policy whose `spec.matchConstraints.namespaceSelector` or `objectSelector` isn't a well-formed label
+  selector.
+- Reject a `PolicyException` whose compensating-control `spec.validations` expressions fail to compile.
+- Warn when a compensating control targets a kind that ignores it.
+- Warn when a `PolicyException`'s `spec.expiresAt` is earlier than the wall clock at validation time;
+  `kyverno oci validate --strict` turns this warning into a failure.
+
+None of these checks bind a reader, and `kyverno oci pull` doesn't run them. Expiry is a warning, not a
+rejection, for two reasons: the Kubernetes API server accepts an expired exception on create and the engine
+simply ignores it, so a bundle's writer-policy check is stricter than the cluster it targets, not a mirror of
+it; and an operator who pulls a vendor-authored bundle and re-pushes it to an internal registry, without
+authority to edit its content, must still be able to push it even if an exception inside it has expired.
+`SOURCE_DATE_EPOCH` is not the validation clock these checks use; the check always reads the wall clock. Whether
+a selector matches any live resource isn't checkable offline, and these checks don't attempt it.
 
 ### Reader MUST
 
@@ -1072,3 +1098,6 @@ The descriptor, `kyverno-bundle.yaml`, isn't in that listing: it's an input, not
     This has no byte-level effect on any config a 1.0.0 reader already accepts. It doesn't take a patch bump
     because 1.0.0 hasn't shipped in a release yet; the first released version carries these rules from the
     start.
+  - Accepted-version table widened to `v1`, `kyvernoVersion` constraint semantics, and the writer-policy checks
+    specified by #17664. No byte-level effect on any 1.0.0 bundle; no bump because 1.0.0 hasn't shipped in a
+    release yet.

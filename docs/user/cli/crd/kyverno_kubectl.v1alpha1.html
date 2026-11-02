@@ -596,8 +596,9 @@ exactly match the format version this CLI writes, or push fails before writing a
         <td>
           
 
-          <p>KyvernoVersion is a Kyverno version compatibility string, passed through to the config blob
-verbatim; this descriptor does not evaluate it as a constraint.</p>
+          <p>KyvernoVersion is a semver constraint string (for example &quot;&gt;=1.20&quot;) naming the Kyverno
+versions this bundle targets. Push rejects a malformed one before writing anything; push and
+<code>kyverno oci validate</code> warn when the CLI's own version does not satisfy it.</p>
 
 
           
@@ -3490,8 +3491,9 @@ exactly match the format version this CLI writes, or push fails before writing a
         <td>
           
 
-          <p>KyvernoVersion is a Kyverno version compatibility string, passed through to the config blob
-verbatim; this descriptor does not evaluate it as a constraint.</p>
+          <p>KyvernoVersion is a semver constraint string (for example &quot;&gt;=1.20&quot;) naming the Kyverno
+versions this bundle targets. Push rejects a malformed one before writing anything; push and
+<code>kyverno oci validate</code> warn when the CLI's own version does not satisfy it.</p>
 
 
           
