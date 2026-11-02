@@ -148,10 +148,10 @@ func TestRewriteExceptions(t *testing.T) {
 			want:       []string{"object.metadata.labels.app == 'nginx' && object.spec.template.spec.containers.size() > 0"},
 		},
 		{
-			name:       "validations expression and message expression are rewritten",
+			name:       "validations are left untouched",
 			exceptions: []*policiesv1beta1.PolicyException{newException("", "object.spec.containers.exists(c, c.name == 'nginx')", "oldObject.spec.containers.exists(c, c.name == 'nginx') ? 'yes' : 'no'")},
 			config:     autogen.AutogenDefaults,
-			want:       []string{"object.spec.template.spec.containers.exists(c, c.name == 'nginx')", "oldObject.spec.template.spec.containers.exists(c, c.name == 'nginx') ? 'yes' : 'no'"},
+			want:       []string{"object.spec.containers.exists(c, c.name == 'nginx')", "oldObject.spec.containers.exists(c, c.name == 'nginx') ? 'yes' : 'no'"},
 		},
 	}
 	for _, test := range tests {
@@ -187,6 +187,14 @@ func TestRewriteExceptions(t *testing.T) {
 		rewritten, err := RewriteExceptions(nil, autogen.AutogenDefaults)
 		assert.NoError(t, err)
 		assert.Nil(t, rewritten)
+	})
+
+	t.Run("no replacements returns a slice independent of the input", func(t *testing.T) {
+		exceptions := []*policiesv1beta1.PolicyException{newException("object.spec.containers.size() > 0", "", "")}
+		rewritten, err := RewriteExceptions(exceptions, autogen.ExtractionReplacementsRef)
+		assert.NoError(t, err)
+		rewritten[0] = nil
+		assert.NotNil(t, exceptions[0])
 	})
 }
 
