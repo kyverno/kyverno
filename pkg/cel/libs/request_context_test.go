@@ -253,8 +253,9 @@ func TestRequestContext_ConcurrentEvaluationsKeepTheirOwnContext(t *testing.T) {
 type ctxRecorder struct {
 	dynamic.Interface
 	dynamic.ResourceInterface
-	getCtx  context.Context
-	listCtx context.Context
+	getCtx    context.Context
+	listCtx   context.Context
+	createCtx context.Context
 }
 
 type ctxKey struct{}
@@ -273,6 +274,14 @@ func (c *ctxRecorder) Get(ctx context.Context, name string, _ metav1.GetOptions,
 func (c *ctxRecorder) List(ctx context.Context, _ metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	c.listCtx = ctx
 	return &unstructured.UnstructuredList{}, ctx.Err()
+}
+
+func (c *ctxRecorder) Create(ctx context.Context, obj *unstructured.Unstructured, _ metav1.CreateOptions, _ ...string) (*unstructured.Unstructured, error) {
+	c.createCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return obj, nil
 }
 
 type fakeDClient struct {
@@ -324,12 +333,41 @@ func (f *fakeGenerateDClient) GetResource(ctx context.Context, apiVersion string
 	return nil, apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: "configmaps"}, name)
 }
 
-func (f *fakeGenerateDClient) CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj *unstructured.Unstructured, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
+func (f *fakeGenerateDClient) CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
 	f.createCtx = ctx
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	return obj, nil
+	if u, ok := obj.(*unstructured.Unstructured); ok {
+		return u, nil
+	}
+	return nil, nil
+}
+
+func TestRequestContext_PostResourceUsesEvaluationContext(t *testing.T) {
+	recorder := &ctxRecorder{}
+	provider := &contextProvider{client: &fakeDClient{dyn: recorder}}
+
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), ctxKey{}, "request-post"))
+	reqCtx := WithRequestContext(ctx, provider)
+
+	data := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name": "posted-cm",
+		},
+	}
+
+	res, err := reqCtx.PostResource("v1", "configmaps", "ns", data)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.NotNil(t, recorder.createCtx)
+	assert.Equal(t, "request-post", recorder.createCtx.Value(ctxKey{}))
+
+	cancel()
+	_, err = reqCtx.PostResource("v1", "configmaps", "ns", data)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestRequestContext_GenerateResourcesUsesEvaluationContext(t *testing.T) {

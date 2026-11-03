@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/sdk/extensions/cel/libs/generator"
 	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -126,17 +125,16 @@ func (rc *requestContext) Clone() Context {
 	return WithRequestContext(rc.ctx, rc.Context.Clone())
 }
 
-// BindRequestContext binds a request scoped view of c (see WithRequestContext) to the "image",
-// "resource", and "generator" variables of an evaluation activation, so the imagedata, resource,
-// and generator libraries use ctx and share one image metadata memo for this evaluation. It is a no-op when c is nil.
+// BindRequestContext binds a request scoped view of c (see WithRequestContext) to the "image"
+// and "resource" variables of an evaluation activation, so the imagedata and resource
+// libraries use ctx and share one image metadata memo for this evaluation. It is a no-op when c is nil.
 // Call it once per evaluation, with the activation map every program of that evaluation uses.
 func BindRequestContext(ctx context.Context, c Context, activation map[string]any) {
 	if c == nil || activation == nil {
 		return
 	}
 	rc := WithRequestContext(ctx, c)
-	// keys mirror the cel.Variable declarations of the imagedata, resource, and generator libraries
+	// keys mirror the cel.Variable declarations of the imagedata and resource libraries
 	activation["image"] = imagedata.Context{ContextInterface: rc}
 	activation["resource"] = resource.Context{ContextInterface: rc}
-	activation["generator"] = generator.Context{ContextInterface: rc}
 }
