@@ -977,7 +977,7 @@ func TestCheckManifestShapeDetectsLegacyImage(t *testing.T) {
 		Config: v1.Descriptor{MediaType: types.MediaType(internal.LegacyConfigMediaType)},
 		Layers: []v1.Descriptor{{MediaType: types.MediaType(internal.LegacyContentMediaType)}},
 	}
-	err := checkManifestShape(manifest)
+	err := CheckManifestShape(manifest)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "legacy image format")
 }
@@ -990,7 +990,7 @@ func TestCheckManifestShapeRejectsMultipleLayers(t *testing.T) {
 			{MediaType: types.MediaType(internal.ContentMediaType)},
 		},
 	}
-	err := checkManifestShape(manifest)
+	err := CheckManifestShape(manifest)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "exactly one layer")
 }
@@ -1005,7 +1005,7 @@ func validManifest() *v1.Manifest {
 }
 
 func TestCheckManifestShapeAcceptsOCIManifest(t *testing.T) {
-	assert.NoError(t, checkManifestShape(validManifest()))
+	assert.NoError(t, CheckManifestShape(validManifest()))
 }
 
 // TestCheckManifestShapeRejectsNonOCIManifest pins reader MUST 1's schemaVersion/mediaType check:
@@ -1015,7 +1015,7 @@ func TestCheckManifestShapeAcceptsOCIManifest(t *testing.T) {
 func TestCheckManifestShapeRejectsNonOCIManifest(t *testing.T) {
 	manifest := validManifest()
 	manifest.MediaType = types.DockerManifestSchema2
-	err := checkManifestShape(manifest)
+	err := CheckManifestShape(manifest)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "OCI 1.0 image manifest")
 }
