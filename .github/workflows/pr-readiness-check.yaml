@@ -3,10 +3,6 @@ name: PR readiness check
 
 permissions: {}
 
-concurrency:
-  group: pr-readiness
-  cancel-in-progress: false
-
 on:
   workflow_dispatch:
     inputs:
@@ -21,23 +17,13 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
     permissions:
       contents: read
       pull-requests: write
       issues: write
       checks: read
       actions: read
-    steps:
-      - name: Checkout trusted default branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-      - uses: ./.github/actions/pr-management
-        env:
-          GH_TOKEN: ${{ github.token }}
-        with:
-          mode: readiness
-          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+    uses: kyverno/assistant/.github/workflows/pr-management.yml@4560c0ededccc5c3c7fd5a17fcabb90a0d5633a8
+    with:
+      mode: readiness
+      dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
