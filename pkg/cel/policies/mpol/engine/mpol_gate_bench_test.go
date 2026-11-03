@@ -225,6 +225,13 @@ func BenchmarkEngineHandleMpol_JSONPatch(b *testing.B) {
 	}
 	predicate := func(policiesv1beta1.MutatingPolicyLike) bool { return true }
 
+	// Verify that the policy actually mutates the resource and produces the expected label
+	// so the benchmark doesn't measure an unintended or skipped path.
+	initialResp, err := eng.Handle(context.Background(), req, predicate)
+	require.NoError(b, err)
+	require.NotNil(b, initialResp.PatchedResource)
+	require.Equal(b, "bench", initialResp.PatchedResource.GetLabels()["env"])
+
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
