@@ -2,8 +2,10 @@ package oci
 
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/inspect"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/push"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/resolve"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/validate"
 	"github.com/spf13/cobra"
 )
@@ -24,5 +26,7 @@ func Command() *cobra.Command {
 	cmd.AddCommand(pull.Command(keychain))
 	cmd.AddCommand(push.Command(keychain))
 	cmd.AddCommand(validate.Command(keychain))
+	cmd.AddCommand(inspect.Command(keychain))
+	cmd.AddCommand(resolve.Command(keychain))
 	return cmd
 }
