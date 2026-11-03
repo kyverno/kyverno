@@ -319,3 +319,24 @@ func TestPruneLegacyWebhooks_PreservesIdentityWhenNothingMatches(t *testing.T) {
 	require.Len(t, pruned, 1)
 	assert.Equal(t, "user-managed", pruned[0].Name)
 }
+
+func TestPolicyValidatingWebhookCoversNamespacedDeletingPolicies(t *testing.T) {
+	c := &controller{
+		defaultTimeout:    10,
+		servicePort:       443,
+		clusterroleLister: rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+	}
+
+	vwc, err := c.buildPolicyValidatingWebhookConfiguration(context.Background(), config.NewDefaultConfiguration(false), nil)
+	require.NoError(t, err)
+	require.Len(t, vwc.Webhooks, 1)
+
+	for _, r := range vwc.Webhooks[0].Rules {
+		if len(r.Rule.Resources) == 1 && r.Rule.Resources[0] == "namespaceddeletingpolicies" {
+			assert.Equal(t, []string{"policies.kyverno.io"}, r.Rule.APIGroups)
+			assert.ElementsMatch(t, []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}, r.Operations)
+			return
+		}
+	}
+	t.Fatal("policy validating webhook has no rule for namespaceddeletingpolicies")
+}
