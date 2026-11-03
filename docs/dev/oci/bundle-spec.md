@@ -1109,3 +1109,6 @@ The descriptor, `kyverno-bundle.yaml`, isn't in that listing: it's an input, not
   - Accepted-version table widened to `v1`, `kyvernoVersion` constraint semantics, and the writer-policy checks
     specified by #17664. No byte-level effect on any 1.0.0 bundle; no bump because 1.0.0 hasn't shipped in a
     release yet.
+  - `kyverno oci resolve` and the Flux example cross-reference added to
+    [10. Consumption by generic tooling](#10-consumption-by-generic-tooling) by #17667. Informative only; no
+    normative or byte-level change.

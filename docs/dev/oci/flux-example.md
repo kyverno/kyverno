@@ -27,6 +27,15 @@ what Flux's `OCIRepository` controller requires of an artifact.
 
 Push a directory of policies with a descriptor, so the bundle carries a name, a version, and named sets:
 
+```text
+baseline/
+├── kyverno-bundle.yaml
+├── policies/
+│   └── require-labels.yaml          # ValidatingPolicy (cluster-scoped)
+└── exceptions/
+    └── team-a-exceptions.yaml       # PolicyException, metadata.namespace: team-a
+```
+
 ```yaml
 # kyverno-bundle.yaml
 apiVersion: cli.kyverno.io/v1alpha1
@@ -110,16 +119,18 @@ recursive manifest scan; don't commit one into the bundle.
 
 **Give every namespaced document an explicit `metadata.namespace`.** A `PolicyException` or a `Namespaced*Policy`
 needs its own `metadata.namespace` set in the source YAML. The `Kustomization` above sets no `spec.targetNamespace`
-on purpose: setting one rewrites the namespace of every object the bundle contains, including cluster-scoped
-policies that have no namespace to rewrite, and silently moves namespaced documents you didn't intend to move.
+on purpose: kustomize stamps a namespace onto any object of a kind it doesn't already know is cluster-scoped,
+including the `policies.kyverno.io` CRDs, so setting `targetNamespace` adds a bogus `metadata.namespace` to a
+cluster-scoped `ValidatingPolicy` and silently moves namespaced documents you didn't intend to move.
 
 ## Authentication
 
 Flux and the Kyverno CLI authenticate to the registry independently; neither configures the other.
 
 - **Flux** reads `spec.secretRef` (above), a `kubernetes.io/dockerconfigjson` secret in the same namespace as the
-  `OCIRepository`, or `spec.provider: aws`, `azure`, or `gcp` for workload-identity auth instead of a secret
-  (`generic` is the default and expects `secretRef`).
+  `OCIRepository`, or `spec.provider: aws`, `azure`, or `gcp` for workload-identity auth instead of a secret.
+  `generic` is the default and uses `secretRef` when one is set; it also works anonymously against a public
+  registry.
 - **`kyverno oci resolve`, `push`, and `pull`** authenticate through a multi-keychain (Docker config, GitHub, AWS
   ECR, GCP, Azure); there's no `--username`/`--password` flag. Log in with `docker login`, or your cloud CLI, before
   running these commands against a private registry.
