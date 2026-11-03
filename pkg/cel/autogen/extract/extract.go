@@ -4,14 +4,64 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 )
 
 // Extracted is a single pod-template-shaped subtree found inside a custom
-// workload resource, together with the path it was found at (for
-// diagnostics only).
+// workload resource, together with the path it was found at.
 type Extracted struct {
 	Template map[string]any
 	Path     string
+}
+
+// JSONPointer returns the RFC 6901 JSON Pointer corresponding to e.Path.
+func (e Extracted) JSONPointer() string {
+	return PathToJSONPointer(e.Path)
+}
+
+// PathToJSONPointer converts a dot-and-bracket path (e.g. "spec.replicatedJobs[0].template")
+// to an RFC 6901 JSON Pointer (e.g. "/spec/replicatedJobs/0/template").
+func PathToJSONPointer(path string) string {
+	if path == "" {
+		return ""
+	}
+	var tokens []string
+	var cur strings.Builder
+	for i := 0; i < len(path); i++ {
+		switch path[i] {
+		case '.':
+			if cur.Len() > 0 {
+				tokens = append(tokens, cur.String())
+				cur.Reset()
+			}
+		case '[':
+			if cur.Len() > 0 {
+				tokens = append(tokens, cur.String())
+				cur.Reset()
+			}
+		case ']':
+			if cur.Len() > 0 {
+				tokens = append(tokens, cur.String())
+				cur.Reset()
+			}
+		default:
+			cur.WriteByte(path[i])
+		}
+	}
+	if cur.Len() > 0 {
+		tokens = append(tokens, cur.String())
+	}
+	if len(tokens) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, t := range tokens {
+		b.WriteByte('/')
+		t = strings.ReplaceAll(t, "~", "~0")
+		t = strings.ReplaceAll(t, "/", "~1")
+		b.WriteString(t)
+	}
+	return b.String()
 }
 
 // ExtractPodTemplates walks obj's spec looking for every subtree that is
