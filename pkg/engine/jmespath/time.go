@@ -94,7 +94,10 @@ func jpTimeToCron(arguments []interface{}) (interface{}, error) {
 		cron += strconv.Itoa(t.Hour()) + " "
 		cron += strconv.Itoa(t.Day()) + " "
 		cron += strconv.Itoa(int(t.Month())) + " "
-		cron += strconv.Itoa(int(t.Weekday()))
+		// cron matches a day if either day-of-month or day-of-week matches when both are set,
+		// so the weekday must be left as a wildcard or the schedule also fires on every
+		// other day of the month that falls on the same weekday
+		cron += "*"
 		return cron, nil
 	}
 }

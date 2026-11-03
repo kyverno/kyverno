@@ -1,0 +1,13 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-root
+spec:
+  rules:
+  - name: check-root
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Root user is disallowed."

@@ -1,0 +1,125 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: (devel)
+  name: policybundles.cli.kyverno.io
+spec:
+  group: cli.kyverno.io
+  names:
+    kind: PolicyBundle
+    listKind: PolicyBundleList
+    plural: policybundles
+    singular: policybundle
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          PolicyBundle is the optional kyverno-bundle.yaml descriptor at the root of a `kyverno oci push`
+          input tree. See docs/dev/oci/bundle-spec.md section 7 for the normative shape.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec declares the bundle's metadata and named set membership.
+            properties:
+              annotations:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Annotations are extra manifest annotations. A key under the reserved io.kyverno.bundle. or
+                  org.opencontainers.image. prefix here is discarded — the whole prefix is reserved, not only
+                  the specific keys a writer currently computes — and the writer-computed value for any key it
+                  does compute always wins. Quote a key or value that could otherwise be read as a YAML number
+                  or boolean; push rejects either.
+                type: object
+              created:
+                description: |-
+                  Created is an RFC 3339 timestamp passed through to the config blob and manifest
+                  annotations verbatim.
+                type: string
+              description:
+                description: Description is a human-readable summary of the bundle,
+                  passed through to the config blob.
+                type: string
+              formatVersion:
+                description: |-
+                  FormatVersion pins the bundle format version this descriptor was written against. It must
+                  exactly match the format version this CLI writes, or push fails before writing anything.
+                type: string
+              kyvernoVersion:
+                description: |-
+                  KyvernoVersion is a semver constraint string (for example ">=1.20") naming the Kyverno
+                  versions this bundle targets. Push rejects a malformed one before writing anything; push and
+                  `kyverno oci validate` warn when the CLI's own version does not satisfy it.
+                type: string
+              sets:
+                description: |-
+                  Sets declares named sets and the path globs that assign resources to them. A resource not
+                  claimed by any set here falls back to the by-kind default set (policies or exceptions).
+                items:
+                  description: PolicyBundleSet declares one named set and the path
+                    globs that assign resources to it.
+                  properties:
+                    name:
+                      description: |-
+                        Name is the set's name. The reserved names "policies" and "exceptions" must carry the
+                        matching type.
+                      type: string
+                    paths:
+                      description: |-
+                        Paths are glob patterns, relative to the bundle root, matched against each archived
+                        document's path. "*" and "?" do not cross a "/"; "**" does.
+                      items:
+                        type: string
+                      type: array
+                    type:
+                      description: |-
+                        Type is the set's type, "policies" or "exceptions". It filters which matched documents the
+                        set claims: a "policies" set claims every matched document except PolicyException, and an
+                        "exceptions" set claims only matched PolicyException documents.
+                      type: string
+                  required:
+                  - name
+                  - paths
+                  - type
+                  type: object
+                type: array
+              source:
+                description: Source records where the bundle's content comes from.
+                properties:
+                  revision:
+                    description: Revision is the source revision the bundle was built
+                      from, for example a Git commit SHA.
+                    type: string
+                  url:
+                    description: URL is the bundle's source location, for example
+                      a Git repository URL.
+                    type: string
+                type: object
+              version:
+                description: Version is the bundle's own version string, passed through
+                  to the config blob verbatim.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true

@@ -160,6 +160,9 @@ func Command() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			out := cmd.OutOrStdout()
+			if applyCommandConfig.PolicyReport || applyCommandConfig.GenerateExceptions || applyCommandConfig.Stdin {
+				removeColor = true
+			}
 			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
 			table, err = applyCommandConfig.resolveOutputFlags(cmd, table, detailedResults)
@@ -191,25 +194,25 @@ func Command() *cobra.Command {
 						}
 						if rule.RuleType() == engineapi.Mutation {
 							if rule.Status() == engineapi.RuleStatusSkip {
-								fmt.Fprintln(out, "\nskipped mutate policy", response.Policy().GetName(), "->", "resource", resPath)
+								fmt.Fprintln(out, "\n"+color.BoldYellow("skipped mutate policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath)
 							} else if rule.Status() == engineapi.RuleStatusError {
-								fmt.Fprintln(out, "\nerror while applying mutate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror: ", rule.Message())
+								fmt.Fprintln(out, "\n"+color.BoldRed("error while applying mutate policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath, "\n"+color.BoldRed("error:")+" ", rule.Message())
 							}
 						}
 						if rule.RuleType() == engineapi.Generation {
 							if rule.Status() == engineapi.RuleStatusError {
-								fmt.Fprintln(out, "\nerror while applying generate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror:", rule.Message())
+								fmt.Fprintln(out, "\n"+color.BoldRed("error while applying generate policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath, "\n"+color.BoldRed("error:"), rule.Message())
 							}
 						}
 					}
 					if len(failedRules) > 0 {
-						fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
+						fmt.Fprintln(out, "policy", color.Policy("", response.Policy().GetName()), "->", "resource", resPath, color.BoldRed("failed:"))
 						for i, rule := range failedRules {
 							msg := rule.Message()
 							if msg == "" {
 								msg = "validation failed"
 							}
-							fmt.Fprintln(out, i+1, "-", rule.Name(), msg)
+							fmt.Fprintln(out, i+1, "-", color.Rule(rule.Name()), msg)
 						}
 					}
 				}
@@ -653,7 +656,13 @@ func (c *ApplyCommandConfig) applyPolicies(
 
 				if len(mpols) != 0 {
 					compiler := mpolcompiler.NewCompilerWithTrace(c.Explain)
-					mpolProvider, err = mpolengine.NewProvider(compiler, mpols, celExceptions, contextProvider)
+					toCompile := slices.DeleteFunc(slices.Clone(mpols), func(policy policiesv1beta1.MutatingPolicyLike) bool {
+						if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+							return len(jsonPayloads) == 0
+						}
+						return len(resources) == 0
+					})
+					mpolProvider, err = mpolengine.NewProvider(compiler, toCompile, celExceptions, contextProvider)
 					if err != nil {
 						if !c.ContinueOnFail {
 							return &rc, resources, responses, err
@@ -769,6 +778,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
+		*resource = processor.JsonPayload
 	}
 	return &rc, resources, responses, nil
 }
@@ -1082,7 +1092,11 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 				return nil, nil, fmt.Errorf("failed to load JSON payload (%w)", err)
 			}
 
-			jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: payload.(map[string]interface{})})
+			object, ok := payload.(map[string]interface{})
+			if !ok {
+				return nil, nil, fmt.Errorf("JSON payload %s must be a top-level object", path)
+			}
+			jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: object})
 		}
 	}
 	return resources, jsonPayloads, nil
