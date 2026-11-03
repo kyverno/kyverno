@@ -981,8 +981,12 @@ never derives from the push reference (see [4. Artifact structure](#4-artifact-s
 its digest, which is what makes the digest form meaningful as a stable identity independent of where the bundle
 is hosted.
 
-`kyverno oci resolve` is the way to obtain this digest. It applies reader MUST 1, 6, and 7 ([9. Conformance](#9-conformance))
-before printing, so it never pins a reference the same CLI's `kyverno oci pull` would reject; `--digest-only`
+`kyverno oci resolve` is the way to obtain this digest. It applies reader MUST 1, 6, and 7
+([9. Conformance](#9-conformance)) — manifest shape, config parse, and major-version and legacy-image checks —
+before printing, so it never pins a non-bundle, a legacy pre-1.20 image, or an artifact whose format major
+version this CLI doesn't support. It does not apply reader MUST 2-4: it never fetches or extracts the content
+layer, so it can't check the archive against the index. A bundle whose manifest and config are well-formed but
+whose archive is malformed or disagrees with the index passes `resolve` and still fails `pull`. `--digest-only`
 prints the bare digest, the form `spec.ref.digest` on a Flux `OCIRepository` expects. For an artifact that isn't a
 Kyverno bundle, `crane digest` is the equivalent way to pin a reference.
 

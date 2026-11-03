@@ -57,6 +57,34 @@ spec:
       paths: ["exceptions/**"]
 ```
 
+```yaml
+# policies/require-labels.yaml — minimal but valid; add real match constraints and validations for production use
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-team-label
+spec:
+  validations:
+    - expression: "has(object.metadata.labels) && 'team' in object.metadata.labels"
+      message: "label 'team' is required"
+```
+
+```yaml
+# exceptions/team-a-exceptions.yaml — explicit metadata.namespace matters; see the Kustomization note below
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: team-a-exempt
+  namespace: team-a
+spec:
+  policyRefs:
+    - name: require-team-label
+      kind: ValidatingPolicy
+```
+
+These two files are deliberately minimal so the bundle is pushable and the example runs end to end; they aren't
+a template for a real policy or exception.
+
 ```bash
 kyverno oci push ./baseline -i ghcr.io/acme/baseline:v1.0.0
 ```
@@ -86,13 +114,13 @@ spec:
   layerSelector:
     mediaType: application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip
     operation: extract
-  secretRef:
-    name: baseline-policies-pull
 ```
 
 `spec.url` carries no tag or digest; the digest lives in `spec.ref.digest`. Pinning `layerSelector.mediaType` to
 the bundle's content-layer media type is a SHOULD in the spec: it keeps extraction correct even after a future
-major format version that adds a second layer.
+major format version that adds a second layer. This `OCIRepository` has no `spec.secretRef`, matching a public
+registry such as `ghcr.io` with an anonymous-readable repository or `ttl.sh`; see
+[Authentication](#authentication) below for a private registry.
 
 ## 4. `Kustomization`
 
@@ -132,10 +160,31 @@ anything namespaced in the bundle.
 
 Flux and the Kyverno CLI authenticate to the registry independently; neither configures the other.
 
-- **Flux** reads `spec.secretRef` (above), a `kubernetes.io/dockerconfigjson` secret in the same namespace as the
+- **Flux** reads `spec.secretRef`, a `kubernetes.io/dockerconfigjson` secret in the same namespace as the
   `OCIRepository`, or `spec.provider: aws`, `azure`, or `gcp` for workload-identity auth instead of a secret.
   `generic` is the default and uses `secretRef` when one is set; it also works anonymously against a public
-  registry.
+  registry, which is why the `OCIRepository` above has no `secretRef`. For a private registry, create the
+  secret and reference it:
+
+  ```yaml
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: baseline-policies-pull
+    namespace: flux-system
+  type: kubernetes.io/dockerconfigjson
+  stringData:
+    .dockerconfigjson: '{"auths":{"ghcr.io":{"auth":"<base64 of user:token>"}}}'
+  ```
+
+  ```yaml
+  spec:
+    secretRef:
+      name: baseline-policies-pull
+  ```
+
+  A `secretRef` that points at a Secret that doesn't exist makes the `OCIRepository` fail to reconcile, so don't
+  add it unless the Secret is also created.
 - **`kyverno oci resolve`, `push`, and `pull`** authenticate through a multi-keychain (Docker config, GitHub, AWS
   ECR, GCP, Azure); there's no `--username`/`--password` flag. Log in with `docker login`, or your cloud CLI, before
   running these commands against a private registry.
@@ -148,8 +197,9 @@ flux get sources oci -n flux-system
 flux get kustomizations -n flux-system
 ```
 
-`kyverno oci inspect` confirms the digest's resource index and compatibility before you roll it out; `flux get`
-confirms Flux fetched and reconciled the same digest.
+`kyverno oci inspect` shows the digest's resource index, sets, and Kyverno compatibility from its manifest and
+config — it doesn't verify the content layer, so it won't catch an archive that disagrees with the index; run
+`kyverno oci validate -i` for that. `flux get` confirms Flux fetched and reconciled the same digest.
 
 This example was verified end to end against a real kind cluster and an anonymous public registry: the
 `OCIRepository`/`Kustomization` YAML above reconciled with no field or value changes beyond the digest and
