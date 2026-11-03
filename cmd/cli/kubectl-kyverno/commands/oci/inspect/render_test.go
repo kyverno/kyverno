@@ -191,23 +191,46 @@ func TestWriteTextSanitizesControlCharacters(t *testing.T) {
 	assert.Contains(t, text, `line one\x1bline two`)
 }
 
-// TestWriteTextSanitizesBidiFormatting pins the Trojan Source fix (CVE-2021-42574): U+202E
-// RIGHT-TO-LEFT OVERRIDE is not a C0/C1 control character, but a terminal applying bidi formatting
-// would still reorder displayed text around it, so it must be escaped the same as ESC. Ordinary
-// non-ASCII text (accented Latin, CJK, emoji) must survive untouched.
-func TestWriteTextSanitizesBidiFormatting(t *testing.T) {
+// TestWriteTextSanitizesFormatCharacters pins the Trojan Source fix (CVE-2021-42574) and its
+// follow-up: sanitize escapes unicode.Cf (Unicode "format characters"), the canonical predicate,
+// rather than a hand-enumerated list of code points — this test covers U+202E RIGHT-TO-LEFT
+// OVERRIDE (a bidi override already in the old list), plus U+061C ARABIC LETTER MARK, U+00AD SOFT
+// HYPHEN, and U+FEFF BYTE ORDER MARK, none of which the old hand-rolled list caught. It also pins
+// the one deliberate exception: U+200D ZERO WIDTH JOINER is in Cf but joins emoji glyphs rather
+// than reordering text, so a ZWJ emoji sequence must pass through intact, proving the exception is
+// deliberate rather than an oversight. Ordinary non-ASCII text (accented Latin, CJK, a plain
+// emoji) must also survive untouched.
+func TestWriteTextSanitizesFormatCharacters(t *testing.T) {
+	const (
+		rtlOverride  = string(rune(0x202e)) // RIGHT-TO-LEFT OVERRIDE
+		popDirFormat = string(rune(0x202c)) // POP DIRECTIONAL FORMATTING
+		alm          = string(rune(0x061c)) // ARABIC LETTER MARK
+		softHyphen   = string(rune(0x00ad)) // SOFT HYPHEN
+		bom          = string(rune(0xfeff)) // BYTE ORDER MARK (ZERO WIDTH NO-BREAK SPACE)
+		zwj          = string(rune(0x200d)) // ZERO WIDTH JOINER
+	)
+
 	cfg := sampleConfig()
-	cfg.Name = "baseline‮EDIR‬"
-	cfg.Description = "café 中文 \U0001F600"
+	cfg.Name = "baseline" + rtlOverride + "EDIR" + popDirFormat + alm
+	cfg.Description = "café 中文 \U0001F600 soft" + softHyphen + "hyphen " + bom + "bom"
+	cfg.Version = "couple\U0001F468" + zwj + "\U0001F469"
 	r := sampleReport(cfg)
 
 	var out bytes.Buffer
 	require.NoError(t, writeText(&out, r, cfg))
 	text := out.String()
-	assert.NotContains(t, text, "‮")
-	assert.NotContains(t, text, "‬")
-	assert.Contains(t, text, "baseline\\u202eEDIR\\u202c")
+
+	assert.NotContains(t, text, rtlOverride)
+	assert.NotContains(t, text, popDirFormat)
+	assert.NotContains(t, text, alm)
+	assert.NotContains(t, text, softHyphen)
+	assert.NotContains(t, text, bom)
+	assert.Contains(t, text, "baseline\\u202eEDIR\\u202c\\u061c")
+	assert.Contains(t, text, "soft\\u00adhyphen")
+	assert.Contains(t, text, "\\ufeffbom")
+
 	assert.Contains(t, text, "café 中文 \U0001F600")
+	assert.Contains(t, text, "couple\U0001F468"+zwj+"\U0001F469")
 }
 
 // TestAnnotationWarningsReportsMismatchOnly pins the exact message and that an absent annotation

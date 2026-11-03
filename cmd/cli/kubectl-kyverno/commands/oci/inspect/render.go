@@ -16,38 +16,27 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// isBidiFormatting reports whether r is one of the Unicode bidirectional formatting characters:
-// the explicit overrides and embeddings U+202A-U+202E, the isolates U+2066-U+2069, and the marks
-// U+200E/U+200F. None of these are control characters in the unicode.IsControl (C0/C1) sense, but
-// a terminal that applies bidi formatting will reorder displayed text around them — the "Trojan
-// Source" class (CVE-2021-42574) — which is the same threat as an ANSI escape sequence: making
-// the output lie about its own bytes.
-func isBidiFormatting(r rune) bool {
-	switch {
-	case r >= 0x202a && r <= 0x202e:
-		return true
-	case r >= 0x2066 && r <= 0x2069:
-		return true
-	case r == 0x200e || r == 0x200f:
-		return true
-	default:
-		return false
-	}
-}
-
 // sanitize neutralises C0/C1 control characters (including ESC, so an ANSI escape sequence can't
-// rewrite or hide terminal output) and the Unicode bidirectional formatting characters (so a
-// right-to-left override or similar can't reorder displayed text) in a string the bundle's config
-// or manifest annotations supply, since both come from the registry and are attacker-controlled
-// input for anyone inspecting an untrusted bundle. Every other rune, including ordinary non-ASCII
-// Unicode (accented Latin, CJK, emoji), passes through unchanged.
+// rewrite or hide terminal output) and Unicode format characters (unicode.Cf — bidi overrides and
+// isolates, ALM, soft hyphen, BOM, and so on — so none of them can reorder or hide displayed text,
+// the "Trojan Source" class, CVE-2021-42574) in a string the bundle's config or manifest
+// annotations supply, since both come from the registry and are attacker-controlled input for
+// anyone inspecting an untrusted bundle. unicode.Cf is the canonical predicate for this, rather
+// than a hand-enumerated list of code points that has already needed two corrections: it covers
+// every bidi control plus ones not previously named, such as U+061C ARABIC LETTER MARK, U+00AD
+// SOFT HYPHEN, and U+FEFF BYTE ORDER MARK. The one deliberate exception is U+200D ZERO WIDTH
+// JOINER: it is in Cf, but legitimate emoji sequences (a family or profession emoji) use it to
+// join glyphs rather than reorder them, so it doesn't carry the same threat and escaping it would
+// mangle ordinary text. Every other rune, including ordinary non-ASCII Unicode (accented Latin,
+// CJK, emoji), passes through unchanged.
 func sanitize(s string) string {
+	const zeroWidthJoiner = 0x200d
 	var b strings.Builder
 	for _, r := range s {
 		switch {
 		case unicode.IsControl(r):
 			fmt.Fprintf(&b, "\\x%02x", r)
-		case isBidiFormatting(r):
+		case r != zeroWidthJoiner && unicode.Is(unicode.Cf, r):
 			fmt.Fprintf(&b, "\\u%04x", r)
 		default:
 			b.WriteRune(r)
