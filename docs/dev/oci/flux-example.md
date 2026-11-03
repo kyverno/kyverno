@@ -91,7 +91,10 @@ a policy that omits it anyway — the result is a policy that reaches `Ready: tr
 while allowing every request unconditionally. Don't omit it.
 
 ```yaml
-# exceptions/team-a-exceptions.yaml — explicit metadata.namespace matters; see the Kustomization note below
+# exceptions/team-a-exceptions.yaml — explicit metadata.namespace matters; see the Kustomization note below.
+# matchConditions copied from test/conformance/chainsaw/validating-policies/exceptions/regular/exception.yaml,
+# whose chainsaw test proves the condition scopes the exemption to one named resource: a pod with the same
+# missing label but a different name is still denied.
 apiVersion: policies.kyverno.io/v1beta1
 kind: PolicyException
 metadata:
@@ -101,7 +104,15 @@ spec:
   policyRefs:
     - name: require-team-label
       kind: ValidatingPolicy
+  matchConditions:
+    - name: "legacy-workload"
+      expression: "object.metadata.name == 'legacy-workload'"
 ```
+
+Without `matchConditions`, this `PolicyException` would exempt every Pod in `team-a` from the label
+requirement — not narrow an exemption, but waive the policy entirely for the namespace. Scoping it to one
+named resource, as above, exempts only `legacy-workload`; every other Pod the policy matches is still
+enforced.
 
 These two files are deliberately minimal so the bundle is pushable and the example runs end to end; they aren't
 a template for a real policy or exception. `policies.kyverno.io/v1beta1` is the CRD's storage version; a plain
@@ -141,10 +152,16 @@ spec:
 ```
 
 `spec.url` carries no tag or digest; the digest lives in `spec.ref.digest`. Pinning `layerSelector.mediaType` to
-the bundle's content-layer media type is a SHOULD in the spec: it keeps extraction correct even after a future
-major format version that adds a second layer. This `OCIRepository` has no `spec.secretRef`, matching a public
-registry such as `ghcr.io` with an anonymous-readable repository or `ttl.sh`; see
-[Authentication](#authentication) below for a private registry.
+the bundle's content-layer media type is a SHOULD in the spec. It doesn't buy forward compatibility across a
+major format change: the major version is carried in the `.v1` segment of both media types
+([8. Format versioning and compatibility](./bundle-spec.md#8-format-versioning-and-compatibility)), so a future
+format that adds a layer ships a new `.v2` media type, and this pinned `.v1` selector then matches nothing —
+extraction breaks until you update the selector by hand. What pinning buys today is explicitness: it selects
+the current content layer unambiguously instead of relying on Flux's `layers[0]` fallback, and it fails
+visibly rather than silently extracting the wrong layer if the artifact ever carries more than one. This
+`OCIRepository` has no `spec.secretRef`, matching a public registry such as `ghcr.io` with an
+anonymous-readable repository or `ttl.sh`; see [Authentication](#authentication) below for a private
+registry.
 
 ## 4. `Kustomization`
 
