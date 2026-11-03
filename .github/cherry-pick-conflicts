@@ -1,0 +1,7 @@
+Source commit: 9a39e3a5820e54e7ab6cb207bff9558cc41d6400
+Conflicted paths:
+cmd/cli/kubectl-kyverno/commands/oci/command.go
+cmd/cli/kubectl-kyverno/commands/oci/command_test.go
+cmd/cli/kubectl-kyverno/commands/oci/pull/fetch.go
+docs/user/cli/commands/kyverno_oci.md
+docs/user/cli/commands/kyverno_oci_validate.md

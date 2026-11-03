@@ -52,6 +52,36 @@ func TestCommandWithInvalidFlag(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
+<<<<<<< HEAD
+=======
+// TestCommandRegistersValidateSubcommand pins that `kyverno oci validate` is wired in alongside
+// push and pull, not just importable from its own package.
+func TestCommandRegistersValidateSubcommand(t *testing.T) {
+	cmd := Command()
+	sub, _, err := cmd.Find([]string{"validate"})
+	require.NoError(t, err)
+	assert.Equal(t, "validate", sub.Name())
+}
+
+// TestCommandRegistersInspectSubcommand pins that `kyverno oci inspect` is wired in, not just
+// importable from its own package.
+func TestCommandRegistersInspectSubcommand(t *testing.T) {
+	cmd := Command()
+	sub, _, err := cmd.Find([]string{"inspect"})
+	require.NoError(t, err)
+	assert.Equal(t, "inspect", sub.Name())
+}
+
+// TestCommandRegistersResolveSubcommand pins that `kyverno oci resolve` is wired in, not just
+// importable from its own package.
+func TestCommandRegistersResolveSubcommand(t *testing.T) {
+	cmd := Command()
+	sub, _, err := cmd.Find([]string{"resolve"})
+	require.NoError(t, err)
+	assert.Equal(t, "resolve", sub.Name())
+}
+
+>>>>>>> 9a39e3a58 (feat(cli): add kyverno oci inspect and oci resolve (#18420))
 func TestCommandHelp(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
