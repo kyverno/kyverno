@@ -3,6 +3,7 @@ package resolve
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/bundle"
@@ -41,7 +43,9 @@ spec:
   - expression: "true"
 `
 
-func pushBundle(t *testing.T, host, ref string) (v1.Image, string) {
+// buildBundleImage assembles a minimal valid bundle without pushing it, so tests that need to
+// patch its config or layers before pushing can start from a known-good image.
+func buildBundleImage(t *testing.T) v1.Image {
 	t.Helper()
 	dir := writeTree(t, map[string]string{"policy.yaml": validVP})
 	b, err := bundle.Assemble(dir)
@@ -49,6 +53,12 @@ func pushBundle(t *testing.T, host, ref string) (v1.Image, string) {
 	require.NoError(t, bundle.Validate(b))
 	img, err := bundle.Write(b, nil)
 	require.NoError(t, err)
+	return img
+}
+
+func pushBundle(t *testing.T, host, ref string) (v1.Image, string) {
+	t.Helper()
+	img := buildBundleImage(t)
 
 	full := host + "/" + ref
 	name, err := gcrname.ParseReference(full)
@@ -147,6 +157,93 @@ func TestExecuteRejectsLegacyMediaType(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "resolve only pins Kyverno bundles:")
 	assert.Contains(t, err.Error(), "legacy image format")
+	assert.Empty(t, out.String())
+}
+
+// pushWithConfigBytes pushes base's single content layer unchanged but replaces its config blob's
+// bytes with configBytes verbatim, updating the manifest's config digest/size to match. This lets
+// a test push a config the typed bundle.Config/mutate package can't produce, e.g. non-JSON bytes
+// or a format version this reader rejects.
+func pushWithConfigBytes(t *testing.T, host, ref string, base v1.Image, configBytes []byte) {
+	t.Helper()
+	baseManifest, err := base.Manifest()
+	require.NoError(t, err)
+	layers, err := base.Layers()
+	require.NoError(t, err)
+	require.Len(t, layers, 1)
+
+	configLayer := static.NewLayer(configBytes, types.MediaType(internal.ConfigMediaType))
+	configDigest, err := configLayer.Digest()
+	require.NoError(t, err)
+	configSize, err := configLayer.Size()
+	require.NoError(t, err)
+
+	manifest := baseManifest.DeepCopy()
+	manifest.Config.Digest = configDigest
+	manifest.Config.Size = configSize
+	manifestBytes, err := json.Marshal(manifest)
+	require.NoError(t, err)
+
+	full := host + "/" + ref
+	refName, err := gcrname.ParseReference(full)
+	require.NoError(t, err)
+	repo := refName.Context()
+
+	require.NoError(t, remote.WriteLayer(repo, layers[0]))
+	require.NoError(t, remote.WriteLayer(repo, configLayer))
+	require.NoError(t, remote.Put(refName, manifestTaggable{raw: manifestBytes, mt: manifest.MediaType}))
+}
+
+// manifestTaggable is the minimal remote.Taggable so a hand-built manifest can be pushed with
+// remote.Put without constructing a full v1.Image.
+type manifestTaggable struct {
+	raw []byte
+	mt  types.MediaType
+}
+
+func (m manifestTaggable) RawManifest() ([]byte, error)        { return m.raw, nil }
+func (m manifestTaggable) MediaType() (types.MediaType, error) { return m.mt, nil }
+
+// TestExecuteRejectsNonJSONConfig pins the Copilot-reported gap: a manifest with bundle media
+// types whose config blob isn't even valid JSON must still be refused, which requires resolve to
+// read the config (bundle.ReadMetadata), not merely check the manifest's shape.
+func TestExecuteRejectsNonJSONConfig(t *testing.T) {
+	host := ocitest.NewRegistry(t)
+	base := buildBundleImage(t)
+	ref := "bundles/bad-config:v1"
+	pushWithConfigBytes(t, host, ref, base, []byte("not json at all"))
+
+	var out bytes.Buffer
+	o := options{imageRef: host + "/" + ref}
+	err := o.execute(context.Background(), &out, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resolve only pins Kyverno bundles:")
+	assert.Empty(t, out.String())
+}
+
+// TestExecuteRejectsUnsupportedFormatMajorVersion pins the same gap for a config whose
+// formatVersion disagrees with what this reader supports, even though the manifest's media types
+// are otherwise well-formed format-1 bundle media types.
+func TestExecuteRejectsUnsupportedFormatMajorVersion(t *testing.T) {
+	host := ocitest.NewRegistry(t)
+	base := buildBundleImage(t)
+	raw, err := base.RawConfigFile()
+	require.NoError(t, err)
+	var cfg map[string]interface{}
+	require.NoError(t, json.Unmarshal(raw, &cfg))
+	cfg["formatVersion"] = "2.0.0"
+	patched, err := json.Marshal(cfg)
+	require.NoError(t, err)
+
+	ref := "bundles/future-major:v1"
+	pushWithConfigBytes(t, host, ref, base, patched)
+
+	var out bytes.Buffer
+	o := options{imageRef: host + "/" + ref}
+	err = o.execute(context.Background(), &out, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resolve only pins Kyverno bundles:")
+	assert.Contains(t, err.Error(), "unsupported bundle format major version")
 	assert.Empty(t, out.String())
 }
 

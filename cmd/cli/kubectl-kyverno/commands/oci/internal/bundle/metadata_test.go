@@ -150,6 +150,20 @@ func TestReadMetadataDoesNotFetchContentLayer(t *testing.T) {
 	assert.True(t, foundBlobRequest, "expected at least one blob request (the config fetch), recorder may be broken")
 }
 
+// TestReadMetadataRejectsOversizedConfig pins the bound on the config blob: a config at or over
+// maxConfigBytes is refused rather than read fully into memory.
+func TestReadMetadataRejectsOversizedConfig(t *testing.T) {
+	layer, err := buildContentLayer(map[string][]byte{"policy.yaml": []byte(validVP)})
+	require.NoError(t, err)
+	oversized := make([]byte, maxConfigBytes+1)
+	img, err := newImage(layer, oversized, nil)
+	require.NoError(t, err)
+
+	_, err = ReadMetadata(img)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds the maximum size")
+}
+
 // legacyConfigImage wraps *image to override Manifest() with a hand-mutated copy, since *image's
 // own fields are private to this package and newImage always builds a manifest consistent with
 // its inputs; the malformed-shape tests above need a manifest that disagrees with what newImage

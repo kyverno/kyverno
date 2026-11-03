@@ -62,7 +62,9 @@ func (o options) execute(ctx context.Context, out, errOut io.Writer, keychain au
 
 	if o.output == "" {
 		for _, w := range warnings {
-			fmt.Fprintf(errOut, "Warning: %s\n", w)
+			if _, err := fmt.Fprintf(errOut, "Warning: %s\n", w); err != nil {
+				return err
+			}
 		}
 		return writeText(out, report, md.Config)
 	}

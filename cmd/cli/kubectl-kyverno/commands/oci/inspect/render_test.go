@@ -159,12 +159,36 @@ func TestWriteYAMLParses(t *testing.T) {
 	assert.Equal(t, r.Digest, got["digest"])
 }
 
-// TestBuildCompatibilityStates pins all four Result values.
+// TestBuildCompatibilityStates pins all five Result values, including "invalid" distinguished
+// from "unknown": a malformed constraint (nothing to check, because the declaration is garbage)
+// is not the same state as a constraint that can't be checked only because CheckedAgainst isn't a
+// release version.
 func TestBuildCompatibilityStates(t *testing.T) {
 	assert.Equal(t, "undeclared", buildCompatibility("", "1.20.0").Result)
 	assert.Equal(t, "satisfied", buildCompatibility(">=1.20", "1.20.0").Result)
 	assert.Equal(t, "unsatisfied", buildCompatibility(">=99.0.0", "1.20.0").Result)
 	assert.Equal(t, "unknown", buildCompatibility(">=1.20", "not-a-release").Result)
+	invalid := buildCompatibility("not a valid constraint!!!", "1.20.0")
+	assert.Equal(t, "invalid", invalid.Result)
+	assert.Equal(t, "not a valid constraint!!!", invalid.KyvernoVersion)
+}
+
+// TestWriteTextSanitizesControlCharacters pins that config-supplied text carrying a control
+// character (here, ESC, the character an ANSI escape sequence starts with) is neutralised rather
+// than printed raw: a registry is attacker-controlled input, and an unescaped ESC could rewrite or
+// hide terminal output.
+func TestWriteTextSanitizesControlCharacters(t *testing.T) {
+	cfg := sampleConfig()
+	cfg.Name = "baseline\x1b[31mRED\x1b[0m"
+	cfg.Description = "line one\x1bline two"
+	r := sampleReport(cfg)
+
+	var out bytes.Buffer
+	require.NoError(t, writeText(&out, r, cfg))
+	text := out.String()
+	assert.NotContains(t, text, "\x1b")
+	assert.Contains(t, text, `baseline\x1b[31mRED\x1b[0m`)
+	assert.Contains(t, text, `line one\x1bline two`)
 }
 
 // TestAnnotationWarningsReportsMismatchOnly pins the exact message and that an absent annotation

@@ -179,15 +179,36 @@ func checkFormatVersion(formatVersion string) error {
 	return nil
 }
 
+// maxConfigBytes bounds the config blob's size, the same way maxEntryBytes bounds a content-layer
+// entry. The registry that serves a bundle is not necessarily trustworthy, and img.RawConfigFile
+// reads the whole blob into memory with no limit of its own, so a hostile or compromised registry
+// could otherwise serve a multi-gigabyte config and exhaust caller memory on every read path:
+// inspect, resolve, pull, validate -i, and ToTempDir (and so apply and test, which call it). 10
+// MiB comfortably fits a resource index for thousands of policies while still bounding the blob.
+const maxConfigBytes = 10 << 20 // 10 MiB
+
 // parseConfig reads img's config blob and unmarshals it into a Config, returning both the typed
 // value and the raw bytes (callers that need the verbatim blob, such as ReadMetadata and
 // inspect's -o json, avoid a second RawConfigFile call). Read and ReadMetadata both call this at
 // the same point in their own ordering: after the manifest shape check, so a malformed or
-// legacy-media-type config never reaches json.Unmarshal.
+// legacy-media-type config never reaches json.Unmarshal. The size check runs against the
+// manifest's declared config size before RawConfigFile fetches anything, and again against the
+// bytes actually returned, so an oversized config is refused instead of read into memory.
 func parseConfig(img v1.Image) (Config, []byte, error) {
+	manifest, err := img.Manifest()
+	if err != nil {
+		return Config{}, nil, fmt.Errorf("reading manifest: %w", err)
+	}
+	if manifest.Config.Size > maxConfigBytes {
+		return Config{}, nil, fmt.Errorf("config blob exceeds the maximum size of %d bytes (manifest declares %d)", maxConfigBytes, manifest.Config.Size)
+	}
+
 	configBytes, err := img.RawConfigFile()
 	if err != nil {
 		return Config{}, nil, fmt.Errorf("reading config: %w", err)
+	}
+	if int64(len(configBytes)) > maxConfigBytes {
+		return Config{}, nil, fmt.Errorf("config blob exceeds the maximum size of %d bytes", maxConfigBytes)
 	}
 	var cfg Config
 	if err := json.Unmarshal(configBytes, &cfg); err != nil {

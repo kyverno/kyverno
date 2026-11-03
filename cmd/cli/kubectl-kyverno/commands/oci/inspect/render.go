@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"text/tabwriter"
+	"unicode"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -13,6 +15,22 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/bundle"
 	"sigs.k8s.io/yaml"
 )
+
+// sanitize neutralises C0/C1 control characters (including ESC, so an ANSI escape sequence can't
+// rewrite or hide terminal output) in a string the bundle's config or manifest annotations supply,
+// since both come from the registry and are attacker-controlled input for anyone inspecting an
+// untrusted bundle. Every other rune, including non-ASCII Unicode, passes through unchanged.
+func sanitize(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if unicode.IsControl(r) {
+			fmt.Fprintf(&b, "\\x%02x", r)
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
 
 // Report is inspect's -o json|yaml payload; text mode renders the same data (plus Config, read
 // from md.Config rather than Report.Config) through writeText.
@@ -40,8 +58,10 @@ type BlobSummary struct {
 }
 
 // Compatibility is inspect's own compatibility summary. Result is one of "satisfied",
-// "unsatisfied", "unknown" (CheckedAgainst isn't a release version), or "undeclared" (the config
-// has no kyvernoVersion constraint); inspect is display-only and never fails on any of them.
+// "unsatisfied", "unknown" (CheckedAgainst isn't a release version), "invalid" (the config's own
+// kyvernoVersion constraint doesn't parse as a semver constraint, named in KyvernoVersion), or
+// "undeclared" (the config has no kyvernoVersion constraint); inspect is display-only and never
+// fails on any of them.
 type Compatibility struct {
 	KyvernoVersion string `json:"kyvernoVersion,omitempty"`
 	CheckedAgainst string `json:"checkedAgainst"`
@@ -100,7 +120,10 @@ func buildCompatibility(constraint, target string) Compatibility {
 
 	result, err := bundle.CheckKyvernoVersion(constraint, target)
 	if err != nil {
-		c.Result = "unknown"
+		// The constraint itself doesn't parse, which is a different state from "nothing to check
+		// against" (CheckedAgainst not a release version, the Unknown case below): the bundle's
+		// own declaration is garbage, not merely unverifiable against this target.
+		c.Result = "invalid"
 		return c
 	}
 	switch result {
@@ -144,6 +167,8 @@ func kyvernoLine(c Compatibility) string {
 		return fmt.Sprintf("%s (satisfied by %s)", c.KyvernoVersion, c.CheckedAgainst)
 	case "unsatisfied":
 		return fmt.Sprintf("%s (not satisfied by %s)", c.KyvernoVersion, c.CheckedAgainst)
+	case "invalid":
+		return fmt.Sprintf("%s (invalid constraint)", c.KyvernoVersion)
 	default:
 		return fmt.Sprintf("%s (not checked; %s is not a release version)", c.KyvernoVersion, c.CheckedAgainst)
 	}
@@ -167,32 +192,35 @@ func sourceLine(s *bundle.Source) string {
 	}
 }
 
-// writeText renders the fixed text layout, omitting a line for any empty optional field.
+// writeText renders the fixed text layout, omitting a line for any empty optional field. Every
+// field sourced from the config or manifest annotations — as opposed to the reference/digest the
+// caller supplied or passed CheckManifestShape's own fixed media-type strings — is attacker
+// input from the registry and goes through sanitize first.
 func writeText(w io.Writer, r Report, cfg bundle.Config) error {
 	tw := tabwriter.NewWriter(w, 0, 2, 1, ' ', 0)
 	fmt.Fprintf(tw, "Reference:\t%s\n", r.Reference)
 	fmt.Fprintf(tw, "Digest:\t%s\n", r.Digest)
 	fmt.Fprintf(tw, "Pinned:\t%s\n", r.PinnedReference)
 	if cfg.FormatVersion != "" {
-		fmt.Fprintf(tw, "Format version:\t%s\n", cfg.FormatVersion)
+		fmt.Fprintf(tw, "Format version:\t%s\n", sanitize(cfg.FormatVersion))
 	}
 	if cfg.Name != "" {
-		fmt.Fprintf(tw, "Name:\t%s\n", cfg.Name)
+		fmt.Fprintf(tw, "Name:\t%s\n", sanitize(cfg.Name))
 	}
 	if cfg.Version != "" {
-		fmt.Fprintf(tw, "Version:\t%s\n", cfg.Version)
+		fmt.Fprintf(tw, "Version:\t%s\n", sanitize(cfg.Version))
 	}
 	if cfg.Description != "" {
-		fmt.Fprintf(tw, "Description:\t%s\n", cfg.Description)
+		fmt.Fprintf(tw, "Description:\t%s\n", sanitize(cfg.Description))
 	}
 	if line := kyvernoLine(r.Compatibility); line != "" {
-		fmt.Fprintf(tw, "Kyverno:\t%s\n", line)
+		fmt.Fprintf(tw, "Kyverno:\t%s\n", sanitize(line))
 	}
 	if line := sourceLine(cfg.Source); line != "" {
-		fmt.Fprintf(tw, "Source:\t%s\n", line)
+		fmt.Fprintf(tw, "Source:\t%s\n", sanitize(line))
 	}
 	if cfg.Created != "" {
-		fmt.Fprintf(tw, "Created:\t%s\n", cfg.Created)
+		fmt.Fprintf(tw, "Created:\t%s\n", sanitize(cfg.Created))
 	}
 	for _, l := range r.Manifest.Layers {
 		fmt.Fprintf(tw, "Layer:\t%s %s (%d bytes)\n", l.MediaType, l.Digest, l.Size)
@@ -202,13 +230,19 @@ func writeText(w io.Writer, r Report, cfg bundle.Config) error {
 	}
 
 	if len(cfg.Sets) > 0 {
-		fmt.Fprintln(w, "Sets:")
+		if _, err := fmt.Fprintln(w, "Sets:"); err != nil {
+			return err
+		}
 		for _, s := range cfg.Sets {
-			fmt.Fprintf(w, "  %s (%s)\n", s.Name, s.Type)
+			if _, err := fmt.Fprintf(w, "  %s (%s)\n", sanitize(s.Name), sanitize(s.Type)); err != nil {
+				return err
+			}
 		}
 	}
 
-	fmt.Fprintf(w, "Resources (%d):\n", len(cfg.Resources))
+	if _, err := fmt.Fprintf(w, "Resources (%d):\n", len(cfg.Resources)); err != nil {
+		return err
+	}
 	if len(cfg.Resources) > 0 {
 		rtw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
 		fmt.Fprintln(rtw, "  APIVERSION\tKIND\tNAMESPACE\tNAME\tSET\tPATH")
@@ -221,7 +255,7 @@ func writeText(w io.Writer, r Report, cfg bundle.Config) error {
 			if e.DocumentIndex != 0 {
 				path = fmt.Sprintf("%s (document %d)", e.Path, e.DocumentIndex)
 			}
-			fmt.Fprintf(rtw, "  %s\t%s\t%s\t%s\t%s\t%s\n", e.APIVersion, e.Kind, namespace, e.Name, e.Set, path)
+			fmt.Fprintf(rtw, "  %s\t%s\t%s\t%s\t%s\t%s\n", sanitize(e.APIVersion), sanitize(e.Kind), sanitize(namespace), sanitize(e.Name), sanitize(e.Set), sanitize(path))
 		}
 		if err := rtw.Flush(); err != nil {
 			return err
@@ -229,17 +263,21 @@ func writeText(w io.Writer, r Report, cfg bundle.Config) error {
 	}
 
 	if len(r.Annotations) == 0 {
-		fmt.Fprintln(w, "Annotations:    none")
-		return nil
+		_, err := fmt.Fprintln(w, "Annotations:    none")
+		return err
 	}
-	fmt.Fprintln(w, "Annotations:")
+	if _, err := fmt.Fprintln(w, "Annotations:"); err != nil {
+		return err
+	}
 	keys := make([]string, 0, len(r.Annotations))
 	for k := range r.Annotations {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		fmt.Fprintf(w, "  %s: %s\n", k, r.Annotations[k])
+		if _, err := fmt.Fprintf(w, "  %s: %s\n", sanitize(k), sanitize(r.Annotations[k])); err != nil {
+			return err
+		}
 	}
 	return nil
 }
