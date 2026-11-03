@@ -73,7 +73,7 @@ func TestLegacyPathDynCostBlindness(t *testing.T) {
 	var before runtime.MemStats
 	runtime.ReadMemStats(&before)
 
-	response, err := validateResource(policy, nil, *resource, nil, ns, a)
+	response, err := validateResource(policy, nil, *resource, nil, ns, a, false)
 	assert.NilError(t, err)
 
 	var after runtime.MemStats
@@ -150,7 +150,7 @@ func TestLegacyPathFindAllConstPatternIsGuarded(t *testing.T) {
 			var before runtime.MemStats
 			runtime.ReadMemStats(&before)
 
-			response, err := validateResource(policy, nil, *resource, nil, ns, a)
+			response, err := validateResource(policy, nil, *resource, nil, ns, a, false)
 			assert.NilError(t, err)
 
 			var after runtime.MemStats
@@ -221,7 +221,7 @@ func TestLegacyPathFindAllStillWorks(t *testing.T) {
 				},
 			}
 			a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
-			response, err := validateResource(policy, nil, *resource, nil, ns, a)
+			response, err := validateResource(policy, nil, *resource, nil, ns, a, false)
 			assert.NilError(t, err)
 			if len(response.PolicyResponse.Rules) != 1 {
 				t.Fatalf("expected exactly one rule response, got %d", len(response.PolicyResponse.Rules))
