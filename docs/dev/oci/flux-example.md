@@ -63,15 +63,18 @@ spec:
 ```
 
 ```yaml
-# policies/require-labels.yaml — matchConstraints copied from
-# test/conformance/chainsaw/validating-policies/validation-rules/failure-policy/fail/policy.yaml, which is
-# known to apply; a policy with no matchConstraints resource rule is rejected at admission time (see
+# policies/require-labels.yaml — matchConstraints and validationActions copied from
+# test/conformance/chainsaw/validating-policies/validation-rules/failure-policy/fail/policy.yaml, whose
+# chainsaw test (../fail/chainsaw-test.yaml) asserts a non-conforming Pod is actually denied; a policy with no
+# matchConstraints resource rule is rejected at admission time (see
 # test/conformance/chainsaw/validating-policies/validation-checks/missing-match-constraints)
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
   name: require-team-label
 spec:
+  validationActions:
+    - Deny
   matchConstraints:
     resourceRules:
       - apiGroups:   [""]
@@ -82,6 +85,10 @@ spec:
     - expression: "has(object.metadata.labels) && 'team' in object.metadata.labels"
       message: "label 'team' is required"
 ```
+
+`spec.validationActions` is what makes the policy enforce. The CRD marks it required, but the API server admits
+a policy that omits it anyway — the result is a policy that reaches `Ready: true` and is webhook-registered
+while allowing every request unconditionally. Don't omit it.
 
 ```yaml
 # exceptions/team-a-exceptions.yaml — explicit metadata.namespace matters; see the Kustomization note below
@@ -97,7 +104,10 @@ spec:
 ```
 
 These two files are deliberately minimal so the bundle is pushable and the example runs end to end; they aren't
-a template for a real policy or exception.
+a template for a real policy or exception. `policies.kyverno.io/v1beta1` is the CRD's storage version; a plain
+`kubectl get validatingpolicy -o yaml` returns the `v1` representation instead, since `v1` is the
+default-preferred served version. Nothing is converted or lost — it's a discovery artifact of which version
+`kubectl` picks when none is given.
 
 ```bash
 kyverno oci push ./baseline -i ghcr.io/acme/baseline:v1.0.0
