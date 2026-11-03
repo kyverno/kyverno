@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -34,9 +35,15 @@ func writeTree(t *testing.T, files map[string]string) string {
 
 // validate is a shorthand for the ported buildImage tests: they exercise only error behavior
 // over a hand-built policy.LoaderResults, not the archived-content shape, so a bundle.Bundle
-// with no Documents or Files (unpopulated by Assemble) is enough to drive bundle.Validate.
-func validate(results *policy.LoaderResults) error {
-	return bundle.Validate(&bundle.Bundle{Results: results})
+// with no Documents or Files (unpopulated by Assemble) is enough to drive bundle.ValidateWithOptions.
+// opts is variadic so every existing call site keeps compiling unchanged; tests that need
+// Options (a fixed clock, a warning sink) pass exactly one.
+func validate(results *policy.LoaderResults, opts ...bundle.Options) error {
+	var o bundle.Options
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+	return bundle.ValidateWithOptions(&bundle.Bundle{Results: results}, o)
 }
 
 func TestPushValidCELPolicyAndExceptionProducesSingleContentLayer(t *testing.T) {
@@ -691,4 +698,223 @@ metadata:
 	_, err := bundle.Assemble(dir)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cli.kyverno.io")
+}
+
+// TestValidateAcceptsV1Resources pins D4: the 1.20 CLI's accepted-version table widens from the
+// single v1beta1 pin to v1beta1 and v1, so a v1 ValidatingPolicy must pass where it previously
+// would have been rejected as "unsupported resource".
+func TestValidateAcceptsV1Resources(t *testing.T) {
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ValidatingPolicy",
+			APIVersion: "policies.kyverno.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "check-labels",
+		},
+	}
+	results := &policy.LoaderResults{
+		ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{vp},
+	}
+	assert.NoError(t, validate(results))
+}
+
+// TestValidateWarnsOnExpiredException pins D2 (amended): an expired exception is a warning on the
+// strict path, not a hard failure, so push does not refuse to publish content the cluster itself
+// would still accept and skip (pkg/cel/engine/exception.go).
+func TestValidateWarnsOnExpiredException(t *testing.T) {
+	past := metav1.NewTime(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC))
+	polex := &policiesv1beta1.PolicyException{
+		TypeMeta:   metav1.TypeMeta{Kind: "PolicyException", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "expired-exception"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			ExpiresAt:  &past,
+			PolicyRefs: []policiesv1alpha1.PolicyRef{{Name: "check-labels", Kind: "ValidatingPolicy"}},
+		},
+	}
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "ValidatingPolicy", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "check-labels"},
+	}
+	results := &policy.LoaderResults{
+		ValidatingPolicies:  []policiesv1beta1.ValidatingPolicyLike{vp},
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{polex},
+	}
+
+	var warnings []string
+	err := validate(results, bundle.Options{
+		Now:  func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
+		Warn: func(msg string) { warnings = append(warnings, msg) },
+	})
+	assert.NoError(t, err)
+	require.Len(t, warnings, 1)
+	assert.Contains(t, warnings[0], "expired")
+}
+
+// TestValidateDoesNotWarnOnUnexpiredException is TestValidateWarnsOnExpiredException's sibling:
+// a future expiresAt must not warn, so the injectable clock is pinned on both sides.
+func TestValidateDoesNotWarnOnUnexpiredException(t *testing.T) {
+	future := metav1.NewTime(time.Date(2999, 1, 1, 0, 0, 0, 0, time.UTC))
+	polex := &policiesv1beta1.PolicyException{
+		TypeMeta:   metav1.TypeMeta{Kind: "PolicyException", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "live-exception"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			ExpiresAt:  &future,
+			PolicyRefs: []policiesv1alpha1.PolicyRef{{Name: "check-labels", Kind: "ValidatingPolicy"}},
+		},
+	}
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "ValidatingPolicy", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "check-labels"},
+	}
+	results := &policy.LoaderResults{
+		ValidatingPolicies:  []policiesv1beta1.ValidatingPolicyLike{vp},
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{polex},
+	}
+
+	var warnings []string
+	err := validate(results, bundle.Options{
+		Now:  func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
+		Warn: func(msg string) { warnings = append(warnings, msg) },
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, warnings)
+}
+
+// TestValidateRejectsMalformedSelector pins D3: an offline-checkable malformed selector on a
+// policy's matchConstraints fails strict validation (push, validate), the same gate as reference
+// resolution.
+func TestValidateRejectsMalformedSelector(t *testing.T) {
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "ValidatingPolicy", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "bad-selector"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Key: "env", Operator: "NotAnOperator", Values: []string{"prod"}},
+					},
+				},
+			},
+		},
+	}
+	results := &policy.LoaderResults{
+		ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{vp},
+	}
+	err := validate(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "namespaceSelector")
+}
+
+// TestValidateRejectsUncompilableCompensatingControl pins D7: a PolicyException compensating
+// control whose CEL fails to compile is a hard failure on the strict path, the same call pattern
+// pkg/webhooks/celexception/validate.go already uses for admission.
+func TestValidateRejectsUncompilableCompensatingControl(t *testing.T) {
+	polex := &policiesv1beta1.PolicyException{
+		TypeMeta:   metav1.TypeMeta{Kind: "PolicyException", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "bad-control"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1alpha1.PolicyRef{{Name: "check-labels", Kind: "ValidatingPolicy"}},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "invalid.syntax == ((("},
+			},
+		},
+	}
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "ValidatingPolicy", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "check-labels"},
+	}
+	results := &policy.LoaderResults{
+		ValidatingPolicies:  []policiesv1beta1.ValidatingPolicyLike{vp},
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{polex},
+	}
+	err := validate(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "compensating control")
+}
+
+// TestValidateRejectsMalformedObjectSelector is TestValidateRejectsMalformedSelector's sibling for
+// objectSelector, the other half of checkSelectors' pair of checks.
+func TestValidateRejectsMalformedObjectSelector(t *testing.T) {
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "ValidatingPolicy", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "bad-object-selector"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ObjectSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Key: "env", Operator: "NotAnOperator", Values: []string{"prod"}},
+					},
+				},
+			},
+		},
+	}
+	results := &policy.LoaderResults{
+		ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{vp},
+	}
+	err := validate(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "objectSelector")
+}
+
+// TestValidateWarnsOnCompensatingControlForIgnoringKind pins the warning half of D7:
+// ValidateCompensatingControls, not ValidateCompensatingControlExpressions, fires when an
+// exception's compensating control references a kind other than ValidatingPolicy or
+// NamespacedValidatingPolicy, whose engine ignores spec.validations entirely.
+func TestValidateWarnsOnCompensatingControlForIgnoringKind(t *testing.T) {
+	polex := &policiesv1beta1.PolicyException{
+		TypeMeta:   metav1.TypeMeta{Kind: "PolicyException", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "ignored-control"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1alpha1.PolicyRef{{Name: "mutate-things", Kind: "MutatingPolicy"}},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true"},
+			},
+		},
+	}
+	mp := &policiesv1beta1.MutatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "MutatingPolicy", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "mutate-things"},
+	}
+	results := &policy.LoaderResults{
+		MutatingPolicies:    []policiesv1beta1.MutatingPolicyLike{mp},
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{polex},
+	}
+
+	var warnings []string
+	err := validate(results, bundle.Options{Warn: func(s string) { warnings = append(warnings, s) }})
+	require.NoError(t, err)
+	require.Len(t, warnings, 1)
+	assert.Contains(t, warnings[0], "ignored-control")
+	assert.Contains(t, warnings[0], "MutatingPolicy")
+}
+
+// TestValidateRejectsUncompilableCompensatingControlForIgnoringKind pins the writer-scoped fix: an
+// uncompilable spec.validations expression is a hard failure even when the exception's policyRefs
+// name only a kind (MutatingPolicy) whose engine ignores compensating controls. The shared
+// exceptionvalidation.ValidateCompensatingControlExpressions helper skips the compile entirely in
+// this case (the admission path relies on that skip), so this behavior comes from a writer-scoped
+// check in internal/bundle, not from that helper.
+func TestValidateRejectsUncompilableCompensatingControlForIgnoringKind(t *testing.T) {
+	polex := &policiesv1beta1.PolicyException{
+		TypeMeta:   metav1.TypeMeta{Kind: "PolicyException", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "bad-ignored-control"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1alpha1.PolicyRef{{Name: "mutate-things", Kind: "MutatingPolicy"}},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "invalid.syntax == ((("},
+			},
+		},
+	}
+	mp := &policiesv1beta1.MutatingPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "MutatingPolicy", APIVersion: "policies.kyverno.io/v1beta1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "mutate-things"},
+	}
+	results := &policy.LoaderResults{
+		MutatingPolicies:    []policiesv1beta1.MutatingPolicyLike{mp},
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{polex},
+	}
+	err := validate(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "compensating control")
 }

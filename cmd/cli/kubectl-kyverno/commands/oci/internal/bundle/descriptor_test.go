@@ -343,6 +343,33 @@ func TestResolveDescriptorPassesCreatedThroughVerbatim(t *testing.T) {
 	assert.Equal(t, ts, *d.Created)
 }
 
+// TestResolveDescriptorRejectsMalformedKyvernoVersion pins D5's writer MUST: a kyvernoVersion
+// that doesn't parse as a semver constraint is a hard failure before Write ever runs.
+func TestResolveDescriptorRejectsMalformedKyvernoVersion(t *testing.T) {
+	dir := writeTree(t, map[string]string{"policy.yaml": validVP})
+	b, err := Assemble(dir)
+	require.NoError(t, err)
+
+	pb, err := parseDescriptor([]byte(descriptorYAML("metadata:\n  name: x\nspec:\n  kyvernoVersion: \"not a constraint\"\n")))
+	require.NoError(t, err)
+	_, err = resolveDescriptor(pb, b.Documents)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not a valid semver constraint")
+}
+
+// TestResolveDescriptorAcceptsSpecExampleKyvernoVersion pins that the spec's own example parses.
+func TestResolveDescriptorAcceptsSpecExampleKyvernoVersion(t *testing.T) {
+	dir := writeTree(t, map[string]string{"policy.yaml": validVP})
+	b, err := Assemble(dir)
+	require.NoError(t, err)
+
+	pb, err := parseDescriptor([]byte(descriptorYAML("metadata:\n  name: x\nspec:\n  kyvernoVersion: \">=1.20\"\n")))
+	require.NoError(t, err)
+	d, err := resolveDescriptor(pb, b.Documents)
+	require.NoError(t, err)
+	assert.Equal(t, ">=1.20", d.KyvernoVersion)
+}
+
 func TestDeriveSetsAssignsByGlob(t *testing.T) {
 	dir := writeTree(t, map[string]string{
 		"policies/require-labels.yaml": validVP,
