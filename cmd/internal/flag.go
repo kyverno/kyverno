@@ -2,6 +2,7 @@ package internal
 
 import (
 	"flag"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -63,6 +64,7 @@ var (
 	registryCredentialHelpers string
 	privateRegistryAllowlist  string
 	privateRegistryEgressMode string
+	privateRegistryRanges     string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
 	// cleanupServer port and host for listening address
@@ -172,6 +174,9 @@ func initRegistryClientFlags() {
 func initRegistryEgressFlags() {
 	flag.StringVar(&privateRegistryAllowlist, "privateRegistryAllowlist", "", "Comma-separated exact hosts, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Unsafe addresses remain blocked.")
 	flag.StringVar(&privateRegistryEgressMode, "privateRegistryEgressMode", egress.ModeAudit, "Registry egress policy: audit permits private addresses and logs requests enforce would block; enforce requires an allowlist entry. Both modes block metadata and other unsafe addresses.")
+	// The default carries the shipped list rather than an empty string so that an operator who
+	// renders an empty list is clearing it, not falling back to the defaults they removed.
+	flag.StringVar(&privateRegistryRanges, "privateRegistryRanges", strings.Join(egress.DefaultPrivateRanges, ","), "Comma-separated CIDRs or IP addresses treated as private-class in addition to RFC 1918 and fc00::/7, which are always private. Metadata and other unsafe addresses stay blocked regardless.")
 }
 
 // initRegistryFlags registers egress flags for controllers that only read image metadata as

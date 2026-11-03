@@ -91324,6 +91324,7 @@ spec:
             - --registryCredentialHelpers=default,google,amazon,azure,github
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             - --privateRegistryEgressMode=audit
+            - --privateRegistryRanges=100.64.0.0/10,198.18.0.0/15,192.0.0.0/24,192.88.99.0/24,240.0.0.0/4,2001::/23,100::/64,192.0.2.0/24,198.51.100.0/24,203.0.113.0/24,2001:db8::/32,fec0::/10,3fff::/20,5f00::/16,64:ff9b:1::/48
             
           resources:
             limits:
@@ -91500,6 +91501,7 @@ spec:
             - --enablePolicyException=false
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             - --privateRegistryEgressMode=audit
+            - --privateRegistryRanges=100.64.0.0/10,198.18.0.0/15,192.0.0.0/24,192.88.99.0/24,240.0.0.0/4,2001::/23,100::/64,192.0.2.0/24,198.51.100.0/24,203.0.113.0/24,2001:db8::/32,fec0::/10,3fff::/20,5f00::/16,64:ff9b:1::/48
             
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
@@ -91632,6 +91634,7 @@ spec:
             - --protectManagedResources=false
             - --ttlReconciliationInterval=1m
             - --privateRegistryEgressMode=audit
+            - --privateRegistryRanges=100.64.0.0/10,198.18.0.0/15,192.0.0.0/24,192.88.99.0/24,240.0.0.0/4,2001::/23,100::/64,192.0.2.0/24,198.51.100.0/24,203.0.113.0/24,2001:db8::/32,fec0::/10,3fff::/20,5f00::/16,64:ff9b:1::/48
             
           env:
           - name: KYVERNO_DEPLOYMENT
@@ -91804,6 +91807,7 @@ spec:
             - --registryCredentialHelpers=default,google,amazon,azure,github
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             - --privateRegistryEgressMode=audit
+            - --privateRegistryRanges=100.64.0.0/10,198.18.0.0/15,192.0.0.0/24,192.88.99.0/24,240.0.0.0/4,2001::/23,100::/64,192.0.2.0/24,198.51.100.0/24,203.0.113.0/24,2001:db8::/32,fec0::/10,3fff::/20,5f00::/16,64:ff9b:1::/48
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-reports-controller

@@ -20,8 +20,8 @@ Merge a controller's featuresOverride onto .Values.features.
 
 mergeOverwrite ignores empty values, so an override that sets a list back to [] would
 otherwise be silently dropped and the global value would survive. Re-apply
-registryClient.privateRegistryAllowlist explicitly whenever the override declares it, so []
-clears the global list.
+registryClient.privateRegistryAllowlist and registryClient.privateRegistryRanges explicitly
+whenever the override declares them, so [] clears the global list.
 
 The same limitation applies to credentialHelpers: [] and allowInsecure: false, which a
 controller override still cannot clear. That predates the registry egress work and is left
@@ -33,23 +33,30 @@ Usage: include "kyverno.features.merged" (dict "features" .Values.features "over
 {{- $override := .override | default dict -}}
 {{- $features := mergeOverwrite (deepCopy .features) (deepCopy $override) -}}
 {{- $registryOverride := $override.registryClient | default dict -}}
-{{- if hasKey $registryOverride "privateRegistryAllowlist" -}}
-  {{- $_ := set $features.registryClient "privateRegistryAllowlist" $registryOverride.privateRegistryAllowlist -}}
+{{- range $key := list "privateRegistryAllowlist" "privateRegistryRanges" -}}
+  {{- if hasKey $registryOverride $key -}}
+    {{- $_ := set $features.registryClient $key (get $registryOverride $key) -}}
+  {{- end -}}
 {{- end -}}
 {{- $features | toYaml -}}
 {{- end -}}
 
-{{/* Validate registry allowlist entries before serializing them into a CSV flag. */}}
+{{/* Validate registry allowlist and private-range entries before serializing them into CSV flags. */}}
 {{- define "kyverno.registryClient.validate" -}}
-{{- range $index, $entry := .privateRegistryAllowlist -}}
-  {{- if not (kindIs "string" $entry) -}}
-    {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must be a non-empty string" $index) -}}
-  {{- end -}}
-  {{- if eq (trim $entry) "" -}}
-    {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must be a non-empty string" $index) -}}
-  {{- end -}}
-  {{- if contains "," $entry -}}
-    {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must not contain commas; use a separate list item for each entry" $index) -}}
+{{- $values := . -}}
+{{- range $key := list "privateRegistryAllowlist" "privateRegistryRanges" -}}
+  {{/* default list, not the value itself: an absent or null key reaches "get" as an empty
+       string, which range cannot iterate. */}}
+  {{- range $index, $entry := (get $values $key | default list) -}}
+    {{- if not (kindIs "string" $entry) -}}
+      {{- fail (printf "registryClient.%s[%d] must be a non-empty string" $key $index) -}}
+    {{- end -}}
+    {{- if eq (trim $entry) "" -}}
+      {{- fail (printf "registryClient.%s[%d] must be a non-empty string" $key $index) -}}
+    {{- end -}}
+    {{- if contains "," $entry -}}
+      {{- fail (printf "registryClient.%s[%d] must not contain commas; use a separate list item for each entry" $key $index) -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -66,6 +73,10 @@ it exit on an unknown flag.
 {{- with .privateRegistryAllowlist -}}
   {{- $flags = append $flags (print "--privateRegistryAllowlist=" (join "," .)) -}}
 {{- end -}}
+{{/* Rendered even when empty, unlike the allowlist above: the flag's own default is the
+     shipped range list, so omitting it for an empty value would reinstate exactly the ranges
+     the operator removed. An empty allowlist has no such default to fall back to. */}}
+{{- $flags = append $flags (print "--privateRegistryRanges=" (join "," (.privateRegistryRanges | default list))) -}}
 {{- $flags | toYaml -}}
 {{- end -}}
 

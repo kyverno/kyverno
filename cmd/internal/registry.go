@@ -19,8 +19,9 @@ import (
 // callers can treat SetGlobal failures here as a startup error.
 func egressConfig() egress.Config {
 	return egress.Config{
-		Allowlist: egress.ParseAllowlist(privateRegistryAllowlist),
-		Mode:      privateRegistryEgressMode,
+		Allowlist:     egress.ParseAllowlist(privateRegistryAllowlist),
+		Mode:          privateRegistryEgressMode,
+		PrivateRanges: egress.ParseRanges(privateRegistryRanges),
 	}
 }
 

@@ -145,11 +145,13 @@ func TestEgressConfigValidation(t *testing.T) {
 func TestRegistryFlagRegistration(t *testing.T) {
 	originalFlags := flag.CommandLine
 	originalAllowlist, originalMode := privateRegistryAllowlist, privateRegistryEgressMode
+	originalRanges := privateRegistryRanges
 	originalSecrets, originalHelpers := imagePullSecrets, registryCredentialHelpers
 	originalInsecure, originalPayloadLimit := allowInsecureRegistry, imageVerifyPayloadLimit
 	t.Cleanup(func() {
 		flag.CommandLine = originalFlags
 		privateRegistryAllowlist, privateRegistryEgressMode = originalAllowlist, originalMode
+		privateRegistryRanges = originalRanges
 		imagePullSecrets, registryCredentialHelpers = originalSecrets, originalHelpers
 		allowInsecureRegistry, imageVerifyPayloadLimit = originalInsecure, originalPayloadLimit
 	})
@@ -170,7 +172,7 @@ func TestRegistryFlagRegistration(t *testing.T) {
 			require.Equal(t, test.wantEgress, configuration.UsesRegistryEgress())
 			require.Equal(t, test.wantClient, configuration.UsesRegistryClient())
 			initRegistryFlags(configuration)
-			for _, flagName := range []string{"privateRegistryAllowlist", "privateRegistryEgressMode"} {
+			for _, flagName := range []string{"privateRegistryAllowlist", "privateRegistryEgressMode", "privateRegistryRanges"} {
 				require.Equal(t, test.wantEgress, flag.Lookup(flagName) != nil, flagName)
 			}
 			for _, flagName := range []string{"imagePullSecrets", "registryCredentialHelpers", "allowInsecureRegistry", "imageVerifyPayloadLimit"} {
@@ -182,6 +184,13 @@ func TestRegistryFlagRegistration(t *testing.T) {
 				require.NoError(t, flag.CommandLine.Parse([]string{"--privateRegistryEgressMode=enforce", "--privateRegistryAllowlist=10.20.30.0/24"}))
 				require.Equal(t, "enforce", privateRegistryEgressMode)
 				require.Equal(t, "10.20.30.0/24", privateRegistryAllowlist)
+				// The range flag defaults to the shipped list rather than empty, so a Kyverno
+				// installed without the chart keeps the protection the chart would render. An
+				// operator clearing it passes the flag explicitly, and the parsed result stays
+				// non-nil so New reads it as "cleared" and not as "unset".
+				require.Equal(t, egress.DefaultPrivateRanges, egress.ParseRanges(privateRegistryRanges))
+				require.NoError(t, flag.CommandLine.Parse([]string{"--privateRegistryRanges="}))
+				require.Equal(t, []string{}, egress.ParseRanges(privateRegistryRanges))
 			}
 		})
 	}

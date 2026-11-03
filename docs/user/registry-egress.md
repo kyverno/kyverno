@@ -79,6 +79,38 @@ be exact hostnames, IP literals, or CIDRs; wildcards, URLs, empty elements, and 
 entry are rejected. Use `[]` for no exemptions. Invalid configuration fails controller startup
 rather than being ignored at request time.
 
+### Which addresses count as private
+
+`privateRegistryRanges` is the list of address ranges the guard treats as private-class, on top of
+RFC 1918 (`10/8`, `172.16/12`, `192.168/16`) and IPv6 ULA (`fc00::/7`), which are always private
+and are not part of the list. The shipped default is derived from the IANA special-purpose address
+registries: every assignment marked "Globally Reachable: False" that Go does not already classify
+as loopback, link-local, unspecified, multicast or private. That covers carrier-grade NAT, the
+benchmarking and documentation ranges, deprecated 6to4 relay anycast, deprecated IPv6 site-local,
+SRv6 SIDs, and local-use NAT64, among others — `charts/kyverno/values.yaml` lists each one with
+the reason it is there.
+
+Edit the list if your cluster genuinely routes one of those ranges to public infrastructure and
+you would rather not carry an allowlist entry for it forever:
+
+```yaml
+features:
+  registryClient:
+    privateRegistryRanges:
+      - 100.64.0.0/10
+      - 240.0.0.0/4
+```
+
+The list replaces the default rather than adding to it, so write out every range you want kept.
+Setting it to `[]` leaves only RFC 1918 and `fc00::/7` private. Cloud metadata, loopback,
+link-local, unspecified, multicast and broadcast addresses are hard blocks and are not affected by
+this setting in either direction — removing a range cannot make them reachable. Entries are CIDRs
+or bare IP addresses, one list item each; an invalid entry fails controller startup.
+
+The equivalent flag is `--privateRegistryRanges`, comma-separated. Unlike the allowlist flag, its
+default is the shipped range list, so a Kyverno installed without the chart is protected the same
+way; pass `--privateRegistryRanges=` to clear it.
+
 Ports are rejected too — write `registry.corp.example`, not `registry.corp.example:5000`. An
 exemption is matched against the destination host, so a port could not be enforced and would
 quietly exempt every port on that host. Allowlisting is host-granular by design.
@@ -88,7 +120,8 @@ latter comma-separated). The admission, background, reports, and cleanup control
 them. Cleanup applies them to DeletingPolicy image metadata lookups without enabling registry
 credential helpers or image-pull Secret informers, so it needs no additional RBAC. Per-controller
 values can be overridden under `<controller>.featuresOverride.registryClient`; setting
-`privateRegistryAllowlist: []` there clears the global list for that controller.
+`privateRegistryAllowlist: []` or `privateRegistryRanges: []` there clears the global list for
+that controller.
 
 Proxies keep their existing environment configuration and are treated as trusted operator
 configuration, so an ordinary private proxy address needs no allowlist entry in either mode. Hard

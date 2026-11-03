@@ -1036,6 +1036,38 @@ features:
     privateRegistryEgressMode: audit
     # -- Exact registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in `enforce` mode. Include private token and redirect services. Entries must be non-empty strings without commas or ports; use one list item per entry. Exemptions are host-granular, so a port would quietly exempt every port on that host and is rejected. Metadata and other unsafe addresses stay blocked even when listed.
     privateRegistryAllowlist: []
+    # -- Address ranges treated as private-class by the egress policy, in addition to RFC 1918 and `fc00::/7`, which are always private and cannot be removed. Entries are CIDRs or bare IP addresses, one list item each. These are ranges Go reports as ordinary global unicast, so each needs listing or a registry reference reaches it in `enforce` mode. Removing an entry makes that range ordinary public space; setting the list to `[]` leaves only RFC 1918 and `fc00::/7` private. Cloud metadata, loopback, link-local, and other unsafe addresses stay blocked either way and are not configurable here. Derived from the IANA special-purpose address registries: every assignment marked "Globally Reachable: False" that Go does not already classify. Re-derive from those registries when adding an entry rather than appending one in isolation.
+    privateRegistryRanges:
+    # RFC 6598 carrier-grade NAT: the operator's own shared address space.
+    - 100.64.0.0/10
+    # RFC 2544 benchmarking space: never globally routable.
+    - 198.18.0.0/15
+    # IETF assignments: 192.0.0.1 is the DS-Lite AFTR the local CPE answers on.
+    - 192.0.0.0/24
+    # Deprecated 6to4 relay anycast: reaches whichever relay the local network advertises.
+    - 192.88.99.0/24
+    # Reserved for future use: only a local stack or appliance can answer here.
+    - 240.0.0.0/4
+    # IPv6 IETF assignments, including Teredo 2001::/32 tunnel endpoints.
+    - 2001::/23
+    # Discard-only: a route here is local policy, not a destination.
+    - 100::/64
+    # RFC 5737 TEST-NET-1: no public route exists, so a reply came from something the local network put there.
+    - 192.0.2.0/24
+    # RFC 5737 TEST-NET-2: likewise, only a local route can carry a fetch here.
+    - 198.51.100.0/24
+    # RFC 5737 TEST-NET-3: likewise.
+    - 203.0.113.0/24
+    # RFC 3849 IPv6 documentation space: disjoint from 2001::/23, and routed only where an operator chose to.
+    - 2001:db8::/32
+    # Deprecated IPv6 site-local (RFC 3879). Adjacent to fe80::/10, not covered by it; stacks and appliances still answer here.
+    - fec0::/10
+    # RFC 9637 IPv6 documentation space, the 2024 addition alongside 2001:db8::/32.
+    - 3fff::/20
+    # RFC 9602 SRv6 SIDs: these name segments inside a routing domain, so a reply means local routing infrastructure.
+    - 5f00::/16
+    # RFC 8215 local-use NAT64. Disjoint from the well-known 64:ff9b::/96 Kyverno already unwraps, and the translator it names is local by definition.
+    - 64:ff9b:1::/48
     # -- Enable registry client helpers
     credentialHelpers:
     - default

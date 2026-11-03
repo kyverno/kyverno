@@ -27,6 +27,20 @@ func ParseAllowlist(value string) []string {
 	return strings.Split(value, ",")
 }
 
+// ParseRanges splits the comma-separated private-range flag. Unlike ParseAllowlist the result
+// is never nil, because nil is how Config.PrivateRanges spells "not configured, keep the
+// defaults" and an operator who renders an empty list from the chart means the opposite: no
+// configured ranges at all. Blank segments are dropped so that a trailing comma is not an entry.
+func ParseRanges(value string) []string {
+	ranges := []string{}
+	for entry := range strings.SplitSeq(value, ",") {
+		if entry = strings.TrimSpace(entry); entry != "" {
+			ranges = append(ranges, entry)
+		}
+	}
+	return ranges
+}
+
 // ValidateConfig reports whether operator settings are usable, so a controller can fail
 // startup instead of discovering a bad allowlist on the first registry request.
 func ValidateConfig(config Config) error {

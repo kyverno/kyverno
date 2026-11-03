@@ -48,6 +48,15 @@
   `TestGloballyReachableSpecialPurposeRangesStayPublic` pins that. Appending one range in
   isolation is how `198.18.0.0/15`, the documentation ranges and `fec0::/10` each shipped a
   round late — re-derive from the registries instead.
+- That list is `DefaultPrivateRanges`, and operators replace it wholesale via
+  `features.registryClient.privateRegistryRanges` / `--privateRegistryRanges`. Two copies exist
+  on purpose — the chart's is what operators read and edit, the Go one is the flag default for
+  installs without the chart — and `TestDefaultPrivateRangesMatchTheChart` fails if they drift,
+  so edit both. `Config.PrivateRanges` distinguishes nil ("unset, keep the defaults") from an
+  empty slice ("operator cleared it"); `ParseRanges` never returns nil for that reason, and the
+  chart renders `--privateRegistryRanges` even when empty while the allowlist flag is omitted.
+  Nothing here reaches `hardBlocked` or Go's `IsPrivate`: clearing the list cannot expose
+  metadata, loopback or RFC 1918.
 - Validate every request, including reused connections, redirects, and token requests routed
   through this transport. Reject opaque URLs and mismatched HTTP Host/URL authorities.
 - Pin direct dials to validated IPs without a second lookup; preserve Host/TLS SNI.
