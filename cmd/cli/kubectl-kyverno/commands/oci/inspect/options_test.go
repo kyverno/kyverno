@@ -10,6 +10,7 @@ import (
 
 	gcrname "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -284,8 +285,8 @@ func TestExecuteAnnotationMismatchWarnsInJSONField(t *testing.T) {
 	assert.Contains(t, out.String(), "is \\\"9.9.9\\\"")
 }
 
-// TestExecuteNoAnnotationsShowsNone pins "Annotations: none" for a bundle pushed without
-// manifest annotations.
+// TestExecuteFailsOnUnknownTag pins that resolving a tag that was never pushed is an error
+// with no stdout output.
 func TestExecuteFailsOnUnknownTag(t *testing.T) {
 	host := ocitest.NewRegistry(t)
 	var out, errOut bytes.Buffer
@@ -296,20 +297,28 @@ func TestExecuteFailsOnUnknownTag(t *testing.T) {
 }
 
 // TestExecuteRejectsIndexReference pins the shared FetchDescriptor guard on inspect's own read
-// path, same as resolve's.
+// path, same as resolve's: a reference whose manifest is an image index fails with the shared
+// "expected an OCI 1.0 image manifest" error.
 func TestExecuteRejectsIndexReference(t *testing.T) {
 	host := ocitest.NewRegistry(t)
 	img, err := random.Image(256, 1)
 	require.NoError(t, err)
-	full := host + "/plain/image:v1"
+	idx := mutate.AppendManifests(empty.Index, mutate.IndexAddendum{
+		Add: img,
+		Descriptor: v1.Descriptor{
+			Platform: &v1.Platform{OS: "linux", Architecture: "amd64"},
+		},
+	})
+	full := host + "/plain/indexed:v1"
 	name, err := gcrname.ParseReference(full)
 	require.NoError(t, err)
-	require.NoError(t, remote.Write(name, img))
+	require.NoError(t, remote.WriteIndex(name, idx))
 
 	var out, errOut bytes.Buffer
 	o := options{imageRef: full}
 	err = o.execute(context.Background(), &out, &errOut, nil)
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "expected an OCI 1.0 image manifest")
 	assert.Empty(t, out.String())
 }
 
