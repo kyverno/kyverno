@@ -7,7 +7,6 @@ on:
     paths:
       - .github/labels.yml
       - .github/pr-management.json
-      - .github/actions/pr-management/**
       - .github/workflows/sync-label-colors.yaml
   workflow_dispatch:
 
