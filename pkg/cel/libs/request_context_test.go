@@ -15,6 +15,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
@@ -321,8 +323,11 @@ func TestBindRequestContext_NilIsNoop(t *testing.T) {
 
 type fakeGenerateDClient struct {
 	dclient.Interface
-	getCtx    context.Context
-	createCtx context.Context
+	getCtx           context.Context
+	createCtx        context.Context
+	applyCtx         context.Context
+	updateCtx        context.Context
+	existingResource *unstructured.Unstructured
 }
 
 func (f *fakeGenerateDClient) GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
@@ -330,11 +335,36 @@ func (f *fakeGenerateDClient) GetResource(ctx context.Context, apiVersion string
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if f.existingResource != nil {
+		return f.existingResource, nil
+	}
 	return nil, apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: "configmaps"}, name)
 }
 
 func (f *fakeGenerateDClient) CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
 	f.createCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if u, ok := obj.(*unstructured.Unstructured); ok {
+		return u, nil
+	}
+	return nil, nil
+}
+
+func (f *fakeGenerateDClient) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string, subresources ...string) (*unstructured.Unstructured, error) {
+	f.applyCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if u, ok := obj.(*unstructured.Unstructured); ok {
+		return u, nil
+	}
+	return nil, nil
+}
+
+func (f *fakeGenerateDClient) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
+	f.updateCtx = ctx
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -395,6 +425,108 @@ func TestRequestContext_GenerateResourcesUsesEvaluationContext(t *testing.T) {
 	require.NotNil(t, client.createCtx)
 	assert.Equal(t, "request-generate", client.getCtx.Value(ctxKey{}))
 	assert.Equal(t, "request-generate", client.createCtx.Value(ctxKey{}))
+
+	cancel()
+	err = reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestRequestContext_GenerateResources_ExistingResourceUpdateHonorsCancellation(t *testing.T) {
+	existing := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      "existing-cm",
+				"namespace": "tenant-ns",
+				"labels": map[string]any{
+					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:     "test-gpol",
+					common.GenerateTriggerUIDLabel: "trigger-uid",
+				},
+				"uid":             "existing-uid",
+				"resourceVersion": "100",
+			},
+			"data": map[string]any{"key": "old-val"},
+		},
+	}
+	client := &fakeGenerateDClient{existingResource: existing}
+	provider := &contextProvider{
+		client:     client,
+		restMapper: generateTestRESTMapper(),
+	}
+	provider.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), ctxKey{}, "request-update"))
+	reqCtx := WithRequestContext(ctx, provider)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "existing-cm",
+			"namespace": "tenant-ns",
+		},
+		"data": map[string]any{"key": "new-val"},
+	}
+
+	err := reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.NotNil(t, client.getCtx)
+	require.NotNil(t, client.updateCtx)
+	assert.Equal(t, "request-update", client.getCtx.Value(ctxKey{}))
+	assert.Equal(t, "request-update", client.updateCtx.Value(ctxKey{}))
+
+	cancel()
+	err = reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestRequestContext_GenerateResources_ExistingResourceApplyHonorsCancellation(t *testing.T) {
+	existing := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      "existing-cm",
+				"namespace": "tenant-ns",
+				"labels": map[string]any{
+					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:     "test-gpol",
+					common.GenerateTriggerUIDLabel: "trigger-uid",
+				},
+				"uid":             "existing-uid",
+				"resourceVersion": "100",
+			},
+			"data": map[string]any{"key": "old-val"},
+		},
+	}
+	client := &fakeGenerateDClient{existingResource: existing}
+	provider := &contextProvider{
+		client:     client,
+		restMapper: generateTestRESTMapper(),
+	}
+	provider.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, true)
+
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), ctxKey{}, "request-apply"))
+	reqCtx := WithRequestContext(ctx, provider)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "existing-cm",
+			"namespace": "tenant-ns",
+		},
+		"data": map[string]any{"key": "new-val"},
+	}
+
+	err := reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.NotNil(t, client.getCtx)
+	require.NotNil(t, client.applyCtx)
+	assert.Equal(t, "request-apply", client.getCtx.Value(ctxKey{}))
+	assert.Equal(t, "request-apply", client.applyCtx.Value(ctxKey{}))
 
 	cancel()
 	err = reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
