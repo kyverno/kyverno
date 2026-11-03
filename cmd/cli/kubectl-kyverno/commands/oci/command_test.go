@@ -62,6 +62,24 @@ func TestCommandRegistersValidateSubcommand(t *testing.T) {
 	assert.Equal(t, "validate", sub.Name())
 }
 
+// TestCommandRegistersInspectSubcommand pins that `kyverno oci inspect` is wired in, not just
+// importable from its own package.
+func TestCommandRegistersInspectSubcommand(t *testing.T) {
+	cmd := Command()
+	sub, _, err := cmd.Find([]string{"inspect"})
+	require.NoError(t, err)
+	assert.Equal(t, "inspect", sub.Name())
+}
+
+// TestCommandRegistersResolveSubcommand pins that `kyverno oci resolve` is wired in, not just
+// importable from its own package.
+func TestCommandRegistersResolveSubcommand(t *testing.T) {
+	cmd := Command()
+	sub, _, err := cmd.Find([]string{"resolve"})
+	require.NoError(t, err)
+	assert.Equal(t, "resolve", sub.Name())
+}
+
 func TestCommandHelp(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
