@@ -134,7 +134,7 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 		} else if !matches {
 			// explain the same constraints matchPolicy checked (operations widened to all), and drop
 			// the placeholder CREATE operation attr carries: a deletion scan has no operation
-			reason := matching.Explain(deletionConstraints(spec.MatchConstraints), attr, ns, false)
+			reason := matching.ExplainWithMatcher(e.matcher, deletionConstraints(spec.MatchConstraints), attr, ns, false)
 			reason = strings.Replace(reason, ", operation "+string(admission.Create), "", 1)
 			scope = trace.ScopeTrace{Reason: reason}
 			return withTrace(EngineResponse{Match: false, PolicyMatched: false}, &trace.Decision{

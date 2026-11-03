@@ -152,7 +152,7 @@ func (e *engineImpl) generate(
 	if e.matcher != nil {
 		matches, err := e.matchPolicy(spec.MatchConstraints, attr, namespace)
 		if tracing {
-			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(spec.MatchConstraints, attr, namespace, matches)}
+			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.ExplainWithMatcher(e.matcher, spec.MatchConstraints, attr, namespace, matches)}
 		}
 		if err != nil {
 			response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "failed to execute matching", err, nil)

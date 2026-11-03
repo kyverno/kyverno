@@ -291,7 +291,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		}
 		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
 		if tracing {
-			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(&constraints, attr, namespace, matches)}
+			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.ExplainWithMatcher(e.matcher, &constraints, attr, namespace, matches)}
 		}
 		if err != nil {
 			ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))

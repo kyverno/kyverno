@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -26,11 +27,59 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 	yaml "sigs.k8s.io/yaml"
 )
+
+func TestNewResourceMatcher(t *testing.T) {
+	t.Parallel()
+	equivalent, exact := admissionregistrationv1.Equivalent, admissionregistrationv1.Exact
+	for _, cluster := range []bool{false, true} {
+		for _, policy := range []*admissionregistrationv1.MatchPolicyType{nil, &equivalent, &exact} {
+			for _, version := range []string{"v1", "v99"} {
+				for _, exclude := range []bool{false, true} {
+					rule := admissionregistrationv1.NamedRuleWithOperations{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{version},
+								Resources:   []string{"deployments"},
+							},
+						},
+					}
+					constraints := &admissionregistrationv1.MatchResources{MatchPolicy: policy}
+					want := version == "v1" || (!cluster && policy != &exact)
+					if exclude {
+						constraints.ExcludeResourceRules = []admissionregistrationv1.NamedRuleWithOperations{rule}
+						want = !want
+					} else {
+						constraints.ResourceRules = []admissionregistrationv1.NamedRuleWithOperations{rule}
+					}
+					obj := &unstructured.Unstructured{Object: map[string]interface{}{
+						"apiVersion": "apps/v1", "kind": "Deployment",
+					}}
+					attr := admission.NewAttributesRecord(obj, nil,
+						schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+						"default", "deployment",
+						schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+						"", admission.Create, nil, false, nil)
+					matched, err := NewResourceMatcher(cluster).Match(&matching.MatchCriteria{Constraints: constraints}, attr, nil)
+					if !cluster && version != "v1" && policy != &exact && !exclude {
+						assert.ErrorContains(t, err, "API-version conversion is unavailable")
+						assert.Equal(t, matched, false)
+						continue
+					}
+					assert.NilError(t, err)
+					assert.Equal(t, matched, want, "cluster=%v policy=%v version=%s exclude=%v", cluster, policy, version, exclude)
+				}
+			}
+		}
+	}
+}
 
 // loadVpol decodes one ValidatingPolicy document (YAML or JSON) for the tests in this file.
 func loadVpol(t *testing.T, raw []byte) policiesv1beta1.ValidatingPolicy {

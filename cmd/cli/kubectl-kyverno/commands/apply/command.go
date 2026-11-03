@@ -40,7 +40,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
@@ -840,7 +839,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
-		matching.NewMatcher(),
+		processor.NewResourceMatcher(c.Cluster),
 		lister,
 		imageverifycache.DisabledImageVerifyCache(),
 		config.NewDefaultConfiguration(false),
@@ -1005,7 +1004,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 		return nil, err
 	}
 
-	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewMatcher())
+	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, processor.NewResourceMatcher(c.Cluster))
 
 	policies, err := provider.Fetch(context.Background())
 	if err != nil {

@@ -541,7 +541,7 @@ func (e *engineImpl) filterPolicies(
 		traced := tracing(pol)
 		var scope trace.ScopeTrace
 		if traced {
-			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(pol.Policy.GetSpec().MatchConstraints, attr, namespace, matches)}
+			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.ExplainWithMatcher(e.matcher, pol.Policy.GetSpec().MatchConstraints, attr, namespace, matches)}
 		}
 		key := policyKey(pol.Policy)
 		if err != nil {

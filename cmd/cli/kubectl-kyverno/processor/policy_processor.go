@@ -121,6 +121,15 @@ type PolicyProcessor struct {
 	Explain bool
 }
 
+// NewResourceMatcher keeps cluster-backed evaluation strict. Approximate
+// equivalence is only enabled when evaluating resources without a cluster.
+func NewResourceMatcher(cluster bool) matching.Matcher {
+	if cluster {
+		return matching.NewMatcher()
+	}
+	return matching.NewOfflineMatcher()
+}
+
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
 	resource := p.Resource
 	if !p.CrdPreloaded && len(p.CrdPaths) > 0 {
@@ -276,7 +285,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if resource.Object != nil {
 			tcm := mpolcompiler.NewStaticTypeConverterManager(p.openAPI())
 			nsResolver := p.getNamespaceResolver()
-			eng := mpolengine.NewEngine(provider, nsResolver, matching.NewMatcher(), tcm, contextProvider)
+			eng := mpolengine.NewEngine(provider, nsResolver, NewResourceMatcher(p.Cluster), tcm, contextProvider)
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
 				if !p.Cluster {
@@ -361,7 +370,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
 				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers
 				mutExistEng := mpolengine.NewEngine(provider, nsResolver, nil, tcm, contextProvider)
-				targetMatcher := matching.NewMatcher()
+				targetMatcher := NewResourceMatcher(p.Cluster)
 				// Register target resources with FakeContextProvider so CEL resource.List()/resource.Get() can find them
 				if fakeCtx, ok := contextProvider.(*libs.FakeContextProvider); ok {
 					for _, target := range p.TargetResources {
@@ -520,7 +529,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						return nil, err
 					}
 				}
-				eng := vpolengine.NewEngine(provider, p.getNamespaceResolver(), matching.NewMatcher())
+				eng := vpolengine.NewEngine(provider, p.getNamespaceResolver(), NewResourceMatcher(p.Cluster))
 				// map gvk to gvr
 				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 				if err != nil {
@@ -693,7 +702,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			})
 		}
 		if resource.Object != nil {
-			engine := gpolengine.NewEngine(p.getNamespaceResolver(), matching.NewMatcher())
+			engine := gpolengine.NewEngine(p.getNamespaceResolver(), NewResourceMatcher(p.Cluster))
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {

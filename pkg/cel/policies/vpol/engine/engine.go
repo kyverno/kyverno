@@ -167,7 +167,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		constraints := policy.CompiledPolicy.MatchConstraints()
 		matches, err := e.matchPolicy(constraints, attr, namespace)
 		if tracing {
-			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(constraints, attr, namespace, matches)}
+			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.ExplainWithMatcher(e.matcher, constraints, attr, namespace, matches)}
 		}
 		if err != nil {
 			response.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))

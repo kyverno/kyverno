@@ -18,6 +18,23 @@ import (
 // the first one that rejected the request. If none of them does (which would mean the two have
 // drifted apart) it says so generically rather than guess.
 func Explain(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, ns runtime.Object, matched bool) string {
+	return ExplainWithEquivalentResourceMapper(constraints, attr, ns, matched, nil)
+}
+
+// ExplainWithMatcher uses the same equivalence configuration as the matcher
+// which decided the outcome, including the CLI's explicit offline mode.
+func ExplainWithMatcher(source Matcher, constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, ns runtime.Object, matched bool) string {
+	var mapper runtime.EquivalentResourceMapper
+	if m, ok := source.(*matcher); ok && constraints != nil {
+		mapper = m.resourceMapper(attr, *constraints)
+	}
+	return ExplainWithEquivalentResourceMapper(constraints, attr, ns, matched, mapper)
+}
+
+// ExplainWithEquivalentResourceMapper explains matching using the same mapper
+// supplied to NewMatcherWithEquivalentResourceMapper. A nil mapper does not
+// perform equivalent matching.
+func ExplainWithEquivalentResourceMapper(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, ns runtime.Object, matched bool, mapper runtime.EquivalentResourceMapper) string {
 	if constraints == nil {
 		return "the policy has no matchConstraints, so it applies to nothing"
 	}
@@ -33,11 +50,11 @@ func Explain(constraints *admissionregistrationv1.MatchResources, attr admission
 	if ok, err := (&object.Matcher{}).MatchObjectSelector(criteria, attr); err == nil && !ok {
 		return "the object's labels do not satisfy the policy's objectSelector"
 	}
-	if excluded, err := matchesResourceRules(constraints.ExcludeResourceRules, attr); err == nil && excluded {
+	if excluded, err := matchesResourceRules(constraints.ExcludeResourceRules, attr, constraints.MatchPolicy, mapper, false); err == nil && excluded {
 		return fmt.Sprintf("%s is excluded by the policy's excludeResourceRules", describeRequest(attr))
 	}
 	if len(constraints.ResourceRules) > 0 {
-		if ok, err := matchesResourceRules(constraints.ResourceRules, attr); err == nil && !ok {
+		if ok, err := matchesResourceRules(constraints.ResourceRules, attr, constraints.MatchPolicy, mapper, false); err == nil && !ok {
 			return fmt.Sprintf("%s is not covered by the policy's resourceRules (%s)", describeRequest(attr), describeRules(constraints.ResourceRules))
 		}
 	}

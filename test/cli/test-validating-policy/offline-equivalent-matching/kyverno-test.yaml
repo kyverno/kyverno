@@ -1,0 +1,22 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: offline-equivalent-matching
+policies:
+- policies.yaml
+resources:
+- deployment.yaml
+results:
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: offline-equivalent
+  rule: match
+  resources:
+  - deployment
+  result: error
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: offline-equivalent-exclusion
+  resources:
+  - deployment
+  result: skip

@@ -910,7 +910,7 @@ func applyImageValidatingPolicies(
 	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
-		matching.NewMatcher(),
+		matching.NewOfflineMatcher(),
 		lister,
 		imageverifycache.DisabledImageVerifyCache(),
 		config.NewDefaultConfiguration(false),
@@ -1050,7 +1050,7 @@ func applyDeletingPolicies(
 		return nil, err
 	}
 
-	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewMatcher())
+	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewOfflineMatcher())
 
 	policies, err := provider.Fetch(context.Background())
 	if err != nil {
