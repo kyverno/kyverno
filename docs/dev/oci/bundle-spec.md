@@ -40,12 +40,12 @@ shape**:
   1.0, because a conformant `Read` still produces a local tree that `policy.Load` can walk, which is the same
   contract `ToTempDir` already relies on.
 
-**Open item: this status note is provisional.** Replacing a 2022 byte format is the right technical call — see the
-design record for #17660 for the full argument — but **the epic owner has not yet confirmed that #17660 may
-change a format that shipped in released CLIs**. Until that confirmation lands, treat this specification as the
-intended target, not yet a settled fact about what 1.20 ships. If the epic owner declines, the Flux-consumability
-and file-layout-preservation acceptance criteria for epic #17645 become unsatisfiable and must be dropped from the
-epic instead.
+**The format is committed as of 1.20.** `kyverno oci` ships ungated, without requiring `KYVERNO_EXPERIMENTAL`, as
+of 1.20, which settles the question of whether #17660 may change a format that shipped in released CLIs — it
+does, and this specification is the format 1.20 ships. The pre-1.20 bare-YAML-per-layer artifacts, under media
+types `application/vnd.cncf.kyverno.config.v1+json` and `application/vnd.cncf.kyverno.policy.layer.v1+yaml`, are
+superseded and rejected with an actionable "legacy image format" error; see
+[8. Format versioning and compatibility](#8-format-versioning-and-compatibility).
 
 **This specification also supersedes a 2022 design proposal.**
 `kyverno/KDP:proposals/store_kyverno_policies_in_oci_registries.md` (May 2022, tracking kyverno/kyverno#3154) is
@@ -802,7 +802,7 @@ version outright.
 
 | Kyverno CLI release | Supported major format version |
 |---|---|
-| 1.20 | 1 (`1.0.0` is the only version this document defines; see [1. Status and scope](#1-status-and-scope) for its provisional status) |
+| 1.20 | 1 (`1.0.0` is the only version this document defines; see [1. Status and scope](#1-status-and-scope)) |
 
 ### Legacy-image detection
 
@@ -1103,3 +1103,6 @@ The descriptor, `kyverno-bundle.yaml`, isn't in that listing: it's an input, not
   - Accepted-version table widened to `v1`, `kyvernoVersion` constraint semantics, and the writer-policy checks
     specified by #17664. No byte-level effect on any 1.0.0 bundle; no bump because 1.0.0 hasn't shipped in a
     release yet.
+  - `kyverno oci` graduated out of the experimental gate: it no longer requires `KYVERNO_EXPERIMENTAL`, settling
+    [1. Status and scope](#1-status-and-scope)'s open item that this format commits as of 1.20. No byte-level
+    effect on any 1.0.0 bundle; no bump because 1.0.0 hasn't shipped in a release yet.

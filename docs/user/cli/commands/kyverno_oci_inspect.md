@@ -8,8 +8,6 @@ Show a pushed bundle's resolved digest, resource index, sets, source and revisio
   The command reads the manifest and config blob only; it doesn't download or verify the content layer. Use "kyverno oci validate -i" to re-run the full validation over the archive.
   --output json or yaml prints the same information in a stable, scriptable form; the config section reproduces the config blob's content faithfully, though JSON output re-indents it.
 
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
-
   For more information visit https://kyverno.io/docs/kyverno-cli/#oci
 
 ```

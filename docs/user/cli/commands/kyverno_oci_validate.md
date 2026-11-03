@@ -10,8 +10,6 @@ Validate a bundle directory or file, or a pushed OCI image, without pushing anyt
   --kyverno-version compares the bundle's kyvernoVersion constraint against the given version and fails on a mismatch; a plain push or validate only warns, since they compare against the running CLI's own version.
   --strict additionally fails on conditions push and plain validate only warn about, such as an expired exception or a compensating control ignored for its policy's kind.
 
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
-
   For more information visit https://kyverno.io/docs/kyverno-cli/#oci
 
 ```
