@@ -19,9 +19,12 @@ what Flux's `OCIRepository` controller requires of an artifact.
         namespace: flux-system
   ```
 
-- Flux 2.6 or later, where `OCIRepository` is `source.toolkit.fluxcd.io/v1` and `Kustomization` is
-  `kustomize.toolkit.fluxcd.io/v1`. Verify these API versions against the Flux release you deploy before applying
-  the manifests below.
+- Flux 2.6 or later. Confirmed on Flux v2.10.0 (source-controller v1.10.1, kustomize-controller v1.10.1):
+  `OCIRepository` is `source.toolkit.fluxcd.io/v1` and `Kustomization` is `kustomize.toolkit.fluxcd.io/v1`, each
+  with no other served version. The 2.6 floor comes from Flux's own release notes and wasn't independently
+  re-verified here; on an older release, check your own cluster first:
+  `kubectl get crd ocirepositories.source.toolkit.fluxcd.io -o jsonpath='{range .spec.versions[*]}{.name}
+  served={.served} storage={.storage}{"\n"}{end}'`.
 
 ## 1. Push the bundle
 
@@ -119,9 +122,11 @@ recursive manifest scan; don't commit one into the bundle.
 
 **Give every namespaced document an explicit `metadata.namespace`.** A `PolicyException` or a `Namespaced*Policy`
 needs its own `metadata.namespace` set in the source YAML. The `Kustomization` above sets no `spec.targetNamespace`
-on purpose: kustomize stamps a namespace onto any object of a kind it doesn't already know is cluster-scoped,
-including the `policies.kyverno.io` CRDs, so setting `targetNamespace` adds a bogus `metadata.namespace` to a
-cluster-scoped `ValidatingPolicy` and silently moves namespaced documents you didn't intend to move.
+on purpose: when set, kustomize overrides `metadata.namespace` on every namespaced object it applies, including a
+`PolicyException` that already carries an explicit namespace in its source YAML — silently moving it to
+`targetNamespace` instead. Cluster-scoped objects such as `ValidatingPolicy` are unaffected once their CRD is
+installed and discoverable, which the `dependsOn` above guarantees — but don't rely on `targetNamespace` for
+anything namespaced in the bundle.
 
 ## Authentication
 
@@ -145,6 +150,12 @@ flux get kustomizations -n flux-system
 
 `kyverno oci inspect` confirms the digest's resource index and compatibility before you roll it out; `flux get`
 confirms Flux fetched and reconciled the same digest.
+
+This example was verified end to end against a real kind cluster and an anonymous public registry: the
+`OCIRepository`/`Kustomization` YAML above reconciled with no field or value changes beyond the digest and
+registry URL. Two things in it weren't exercised in that verification and remain as documented, not tested:
+`spec.dependsOn` ordering against a real Kyverno-installing `Kustomization`, and `secretRef` against a private
+registry.
 
 ## Update
 
