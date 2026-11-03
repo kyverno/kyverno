@@ -9,12 +9,14 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	apimachineryvalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 )
 
+var hexRe = regexp.MustCompile(`^[0-9a-f]+$`)
 var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // The Event API validates metadata.name as a DNS subdomain (max 253 chars).
@@ -36,11 +38,15 @@ func TestEventNameFitsAPIServerLimit(t *testing.T) {
 			client := fake.NewSimpleClientset()
 
 			var createdNames, invalidNames []string
+			var createdEvents []*eventsv1.Event
 
 			// Mimic the API server: reject Events whose name is not a valid DNS subdomain.
 			client.PrependReactor("create", "events", func(action k8stesting.Action) (bool, runtime.Object, error) {
 				obj := action.(k8stesting.CreateAction).GetObject()
 				name := obj.(interface{ GetName() string }).GetName()
+				if ev, ok := obj.(*eventsv1.Event); ok {
+					createdEvents = append(createdEvents, ev)
+				}
 				if errs := apimachineryvalidation.NameIsDNSSubdomain(name, false); len(errs) > 0 {
 					invalidNames = append(invalidNames, name)
 				} else {
@@ -53,12 +59,13 @@ func TestEventNameFitsAPIServerLimit(t *testing.T) {
 			defer gen.queue.ShutDown()
 
 			resourceName := strings.Repeat("a", tc.nameLen)
+			const testUID = "1234"
 			gen.Add(Info{
 				Regarding: corev1.ObjectReference{
 					Kind:       "ConfigMap",
 					Name:       resourceName,
 					Namespace:  "default",
-					UID:        "1234",
+					UID:        testUID,
 					APIVersion: "v1",
 				},
 				Reason:  PolicyViolation,
@@ -82,13 +89,26 @@ func TestEventNameFitsAPIServerLimit(t *testing.T) {
 			if len(createdNames) != 1 {
 				t.Fatalf("expected 1 Event to be created, got %d", len(createdNames))
 			}
+			if len(createdEvents) != 1 {
+				t.Fatalf("expected 1 captured Event, got %d", len(createdEvents))
+			}
+			reg := createdEvents[0].Regarding
+			if reg.Name != resourceName {
+				t.Errorf("Regarding.Name must stay the original resource name, got %q", reg.Name)
+			}
+			if reg.UID != testUID {
+				t.Errorf("Regarding.UID must stay %q, got %q", testUID, reg.UID)
+			}
 			got := createdNames[0]
 			if tc.wantUUID {
 				if !uuidRe.MatchString(got) {
 					t.Errorf("expected a UUID fallback name for an overflowing resource, got %q", got)
 				}
-			} else if !strings.HasPrefix(got, resourceName+".") {
-				t.Errorf("expected the resource name and timestamp suffix to be preserved, got %q", got)
+			} else {
+				suffix, ok := strings.CutPrefix(got, resourceName+".")
+				if !ok || !hexRe.MatchString(suffix) {
+					t.Errorf("expected %q followed by a lowercase hex timestamp, got %q", resourceName+".", got)
+				}
 			}
 		})
 	}
