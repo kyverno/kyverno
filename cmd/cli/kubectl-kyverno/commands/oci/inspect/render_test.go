@@ -191,6 +191,25 @@ func TestWriteTextSanitizesControlCharacters(t *testing.T) {
 	assert.Contains(t, text, `line one\x1bline two`)
 }
 
+// TestWriteTextSanitizesBidiFormatting pins the Trojan Source fix (CVE-2021-42574): U+202E
+// RIGHT-TO-LEFT OVERRIDE is not a C0/C1 control character, but a terminal applying bidi formatting
+// would still reorder displayed text around it, so it must be escaped the same as ESC. Ordinary
+// non-ASCII text (accented Latin, CJK, emoji) must survive untouched.
+func TestWriteTextSanitizesBidiFormatting(t *testing.T) {
+	cfg := sampleConfig()
+	cfg.Name = "baseline‮EDIR‬"
+	cfg.Description = "café 中文 \U0001F600"
+	r := sampleReport(cfg)
+
+	var out bytes.Buffer
+	require.NoError(t, writeText(&out, r, cfg))
+	text := out.String()
+	assert.NotContains(t, text, "‮")
+	assert.NotContains(t, text, "‬")
+	assert.Contains(t, text, "baseline\\u202eEDIR\\u202c")
+	assert.Contains(t, text, "café 中文 \U0001F600")
+}
+
 // TestAnnotationWarningsReportsMismatchOnly pins the exact message and that an absent annotation
 // (as opposed to a disagreeing one) never produces a warning.
 func TestAnnotationWarningsReportsMismatchOnly(t *testing.T) {
