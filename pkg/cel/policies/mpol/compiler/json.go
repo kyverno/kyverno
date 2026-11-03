@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	admission "k8s.io/apiserver/pkg/admission"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	patch "k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/cel/mutation"
@@ -52,15 +53,27 @@ const (
 	maxJSONPatchOperations = 1024
 )
 
+var (
+	defaultObjectInterfaces = admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
+	defaultJSONSerializer   = json.NewSerializerWithOptions(
+		json.DefaultMetaFactory,
+		defaultObjectInterfaces.GetObjectCreater(),
+		defaultObjectInterfaces.GetObjectTyper(),
+		json.SerializerOptions{Pretty: false, Strict: true},
+	)
+)
+
 // NewJSONPatcher creates a patcher that performs a JSON Patch mutation.
 func newJSONPatcher(prog cel.Program) Patcher {
 	return &jsonPatcher{
-		prog: prog,
+		prog:           prog,
+		jsonSerializer: defaultJSONSerializer,
 	}
 }
 
 type jsonPatcher struct {
-	prog cel.Program
+	prog           cel.Program
+	jsonSerializer *json.Serializer
 }
 
 func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, MutationEval, error) {
@@ -69,7 +82,16 @@ func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchR
 		return nil, eval, err
 	}
 	o := patchRequest.ObjectInterfaces
-	jsonSerializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, o.GetObjectCreater(), o.GetObjectTyper(), json.SerializerOptions{Pretty: false, Strict: true})
+	if o == nil {
+		o = defaultObjectInterfaces
+	}
+	jsonSerializer := e.jsonSerializer
+	if jsonSerializer == nil {
+		jsonSerializer = defaultJSONSerializer
+	}
+	if patchRequest.ObjectInterfaces != nil && patchRequest.ObjectInterfaces != defaultObjectInterfaces {
+		jsonSerializer = json.NewSerializerWithOptions(json.DefaultMetaFactory, o.GetObjectCreater(), o.GetObjectTyper(), json.SerializerOptions{Pretty: false, Strict: true})
+	}
 	objJS, err := runtime.Encode(jsonSerializer, patchRequest.VersionedAttributes.VersionedObject.Object())
 	if err != nil {
 		return nil, eval, fmt.Errorf("failed to create JSON patch: %w", err)
