@@ -192,6 +192,10 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
 		for _, polex := range c.exceptions {
+			// Compiled exceptions can expire without a policy or exception update.
+			if polex.IsExpired() {
+				continue
+			}
 			match, err := c.match(ctx, data, polex.MatchConditions, nil)
 			if err != nil {
 				if fullExemptionFound {
@@ -484,6 +488,10 @@ func (c *compiledPolicy) MutateDigest(
 	// exceptions must not skip digest pinning for the whole resource — same rule as
 	// Evaluate, so validating and mutating paths stay aligned.
 	for _, polex := range c.exceptions {
+		// Recheck on every admission: the compiled policy may outlive this exception.
+		if polex.IsExpired() {
+			continue
+		}
 		match, err := c.match(ctx, data, polex.MatchConditions, nil)
 		if err != nil {
 			return nil, err
