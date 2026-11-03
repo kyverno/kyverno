@@ -35,8 +35,9 @@ type PolicyBundleSpec struct {
 	// exactly match the format version this CLI writes, or push fails before writing anything.
 	FormatVersion string `json:"formatVersion,omitempty"`
 
-	// KyvernoVersion is a Kyverno version compatibility string, passed through to the config blob
-	// verbatim; this descriptor does not evaluate it as a constraint.
+	// KyvernoVersion is a semver constraint string (for example ">=1.20") naming the Kyverno
+	// versions this bundle targets. Push rejects a malformed one before writing anything; push and
+	// `kyverno oci validate` warn when the CLI's own version does not satisfy it.
 	KyvernoVersion string `json:"kyvernoVersion,omitempty"`
 
 	// Source records where the bundle's content comes from.

@@ -312,8 +312,9 @@ string
 </em>
 </td>
 <td>
-<p>KyvernoVersion is a Kyverno version compatibility string, passed through to the config blob
-verbatim; this descriptor does not evaluate it as a constraint.</p>
+<p>KyvernoVersion is a semver constraint string (for example &ldquo;&gt;=1.20&rdquo;) naming the Kyverno
+versions this bundle targets. Push rejects a malformed one before writing anything; push and
+<code>kyverno oci validate</code> warn when the CLI&rsquo;s own version does not satisfy it.</p>
 </td>
 </tr>
 <tr>
@@ -1614,8 +1615,9 @@ string
 </em>
 </td>
 <td>
-<p>KyvernoVersion is a Kyverno version compatibility string, passed through to the config blob
-verbatim; this descriptor does not evaluate it as a constraint.</p>
+<p>KyvernoVersion is a semver constraint string (for example &ldquo;&gt;=1.20&rdquo;) naming the Kyverno
+versions this bundle targets. Push rejects a malformed one before writing anything; push and
+<code>kyverno oci validate</code> warn when the CLI&rsquo;s own version does not satisfy it.</p>
 </td>
 </tr>
 <tr>
