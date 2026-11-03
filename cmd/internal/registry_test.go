@@ -5,8 +5,11 @@ import (
 	"flag"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/utils/egress"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -88,6 +91,23 @@ func TestRegistrySecretListerKeepsCacheOnlyDefault(t *testing.T) {
 		require.True(t, apierrors.IsNotFound(err), "an empty namespace must not enable live reads, got %v", err)
 		assert.Empty(t, client.Actions())
 	})
+}
+
+// registryEgressOptions is the only thing wiring the guard into the process-wide registry
+// client, and every image fetch in the controllers inherits it from there. Exercising the
+// options beats counting them: a non-empty slice says nothing about whether the guard reached
+// them. A literal metadata address needs no DNS and no network, so the transport rejects it
+// before the first byte is written.
+func TestRegistryEgressOptionsCarryTheGuard(t *testing.T) {
+	previous := egress.Global()
+	t.Cleanup(func() { egress.RestoreGlobal(previous) })
+	require.NoError(t, egress.SetGlobal(egress.Config{Mode: egress.ModeEnforce}))
+
+	blocked, err := name.ParseReference("169.254.169.254/app:v1")
+	require.NoError(t, err)
+	opts, _ := registryclient.NewRemoteOptions(registryEgressOptions()...)
+	_, err = gcrremote.Get(blocked, opts...)
+	require.ErrorIs(t, err, egress.ErrAddressBlocked, "the registry client options did not carry the guard")
 }
 
 func TestEgressConfigValidation(t *testing.T) {

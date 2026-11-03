@@ -25,13 +25,10 @@ func egressConfig() egress.Config {
 }
 
 // registryEgressOptions guards every request the registry client makes: the transport
-// validates each destination, including token challenges and redirects, and the keychain
-// wrapper validates before credentials are resolved for a registry.
+// validates each destination, including token challenges and redirects.
 func registryEgressOptions() []registryclient.Option {
-	guard := egress.Global()
 	return []registryclient.Option{
-		registryclient.WithTransport(guard.Transport()),
-		registryclient.WithKeychainWrapper(guard.GuardKeychain),
+		registryclient.WithTransport(egress.Global().Transport()),
 	}
 }
 

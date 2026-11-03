@@ -15,8 +15,12 @@
   `regcreds`.
 - Sigstore infrastructure (Rekor, Fulcio, TSA, TUF), KMS, and the CEL HTTP library do not use
   the registry client and are therefore untouched here.
-- Credential composition belongs to the SDK. `GuardKeychain` only validates the destination
-  before credentials are resolved; it does not compose or replace them. Provider-internal
+- Credential composition belongs to the SDK and is deliberately unguarded. The transport is the
+  only chokepoint: every request a resolved credential could ride on passes through it, so a
+  keychain check would only decide whether credentials are *selected* for a host they can never
+  be *sent* to. Do not reintroduce one — the earlier `GuardKeychain` forced the proxy-deferral
+  carve-out to be implemented identically in two places, and changing one side alone either made
+  a proxy-only-resolvable registry unusable or made the carve-out dead code. Provider-internal
   exchanges such as the Flux Azure ACR exchanger build their own `http.Client` and cannot be
   reached from here — see `docs/dev/registry-client.md`.
 
@@ -27,10 +31,11 @@
   `resolveAndValidate` only ever receives a hostname, so a port could not be enforced and a
   stripped one would silently exempt every port on that host.
 - `pkg/image/verification/credentials.RemoteOptions` is the only other place the guard is
-  wired. Its explicit-Secrets branch replaces the SDK-composed keychain rather than layering
-  on it, so that branch carries its own `GuardKeychain` wrap — `WithKeychainWrapper` cannot
-  reach a keychain appended after the SDK has composed its own. A nil lister with declared
-  Secrets still fails loudly there, via that package's context-aware `NewSecretsKeychain`.
+  wired, because `regcreds.RemoteOptsFromIvpolCredentials` pins its own transport. Its
+  explicit-Secrets branch replaces the SDK-composed keychain rather than layering on it; that
+  swap does not affect the guard, which rides on the transport those options already carry. A
+  nil lister with declared Secrets still fails loudly there, via that package's context-aware
+  `NewSecretsKeychain`.
 - Audit permits ordinary private destinations with logging; enforce requires exemptions.
   Metadata, loopback, link-local, unspecified, multicast, and broadcast remain blocked.
 - Private-class covers much more than Go's `IsPrivate()`, which only knows RFC 1918 and
@@ -59,14 +64,10 @@
   the deferral, not an oversight: validating it would require resolving a name the controller
   cannot resolve. Do not restore a guarantee here that the guard cannot keep — if the deferral
   ever needs tightening, narrow when it applies rather than claiming the destination is checked.
-- The keychain is resolved before the transport dials, so `Transport.RoundTrip`'s proxy carve-out
-  is only reachable if `guardedKeychain.ResolveContext` makes the same allowance; change one side
-  and the other must change with it, or the deferral becomes dead code and the destination
-  unusable after all. Where both sides defer, nothing stops the resolved credentials from
-  reaching whatever the proxy connects to; the transport is a backstop only for destinations it
-  can resolve. `guardedKeychain.proxied` tries both `https` and `http` because a keychain is
-  given a host and no scheme; erring towards true only defers a check the transport still makes
-  when no proxy is actually configured for the request.
+- Credentials resolved for a deferred target travel with that request, since nothing validated
+  where the proxy sends it. That follows from the deferral, not from where the guard sits: the
+  transport is a backstop only for destinations it can resolve. Tighten it by narrowing when the
+  deferral applies, not by adding a second check elsewhere.
 - DNS and connection attempts share `DialTimeout` or the shorter caller deadline.
   Preserve the original request context for response bodies; close rejected request bodies.
 - Keep resolved IPs/DNS server details out of returned `hostError` messages while retaining

@@ -4,15 +4,21 @@ The Kyverno SDK (`github.com/kyverno/sdk/extensions/registryclient`) owns the re
 reference parsing, credential composition, Secret refresh, remote option construction, pullers and
 pushers, and descriptor fetching. Kyverno does not wrap or reimplement it.
 
-Kyverno contributes two things to that client, both from `pkg/utils/egress`:
+Kyverno contributes one thing to that client, from `pkg/utils/egress`:
 
 - `registryclient.WithTransport(guard.Transport())` — a transport that validates and pins the
   destination of every request, including token challenges, redirects, and requests that reuse a
   pooled connection.
-- `registryclient.WithKeychainWrapper(guard.GuardKeychain)` — validates the registry before the
-  underlying keychain resolves credentials for it, so a blocked destination never receives them.
 
-`cmd/internal/registry.go` installs both on the process-wide client in
+That is the only guard. Credential resolution is deliberately unguarded: every request a resolved
+credential could ride on goes through this transport, which refuses a blocked destination before
+the first byte leaves, so a keychain-level check would only decide whether credentials are
+*selected* for a host they can never be *sent* to. Keeping one chokepoint also removes an
+invariant that had to be mirrored by hand — the keychain and the transport each implemented the
+proxy-deferral carve-out, and changing either alone made a proxy-only-resolvable registry unusable
+or the carve-out dead code.
+
+`cmd/internal/registry.go` installs it on the process-wide client in
 `registryclient.SetupGlobalRegistryClient`. There is one registry client per process.
 `setupRegistryEgress` configures that same global for controllers that read image metadata but
 carry no registry credentials — it passes a nil Secret lister and no credential helpers, so those
@@ -29,15 +35,14 @@ its own `spec.credentials` would therefore fetch through an unguarded transport 
 policy went through the global client. Both call sites —
 `pkg/image/verification/evaluator/compiler.go` and `pkg/cel/libs/imageverify/impl.go` — reach
 those credentials through `pkg/image/verification/credentials.RemoteOptions`, which is where the
-guard is applied. It builds the same credential chain through `registryclient.NewRemoteOptions`
-and adds the two guard options. If a third site ever needs policy-declared credentials, it must
-go through that function rather than `regcreds`.
+guarded transport is applied. It builds the same credential chain through
+`registryclient.NewRemoteOptions` and adds `WithTransport`. If a third site ever needs
+policy-declared credentials, it must go through that function rather than `regcreds`.
 
-One subtlety inside it: when the policy declares explicit Secrets, `RemoteOptions` appends a
-context-aware keychain with `remote.WithAuthFromKeychain`, which *replaces* the chain the SDK
-composed rather than layering on it. `registryclient.WithKeychainWrapper` only ever wrapped the
-SDK's own chain, so that branch applies `GuardKeychain` itself. Dropping that wrap would let a
-policy with explicit Secrets resolve credentials for a destination the guard would refuse.
+When the policy declares explicit Secrets, `RemoteOptions` appends a context-aware keychain with
+`remote.WithAuthFromKeychain`, which *replaces* the chain the SDK composed rather than layering on
+it. That swap does not affect the guard, which lives on the transport the same options already
+carry.
 
 Swapping in `registryclient.NewRemoteOptions` also changes one behavior. It only builds the Secret
 keychain when a lister is present:
@@ -52,8 +57,8 @@ configured`. Without that, a policy declaring Secrets with no lister would fall 
 preserves the loud failure, because its `NewSecretsKeychain` returns that same error for a nil
 lister. This is reachable from the CLI, which has no cluster client to build a lister from.
 
-With no guard installed (CLI, unit tests) `egress.Global()` returns nil and both guard options are
-no-ops, leaving the SDK's native behavior.
+With no guard installed (CLI, unit tests) `egress.Global()` returns nil, `Transport()` returns nil,
+and `registryclient.WithTransport(nil)` leaves the SDK's native behavior.
 
 ## Scope boundaries
 
@@ -62,10 +67,10 @@ use the registry client and are untouched. This is a registry-client boundary, n
 network policy.
 
 Provider-internal credential exchanges are a known gap: the Flux Azure ACR exchanger reached
-through the SDK constructs its own `http.Client{}` and exposes no transport or context injection,
-so neither the transport nor the keychain wrapper reaches inside it. The registry the credentials
-are being fetched for is validated before the exchanger is invoked. Closing this requires
-transport and context injection in the provider, then a dependency bump here — not a
+through the SDK constructs its own `http.Client{}` and exposes no transport injection, so the
+guarded transport does not reach inside it. It is not reachable from an attacker-chosen reference
+either — the SDK's Azure keychain only engages for `.azurecr.io`-family registry suffixes. Closing
+it properly requires transport injection in the provider, then a dependency bump here — not a
 consumer-local Azure wrapper.
 
 Connection pools are keyed by the validated destination address set, so clients sharing operator

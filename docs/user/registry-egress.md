@@ -24,12 +24,11 @@ Everything that fetches through Kyverno's registry client:
 
 For each request the guard resolves the destination, rejects it or pins the connection to the
 addresses it just validated, and re-checks on every redirect and reused connection. Credentials
-the registry client's keychain resolves are resolved only after the destination passes, so a
-blocked host normally causes no credential lookup. `source.signaturePullSecrets` is read earlier,
-before the destination is checked, but the transport refuses a blocked destination it can
-resolve, so those secrets are not sent to it. One exception runs through both paths: a proxied
-name the local resolver cannot find is not checked at all, so credentials are resolved and sent
-for a destination only the proxy decides. See Rollout.
+are selected before that check runs, so a blocked host can cause a credential lookup — but they
+are never sent to it, because the transport refuses the request before the first byte is written.
+The same holds for `source.signaturePullSecrets`. One exception: a proxied name the local resolver
+cannot find is not checked at all, so credentials are resolved and sent for a destination only the
+proxy decides. See Rollout.
 
 ## What is not covered
 
@@ -39,9 +38,9 @@ are unaffected. These are operator- or policy-author-configured endpoints rather
 from an admitted resource.
 
 Cloud provider credential exchanges are a known gap. The Azure ACR exchanger reached through the
-SDK builds its own HTTP client and accepts neither Kyverno's transport nor its request context, so
-the destination check does not extend inside that exchange. The registry the credentials are
-being fetched *for* is still validated first.
+SDK builds its own HTTP client and does not accept Kyverno's transport, so the destination check
+does not extend inside that exchange. It is not reachable from an image reference in an admitted resource:
+that exchanger only engages for `.azurecr.io`-family registries.
 
 ## Rollout
 
@@ -100,9 +99,7 @@ to downstream — that remains the proxy's responsibility.
 
 A registry that resolves only from the proxy's network is still reachable. When a proxy is
 configured and the controller's own resolver reports the name as not found, the destination is
-left to the proxy and the request proceeds; the skip is logged at verbosity 2. The same allowance
-is made during credential resolution, which happens first — otherwise the request would fail
-looking up credentials before the transport ever got to defer to the proxy.
+left to the proxy and the request proceeds; the skip is logged at verbosity 2.
 
 Deferring means Kyverno never learns an address for that name, so it validates nothing about the
 final destination: neither the allowlist nor the hard-block list is applied to it. The connection

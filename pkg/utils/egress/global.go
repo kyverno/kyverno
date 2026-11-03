@@ -1,22 +1,12 @@
 package egress
 
 import (
-	"context"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync/atomic"
-	"time"
 
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/sdk/extensions/regcreds"
 )
-
-// credentialValidationTimeout bounds the destination check made before credentials are
-// resolved. Credential resolution is not part of the registry request, so it carries no
-// deadline of its own on every code path.
-const credentialValidationTimeout = 5 * time.Second
 
 // Guard is the process-wide egress policy and the transport built from it. One Guard serves
 // every registry client in the process, so clients configured by the operator share
@@ -80,71 +70,17 @@ func (g *Guard) Transport() http.RoundTripper {
 }
 
 // Policy returns the destination policy, or nil when no Guard is installed.
+//
+// Note that credential resolution is deliberately not guarded. Every request a resolved
+// credential could ride on goes through Transport, which validates the destination before the
+// first byte leaves, so a second check at the keychain would only decide whether credentials are
+// selected for a host they can never be sent to. Keeping the check in one place also removes an
+// invariant that had to be mirrored by hand: the keychain and the transport each implemented the
+// proxy-deferral carve-out, and a change to either one alone made a proxy-only-resolvable
+// registry unusable or the carve-out dead code.
 func (g *Guard) Policy() *Policy {
 	if g == nil {
 		return nil
 	}
 	return g.policy
-}
-
-// GuardKeychain validates a registry destination before inner resolves credentials for it,
-// so a blocked host never receives them. Pass it to registryclient.WithKeychainWrapper.
-func (g *Guard) GuardKeychain(inner authn.Keychain) authn.Keychain {
-	if g == nil || g.policy == nil {
-		return inner
-	}
-	return &guardedKeychain{inner: inner, policy: g.policy, transport: g.transport}
-}
-
-type guardedKeychain struct {
-	inner     authn.Keychain
-	policy    *Policy
-	transport *Transport
-}
-
-var _ authn.ContextKeychain = (*guardedKeychain)(nil)
-
-func (g *guardedKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
-	return g.ResolveContext(context.Background(), resource)
-}
-
-func (g *guardedKeychain) ResolveContext(ctx context.Context, resource authn.Resource) (authn.Authenticator, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	validationCtx, cancel := context.WithTimeout(ctx, credentialValidationTimeout)
-	_, err := g.policy.ResolveAndValidate(validationCtx, resource.RegistryStr())
-	cancel()
-	if err != nil {
-		// The transport leaves a registry only the proxy can resolve to the proxy. A keychain
-		// is resolved before the transport dials, so returning here would make that carve-out
-		// unreachable and the destination unusable after all. This matches what the transport
-		// then does rather than relying on it: for this same name it also skips the target
-		// check and hands the request to the proxy. So nothing about the final destination is
-		// validated on this path, and these credentials travel with that request. The carve-out
-		// is bounded by its precondition -- a proxy is configured and the local resolver cannot
-		// find the name, which is the operator delegating resolution to the proxy.
-		if !dnsNotFound(err) || !g.proxied(resource.RegistryStr()) {
-			return nil, err
-		}
-		logging.WithName("egress").V(2).Info("resolving credentials for a destination left to the proxy's resolver", "registry", resource.RegistryStr())
-	}
-	return authn.Resolve(ctx, g.inner, resource)
-}
-
-// proxied reports whether a proxy is configured for this registry. A keychain is told only a
-// host, so both schemes are tried: go-containerregistry picks http for an insecure registry and
-// https otherwise, and either match is enough to know the transport will not dial it directly.
-// Erring towards true only defers a check the transport still makes.
-func (g *guardedKeychain) proxied(registry string) bool {
-	if g.transport == nil || g.transport.proxy == nil {
-		return false
-	}
-	for _, scheme := range []string{"https", "http"} {
-		proxy, err := g.transport.proxy(&http.Request{URL: &url.URL{Scheme: scheme, Host: registry}})
-		if err == nil && proxy != nil {
-			return true
-		}
-	}
-	return false
 }

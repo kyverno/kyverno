@@ -1,6 +1,7 @@
 package credentials
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -9,6 +10,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils/egress"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // RemoteOptions is the only path a policy with its own spec.credentials takes, so it is the
@@ -20,15 +23,23 @@ func TestRemoteOptionsCarryTheEgressGuard(t *testing.T) {
 	// the first byte is written. Exercising the options beats counting them: a non-empty
 	// slice says nothing about whether the guard reached them.
 	//
-	// This pins that the options carry a guard, not which one: the transport and the keychain
-	// wrapper both reject a literal address, so removing either alone still fails this fetch.
-	// They are pinned individually in pkg/utils/egress -- TestGuardKeychainValidatesBeforeResolving
-	// for the keychain, and transport_test.go for the transport, including the redirect and
-	// token-challenge paths that run after credentials have resolved and only it can catch.
-	// What is pinned only here is the explicit-Secrets branch below, which replaces the
-	// SDK-composed keychain and so needs its own wrap.
+	// Both cases below go through the same transport, which is the whole point: credential
+	// composition differs between them, but the destination check does not depend on which
+	// keychain won. transport_test.go pins the transport's own behavior, including the redirect
+	// and token-challenge paths that run after credentials have resolved.
 	blocked, err := name.ParseReference("169.254.169.254/app:v1")
 	require.NoError(t, err)
+
+	// Credentials resolve before the transport dials, so the lister has to be present and
+	// working: a nil one fails the declared-Secrets cases with "secret lister is not configured"
+	// and the request never reaches the transport, which would pass this test for the wrong
+	// reason. A NotFound is tolerated by secretsKeychain, so an empty lister resolves to
+	// anonymous and the fetch proceeds to the destination check.
+	lister := contextualSecretLister{namespace: &contextualSecretNamespaceLister{
+		get: func(context.Context, string) (*corev1.Secret, error) {
+			return nil, apierrors.NewNotFound(corev1.Resource("secrets"), "regcred")
+		},
+	}}
 
 	for _, test := range []struct {
 		name  string
@@ -38,8 +49,8 @@ func TestRemoteOptionsCarryTheEgressGuard(t *testing.T) {
 		// transport.
 		{name: "no secrets"},
 		// Declared Secrets take the branch that replaces that keychain outright with a
-		// context-aware chain. That replacement is applied after the SDK has wrapped its own
-		// chain, so it has to be guarded separately or this branch would fetch unguarded.
+		// context-aware chain. The transport is unchanged by that swap, so this fetch must
+		// still be refused.
 		{name: "explicit secrets", creds: policiesv1beta1.Credentials{Secrets: []string{"regcred"}}},
 		{name: "secrets and providers", creds: policiesv1beta1.Credentials{
 			Secrets:   []string{"regcred"},
@@ -50,7 +61,7 @@ func TestRemoteOptionsCarryTheEgressGuard(t *testing.T) {
 			resetGuard(t)
 			require.NoError(t, egress.SetGlobal(egress.Config{Mode: egress.ModeEnforce}))
 
-			opts, _ := RemoteOptions(nil, test.creds, "kyverno", logging.GlobalLogger())
+			opts, _ := RemoteOptions(lister, test.creds, "kyverno", logging.GlobalLogger())
 			require.NotEmpty(t, opts)
 			_, err := gcrremote.Get(blocked, opts...)
 			require.ErrorIs(t, err, egress.ErrAddressBlocked, "the returned options did not carry the guard")
