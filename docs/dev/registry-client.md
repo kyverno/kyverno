@@ -10,8 +10,19 @@ Kyverno contributes one thing to that client, from `pkg/utils/egress`:
   destination of every request, including token challenges, redirects, and requests that reuse a
   pooled connection.
 
+What it validates against is two operator denylists — exact hostnames and CIDRs/IP addresses, read
+from the `kyverno` ConfigMap at startup — plus the `--privateRegistryEgressMode` flag that decides
+whether a match is logged (`audit`) or rejected (`enforce`). There is no allowlist, no built-in
+public/private classification, and no entry that an operator cannot remove; the shipped defaults
+are chart values. Two destinations are outside that check by construction: a proxy endpoint, which
+is operator configuration from the environment rather than something an image reference can
+choose, and a proxied name the local resolver cannot find, which still meets the host denylist but
+is deferred to the proxy for its address because none is ever known here. More generally, for any
+proxied request the proxy does its own resolution, so the address check binds what this process
+resolved, not where the proxy connects. See `docs/user/registry-egress.md`.
+
 That is the only guard. Credential resolution is deliberately unguarded: every request a resolved
-credential could ride on goes through this transport, which refuses a blocked destination before
+credential could ride on goes through this transport, which refuses a denied destination before
 the first byte leaves, so a keychain-level check would only decide whether credentials are
 *selected* for a host they can never be *sent* to. Keeping one chokepoint also removes an
 invariant that had to be mirrored by hand — the keychain and the transport each implemented the
@@ -19,7 +30,14 @@ proxy-deferral carve-out, and changing either alone made a proxy-only-resolvable
 or the carve-out dead code.
 
 `cmd/internal/registry.go` installs it on the process-wide client in
-`registryclient.SetupGlobalRegistryClient`. There is one registry client per process.
+`registryclient.SetupGlobalRegistryClient`. There is one registry client per process. Its
+`egressConfig` pairs the mode flag with `config.Configuration`'s denylists, which
+`startConfigController` has already loaded; they are not re-read afterwards, so a ConfigMap edit
+needs a controller restart until a ConfigMap informer lands. A nil list means the ConfigMap says
+nothing about it and the shipped defaults apply; an empty non-nil list is an operator who cleared
+it. A malformed entry is logged and skipped rather than failing startup — only the mode is
+validated fatally, in `cmd/internal/check.go`.
+
 `setupRegistryEgress` configures that same global for controllers that read image metadata but
 carry no registry credentials — it passes a nil Secret lister and no credential helpers, so those
 controllers need no image-pull Secret informers or the RBAC they require.

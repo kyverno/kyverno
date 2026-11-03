@@ -17,7 +17,9 @@ func check(logger logr.Logger) {
 	checkEnvVar(logger, "INIT_CONFIG")
 	checkEnvVar(logger, "METRICS_CONFIG")
 	checkAutoMemLimitRatio(logger)
-	checkError(logger, egress.ValidateConfig(egressConfig()), "invalid registry egress configuration")
+	// Only the mode. The denylists come from a ConfigMap that is not read until later in
+	// startup, and a bad entry there is logged and skipped rather than taken as fatal.
+	checkError(logger, egress.ValidateMode(privateRegistryEgressMode), "invalid registry egress mode")
 }
 
 func checkAutoMemLimitRatio(logger logr.Logger) {

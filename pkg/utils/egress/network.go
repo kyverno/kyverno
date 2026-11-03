@@ -75,10 +75,8 @@ func dialSeries(ctx context.Context, dial DialContextFunc, network, port string,
 	return nil, lastErr
 }
 
-// partialDialDeadline splits the remaining budget across all pending addresses.
-// A minimum attempt duration would starve later candidates when the caller's
-// budget cannot provide that duration for every address. The final address gets
-// whatever remains of the original deadline.
+// partialDialDeadline splits the remaining budget across pending addresses. No minimum attempt
+// duration, which would starve later candidates; the final address gets whatever remains.
 func partialDialDeadline(now, deadline time.Time, remaining int) (time.Time, error) {
 	if deadline.IsZero() {
 		return deadline, nil
@@ -107,10 +105,9 @@ func dialRace(ctx context.Context, dial DialContextFunc, network, port string, p
 
 	// Buffered, so a loser that finishes after we have returned never blocks on send.
 	outcomes := make(chan dialOutcome, 2)
-	// Closed once the primary family has given up, which releases the fallback ahead of its
-	// timer. net.Dialer behaves the same way, and without it a cluster whose AAAA records are
-	// unroutable pays the full fallbackDelay on every admission-path connection instead of
-	// failing over as soon as the first family is known to be dead.
+	// Closed once the primary family gives up, releasing the fallback ahead of its timer, as
+	// net.Dialer does. Without it a cluster with unroutable AAAA records pays the full
+	// fallbackDelay on every admission-path connection.
 	primaryFailed := make(chan struct{})
 	race := func(ips []net.IP, isPrimary bool, delay time.Duration) {
 		go func() {
@@ -126,10 +123,8 @@ func dialRace(ctx context.Context, dial DialContextFunc, network, port string, p
 				}
 			}
 			conn, err := dialSeries(ctx, dial, network, port, ips)
-			// Signal before publishing the outcome so the fallback is already dialling by the
-			// time the loop below observes the primary's error. Only the single primary
-			// goroutine reaches this close, so it cannot run twice. A primary success needs no
-			// signal: the loop returns and the deferred cancel stops the fallback.
+			// Signal before publishing so the fallback is already dialling when the loop sees
+			// the error. Only the single primary goroutine reaches this close.
 			if isPrimary && err != nil {
 				close(primaryFailed)
 			}
@@ -165,20 +160,13 @@ func dialRace(ctx context.Context, dial DialContextFunc, network, port string, p
 	return nil, firstErr
 }
 
-// EmbeddedIPv4 extracts the IPv4 address carried by an IPv6 address in a form that
-// net.IP.To4 does not recognise: IPv4-compatible (::a.b.c.d), the NAT64 well-known prefix
-// (64:ff9b::a.b.c.d), and 6to4 (2002:aabb:ccdd::). It returns nil when the address carries
-// no embedded IPv4 address, or when To4 already handles it.
+// EmbeddedIPv4 extracts the IPv4 address carried by an IPv6 address in a form net.IP.To4 does
+// not recognise: IPv4-compatible (::a.b.c.d), NAT64 (64:ff9b::a.b.c.d), and 6to4
+// (2002:aabb:ccdd::). Each is a distinct spelling of an address a denied IPv4 CIDR is meant to
+// cover: without this, 64:ff9b::a9fe:a9fe reaches metadata even though 169.254.0.0/16 is denied.
 //
-// Each of these is a distinct spelling of an address that an IPv4 CIDR on the blocklist is
-// meant to cover. Without normalization, 64:ff9b::a9fe:a9fe reaches the metadata service
-// even though 169.254.169.254/32 is blocked. NAT64 is the form that matters in practice,
-// because it is standard in IPv6-only clusters; the other two are deprecated and need
-// specific routing, so they are defense in depth.
-//
-// The IPv4-compatible branch also matches low IPv6 addresses that were never meant as an
-// IPv4 encoding: ::1 yields 0.0.0.1, for example. That only ever widens the blocklist into
-// reserved space, so it is left as is.
+// The IPv4-compatible branch also matches low IPv6 addresses never meant as an IPv4 encoding
+// (::1 yields 0.0.0.1). That only widens the denylist into reserved space, so it is left as is.
 func EmbeddedIPv4(ip net.IP) net.IP {
 	if ip.To4() != nil || len(ip.To16()) != net.IPv6len {
 		return nil

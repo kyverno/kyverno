@@ -8,41 +8,69 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// chartValues is the slice of charts/kyverno/values.yaml this package cares about.
+// chartValues is the slice of charts/kyverno/values.yaml this package cares about. The lists moved
+// out of features.registryClient when the allowlist model was replaced: they are ConfigMap
+// content now, not flags, so they live beside the other config keys.
 type chartValues struct {
-	Features struct {
-		RegistryClient struct {
-			PrivateRegistryRanges []string `json:"privateRegistryRanges"`
-		} `json:"registryClient"`
-	} `json:"features"`
+	Config struct {
+		RegistryEgressDeniedHosts []string `json:"registryEgressDeniedHosts"`
+		RegistryEgressDeniedIPs   []string `json:"registryEgressDeniedIPs"`
+	} `json:"config"`
 }
 
-// TestDefaultPrivateRangesMatchTheChart pins the two copies of the private-class list to each
-// other. The chart's copy is what an operator reads and edits; DefaultPrivateRanges is what a
-// Kyverno installed without the chart falls back to, and it is also the default of
-// --privateRegistryRanges, so a range added to only one of them silently protects half the
-// installed base. Order is compared too: the chart is the documented reading order, and keeping
-// it identical makes a drift failure point at the entry that moved.
-func TestDefaultPrivateRangesMatchTheChart(t *testing.T) {
-	t.Parallel()
+func readChartValues(t *testing.T) chartValues {
+	t.Helper()
 	raw, err := os.ReadFile("../../../charts/kyverno/values.yaml")
 	require.NoError(t, err)
 	var values chartValues
 	require.NoError(t, yaml.Unmarshal(raw, &values))
-	require.NotEmpty(t, values.Features.RegistryClient.PrivateRegistryRanges,
-		"features.registryClient.privateRegistryRanges is missing from the chart")
-	require.Equal(t, DefaultPrivateRanges, values.Features.RegistryClient.PrivateRegistryRanges,
-		"DefaultPrivateRanges and features.registryClient.privateRegistryRanges have drifted")
+	return values
 }
 
-// TestChartPrivateRangesAreValid proves the shipped chart values parse, so a malformed entry
-// fails here rather than at controller startup in a user's cluster.
-func TestChartPrivateRangesAreValid(t *testing.T) {
+// TestDefaultDenylistsMatchTheChart pins the two copies of each list to each other. The chart's
+// copies are what an operator reads and edits; the Go slices are the fallback for an install that
+// has no ConfigMap entry at all -- the CLI, a hand-rolled manifest, a unit test -- so an entry
+// added to only one of them silently protects half the installed base. Order is compared too: the
+// chart is the documented reading order, and keeping it identical makes a drift failure point at
+// the entry that moved instead of reporting two unordered sets.
+func TestDefaultDenylistsMatchTheChart(t *testing.T) {
 	t.Parallel()
-	raw, err := os.ReadFile("../../../charts/kyverno/values.yaml")
+	values := readChartValues(t)
+	require.NotEmpty(t, values.Config.RegistryEgressDeniedHosts,
+		"config.registryEgressDeniedHosts is missing from the chart")
+	require.NotEmpty(t, values.Config.RegistryEgressDeniedIPs,
+		"config.registryEgressDeniedIPs is missing from the chart")
+	require.Equal(t, DefaultDeniedHosts, values.Config.RegistryEgressDeniedHosts,
+		"DefaultDeniedHosts and config.registryEgressDeniedHosts have drifted")
+	require.Equal(t, DefaultDeniedIPs, values.Config.RegistryEgressDeniedIPs,
+		"DefaultDeniedIPs and config.registryEgressDeniedIPs have drifted")
+	// The chart's copies go through the same parser, so a malformed entry there fails here
+	// rather than quietly denying nothing in a user's cluster.
+	chart, err := New(Config{
+		DeniedHosts: values.Config.RegistryEgressDeniedHosts,
+		DeniedIPs:   values.Config.RegistryEgressDeniedIPs,
+	})
 	require.NoError(t, err)
-	var values chartValues
-	require.NoError(t, yaml.Unmarshal(raw, &values))
-	_, err = New(Config{PrivateRanges: values.Features.RegistryClient.PrivateRegistryRanges})
+	require.Len(t, chart.prefixes, len(values.Config.RegistryEgressDeniedIPs))
+	require.Len(t, chart.hosts, len(values.Config.RegistryEgressDeniedHosts))
+}
+
+// TestShippedDefaultsParse proves every shipped default survives New. The lists are applied
+// best-effort now -- a malformed entry is logged and skipped rather than failing construction --
+// so a typo in a default would stop denying its range with nothing failing anywhere. Counting
+// what actually landed is the only way that shows up.
+func TestShippedDefaultsParse(t *testing.T) {
+	t.Parallel()
+	for _, entry := range DefaultDeniedIPs {
+		_, err := parsePrefix(entry)
+		require.NoError(t, err, "shipped denied IP %q does not parse, so it denies nothing", entry)
+	}
+	for _, entry := range DefaultDeniedHosts {
+		_, err := normalizeHost(entry)
+		require.NoError(t, err, "shipped denied host %q does not parse, so it denies nothing", entry)
+	}
+	policy, err := New(Config{})
 	require.NoError(t, err)
+	require.Len(t, policy.prefixes, len(DefaultDeniedIPs), "a shipped denied IP was skipped")
+	require.Len(t, policy.hosts, len(DefaultDeniedHosts), "a shipped denied host was skipped or duplicated")
 }

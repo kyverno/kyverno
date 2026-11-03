@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils/egress"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/registryclient"
@@ -110,33 +111,52 @@ func TestRegistryEgressOptionsCarryTheGuard(t *testing.T) {
 	require.ErrorIs(t, err, egress.ErrAddressBlocked, "the registry client options did not carry the guard")
 }
 
-func TestEgressConfigValidation(t *testing.T) {
+// check() runs before the config controller, so only the mode can be validated at that point.
+// The denylists arrive later from the ConfigMap and a bad entry there is logged and skipped,
+// deliberately, so that a typo cannot crashloop admission.
+func TestEgressModeValidation(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		name      string
-		allowlist string
 		mode      string
 		wantError bool
 	}{
-		{name: "defaults"},
-		{name: "audit", mode: "audit"},
-		{name: "enforce", mode: "enforce", allowlist: "registry.internal,10.0.0.0/8,fd00::/8"},
-		{name: "invalid mode", mode: "disabled", wantError: true},
-		{name: "wildcard", allowlist: "*.internal", wantError: true},
-		{name: "URL", allowlist: "https://registry.internal", wantError: true},
-		{name: "invalid CIDR", allowlist: "10.0.0.0/33", wantError: true},
-		{name: "empty list element", allowlist: "registry.internal,,10.0.0.1", wantError: true},
-		{name: "trailing comma", allowlist: "registry.internal,", wantError: true},
+		{mode: ""},
+		{mode: "audit"},
+		{mode: "enforce"},
+		{mode: "disabled", wantError: true},
+		{mode: "Enforce", wantError: true},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.mode, func(t *testing.T) {
 			t.Parallel()
-			err := egress.ValidateConfig(egress.Config{
-				Allowlist: egress.ParseAllowlist(tc.allowlist),
-				Mode:      tc.mode,
-			})
+			err := egress.ValidateMode(tc.mode)
 			require.Equal(t, tc.wantError, err != nil, "error = %v", err)
 		})
 	}
+}
+
+// egressConfig is the only join between the mode flag and the ConfigMap denylists, and the
+// nil-versus-empty distinction has to survive it: nil keeps the shipped defaults, while an
+// operator who cleared the list in the ConfigMap must get an empty-but-present list rather than
+// silently getting the defaults back.
+func TestEgressConfigReadsTheConfigMap(t *testing.T) {
+	originalMode := privateRegistryEgressMode
+	t.Cleanup(func() { privateRegistryEgressMode = originalMode })
+	privateRegistryEgressMode = egress.ModeEnforce
+
+	configuration := config.NewDefaultConfiguration(false)
+	got := egressConfig(configuration)
+	require.Equal(t, egress.ModeEnforce, got.Mode)
+	require.Nil(t, got.DeniedHosts, "an absent key must read as unset so the shipped defaults apply")
+	require.Nil(t, got.DeniedIPs, "an absent key must read as unset so the shipped defaults apply")
+
+	configuration.Load(&corev1.ConfigMap{Data: map[string]string{
+		"registryEgressDeniedHosts": "metadata.internal",
+		"registryEgressDeniedIPs":   "",
+	}})
+	got = egressConfig(configuration)
+	require.Equal(t, []string{"metadata.internal"}, got.DeniedHosts)
+	require.NotNil(t, got.DeniedIPs, "a present-but-empty key is an operator clearing the list, not an unset one")
+	require.Empty(t, got.DeniedIPs)
 }
 
 // Egress flags must reach controllers that only read image metadata, while the credential
@@ -144,14 +164,12 @@ func TestEgressConfigValidation(t *testing.T) {
 // informers or the RBAC they need.
 func TestRegistryFlagRegistration(t *testing.T) {
 	originalFlags := flag.CommandLine
-	originalAllowlist, originalMode := privateRegistryAllowlist, privateRegistryEgressMode
-	originalRanges := privateRegistryRanges
+	originalMode := privateRegistryEgressMode
 	originalSecrets, originalHelpers := imagePullSecrets, registryCredentialHelpers
 	originalInsecure, originalPayloadLimit := allowInsecureRegistry, imageVerifyPayloadLimit
 	t.Cleanup(func() {
 		flag.CommandLine = originalFlags
-		privateRegistryAllowlist, privateRegistryEgressMode = originalAllowlist, originalMode
-		privateRegistryRanges = originalRanges
+		privateRegistryEgressMode = originalMode
 		imagePullSecrets, registryCredentialHelpers = originalSecrets, originalHelpers
 		allowInsecureRegistry, imageVerifyPayloadLimit = originalInsecure, originalPayloadLimit
 	})
@@ -172,35 +190,21 @@ func TestRegistryFlagRegistration(t *testing.T) {
 			require.Equal(t, test.wantEgress, configuration.UsesRegistryEgress())
 			require.Equal(t, test.wantClient, configuration.UsesRegistryClient())
 			initRegistryFlags(configuration)
-			for _, flagName := range []string{"privateRegistryAllowlist", "privateRegistryEgressMode", "privateRegistryRanges"} {
-				require.Equal(t, test.wantEgress, flag.Lookup(flagName) != nil, flagName)
+			require.Equal(t, test.wantEgress, flag.Lookup("privateRegistryEgressMode") != nil)
+			// The denylists are ConfigMap entries, not flags, because they are expected to grow
+			// past what is workable on a command line. Registering one would quietly give
+			// operators a second place to configure them that the chart never writes to.
+			for _, flagName := range []string{"privateRegistryAllowlist", "privateRegistryRanges", "registryEgressDeniedHosts", "registryEgressDeniedIPs"} {
+				require.Nil(t, flag.Lookup(flagName), flagName)
 			}
 			for _, flagName := range []string{"imagePullSecrets", "registryCredentialHelpers", "allowInsecureRegistry", "imageVerifyPayloadLimit"} {
 				require.Equal(t, test.wantClient, flag.Lookup(flagName) != nil, flagName)
 			}
 			if test.wantEgress {
-				require.Equal(t, egress.ModeAudit, privateRegistryEgressMode)
-				require.Empty(t, privateRegistryAllowlist)
-				require.NoError(t, flag.CommandLine.Parse([]string{"--privateRegistryEgressMode=enforce", "--privateRegistryAllowlist=10.20.30.0/24"}))
+				require.Equal(t, egress.ModeAudit, privateRegistryEgressMode, "audit is the default so enabling the guard cannot break an existing cluster")
+				require.NoError(t, flag.CommandLine.Parse([]string{"--privateRegistryEgressMode=enforce"}))
 				require.Equal(t, "enforce", privateRegistryEgressMode)
-				require.Equal(t, "10.20.30.0/24", privateRegistryAllowlist)
-				// The range flag defaults to the shipped list rather than empty, so a Kyverno
-				// installed without the chart keeps the protection the chart would render. An
-				// operator clearing it passes the flag explicitly, and the parsed result stays
-				// non-nil so New reads it as "cleared" and not as "unset".
-				require.Equal(t, egress.DefaultPrivateRanges, egress.ParseRanges(privateRegistryRanges))
-				require.NoError(t, flag.CommandLine.Parse([]string{"--privateRegistryRanges="}))
-				require.Equal(t, []string{}, egress.ParseRanges(privateRegistryRanges))
 			}
 		})
 	}
-}
-
-func TestParseAllowlist(t *testing.T) {
-	t.Parallel()
-	require.Nil(t, egress.ParseAllowlist(""))
-	require.Nil(t, egress.ParseAllowlist("   "))
-	require.Equal(t, []string{"a", "b"}, egress.ParseAllowlist("a,b"))
-	// A single empty element is preserved so New rejects it rather than silently ignoring it.
-	require.Equal(t, []string{"a", "", "b"}, egress.ParseAllowlist("a,,b"))
 }

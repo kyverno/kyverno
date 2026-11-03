@@ -2,10 +2,46 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: ivpol-registry-egress-hard-block
+  name: ivpol-registry-egress-denylist
 spec:
   concurrent: false
   steps:
+  # The shipped denylist already covers metadata and loopback, but the shipped mode is audit,
+  # which logs a denied destination and connects anyway. Switch the admission controller to
+  # enforce so a denied destination is rejected, and restore its arguments afterwards.
+  - name: enforce-registry-egress
+    try:
+    - script:
+        timeout: 3m
+        content: |
+          set -e
+          kubectl get deployment kyverno-admission-controller -n kyverno \
+            -o 'go-template=[{{ range $i, $a := (index .spec.template.spec.containers 0).args }}{{ if $i }},{{ end }}"{{ $a }}"{{ end }}]' \
+            > /tmp/kyverno-registry-egress-args.json
+          ENFORCED=$(python3 -c "
+          import json
+          args = json.load(open('/tmp/kyverno-registry-egress-args.json'))
+          args = [a for a in args if not a.startswith('--privateRegistryEgressMode=')]
+          args.append('--privateRegistryEgressMode=enforce')
+          print(json.dumps(args))
+          ")
+          kubectl patch deployment kyverno-admission-controller -n kyverno \
+            --type=json \
+            --patch="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",\"value\":$ENFORCED}]"
+          kubectl rollout status deployment/kyverno-admission-controller \
+            -n kyverno --timeout=120s
+          sleep 5 # Wait for the webhook to be ready.
+    cleanup:
+    - script:
+        timeout: 3m
+        content: |
+          set -e
+          ORIGINAL=$(cat /tmp/kyverno-registry-egress-args.json)
+          kubectl patch deployment kyverno-admission-controller -n kyverno \
+            --type=json \
+            --patch="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",\"value\":$ORIGINAL}]"
+          kubectl rollout status deployment/kyverno-admission-controller \
+            -n kyverno --timeout=120s
   - name: create-policy
     use:
       template: ../../../_step-templates/create-policy.yaml
@@ -19,8 +55,8 @@ spec:
       with:
         bindings:
         - name: name
-          value: ivpol-registry-egress-hard-block
-  - name: reject-unsafe-registry-addresses
+          value: ivpol-registry-egress-denylist
+  - name: reject-denied-registry-addresses
     try:
     - create:
         file: metadata-pod.yaml
@@ -52,7 +88,7 @@ spec:
         bindings:
         - name: name
           value: ivpol-registry-egress-literal
-  - name: reject-policy-authored-unsafe-address
+  - name: reject-policy-authored-denied-address
     try:
     - create:
         file: literal-pod.yaml

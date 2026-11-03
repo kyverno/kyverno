@@ -21,13 +21,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTransportPinsExemptHostsAndSharesDeadline(t *testing.T) {
+// DNS and every connection attempt share one budget, so a registry with several A records cannot
+// spend the caller's whole deadline on the first unreachable one.
+func TestTransportPinsValidatedAddressesAndSharesDeadline(t *testing.T) {
 	t.Parallel()
-	policy := testPolicy(t, Config{Mode: ModeEnforce, Allowlist: []string{"registry.internal"}}, nil)
+	policy := testPolicy(t, Config{Mode: ModeEnforce}, nil)
 	var resolutionDeadline time.Time
 	policy.lookupNetIP = func(ctx context.Context, _, _ string) ([]netip.Addr, error) {
 		resolutionDeadline, _ = ctx.Deadline()
-		return []netip.Addr{netip.MustParseAddr("10.0.0.1"), netip.MustParseAddr("10.0.0.2")}, nil
+		return []netip.Addr{netip.MustParseAddr(publicIPv4), netip.MustParseAddr(publicIPv4Alt)}, nil
 	}
 	var addresses []string
 	var deadlines []time.Time
@@ -44,8 +46,8 @@ func TestTransportPinsExemptHostsAndSharesDeadline(t *testing.T) {
 	require.NoError(t, err)
 	_, err = transport.RoundTrip(request)
 	require.Error(t, err)
-	assert.NotContains(t, err.Error(), "10.0.0.")
-	assert.Equal(t, []string{"10.0.0.1:80", "10.0.0.2:80"}, addresses)
+	assert.NotContains(t, err.Error(), "93.184.216.")
+	assert.Equal(t, []string{publicIPv4 + ":80", publicIPv4Alt + ":80"}, addresses)
 	require.Len(t, deadlines, 2)
 	callerDeadline, _ := ctx.Deadline()
 	assert.Equal(t, callerDeadline, resolutionDeadline, "DNS uses the unchanged aggregate deadline")
@@ -53,7 +55,10 @@ func TestTransportPinsExemptHostsAndSharesDeadline(t *testing.T) {
 	assert.Equal(t, resolutionDeadline, deadlines[1], "the last address cannot extend the aggregate deadline")
 }
 
-func TestPrivateProxyDoesNotExemptDirectTraffic(t *testing.T) {
+// The proxy's exemption is scoped to its role, not to its address: the same endpoint reached
+// directly is an ordinary destination and goes through both denylists. Otherwise configuring a
+// proxy inside a denied range would quietly open that address to every NO_PROXY request too.
+func TestProxyExemptionDoesNotExtendToDirectTraffic(t *testing.T) {
 	t.Parallel()
 	policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{"public.example": {publicIPv4}, "proxy.internal": {"10.0.0.1"}})
 	proxy := &url.URL{Scheme: "http", Host: "proxy.internal:3128"}
@@ -75,21 +80,61 @@ func TestPrivateProxyDoesNotExemptDirectTraffic(t *testing.T) {
 	require.NoError(t, err)
 	_, err = transport.RoundTrip(request)
 	require.Error(t, err)
-	assert.Equal(t, []string{"10.0.0.1:3128"}, dialed, "operator proxy gets its own validated, pinned connection")
+	assert.Equal(t, []string{"10.0.0.1:3128"}, dialed, "the proxy endpoint is exempt and gets its own pinned connection")
 	request, err = http.NewRequestWithContext(context.Background(), http.MethodGet, "http://proxy.internal:3128/v2/", nil)
 	require.NoError(t, err)
 	_, err = transport.RoundTrip(request)
 	require.ErrorIs(t, err, ErrAddressBlocked)
-	assert.Len(t, dialed, 1, "NO_PROXY never inherits the proxy's private-network exemption")
+	assert.Len(t, dialed, 1, "a NO_PROXY request never inherits the proxy's exemption")
 
 	// A later direct request to the same endpoint must use its new validated
-	// address, not any private address previously cached for the proxy.
+	// address, not the denied address previously pinned for the proxy.
 	policy.lookupNetIP = func(context.Context, string, string) ([]netip.Addr, error) {
 		return []netip.Addr{netip.MustParseAddr(publicIPv4Alt)}, nil
 	}
 	_, err = transport.RoundTrip(request)
 	require.Error(t, err)
 	assert.Equal(t, []string{"10.0.0.1:3128", publicIPv4Alt + ":3128"}, dialed)
+}
+
+// A proxy endpoint is operator configuration from the process environment, not a destination any
+// policy or admitted resource can choose, so neither denylist applies to it. That is what makes a
+// sidecar egress proxy on loopback, or one inside RFC 1918, usable at all while those ranges are
+// denied for registries -- the previous design blocked exactly that deployment. The target is
+// still resolved and checked on its own: routing through a proxy must not launder it.
+func TestDeniedProxyEndpointIsUsableButTargetIsStillChecked(t *testing.T) {
+	t.Parallel()
+	for _, proxyAddress := range []string{"127.0.0.1", "10.0.0.1", "169.254.169.254"} {
+		t.Run(proxyAddress, func(t *testing.T) {
+			t.Parallel()
+			policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{
+				"proxy.internal":  {proxyAddress},
+				"public.example":  {publicIPv4},
+				"private.example": {"192.168.1.1"},
+			})
+			sentinel := errors.New("dial reached the proxy")
+			var dialed []string
+			transport := policy.WrapTransport(&http.Transport{
+				Proxy: http.ProxyURL(&url.URL{Scheme: "http", Host: "proxy.internal:3128"}),
+				DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
+					dialed = append(dialed, address)
+					return nil, sentinel
+				},
+			})
+			defer transport.CloseIdleConnections()
+			request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://public.example/v2/", nil)
+			require.NoError(t, err)
+			_, err = transport.RoundTrip(request)
+			require.ErrorIs(t, err, sentinel, "a proxy inside a denied range was not dialled")
+			assert.Equal(t, []string{net.JoinHostPort(proxyAddress, "3128")}, dialed)
+
+			request, err = http.NewRequestWithContext(context.Background(), http.MethodGet, "http://private.example/v2/", nil)
+			require.NoError(t, err)
+			_, err = transport.RoundTrip(request)
+			require.ErrorIs(t, err, ErrAddressBlocked, "the proxy's exemption covered its target")
+			assert.Len(t, dialed, 1, "a denied target reached the proxy anyway")
+		})
+	}
 }
 
 func TestProxyCannotForwardBlockedTarget(t *testing.T) {
@@ -118,7 +163,7 @@ func TestProxyCannotForwardBlockedTarget(t *testing.T) {
 
 func TestRedirectBlockedBeforeCredentialsReachDestination(t *testing.T) {
 	t.Parallel()
-	policy := testPolicy(t, Config{}, map[string][]string{"registry.example": {publicIPv4}})
+	policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{"registry.example": {publicIPv4}})
 	var requests, dials atomic.Int32
 	transport := policy.WrapTransport(&http.Transport{DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
 		dials.Add(1)
@@ -151,7 +196,7 @@ func TestRedirectBlockedBeforeCredentialsReachDestination(t *testing.T) {
 
 func TestReusedConnectionStillValidatesEveryRequest(t *testing.T) {
 	t.Parallel()
-	policy := testPolicy(t, Config{}, nil)
+	policy := testPolicy(t, Config{Mode: ModeEnforce}, nil)
 	var resolves, dials, requests atomic.Int32
 	policy.lookupNetIP = func(context.Context, string, string) ([]netip.Addr, error) {
 		if resolves.Add(1) > 2 {
@@ -298,7 +343,7 @@ func (b *trackingBody) Close() error { b.closed = true; return nil }
 
 func TestBlockedRequestClosesBody(t *testing.T) {
 	t.Parallel()
-	policy := testPolicy(t, Config{}, nil)
+	policy := testPolicy(t, Config{Mode: ModeEnforce}, nil)
 	transport := policy.WrapTransport(&http.Transport{})
 	defer transport.CloseIdleConnections()
 	body := &trackingBody{Reader: strings.NewReader("credentials")}
@@ -309,6 +354,10 @@ func TestBlockedRequestClosesBody(t *testing.T) {
 	assert.True(t, body.closed)
 }
 
+// An authority mismatch is a malformed request rather than a denied destination, so it is
+// rejected in audit mode too -- these fixtures stay on the default mode to pin that. WriteProxy
+// uses Host for the absolute request target and URL.Opaque can override the target entirely, so
+// neither may select a destination the policy never saw.
 func TestTransportRejectsAlternateRequestAuthority(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -351,7 +400,7 @@ func TestTransportAcceptsCanonicalRequestAuthority(t *testing.T) {
 	for _, host := range []string{"", "public.example", "PUBLIC.EXAMPLE.", "public.example:80", "public.example:080"} {
 		t.Run(host, func(t *testing.T) {
 			t.Parallel()
-			policy := testPolicy(t, Config{}, map[string][]string{"public.example": {publicIPv4}, "proxy.internal": {"10.0.0.1"}})
+			policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{"public.example": {publicIPv4}, "proxy.internal": {"10.0.0.1"}})
 			sentinel := errors.New("dial reached validated proxy")
 			var dialed string
 			transport := policy.WrapTransport(&http.Transport{
@@ -549,11 +598,11 @@ func TestTransportDefersUnresolvableTargetToProxy(t *testing.T) {
 	assert.Equal(t, publicIPv4+":80", dialed[0], "dialled something other than the proxy")
 }
 
-// Deferring to the proxy must not become a way around the hard blocks: a literal address
-// never reaches the resolver, so it cannot be excused as not-found.
+// Deferring to the proxy must not become a way around the denylist: a literal address never
+// reaches the resolver, so it cannot be excused as not-found.
 func TestTransportBlocksLiteralAddressBehindProxy(t *testing.T) {
 	t.Parallel()
-	policy := testPolicy(t, Config{}, map[string][]string{"proxy.example": {publicIPv4}})
+	policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{"proxy.example": {publicIPv4}})
 	base := &http.Transport{
 		Proxy: http.ProxyURL(&url.URL{Scheme: "http", Host: "proxy.example"}),
 		DialContext: func(_ context.Context, _, address string) (net.Conn, error) {

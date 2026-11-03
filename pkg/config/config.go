@@ -135,6 +135,8 @@ const (
 	enableUpdateRequestCleanup    = "enableUpdateRequestCleanup"
 	updateRequestCleanupTTL       = "updateRequestCleanupTTL"
 	maxContextSize                = "maxContextSize"
+	registryEgressDeniedHosts     = "registryEgressDeniedHosts"
+	registryEgressDeniedIPs       = "registryEgressDeniedIPs"
 )
 
 const UpdateRequestThreshold = 1000
@@ -237,6 +239,14 @@ type Configuration interface {
 	GetUpdateRequestCleanupTTL() string
 	// GetMaxContextSize gets the maximum context size in bytes for policy evaluation
 	GetMaxContextSize() int64
+	// GetRegistryEgressDeniedHosts returns the operator-configured host denylist for registry egress.
+	// A nil result means the key is absent and callers should keep their shipped defaults; a non-nil
+	// empty result means the operator explicitly cleared the list.
+	GetRegistryEgressDeniedHosts() []string
+	// GetRegistryEgressDeniedIPs returns the operator-configured IP/CIDR denylist for registry egress.
+	// A nil result means the key is absent and callers should keep their shipped defaults; a non-nil
+	// empty result means the operator explicitly cleared the list.
+	GetRegistryEgressDeniedIPs() []string
 }
 
 // configuration stores the configuration
@@ -259,6 +269,8 @@ type configuration struct {
 	enableUpdateRequestCleanup    bool
 	updateRequestCleanupTTL       string
 	maxContextSize                int64
+	registryEgressDeniedHosts     []string
+	registryEgressDeniedIPs       []string
 }
 
 type match struct {
@@ -421,6 +433,18 @@ func (cd *configuration) GetMaxContextSize() int64 {
 	return cd.maxContextSize
 }
 
+func (cd *configuration) GetRegistryEgressDeniedHosts() []string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.registryEgressDeniedHosts
+}
+
+func (cd *configuration) GetRegistryEgressDeniedIPs() []string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.registryEgressDeniedIPs
+}
+
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	if cm != nil {
 		cd.load(cm)
@@ -450,6 +474,8 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
 	cd.matchConditions = nil
+	cd.registryEgressDeniedHosts = nil
+	cd.registryEgressDeniedIPs = nil
 	// load filters
 	cd.filters = parseKinds(data[resourceFilters])
 	cd.updateRequestThreshold = UpdateRequestThreshold
@@ -667,6 +693,22 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	} else {
 		logger.V(2).Info("maxContextSize not set, using default", "default", DefaultMaxContextSize)
 	}
+	// load registryEgressDeniedHosts
+	// an absent key leaves the field nil so callers keep their shipped defaults, while a present key
+	// (even an empty string) yields a non-nil slice meaning the operator took over the list
+	if deniedHosts, ok := data[registryEgressDeniedHosts]; !ok {
+		logger.V(2).Info("registryEgressDeniedHosts not set")
+	} else {
+		cd.registryEgressDeniedHosts = parseCommaSeparatedList(deniedHosts)
+		logger.V(2).Info("registryEgressDeniedHosts configured", "registryEgressDeniedHosts", cd.registryEgressDeniedHosts)
+	}
+	// load registryEgressDeniedIPs
+	if deniedIPs, ok := data[registryEgressDeniedIPs]; !ok {
+		logger.V(2).Info("registryEgressDeniedIPs not set")
+	} else {
+		cd.registryEgressDeniedIPs = parseCommaSeparatedList(deniedIPs)
+		logger.V(2).Info("registryEgressDeniedIPs configured", "registryEgressDeniedIPs", cd.registryEgressDeniedIPs)
+	}
 }
 
 func (cd *configuration) unload() {
@@ -688,6 +730,8 @@ func (cd *configuration) unload() {
 	cd.maxContextSize = DefaultMaxContextSize
 	cd.enableUpdateRequestCleanup = false
 	cd.updateRequestCleanupTTL = ""
+	cd.registryEgressDeniedHosts = nil
+	cd.registryEgressDeniedIPs = nil
 	logger.V(2).Info("configuration unloaded")
 }
 

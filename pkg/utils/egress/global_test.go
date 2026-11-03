@@ -21,39 +21,53 @@ func TestGlobalNilGuardLeavesSDKDefaults(t *testing.T) {
 	guard := Global()
 	require.Nil(t, guard)
 	// A nil Guard must stay usable: registryclient.WithTransport(nil) falls back to the SDK
-	// default.
+	// default, which is what the CLI and unit tests want.
 	require.Nil(t, guard.Transport())
 	require.Nil(t, guard.Policy())
 }
 
-func TestSetGlobalRejectsInvalidConfig(t *testing.T) {
+func TestSetGlobalRejectsOnlyAnInvalidMode(t *testing.T) {
 	resetGlobal(t)
+	global.Store(nil)
+
 	require.Error(t, SetGlobal(Config{Mode: "disabled"}))
-	require.Error(t, SetGlobal(Config{Allowlist: []string{"*.internal"}}))
-	require.NoError(t, SetGlobal(Config{Mode: ModeEnforce, Allowlist: []string{"10.0.0.0/8"}}))
+	require.Nil(t, Global(), "a rejected mode must leave the previous Guard in place")
+	// A malformed denylist entry is ConfigMap content, not a deploy-time flag, so it is logged
+	// and skipped. Failing here would crashloop the admission controller over a typo and take
+	// the cluster's admission path down with it.
+	require.NoError(t, SetGlobal(Config{Mode: ModeEnforce, DeniedIPs: []string{"10.0.0.0/99", "10.0.0.0/8"}}))
 	require.NotNil(t, Global().Transport())
 	require.NotNil(t, Global().Policy())
+	// The transport must be built from the Guard's own policy. Two policies here would mean the
+	// destinations the transport enforces differ from the ones Policy() reports.
+	require.Same(t, Global().Policy(), Global().Transport().(*Transport).policy)
 }
 
-func TestValidateConfigMatchesNew(t *testing.T) {
+func TestRestoreGlobalReinstallsNoGuard(t *testing.T) {
+	resetGlobal(t)
+	global.Store(nil)
+
+	require.NoError(t, SetGlobal(Config{}))
+	installed := Global()
+	require.NotNil(t, installed)
+	// SetGlobal builds a Guard from configuration and so cannot express "no Guard at all". A
+	// caller that installs one temporarily needs this to put the process back exactly as it
+	// found it, including when it found nothing.
+	RestoreGlobal(nil)
+	require.Nil(t, Global())
+	RestoreGlobal(installed)
+	require.Same(t, installed, Global())
+}
+
+func TestValidateMode(t *testing.T) {
 	t.Parallel()
-	for _, config := range []Config{
-		{},
-		{Mode: ModeAudit},
-		{Mode: ModeEnforce, Allowlist: []string{"registry.internal", "10.0.0.0/8"}},
-		{Mode: "nonsense"},
-		{Allowlist: []string{""}},
-	} {
-		_, newErr := New(config)
-		require.Equal(t, newErr != nil, ValidateConfig(config) != nil, "config %+v", config)
+	// The mode is the one piece of this configuration fixed at deploy time, so a controller can
+	// fail startup on a typo instead of discovering it on the first registry request. Everything
+	// else arrives later, from a ConfigMap, and is deliberately not checked here.
+	for _, mode := range []string{"", ModeAudit, ModeEnforce} {
+		require.NoError(t, ValidateMode(mode), "mode %q", mode)
 	}
-}
-
-func TestParseAllowlist(t *testing.T) {
-	t.Parallel()
-	require.Nil(t, ParseAllowlist(""))
-	require.Nil(t, ParseAllowlist("   "))
-	require.Equal(t, []string{"a", "b"}, ParseAllowlist("a,b"))
-	// A single empty element is preserved so New rejects it rather than silently ignoring it.
-	require.Equal(t, []string{"a", "", "b"}, ParseAllowlist("a,,b"))
+	for _, mode := range []string{"off", "disabled", "warn", "Audit", "ENFORCE", " audit"} {
+		require.Error(t, ValidateMode(mode), "mode %q", mode)
+	}
 }

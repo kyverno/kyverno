@@ -22,6 +22,17 @@ data:
   {{- with .Values.config.successEventActions }}
   successEventActions: {{ . | quote }}
   {{- end }}
+  {{- /* hasKey, not "with": "with" is falsy for an empty list, so [] would drop the key
+         entirely and send the controller back to its built-in denylist. Setting the list to []
+         is how an operator clears it, and that has to reach the controller as a
+         present-but-empty key. */}}
+  {{- if hasKey .Values.config "registryEgressDeniedHosts" }}
+  registryEgressDeniedHosts: {{ join "," .Values.config.registryEgressDeniedHosts | quote }}
+  {{- end }}
+  {{- /* hasKey for the same reason as registryEgressDeniedHosts above: [] is a meaningful value. */}}
+  {{- if hasKey .Values.config "registryEgressDeniedIPs" }}
+  registryEgressDeniedIPs: {{ join "," .Values.config.registryEgressDeniedIPs | quote }}
+  {{- end }}
   {{- with .Values.config.excludeGroups }}
   excludeGroups: {{ join "," . | quote }}
   {{- end -}}

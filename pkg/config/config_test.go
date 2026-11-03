@@ -252,3 +252,92 @@ func TestConfiguration_Unload_ResetsUpdateRequestThresholdAndMatchConditions(t *
 	assert.Equal(t, int64(UpdateRequestThreshold), cfg.GetUpdateRequestThreshold())
 	assert.Nil(t, cfg.GetMatchConditions())
 }
+
+func newRegistryEgressConfigMap(data map[string]string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data:       data,
+	}
+}
+
+func TestConfiguration_RegistryEgressDenyLists_Default(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	assert.Nil(t, cfg.GetRegistryEgressDeniedHosts())
+	assert.Nil(t, cfg.GetRegistryEgressDeniedIPs())
+}
+
+func TestConfiguration_RegistryEgressDenyLists_KeysAbsent(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	cfg.Load(newRegistryEgressConfigMap(map[string]string{"defaultRegistry": "ghcr.io"}))
+	// absent keys mean "keep shipped defaults", signalled by a nil slice
+	assert.Nil(t, cfg.GetRegistryEgressDeniedHosts())
+	assert.Nil(t, cfg.GetRegistryEgressDeniedIPs())
+}
+
+func TestConfiguration_RegistryEgressDenyLists_KeysPresentButEmpty(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	cfg.Load(newRegistryEgressConfigMap(map[string]string{
+		"registryEgressDeniedHosts": "",
+		"registryEgressDeniedIPs":   "",
+	}))
+	// present-but-empty means "operator cleared the list", signalled by a non-nil empty slice
+	hosts := cfg.GetRegistryEgressDeniedHosts()
+	assert.NotNil(t, hosts)
+	assert.Len(t, hosts, 0)
+	ips := cfg.GetRegistryEgressDeniedIPs()
+	assert.NotNil(t, ips)
+	assert.Len(t, ips, 0)
+}
+
+func TestConfiguration_RegistryEgressDenyLists_ValuesParsedAndTrimmed(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	cfg.Load(newRegistryEgressConfigMap(map[string]string{
+		"registryEgressDeniedHosts": " metadata.google.internal , 169.254.169.254 ,localhost",
+		"registryEgressDeniedIPs":   "169.254.0.0/16 , ::1,  10.0.0.0/8 ",
+	}))
+	assert.Equal(t, []string{"metadata.google.internal", "169.254.169.254", "localhost"}, cfg.GetRegistryEgressDeniedHosts())
+	assert.Equal(t, []string{"169.254.0.0/16", "::1", "10.0.0.0/8"}, cfg.GetRegistryEgressDeniedIPs())
+}
+
+func TestConfiguration_RegistryEgressDenyLists_BlankSegmentsDropped(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	cfg.Load(newRegistryEgressConfigMap(map[string]string{
+		"registryEgressDeniedHosts": "localhost,",
+		"registryEgressDeniedIPs":   ", ,",
+	}))
+	// a trailing comma must not produce an empty entry
+	assert.Equal(t, []string{"localhost"}, cfg.GetRegistryEgressDeniedHosts())
+	// a value made only of separators still counts as "operator cleared the list"
+	ips := cfg.GetRegistryEgressDeniedIPs()
+	assert.NotNil(t, ips)
+	assert.Len(t, ips, 0)
+}
+
+func TestConfiguration_RegistryEgressDenyLists_Unload(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	cfg.Load(newRegistryEgressConfigMap(map[string]string{
+		"registryEgressDeniedHosts": "localhost",
+		"registryEgressDeniedIPs":   "127.0.0.0/8",
+	}))
+	assert.Equal(t, []string{"localhost"}, cfg.GetRegistryEgressDeniedHosts())
+	assert.Equal(t, []string{"127.0.0.0/8"}, cfg.GetRegistryEgressDeniedIPs())
+
+	cfg.Load(nil)
+	assert.Nil(t, cfg.GetRegistryEgressDeniedHosts())
+	assert.Nil(t, cfg.GetRegistryEgressDeniedIPs())
+}
+
+func TestConfiguration_RegistryEgressDenyLists_ReloadWithoutKeysResetsToNil(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	cfg.Load(newRegistryEgressConfigMap(map[string]string{
+		"registryEgressDeniedHosts": "localhost",
+		"registryEgressDeniedIPs":   "127.0.0.0/8",
+	}))
+	assert.NotNil(t, cfg.GetRegistryEgressDeniedHosts())
+	assert.NotNil(t, cfg.GetRegistryEgressDeniedIPs())
+
+	// removing the keys must not retain the previous values
+	cfg.Load(newRegistryEgressConfigMap(map[string]string{}))
+	assert.Nil(t, cfg.GetRegistryEgressDeniedHosts())
+	assert.Nil(t, cfg.GetRegistryEgressDeniedIPs())
+}

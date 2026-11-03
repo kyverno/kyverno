@@ -15,13 +15,19 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// egressConfig reads the operator flags. check() has already rejected invalid values, so
-// callers can treat SetGlobal failures here as a startup error.
-func egressConfig() egress.Config {
+// egressConfig combines the mode flag with the denylists from the kyverno ConfigMap. The
+// ConfigMap is read by startConfigController, which runs before this, so the lists are already
+// loaded. They are not re-read afterwards: an operator editing the ConfigMap has to restart the
+// controller for the change to take effect. Syncing live would need an informer on ConfigMap
+// events and is deliberately left to a follow-up rather than half-done here.
+//
+// A nil list means the ConfigMap says nothing about it, which keeps egress.DefaultDeniedHosts
+// and egress.DefaultDeniedIPs. An empty non-nil list is an operator who cleared it.
+func egressConfig(configuration config.Configuration) egress.Config {
 	return egress.Config{
-		Allowlist:     egress.ParseAllowlist(privateRegistryAllowlist),
-		Mode:          privateRegistryEgressMode,
-		PrivateRanges: egress.ParseRanges(privateRegistryRanges),
+		Mode:        privateRegistryEgressMode,
+		DeniedHosts: configuration.GetRegistryEgressDeniedHosts(),
+		DeniedIPs:   configuration.GetRegistryEgressDeniedIPs(),
 	}
 }
 
@@ -36,16 +42,16 @@ func registryEgressOptions() []registryclient.Option {
 // setupRegistryEgress installs the guard for controllers that read image metadata without
 // needing registry credentials, so they get no credential helpers, image-pull Secret
 // informers, or the RBAC those require.
-func setupRegistryEgress(logger logr.Logger) {
-	checkError(logger, egress.SetGlobal(egressConfig()), "failed to configure registry egress")
+func setupRegistryEgress(logger logr.Logger, configuration config.Configuration) {
+	checkError(logger, egress.SetGlobal(egressConfig(configuration)), "failed to configure registry egress")
 	registryclient.SetupGlobalRegistryClient(nil, "", "", "", false,
 		append(registryEgressOptions(), registryclient.WithLogger(logger))...)
 }
 
-func setupRegistryClient(ctx context.Context, logger logr.Logger, client kubernetes.Interface) (registryclient.Client, corev1listers.SecretLister) {
+func setupRegistryClient(ctx context.Context, logger logr.Logger, client kubernetes.Interface, configuration config.Configuration) (registryclient.Client, corev1listers.SecretLister) {
 	logger = logger.WithName("registry-client").WithValues("secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
 	logger.V(2).Info("setup registry client...")
-	checkError(logger, egress.SetGlobal(egressConfig()), "failed to configure registry egress")
+	checkError(logger, egress.SetGlobal(egressConfig(configuration)), "failed to configure registry egress")
 	ms := &multiLister{
 		listersMap: make(map[string]corev1listers.SecretLister),
 	}

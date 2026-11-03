@@ -2,7 +2,6 @@ package internal
 
 import (
 	"flag"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -62,9 +61,7 @@ var (
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
 	registryCredentialHelpers string
-	privateRegistryAllowlist  string
 	privateRegistryEgressMode string
-	privateRegistryRanges     string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
 	// cleanupServer port and host for listening address
@@ -171,12 +168,12 @@ func initRegistryClientFlags() {
 	flag.Int64Var(&imageVerifyPayloadLimit, "imageVerifyPayloadLimit", 0, "Maximum decompressed size in bytes of a sigstore bundle or attestation payload read during image validating policy verification. Raise it to verify payloads larger than the 10000000 byte default, such as large SBOM attestations. 0 keeps the default.")
 }
 
+// The denied host and IP lists are not flags. They are expected to grow long enough that
+// passing them on a command line is unworkable, so they live in the kyverno ConfigMap
+// alongside the other list-valued settings. Only the mode stays here, because it selects
+// between two behaviours rather than carrying data.
 func initRegistryEgressFlags() {
-	flag.StringVar(&privateRegistryAllowlist, "privateRegistryAllowlist", "", "Comma-separated exact hosts, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Unsafe addresses remain blocked.")
-	flag.StringVar(&privateRegistryEgressMode, "privateRegistryEgressMode", egress.ModeAudit, "Registry egress policy: audit permits private addresses and logs requests enforce would block; enforce requires an allowlist entry. Both modes block metadata and other unsafe addresses.")
-	// The default carries the shipped list rather than an empty string so that an operator who
-	// renders an empty list is clearing it, not falling back to the defaults they removed.
-	flag.StringVar(&privateRegistryRanges, "privateRegistryRanges", strings.Join(egress.DefaultPrivateRanges, ","), "Comma-separated CIDRs or IP addresses treated as private-class in addition to RFC 1918 and fc00::/7, which are always private. Metadata and other unsafe addresses stay blocked regardless.")
+	flag.StringVar(&privateRegistryEgressMode, "privateRegistryEgressMode", egress.ModeAudit, "Registry egress policy: audit logs requests enforce would block and connects anyway; enforce rejects them. The destinations themselves come from the registryEgressDeniedHosts and registryEgressDeniedIPs entries in the kyverno ConfigMap.")
 }
 
 // initRegistryFlags registers egress flags for controllers that only read image metadata as

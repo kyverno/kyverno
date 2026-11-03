@@ -59,12 +59,11 @@ type destinationPool struct {
 	retired   atomic.Bool
 }
 
-// WrapTransport clones base, preserving TLS and pooling settings. Direct
-// connections pin target addresses; proxied connections pin only proxy addresses.
-// The target is resolved and validated locally on every request it can be
-// resolved for, but the proxy owns downstream DNS and routing, which are not
-// pinned by this transport; see RoundTrip for the name it cannot resolve.
-// Exemptions never skip these checks.
+// WrapTransport clones base, preserving TLS and pooling settings. Direct connections pin the
+// validated target addresses. Proxied ones pin only the proxy's: the proxy resolves the target
+// name itself, so the denied-IP list cannot bind where a proxied request ends up and a
+// split-horizon answer there is outside this guard. The denied-host list still applies, the name
+// being what we hand the proxy. Restricting proxied destinations is the proxy's job.
 func (p *Policy) WrapTransport(base *http.Transport) *Transport {
 	if base == nil {
 		base = &http.Transport{}
@@ -165,13 +164,10 @@ func (t *Transport) RoundTrip(request *http.Request) (*http.Response, error) {
 	}
 	plan.targetIPs, err = t.policy.ResolveAndValidate(ctx, request.URL.Hostname())
 	if err != nil {
-		// A proxy owns downstream DNS, so a registry only it can resolve is not evidence of
-		// a bad destination, and failing here would break those deployments in every mode.
-		// Anything that does resolve is still validated, and a literal address never reaches
-		// the resolver at all, so neither can be excused this way. A name the proxy resolves
-		// is the real gap: no address for it is ever known here, so it is checked against
-		// neither the hard-block list nor the allowlist, and the proxy alone decides what
-		// that name connects to.
+		// A proxy owns downstream DNS, so a registry only it can resolve is not evidence of a
+		// bad destination: the name is deferred to the proxy rather than failing closed. It has
+		// already been checked against the denied-host list, and a literal address never reaches
+		// the resolver.
 		if plan.proxy == nil || !dnsNotFound(err) {
 			return nil, err
 		}
@@ -211,17 +207,10 @@ func (t *Transport) CloseIdleConnections() {
 	}
 }
 
-// Each pool sees only one validated address set. http.Transport continues to
-// separate authorities, proxies and TLS sessions within that pool, preserving
-// Host/SNI and reuse without connecting to a previous request's stale address.
-//
-// A proxied request only ever dials the proxy, so only the proxy's addresses can
-// go stale and only they may select the pool. Including the target would tear
-// down a healthy proxy connection whenever any registry's DNS answer changed,
-// and a fleet of registries behind one proxy would churn the bounded cache,
-// evicting pools that are still useful. The two key shapes cannot collide:
-// validation rejects an empty address set, so each shape leaves exactly one
-// field non-empty and a direct key can never equal a proxied one.
+// Each pool sees only one validated address set, so reuse cannot reach a previous request's
+// stale address. A proxied request only ever dials the proxy, so only the proxy's addresses key
+// the pool -- including the target would churn healthy proxy connections on every registry DNS
+// change. Validation rejects an empty address set, so the two key shapes can never collide.
 func (t *Transport) destinationPool(plan *dialPlan) *destinationPool {
 	key := destinationKey{targetIPs: addressSetKey(plan.targetIPs)}
 	if plan.proxy != nil {
