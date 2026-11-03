@@ -2,11 +2,15 @@ package bundle
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
+	gcrname "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/ocitest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -97,6 +101,53 @@ func TestReadMetadataRejectsNonJSONConfig(t *testing.T) {
 	_, err = ReadMetadata(img)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "parsing config")
+}
+
+// TestReadMetadataDoesNotFetchContentLayer pins the reason ReadMetadata exists alongside Read: it
+// reads the manifest and config only. A remote.Image is lazy, so this round-trips through a real
+// in-process registry and asserts the content layer's blob was never requested; a ReadMetadata
+// that called Read (or otherwise extracted the layer) would fail this test.
+func TestReadMetadataDoesNotFetchContentLayer(t *testing.T) {
+	dir := writeTree(t, map[string]string{"policy.yaml": validVP})
+	b, err := Assemble(dir)
+	require.NoError(t, err)
+	require.NoError(t, Validate(b))
+	img, err := Write(b, nil)
+	require.NoError(t, err)
+
+	manifest, err := img.Manifest()
+	require.NoError(t, err)
+	require.Len(t, manifest.Layers, 1)
+	layerDigest := manifest.Layers[0].Digest.String()
+
+	host, requests, reset := ocitest.NewRecordingRegistry(t)
+	ref := host + "/bundles/metadata-only:v1"
+	name, err := gcrname.ParseReference(ref)
+	require.NoError(t, err)
+	require.NoError(t, remote.Write(name, img))
+
+	// Reset after the push: pushing its own blob-existence checks and uploads would otherwise
+	// show up in the log we're about to inspect, which must only reflect the read below.
+	reset()
+
+	remoteImg, err := remote.Image(name)
+	require.NoError(t, err)
+
+	md, err := ReadMetadata(remoteImg)
+	require.NoError(t, err)
+	assert.Equal(t, internal.FormatVersion, md.Config.FormatVersion)
+
+	seenRequests := requests()
+	foundBlobRequest := false
+	for _, path := range seenRequests {
+		assert.NotContains(t, path, layerDigest, "ReadMetadata must not fetch the content layer blob, got request %q", path)
+		if strings.Contains(path, "/blobs/") {
+			foundBlobRequest = true
+		}
+	}
+	// Sanity check the assertion isn't vacuous: ReadMetadata must fetch the config blob, so an
+	// empty request log would mean the recorder itself is broken, not that nothing was fetched.
+	assert.True(t, foundBlobRequest, "expected at least one blob request (the config fetch), recorder may be broken")
 }
 
 // legacyConfigImage wraps *image to override Manifest() with a hand-mutated copy, since *image's
