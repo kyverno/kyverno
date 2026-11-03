@@ -2,6 +2,7 @@ package event
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -14,17 +15,20 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 )
 
+var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
 // The Event API validates metadata.name as a DNS subdomain (max 253 chars).
 // A valid resource name must never produce an invalid Event name.
 func TestEventNameFitsAPIServerLimit(t *testing.T) {
 	tests := []struct {
-		name    string
-		nameLen int
+		name     string
+		nameLen  int
+		wantUUID bool
 	}{
-		{"short name", 10},
-		{"236 chars (last length that still fits)", 236},
-		{"237 chars (overflows with 16-char timestamp)", 237},
-		{"253 chars (max valid resource name)", 253},
+		{"short name", 10, false},
+		{"236 chars (last length that still fits)", 236, false},
+		{"237 chars (overflows with 16-char timestamp)", 237, true},
+		{"253 chars (max valid resource name)", 253, true},
 	}
 
 	for _, tc := range tests {
@@ -77,6 +81,14 @@ func TestEventNameFitsAPIServerLimit(t *testing.T) {
 			}
 			if len(createdNames) != 1 {
 				t.Fatalf("expected 1 Event to be created, got %d", len(createdNames))
+			}
+			got := createdNames[0]
+			if tc.wantUUID {
+				if !uuidRe.MatchString(got) {
+					t.Errorf("expected a UUID fallback name for an overflowing resource, got %q", got)
+				}
+			} else if !strings.HasPrefix(got, resourceName+".") {
+				t.Errorf("expected the resource name and timestamp suffix to be preserved, got %q", got)
 			}
 		})
 	}
