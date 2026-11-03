@@ -1090,6 +1090,11 @@ admissionController:
     viewRoleName: view
 
     serviceAccount:
+      # -- Create the ServiceAccount. Set to `false` to bring your own ServiceAccount
+      # (for example one carrying cloud IAM annotations) while the chart still creates the RBAC.
+      # The chart uses `name` when set, otherwise the default name. Ignored when `rbac.create` is `false`.
+      create: true
+
       # -- The ServiceAccount name
       name:
 
@@ -1615,6 +1620,11 @@ backgroundController:
     viewRoleName: view
 
     serviceAccount:
+      # -- Create the ServiceAccount. Set to `false` to bring your own ServiceAccount
+      # (for example one carrying cloud IAM annotations) while the chart still creates the RBAC.
+      # The chart uses `name` when set, otherwise the default name. Ignored when `rbac.create` is `false`.
+      create: true
+
       # -- Service account name
       name:
 
@@ -1987,6 +1997,11 @@ cleanupController:
     create: true
 
     serviceAccount:
+      # -- Create the ServiceAccount. Set to `false` to bring your own ServiceAccount
+      # (for example one carrying cloud IAM annotations) while the chart still creates the RBAC.
+      # The chart uses `name` when set, otherwise the default name. Ignored when `rbac.create` is `false`.
+      create: true
+
       # -- Service account name
       name:
 
@@ -2411,6 +2426,11 @@ reportsController:
     viewRoleName: view
 
     serviceAccount:
+      # -- Create the ServiceAccount. Set to `false` to bring your own ServiceAccount
+      # (for example one carrying cloud IAM annotations) while the chart still creates the RBAC.
+      # The chart uses `name` when set, otherwise the default name. Ignored when `rbac.create` is `false`.
+      create: true
+
       # -- Service account name
       name:
 

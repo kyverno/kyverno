@@ -498,6 +498,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
 | admissionController.rbac.createViewRoleBinding | bool | `true` | Create rolebinding to view role |
 | admissionController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
+| admissionController.rbac.serviceAccount.create | bool | `true` | Create the ServiceAccount. Set to `false` to bring your own ServiceAccount (for example one carrying cloud IAM annotations) while the chart still creates the RBAC. The chart uses `name` when set, otherwise the default name. Ignored when `rbac.create` is `false`. |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | admissionController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount. When set to false, a projected service account token is used instead which provides time-limited and audience-bound tokens for improved security. |
@@ -632,6 +633,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.rbac.create | bool | `true` | Create RBAC resources |
 | backgroundController.rbac.createViewRoleBinding | bool | `true` | Create rolebinding to view role |
 | backgroundController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
+| backgroundController.rbac.serviceAccount.create | bool | `true` | Create the ServiceAccount. Set to `false` to bring your own ServiceAccount (for example one carrying cloud IAM annotations) while the chart still creates the RBAC. The chart uses `name` when set, otherwise the default name. Ignored when `rbac.create` is `false`. |
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | backgroundController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | backgroundController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount. When set to false, a projected service account token is used instead which provides time-limited and audience-bound tokens for improved security. |
@@ -723,6 +725,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | cleanupController.featuresOverride | object | `{}` | Overrides features defined at the root level |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
+| cleanupController.rbac.serviceAccount.create | bool | `true` | Create the ServiceAccount. Set to `false` to bring your own ServiceAccount (for example one carrying cloud IAM annotations) while the chart still creates the RBAC. The chart uses `name` when set, otherwise the default name. Ignored when `rbac.create` is `false`. |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | cleanupController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | cleanupController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount. When set to false, a projected service account token is used instead which provides time-limited and audience-bound tokens for improved security. |
@@ -838,6 +841,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | reportsController.rbac.create | bool | `true` | Create RBAC resources |
 | reportsController.rbac.createViewRoleBinding | bool | `true` | Create rolebinding to view role |
 | reportsController.rbac.viewRoleName | string | `"view"` | The view role to use in the rolebinding |
+| reportsController.rbac.serviceAccount.create | bool | `true` | Create the ServiceAccount. Set to `false` to bring your own ServiceAccount (for example one carrying cloud IAM annotations) while the chart still creates the RBAC. The chart uses `name` when set, otherwise the default name. Ignored when `rbac.create` is `false`. |
 | reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | reportsController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | reportsController.rbac.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount. When set to false, a projected service account token is used instead which provides time-limited and audience-bound tokens for improved security. |
