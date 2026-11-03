@@ -960,10 +960,13 @@ Flux's `OCIRepository` controller extracts the first layer of an artifact by def
 be `tar+gzip` for its default `extract` operation. Because this format's single content layer sits at index 0 with
 media type `application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip`, Flux's default configuration (no
 `layerSelector`) already extracts it correctly. An `OCIRepository` SHOULD still set
-`spec.layerSelector.mediaType: application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip` explicitly, so extraction
-keeps working even if a future format version adds a second layer — see
-[8. Format versioning and compatibility](#8-format-versioning-and-compatibility) for why that's a major change and
-not something that could happen silently.
+`spec.layerSelector.mediaType: application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip` explicitly: it selects
+today's content layer unambiguously instead of relying on Flux's `layers[0]` fallback, and it fails visibly
+rather than silently extracting the wrong layer if the artifact ever carries more than one. This does not give
+forward compatibility across a major format change: the major version is carried in the media type's `.v1`
+segment, so a format version that adds a second layer ships a new `.v2` media type — see
+[8. Format versioning and compatibility](#8-format-versioning-and-compatibility) — and a selector pinned to
+`.v1` then matches nothing, requiring the `OCIRepository` to be updated by hand.
 
 ### `crane` and `oras`
 
