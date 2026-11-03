@@ -1,10 +1,10 @@
 ## kyverno oci
 
-Pulls/pushes images that include policie(s) from/to OCI registries.
+Pushes, pulls, validates, inspects, and resolves Kyverno CEL Policy Bundles in OCI registries. See "kyverno oci <subcommand> --help" for each subcommand's own flags and examples.
 
 ### Synopsis
 
-Pulls/pushes images that include policie(s) from/to OCI registries.
+Pushes, pulls, validates, inspects, and resolves Kyverno CEL Policy Bundles in OCI registries. See "kyverno oci <subcommand> --help" for each subcommand's own flags and examples.
 
   NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
 
@@ -17,11 +17,20 @@ kyverno oci [flags]
 ### Examples
 
 ```
-  # Push policy to an OCI image from a given policy file
-  kyverno oci push -p policy.yaml -i <imgref>
+  # Push a policy bundle from a directory to an OCI image
+  kyverno oci push policies -i ghcr.io/acme/baseline:v1.0.0
 
-  # Pull policy from an OCI image and save it to the specific directory
-  kyverno oci pull -i <imgref> -d policies
+  # Pull a pushed bundle into a directory
+  kyverno oci pull policies -i ghcr.io/acme/baseline:v1.0.0
+
+  # Validate a pushed bundle without pulling it
+  kyverno oci validate -i ghcr.io/acme/baseline:v1.0.0
+
+  # Inspect a pushed bundle's metadata and Kyverno compatibility
+  kyverno oci inspect -i ghcr.io/acme/baseline:v1.0.0
+
+  # Resolve a tag to its digest-pinned reference
+  kyverno oci resolve -i ghcr.io/acme/baseline:v1.0.0
 ```
 
 ### Options
@@ -54,7 +63,9 @@ kyverno oci [flags]
 ### SEE ALSO
 
 * [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
+* [kyverno oci inspect](kyverno_oci_inspect.md)	 - Show a pushed bundle's resolved digest, resource index, sets, source and revision metadata, manifest annotations, and Kyverno compatibility.
 * [kyverno oci pull](kyverno_oci_pull.md)	 - Pulls policie(s) that are included in an OCI image from OCI registry and saves them to a local directory.
 * [kyverno oci push](kyverno_oci_push.md)	 - Push policie(s) that are included in an OCI image to OCI registry.
+* [kyverno oci resolve](kyverno_oci_resolve.md)	 - Resolve a bundle tag to its immutable digest and print a digest-pinned reference you can pass to "kyverno test", "kyverno apply", "kyverno oci pull", or a Flux OCIRepository.
 * [kyverno oci validate](kyverno_oci_validate.md)	 - Validate a bundle directory or file, or a pushed OCI image, without pushing anything. By default, local validate succeeds exactly when "kyverno oci push" would reach its upload step; --kyverno-version and --strict both change that contract (see below).
 

@@ -1,0 +1,65 @@
+## kyverno oci inspect
+
+Show a pushed bundle's resolved digest, resource index, sets, source and revision metadata, manifest annotations, and Kyverno compatibility.
+
+### Synopsis
+
+Show a pushed bundle's resolved digest, resource index, sets, source and revision metadata, manifest annotations, and Kyverno compatibility.
+  The command reads the manifest and config blob only; it doesn't download or verify the content layer. Use "kyverno oci validate -i" to re-run the full validation over the archive.
+  --output json or yaml prints the same information in a stable, scriptable form; the config section is the config blob verbatim.
+
+  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+
+  For more information visit https://kyverno.io/docs/kyverno-cli/#oci
+
+```
+kyverno oci inspect [flags]
+```
+
+### Examples
+
+```
+  # Inspect a pushed bundle
+  kyverno oci inspect -i ghcr.io/acme/baseline:v1.0.0
+
+  # Inspect a digest-pinned bundle as JSON
+  kyverno oci inspect -i ghcr.io/acme/baseline@sha256:... -o json
+
+  # Check compatibility against a specific target Kyverno version
+  kyverno oci inspect -i ghcr.io/acme/baseline:v1.0.0 --kyverno-version 1.20.0
+```
+
+### Options
+
+```
+  -h, --help                     help for inspect
+  -i, --image string             image reference (tag or digest) of a pushed bundle to inspect
+      --kyverno-version string   Kyverno version to report compatibility against instead of this CLI's version
+  -o, --output string            output format (json, yaml); omit for human-readable text
+```
+
+### Options inherited from parent commands
+
+```
+      --add_dir_header                      If true, adds the file directory to the header of the log messages
+      --alsologtostderr                     log to standard error as well as files (no effect when -logtostderr=true)
+      --alsologtostderrthreshold severity   logs at or above this threshold go to stderr when -alsologtostderr=true (no effect when -logtostderr=true)
+      --kubeconfig string                   Paths to a kubeconfig. Only required if out-of-cluster.
+      --legacy_stderr_threshold_behavior    If true, stderrthreshold is ignored when logtostderr=true (legacy behavior). If false, stderrthreshold is honored even when logtostderr=true (default true)
+      --log_backtrace_at traceLocation      when logging hits line file:N, emit a stack trace (default :0)
+      --log_dir string                      If non-empty, write log files in this directory (no effect when -logtostderr=true)
+      --log_file string                     If non-empty, use this log file (no effect when -logtostderr=true)
+      --log_file_max_size uint              Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
+      --logtostderr                         log to standard error instead of files (default true)
+      --one_output                          If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
+      --skip_headers                        If true, avoid header prefixes in the log messages
+      --skip_log_headers                    If true, avoid headers when opening log files (no effect when -logtostderr=true)
+      --stderrthreshold severity            logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=true unless -legacy_stderr_threshold_behavior=false) (default 2)
+  -v, --v Level                             number for the log level verbosity
+      --vmodule moduleSpec                  comma-separated list of pattern=N settings for file-filtered logging
+```
+
+### SEE ALSO
+
+* [kyverno oci](kyverno_oci.md)	 - Pushes, pulls, validates, inspects, and resolves Kyverno CEL Policy Bundles in OCI registries. See "kyverno oci <subcommand> --help" for each subcommand's own flags and examples.
+

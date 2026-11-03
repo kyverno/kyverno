@@ -58,7 +58,7 @@ func Read(img v1.Image, dir string) (*Bundle, error) {
 		return nil, fmt.Errorf("reading manifest: %w", err)
 	}
 
-	if err := checkManifestShape(manifest); err != nil {
+	if err := CheckManifestShape(manifest); err != nil {
 		return nil, err
 	}
 
@@ -97,13 +97,9 @@ func Read(img v1.Image, dir string) (*Bundle, error) {
 		return nil, err
 	}
 
-	configBytes, err := img.RawConfigFile()
+	cfg, _, err := parseConfig(img)
 	if err != nil {
-		return nil, fmt.Errorf("reading config: %w", err)
-	}
-	var cfg Config
-	if err := json.Unmarshal(configBytes, &cfg); err != nil {
-		return nil, fmt.Errorf("parsing config: %w", err)
+		return nil, err
 	}
 
 	// Reader MUST 6: reject a bundle whose major format version this reader doesn't support,
@@ -181,6 +177,23 @@ func checkFormatVersion(formatVersion string) error {
 		return fmt.Errorf("unsupported bundle format major version %s (this reader supports major version %s)", major, supportedFormatMajor)
 	}
 	return nil
+}
+
+// parseConfig reads img's config blob and unmarshals it into a Config, returning both the typed
+// value and the raw bytes (callers that need the verbatim blob, such as ReadMetadata and
+// inspect's -o json, avoid a second RawConfigFile call). Read and ReadMetadata both call this at
+// the same point in their own ordering: after the manifest shape check, so a malformed or
+// legacy-media-type config never reaches json.Unmarshal.
+func parseConfig(img v1.Image) (Config, []byte, error) {
+	configBytes, err := img.RawConfigFile()
+	if err != nil {
+		return Config{}, nil, fmt.Errorf("reading config: %w", err)
+	}
+	var cfg Config
+	if err := json.Unmarshal(configBytes, &cfg); err != nil {
+		return Config{}, nil, fmt.Errorf("parsing config: %w", err)
+	}
+	return cfg, configBytes, nil
 }
 
 // place writes files (bundle-root-relative path -> validated content) under dir, refusing any
@@ -261,7 +274,7 @@ func checkPlacementPath(dir, rel string) error {
 	return nil
 }
 
-// checkManifestShape requires an OCI 1.0 image manifest (schemaVersion 2, mediaType
+// CheckManifestShape requires an OCI 1.0 image manifest (schemaVersion 2, mediaType
 // application/vnd.oci.image.manifest.v1+json) with exactly one layer, at index 0, with the
 // content media type, and a config with the config media type (reader MUST 1). It detects a
 // pre-1.20 image by its retired media types and fails with an actionable "legacy image format"
@@ -269,8 +282,9 @@ func checkPlacementPath(dir, rel string) error {
 // checks run first, and the schemaVersion/mediaType check last, so a pre-1.20 image — which never
 // carried either the current config or layer media type, but also never set the OCI manifest
 // media type this format now requires — still gets the actionable legacy message instead of a
-// generic manifest-shape error.
-func checkManifestShape(manifest *v1.Manifest) error {
+// generic manifest-shape error. Exported so bundle.ReadMetadata and the oci resolve subcommand
+// can apply the same manifest-shape check without extracting the content layer.
+func CheckManifestShape(manifest *v1.Manifest) error {
 	if manifest.Config.MediaType == internal.LegacyConfigMediaType {
 		return fmt.Errorf("legacy image format: this image predates format 1.0 (config media type %s); republish it with a 1.20 or later kyverno CLI", manifest.Config.MediaType)
 	}
