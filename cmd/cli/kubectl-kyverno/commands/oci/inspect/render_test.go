@@ -55,32 +55,39 @@ func sampleReport(cfg bundle.Config) Report {
 	}
 }
 
-// TestWriteTextMatchesLayout pins D2's exact text layout, including the empty-namespace "-"
-// substitution, the sets list, and the resource table header.
+// TestWriteTextMatchesLayout pins D2's exact text layout byte-for-byte: column order, the
+// empty-namespace "-" substitution, the sets list, and the resource table header, so a silent
+// reordering of the primary human-facing output fails this test instead of going unnoticed.
 func TestWriteTextMatchesLayout(t *testing.T) {
 	cfg := sampleConfig()
 	r := sampleReport(cfg)
 
 	var out bytes.Buffer
 	require.NoError(t, writeText(&out, r, cfg))
-	text := out.String()
 
-	assert.Contains(t, text, "Reference:")
-	assert.Contains(t, text, "ghcr.io/acme/baseline:v1.0.0")
-	assert.Contains(t, text, "Pinned:")
-	assert.Contains(t, text, "Format version:")
-	assert.Contains(t, text, "1.0.0")
-	assert.Contains(t, text, "Kyverno:")
-	assert.Contains(t, text, ">=1.20 (satisfied by 1.20.0)")
-	assert.Contains(t, text, "Source:")
-	assert.Contains(t, text, "https://github.com/acme/policies @ 3f2c1a9")
-	assert.Contains(t, text, "Sets:")
-	assert.Contains(t, text, "policies (policies)")
-	assert.Contains(t, text, "Resources (2):")
-	assert.Contains(t, text, "NAMESPACE")
-	assert.Contains(t, text, " - ")
-	assert.Contains(t, text, "team-a")
-	assert.Contains(t, text, "Annotations:")
+	want := "Reference:      ghcr.io/acme/baseline:v1.0.0\n" +
+		"Digest:         sha256:1111111111111111111111111111111111111111111111111111111111111111\n" +
+		"Pinned:         ghcr.io/acme/baseline@sha256:1111111111111111111111111111111111111111111111111111111111111111\n" +
+		"Format version: 1.0.0\n" +
+		"Name:           baseline\n" +
+		"Version:        1.0.0\n" +
+		"Description:    Baseline policies\n" +
+		"Kyverno:        >=1.20 (satisfied by 1.20.0)\n" +
+		"Source:         https://github.com/acme/policies @ 3f2c1a9\n" +
+		"Created:        2026-10-01T00:00:00Z\n" +
+		"Layer:          application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip sha256:2222222222222222222222222222222222222222222222222222222222222222 (2048 bytes)\n" +
+		"Sets:\n" +
+		"  policies (policies)\n" +
+		"  exceptions (exceptions)\n" +
+		"Resources (2):\n" +
+		"  APIVERSION                   KIND              NAMESPACE  NAME            SET         PATH\n" +
+		"  policies.kyverno.io/v1beta1  ValidatingPolicy  -          require-labels  policies    policies/require-labels.yaml\n" +
+		"  policies.kyverno.io/v1beta1  PolicyException   team-a     check-pod       exceptions  exceptions/team-a-exceptions.yaml\n" +
+		"Annotations:\n" +
+		"  io.kyverno.bundle.format-version: 1.0.0\n" +
+		"  io.kyverno.bundle.name: baseline\n" +
+		"  org.opencontainers.image.title: baseline\n"
+	assert.Equal(t, want, out.String())
 }
 
 // TestWriteTextOmitsKyvernoLineWhenUndeclared pins D2's rule that the Kyverno: line is omitted
@@ -123,9 +130,10 @@ func TestWriteTextPathShowsDocumentIndex(t *testing.T) {
 	assert.Contains(t, text, "multi.yaml (document 1)")
 }
 
-// TestWriteJSONRoundTripsConfigVerbatim pins D2: Report.Config is json.RawMessage, so -o json
-// echoes the config blob byte-for-byte, and the whole report round-trips.
-func TestWriteJSONRoundTripsConfigVerbatim(t *testing.T) {
+// TestWriteJSONRoundTripsConfigContent pins D2: Report.Config is json.RawMessage, so -o json
+// reproduces the config blob's content faithfully (MarshalIndent re-indents and HTML-escapes it,
+// so it's not byte-for-byte), and the whole report round-trips.
+func TestWriteJSONRoundTripsConfigContent(t *testing.T) {
 	cfg := sampleConfig()
 	r := sampleReport(cfg)
 

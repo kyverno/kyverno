@@ -11,7 +11,9 @@ import (
 type Metadata struct {
 	Manifest *v1.Manifest
 	// RawConfig is the config blob's bytes, verbatim, so a caller such as inspect's -o json can
-	// echo the blob byte-for-byte rather than re-marshaling the typed Config.
+	// reproduce the blob's content faithfully rather than re-marshaling the typed Config. Once
+	// embedded in a larger JSON document as a json.RawMessage, re-indenting and HTML-escaping
+	// mean the final output isn't byte-for-byte identical to this field.
 	RawConfig []byte
 	Config    Config
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/bundle"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/ocitest"
 	"github.com/stretchr/testify/assert"
@@ -120,6 +121,32 @@ func TestExecuteRejectsNonBundleImage(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "resolve only pins Kyverno bundles:")
 	assert.Contains(t, err.Error(), "crane digest")
+	assert.Empty(t, out.String())
+}
+
+// TestExecuteRejectsLegacyMediaType pins D1's shape check wrapping a pre-1.20 image's "legacy
+// image format" error inside "resolve only pins Kyverno bundles:".
+func TestExecuteRejectsLegacyMediaType(t *testing.T) {
+	host := ocitest.NewRegistry(t)
+	dir := writeTree(t, map[string]string{"policy.yaml": validVP})
+	b, err := bundle.Assemble(dir)
+	require.NoError(t, err)
+	require.NoError(t, bundle.Validate(b))
+	img, err := bundle.Write(b, nil)
+	require.NoError(t, err)
+	legacyImg := mutate.ConfigMediaType(img, types.MediaType(internal.LegacyConfigMediaType))
+
+	ref := host + "/bundles/legacy:v1"
+	name, err := gcrname.ParseReference(ref)
+	require.NoError(t, err)
+	require.NoError(t, remote.Write(name, legacyImg))
+
+	var out bytes.Buffer
+	o := options{imageRef: ref}
+	err = o.execute(context.Background(), &out, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resolve only pins Kyverno bundles:")
+	assert.Contains(t, err.Error(), "legacy image format")
 	assert.Empty(t, out.String())
 }
 

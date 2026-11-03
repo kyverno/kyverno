@@ -14,6 +14,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/static"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/bundle"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/ocitest"
@@ -320,6 +322,153 @@ func TestExecuteRejectsIndexReference(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "expected an OCI 1.0 image manifest")
 	assert.Empty(t, out.String())
+}
+
+func buildBundle(t *testing.T) v1.Image {
+	t.Helper()
+	dir := writeTree(t, map[string]string{"policy.yaml": validVP})
+	b, err := bundle.Assemble(dir)
+	require.NoError(t, err)
+	require.NoError(t, bundle.Validate(b))
+	img, err := bundle.Write(b, nil)
+	require.NoError(t, err)
+	return img
+}
+
+// pushWithPatchedConfig pushes base's single content layer unchanged, but replaces its config
+// blob's bytes with configBytes (patch applied to the decoded JSON, re-marshaled), updating the
+// manifest's config digest/size to match. Neither bundle.Config's typed struct nor
+// go-containerregistry's mutate package can produce config bytes outside the shape they already
+// know, so the config and content-layer blobs are pushed directly (remote.WriteLayer, remote.Put)
+// instead of through remote.Write(ref, image).
+func pushWithPatchedConfig(t *testing.T, host, ref string, base v1.Image, patch func(cfg map[string]interface{})) {
+	t.Helper()
+	baseManifest, err := base.Manifest()
+	require.NoError(t, err)
+	layers, err := base.Layers()
+	require.NoError(t, err)
+	require.Len(t, layers, 1)
+
+	raw, err := base.RawConfigFile()
+	require.NoError(t, err)
+	var cfg map[string]interface{}
+	require.NoError(t, json.Unmarshal(raw, &cfg))
+	patch(cfg)
+	patchedConfig, err := json.Marshal(cfg)
+	require.NoError(t, err)
+
+	configLayer := static.NewLayer(patchedConfig, types.MediaType(internal.ConfigMediaType))
+	configDigest, err := configLayer.Digest()
+	require.NoError(t, err)
+	configSize, err := configLayer.Size()
+	require.NoError(t, err)
+
+	manifest := baseManifest.DeepCopy()
+	manifest.Config.Digest = configDigest
+	manifest.Config.Size = configSize
+	manifestBytes, err := json.Marshal(manifest)
+	require.NoError(t, err)
+
+	full := host + "/" + ref
+	refName, err := gcrname.ParseReference(full)
+	require.NoError(t, err)
+	repo := refName.Context()
+
+	require.NoError(t, remote.WriteLayer(repo, layers[0]))
+	require.NoError(t, remote.WriteLayer(repo, configLayer))
+	require.NoError(t, remote.Put(refName, manifestTaggable{raw: manifestBytes, mt: manifest.MediaType}))
+}
+
+// TestExecuteWrapsReaderErrors pins that execute surfaces bundle.ReadMetadata's own reader-MUST
+// errors unwrapped, for every shape the reader rejects: a legacy pre-1.20 config media type, a
+// manifest with more than one layer, and an unsupported format major version.
+func TestExecuteWrapsReaderErrors(t *testing.T) {
+	cases := []struct {
+		name    string
+		push    func(t *testing.T, host, ref string)
+		wantErr string
+	}{
+		{
+			name: "legacy media type",
+			push: func(t *testing.T, host, ref string) {
+				img := mutate.ConfigMediaType(buildBundle(t), types.MediaType(internal.LegacyConfigMediaType))
+				full := host + "/" + ref
+				name, err := gcrname.ParseReference(full)
+				require.NoError(t, err)
+				require.NoError(t, remote.Write(name, img))
+			},
+			wantErr: "legacy image format",
+		},
+		{
+			name: "two layers",
+			push: func(t *testing.T, host, ref string) {
+				extra, err := random.Layer(16, types.OCILayer)
+				require.NoError(t, err)
+				img, err := mutate.AppendLayers(buildBundle(t), extra)
+				require.NoError(t, err)
+				full := host + "/" + ref
+				name, err := gcrname.ParseReference(full)
+				require.NoError(t, err)
+				require.NoError(t, remote.Write(name, img))
+			},
+			wantErr: "malformed bundle",
+		},
+		{
+			name: "wrong format major",
+			push: func(t *testing.T, host, ref string) {
+				pushWithPatchedConfig(t, host, ref, buildBundle(t), func(cfg map[string]interface{}) {
+					cfg["formatVersion"] = "2.0.0"
+				})
+			},
+			wantErr: "unsupported bundle format major version 2",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			host := ocitest.NewRegistry(t)
+			ref := "bundles/bad:v1"
+			c.push(t, host, ref)
+
+			var out, errOut bytes.Buffer
+			o := options{imageRef: host + "/" + ref}
+			err := o.execute(context.Background(), &out, &errOut, nil)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), c.wantErr)
+			assert.Empty(t, out.String())
+		})
+	}
+}
+
+// manifestTaggable is the minimal remote.Taggable so a hand-built manifest can be pushed with
+// remote.Put without constructing a full v1.Image (which, per bundle/image.go, the mutate package
+// can't do for a config blob that isn't a marshaled v1.ConfigFile).
+type manifestTaggable struct {
+	raw []byte
+	mt  types.MediaType
+}
+
+func (m manifestTaggable) RawManifest() ([]byte, error)        { return m.raw, nil }
+func (m manifestTaggable) MediaType() (types.MediaType, error) { return m.mt, nil }
+
+// TestExecuteJSONPreservesUnknownConfigField pins D2's note that Report.Config is json.RawMessage:
+// a config field a future minor version adds survives -o json untouched, even though this
+// reader's typed bundle.Config doesn't know about it.
+func TestExecuteJSONPreservesUnknownConfigField(t *testing.T) {
+	host := ocitest.NewRegistry(t)
+	ref := "bundles/future-field:v1"
+	pushWithPatchedConfig(t, host, ref, buildBundle(t), func(cfg map[string]interface{}) {
+		cfg["futureField"] = "from-a-later-minor"
+	})
+
+	var out, errOut bytes.Buffer
+	o := options{imageRef: host + "/" + ref, output: "json"}
+	require.NoError(t, o.execute(context.Background(), &out, &errOut, nil))
+	assert.Empty(t, errOut.String())
+	got := mustExtractConfig(t, out.Bytes())
+	var decoded map[string]interface{}
+	require.NoError(t, json.Unmarshal(got, &decoded))
+	assert.Equal(t, "from-a-later-minor", decoded["futureField"])
 }
 
 func TestValidateRejectsNonReleaseKyvernoVersion(t *testing.T) {
