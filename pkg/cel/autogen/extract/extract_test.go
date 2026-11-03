@@ -339,3 +339,59 @@ func TestIsPodTemplateSpec(t *testing.T) {
 		})
 	}
 }
+
+func TestPathToJSONPointer(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{
+			name: "empty path",
+			path: "",
+			want: "",
+		},
+		{
+			name: "single segment",
+			path: "spec",
+			want: "/spec",
+		},
+		{
+			name: "deployment template",
+			path: "spec.template",
+			want: "/spec/template",
+		},
+		{
+			name: "jobset single replicatedJob",
+			path: "spec.replicatedJobs[0].template.spec.template",
+			want: "/spec/replicatedJobs/0/template/spec/template",
+		},
+		{
+			name: "jobset second replicatedJob",
+			path: "spec.replicatedJobs[1].template.spec.template",
+			want: "/spec/replicatedJobs/1/template/spec/template",
+		},
+		{
+			name: "pytorchjob replica specs",
+			path: "spec.pytorchReplicaSpecs.Master.template",
+			want: "/spec/pytorchReplicaSpecs/Master/template",
+		},
+		{
+			name: "nested arrays",
+			path: "spec.matrix[0][1].template",
+			want: "/spec/matrix/0/1/template",
+		},
+		{
+			name: "token with slash and tilde",
+			path: "spec.labels[foo/bar].template",
+			want: "/spec/labels/foo~1bar/template",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, PathToJSONPointer(tt.path))
+			ext := Extracted{Path: tt.path}
+			assert.Equal(t, tt.want, ext.JSONPointer())
+		})
+	}
+}

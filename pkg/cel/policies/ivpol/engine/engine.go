@@ -26,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"go.uber.org/multierr"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -268,22 +269,6 @@ func (e *engineImpl) handleMutation(
 	var responses []eval.ImageVerifyPolicyResponse
 	seen := map[string]bool{}
 	for _, ivpol := range policies {
-		if ivpol.ExtractionMode {
-			// Digest-pinning mutation for extraction-mode targets would need
-			// to write the patch back into the parent object at the
-			// extracted template's path, not the top level - not
-			// implemented yet. Skip rather than emit a patch at the wrong
-			// location; HandleValidating still enforces the policy. Record an
-			// explicit skip so the policy doesn't silently vanish from the
-			// response as if mutation had run normally.
-			responses = append(responses, eval.ImageVerifyPolicyResponse{
-				Policy:     ivpol.Policy,
-				Actions:    ivpol.Actions,
-				Exceptions: ivpol.Exceptions,
-				Result:     *engineapi.RuleSkip("mutateDigest", engineapi.ImageVerify, "digest-pinning mutation is not supported for extraction-mode targets", nil),
-			})
-			continue
-		}
 		validationCfg := ivpol.Policy.GetSpec().ValidationConfigurations
 		if validationCfg.MutateDigest != nil && !*validationCfg.MutateDigest {
 			continue
@@ -307,13 +292,18 @@ func (e *engineImpl) handleMutation(
 			})
 			continue
 		}
-		var polPatches []jsonpatch.JsonPatchOperation
-		if aware, ok := compiled.(eval.ActivationAwareCompiledPolicy); ok {
-			polPatches, err = aware.MutateDigestWithActivation(ctx, ictx, nil, nil, attr, request, namespace, resource, activationBuilder, requestMapFn, e.configuration, libctx)
+		var (
+			polPatches []jsonpatch.JsonPatchOperation
+			polErr     error
+		)
+		if ivpol.ExtractionMode {
+			polPatches, polErr = e.mutateExtractedIv(ctx, compiled, ictx, attr, request, namespace, resource, libctx)
+		} else if aware, ok := compiled.(eval.ActivationAwareCompiledPolicy); ok {
+			polPatches, polErr = aware.MutateDigestWithActivation(ctx, ictx, nil, nil, attr, request, namespace, resource, activationBuilder, requestMapFn, e.configuration, libctx)
 		} else {
-			polPatches, err = compiled.MutateDigest(ctx, ictx, nil, nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
+			polPatches, polErr = compiled.MutateDigest(ctx, ictx, nil, nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
 		}
-		if err != nil {
+		if polErr != nil {
 			// Record the failure as a policy result and carry on with the remaining
 			// policies rather than returning an error, which would abandon their
 			// patches and deny with an unattributed message. This mirrors
@@ -321,13 +311,13 @@ func (e *engineImpl) handleMutation(
 			// and continues (pkg/engine/internal/imageverifier.go). The webhook
 			// handler turns this result into a denial when the policy's
 			// validationActions include Deny.
-			logging.WithName("ivpol/mutateDigest").Error(err, "failed to update digest",
+			logging.WithName("ivpol/mutateDigest").Error(polErr, "failed to update digest",
 				"policy", ivpol.Policy.GetName())
 			responses = append(responses, eval.ImageVerifyPolicyResponse{
 				Policy:     ivpol.Policy,
 				Actions:    ivpol.Actions,
 				Exceptions: ivpol.Exceptions,
-				Result:     *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", err, nil),
+				Result:     *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", polErr, nil),
 			})
 			// deliberately no continue: MutateDigest resolves each image on its own, so
 			// the images it did pin keep their patch even though another one failed
@@ -341,6 +331,86 @@ func (e *engineImpl) handleMutation(
 		}
 	}
 	return patches, responses, nil
+}
+
+// mutateExtractedIv mirrors evaluateExtractedIv for digest-pinning mutation:
+// instead of mutating the top-level admitted object directly (a custom
+// workload CRD, whose shape the policy's Pod-targeted rule knows nothing about),
+// it extracts every pod-template-shaped subtree, synthesizes a Pod from each,
+// runs digest mutation on each synthesized Pod, and rewrites the resulting
+// JSON patch paths to point back to the container location in the parent object.
+func (e *engineImpl) mutateExtractedIv(
+	ctx context.Context,
+	compiled eval.CompiledPolicy,
+	ictx imagedataloader.ImageContext,
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace runtime.Object,
+	resource unstructured.Unstructured,
+	libctx libs.Context,
+) ([]jsonpatch.JsonPatchOperation, error) {
+	newObj, _ := attr.GetObject().(*unstructured.Unstructured)
+	oldObj, _ := attr.GetOldObject().(*unstructured.Unstructured)
+	// On a real DELETE, object is empty and the resource content lives only
+	// in oldObject (see admissionutils.ExtractResources) - fall back to it so
+	// extraction still finds the pod template(s) being deleted.
+	source, usingOld := newObj, false
+	if source == nil || len(source.Object) == 0 {
+		source, usingOld = oldObj, true
+	}
+	if source == nil || len(source.Object) == 0 {
+		return nil, fmt.Errorf("extraction mode: expected an unstructured object, got %T", attr.GetObject())
+	}
+	templates := extract.ExtractPodTemplates(source.Object)
+	if len(templates) == 0 {
+		return nil, fmt.Errorf("extraction mode: no pod template found in %s/%s", source.GetAPIVersion(), source.GetKind())
+	}
+	other := oldObj
+	if usingOld {
+		other = newObj
+	}
+	var otherByPath map[string]extract.Extracted
+	if other != nil && len(other.Object) > 0 {
+		otherTemplates := extract.ExtractPodTemplates(other.Object)
+		otherByPath = make(map[string]extract.Extracted, len(otherTemplates))
+		for _, t := range otherTemplates {
+			otherByPath[t.Path] = t
+		}
+	}
+	var (
+		allPatches []jsonpatch.JsonPatchOperation
+		errs       []error
+	)
+	for _, tpl := range templates {
+		var otherTpl *extract.Extracted
+		if o, ok := otherByPath[tpl.Path]; ok {
+			otherTpl = &o
+		}
+		var synthAttr admission.Attributes
+		if usingOld {
+			synthAttr = extract.SynthesizePodAttributes(otherTpl, &tpl, attr)
+		} else {
+			synthAttr = extract.SynthesizePodAttributes(&tpl, otherTpl, attr)
+		}
+		synthRequest := extract.SynthesizePodAdmissionRequest(request, synthAttr)
+		synthResource, ok := synthAttr.GetObject().(*unstructured.Unstructured)
+		if !ok || synthResource == nil || len(synthResource.Object) == 0 {
+			continue
+		}
+		// nil requestMapFn: the synthesized request embeds a different
+		// object/oldObject than the outer hoisted map, so it must be rebuilt from
+		// scratch for each synthetic Pod (see prepareK8sData's nil-fallback).
+		patches, err := compiled.MutateDigest(ctx, ictx, nil, nil, synthAttr, synthRequest, namespace, *synthResource, nil, e.configuration, libctx)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("pod template at %s: %w", tpl.Path, err))
+		}
+		tplJSONPointer := tpl.JSONPointer()
+		for _, p := range patches {
+			p.Path = tplJSONPointer + p.Path
+			allPatches = append(allPatches, p)
+		}
+	}
+	return allPatches, multierr.Combine(errs...)
 }
 
 // evaluateExtractedIv mirrors vpol's evaluateExtracted: instead of evaluating
