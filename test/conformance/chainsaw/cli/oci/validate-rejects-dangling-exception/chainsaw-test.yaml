@@ -8,8 +8,11 @@ spec:
   steps:
     - try:
       - script:
+          # A single file, not ".": Assemble succeeds (a dangling in-bundle reference is
+          # format-legal, writer MUST 12's carve-out is push's own strict default); validate's
+          # own re-application of ValidateWithOptions is what rejects it.
           content: |
-            kyverno oci validate .
+            kyverno oci validate exception.yaml
           check:
             ($error != null): true
             (contains($stderr, 'references unknown policy')): true

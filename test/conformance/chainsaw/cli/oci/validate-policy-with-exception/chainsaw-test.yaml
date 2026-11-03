@@ -8,7 +8,9 @@ spec:
   steps:
     - try:
       - script:
+          # bundle/ holds only policy.yaml and exception.yaml: validating "." here would also
+          # pick up this chainsaw-test.yaml, which is not bundle content.
           content: |
-            kyverno oci validate .
+            kyverno oci validate bundle
           check:
             ($error): ~

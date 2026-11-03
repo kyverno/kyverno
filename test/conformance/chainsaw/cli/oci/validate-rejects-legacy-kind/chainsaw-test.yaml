@@ -8,8 +8,10 @@ spec:
   steps:
     - try:
       - script:
+          # A single file, not ".", so Assemble's single-file branch runs: chainsaw-test.yaml
+          # itself (which also matches *.yaml) never becomes part of what gets validated.
           content: |
-            kyverno oci validate .
+            kyverno oci validate policy.yaml
           check:
             ($error != null): true
             (contains($stderr, 'kyverno.io/v1')): true

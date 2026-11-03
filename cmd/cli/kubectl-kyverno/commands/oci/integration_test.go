@@ -14,6 +14,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -168,18 +169,15 @@ func TestDefaultKeychainReadsDockerConfig(t *testing.T) {
 // test uses only the standard library and go-containerregistry (already a dependency); it does
 // not import fluxcd/pkg or fluxcd/source-controller. ---
 
-// validRelPath mirrors fluxcd/pkg tar/untar.go's validRelPath (main@13c7c12b): the path must be
-// non-empty, must not contain a backslash, must not be absolute, and must not contain a ".."
-// element after cleaning.
+// validRelPath mirrors fluxcd/pkg tar/untar.go's validRelPath (main@13c7c12b) exactly: it checks
+// the raw entry name, not a cleaned one. Flux rejects any name containing a literal "../"
+// substring before any path cleaning happens, so e.g. "a/../b" is refused even though
+// filepath.Clean would reduce it to the harmless "b". Normalising first (as an earlier version
+// of this helper did) would accept paths Flux itself refuses, which is the opposite of the
+// interoperability guarantee this test exists to prove.
 func validRelPath(p string) bool {
-	if p == "" || strings.Contains(p, `\`) || strings.HasPrefix(p, "/") {
+	if p == "" || strings.Contains(p, `\`) || strings.HasPrefix(p, "/") || strings.Contains(p, "../") {
 		return false
-	}
-	clean := filepath.ToSlash(filepath.Clean(p))
-	for _, elem := range strings.Split(clean, "/") {
-		if elem == ".." {
-			return false
-		}
 	}
 	return true
 }
@@ -218,11 +216,11 @@ spec:
 	defer rc.Close()
 
 	magic := make([]byte, 2)
-	_, err = rc.Read(magic)
-	require.NoError(t, err)
+	_, err = io.ReadFull(rc, magic)
+	require.NoError(t, err, "a short read must not silently pass as a valid gzip magic check")
 	assert.Equal(t, []byte{0x1f, 0x8b}, magic, "Flux's tar.Untar requires a gzip-compressed body with no fallback")
+	require.NoError(t, rc.Close())
 
-	rc.Close()
 	rc2, err := layer.Compressed()
 	require.NoError(t, err)
 	defer rc2.Close()
@@ -233,9 +231,10 @@ spec:
 	var names []string
 	for {
 		hdr, err := tr.Next()
-		if err != nil {
+		if err == io.EOF {
 			break
 		}
+		require.NoError(t, err, "a truncated or corrupt content layer must fail the test, not be silently treated as end-of-archive")
 		assert.True(t, validRelPath(hdr.Name), "entry %q must satisfy Flux's validRelPath", hdr.Name)
 		switch hdr.Typeflag {
 		case tar.TypeReg, tar.TypeDir:
@@ -247,6 +246,7 @@ spec:
 			names = append(names, hdr.Name)
 		}
 	}
+	require.NoError(t, gz.Close(), "a truncated gzip stream must surface as an error here, not pass silently")
 	assert.ElementsMatch(t, []string{"policies/require-labels.yaml", "exceptions/team-a/check.yaml"}, names)
 }
 
@@ -255,13 +255,41 @@ spec:
 
 // TestPushSameTreeTwoRefsSameDigest is the determinism falsifier: pushing the same tree to two
 // different references yields the same content digest, because bundle.Write never derives
-// content from the push reference.
+// content from the push reference. This drives the real production writer via push's own
+// execute (push.Command), not ocitest.PushTree's hand-built image: a regression in the real
+// writer (config field ordering, annotation ordering, layer mtime) must be able to fail this
+// test, which a reimplemented serializer in the test helper could never detect.
 func TestPushSameTreeTwoRefsSameDigest(t *testing.T) {
 	host := ocitest.NewRegistry(t)
 	files := map[string]string{"policy.yaml": integrationVP}
-	digestA := ocitest.PushTree(t, host+"/bundles/a:v1", files, nil)
-	digestB := ocitest.PushTree(t, host+"/bundles/b:v9", files, nil)
-	assert.Equal(t, digestA.String(), digestB.String())
+	dirA := writeTree(t, files)
+	dirB := writeTree(t, files)
+	refA := host + "/bundles/a:v1"
+	refB := host + "/bundles/b:v9"
+
+	anon := authn.NewMultiKeychain()
+	pushA := push.Command(anon)
+	pushA.SetArgs([]string{dirA, "-i", refA})
+	require.NoError(t, pushA.Execute())
+
+	pushB := push.Command(anon)
+	pushB.SetArgs([]string{dirB, "-i", refB})
+	require.NoError(t, pushB.Execute())
+
+	digestA := manifestDigest(t, refA)
+	digestB := manifestDigest(t, refB)
+	assert.Equal(t, digestA, digestB)
+}
+
+// manifestDigest fetches ref's manifest digest straight off the registry (not through resolve or
+// inspect), so TestPushSameTreeTwoRefsSameDigest's comparison depends only on push's own writer.
+func manifestDigest(t *testing.T, ref string) string {
+	t.Helper()
+	name, err := gcrname.ParseReference(ref)
+	require.NoError(t, err)
+	desc, err := remote.Get(name)
+	require.NoError(t, err)
+	return desc.Digest.String()
 }
 
 // TestMovedTagKeepsPinnedContent documents the registry's content-addressed-store contract
@@ -273,7 +301,8 @@ func TestMovedTagKeepsPinnedContent(t *testing.T) {
 	ref := host + "/bundles/moving:v1"
 	ocitest.PushTree(t, ref, map[string]string{"policy.yaml": integrationVP}, nil)
 
-	resolveCmd := resolve.Command(nil)
+	anon := authn.NewMultiKeychain()
+	resolveCmd := resolve.Command(anon)
 	var resolveOut bytes.Buffer
 	resolveCmd.SetOut(&resolveOut)
 	resolveCmd.SetArgs([]string{"-i", ref})
@@ -281,7 +310,7 @@ func TestMovedTagKeepsPinnedContent(t *testing.T) {
 	pinnedRef := strings.TrimSpace(resolveOut.String())
 
 	inspectBefore := func() []byte {
-		cmd := inspect.Command(nil)
+		cmd := inspect.Command(anon)
 		var out bytes.Buffer
 		cmd.SetOut(&out)
 		cmd.SetArgs([]string{"-i", pinnedRef, "-o", "json"})

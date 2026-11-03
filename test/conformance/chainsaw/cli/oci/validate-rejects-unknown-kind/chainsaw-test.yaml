@@ -8,8 +8,12 @@ spec:
   steps:
     - try:
       - script:
+          # A single file, not ".": a ConfigMap is a recognized core resource, so policy.Load
+          # returns an explicit "policy type not supported" error for it (processDocumentItem),
+          # not the "produced no results" path that fires only when policy.Load contributes
+          # nothing at all for a file (e.g. a non-Kyverno CRD with no scheme entry).
           content: |
-            kyverno oci validate .
+            kyverno oci validate policy.yaml
           check:
             ($error != null): true
-            (contains($stderr, 'policy.Load produced no results')): true
+            (contains($stderr, 'policy type not supported')): true
