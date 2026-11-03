@@ -1103,6 +1103,6 @@ The descriptor, `kyverno-bundle.yaml`, isn't in that listing: it's an input, not
   - Accepted-version table widened to `v1`, `kyvernoVersion` constraint semantics, and the writer-policy checks
     specified by #17664. No byte-level effect on any 1.0.0 bundle; no bump because 1.0.0 hasn't shipped in a
     release yet.
-  - `kyverno oci` graduated out of the experimental gate: it no longer requires `KYVERNO_EXPERIMENTAL`, settling
-    [1. Status and scope](#1-status-and-scope)'s open item that this format commits as of 1.20. No byte-level
-    effect on any 1.0.0 bundle; no bump because 1.0.0 hasn't shipped in a release yet.
+  - `kyverno oci` graduated out of the experimental gate: it no longer requires `KYVERNO_EXPERIMENTAL`.
+    [1. Status and scope](#1-status-and-scope) records this format as committed as of 1.20. No byte-level effect
+    on any 1.0.0 bundle; no bump because 1.0.0 hasn't shipped in a release yet.
