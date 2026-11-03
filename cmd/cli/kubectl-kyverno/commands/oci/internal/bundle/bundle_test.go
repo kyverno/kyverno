@@ -1068,3 +1068,117 @@ func TestExtractRejectsTooManyEntries(t *testing.T) {
 	assert.Contains(t, err.Error(), fmt.Sprintf("%d", maxEntries))
 	assert.Contains(t, err.Error(), "entries")
 }
+
+const validV1VP = `apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-labels-v1
+spec:
+  validations:
+  - expression: "true"
+`
+
+// TestV1DocumentRoundTripsWithAPIVersionPreserved pins D4: the accepted-version table widens to
+// policies.kyverno.io/v1, and the spec's "a writer MUST NOT rewrite apiVersion" rule (section 3)
+// means the config's resource-index entry, not just the archive, must keep reporting "v1" after a
+// full Write/Read round trip, not the storage version "v1beta1" the loader converts it to
+// internally.
+func TestV1DocumentRoundTripsWithAPIVersionPreserved(t *testing.T) {
+	dir := writeTree(t, map[string]string{"policy.yaml": validV1VP})
+	b, err := Assemble(dir)
+	require.NoError(t, err)
+	require.NoError(t, Validate(b))
+
+	img, err := Write(b, nil)
+	require.NoError(t, err)
+
+	configBytes, err := img.RawConfigFile()
+	require.NoError(t, err)
+	var cfg Config
+	require.NoError(t, json.Unmarshal(configBytes, &cfg))
+	require.Len(t, cfg.Resources, 1)
+	assert.Equal(t, "policies.kyverno.io/v1", cfg.Resources[0].APIVersion)
+
+	dst := t.TempDir()
+	got, err := Read(img, dst)
+	require.NoError(t, err)
+	require.Len(t, got.Documents, 1)
+	assert.Equal(t, "policies.kyverno.io/v1", got.Documents[0].APIVersion)
+}
+
+// TestValidateRejectsV1AndV1beta1WithSameIdentity pins D4's identity consequence: once the
+// accepted-version table includes both v1beta1 and v1, a v1 and a v1beta1 document naming the
+// same kind, namespace, and name are a duplicate identity, because identity (validateDocuments'
+// Kind/Namespace/Name key) deliberately excludes apiVersion.
+func TestValidateRejectsV1AndV1beta1WithSameIdentity(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"v1beta1.yaml": validVP, // kind ValidatingPolicy, name require-labels
+		"v1.yaml": `apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-labels
+spec:
+  validations:
+  - expression: "true"
+`,
+	})
+	_, err := Assemble(dir)
+	// validateDocuments runs at Validate time, not Assemble time; Assemble itself must still
+	// succeed so Validate is the one that rejects the duplicate identity.
+	require.NoError(t, err)
+
+	b, err := Assemble(dir)
+	require.NoError(t, err)
+	err = Validate(b)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate resource identity")
+}
+
+// TestValidateForReadIgnoresExpiredException pins the single most load-bearing invariant in this
+// change: expiry is a strict-path-only warning (D2), so ValidateForRead -- what Read calls -- must
+// never fail, never warn, and never consult any clock for an exception whose expiresAt is far in
+// the past. A bundle that pushed cleanly before its exception expired must stay pullable
+// afterward; nothing here should depend on the wall clock at test-run time, which is why this
+// test's expiresAt is fixed in the distant past rather than computed from time.Now().
+func TestValidateForReadIgnoresExpiredException(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"policy.yaml": validVP, // kind ValidatingPolicy, name require-labels
+		"exception.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: expired-exception
+spec:
+  expiresAt: "2000-01-01T00:00:00Z"
+  policyRefs:
+  - name: require-labels
+    kind: ValidatingPolicy
+`,
+	})
+	b, err := Assemble(dir)
+	require.NoError(t, err)
+
+	// ValidateForRead must not fail on the expired exception: it is a strict-path-only warning,
+	// and ValidateForRead runs with strict=false, never reaching the expiry check at all.
+	require.NoError(t, ValidateForRead(b))
+
+	// Calling the unexported strict=false path directly, with a Warn sink that fails the test if
+	// invoked, pins the gate itself rather than just the "never rejects" property: if the expiry
+	// check were ever moved above "if !strict { continue }", this would catch it even though the
+	// error-only assertions in this test would stay green (a warning isn't an error).
+	warned := false
+	require.NoError(t, validate(b, false, Options{Warn: func(string) { warned = true }}))
+	assert.False(t, warned, "ValidateForRead's strict=false path must never warn on an expired exception")
+
+	// push's own strict default only warns here too (D2); the bundle still writes successfully,
+	// and this time the warning sink IS invoked, proving the check runs at all on the strict path.
+	pushWarned := false
+	require.NoError(t, ValidateWithOptions(b, Options{Warn: func(string) { pushWarned = true }}))
+	assert.True(t, pushWarned, "the strict path must warn on an expired exception")
+
+	img, err := Write(b, nil)
+	require.NoError(t, err)
+
+	dst := t.TempDir()
+	_, err = Read(img, dst)
+	assert.NoError(t, err, "a bundle with an expired exception must stay pullable; pull never consults expiresAt")
+}

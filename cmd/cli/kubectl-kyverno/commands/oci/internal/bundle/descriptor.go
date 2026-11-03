@@ -222,6 +222,12 @@ func resolveDescriptor(pb *v1alpha1.PolicyBundle, documents []Document) (*Descri
 		created = &spec.Created
 	}
 
+	if spec.KyvernoVersion != "" {
+		if _, err := ParseKyvernoVersionConstraint(spec.KyvernoVersion); err != nil {
+			return nil, fmt.Errorf("descriptor %s: %w", internal.DescriptorFilename, err)
+		}
+	}
+
 	var source *Source
 	if spec.Source != nil && (spec.Source.URL != "" || spec.Source.Revision != "") {
 		source = &Source{URL: spec.Source.URL, Revision: spec.Source.Revision}
