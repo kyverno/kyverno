@@ -26,6 +26,11 @@ what Flux's `OCIRepository` controller requires of an artifact.
   `kubectl get crd ocirepositories.source.toolkit.fluxcd.io -o jsonpath='{range .spec.versions[*]}{.name}
   served={.served} storage={.storage}{"\n"}{end}'`.
 
+- The `team-a` namespace, created before the policy `Kustomization` reconciles: `kubectl create namespace
+  team-a`. The bundle format can't carry a `Namespace` object (see
+  [3. Supported resources](./bundle-spec.md#3-supported-resources)), and the `PolicyException` below targets
+  `team-a` explicitly, so the namespace must already exist on the cluster.
+
 ## 1. Push the bundle
 
 Push a directory of policies with a descriptor, so the bundle carries a name, a version, and named sets:
@@ -58,12 +63,21 @@ spec:
 ```
 
 ```yaml
-# policies/require-labels.yaml — minimal but valid; add real match constraints and validations for production use
+# policies/require-labels.yaml — matchConstraints copied from
+# test/conformance/chainsaw/validating-policies/validation-rules/failure-policy/fail/policy.yaml, which is
+# known to apply; a policy with no matchConstraints resource rule is rejected at admission time (see
+# test/conformance/chainsaw/validating-policies/validation-checks/missing-match-constraints)
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
   name: require-team-label
 spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   [""]
+        apiVersions: [v1]
+        operations:  [CREATE]
+        resources:   [pods]
   validations:
     - expression: "has(object.metadata.labels) && 'team' in object.metadata.labels"
       message: "label 'team' is required"
@@ -176,6 +190,9 @@ Flux and the Kyverno CLI authenticate to the registry independently; neither con
   stringData:
     .dockerconfigjson: '{"auths":{"ghcr.io":{"auth":"<base64 of user:token>"}}}'
   ```
+
+  Replace `<base64 of user:token>` with your own `base64(<username>:<token>)` before applying; the value above
+  is a placeholder and won't authenticate against any registry.
 
   ```yaml
   spec:
