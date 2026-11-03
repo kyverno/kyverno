@@ -1,0 +1,141 @@
+# Flux example: deploying a bundle with `OCIRepository`
+
+This is a worked, digest-pinned example of consuming a Kyverno CEL policy bundle with
+[Flux](https://fluxcd.io)'s `OCIRepository` and `Kustomization` controllers. It's developer documentation: a
+reference for the `kyverno/website` GitOps guide to build on, not a replacement for it. See
+[bundle-spec.md section 10](./bundle-spec.md#10-consumption-by-generic-tooling) for the normative claims about
+what Flux's `OCIRepository` controller requires of an artifact.
+
+## Prerequisites
+
+- Kyverno 1.20 or later, with the `policies.kyverno.io` CRDs installed in the cluster before the policy
+  `Kustomization` below reconciles. Make the policy `Kustomization` depend on the `Kustomization` that installs
+  Kyverno, so Flux orders the reconciliation correctly:
+
+  ```yaml
+  spec:
+    dependsOn:
+      - name: kyverno
+        namespace: flux-system
+  ```
+
+- Flux 2.6 or later, where `OCIRepository` is `source.toolkit.fluxcd.io/v1` and `Kustomization` is
+  `kustomize.toolkit.fluxcd.io/v1`. Verify these API versions against the Flux release you deploy before applying
+  the manifests below.
+
+## 1. Push the bundle
+
+Push a directory of policies with a descriptor, so the bundle carries a name, a version, and named sets:
+
+```yaml
+# kyverno-bundle.yaml
+apiVersion: cli.kyverno.io/v1alpha1
+kind: PolicyBundle
+metadata:
+  name: baseline
+spec:
+  version: 1.0.0
+  description: Baseline policies
+  sets:
+    - name: policies
+      type: policies
+      paths: ["policies/**"]
+    - name: exceptions
+      type: exceptions
+      paths: ["exceptions/**"]
+```
+
+```bash
+kyverno oci push ./baseline -i ghcr.io/acme/baseline:v1.0.0
+```
+
+## 2. Resolve the digest
+
+Pin the tag to its digest before writing the `OCIRepository`:
+
+```bash
+kyverno oci resolve -i ghcr.io/acme/baseline:v1.0.0 --digest-only
+# sha256:d34db33fd34db33fd34db33fd34db33fd34db33fd34db33fd34db33fd34db33f
+```
+
+## 3. `OCIRepository`
+
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: baseline-policies
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: oci://ghcr.io/acme/baseline
+  ref:
+    digest: sha256:d34db33fd34db33fd34db33fd34db33fd34db33fd34db33fd34db33fd34db33f
+  layerSelector:
+    mediaType: application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip
+    operation: extract
+  secretRef:
+    name: baseline-policies-pull
+```
+
+`spec.url` carries no tag or digest; the digest lives in `spec.ref.digest`. Pinning `layerSelector.mediaType` to
+the bundle's content-layer media type is a SHOULD in the spec: it keeps extraction correct even after a future
+major format version that adds a second layer.
+
+## 4. `Kustomization`
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: baseline-policies
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: OCIRepository
+    name: baseline-policies
+  path: ./
+  prune: true
+  dependsOn:
+    - name: kyverno
+      namespace: flux-system
+```
+
+**Don't add a `kustomization.yaml` to the bundle root.** `kyverno oci push` rejects a `kustomization.yaml`
+anywhere in the input tree, because its `kind` isn't one of the resources this format supports (see
+[bundle-spec.md "What a writer excludes"](./bundle-spec.md#what-a-writer-excludes)). Leave `spec.path` at the
+bundle root and let Flux's `Kustomization` controller generate its own kustomization at reconcile time from its
+recursive manifest scan; don't commit one into the bundle.
+
+**Give every namespaced document an explicit `metadata.namespace`.** A `PolicyException` or a `Namespaced*Policy`
+needs its own `metadata.namespace` set in the source YAML. The `Kustomization` above sets no `spec.targetNamespace`
+on purpose: setting one rewrites the namespace of every object the bundle contains, including cluster-scoped
+policies that have no namespace to rewrite, and silently moves namespaced documents you didn't intend to move.
+
+## Authentication
+
+Flux and the Kyverno CLI authenticate to the registry independently; neither configures the other.
+
+- **Flux** reads `spec.secretRef` (above), a `kubernetes.io/dockerconfigjson` secret in the same namespace as the
+  `OCIRepository`, or `spec.provider: aws`, `azure`, or `gcp` for workload-identity auth instead of a secret
+  (`generic` is the default and expects `secretRef`).
+- **`kyverno oci resolve`, `push`, and `pull`** authenticate through a multi-keychain (Docker config, GitHub, AWS
+  ECR, GCP, Azure); there's no `--username`/`--password` flag. Log in with `docker login`, or your cloud CLI, before
+  running these commands against a private registry.
+
+## Verify
+
+```bash
+kyverno oci inspect -i ghcr.io/acme/baseline@sha256:d34db33fd34db33fd34db33fd34db33fd34db33fd34db33fd34db33fd34db33f
+flux get sources oci -n flux-system
+flux get kustomizations -n flux-system
+```
+
+`kyverno oci inspect` confirms the digest's resource index and compatibility before you roll it out; `flux get`
+confirms Flux fetched and reconciled the same digest.
+
+## Update
+
+A digest-pinned `OCIRepository` doesn't move on its own. To roll out a new bundle, push it, resolve its digest,
+and change `spec.ref.digest` to that value — that's the only edit that moves a pinned deployment forward.

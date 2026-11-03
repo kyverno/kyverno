@@ -950,8 +950,9 @@ safe as the equivalent local-directory command.
 
 ## 10. Consumption by generic tooling
 
-This chapter is informative, not normative. A worked, end-to-end Flux example is planned for the `kyverno/website`
-documentation as part of #17667 and doesn't exist yet.
+This chapter is informative, not normative. [`docs/dev/oci/flux-example.md`](./flux-example.md) is a worked,
+digest-pinned example of consuming a bundle with Flux. A user-facing, end-to-end GitOps guide based on it is in
+progress on the `kyverno/website` documentation as part of #17667.
 
 ### Flux `OCIRepository`
 
@@ -979,6 +980,11 @@ never derives from the push reference (see [4. Artifact structure](#4-artifact-s
 [6. Config blob](#6-config-blob)), retagging or mirroring the same bundle to a different reference doesn't change
 its digest, which is what makes the digest form meaningful as a stable identity independent of where the bundle
 is hosted.
+
+`kyverno oci resolve` is the way to obtain this digest. It applies reader MUST 1, 6, and 7 ([9. Conformance](#9-conformance))
+before printing, so it never pins a reference the same CLI's `kyverno oci pull` would reject; `--digest-only`
+prints the bare digest, the form `spec.ref.digest` on a Flux `OCIRepository` expects. For an artifact that isn't a
+Kyverno bundle, `crane digest` is the equivalent way to pin a reference.
 
 ### Signing and referrers
 
