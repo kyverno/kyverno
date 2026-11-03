@@ -7,8 +7,6 @@ Resolve a bundle tag to its immutable digest and print a digest-pinned reference
 Resolve a bundle tag to its immutable digest and print a digest-pinned reference you can pass to "kyverno test", "kyverno apply", "kyverno oci pull", or a Flux OCIRepository.
   The command fetches the manifest and config, checks that it is a Kyverno bundle, and prints exactly one line to stdout; it never downloads the content layer. Use --digest-only for the bare digest.
 
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
-
   For more information visit https://kyverno.io/docs/kyverno-cli/#oci
 
 ```
