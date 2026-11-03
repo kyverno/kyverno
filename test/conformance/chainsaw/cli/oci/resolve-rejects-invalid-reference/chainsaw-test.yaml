@@ -9,7 +9,7 @@ spec:
     - try:
       - script:
           content: |
-            kyverno oci resolve -i "not a ref"
+            KYVERNO_EXPERIMENTAL=true kyverno oci resolve -i "not a ref"
           check:
             ($error != null): true
             (contains($stderr, 'parsing image reference')): true

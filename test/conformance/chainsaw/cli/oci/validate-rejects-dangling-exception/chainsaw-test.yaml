@@ -12,7 +12,7 @@ spec:
           # format-legal, writer MUST 12's carve-out is push's own strict default); validate's
           # own re-application of ValidateWithOptions is what rejects it.
           content: |
-            kyverno oci validate exception.yaml
+            KYVERNO_EXPERIMENTAL=true kyverno oci validate exception.yaml
           check:
             ($error != null): true
             (contains($stderr, 'references unknown policy')): true

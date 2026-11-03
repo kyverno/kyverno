@@ -11,6 +11,6 @@ spec:
           # bundle/ holds only policy.yaml and exception.yaml: validating "." here would also
           # pick up this chainsaw-test.yaml, which is not bundle content.
           content: |
-            kyverno oci validate bundle
+            KYVERNO_EXPERIMENTAL=true kyverno oci validate bundle
           check:
             ($error): ~

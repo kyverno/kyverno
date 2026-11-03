@@ -13,7 +13,7 @@ spec:
           # not the "produced no results" path that fires only when policy.Load contributes
           # nothing at all for a file (e.g. a non-Kyverno CRD with no scheme entry).
           content: |
-            kyverno oci validate policy.yaml
+            KYVERNO_EXPERIMENTAL=true kyverno oci validate policy.yaml
           check:
             ($error != null): true
             (contains($stderr, 'policy type not supported')): true
