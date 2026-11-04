@@ -1,13 +1,10 @@
 package compiler
 
 import (
-	"fmt"
-
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
-	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -77,35 +74,15 @@ func prepareK8sData(
 	requestMapFn func() (map[string]any, error),
 	context libs.Context,
 ) (evaluationData, error) {
-	if attr == nil {
-		return evaluationData{}, fmt.Errorf("cannot evaluate Kubernetes-mode policy without admission attributes (hint: use a non-Kubernetes evaluation mode for raw payloads)")
-	}
-	namespaceVal, err := utils.ObjectToResolveVal(namespace)
+	activation, err := compiler.PrepareK8sActivation(attr, request, namespace, requestMapFn, compiler.BuildRawRequestMap)
 	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
-	}
-	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
-	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-	}
-	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
-	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-	}
-	var requestMap map[string]any
-	if requestMapFn != nil {
-		requestMap, err = requestMapFn()
-	} else {
-		requestMap, err = compiler.BuildRawRequestMap(request)
-	}
-	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+		return evaluationData{}, err
 	}
 	return evaluationData{
-		Namespace: namespaceVal,
-		Object:    objectVal,
-		OldObject: oldObjectVal,
-		Request:   requestMap,
+		Namespace: activation.Namespace,
+		Object:    activation.Object,
+		OldObject: activation.OldObject,
+		Request:   activation.Request,
 		Context:   context,
 	}, nil
 }
