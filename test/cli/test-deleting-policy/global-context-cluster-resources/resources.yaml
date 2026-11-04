@@ -1,0 +1,9 @@
+apiVersion: example.com/v1
+kind: Widget
+metadata:
+  name: old-widget
+---
+apiVersion: example.com/v1
+kind: Widget
+metadata:
+  name: new-widget

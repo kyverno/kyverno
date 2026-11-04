@@ -2,6 +2,7 @@ package processor
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/go-git/go-billy/v5"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
@@ -25,10 +26,18 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 		informerFactory.WaitForCacheSync(stopCh)
 
 		lister := informerFactory.Core().V1().Secrets().Lister()
+		gctxStore := gctxstore.New(0)
+		mocks := libs.NewFakeContextProvider()
+		for name, data := range globalContextEntries {
+			mocks.AddGlobalReference(name, data)
+			if err := gctxStore.Set(name, &mockGlobalContextEntry{name: name, mocks: mocks}); err != nil {
+				return nil, fmt.Errorf("failed to set global context entry %q: %w", name, err)
+			}
+		}
 		return libs.NewContextProvider(
 			dclient,
 			lister,
-			gctxstore.New(0),
+			gctxStore,
 			restMapper,
 			true,
 		)
@@ -77,3 +86,16 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 	libs.LibraryContext = fakeContextProvider
 	return fakeContextProvider, nil
 }
+
+// mockGlobalContextEntry serves a mocked globalContextEntries value from a real
+// global context store, delegating to the fake provider for projection semantics.
+type mockGlobalContextEntry struct {
+	name  string
+	mocks *libs.FakeContextProvider
+}
+
+func (e *mockGlobalContextEntry) Get(projection string) (any, error) {
+	return e.mocks.GetGlobalReference(e.name, projection)
+}
+
+func (e *mockGlobalContextEntry) Stop() {}
