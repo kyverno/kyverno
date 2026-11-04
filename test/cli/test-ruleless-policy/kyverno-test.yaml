@@ -10,8 +10,8 @@ results:
 - kind: Pod
   policy: require-department-annotation
   resources:
-  - default/pod-missing-department-annotation
   - default/pod-empty-department-value
+  - default/pod-missing-department-annotation
   - default/pod-no-annotations
   - production/pod-whitespace-department
   - test/pod-similar-annotation-name
@@ -20,8 +20,8 @@ results:
 - kind: Pod
   policy: require-department-annotation
   resources:
-  - default/pod-with-valid-department
   - default/pod-with-multiple-annotations
+  - default/pod-with-valid-department
   - production/pod-valid-hr-department
   result: pass
   rule: validate-department-annotation
