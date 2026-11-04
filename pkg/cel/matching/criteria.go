@@ -33,10 +33,16 @@ func (m *MatchCriteria) GetParsedObjectSelector() (labels.Selector, error) {
 	return m.getSelector(m.Constraints.ObjectSelector)
 }
 
-// GetMatchResources returns a copy of the constraints or an empty struct
+// GetMatchResources returns a copy of the constraints or an empty struct.
+// If MatchPolicy is not set, it defaults to Equivalent as defined in the Kubernetes API spec.
 func (m *MatchCriteria) GetMatchResources() admissionregistrationv1.MatchResources {
 	if m.Constraints == nil {
 		return admissionregistrationv1.MatchResources{}
 	}
-	return *m.Constraints
+	res := *m.Constraints
+	if res.MatchPolicy == nil {
+		defaultPolicy := admissionregistrationv1.Equivalent
+		res.MatchPolicy = &defaultPolicy
+	}
+	return res
 }
