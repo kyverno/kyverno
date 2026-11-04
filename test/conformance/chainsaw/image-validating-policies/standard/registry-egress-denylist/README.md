@@ -27,5 +27,5 @@ chainsaw test --test-dir test/conformance/chainsaw/image-validating-policies/sta
 ```
 
 Sigstore (Rekor, Fulcio, TSA, TUF) and KMS endpoints do not use the registry client and are out of
-scope here. Unit coverage for the destination policy, pinned dialing, redirect and token handling,
-and connection pooling lives in `pkg/utils/egress`.
+scope here. Unit coverage for the destination policy, the dial-time address check, redirect and token
+handling, and connection reuse lives in `pkg/utils/egress`.

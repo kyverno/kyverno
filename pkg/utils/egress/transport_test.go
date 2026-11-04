@@ -4,15 +4,12 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/netip"
 	"net/url"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -23,38 +20,6 @@ import (
 
 // DNS and every connection attempt share one budget, so a registry with several A records cannot
 // spend the caller's whole deadline on the first unreachable one.
-func TestTransportPinsValidatedAddressesAndSharesDeadline(t *testing.T) {
-	t.Parallel()
-	policy := testPolicy(t, Config{Mode: ModeEnforce}, nil)
-	var resolutionDeadline time.Time
-	policy.lookupNetIP = func(ctx context.Context, _, _ string) ([]netip.Addr, error) {
-		resolutionDeadline, _ = ctx.Deadline()
-		return []netip.Addr{netip.MustParseAddr(publicIPv4), netip.MustParseAddr(publicIPv4Alt)}, nil
-	}
-	var addresses []string
-	var deadlines []time.Time
-	transport := policy.WrapTransport(&http.Transport{DialContext: func(ctx context.Context, _, address string) (net.Conn, error) {
-		addresses = append(addresses, address)
-		deadline, _ := ctx.Deadline()
-		deadlines = append(deadlines, deadline)
-		return nil, fmt.Errorf("cannot connect to %s", address)
-	}})
-	defer transport.CloseIdleConnections()
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://registry.internal/v2/", nil)
-	require.NoError(t, err)
-	_, err = transport.RoundTrip(request)
-	require.Error(t, err)
-	assert.NotContains(t, err.Error(), "93.184.216.")
-	assert.Equal(t, []string{publicIPv4 + ":80", publicIPv4Alt + ":80"}, addresses)
-	require.Len(t, deadlines, 2)
-	callerDeadline, _ := ctx.Deadline()
-	assert.Equal(t, callerDeadline, resolutionDeadline, "DNS uses the unchanged aggregate deadline")
-	assert.True(t, deadlines[0].Before(resolutionDeadline), "the first address must leave time for fallback")
-	assert.Equal(t, resolutionDeadline, deadlines[1], "the last address cannot extend the aggregate deadline")
-}
-
 // The proxy's exemption is scoped to its role, not to its address: the same endpoint reached
 // directly is an ordinary destination and goes through both denylists. Otherwise configuring a
 // proxy inside a denied range would quietly open that address to every NO_PROXY request too.
@@ -80,21 +45,13 @@ func TestProxyExemptionDoesNotExtendToDirectTraffic(t *testing.T) {
 	require.NoError(t, err)
 	_, err = transport.RoundTrip(request)
 	require.Error(t, err)
-	assert.Equal(t, []string{"10.0.0.1:3128"}, dialed, "the proxy endpoint is exempt and gets its own pinned connection")
+	assert.Equal(t, []string{"proxy.internal:3128"}, dialed, "the proxy endpoint is exempt")
 	request, err = http.NewRequestWithContext(context.Background(), http.MethodGet, "http://proxy.internal:3128/v2/", nil)
 	require.NoError(t, err)
 	_, err = transport.RoundTrip(request)
 	require.ErrorIs(t, err, ErrAddressBlocked)
 	assert.Len(t, dialed, 1, "a NO_PROXY request never inherits the proxy's exemption")
 
-	// A later direct request to the same endpoint must use its new validated
-	// address, not the denied address previously pinned for the proxy.
-	policy.lookupNetIP = func(context.Context, string, string) ([]netip.Addr, error) {
-		return []netip.Addr{netip.MustParseAddr(publicIPv4Alt)}, nil
-	}
-	_, err = transport.RoundTrip(request)
-	require.Error(t, err)
-	assert.Equal(t, []string{"10.0.0.1:3128", publicIPv4Alt + ":3128"}, dialed)
 }
 
 // A proxy endpoint is operator configuration from the process environment, not a destination any
@@ -126,7 +83,7 @@ func TestDeniedProxyEndpointIsUsableButTargetIsStillChecked(t *testing.T) {
 			require.NoError(t, err)
 			_, err = transport.RoundTrip(request)
 			require.ErrorIs(t, err, sentinel, "a proxy inside a denied range was not dialled")
-			assert.Equal(t, []string{net.JoinHostPort(proxyAddress, "3128")}, dialed)
+			assert.Equal(t, []string{"proxy.internal:3128"}, dialed)
 
 			request, err = http.NewRequestWithContext(context.Background(), http.MethodGet, "http://private.example/v2/", nil)
 			require.NoError(t, err)
@@ -167,7 +124,7 @@ func TestRedirectBlockedBeforeCredentialsReachDestination(t *testing.T) {
 	var requests, dials atomic.Int32
 	transport := policy.WrapTransport(&http.Transport{DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
 		dials.Add(1)
-		if address != publicIPv4+":80" {
+		if address != "registry.example:80" {
 			return nil, errors.New("unexpected destination")
 		}
 		client, server := net.Pipe()
@@ -241,97 +198,6 @@ func TestReusedConnectionStillValidatesEveryRequest(t *testing.T) {
 	require.ErrorIs(t, err, ErrAddressBlocked)
 	assert.Equal(t, int32(1), dials.Load(), "validated requests share the connection pool")
 	assert.Equal(t, int32(2), requests.Load(), "the blocked request cannot reuse an existing connection")
-}
-
-// Successful re-resolution must select a connection pinned to the current
-// addresses, while repeated answers should retain connection reuse.
-func TestTransportPoolsFollowValidatedAddresses(t *testing.T) {
-	t.Parallel()
-	for _, proxy := range []bool{false, true} {
-		t.Run(fmt.Sprintf("proxy=%t", proxy), func(t *testing.T) {
-			t.Parallel()
-			policy := testPolicy(t, Config{}, nil)
-			var generation atomic.Int32
-			policy.lookupNetIP = func(_ context.Context, _, host string) ([]netip.Addr, error) {
-				address := publicIPv4
-				if host == "proxy.example" || !proxy {
-					if generation.Load() > 0 {
-						address = publicIPv4Alt
-					}
-				}
-				return []netip.Addr{netip.MustParseAddr(address)}, nil
-			}
-			var dials atomic.Int32
-			base := &http.Transport{DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
-				dials.Add(1)
-				client, server := net.Pipe()
-				go func() {
-					defer server.Close()
-					reader := bufio.NewReader(server)
-					for {
-						request, err := http.ReadRequest(reader)
-						if err != nil {
-							return
-						}
-						request.Body.Close()
-						if _, err := fmt.Fprintf(server, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s", len(address), address); err != nil {
-							return
-						}
-					}
-				}()
-				return client, nil
-			}}
-			if proxy {
-				base.Proxy = http.ProxyURL(&url.URL{Scheme: "http", Host: "proxy.example"})
-			}
-			transport := policy.WrapTransport(base)
-			defer transport.CloseIdleConnections()
-			client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
-			for _, step := range []struct {
-				generation int32
-				want       string
-			}{{0, publicIPv4 + ":80"}, {0, publicIPv4 + ":80"}, {1, publicIPv4Alt + ":80"}, {1, publicIPv4Alt + ":80"}} {
-				generation.Store(step.generation)
-				request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://registry.example/v2/", nil)
-				require.NoError(t, err)
-				response, err := client.Do(request)
-				require.NoError(t, err)
-				body, err := io.ReadAll(response.Body)
-				require.NoError(t, err)
-				require.NoError(t, response.Body.Close())
-				assert.Equal(t, step.want, string(body))
-			}
-			assert.Equal(t, int32(2), dials.Load(), "only requests with the same validated address share a connection")
-		})
-	}
-}
-
-func TestDialAddressesRacesIPv4AndIPv6(t *testing.T) {
-	t.Parallel()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	primaryStarted := make(chan struct{})
-	primaryCanceled := make(chan struct{})
-	peer, expected := net.Pipe()
-	defer peer.Close()
-	defer expected.Close()
-	connection, err := DialAddresses(ctx, func(ctx context.Context, _, address string) (net.Conn, error) {
-		if strings.HasPrefix(address, "[") {
-			close(primaryStarted)
-			<-ctx.Done()
-			close(primaryCanceled)
-			return nil, ctx.Err()
-		}
-		<-primaryStarted
-		return expected, nil
-	}, "tcp", "443", []net.IP{net.ParseIP(publicIPv6), net.ParseIP(publicIPv4)})
-	require.NoError(t, err)
-	assert.Same(t, expected, connection)
-	select {
-	case <-primaryCanceled:
-	case <-ctx.Done():
-		t.Fatal("losing address family was not canceled")
-	}
 }
 
 type trackingBody struct {
@@ -416,120 +282,8 @@ func TestTransportAcceptsCanonicalRequestAuthority(t *testing.T) {
 			request.Host = host
 			_, err = transport.RoundTrip(request)
 			require.ErrorIs(t, err, sentinel)
-			assert.Equal(t, "10.0.0.1:3128", dialed)
+			assert.Equal(t, "proxy.internal:3128", dialed)
 		})
-	}
-}
-
-func TestTransportHTTP2PoolsFollowValidatedAddresses(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprint(w, r.Proto)
-	}))
-	server.EnableHTTP2 = true
-	server.StartTLS()
-	defer server.Close()
-	policy := testPolicy(t, Config{}, nil)
-	var generation, dials atomic.Int32
-	policy.lookupNetIP = func(context.Context, string, string) ([]netip.Addr, error) {
-		return []netip.Addr{netip.MustParseAddr(fmt.Sprintf(publicIPv4Nth, generation.Load()+1))}, nil
-	}
-	transport := policy.WrapTransport(&http.Transport{
-		TLSClientConfig:   server.Client().Transport.(*http.Transport).TLSClientConfig.Clone(),
-		ForceAttemptHTTP2: true,
-		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
-			dials.Add(1)
-			expected := fmt.Sprintf(publicIPv4Nth+":443", generation.Load()+1)
-			if address != expected {
-				return nil, fmt.Errorf("unexpected destination %s, want %s", address, expected)
-			}
-			return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
-		},
-	})
-	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
-	for _, next := range []int32{0, 0, 1, 1} {
-		generation.Store(next)
-		request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://example.com/v2/", nil)
-		require.NoError(t, err)
-		response, err := client.Do(request)
-		require.NoError(t, err)
-		body, err := io.ReadAll(response.Body)
-		require.NoError(t, err)
-		require.NoError(t, response.Body.Close())
-		assert.Equal(t, "HTTP/2.0", string(body))
-	}
-	assert.Equal(t, int32(2), dials.Load())
-}
-
-func TestTransportPoolEvictionPreservesActiveResponses(t *testing.T) {
-	t.Parallel()
-	policy := testPolicy(t, Config{}, nil)
-	var generation atomic.Int32
-	policy.lookupNetIP = func(context.Context, string, string) ([]netip.Addr, error) {
-		return []netip.Addr{netip.MustParseAddr(fmt.Sprintf(publicIPv4Nth, generation.Load()+1))}, nil
-	}
-	finishBody := make(chan struct{})
-	var finishOnce sync.Once
-	finish := func() { finishOnce.Do(func() { close(finishBody) }) }
-	t.Cleanup(finish)
-	firstClosed := make(chan struct{})
-	firstAddress := fmt.Sprintf(publicIPv4Nth+":80", 1)
-	transport := policy.WrapTransport(&http.Transport{DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
-		client, server := net.Pipe()
-		go func() {
-			defer server.Close()
-			reader := bufio.NewReader(server)
-			for {
-				request, err := http.ReadRequest(reader)
-				if err != nil {
-					if address == firstAddress {
-						close(firstClosed)
-					}
-					return
-				}
-				request.Body.Close()
-				if address == firstAddress {
-					if _, err := io.WriteString(server, "HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\none"); err != nil {
-						return
-					}
-					<-finishBody
-					if _, err := io.WriteString(server, "!"); err != nil {
-						return
-					}
-				} else if _, err := io.WriteString(server, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"); err != nil {
-					return
-				}
-			}
-		}()
-		return client, nil
-	}})
-	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
-	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://registry.example/v2/", nil)
-	require.NoError(t, err)
-	active, err := client.Do(request)
-	require.NoError(t, err)
-	defer active.Body.Close()
-	// Fill the bounded cache with distinct destinations while the first body is
-	// still streaming. Eviction must release only idle connections.
-	for i := range maxDestinationPools {
-		generation.Store(int32(i + 1))
-		response, err := client.Do(request.Clone(context.Background()))
-		require.NoError(t, err)
-		_, err = io.Copy(io.Discard, response.Body)
-		require.NoError(t, err)
-		require.NoError(t, response.Body.Close())
-	}
-	finish()
-	body, err := io.ReadAll(active.Body)
-	require.NoError(t, err)
-	assert.Equal(t, "one!", string(body))
-	require.NoError(t, active.Body.Close())
-	select {
-	case <-firstClosed:
-	case <-time.After(time.Second):
-		t.Fatal("evicted pool retained the completed connection")
 	}
 }
 
@@ -537,40 +291,6 @@ func TestTransportPoolEvictionPreservesActiveResponses(t *testing.T) {
 // alone. Keying it by the target too would retire a healthy proxy connection every time any
 // registry's DNS answer moved, and a fleet of registries behind one proxy would churn the
 // bounded LRU out of useful entries.
-func TestTransportPoolKeyIgnoresTargetBehindProxy(t *testing.T) {
-	t.Parallel()
-	policy := testPolicy(t, Config{}, nil)
-	transport := policy.WrapTransport(nil)
-	proxy := &url.URL{Scheme: "http", Host: "proxy.example"}
-	shared := fmt.Sprintf(publicIPv4Nth, 9)
-	proxyIPs := []netip.Addr{netip.MustParseAddr(shared)}
-
-	proxied := func(target string) *dialPlan {
-		return &dialPlan{
-			proxy:     proxy,
-			proxyIPs:  proxyIPs,
-			targetIPs: []netip.Addr{netip.MustParseAddr(target)},
-		}
-	}
-	first := transport.destinationPool(proxied(publicIPv4))
-	second := transport.destinationPool(proxied(publicIPv4Alt))
-	assert.Same(t, first, second, "a changed target split the pool for an unchanged proxy")
-
-	// Direct requests still follow the target, since that is what they dial.
-	direct := func(target string) *dialPlan {
-		return &dialPlan{targetIPs: []netip.Addr{netip.MustParseAddr(target)}}
-	}
-	assert.NotSame(t, transport.destinationPool(direct(publicIPv4)),
-		transport.destinationPool(direct(publicIPv4Alt)),
-		"a direct request must not reuse a pool pinned to a different address")
-
-	// The two key shapes must never collide: validation rejects an empty address set, so a
-	// direct key always carries a target and a proxied key always carries a proxy.
-	assert.NotSame(t, transport.destinationPool(direct(shared)),
-		transport.destinationPool(proxied(shared)),
-		"a direct pool was reused for a proxied request")
-}
-
 // A proxy owns downstream DNS, so a registry that only it can resolve must still be reachable.
 // Failing here would break those deployments in every mode, including audit.
 func TestTransportDefersUnresolvableTargetToProxy(t *testing.T) {
@@ -595,7 +315,7 @@ func TestTransportDefersUnresolvableTargetToProxy(t *testing.T) {
 	// hostError keeps resolved addresses out of the message but still unwraps to the cause.
 	require.ErrorIs(t, err, reachedDial)
 	require.NotEmpty(t, dialed, "the request never reached the proxy")
-	assert.Equal(t, publicIPv4+":80", dialed[0], "dialled something other than the proxy")
+	assert.Equal(t, "proxy.example:80", dialed[0], "dialled something other than the proxy")
 }
 
 // Deferring to the proxy must not become a way around the denylist: a literal address never
@@ -639,4 +359,92 @@ func TestTransportFailsClosedOnResolverError(t *testing.T) {
 	require.NoError(t, err)
 	_, err = policy.WrapTransport(base).RoundTrip(request)
 	require.ErrorContains(t, err, "failed to resolve")
+}
+
+// remoteConn reports a chosen peer address, standing in for a TCP connection the inner transport
+// dialled after resolving the name itself.
+type remoteConn struct {
+	net.Conn
+	remote net.Addr
+	closed atomic.Bool
+}
+
+func (c *remoteConn) RemoteAddr() net.Addr { return c.remote }
+func (c *remoteConn) Close() error         { c.closed.Store(true); return c.Conn.Close() }
+
+// serveOK answers every request on server with a 200 and counts them.
+func serveOK(server net.Conn, requests *atomic.Int32) {
+	defer server.Close()
+	reader := bufio.NewReader(server)
+	for {
+		request, err := http.ReadRequest(reader)
+		if err != nil {
+			return
+		}
+		request.Body.Close()
+		requests.Add(1)
+		if _, err = io.WriteString(server, "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"); err != nil {
+			return
+		}
+	}
+}
+
+// The inner transport resolves the name again when it dials. If that answer differs from the one
+// RoundTrip checked -- DNS rebinding -- the connection it actually reached is checked too.
+func TestTransportChecksTheAddressItDialled(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		mode    string
+		blocked bool
+	}{{mode: ModeEnforce, blocked: true}, {mode: ModeAudit}} {
+		t.Run(tc.mode, func(t *testing.T) {
+			t.Parallel()
+			policy := testPolicy(t, Config{Mode: tc.mode}, map[string][]string{"registry.example": {publicIPv4}})
+			var requests atomic.Int32
+			var conn *remoteConn
+			transport := policy.WrapTransport(&http.Transport{DialContext: func(context.Context, string, string) (net.Conn, error) {
+				client, server := net.Pipe()
+				go serveOK(server, &requests)
+				conn = &remoteConn{Conn: client, remote: &net.TCPAddr{IP: net.ParseIP("169.254.169.254"), Port: 80}}
+				return conn, nil
+			}})
+			defer transport.CloseIdleConnections()
+			request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://registry.example/v2/", nil)
+			require.NoError(t, err)
+			response, err := transport.RoundTrip(request)
+			if !tc.blocked {
+				require.NoError(t, err)
+				require.NoError(t, response.Body.Close())
+				assert.Equal(t, int32(1), requests.Load(), "audit logs the address and connects anyway")
+				return
+			}
+			require.ErrorIs(t, err, ErrAddressBlocked)
+			assert.NotContains(t, err.Error(), "169.254", "the resolved address stays out of the error")
+			assert.True(t, conn.closed.Load(), "the connection to the denied address was left open")
+			assert.Zero(t, requests.Load(), "a request was written to the denied address")
+		})
+	}
+}
+
+// A proxy endpoint is exempt from both lists, so the connection to it is not re-checked either:
+// a sidecar proxy on loopback has to keep working.
+func TestTransportDoesNotCheckTheProxyConnection(t *testing.T) {
+	t.Parallel()
+	policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{"registry.example": {publicIPv4}})
+	var requests atomic.Int32
+	transport := policy.WrapTransport(&http.Transport{
+		Proxy: http.ProxyURL(&url.URL{Scheme: "http", Host: "proxy.internal:3128"}),
+		DialContext: func(context.Context, string, string) (net.Conn, error) {
+			client, server := net.Pipe()
+			go serveOK(server, &requests)
+			return &remoteConn{Conn: client, remote: &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 3128}}, nil
+		},
+	})
+	defer transport.CloseIdleConnections()
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://registry.example/v2/", nil)
+	require.NoError(t, err)
+	response, err := transport.RoundTrip(request)
+	require.NoError(t, err)
+	require.NoError(t, response.Body.Close())
+	assert.Equal(t, int32(1), requests.Load())
 }

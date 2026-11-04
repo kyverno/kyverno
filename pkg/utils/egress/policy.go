@@ -1,5 +1,5 @@
-// Package egress validates and pins network destinations shared by registry and
-// signature verification clients.
+// Package egress checks the destination of every image registry request against two
+// operator-owned denylists.
 package egress
 
 import (
@@ -191,28 +191,17 @@ func normalizeHost(authority string) (string, error) {
 	return host, nil
 }
 
-// ResolveAndValidate is the whole policy: deny a listed host, resolve, deny a listed address,
-// otherwise hand the request on. Enforce rejects, audit logs. It returns the addresses the
-// caller must dial, so a second DNS lookup cannot move the destination after the check.
+// ResolveAndValidate runs steps 1-3 of the policy: deny a listed host, resolve, deny a listed
+// address. Enforce rejects, audit logs. Step 4, sending the request, is the caller's.
 func (p *Policy) ResolveAndValidate(ctx context.Context, host string) ([]netip.Addr, error) {
-	return p.resolveAndValidate(ctx, host, false)
-}
-
-func (p *Policy) resolveAndValidate(ctx context.Context, host string, proxy bool) ([]netip.Addr, error) {
 	host, err := normalizeHost(host)
 	if err != nil {
 		return nil, fmt.Errorf("invalid network host: %w", err)
 	}
-	logger := logging.WithName("egress")
-	// A proxy endpoint comes from the environment, not from an attacker-chosen image reference,
-	// so the denylist does not apply to it -- otherwise the shipped loopback and RFC 1918
-	// defaults would break every in-cluster egress proxy. The target behind it is still checked.
-	if !proxy {
-		if _, denied := p.hosts[host]; denied {
-			logger.V(2).Info("denied network host", "host", host, "mode", p.mode)
-			if p.mode == ModeEnforce {
-				return nil, &hostError{operation: "connection blocked to", host: host, err: ErrAddressBlocked}
-			}
+	if _, denied := p.hosts[host]; denied {
+		logging.WithName("egress").V(2).Info("denied network host", "host", host, "mode", p.mode)
+		if p.mode == ModeEnforce {
+			return nil, &hostError{operation: "connection blocked to", host: host, err: ErrAddressBlocked}
 		}
 	}
 	var addresses []netip.Addr
@@ -221,7 +210,7 @@ func (p *Policy) resolveAndValidate(ctx context.Context, host string, proxy bool
 	} else {
 		addresses, err = p.lookupNetIP(ctx, "ip", host)
 		if err != nil {
-			logger.V(2).Info("failed to resolve network destination", "host", host, "error", err.Error())
+			logging.WithName("egress").V(2).Info("failed to resolve network destination", "host", host, "error", err.Error())
 			return nil, &hostError{operation: "failed to resolve", host: host, err: err}
 		}
 	}
@@ -229,23 +218,29 @@ func (p *Policy) resolveAndValidate(ctx context.Context, host string, proxy bool
 		return nil, fmt.Errorf("network host %q resolved to no addresses", host)
 	}
 	for _, address := range addresses {
-		if !address.IsValid() || address.Zone() != "" {
-			return nil, fmt.Errorf("network host %q resolved to an invalid address", host)
-		}
-		if proxy {
-			continue
-		}
-		for _, candidate := range addressCandidates(address) {
-			if !p.deniedAddress(candidate) {
-				continue
-			}
-			logger.V(2).Info("denied network destination", "host", host, "ip", candidate.String(), "mode", p.mode)
-			if p.mode == ModeEnforce {
-				return nil, &hostError{operation: "connection blocked to", host: host, err: ErrAddressBlocked}
-			}
+		if err := p.checkAddress(host, address); err != nil {
+			return nil, err
 		}
 	}
 	return addresses, nil
+}
+
+// checkAddress is step 3 for one address. The transport also runs it on the address each
+// connection actually reached, since that DNS answer can differ from the one checked above.
+func (p *Policy) checkAddress(host string, address netip.Addr) error {
+	if !address.IsValid() || address.Zone() != "" {
+		return fmt.Errorf("network host %q resolved to an invalid address", host)
+	}
+	for _, candidate := range addressCandidates(address) {
+		if !p.deniedAddress(candidate) {
+			continue
+		}
+		logging.WithName("egress").V(2).Info("denied network destination", "host", host, "ip", candidate.String(), "mode", p.mode)
+		if p.mode == ModeEnforce {
+			return &hostError{operation: "connection blocked to", host: host, err: ErrAddressBlocked}
+		}
+	}
+	return nil
 }
 
 func (p *Policy) deniedAddress(address netip.Addr) bool {
@@ -268,6 +263,42 @@ func addressCandidates(address netip.Addr) []netip.Addr {
 		}
 	}
 	return candidates
+}
+
+// EmbeddedIPv4 extracts the IPv4 address carried by an IPv6 address in a form net.IP.To4 does
+// not recognise: IPv4-compatible (::a.b.c.d), NAT64 (64:ff9b::a.b.c.d), and 6to4
+// (2002:aabb:ccdd::). Each is a distinct spelling of an address a denied IPv4 CIDR is meant to
+// cover: without this, 64:ff9b::a9fe:a9fe reaches metadata even though 169.254.0.0/16 is denied.
+//
+// The IPv4-compatible branch also matches low IPv6 addresses never meant as an IPv4 encoding
+// (::1 yields 0.0.0.1). That only widens the denylist into reserved space, so it is left as is.
+func EmbeddedIPv4(ip net.IP) net.IP {
+	if ip.To4() != nil || len(ip.To16()) != net.IPv6len {
+		return nil
+	}
+	ip = ip.To16()
+	isZero := func(b []byte) bool {
+		for _, c := range b {
+			if c != 0 {
+				return false
+			}
+		}
+		return true
+	}
+	// ::a.b.c.d — IPv4-compatible IPv6 (RFC 4291).
+	if isZero(ip[:12]) {
+		return net.IPv4(ip[12], ip[13], ip[14], ip[15])
+	}
+	// 64:ff9b::a.b.c.d — NAT64 well-known prefix (RFC 6052).
+	if ip[0] == 0x00 && ip[1] == 0x64 && ip[2] == 0xff && ip[3] == 0x9b && isZero(ip[4:12]) {
+		return net.IPv4(ip[12], ip[13], ip[14], ip[15])
+	}
+	// 2002:aabb:ccdd::/48 — 6to4 (RFC 3056), which carries the IPv4 address in bytes 2-5
+	// rather than at the end. 2002:a9fe:a9fe:: is 169.254.169.254.
+	if ip[0] == 0x20 && ip[1] == 0x02 {
+		return net.IPv4(ip[2], ip[3], ip[4], ip[5])
+	}
+	return nil
 }
 
 // hostError keeps resolved IPs and DNS server addresses out of admission errors, PolicyReports

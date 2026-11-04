@@ -2,8 +2,8 @@
 
 ## Ownership and scope
 - `policy.go` validates destinations; `defaults.go` holds the shipped denylists;
-  `network.go` dials validated addresses; `transport.go` enforces per-request validation and
-  manages pinned connection pools.
+  `transport.go` checks every request and hands it to a cloned `http.Transport`, which does its
+  own dialing and pooling.
 - `global.go` holds the process-wide policy and wrapped transport that
   `cmd/internal/registry.go` installs on the SDK registry client. Everything that fetches
   through that client is guarded; this is a registry-client boundary, not a process-wide
@@ -76,21 +76,23 @@
   `pkg/config` returns a non-nil empty slice for a present-but-empty ConfigMap key.
 - Validate every request, including reused connections, redirects, and token requests routed
   through this transport. Reject opaque URLs and mismatched HTTP Host/URL authorities.
-- Pin direct dials to validated IPs without a second lookup; preserve Host/TLS SNI.
-  Custom TLS dialers must not bypass the validated dial path.
-- Validate proxy and target separately. The proxy endpoint is fully exempt from both denylists
-  (`resolveAndValidate(..., proxy: true)`): it is operator configuration read from the process
+- Keep the policy the four steps the maintainer asked for: denied host, resolve, denied IP, hand
+  off. The only addition is that the inner transport's direct dials check the address they reached
+  (`checkAddress` on `RemoteAddr`), because it resolves the name again and could otherwise be sent
+  elsewhere by DNS rebinding. Do not reintroduce address pinning, dial racing, or per-destination
+  pools here. Custom TLS dialers must not bypass `DialContext`.
+- Validate proxy and target separately. The proxy endpoint is fully exempt from both denylists,
+  and its connection is not re-checked at dial time: it is operator configuration read from the process
   environment, not a destination an image reference can choose, and that exemption is what makes
   a sidecar egress proxy on loopback or inside RFC 1918 usable while those ranges are denied for
   registries. Exempting the proxy never exempts the target. The proxy still owns downstream
-  DNS/routing, so local checks cannot pin its destination. Because of that, a proxied target the
+  DNS/routing, so local checks cannot bind its destination. Because of that, a proxied target the
   local resolver reports as not-found is deferred to the proxy rather than failing closed —
   otherwise proxy-only-resolvable registries break in every mode. Keep `dnsNotFound` narrow:
   literal addresses never reach the resolver, and `ErrAddressBlocked` plus every other resolver
   failure must stay fatal.
-- A deferred target is unvalidated, not merely unpinned. `plan.targetIPs` is nil and the dial
-  goes to `plan.proxyIPs`, so no address for that name is ever compared against either denylist,
-  and the proxy decides what it connects to. That is the accepted cost of
+- A deferred target meets the denied-host list only. No address for that name is ever known
+  here, so the denied-IP list never applies to it, and the proxy decides what it connects to. That is the accepted cost of
   the deferral, not an oversight: validating it would require resolving a name the controller
   cannot resolve. Do not restore a guarantee here that the guard cannot keep — if the deferral
   ever needs tightening, narrow when it applies rather than claiming the destination is checked.

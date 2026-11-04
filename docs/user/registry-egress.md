@@ -22,8 +22,10 @@ Everything that fetches through Kyverno's registry client:
 - Registry token challenges, redirects, and signature/referrer downloads that follow the first
   request, including the signature repository selected by `source.repository`
 
-For each request the guard resolves the destination, rejects it or pins the connection to the
-addresses it just validated, and re-checks on every redirect and reused connection. Credentials
+For each request the guard checks the host, resolves it and checks the addresses, then sends the
+request on, and it does this again for every redirect and reused connection. The address each new
+connection actually reaches is checked too, so a DNS answer that changes between the check and
+the connection is still refused. Credentials
 are selected before that check runs, so a denied host can cause a credential lookup — but in
 `enforce` mode they are never sent to it, because the transport refuses the request before the
 first byte is written.
@@ -158,7 +160,7 @@ left to the proxy and the request proceeds; the skip is logged at verbosity 2.
 
 Deferring means Kyverno never learns an address for that name. The name is still checked against
 `registryEgressDeniedHosts`, which runs before resolution, but `registryEgressDeniedIPs` cannot be
-applied to an address Kyverno never sees. The connection is pinned to the proxy, and
+applied to an address Kyverno never sees. The connection goes to the proxy, and
 wherever the proxy resolves the name to is where the request goes, along with any credentials
 resolved for it. Restricting what the proxy connects to is the proxy's responsibility. If that
 matters for your cluster, either configure the proxy to refuse the destinations you care about, or

@@ -6,9 +6,11 @@ pushers, and descriptor fetching. Kyverno does not wrap or reimplement it.
 
 Kyverno contributes one thing to that client, from `pkg/utils/egress`:
 
-- `registryclient.WithTransport(guard.Transport())` — a transport that validates and pins the
-  destination of every request, including token challenges, redirects, and requests that reuse a
-  pooled connection.
+- `registryclient.WithTransport(guard.Transport())` — a transport that checks the destination of
+  every request, including token challenges, redirects, and requests that reuse a pooled
+  connection, then passes it to an ordinary `http.Transport`. That inner transport resolves the
+  name again to dial it, so the address each direct connection reaches is checked as well, which
+  stops a DNS answer that changes after the check (rebinding).
 
 What it validates against is two operator denylists — exact hostnames and CIDRs/IP addresses, read
 from the `kyverno` ConfigMap at startup — plus the `--privateRegistryEgressMode` flag that decides
@@ -90,9 +92,6 @@ guarded transport does not reach inside it. It is not reachable from an attacker
 either — the SDK's Azure keychain only engages for `.azurecr.io`-family registry suffixes. Closing
 it properly requires transport injection in the provider, then a dependency bump here — not a
 consumer-local Azure wrapper.
-
-Connection pools are keyed by the validated destination address set, so clients sharing operator
-settings share pools while keeping their own credentials and request state.
 
 See `pkg/utils/egress/AGENTS.md` for the primitives' invariants and
 `docs/user/registry-egress.md` for the operator-facing contract.

@@ -1,266 +1,150 @@
 package egress
 
 import (
-	"container/list"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
-	"slices"
 	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/logging"
 )
 
-// DialTimeout preserves the registry SDK's five-second dial budget across DNS
-// resolution and all connection attempts together. A shorter caller deadline wins.
+// DialTimeout matches the registry SDK's five-second dial budget. It also bounds the DNS lookup
+// RoundTrip makes before handing the request on; a shorter caller deadline wins.
 const DialTimeout = 5 * time.Second
 
-// Bound pool growth when DNS answers change or policies use many registries.
-const maxDestinationPools = 64
+var errMissingRoute = errors.New("network request did not pass the egress check")
 
-type dialPlanKey struct{}
+type routeKey struct{}
 
-type dialPlan struct {
-	target, proxyAddress string
-	targetIPs, proxyIPs  []netip.Addr
-	proxy                *url.URL
-	deadline             time.Time
-}
+// route carries the proxy decision RoundTrip checked down to the inner transport, so its proxy
+// and dial hooks act on that decision rather than making their own.
+type route struct{ proxy *url.URL }
 
-// Transport validates each request, including redirects and requests reusing a
-// connection. Dial information is scoped to that request so a trusted private
-// proxy never grants a direct request permission to reach private destinations.
+// Transport checks each request, including redirects and token challenges, then passes it to an
+// ordinary http.Transport.
 type Transport struct {
-	base   *http.Transport
+	inner  *http.Transport
 	policy *Policy
 	proxy  func(*http.Request) (*url.URL, error)
-	mu     sync.Mutex
-	pools  map[destinationKey]*list.Element
-	lru    list.List
 }
 
-type destinationKey struct {
-	targetIPs string
-	proxyIPs  string
-}
-
-type destinationPool struct {
-	key       destinationKey
-	transport *http.Transport
-	retired   atomic.Bool
-}
-
-// WrapTransport clones base, preserving TLS and pooling settings. Direct connections pin the
-// validated target addresses. Proxied ones pin only the proxy's: the proxy resolves the target
-// name itself, so the denied-IP list cannot bind where a proxied request ends up and a
-// split-horizon answer there is outside this guard. The denied-host list still applies, the name
-// being what we hand the proxy. Restricting proxied destinations is the proxy's job.
+// WrapTransport clones base, keeping its TLS, proxy and pooling settings. The clone resolves the
+// name again when it dials, so the address each direct connection reaches is checked as well: a
+// DNS answer that changed after RoundTrip's check (rebinding) is still refused. A proxied request
+// only dials the proxy, which is exempt. The proxy resolves the target itself, so the denied-IP
+// list cannot bind where it connects; restricting that is the proxy's job.
 func (p *Policy) WrapTransport(base *http.Transport) *Transport {
 	if base == nil {
 		base = &http.Transport{}
 	}
-	transport := &Transport{base: base.Clone(), policy: p, proxy: base.Proxy, pools: make(map[destinationKey]*list.Element)}
-	baseDial := transport.base.DialContext
-	if baseDial == nil {
-		baseDial = (&net.Dialer{KeepAlive: 30 * time.Second}).DialContext
+	inner := base.Clone()
+	dial := inner.DialContext
+	if dial == nil {
+		dial = (&net.Dialer{Timeout: DialTimeout, KeepAlive: 30 * time.Second}).DialContext
 	}
-	transport.base.Proxy = func(request *http.Request) (*url.URL, error) {
-		plan, ok := request.Context().Value(dialPlanKey{}).(*dialPlan)
+	inner.Proxy = func(request *http.Request) (*url.URL, error) {
+		route, ok := request.Context().Value(routeKey{}).(route)
 		if !ok {
-			return nil, fmt.Errorf("missing validated network destination")
+			return nil, errMissingRoute
 		}
-		return plan.proxy, nil
+		return route.proxy, nil
 	}
-	transport.base.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
-		plan, ok := ctx.Value(dialPlanKey{}).(*dialPlan)
+	inner.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		route, ok := ctx.Value(routeKey{}).(route)
 		if !ok {
-			return nil, fmt.Errorf("missing validated network destination")
+			return nil, errMissingRoute
 		}
-		ctx, cancel := context.WithDeadline(ctx, plan.deadline)
-		defer cancel()
-		host, port, err := net.SplitHostPort(address)
+		host, _, err := net.SplitHostPort(address)
 		if err != nil {
 			return nil, fmt.Errorf("invalid network address: %w", err)
 		}
-		var addresses []netip.Addr
-		switch {
-		case plan.proxy != nil && address == plan.proxyAddress:
-			addresses = plan.proxyIPs
-		case plan.proxy == nil && address == plan.target:
-			addresses = plan.targetIPs
-		default:
-			return nil, fmt.Errorf("unvalidated connection to network host %q", host)
-		}
-		ips := make([]net.IP, len(addresses))
-		for i, address := range addresses {
-			ips[i] = net.IP(address.AsSlice())
-		}
-		connection, err := DialAddresses(ctx, baseDial, network, port, ips)
+		conn, err := dial(ctx, network, address)
 		if err != nil {
-			logging.WithName("egress").V(2).Info("network connection failed", "host", host, "error", err.Error())
 			return nil, &hostError{operation: "failed to connect to", host: host, err: err}
 		}
-		return connection, nil
+		if route.proxy != nil {
+			return conn, nil
+		}
+		// Connections that are not TCP, such as test pipes, carry no address to check.
+		if remote, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+			address, _ := netip.AddrFromSlice(remote.IP)
+			if err := p.checkAddress(host, address.Unmap()); err != nil {
+				_ = conn.Close()
+				return nil, err
+			}
+		}
+		return conn, nil
 	}
-	// Custom TLS dialers bypass DialContext, so TLS must use the transport's
-	// normal handshake after our validated connection has been established.
-	transport.base.DialTLSContext = nil
-	transport.base.DialTLS = nil
-	return transport
+	// A custom TLS dialer would bypass DialContext and the check above.
+	inner.DialTLSContext = nil
+	inner.DialTLS = nil
+	return &Transport{inner: inner, policy: p, proxy: base.Proxy}
 }
 
 func (t *Transport) RoundTrip(request *http.Request) (*http.Response, error) {
-	handedOff := false
-	defer func() {
-		if !handedOff && request.Body != nil {
+	route, err := t.check(request)
+	if err != nil {
+		if request.Body != nil {
 			_ = request.Body.Close()
 		}
-	}()
-	if request.URL == nil || (request.URL.Scheme != "http" && request.URL.Scheme != "https") {
-		return nil, fmt.Errorf("network destination must use HTTP or HTTPS")
-	}
-	// WriteProxy uses Host for the absolute request target and URL.Opaque can
-	// override that target entirely. Neither may select an unchecked destination.
-	if request.URL.Opaque != "" {
-		return nil, fmt.Errorf("opaque network destinations are not permitted: %w", ErrAddressBlocked)
-	}
-	if request.Host != "" {
-		expected, err := normalizedAuthority(request.URL)
-		if err != nil {
-			return nil, err
-		}
-		actual, err := normalizedAuthority(&url.URL{Scheme: request.URL.Scheme, Host: request.Host})
-		if err != nil {
-			return nil, err
-		}
-		if actual != expected {
-			return nil, fmt.Errorf("network request Host does not match URL authority: %w", ErrAddressBlocked)
-		}
-	}
-	deadline := time.Now().Add(DialTimeout)
-	if callerDeadline, ok := request.Context().Deadline(); ok && callerDeadline.Before(deadline) {
-		deadline = callerDeadline
-	}
-	ctx, cancel := context.WithDeadline(request.Context(), deadline)
-	defer cancel()
-	plan := &dialPlan{target: canonicalAddress(request.URL), deadline: deadline}
-	// Resolve the proxy decision first: whether a target has to be resolvable here depends
-	// on it.
-	var err error
-	if t.proxy != nil {
-		plan.proxy, err = t.proxy(request)
-		if err != nil {
-			return nil, err
-		}
-	}
-	plan.targetIPs, err = t.policy.ResolveAndValidate(ctx, request.URL.Hostname())
-	if err != nil {
-		// A proxy owns downstream DNS, so a registry only it can resolve is not evidence of a
-		// bad destination: the name is deferred to the proxy rather than failing closed. It has
-		// already been checked against the denied-host list, and a literal address never reaches
-		// the resolver.
-		if plan.proxy == nil || !dnsNotFound(err) {
-			return nil, err
-		}
-		logging.WithName("egress").V(2).Info("network destination left to the proxy's resolver", "host", request.URL.Hostname())
-		plan.targetIPs = nil
-	}
-	if plan.proxy != nil {
-		// Clone operator configuration before storing it with a request.
-		proxy := *plan.proxy
-		plan.proxy = &proxy
-		plan.proxyAddress = canonicalAddress(plan.proxy)
-		plan.proxyIPs, err = t.policy.resolveAndValidate(ctx, plan.proxy.Hostname(), true)
-		if err != nil {
-			return nil, err
-		}
-	}
-	// The DNS timeout must not cancel the response body. The original request
-	// context controls the HTTP exchange; only the dial inherits this deadline.
-	guarded := request.Clone(context.WithValue(request.Context(), dialPlanKey{}, plan))
-	handedOff = true
-	pool := t.destinationPool(plan)
-	response, err := pool.transport.RoundTrip(guarded)
-	if err != nil {
-		pool.closeIfRetired()
 		return nil, err
 	}
-	response.Body = &pooledResponseBody{ReadCloser: response.Body, pool: pool}
-	return response, nil
+	return t.inner.RoundTrip(request.Clone(context.WithValue(request.Context(), routeKey{}, route)))
 }
 
 // CloseIdleConnections releases idle pooled connections without interrupting requests.
 func (t *Transport) CloseIdleConnections() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	for _, element := range t.pools {
-		element.Value.(*destinationPool).transport.CloseIdleConnections()
-	}
+	t.inner.CloseIdleConnections()
 }
 
-// Each pool sees only one validated address set, so reuse cannot reach a previous request's
-// stale address. A proxied request only ever dials the proxy, so only the proxy's addresses key
-// the pool -- including the target would churn healthy proxy connections on every registry DNS
-// change. Validation rejects an empty address set, so the two key shapes can never collide.
-func (t *Transport) destinationPool(plan *dialPlan) *destinationPool {
-	key := destinationKey{targetIPs: addressSetKey(plan.targetIPs)}
-	if plan.proxy != nil {
-		key = destinationKey{proxyIPs: addressSetKey(plan.proxyIPs)}
+func (t *Transport) check(request *http.Request) (route, error) {
+	if request.URL == nil || (request.URL.Scheme != "http" && request.URL.Scheme != "https") {
+		return route{}, fmt.Errorf("network destination must use HTTP or HTTPS")
 	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if element := t.pools[key]; element != nil {
-		t.lru.MoveToFront(element)
-		return element.Value.(*destinationPool)
+	// WriteProxy uses Host for the absolute request target and URL.Opaque can
+	// override that target entirely. Neither may select an unchecked destination.
+	if request.URL.Opaque != "" {
+		return route{}, fmt.Errorf("opaque network destinations are not permitted: %w", ErrAddressBlocked)
 	}
-	pool := &destinationPool{key: key, transport: t.base.Clone()}
-	t.pools[key] = t.lru.PushFront(pool)
-	if t.lru.Len() > maxDestinationPools {
-		oldest := t.lru.Back()
-		retired := oldest.Value.(*destinationPool)
-		delete(t.pools, retired.key)
-		t.lru.Remove(oldest)
-		retired.retired.Store(true)
-		retired.transport.CloseIdleConnections()
+	if request.Host != "" {
+		expected, err := normalizedAuthority(request.URL)
+		if err != nil {
+			return route{}, err
+		}
+		actual, err := normalizedAuthority(&url.URL{Scheme: request.URL.Scheme, Host: request.Host})
+		if err != nil {
+			return route{}, err
+		}
+		if actual != expected {
+			return route{}, fmt.Errorf("network request Host does not match URL authority: %w", ErrAddressBlocked)
+		}
 	}
-	return pool
-}
-
-func addressSetKey(addresses []netip.Addr) string {
-	values := make([]string, len(addresses))
-	for i, address := range addresses {
-		values[i] = address.String()
+	var checked route
+	if t.proxy != nil {
+		proxy, err := t.proxy(request)
+		if err != nil {
+			return route{}, err
+		}
+		checked.proxy = proxy
 	}
-	slices.Sort(values)
-	return strings.Join(slices.Compact(values), ",")
-}
-
-func (p *destinationPool) closeIfRetired() {
-	if p.retired.Load() {
-		p.transport.CloseIdleConnections()
+	ctx, cancel := context.WithTimeout(request.Context(), DialTimeout)
+	defer cancel()
+	if _, err := t.policy.ResolveAndValidate(ctx, request.URL.Hostname()); err != nil {
+		// A registry only the proxy can resolve is not evidence of a bad destination, so it is
+		// left to the proxy. The denied-host check has already run, and a literal address never
+		// reaches the resolver.
+		if checked.proxy == nil || !dnsNotFound(err) {
+			return route{}, err
+		}
+		logging.WithName("egress").V(2).Info("network destination left to the proxy's resolver", "host", request.URL.Hostname())
 	}
-}
-
-type pooledResponseBody struct {
-	io.ReadCloser
-	pool *destinationPool
-}
-
-func (b *pooledResponseBody) Close() error {
-	err := b.ReadCloser.Close()
-	// An evicted pool may still have active requests. Close their connections
-	// when they become idle rather than interrupting the response body.
-	b.pool.closeIfRetired()
-	return err
+	return checked, nil
 }
 
 // dnsNotFound reports whether the local resolver simply does not know the name, as opposed to
@@ -272,21 +156,6 @@ func dnsNotFound(err error) bool {
 	}
 	var dnsErr *net.DNSError
 	return errors.As(err, &dnsErr) && dnsErr.IsNotFound
-}
-
-func canonicalAddress(u *url.URL) string {
-	port := u.Port()
-	if port == "" {
-		switch u.Scheme {
-		case "https":
-			port = "443"
-		case "socks5", "socks5h":
-			port = "1080"
-		default:
-			port = "80"
-		}
-	}
-	return net.JoinHostPort(u.Hostname(), port)
 }
 
 func normalizedAuthority(u *url.URL) (string, error) {
