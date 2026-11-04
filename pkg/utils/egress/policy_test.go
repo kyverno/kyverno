@@ -14,7 +14,7 @@ import (
 
 // Fixtures standing in for an ordinary public registry or proxy address, shared by every test in
 // this package. The RFC 5737/3849/9637 documentation ranges (192.0.2.0/24, 198.51.100.0/24,
-// 203.0.113.0/24, 2001:db8::/32, 3fff::/20) cannot play that role: they are in DefaultDeniedIPs,
+// 203.0.113.0/24, 2001:db8::/32, 3fff::/20) cannot play that role: they are in the chart's denied IPs,
 // so a fixture written there is logged in audit mode and rejected in enforce mode. Documentation
 // addresses belong only in tests whose point is that they are denied. These are real public
 // addresses, but nothing is ever contacted -- every resolver and dialer here is stubbed.
@@ -28,6 +28,14 @@ const (
 
 func testPolicy(t *testing.T, config Config, answers map[string][]string) *Policy {
 	t.Helper()
+	// Tests start from the lists the chart ships; setting a list replaces it, as in a cluster.
+	shipped := shippedConfig(t)
+	if config.DeniedHosts == nil {
+		config.DeniedHosts = shipped.DeniedHosts
+	}
+	if config.DeniedIPs == nil {
+		config.DeniedIPs = shipped.DeniedIPs
+	}
 	policy, err := New(config)
 	require.NoError(t, err)
 	policy.lookupNetIP = func(_ context.Context, _ string, host string) ([]netip.Addr, error) {
@@ -44,12 +52,12 @@ func testPolicy(t *testing.T, config Config, answers map[string][]string) *Polic
 	return policy
 }
 
-// One address per range in DefaultDeniedIPs. The list is the whole policy now -- there is no
-// classification underneath it and no allowlist over it -- so a range dropped from defaults.go
-// simply stops being denied, with nothing left to catch it. Each case also pins the audit/enforce
+// One address per range in the chart's config.registryEgressDeniedIPs. The list is the whole
+// policy -- there is no classification underneath it and no allowlist over it -- so a range dropped
+// from the chart simply stops being denied, with nothing left to catch it. Each case also pins the audit/enforce
 // split: audit connects anyway, because turning the guard on in a running cluster must only
 // produce logs until the operator has seen what enforce would reject.
-func TestDefaultDeniedIPsAreDenied(t *testing.T) {
+func TestShippedDeniedIPsAreDenied(t *testing.T) {
 	t.Parallel()
 	for _, address := range []string{
 		"127.0.0.1", "::1", "0.0.0.0", "::", "169.254.169.254", "fe80::1", "224.0.0.1", "ff02::1",
@@ -108,11 +116,11 @@ func TestIPv6SpellingsOfADeniedIPv4AreDenied(t *testing.T) {
 	require.ErrorIs(t, err, ErrAddressBlocked)
 }
 
-// DefaultDeniedIPs is derived from the IANA special-purpose registries by taking every "Globally
-// Reachable: False" entry. The entries marked True are real routed services and must stay
-// reachable in enforce mode, or the guard breaks ordinary fetches while claiming to deny only
-// local infrastructure. This is the other half of the derivation rule in defaults.go: that list
-// says what to include, this test pins what deliberately stays out.
+// The chart's config.registryEgressDeniedIPs is derived from the IANA special-purpose registries
+// by taking every "Globally Reachable: False" entry. The entries marked True are real routed
+// services and must stay reachable in enforce mode, or the guard breaks ordinary fetches while
+// claiming to deny only local infrastructure. The chart says what to include; this test pins
+// what deliberately stays out.
 func TestGloballyReachableRangesAreNotDenied(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct{ name, address string }{
@@ -147,9 +155,9 @@ func TestGloballyReachableRangesAreNotDenied(t *testing.T) {
 // The metadata services are denied by name as well as by address because a name is what an image
 // reference actually carries, and the address it resolves to is the provider's choice. Each name
 // here resolves to an ordinary public address, so only the host list can catch it.
-func TestDefaultDeniedHostsAreDeniedByName(t *testing.T) {
+func TestShippedDeniedHostsAreDeniedByName(t *testing.T) {
 	t.Parallel()
-	for _, host := range DefaultDeniedHosts {
+	for _, host := range shippedConfig(t).DeniedHosts {
 		t.Run(host, func(t *testing.T) {
 			t.Parallel()
 			answers := map[string][]string{host: {publicIPv4}}

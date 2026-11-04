@@ -239,13 +239,11 @@ type Configuration interface {
 	GetUpdateRequestCleanupTTL() string
 	// GetMaxContextSize gets the maximum context size in bytes for policy evaluation
 	GetMaxContextSize() int64
-	// GetRegistryEgressDeniedHosts returns the operator-configured host denylist for registry egress.
-	// A nil result means the key is absent and callers should keep their shipped defaults; a non-nil
-	// empty result means the operator explicitly cleared the list.
+	// GetRegistryEgressDeniedHosts returns the host denylist for registry egress, or nil when the
+	// key is absent.
 	GetRegistryEgressDeniedHosts() []string
-	// GetRegistryEgressDeniedIPs returns the operator-configured IP/CIDR denylist for registry egress.
-	// A nil result means the key is absent and callers should keep their shipped defaults; a non-nil
-	// empty result means the operator explicitly cleared the list.
+	// GetRegistryEgressDeniedIPs returns the IP/CIDR denylist for registry egress, or nil when the
+	// key is absent.
 	GetRegistryEgressDeniedIPs() []string
 }
 
@@ -694,8 +692,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		logger.V(2).Info("maxContextSize not set, using default", "default", DefaultMaxContextSize)
 	}
 	// load registryEgressDeniedHosts
-	// an absent key leaves the field nil so callers keep their shipped defaults, while a present key
-	// (even an empty string) yields a non-nil slice meaning the operator took over the list
 	if deniedHosts, ok := data[registryEgressDeniedHosts]; !ok {
 		logger.V(2).Info("registryEgressDeniedHosts not set")
 	} else {

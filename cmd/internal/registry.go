@@ -21,8 +21,7 @@ import (
 // controller for the change to take effect. Syncing live would need an informer on ConfigMap
 // events and is deliberately left to a follow-up rather than half-done here.
 //
-// A nil list means the ConfigMap says nothing about it, which keeps egress.DefaultDeniedHosts
-// and egress.DefaultDeniedIPs. An empty non-nil list is an operator who cleared it.
+// The chart ships the recommended lists in the ConfigMap. A missing or empty key denies nothing.
 func egressConfig(configuration config.Configuration) egress.Config {
 	return egress.Config{
 		Mode:        privateRegistryEgressMode,

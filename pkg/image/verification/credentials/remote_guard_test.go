@@ -59,7 +59,7 @@ func TestRemoteOptionsCarryTheEgressGuard(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			resetGuard(t)
-			require.NoError(t, egress.SetGlobal(egress.Config{Mode: egress.ModeEnforce}))
+			require.NoError(t, egress.SetGlobal(egress.Config{Mode: egress.ModeEnforce, DeniedIPs: []string{"169.254.0.0/16"}}))
 
 			opts, _ := RemoteOptions(lister, test.creds, "kyverno", logging.GlobalLogger())
 			require.NotEmpty(t, opts)

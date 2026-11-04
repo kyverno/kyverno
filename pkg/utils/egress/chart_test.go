@@ -27,50 +27,31 @@ func readChartValues(t *testing.T) chartValues {
 	return values
 }
 
-// TestDefaultDenylistsMatchTheChart pins the two copies of each list to each other. The chart's
-// copies are what an operator reads and edits; the Go slices are the fallback for an install that
-// has no ConfigMap entry at all -- the CLI, a hand-rolled manifest, a unit test -- so an entry
-// added to only one of them silently protects half the installed base. Order is compared too: the
-// chart is the documented reading order, and keeping it identical makes a drift failure point at
-// the entry that moved instead of reporting two unordered sets.
-func TestDefaultDenylistsMatchTheChart(t *testing.T) {
-	t.Parallel()
+// shippedConfig is the denylist an install gets from the chart. There is no copy in Go, so tests
+// that need the recommended defaults read them from here.
+func shippedConfig(t *testing.T) Config {
+	t.Helper()
 	values := readChartValues(t)
-	require.NotEmpty(t, values.Config.RegistryEgressDeniedHosts,
-		"config.registryEgressDeniedHosts is missing from the chart")
-	require.NotEmpty(t, values.Config.RegistryEgressDeniedIPs,
-		"config.registryEgressDeniedIPs is missing from the chart")
-	require.Equal(t, DefaultDeniedHosts, values.Config.RegistryEgressDeniedHosts,
-		"DefaultDeniedHosts and config.registryEgressDeniedHosts have drifted")
-	require.Equal(t, DefaultDeniedIPs, values.Config.RegistryEgressDeniedIPs,
-		"DefaultDeniedIPs and config.registryEgressDeniedIPs have drifted")
-	// The chart's copies go through the same parser, so a malformed entry there fails here
-	// rather than quietly denying nothing in a user's cluster.
-	chart, err := New(Config{
-		DeniedHosts: values.Config.RegistryEgressDeniedHosts,
-		DeniedIPs:   values.Config.RegistryEgressDeniedIPs,
-	})
-	require.NoError(t, err)
-	require.Len(t, chart.prefixes, len(values.Config.RegistryEgressDeniedIPs))
-	require.Len(t, chart.hosts, len(values.Config.RegistryEgressDeniedHosts))
+	return Config{DeniedHosts: values.Config.RegistryEgressDeniedHosts, DeniedIPs: values.Config.RegistryEgressDeniedIPs}
 }
 
-// TestShippedDefaultsParse proves every shipped default survives New. The lists are applied
-// best-effort now -- a malformed entry is logged and skipped rather than failing construction --
-// so a typo in a default would stop denying its range with nothing failing anywhere. Counting
-// what actually landed is the only way that shows up.
-func TestShippedDefaultsParse(t *testing.T) {
+// A malformed entry is logged and skipped rather than failing New, so a typo in the chart would
+// stop denying its range with nothing failing anywhere. Counting what landed catches it.
+func TestShippedDenylistsParse(t *testing.T) {
 	t.Parallel()
-	for _, entry := range DefaultDeniedIPs {
+	shipped := shippedConfig(t)
+	require.NotEmpty(t, shipped.DeniedHosts, "config.registryEgressDeniedHosts is missing from the chart")
+	require.NotEmpty(t, shipped.DeniedIPs, "config.registryEgressDeniedIPs is missing from the chart")
+	for _, entry := range shipped.DeniedIPs {
 		_, err := parsePrefix(entry)
 		require.NoError(t, err, "shipped denied IP %q does not parse, so it denies nothing", entry)
 	}
-	for _, entry := range DefaultDeniedHosts {
+	for _, entry := range shipped.DeniedHosts {
 		_, err := normalizeHost(entry)
 		require.NoError(t, err, "shipped denied host %q does not parse, so it denies nothing", entry)
 	}
-	policy, err := New(Config{})
+	policy, err := New(shipped)
 	require.NoError(t, err)
-	require.Len(t, policy.prefixes, len(DefaultDeniedIPs), "a shipped denied IP was skipped")
-	require.Len(t, policy.hosts, len(DefaultDeniedHosts), "a shipped denied host was skipped or duplicated")
+	require.Len(t, policy.prefixes, len(shipped.DeniedIPs), "a shipped denied IP was skipped")
+	require.Len(t, policy.hosts, len(shipped.DeniedHosts), "a shipped denied host was skipped or duplicated")
 }

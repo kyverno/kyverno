@@ -2,20 +2,19 @@ package egress
 
 import (
 	"context"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 // The two denylists are the entire policy: nothing is denied that is not on one of them, and
-// nothing survives underneath when they are replaced. That makes the nil/empty distinction load
-// bearing in both directions -- read an operator's cleared list as "unset" and they stay blocked
-// forever, read a caller's zero value as "cleared" and every install without a ConfigMap entry
-// silently drops its defaults.
+// nothing survives underneath when they are replaced. The recommended entries live only in the
+// chart; there is no built-in copy for an empty or missing list to fall back to.
 
 func TestConfiguredDenylistsReplaceTheDefaults(t *testing.T) {
 	t.Parallel()
-	// 198.18.0.0/15 is a shipped default; 8.8.0.0/16 is not. Configuring only the latter must
+	// 198.18.0.0/15 is in the chart's list; 8.8.0.0/16 is not. Configuring only the latter must
 	// swap which of the two is denied, not append to the shipped list.
 	policy := testPolicy(t, Config{Mode: ModeEnforce, DeniedIPs: []string{"8.8.0.0/16"}}, map[string][]string{
 		"benchmark.example": {"198.18.0.1"},
@@ -43,10 +42,8 @@ func TestConfiguredDenylistsReplaceTheDefaults(t *testing.T) {
 
 func TestClearedDenylistsDenyNothing(t *testing.T) {
 	t.Parallel()
-	// A non-nil empty slice is an operator clearing the list, which New must honor rather than
-	// read as "unset" and reinstate the defaults. Nothing is held back from the clear: there is
-	// no hard-blocked floor under these lists any more, so loopback and metadata go with the
-	// rest. An operator who clears the list has to mean it, and the chart is where they are
+	// Nothing is held back from a cleared list: there is no hard-blocked floor under these lists,
+	// so loopback and metadata go with the rest. An operator who clears the list has to mean it, and the chart is where they are
 	// told what they are giving up.
 	answers := map[string][]string{
 		"loopback.example":         {"127.0.0.1"},
@@ -62,19 +59,19 @@ func TestClearedDenylistsDenyNothing(t *testing.T) {
 	}
 }
 
-func TestNilDenylistsKeepTheDefaults(t *testing.T) {
+func TestUnsetDenylistsDenyNothing(t *testing.T) {
 	t.Parallel()
-	// Callers that know nothing about this setting -- the CLI, a ConfigMap with no entry for it,
-	// and most tests in this package -- leave both fields at their zero value and must still get
-	// the shipped rules.
-	policy := testPolicy(t, Config{Mode: ModeEnforce}, map[string][]string{
-		"documentation.example":    {"203.0.113.1"},
-		"metadata.google.internal": {publicIPv4},
-	})
-	_, err := policy.ResolveAndValidate(context.Background(), "documentation.example")
-	require.ErrorIs(t, err, ErrAddressBlocked, "a nil address list must keep DefaultDeniedIPs")
-	_, err = policy.ResolveAndValidate(context.Background(), "metadata.google.internal")
-	require.ErrorIs(t, err, ErrAddressBlocked, "a nil host list must keep DefaultDeniedHosts")
+	// A ConfigMap without the keys is treated like an empty list. The defaults come from the
+	// chart, so there is nothing in code to fall back to.
+	policy, err := New(Config{Mode: ModeEnforce})
+	require.NoError(t, err)
+	policy.lookupNetIP = func(context.Context, string, string) ([]netip.Addr, error) {
+		return []netip.Addr{netip.MustParseAddr("169.254.169.254")}, nil
+	}
+	for _, host := range []string{"169.254.169.254", "metadata.google.internal"} {
+		_, err := policy.ResolveAndValidate(context.Background(), host)
+		require.NoError(t, err, "%s was denied with no list configured", host)
+	}
 }
 
 func TestIPv4MappedDenyPrefixIsRewritten(t *testing.T) {

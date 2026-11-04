@@ -25,9 +25,9 @@ var ErrAddressBlocked = errors.New("network destination blocked by egress policy
 // Config is the operator's denylist: a destination is denied when it matches one of these lists
 // and permitted otherwise. There is no allowlist and no built-in notion of a private address.
 //
-// DeniedHosts entries are exact hostnames; DeniedIPs entries are CIDRs or bare IPs. nil means
-// unset and falls back to the shipped defaults; an empty non-nil slice is an operator clearing
-// the list and is honored.
+// DeniedHosts entries are exact hostnames; DeniedIPs entries are CIDRs or bare IPs. Both come
+// from the kyverno ConfigMap, which the Helm chart populates with the recommended defaults; there
+// is no built-in copy, so an empty or missing list denies nothing.
 type Config struct {
 	Mode        string
 	DeniedHosts []string
@@ -57,7 +57,7 @@ func New(config Config) (*Policy, error) {
 	}
 	logger := logging.WithName("egress")
 	policy := &Policy{mode: mode, hosts: make(map[string]struct{}), lookupNetIP: net.DefaultResolver.LookupNetIP}
-	for _, entry := range listOrDefault(config.DeniedHosts, DefaultDeniedHosts) {
+	for _, entry := range config.DeniedHosts {
 		entry = strings.TrimSpace(entry)
 		if entry == "" {
 			continue
@@ -79,7 +79,7 @@ func New(config Config) (*Policy, error) {
 		}
 		policy.hosts[host] = struct{}{}
 	}
-	for _, entry := range listOrDefault(config.DeniedIPs, DefaultDeniedIPs) {
+	for _, entry := range config.DeniedIPs {
 		entry = strings.TrimSpace(entry)
 		if entry == "" {
 			continue
@@ -92,14 +92,6 @@ func New(config Config) (*Policy, error) {
 		policy.prefixes = append(policy.prefixes, prefix)
 	}
 	return policy, nil
-}
-
-// listOrDefault keeps nil (never configured) distinct from empty (cleared on purpose).
-func listOrDefault(configured, shipped []string) []string {
-	if configured == nil {
-		return shipped
-	}
-	return configured
 }
 
 // parsePrefix accepts a CIDR or bare IP. An IPv4-mapped prefix is rewritten to IPv4 form since

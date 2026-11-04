@@ -15,8 +15,8 @@ Kyverno contributes one thing to that client, from `pkg/utils/egress`:
 What it validates against is two operator denylists — exact hostnames and CIDRs/IP addresses, read
 from the `kyverno` ConfigMap at startup — plus the `--privateRegistryEgressMode` flag that decides
 whether a match is logged (`audit`) or rejected (`enforce`). There is no allowlist, no built-in
-public/private classification, and no entry that an operator cannot remove; the shipped defaults
-are chart values. Two destinations are outside that check by construction: a proxy endpoint, which
+public/private classification, and no entry that an operator cannot remove; the recommended
+defaults exist only as chart values, with no copy in code. Two destinations are outside that check by construction: a proxy endpoint, which
 is operator configuration from the environment rather than something an image reference can
 choose, and a proxied name the local resolver cannot find, which still meets the host denylist but
 is deferred to the proxy for its address because none is ever known here. More generally, for any
@@ -35,9 +35,8 @@ or the carve-out dead code.
 `registryclient.SetupGlobalRegistryClient`. There is one registry client per process. Its
 `egressConfig` pairs the mode flag with `config.Configuration`'s denylists, which
 `startConfigController` has already loaded; they are not re-read afterwards, so a ConfigMap edit
-needs a controller restart until a ConfigMap informer lands. A nil list means the ConfigMap says
-nothing about it and the shipped defaults apply; an empty non-nil list is an operator who cleared
-it. A malformed entry is logged and skipped rather than failing startup — only the mode is
+needs a controller restart until a ConfigMap informer lands. A missing or empty key denies nothing on
+that list. A malformed entry is logged and skipped rather than failing startup — only the mode is
 validated fatally, in `cmd/internal/check.go`.
 
 `setupRegistryEgress` configures that same global for controllers that read image metadata but

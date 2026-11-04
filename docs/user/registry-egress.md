@@ -85,8 +85,8 @@ config:
 Setting a key replaces the shipped list rather than adding to it, so write out every entry you
 want to keep — `docs/user/registry-egress/enforce-values.yaml` carries the full shipped lists as a
 starting point, and `charts/kyverno/values.yaml` documents each default with the reason it is
-there. Leaving a key out entirely keeps the shipped list; setting it to `[]` clears the list,
-which is honored as written.
+there. The defaults exist only in the chart, so setting a key to `[]`,
+or a ConfigMap without the key, denies nothing on that list.
 
 Denied-host entries are exact hostnames: no wildcards, no subdomain matching, no ports. Write
 `registry.corp.example`, not `registry.corp.example:5000` — the list is matched against the

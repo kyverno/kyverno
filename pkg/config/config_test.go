@@ -269,7 +269,6 @@ func TestConfiguration_RegistryEgressDenyLists_Default(t *testing.T) {
 func TestConfiguration_RegistryEgressDenyLists_KeysAbsent(t *testing.T) {
 	cfg := NewDefaultConfiguration(false)
 	cfg.Load(newRegistryEgressConfigMap(map[string]string{"defaultRegistry": "ghcr.io"}))
-	// absent keys mean "keep shipped defaults", signalled by a nil slice
 	assert.Nil(t, cfg.GetRegistryEgressDeniedHosts())
 	assert.Nil(t, cfg.GetRegistryEgressDeniedIPs())
 }
@@ -280,13 +279,8 @@ func TestConfiguration_RegistryEgressDenyLists_KeysPresentButEmpty(t *testing.T)
 		"registryEgressDeniedHosts": "",
 		"registryEgressDeniedIPs":   "",
 	}))
-	// present-but-empty means "operator cleared the list", signalled by a non-nil empty slice
-	hosts := cfg.GetRegistryEgressDeniedHosts()
-	assert.NotNil(t, hosts)
-	assert.Len(t, hosts, 0)
-	ips := cfg.GetRegistryEgressDeniedIPs()
-	assert.NotNil(t, ips)
-	assert.Len(t, ips, 0)
+	assert.Empty(t, cfg.GetRegistryEgressDeniedHosts())
+	assert.Empty(t, cfg.GetRegistryEgressDeniedIPs())
 }
 
 func TestConfiguration_RegistryEgressDenyLists_ValuesParsedAndTrimmed(t *testing.T) {

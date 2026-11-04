@@ -1,7 +1,7 @@
 # Registry egress primitives
 
 ## Ownership and scope
-- `policy.go` validates destinations; `defaults.go` holds the shipped denylists;
+- `policy.go` validates destinations;
   `transport.go` checks every request and hands it to a cloned `http.Transport`, which does its
   own dialing and pooling.
 - `global.go` holds the process-wide policy and wrapped transport that
@@ -57,7 +57,7 @@
   `config.Configuration` after the config controller has loaded the ConfigMap, and nothing
   re-reads them. An operator's edit needs a controller restart; a ConfigMap informer is a
   deliberate follow-up, so do not document or assume live reload.
-- `DefaultDeniedIPs` is **derived, not incremental**: every IANA special-purpose registry entry
+- The chart's `config.registryEgressDeniedIPs` is **derived, not incremental**: every IANA special-purpose registry entry
   marked "Globally Reachable: False", plus the loopback/unspecified/link-local/multicast/RFC 1918
   space and the cloud-provider metadata addresses that a denylist now has to spell out explicitly
   because no classifier stands behind it. "Not globally routable" is not "not routed" — a
@@ -67,13 +67,10 @@
   pins that. Appending one range in isolation is how `198.18.0.0/15`, the documentation ranges
   and `fec0::/10` each shipped a round late — that history is why this bullet exists; re-derive
   from the registries instead.
-- Two copies of the defaults exist on purpose — `defaults.go` is the fallback for an install with
-  no ConfigMap entry (CLI, hand-rolled manifests, tests), `charts/kyverno/values.yaml` under
-  `config.registryEgressDeniedHosts` / `config.registryEgressDeniedIPs` is what operators read and
-  edit. `TestDefaultDenylistsMatchTheChart` fails if they drift, so edit both.
-  `Config.DeniedHosts` / `Config.DeniedIPs` distinguish nil ("unset, keep the shipped defaults")
-  from an empty non-nil slice ("operator cleared it"), which is why `listOrDefault` exists and why
-  `pkg/config` returns a non-nil empty slice for a present-but-empty ConfigMap key.
+- The defaults live only in `charts/kyverno/values.yaml` under `config.registryEgressDeniedHosts`
+  / `config.registryEgressDeniedIPs`, as the maintainer asked. Do not add a Go copy: an empty or
+  missing list denies nothing. Tests read the chart through `shippedConfig`, and
+  `TestShippedDenylistsParse` fails if a chart entry would be skipped.
 - Validate every request, including reused connections, redirects, and token requests routed
   through this transport. Reject opaque URLs and mismatched HTTP Host/URL authorities.
 - Keep the policy the four steps the maintainer asked for: denied host, resolve, denied IP, hand
@@ -100,16 +97,15 @@
   where the proxy sends it. That follows from the deferral, not from where the guard sits: the
   transport is a backstop only for destinations it can resolve. Tighten it by narrowing when the
   deferral applies, not by adding a second check elsewhere.
-- DNS and connection attempts share `DialTimeout` or the shorter caller deadline.
-  Preserve the original request context for response bodies; close rejected request bodies.
+- The DNS lookup in `RoundTrip` is bounded by `DialTimeout` or the shorter caller deadline.
+  Close rejected request bodies.
 - Keep resolved IPs/DNS server details out of returned `hostError` messages while retaining
   `errors.Is`/`errors.As` through unwrapping; detailed diagnostics stay in logs.
 
 ## Concurrency and checks
-- Keep dial plans request-local. `Transport.mu` protects the bounded destination-pool LRU;
-  pools are keyed by validated target/proxy address sets, not credentials or request state.
-- Pool eviction retires idle connections without interrupting active responses; retain
-  atomic retirement tracking and cleanup when those response bodies close.
+- `Policy` is immutable after `New`; `Transport` holds no mutable state of its own. The proxy
+  decision travels with the request (`route` in its context), so the inner transport's proxy and
+  dial hooks act on what `RoundTrip` checked.
 - Run `go test -race ./pkg/utils/egress`; use injected resolvers/dialers and local fixtures.
 - Do not use documentation addresses (`192.0.2.x`, `198.51.100.x`, `203.0.113.x`, `2001:db8::x`,
   `3fff::x`) as a stand-in for a reachable registry or proxy — they are in the shipped denied-IP
@@ -118,6 +114,5 @@
   contacts, because every resolver and dialer here is stubbed. Documentation addresses belong only
   in tests whose point is that they are denied, or that an operator can remove them from the list.
 - Preserve coverage for: denylist matching by host and by address, the proxy exemption and the
-  not-found deferral, defaults-versus-chart drift, DNS-change/HTTP2 pooling, eviction,
-  deadline/fallback, and cancellation. See `docs/user/registry-egress.md` for the operator-facing
+  not-found deferral, the dial-time address check, and that every chart entry parses. See `docs/user/registry-egress.md` for the operator-facing
   boundary.

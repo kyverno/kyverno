@@ -48,8 +48,7 @@ func parseExclusions(in string) (exclusions, inclusions []string) {
 }
 
 // parseCommaSeparatedList splits a comma-separated ConfigMap value, trimming whitespace around each
-// entry and dropping blank segments (so a trailing comma does not produce an empty entry). The result
-// is always non-nil: callers distinguish "key absent" (nil) from "operator cleared the list" (empty).
+// entry and dropping blank segments (so a trailing comma does not produce an empty entry).
 func parseCommaSeparatedList(in string) []string {
 	out := []string{}
 	for _, entry := range strings.Split(in, ",") {

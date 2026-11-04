@@ -102,7 +102,7 @@ func TestRegistrySecretListerKeepsCacheOnlyDefault(t *testing.T) {
 func TestRegistryEgressOptionsCarryTheGuard(t *testing.T) {
 	previous := egress.Global()
 	t.Cleanup(func() { egress.RestoreGlobal(previous) })
-	require.NoError(t, egress.SetGlobal(egress.Config{Mode: egress.ModeEnforce}))
+	require.NoError(t, egress.SetGlobal(egress.Config{Mode: egress.ModeEnforce, DeniedIPs: []string{"169.254.0.0/16"}}))
 
 	blocked, err := name.ParseReference("169.254.169.254/app:v1")
 	require.NoError(t, err)
@@ -134,10 +134,8 @@ func TestEgressModeValidation(t *testing.T) {
 	}
 }
 
-// egressConfig is the only join between the mode flag and the ConfigMap denylists, and the
-// nil-versus-empty distinction has to survive it: nil keeps the shipped defaults, while an
-// operator who cleared the list in the ConfigMap must get an empty-but-present list rather than
-// silently getting the defaults back.
+// egressConfig is the only join between the mode flag and the ConfigMap denylists. With the keys
+// absent or empty it carries no entries: the defaults come from the chart, not from code.
 func TestEgressConfigReadsTheConfigMap(t *testing.T) {
 	originalMode := privateRegistryEgressMode
 	t.Cleanup(func() { privateRegistryEgressMode = originalMode })
@@ -146,8 +144,8 @@ func TestEgressConfigReadsTheConfigMap(t *testing.T) {
 	configuration := config.NewDefaultConfiguration(false)
 	got := egressConfig(configuration)
 	require.Equal(t, egress.ModeEnforce, got.Mode)
-	require.Nil(t, got.DeniedHosts, "an absent key must read as unset so the shipped defaults apply")
-	require.Nil(t, got.DeniedIPs, "an absent key must read as unset so the shipped defaults apply")
+	require.Empty(t, got.DeniedHosts)
+	require.Empty(t, got.DeniedIPs)
 
 	configuration.Load(&corev1.ConfigMap{Data: map[string]string{
 		"registryEgressDeniedHosts": "metadata.internal",
@@ -155,7 +153,6 @@ func TestEgressConfigReadsTheConfigMap(t *testing.T) {
 	}})
 	got = egressConfig(configuration)
 	require.Equal(t, []string{"metadata.internal"}, got.DeniedHosts)
-	require.NotNil(t, got.DeniedIPs, "a present-but-empty key is an operator clearing the list, not an unset one")
 	require.Empty(t, got.DeniedIPs)
 }
 
