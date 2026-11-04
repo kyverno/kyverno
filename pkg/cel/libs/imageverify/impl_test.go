@@ -177,7 +177,6 @@ func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
 	image := "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
 
 	ivCache, err := imageverifycache.New(
-		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(0),
 		imageverifycache.WithTTLDuration(0),
 	)
@@ -193,8 +192,7 @@ func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
 		ivCache:        ivCache,
 	}
 
-	cacheRule, _ := attestorCacheRule(signatureCacheRule, "", attestors)
-	stored, err := ivCache.Set(context.TODO(), pol, cacheRule, image, true)
+	stored, err := ivCache.Set(image, attestors, nil, nil)
 	assert.NoError(t, err)
 	assert.True(t, stored)
 
@@ -235,7 +233,6 @@ func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testi
 	assert.NoError(t, err)
 
 	ivCache, err := imageverifycache.New(
-		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(0),
 		imageverifycache.WithTTLDuration(0),
 	)
@@ -255,8 +252,7 @@ func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testi
 	assert.True(t, ok, "expected an integer result, got an error instead: %v", out.Value())
 	assert.Less(t, count, int64(len(attestors)))
 
-	cacheRule, _ := attestorCacheRule(signatureCacheRule, "", attestors)
-	found, err := ivCache.Get(context.TODO(), pol, cacheRule, image, true)
+	found, _, err := ivCache.Get(image, attestors, nil)
 	assert.NoError(t, err)
 	assert.False(t, found, "a partial or failed verification must never be cached")
 }
@@ -314,7 +310,6 @@ func Test_impl_verify_attestation_cache_hit_restores_payload(t *testing.T) {
 	assert.NoError(t, err)
 
 	ivCache, err := imageverifycache.New(
-		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(0),
 		imageverifycache.WithTTLDuration(0),
 	)
@@ -372,7 +367,7 @@ func Test_impl_verify_attestation_cache_hit_restores_payload(t *testing.T) {
 }
 
 // Attestation verify-only (no extractPayload): miss then hit must both succeed with the
-// SetWithPayload/GetWithPayload plumbing — payload caching must not break verify-only use.
+// Set/Get payload plumbing — payload caching must not break verify-only use.
 func Test_impl_verify_attestation_cache_hit_without_extract_payload(t *testing.T) {
 	attestors := []v1beta1.Attestor{
 		{
@@ -421,7 +416,6 @@ func Test_impl_verify_attestation_cache_hit_without_extract_payload(t *testing.T
 	assert.NoError(t, err)
 
 	ivCache, err := imageverifycache.New(
-		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(0),
 		imageverifycache.WithTTLDuration(0),
 	)
@@ -467,7 +461,7 @@ func Test_impl_verify_attestation_cache_hit_without_extract_payload(t *testing.T
 //
 // This verifies cache-KEY isolation (generateKey/cacheRule differs per attestation name +
 // attestor set), not within-map key collision: intotoPayloadsFromImage only ever returns a
-// single-key map {attest.InToto.Type: bytes}, and production SetWithPayload callers never
+// single-key map {attest.InToto.Type: bytes}, and production Set callers never
 // write a multi-key payload map today.
 func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing.T) {
 	attestorsSlsa := []v1beta1.Attestor{
@@ -489,7 +483,7 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 			},
 		},
 	}
-	// Distinct attestor name so attestorCacheRule differs from the SLSA combo.
+	// Same material as the SLSA attestors under another name; the entries stay apart because the attestation types differ.
 	attestorsCustom := []v1beta1.Attestor{
 		{
 			Name: "github-keyless-custom",
@@ -538,7 +532,6 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 	assert.NoError(t, err)
 
 	ivCache, err := imageverifycache.New(
-		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(0),
 		imageverifycache.WithTTLDuration(0),
 	)
@@ -556,7 +549,7 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 		pendingIntotoRestores: map[string]map[string][]byte{},
 	}
 
-	// Miss path for SLSA: real Cosign verify + SetWithPayload.
+	// Miss path for SLSA: real Cosign verify + Set.
 	outSlsa := f.verify_image_attestations_string_string_stringarray(
 		f.NativeToValue(image),
 		f.NativeToValue(slsaName),
@@ -579,8 +572,7 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 	}
 	customPayloadBytes, err := json.Marshal(customPayloadObj)
 	assert.NoError(t, err)
-	customRule, _ := attestorCacheRule(attestationCacheRule, customName, attestorsCustom)
-	stored, err := ivCache.SetWithPayload(context.TODO(), pol, customRule, image, true, map[string][]byte{
+	stored, err := ivCache.Set(image, attestorsCustom, &pol.Spec.Attestations[1], map[string][]byte{
 		customType: customPayloadBytes,
 	})
 	assert.NoError(t, err)
@@ -677,7 +669,6 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 	assert.NoError(t, err)
 
 	ivCache, err := imageverifycache.New(
-		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(0),
 		imageverifycache.WithTTLDuration(0),
 	)
@@ -698,8 +689,8 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 	// Seed a degraded (presence-only) cache entry directly, simulating what a
 	// failed payload capture used to leave behind before the write-side fix.
 	// This exercises the READ-side fallback independent of the write-side skip.
-	cacheRule, _ := attestorCacheRule(attestationCacheRule, attestationName, attestors)
-	stored, err := ivCache.SetWithPayload(context.TODO(), pol, cacheRule, image, true, nil)
+	attestation := f.attestationList[attestationName]
+	stored, err := ivCache.Set(image, attestors, &attestation, nil)
 	assert.NoError(t, err)
 	assert.True(t, stored, "degraded presence-only entry must still be cacheable, matching pre-fix Set() behavior")
 
@@ -844,72 +835,6 @@ func Test_impl_notary_failures_are_in_verification_diagnostics(t *testing.T) {
 	}
 }
 
-// Test_attestorCacheRule_BindsMaterialNotName pins that the cache rule tracks
-// what an attestor actually verifies with, not the label the policy gave it.
-// Attestor content is resolved per request from CEL expressions, so two
-// requests can present the same name carrying different key material.
-func Test_attestorCacheRule_BindsMaterialNotName(t *testing.T) {
-	withKey := func(data string) []v1beta1.Attestor {
-		return []v1beta1.Attestor{{
-			Name:   "signer",
-			Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Data: data}},
-		}}
-	}
-
-	ruleA, err := attestorCacheRule(signatureCacheRule, "", withKey("KEY-A"))
-	assert.NoError(t, err)
-	ruleB, err := attestorCacheRule(signatureCacheRule, "", withKey("KEY-B"))
-	assert.NoError(t, err)
-	assert.NotEqual(t, ruleA, ruleB, "same attestor name with different key material must not share a cache rule")
-
-	// Positive control: identical material must still hit the same rule, or
-	// the cache would never serve anything.
-	ruleARepeat, err := attestorCacheRule(signatureCacheRule, "", withKey("KEY-A"))
-	assert.NoError(t, err)
-	assert.Equal(t, ruleA, ruleARepeat)
-
-	// Order must not matter: the same set presented in either order is one rule.
-	pair := []v1beta1.Attestor{withKey("KEY-A")[0], withKey("KEY-B")[0]}
-	reversed := []v1beta1.Attestor{pair[1], pair[0]}
-	rulePair, err := attestorCacheRule(signatureCacheRule, "", pair)
-	assert.NoError(t, err)
-	ruleReversed, err := attestorCacheRule(signatureCacheRule, "", reversed)
-	assert.NoError(t, err)
-	assert.Equal(t, rulePair, ruleReversed)
-
-	// The qualifier still separates attestations from signatures.
-	ruleAttestation, err := attestorCacheRule(attestationCacheRule, "slsa", withKey("KEY-A"))
-	assert.NoError(t, err)
-	assert.NotEqual(t, ruleA, ruleAttestation)
-}
-
-// Test_attestorsHaveUnbindableKeyMaterial pins which attestor shapes the cache
-// rule can bind. A KMS url names key material that is fetched during
-// verification, after the rule is derived, so a cached verdict could outlive a
-// rotation of what sits behind the url. Inline and expression-derived keys are
-// materialized before hashing and stay bound.
-func Test_attestorsHaveUnbindableKeyMaterial(t *testing.T) {
-	for _, tc := range []struct {
-		name       string
-		attestors  []v1beta1.Attestor
-		unbindable bool
-	}{
-		{"inline key", []v1beta1.Attestor{{Name: "signer", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Data: "KEY"}}}}, false},
-		{"expression key", []v1beta1.Attestor{{Name: "signer", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Expression: "variables.key"}}}}, false},
-		{"kms key", []v1beta1.Attestor{{Name: "signer", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{KMS: "awskms:///alias/signing"}}}}, true},
-		{"notary only", []v1beta1.Attestor{{Name: "notary", Notary: &v1beta1.Notary{}}}, false},
-		{"one kms among many", []v1beta1.Attestor{
-			{Name: "inline", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Data: "KEY"}}},
-			{Name: "kms", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{KMS: "awskms:///alias/signing"}}},
-		}, true},
-		{"no attestors", nil, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.unbindable, attestorsHaveUnbindableKeyMaterial(tc.attestors))
-		})
-	}
-}
-
 // Test_impl_verify_image_signature_kms_attestor_ignores_cache is the regression
 // for the write and read sides together: with a KMS-backed attestor the cache
 // must be bypassed, so a seeded entry must not be served as a pass.
@@ -933,18 +858,16 @@ func Test_impl_verify_image_signature_kms_attestor_ignores_cache(t *testing.T) {
 	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	assert.NoError(t, err)
 	ivCache, err := imageverifycache.New(
-		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(0),
 		imageverifycache.WithTTLDuration(0),
 	)
 	assert.NoError(t, err)
 
-	// Seed the entry the pre-fix code would have read: same rule, same image.
-	cacheRule, err := attestorCacheRule(signatureCacheRule, "", attestors)
+	// The cache refuses KMS attestors on write; the read side is covered in the
+	// cache package, which seeds the store directly.
+	stored, err := ivCache.Set(image, attestors, nil, nil)
 	assert.NoError(t, err)
-	stored, err := ivCache.Set(context.TODO(), pol, cacheRule, image, true)
-	assert.NoError(t, err)
-	assert.True(t, stored)
+	assert.False(t, stored)
 
 	f := &IvFuncs{
 		Adapter:        types.DefaultTypeAdapter,

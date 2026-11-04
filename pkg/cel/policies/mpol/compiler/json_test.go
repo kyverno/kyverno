@@ -238,3 +238,9 @@ func TestPatchJSONLimits(t *testing.T) {
 		require.ErrorContains(t, err, fmt.Sprintf("maximum of %d operations", maxJSONPatchOperations))
 	})
 }
+
+func TestJSONPatcherReusesDefaultSerializer(t *testing.T) {
+	patcher := compileJSONPatcher(t, `[JSONPatch{op: "add", path: "/spec/x", value: true}]`)
+	require.NotNil(t, patcher.jsonSerializer)
+	assert.Same(t, defaultJSONSerializer, patcher.jsonSerializer)
+}

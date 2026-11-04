@@ -53,14 +53,14 @@ func TestReusableProgramsIsolateRuntime(t *testing.T) {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			t.Parallel()
 			expected := fmt.Sprint(i)
-			cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
+			cache, err := imageverifycache.New(imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 			require.NoError(t, err)
 			if i%2 == 0 {
-				stored, err := cache.Set(context.Background(), policy, mustCacheRule(t, signatureCacheRule, "", attestors), "ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", true)
+				stored, err := cache.Set("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", attestors, nil, nil)
 				require.NoError(t, err)
 				require.True(t, stored)
 			}
-			stored, err := cache.SetWithPayload(context.Background(), policy, mustCacheRule(t, attestationCacheRule, "proof", attestors), "ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", true, map[string][]byte{"proof": []byte(fmt.Sprintf(`{"request":%q}`, expected))})
+			stored, err := cache.Set("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", attestors, &policy.Spec.Attestations[0], map[string][]byte{"proof": []byte(fmt.Sprintf(`{"request":%q}`, expected))})
 			require.NoError(t, err)
 			require.True(t, stored)
 			images := runtimeImages{image: &imagedataloader.ImageData{}}

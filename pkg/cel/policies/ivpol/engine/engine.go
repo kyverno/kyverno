@@ -300,7 +300,7 @@ func (e *engineImpl) handleMutation(
 			})
 			continue
 		}
-		polPatches, err := compiled.MutateDigest(ctx, ictx, imageverifycache.DisabledImageVerifyCache(), nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
+		polPatches, err := compiled.MutateDigest(ctx, ictx, nil, nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
 		if err != nil {
 			// Record the failure as a policy result and carry on with the remaining
 			// policies rather than returning an error, which would abandon their

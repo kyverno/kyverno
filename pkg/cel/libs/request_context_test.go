@@ -15,12 +15,15 @@ import (
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -252,8 +255,9 @@ func TestRequestContext_ConcurrentEvaluationsKeepTheirOwnContext(t *testing.T) {
 type ctxRecorder struct {
 	dynamic.Interface
 	dynamic.ResourceInterface
-	getCtx  context.Context
-	listCtx context.Context
+	getCtx    context.Context
+	listCtx   context.Context
+	createCtx context.Context
 }
 
 type ctxKey struct{}
@@ -272,6 +276,14 @@ func (c *ctxRecorder) Get(ctx context.Context, name string, _ metav1.GetOptions,
 func (c *ctxRecorder) List(ctx context.Context, _ metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	c.listCtx = ctx
 	return &unstructured.UnstructuredList{}, ctx.Err()
+}
+
+func (c *ctxRecorder) Create(ctx context.Context, obj *unstructured.Unstructured, _ metav1.CreateOptions, _ ...string) (*unstructured.Unstructured, error) {
+	c.createCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return obj, nil
 }
 
 type fakeDClient struct {
@@ -307,4 +319,216 @@ func TestBindRequestContext_NilIsNoop(t *testing.T) {
 	BindRequestContext(context.Background(), nil, activation)
 	assert.Empty(t, activation)
 	assert.Nil(t, WithRequestContext(context.Background(), nil))
+}
+
+type fakeGenerateDClient struct {
+	dclient.Interface
+	getCtx           context.Context
+	createCtx        context.Context
+	applyCtx         context.Context
+	updateCtx        context.Context
+	existingResource *unstructured.Unstructured
+}
+
+func (f *fakeGenerateDClient) GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	f.getCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if f.existingResource != nil {
+		return f.existingResource, nil
+	}
+	return nil, apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: "configmaps"}, name)
+}
+
+func (f *fakeGenerateDClient) CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+	f.createCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if u, ok := obj.(*unstructured.Unstructured); ok {
+		return u, nil
+	}
+	return nil, nil
+}
+
+func (f *fakeGenerateDClient) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string, subresources ...string) (*unstructured.Unstructured, error) {
+	f.applyCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if u, ok := obj.(*unstructured.Unstructured); ok {
+		return u, nil
+	}
+	return nil, nil
+}
+
+func (f *fakeGenerateDClient) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
+	f.updateCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if u, ok := obj.(*unstructured.Unstructured); ok {
+		return u, nil
+	}
+	return nil, nil
+}
+
+func TestRequestContext_PostResourceUsesEvaluationContext(t *testing.T) {
+	recorder := &ctxRecorder{}
+	provider := &contextProvider{client: &fakeDClient{dyn: recorder}}
+
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), ctxKey{}, "request-post"))
+	reqCtx := WithRequestContext(ctx, provider)
+
+	data := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name": "posted-cm",
+		},
+	}
+
+	res, err := reqCtx.PostResource("v1", "configmaps", "ns", data)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.NotNil(t, recorder.createCtx)
+	assert.Equal(t, "request-post", recorder.createCtx.Value(ctxKey{}))
+
+	cancel()
+	_, err = reqCtx.PostResource("v1", "configmaps", "ns", data)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestRequestContext_GenerateResourcesUsesEvaluationContext(t *testing.T) {
+	client := &fakeGenerateDClient{}
+	provider := &contextProvider{
+		client:     client,
+		restMapper: generateTestRESTMapper(),
+	}
+	provider.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), ctxKey{}, "request-generate"))
+	reqCtx := WithRequestContext(ctx, provider)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name": "generated-cm",
+		},
+	}
+
+	err := reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.NotNil(t, client.getCtx)
+	require.NotNil(t, client.createCtx)
+	assert.Equal(t, "request-generate", client.getCtx.Value(ctxKey{}))
+	assert.Equal(t, "request-generate", client.createCtx.Value(ctxKey{}))
+
+	cancel()
+	err = reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestRequestContext_GenerateResources_ExistingResourceUpdateHonorsCancellation(t *testing.T) {
+	existing := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      "existing-cm",
+				"namespace": "tenant-ns",
+				"labels": map[string]any{
+					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:     "test-gpol",
+					common.GenerateTriggerUIDLabel: "trigger-uid",
+				},
+				"uid":             "existing-uid",
+				"resourceVersion": "100",
+			},
+			"data": map[string]any{"key": "old-val"},
+		},
+	}
+	client := &fakeGenerateDClient{existingResource: existing}
+	provider := &contextProvider{
+		client:     client,
+		restMapper: generateTestRESTMapper(),
+	}
+	provider.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), ctxKey{}, "request-update"))
+	reqCtx := WithRequestContext(ctx, provider)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "existing-cm",
+			"namespace": "tenant-ns",
+		},
+		"data": map[string]any{"key": "new-val"},
+	}
+
+	err := reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.NotNil(t, client.getCtx)
+	require.NotNil(t, client.updateCtx)
+	assert.Equal(t, "request-update", client.getCtx.Value(ctxKey{}))
+	assert.Equal(t, "request-update", client.updateCtx.Value(ctxKey{}))
+
+	cancel()
+	err = reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestRequestContext_GenerateResources_ExistingResourceApplyHonorsCancellation(t *testing.T) {
+	existing := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      "existing-cm",
+				"namespace": "tenant-ns",
+				"labels": map[string]any{
+					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:     "test-gpol",
+					common.GenerateTriggerUIDLabel: "trigger-uid",
+				},
+				"uid":             "existing-uid",
+				"resourceVersion": "100",
+			},
+			"data": map[string]any{"key": "old-val"},
+		},
+	}
+	client := &fakeGenerateDClient{existingResource: existing}
+	provider := &contextProvider{
+		client:     client,
+		restMapper: generateTestRESTMapper(),
+	}
+	provider.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, true)
+
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), ctxKey{}, "request-apply"))
+	reqCtx := WithRequestContext(ctx, provider)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "existing-cm",
+			"namespace": "tenant-ns",
+		},
+		"data": map[string]any{"key": "new-val"},
+	}
+
+	err := reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.NotNil(t, client.getCtx)
+	require.NotNil(t, client.applyCtx)
+	assert.Equal(t, "request-apply", client.getCtx.Value(ctxKey{}))
+	assert.Equal(t, "request-apply", client.applyCtx.Value(ctxKey{}))
+
+	cancel()
+	err = reqCtx.GenerateResources("tenant-ns", []map[string]any{cm})
+	assert.ErrorIs(t, err, context.Canceled)
 }
