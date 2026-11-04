@@ -72,6 +72,8 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 		}
 	}
 	for i := range results {
+		results[i].Resources = slices.Clone(results[i].Resources)
+		results[i].GeneratedResources = slices.Clone(results[i].GeneratedResources)
 		slices.Sort(results[i].Resources)
 		slices.Sort(results[i].GeneratedResources)
 	}
