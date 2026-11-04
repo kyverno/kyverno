@@ -12,6 +12,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+// imageVolumesExpression reads image.reference of every volume in the pod spec at podSpec.
+// Kubernetes requires image.reference only on Pods: workload templates may leave it to
+// config management, and CLI input can carry nulls. A null volumes list, and volumes with
+// no image, a null image or a blank reference, are skipped, as pkg/utils/api skips them,
+// instead of failing the extraction for the whole resource.
+func imageVolumesExpression(podSpec string) string {
+	return "cel.bind(volumes, (object != null ? object : oldObject)." + podSpec + ".?volumes.orValue([]), " +
+		"(volumes == null ? [] : volumes).filter(v, has(v.image) && v.image != null && has(v.image.reference) && " +
+		"type(v.image.reference) == string && v.image.reference.trim() != '').map(v, v.image.reference))"
+}
+
 var (
 	podImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
@@ -23,11 +34,8 @@ var (
 		Name:       "ephemeralContainers",
 		Expression: "(object != null ? object : oldObject).spec.?ephemeralContainers.orValue([]).map(e, e.image)",
 	}, {
-		// Kubernetes requires image.reference only on Pods: workload templates may leave it
-		// to config management. Volumes with no image, a null image or no usable reference
-		// are skipped, as pkg/utils/api skips them, instead of failing the whole extraction.
 		Name:       "imageVolumes",
-		Expression: "(object != null ? object : oldObject).spec.?volumes.orValue([]).filter(v, has(v.image) && v.image != null && has(v.image.reference) && type(v.image.reference) == string && v.image.reference != '').map(v, v.image.reference)",
+		Expression: imageVolumesExpression("spec"),
 	}}
 	podControllerImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
@@ -40,7 +48,7 @@ var (
 		Expression: "(object != null ? object : oldObject).spec.template.spec.?ephemeralContainers.orValue([]).map(e, e.image)",
 	}, {
 		Name:       "imageVolumes",
-		Expression: "(object != null ? object : oldObject).spec.template.spec.?volumes.orValue([]).filter(v, has(v.image) && v.image != null && has(v.image.reference) && type(v.image.reference) == string && v.image.reference != '').map(v, v.image.reference)",
+		Expression: imageVolumesExpression("spec.template.spec"),
 	}}
 	cronJobImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
@@ -53,7 +61,7 @@ var (
 		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?ephemeralContainers.orValue([]).map(e, e.image)",
 	}, {
 		Name:       "imageVolumes",
-		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?volumes.orValue([]).filter(v, has(v.image) && v.image != null && has(v.image.reference) && type(v.image.reference) == string && v.image.reference != '').map(v, v.image.reference)",
+		Expression: imageVolumesExpression("spec.jobTemplate.spec.template.spec"),
 	}}
 )
 

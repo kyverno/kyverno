@@ -242,7 +242,8 @@ func Test_extractImageVolumes(t *testing.T) {
 		`{"name":"null-image","image":null},` +
 		`{"name":"no-reference","image":{"pullPolicy":"Always"}},` +
 		`{"name":"empty-image","image":{}},` +
-		`{"name":"empty-reference","image":{"reference":""}}]}`
+		`{"name":"empty-reference","image":{"reference":""}},` +
+		`{"name":"blank-reference","image":{"reference":"  "}}]}`
 	template := `{"template":{"spec":` + podSpec + `}}`
 	tests := []struct {
 		kind   string

@@ -223,6 +223,7 @@ func Test_ImageVolumes(t *testing.T) {
 				map[string]any{"name": "empty-image", "image": map[string]any{}},
 				map[string]any{"name": "empty-reference", "image": map[string]any{"reference": ""}},
 				map[string]any{"name": "null-reference", "image": map[string]any{"reference": nil}},
+				map[string]any{"name": "blank-reference", "image": map[string]any{"reference": "  "}},
 			},
 		}
 	}
@@ -267,6 +268,21 @@ func Test_ImageVolumes(t *testing.T) {
 			})
 		}
 	}
+	t.Run("null volumes", func(t *testing.T) {
+		gvr := pods
+		extractors, errs := CompileImageExtractors(field.NewPath("spec", "images"), env, &gvr)
+		assert.Nil(t, errs)
+		images, err := ExtractImages(context.Background(), map[string]any{
+			ObjectKey: map[string]any{"spec": map[string]any{
+				"containers": []any{map[string]any{"image": "kyverno/app"}},
+				"volumes":    nil,
+			}},
+			OldObjectKey: nil,
+		}, extractors)
+		assert.NoError(t, err)
+		assert.Empty(t, images["imageVolumes"])
+		assert.Equal(t, []string{"kyverno/app"}, images["containers"])
+	})
 	t.Run("no volumes", func(t *testing.T) {
 		gvr := pods
 		extractors, errs := CompileImageExtractors(field.NewPath("spec", "images"), env, &gvr)

@@ -65,3 +65,13 @@ spec:
         - name: model
           image:
             reference: registry.example.com/model:v1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: null-volumes
+spec:
+  containers:
+    - name: app
+      image: ghcr.io/kyverno/app:v1
+  volumes: null

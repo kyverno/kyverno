@@ -14,6 +14,7 @@ results:
   resources:
   - trusted-volume
   - no-image-volume
+  - null-volumes
   result: pass
 - isImageValidatingPolicy: true
   kind: Pod
@@ -33,6 +34,7 @@ results:
   resources:
   - trusted-volume
   - no-image-volume
+  - null-volumes
   result: pass
 - isImageValidatingPolicy: true
   kind: Pod
