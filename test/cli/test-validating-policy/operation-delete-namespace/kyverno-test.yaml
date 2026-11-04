@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: vpol-operation-delete-namespace
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isValidatingPolicy: true
+  kind: Namespace
+  operation: DELETE
+  policy: deny-critical-ns-deletion
+  resources:
+  - production
+  result: fail
