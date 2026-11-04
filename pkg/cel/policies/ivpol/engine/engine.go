@@ -404,7 +404,7 @@ func (e *engineImpl) mutateExtractedIv(
 		if err != nil {
 			errs = append(errs, fmt.Errorf("pod template at %s: %w", tpl.Path, err))
 		}
-		tplJSONPointer := tpl.JSONPointer()
+		tplJSONPointer := tpl.JSONPointer
 		for _, p := range patches {
 			p.Path = tplJSONPointer + p.Path
 			allPatches = append(allPatches, p)

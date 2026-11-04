@@ -356,10 +356,64 @@ func TestHandleMutating_ExtractionMode_InitContainersAndContainers(t *testing.T)
 	require.NoError(t, err)
 	assert.Empty(t, resp.Policies)
 	require.Len(t, patches, 2)
+	patchesByPath := make(map[string]string, len(patches))
+	for _, p := range patches {
+		assert.Equal(t, "replace", p.Operation)
+		patchesByPath[p.Path] = p.Value.(string)
+	}
+	assert.Equal(t, "ghcr.io/repo/init:v1@sha256:3333333333333333333333333333333333333333333333333333333333333333", patchesByPath["/spec/replicatedJobs/0/template/spec/template/spec/initContainers/0/image"])
+	assert.Equal(t, "ghcr.io/repo/app:v1@sha256:4444444444444444444444444444444444444444444444444444444444444444", patchesByPath["/spec/replicatedJobs/0/template/spec/template/spec/containers/0/image"])
+}
+
+func TestHandleMutating_ExtractionMode_DottedMapKey(t *testing.T) {
+	policy := buildExtractionModeMutatingPolicy(true, "*")
+	policy.Spec.AutogenConfiguration.PodControllers.Controllers = []string{"customworkloads.v1.custom.io"}
+	provider, err := NewProvider(iveval.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
+	eng.newImageContext = func() (imagedataloader.ImageContext, error) {
+		return &mockImageContext{
+			digestMap: map[string]string{
+				"worker:v1": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+			},
+		}, nil
+	}
+
+	obj := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "custom.io/v1",
+		"kind":       "CustomWorkload",
+		"metadata":   map[string]any{"name": "dotted-key", "namespace": "default"},
+		"spec": map[string]any{
+			"worker.v1": map[string]any{
+				"template": map[string]any{
+					"spec": map[string]any{
+						"containers": []any{
+							map[string]any{"name": "worker", "image": "ghcr.io/repo/worker:v1"},
+						},
+					},
+				},
+			},
+		},
+	}}
+	raw, _ := obj.MarshalJSON()
+	req := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation:       v1.Create,
+			Kind:            metav1.GroupVersionKind{Group: "custom.io", Version: "v1", Kind: "CustomWorkload"},
+			Resource:        metav1.GroupVersionResource{Group: "custom.io", Version: "v1", Resource: "customworkloads"},
+			RequestResource: &metav1.GroupVersionResource{Group: "custom.io", Version: "v1", Resource: "customworkloads"},
+			Namespace:       "default",
+			Name:            obj.GetName(),
+			Object:          apiruntime.RawExtension{Raw: raw},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+
+	resp, patches, err := eng.HandleMutating(context.Background(), req, nil)
+	require.NoError(t, err)
+	assert.Empty(t, resp.Policies)
+	require.Len(t, patches, 1)
 	assert.Equal(t, "replace", patches[0].Operation)
-	assert.Equal(t, "/spec/replicatedJobs/0/template/spec/template/spec/initContainers/0/image", patches[0].Path)
-	assert.Equal(t, "ghcr.io/repo/init:v1@sha256:3333333333333333333333333333333333333333333333333333333333333333", patches[0].Value)
-	assert.Equal(t, "replace", patches[1].Operation)
-	assert.Equal(t, "/spec/replicatedJobs/0/template/spec/template/spec/containers/0/image", patches[1].Path)
-	assert.Equal(t, "ghcr.io/repo/app:v1@sha256:4444444444444444444444444444444444444444444444444444444444444444", patches[1].Value)
+	assert.Equal(t, "/spec/worker.v1/template/spec/containers/0/image", patches[0].Path)
+	assert.Equal(t, "ghcr.io/repo/worker:v1@sha256:5555555555555555555555555555555555555555555555555555555555555555", patches[0].Value)
 }

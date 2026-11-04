@@ -8,15 +8,66 @@ import (
 )
 
 // Extracted is a single pod-template-shaped subtree found inside a custom
-// workload resource, together with the path it was found at.
+// workload resource, together with the path it was found at and its RFC 6901
+// JSON pointer.
 type Extracted struct {
-	Template map[string]any
-	Path     string
+	Template    map[string]any
+	Path        string
+	JSONPointer string
 }
 
-// JSONPointer returns the RFC 6901 JSON Pointer corresponding to e.Path.
-func (e Extracted) JSONPointer() string {
-	return PathToJSONPointer(e.Path)
+// ExtractPodTemplates walks obj's spec looking for every subtree that is
+// structurally shaped like a corev1.PodTemplateSpec: an object with an
+// optional "metadata" object and a "spec.containers" list where every
+// container has a non-empty string "name" and a string "image". It does not
+// know about any specific CRD - it works the same way for JobSet,
+// PyTorchJob, a Deployment, or anything else, because CRD authors
+// overwhelmingly embed the real Kubernetes PodTemplateSpec type verbatim.
+//
+// Discovery is deliberately scoped to obj["spec"], not the whole object:
+// status commonly mirrors back an observed/last-applied template (rollout
+// history, canary step state, ...), and a stale or informational template
+// found there must not be able to deny an otherwise-valid spec update.
+// metadata and other top-level fields are excluded for the same reason.
+//
+// Once a match is found at a node, ExtractPodTemplates does not descend
+// further into it - a pod template does not contain a nested pod template.
+//
+// The result order is stable: list items are visited by index and map keys
+// in sorted order. Callers stop at the first failing template, so a random
+// order would make the reported template change from one call to the next.
+func ExtractPodTemplates(obj map[string]any) []Extracted {
+	spec, ok := obj["spec"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	var out []Extracted
+	walk(spec, "spec", "/spec", &out)
+	return out
+}
+
+func walk(node any, path string, pointer string, out *[]Extracted) {
+	switch v := node.(type) {
+	case map[string]any:
+		if isPodTemplateSpec(v) {
+			*out = append(*out, Extracted{Template: v, Path: path, JSONPointer: pointer})
+			return
+		}
+		for _, key := range slices.Sorted(maps.Keys(v)) {
+			escapedKey := escapeJSONPointer(key)
+			walk(v[key], joinPath(path, key), pointer+"/"+escapedKey, out)
+		}
+	case []any:
+		for i, val := range v {
+			walk(val, fmt.Sprintf("%s[%d]", path, i), fmt.Sprintf("%s/%d", pointer, i), out)
+		}
+	}
+}
+
+func escapeJSONPointer(token string) string {
+	token = strings.ReplaceAll(token, "~", "~0")
+	token = strings.ReplaceAll(token, "/", "~1")
+	return token
 }
 
 // PathToJSONPointer converts a dot-and-bracket path (e.g. "spec.replicatedJobs[0].template")
@@ -57,58 +108,9 @@ func PathToJSONPointer(path string) string {
 	var b strings.Builder
 	for _, t := range tokens {
 		b.WriteByte('/')
-		t = strings.ReplaceAll(t, "~", "~0")
-		t = strings.ReplaceAll(t, "/", "~1")
-		b.WriteString(t)
+		b.WriteString(escapeJSONPointer(t))
 	}
 	return b.String()
-}
-
-// ExtractPodTemplates walks obj's spec looking for every subtree that is
-// structurally shaped like a corev1.PodTemplateSpec: an object with an
-// optional "metadata" object and a "spec.containers" list where every
-// container has a non-empty string "name" and a string "image". It does not
-// know about any specific CRD - it works the same way for JobSet,
-// PyTorchJob, a Deployment, or anything else, because CRD authors
-// overwhelmingly embed the real Kubernetes PodTemplateSpec type verbatim.
-//
-// Discovery is deliberately scoped to obj["spec"], not the whole object:
-// status commonly mirrors back an observed/last-applied template (rollout
-// history, canary step state, ...), and a stale or informational template
-// found there must not be able to deny an otherwise-valid spec update.
-// metadata and other top-level fields are excluded for the same reason.
-//
-// Once a match is found at a node, ExtractPodTemplates does not descend
-// further into it - a pod template does not contain a nested pod template.
-//
-// The result order is stable: list items are visited by index and map keys
-// in sorted order. Callers stop at the first failing template, so a random
-// order would make the reported template change from one call to the next.
-func ExtractPodTemplates(obj map[string]any) []Extracted {
-	spec, ok := obj["spec"].(map[string]any)
-	if !ok {
-		return nil
-	}
-	var out []Extracted
-	walk(spec, "spec", &out)
-	return out
-}
-
-func walk(node any, path string, out *[]Extracted) {
-	switch v := node.(type) {
-	case map[string]any:
-		if isPodTemplateSpec(v) {
-			*out = append(*out, Extracted{Template: v, Path: path})
-			return
-		}
-		for _, key := range slices.Sorted(maps.Keys(v)) {
-			walk(v[key], joinPath(path, key), out)
-		}
-	case []any:
-		for i, val := range v {
-			walk(val, fmt.Sprintf("%s[%d]", path, i), out)
-		}
-	}
 }
 
 func joinPath(path, key string) string {
