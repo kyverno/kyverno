@@ -10,7 +10,7 @@
   network restriction. Image references are validated where they are fetched, so no caller
   needs to decide whether a reference came from the resource or from the policy author.
 - Policies that declare their own `spec.credentials` cannot go through the global client, and
-  `regcreds.RemoteOptsFromIvpolCredentials` pins `regcreds.DefaultTransport`, so they would
+  `regcreds.RemoteOptsFromIvpolCredentials` hardcodes `regcreds.DefaultTransport`, so they would
   escape the guard. They are built by `pkg/image/verification/credentials.RemoteOptions`
   instead. Any new caller that needs policy-declared credentials must go through it, not
   `regcreds`.
@@ -41,7 +41,7 @@
   stripped one would silently deny every port on that host. An IP address under the host list is
   likewise rejected, because literals are matched against the address list.
 - `pkg/image/verification/credentials.RemoteOptions` is the only other place the guard is
-  wired, because `regcreds.RemoteOptsFromIvpolCredentials` pins its own transport. Its
+  wired, because `regcreds.RemoteOptsFromIvpolCredentials` hardcodes its own transport. Its
   explicit-Secrets branch replaces the SDK-composed keychain rather than layering on it; that
   swap does not affect the guard, which rides on the transport those options already carry. A
   nil lister with declared Secrets still fails loudly there, via that package's context-aware

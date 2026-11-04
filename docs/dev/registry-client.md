@@ -49,7 +49,7 @@ verifier, and cosign's `ociremote` options all derive from the global client's o
 
 ## The one place the guard must be passed explicitly
 
-`regcreds.RemoteOptsFromIvpolCredentials` pins `regcreds.DefaultTransport`. A policy that declares
+`regcreds.RemoteOptsFromIvpolCredentials` hardcodes `regcreds.DefaultTransport`. A policy that declares
 its own `spec.credentials` would therefore fetch through an unguarded transport while every other
 policy went through the global client. Both call sites —
 `pkg/image/verification/evaluator/compiler.go` and `pkg/cel/libs/imageverify/impl.go` — reach
@@ -87,10 +87,14 @@ network policy.
 
 Provider-internal credential exchanges are a known gap: the Flux Azure ACR exchanger reached
 through the SDK constructs its own `http.Client{}` and exposes no transport injection, so the
-guarded transport does not reach inside it. It is not reachable from an attacker-chosen reference
-either — the SDK's Azure keychain only engages for `.azurecr.io`-family registry suffixes. Closing
-it properly requires transport injection in the provider, then a dependency bump here — not a
-consumer-local Azure wrapper.
+guarded transport does not reach inside it. It is reachable from an image reference: a registry
+host ending in `.azurecr.io`, `.azurecr.cn`, `.azurecr.de` or `.azurecr.us` engages it whenever the
+`azure` credential helper is enabled, which the chart does by default. Credentials are resolved
+before the guarded registry request is sent, so the exchanger's POST to
+`https://<registry host>/oauth2/exchange` is not checked against either denylist; the registry
+requests that follow are. Clusters that do not pull from ACR can drop `azure` from
+`features.registryClient.credentialHelpers`. Closing it properly requires transport injection in
+the provider, then a dependency bump here — not a consumer-local Azure wrapper.
 
 See `pkg/utils/egress/AGENTS.md` for the primitives' invariants and
 `docs/user/registry-egress.md` for the operator-facing contract.

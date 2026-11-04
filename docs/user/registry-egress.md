@@ -42,8 +42,12 @@ from an admitted resource.
 
 Cloud provider credential exchanges are a known gap. The Azure ACR exchanger reached through the
 SDK builds its own HTTP client and does not accept Kyverno's transport, so the destination check
-does not extend inside that exchange. It is not reachable from an image reference in an admitted resource:
-that exchanger only engages for `.azurecr.io`-family registries.
+does not extend inside that exchange. An admitted resource can reach it: an image on a registry
+ending in `.azurecr.io` (or `.azurecr.cn`, `.azurecr.de`, `.azurecr.us`) triggers the exchange
+whenever the `azure` credential helper is enabled, which it is by default. Credentials are
+resolved before the registry request is checked, so the exchange request to that registry host
+is not checked against either denylist; the registry requests that follow are. If you do not pull
+from ACR, remove `azure` from `features.registryClient.credentialHelpers`.
 
 ## Rollout
 

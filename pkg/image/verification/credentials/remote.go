@@ -19,7 +19,7 @@ import (
 //
 // This is the only path a policy with its own spec.credentials takes, so it is
 // also where the egress guard's transport is applied. regcreds.RemoteOptsFromIvpolCredentials
-// pins regcreds.DefaultTransport, which would let such a policy fetch through an
+// hardcodes regcreds.DefaultTransport, which would let such a policy fetch through an
 // unguarded transport while every other policy goes through the global client;
 // building the options here keeps the same credential composition and adds the
 // guard. With no Guard installed these are the SDK's native options, which is
