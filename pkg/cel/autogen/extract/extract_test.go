@@ -417,8 +417,8 @@ func TestPathToJSONPointer(t *testing.T) {
 		},
 		{
 			name: "token with slash and tilde",
-			path: "spec.labels[foo/bar].template",
-			want: "/spec/labels/foo~1bar/template",
+			path: "spec.labels[foo/bar~baz].template",
+			want: "/spec/labels/foo~1bar~0baz/template",
 		},
 	}
 	for _, tt := range tests {
