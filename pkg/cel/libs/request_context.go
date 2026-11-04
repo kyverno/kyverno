@@ -10,12 +10,26 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// contextAware is implemented by Context implementations that can honor a caller supplied
-// context.Context for the calls that reach out to the registry or the API server.
-type contextAware interface {
+// Capability interfaces implemented by Context implementations that can honor a caller supplied
+// context.Context for calls reaching out to the registry or the API server.
+type imageContextAware interface {
 	GetImageDataContext(ctx context.Context, image string, remoteOpts []remote.Option) (map[string]any, error)
+}
+
+type getResourceContextAware interface {
 	GetResourceContext(ctx context.Context, apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error)
+}
+
+type listResourcesContextAware interface {
 	ListResourcesContext(ctx context.Context, apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error)
+}
+
+type postResourceContextAware interface {
+	PostResourceContext(ctx context.Context, apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error)
+}
+
+type generateResourcesContextAware interface {
+	GenerateResourcesContext(ctx context.Context, namespace string, dataList []map[string]any) error
 }
 
 type imageKey struct {
@@ -80,7 +94,7 @@ func (rc *requestContext) GetImageData(image string, remoteOpts []remote.Option)
 	}
 	rc.mu.Unlock()
 	entry.once.Do(func() {
-		if ca, ok := rc.Context.(contextAware); ok {
+		if ca, ok := rc.Context.(imageContextAware); ok {
 			entry.data, entry.err = ca.GetImageDataContext(rc.ctx, image, remoteOpts)
 		} else {
 			entry.data, entry.err = rc.Context.GetImageData(image, remoteOpts)
@@ -90,17 +104,31 @@ func (rc *requestContext) GetImageData(image string, remoteOpts []remote.Option)
 }
 
 func (rc *requestContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	if ca, ok := rc.Context.(contextAware); ok {
+	if ca, ok := rc.Context.(getResourceContextAware); ok {
 		return ca.GetResourceContext(rc.ctx, apiVersion, resource, namespace, name)
 	}
 	return rc.Context.GetResource(apiVersion, resource, namespace, name)
 }
 
 func (rc *requestContext) ListResources(apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
-	if ca, ok := rc.Context.(contextAware); ok {
+	if ca, ok := rc.Context.(listResourcesContextAware); ok {
 		return ca.ListResourcesContext(rc.ctx, apiVersion, resource, namespace, l)
 	}
 	return rc.Context.ListResources(apiVersion, resource, namespace, l)
+}
+
+func (rc *requestContext) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
+	if ca, ok := rc.Context.(postResourceContextAware); ok {
+		return ca.PostResourceContext(rc.ctx, apiVersion, resource, namespace, data)
+	}
+	return rc.Context.PostResource(apiVersion, resource, namespace, data)
+}
+
+func (rc *requestContext) GenerateResources(namespace string, dataList []map[string]any) error {
+	if ca, ok := rc.Context.(generateResourcesContextAware); ok {
+		return ca.GenerateResourcesContext(rc.ctx, namespace, dataList)
+	}
+	return rc.Context.GenerateResources(namespace, dataList)
 }
 
 // Clone returns a fresh request scoped wrapper over a clone of the underlying context, so the
@@ -109,9 +137,9 @@ func (rc *requestContext) Clone() Context {
 	return WithRequestContext(rc.ctx, rc.Context.Clone())
 }
 
-// BindRequestContext binds a request scoped view of c (see WithRequestContext) to the "image" and
-// "resource" variables of an evaluation activation, so the imagedata and resource libraries use
-// ctx and share one image metadata memo for this evaluation. It is a no-op when c is nil.
+// BindRequestContext binds a request scoped view of c (see WithRequestContext) to the "image"
+// and "resource" variables of an evaluation activation, so the imagedata and resource
+// libraries use ctx and share one image metadata memo for this evaluation. It is a no-op when c is nil.
 // Call it once per evaluation, with the activation map every program of that evaluation uses.
 func BindRequestContext(ctx context.Context, c Context, activation map[string]any) {
 	if c == nil || activation == nil {
