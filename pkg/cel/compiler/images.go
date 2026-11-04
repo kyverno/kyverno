@@ -23,8 +23,11 @@ var (
 		Name:       "ephemeralContainers",
 		Expression: "(object != null ? object : oldObject).spec.?ephemeralContainers.orValue([]).map(e, e.image)",
 	}, {
+		// Kubernetes requires image.reference only on Pods: workload templates may leave it
+		// to config management. Volumes with no image, a null image or no usable reference
+		// are skipped, as pkg/utils/api skips them, instead of failing the whole extraction.
 		Name:       "imageVolumes",
-		Expression: "(object != null ? object : oldObject).spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)",
+		Expression: "(object != null ? object : oldObject).spec.?volumes.orValue([]).filter(v, has(v.image) && v.image != null && has(v.image.reference) && type(v.image.reference) == string && v.image.reference != '').map(v, v.image.reference)",
 	}}
 	podControllerImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
@@ -37,7 +40,7 @@ var (
 		Expression: "(object != null ? object : oldObject).spec.template.spec.?ephemeralContainers.orValue([]).map(e, e.image)",
 	}, {
 		Name:       "imageVolumes",
-		Expression: "(object != null ? object : oldObject).spec.template.spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)",
+		Expression: "(object != null ? object : oldObject).spec.template.spec.?volumes.orValue([]).filter(v, has(v.image) && v.image != null && has(v.image.reference) && type(v.image.reference) == string && v.image.reference != '').map(v, v.image.reference)",
 	}}
 	cronJobImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
@@ -50,7 +53,7 @@ var (
 		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?ephemeralContainers.orValue([]).map(e, e.image)",
 	}, {
 		Name:       "imageVolumes",
-		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?volumes.orValue([]).filter(v, has(v.image)).map(v, v.image.reference)",
+		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?volumes.orValue([]).filter(v, has(v.image) && v.image != null && has(v.image.reference) && type(v.image.reference) == string && v.image.reference != '').map(v, v.image.reference)",
 	}}
 )
 

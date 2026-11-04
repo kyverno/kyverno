@@ -216,6 +216,13 @@ func Test_ImageVolumes(t *testing.T) {
 				map[string]any{"name": "config", "configMap": map[string]any{"name": "cm"}},
 				map[string]any{"name": "scratch", "emptyDir": map[string]any{}},
 				map[string]any{"name": "extra-model", "image": map[string]any{"reference": "kyverno/model:v2", "pullPolicy": "IfNotPresent"}},
+				// Workload templates may leave the reference to config management, and CLI input
+				// can carry nulls: none of these may stop the valid references from being read.
+				map[string]any{"name": "null-image", "image": nil},
+				map[string]any{"name": "no-reference", "image": map[string]any{"pullPolicy": "Always"}},
+				map[string]any{"name": "empty-image", "image": map[string]any{}},
+				map[string]any{"name": "empty-reference", "image": map[string]any{"reference": ""}},
+				map[string]any{"name": "null-reference", "image": map[string]any{"reference": nil}},
 			},
 		}
 	}

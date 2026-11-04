@@ -1,0 +1,30 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: image-volumes-required
+spec:
+  validationActions:
+    - Deny
+  # required: every image the policy matches must be verified. The glob matches the
+  # untrusted volume's registry only, so the containers stay outside the match set and
+  # any failure comes from the image volume.
+  validationConfigurations:
+    required: true
+    verifyDigest: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+  matchImageReferences:
+    - glob: "registry.example.com/*"
+  # Required by the API; nothing calls it, so no matched image is ever verified.
+  attestors:
+    - name: unused
+      cosign:
+        key:
+          data: unused
+  validations:
+    - expression: "true"
+      message: image volumes are covered by validationConfigurations.required

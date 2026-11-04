@@ -234,10 +234,15 @@ func Test_extractImageInfo_UnregisteredKind(t *testing.T) {
 // Image volumes are extracted for every kind the standard extractors cover, keyed by
 // the JSON pointer to the reference, and volumes without an image are skipped.
 func Test_extractImageVolumes(t *testing.T) {
-	podSpec := `{"containers":[{"name":"app","image":"kyverno/app:v1"}],"volumes":[` +
+	podSpec := `{"imagePullSecrets":[{"name":"regcred"}],"containers":[{"name":"app","image":"kyverno/app:v1"}],"volumes":[` +
 		`{"name":"model","image":{"reference":"ghcr.io/kyverno/model:v1"}},` +
 		`{"name":"config","configMap":{"name":"cm"}},` +
-		`{"name":"extra-model","image":{"reference":"ghcr.io/kyverno/model:v2","pullPolicy":"IfNotPresent"}}]}`
+		`{"name":"extra-model","image":{"reference":"ghcr.io/kyverno/model:v2","pullPolicy":"IfNotPresent"}},` +
+		// workload templates may omit the reference; none of these may be extracted or fail the rest
+		`{"name":"null-image","image":null},` +
+		`{"name":"no-reference","image":{"pullPolicy":"Always"}},` +
+		`{"name":"empty-image","image":{}},` +
+		`{"name":"empty-reference","image":{"reference":""}}]}`
 	template := `{"template":{"spec":` + podSpec + `}}`
 	tests := []struct {
 		kind   string
@@ -270,6 +275,7 @@ func Test_extractImageVolumes(t *testing.T) {
 				assert.Assert(t, ok, "no image volume at %s", pointer)
 				assert.Equal(t, info.Pointer, pointer)
 				assert.Equal(t, info.Reference, reference)
+				assert.DeepEqual(t, info.ImagePullSecrets, []string{"regcred"})
 			}
 			assert.Equal(t, images["containers"]["app"].Reference, "docker.io/kyverno/app:v1")
 		})
