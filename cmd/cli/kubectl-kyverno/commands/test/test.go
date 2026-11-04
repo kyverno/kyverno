@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -21,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -98,7 +98,14 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
-	fmt.Fprintln(out, "Loading test", testCase.Test.Name, "(", testCase.Path, ")", "...")
+	testName := testCase.Test.GetName()
+	if testName == "" {
+		testName = testCase.Test.Name
+	}
+	if testName != "" {
+		testName = color.BoldCyan(testName)
+	}
+	fmt.Fprintln(out, "Loading test", testName, "(", testCase.Path, ")", "...")
 	isGit := testCase.Fs != nil
 	testDir := testCase.Dir()
 	var dClient dclient.Interface
@@ -160,12 +167,12 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 	if results != nil && results.NonFatalErrors != nil {
 		for _, e := range results.NonFatalErrors {
-			fmt.Fprintf(out, "  ERROR: %s: %s\n", e.Path, e.Error)
+			fmt.Fprintf(out, "  %s %s: %s\n", color.BoldRed("ERROR:"), e.Path, e.Error)
 		}
 	}
 	if results != nil && results.Warnings != nil {
 		for _, warning := range results.Warnings {
-			fmt.Fprintf(out, "  Warning: %s: %s\n", warning.Path, warning.Warning)
+			fmt.Fprintf(out, "  %s %s: %s\n", color.BoldYellow("Warning:"), warning.Path, warning.Warning)
 		}
 		if failOnWarnings && len(results.Warnings) > 0 {
 			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(results.Warnings))
@@ -189,7 +196,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	uniques, duplicates := resource.RemoveDuplicates(resources)
 	if len(duplicates) > 0 {
 		for dup := range duplicates {
-			fmt.Fprintln(out, "  warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
+			fmt.Fprintln(out, "  "+color.BoldYellow("warning:")+" found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
 	uniquesObjectArr := []runtime.Object{}
@@ -213,7 +220,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				var fileBytes []byte
 				fileBytes, loadErr = common.ReadFile(testCase.Fs, filepath.Join(testDir, jp))
 				if loadErr == nil {
-					loadErr = json.Unmarshal(fileBytes, &data)
+					data, loadErr = payload.Parse(jp, fileBytes)
 				}
 			} else {
 				data, loadErr = payload.Load(jp)
@@ -350,7 +357,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 	if polexLoader != nil && polexLoader.Warnings != nil {
 		for _, warning := range polexLoader.Warnings {
-			fmt.Fprintf(out, "  Warning: %s\n", warning)
+			fmt.Fprintf(out, "  %s %s\n", color.BoldYellow("Warning:"), warning)
 		}
 		if failOnWarnings && len(polexLoader.Warnings) > 0 {
 			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(polexLoader.Warnings))
@@ -513,8 +520,18 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			}
 		}
 		if len(results.MutatingPolicies) != 0 {
+			var policies []policiesv1beta1.MutatingPolicyLike
+			for _, policy := range results.MutatingPolicies {
+				if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+					if len(jsonPayloads) > 0 {
+						policies = append(policies, policy)
+					}
+				} else if len(uniques) > 0 {
+					policies = append(policies, policy)
+				}
+			}
 			compiler := mpolcompiler.NewCompiler()
-			mpolProvider, mpolProviderErr = mpolengine.NewProvider(compiler, results.MutatingPolicies, celExceptions, contextProvider)
+			mpolProvider, mpolProviderErr = mpolengine.NewProvider(compiler, policies, celExceptions, contextProvider)
 			if hookMpolProviderCreated != nil {
 				hookMpolProviderCreated()
 			}
@@ -695,7 +712,16 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
+			hasError := false
+			for _, response := range ers {
+				hasError = hasError || response.IsError()
+			}
+			if !hasError {
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %s (%w)", jp.name, err)
+			}
+		}
+		if processor.JsonPayload.Object != nil {
+			jp.data = processor.JsonPayload.Object
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(
