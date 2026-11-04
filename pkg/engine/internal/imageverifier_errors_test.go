@@ -398,6 +398,23 @@ func TestVerifyRejectsForeignAttestorKey(t *testing.T) {
 		name:  "nested attestor set",
 		entry: kyvernov1.ImageVerification{Attestors: []kyvernov1.AttestorSet{nestedSet(t, foreignSecret)}},
 	}, {
+		// The verifier would use the inline key, but admission rejects any
+		// populated foreign source, so a stored policy must fail the same way.
+		name: "unused keys.secret beside an inline key",
+		entry: kyvernov1.ImageVerification{Attestors: []kyvernov1.AttestorSet{keysSet(&kyvernov1.StaticKeyAttestor{
+			PublicKeys: inlinePEM, Secret: &kyvernov1.SecretReference{Name: "stolen-key", Namespace: "kyverno"},
+		})}},
+	}, {
+		name: "unused kms beside a local secret",
+		entry: kyvernov1.ImageVerification{Attestors: []kyvernov1.AttestorSet{keysSet(&kyvernov1.StaticKeyAttestor{
+			Secret: &kyvernov1.SecretReference{Name: "cosign", Namespace: "tenant-a"}, KMS: "k8s://kyverno/stolen-key",
+		})}},
+	}, {
+		// verifyImage would skip this image and build no verifier, but the
+		// validate handler reports the error here too, so the mutating path must.
+		name:  "an image skipImageReferences would skip",
+		entry: kyvernov1.ImageVerification{Attestors: []kyvernov1.AttestorSet{keysSet(foreignSecret)}, SkipImageReferences: []string{"ghcr.io/example/app*"}},
+	}, {
 		name: "attestation attestor",
 		entry: kyvernov1.ImageVerification{Attestations: []kyvernov1.Attestation{{
 			Type:      "https://slsa.dev/provenance/v0.2",
@@ -420,6 +437,7 @@ func TestVerifyRejectsForeignAttestorKey(t *testing.T) {
 			require.Len(t, responses, 1)
 			assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
 			assert.Contains(t, responses[0].Message(), "kyverno")
+			assert.Contains(t, responses[0].Message(), "invalid attestor key scope")
 			assert.Zero(t, cache.gets, "a cached pass must not stand in for the scope check")
 			assert.Zero(t, rclient.fetches, "nothing may be fetched for a rejected entry")
 			assert.Equal(t, engineapi.ImageVerificationFail, iv.ivm.ImageVerificationStatus(info.String()))

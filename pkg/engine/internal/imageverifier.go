@@ -105,12 +105,13 @@ func (iv *imageVerifier) Verify(
 	for _, imageInfo := range matchedImageInfos {
 		image := imageInfo.String()
 
-		// Only images verifyImage would check against attestors get the
-		// error; the rest are skipped there as before and build no verifier.
+		// Report the error for every image the entry matches, including one
+		// skipImageReferences would skip, so the mutating path flags an invalid
+		// stored policy the same way the validate handler does. Unmatched
+		// images are skipped as before and build no verifier.
 		if keyScopeErr != nil &&
 			(len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0) &&
-			matchReferences(imageVerify.ImageReferences, image) &&
-			!matchReferences(imageVerify.SkipImageReferences, image) {
+			matchReferences(imageVerify.ImageReferences, image) {
 			ruleResp := engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "invalid attestor key scope", keyScopeErr, iv.rule.ReportProperties)
 			iv.addImageVerificationMetadata(image, ruleStatusToImageVerificationStatus(ruleResp.Status()))
 			responses = append(responses, ruleResp)
@@ -766,8 +767,30 @@ func scopeAttestorSetKeys(attestorSet kyvernov1.AttestorSet, namespace, path str
 		if entry.Keys == nil {
 			continue
 		}
-		if _, err := attestorKeyRef(entry.Keys, namespace); err != nil {
-			return fmt.Errorf("%s.keys: %w", entryPath, err)
+		if err := scopeKeySources(entry.Keys, namespace); err != nil {
+			return fmt.Errorf("%s.keys%w", entryPath, err)
+		}
+	}
+	return nil
+}
+
+// scopeKeySources confines every populated key source, not only the one
+// attestorKeyRef selects for the verifier, so a stored policy is held to the
+// same rule admission applies.
+func scopeKeySources(keys *kyvernov1.StaticKeyAttestor, namespace string) error {
+	if keys.PublicKeys != "" {
+		if _, err := kubeutils.ScopeKeyReference(keys.PublicKeys, namespace); err != nil {
+			return &keyScopeError{err: fmt.Errorf(".publicKeys: %w", err)}
+		}
+	}
+	if keys.Secret != nil {
+		if _, err := kubeutils.ScopeKeySecret(keys.Secret.Namespace, keys.Secret.Name, namespace); err != nil {
+			return &keyScopeError{err: fmt.Errorf(".secret: %w", err)}
+		}
+	}
+	if keys.KMS != "" {
+		if _, err := kubeutils.ScopeKeyReference(keys.KMS, namespace); err != nil {
+			return &keyScopeError{err: fmt.Errorf(".kms: %w", err)}
 		}
 	}
 	return nil
