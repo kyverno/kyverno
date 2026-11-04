@@ -89,6 +89,23 @@ func TestPrepareK8sActivation_RawFallback(t *testing.T) {
 	require.NotNil(t, activation.Namespace)
 	require.NotNil(t, activation.Request)
 
+	switch v := activation.Object.(type) {
+	case metav1.Object:
+		assert.Equal(t, "test-cm", v.GetName())
+	case interface{ GetName() string }:
+		assert.Equal(t, "test-cm", v.GetName())
+	case map[string]any:
+		meta, ok := v["metadata"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "test-cm", meta["name"])
+	default:
+		if refVal, ok := activation.Object.(interface{ Value() any }); ok {
+			if objMeta, ok := refVal.Value().(metav1.Object); ok {
+				assert.Equal(t, "test-cm", objMeta.GetName())
+			}
+		}
+	}
+
 	m := activation.ToMap()
 	assert.Equal(t, activation.Object, m[ObjectKey])
 	assert.Equal(t, activation.OldObject, m[OldObjectKey])
@@ -323,6 +340,13 @@ func isInsideSyncOnceValues(stack []ast.Node) bool {
 		}
 		sel, ok := call.Fun.(*ast.SelectorExpr)
 		if ok && sel.Sel.Name == "OnceValues" {
+			// Reject OnceValues instantiated inside a loop (for or range statement)
+			for _, outer := range stack[:i] {
+				switch outer.(type) {
+				case *ast.ForStmt, *ast.RangeStmt:
+					return false
+				}
+			}
 			return true
 		}
 	}
@@ -334,6 +358,30 @@ func isInsideSyncOnceValues(stack []ast.Node) bool {
 func inspectActivationAssemblyErrors(path string, node *ast.File) []string {
 	var errs []string
 	norm := filepath.ToSlash(path)
+
+	// Track local aliases assigned from builder selectors (e.g. b := compiler.BuildRawRequestMap)
+	aliasedBuilders := make(map[string]string)
+	ast.Inspect(node, func(n ast.Node) bool {
+		assign, ok := n.(*ast.AssignStmt)
+		if !ok {
+			return true
+		}
+		for idx, rhs := range assign.Rhs {
+			sel, ok := rhs.(*ast.SelectorExpr)
+			if !ok {
+				continue
+			}
+			switch sel.Sel.Name {
+			case "BuildRawRequestMap", "BuildNormalizedRequestMap", "BuildNormalizedRequestMapFromResources":
+				if idx < len(assign.Lhs) {
+					if ident, ok := assign.Lhs[idx].(*ast.Ident); ok {
+						aliasedBuilders[ident.Name] = sel.Sel.Name
+					}
+				}
+			}
+		}
+		return true
+	})
 
 	var stack []ast.Node
 	ast.Inspect(node, func(n ast.Node) bool {
@@ -349,12 +397,20 @@ func inspectActivationAssemblyErrors(path string, node *ast.File) []string {
 		if !ok {
 			return true
 		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok {
+
+		var name string
+		if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
+			name = sel.Sel.Name
+		} else if ident, ok := call.Fun.(*ast.Ident); ok {
+			if realName, isAlias := aliasedBuilders[ident.Name]; isAlias {
+				name = realName
+			} else {
+				name = ident.Name
+			}
+		} else {
 			return true
 		}
 
-		name := sel.Sel.Name
 		switch name {
 		case "ObjectToResolveVal":
 			if !strings.HasSuffix(norm, "/pkg/cel/compiler/activation.go") &&
@@ -467,5 +523,46 @@ func eval() {
 		require.NoError(t, err)
 		errs = inspectActivationAssemblyErrors("/pkg/cel/policies/mpol/compiler/eval.go", resNode)
 		assert.NotEmpty(t, errs, "guard must reject BuildNormalizedRequestMapFromResources outside memoization")
+
+		// 5. sync.OnceValues instantiated inside a for loop
+		badLoopMemoSrc := `package evaluator
+import (
+	"sync"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+)
+func eval() {
+	for i := 0; i < 10; i++ {
+		fn := sync.OnceValues(func() (any, error) {
+			return compiler.BuildRawRequestMap(nil)
+		})
+		_ = fn
+	}
+}`
+		loopMemoNode, err := parser.ParseFile(fset, "eval.go", badLoopMemoSrc, 0)
+		require.NoError(t, err)
+		errs = inspectActivationAssemblyErrors("/pkg/image/verification/evaluator/eval.go", loopMemoNode)
+		assert.NotEmpty(t, errs, "guard must reject sync.OnceValues constructed inside a loop")
+
+		// 6. Bare unqualified call
+		badUnqualifiedSrc := `package compiler
+func eval() {
+	BuildRawRequestMap(nil)
+}`
+		unqualifiedNode, err := parser.ParseFile(fset, "activation.go", badUnqualifiedSrc, 0)
+		require.NoError(t, err)
+		errs = inspectActivationAssemblyErrors("/pkg/cel/compiler/activation.go", unqualifiedNode)
+		assert.NotEmpty(t, errs, "guard must reject bare unqualified builder call outside requestmap.go")
+
+		// 7. Aliased builder call
+		badAliasSrc := `package vpol
+import "github.com/kyverno/kyverno/pkg/cel/compiler"
+func eval() {
+	builder := compiler.BuildRawRequestMap
+	builder(nil)
+}`
+		aliasNode, err := parser.ParseFile(fset, "eval.go", badAliasSrc, 0)
+		require.NoError(t, err)
+		errs = inspectActivationAssemblyErrors("/pkg/cel/policies/vpol/compiler/eval.go", aliasNode)
+		assert.NotEmpty(t, errs, "guard must reject aliased builder call outside memoization")
 	})
 }
