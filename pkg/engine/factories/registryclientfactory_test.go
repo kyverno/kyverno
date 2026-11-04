@@ -161,22 +161,22 @@ func TestRegistryClientFactory_GetClient(t *testing.T) {
 			description:        "ImagePullSecrets should be prefixed with resource namespace",
 		},
 		{
-			name:               "imagePullSecrets with empty namespace falls back to Kyverno",
+			name:               "imagePullSecrets of a resource without a namespace are ignored",
 			creds:              nil,
 			resourceNamespace:  "",
 			imagePullSecrets:   []string{"kyverno-secret"},
-			expectGlobalClient: false,
-			expectedSecrets:    []string{config.KyvernoNamespace() + "/kyverno-secret"},
-			description:        "When resource namespace is empty, should use Kyverno namespace",
+			expectGlobalClient: true,
+			expectedSecrets:    nil,
+			description:        "Resource imagePullSecrets must never resolve in the Kyverno namespace",
 		},
 		{
-			name:               "imagePullSecrets with namespace/name notation",
+			name:               "imagePullSecrets with namespace/name notation are ignored",
 			creds:              nil,
 			resourceNamespace:  "default",
 			imagePullSecrets:   []string{"production/prod-secret"},
-			expectGlobalClient: false,
-			expectedSecrets:    []string{"production/prod-secret"},
-			description:        "Should support namespace/name notation without modification",
+			expectGlobalClient: true,
+			expectedSecrets:    nil,
+			description:        "A resource-supplied name is not a Secret reference into another namespace",
 		},
 		{
 			name: "merge explicit secrets and imagePullSecrets",
@@ -251,25 +251,25 @@ func TestRegistryClientFactory_GetClient_NamespacePrefixing(t *testing.T) {
 			description:       "Simple secret name should be prefixed with resource namespace",
 		},
 		{
-			name:              "namespace/name notation preserved",
+			name:              "namespace/name notation dropped",
 			resourceNamespace: "default",
 			imagePullSecrets:  []string{"production/my-secret"},
-			expectedSecrets:   []string{"production/my-secret"},
-			description:       "Secrets with namespace/name notation should not be modified",
+			expectedSecrets:   nil,
+			description:       "A resource-supplied name containing / is not a valid Secret name",
 		},
 		{
-			name:              "empty namespace uses Kyverno namespace",
+			name:              "empty namespace does not use Kyverno namespace",
 			resourceNamespace: "",
 			imagePullSecrets:  []string{"my-secret"},
-			expectedSecrets:   []string{config.KyvernoNamespace() + "/my-secret"},
-			description:       "Empty resource namespace should fallback to Kyverno namespace",
+			expectedSecrets:   nil,
+			description:       "Resource imagePullSecrets without a resource namespace are ignored",
 		},
 		{
 			name:              "mixed formats",
 			resourceNamespace: "staging",
-			imagePullSecrets:  []string{"local-secret", "production/prod-secret", "another-local"},
-			expectedSecrets:   []string{"staging/local-secret", "production/prod-secret", "staging/another-local"},
-			description:       "Should handle both simple and namespace/name notation",
+			imagePullSecrets:  []string{"local-secret", "production/prod-secret", "/leading-slash", "Not_Valid", "another-local"},
+			expectedSecrets:   []string{"staging/local-secret", "staging/another-local"},
+			description:       "Only valid Secret names are kept, all in the resource namespace",
 		},
 	}
 
@@ -285,9 +285,10 @@ func TestRegistryClientFactory_GetClient_NamespacePrefixing(t *testing.T) {
 			client, err := factory.GetClient(context.Background(), nil, tt.resourceNamespace, tt.imagePullSecrets)
 			assert.NilError(t, err, tt.description)
 			assert.Assert(t, client != nil)
-			// With imagePullSecrets provided, we should NOT get the global client
+			// With usable imagePullSecrets we should NOT get the global client; when every
+			// name is dropped the resource is treated as having no imagePullSecrets.
 			_, isGlobal := client.(*mockRegistryClient)
-			assert.Assert(t, !isGlobal, "should create new client with imagePullSecrets, not global client")
+			assert.Equal(t, isGlobal, len(tt.expectedSecrets) == 0, "global client iff no usable imagePullSecrets")
 
 			client.FetchImageDescriptor(context.Background(), "test")
 

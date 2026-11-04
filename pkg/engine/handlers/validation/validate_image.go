@@ -140,6 +140,13 @@ func (h validateImageHandler) Process(
 		imageVerify := v.Convert()
 		credentials, scopeErr := handlers.ScopeImageRegistryCredentials(policyContext.Policy(), imageVerify.ImageRegistryCredentials)
 		imageVerify.ImageRegistryCredentials = credentials
+		if scopeErr == nil {
+			// Attestor keys are read by cosign itself, so check them here too,
+			// before the optional and skipped-image shortcuts below.
+			if err := internal.ScopeAttestorKeys(policyContext.Policy(), *imageVerify); err != nil {
+				scopeErr = fmt.Errorf("attestor keys: %w", err)
+			}
+		}
 		// GetMatchingImages appends an image once per matching verifyImages
 		// entry, so images holds duplicates whenever entries overlap. Each
 		// verification is registry and signature work now, so do each distinct

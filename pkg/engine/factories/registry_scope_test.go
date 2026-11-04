@@ -3,12 +3,14 @@ package factories
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/stretchr/testify/assert"
@@ -179,6 +181,59 @@ func TestPolicyRegistryFactoryKeepsResourcePullSecretsCacheOnly(t *testing.T) {
 				assert.Equal(t, "", config.Username)
 				assert.Empty(t, client.Actions())
 			}
+		})
+	}
+}
+
+// A resource author controls imagePullSecrets names, and the API server accepts
+// any string there (for example "kyverno/regcred"). Kyverno must resolve those
+// names only in the resource namespace, as the kubelet does, under both
+// ClusterPolicy and namespaced Policy, and must never read the installation
+// namespace's Secrets on the resource's behalf.
+func TestResourcePullSecretsCannotNameForeignNamespace(t *testing.T) {
+	t.Parallel()
+	foreign := config.KyvernoNamespace() + "/regcred"
+	for _, tc := range []struct {
+		name, policyNamespace string
+		creds                 *kyvernov1.ImageRegistryCredentials
+		pullSecrets           []string
+		expectedUser          string
+	}{
+		{name: "ClusterPolicy, foreign reference only", pullSecrets: []string{foreign}},
+		{name: "namespaced Policy, foreign reference only", policyNamespace: "tenant-a", pullSecrets: []string{foreign}},
+		{name: "ClusterPolicy with credentials, foreign reference only", creds: &kyvernov1.ImageRegistryCredentials{}, pullSecrets: []string{foreign}},
+		{name: "ClusterPolicy, foreign and local references", pullSecrets: []string{foreign, "/" + foreign, "regcred"}, expectedUser: "tenant"},
+		{name: "namespaced Policy with credentials, foreign and local references", policyNamespace: "tenant-a", creds: &kyvernov1.ImageRegistryCredentials{}, pullSecrets: []string{foreign, "regcred"}, expectedUser: "tenant"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			require.NoError(t, indexer.Add(scopeRegistrySecret(config.KyvernoNamespace(), "installation")))
+			require.NoError(t, indexer.Add(scopeRegistrySecret("tenant-a", "tenant")))
+			tracking := &trackingSecretLister{SecretLister: corev1listers.NewSecretLister(indexer), accessed: map[string]bool{}}
+			client := kubefake.NewSimpleClientset()
+			global := &mockRegistryClient{}
+			factory := DefaultRegistryClientFactory(global, kubeutils.WithSecretClient(context.Background(), tracking, client.CoreV1()))
+			registry, err := engineapi.RegistryClientForPolicy(context.Background(), factory, tc.creds, "tenant-a", tc.pullSecrets, tc.policyNamespace)
+			require.NoError(t, err)
+			if tc.creds == nil && tc.expectedUser == "" {
+				// Every resource name was dropped, so this is the no-imagePullSecrets path.
+				assert.Same(t, global, registry)
+			} else {
+				keychain, ok := registry.(interface{ Keychain() authn.Keychain })
+				require.True(t, ok)
+				ref, err := name.ParseReference("192.0.2.1/image:tag")
+				require.NoError(t, err)
+				authenticator, err := keychain.Keychain().Resolve(ref.Context())
+				require.NoError(t, err)
+				auth, err := authenticator.Authorization()
+				require.NoError(t, err)
+				assert.Equal(t, tc.expectedUser, auth.Username)
+			}
+			for key := range tracking.accessed {
+				assert.True(t, strings.HasPrefix(key, "tenant-a/"), "resource imagePullSecrets read %s", key)
+			}
+			assert.Empty(t, client.Actions())
 		})
 	}
 }

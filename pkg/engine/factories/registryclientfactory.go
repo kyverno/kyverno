@@ -8,9 +8,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -27,6 +29,9 @@ type registryClientFactory struct {
 }
 
 func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials, resourceNamespace string, imagePullSecrets []string) (engineapi.RegistryClient, error) {
+	// Qualify resource imagePullSecrets before the namespace falls back to the
+	// Kyverno namespace below: that fallback is only for the lister default.
+	imagePullSecrets = resourcePullSecretReferences(imagePullSecrets, resourceNamespace)
 	if resourceNamespace == "" {
 		resourceNamespace = config.KyvernoNamespace()
 	}
@@ -43,16 +48,14 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 			providers[i] = string(p)
 		}
 
-		// create an array of secret names where we will accumulate whats in creds and imagePullSecrets
-		// creds.Secrets default to the Kyverno namespace, imagePullSecrets default to the resource namespace,
-		// so each list must be prefixed independently before merging.
+		// create an array of secret names where we will accumulate whats in creds and imagePullSecrets.
+		// Policy-authored creds.Secrets may use namespace/name notation and default to the Kyverno
+		// namespace; resource imagePullSecrets are already qualified with the resource namespace.
 		secrets := make([]string, 0)
 		if f.secretsLister != nil && len(creds.Secrets) > 0 {
 			secrets = append(secrets, prefixSecretNamespaces(creds.Secrets, config.KyvernoNamespace())...)
 		}
-		if len(imagePullSecrets) > 0 {
-			secrets = append(secrets, prefixSecretNamespaces(imagePullSecrets, resourceNamespace)...)
-		}
+		secrets = append(secrets, imagePullSecrets...)
 
 		client := registryclient.New(
 			registryclient.WithSecretLister(f.secretsLister, resourceNamespace),
@@ -64,10 +67,9 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 	}
 
 	// creds is nil. create a registry client with only the imagePullSecrets and no providers
-	secrets := prefixSecretNamespaces(imagePullSecrets, resourceNamespace)
 	client := registryclient.New(
 		registryclient.WithSecretLister(f.secretsLister, resourceNamespace),
-		registryclient.WithImagePullSecrets(secrets...),
+		registryclient.WithImagePullSecrets(imagePullSecrets...),
 	)
 	return adapters.RegistryClient(client), nil
 }
@@ -138,8 +140,36 @@ func (l *policyCredentialNamespaceLister) GetWithContext(ctx context.Context, na
 	return l.SecretNamespaceLister.Get(name)
 }
 
-// prefixSecretNamespaces prefixes each secret ref with defaultNamespace unless it already
-// uses namespace/name notation.
+// resourcePullSecretReferences qualifies resource-supplied imagePullSecrets names with the
+// resource namespace. The resource author, not the policy author, controls these names, and
+// the kubelet resolves them only in the Pod's namespace, so they are never read as
+// namespace/name notation: a name such as "kyverno/regcred" would otherwise make Kyverno read
+// a Secret from a namespace the resource author cannot access. A name that is not a valid
+// Secret name (which includes any name containing "/") cannot refer to a Secret and is dropped,
+// as is every name when the resource has no namespace. Dropping matches how the keychain
+// already treats a Secret that does not exist, and how the kubelet treats a missing pull
+// secret, rather than failing admission for a reference that could never resolve.
+func resourcePullSecretReferences(names []string, namespace string) []string {
+	if len(names) == 0 {
+		return nil
+	}
+	if namespace == "" {
+		logging.V(3).Info("ignoring imagePullSecrets of a resource without a namespace", "imagePullSecrets", names)
+		return nil
+	}
+	refs := make([]string, 0, len(names))
+	for _, name := range names {
+		if errs := validation.IsDNS1123Subdomain(name); len(errs) != 0 {
+			logging.V(3).Info("ignoring resource imagePullSecret that is not a valid Secret name", "namespace", namespace, "name", name)
+			continue
+		}
+		refs = append(refs, namespace+"/"+name)
+	}
+	return refs
+}
+
+// prefixSecretNamespaces prefixes each policy-authored secret ref with defaultNamespace unless
+// it already uses namespace/name notation. Do not use it for resource imagePullSecrets.
 func prefixSecretNamespaces(secrets []string, defaultNamespace string) []string {
 	prefixed := make([]string, len(secrets))
 	for i, s := range secrets {

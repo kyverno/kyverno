@@ -87,6 +87,18 @@ func orderVerifyRule(secret string) kyvernov1.Rule {
 	return rule
 }
 
+func orderVerifyKeyRule(secretNamespace string) kyvernov1.Rule {
+	rule := orderValidationRule("verify-key")
+	rule.Validation = nil
+	rule.VerifyImages = []kyvernov1.ImageVerification{{
+		ImageReferences: []string{"registry.example/*"}, Required: true,
+		Attestors: []kyvernov1.AttestorSet{{Entries: []kyvernov1.Attestor{{
+			Keys: &kyvernov1.StaticKeyAttestor{Secret: &kyvernov1.SecretReference{Namespace: secretNamespace, Name: "cosign-key"}},
+		}}}},
+	}}
+	return rule
+}
+
 func orderContextRule(entry kyvernov1.ContextEntry) kyvernov1.Rule {
 	rule := orderValidationRule("context-check")
 	rule.Context = []kyvernov1.ContextEntry{entry}
@@ -149,6 +161,7 @@ func TestValidate_ScopeChecksPrecedeKindWarnings(t *testing.T) {
 	}{
 		{name: "verify foreign", rule: orderVerifyRule("tenant-b/regcred"), err: "instead of policy namespace"},
 		{name: "verify installation", rule: orderVerifyRule("kyverno/regcred"), err: "instead of policy namespace"},
+		{name: "verify key secret", rule: orderVerifyKeyRule("kyverno"), err: "attestors[0].entries[0].keys.secret"},
 		{name: "context foreign", rule: orderContextRule(orderImageContext("tenant-b/regcred")), err: "instead of policy namespace"},
 		{name: "context installation", rule: orderContextRule(orderImageContext("kyverno/regcred")), err: "instead of policy namespace"},
 		{name: "global reference", rule: orderContextRule(orderGlobalContext()), err: "globalReference is not allowed"},
@@ -174,6 +187,7 @@ func TestValidate_UnknownKindInEarlierRuleCannotHideUnsafeLaterRule(t *testing.T
 		err  string
 	}{
 		{name: "verify credentials", rule: orderVerifyRule("tenant-b/regcred"), err: "instead of policy namespace"},
+		{name: "verify key secret", rule: orderVerifyKeyRule("kyverno"), err: "attestors[0].entries[0].keys.secret"},
 		{name: "image context", rule: orderContextRule(orderImageContext("kyverno/regcred")), err: "instead of policy namespace"},
 		{name: "global context", rule: orderContextRule(orderGlobalContext()), err: "globalReference is not allowed"},
 		{name: "validation foreach context", rule: orderForEachContextRule("validate"), err: "globalReference is not allowed"},
@@ -199,6 +213,7 @@ func TestValidate_AutogenCannotHideSubmittedRuleScope(t *testing.T) {
 		err  string
 	}{
 		{name: "verify credentials", rule: orderVerifyRule("tenant-b/regcred"), err: "instead of policy namespace"},
+		{name: "verify key secret", rule: orderVerifyKeyRule("tenant-b"), err: "attestors[0].entries[0].keys.secret"},
 		{name: "image context", rule: orderContextRule(orderImageContext("tenant-b/regcred")), err: "instead of policy namespace"},
 		{name: "global context", rule: orderContextRule(orderGlobalContext()), err: "globalReference is not allowed"},
 	} {
@@ -270,6 +285,41 @@ func TestValidate_GenerateUpdateWarningCannotHideUnsafeCredentials(t *testing.T)
 				assert.Contains(t, err.Error(), "spec.rules[1]")
 			}
 		})
+	}
+}
+
+func TestValidate_GenerateUpdateWarningCannotHideUnsafeKeySecret(t *testing.T) {
+	t.Parallel()
+	for _, namespace := range []string{"tenant-a", "tenant-b", "kyverno"} {
+		t.Run(namespace, func(t *testing.T) {
+			t.Parallel()
+			oldPolicy := orderPolicy(orderGenerateRule("old-target"), orderVerifyKeyRule("tenant-a"))
+			newPolicy := orderPolicy(orderGenerateRule("new-target"), orderVerifyKeyRule(namespace))
+			warnings, err := Validate(newPolicy, oldPolicy, orderClient(), false, generateOrderBackgroundSA, generateOrderReportsSA)
+			if namespace == "tenant-a" {
+				require.NoError(t, err)
+				assert.Contains(t, strings.Join(warnings, "\n"), "no synchronization will be performed")
+			} else {
+				require.ErrorContains(t, err, "instead of policy namespace")
+				assert.Contains(t, err.Error(), "spec.rules[1]: verifyImages[0].attestors[0].entries[0].keys.secret")
+			}
+		})
+	}
+}
+
+func TestValidate_ValidKeySecretScopesPreserveUnknownKindWarnings(t *testing.T) {
+	t.Parallel()
+	for _, namespace := range []string{"", "tenant-a", "{{ request.namespace }}"} {
+		for location, configure := range orderKindLocations() {
+			t.Run(namespace+"/"+location, func(t *testing.T) {
+				t.Parallel()
+				rule := orderVerifyKeyRule(namespace)
+				configure(&rule)
+				warnings, err := Validate(orderPolicy(rule), nil, orderClient(), false, "", "")
+				require.NoError(t, err)
+				assert.Contains(t, strings.Join(warnings, "\n"), orderUnknownKind)
+			})
+		}
 	}
 }
 

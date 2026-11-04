@@ -93,3 +93,49 @@ spec:
         - check:
             ($error != null): true
             (contains($error, 'instead of policy namespace')): true
+  - name: key-secret-local
+    bindings:
+    - name: name
+      value: key-secret-local
+    - name: keyNamespace
+      value: ($namespace)
+    try:
+    - create:
+        file: verify-images-key-secret.yaml
+  - name: key-secret-templated
+    bindings:
+    - name: name
+      value: key-secret-templated
+    - name: keyNamespace
+      value: '{{ request.namespace }}'
+    try:
+    - create:
+        file: verify-images-key-secret.yaml
+  - name: key-secret-foreign
+    bindings:
+    - name: name
+      value: key-secret-foreign
+    - name: keyNamespace
+      value: tenant-foreign
+    try:
+    - create:
+        file: verify-images-key-secret.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'keys.secret')): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: key-secret-installation
+    bindings:
+    - name: name
+      value: key-secret-installation
+    - name: keyNamespace
+      value: kyverno
+    try:
+    - create:
+        file: verify-images-key-secret.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'keys.secret')): true
+            (contains($error, 'instead of policy namespace')): true

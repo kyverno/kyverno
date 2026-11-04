@@ -53,8 +53,27 @@ subjects:
 Use your deployment's actual ServiceAccount names. Add the background and reports
 controller ServiceAccounts only if those controllers evaluate the policy.
 An API authorization failure is returned; it never falls back to credentials in
-the installation namespace. Existing administrator-configured registry Secrets,
-ClusterPolicy defaults, and resource imagePullSecrets retain their lookup behavior.
+the installation namespace. Existing administrator-configured registry Secrets
+and ClusterPolicy defaults retain their lookup behavior.
+
+Resource `imagePullSecrets` are controlled by the resource author, not the policy
+author, so for every policy kind Kyverno resolves them as the kubelet does: only in
+the resource namespace, using Kyverno's existing Secret cache. A name that is not a
+valid Secret name, such as `kyverno/regcred`, is ignored rather than read as
+`namespace/name`.
+
+The same boundary applies to `verifyImages` and `validate.manifests` attestor keys
+in a namespaced Policy: `keys.secret`, and `k8s://<namespace>/<name>` references
+in `keys.publicKeys` or `keys.kms`. An empty `keys.secret.namespace` resolves to the Policy namespace, and
+a reference to any other namespace is forbidden. Admission rejects statically
+foreign references; references containing variables are admitted and checked
+again at runtime after substitution. ClusterPolicy key references are unchanged.
+
+Policies that read a key from the installation namespace, for example
+`keys.secret: {name: cosign-pub, namespace: kyverno}` or
+`publicKeys: k8s://kyverno/cosign-pub`, must move to a key Secret in the Policy
+namespace or to a ClusterPolicy. A public key can also be inlined in
+`keys.publicKeys`.
 
 For `Policy.spec.rules[].validate.cel`, both named and selector-based parameter
 lookups stay in the policy namespace. An omitted `paramRef.namespace` defaults
@@ -67,8 +86,11 @@ Move tenant parameters to an appropriate namespaced resource such as a ConfigMap
 If cluster-wide parameters are required, use an administrator-managed
 ClusterPolicy. Native Kubernetes ValidatingAdmissionPolicy and
 MutatingAdmissionPolicy parameter behavior is unchanged.
-CleanupPolicy and ClusterCleanupPolicy context lookups also retain their existing
-cluster-scoped behavior; cleanup resource selection still respects policy namespace.
+Context entries in a namespaced CleanupPolicy are confined to the policy
+namespace, in both the cleanup controller and `kyverno apply`: `configMap` and
+`apiCall` entries must target that namespace, and `globalReference` is denied.
+ClusterCleanupPolicy context lookups are not restricted. Cleanup resource
+selection still respects policy namespace.
 
 The namespace boundary takes effect on upgrade. Stored Policies using forbidden
 credentials or parameters report an error on evaluation and must be corrected

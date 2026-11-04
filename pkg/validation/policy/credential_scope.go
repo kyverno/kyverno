@@ -2,8 +2,10 @@ package policy
 
 import (
 	"fmt"
+	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -85,4 +87,108 @@ func validateContextScope(entries []kyvernov1.ContextEntry, path *field.Path, po
 		}
 	}
 	return nil
+}
+
+// validateAttestorKeyScope checks static keys that a verifier can load from a
+// Secret. Cosign and the manifest verifier read k8s://<namespace>/<name> with
+// Kyverno's own credentials, so a namespaced policy must name only Secrets in
+// its own namespace through keys.publicKeys, keys.secret or keys.kms.
+func validateAttestorKeyScope(rule kyvernov1.Rule, namespaced bool, policyNamespace string) error {
+	if !namespaced {
+		return nil
+	}
+	for i, imageVerify := range rule.VerifyImages {
+		path := field.NewPath("verifyImages").Index(i)
+		// The deprecated key shorthand is converted into keys.publicKeys.
+		if err := validateKeyReferenceScope(imageVerify.Key, policyNamespace); err != nil {
+			return fmt.Errorf("%s: %w", path.Child("key"), err)
+		}
+		if err := validateAttestorSetsKeyScope(imageVerify.Attestors, path.Child("attestors"), policyNamespace); err != nil {
+			return err
+		}
+		for j, attestation := range imageVerify.Attestations {
+			if err := validateAttestorSetsKeyScope(attestation.Attestors, path.Child("attestations").Index(j).Child("attestors"), policyNamespace); err != nil {
+				return err
+			}
+		}
+	}
+	if rule.Validation != nil && rule.Validation.Manifests != nil {
+		if err := validateAttestorSetsKeyScope(rule.Validation.Manifests.Attestors, field.NewPath("validate", "manifests", "attestors"), policyNamespace); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateAttestorSetsKeyScope(sets []kyvernov1.AttestorSet, path *field.Path, policyNamespace string) error {
+	for i := range sets {
+		if err := validateAttestorSetKeyScope(sets[i], path.Index(i), policyNamespace); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateAttestorSetKeyScope(set kyvernov1.AttestorSet, path *field.Path, policyNamespace string) error {
+	for i, entry := range set.Entries {
+		entryPath := path.Child("entries").Index(i)
+		// Check every key source, not only the one the verifier prefers, so a
+		// later default change cannot expose a reference admitted here.
+		if keys := entry.Keys; keys != nil {
+			keysPath := entryPath.Child("keys")
+			if err := validateKeyReferenceScope(keys.PublicKeys, policyNamespace); err != nil {
+				return fmt.Errorf("%s: %w", keysPath.Child("publicKeys"), err)
+			}
+			if err := validateKeyReferenceScope(keys.KMS, policyNamespace); err != nil {
+				return fmt.Errorf("%s: %w", keysPath.Child("kms"), err)
+			}
+			if keys.Secret != nil {
+				if err := validateKeySecretScope(*keys.Secret, policyNamespace); err != nil {
+					return fmt.Errorf("%s: %w", keysPath.Child("secret"), err)
+				}
+			}
+		}
+		if entry.Attestor != nil {
+			attestorPath := entryPath.Child("attestor")
+			// A nested set that cannot be decoded cannot be checked, so reject it
+			// rather than admit keys this walk never saw.
+			nested, err := kyvernov1.AttestorSetUnmarshal(entry.Attestor)
+			if err != nil {
+				return fmt.Errorf("%s: %w", attestorPath, err)
+			}
+			if err := validateAttestorSetKeyScope(*nested, attestorPath, policyNamespace); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// validateKeyReferenceScope rejects a k8s:// key with a static foreign
+// namespace. Inline keys, KMS URIs and references whose scheme comes from a
+// variable pass here; runtime scopes the substituted key before cosign reads it.
+func validateKeyReferenceScope(keyRef, policyNamespace string) error {
+	if !kubeutils.IsKeySecretReference(keyRef) {
+		return nil
+	}
+	if variables.ReplaceAllVars(keyRef, func(string) string { return "" }) == keyRef {
+		_, err := kubeutils.ScopeKeyReference(keyRef, policyNamespace)
+		return err
+	}
+	ref := strings.TrimSpace(keyRef)[len(kubeutils.KeySecretReferencePrefix):]
+	if err := validateImageRegistryCredentialScope([]string{ref}, policyNamespace); err != nil {
+		return fmt.Errorf("key reference %q: %w", keyRef, err)
+	}
+	return nil
+}
+
+// validateKeySecretScope applies the runtime keys.secret rules: an empty
+// namespace means the policy namespace, and a templated namespace is
+// confined after substitution.
+func validateKeySecretScope(secret kyvernov1.SecretReference, policyNamespace string) error {
+	namespace := secret.Namespace
+	if namespace == "" {
+		namespace = policyNamespace
+	}
+	return validateImageRegistryCredentialScope([]string{namespace + "/" + secret.Name}, policyNamespace)
 }

@@ -270,6 +270,9 @@ func validatePolicy(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.
 		if err := validateVerifyImageRegistryCredentials(rule, policy.IsNamespaced(), policy.GetNamespace()); err != nil {
 			return warnings, fmt.Errorf("path: spec.rules[%d]: %w", i, err)
 		}
+		if err := validateAttestorKeyScope(rule, policy.IsNamespaced(), policy.GetNamespace()); err != nil {
+			return warnings, fmt.Errorf("path: spec.rules[%d]: %w", i, err)
+		}
 		if !mock {
 			if err := validateCELParamKindScope(rule, policy.IsNamespaced(), client); err != nil {
 				return warnings, fmt.Errorf("path: spec.rules[%d].validate.cel.paramKind: %w", i, err)

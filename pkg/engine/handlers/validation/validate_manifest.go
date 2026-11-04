@@ -102,6 +102,11 @@ func (h validateManifestHandler) verifyManifest(
 	policyContext engineapi.PolicyContext,
 	verifyRule kyvernov1.Manifests,
 ) (bool, string, error) {
+	// The manifest verifier reads a k8s:// publicKeys reference with Kyverno's
+	// own credentials, so confine it before any shortcut or key lookup.
+	if err := internal.ScopeAttestorKeys(policyContext.Policy(), kyvernov1.ImageVerification{Attestors: verifyRule.Attestors}); err != nil {
+		return false, "", fmt.Errorf("invalid attestor key scope: %w", err)
+	}
 	// load AdmissionRequest
 	request, err := policyContext.JSONContext().Query("request")
 	if err != nil {
