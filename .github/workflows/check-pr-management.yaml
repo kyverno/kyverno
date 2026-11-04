@@ -28,4 +28,4 @@ jobs:
   validate:
     permissions:
       contents: read
-    uses: kyverno/assistant/.github/workflows/pr-management-validate.yml@4560c0ededccc5c3c7fd5a17fcabb90a0d5633a8
+    uses: kyverno/assistant/.github/workflows/pr-management-validate.yml@e2d2f01371144e88e99fdf124e885bf4879c705e
