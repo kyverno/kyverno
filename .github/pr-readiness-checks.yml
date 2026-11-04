@@ -65,3 +65,22 @@ threads:
       | select(.isResolved | not)
       | select(.comments.nodes[0].author.login != $author)
     ] | length > 0
+
+# A maintainer's latest comment or review that the author has not answered, by replying or by pushing a newer commit.
+# `threads` covers inline review threads; this covers review bodies and plain PR comments. Maintainers are
+# GitHub's OWNER, MEMBER and COLLABORATOR associations; bots, approvals and review submissions with no body
+# (their comments are inline threads) are ignored.
+unanswered:
+  message: '"reply to the latest maintainer comment or review, or push a fix"'
+  test: |
+    def human: (.author.__typename // "") != "Bot" and ((.author.login // "") | endswith("[bot]") | not);
+    ([.comments.nodes[]? | select(human)
+        | {who: .author.login, at: .createdAt, assoc: .authorAssociation, counts: true}]
+     + [.reviews.nodes[]? | select(human) | select(.state != "PENDING")
+        | {who: .author.login, at: .submittedAt, assoc: .authorAssociation,
+           counts: (.state == "CHANGES_REQUESTED" or (.state == "COMMENTED" and ((.bodyText // "") != "")))}]) as $events
+    | ([$events[] | select(.who == $author) | .at] | max // "") as $answered
+    | (.commits.nodes[0].commit.committedDate // "") as $pushed
+    | ([$events[] | select(.counts and .who != $author
+          and (.assoc == "OWNER" or .assoc == "MEMBER" or .assoc == "COLLABORATOR")) | .at] | max // "") as $latest
+    | $latest != "" and $latest > $answered and $latest > $pushed

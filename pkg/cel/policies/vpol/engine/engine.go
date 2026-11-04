@@ -66,6 +66,9 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 	if request.JsonPayload != nil {
 		response.Resource = request.JsonPayload
 		for _, policy := range policies {
+			if predicate != nil && !predicate(policy.Policy) {
+				continue
+			}
 			response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.JsonPayload.Object, nil, nil, nil, nil, request.Context))
 		}
 		annotateTraces(&response)
