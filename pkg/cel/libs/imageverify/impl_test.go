@@ -483,7 +483,7 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 			},
 		},
 	}
-	// Distinct attestor name so the custom attestors hash differently from the SLSA ones.
+	// Same material as the SLSA attestors under another name; the entries stay apart because the attestation types differ.
 	attestorsCustom := []v1beta1.Attestor{
 		{
 			Name: "github-keyless-custom",

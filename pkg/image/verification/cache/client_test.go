@@ -172,6 +172,7 @@ func Test_generateKey_binds_material_not_names(t *testing.T) {
 	assert.NotEqual(t, key([]v1beta1.Attestor{a}, nil), key([]v1beta1.Attestor{b}, nil), "different key material under the same attestor name must not share an entry")
 	assert.Equal(t, key([]v1beta1.Attestor{a}, nil), key([]v1beta1.Attestor{a}, nil), "the same material must produce the same key")
 	assert.Equal(t, key([]v1beta1.Attestor{a, b}, nil), key([]v1beta1.Attestor{b, a}, nil), "attestor order must not matter")
+	assert.Equal(t, key([]v1beta1.Attestor{a}, nil), key([]v1beta1.Attestor{keyAttestor("another-policys-name", "KEY-A")}, nil), "the attestor name is a label and must not change the key")
 
 	renamed := *testAttestation
 	renamed.Name = "slsa"

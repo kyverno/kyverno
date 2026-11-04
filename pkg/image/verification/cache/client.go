@@ -96,7 +96,11 @@ func WithTTLDuration(t time.Duration) Option {
 func generateKey(imageRef string, attestors []v1beta1.Attestor, attestation *v1beta1.Attestation) (string, error) {
 	digests := make([]string, 0, len(attestors))
 	for _, attestor := range attestors {
-		digest, err := hashJSON(attestor)
+		// The name is a policy-local label; only the resolved material decides
+		// the verdict, so policies naming the same material differently share it.
+		material := attestor
+		material.Name = ""
+		digest, err := hashJSON(material)
 		if err != nil {
 			return "", fmt.Errorf("failed to encode attestor %q: %w", attestor.GetKey(), err)
 		}
