@@ -89,7 +89,7 @@ func TestBoundRuntimeReusesRegistryAuth(t *testing.T) {
 			Credentials: &policiesv1beta1.Credentials{AllowInsecureRegistry: true},
 		},
 	}
-	ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
+	ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
 
 	// Mirrors how a check actually reaches the registry: the image data loader
 	// fetches the manifest and config, then cosign makes many more calls through
@@ -153,8 +153,8 @@ func TestSharedRegistryAuthSpansRuntimesOfOnePolicy(t *testing.T) {
 			Credentials: &policiesv1beta1.Credentials{AllowInsecureRegistry: true},
 		},
 	}
-	first := NewIvFuncs(logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
-	other := NewIvFuncs(logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
+	first := mustNewIvFuncs(t, logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
+	other := mustNewIvFuncs(t, logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
 	fetch := func(authOpts []remote.Option) {
 		t.Helper()
 		_, err := remote.Get(ref, authOpts...)
@@ -188,7 +188,7 @@ func TestBoundRuntimeSurfacesAuthFailure(t *testing.T) {
 			Credentials: &policiesv1beta1.Credentials{AllowInsecureRegistry: true},
 		},
 	}
-	ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
+	ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
 	ictx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	require.NoError(t, err)
 
@@ -201,7 +201,7 @@ func TestBoundRuntimeSurfacesAuthFailure(t *testing.T) {
 // so a puller must never leak back into it and outlive the request.
 func TestRuntimeDoesNotMutatePolicyOptions(t *testing.T) {
 	policy := &policiesv1beta1.ImageValidatingPolicy{}
-	ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
+	ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
 	before := len(ivFuncs.authOpts)
 
 	first := NewRuntimeForPolicy(context.Background(), ivFuncs, nil, nil, nil).AuthOpts()
