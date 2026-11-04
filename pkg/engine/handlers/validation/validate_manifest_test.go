@@ -825,6 +825,8 @@ func Test_VerifyManifest_NamespacedPolicyKeyScope(t *testing.T) {
 		{name: "foreign secret reference", key: "k8s://kyverno/stolen-key", scopeErr: true, namespace: "tenant-a"},
 		{name: "local secret reference", key: "k8s://tenant-a/cosign", namespace: "tenant-a"},
 		{name: "cluster policy keeps reference", key: "k8s://kyverno/cosign"},
+		{name: "templated namespace resolves to policy namespace", key: "k8s://{{ request.namespace }}/cosign", namespace: "sample-ns"},
+		{name: "templated namespace resolves to foreign namespace", key: "k8s://{{ request.namespace }}/stolen-key", scopeErr: true, namespace: "tenant-a"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			policyContext := buildContext(t, kyvernov1.Create, test_policy, signed_resource, "")
