@@ -71,6 +71,10 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			})
 		}
 	}
+	for i := range results {
+		slices.Sort(results[i].Resources)
+		slices.Sort(results[i].GeneratedResources)
+	}
 	slices.SortFunc(results, func(a, b v1alpha1.TestResult) int {
 		if x := cmp.Compare(a.Policy, b.Policy); x != 0 {
 			return x
@@ -90,8 +94,6 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 		if x := cmp.Compare(a.CloneSourceResource, b.CloneSourceResource); x != 0 {
 			return x
 		}
-		slices.Sort(a.Resources)
-		slices.Sort(b.Resources)
 		if x := cmp.Compare(len(a.Resources), len(b.Resources)); x != 0 {
 			return x
 		}
@@ -102,8 +104,6 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 				}
 			}
 		}
-		slices.Sort(a.GeneratedResources)
-		slices.Sort(b.GeneratedResources)
 		if x := cmp.Compare(len(a.GeneratedResources), len(b.GeneratedResources)); x != 0 {
 			return x
 		}
