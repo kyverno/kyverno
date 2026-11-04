@@ -542,7 +542,7 @@ func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructure
 		// keep the setting SyncWatchers recorded when it restarts a watcher with this cache
 		ServerSideApply: metadataCache[resource.GetUID()].ServerSideApply,
 	}
-	resourceVersion := resource.GetResourceVersion()
+	resourceVersion := wm.resolveWatchResourceVersion(gvr, resource.GetResourceVersion(), false)
 	logger := wm.log.WithValues("resourceVersion", resourceVersion)
 	logger.V(2).Info("start watcher ...")
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
@@ -571,21 +571,81 @@ func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructure
 					thisWatcher.watcher = nil
 				}
 			}()
-			for event := range watchInterface.ResultChan() {
-				switch event.Type {
-				case watch.Added:
-					wm.handleAdd(event.Object.(*unstructured.Unstructured), gvr)
-				case watch.Modified:
-					wm.handleUpdate(event.Object.(*unstructured.Unstructured), gvr)
-				case watch.Deleted:
-					wm.handleDelete(event.Object.(*unstructured.Unstructured), gvr)
-				case watch.Error:
-					logger.Error(errors.New("watch error event received"), "watch error event received", "event", event.Object)
+			currentWatch := watchInterface
+			for {
+				expired := false
+				for event := range currentWatch.ResultChan() {
+					switch event.Type {
+					case watch.Added:
+						wm.handleAdd(event.Object.(*unstructured.Unstructured), gvr)
+					case watch.Modified:
+						wm.handleUpdate(event.Object.(*unstructured.Unstructured), gvr)
+					case watch.Deleted:
+						wm.handleDelete(event.Object.(*unstructured.Unstructured), gvr)
+					case watch.Error:
+						logger.Error(errors.New("watch error event received"), "watch error event received", "event", event.Object)
+						if apierrors.IsGone(apierrors.FromObject(event.Object)) {
+							expired = true
+						}
+					}
 				}
+				if !expired {
+					return
+				}
+				freshRV := wm.resolveWatchResourceVersion(gvr, "", true)
+				if freshRV == "" {
+					return
+				}
+				wm.lock.Lock()
+				if wm.dynamicWatchers[gvr] != thisWatcher {
+					wm.lock.Unlock()
+					return
+				}
+				nextWatch, rerr := watchTools.NewRetryWatcherWithContext(context.TODO(), freshRV, &cache.ListWatch{WatchFunc: watchFunc})
+				if rerr != nil {
+					wm.lock.Unlock()
+					logger.Error(rerr, "failed to restart expired watcher", "resourceVersion", freshRV)
+					return
+				}
+				thisWatcher.watcher = nextWatch
+				currentWatch = nextWatch
+				wm.lock.Unlock()
 			}
 		}(gvr, w)
 		return w, nil
 	}
+}
+
+// resolveWatchResourceVersion obtains a fresh collection resourceVersion via a
+// lightweight List(Limit=1) call on gvr so watches do not start at a compacted
+// downstream object RV (#18367). When fallback is empty and forceRefresh is
+// false, empty is returned unchanged so NewRetryWatcher surfaces invalid empty
+// RVs cleanly. When List returns an empty RV (e.g. unit-test fake clients),
+// fallback is preserved.
+func (wm *WatchManager) resolveWatchResourceVersion(gvr schema.GroupVersionResource, fallback string, forceRefresh bool) string {
+	if fallback == "" && !forceRefresh {
+		return ""
+	}
+	if rv := wm.listCollectionResourceVersion(gvr); rv != "" {
+		return rv
+	}
+	return fallback
+}
+
+func (wm *WatchManager) listCollectionResourceVersion(gvr schema.GroupVersionResource) (rv string) {
+	if wm.client == nil || wm.client.GetDynamicInterface() == nil {
+		return ""
+	}
+	defer func() {
+		if recover() != nil {
+			rv = ""
+		}
+	}()
+	list, err := wm.client.GetDynamicInterface().Resource(gvr).List(context.Background(), metav1.ListOptions{Limit: 1})
+	if err == nil && list != nil {
+		return list.GetResourceVersion()
+	}
+	return ""
 }
 
 func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
