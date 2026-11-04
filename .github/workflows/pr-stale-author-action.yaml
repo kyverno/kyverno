@@ -21,7 +21,7 @@ jobs:
       issues: write
       checks: read
       actions: read
-    uses: kyverno/assistant/.github/workflows/pr-management.yml@4560c0ededccc5c3c7fd5a17fcabb90a0d5633a8
+    uses: kyverno/assistant/.github/workflows/pr-management.yml@56c90f346db39244b2e46022e862c88064195a91
     with:
       mode: stale
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
