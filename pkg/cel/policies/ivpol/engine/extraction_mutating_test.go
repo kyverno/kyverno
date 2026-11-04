@@ -417,3 +417,102 @@ func TestHandleMutating_ExtractionMode_DottedMapKey(t *testing.T) {
 	assert.Equal(t, "/spec/worker.v1/template/spec/containers/0/image", patches[0].Path)
 	assert.Equal(t, "ghcr.io/repo/worker:v1@sha256:5555555555555555555555555555555555555555555555555555555555555555", patches[0].Value)
 }
+
+func TestHandleMutating_ExtractionMode_SelectiveGlob(t *testing.T) {
+	policy := buildExtractionModeMutatingPolicy(true, "ghcr.io/approved/*")
+	provider, err := NewProvider(iveval.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
+	eng.newImageContext = func() (imagedataloader.ImageContext, error) {
+		return &mockImageContext{
+			digestMap: map[string]string{
+				"approved/app:v1": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				"unapproved:v1":   "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			},
+		}, nil
+	}
+
+	obj := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "jobset.x-k8s.io/v1alpha2",
+		"kind":       "JobSet",
+		"metadata":   map[string]any{"name": "selective-glob", "namespace": "default"},
+		"spec": map[string]any{
+			"replicatedJobs": []any{
+				map[string]any{
+					"name": "worker",
+					"template": map[string]any{
+						"spec": map[string]any{
+							"template": map[string]any{
+								"spec": map[string]any{
+									"containers": []any{
+										map[string]any{"name": "c1", "image": "ghcr.io/approved/app:v1"},
+										map[string]any{"name": "c2", "image": "docker.io/unapproved:v1"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
+	req := jobSetAdmissionRequest(obj)
+
+	resp, patches, err := eng.HandleMutating(context.Background(), req, nil)
+	require.NoError(t, err)
+	assert.Empty(t, resp.Policies)
+	require.Len(t, patches, 1)
+	assert.Equal(t, "/spec/replicatedJobs/0/template/spec/template/spec/containers/0/image", patches[0].Path)
+	assert.Equal(t, "ghcr.io/approved/app:v1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", patches[0].Value)
+}
+
+func TestHandleMutating_ExtractionMode_FailedImageDoesNotDropSiblingInSameTemplate(t *testing.T) {
+	policy := buildExtractionModeMutatingPolicy(true, "*")
+	provider, err := NewProvider(iveval.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
+	eng.newImageContext = func() (imagedataloader.ImageContext, error) {
+		return &mockImageContext{
+			digestMap: map[string]string{
+				"good:v1": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+			},
+			errMap: map[string]error{
+				"bad:v1": errors.New("registry connection timeout"),
+			},
+		}, nil
+	}
+
+	obj := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "jobset.x-k8s.io/v1alpha2",
+		"kind":       "JobSet",
+		"metadata":   map[string]any{"name": "same-template-fail", "namespace": "default"},
+		"spec": map[string]any{
+			"replicatedJobs": []any{
+				map[string]any{
+					"name": "workers",
+					"template": map[string]any{
+						"spec": map[string]any{
+							"template": map[string]any{
+								"spec": map[string]any{
+									"containers": []any{
+										map[string]any{"name": "c1", "image": "ghcr.io/repo/bad:v1"},
+										map[string]any{"name": "c2", "image": "ghcr.io/repo/good:v1"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
+	req := jobSetAdmissionRequest(obj)
+
+	resp, patches, err := eng.HandleMutating(context.Background(), req, nil)
+	require.NoError(t, err)
+	require.Len(t, patches, 1)
+	assert.Equal(t, "/spec/replicatedJobs/0/template/spec/template/spec/containers/1/image", patches[0].Path)
+	assert.Equal(t, "ghcr.io/repo/good:v1@sha256:1111111111111111111111111111111111111111111111111111111111111111", patches[0].Value)
+	require.Len(t, resp.Policies, 1)
+	assert.Equal(t, engineapi.RuleStatusError, resp.Policies[0].Result.Status())
+}
