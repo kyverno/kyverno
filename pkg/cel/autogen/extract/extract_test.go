@@ -44,7 +44,8 @@ func TestExtractPodTemplates(t *testing.T) {
 			},
 			want: []Extracted{
 				{
-					Path: "spec.replicatedJobs[0].template.spec.template",
+					Path:        "spec.replicatedJobs[0].template.spec.template",
+					JSONPointer: "/spec/replicatedJobs/0/template/spec/template",
 					Template: map[string]any{
 						"spec": map[string]any{
 							"containers":    []any{container("worker", "bash:latest")},
@@ -70,7 +71,8 @@ func TestExtractPodTemplates(t *testing.T) {
 			},
 			want: []Extracted{
 				{
-					Path: "spec.template",
+					Path:        "spec.template",
+					JSONPointer: "/spec/template",
 					Template: map[string]any{
 						"metadata": map[string]any{"labels": map[string]any{"app": "nginx"}},
 						"spec": map[string]any{
@@ -105,7 +107,8 @@ func TestExtractPodTemplates(t *testing.T) {
 			},
 			want: []Extracted{
 				{
-					Path: "spec.template",
+					Path:        "spec.template",
+					JSONPointer: "/spec/template",
 					Template: map[string]any{
 						"spec": map[string]any{
 							"containers": []any{container("app", "app:v2")},
@@ -171,7 +174,8 @@ func TestExtractPodTemplates(t *testing.T) {
 			},
 			want: []Extracted{
 				{
-					Path: "spec.replicatedJobs[0].template.spec.template",
+					Path:        "spec.replicatedJobs[0].template.spec.template",
+					JSONPointer: "/spec/replicatedJobs/0/template/spec/template",
 					Template: map[string]any{
 						"spec": map[string]any{
 							"containers": []any{container("leader", "leader:v1")},
@@ -179,7 +183,8 @@ func TestExtractPodTemplates(t *testing.T) {
 					},
 				},
 				{
-					Path: "spec.replicatedJobs[1].template.spec.template",
+					Path:        "spec.replicatedJobs[1].template.spec.template",
+					JSONPointer: "/spec/replicatedJobs/1/template/spec/template",
 					Template: map[string]any{
 						"spec": map[string]any{
 							"containers": []any{container("worker", "worker:v1")},
@@ -216,7 +221,8 @@ func TestExtractPodTemplates(t *testing.T) {
 			},
 			want: []Extracted{
 				{
-					Path: "spec.pytorchReplicaSpecs.Master.template",
+					Path:        "spec.pytorchReplicaSpecs.Master.template",
+					JSONPointer: "/spec/pytorchReplicaSpecs/Master/template",
 					Template: map[string]any{
 						"spec": map[string]any{
 							"containers": []any{container("pytorch", "trainer:v1")},
@@ -224,10 +230,38 @@ func TestExtractPodTemplates(t *testing.T) {
 					},
 				},
 				{
-					Path: "spec.pytorchReplicaSpecs.Worker.template",
+					Path:        "spec.pytorchReplicaSpecs.Worker.template",
+					JSONPointer: "/spec/pytorchReplicaSpecs/Worker/template",
 					Template: map[string]any{
 						"spec": map[string]any{
 							"containers": []any{container("pytorch", "trainer:latest")},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "custom workload with dotted map key preserves single path token",
+			obj: map[string]any{
+				"apiVersion": "custom.io/v1",
+				"kind":       "CustomWorkload",
+				"spec": map[string]any{
+					"worker.v1": map[string]any{
+						"template": map[string]any{
+							"spec": map[string]any{
+								"containers": []any{container("worker", "worker:v1")},
+							},
+						},
+					},
+				},
+			},
+			want: []Extracted{
+				{
+					Path:        "spec.worker.v1.template",
+					JSONPointer: "/spec/worker.v1/template",
+					Template: map[string]any{
+						"spec": map[string]any{
+							"containers": []any{container("worker", "worker:v1")},
 						},
 					},
 				},
@@ -390,8 +424,6 @@ func TestPathToJSONPointer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, PathToJSONPointer(tt.path))
-			ext := Extracted{Path: tt.path}
-			assert.Equal(t, tt.want, ext.JSONPointer())
 		})
 	}
 }
