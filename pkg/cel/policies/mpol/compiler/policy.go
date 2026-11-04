@@ -376,7 +376,7 @@ func (p *Policy) evaluate(
 		}
 	}
 
-	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
+	o := defaultObjectInterfaces
 	for i, patcher := range p.patchers {
 		var typeConverter managedfields.TypeConverter
 		if p.jsonMode {
