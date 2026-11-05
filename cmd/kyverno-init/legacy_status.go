@@ -72,6 +72,9 @@ func markLegacyStatuses(ctx context.Context, client dynamic.Interface, now time.
 		}
 		for i := range list.Items {
 			item := &list.Items[i]
+			if hasLegacyUnsupportedStatus(item) {
+				continue
+			}
 			_, err := client.Resource(gvr).Namespace(item.GetNamespace()).Patch(
 				ctx, item.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 			if err != nil && !apierrors.IsNotFound(err) {
