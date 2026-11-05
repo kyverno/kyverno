@@ -65,6 +65,63 @@ func TestFixTest_SortResources(t *testing.T) {
 			},
 		},
 		{
+			name: "different resources",
+			results: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"zebra", "banana"},
+					[]string{"a-generated", "z-generated"}),
+				newResult("policy-a",
+					[]string{"zebra", "apple"},
+					[]string{"a-generated", "z-generated"}),
+			},
+			want: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+				newResult("policy-a",
+					[]string{"banana", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+			},
+		},
+		{
+			name: "different generated resources with equivalent resources",
+			results: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"z-generated", "b-generated"}),
+				newResult("policy-a",
+					[]string{"zebra", "apple"},
+					[]string{"z-generated", "a-generated"}),
+			},
+			want: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"b-generated", "z-generated"}),
+			},
+		},
+		{
+			name: "equivalent resource lists in different orders",
+			results: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"zebra", "apple"},
+					[]string{"a-generated", "z-generated"}),
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"z-generated", "a-generated"}),
+			},
+			want: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+			},
+		},
+		{
 			name:     "compressed results",
 			compress: true,
 			results: []v1alpha1.TestResult{
