@@ -23,8 +23,11 @@ Invariants to keep when touching it:
 - A `*` in `apiGroups` or `apiVersions` is the one case that does consult the mapper: `resolveWildcardGVRs`
   expands it to the served resources (preferred version per group/resource, asked via `ResourceFor` because
   `ResourcesFor` ignores version priority), because the dynamic client would otherwise LIST a literal `*` path
-  segment and get a 404. A wildcard that matches nothing is skipped and logged. With a nil mapper, or when the
-  resource is also `*` (the RESTMapper cannot expand a resource wildcard), the GVR passes through unchanged.
+  segment and get a 404. A wildcard that matches nothing (`meta.IsNoMatchError`, e.g. a CRD not installed yet) is
+  skipped and logged. Any other mapper error (discovery unavailable) is returned by `GetGVRs`, so the deleting
+  controller fails the run and requeues instead of recording `lastExecutionTime` for a run that deleted nothing.
+  With a nil mapper, or when the resource is also `*` (the RESTMapper cannot expand a resource wildcard), the GVR
+  passes through unchanged.
 
 `ValidatePathSegment` is not a complete chokepoint — any new code that builds a GVR or subresource from
 policy-supplied strings and reaches the dynamic client has to call it explicitly. The same applies to

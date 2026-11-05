@@ -1,6 +1,7 @@
 package admissionpolicy
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -321,21 +322,27 @@ func TestGetGVRs_SkipsUnsafeResourceSegments(t *testing.T) {
 		}
 	}
 
-	got := GetGVRs(rules("", "v1", "pods/../namespaces/kube-system/secrets", "..", ".", "configmaps"), nil)
+	getGVRs := func(match *admissionregistrationv1.MatchResources) []schema.GroupVersionResource {
+		got, err := GetGVRs(match, nil)
+		assert.NilError(t, err)
+		return got
+	}
+
+	got := getGVRs(rules("", "v1", "pods/../namespaces/kube-system/secrets", "..", ".", "configmaps"))
 	assert.Equal(t, len(got), 1)
 	assert.Equal(t, got[0].Resource, "configmaps")
 
-	assert.Equal(t, len(GetGVRs(rules("..", "v1", "pods"), nil)), 0, "unsafe api group")
-	assert.Equal(t, len(GetGVRs(rules("", "..", "pods"), nil)), 0, "unsafe api version")
+	assert.Equal(t, len(getGVRs(rules("..", "v1", "pods"))), 0, "unsafe api group")
+	assert.Equal(t, len(getGVRs(rules("", "..", "pods"))), 0, "unsafe api version")
 
 	// only the core group may be empty: path.Join would collapse an empty version or
 	// resource and address a different API path (e.g. /api/v1 for an empty resource)
-	assert.Equal(t, len(GetGVRs(rules("", "", "pods"), nil)), 0, "empty api version")
-	assert.Equal(t, len(GetGVRs(rules("", "v1", ""), nil)), 0, "empty resource")
-	assert.Equal(t, len(GetGVRs(rules("apps", "v1", ""), nil)), 0, "empty resource, named group")
+	assert.Equal(t, len(getGVRs(rules("", "", "pods"))), 0, "empty api version")
+	assert.Equal(t, len(getGVRs(rules("", "v1", ""))), 0, "empty resource")
+	assert.Equal(t, len(getGVRs(rules("apps", "v1", ""))), 0, "empty resource, named group")
 
 	// wildcards and the core group must still resolve
-	wild := GetGVRs(rules("", "v1", "*"), nil)
+	wild := getGVRs(rules("", "v1", "*"))
 	assert.Equal(t, len(wild), 1)
 	assert.Equal(t, wild[0].Resource, "*")
 }
@@ -419,7 +426,8 @@ func TestGetGVRs_ResolvesWildcardsWithMapper(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := GetGVRs(tt.match, mapper)
+			got, err := GetGVRs(tt.match, mapper)
+			assert.NilError(t, err)
 			assert.DeepEqual(t, got, tt.want)
 		})
 	}
@@ -445,7 +453,7 @@ func TestGetGVRs_WildcardVersionUsesMapperPriority(t *testing.T) {
 		},
 	}
 
-	got := GetGVRs(&admissionregistrationv1.MatchResources{
+	got, err := GetGVRs(&admissionregistrationv1.MatchResources{
 		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 				Rule: admissionregistrationv1.Rule{
@@ -456,5 +464,44 @@ func TestGetGVRs_WildcardVersionUsesMapperPriority(t *testing.T) {
 			},
 		}},
 	}, mapper)
+	assert.NilError(t, err)
 	assert.DeepEqual(t, got, []schema.GroupVersionResource{batchV1.WithResource("cronjobs")})
+}
+
+// failingMapper stands in for a DeferredDiscoveryRESTMapper whose discovery
+// call fails, e.g. while the API server is unavailable.
+type failingMapper struct {
+	meta.RESTMapper
+	err error
+}
+
+func (m failingMapper) ResourcesFor(schema.GroupVersionResource) ([]schema.GroupVersionResource, error) {
+	return nil, m.err
+}
+
+func TestGetGVRs_WildcardDiscoveryErrorIsReturned(t *testing.T) {
+	t.Parallel()
+
+	match := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{"wgpolicyk8s.io"},
+					APIVersions: []string{"*"},
+					Resources:   []string{"policyreports"},
+				},
+			},
+		}},
+	}
+
+	discoveryErr := errors.New("the server is currently unable to handle the request")
+	got, err := GetGVRs(match, failingMapper{err: discoveryErr})
+	assert.ErrorIs(t, err, discoveryErr)
+	assert.Equal(t, len(got), 0)
+
+	// a no-match from discovery is not an error: the rule is skipped
+	noMatch := &meta.NoResourceMatchError{PartialResource: schema.GroupVersionResource{Group: "wgpolicyk8s.io", Resource: "policyreports"}}
+	got, err = GetGVRs(match, failingMapper{err: noMatch})
+	assert.NilError(t, err)
+	assert.Equal(t, len(got), 0)
 }

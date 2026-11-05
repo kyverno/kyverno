@@ -57,9 +57,12 @@ func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper met
 	return kindList
 }
 
-func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) []schema.GroupVersionResource {
+// GetGVRs returns the GVRs a MatchResources selects. Unsafe rules and wildcards
+// that match no served resource are skipped; any other error from resolving a
+// wildcard (e.g. discovery being unavailable) is returned so the caller can retry.
+func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) ([]schema.GroupVersionResource, error) {
 	if matchResources == nil {
-		return nil
+		return nil, nil
 	}
 
 	var gvrList []schema.GroupVersionResource
@@ -88,7 +91,10 @@ func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta
 					// 404, so resolve it against discovery to the served resources
 					resolved, err := resolveWildcardGVRs(gvr, mapper)
 					if err != nil {
-						vapLogger.Error(err, fmt.Sprintf("failed to resolve resources for group %s, version %s, resource %s", group, version, resource))
+						if !meta.IsNoMatchError(err) {
+							return nil, fmt.Errorf("failed to resolve resources for group %s, version %s, resource %s: %w", group, version, resource, err)
+						}
+						vapLogger.Error(err, fmt.Sprintf("no served resources for group %s, version %s, resource %s", group, version, resource))
 						continue
 					}
 					gvrList = append(gvrList, resolved...)
@@ -96,7 +102,7 @@ func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta
 			}
 		}
 	}
-	return gvrList
+	return gvrList, nil
 }
 
 // resolveWildcardGVRs resolves a GVR whose group or version is "*" into the
