@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-env-label
+spec:
+  background: false
+  rules:
+    - name: deny-prod-env
+      context:
+        - name: currentEnv
+          variable:
+            jmesPath: "request.object.metadata.labels.env || ''"
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - UPDATE
+      validate:
+        failureAction: Enforce
+        allowExistingViolations: true
+        message: "prod env is not allowed"
+        deny:
+          conditions:
+            all:
+              - key: "{{ currentEnv }}"
+                operator: Equals
+                value: prod

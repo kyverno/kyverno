@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: allow-existing-violations-context-vars
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- kind: Pod
+  policy: check-env-label
+  resources:
+  - test-pod
+  result: fail
+  rule: deny-prod-env
+variables: values.yaml

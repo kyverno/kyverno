@@ -192,6 +192,13 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 	oldResource := v.policyContext.OldResource()
 	emptyResource := unstructured.Unstructured{}
 
+	// Checkpoint and re-load rule context so variables are evaluated against the old resource,
+	// not the new one, avoiding a false "pre-existing violations" skip. The checkpoint is taken
+	// before switching resources and operation, and restored after they are reset (deferred calls
+	// run in reverse order), so context entries reloaded on restore see the new resource again.
+	v.policyContext.JSONContext().Checkpoint()
+	defer v.policyContext.JSONContext().Restore()
+
 	if err = v.policyContext.SetResources(emptyResource, oldResource); err != nil {
 		return nil, errors.Wrapf(err, "failed to set resources")
 	}
@@ -209,6 +216,20 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 			v.log.Error(errors.Wrapf(resetErr, "failed to reset operation"), "")
 		}
 	}()
+
+	// Clear rule context entries before reloading, as most loaders merge into the
+	// existing entry and would otherwise leave stale fields from the new object.
+	// Replacing (rather than adding a variable) targets the same key as the loaders,
+	// including dotted entry names, and resets the entry's size accounting.
+	for _, entry := range v.rule.Context {
+		if err = v.policyContext.JSONContext().ReplaceContextEntry(entry.Name, []byte("null")); err != nil {
+			return nil, errors.Wrapf(err, "failed to clear context entry %s", entry.Name)
+		}
+	}
+
+	if err = v.contextLoader(ctx, v.rule.Context, v.policyContext.JSONContext()); err != nil {
+		return nil, errors.Wrapf(err, "failed to load rule context for old object")
+	}
 
 	if ok := matchResource(v.log, oldResource, v.rule, v.policyContext.NamespaceLabels(), v.policyContext.Policy().GetNamespace(), kyvernov1.Create, v.policyContext.JSONContext()); !ok {
 		resp = engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched", nil)
