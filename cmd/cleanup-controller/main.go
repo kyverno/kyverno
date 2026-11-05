@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	policyhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/policy"
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
@@ -61,15 +62,30 @@ var (
 
 // TODO:
 // - helm review labels / selectors
-// - implement probes
 // - supports certs in cronjob
 
-type probes struct{}
-
-func (probes) IsReady(context.Context) bool {
-	return true
+type probes struct {
+	certValidator tls.CertValidator
+	logger        logr.Logger
 }
 
+func newProbes(certValidator tls.CertValidator, logger logr.Logger) probes {
+	return probes{
+		certValidator: certValidator,
+		logger:        logger,
+	}
+}
+
+func (p probes) IsReady(ctx context.Context) bool {
+	valid, err := p.certValidator.ValidateCert(ctx)
+	if err != nil {
+		p.logger.Error(err, "failed to validate certificates")
+		return false
+	}
+	return valid
+}
+
+// IsLive always returns true. The process is considered live as long as it is running.
 func (probes) IsLive(context.Context) bool {
 	return true
 }
@@ -438,6 +454,21 @@ func main() {
 		// create handlers
 		policyHandlers := policyhandlers.New(setup.KyvernoDynamicClient)
 		resourceHandlers := resourcehandlers.New(checker)
+		// create a cert renewer for the readiness probe; it only calls ValidateCert (read-only)
+		probesCertRenewer := tls.NewCertRenewer(
+			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+			tls.CertRenewalInterval,
+			tls.CAValidityDuration,
+			tls.TLSValidityDuration,
+			renewBefore,
+			serverIP,
+			config.KyvernoServiceName(),
+			config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
+			config.KyvernoNamespace(),
+			caSecretName,
+			tlsSecretName,
+			keyAlgorithm,
+		)
 		// create server
 		server := NewServer(
 			func() ([]byte, []byte, error) {
@@ -453,7 +484,7 @@ func main() {
 			webhooks.DebugModeOptions{
 				DumpPayload: dumpPayload,
 			},
-			probes{},
+			newProbes(probesCertRenewer, setup.Logger.WithName("probes")),
 			setup.Configuration,
 		)
 		// start server
