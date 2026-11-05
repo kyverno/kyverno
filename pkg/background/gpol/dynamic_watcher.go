@@ -818,7 +818,7 @@ func (wm *WatchManager) listCollectionState(gvr schema.GroupVersionResource) (st
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
 	defer cancel()
-	list, listErr := wm.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
+	list, listErr := wm.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{LabelSelector: common.GeneratePolicyLabel})
 	if listErr != nil {
 		return collectionState{}, listErr
 	}

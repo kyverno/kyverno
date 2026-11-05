@@ -2662,7 +2662,9 @@ func TestStartWatcherWithCache_FreshRVAndExpiredRecovery(t *testing.T) {
 	w2.Modify(driftedAgain)
 
 	select {
-	case <-revertedCh:
+	case reverted := <-revertedCh:
+		val, _, _ := unstructured.NestedString(reverted.Object, "data", "k")
+		assert.Equal(t, "desired", val)
 	case <-time.After(3 * time.Second):
 		t.Fatal("expected replacement watcher w2 to revert subsequent Modify drift")
 	}
