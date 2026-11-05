@@ -1,12 +1,57 @@
 package v1
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
 	"gotest.tools/v3/assert"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
+
+func TestImageVerificationBundleTrustValidation(t *testing.T) {
+	t.Parallel()
+	const rekorURL = "https://rekor.sigstore.dev"
+	for _, tc := range []struct {
+		name   string
+		roots  string
+		ctlog  *CTLog
+		rekor  *Rekor
+		fields []string
+	}{
+		{"policy trust", "root", &CTLog{TSACertChain: "tsa", IgnoreSCT: true}, &Rekor{URL: rekorURL, IgnoreTlog: true}, nil},
+		{"TUF trust", "", nil, &Rekor{URL: rekorURL}, nil},
+		{"missing roots", "", &CTLog{TSACertChain: "tsa", IgnoreSCT: true}, &Rekor{URL: rekorURL, IgnoreTlog: true}, []string{"roots"}},
+		{"missing TSA", "root", &CTLog{IgnoreSCT: true}, &Rekor{URL: rekorURL, IgnoreTlog: true}, []string{"ctlog.tsaCertChain"}},
+		{"tlog enabled", "root", &CTLog{TSACertChain: "tsa", IgnoreSCT: true}, &Rekor{URL: rekorURL}, []string{"rekor.ignoreTlog"}},
+		{"SCT enabled", "root", &CTLog{TSACertChain: "tsa"}, &Rekor{URL: rekorURL, IgnoreTlog: true}, []string{"ctlog.ignoreSCT"}},
+		{"roots only", "root", nil, nil, []string{"ctlog.tsaCertChain", "rekor.ignoreTlog", "ctlog.ignoreSCT"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			set := AttestorSet{Entries: []Attestor{{Keyless: &KeylessAttestor{
+				Roots: tc.roots, CTLog: tc.ctlog, Rekor: tc.rekor,
+			}}}}
+			raw, err := json.Marshal(set)
+			assert.NilError(t, err)
+			nested := AttestorSet{Entries: []Attestor{{Attestor: &apiextv1.JSON{Raw: raw}}}}
+			iv := ImageVerification{
+				Type: SigstoreBundle, ImageReferences: []string{"*"},
+				Attestors:    []AttestorSet{set},
+				Attestations: []Attestation{{Attestors: []AttestorSet{nested}}},
+			}
+			errs := iv.Validate(false, field.NewPath("verifyImages"))
+			assert.Equal(t, len(errs), 2*len(tc.fields), "%v", errs)
+			for i, suffix := range tc.fields {
+				assert.Equal(t, errs[i].Field, "verifyImages.attestations[0].attestors[0].entries[0].attestor.entries[0].keyless."+suffix)
+				assert.Equal(t, errs[i+len(tc.fields)].Field, "verifyImages.attestors[0].entries[0].keyless."+suffix)
+			}
+			iv.Type = Cosign
+			assert.Equal(t, len(iv.Validate(false, field.NewPath("verifyImages"))), 0)
+		})
+	}
+}
 
 func Test_ImageVerification(t *testing.T) {
 	path := field.NewPath("dummy")
