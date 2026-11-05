@@ -174,3 +174,34 @@ func TestConfiguration_GetMaxContextSize_KubernetesQuantityFormat(t *testing.T) 
 		})
 	}
 }
+
+func TestConfiguration_GetUpdateRequestCleanupTTL_InvalidValue(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kyverno",
+			Namespace: "kyverno",
+		},
+		Data: map[string]string{
+			"updateRequestCleanupTTL": "invalid-ttl",
+		},
+	}
+
+	cfg.Load(cm)
+
+	// Should fall back to empty string on parse error
+	assert.Equal(t, "", cfg.GetUpdateRequestCleanupTTL())
+}
+
+func TestConfiguration_GetUpdateRequestCleanupTTL_Unload(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data:       map[string]string{"updateRequestCleanupTTL": "1h"},
+	})
+	assert.Equal(t, "1h", cfg.GetUpdateRequestCleanupTTL())
+
+	// unload should reset to empty string
+	cfg.Load(nil)
+	assert.Equal(t, "", cfg.GetUpdateRequestCleanupTTL())
+}
