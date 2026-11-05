@@ -2787,7 +2787,9 @@ func TestReconcileRelistedItems_LabelRemovalDuring410Recovery(t *testing.T) {
 
 	tamperedNoLabel := downstream.DeepCopy()
 	tamperedNoLabel.SetResourceVersion("1199")
-	delete(tamperedNoLabel.GetLabels(), common.GeneratePolicyLabel)
+	strippedLabels := tamperedNoLabel.GetLabels()
+	delete(strippedLabels, common.GeneratePolicyLabel)
+	tamperedNoLabel.SetLabels(strippedLabels)
 	tamperedNoLabel.Object["data"] = map[string]any{"k": "tampered-no-label"}
 
 	mismatchedUIDObj := tamperedNoLabel.DeepCopy()
@@ -2919,6 +2921,11 @@ func TestReconcileRelistedItems_LabelRemovalDuring410Recovery(t *testing.T) {
 					t.Fatal("expected reconcileRelistedItems to revert downstream when label was removed during 410 recovery")
 				}
 			} else {
+				require.Eventually(t, func() bool {
+					mu.Lock()
+					defer mu.Unlock()
+					return watchCall >= 2
+				}, 3*time.Second, 10*time.Millisecond, "expected replacement watcher to start after recovery")
 				select {
 				case rev := <-revertedCh:
 					t.Fatalf("unexpected revert event triggered: %v", rev)
