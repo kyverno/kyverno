@@ -1026,3 +1026,34 @@ func TestHandle_ExtractionMode_MultiTemplateTraceSelection(t *testing.T) {
 		})
 	}
 }
+
+func TestHandle_JsonPayload_PredicateFilter(t *testing.T) {
+	policy1 := buildJSONPolicy("policy-1", nil)
+	policy2 := buildJSONPolicy("policy-2", nil)
+
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy1, policy2}, nil)
+	require.NoError(t, err)
+	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+	jsonPayload := &unstructured.Unstructured{
+		Object: map[string]any{
+			"message": "hello",
+		},
+	}
+	req := celengine.RequestFromJSON(nil, jsonPayload)
+
+	t.Run("predicate filters policy", func(t *testing.T) {
+		resp, err := eng.Handle(context.Background(), req, func(p policiesv1beta1.ValidatingPolicyLike) bool {
+			return p.GetName() == "policy-1"
+		})
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, 1)
+		assert.Equal(t, "policy-1", resp.Policies[0].Policy.GetName())
+	})
+
+	t.Run("nil predicate evaluates all policies", func(t *testing.T) {
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, 2)
+	})
+}

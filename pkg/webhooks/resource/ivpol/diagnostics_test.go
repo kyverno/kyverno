@@ -24,7 +24,6 @@ import (
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/sdk/extensions/regcreds"
@@ -126,7 +125,7 @@ PKd/xnmHKfvkbLquVC6NnH8dgPVq8p0H45H2H9CqzqGv+rn99xAWGLE30A==
 				namespaceResolver := func(s string) *corev1.Namespace {
 					return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: s}}
 				}
-				engine := ivpolengine.NewEngine(provider, namespaceResolver, matching.NewMatcher(), nil, imageverifycache.DisabledImageVerifyCache(), config.NewDefaultConfiguration(false))
+				engine := ivpolengine.NewEngine(provider, namespaceResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
 				h := New(engine, libs.NewFakeContextProvider(), nil, false, event.NewFake())
 				request := admissionv1.AdmissionRequest{
 					UID: "diagnostic-test", Name: "pod", Namespace: "default", Operation: admissionv1.Create,

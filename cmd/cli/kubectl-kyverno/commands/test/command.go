@@ -9,6 +9,7 @@ import (
 	"regexp"
 
 	"github.com/go-git/go-billy/v5"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
@@ -238,7 +239,11 @@ func checkResult(
 	expected := test.Result
 	expectedPatchResources := test.PatchedResources
 	if expectedPatchResources != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources")
+		jsonMode := false
+		if policy := response.Policy().AsMutatingPolicyLike(); policy != nil {
+			jsonMode = policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+		}
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources", jsonMode)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -253,7 +258,7 @@ func checkResult(
 		}
 	}
 	if test.GeneratedResource != "" && len(test.GeneratedResources) == 0 {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource")
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource", false)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -271,7 +276,7 @@ func checkResult(
 		var lastDiff string
 		var lastErr error
 		for _, expectedRes := range test.GeneratedResources {
-			equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedRes), "GeneratedResources")
+			equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedRes), "GeneratedResources", false)
 			if err != nil {
 				lastErr = err
 				continue

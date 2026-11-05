@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	celautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
@@ -187,6 +188,9 @@ func NewProvider(
 			Policy:         policy,
 			CompiledPolicy: compiled,
 		})
+		if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+			continue
+		}
 		generated, err := autogen.Autogen(policy)
 		if err != nil {
 			return nil, err
