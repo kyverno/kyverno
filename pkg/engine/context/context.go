@@ -19,6 +19,7 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var (
@@ -109,11 +110,26 @@ type Interface interface {
 	// Restore sets the internal state to the last checkpoint, and removes the checkpoint.
 	Restore()
 
+	// RestoreAndClearPersisted behaves like Restore, but it additionally discards
+	// any keys marked via Persist (along with their current values) instead of
+	// carrying them forward. Callers that own the checkpoint representing an
+	// entire policy's evaluation (i.e. the outermost Checkpoint/Restore pair for
+	// that policy) must use this instead of Restore: the JSONContext is reused
+	// across policies (see policycontext.PolicyContext.WithPolicy, which only
+	// swaps the policy reference, not the context), so a value carried forward
+	// by Persist would otherwise leak from one policy's evaluation into the
+	// next. Intermediate restores within a single policy's rule loop should
+	// keep using Restore so persisted values remain visible to later rules.
+	RestoreAndClearPersisted()
+
 	// Reset sets the internal state to the last checkpoint, but does not remove the checkpoint.
 	Reset()
 
 	// AddJSON  merges the json map with context
 	addJSON(dataMap map[string]interface{}, overwriteMaps bool) error
+
+	// Persist marks a context entry as persistent across checkpoints
+	Persist(name string)
 }
 
 // DefaultMaxContextSize is the default maximum size of context data in bytes (2MB)
@@ -141,6 +157,7 @@ type context struct {
 	deferred           DeferredLoaders
 	contextSize        int64
 	maxContextSize     int64
+	persistentKeys     map[string]bool
 }
 
 // NewContext returns a new context
@@ -564,6 +581,54 @@ func (ctx *context) Restore() {
 	ctx.reset(true)
 }
 
+// RestoreAndClearPersisted restores like Restore, and then discards any
+// value a Persist()-marked key picked up during this checkpoint scope,
+// instead of carrying it forward. A key that already had a value before this
+// checkpoint was taken (e.g. a preloaded context entry or variable unrelated
+// to this policy's Persist calls) is restored to that pre-checkpoint value
+// rather than deleted -- only keys that did not exist before this checkpoint
+// end up absent. See the Interface doc for when to use this instead of
+// Restore.
+func (ctx *context) RestoreAndClearPersisted() {
+	// resetCheckpoint (invoked by reset(true) below) copies each persisted
+	// key's current (live) value into the checkpoint being restored to, so
+	// that intra-policy Restore calls keep seeing the persisted value. That
+	// means the checkpoint snapshot is about to be mutated in place for every
+	// persisted key. Capture each persisted key's presence/value as it stood
+	// at the start of this checkpoint scope *before* that happens, so we can
+	// tell apart "existed before this checkpoint" (restore it) from "only
+	// appeared during this checkpoint's scope" (clear it).
+	var preCheckpoint map[string]interface{}
+	if n := len(ctx.jsonRawCheckpoints) - 1; n >= 0 {
+		preCheckpoint = ctx.jsonRawCheckpoints[n]
+	}
+	type priorValue struct {
+		value   interface{}
+		existed bool
+	}
+	priorValues := make(map[string]priorValue, len(ctx.persistentKeys))
+	for key := range ctx.persistentKeys {
+		if preCheckpoint != nil {
+			if val, ok := preCheckpoint[key]; ok {
+				priorValues[key] = priorValue{value: val, existed: true}
+				continue
+			}
+		}
+		priorValues[key] = priorValue{}
+	}
+
+	ctx.reset(true)
+
+	for key, prior := range priorValues {
+		if prior.existed {
+			ctx.jsonRaw[key] = runtime.DeepCopyJSONValue(prior.value)
+		} else {
+			delete(ctx.jsonRaw, key)
+		}
+	}
+	ctx.persistentKeys = nil
+}
+
 // Reset sets the internal state to the last checkpoint, but does not remove the checkpoint.
 func (ctx *context) Reset() {
 	ctx.reset(false)
@@ -585,6 +650,11 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 
 	if restore {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
+		for key := range ctx.persistentKeys {
+			if val, ok := ctx.jsonRaw[key]; ok {
+				jsonRawCheckpoint[key] = runtime.DeepCopyJSONValue(val)
+			}
+		}
 		ctx.jsonRaw = jsonRawCheckpoint
 		if len(ctx.imagesCheckpoints) > n {
 			ctx.images = ctx.imagesCheckpoints[n]
@@ -609,6 +679,13 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 func (ctx *context) AddDeferredLoader(dl DeferredLoader) error {
 	ctx.deferred.Add(dl, len(ctx.jsonRawCheckpoints))
 	return nil
+}
+
+func (ctx *context) Persist(name string) {
+	if ctx.persistentKeys == nil {
+		ctx.persistentKeys = make(map[string]bool)
+	}
+	ctx.persistentKeys[name] = true
 }
 
 // checkContextSizeLimit checks if adding additionalSize bytes would exceed the context size limit
