@@ -578,6 +578,8 @@ func (wm *WatchManager) StopWatchers() {
 
 const (
 	collectionListTimeout           = 10 * time.Second
+	collectionListPageSize          = int64(500)
+	maxMissingFallbackGets          = 64
 	initialListRetryAttempts        = 3
 	recoveryListRetryAttempts       = 5
 	maxConsecutiveExpiredRecoveries = 5
@@ -820,9 +822,10 @@ func (wm *WatchManager) listCollectionStateWithRetry(gvr schema.GroupVersionReso
 	return collectionState{}, lastErr
 }
 
-// listCollectionState performs a bounded List (Limit: 1) without filtering on
-// mutable labels so the returned ResourceVersion reflects the live collection
-// while keeping API-server and memory overhead O(1).
+// listCollectionState performs a paginated label-scoped List (filtered by
+// GeneratePolicyLabel in bounded chunks) so all intact Kyverno-generated
+// downstreams and the fresh collection ResourceVersion are retrieved in batched
+// pages rather than O(N) per-object Get requests.
 func (wm *WatchManager) listCollectionState(gvr schema.GroupVersionResource) (state collectionState, err error) {
 	if wm.client == nil || wm.client.GetDynamicInterface() == nil {
 		return collectionState{}, nil
@@ -834,29 +837,47 @@ func (wm *WatchManager) listCollectionState(gvr schema.GroupVersionResource) (st
 			err = nil
 		}
 	}()
-	ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
-	defer cancel()
-	// Bounded list (Limit: 1) to obtain a fresh collection ResourceVersion without
-	// unbounded cluster downloads and without filtering by mutable GeneratePolicyLabel.
-	list, listErr := wm.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{Limit: 1})
-	if listErr != nil {
-		return collectionState{}, listErr
-	}
-	if list == nil {
-		return collectionState{}, nil
+	var (
+		rv            string
+		allItems      []unstructured.Unstructured
+		continueToken string
+	)
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
+		list, listErr := wm.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{
+			LabelSelector: common.GeneratePolicyLabel,
+			Limit:         collectionListPageSize,
+			Continue:      continueToken,
+		})
+		cancel()
+		if listErr != nil {
+			return collectionState{}, listErr
+		}
+		if list == nil {
+			break
+		}
+		if listRV := list.GetResourceVersion(); listRV != "" {
+			rv = listRV
+		}
+		allItems = append(allItems, list.Items...)
+		nextContinue := list.GetContinue()
+		if nextContinue == "" || nextContinue == continueToken {
+			break
+		}
+		continueToken = nextContinue
 	}
 	return collectionState{
-		rv:    list.GetResourceVersion(),
-		items: list.Items,
+		rv:    rv,
+		items: allItems,
 	}, nil
 }
 
 // reconcileRelistedItems passes relisted objects that belong to metadataCache
 // through handleUpdate so edits made before a freshly listed resourceVersion
-// are reverted without waiting for a future Modify event. Cached UIDs not
-// returned in items (e.g. because mutable labels were stripped or the list
-// was bounded with Limit: 1) are reconciled via direct Get so label removal
-// does not prevent drift recovery.
+// are reverted without waiting for a future Modify event. Intact downstreams
+// are already included in the paginated GeneratePolicyLabel relist; only
+// residual cached UIDs absent from items (e.g. deleted or stripped of mutable
+// GeneratePolicyLabel) fall back to a bounded number of per-item Get probes.
 func (wm *WatchManager) reconcileRelistedItems(gvr schema.GroupVersionResource, items []unstructured.Unstructured) {
 	wm.lock.Lock()
 	w, exists := wm.dynamicWatchers[gvr]
@@ -879,25 +900,37 @@ func (wm *WatchManager) reconcileRelistedItems(gvr schema.GroupVersionResource, 
 		namespace string
 	}
 	var missing []missingTarget
+	skippedMissing := 0
 	if wm.client != nil && wm.client.GetDynamicInterface() != nil {
 		for uid, res := range w.metadataCache {
 			if _, ok := found[uid]; !ok && res.Hash != "" && res.Name != "" {
+				if len(missing) >= maxMissingFallbackGets {
+					skippedMissing++
+					continue
+				}
 				missing = append(missing, missingTarget{uid: uid, name: res.Name, namespace: res.Namespace})
 			}
 		}
 	}
 	wm.lock.Unlock()
 
+	if skippedMissing > 0 {
+		wm.log.V(2).Info("bounded fallback Get probes for cached downstreams omitted from relist", "gvr", gvr, "probed", len(missing), "skipped", skippedMissing)
+	}
+
 	if len(missing) > 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
-		defer cancel()
 		for _, m := range missing {
+			ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
 			var obj *unstructured.Unstructured
 			var getErr error
 			if m.namespace != "" {
 				obj, getErr = wm.client.GetDynamicInterface().Resource(gvr).Namespace(m.namespace).Get(ctx, m.name, metav1.GetOptions{})
 			} else {
 				obj, getErr = wm.client.GetDynamicInterface().Resource(gvr).Get(ctx, m.name, metav1.GetOptions{})
+			}
+			cancel()
+			if getErr != nil && !apierrors.IsNotFound(getErr) {
+				wm.log.Error(getErr, "failed to fetch cached downstream during recovery", "gvr", gvr, "name", m.name, "namespace", m.namespace)
 			}
 			if getErr == nil && obj != nil && obj.GetUID() == m.uid {
 				tracked = append(tracked, obj)
