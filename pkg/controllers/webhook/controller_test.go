@@ -334,6 +334,7 @@ func TestPolicyValidatingWebhookCoversNamespacedDeletingPolicies(t *testing.T) {
 	for _, r := range vwc.Webhooks[0].Rules {
 		if len(r.Rule.Resources) == 1 && r.Rule.Resources[0] == "namespaceddeletingpolicies" {
 			assert.Equal(t, []string{"policies.kyverno.io"}, r.Rule.APIGroups)
+			assert.Equal(t, []string{"v1beta1", "v1"}, r.Rule.APIVersions)
 			assert.ElementsMatch(t, []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}, r.Operations)
 			return
 		}
