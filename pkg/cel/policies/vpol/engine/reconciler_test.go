@@ -433,12 +433,15 @@ func TestReconcile_AutogenVariantCompileFailure(t *testing.T) {
 
 	fetched, err := rec.Fetch(ctx)
 	require.NoError(t, err)
-	var resources []string
+	require.Len(t, fetched, 2, "the base policy and the deployments variant must stay cached")
+	var resources [][]string
 	for _, p := range fetched {
+		var policyResources []string
 		for _, rule := range p.Policy.GetValidatingPolicySpec().MatchConstraints.ResourceRules {
-			resources = append(resources, rule.Resources...)
+			policyResources = append(policyResources, rule.Resources...)
 		}
+		resources = append(resources, policyResources)
 	}
-	assert.ElementsMatch(t, []string{"pods", "deployments"}, resources,
-		"the base policy and the deployments variant must stay cached, and the jobsets variant that failed to compile must not")
+	assert.ElementsMatch(t, [][]string{{"pods"}, {"deployments"}}, resources,
+		"one cached entry per kept target, and none for the jobsets variant that failed to compile")
 }
