@@ -575,16 +575,11 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	if !autoUpdateWebhooks {
 		if desired.Name == config.ValidatingWebhookConfigurationName {
 			_, err := controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
-<<<<<<< HEAD
-				setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(caData))
-=======
-				w.Webhooks = pruneLegacyWebhooks(w.Webhooks, config.ValidatingWebhookServicePath)
 				if toggle.FromContext(ctx).ProtectGenerationLabels() {
 					setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(ctx, caData))
 				} else {
 					w.Webhooks = removeGenerationLabelProtectionWebhook(w.Webhooks)
 				}
->>>>>>> 3047b9e76 (fix(webhook): allow configuring generation label protection and honor failure policy ignore (#18222))
 				return nil
 			})
 			return err
@@ -1104,7 +1099,6 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 	return nil
 }
 
-<<<<<<< HEAD
 func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.MutatingWebhookConfiguration) error {
 	if c.watchdogCheck() {
 		webhookCfg := cfg.GetWebhook()
@@ -1195,73 +1189,62 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 	return mutatingWebhooks
 }
 
-func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	sideEffects := &none
 	if c.admissionReports {
 		sideEffects = &noneOnDryRun
 	}
-	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-			ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
-			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
-				Name:         config.ValidatingWebhookName + "-ignore",
-				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/ignore"),
-				Rules: []admissionregistrationv1.RuleWithOperations{{
-					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{"*"},
-						APIVersions: []string{"*"},
-						Resources:   []string{"*/*"},
-					},
-					Operations: []admissionregistrationv1.OperationType{
-						admissionregistrationv1.Create,
-						admissionregistrationv1.Update,
-						admissionregistrationv1.Delete,
-						admissionregistrationv1.Connect,
-					},
-				}},
-				FailurePolicy:           &ignore,
-				SideEffects:             sideEffects,
-				AdmissionReviewVersions: []string{"v1"},
-				TimeoutSeconds:          &c.defaultTimeout,
-				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			}, {
-				Name:         config.ValidatingWebhookName + "-fail",
-				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/fail"),
-				Rules: []admissionregistrationv1.RuleWithOperations{{
-					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{"*"},
-						APIVersions: []string{"*"},
-						Resources:   []string{"*/*"},
-					},
-					Operations: []admissionregistrationv1.OperationType{
-						admissionregistrationv1.Create,
-						admissionregistrationv1.Update,
-						admissionregistrationv1.Delete,
-						admissionregistrationv1.Connect,
-					},
-				}},
-				FailurePolicy:           &fail,
-				MatchConditions:         bootstrapExclusionMatchConditions(c.excludeBootstrapResources),
-				SideEffects:             sideEffects,
-				AdmissionReviewVersions: []string{"v1"},
-				TimeoutSeconds:          &c.defaultTimeout,
-				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			}, c.buildGenerationLabelProtectionWebhook(caBundle)},
-=======
-// buildDefaultResourceValidatingWebhookConfiguration is the static configuration used
-// when autoUpdateWebhooks is false. The legacy catch-all "/validate" ignore/fail
-// webhooks are gone along with that route; only the generation-label protection
-// webhook (unrelated to the removed catch-all) remains resource-facing here.
-func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
-	var webhooks []admissionregistrationv1.ValidatingWebhook
-	if toggle.FromContext(ctx).ProtectGenerationLabels() {
-		webhooks = append(webhooks, c.buildGenerationLabelProtectionWebhook(ctx, caBundle))
+	webhookConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{
+		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
+		Webhooks: []admissionregistrationv1.ValidatingWebhook{{
+			Name:         config.ValidatingWebhookName + "-ignore",
+			ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/ignore"),
+			Rules: []admissionregistrationv1.RuleWithOperations{{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{"*"},
+					APIVersions: []string{"*"},
+					Resources:   []string{"*/*"},
+				},
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
+					admissionregistrationv1.Update,
+					admissionregistrationv1.Delete,
+					admissionregistrationv1.Connect,
+				},
+			}},
+			FailurePolicy:           &ignore,
+			SideEffects:             sideEffects,
+			AdmissionReviewVersions: []string{"v1"},
+			TimeoutSeconds:          &c.defaultTimeout,
+			MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
+		}, {
+			Name:         config.ValidatingWebhookName + "-fail",
+			ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/fail"),
+			Rules: []admissionregistrationv1.RuleWithOperations{{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{"*"},
+					APIVersions: []string{"*"},
+					Resources:   []string{"*/*"},
+				},
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
+					admissionregistrationv1.Update,
+					admissionregistrationv1.Delete,
+					admissionregistrationv1.Connect,
+				},
+			}},
+			FailurePolicy:           &fail,
+			MatchConditions:         bootstrapExclusionMatchConditions(c.excludeBootstrapResources),
+			SideEffects:             sideEffects,
+			AdmissionReviewVersions: []string{"v1"},
+			TimeoutSeconds:          &c.defaultTimeout,
+			MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
+		}},
 	}
-	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-			ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
-			Webhooks:   webhooks,
->>>>>>> 3047b9e76 (fix(webhook): allow configuring generation label protection and honor failure policy ignore (#18222))
-		},
-		nil
+	if toggle.FromContext(ctx).ProtectGenerationLabels() {
+		webhookConfig.Webhooks = append(webhookConfig.Webhooks, c.buildGenerationLabelProtectionWebhook(ctx, caBundle))
+	}
+	return webhookConfig, nil
 }
 
 func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
