@@ -1,0 +1,8 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: exempt-labels
+spec:
+  policyRefs:
+  - name: require-labels
+    kind: ValidatingPolicy
