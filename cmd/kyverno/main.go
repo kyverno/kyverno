@@ -34,6 +34,7 @@ import (
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	legacypolicymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/legacypolicy"
+	policyexceptionmetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policyexception"
 	updaterequestmetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/updaterequest"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
@@ -69,6 +70,7 @@ import (
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	kubeinformers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
@@ -525,6 +527,15 @@ func main() {
 		updaterequestmetricscontroller.NewController(
 			kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		)
+		if !internal.MetricsExportDisabled() {
+			// Inventory caches must not delay admission startup if an optional API cannot be listed.
+			// Legacy typed clients were removed, so that source uses the instrumented dynamic client.
+			exceptionInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, 0)
+			legacyExceptionInformer := dynamicinformer.NewDynamicSharedInformerFactory(setup.DynamicClient, 0)
+			policyexceptionmetricscontroller.NewController(setup.KubeClient.Discovery(), exceptionInformer, legacyExceptionInformer)
+			exceptionInformer.Start(signalCtx.Done())
+			legacyExceptionInformer.Start(signalCtx.Done())
+		}
 		// kyverno_legacy_policies_total gauge: ClusterPolicy, Policy, and legacy
 		// PolicyException, read from metadata-only lists refreshed every 30s.
 		// CleanupPolicy and ClusterCleanupPolicy are gauged by the
