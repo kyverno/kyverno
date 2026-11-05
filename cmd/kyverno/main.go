@@ -724,6 +724,22 @@ func main() {
 				setup.Logger.Error(err, "failed to create policy provider")
 				os.Exit(1)
 			}
+			// Compile all pre-existing CEL policies before the webhook server starts serving.
+			// WaitForCacheSync only guarantees the raw objects are in the cache, not that the
+			// reconcile workqueues have compiled them, so without this admission requests
+			// arriving right after startup would not be checked against these policies.
+			if err := vpolProvider.WarmUp(ctx); err != nil {
+				setup.Logger.Error(err, "failed to warm up vpol provider")
+				os.Exit(1)
+			}
+			if err := ivpolProvider.WarmUp(ctx); err != nil {
+				setup.Logger.Error(err, "failed to warm up ivpol provider")
+				os.Exit(1)
+			}
+			if err := mpolProvider.WarmUp(ctx); err != nil {
+				setup.Logger.Error(err, "failed to warm up mpol provider")
+				os.Exit(1)
+			}
 			vpolEngine = vpolengine.NewMetricWrapper(vpolengine.NewEngine(
 				vpolProvider,
 				nsResolver,
