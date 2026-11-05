@@ -3,7 +3,9 @@ package admissionpolicygenerator
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -19,6 +21,7 @@ import (
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 )
 
@@ -148,4 +151,121 @@ func TestHandleVAPGeneration_PodControllerAutogen(t *testing.T) {
 			assert.Equal(t, tt.wantGenerated, updated.Status.Generated)
 		})
 	}
+}
+
+// recordingQueue records AddAfter calls instead of scheduling them.
+type recordingQueue struct {
+	workqueue.TypedRateLimitingInterface[any]
+	after map[any]time.Duration
+}
+
+func (q *recordingQueue) AddAfter(item any, duration time.Duration) {
+	q.after[item] = duration
+}
+
+// newRequeueTestController builds a controller for a policy with a single exception expiring at
+// expiresAt, recording requeues instead of scheduling them.
+func newRequeueTestController(t *testing.T, expiresAt *metav1.Time, polexEnabled bool) (*controller, *kubefake.Clientset, *recordingQueue, *policiesv1beta1.ValidatingPolicy) {
+	t.Helper()
+	vpol := disallowPrivilegeEscalationVpol(nil)
+	// autogen off, so a VAP is actually generated with the exception in it
+	vpol.Spec.AutogenConfiguration.PodControllers.Controllers = []string{}
+	c, kubeClient, _ := newVAPTestController(t, vpol)
+
+	vpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, vpolIndexer.Add(vpol))
+	c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(vpolIndexer)
+
+	polexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, polexIndexer.Add(&policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "exempt", Namespace: "default"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			ExpiresAt:  expiresAt,
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: vpol.Name, Kind: vpol.GetKind()}},
+		},
+	}))
+	c.celpolexLister = policiesv1beta1listers.NewPolicyExceptionLister(polexIndexer)
+	c.polexEnabled = polexEnabled
+
+	q := &recordingQueue{
+		TypedRateLimitingInterface: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]()),
+		after:                      map[any]time.Duration{},
+	}
+	t.Cleanup(q.ShutDown)
+	c.queue = q
+	return c, kubeClient, q, vpol
+}
+
+// The generated VAP bakes the policy's exceptions in and is otherwise only regenerated on policy
+// or exception events, so reconciling a policy that has an expiring exception must requeue it for
+// that exception's expiresAt.
+func TestReconcile_RequeuesAtExceptionExpiry(t *testing.T) {
+	inAnHour := metav1.NewTime(time.Now().Add(time.Hour))
+	justExpired := metav1.NewTime(time.Now().Add(-time.Second))
+	tests := []struct {
+		name         string
+		expiresAt    *metav1.Time
+		polexEnabled bool
+		wantRequeue  bool
+		wantMin      time.Duration
+		wantMax      time.Duration
+	}{{
+		name:         "expiring exception requeues the policy for its deadline",
+		expiresAt:    &inAnHour,
+		polexEnabled: true,
+		wantRequeue:  true,
+		wantMin:      59 * time.Minute,
+		wantMax:      time.Hour,
+	}, {
+		// expired exceptions are not deleted, and this one was already left out of the VAP
+		name:         "exception that expired before the reconcile does not requeue",
+		expiresAt:    &justExpired,
+		polexEnabled: true,
+	}, {
+		name:         "exception without expiresAt does not requeue",
+		polexEnabled: true,
+	}, {
+		name:      "policy exceptions disabled does not requeue",
+		expiresAt: &inAnHour,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			c, kubeClient, q, vpol := newRequeueTestController(t, tt.expiresAt, tt.polexEnabled)
+			key := "ValidatingPolicy/" + vpol.Name
+
+			require.NoError(t, c.reconcile(ctx, logr.Discard(), key, "", vpol.Name))
+
+			_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "vpol-"+vpol.Name, metav1.GetOptions{})
+			require.NoError(t, err, "the VAP must have been generated")
+			requeueAfter, requeued := q.after[key]
+			assert.Equal(t, tt.wantRequeue, requeued)
+			if tt.wantRequeue {
+				assert.Greater(t, requeueAfter, tt.wantMin, "the policy must be requeued for the exception's expiresAt")
+				assert.LessOrEqual(t, requeueAfter, tt.wantMax)
+			}
+		})
+	}
+}
+
+// An exception that expires while the VAP is being generated may still be baked into the VAP that
+// was just written, so it gets one immediate requeue. The reconcile that follows starts after the
+// deadline and leaves the exception out, so it must not requeue again: the exception stays in the
+// cluster, and requeueing for it would regenerate the policy every second.
+func TestReconcile_ExceptionExpiredDuringGenerationRequeuesOnce(t *testing.T) {
+	ctx := context.Background()
+	expiresAt := metav1.NewTime(time.Now().Add(-time.Second))
+	c, _, q, vpol := newRequeueTestController(t, &expiresAt, true)
+	key := "ValidatingPolicy/" + vpol.Name
+
+	// the reconcile that wrote the VAP started generating just before the exception expired
+	c.requeueAtExceptionExpiry(key, "ValidatingPolicy", vpol.Name, expiresAt.Add(-time.Second))
+	requeueAfter, requeued := q.after[key]
+	require.True(t, requeued, "the VAP may still contain the exception, so the policy must be requeued")
+	assert.LessOrEqual(t, requeueAfter, time.Second)
+
+	clear(q.after)
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), key, "", vpol.Name))
+	_, requeued = q.after[key]
+	assert.False(t, requeued, "the exception expired before this reconcile started, so it must not requeue the policy again")
 }

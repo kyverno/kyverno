@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -81,4 +82,25 @@ func ListExceptions(lister PolicyExceptionLister, kind, name string) ([]*policie
 		}
 	}
 	return out, nil
+}
+
+// NextExceptionExpiry returns how long until the earliest spec.expiresAt among
+// exceptions, and false when none of them sets one. An exception that is already
+// past its deadline yields one second rather than a non-positive delay, so a
+// caller using the result as a requeue delay still gets a prompt requeue.
+func NextExceptionExpiry(exceptions []*policiesv1beta1.PolicyException, now time.Time) (time.Duration, bool) {
+	var next time.Duration
+	found := false
+	for _, exception := range exceptions {
+		if exception == nil || exception.Spec.ExpiresAt == nil {
+			continue
+		}
+		if until := exception.Spec.ExpiresAt.Sub(now); !found || until < next {
+			next, found = until, true
+		}
+	}
+	if found && next <= 0 {
+		next = time.Second
+	}
+	return next, found
 }
