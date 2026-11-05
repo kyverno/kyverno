@@ -79,7 +79,8 @@ func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta
 						continue
 					}
 					gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
-					if mapper == nil || (group != "*" && version != "*") {
+					// RESTMapper cannot expand a "*" resource, so it passes through as before
+					if mapper == nil || resource == "*" || (group != "*" && version != "*") {
 						gvrList = append(gvrList, gvr)
 						continue
 					}
@@ -99,8 +100,8 @@ func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta
 }
 
 // resolveWildcardGVRs resolves a GVR whose group or version is "*" into the
-// served resources it matches. Only the first (preferred) version of each group
-// and resource is kept, so the same objects are not listed once per version.
+// served resources it matches. Only the preferred version of each group and
+// resource is kept, so the same objects are not listed once per version.
 func resolveWildcardGVRs(gvr schema.GroupVersionResource, mapper meta.RESTMapper) ([]schema.GroupVersionResource, error) {
 	// RESTMapper treats an empty group or version as "any"
 	query := gvr
@@ -114,8 +115,9 @@ func resolveWildcardGVRs(gvr schema.GroupVersionResource, mapper meta.RESTMapper
 	if err != nil {
 		return nil, err
 	}
-	seen := make(map[schema.GroupResource]struct{}, len(resources))
+	seen := make(map[schema.GroupResource]int, len(resources))
 	result := make([]schema.GroupVersionResource, 0, len(resources))
+	multiVersion := make(map[int]struct{})
 	for _, resource := range resources {
 		// an empty group in the query also matches every named group, so
 		// filter back to the requested core group
@@ -125,14 +127,23 @@ func resolveWildcardGVRs(gvr schema.GroupVersionResource, mapper meta.RESTMapper
 		if gvr.Version != "*" && resource.Version != gvr.Version {
 			continue
 		}
-		if _, ok := seen[resource.GroupResource()]; ok {
+		if i, ok := seen[resource.GroupResource()]; ok {
+			multiVersion[i] = struct{}{}
 			continue
 		}
-		seen[resource.GroupResource()] = struct{}{}
+		seen[resource.GroupResource()] = len(result)
 		result = append(result, resource)
 	}
 	if len(result) == 0 {
 		return nil, &meta.NoResourceMatchError{PartialResource: gvr}
+	}
+	// ResourcesFor does not apply version priority, so ask the mapper for the
+	// preferred version of every group/resource served in more than one version
+	for i := range multiVersion {
+		preferred, err := mapper.ResourceFor(result[i].GroupResource().WithVersion(""))
+		if err == nil && preferred.GroupResource() == result[i].GroupResource() {
+			result[i] = preferred
+		}
 	}
 	return result, nil
 }

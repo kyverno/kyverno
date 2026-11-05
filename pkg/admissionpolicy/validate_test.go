@@ -399,6 +399,14 @@ func TestGetGVRs_ResolvesWildcardsWithMapper(t *testing.T) {
 		match: rules("batch", "v1", "*"),
 		want:  []schema.GroupVersionResource{batchV1.WithResource("*")},
 	}, {
+		name:  "wildcard version with a wildcard resource is passed through unchanged",
+		match: rules("batch", "*", "*"),
+		want:  []schema.GroupVersionResource{{Group: "batch", Version: "*", Resource: "*"}},
+	}, {
+		name:  "wildcard group with a wildcard resource is passed through unchanged",
+		match: rules("*", "v1", "*"),
+		want:  []schema.GroupVersionResource{{Group: "*", Version: "v1", Resource: "*"}},
+	}, {
 		name:  "wildcard that matches nothing is skipped",
 		match: rules("example.com", "*", "widgets"),
 		want:  nil,
@@ -415,4 +423,38 @@ func TestGetGVRs_ResolvesWildcardsWithMapper(t *testing.T) {
 			assert.DeepEqual(t, got, tt.want)
 		})
 	}
+}
+
+func TestGetGVRs_WildcardVersionUsesMapperPriority(t *testing.T) {
+	t.Parallel()
+
+	// discovery builds one mapper per version and lets PriorityRESTMapper pick
+	// the preferred one; ResourcesFor returns them in delegate order, so the
+	// non-preferred version can come first
+	batchV1 := schema.GroupVersion{Group: "batch", Version: "v1"}
+	batchV1beta1 := schema.GroupVersion{Group: "batch", Version: "v1beta1"}
+	v1beta1Mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{batchV1beta1})
+	v1beta1Mapper.Add(batchV1beta1.WithKind("CronJob"), meta.RESTScopeNamespace)
+	v1Mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{batchV1})
+	v1Mapper.Add(batchV1.WithKind("CronJob"), meta.RESTScopeNamespace)
+	mapper := meta.PriorityRESTMapper{
+		Delegate: meta.MultiRESTMapper{v1beta1Mapper, v1Mapper},
+		ResourcePriority: []schema.GroupVersionResource{
+			{Group: "batch", Version: "v1", Resource: meta.AnyResource},
+			{Group: "batch", Version: meta.AnyVersion, Resource: meta.AnyResource},
+		},
+	}
+
+	got := GetGVRs(&admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{"batch"},
+					APIVersions: []string{"*"},
+					Resources:   []string{"cronjobs"},
+				},
+			},
+		}},
+	}, mapper)
+	assert.DeepEqual(t, got, []schema.GroupVersionResource{batchV1.WithResource("cronjobs")})
 }

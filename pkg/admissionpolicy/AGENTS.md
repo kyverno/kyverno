@@ -21,9 +21,10 @@ Invariants to keep when touching it:
   collapse in `path.Join` (e.g. `/api/v1` for an empty resource).
 - `*` wildcards in `resource` are valid and must keep resolving.
 - A `*` in `apiGroups` or `apiVersions` is the one case that does consult the mapper: `resolveWildcardGVRs`
-  expands it to the served resources (first, preferred version per group/resource), because the dynamic client
-  would otherwise LIST a literal `*` path segment and get a 404. A wildcard that matches nothing is skipped and
-  logged. With a nil mapper the GVR passes through unchanged.
+  expands it to the served resources (preferred version per group/resource, asked via `ResourceFor` because
+  `ResourcesFor` ignores version priority), because the dynamic client would otherwise LIST a literal `*` path
+  segment and get a 404. A wildcard that matches nothing is skipped and logged. With a nil mapper, or when the
+  resource is also `*` (the RESTMapper cannot expand a resource wildcard), the GVR passes through unchanged.
 
 `ValidatePathSegment` is not a complete chokepoint — any new code that builds a GVR or subresource from
 policy-supplied strings and reaches the dynamic client has to call it explicitly. The same applies to
