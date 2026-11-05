@@ -14,8 +14,8 @@ func Command() *cobra.Command {
 	keychain := pull.NewKeychain()
 	cmd := &cobra.Command{
 		Use:          "oci",
-		Short:        command.FormatDescription(true, websiteUrl, true, description...),
-		Long:         command.FormatDescription(false, websiteUrl, true, description...),
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
 		Example:      command.FormatExamples(examples...),
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
