@@ -2769,3 +2769,105 @@ func TestStartWatcherWithCache_DirectWatchGoneErrorAndListError(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+// TestReconcileRelistedItems_LabelRemovalDuring410Recovery verifies that cached
+// downstreams whose GeneratePolicyLabel was stripped while a watch was expired
+// are still fetched via direct Get and reverted to desired state on 410 recovery.
+func TestReconcileRelistedItems_LabelRemovalDuring410Recovery(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	scheme := runtime.NewScheme()
+	dynClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+		gvr: "ConfigMapList",
+	})
+
+	labels := map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     "sync-pol",
+		common.GenerateTriggerUIDLabel: "trig-1",
+	}
+	downstream := makeUnstructured("100", "", "v1", "ConfigMap", "gen-cm", "default", "uid-cm", labels)
+	downstream.Object["data"] = map[string]any{"k": "desired"}
+
+	var mu sync.Mutex
+	listCall := 0
+	w1 := watch.NewFake()
+	w2 := watch.NewFake()
+	watchCall := 0
+
+	tamperedNoLabel := downstream.DeepCopy()
+	tamperedNoLabel.SetResourceVersion("1199")
+	delete(tamperedNoLabel.GetLabels(), common.GeneratePolicyLabel)
+	tamperedNoLabel.Object["data"] = map[string]any{"k": "tampered-no-label"}
+
+	dynClient.PrependReactor("list", "configmaps", func(_ ktesting.Action) (bool, runtime.Object, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		listCall++
+		switch listCall {
+		case 1:
+			out := &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*downstream.DeepCopy()}}
+			out.SetResourceVersion("950")
+			return true, out, nil
+		default:
+			// In relist, the downstream is omitted because its label was stripped
+			out := &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
+			out.SetResourceVersion("1200")
+			return true, out, nil
+		}
+	})
+	dynClient.PrependReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+		getAction := action.(ktesting.GetAction)
+		if getAction.GetName() == "gen-cm" {
+			return true, tamperedNoLabel.DeepCopy(), nil
+		}
+		return false, nil, nil
+	})
+	dynClient.PrependWatchReactor("configmaps", func(_ ktesting.Action) (bool, watch.Interface, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		watchCall++
+		if watchCall == 1 {
+			return true, w1, nil
+		}
+		return true, w2, nil
+	})
+
+	revertedCh := make(chan *unstructured.Unstructured, 2)
+	mc := &MockClient{
+		dynamicClient: dynClient,
+		updateFn: func(obj interface{}) {
+			if u, ok := obj.(*unstructured.Unstructured); ok {
+				revertedCh <- u.DeepCopy()
+			}
+		},
+	}
+
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: mc,
+		restMapper: &mockRESTMapper{fn: func(_ schema.GroupKind, _ string) (*meta.RESTMapping, error) {
+			return &meta.RESTMapping{Resource: gvr}, nil
+		}},
+		dynamicWatchers:  map[schema.GroupVersionResource]*watcher{},
+		policyRefs:       map[string][]schema.GroupVersionResource{},
+		refCount:         map[schema.GroupVersionResource]int{},
+		pendingGenerates: map[string]*pendingGenerate{},
+	}
+	t.Cleanup(wm.StopWatchers)
+
+	require.NoError(t, wm.SyncWatchers("sync-pol", &kyverno.ResourceSpec{UID: "trig-1"}, []*unstructured.Unstructured{downstream}, false))
+
+	// Deliver 410 Expired on w1
+	expiredStatus := apierrors.NewResourceExpired("too old resource version: 950 (1100)").Status()
+	w1.Error(&expiredStatus)
+
+	// Verify that reconcileRelistedItems fetched tamperedNoLabel via get and reverted it
+	select {
+	case reverted := <-revertedCh:
+		val, _, _ := unstructured.NestedString(reverted.Object, "data", "k")
+		assert.Equal(t, "desired", val, "drift must be reverted even when common.GeneratePolicyLabel was removed")
+		assert.Equal(t, "sync-pol", reverted.GetLabels()[common.GeneratePolicyLabel], "GeneratePolicyLabel must be restored")
+	case <-time.After(3 * time.Second):
+		t.Fatal("expected reconcileRelistedItems to revert downstream when label was removed during 410 recovery")
+	}
+}

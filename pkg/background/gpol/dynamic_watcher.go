@@ -55,8 +55,9 @@ type WatchManager struct {
 	// applied but are not yet reflected in the metadata cache. See BeginGenerate.
 	pendingGenerates map[string]*pendingGenerate
 
-	log  logr.Logger
-	lock sync.Mutex
+	log      logr.Logger
+	syncLock sync.Mutex
+	lock     sync.Mutex
 }
 
 type watcher struct {
@@ -151,6 +152,9 @@ func (wm *WatchManager) BeginGenerate(policyName string, triggerUID types.UID) f
 // A nil trigger matches all resources of the policy. useServerSideApply is the policy's
 // setting, recorded on each downstream for the writes sync makes to it later.
 func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.ResourceSpec, generatedResources []*unstructured.Unstructured, useServerSideApply bool) error {
+	wm.syncLock.Lock()
+	defer wm.syncLock.Unlock()
+
 	type mappedResource struct {
 		resource *unstructured.Unstructured
 		gvr      schema.GroupVersionResource
@@ -231,7 +235,7 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.Resourc
 				return err
 			}
 			wm.dynamicWatchers[gvr] = w
-			if len(relisted) > 0 {
+			if len(existing.metadataCache) > 0 || len(relisted) > 0 {
 				reconcileQueue = append(reconcileQueue, reconcileBatch{gvr: gvr, items: relisted})
 			}
 			continue
@@ -589,6 +593,8 @@ type expiredErrorWatcher struct {
 	ch chan watch.Event
 }
 
+// newExpiredErrorWatcher wraps err into a single-event watch.Interface that
+// delivers a 410 Gone/Expired watch.Error event and closes immediately.
 func newExpiredErrorWatcher(err error) watch.Interface {
 	ch := make(chan watch.Event, 1)
 	var status metav1.Status
@@ -605,12 +611,15 @@ func newExpiredErrorWatcher(err error) watch.Interface {
 	return &expiredErrorWatcher{ch: ch}
 }
 
+// Stop implements watch.Interface for expiredErrorWatcher.
 func (e *expiredErrorWatcher) Stop() {}
 
+// ResultChan returns the single-event error channel for expiredErrorWatcher.
 func (e *expiredErrorWatcher) ResultChan() <-chan watch.Event {
 	return e.ch
 }
 
+// isWatchExpiredError reports whether err represents a 410 Gone or expired resourceVersion error.
 func isWatchExpiredError(err error) bool {
 	return apierrors.IsGone(err) || apierrors.IsResourceExpired(err)
 }
@@ -623,11 +632,15 @@ func (wm *WatchManager) startWatcher(resource *unstructured.Unstructured, gvr sc
 	return wm.startWatcherWithCache(resource, gvr, nil)
 }
 
+// startWatcherWithCache starts a watcher for gvr seeded with an existing metadataCache.
 func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructured, gvr schema.GroupVersionResource, metadataCache map[types.UID]Resource) (*watcher, error) {
 	w, _, err := wm.startWatcherWithCacheAndState(resource, gvr, metadataCache, nil)
 	return w, err
 }
 
+// startWatcherWithCacheAndState starts a dynamic watcher from a fresh collection
+// resourceVersion (using prefetched state when provided) and recovers from 410
+// Gone/Expired watch terminations via bounded relisting and cache reconciliation.
 func (wm *WatchManager) startWatcherWithCacheAndState(
 	resource *unstructured.Unstructured,
 	gvr schema.GroupVersionResource,
@@ -790,6 +803,8 @@ func (wm *WatchManager) resolveInitialWatchState(gvr schema.GroupVersionResource
 	return collectionState{rv: fallback, items: state.items}, nil
 }
 
+// listCollectionStateWithRetry fetches the current collection state for gvr with
+// bounded exponential backoff across transient apiserver errors.
 func (wm *WatchManager) listCollectionStateWithRetry(gvr schema.GroupVersionResource, maxAttempts int) (collectionState, error) {
 	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
@@ -805,6 +820,9 @@ func (wm *WatchManager) listCollectionStateWithRetry(gvr schema.GroupVersionReso
 	return collectionState{}, lastErr
 }
 
+// listCollectionState performs a bounded List (Limit: 1) without filtering on
+// mutable labels so the returned ResourceVersion reflects the live collection
+// while keeping API-server and memory overhead O(1).
 func (wm *WatchManager) listCollectionState(gvr schema.GroupVersionResource) (state collectionState, err error) {
 	if wm.client == nil || wm.client.GetDynamicInterface() == nil {
 		return collectionState{}, nil
@@ -818,7 +836,9 @@ func (wm *WatchManager) listCollectionState(gvr schema.GroupVersionResource) (st
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
 	defer cancel()
-	list, listErr := wm.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{LabelSelector: common.GeneratePolicyLabel})
+	// Bounded list (Limit: 1) to obtain a fresh collection ResourceVersion without
+	// unbounded cluster downloads and without filtering by mutable GeneratePolicyLabel.
+	list, listErr := wm.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{Limit: 1})
 	if listErr != nil {
 		return collectionState{}, listErr
 	}
@@ -833,25 +853,57 @@ func (wm *WatchManager) listCollectionState(gvr schema.GroupVersionResource) (st
 
 // reconcileRelistedItems passes relisted objects that belong to metadataCache
 // through handleUpdate so edits made before a freshly listed resourceVersion
-// are reverted without waiting for a future Modify event.
+// are reverted without waiting for a future Modify event. Cached UIDs not
+// returned in items (e.g. because mutable labels were stripped or the list
+// was bounded with Limit: 1) are reconciled via direct Get so label removal
+// does not prevent drift recovery.
 func (wm *WatchManager) reconcileRelistedItems(gvr schema.GroupVersionResource, items []unstructured.Unstructured) {
-	if len(items) == 0 {
-		return
-	}
 	wm.lock.Lock()
 	w, exists := wm.dynamicWatchers[gvr]
 	if !exists {
 		wm.lock.Unlock()
 		return
 	}
+	found := make(map[types.UID]struct{})
 	var tracked []*unstructured.Unstructured
 	for i := range items {
 		uid := items[i].GetUID()
 		if _, ok := w.metadataCache[uid]; ok {
 			tracked = append(tracked, items[i].DeepCopy())
+			found[uid] = struct{}{}
+		}
+	}
+	type missingTarget struct {
+		uid       types.UID
+		name      string
+		namespace string
+	}
+	var missing []missingTarget
+	if wm.client != nil && wm.client.GetDynamicInterface() != nil {
+		for uid, res := range w.metadataCache {
+			if _, ok := found[uid]; !ok && res.Hash != "" && res.Name != "" {
+				missing = append(missing, missingTarget{uid: uid, name: res.Name, namespace: res.Namespace})
+			}
 		}
 	}
 	wm.lock.Unlock()
+
+	if len(missing) > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
+		defer cancel()
+		for _, m := range missing {
+			var obj *unstructured.Unstructured
+			var getErr error
+			if m.namespace != "" {
+				obj, getErr = wm.client.GetDynamicInterface().Resource(gvr).Namespace(m.namespace).Get(ctx, m.name, metav1.GetOptions{})
+			} else {
+				obj, getErr = wm.client.GetDynamicInterface().Resource(gvr).Get(ctx, m.name, metav1.GetOptions{})
+			}
+			if getErr == nil && obj != nil && obj.GetUID() == m.uid {
+				tracked = append(tracked, obj)
+			}
+		}
+	}
 
 	for _, obj := range tracked {
 		wm.handleUpdate(obj, gvr)
