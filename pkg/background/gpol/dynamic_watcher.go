@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -149,20 +151,63 @@ func (wm *WatchManager) BeginGenerate(policyName string, triggerUID types.UID) f
 // A nil trigger matches all resources of the policy. useServerSideApply is the policy's
 // setting, recorded on each downstream for the writes sync makes to it later.
 func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.ResourceSpec, generatedResources []*unstructured.Unstructured, useServerSideApply bool) error {
+	type mappedResource struct {
+		resource *unstructured.Unstructured
+		gvr      schema.GroupVersionResource
+	}
+	mapped := make([]mappedResource, 0, len(generatedResources))
+	gvrsToPrefetch := make(map[schema.GroupVersionResource]bool)
+
+	wm.lock.Lock()
+	for _, resource := range generatedResources {
+		gvk := resource.GroupVersionKind()
+		mapping, err := wm.restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			wm.lock.Unlock()
+			return fmt.Errorf("failed to map gvk to gvr %s (%v)", gvk, err)
+		}
+		gvr := mapping.Resource
+		mapped = append(mapped, mappedResource{resource: resource, gvr: gvr})
+		if resource.GetResourceVersion() != "" {
+			if existing := wm.dynamicWatchers[gvr]; existing == nil || existing.watcher == nil {
+				gvrsToPrefetch[gvr] = true
+			}
+		}
+	}
+	wm.lock.Unlock()
+
+	// Prefetch collection state outside wm.lock so slow or stalled API calls
+	// never block drift correction on other watched GVRs.
+	prefetched := make(map[schema.GroupVersionResource]*collectionState, len(gvrsToPrefetch))
+	for gvr := range gvrsToPrefetch {
+		state, err := wm.listCollectionStateWithRetry(gvr, initialListRetryAttempts)
+		if err != nil {
+			return fmt.Errorf("failed to list %s watch state: %w", gvr, err)
+		}
+		stateCopy := state
+		prefetched[gvr] = &stateCopy
+	}
+
+	type reconcileBatch struct {
+		gvr   schema.GroupVersionResource
+		items []unstructured.Unstructured
+	}
+	var reconcileQueue []reconcileBatch
+	defer func() {
+		for _, b := range reconcileQueue {
+			wm.reconcileRelistedItems(b.gvr, b.items)
+		}
+	}()
+
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
 
 	logger := wm.log
 	newGVRs := make(map[schema.GroupVersionResource]bool)
 	// start a new watcher for each generated resource
-	for _, resource := range generatedResources {
-		gvk := resource.GroupVersionKind()
-		mapping, err := wm.restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		if err != nil {
-			return fmt.Errorf("failed to map gvk to gvr %s (%v)", gvk, err)
-		}
-
-		gvr := mapping.Resource
+	for _, item := range mapped {
+		resource := item.resource
+		gvr := item.gvr
 		logger.V(2).Info("processing generated resource", "gvr", gvr, "name", resource.GetName())
 		newGVRs[gvr] = true
 
@@ -181,16 +226,19 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.Resourc
 				continue
 			}
 			logger.V(2).Info("restarting watcher for GVR", "gvr", gvr)
-			w, err := wm.startWatcherWithCache(resource, gvr, existing.metadataCache)
+			w, relisted, err := wm.startWatcherWithCacheAndState(resource, gvr, existing.metadataCache, prefetched[gvr])
 			if err != nil {
 				return err
 			}
 			wm.dynamicWatchers[gvr] = w
+			if len(relisted) > 0 {
+				reconcileQueue = append(reconcileQueue, reconcileBatch{gvr: gvr, items: relisted})
+			}
 			continue
 		}
 
 		// start a new watcher for this GVR
-		w, err := wm.startWatcher(resource, gvr)
+		w, relisted, err := wm.startWatcherWithCacheAndState(resource, gvr, nil, prefetched[gvr])
 		if err != nil {
 			return err
 		}
@@ -203,6 +251,9 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.Resourc
 			Hash:            reportutils.CalculateResourceHash(*resource),
 			Data:            resource,
 			ServerSideApply: useServerSideApply,
+		}
+		if len(relisted) > 0 {
+			reconcileQueue = append(reconcileQueue, reconcileBatch{gvr: gvr, items: relisted})
 		}
 	}
 
@@ -521,6 +572,49 @@ func (wm *WatchManager) StopWatchers() {
 	wm.refCount = map[schema.GroupVersionResource]int{}
 }
 
+const (
+	collectionListTimeout           = 10 * time.Second
+	initialListRetryAttempts        = 3
+	recoveryListRetryAttempts       = 5
+	maxConsecutiveExpiredRecoveries = 5
+	watcherRetryBaseDelay           = 50 * time.Millisecond
+)
+
+type collectionState struct {
+	rv    string
+	items []unstructured.Unstructured
+}
+
+type expiredErrorWatcher struct {
+	ch chan watch.Event
+}
+
+func newExpiredErrorWatcher(err error) watch.Interface {
+	ch := make(chan watch.Event, 1)
+	var status metav1.Status
+	if statusErr, ok := err.(apierrors.APIStatus); ok {
+		status = statusErr.Status()
+	} else {
+		status = apierrors.NewGone(err.Error()).Status()
+	}
+	if status.Code == 0 {
+		status.Code = http.StatusGone
+	}
+	ch <- watch.Event{Type: watch.Error, Object: &status}
+	close(ch)
+	return &expiredErrorWatcher{ch: ch}
+}
+
+func (e *expiredErrorWatcher) Stop() {}
+
+func (e *expiredErrorWatcher) ResultChan() <-chan watch.Event {
+	return e.ch
+}
+
+func isWatchExpiredError(err error) bool {
+	return apierrors.IsGone(err) || apierrors.IsResourceExpired(err)
+}
+
 // startWatcher starts a new watcher for the given resource and GVR.
 // It initializes the metadata cache and sets up the watch interface.
 // The watcher will handle events for the resource and update the metadata cache accordingly.
@@ -530,6 +624,16 @@ func (wm *WatchManager) startWatcher(resource *unstructured.Unstructured, gvr sc
 }
 
 func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructured, gvr schema.GroupVersionResource, metadataCache map[types.UID]Resource) (*watcher, error) {
+	w, _, err := wm.startWatcherWithCacheAndState(resource, gvr, metadataCache, nil)
+	return w, err
+}
+
+func (wm *WatchManager) startWatcherWithCacheAndState(
+	resource *unstructured.Unstructured,
+	gvr schema.GroupVersionResource,
+	metadataCache map[types.UID]Resource,
+	prefetched *collectionState,
+) (*watcher, []unstructured.Unstructured, error) {
 	if metadataCache == nil {
 		metadataCache = map[types.UID]Resource{}
 	}
@@ -542,110 +646,216 @@ func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructure
 		// keep the setting SyncWatchers recorded when it restarts a watcher with this cache
 		ServerSideApply: metadataCache[resource.GetUID()].ServerSideApply,
 	}
-	resourceVersion := wm.resolveWatchResourceVersion(gvr, resource.GetResourceVersion(), false)
+	initialState, err := wm.resolveInitialWatchState(gvr, resource.GetResourceVersion(), prefetched)
+	if err != nil {
+		return nil, nil, err
+	}
+	resourceVersion := initialState.rv
 	logger := wm.log.WithValues("resourceVersion", resourceVersion)
 	logger.V(2).Info("start watcher ...")
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		logger.V(3).Info("creating watcher...")
-		watch, err := wm.client.GetDynamicInterface().Resource(gvr).Watch(context.Background(), options)
-		if err != nil {
-			logger.Error(err, "failed to watch")
+		w, werr := wm.client.GetDynamicInterface().Resource(gvr).Watch(context.Background(), options)
+		if werr != nil {
+			logger.Error(werr, "failed to watch")
+			// Surface a direct 410 Gone/Expired from Watch as a terminal watch.Error
+			// event so RetryWatcher exits immediately instead of retrying the same
+			// compacted resourceVersion indefinitely.
+			if isWatchExpiredError(werr) {
+				return newExpiredErrorWatcher(werr), nil
+			}
 		}
-		return watch, err
+		return w, werr
 	}
 	watchInterface, err := watchTools.NewRetryWatcherWithContext(context.TODO(), resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+	if err != nil && isWatchExpiredError(err) {
+		if refreshed, rerr := wm.listCollectionStateWithRetry(gvr, initialListRetryAttempts); rerr == nil && refreshed.rv != "" && refreshed.rv != resourceVersion {
+			resourceVersion = refreshed.rv
+			initialState.items = refreshed.items
+			logger.V(2).Info("retrying initial watcher with fresh collection resourceVersion after expired RV", "resourceVersion", resourceVersion)
+			watchInterface, err = watchTools.NewRetryWatcherWithContext(context.TODO(), resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
+		}
+	}
 	if err != nil {
 		logger.Error(err, "failed to create watcher")
-		return nil, err
-	} else {
-		w := &watcher{
-			watcher:       watchInterface,
-			metadataCache: metadataCache,
-		}
-		go func(gvr schema.GroupVersionResource, thisWatcher *watcher) {
-			defer func() {
-				logger.V(2).Info("watcher stopped")
-				wm.lock.Lock()
-				defer wm.lock.Unlock()
-				if wm.dynamicWatchers[gvr] == thisWatcher {
-					thisWatcher.watcher = nil
-				}
-			}()
-			currentWatch := watchInterface
-			for {
-				expired := false
-				for event := range currentWatch.ResultChan() {
-					switch event.Type {
-					case watch.Added:
-						wm.handleAdd(event.Object.(*unstructured.Unstructured), gvr)
-					case watch.Modified:
-						wm.handleUpdate(event.Object.(*unstructured.Unstructured), gvr)
-					case watch.Deleted:
-						wm.handleDelete(event.Object.(*unstructured.Unstructured), gvr)
-					case watch.Error:
-						logger.Error(errors.New("watch error event received"), "watch error event received", "event", event.Object)
-						if apierrors.IsGone(apierrors.FromObject(event.Object)) {
-							expired = true
-						}
+		return nil, nil, err
+	}
+	w := &watcher{
+		watcher:       watchInterface,
+		metadataCache: metadataCache,
+	}
+	go func(gvr schema.GroupVersionResource, thisWatcher *watcher) {
+		defer func() {
+			logger.V(2).Info("watcher stopped")
+			wm.lock.Lock()
+			defer wm.lock.Unlock()
+			if wm.dynamicWatchers[gvr] == thisWatcher {
+				thisWatcher.watcher = nil
+			}
+		}()
+		currentWatch := watchInterface
+		consecutiveExpired := 0
+		for {
+			expired := false
+			for event := range currentWatch.ResultChan() {
+				switch event.Type {
+				case watch.Added:
+					consecutiveExpired = 0
+					if obj, ok := event.Object.(*unstructured.Unstructured); ok {
+						wm.handleAdd(obj, gvr)
+					}
+				case watch.Modified:
+					consecutiveExpired = 0
+					if obj, ok := event.Object.(*unstructured.Unstructured); ok {
+						wm.handleUpdate(obj, gvr)
+					}
+				case watch.Deleted:
+					consecutiveExpired = 0
+					if obj, ok := event.Object.(*unstructured.Unstructured); ok {
+						wm.handleDelete(obj, gvr)
+					}
+				case watch.Bookmark:
+					consecutiveExpired = 0
+				case watch.Error:
+					logger.Error(errors.New("watch error event received"), "watch error event received", "event", event.Object)
+					if isWatchExpiredError(apierrors.FromObject(event.Object)) {
+						expired = true
 					}
 				}
-				if !expired {
-					return
-				}
-				freshRV := wm.resolveWatchResourceVersion(gvr, "", true)
-				if freshRV == "" {
-					return
-				}
-				wm.lock.Lock()
-				if wm.dynamicWatchers[gvr] != thisWatcher {
-					wm.lock.Unlock()
-					return
-				}
-				nextWatch, rerr := watchTools.NewRetryWatcherWithContext(context.TODO(), freshRV, &cache.ListWatch{WatchFunc: watchFunc})
-				if rerr != nil {
-					wm.lock.Unlock()
-					logger.Error(rerr, "failed to restart expired watcher", "resourceVersion", freshRV)
-					return
-				}
-				thisWatcher.watcher = nextWatch
-				currentWatch = nextWatch
-				wm.lock.Unlock()
 			}
-		}(gvr, w)
-		return w, nil
-	}
+			if !expired {
+				return
+			}
+			consecutiveExpired++
+			if consecutiveExpired > maxConsecutiveExpiredRecoveries {
+				logger.Error(errors.New("exceeded consecutive 410 watch recovery budget"), "stopping watcher recovery", "gvr", gvr, "attempts", consecutiveExpired-1)
+				return
+			}
+			if consecutiveExpired > 1 {
+				time.Sleep(time.Duration(1<<(consecutiveExpired-2)) * watcherRetryBaseDelay)
+			}
+			refreshed, lerr := wm.listCollectionStateWithRetry(gvr, recoveryListRetryAttempts)
+			if lerr != nil || refreshed.rv == "" {
+				if lerr == nil {
+					lerr = errors.New("empty collection resourceVersion on watch recovery")
+				}
+				logger.Error(lerr, "giving up watcher recovery after 410", "gvr", gvr)
+				return
+			}
+			// Reconcile any downstream drift that occurred before refreshed.rv
+			// (outside wm.lock) before resuming the watch stream at refreshed.rv.
+			wm.reconcileRelistedItems(gvr, refreshed.items)
+
+			wm.lock.Lock()
+			if wm.dynamicWatchers[gvr] != thisWatcher {
+				wm.lock.Unlock()
+				return
+			}
+			nextWatch, rerr := watchTools.NewRetryWatcherWithContext(context.TODO(), refreshed.rv, &cache.ListWatch{WatchFunc: watchFunc})
+			if rerr != nil {
+				wm.lock.Unlock()
+				logger.Error(rerr, "failed to restart expired watcher", "resourceVersion", refreshed.rv)
+				return
+			}
+			thisWatcher.watcher = nextWatch
+			currentWatch = nextWatch
+			wm.lock.Unlock()
+		}
+	}(gvr, w)
+	return w, initialState.items, nil
 }
 
-// resolveWatchResourceVersion obtains a fresh collection resourceVersion via a
-// lightweight List(Limit=1) call on gvr so watches do not start at a compacted
-// downstream object RV (#18367). When fallback is empty and forceRefresh is
-// false, empty is returned unchanged so NewRetryWatcher surfaces invalid empty
-// RVs cleanly. When List returns an empty RV (e.g. unit-test fake clients),
-// fallback is preserved.
-func (wm *WatchManager) resolveWatchResourceVersion(gvr schema.GroupVersionResource, fallback string, forceRefresh bool) string {
-	if fallback == "" && !forceRefresh {
-		return ""
+// resolveInitialWatchState obtains a fresh collection resourceVersion and live
+// items so watches do not start at a compacted downstream object RV (#18367)
+// and any drift prior to the collection RV can be reconciled. List errors are
+// surfaced directly rather than silently falling back to a stale RV; fallback
+// is used only when List succeeds with an empty RV (e.g. fake unit-test clients).
+func (wm *WatchManager) resolveInitialWatchState(gvr schema.GroupVersionResource, fallback string, prefetched *collectionState) (collectionState, error) {
+	if fallback == "" {
+		return collectionState{}, nil
 	}
-	if rv := wm.listCollectionResourceVersion(gvr); rv != "" {
-		return rv
+	var state collectionState
+	if prefetched != nil {
+		state = *prefetched
+	} else {
+		var err error
+		state, err = wm.listCollectionStateWithRetry(gvr, initialListRetryAttempts)
+		if err != nil {
+			return collectionState{}, err
+		}
 	}
-	return fallback
+	if state.rv != "" {
+		return state, nil
+	}
+	return collectionState{rv: fallback, items: state.items}, nil
 }
 
-func (wm *WatchManager) listCollectionResourceVersion(gvr schema.GroupVersionResource) (rv string) {
+func (wm *WatchManager) listCollectionStateWithRetry(gvr schema.GroupVersionResource, maxAttempts int) (collectionState, error) {
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(1<<(attempt-1)) * watcherRetryBaseDelay)
+		}
+		state, err := wm.listCollectionState(gvr)
+		if err == nil {
+			return state, nil
+		}
+		lastErr = err
+	}
+	return collectionState{}, lastErr
+}
+
+func (wm *WatchManager) listCollectionState(gvr schema.GroupVersionResource) (state collectionState, err error) {
 	if wm.client == nil || wm.client.GetDynamicInterface() == nil {
-		return ""
+		return collectionState{}, nil
 	}
 	defer func() {
 		if recover() != nil {
-			rv = ""
+			// Uninitialized unit-test RESTClient stub: treat as empty synthetic list.
+			state = collectionState{}
+			err = nil
 		}
 	}()
-	list, err := wm.client.GetDynamicInterface().Resource(gvr).List(context.Background(), metav1.ListOptions{Limit: 1})
-	if err == nil && list != nil {
-		return list.GetResourceVersion()
+	ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
+	defer cancel()
+	list, listErr := wm.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
+	if listErr != nil {
+		return collectionState{}, listErr
 	}
-	return ""
+	if list == nil {
+		return collectionState{}, nil
+	}
+	return collectionState{
+		rv:    list.GetResourceVersion(),
+		items: list.Items,
+	}, nil
+}
+
+// reconcileRelistedItems passes relisted objects that belong to metadataCache
+// through handleUpdate so edits made before a freshly listed resourceVersion
+// are reverted without waiting for a future Modify event.
+func (wm *WatchManager) reconcileRelistedItems(gvr schema.GroupVersionResource, items []unstructured.Unstructured) {
+	if len(items) == 0 {
+		return
+	}
+	wm.lock.Lock()
+	w, exists := wm.dynamicWatchers[gvr]
+	if !exists {
+		wm.lock.Unlock()
+		return
+	}
+	var tracked []*unstructured.Unstructured
+	for i := range items {
+		uid := items[i].GetUID()
+		if _, ok := w.metadataCache[uid]; ok {
+			tracked = append(tracked, items[i].DeepCopy())
+		}
+	}
+	wm.lock.Unlock()
+
+	for _, obj := range tracked {
+		wm.handleUpdate(obj, gvr)
+	}
 }
 
 func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {

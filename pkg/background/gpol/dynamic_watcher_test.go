@@ -2540,8 +2540,10 @@ func TestHandleUpdate_SourcePropagationErrorKeepsCache(t *testing.T) {
 // TestStartWatcherWithCache_FreshRVAndExpiredRecovery covers #18367:
 //  1. SyncWatchers starts the watch from the fresh collection resourceVersion
 //     returned by List rather than a compacted downstream resourceVersion.
-//  2. When a running watch receives 410 Expired, WatchManager re-lists a fresh
-//     resourceVersion, swaps in a live RetryWatcher, and continues reverting drift.
+//  2. When a running watch receives 410 Expired, WatchManager retries transient
+//     List failures, reconciles drift present in the relisted ConfigMap without
+//     requiring a later Modify event, swaps in a live RetryWatcher, and continues
+//     reverting subsequent drift.
 func TestStartWatcherWithCache_FreshRVAndExpiredRecovery(t *testing.T) {
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	scheme := runtime.NewScheme()
@@ -2549,8 +2551,16 @@ func TestStartWatcherWithCache_FreshRVAndExpiredRecovery(t *testing.T) {
 		gvr: "ConfigMapList",
 	})
 
+	labels := map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     "sync-pol",
+		common.GenerateTriggerUIDLabel: "trig-1",
+	}
+	downstream := makeUnstructured("100", "", "v1", "ConfigMap", "gen-cm", "default", "uid-cm", labels)
+	downstream.Object["data"] = map[string]any{"k": "desired"}
+
 	var mu sync.Mutex
-	listRVs := []string{"950", "1200"}
+	listCall := 0
 	var watchedRVs []string
 	w1 := watch.NewFake()
 	w2 := watch.NewFake()
@@ -2559,14 +2569,25 @@ func TestStartWatcherWithCache_FreshRVAndExpiredRecovery(t *testing.T) {
 	dynClient.PrependReactor("list", "configmaps", func(_ ktesting.Action) (bool, runtime.Object, error) {
 		mu.Lock()
 		defer mu.Unlock()
-		rv := "1200"
-		if len(listRVs) > 0 {
-			rv = listRVs[0]
-			listRVs = listRVs[1:]
+		listCall++
+		switch listCall {
+		case 1:
+			out := &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*downstream.DeepCopy()}}
+			out.SetResourceVersion("950")
+			return true, out, nil
+		case 2:
+			// Simulate transient apiserver failure during 410 recovery.
+			return true, nil, apierrors.NewInternalError(errors.New("transient apiserver list error"))
+		default:
+			// Simulate drift that happened while the watch was expired (before RV 1200)
+			// with NO subsequent Modify event sent for this edit.
+			tampered := downstream.DeepCopy()
+			tampered.SetResourceVersion("1199")
+			tampered.Object["data"] = map[string]any{"k": "tampered"}
+			out := &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*tampered}}
+			out.SetResourceVersion("1200")
+			return true, out, nil
 		}
-		out := &unstructured.UnstructuredList{}
-		out.SetResourceVersion(rv)
-		return true, out, nil
 	})
 	dynClient.PrependWatchReactor("configmaps", func(action ktesting.Action) (bool, watch.Interface, error) {
 		wAction := action.(ktesting.WatchAction)
@@ -2580,21 +2601,12 @@ func TestStartWatcherWithCache_FreshRVAndExpiredRecovery(t *testing.T) {
 		return true, w2, nil
 	})
 
-	labels := map[string]string{
-		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-		common.GeneratePolicyLabel:     "sync-pol",
-		common.GenerateTriggerUIDLabel: "trig-1",
-	}
-	downstream := makeUnstructured("100", "", "v1", "ConfigMap", "gen-cm", "default", "uid-cm", labels)
-	downstream.Object["data"] = map[string]any{"k": "desired"}
-
-	revertedCh := make(chan struct{}, 1)
+	revertedCh := make(chan *unstructured.Unstructured, 4)
 	mc := &MockClient{
 		dynamicClient: dynClient,
-		updateFn: func(_ interface{}) {
-			select {
-			case revertedCh <- struct{}{}:
-			default:
+		updateFn: func(obj interface{}) {
+			if u, ok := obj.(*unstructured.Unstructured); ok {
+				revertedCh <- u.DeepCopy()
 			}
 		},
 	}
@@ -2623,10 +2635,19 @@ func TestStartWatcherWithCache_FreshRVAndExpiredRecovery(t *testing.T) {
 	assert.Equal(t, "950", watchedRVs[0], "initial watch must use fresh List RV rather than stale downstream RV 100")
 	mu.Unlock()
 
-	// Deliver 410 Expired on the first watch stream; RetryWatcher closes w1 and
-	// WatchManager must transparently re-list ("1200") and start w2.
-	expiredStatus := apierrors.NewGone("too old resource version: 950 (1100)").Status()
+	// Deliver StatusReasonExpired on w1; WatchManager must survive the transient
+	// List failure on attempt 1, relist at RV 1200, immediately revert the
+	// tampered ConfigMap from the relist snapshot (no w2.Modify sent), and open w2.
+	expiredStatus := apierrors.NewResourceExpired("too old resource version: 950 (1100)").Status()
 	w1.Error(&expiredStatus)
+
+	select {
+	case reverted := <-revertedCh:
+		val, _, _ := unstructured.NestedString(reverted.Object, "data", "k")
+		assert.Equal(t, "desired", val, "drift present in relisted ConfigMap must be reverted without any subsequent Modify event")
+	case <-time.After(3 * time.Second):
+		t.Fatal("expected relist reconciliation after 410 Expired to revert tampered ConfigMap")
+	}
 
 	require.Eventually(t, func() bool {
 		mu.Lock()
@@ -2634,19 +2655,115 @@ func TestStartWatcherWithCache_FreshRVAndExpiredRecovery(t *testing.T) {
 		return len(watchedRVs) >= 2 && watchedRVs[1] == "1200"
 	}, 3*time.Second, 10*time.Millisecond)
 
-	// Drift event arriving on the replacement watch must still be reverted.
-	drifted := downstream.DeepCopy()
-	drifted.SetResourceVersion("1201")
-	drifted.Object["data"] = map[string]any{"k": "tampered"}
-	w2.Modify(drifted)
+	// Subsequent drift arriving on replacement watch w2 is also reverted.
+	driftedAgain := downstream.DeepCopy()
+	driftedAgain.SetResourceVersion("1205")
+	driftedAgain.Object["data"] = map[string]any{"k": "tampered-again"}
+	w2.Modify(driftedAgain)
 
 	select {
 	case <-revertedCh:
 	case <-time.After(3 * time.Second):
-		t.Fatal("expected replacement watcher after 410 Expired to revert downstream drift")
+		t.Fatal("expected replacement watcher w2 to revert subsequent Modify drift")
 	}
 
 	wm.lock.Lock()
 	assert.NotNil(t, wm.dynamicWatchers[gvr].watcher, "watcher must remain active after recovering from 410 Expired")
 	wm.lock.Unlock()
+}
+
+// TestStartWatcherWithCache_DirectWatchGoneErrorAndListError covers:
+//  1. A 410 Gone returned directly from Resource(gvr).Watch(...) (rather than
+//     streamed as a watch.Error event) triggers immediate relist + fresh-RV
+//     watcher replacement instead of retrying the stale RV in RetryWatcher.
+//  2. Persistent List failure on initial SyncWatchers surfaces an error rather
+//     than silently falling back to a compacted downstream RV.
+func TestStartWatcherWithCache_DirectWatchGoneErrorAndListError(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	labels := map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     "sync-pol",
+		common.GenerateTriggerUIDLabel: "trig-1",
+	}
+	downstream := makeUnstructured("100", "", "v1", "ConfigMap", "gen-cm", "default", "uid-cm", labels)
+	downstream.Object["data"] = map[string]any{"k": "desired"}
+
+	t.Run("direct 410 Gone from Watch triggers relist recovery", func(t *testing.T) {
+		scheme := runtime.NewScheme()
+		dynClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+			gvr: "ConfigMapList",
+		})
+		var mu sync.Mutex
+		listRVs := []string{"950", "1300"}
+		var watchedRVs []string
+		w2 := watch.NewFake()
+
+		dynClient.PrependReactor("list", "configmaps", func(_ ktesting.Action) (bool, runtime.Object, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			rv := "1300"
+			if len(listRVs) > 0 {
+				rv = listRVs[0]
+				listRVs = listRVs[1:]
+			}
+			out := &unstructured.UnstructuredList{}
+			out.SetResourceVersion(rv)
+			return true, out, nil
+		})
+		dynClient.PrependWatchReactor("configmaps", func(action ktesting.Action) (bool, watch.Interface, error) {
+			wAction := action.(ktesting.WatchAction)
+			rv := wAction.GetWatchRestrictions().ResourceVersion
+			mu.Lock()
+			defer mu.Unlock()
+			watchedRVs = append(watchedRVs, rv)
+			if rv == "950" {
+				return true, nil, apierrors.NewGone("too old resource version: 950 (1250)")
+			}
+			return true, w2, nil
+		})
+
+		wm := &WatchManager{
+			log:    logging.WithName("test"),
+			client: &MockClient{dynamicClient: dynClient},
+			restMapper: &mockRESTMapper{fn: func(_ schema.GroupKind, _ string) (*meta.RESTMapping, error) {
+				return &meta.RESTMapping{Resource: gvr}, nil
+			}},
+			dynamicWatchers:  map[schema.GroupVersionResource]*watcher{},
+			policyRefs:       map[string][]schema.GroupVersionResource{},
+			refCount:         map[schema.GroupVersionResource]int{},
+			pendingGenerates: map[string]*pendingGenerate{},
+		}
+		t.Cleanup(wm.StopWatchers)
+
+		require.NoError(t, wm.SyncWatchers("sync-pol", &kyverno.ResourceSpec{UID: "trig-1"}, []*unstructured.Unstructured{downstream}, false))
+
+		require.Eventually(t, func() bool {
+			mu.Lock()
+			defer mu.Unlock()
+			return len(watchedRVs) >= 2 && watchedRVs[len(watchedRVs)-1] == "1300"
+		}, 3*time.Second, 10*time.Millisecond)
+	})
+
+	t.Run("persistent List failure on initial SyncWatchers returns error", func(t *testing.T) {
+		scheme := runtime.NewScheme()
+		dynClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+			gvr: "ConfigMapList",
+		})
+		dynClient.PrependReactor("list", "configmaps", func(_ ktesting.Action) (bool, runtime.Object, error) {
+			return true, nil, apierrors.NewForbidden(gvr.GroupResource(), "", errors.New("forbidden"))
+		})
+		wm := &WatchManager{
+			log:    logging.WithName("test"),
+			client: &MockClient{dynamicClient: dynClient},
+			restMapper: &mockRESTMapper{fn: func(_ schema.GroupKind, _ string) (*meta.RESTMapping, error) {
+				return &meta.RESTMapping{Resource: gvr}, nil
+			}},
+			dynamicWatchers:  map[schema.GroupVersionResource]*watcher{},
+			policyRefs:       map[string][]schema.GroupVersionResource{},
+			refCount:         map[schema.GroupVersionResource]int{},
+			pendingGenerates: map[string]*pendingGenerate{},
+		}
+		err := wm.SyncWatchers("sync-pol", &kyverno.ResourceSpec{UID: "trig-1"}, []*unstructured.Unstructured{downstream}, false)
+		require.Error(t, err)
+	})
 }
