@@ -78,12 +78,63 @@ func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta
 						vapLogger.Error(errors.New("unsafe api path segment"), fmt.Sprintf("skipping resource for group %s, version %s, resource %s", group, version, resource))
 						continue
 					}
-					gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
+					gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
+					if mapper == nil || (group != "*" && version != "*") {
+						gvrList = append(gvrList, gvr)
+						continue
+					}
+					// "*" is not a servable group or version: listing it always returns
+					// 404, so resolve it against discovery to the served resources
+					resolved, err := resolveWildcardGVRs(gvr, mapper)
+					if err != nil {
+						vapLogger.Error(err, fmt.Sprintf("failed to resolve resources for group %s, version %s, resource %s", group, version, resource))
+						continue
+					}
+					gvrList = append(gvrList, resolved...)
 				}
 			}
 		}
 	}
 	return gvrList
+}
+
+// resolveWildcardGVRs resolves a GVR whose group or version is "*" into the
+// served resources it matches. Only the first (preferred) version of each group
+// and resource is kept, so the same objects are not listed once per version.
+func resolveWildcardGVRs(gvr schema.GroupVersionResource, mapper meta.RESTMapper) ([]schema.GroupVersionResource, error) {
+	// RESTMapper treats an empty group or version as "any"
+	query := gvr
+	if query.Group == "*" {
+		query.Group = ""
+	}
+	if query.Version == "*" {
+		query.Version = ""
+	}
+	resources, err := mapper.ResourcesFor(query)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[schema.GroupResource]struct{}, len(resources))
+	result := make([]schema.GroupVersionResource, 0, len(resources))
+	for _, resource := range resources {
+		// an empty group in the query also matches every named group, so
+		// filter back to the requested core group
+		if gvr.Group != "*" && resource.Group != gvr.Group {
+			continue
+		}
+		if gvr.Version != "*" && resource.Version != gvr.Version {
+			continue
+		}
+		if _, ok := seen[resource.GroupResource()]; ok {
+			continue
+		}
+		seen[resource.GroupResource()] = struct{}{}
+		result = append(result, resource)
+	}
+	if len(result) == 0 {
+		return nil, &meta.NoResourceMatchError{PartialResource: gvr}
+	}
+	return result, nil
 }
 
 // isUnsafeGVRSegment reports whether a policy-supplied GVR component cannot be

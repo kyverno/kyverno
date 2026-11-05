@@ -9,7 +9,9 @@ import (
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"sigs.k8s.io/yaml"
 )
@@ -336,4 +338,81 @@ func TestGetGVRs_SkipsUnsafeResourceSegments(t *testing.T) {
 	wild := GetGVRs(rules("", "v1", "*"), nil)
 	assert.Equal(t, len(wild), 1)
 	assert.Equal(t, wild[0].Resource, "*")
+}
+
+func TestGetGVRs_ResolvesWildcardsWithMapper(t *testing.T) {
+	t.Parallel()
+
+	rules := func(group, version string, resources ...string) *admissionregistrationv1.MatchResources {
+		return &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{group},
+						APIVersions: []string{version},
+						Resources:   resources,
+					},
+				},
+			}},
+		}
+	}
+
+	reportsV1alpha2 := schema.GroupVersion{Group: "wgpolicyk8s.io", Version: "v1alpha2"}
+	batchV1 := schema.GroupVersion{Group: "batch", Version: "v1"}
+	batchV1beta1 := schema.GroupVersion{Group: "batch", Version: "v1beta1"}
+	coreV1 := schema.GroupVersion{Version: "v1"}
+	eventsV1 := schema.GroupVersion{Group: "events.k8s.io", Version: "v1"}
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{reportsV1alpha2, batchV1, batchV1beta1, coreV1, eventsV1})
+	mapper.Add(coreV1.WithKind("Event"), meta.RESTScopeNamespace)
+	mapper.Add(eventsV1.WithKind("Event"), meta.RESTScopeNamespace)
+	mapper.Add(reportsV1alpha2.WithKind("PolicyReport"), meta.RESTScopeNamespace)
+	mapper.Add(reportsV1alpha2.WithKind("ClusterPolicyReport"), meta.RESTScopeRoot)
+	mapper.Add(batchV1.WithKind("Job"), meta.RESTScopeNamespace)
+	mapper.Add(batchV1.WithKind("CronJob"), meta.RESTScopeNamespace)
+	mapper.Add(batchV1beta1.WithKind("CronJob"), meta.RESTScopeNamespace)
+
+	tests := []struct {
+		name  string
+		match *admissionregistrationv1.MatchResources
+		want  []schema.GroupVersionResource
+	}{{
+		name:  "wildcard version resolves to the served version",
+		match: rules("wgpolicyk8s.io", "*", "policyreports", "clusterpolicyreports"),
+		want: []schema.GroupVersionResource{
+			reportsV1alpha2.WithResource("policyreports"),
+			reportsV1alpha2.WithResource("clusterpolicyreports"),
+		},
+	}, {
+		name:  "wildcard version keeps only the preferred version",
+		match: rules("batch", "*", "cronjobs"),
+		want:  []schema.GroupVersionResource{batchV1.WithResource("cronjobs")},
+	}, {
+		name:  "wildcard group resolves the resource in every group serving it",
+		match: rules("*", "v1", "events"),
+		want:  []schema.GroupVersionResource{coreV1.WithResource("events"), eventsV1.WithResource("events")},
+	}, {
+		name:  "wildcard version on the core group does not match named groups",
+		match: rules("", "*", "events"),
+		want:  []schema.GroupVersionResource{coreV1.WithResource("events")},
+	}, {
+		name:  "wildcard resource is passed through unchanged",
+		match: rules("batch", "v1", "*"),
+		want:  []schema.GroupVersionResource{batchV1.WithResource("*")},
+	}, {
+		name:  "wildcard that matches nothing is skipped",
+		match: rules("example.com", "*", "widgets"),
+		want:  nil,
+	}, {
+		name:  "explicit version is passed through unchanged",
+		match: rules("wgpolicyk8s.io", "v1", "policyreports"),
+		want:  []schema.GroupVersionResource{{Group: "wgpolicyk8s.io", Version: "v1", Resource: "policyreports"}},
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := GetGVRs(tt.match, mapper)
+			assert.DeepEqual(t, got, tt.want)
+		})
+	}
 }
