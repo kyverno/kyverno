@@ -356,7 +356,10 @@ type ImageRegistryCredentials struct {
 	Providers []ImageRegistryCredentialsProvidersType `json:"providers,omitempty"`
 
 	// Secrets specifies a list of secrets that are provided for credentials.
-	// Secrets can be specified as a name (Kyverno namespace) or namespace/name.
+	// Secrets can be specified as a name or namespace/name. In imageRegistry
+	// contexts and verifyImages rules on a namespaced Policy, references are
+	// confined to the policy namespace and bare names resolve there.
+	// Cluster-scoped policies resolve bare names in the Kyverno namespace.
 	// imagePullSecrets from the resource namespace are also used.
 	// +kubebuilder:validation:Optional
 	Secrets []string `json:"secrets,omitempty"`

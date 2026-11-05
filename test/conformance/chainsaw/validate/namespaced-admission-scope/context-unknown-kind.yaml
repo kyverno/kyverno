@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: ($name)
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+  - name: check
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          - MissingScopeReviewKind
+    context:
+    - name: image
+      imageRegistry:
+        reference: registry.invalid/image:tag
+        imageRegistryCredentials:
+          secrets:
+          - ($secret)
+    validate:
+      message: test
+      pattern:
+        metadata:
+          name: '*'
+  validationFailureAction: Enforce

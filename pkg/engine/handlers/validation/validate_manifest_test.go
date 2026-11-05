@@ -16,6 +16,7 @@ import (
 	"gotest.tools/v3/assert"
 	v1 "k8s.io/api/admission/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var jp = jmespath.New(config.NewDefaultConfiguration(false))
@@ -812,4 +813,45 @@ func buildContext(t *testing.T, operation kyvernov1.AdmissionOperation, policy, 
 	}
 
 	return policyContext
+}
+
+func Test_VerifyManifest_NamespacedPolicyKeyScope(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		key       string
+		scopeErr  bool
+		namespace string
+	}{
+		{name: "foreign secret reference", key: "k8s://kyverno/stolen-key", scopeErr: true, namespace: "tenant-a"},
+		{name: "local secret reference", key: "k8s://tenant-a/cosign", namespace: "tenant-a"},
+		{name: "cluster policy keeps reference", key: "k8s://kyverno/cosign"},
+		{name: "templated namespace resolves to policy namespace", key: "k8s://{{ request.namespace }}/cosign", namespace: "sample-ns"},
+		{name: "templated namespace resolves to foreign namespace", key: "k8s://{{ request.namespace }}/stolen-key", scopeErr: true, namespace: "tenant-a"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			policyContext := buildContext(t, kyvernov1.Create, test_policy, signed_resource, "")
+			if test.namespace != "" {
+				policy := &kyvernov1.Policy{ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: test.namespace}}
+				policyContext = policyContext.(*policycontext.PolicyContext).WithPolicy(policy)
+			}
+			verifyRule := kyvernov1.Manifests{Attestors: []kyvernov1.AttestorSet{{
+				Entries: []kyvernov1.Attestor{{Keys: &kyvernov1.StaticKeyAttestor{PublicKeys: test.key}}},
+			}}}
+			// A DryRun request returns before any key is read, so only the scope
+			// check can produce an error here.
+			var request v1.AdmissionRequest
+			_ = json.Unmarshal([]byte(signed_adreq), &request)
+			dryRun := true
+			request.DryRun = &dryRun
+			policyContext.JSONContext().AddRequest(request)
+			verified, _, err := h.verifyManifest(context.TODO(), logr.Discard(), policyContext, verifyRule)
+			if test.scopeErr {
+				assert.ErrorContains(t, err, "instead of policy namespace")
+				assert.Equal(t, verified, false)
+				return
+			}
+			assert.NilError(t, err)
+			assert.Equal(t, verified, true)
+		})
+	}
 }
