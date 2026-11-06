@@ -595,7 +595,8 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 		{
 			name:   "wildcard group and version use one preferred version per group",
 			groups: []string{"*"}, versions: []string{"*"},
-			wantNames: []string{"core-config", "custom-config"},
+			wantNames:            []string{"core-config", "custom-config"},
+			wantCustomAPIVersion: customGroup + "/v1",
 		},
 		{
 			name:   "multiple explicit versions retain eligible matches",
@@ -740,9 +741,6 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 					assert.Equal(t, tc.wantSubresource, trigger.SubResource)
 				}
 				if trigger.GetName() == "custom-config" {
-					if tc.name == "wildcard group and version use one preferred version per group" {
-						assert.Equal(t, customGroup+"/v1", trigger.GetAPIVersion())
-					}
 					if tc.wantCustomAPIVersion != "" {
 						assert.Equal(t, tc.wantCustomAPIVersion, trigger.GetAPIVersion())
 					}
@@ -751,4 +749,39 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 			assert.ElementsMatch(t, tc.wantNames, gotNames)
 		})
 	}
+	// The base resource and its status subresource represent distinct admission
+	// contexts. A mutating policy can accept only status updates, so processing
+	// a base rule first must not suppress the status trigger in another version.
+	t.Run("base and status contexts remain distinct across API versions", func(t *testing.T) {
+		makeRule := func(version, resource string) admissionregistrationv1.NamedRuleWithOperations {
+			return admissionregistrationv1.NamedRuleWithOperations{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{customGroup},
+						APIVersions: []string{version},
+						Resources:   []string{resource},
+					},
+				},
+			}
+		}
+		match := &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+				makeRule("v1alpha1", "configmaps"),
+				makeRule("v1", "configmaps/status"),
+				makeRule("v1alpha1", "configmaps/status"),
+			},
+		}
+		triggers := pc.getGpolTriggers(match)
+		require.Len(t, triggers, 2)
+		versionsBySubresource := make(map[string]string, len(triggers))
+		for _, trigger := range triggers {
+			assert.Equal(t, "custom-config", trigger.GetName())
+			versionsBySubresource[trigger.SubResource] = trigger.GetAPIVersion()
+		}
+		assert.Equal(t, map[string]string{
+			"":       customGroup + "/v1alpha1",
+			"status": customGroup + "/v1",
+		}, versionsBySubresource)
+	})
+
 }
