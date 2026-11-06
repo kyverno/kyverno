@@ -25,7 +25,33 @@ const (
 	DecisionError Decision = "Error"
 )
 
-// EvaluationResponse is the body of POST /v1alpha1/evaluate/{mode}.
+// EvaluationRequest is the body of POST /v1alpha1/evaluate: a payload plus the context it is
+// evaluated in. Every string field holds raw YAML or JSON (multi-document YAML where a field takes
+// several objects), the same content the matching `kyverno apply` file flag would read.
+type EvaluationRequest struct {
+	APIVersion string         `json:"apiVersion,omitempty"`
+	Kind       string         `json:"kind,omitempty"`
+	Mode       evaluator.Mode `json:"mode"`
+	// Payload is what is evaluated, in the format POST /v1alpha1/evaluate/{mode} takes.
+	Payload string `json:"payload"`
+	// Policies, when set, are evaluated instead of the server's --policies. Only accepted when the
+	// server runs with --allow-request-policies.
+	Policies string `json:"policies,omitempty"`
+	// Exceptions are CEL PolicyExceptions applied in addition to those loaded with the policies.
+	Exceptions string `json:"exceptions,omitempty"`
+	// Context is a cli.kyverno.io/v1alpha1 Context document (what `kyverno apply --context-file`
+	// reads): the resources CEL resource.get/resource.list lookups return, and image data.
+	Context string `json:"context,omitempty"`
+	// ClusterResources seed the in-memory cluster client alongside the payload, which namespace
+	// lookups (namespaceSelector, namespaceObject) read. Use Context for resource.get lookups.
+	ClusterResources string `json:"clusterResources,omitempty"`
+	// ParameterResources are ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters.
+	ParameterResources string `json:"parameterResources,omitempty"`
+	// Operation is the admission operation to simulate: CREATE (default), UPDATE or DELETE.
+	Operation string `json:"operation,omitempty"`
+}
+
+// EvaluationResponse is the body of POST /v1alpha1/evaluate and POST /v1alpha1/evaluate/{mode}.
 type EvaluationResponse struct {
 	APIVersion      string         `json:"apiVersion"`
 	Kind            string         `json:"kind"`

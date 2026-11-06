@@ -13,13 +13,15 @@ gets the same results from both.
 export KYVERNO_EXPERIMENTAL=true
 kyverno serve --policies ./policies                       # all modes, 127.0.0.1:8080
 kyverno serve --policies ./envoy --mode Envoy --address 127.0.0.1:9000
+kyverno serve --allow-request-policies                   # policies arrive with each request (Playground)
 ```
 
 | Flag | Default | Description |
 |---|---|---|
-| `--policies` | (required) | Policy files or directories. Can be repeated or comma-separated. |
+| `--policies` | (required unless `--allow-request-policies`) | Policy files or directories. Can be repeated or comma-separated. |
 | `--mode` | all | The modes to serve: `Kubernetes`, `JSON`, `HTTP`, `Envoy`. Can be repeated or comma-separated. |
 | `--address` | `127.0.0.1:8080` | Listen address. A non-loopback address prints a warning. |
+| `--allow-request-policies` | `false` | Accept policies inside `POST /v1alpha1/evaluate` requests. They are evaluated instead of `--policies`. |
 
 **Startup is strict.** Policies are loaded once. The server refuses to start if:
 
@@ -35,7 +37,8 @@ allow every later request that policy should have checked.
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/v1alpha1/evaluate/{mode}` | Evaluate a raw JSON or YAML body. `mode` is not case-sensitive. |
+| `POST` | `/v1alpha1/evaluate/{mode}` | Evaluate a raw JSON or YAML body against the server's policies. `mode` is not case-sensitive. |
+| `POST` | `/v1alpha1/evaluate` | Evaluate an `EvaluationRequest`: a payload plus its context and, optionally, its policies. |
 | `GET` | `/v1alpha1/policies` | List the loaded policies, the modes each applies to, and the policy-set digest. |
 | `GET` | `/healthz`, `/readyz` | Health and readiness. |
 
@@ -52,6 +55,31 @@ Bodies are limited to 10 MiB.
 
 For each Kubernetes-mode request, the resources in the body are loaded into an in-memory cluster.
 Policies that look objects up see only those resources, the same as `kyverno apply -r`.
+
+### EvaluationRequest (`POST /v1alpha1/evaluate`)
+
+Every string field holds raw YAML or JSON, the same content the matching `kyverno apply` flag
+would read from a file. Unknown fields are rejected.
+
+| Field | `apply` equivalent | Description |
+|---|---|---|
+| `mode` (required) | | `Kubernetes`, `JSON`, `HTTP` or `Envoy` |
+| `payload` (required) | `-r` / `--json` / `--http-payload` / `--envoy-payload` | What is evaluated, in the format the mode takes (see above) |
+| `policies` | positional policy paths | Policies evaluated instead of the server's set. Needs `--allow-request-policies`, otherwise 403. Loaded as strictly as at startup. |
+| `exceptions` | `--exception` | CEL `PolicyException`s, applied in addition to any loaded with the policies |
+| `context` | `--context-file` | A `cli.kyverno.io/v1alpha1` `Context`: the objects CEL `resource.get`/`resource.list` return, and image data |
+| `clusterResources` | extra `-r` resources | Objects added to the in-memory cluster next to the payload (read by namespace lookups) |
+| `parameterResources` | `--parameter-resource` | VAP/MAP parameter objects |
+| `operation` | `request.operation` in `--values-file` | `CREATE` (default), `UPDATE` or `DELETE` |
+
+```sh
+jq -n --rawfile p policy.yaml --rawfile r pod.yaml \
+  '{apiVersion: "serve.cli.kyverno.io/v1alpha1", kind: "EvaluationRequest", mode: "Kubernetes", policies: $p, payload: $r, operation: "UPDATE"}' |
+  curl -s -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:8080/v1alpha1/evaluate
+```
+
+When the request carries `policies`, `policySetDigest` in the response is the digest of those
+policies.
 
 ### Response
 
@@ -105,7 +133,8 @@ Every non-2xx response has this body:
 
 | Code | When |
 |---|---|
-| 400 | Empty body, a body that does not parse, a JSON-mode body that is not a single object, or Kubernetes resources without `apiVersion` or `kind` |
+| 400 | Empty body, a body that does not parse, a JSON-mode body that is not a single object, Kubernetes resources without `apiVersion` or `kind`, an invalid `EvaluationRequest` field (unknown field, bad operation, request policies that fail to load), or no policies at all |
+| 403 | The request carries `policies` but the server was not started with `--allow-request-policies` |
 | 404 | Unknown mode, mode not enabled with `--mode`, unknown route |
 | 413 | Body over the size limit |
 | 500 | The evaluation failed, including a recovered panic |
@@ -118,9 +147,12 @@ Every non-2xx response has this body:
   Kubernetes requests, serve them from a separate `--policies` directory.
 - **Exceptions.** CEL `PolicyException`s found in `--policies` are always applied. This is the same
   as `apply --exceptions-within-policies`.
-- **Not supported in v1alpha1.** Values files, user info, old objects or operations, cluster
-  lookups, global context, Git or OCI policy sources, reload, AdmissionReview, SubjectAccessReview,
-  Envoy gRPC ext_authz, TLS, and authentication.
+- **Not supported in v1alpha1.** Values files, user info, a separate old object (for `UPDATE` the
+  payload is used as both the new and the old object, as in `apply`), global context entries,
+  Git or OCI policy sources, reload, AdmissionReview, SubjectAccessReview, Envoy gRPC ext_authz,
+  TLS, and authentication.
+- **Request policies run arbitrary CEL** that the caller supplies. They are off by default. Only
+  enable `--allow-request-policies` on a loopback address, or behind your own access control.
 
 ## Testing
 

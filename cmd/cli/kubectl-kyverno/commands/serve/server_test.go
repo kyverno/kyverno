@@ -18,13 +18,19 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/apply"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/evaluator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const fixtures = "../../../../../test/cli/serve"
+
+var summaryRegexp = regexp.MustCompile(`pass: (\d+), fail: (\d+), warn: (\d+), error: (\d+), skip: (\d+)`)
+
+func summaryFromMatch(m []string) Summary {
+	atoi := func(s string) int { n, _ := strconv.Atoi(s); return n }
+	return Summary{Pass: atoi(m[1]), Fail: atoi(m[2]), Warn: atoi(m[3]), Error: atoi(m[4]), Skip: atoi(m[5])}
+}
 
 func fixture(parts ...string) string {
 	return filepath.Join(append([]string{fixtures}, parts...)...)
@@ -36,7 +42,7 @@ func allPolicyDirs() []string {
 
 func newTestServer(t *testing.T, modes []evaluator.Mode, dirs ...string) *Server {
 	t.Helper()
-	s, err := newServerFromPaths(dirs, modes)
+	s, err := newServerFromPaths(dirs, Config{Modes: modes})
 	require.NoError(t, err)
 	return s
 }
@@ -140,7 +146,6 @@ func TestApplyParity(t *testing.T) {
 		evaluator.ModeHTTP:       "--http-payload",
 		evaluator.ModeEnvoy:      "--envoy-payload",
 	}
-	summaryLine := regexp.MustCompile(`pass: (\d+), fail: (\d+), warn: (\d+), error: (\d+), skip: (\d+)`)
 	type policySet struct {
 		name string
 		dirs func(dir string) []string
@@ -159,17 +164,7 @@ func TestApplyParity(t *testing.T) {
 			s := newTestServer(t, []evaluator.Mode{mode}, policyDirs...)
 			for _, payload := range payloads {
 				t.Run(set.name+"/"+string(mode)+"/"+filepath.Base(payload), func(t *testing.T) {
-					var out bytes.Buffer
-					cmd := apply.Command()
-					cmd.SetOut(&out)
-					cmd.SetErr(io.Discard)
-					args := append(slices.Clone(policyDirs), flags[mode], payload, "--remove-color")
-					cmd.SetArgs(args)
-					_ = cmd.Execute() // a policy violation is a non-nil error; the summary is what we compare
-					m := summaryLine.FindStringSubmatch(out.String())
-					require.NotNil(t, m, out.String())
-					atoi := func(s string) int { n, _ := strconv.Atoi(s); return n }
-					want := Summary{Pass: atoi(m[1]), Fail: atoi(m[2]), Warn: atoi(m[3]), Error: atoi(m[4]), Skip: atoi(m[5])}
+					want := applySummary(t, append(slices.Clone(policyDirs), flags[mode], payload)...)
 
 					code, resp := evaluate(t, s.Handler(), mode, payload)
 					require.Equal(t, http.StatusOK, code)
@@ -339,23 +334,25 @@ func TestPoliciesAndHealth(t *testing.T) {
 
 //nolint:paralleltest // newServerFromPaths sets the process-global CRD processor
 func TestStartupFailures(t *testing.T) {
-	_, err := newServerFromPaths([]string{fixture("policies", "invalid")}, nil)
+	_, err := newServerFromPaths([]string{fixture("policies", "invalid")}, Config{})
 	assert.ErrorContains(t, err, "failed to load policies")
-	_, err = newServerFromPaths([]string{t.TempDir()}, nil)
+	_, err = newServerFromPaths([]string{t.TempDir()}, Config{})
 	assert.ErrorContains(t, err, "no policies found")
 	_, err = parseModes([]string{"Kubernetes", "SOAP"})
 	assert.ErrorContains(t, err, "unsupported mode")
 	modes, err := parseModes([]string{"json", "JSON", "envoy"})
 	require.NoError(t, err)
 	assert.Equal(t, []evaluator.Mode{evaluator.ModeJSON, evaluator.ModeEnvoy}, modes)
-	_, err = NewServer(&evaluator.PolicySet{}, "v0", nil)
+	_, err = NewServer(&evaluator.PolicySet{}, "v0", Config{})
 	assert.Error(t, err)
+	_, err = NewServer(nil, "v0", Config{AllowRequestPolicies: true})
+	assert.NoError(t, err)
 
 	cmd := Command()
 	cmd.SetArgs([]string{})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
-	assert.ErrorContains(t, cmd.Execute(), `required flag(s) "policies" not set`)
+	assert.ErrorContains(t, cmd.Execute(), "--policies is required unless --allow-request-policies is set")
 
 	cmd = Command()
 	cmd.SetArgs([]string{"--policies", fixture("policies", "invalid")})

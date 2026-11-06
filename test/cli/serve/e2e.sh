@@ -95,6 +95,39 @@ else
   FAILURES=$((FAILURES + 1))
 fi
 
+# POST /v1alpha1/evaluate with request policies and context (server started with no policies)
+R=$((PORT_BASE + 4))
+KYVERNO_EXPERIMENTAL=true "$CLI" serve --allow-request-policies --address "127.0.0.1:$R" >"$LOGS/request.log" 2>&1 &
+PIDS+=("$!")
+for _ in $(seq 1 100); do curl -sf "http://127.0.0.1:$R/readyz" >/dev/null && break; sleep 0.1; done
+check_request() { # name expected-http-code jq-filter request-json
+  local name="$1" want_code="$2" filter="$3" req="$4" body code
+  body="$(mktemp)"
+  code="$(curl -s -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data-binary "$req" "http://127.0.0.1:$R/v1alpha1/evaluate")"
+  if [ "$code" = "$want_code" ] && jq -e "$filter" "$body" >/dev/null; then
+    echo "PASS  $name"
+  else
+    echo "FAIL  $name (HTTP $code, want $want_code; filter: $filter)"
+    jq . "$body" 2>/dev/null || cat "$body"
+    FAILURES=$((FAILURES + 1))
+  fi
+  rm -f "$body"
+}
+Q="$DIR/requests"
+check_request "request: inline policy + context lookup denies" 200 '.decision == "Deny" and (.results[0].message | contains("registry.example.com"))' \
+  "$(jq -n --rawfile p "$Q/require-allowed-registry.yaml" --rawfile r "$P/kubernetes/pod.yaml" --rawfile c "$Q/allowed-registry-context.yaml" \
+    '{apiVersion:"serve.cli.kyverno.io/v1alpha1",kind:"EvaluationRequest",mode:"Kubernetes",policies:$p,payload:$r,context:$c}')"
+check_request "request: VAP with parameter resources denies" 200 '.decision == "Deny" and .results[0].policy.kind == "ValidatingAdmissionPolicy"' \
+  "$(jq -n --rawfile p "$Q/vap-with-params.yaml" --rawfile r "$Q/deployment-10-replicas.yaml" --rawfile x "$Q/vap-params.yaml" \
+    '{mode:"Kubernetes",policies:$p,payload:$r,parameterResources:$x}')"
+check_request "request: exception exempts the deployment" 200 '.decision == "NoMatch" and .summary.skip == 1' \
+  "$(jq -n --rawfile p "$DIR/policies/kubernetes/check-deployment-labels.yaml" --rawfile r "$P/kubernetes/deployment-fail.yaml" --rawfile e "$Q/exempt-bad-deployment.yaml" \
+    '{mode:"Kubernetes",policies:$p,payload:$r,exceptions:$e}')"
+check_request "request: DELETE does not match a CREATE/UPDATE policy" 200 '.decision == "NoMatch"' \
+  "$(jq -n --rawfile p "$DIR/policies/kubernetes/check-deployment-labels.yaml" --rawfile r "$P/kubernetes/deployment-fail.yaml" \
+    '{mode:"Kubernetes",policies:$p,payload:$r,operation:"DELETE"}')"
+check_request "request: unknown field is a 400" 400 '.status == "Failure"' '{"mode":"Kubernetes","payload":"x","bogus":1}'
+
 # invalid policies must fail startup
 if KYVERNO_EXPERIMENTAL=true "$CLI" serve --policies "$DIR/policies/invalid" --address "127.0.0.1:$((PORT_BASE + 9))" >/dev/null 2>&1; then
   echo "FAIL  invalid policies did not fail startup"
