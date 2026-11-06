@@ -56,6 +56,8 @@ type Input struct {
 	HTTPRequests []*authzhttp.CheckRequest
 	// EnvoyRequests are Envoy ext_authz check requests (Envoy mode).
 	EnvoyRequests []*authv3.CheckRequest
+	// TargetResources are the existing objects mutateExisting MutatingPolicies may mutate.
+	TargetResources []*unstructured.Unstructured
 	// ParameterResources are VAP/MAP parameter objects.
 	ParameterResources []*unstructured.Unstructured
 	// Exceptions are the CEL PolicyExceptions applied to this evaluation.
@@ -324,6 +326,7 @@ func (e *evaluation) applyPolicies(set *PolicySet, in Input, nsResolver celengin
 			MutatingAdmissionPolicies:         maps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
 			Resource:                          *resource,
+			TargetResources:                   in.TargetResources,
 			Operation:                         in.Operation,
 			CELExceptions:                     celExceptions,
 			MutateLogPath:                     c.MutateLogPath,

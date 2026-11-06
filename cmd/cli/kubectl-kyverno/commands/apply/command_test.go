@@ -2476,3 +2476,22 @@ func Test_Apply_PolicyReport_DeprecatedUserInfoWarningNoColor(t *testing.T) {
 	assert.Contains(t, output, "kind: ClusterReport")
 	assert.NotContains(t, output, "\x1b[")
 }
+
+// TestApplyMutateExistingTargets checks that --target-resource objects are handed to
+// mutateExisting MutatingPolicies (they used to only seed the fake client, so the policy never ran).
+func TestApplyMutateExistingTargets(t *testing.T) {
+	base := "../../../../../test/cli/test-mutating-policy/mutate-existing/"
+	config := &ApplyCommandConfig{
+		PolicyPaths:         []string{base + "policy.yaml"},
+		ResourcePaths:       []string{base + "trigger.yaml"},
+		TargetResourcePaths: []string{base + "target.yaml"},
+	}
+	rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.NoError(t, err)
+	require.Equal(t, 1, rc.Pass)
+	require.Len(t, responses, 1)
+	require.Equal(t, "ConfigMap", responses[0].Resource.GetKind())
+	target, _, _ := responses[0].PolicyResponse.Rules[0].PatchedTarget()
+	require.NotNil(t, target)
+	require.Equal(t, "true", target.GetLabels()["mutated"])
+}

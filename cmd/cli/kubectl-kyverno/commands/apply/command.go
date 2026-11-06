@@ -412,6 +412,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		JSONPayloads:       jsonPayloads,
 		HTTPRequests:       httpRequests,
 		EnvoyRequests:      envoyRequests,
+		TargetResources:    targetResources,
 		ParameterResources: parameterResources,
 		Exceptions:         celExceptions,
 		Client:             dClient,
