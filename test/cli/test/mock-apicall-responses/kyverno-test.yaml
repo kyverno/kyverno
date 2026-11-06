@@ -16,8 +16,8 @@ results:
 - kind: Pod
   policy: check-external-service
   resources:
-  - test-ns/test-pod-pass
   - test-ns/test-pod-fail
+  - test-ns/test-pod-pass
   result: pass
   rule: check-allowed
 variables: values.yaml
