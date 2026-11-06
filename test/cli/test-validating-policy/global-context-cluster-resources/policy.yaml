@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: deny-retired-widgets
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [example.com]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [widgets]
+  validations:
+    - expression: >-
+        !(object.metadata.name in globalContext.Get("retired-widgets", "names"))
+      message: widget is retired

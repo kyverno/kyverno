@@ -1,0 +1,31 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: global-context-cluster-resources
+clusterResources:
+  - clusterresources.yaml
+globalContextEntries:
+  - name: retired-widgets
+    data:
+      retired:
+        - old-widget
+    projections:
+      - name: names
+        path: retired
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - isValidatingPolicy: true
+    kind: Widget
+    policy: deny-retired-widgets
+    resources:
+      - old-widget
+    result: fail
+  - isValidatingPolicy: true
+    kind: Widget
+    policy: deny-retired-widgets
+    resources:
+      - new-widget
+    result: pass

@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1
+kind: DeletingPolicy
+metadata:
+  name: delete-retired-widgets
+spec:
+  schedule: '*/5 * * * *'
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [example.com]
+        apiVersions: [v1]
+        resources: [widgets]
+  conditions:
+    - name: retired
+      expression: >-
+        object.metadata.name in globalContext.Get("retired-widgets", "names")
