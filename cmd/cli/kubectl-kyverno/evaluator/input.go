@@ -132,6 +132,28 @@ func nonEmpty(resources []*unstructured.Unstructured) []*unstructured.Unstructur
 	return out
 }
 
+// dedupe drops repeated objects (same apiVersion, kind, namespace and name), keeping the last one:
+// the fake client panics on duplicates, and the same object may legitimately arrive both as a
+// resource and as a target or cluster object.
+func dedupe(resources []*unstructured.Unstructured) []*unstructured.Unstructured {
+	index := map[string]int{}
+	out := make([]*unstructured.Unstructured, 0, len(resources))
+	for _, r := range resources {
+		key := r.GetAPIVersion() + "/" + r.GetKind() + "/" + r.GetNamespace() + "/" + r.GetName()
+		if r.GetName() == "" {
+			out = append(out, r)
+			continue
+		}
+		if i, ok := index[key]; ok {
+			out[i] = r
+			continue
+		}
+		index[key] = len(out)
+		out = append(out, r)
+	}
+	return out
+}
+
 // NewFakeClient builds an in-memory cluster client seeded with the given resources (List kinds are
 // flattened), so policies that look objects up (or match on namespaces) see them. It is what
 // apply uses when it is not pointed at a real cluster.
@@ -145,7 +167,7 @@ func NewFakeClient(resources, targetResources, parameterResources []*unstructure
 	if err != nil {
 		return nil, err
 	}
-	allResources = flatResources
+	allResources = dedupe(flatResources)
 
 	gvrToListKind := make(map[schema.GroupVersionResource]string)
 	// gvrToGVK holds the authoritative GVR→GVK mapping derived directly from

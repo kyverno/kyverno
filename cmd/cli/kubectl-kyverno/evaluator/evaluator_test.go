@@ -7,9 +7,11 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const fixtures = "../../../../test/cli/serve"
@@ -261,4 +263,33 @@ func TestNewFakeClientRejectsMissingTypeMeta(t *testing.T) {
 	in.Resources[0].SetKind("")
 	_, err = NewFakeClient(in.Resources, nil, nil)
 	assert.ErrorContains(t, err, "missing TypeMeta")
+}
+
+func TestNewFakeClientDeduplicates(t *testing.T) {
+	t.Parallel()
+	in, err := DecodeInput(ModeKubernetes, readFixture(t, "payloads", "kubernetes", "pod.yaml"))
+	require.NoError(t, err)
+	dup := in.Resources[0].DeepCopy()
+	dup.SetLabels(map[string]string{"copy": "last"})
+	client, err := NewFakeClient(in.Resources, []*unstructured.Unstructured{dup}, nil)
+	require.NoError(t, err)
+	got, err := client.GetResource(context.Background(), "v1", "Pod", "default", "web")
+	require.NoError(t, err)
+	assert.Equal(t, "last", got.GetLabels()["copy"])
+}
+
+// TestOfflineNamespaceResolver checks that offline namespace lookups (namespaceSelector,
+// namespaceObject) fall back to Namespace objects in the in-memory cluster.
+func TestOfflineNamespaceResolver(t *testing.T) {
+	t.Parallel()
+	in, err := DecodeInput(ModeKubernetes, []byte("apiVersion: v1\nkind: Namespace\nmetadata:\n  name: team-a\n  labels:\n    env: prod\n"))
+	require.NoError(t, err)
+	client, err := NewFakeClient(in.Resources, nil, nil)
+	require.NoError(t, err)
+	resolve := processor.GetNamespaceResolver(nil, client, false)
+	ns := resolve("team-a")
+	require.NotNil(t, ns)
+	assert.Equal(t, "prod", ns.Labels["env"])
+	assert.Nil(t, resolve("missing"))
+	assert.Nil(t, resolve(""))
 }

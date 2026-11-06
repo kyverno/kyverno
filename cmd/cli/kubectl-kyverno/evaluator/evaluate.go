@@ -56,6 +56,9 @@ type Input struct {
 	HTTPRequests []*authzhttp.CheckRequest
 	// EnvoyRequests are Envoy ext_authz check requests (Envoy mode).
 	EnvoyRequests []*authv3.CheckRequest
+	// OldResources are the previous state of Resources for UPDATE/DELETE, matched by apiVersion,
+	// kind, namespace and name; a resource without one is its own old object.
+	OldResources []*unstructured.Unstructured
 	// TargetResources are the existing objects mutateExisting MutatingPolicies may mutate.
 	TargetResources []*unstructured.Unstructured
 	// ParameterResources are VAP/MAP parameter objects.
@@ -131,6 +134,7 @@ func Evaluate(ctx context.Context, set *PolicySet, in Input, opts Options) (*Res
 	if err != nil {
 		return result, err
 	}
+	e.oldResources = in.OldResources
 	responses4, err := e.applyImageValidatingPolicies(set.ImageValidatingPolicies, in.JSONPayloads, resources, in.Exceptions, nsResolver, in.UserInfo, rc, in.Client, operationOf(in))
 	if err != nil {
 		result.Responses = responses4
@@ -179,7 +183,19 @@ func operationOf(in Input) string {
 }
 
 type evaluation struct {
-	opts Options
+	opts         Options
+	oldResources []*unstructured.Unstructured
+}
+
+// findOld returns the old object for resource, matched by apiVersion, kind, namespace and name.
+func findOld(olds []*unstructured.Unstructured, resource *unstructured.Unstructured) *unstructured.Unstructured {
+	for _, o := range olds {
+		if o.GetAPIVersion() == resource.GetAPIVersion() && o.GetKind() == resource.GetKind() &&
+			o.GetNamespace() == resource.GetNamespace() && o.GetName() == resource.GetName() {
+			return o
+		}
+	}
+	return nil
 }
 
 func (e *evaluation) applyPolicies(set *PolicySet, in Input, nsResolver celengine.NamespaceResolver) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
@@ -326,6 +342,7 @@ func (e *evaluation) applyPolicies(set *PolicySet, in Input, nsResolver celengin
 			MutatingAdmissionPolicies:         maps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
 			Resource:                          *resource,
+			OldResource:                       findOld(in.OldResources, resource),
 			TargetResources:                   in.TargetResources,
 			Operation:                         in.Operation,
 			CELExceptions:                     celExceptions,
@@ -500,7 +517,7 @@ func (e *evaluation) applyImageValidatingPolicies(
 		if userInfo != nil {
 			user = userInfo.AdmissionUserInfo
 		}
-		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
+		op, object, oldObject := processor.AdmissionRequestShapeWithOld(operation, resource, findOld(e.oldResources, resource))
 		request := celengine.Request(
 			contextProvider,
 			resource.GroupVersionKind(),
