@@ -9,5 +9,5 @@ policies:
 results:
 - isDeletingPolicy: true
   kind: ""
-  policy: namespaced-deleting-json
+  policy: team-a/namespaced-deleting-json
   result: pass
