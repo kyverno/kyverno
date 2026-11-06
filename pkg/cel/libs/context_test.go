@@ -152,12 +152,13 @@ func TestContextProvider_GetGlobalReference_EntryErrorFailsEvaluation(t *testing
 }
 
 // TestAddGenerateLabels_NeverWritesLegacyOnlyLabels pins that the CEL
-// generate path never writes GenerateRuleLabel or GeneratePolicyNamespaceLabel
-// onto downstream resources. The documented cleanup command for orphaned
-// legacy-generated resources (see #17707 release notes) selects on
-// `generate.kyverno.io/rule-name` specifically because gpol-managed
-// resources never carry it; if this test starts failing, that selector
-// would start deleting CEL-managed resources too.
+// generate path never writes GenerateRuleLabel onto downstream resources.
+// The documented cleanup command for orphaned legacy-generated resources
+// (see #17707 release notes) selects on `generate.kyverno.io/rule-name`
+// specifically because gpol-managed resources never carry it; if this test
+// starts failing, that selector would start deleting CEL-managed resources
+// too. GeneratePolicyNamespaceLabel is written: it tells namespaced
+// policies apart (see TestAddGenerateLabels_StampsPolicyNamespace).
 func TestAddGenerateLabels_NeverWritesLegacyOnlyLabels(t *testing.T) {
 	cp := &contextProvider{}
 	cp.SetGenerateContext(
@@ -170,9 +171,33 @@ func TestAddGenerateLabels_NeverWritesLegacyOnlyLabels(t *testing.T) {
 
 	labels := obj.GetLabels()
 	_, hasRuleLabel := labels[common.GenerateRuleLabel]
-	_, hasPolicyNamespaceLabel := labels[common.GeneratePolicyNamespaceLabel]
 	assert.False(t, hasRuleLabel, "addGenerateLabels must never write %s; the orphan-cleanup selector relies on its absence", common.GenerateRuleLabel)
-	assert.False(t, hasPolicyNamespaceLabel, "addGenerateLabels must never write %s", common.GeneratePolicyNamespaceLabel)
 	// Sanity: the labels it does write are still present.
 	assert.Equal(t, "my-gpol", labels[common.GeneratePolicyLabel])
+}
+
+func TestAddGenerateLabels_StampsPolicyNamespace(t *testing.T) {
+	tests := []struct {
+		name            string
+		policyNamespace string
+	}{
+		{name: "namespaced policy", policyNamespace: "tenant-ns"},
+		{name: "cluster-scoped policy", policyNamespace: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cp := &contextProvider{}
+			cp.SetGenerateContext(
+				"pol", tt.policyNamespace, "trigger-name", "tenant-ns", "v1", "", "Secret", "trigger-uid",
+				false, false,
+			)
+			obj := &unstructured.Unstructured{Object: map[string]interface{}{}}
+
+			cp.addGenerateLabels(obj)
+
+			policyNamespace, ok := obj.GetLabels()[common.GeneratePolicyNamespaceLabel]
+			assert.True(t, ok, "addGenerateLabels must write %s", common.GeneratePolicyNamespaceLabel)
+			assert.Equal(t, tt.policyNamespace, policyNamespace)
+		})
+	}
 }
