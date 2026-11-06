@@ -15,12 +15,12 @@ kyverno create cluster-role [name]  [flags]
 ### Options
 
 ```
-  -g, --api-groups string         API group for the resource (required)
-      --controllers stringArray   List of controllers for the ClusterRole (default = background-controller) (default [background-controller])
-  -h, --help                      help for cluster-role
-  -o, --output string             Output file path (prints to console if not set)
-      --resources stringArray     A comma separated list of resources (required)
-      --verbs stringArray         A comma separated list of verbs or 'all' for all verbs
+  -g, --api-groups string     API group for the resource (required)
+      --controllers strings   List of controllers for the ClusterRole (default = background-controller) (default [background-controller])
+  -h, --help                  help for cluster-role
+  -o, --output string         Output file path (prints to console if not set)
+      --resources strings     A comma separated list of resources (required)
+      --verbs strings         A comma separated list of verbs or 'all' for all verbs
 ```
 
 ### Options inherited from parent commands

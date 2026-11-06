@@ -69,6 +69,22 @@ func TestCommand(t *testing.T) {
 			},
 		},
 		{
+			name:         "AllVerbExpandsAfterAnotherVerb",
+			args:         []string{"name6", "--resources=pods", "--api-groups=core", "--verbs=get,all"},
+			expectedFile: "stdout",
+			expectedContains: []string{
+				`verbs: ["create", "get", "update", "delete", "list", "watch"]`,
+			},
+		},
+		{
+			name:         "AllVerbPreservesExplicitVerbs",
+			args:         []string{"namePatch", "--resources=pods", "--api-groups=core", "--verbs=patch,all"},
+			expectedFile: "stdout",
+			expectedContains: []string{
+				`verbs: ["create", "get", "update", "delete", "list", "watch", "patch"]`,
+			},
+		},
+		{
 			name:         "OutputToFile",
 			args:         []string{"name7", "--resources=pods", "--api-groups=core", "--verbs=get,list", "--output=" + filepath.Join(tempDir, "test-output.yaml")},
 			expectedFile: "test-output.yaml",
@@ -84,11 +100,35 @@ func TestCommand(t *testing.T) {
 			errorMsg: "invalid controller provided",
 		},
 		{
+			name:     "TrailingCommaController",
+			args:     []string{"nameTrailing", "--resources=pods", "--api-groups=core", "--verbs=get", "--controllers=background-controller,"},
+			errorMsg: "invalid controller provided",
+		},
+		{
+			name:     "EmptyResourceEntry",
+			args:     []string{"nameEmptyRes", "--resources=pods,", "--api-groups=core", "--verbs=get"},
+			errorMsg: "invalid resource provided",
+		},
+		{
+			name:     "EmptyVerbEntry",
+			args:     []string{"nameEmptyVerb", "--resources=pods", "--api-groups=core", "--verbs=get,"},
+			errorMsg: "invalid verb provided",
+		},
+		{
 			name:         "MultipleResources",
 			args:         []string{"name11", "--resources=pods,services", "--api-groups=core", "--verbs=get,list"},
 			expectedFile: "stdout",
 			expectedContains: []string{
 				`resources: ["pods", "services"]`,
+				`verbs: ["get", "list"]`,
+			},
+		},
+		{
+			name:         "ResourcesWithWhitespaceAfterComma",
+			args:         []string{"nameSpaces", "--resources=deployments, statefulsets", "--api-groups=apps", "--verbs=get, list"},
+			expectedFile: "stdout",
+			expectedContains: []string{
+				`resources: ["deployments", "statefulsets"]`,
 				`verbs: ["get", "list"]`,
 			},
 		},
@@ -192,9 +232,9 @@ func TestClusterRoleValidYAML(t *testing.T) {
 	cmd.SetArgs([]string{
 		"test-role",
 		"--api-groups=apps",
-		"--resources=deployments,statefulsets",
-		"--verbs=get,list,watch",
-		"--controllers=background-controller,reports-controller",
+		"--resources=deployments, statefulsets",
+		"--verbs=get, list, watch, patch, all",
+		"--controllers=background-controller, reports-controller",
 	})
 	err := cmd.Execute()
 	assert.NoError(t, err)
@@ -210,5 +250,5 @@ func TestClusterRoleValidYAML(t *testing.T) {
 	assert.Len(t, role.Rules, 1)
 	assert.Equal(t, []string{"apps"}, role.Rules[0].APIGroups)
 	assert.Equal(t, []string{"deployments", "statefulsets"}, role.Rules[0].Resources)
-	assert.Equal(t, []string{"get", "list", "watch"}, role.Rules[0].Verbs)
+	assert.Equal(t, []string{"create", "get", "update", "delete", "list", "watch", "patch"}, role.Rules[0].Verbs)
 }
