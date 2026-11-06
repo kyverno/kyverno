@@ -2,7 +2,6 @@ package jmespath
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 	"time"
 
@@ -178,6 +177,8 @@ func (op1 scalar) Multiply(op2 interface{}) (interface{}, error) {
 // Scalar   / Quantity			-> error
 // Scalar   / Duration			-> error
 
+// Divide returns a scalar for quantity divisors and a quantity for scalar
+// divisors, rounding quantity results away from zero to nano precision.
 func (op1 quantity) Divide(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case quantity:
@@ -196,8 +197,9 @@ func (op1 quantity) Divide(op2 interface{}) (interface{}, error) {
 			return nil, err
 		}
 		var quo inf.Dec
-		scale := inf.Scale(math.Max(float64(op1.AsDec().Scale()), float64(q.AsDec().Scale())))
-		quo.QuoRound(op1.AsDec(), q.AsDec(), scale, inf.RoundDown)
+		// Match ParseQuantity's nano precision and rounding away from zero,
+		// independently of the operands' decimal scales.
+		quo.QuoRound(op1.AsDec(), q.AsDec(), inf.Scale(-resource.Nano), inf.RoundUp)
 		return resource.NewDecimalQuantity(quo, op1.Quantity.Format).String(), nil
 	default:
 		return nil, formatError(typeMismatchError, divide)
