@@ -404,6 +404,8 @@ func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
 	assert.Len(t, triggers, 1)
 }
 
+// TestHandleGenerateExistingPropagatesSynchronization verifies both generating
+// policy scopes keep one parent RuleContext even when base and status match.
 func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 	groupResources := []*restmapper.APIGroupResources{newFakeRESTMapper(t)}
 	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
@@ -424,7 +426,7 @@ func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 				Rule: admissionregistrationv1.Rule{
 					APIGroups:   []string{"acm.services.k8s.aws"},
 					APIVersions: []string{"v1"},
-					Resources:   []string{"certificates"},
+					Resources:   []string{"certificates", "certificates/status"},
 				},
 			},
 		}},
@@ -478,6 +480,41 @@ func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 			assert.Equal(t, tc.synchronize, generator.captured[0].Spec.RuleContext[0].Synchronize)
 		})
 	}
+}
+
+// TestDeduplicateGenerationTriggers verifies that parent generation ignores
+// version/subresource aliases without conflating different Kubernetes objects.
+func TestDeduplicateGenerationTriggers(t *testing.T) {
+	newTrigger := func(apiVersion, kind, namespace, name, uid, subresource string) gpolTrigger {
+		object := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": apiVersion,
+			"kind":       kind,
+			"metadata": map[string]any{
+				"namespace": namespace,
+				"name":      name,
+				"uid":       uid,
+			},
+		}}
+		return gpolTrigger{Unstructured: object, SubResource: subresource}
+	}
+
+	triggers := []gpolTrigger{
+		newTrigger("example.io/v1alpha1", "Widget", "team-a", "widget", "uid-a", ""),
+		newTrigger("example.io/v1", "Widget", "team-a", "widget", "uid-a", "status"),
+		newTrigger("example.io/v1", "Widget", "team-a", "widget", "uid-a", ""),
+		newTrigger("example.io/v1alpha1", "Widget", "team-a", "widget", "uid-a", "scale"),
+		newTrigger("other.io/v1", "Widget", "team-a", "widget", "uid-a", ""),
+		newTrigger("example.io/v1", "Widget", "team-b", "widget", "uid-a", ""),
+		newTrigger("example.io/v1", "Widget", "team-a", "widget", "uid-new", ""),
+	}
+
+	got := deduplicateGenerationTriggers(triggers)
+	require.Len(t, got, 4)
+	assert.Same(t, triggers[0].Unstructured, got[0].Unstructured)
+	assert.Equal(t, "", got[0].SubResource)
+	assert.Equal(t, "other.io/v1", got[1].GetAPIVersion())
+	assert.Equal(t, "team-b", got[2].GetNamespace())
+	assert.Equal(t, "uid-new", string(got[3].GetUID()))
 }
 
 func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
