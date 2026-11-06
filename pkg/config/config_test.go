@@ -196,6 +196,42 @@ func TestConfiguration_GetUpdateRequestCleanupTTL_InvalidValue(t *testing.T) {
 	assert.Equal(t, "", cfg.GetUpdateRequestCleanupTTL())
 }
 
+// TestConfiguration_GetUpdateRequestCleanupTTL_LabelValue pins that a TTL which
+// parses as a duration but is not a valid label value is rejected at load. The
+// value is applied as the cleanup.kyverno.io/ttl label on every UpdateRequest,
+// so accepting one would make the API server reject every UpdateRequest create
+// and silently stop generate and mutate-existing rules.
+func TestConfiguration_GetUpdateRequestCleanupTTL_LabelValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		ttl      string
+		expected string
+	}{
+		// strfmt.ParseDuration accepts these spelled-out forms, but a space is
+		// not allowed in a label value.
+		{name: "spelled-out days", ttl: "7 days", expected: ""},
+		{name: "spelled-out hour", ttl: "1 hour", expected: ""},
+		{name: "spelled-out weeks", ttl: "2 weeks", expected: ""},
+		// Valid durations and the supported date formats are label-safe and
+		// must keep working.
+		{name: "hours", ttl: "24h", expected: "24h"},
+		{name: "minutes", ttl: "30m", expected: "30m"},
+		{name: "date", ttl: "2026-10-26", expected: "2026-10-26"},
+		{name: "datetime", ttl: "2026-10-26T120000Z", expected: "2026-10-26T120000Z"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := NewDefaultConfiguration(false)
+			cfg.Load(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+				Data:       map[string]string{"updateRequestCleanupTTL": tt.ttl},
+			})
+			assert.Equal(t, tt.expected, cfg.GetUpdateRequestCleanupTTL())
+		})
+	}
+}
+
 func TestConfiguration_GetUpdateRequestCleanupTTL_Unload(t *testing.T) {
 	cfg := NewDefaultConfiguration(false)
 	cfg.Load(&corev1.ConfigMap{
