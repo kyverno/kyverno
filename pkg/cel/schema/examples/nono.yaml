@@ -1,0 +1,73 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PayloadSchema
+metadata:
+  name: nono-approval-v1
+spec:
+  dialect: JSONSchema202012SubsetV1
+  compatibilityVersion: "1"
+  schema: {"type": "object", "required": ["backend", "request"], "additionalProperties": true, "properties": {"backend": {"type": "string", "maxLength": 128}, "request": {"type": "object", "required": ["capability_type", "request_id", "session_id"], "additionalProperties": true, "properties": {"capability_type": {"type": "string", "enum": ["command", "endpoint"]}, "request_id": {"type": "string", "minLength": 1, "maxLength": 256}, "session_id": {"type": "string", "minLength": 1, "maxLength": 256}, "child_pid": {"type": "integer", "minimum": 0}, "command": {"type": "string", "maxLength": 256}, "caller": {"type": "string", "maxLength": 256}, "args": {"type": "array", "maxItems": 256, "items": {"type": "string", "maxLength": 4096}}, "intercept_rule": {"type": "string", "maxLength": 256}, "method": {"type": "string", "maxLength": 32}, "path": {"type": "string", "maxLength": 8192}, "route_id": {"type": "string", "maxLength": 256}, "upstream": {"type": "string", "maxLength": 512}, "rule_label": {"type": "string", "maxLength": 512}}}}}
+  match:
+    requiredPaths: [/backend, /request/capability_type, /request/request_id]
+  exposure:
+    include: ["/request/**"]
+    exclude: []
+  computed: [{"name": "argv", "expression": "!has(object.request.args) || size(object.request.args) <= 1 ? [] : object.request.args.slice(1, size(object.request.args))"}, {"name": "isMutatingKubectl", "expression": "object.request.capability_type == 'command' && object.request.command == 'kubectl' && derived.argv.exists(a, a in ['apply','delete','scale','patch','edit','create','replace','rollout'])"}]
+---
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: nono-kubectl-readonly
+spec:
+  evaluation:
+    mode: Schema
+    schemaRef: {name: nono-approval-v1}
+  validations:
+    - expression: >-
+        object.request.capability_type != 'command' ||
+        object.request.command != 'kubectl' ||
+        !derived.isMutatingKubectl
+      message: kubectl is restricted to read-only subcommands
+---
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: nono-no-secrets-endpoint
+spec:
+  evaluation:
+    mode: Schema
+    schemaRef: {name: nono-approval-v1}
+  validations:
+    - expression: >-
+        object.request.capability_type != 'endpoint' ||
+        !has(object.request.path) ||
+        !object.request.path.contains('/secrets')
+      message: endpoints under /secrets are not allowed
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PayloadBinding
+metadata:
+  name: nono-approve
+spec:
+  route:
+    path: /approve
+    methods: [POST]
+  authorization:
+    allowedPrincipals:
+      - spiffe://example.com/nono-agent
+  selection:
+    schemaRef: {name: nono-approval-v1}
+  requiredPolicies:
+    - name: nono-kubectl-readonly
+  enforcement:
+    requireApplicablePolicy: true
+    defaultOnNoMatch: Deny
+  limits:
+    maxBodyBytes: 65536
+    maxDepth: 16
+    timeoutMillis: 100
+  response:
+    statusCode: 200
+    bodyExpression: >-
+      decision.allowed
+        ? {"decision": "granted"}
+        : {"decision": "denied", "reason": decision.message}

@@ -15,23 +15,56 @@ type computedProgram struct {
 	prog cel.Program
 }
 
-func (s *Schema) program(expr string) (cel.Program, error) {
+func (s *Schema) program(expr string) (cel.Program, *cel.Ast, error) {
 	ast, iss := s.env.Compile(expr)
 	if iss.Err() != nil {
-		return nil, iss.Err()
+		return nil, nil, iss.Err()
 	}
-	return s.env.Program(ast)
+	prog, err := s.env.Program(ast)
+	return prog, ast, err
 }
 
-// Payload is a validated, decoded payload with its computed fields.
+// Expr is a compiled CEL expression bound to a schema's environment.
+type Expr struct {
+	prog   cel.Program
+	isBool bool
+}
+
+// IsBool reports whether the expression statically evaluates to a bool.
+func (e *Expr) IsBool() bool { return e.isBool }
+
+// Eval runs the expression against a payload.
+func (e *Expr) Eval(p *Payload) (any, error) {
+	out, _, err := e.prog.Eval(p.activation())
+	if err != nil {
+		return nil, err
+	}
+	return out.Value(), nil
+}
+
+// Compile type-checks expr against the schema and returns a reusable program.
+func (s *Schema) Compile(expr string) (*Expr, error) {
+	prog, ast, err := s.program(expr)
+	if err != nil {
+		return nil, err
+	}
+	return &Expr{prog: prog, isBool: ast.OutputType() == cel.BoolType}, nil
+}
+
+// Payload is a validated, normalized payload with its computed fields.
 type Payload struct {
-	object  map[string]any
-	derived map[string]any
+	object    map[string]any
+	derived   map[string]any
+	transport map[string]any
 }
 
-// Decode parses raw JSON losslessly (UseNumber), rejects trailing documents,
-// validates against the schema, then normalizes numbers for CEL.
-func (s *Schema) Decode(raw []byte) (*Payload, error) {
+func (p *Payload) activation() map[string]any {
+	return map[string]any{"object": p.object, "derived": p.derived, "transport": p.transport}
+}
+
+// ParseJSON parses one JSON document losslessly (UseNumber) and rejects
+// trailing data. The result is not yet validated.
+func ParseJSON(raw []byte) (any, error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
 	var v any
@@ -41,16 +74,35 @@ func (s *Schema) Decode(raw []byte) (*Payload, error) {
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
 		return nil, errors.New("decoding payload: trailing data after JSON document")
 	}
+	return v, nil
+}
+
+// Decode is ParseJSON followed by Build with empty transport metadata.
+func (s *Schema) Decode(raw []byte) (*Payload, error) {
+	v, err := ParseJSON(raw)
+	if err != nil {
+		return nil, err
+	}
+	return s.Build(v, nil)
+}
+
+// Build validates a parsed document against the schema, normalizes numbers
+// for CEL, and evaluates computed fields. transport is trusted metadata
+// (method, path, headers) supplied by the listener, never by the payload.
+func (s *Schema) Build(v any, transport map[string]any) (*Payload, error) {
 	if res := s.validator.Validate(v); !res.IsValid() {
 		return nil, fmt.Errorf("payload does not match schema: %w", res.AsError())
 	}
-	obj, ok := normalize(v).(map[string]any)
+	obj, ok := normalize(s.exposure.apply(v)).(map[string]any)
 	if !ok {
 		return nil, errors.New("payload root must be an object")
 	}
-	p := &Payload{object: obj, derived: map[string]any{}}
+	if transport == nil {
+		transport = map[string]any{}
+	}
+	p := &Payload{object: obj, derived: map[string]any{}, transport: transport}
 	for _, c := range s.computed {
-		out, _, err := c.prog.Eval(map[string]any{"object": obj, "derived": p.derived})
+		out, _, err := c.prog.Eval(p.activation())
 		if err != nil {
 			return nil, fmt.Errorf("computed %q: %w", c.name, err)
 		}
@@ -61,20 +113,16 @@ func (s *Schema) Decode(raw []byte) (*Payload, error) {
 
 // Eval compiles and runs expr against the payload.
 func (s *Schema) Eval(expr string, p *Payload) (any, error) {
-	prog, err := s.program(expr)
+	e, err := s.Compile(expr)
 	if err != nil {
 		return nil, fmt.Errorf("compiling: %w", err)
 	}
-	out, _, err := prog.Eval(map[string]any{"object": p.object, "derived": p.derived})
-	if err != nil {
-		return nil, err
-	}
-	return out.Value(), nil
+	return e.Eval(p)
 }
 
 // Check type-checks expr without a payload.
 func (s *Schema) Check(expr string) error {
-	_, err := s.program(expr)
+	_, err := s.Compile(expr)
 	return err
 }
 
