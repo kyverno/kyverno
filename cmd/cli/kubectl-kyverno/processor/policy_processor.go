@@ -443,6 +443,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 							},
 						}
 						resp = resp.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
+						if p.Rc != nil {
+							p.Rc.addMutateResponse(resp)
+						}
 						responses = append(responses, resp)
 					}
 				}
