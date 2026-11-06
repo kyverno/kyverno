@@ -1397,6 +1397,84 @@ func TestBuildWebhookRules_PoliciesSharingSelectorsShareAWebhook(t *testing.T) {
 	}
 }
 
+func TestBuildWebhookRules_FailAndIgnorePoliciesGetTheirOwnPath(t *testing.T) {
+	// The handler evaluates every policy named in the webhook path. If the fail and ignore webhooks
+	// shared a path, a request matching both would evaluate every policy twice, and the ignore
+	// policies would also run under the fail webhook, where an error or timeout rejects the request.
+	configmaps := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"configmaps"},
+				},
+			},
+		}},
+	}
+	newVpol := func(name string, failurePolicy admissionregistrationv1.FailurePolicyType) engineapi.GenericPolicy {
+		return engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				FailurePolicy:    ptr.To(failurePolicy),
+				MatchConstraints: configmaps.DeepCopy(),
+			},
+		})
+	}
+	newMpol := func(name string, failurePolicy admissionregistrationv1.FailurePolicyType) engineapi.GenericPolicy {
+		return engineapi.NewMutatingPolicy(&policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				FailurePolicy:    ptr.To(failurePolicy),
+				MatchConstraints: configmaps.DeepCopy(),
+			},
+		})
+	}
+	tests := []struct {
+		name        string
+		webhookName string
+		queryPath   string
+		policies    []engineapi.GenericPolicy
+		wantFail    string
+		wantIgnore  string
+	}{{
+		name:        "validating policies",
+		webhookName: config.ValidatingPolicyWebhookName,
+		queryPath:   "/vpol",
+		policies: []engineapi.GenericPolicy{
+			newVpol("b-ignore", admissionregistrationv1.Ignore),
+			newVpol("a-fail", admissionregistrationv1.Fail),
+			newVpol("c-fail", admissionregistrationv1.Fail),
+		},
+		wantFail:   "/vpol/a-fail/c-fail",
+		wantIgnore: "/vpol/b-ignore",
+	}, {
+		name:        "mutating policies",
+		webhookName: config.MutatingPolicyWebhookName,
+		queryPath:   "/mpol",
+		policies: []engineapi.GenericPolicy{
+			newMpol("b-ignore", admissionregistrationv1.Ignore),
+			newMpol("a-fail", admissionregistrationv1.Fail),
+		},
+		wantFail:   "/mpol/a-fail",
+		wantIgnore: "/mpol/b-ignore",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			webhooks := buildWebhookRules(config.NewDefaultConfiguration(false), "", tt.webhookName, tt.queryPath, 0, nil, tt.policies, NewExpressionCache())
+
+			paths := map[admissionregistrationv1.FailurePolicyType]string{}
+			for _, webhook := range webhooks {
+				paths[*webhook.FailurePolicy] = *webhook.ClientConfig.Service.Path
+			}
+			assert.Len(t, webhooks, 2)
+			assert.Equal(t, tt.wantFail, paths[admissionregistrationv1.Fail], "the fail webhook must only name the fail policies")
+			assert.Equal(t, tt.wantIgnore, paths[admissionregistrationv1.Ignore], "the ignore webhook must only name the ignore policies")
+		})
+	}
+}
+
 func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *testing.T) {
 	// Namespaced policies in the same namespace resolve to the same pinned selector, so they belong
 	// on one webhook. A webhook per policy would mean one admission round trip per policy, and

@@ -190,15 +190,22 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 	// including everything that sets no selector at all) still share a webhook.
 	for _, group := range groupBySelectors(basic, cfg) {
 		basic := group.policies
-		names := make([]string, 0, len(basic))
+		// The handler evaluates every policy named in the path, so each webhook only names the
+		// policies whose rules it carries. A shared path would evaluate every policy once per
+		// webhook the request matches, and run the ignore policies under the fail webhook.
+		var failNames, ignoreNames []string
 		for _, policy := range basic {
-			names = append(names, policy.GetName())
+			if extractGenericPolicy(policy).GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()) == admissionregistrationv1.Ignore {
+				ignoreNames = append(ignoreNames, policy.GetName())
+			} else {
+				failNames = append(failNames, policy.GetName())
+			}
 		}
-		slices.Sort(names)
-		dynamicPath := path.Join(names...)
+		slices.Sort(failNames)
+		slices.Sort(ignoreNames)
 		webhookIgnore := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-ignore" + group.suffix,
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, path.Join(ignoreNames...))),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
@@ -207,7 +214,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 		}
 		webhookFail := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-fail" + group.suffix,
-			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
+			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, path.Join(failNames...))),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
