@@ -689,7 +689,7 @@ jobs:
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -735,7 +735,7 @@ jobs:
         uses: ./.github/actions/release/restore
       # install tools
       - name: Download kyverno CLI archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: kubectl-kyverno
       - name: Install Cosign
@@ -799,7 +799,7 @@ jobs:
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -878,7 +878,7 @@ jobs:
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -929,7 +929,7 @@ jobs:
           config: ./scripts/config/kind/default.yaml
       # deploy kyverno
       - name: Download kyverno images archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
@@ -986,7 +986,7 @@ jobs:
           cluster_name: kind
           config: ./scripts/config/kind/default.yaml
       - name: Download kyverno images archive
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
