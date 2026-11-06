@@ -92,6 +92,7 @@ func TestBuildWebhookRules_PodPolicyMatchConditionsOnDelete(t *testing.T) {
 		operations    []admissionregistrationv1.OperationType
 		attr          admission.Attributes
 		wantMatch     bool
+		wantErr       string
 	}{{
 		name:          "delete of a pod the condition excludes skips the webhook",
 		failurePolicy: admissionregistrationv1.Fail,
@@ -125,6 +126,16 @@ func TestBuildWebhookRules_PodPolicyMatchConditionsOnDelete(t *testing.T) {
 		condition:     labelledOnly,
 		operations:    []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
 		attr:          createAttr(pod(nil)),
+	}, {
+		// A condition that reads object can't be evaluated on DELETE, where object is null, with or
+		// without autogen. Only the policy's own condition errors: the precondition reads request.kind,
+		// so the variants for the other targets still evaluate and don't add errors of their own.
+		name:          "delete of a pod errors only on a condition that reads object",
+		failurePolicy: admissionregistrationv1.Fail,
+		condition:     labelledOnly,
+		operations:    []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Delete},
+		attr:          deleteAttr(pod(map[string]string{"team": "a"})),
+		wantErr:       "no such key: metadata",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -146,6 +157,12 @@ func TestBuildWebhookRules_PodPolicyMatchConditionsOnDelete(t *testing.T) {
 
 			result := matchWebhook(t, webhooks[0], tt.attr)
 
+			if tt.wantErr != "" {
+				require.Error(t, result.Error)
+				assert.Contains(t, result.Error.Error(), tt.wantErr)
+				assert.NotContains(t, result.Error.Error(), "no such key: apiVersion", "the autogen precondition must not error")
+				return
+			}
 			assert.NoError(t, result.Error, "the API server must not reject the request on a match condition error")
 			assert.Equal(t, tt.wantMatch, result.Matches, "failed condition: %q", result.FailedConditionName)
 		})
