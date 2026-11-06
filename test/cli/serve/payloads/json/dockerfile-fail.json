@@ -1,0 +1,10 @@
+{
+  "Stages": [
+    {
+      "Name": "builder",
+      "Commands": [
+        { "Name": "RUN", "CmdLine": ["wget -O plugin.zip https://example.com/plugin.zip"] }
+      ]
+    }
+  ]
+}
