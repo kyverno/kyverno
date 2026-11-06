@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -468,6 +469,260 @@ func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 			require.Len(t, generator.captured, 1)
 			require.Len(t, generator.captured[0].Spec.RuleContext, 1)
 			assert.Equal(t, tc.synchronize, generator.captured[0].Spec.RuleContext[0].Synchronize)
+		})
+	}
+}
+
+func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
+	const customGroup = "example.test.io"
+	coreGVR := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	coreNamespaceGVR := schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}
+	customAlphaGVR := schema.GroupVersionResource{Group: customGroup, Version: "v1alpha1", Resource: "configmaps"}
+	customV1GVR := schema.GroupVersionResource{Group: customGroup, Version: "v1", Resource: "configmaps"}
+
+	mapper := restmapper.NewDiscoveryRESTMapper([]*restmapper.APIGroupResources{
+		{
+			Group: metav1.APIGroup{
+				Name: "",
+				Versions: []metav1.GroupVersionForDiscovery{
+					{GroupVersion: "v1", Version: "v1"},
+				},
+				PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: "v1", Version: "v1"},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1": {
+					{Name: "configmaps", Namespaced: true, Kind: "ConfigMap"},
+					{Name: "namespaces", Namespaced: false, Kind: "Namespace"},
+				},
+			},
+		},
+		{
+			Group: metav1.APIGroup{
+				Name: customGroup,
+				Versions: []metav1.GroupVersionForDiscovery{
+					{GroupVersion: customGroup + "/v1alpha1", Version: "v1alpha1"},
+					{GroupVersion: customGroup + "/v1", Version: "v1"},
+				},
+				PreferredVersion: metav1.GroupVersionForDiscovery{
+					GroupVersion: customGroup + "/v1",
+					Version:      "v1",
+				},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1alpha1": {{Name: "configmaps", Namespaced: true, Kind: "ExampleConfigMap"}},
+				"v1":       {{Name: "configmaps", Namespaced: true, Kind: "ExampleConfigMap"}},
+			},
+		},
+	})
+
+	newResource := func(apiVersion, kind, name, uid string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": apiVersion,
+			"kind":       kind,
+			"metadata": map[string]any{
+				"name":      name,
+				"namespace": "default",
+				"uid":       uid,
+			},
+		}}
+	}
+	client, err := dclient.NewFakeClient(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			coreGVR:          "ConfigMapList",
+			coreNamespaceGVR: "NamespaceList",
+			customAlphaGVR:   "ExampleConfigMapList",
+			customV1GVR:      "ExampleConfigMapList",
+		},
+		newResource("v1", "ConfigMap", "core-config", "core-uid"),
+		&unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "v1", "kind": "Namespace",
+			"metadata": map[string]any{"name": "existing-ns", "uid": "namespace-uid"},
+		}},
+	)
+	require.NoError(t, err)
+
+	discovery := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{coreGVR, coreNamespaceGVR, customAlphaGVR, customV1GVR})
+	discovery.AddGVRToGVKMapping(coreGVR, coreGVR.GroupVersion().WithKind("ConfigMap"))
+	discovery.AddGVRToGVKMapping(coreNamespaceGVR, coreNamespaceGVR.GroupVersion().WithKind("Namespace"))
+	discovery.AddGVRToGVKMapping(customAlphaGVR, customAlphaGVR.GroupVersion().WithKind("ExampleConfigMap"))
+	discovery.AddGVRToGVKMapping(customV1GVR, customV1GVR.GroupVersion().WithKind("ExampleConfigMap"))
+	client.SetDiscovery(discovery)
+
+	// NewFakeClient's object tracker guesses the resource plural from Kind.
+	// In this fixture the custom kind deliberately uses "configmaps", so seed
+	// through the discovery-backed client to store it under the correct GVR.
+	for _, version := range []string{"v1alpha1", "v1"} {
+		apiVersion := customGroup + "/" + version
+		_, err := client.CreateResource(context.Background(), apiVersion, "ExampleConfigMap", "default",
+			newResource(apiVersion, "ExampleConfigMap", "custom-config", "custom-uid"), false)
+		require.NoError(t, err)
+	}
+	for _, version := range []string{"v1alpha1", "v1"} {
+		listed, err := client.ListResource(context.Background(), customGroup+"/"+version, "ExampleConfigMap", "", nil)
+		require.NoError(t, err)
+		require.Len(t, listed.Items, 1)
+	}
+
+	pc := &policyController{client: client, restMapper: mapper, log: logr.Discard()}
+	namespacedScope := admissionregistrationv1.NamespacedScope
+	clusterScope := admissionregistrationv1.ClusterScope
+	tests := []struct {
+		name                 string
+		groups               []string
+		versions             []string
+		resourceNames        []string
+		resource             string
+		scope                *admissionregistrationv1.ScopeType
+		excludeCore          bool
+		excludeAlpha         bool
+		overlapCore          bool
+		wantNames            []string
+		wantCustomAPIVersion string
+	}{
+		{
+			name:   "wildcard group with v1 matches both groups",
+			groups: []string{"*"}, versions: []string{"v1"},
+			wantNames: []string{"core-config", "custom-config"},
+		},
+		{
+			name:   "wildcard group respects explicit version",
+			groups: []string{"*"}, versions: []string{"v1alpha1"},
+			wantNames: []string{"custom-config"},
+		},
+		{
+			name:   "wildcard group and version use one preferred version per group",
+			groups: []string{"*"}, versions: []string{"*"},
+			wantNames: []string{"core-config", "custom-config"},
+		},
+		{
+			name:   "multiple explicit versions retain eligible matches",
+			groups: []string{"*"}, versions: []string{"v1alpha1", "v1"},
+			wantNames:            []string{"core-config", "custom-config"},
+			wantCustomAPIVersion: customGroup + "/v1alpha1",
+		},
+		{
+			name:   "excluded earlier version does not hide a later match",
+			groups: []string{"*"}, versions: []string{"v1alpha1", "v1"},
+			excludeAlpha: true, wantNames: []string{"core-config", "custom-config"},
+			wantCustomAPIVersion: customGroup + "/v1",
+		},
+		{
+			name:   "concrete core group is unchanged",
+			groups: []string{""}, versions: []string{"v1"},
+			wantNames: []string{"core-config"},
+		},
+		{
+			name:   "concrete custom group wildcard version is unchanged",
+			groups: []string{customGroup}, versions: []string{"*"},
+			wantNames: []string{"custom-config"},
+		},
+		{
+			name:   "overlapping wildcard and concrete rules are deduplicated",
+			groups: []string{"*"}, versions: []string{"v1"},
+			overlapCore: true, wantNames: []string{"core-config", "custom-config"},
+		},
+		{
+			name:   "wildcard group preserves core group exclusions",
+			groups: []string{"*"}, versions: []string{"v1"},
+			excludeCore: true, wantNames: []string{"custom-config"},
+		},
+		{
+			name:   "resource names are still respected",
+			groups: []string{"*"}, versions: []string{"v1"},
+			resourceNames: []string{"core-config"}, wantNames: []string{"core-config"},
+		},
+		{
+			name:   "namespaced scope includes namespaced resources",
+			groups: []string{"*"}, versions: []string{"v1"}, scope: &namespacedScope,
+			wantNames: []string{"core-config", "custom-config"},
+		},
+		{
+			name:   "cluster scope excludes namespaced resources",
+			groups: []string{"*"}, versions: []string{"v1"}, scope: &clusterScope,
+		},
+		{
+			name:   "cluster scope includes cluster-scoped resources",
+			groups: []string{"*"}, versions: []string{"v1"}, resource: "namespaces", scope: &clusterScope,
+			wantNames: []string{"existing-ns"},
+		},
+		{
+			name:   "namespaced scope excludes cluster-scoped resources",
+			groups: []string{"*"}, versions: []string{"v1"}, resource: "namespaces", scope: &namespacedScope,
+		},
+		{
+			name:   "unserved version does not produce a trigger",
+			groups: []string{"*"}, versions: []string{"v2"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resource := tc.resource
+			if resource == "" {
+				resource = "configmaps"
+			}
+			match := &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					ResourceNames: tc.resourceNames,
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   tc.groups,
+							APIVersions: tc.versions,
+							Resources:   []string{resource},
+							Scope:       tc.scope,
+						},
+					},
+				}},
+			}
+			if tc.overlapCore {
+				// Wildcards must be the sole element of APIGroups. Model overlap
+				// with separate valid match rules instead of ["*", ""].
+				match.ResourceRules = append(match.ResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				})
+			}
+			if tc.excludeAlpha {
+				match.ExcludeResourceRules = append(match.ExcludeResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{customGroup},
+							APIVersions: []string{"v1alpha1"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				})
+			}
+			if tc.excludeCore {
+				match.ExcludeResourceRules = []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"*"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				}}
+			}
+			triggers := pc.getGpolTriggers(match)
+			gotNames := make([]string, 0, len(triggers))
+			for _, trigger := range triggers {
+				gotNames = append(gotNames, trigger.GetName())
+				if trigger.GetName() == "custom-config" {
+					if tc.name == "wildcard group and version use one preferred version per group" {
+						assert.Equal(t, customGroup+"/v1", trigger.GetAPIVersion())
+					}
+					if tc.wantCustomAPIVersion != "" {
+						assert.Equal(t, tc.wantCustomAPIVersion, trigger.GetAPIVersion())
+					}
+				}
+			}
+			assert.ElementsMatch(t, tc.wantNames, gotNames)
 		})
 	}
 }

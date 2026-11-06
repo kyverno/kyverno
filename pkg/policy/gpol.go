@@ -10,6 +10,7 @@ import (
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -135,6 +136,9 @@ type gpolTrigger struct {
 	SubResource string
 }
 
+// getGpolTriggers discovers existing matching resources for background
+// generation and trigger-based mutation. Discovery must resolve wildcard API
+// groups before listing, and matching/exclusions must precede deduplication.
 func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.MatchResources) []gpolTrigger {
 	var triggers []gpolTrigger
 	seen := make(map[string]bool)
@@ -150,34 +154,56 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 					baseResource = resource[:idx]
 					subresource = resource[idx+1:]
 				}
-				versions := rule.APIVersions
-				// RESTMapper does not support wildcard versions ("*"). When a wildcard is used,
-				// resolve it to a concrete version (the RESTMapper will pick the preferred version)
-				// for the given group/resource before processing.
-				if len(rule.APIVersions) == 1 && rule.APIVersions[0] == "*" {
-					gvk, err := pc.restMapper.KindFor(
-						schema.GroupVersionResource{
+				var candidates []schema.GroupVersionResource
+				if group == "*" {
+					// RESTMapper cannot resolve "*" as a concrete API group.
+					// Discover all served groups for this resource instead.
+					candidates = pc.resolveWildcardGroupTriggerGVRs(rule.APIVersions, baseResource)
+				} else {
+					versions := rule.APIVersions
+					// Keep the existing preferred-version behavior for concrete groups.
+					if len(versions) == 1 && versions[0] == "*" {
+						gvk, err := pc.restMapper.KindFor(schema.GroupVersionResource{
 							Group:    group,
 							Resource: baseResource,
-						},
-					)
-					if err != nil {
-						pc.log.Error(err, "failed to resolve wildcard APIVersions", "group", group, "resource", baseResource)
-						continue
+						})
+						if err != nil {
+							pc.log.Error(err, "failed to resolve wildcard APIVersions", "group", group, "resource", baseResource)
+							continue
+						}
+						versions = []string{gvk.Version}
 					}
-					versions = []string{gvk.Version}
+					for _, version := range versions {
+						candidates = append(candidates, schema.GroupVersionResource{
+							Group:    group,
+							Version:  version,
+							Resource: baseResource,
+						})
+					}
 				}
-				for _, version := range versions {
-					groupVersion := schema.GroupVersion{
-						Group:   group,
-						Version: version,
-					}
-					gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
-					baseGVR := schema.GroupVersionResource{Group: group, Version: version, Resource: baseResource}
+
+				for _, baseGVR := range candidates {
+					groupVersion := baseGVR.GroupVersion()
+					gvr := baseGVR
+					gvr.Resource = resource // retain subresource for exclusion matching
 					gvk, err := pc.restMapper.KindFor(baseGVR)
 					if err != nil {
 						pc.log.Error(err, "mapping gvr to gvk failed", "gvr", gvr)
 						continue
+					}
+					// MatchResources scope applies to the parent resource of a
+					// subresource. Skip unmatched scopes before issuing a LIST.
+					if rule.Scope != nil && *rule.Scope != admissionregistrationv1.AllScopes {
+						mapping, err := pc.restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+						if err != nil {
+							pc.log.Error(err, "failed to resolve trigger resource scope", "gvr", gvr)
+							continue
+						}
+						namespaced := mapping.Scope.Name() == meta.RESTScopeNameNamespace
+						if (*rule.Scope == admissionregistrationv1.NamespacedScope && !namespaced) ||
+							(*rule.Scope == admissionregistrationv1.ClusterScope && namespaced) {
+							continue
+						}
 					}
 					resources, err := pc.client.ListResource(context.TODO(), groupVersion.String(), gvk.Kind, "", objectSelector)
 					if err != nil {
@@ -188,15 +214,10 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 						if !pc.triggerMatches(res, gvr, rule.ResourceNames, match.ExcludeResourceRules, nsSelector) {
 							continue
 						}
-						kind := res.GetKind()
-						if kind == "" {
-							kind = gvk.Kind
-						}
-						apiVersion := res.GetAPIVersion()
-						if apiVersion == "" {
-							apiVersion = groupVersion.String()
-						}
-						key := apiVersion + "/" + kind + "/" + res.GetNamespace() + "/" + res.GetName() + "/" + string(res.GetUID())
+						// The same object can be served through different API versions.
+						// Deduplicate by stable group/resource identity only after the
+						// version-specific rule and exclusion filters have succeeded.
+						key := gvr.Group + "/" + baseResource + "/" + res.GetNamespace() + "/" + res.GetName() + "/" + string(res.GetUID())
 						if seen[key] {
 							continue
 						}
@@ -211,6 +232,55 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 		}
 	}
 	return triggers
+}
+
+// resolveWildcardGroupTriggerGVRs expands a wildcard API group into concrete
+// served resources. A MatchResources wildcard covers both the core group and
+// named API groups; an empty RESTMapper query group is used only for discovery.
+//
+// Select one version per group/resource to avoid duplicate background work
+// against the same object served through multiple API versions.
+func (pc *policyController) resolveWildcardGroupTriggerGVRs(versions []string, resource string) []schema.GroupVersionResource {
+	var resolved []schema.GroupVersionResource
+	seen := make(map[schema.GroupResource]struct{})
+	for _, version := range versions {
+		query := schema.GroupVersionResource{Resource: resource}
+		if version != "*" {
+			query.Version = version
+		}
+		candidates, err := pc.restMapper.ResourcesFor(query)
+		if err != nil {
+			pc.log.Error(err, "failed to resolve wildcard API groups", "version", version, "resource", resource)
+			continue
+		}
+		for _, candidate := range candidates {
+			if version != "*" && candidate.Version != version {
+				continue
+			}
+			if version == "*" {
+				// ResourcesFor returns every served version. Prefer the
+				// mapper's selected version for each concrete API group.
+				preferred, err := pc.restMapper.ResourceFor(schema.GroupVersionResource{
+					Group:    candidate.Group,
+					Resource: resource,
+				})
+				if err == nil && preferred.Group == candidate.Group {
+					candidate = preferred
+				}
+			}
+			// Explicit version lists are independent matches. Drop duplicate
+			// served versions only for an unconstrained version wildcard.
+			if version == "*" {
+				groupResource := candidate.GroupResource()
+				if _, exists := seen[groupResource]; exists {
+					continue
+				}
+				seen[groupResource] = struct{}{}
+			}
+			resolved = append(resolved, candidate)
+		}
+	}
+	return resolved
 }
 
 func filterTriggersByNamespace(triggers []gpolTrigger, namespace string) []gpolTrigger {
