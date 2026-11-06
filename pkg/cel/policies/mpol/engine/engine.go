@@ -101,6 +101,18 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 		Resource: object,
 	}
 
+	// namespaceObject is the target's namespace, same as at admission time. The target can live
+	// in a different namespace than the trigger, so it is resolved from attr, not from request.
+	// It is looked up once, and only when a policy passes the predicate, so a target that no
+	// policy applies to never pays for the lookup.
+	targetNamespace := attr.GetNamespace()
+	namespaceFn := sync.OnceValue(func() *corev1.Namespace {
+		if targetNamespace == "" {
+			return nil
+		}
+		return e.nsResolver(targetNamespace)
+	})
+
 	// The request here is loop-invariant (attr is rebuilt per policy below,
 	// but the underlying admission request is not), so the `request` CEL
 	// activation value is built at most once for the whole loop instead of
@@ -120,7 +132,7 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue
 		}
-		r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, requestMapFn, true, nil)
+		r, patched := e.handlePolicy(ctx, mpol, attr, request, namespaceFn(), requestMapFn, true, nil)
 		response.Policies = append(response.Policies, r)
 		if patched != nil {
 			response.PatchedResource = patched

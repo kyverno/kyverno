@@ -832,6 +832,134 @@ func TestEvaluate(t *testing.T) {
 		assert.Equal(t, "true", labels["accepted"])
 		assert.NotContains(t, labels, "rejected", "rejected policy mutation should not be present")
 	})
+
+	// namespaceObject must be the target's namespace in mutateExisting evaluation, the same as
+	// it is at admission time; the background controller and the CLI both evaluate targets here.
+	namespaceObjectEngine := func(t *testing.T, nsResolver func(string) *corev1.Namespace, explicitTarget bool) *engineImpl {
+		t.Helper()
+		mutateExisting := true
+		pol := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "copy-team-label"},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{Enabled: &mutateExisting},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"configmaps"},
+							},
+						},
+					}},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{{
+					Name:       "team-namespaces-only",
+					Expression: `has(namespaceObject.metadata.labels) && 'team' in namespaceObject.metadata.labels`,
+				}},
+				Mutations: []admissionregistrationv1alpha1.Mutation{{
+					PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+					ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+						Expression: `Object{metadata: Object.metadata{labels: {"team": namespaceObject.metadata.labels["team"]}}}`,
+					},
+				}},
+			},
+		}
+		if explicitTarget {
+			// the target is selected by targetMatchConstraints and checked by targetMatchConditions
+			pol.Spec.TargetMatchConstraints = &policiesv1beta1.TargetMatchConstraints{MatchResources: *pol.Spec.MatchConstraints.DeepCopy()}
+			pol.Spec.TargetMatchConditions = pol.Spec.MatchConditions
+		}
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{pol}, nil, libs.NewFakeContextProvider())
+		if !assert.NoError(t, err) {
+			t.FailNow()
+		}
+		return NewEngine(provider, nsResolver, nil, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+	}
+	namespaceObjectTarget := func() admission.Attributes {
+		target := &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]interface{}{"name": "cm", "namespace": "payments"},
+		}}
+		return admission.NewAttributesRecord(
+			target, nil, schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+			"payments", "cm", schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
+			"", admission.Update, nil, false, &user.DefaultInfo{},
+		)
+	}
+	// the trigger lives in another namespace: namespaceObject must follow the target
+	namespaceObjectTrigger := admissionv1.AdmissionRequest{Operation: admissionv1.Update, Namespace: "trigger", Name: "cm"}
+
+	t.Run("namespaceObject is resolved for the target namespace", func(t *testing.T) {
+		var resolved []string
+		eng := namespaceObjectEngine(t, func(ns string) *corev1.Namespace {
+			resolved = append(resolved, ns)
+			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{"team": "payments"}}}
+		}, false)
+
+		resp, err := eng.Evaluate(ctx, namespaceObjectTarget(), namespaceObjectTrigger, predicate)
+
+		assert.NoError(t, err)
+		if assert.Len(t, resp.Policies, 1) && assert.Len(t, resp.Policies[0].Rules, 1) {
+			rule := resp.Policies[0].Rules[0]
+			assert.Equal(t, engineapi.RuleStatusPass, rule.Status(), rule.Message())
+		}
+		if assert.NotNil(t, resp.PatchedResource, "the target should have been mutated") {
+			assert.Equal(t, "payments", resp.PatchedResource.GetLabels()["team"])
+		}
+		assert.Equal(t, []string{"payments"}, resolved)
+	})
+
+	t.Run("namespaceObject is resolved for an explicit target in another namespace", func(t *testing.T) {
+		var resolved []string
+		// each namespace carries its own name as its team label, so the patch shows which one was used
+		eng := namespaceObjectEngine(t, func(ns string) *corev1.Namespace {
+			resolved = append(resolved, ns)
+			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{"team": ns}}}
+		}, true)
+
+		resp, err := eng.Evaluate(ctx, namespaceObjectTarget(), namespaceObjectTrigger, predicate)
+
+		assert.NoError(t, err)
+		if assert.Len(t, resp.Policies, 1) && assert.Len(t, resp.Policies[0].Rules, 1) {
+			rule := resp.Policies[0].Rules[0]
+			assert.Equal(t, engineapi.RuleStatusPass, rule.Status(), rule.Message())
+		}
+		if assert.NotNil(t, resp.PatchedResource, "the target should have been mutated") {
+			assert.Equal(t, "payments", resp.PatchedResource.GetLabels()["team"], "namespaceObject must be the target's namespace, not the trigger's")
+		}
+		assert.Equal(t, []string{"payments"}, resolved)
+	})
+
+	// a namespace the resolver can't find leaves namespaceObject null, so a policy that reads it
+	// fails to evaluate on the target instead of being applied
+	t.Run("an unresolved target namespace leaves namespaceObject null", func(t *testing.T) {
+		eng := namespaceObjectEngine(t, func(string) *corev1.Namespace { return nil }, false)
+
+		resp, err := eng.Evaluate(ctx, namespaceObjectTarget(), namespaceObjectTrigger, predicate)
+
+		assert.NoError(t, err)
+		if assert.Len(t, resp.Policies, 1) && assert.Len(t, resp.Policies[0].Rules, 1) {
+			rule := resp.Policies[0].Rules[0]
+			assert.Equal(t, engineapi.RuleStatusError, rule.Status())
+			assert.Contains(t, rule.Message(), "no such key: metadata")
+		}
+		assert.Nil(t, resp.PatchedResource, "the target must not be mutated")
+	})
+
+	t.Run("the target namespace is not looked up when no policy passes the predicate", func(t *testing.T) {
+		var resolved []string
+		eng := namespaceObjectEngine(t, func(ns string) *corev1.Namespace {
+			resolved = append(resolved, ns)
+			return nil
+		}, false)
+
+		resp, err := eng.Evaluate(ctx, namespaceObjectTarget(), namespaceObjectTrigger, func(policiesv1beta1.MutatingPolicyLike) bool { return false })
+
+		assert.NoError(t, err)
+		assert.Empty(t, resp.Policies)
+		assert.Empty(t, resolved)
+	})
 }
 
 func TestHandle(t *testing.T) {
