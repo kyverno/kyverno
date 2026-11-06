@@ -339,7 +339,14 @@ func TestGetGpolTriggers_DeduplicateTriggers(t *testing.T) {
 	}
 
 	triggers := pc.getGpolTriggers(match)
-	assert.Len(t, triggers, 1, "expected duplicate triggers from pods and pods/status to be deduplicated")
+	// Different admission subresources may have different mutation match conditions.
+	// Deduplicate repeated versions of the same context, not the base and status
+	// contexts of the same Kubernetes object.
+	require.Len(t, triggers, 2)
+	assert.ElementsMatch(t, []string{"", "status"}, []string{
+		triggers[0].SubResource,
+		triggers[1].SubResource,
+	})
 }
 
 func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
