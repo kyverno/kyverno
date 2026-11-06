@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/apply"
@@ -155,7 +156,7 @@ func TestEvaluateRequestErrors(t *testing.T) {
 		msg    string
 	}{
 		{"not json", locked, `{`, http.StatusBadRequest, "failed to decode EvaluationRequest"},
-		{"unknown field", locked, `{"mode":"Kubernetes","payload":"x","oldPayload":"y"}`, http.StatusBadRequest, "unknown field"},
+		{"unknown field", locked, `{"mode":"Kubernetes","payload":"x","previousObject":"y"}`, http.StatusBadRequest, "unknown field"},
 		{"wrong kind", locked, `{"kind":"AdmissionReview","mode":"Kubernetes","payload":"x"}`, http.StatusBadRequest, "unsupported apiVersion/kind"},
 		{"bad mode", locked, `{"mode":"SOAP","payload":"x"}`, http.StatusBadRequest, "unsupported mode"},
 		{"disabled mode", locked, `{"mode":"Envoy","payload":"{}"}`, http.StatusBadRequest, "not enabled"},
@@ -226,4 +227,88 @@ func TestRequestCRDsDoNotLeak(t *testing.T) {
 
 	code, _, st = postRequest(t, h, withCRDs)
 	assert.Equal(t, http.StatusOK, code, st.Message)
+}
+
+// TestRequestSameObjectsAsClusterAndTargets sends the same objects as clusterResources and
+// targetResources (what the Playground does); the in-memory cluster must deduplicate them.
+//
+//nolint:paralleltest // newServerFromPaths sets the process-global CRD processor
+func TestRequestSameObjectsAsClusterAndTargets(t *testing.T) {
+	s, err := newServerFromPaths(nil, Config{AllowRequestPolicies: true})
+	require.NoError(t, err)
+	gateways := read(t, fixture("requests", "targets", "gateways.yaml"))
+	code, resp, st := postRequest(t, s.Handler(), EvaluationRequest{
+		Mode: evaluator.ModeKubernetes, Policies: read(t, fixture("requests", "targets", "policy.yaml")), Payload: read(t, fixture("requests", "targets", "route.yaml")),
+		ClusterResources: gateways, TargetResources: gateways, CustomResourceDefinitions: read(t, fixture("requests", "targets", "crds.yaml")),
+	})
+	require.Equal(t, http.StatusOK, code, st.Message)
+	assert.Equal(t, 2, resp.Summary.Pass)
+}
+
+const immutableEnvPolicy = `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: immutable-env
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      operations: ["UPDATE"]
+      resources: ["deployments"]
+  validations:
+  - expression: "object.metadata.labels['env'] == oldObject.metadata.labels['env']"
+    message: env label is immutable
+`
+
+const prodNamespacesOnlyPolicy = `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: no-pods-in-prod
+spec:
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+        env: prod
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  validations:
+  - expression: "false"
+    message: no pods in prod namespaces
+`
+
+//nolint:paralleltest // newServerFromPaths sets the process-global CRD processor
+func TestRequestOldPayloadAndNamespaces(t *testing.T) {
+	s, err := newServerFromPaths(nil, Config{AllowRequestPolicies: true})
+	require.NoError(t, err)
+	h := s.Handler()
+	current := read(t, fixture("payloads", "kubernetes", "deployment-fail.yaml")) // env: testing
+	previous := strings.ReplaceAll(current, "env: testing", "env: prod")
+
+	// without an old object the resource is its own old state, so the label did not change
+	code, resp, st := postRequest(t, h, EvaluationRequest{Mode: "Kubernetes", Policies: immutableEnvPolicy, Payload: current, Operation: "UPDATE"})
+	require.Equal(t, http.StatusOK, code, st.Message)
+	assert.Equal(t, DecisionAllow, resp.Decision)
+	// with the previous state, the change is caught
+	code, resp, st = postRequest(t, h, EvaluationRequest{Mode: "Kubernetes", Policies: immutableEnvPolicy, Payload: current, OldPayload: previous, Operation: "UPDATE"})
+	require.Equal(t, http.StatusOK, code, st.Message)
+	assert.Equal(t, DecisionDeny, resp.Decision)
+	require.Len(t, resp.Results, 1)
+	assert.Equal(t, "env label is immutable", resp.Results[0].Message)
+	// oldPayload is Kubernetes-only
+	code, _, st = postRequest(t, h, EvaluationRequest{Mode: "JSON", Policies: read(t, fixture("policies", "json", "check-dockerfile.yaml")), Payload: "{}", OldPayload: "{}"})
+	assert.Equal(t, http.StatusBadRequest, code)
+	assert.Contains(t, st.Message, "only supported in Kubernetes mode")
+
+	// namespaceSelector reads Namespace objects sent as cluster resources
+	pod := read(t, fixture("payloads", "kubernetes", "pod.yaml"))
+	code, resp, st = postRequest(t, h, EvaluationRequest{Mode: "Kubernetes", Policies: prodNamespacesOnlyPolicy, Payload: pod})
+	require.Equal(t, http.StatusOK, code, st.Message)
+	assert.Equal(t, DecisionNoMatch, resp.Decision)
+	code, resp, st = postRequest(t, h, EvaluationRequest{Mode: "Kubernetes", Policies: prodNamespacesOnlyPolicy, Payload: pod, ClusterResources: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: default\n  labels:\n    env: prod\n"})
+	require.Equal(t, http.StatusOK, code, st.Message)
+	assert.Equal(t, DecisionDeny, resp.Decision)
 }

@@ -34,6 +34,9 @@ type EvaluationRequest struct {
 	Mode       evaluator.Mode `json:"mode"`
 	// Payload is what is evaluated, in the format POST /v1alpha1/evaluate/{mode} takes.
 	Payload string `json:"payload"`
+	// OldPayload is the previous state of the Kubernetes resources in Payload, for UPDATE and DELETE
+	// (matched by apiVersion, kind, namespace and name). Without it, a resource is its own old object.
+	OldPayload string `json:"oldPayload,omitempty"`
 	// Policies, when set, are evaluated instead of the server's --policies. Only accepted when the
 	// server runs with --allow-request-policies.
 	Policies string `json:"policies,omitempty"`

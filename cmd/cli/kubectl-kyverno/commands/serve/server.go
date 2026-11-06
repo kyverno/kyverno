@@ -216,6 +216,16 @@ func (s *Server) handleEvaluateRequest(w http.ResponseWriter, r *http.Request) {
 		writeStatus(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if strings.TrimSpace(req.OldPayload) != "" {
+		if mode != evaluator.ModeKubernetes {
+			writeStatus(w, http.StatusBadRequest, "oldPayload is only supported in Kubernetes mode")
+			return
+		}
+		if in.OldResources, err = decodeResources("oldPayload", req.OldPayload); err != nil {
+			writeStatus(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 	if in.TargetResources, err = decodeResources("targetResources", req.TargetResources); err != nil {
 		writeStatus(w, http.StatusBadRequest, err.Error())
 		return
@@ -364,6 +374,14 @@ func (s *Server) Evaluate(ctx context.Context, mode evaluator.Mode, in evaluator
 // evaluateWith builds fresh per-request state (store, variables, in-memory cluster seeded with the
 // payload, cluster and parameter resources) and holds the server lock for the evaluation.
 func (s *Server) evaluateWith(ctx context.Context, mode evaluator.Mode, set *evaluator.PolicySet, digest string, in evaluator.Input, clusterResources []*unstructured.Unstructured, opts evaluator.Options) (resp *EvaluationResponse, err error) {
+	// recover anything below (building the in-memory cluster included), so a request that trips a
+	// panic gets a 500 Status instead of a dropped connection
+	defer func() {
+		if p := recover(); p != nil {
+			log.Log.Error(fmt.Errorf("%v", p), "evaluation panicked", "stack", string(debug.Stack()))
+			resp, err = nil, fmt.Errorf("evaluation panicked: %v", p)
+		}
+	}()
 	st := &store.Store{}
 	st.SetLocal(true)
 	if len(in.Resources)+len(clusterResources)+len(in.TargetResources)+len(in.ParameterResources) > 0 {
@@ -388,12 +406,6 @@ func (s *Server) evaluateWith(ctx context.Context, mode evaluator.Mode, set *eva
 	// and after every evaluation so they cannot leak into another request.
 	resetCRDs()
 	defer resetCRDs()
-	defer func() {
-		if p := recover(); p != nil {
-			log.Log.Error(fmt.Errorf("%v", p), "evaluation panicked", "stack", string(debug.Stack()))
-			resp, err = nil, fmt.Errorf("evaluation panicked: %v", p)
-		}
-	}()
 	opts.Out = io.Discard
 	result, err := s.evaluate(ctx, set, in, opts)
 	if err != nil {

@@ -65,10 +65,11 @@ would read from a file. Unknown fields are rejected.
 |---|---|---|
 | `mode` (required) | | `Kubernetes`, `JSON`, `HTTP` or `Envoy` |
 | `payload` (required) | `-r` / `--json` / `--http-payload` / `--envoy-payload` | What is evaluated, in the format the mode takes (see above) |
+| `oldPayload` | | Kubernetes mode only: the previous state of the payload resources for `UPDATE`/`DELETE` (`oldObject`), matched by apiVersion, kind, namespace and name. Without it, a resource is its own old object, as in `apply`. |
 | `policies` | positional policy paths | Policies evaluated instead of the server's set. Needs `--allow-request-policies`, otherwise 403. Loaded as strictly as at startup. |
 | `exceptions` | `--exception` | CEL `PolicyException`s, applied in addition to any loaded with the policies |
 | `context` | `--context-file` | A `cli.kyverno.io/v1alpha1` `Context`: the objects CEL `resource.get`/`resource.list` return, and image data |
-| `clusterResources` | extra `-r` resources | Objects added to the in-memory cluster next to the payload (read by namespace lookups) |
+| `clusterResources` | extra `-r` resources | Objects added to the in-memory cluster next to the payload. Namespace objects here are used for `namespaceSelector` and `namespaceObject`. |
 | `parameterResources` | `--parameter-resource` | VAP/MAP parameter objects |
 | `targetResources` | `--target-resource` | Existing objects that mutateExisting MutatingPolicies may mutate |
 | `customResourceDefinitions` | `--crd-paths` | CRDs for custom kinds in the payload or targets. They apply to this request only. |
@@ -153,8 +154,12 @@ Every non-2xx response has this body:
   Kubernetes requests, serve them from a separate `--policies` directory.
 - **Exceptions.** CEL `PolicyException`s found in `--policies` are always applied. This is the same
   as `apply --exceptions-within-policies`.
-- **Not supported in v1alpha1.** Values files, user info, a separate old object (for `UPDATE` the
-  payload is used as both the new and the old object, as in `apply`), global context entries,
+- **Namespaces.** Offline, `namespaceSelector` and `namespaceObject` first read the values file
+  (`apply -f`). They then fall back to Namespace objects among the resources (`apply -r`) or
+  `clusterResources`.
+- **mutateExisting.** Targets are only mutated when the trigger matches the policy (its
+  `matchConstraints`, `matchConditions`, and `mutateExisting` being enabled), as at admission.
+- **Not supported in v1alpha1.** Values files, user info, global context entries,
   Git or OCI policy sources, reload, AdmissionReview, SubjectAccessReview, Envoy gRPC ext_authz,
   TLS, and authentication.
 - **Request policies run arbitrary CEL** that the caller supplies. They are off by default. Only
