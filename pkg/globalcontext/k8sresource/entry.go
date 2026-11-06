@@ -35,7 +35,56 @@ import (
 const (
 	cacheSyncTimeout        = 30 * time.Second
 	watchErrorEventInterval = time.Minute
+	// Coalesce informer notifications into bounded full-snapshot refreshes.
+	projectionCoalesceInterval = 25 * time.Millisecond
 )
+
+// notifyProjectionChange records a dirty snapshot without blocking informer handlers.
+func notifyProjectionChange(changes chan<- struct{}) {
+	select {
+	case changes <- struct{}{}:
+	default:
+	}
+}
+
+// runProjectionWorker batches events within a fixed window (not an unbounded
+// quiet-period debounce). Notifications arriving during refresh remain pending.
+func runProjectionWorker(ctx context.Context, changes <-chan struct{}, refresh func()) {
+	timer := time.NewTimer(projectionCoalesceInterval)
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-changes:
+		}
+
+		timer.Reset(projectionCoalesceInterval)
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
+		if ctx.Err() != nil {
+			return
+		}
+
+		// A full snapshot covers pending notifications accumulated during
+		// the window; notifications during refresh start the next batch.
+		select {
+		case <-changes:
+		default:
+		}
+		refresh()
+	}
+}
 
 // shouldReportWatchError bounds post-sync warning events to one per interval.
 // Initial sync failures are always reported separately by the watch handler.
@@ -98,6 +147,40 @@ func newWithWatchErrorObserver(
 	jp jmespath.Interface,
 	observeWatchError func(error),
 ) (store.Entry, error) {
+	return newWithChangesAndObserver(ctx, gce, eventGen, dClient, logger, gvr, namespace, jp, nil, observeWatchError)
+}
+
+// newWithChanges allows tests to inspect informer event delivery while the
+// initial projection is blocked. Production constructs its own channel.
+func newWithChanges(
+	ctx context.Context,
+	gce *kyvernov2beta1.GlobalContextEntry,
+	eventGen event.Interface,
+	dClient dynamic.Interface,
+	logger logr.Logger,
+	gvr schema.GroupVersionResource,
+	namespace string,
+	jp jmespath.Interface,
+	changes chan struct{},
+) (store.Entry, error) {
+	return newWithChangesAndObserver(ctx, gce, eventGen, dClient, logger, gvr, namespace, jp, changes, nil)
+}
+
+func newWithChangesAndObserver(
+	ctx context.Context,
+	gce *kyvernov2beta1.GlobalContextEntry,
+	eventGen event.Interface,
+	dClient dynamic.Interface,
+	logger logr.Logger,
+	gvr schema.GroupVersionResource,
+	namespace string,
+	jp jmespath.Interface,
+	changes chan struct{},
+	observeWatchError func(error),
+) (store.Entry, error) {
+	if len(gce.Spec.Projections) > 0 && changes == nil {
+		changes = make(chan struct{}, 1)
+	}
 	if namespace == "" {
 		namespace = metav1.NamespaceAll
 	}
@@ -197,15 +280,17 @@ func newWithWatchErrorObserver(
 		projected:   make(map[string]interface{}),
 	}
 
-	// Only add event handlers if projections are defined
-	// This avoids unnecessary processing when projections are not used
+	// Informer callbacks only record that a full projection refresh is needed.
+	// Avoid O(N^2) projection work while initial LIST events are delivered.
+	var registration cache.ResourceEventHandlerRegistration
 	if len(projections) > 0 {
-		_, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { e.recomputeProjections(ctx) },
-			UpdateFunc: func(oldObj, newObj interface{}) { e.recomputeProjections(ctx) },
-			DeleteFunc: func(obj interface{}) { e.recomputeProjections(ctx) },
+		registration, err = informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj interface{}) { notifyProjectionChange(changes) },
+			UpdateFunc: func(oldObj, newObj interface{}) { notifyProjectionChange(changes) },
+			DeleteFunc: func(obj interface{}) { notifyProjectionChange(changes) },
 		})
 		if err != nil {
+			stop()
 			return nil, err
 		}
 	}
@@ -216,7 +301,13 @@ func newWithWatchErrorObserver(
 
 	syncCtx, syncCancel := context.WithTimeout(ctx, cacheSyncTimeout)
 	defer syncCancel()
-	if !cache.WaitForCacheSync(syncCtx.Done(), informer.Informer().HasSynced) {
+	// HasSynced for the handler prevents initial LIST callbacks from racing
+	// with the initial snapshot and appearing to be later resource updates.
+	synced := []cache.InformerSynced{informer.Informer().HasSynced}
+	if registration != nil {
+		synced = append(synced, registration.HasSynced)
+	}
+	if !cache.WaitForCacheSync(syncCtx.Done(), synced...) {
 		stop()
 		var err error
 		if cause := ctx.Err(); cause != nil {
@@ -249,8 +340,14 @@ func newWithWatchErrorObserver(
 		return nil, fmt.Errorf("failed to sync cache for %s: informer stopped (%w)", gvr, startupErr)
 	}
 
-	// Compute initial projections after cache sync
+	// The initial LIST is already represented by the fully synced cache.
+	// Discard its notification before the initial synchronous evaluation.
+	// Later events remain buffered, including those during that evaluation.
 	if len(projections) > 0 {
+		select {
+		case <-changes:
+		default:
+		}
 		e.recomputeProjections(ctx)
 	}
 
@@ -259,6 +356,14 @@ func newWithWatchErrorObserver(
 	if err := ctx.Err(); err != nil {
 		stop()
 		return nil, fmt.Errorf("failed to initialize cache for %s: informer stopped (%w)", gvr, err)
+	}
+
+	if len(projections) > 0 {
+		group.StartWithContext(ctx, func(workerCtx context.Context) {
+			runProjectionWorker(workerCtx, changes, func() {
+				e.recomputeProjections(workerCtx)
+			})
+		})
 	}
 
 	return e, nil
@@ -304,6 +409,7 @@ func (e *entry) recomputeProjections(ctx context.Context) {
 	ctx, release := requestbudget.EnsureBackground(ctx)
 	defer release()
 
+	updated := make(map[string]interface{}, len(e.projections))
 	for _, proj := range e.projections {
 		result, err := proj.Evaluate(ctx, list)
 		if err != nil {
@@ -321,10 +427,18 @@ func (e *entry) recomputeProjections(ctx context.Context) {
 			}, err))
 			continue
 		}
-		e.projectedMu.Lock()
-		e.projected[proj.Name] = result
-		e.projectedMu.Unlock()
+		updated[proj.Name] = result
 	}
+
+	// Publish successful CEL and JMESPath results together, retaining
+	// last-known-good values for projections that failed this cycle.
+	// In-place updates avoid allocating another copy of the cached map;
+	// Get reads are guarded by the same RWMutex.
+	e.projectedMu.Lock()
+	for name, result := range updated {
+		e.projected[name] = result
+	}
+	e.projectedMu.Unlock()
 }
 
 func (e *entry) Get(projection string) (any, error) {
