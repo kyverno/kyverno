@@ -46,19 +46,8 @@ rules:
       - apps
     resources:
       - deployments
-      {{- if .Values.webhooksCleanup.enabled }}
-      {{- if not .Values.global.templating.enabled }}
-      - deployments/scale
-      {{- end }}
-      {{- end }}
     verbs:
       - get
       - list
       - watch
-      {{- if .Values.webhooksCleanup.enabled }}
-      {{- if not .Values.global.templating.enabled }}
-      - patch
-      - update
-      {{- end }}
-      {{- end }}
 {{- end -}}
