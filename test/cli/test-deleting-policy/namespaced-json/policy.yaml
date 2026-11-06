@@ -1,0 +1,10 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedDeletingPolicy
+metadata:
+  name: namespaced-deleting-json
+  namespace: team-a
+spec:
+  conditions:
+  - expression: object.MetaArgs[0].Key == "BUILD_PLATFORM"
+    name: check-key
+  schedule: '*/1 * * * *'
