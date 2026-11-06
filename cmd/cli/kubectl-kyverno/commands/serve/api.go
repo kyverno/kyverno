@@ -47,6 +47,12 @@ type EvaluationRequest struct {
 	ClusterResources string `json:"clusterResources,omitempty"`
 	// ParameterResources are ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters.
 	ParameterResources string `json:"parameterResources,omitempty"`
+	// TargetResources are existing objects mutateExisting MutatingPolicies may mutate
+	// (`kyverno apply --target-resource`).
+	TargetResources string `json:"targetResources,omitempty"`
+	// CustomResourceDefinitions describe custom resource kinds in the payload or targets
+	// (`kyverno apply --crd-paths`). They only apply to this request.
+	CustomResourceDefinitions string `json:"customResourceDefinitions,omitempty"`
 	// Operation is the admission operation to simulate: CREATE (default), UPDATE or DELETE.
 	Operation string `json:"operation,omitempty"`
 }
@@ -93,6 +99,13 @@ type RuleResult struct {
 	Resource   *ObjectRef         `json:"resource,omitempty"`
 	Exceptions []string           `json:"exceptions,omitempty"`
 	Properties map[string]string  `json:"properties,omitempty"`
+	// PatchedResource is the mutated resource (or JSON payload) this result produced, set on
+	// passing Mutation results.
+	PatchedResource map[string]any `json:"patchedResource,omitempty"`
+	// PatchedTarget is the existing object a MutatingPolicy with targets mutated (mutate-existing).
+	PatchedTarget map[string]any `json:"patchedTarget,omitempty"`
+	// GeneratedResources are the resources this Generation result produced.
+	GeneratedResources []map[string]any `json:"generatedResources,omitempty"`
 }
 
 // Artifacts are the objects produced by mutating and generating policies.
@@ -166,17 +179,22 @@ func newEvaluationResponse(mode evaluator.Mode, version, digest string, response
 			case engineapi.RuleStatusSkip:
 				resp.Summary.Skip++
 			}
-			if rule.RuleType() == engineapi.Mutation && rule.Status() == engineapi.RuleStatusPass {
+			if rule.RuleType() == engineapi.Mutation && rule.Status() == engineapi.RuleStatusPass && len(er.PatchedResource.Object) > 0 {
 				mutated = true
+				result.PatchedResource = er.PatchedResource.Object
+			}
+			if target, _, _ := rule.PatchedTarget(); target != nil {
+				result.PatchedTarget = target.Object
 			}
 			for _, gen := range rule.GeneratedResources() {
 				if gen != nil {
 					artifacts.Generated = append(artifacts.Generated, gen.Object)
+					result.GeneratedResources = append(result.GeneratedResources, gen.Object)
 				}
 			}
 			resp.Results = append(resp.Results, result)
 		}
-		if mutated && len(er.PatchedResource.Object) > 0 {
+		if mutated {
 			artifacts.Patched = append(artifacts.Patched, er.PatchedResource.Object)
 		}
 	}

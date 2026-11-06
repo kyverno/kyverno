@@ -107,6 +107,15 @@ func TestEvaluateRequest(t *testing.T) {
 		decision:  DecisionDeny,
 		ownDigest: true,
 	}, {
+		name: "mutateExisting targets with CRDs",
+		req: EvaluationRequest{
+			Mode: evaluator.ModeKubernetes, Policies: read(t, fixture("requests", "targets", "policy.yaml")), Payload: read(t, fixture("requests", "targets", "route.yaml")),
+			TargetResources: read(t, fixture("requests", "targets", "gateways.yaml")), CustomResourceDefinitions: read(t, fixture("requests", "targets", "crds.yaml")),
+		},
+		applyArgs: []string{fixture("requests", "targets", "policy.yaml"), "-r", fixture("requests", "targets", "route.yaml"), "--target-resource", fixture("requests", "targets", "gateways.yaml"), "--crd-paths", fixture("requests", "targets", "crds.yaml")},
+		decision:  DecisionAllow,
+		ownDigest: true,
+	}, {
 		name:      "request policies in another mode",
 		req:       EvaluationRequest{Mode: evaluator.ModeEnvoy, Policies: read(t, fixture("policies", "envoy", "forbid-admin-path.yaml")), Payload: read(t, fixture("payloads", "envoy", "admin.json"))},
 		applyArgs: []string{fixture("policies", "envoy", "forbid-admin-path.yaml"), "--envoy-payload", fixture("payloads", "envoy", "admin.json")},
@@ -158,6 +167,7 @@ func TestEvaluateRequestErrors(t *testing.T) {
 		{"legacy request policy", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: "apiVersion: kyverno.io/v1\nkind: ClusterPolicy\nmetadata:\n  name: x\nspec:\n  rules: []\n"}), http.StatusBadRequest, "policies:"},
 		{"non-exception in exceptions", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, Exceptions: pod}), http.StatusBadRequest, "CEL PolicyException"},
 		{"bad context", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, Context: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: x\n"}), http.StatusBadRequest, "context:"},
+		{"non-CRD in customResourceDefinitions", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, CustomResourceDefinitions: pod}), http.StatusBadRequest, "must be a CustomResourceDefinition"},
 		{"bad cluster resources", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, ClusterResources: "{"}), http.StatusBadRequest, "clusterResources:"},
 	}
 	for _, tt := range tests {
@@ -182,4 +192,38 @@ func mustJSON(t *testing.T, v any) string {
 	b, err := json.Marshal(v)
 	require.NoError(t, err)
 	return string(b)
+}
+
+// TestRequestCRDsDoNotLeak sends the same request with, without, then with CRDs: the CRDs of one
+// request must not make the custom kinds resolvable for the next.
+//
+//nolint:paralleltest // newServerFromPaths sets the process-global CRD processor
+func TestRequestCRDsDoNotLeak(t *testing.T) {
+	s, err := newServerFromPaths(nil, Config{AllowRequestPolicies: true})
+	require.NoError(t, err)
+	h := s.Handler()
+	req := EvaluationRequest{
+		Mode: evaluator.ModeKubernetes, Policies: read(t, fixture("requests", "targets", "policy.yaml")), Payload: read(t, fixture("requests", "targets", "route.yaml")),
+		TargetResources: read(t, fixture("requests", "targets", "gateways.yaml")),
+	}
+	withCRDs := req
+	withCRDs.CustomResourceDefinitions = read(t, fixture("requests", "targets", "crds.yaml"))
+
+	code, resp, st := postRequest(t, h, withCRDs)
+	require.Equal(t, http.StatusOK, code, st.Message)
+	require.Len(t, resp.Results, 2)
+	names := map[string]string{}
+	for _, r := range resp.Results {
+		require.NotNil(t, r.Resource)
+		require.NotNil(t, r.PatchedTarget, "patchedTarget for %s", r.Resource.Name)
+		names[r.Resource.Name] = r.PatchedTarget["metadata"].(map[string]any)["annotations"].(map[string]any)["route"].(string)
+	}
+	assert.Equal(t, map[string]string{"gateway-a": "route-a", "gateway-b": "route-a"}, names)
+
+	code, _, st = postRequest(t, h, req)
+	assert.Equal(t, http.StatusInternalServerError, code)
+	assert.Contains(t, st.Message, `no matches for kind "Gateway"`)
+
+	code, _, st = postRequest(t, h, withCRDs)
+	assert.Equal(t, http.StatusOK, code, st.Message)
 }

@@ -70,6 +70,8 @@ would read from a file. Unknown fields are rejected.
 | `context` | `--context-file` | A `cli.kyverno.io/v1alpha1` `Context`: the objects CEL `resource.get`/`resource.list` return, and image data |
 | `clusterResources` | extra `-r` resources | Objects added to the in-memory cluster next to the payload (read by namespace lookups) |
 | `parameterResources` | `--parameter-resource` | VAP/MAP parameter objects |
+| `targetResources` | `--target-resource` | Existing objects that mutateExisting MutatingPolicies may mutate |
+| `customResourceDefinitions` | `--crd-paths` | CRDs for custom kinds in the payload or targets. They apply to this request only. |
 | `operation` | `request.operation` in `--values-file` | `CREATE` (default), `UPDATE` or `DELETE` |
 
 ```sh
@@ -117,6 +119,10 @@ A completed evaluation returns **HTTP 200, even when a policy denies**:
 
 **`NoMatch` and `Error` are never reported as `Allow`.**
 
+- Each result also carries the objects it produced:
+  - `patchedResource`: the mutated object, on passing Mutation results.
+  - `patchedTarget`: the mutated existing object, for mutateExisting.
+  - `generatedResources`: the objects a Generation result created.
 - `artifacts.patched` holds the mutated resources or the mutated JSON payload.
 - `artifacts.generated` holds the resources produced by GeneratingPolicies.
 - `policySetDigest` is a SHA-256 hash of the loaded policies, bindings and exceptions. It does not
