@@ -15,6 +15,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/policy/matching"
 	"k8s.io/apiserver/pkg/apis/example"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/utils/ptr"
 )
 
 func TestNewMatcher(t *testing.T) {
@@ -381,6 +382,97 @@ func TestMatcher(t *testing.T) {
 			expectMatches: false,
 			expectErr:     "bad value",
 		},
+		{
+			name: "specific rules, equivalent match, matching equivalent version",
+			criteria: &v1.MatchResources{
+				MatchPolicy:       ptr.To(v1.Equivalent),
+				NamespaceSelector: &metav1.LabelSelector{},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"CREATE", "UPDATE"},
+						Rule:       v1.Rule{APIGroups: []string{"policies.kyverno.io"}, APIVersions: []string{"v1"}, Resources: []string{"namespacedvalidatingpolicies"}},
+					},
+				}}},
+			attrs:         admission.NewAttributesRecord(nil, nil, gvk("policies.kyverno.io", "v1beta1", "NamespacedValidatingPolicy"), "default", "test", gvr("policies.kyverno.io", "v1beta1", "namespacedvalidatingpolicies"), "", admission.Create, &metav1.CreateOptions{}, false, nil),
+			expectMatches: true,
+		},
+		{
+			name: "specific rules, exact match, version mismatch fails",
+			criteria: &v1.MatchResources{
+				MatchPolicy:       ptr.To(v1.Exact),
+				NamespaceSelector: &metav1.LabelSelector{},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"CREATE", "UPDATE"},
+						Rule:       v1.Rule{APIGroups: []string{"policies.kyverno.io"}, APIVersions: []string{"v1"}, Resources: []string{"namespacedvalidatingpolicies"}},
+					},
+				}}},
+			attrs:         admission.NewAttributesRecord(nil, nil, gvk("policies.kyverno.io", "v1beta1", "NamespacedValidatingPolicy"), "default", "test", gvr("policies.kyverno.io", "v1beta1", "namespacedvalidatingpolicies"), "", admission.Create, &metav1.CreateOptions{}, false, nil),
+			expectMatches: false,
+		},
+		{
+			name: "specific rules, equivalent match, cross-group extensions to apps",
+			criteria: &v1.MatchResources{
+				MatchPolicy:       ptr.To(v1.Equivalent),
+				NamespaceSelector: &metav1.LabelSelector{},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"*"},
+						Rule:       v1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}}},
+			attrs:         admission.NewAttributesRecord(nil, nil, gvk("extensions", "v1beta1", "Deployment"), "ns", "name", gvr("extensions", "v1beta1", "deployments"), "", admission.Create, &metav1.CreateOptions{}, false, nil),
+			expectMatches: true,
+		},
+		{
+			name: "specific rules, equivalent match, subresource",
+			criteria: &v1.MatchResources{
+				MatchPolicy:       ptr.To(v1.Equivalent),
+				NamespaceSelector: &metav1.LabelSelector{},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"*"},
+						Rule:       v1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments/scale"}},
+					},
+				}}},
+			attrs:         admission.NewAttributesRecord(nil, nil, gvk("autoscaling", "v1", "Scale"), "ns", "name", gvr("extensions", "v1beta1", "deployments"), "scale", admission.Create, &metav1.CreateOptions{}, false, nil),
+			expectMatches: true,
+		},
+		{
+			name: "specific rules, equivalent match, name mismatch fails",
+			criteria: &v1.MatchResources{
+				MatchPolicy:       ptr.To(v1.Equivalent),
+				NamespaceSelector: &metav1.LabelSelector{},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					ResourceNames: []string{"expected-name"},
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"*"},
+						Rule:       v1.Rule{APIGroups: []string{"policies.kyverno.io"}, APIVersions: []string{"v1"}, Resources: []string{"namespacedvalidatingpolicies"}},
+					},
+				}}},
+			attrs:         admission.NewAttributesRecord(nil, nil, gvk("policies.kyverno.io", "v1beta1", "NamespacedValidatingPolicy"), "default", "wrong-name", gvr("policies.kyverno.io", "v1beta1", "namespacedvalidatingpolicies"), "", admission.Create, &metav1.CreateOptions{}, false, nil),
+			expectMatches: false,
+		},
+		{
+			name: "specific rules, equivalent match, operation mismatch fails",
+			criteria: &v1.MatchResources{
+				MatchPolicy:       ptr.To(v1.Equivalent),
+				NamespaceSelector: &metav1.LabelSelector{},
+				ObjectSelector:    &metav1.LabelSelector{},
+				ResourceRules: []v1.NamedRuleWithOperations{{
+					RuleWithOperations: v1.RuleWithOperations{
+						Operations: []v1.OperationType{"CREATE"},
+						Rule:       v1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}}},
+			attrs:         admission.NewAttributesRecord(nil, nil, gvk("apps", "v1beta1", "Deployment"), "ns", "name", gvr("apps", "v1beta1", "deployments"), "", admission.Delete, &metav1.DeleteOptions{}, false, nil),
+			expectMatches: false,
+		},
 	}
 
 	for _, testcase := range testcases {
@@ -462,7 +554,7 @@ func Test_matchesResourceRules(t *testing.T) {
 				},
 			}
 
-			match, err := matchesResourceRules(namedRules, attr)
+			match, err := matchesResourceRules(namedRules, nil, attr)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, match)
 		})

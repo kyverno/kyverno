@@ -1,0 +1,21 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-validate-test-policy
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- policy: validate-test-policy
+  resources:
+  - default/has-test-annotation
+  kind: NamespacedValidatingPolicy
+  result: pass
+- policy: validate-test-policy
+  resources:
+  - default/missing-test-annotation
+  - default/false-test-annotation
+  kind: NamespacedValidatingPolicy
+  result: fail
+

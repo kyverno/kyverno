@@ -2466,3 +2466,145 @@ func TestRunTest_WarningColor(t *testing.T) {
 	assert.Contains(t, outNoColor, "warning: found duplicated resource")
 	assert.False(t, ansiRegex.MatchString(outNoColor), "expected warning to not contain ANSI codes when color disabled")
 }
+
+func TestMatchPolicyEquivalent(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "match-policy-equivalent")
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{testDir, "--remove-color"})
+
+	err = cmd.Execute()
+	require.NoError(t, err, "kyverno test output: %s", outBuffer.String())
+	assert.Contains(t, outBuffer.String(), "Test Summary: 3 tests passed and 0 tests failed")
+}
+
+func TestMatchPolicyExact(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	policyYAML := `apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: validate-test-policy
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    matchPolicy: Exact
+    resourceRules:
+      - apiGroups: [policies.kyverno.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [namespacedvalidatingpolicies]
+  validations:
+    - expression: >-
+        has(object.metadata.annotations) &&
+        object.metadata.annotations['test'] == 'true'
+      message: >-
+        namespacedvalidatingpolicies must have the annotation 'test: "true"'
+`
+	resourceYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: has-test-annotation
+  namespace: default
+  annotations:
+    test: "true"
+spec: {}
+`
+	testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-validate-test-policy
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- policy: validate-test-policy
+  resources:
+  - default/has-test-annotation
+  kind: NamespacedValidatingPolicy
+  result: pass
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "policy.yaml"), []byte(policyYAML), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "resources.yaml"), []byte(resourceYAML), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{tmpDir, "--remove-color"})
+
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, outBuffer.String(), "Not found")
+}
+
+func TestMatchPolicyDefaultEquivalent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	policyYAML := `apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: validate-test-policy
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [policies.kyverno.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [namespacedvalidatingpolicies]
+  validations:
+    - expression: >-
+        has(object.metadata.annotations) &&
+        object.metadata.annotations['test'] == 'true'
+      message: >-
+        namespacedvalidatingpolicies must have the annotation 'test: "true"'
+`
+	resourceYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: has-test-annotation
+  namespace: default
+  annotations:
+    test: "true"
+spec: {}
+`
+	testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-validate-test-policy
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- policy: validate-test-policy
+  resources:
+  - default/has-test-annotation
+  kind: NamespacedValidatingPolicy
+  result: pass
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "policy.yaml"), []byte(policyYAML), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "resources.yaml"), []byte(resourceYAML), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{tmpDir, "--remove-color"})
+
+	err := cmd.Execute()
+	require.NoError(t, err, "kyverno test output: %s", outBuffer.String())
+	assert.Contains(t, outBuffer.String(), "Test Summary: 1 tests passed and 0 tests failed")
+}
