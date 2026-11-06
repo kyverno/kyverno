@@ -67,7 +67,7 @@ func TestSynthesizePodAttributesNamespace(t *testing.T) {
 				// difference from tt.metadata below
 				template["metadata"] = runtime.DeepCopyJSON(tt.metadata)
 			}
-			tpl := &Extracted{Template: template, Path: "spec.template"}
+			tpl := &Extracted{Template: template, Path: "spec.template", JSONPointer: "/spec/template"}
 			attr := SynthesizePodAttributes(tpl, tpl, parentAttributes(tt.parentNamespace))
 
 			assert.Equal(t, tt.want, attr.GetNamespace())
