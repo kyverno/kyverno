@@ -154,7 +154,7 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 		}
 
 		if binding.Spec.ParamRef != nil {
-			params, err := CollectParams(context.TODO(), adapters.Client(client), convertParamKind(policy.Spec.ParamKind), convertParamRef(binding.Spec.ParamRef), namespace.Name)
+			params, err := CollectParams(context.TODO(), adapters.Client(client), convertParamKind(policy.Spec.ParamKind), convertParamRef(binding.Spec.ParamRef), namespaceName)
 			if err != nil {
 				mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				return er, err
