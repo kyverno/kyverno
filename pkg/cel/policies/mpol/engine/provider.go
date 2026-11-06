@@ -38,6 +38,16 @@ type Provider interface {
 	MatchesMutateExisting(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, *corev1.Namespace, func() (map[string]any, error)) []string
 }
 
+// KubeProvider is a Provider whose policies are compiled asynchronously by a controller watching the
+// cluster, as returned by NewKubeProvider.
+type KubeProvider interface {
+	Provider
+	// WarmUp synchronously compiles all policies that already exist in the cluster. It must be called
+	// after the manager cache has started and before admission traffic is served, otherwise Fetch
+	// can return no policies until the controller workqueue has caught up.
+	WarmUp(ctx context.Context) error
+}
+
 func NewKubeProvider(
 	ctx context.Context,
 	compiler compiler.Compiler,
@@ -46,7 +56,7 @@ func NewKubeProvider(
 	c openapi.Client,
 	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
-) (Provider, patch.TypeConverterManager, error) {
+) (KubeProvider, patch.TypeConverterManager, error) {
 	// Lets an unrecognized bare controller name (e.g. "jobsets") resolve via
 	// live discovery instead of requiring the explicit
 	// "<resource>.<version>.<group>" format - see autogen.BareNameResolver.

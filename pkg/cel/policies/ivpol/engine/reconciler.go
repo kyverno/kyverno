@@ -19,13 +19,18 @@ import (
 )
 
 type reconciler struct {
-	compiler     eval.Compiler
-	client       client.Client
-	lock         *sync.RWMutex
-	policies     map[string][]Policy
-	sorted       []Policy
-	polexLister  engine.PolicyExceptionLister
-	polexEnabled bool
+	compiler eval.Compiler
+	client   client.Client
+	// reconcileLock serializes whole Reconcile calls. controller-runtime never reconciles the same
+	// key concurrently, but WarmUp calls Reconcile outside the workqueue: without this lock a
+	// WarmUp reconcile still compiling an older version of a policy could overwrite the newer
+	// result written by a concurrent workqueue reconcile.
+	reconcileLock sync.Mutex
+	lock          *sync.RWMutex
+	policies      map[string][]Policy
+	sorted        []Policy
+	polexLister   engine.PolicyExceptionLister
+	polexEnabled  bool
 }
 
 func newReconciler(
@@ -55,6 +60,8 @@ func (r *reconciler) updateSortedLocked() {
 }
 
 func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	r.reconcileLock.Lock()
+	defer r.reconcileLock.Unlock()
 	var policy policiesv1beta1.ImageValidatingPolicyLike
 	if req.NamespacedName.Namespace == "" {
 		var ivp policiesv1beta1.ImageValidatingPolicy
@@ -164,6 +171,28 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	r.policies[req.NamespacedName.String()] = policies
 	r.updateSortedLocked()
 	return ctrl.Result{}, nil
+}
+
+// WarmUp synchronously compiles every existing ImageValidatingPolicy and
+// NamespacedImageValidatingPolicy so that Fetch returns them before the caller starts serving
+// admission traffic. Policies that fail to reconcile are skipped, see engine.WarmUp.
+func (r *reconciler) WarmUp(ctx context.Context) error {
+	var ivpols policiesv1beta1.ImageValidatingPolicyList
+	if err := r.client.List(ctx, &ivpols); err != nil {
+		return err
+	}
+	var nivpols policiesv1beta1.NamespacedImageValidatingPolicyList
+	if err := r.client.List(ctx, &nivpols); err != nil {
+		return err
+	}
+	keys := make([]client.ObjectKey, 0, len(ivpols.Items)+len(nivpols.Items))
+	for i := range ivpols.Items {
+		keys = append(keys, client.ObjectKeyFromObject(&ivpols.Items[i]))
+	}
+	for i := range nivpols.Items {
+		keys = append(keys, client.ObjectKeyFromObject(&nivpols.Items[i]))
+	}
+	return engine.WarmUp(ctx, "ImageValidatingPolicy", r, keys)
 }
 
 func (r *reconciler) Fetch(ctx context.Context) ([]Policy, error) {

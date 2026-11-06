@@ -20,13 +20,18 @@ import (
 )
 
 type reconciler struct {
-	client       client.Client
-	compiler     compiler.Compiler
-	libCxt       libs.Context
-	lock         *sync.RWMutex
-	policies     map[string][]Policy
-	polexLister  engine.PolicyExceptionLister
-	polexEnabled bool
+	client   client.Client
+	compiler compiler.Compiler
+	libCxt   libs.Context
+	// reconcileLock serializes whole Reconcile calls. controller-runtime never reconciles the same
+	// key concurrently, but WarmUp calls Reconcile outside the workqueue: without this lock a
+	// WarmUp reconcile still compiling an older version of a policy could overwrite the newer
+	// result written by a concurrent workqueue reconcile.
+	reconcileLock sync.Mutex
+	lock          *sync.RWMutex
+	policies      map[string][]Policy
+	polexLister   engine.PolicyExceptionLister
+	polexEnabled  bool
 }
 
 func newReconciler(
@@ -46,6 +51,8 @@ func newReconciler(
 }
 
 func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	r.reconcileLock.Lock()
+	defer r.reconcileLock.Unlock()
 	var policy policiesv1beta1.MutatingPolicyLike
 	var err error
 
@@ -131,6 +138,28 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	r.policies[req.NamespacedName.String()] = policies
 	r.lock.Unlock()
 	return ctrl.Result{}, nil
+}
+
+// WarmUp synchronously compiles every existing MutatingPolicy and NamespacedMutatingPolicy so that
+// Fetch returns them before the caller starts serving admission traffic. Policies that fail to
+// reconcile are skipped, see engine.WarmUp.
+func (r *reconciler) WarmUp(ctx context.Context) error {
+	var mpols policiesv1beta1.MutatingPolicyList
+	if err := r.client.List(ctx, &mpols); err != nil {
+		return err
+	}
+	var nmpols policiesv1beta1.NamespacedMutatingPolicyList
+	if err := r.client.List(ctx, &nmpols); err != nil {
+		return err
+	}
+	keys := make([]client.ObjectKey, 0, len(mpols.Items)+len(nmpols.Items))
+	for i := range mpols.Items {
+		keys = append(keys, client.ObjectKeyFromObject(&mpols.Items[i]))
+	}
+	for i := range nmpols.Items {
+		keys = append(keys, client.ObjectKeyFromObject(&nmpols.Items[i]))
+	}
+	return engine.WarmUp(ctx, "MutatingPolicy", r, keys)
 }
 
 func (r *reconciler) Fetch(ctx context.Context, mutateExisting bool) []Policy {
