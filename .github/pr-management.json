@@ -5,5 +5,10 @@
   "warning_days": 7,
   "backlog_days": 30,
   "milestone_prefix": "Kyverno Release ",
-  "labels_file": ".github/labels.yml"
+  "labels_file": ".github/labels.yml",
+  "infra_checks": {
+    "E2E Gate": "base-branch or CI-infrastructure issue",
+    "Sync E2E Gate status": "base-branch or CI-infrastructure issue",
+    "Upload coverage to Codecov": "the unit tests passed; only the upload to Codecov failed, usually a Codecov outage or rejected upload"
+  }
 }
