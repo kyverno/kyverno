@@ -28,10 +28,13 @@ and [`pkg/background`](../background/AGENTS.md) for consuming the queued work.
 - Apply selectors, names, and `excludeResourceRules` before deduplicating
   triggers. Across API versions, one Kubernetes resource has the same
   logical group/resource, namespace, name and UID, even if its GVK differs.
-  However, the base resource and each subresource represent **distinct
-  admission contexts**: do not deduplicate `pods` and `pods/status` together,
-  because mutation conditions may match only one of them. Deduplication
-  before exclusion filtering can silently lose eligible work.
+  The **shared trigger discovery** preserves distinct base-resource and
+  subresource admission contexts: a MutatingPolicy may match `pods/status`
+  without matching `pods`. **GeneratingPolicy callers** separately collapse
+  those eligible contexts to one parent object before building RuleContext,
+  because generation does not carry admission SubResource. Never conflate
+  different API groups, kinds, namespaces, names, or object UIDs.
+  Deduplication before exclusion filtering can silently lose eligible work.
 - The current discovery helper logs failed mappings and continues; changing
   error propagation/reconciliation retry behavior requires separate review
   of all callers rather than a silent signature change.
