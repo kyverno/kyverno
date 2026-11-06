@@ -166,7 +166,7 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 		if err := validateAPICallResponseEntry(i, entries[i]); err != nil {
 			return err
 		}
-		// Detect duplicate lookup keys — last-write-wins in buildHTTPMockIndex would
+		// Detect duplicate lookup keys - last-write-wins in buildHTTPMockIndex would
 		// silently discard earlier entries, so we surface it as a validation error.
 		resolvedURL := entries[i].ResolvedURL()
 		method := strings.ToUpper(strings.TrimSpace(entries[i].Method))
@@ -175,7 +175,7 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 			key = method + ":" + resolvedURL
 		}
 		if _, dup := seen[key]; dup {
-			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) — each method+url combination must be unique", resolvedURL, key)
+			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) - each method+url combination must be unique", resolvedURL, key)
 		}
 		seen[key] = struct{}{}
 	}
@@ -344,17 +344,20 @@ func RawExtensionToObject(raw runtime.RawExtension) (interface{}, error) {
 	return v, nil
 }
 
+// +kubebuilder:validation:XValidation:rule="has(self.assert) || has(self.error)",message="at least one of assert or error must be specified"
 type CheckResult struct {
 	// Match tells how to match relevant rule responses
 	Match CheckMatch `json:"match,omitempty"`
 
 	// Assert contains assertion to be performed on the relevant rule responses
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Assert kyverno.Any `json:"assert"`
+	// +optional
+	Assert kyverno.Any `json:"assert,omitempty"`
 
 	// Error contains negative assertion to be performed on the relevant rule responses
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Error kyverno.Any `json:"error"`
+	// +optional
+	Error kyverno.Any `json:"error,omitempty"`
 }
 
 type TestResourceSpec struct {

@@ -1,0 +1,24 @@
+apiVersion: cli.kyverno.io/v1alpha1
+checks:
+- assert:
+    status: fail
+  error: null
+  match:
+    policy:
+      metadata:
+        name: allow-deletion
+kind: Test
+metadata:
+  name: checks-default-operation
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  operation: DELETE
+  policy: allow-deletion
+  resources:
+  - test-pod
+  result: pass
