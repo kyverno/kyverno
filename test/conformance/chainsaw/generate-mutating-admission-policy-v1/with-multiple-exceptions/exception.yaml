@@ -7,6 +7,8 @@ spec:
   - name: "add-label-jsonpatch"
     kind: MutatingPolicy
   matchConditions:
+    - name: "has-name"
+      expression: "object.metadata.name != ''"
     - name: "check-name"
       expression: "object.metadata.name == 'skipped-deployment'"
 ---

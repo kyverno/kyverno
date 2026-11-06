@@ -10,8 +10,8 @@ metadata:
     name: check-deployment-labels
 spec:
   failurePolicy: Fail
-  (matchConditions[?name == 'check-name']):
-  - expression: '!(object.metadata.name == ''skipped-deployment'')'
+  (matchConditions[?starts_with(name, 'exception-')]):
+  - expression: '!((object.metadata.name != '''') && (object.metadata.name == ''skipped-deployment''))'
   (matchConditions[?name == 'check-namespace']):
   - expression: '!(namespaceObject.metadata.name == ''testing-ns'')'
   matchConstraints:
