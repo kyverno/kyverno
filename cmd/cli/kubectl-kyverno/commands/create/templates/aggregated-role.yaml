@@ -8,5 +8,5 @@ metadata:
       {{- end }}
 rules:
   - apiGroups: ["{{.ApiGroup}}"]
-    resources: ["{{.ResourceTypes | join ","}}"]
+    resources: [{{- range $index, $resource := .ResourceTypes}}{{if $index}}, {{end}}"{{$resource}}"{{end}}]
     verbs: [{{- range $index, $verb := .Verbs}}{{if $index}}, {{end}}"{{$verb}}"{{end}}]
