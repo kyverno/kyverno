@@ -150,3 +150,44 @@ func TestWithAdmission(t *testing.T) {
 		})
 	}
 }
+
+// countingReader yields an endless stream of bytes and records how many were read.
+type countingReader struct{ read int64 }
+
+func (r *countingReader) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = ' '
+	}
+	r.read += int64(len(p))
+	return len(p), nil
+}
+
+func TestWithAdmissionRejectsOversizedBody(t *testing.T) {
+	called := false
+	handler := AdmissionHandler(func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+		called = true
+		return AdmissionResponse{Allowed: true}
+	})
+	body := &countingReader{}
+	req := httptest.NewRequest("POST", "/validate", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.withAdmission(testr.New(t))(rr, req)
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, rr.Code)
+	assert.False(t, called, "inner handler must not run for an oversized body")
+	assert.LessOrEqual(t, body.read, maxAdmissionRequestBytes+64*1024, "body must not be read far past the limit")
+}
+
+func TestWithAdmissionRejectsContentTypeBeforeReadingBody(t *testing.T) {
+	body := &countingReader{}
+	req := httptest.NewRequest("POST", "/validate", body)
+	req.Header.Set("Content-Type", "text/plain")
+	rr := httptest.NewRecorder()
+
+	mockAdmissionHandler(AdmissionResponse{}).withAdmission(testr.New(t))(rr, req)
+
+	assert.Equal(t, http.StatusUnsupportedMediaType, rr.Code)
+	assert.Zero(t, body.read, "body must not be read when Content-Type is invalid")
+}
