@@ -11,6 +11,10 @@ the `v1alpha1` API. It is registered only when `KYVERNO_EXPERIMENTAL=true` is se
   includes `data.InjectProcessor` and the CEL library context that the processors set. Each request
   builds a new `store.Store`, `variables.Variables`, and in-memory client in `Server.Evaluate`.
   Never share them across requests. `TestConcurrentRequestsDoNotLeakState` must pass under `-race`.
+- **`POST /v1alpha1/evaluate` (EvaluationRequest)** maps each field to the matching `apply` flag:
+  `context` is written to a temp file and passed as `ContextPath` (apply's `--context-file`), which
+  is the only thing `resource.get` reads offline. `clusterResources` only seed the fake client.
+  `TestEvaluateRequest` checks each field against `apply` run with the equivalent flag.
 - **Never fail open.** Startup uses `evaluator.LoadStrict`, which errors on any load problem.
   `decide` maps no results, or only skips, to `NoMatch` and never to `Allow`. Decode errors are 4xx
   and evaluation errors or panics are 5xx, all with a `Status` body.

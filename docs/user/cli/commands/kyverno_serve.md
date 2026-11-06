@@ -9,9 +9,12 @@ Run the Kyverno CLI policy evaluation as a local HTTP server (experimental, deve
   Policies are loaded once at startup from local files or directories; startup fails if any
   policy cannot be loaded. Payloads are then evaluated with POST /v1alpha1/evaluate/{mode},
   where mode is Kubernetes, JSON, HTTP or Envoy, using the same evaluation path as "kyverno apply".
+  With --allow-request-policies, POST /v1alpha1/evaluate also accepts an EvaluationRequest that
+  carries its own policies, exceptions, context, parameters and operation.
   
   Endpoints:
     POST /v1alpha1/evaluate/{mode}  evaluate a raw JSON/YAML payload
+    POST /v1alpha1/evaluate         evaluate an EvaluationRequest (payload + context [+ policies])
     GET  /v1alpha1/policies         list the loaded policies and the policy-set digest
     GET  /healthz, /readyz          health and readiness
   
@@ -43,10 +46,11 @@ kyverno serve [flags]
 ### Options
 
 ```
-      --address string     Address to listen on; defaults to loopback only (default "127.0.0.1:8080")
-  -h, --help               help for serve
-      --mode strings       Payload modes to serve: Kubernetes, JSON, HTTP, Envoy (repeatable or comma-separated; default all)
-      --policies strings   Path to policy files or directories to load at startup (required)
+      --address string           Address to listen on; defaults to loopback only (default "127.0.0.1:8080")
+      --allow-request-policies   Accept policies inside POST /v1alpha1/evaluate requests (evaluated instead of --policies); --policies is optional when set
+  -h, --help                     help for serve
+      --mode strings             Payload modes to serve: Kubernetes, JSON, HTTP, Envoy (repeatable or comma-separated; default all)
+      --policies strings         Path to policy files or directories to load at startup (required)
 ```
 
 ### Options inherited from parent commands

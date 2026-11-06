@@ -72,7 +72,8 @@ type Input struct {
 	// NamespaceResolver resolves namespaces for namespaceSelector matching; derived from
 	// Variables and Client when nil.
 	NamespaceResolver celengine.NamespaceResolver
-	// Operation is the admission operation for image validating policies (CREATE when empty).
+	// Operation is the admission operation to simulate (CREATE, UPDATE or DELETE). When empty, the
+	// `request.operation` global value from Variables is used, then CREATE.
 	Operation string
 }
 
@@ -166,10 +167,13 @@ func Evaluate(ctx context.Context, set *PolicySet, in Input, opts Options) (*Res
 }
 
 func operationOf(in Input) string {
+	if in.Operation != "" {
+		return in.Operation
+	}
 	if in.Variables != nil {
 		return in.Variables.GlobalOperation()
 	}
-	return in.Operation
+	return ""
 }
 
 type evaluation struct {
@@ -320,6 +324,7 @@ func (e *evaluation) applyPolicies(set *PolicySet, in Input, nsResolver celengin
 			MutatingAdmissionPolicies:         maps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
 			Resource:                          *resource,
+			Operation:                         in.Operation,
 			CELExceptions:                     celExceptions,
 			MutateLogPath:                     c.MutateLogPath,
 			MutateLogPathIsDir:                c.MutateLogPathIsDir,
@@ -370,6 +375,7 @@ func (e *evaluation) applyPolicies(set *PolicySet, in Input, nsResolver celengin
 			MutatingAdmissionPolicies:         maps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
 			JsonPayload:                       *resource,
+			Operation:                         in.Operation,
 			CELExceptions:                     celExceptions,
 			MutateLogPath:                     c.MutateLogPath,
 			MutateLogPathIsDir:                c.MutateLogPathIsDir,
