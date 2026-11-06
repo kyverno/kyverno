@@ -973,6 +973,13 @@ resources:
   - dresources.yaml
 clusterResources:
   - clusterresources.yaml
+globalContextEntries:
+  - name: allowed-envs
+    data:
+      tier: production
+    projections:
+      - name: tier
+        path: tier
 jsonPayloads:
   - payload.json
   - payload-2.json
@@ -1002,7 +1009,7 @@ spec:
         apiVersions: ["v1"]
         resources: ["pods"]
   conditions:
-    - expression: object.metadata.name.startsWith("test-nginx")
+    - expression: globalContext.get("allowed-envs", "tier") == "production" && object.metadata.name.startsWith("test-nginx")
       name: check-pod-name
   schedule: '*/1 * * * *'
 `
