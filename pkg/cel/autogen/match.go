@@ -85,14 +85,13 @@ func CreateMatchConditions(config string, targets []policiesv1beta1.Target, cond
 	if config == ExtractionReplacementsRef {
 		return nil
 	}
+	// The target is identified from request.kind, not from object: the API server binds object to
+	// null for DELETE, and a precondition that errors there makes every wrapped condition error on
+	// a non-matching DELETE, which rejects the request under failurePolicy Fail and skips Kyverno
+	// under Ignore. request.kind is set for every operation.
 	preconditions := sets.New[string]()
 	for _, target := range targets {
-		apiVersion := target.Group
-		if apiVersion != "" {
-			apiVersion += "/"
-		}
-		apiVersion += target.Version
-		preconditions = preconditions.Insert(fmt.Sprintf(`(object.apiVersion == '%s' && object.kind =='%s')`, apiVersion, target.Kind))
+		preconditions = preconditions.Insert(fmt.Sprintf(`(request.kind.group == '%s' && request.kind.version == '%s' && request.kind.kind == '%s')`, target.Group, target.Version, target.Kind))
 	}
 	precondition := strings.Join(sets.List(preconditions), " || ")
 	matchConditions := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
