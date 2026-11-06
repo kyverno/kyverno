@@ -809,6 +809,130 @@ spec:
 	assert.Equal(t, "app-2-config", gen2[0].GetName())
 }
 
+func TestRunTest_ProviderCachingDeletingPolicyCompileFailure(t *testing.T) {
+	tests := []struct {
+		name                 string
+		withClusterResources bool
+	}{
+		{
+			name:                 "without cluster resources",
+			withClusterResources: false,
+		},
+		{
+			name:                 "with cluster resources",
+			withClusterResources: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := memfs.New()
+
+			kyvernoTestYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-dpol-compile-failure
+policies:
+  - dpolicy.yaml
+resources:
+  - dresources.yaml
+`
+			if tt.withClusterResources {
+				kyvernoTestYAML += `clusterResources:
+  - clusterresources.yaml
+jsonPayloads:
+  - payload.json
+`
+			}
+			kyvernoTestYAML += `results:
+  - policy: invalid-delete
+    kind: Pod
+    resources:
+      - test-nginx-1
+    result: fail
+`
+
+			policyYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: invalid-delete
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+  conditions:
+    - expression: "invalid syntax !!!"
+      name: bad-syntax
+  schedule: '*/1 * * * *'
+`
+
+			resourcesYAML := `apiVersion: v1
+kind: Pod
+metadata:
+  name: test-nginx-1
+  namespace: default
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+`
+
+			f1, err := fs.Create("kyverno-test.yaml")
+			require.NoError(t, err)
+			_, err = f1.Write([]byte(kyvernoTestYAML))
+			require.NoError(t, err)
+			f1.Close()
+
+			f2, err := fs.Create("dpolicy.yaml")
+			require.NoError(t, err)
+			_, err = f2.Write([]byte(policyYAML))
+			require.NoError(t, err)
+			f2.Close()
+
+			f3, err := fs.Create("dresources.yaml")
+			require.NoError(t, err)
+			_, err = f3.Write([]byte(resourcesYAML))
+			require.NoError(t, err)
+			f3.Close()
+
+			if tt.withClusterResources {
+				clusterResourcesYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: ClusterResource
+metadata:
+  name: clusterresources
+spec:
+  resources:
+    - apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: default
+`
+				fc, err := fs.Create("clusterresources.yaml")
+				require.NoError(t, err)
+				_, err = fc.Write([]byte(clusterResourcesYAML))
+				require.NoError(t, err)
+				fc.Close()
+
+				f4, err := fs.Create("payload.json")
+				require.NoError(t, err)
+				_, err = f4.Write([]byte(`{"apiVersion": "v1", "kind": "Pod", "metadata": {"name": "test-nginx-json", "namespace": "default"}}`))
+				require.NoError(t, err)
+				f4.Close()
+			}
+
+			testCases := test.LoadTest(fs, "kyverno-test.yaml")
+			require.Len(t, testCases, 1)
+
+			resp, err := runTest(context.TODO(), io.Discard, testCases[0], false)
+			require.Error(t, err)
+			assert.Nil(t, resp)
+			assert.ErrorContains(t, err, "failed to compile policy invalid-delete")
+		})
+	}
+}
+
 func TestRunTest_ProviderCachingDeletingPolicy(t *testing.T) {
 	fs := memfs.New()
 
