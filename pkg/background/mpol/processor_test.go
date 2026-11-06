@@ -952,6 +952,68 @@ func TestProcess_SameNamedPolicyFromAnotherScope_DoesNotCountAsCompiled(t *testi
 	assert.False(t, eng.evaluated)
 }
 
+func TestProcess_StaleCompiledPolicyGeneration_DoesNotCountAsCompiled(t *testing.T) {
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-mpol-stale-generation",
+			Generation: 2,
+		},
+		Spec: backgroundScanSpec(),
+	}
+	fakeClient, kyvernoClient, restMapper := newBackgroundScanFixture(t, mpol)
+	// the engine only has compiled generation 1 so far
+	eng := &notCompiledEngine{compiled: &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-mpol-stale-generation",
+			Generation: 1,
+		},
+		Spec: backgroundScanSpec(),
+	}}
+	sc := &fakeStatusControl{}
+	p := NewProcessor(fakeClient, kyvernoClient, eng, restMapper, &libs.FakeContextProvider{}, sc, event.NewFake(), config.NewDefaultConfiguration(false))
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-policy-event", Namespace: "kyverno"},
+		Spec:       kyvernov2.UpdateRequestSpec{Type: kyvernov2.CELMutate, Policy: "test-mpol-stale-generation"},
+	}
+	err := p.Process(ur)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "mutating policy test-mpol-stale-generation is not compiled yet")
+	assert.False(t, sc.successCalled)
+	assert.False(t, sc.failedCalled)
+	assert.False(t, eng.evaluated)
+}
+
+func TestProcess_MatchingCompiledPolicyGeneration_CountsAsCompiled(t *testing.T) {
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-mpol-matching-generation",
+			Generation: 2,
+		},
+		Spec: backgroundScanSpec(),
+	}
+	fakeClient, kyvernoClient, restMapper := newBackgroundScanFixture(t, mpol)
+	// the engine has compiled generation 2 matching the fetched policy
+	eng := &notCompiledEngine{compiled: &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-mpol-matching-generation",
+			Generation: 2,
+		},
+		Spec: backgroundScanSpec(),
+	}}
+	sc := &fakeStatusControl{}
+	p := NewProcessor(fakeClient, kyvernoClient, eng, restMapper, &libs.FakeContextProvider{}, sc, event.NewFake(), config.NewDefaultConfiguration(false))
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-policy-event", Namespace: "kyverno"},
+		Spec:       kyvernov2.UpdateRequestSpec{Type: kyvernov2.CELMutate, Policy: "test-mpol-matching-generation"},
+	}
+	err := p.Process(ur)
+	assert.NoError(t, err)
+	assert.True(t, sc.successCalled)
+	assert.True(t, eng.evaluated)
+}
+
 // targetTrackingClient records the namespace every target list and write was issued against,
 // so a test can assert on what the processor actually asked the API server for.
 type targetTrackingClient struct {
