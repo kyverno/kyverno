@@ -576,8 +576,10 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 		scope                *admissionregistrationv1.ScopeType
 		excludeCore          bool
 		excludeAlpha         bool
+		excludeStatus        bool
 		overlapCore          bool
 		wantNames            []string
+		wantSubresource      string
 		wantCustomAPIVersion string
 	}{
 		{
@@ -626,6 +628,16 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 			name:   "wildcard group preserves core group exclusions",
 			groups: []string{"*"}, versions: []string{"v1"},
 			excludeCore: true, wantNames: []string{"custom-config"},
+		},
+		{
+			name:   "wildcard group preserves subresource identity",
+			groups: []string{"*"}, versions: []string{"v1"}, resource: "configmaps/status",
+			wantNames: []string{"core-config", "custom-config"}, wantSubresource: "status",
+		},
+		{
+			name:   "wildcard group honors subresource exclusion",
+			groups: []string{"*"}, versions: []string{"v1"}, resource: "configmaps/status",
+			excludeStatus: true,
 		},
 		{
 			name:   "resource names are still respected",
@@ -698,6 +710,17 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 					},
 				})
 			}
+			if tc.excludeStatus {
+				match.ExcludeResourceRules = append(match.ExcludeResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"*"},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"configmaps/status"},
+						},
+					},
+				})
+			}
 			if tc.excludeCore {
 				match.ExcludeResourceRules = []admissionregistrationv1.NamedRuleWithOperations{{
 					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -713,6 +736,9 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 			gotNames := make([]string, 0, len(triggers))
 			for _, trigger := range triggers {
 				gotNames = append(gotNames, trigger.GetName())
+				if tc.wantSubresource != "" {
+					assert.Equal(t, tc.wantSubresource, trigger.SubResource)
+				}
 				if trigger.GetName() == "custom-config" {
 					if tc.name == "wildcard group and version use one preferred version per group" {
 						assert.Equal(t, customGroup+"/v1", trigger.GetAPIVersion())
