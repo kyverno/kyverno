@@ -1,0 +1,6 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: map-scope-repro
+status:
+  generated: true

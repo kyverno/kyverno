@@ -1,0 +1,8 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: mpol-map-scope-repro-binding
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+spec:
+  policyName: mpol-map-scope-repro
