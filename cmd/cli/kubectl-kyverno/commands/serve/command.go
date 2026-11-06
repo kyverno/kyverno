@@ -1,0 +1,108 @@
+package serve
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"os/signal"
+	"syscall"
+
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/evaluator"
+	"github.com/kyverno/kyverno/pkg/version"
+	"github.com/spf13/cobra"
+)
+
+// DefaultAddress listens on loopback only.
+const DefaultAddress = "127.0.0.1:8080"
+
+type options struct {
+	policies []string
+	modes    []string
+	address  string
+}
+
+func Command() *cobra.Command {
+	var opts options
+	cmd := &cobra.Command{
+		Use:          "serve",
+		Short:        command.FormatDescription(true, websiteUrl, true, description...),
+		Long:         command.FormatDescription(false, websiteUrl, true, description...),
+		Example:      command.FormatExamples(examples...),
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
+			defer stop()
+			return opts.run(ctx, cmd)
+		},
+	}
+	cmd.Flags().StringSliceVar(&opts.policies, "policies", nil, "Path to policy files or directories to load at startup (required)")
+	cmd.Flags().StringSliceVar(&opts.modes, "mode", nil, "Payload modes to serve: Kubernetes, JSON, HTTP, Envoy (repeatable or comma-separated; default all)")
+	cmd.Flags().StringVar(&opts.address, "address", DefaultAddress, "Address to listen on; defaults to loopback only")
+	_ = cmd.MarkFlagRequired("policies")
+	return cmd
+}
+
+func (o options) run(ctx context.Context, cmd *cobra.Command) error {
+	modes, err := parseModes(o.modes)
+	if err != nil {
+		return err
+	}
+	server, err := newServerFromPaths(o.policies, modes)
+	if err != nil {
+		return err
+	}
+	out := cmd.OutOrStdout()
+	if host, _, err := net.SplitHostPort(o.address); err == nil && !isLoopback(host) {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: listening on non-loopback address %s; kyverno serve has no authentication or TLS and is meant for local development only\n", o.address)
+	}
+	return server.ListenAndServe(ctx, o.address, func(addr string) {
+		fmt.Fprintf(out, "kyverno serve (experimental, API %s) loaded %d policies (digest %s), modes %v\n", APIVersion, server.set.PolicyCount(), server.digest, server.modes)
+		fmt.Fprintf(out, "listening on http://%s\n", addr)
+	})
+}
+
+func newServerFromPaths(paths []string, modes []evaluator.Mode) (*Server, error) {
+	// the CRD processor is process-global; set it once before loading and evaluating
+	data.InjectProcessor(data.NewCRDProcessor(nil))
+	set, err := evaluator.LoadStrict(paths...)
+	if err != nil {
+		return nil, err
+	}
+	return NewServer(set, version.Version(), modes)
+}
+
+func parseModes(values []string) ([]evaluator.Mode, error) {
+	var modes []evaluator.Mode
+	seen := map[evaluator.Mode]bool{}
+	for _, v := range values {
+		m, err := evaluator.ParseMode(v)
+		if err != nil {
+			return nil, err
+		}
+		if !seen[m] {
+			seen[m] = true
+			modes = append(modes, m)
+		}
+	}
+	return modes, nil
+}
+
+func listen(ctx context.Context, address string) (net.Listener, error) {
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, "tcp", address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen on %s: %w", address, err)
+	}
+	return ln, nil
+}
+
+func isLoopback(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}

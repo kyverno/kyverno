@@ -51,6 +51,7 @@ kyverno [flags]
 * [kyverno jp](kyverno_jp.md)	 - Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.
 * [kyverno migrate](kyverno_migrate.md)	 - Migrate one or more resources to the stored version.
 * [kyverno oci](kyverno_oci.md)	 - Pushes, pulls, validates, inspects, and resolves Kyverno CEL Policy Bundles in OCI registries. See "kyverno oci <subcommand> --help" for each subcommand's own flags and examples.
+* [kyverno serve](kyverno_serve.md)	 - Run the Kyverno CLI policy evaluation as a local HTTP server (experimental, developer preview).
 * [kyverno test](kyverno_test.md)	 - Run tests from a local filesystem or a remote git repository.
 * [kyverno version](kyverno_version.md)	 - Prints the version of Kyverno CLI.
 
