@@ -53,8 +53,11 @@ Required flags include 'api-groups', 'verbs', and 'resources'.`,
 			}
 
 			// Handle 'all' verb
-			if verbs[0] == "all" {
-				verbs = []string{"create", "get", "update", "delete", "list", "watch"}
+			for _, v := range verbs {
+				if v == "all" {
+					verbs = []string{"create", "get", "update", "delete", "list", "watch"}
+					break
+				}
 			}
 			opts.Verbs = verbs
 
@@ -81,11 +84,11 @@ Required flags include 'api-groups', 'verbs', and 'resources'.`,
 	}
 
 	// Define flags
-	cmd.Flags().StringArrayVar(&opts.Controllers, "controllers", []string{"background-controller"}, "List of controllers for the ClusterRole (default = background-controller)")
+	cmd.Flags().StringSliceVar(&opts.Controllers, "controllers", []string{"background-controller"}, "List of controllers for the ClusterRole (default = background-controller)")
 	cmd.Flags().StringVarP(&path, "output", "o", "", "Output file path (prints to console if not set)")
 	cmd.Flags().StringVarP(&opts.ApiGroup, "api-groups", "g", "", "API group for the resource (required)")
-	cmd.Flags().StringArrayVar(&verbs, "verbs", nil, "A comma separated list of verbs or 'all' for all verbs")
-	cmd.Flags().StringArrayVar(&opts.ResourceTypes, "resources", nil, "A comma separated list of resources (required)")
+	cmd.Flags().StringSliceVar(&verbs, "verbs", nil, "A comma separated list of verbs or 'all' for all verbs")
+	cmd.Flags().StringSliceVar(&opts.ResourceTypes, "resources", nil, "A comma separated list of resources (required)")
 
 	// Mark required flags
 	if err := cmd.MarkFlagRequired("api-groups"); err != nil {
