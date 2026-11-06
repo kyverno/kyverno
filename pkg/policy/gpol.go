@@ -215,9 +215,10 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 							continue
 						}
 						// The same object can be served through different API versions.
-						// Deduplicate by stable group/resource identity only after the
-						// version-specific rule and exclusion filters have succeeded.
-						key := gvr.Group + "/" + baseResource + "/" + res.GetNamespace() + "/" + res.GetName() + "/" + string(res.GetUID())
+						// Deduplicate after filtering, but keep distinct base-resource
+						// and subresource admission contexts: a mutation rule may match
+						// pods/status without matching the base pods request.
+						key := gvr.Group + "/" + resource + "/" + res.GetNamespace() + "/" + res.GetName() + "/" + string(res.GetUID())
 						if seen[key] {
 							continue
 						}
