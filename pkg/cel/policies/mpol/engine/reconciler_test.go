@@ -15,8 +15,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -156,6 +158,66 @@ func TestReconcile_ExtractionMode(t *testing.T) {
 	}
 	assert.True(t, sawDeploymentVariant, "expected a deployments autogen variant")
 	assert.True(t, sawJobSetVariant, "expected a jobsets autogen variant")
+}
+
+// staticExceptionLister serves a fixed set of PolicyExceptions.
+type staticExceptionLister []*policiesv1beta1.PolicyException
+
+func (l staticExceptionLister) List(labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
+	return l, nil
+}
+
+// recordingCompiler compiles with a real compiler and records the exceptions each policy was
+// compiled with, keyed by every resource the policy matches ("pods", "deployments", ...).
+type recordingCompiler struct {
+	compiler.Compiler
+	exceptions map[string][]*policiesv1beta1.PolicyException
+}
+
+func (c *recordingCompiler) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*compiler.Policy, field.ErrorList) {
+	for _, rule := range policy.GetSpec().MatchConstraints.ResourceRules {
+		for _, resource := range rule.Resources {
+			c.exceptions[resource] = exceptions
+		}
+	}
+	return c.Compiler.Compile(policy, exceptions)
+}
+
+// TestReconcile_AutogenVariantsCompileRewrittenExceptions: each autogen variant must be compiled
+// with the PolicyExceptions rewritten for its controller's shape. A Pod-shaped expression such as
+// object.spec.containers reads nothing on a Deployment, so an exception compiled as written never
+// matches the Deployment variant. Extraction-mode variants evaluate a synthesized Pod, so their
+// exceptions stay as written.
+func TestReconcile_AutogenVariantsCompileRewrittenExceptions(t *testing.T) {
+	ctx := context.Background()
+	const podExpression = "object.spec.containers.exists(c, c.image == 'nginx')"
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "allow-nginx", Namespace: "default"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs:      []policiesv1beta1.PolicyRef{{Name: "add-team-label", Kind: "MutatingPolicy"}},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "nginx", Expression: podExpression}},
+		},
+	}
+	comp := &recordingCompiler{Compiler: compiler.NewCompiler(), exceptions: map[string][]*policiesv1beta1.PolicyException{}}
+	rec := newReconciler(
+		&fakeClient{policy: disallowLatestTagMutatingPolicy()},
+		comp,
+		staticExceptionLister{polex}, true,
+	)
+
+	_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "add-team-label"}})
+	require.NoError(t, err)
+
+	expression := func(exceptions []*policiesv1beta1.PolicyException) string {
+		t.Helper()
+		require.Len(t, exceptions, 1)
+		require.Len(t, exceptions[0].Spec.MatchConditions, 1)
+		return exceptions[0].Spec.MatchConditions[0].Expression
+	}
+	assert.Equal(t, podExpression, expression(comp.exceptions["pods"]), "the Pod policy is compiled with the exception as written")
+	assert.Equal(t, "object.spec.template.spec.containers.exists(c, c.image == 'nginx')", expression(comp.exceptions["deployments"]))
+	assert.Equal(t, podExpression, expression(comp.exceptions["jobsets"]), "the extraction-mode variant keeps the Pod-shaped exception")
+	assert.Equal(t, podExpression, polex.Spec.MatchConditions[0].Expression, "the listed exception itself is not modified")
 }
 
 func TestReconcile_JSONModeDoesNotGenerateAutogenPolicies(t *testing.T) {

@@ -12,6 +12,39 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// RewriteExceptions rewrites PolicyException match conditions using the same
+// spec field-path replacements applied to the policy spec for the given autogen
+// config, so exceptions match against the autogen'd controller's shape
+// instead of the original Pod-shaped policy.
+// Only MatchConditions are rewritten because the mpol compiler
+// (pkg/cel/policies/mpol/compiler) only compiles MatchConditions.
+func RewriteExceptions(exceptions []*policiesv1beta1.PolicyException, config string) ([]*policiesv1beta1.PolicyException, error) {
+	if len(exceptions) == 0 {
+		return nil, nil
+	}
+	replacements := slices.DeleteFunc(slices.Clone(autogen.ReplacementsMap[config]), func(r autogen.Replacement) bool {
+		return r.From == "metadata"
+	})
+	if len(replacements) == 0 {
+		return slices.Clone(exceptions), nil
+	}
+
+	out := make([]*policiesv1beta1.PolicyException, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polex := polex.DeepCopy()
+
+		for i := range polex.Spec.MatchConditions {
+			expr := polex.Spec.MatchConditions[i].Expression
+			if expr != "" {
+				polex.Spec.MatchConditions[i].Expression = string(autogen.ApplyCEL([]byte(expr), replacements...))
+			}
+		}
+
+		out = append(out, polex)
+	}
+	return out, nil
+}
+
 var (
 	specRe                = regexp.MustCompile(`\b(object|oldObject|Object)\.spec`)
 	metadataLabelsRe      = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.labels`)
