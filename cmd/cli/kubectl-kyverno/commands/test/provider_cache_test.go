@@ -790,6 +790,10 @@ spec:
 
 	require.Contains(t, resp.Trigger, key1)
 	require.Contains(t, resp.Trigger, key2)
+	require.Contains(t, resp.Trigger, "payload.json")
+	require.Contains(t, resp.Trigger, "payload-2.json")
+	require.NotEmpty(t, resp.Trigger[key1])
+	require.NotEmpty(t, resp.Trigger[key2])
 	assert.Equal(t, "example-generate", resp.Trigger[key1][0].Policy().GetName())
 	assert.Equal(t, "example-generate", resp.Trigger[key2][0].Policy().GetName())
 	assert.True(t, resp.Trigger[key1][0].IsSuccessful())
@@ -888,23 +892,6 @@ spec:
 	_, err = f3.Write([]byte(resourcesYAML))
 	require.NoError(t, err)
 	f3.Close()
-
-	clusterResourcesYAML := `apiVersion: cli.kyverno.io/v1alpha1
-kind: ClusterResource
-metadata:
-  name: clusterresources
-spec:
-  resources:
-    - apiVersion: v1
-      kind: Namespace
-      metadata:
-        name: default
-`
-	fc, err := fs.Create("clusterresources.yaml")
-	require.NoError(t, err)
-	_, err = fc.Write([]byte(clusterResourcesYAML))
-	require.NoError(t, err)
-	fc.Close()
 
 	f4, err := fs.Create("payload.json")
 	require.NoError(t, err)
@@ -1111,6 +1098,10 @@ spec:
 	require.Contains(t, resp.Trigger, key2)
 	require.Contains(t, resp.Trigger, "payload.json")
 	require.Contains(t, resp.Trigger, "payload-2.json")
+	require.NotEmpty(t, resp.Trigger[key1])
+	require.NotEmpty(t, resp.Trigger[key2])
+	require.NotEmpty(t, resp.Trigger["payload.json"])
+	require.NotEmpty(t, resp.Trigger["payload-2.json"])
 	assert.True(t, resp.Trigger[key1][0].IsSuccessful())
 	assert.True(t, resp.Trigger[key2][0].IsSuccessful())
 	assert.True(t, resp.Trigger["payload.json"][0].IsSuccessful())

@@ -540,19 +540,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			}
 		}
 		if len(results.GeneratingPolicies) != 0 {
-			compiler := gpolcompiler.NewCompiler()
-			gpolCompiledPolicies = make([]gpolengine.Policy, 0, len(results.GeneratingPolicies))
-			for _, pol := range results.GeneratingPolicies {
-				compiled, errs := compiler.Compile(pol, celExceptions)
-				if len(errs) > 0 {
-					gpolCompiledPoliciesErr = fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
-					break
-				}
-				gpolCompiledPolicies = append(gpolCompiledPolicies, gpolengine.Policy{
-					Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
-					CompiledPolicy: compiled,
-				})
-			}
+			gpolCompiledPolicies, gpolCompiledPoliciesErr = compileGeneratingPolicies(results.GeneratingPolicies, celExceptions)
 			if hookGpolCompiled != nil {
 				hookGpolCompiled()
 			}
@@ -582,19 +570,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 					hookContextProviderCreated()
 				}
 				if len(results.GeneratingPolicies) != 0 {
-					compiler := gpolcompiler.NewCompiler()
-					gpolCompiledJSONPolicies = make([]gpolengine.Policy, 0, len(results.GeneratingPolicies))
-					for _, pol := range results.GeneratingPolicies {
-						compiled, errs := compiler.Compile(pol, celExceptions)
-						if len(errs) > 0 {
-							gpolCompiledJSONPoliciesErr = fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
-							break
-						}
-						gpolCompiledJSONPolicies = append(gpolCompiledJSONPolicies, gpolengine.Policy{
-							Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
-							CompiledPolicy: compiled,
-						})
-					}
+					gpolCompiledJSONPolicies, gpolCompiledJSONPoliciesErr = compileGeneratingPolicies(results.GeneratingPolicies, celExceptions)
 					if hookGpolCompiled != nil {
 						hookGpolCompiled()
 					}
@@ -1089,6 +1065,27 @@ func applyImageValidatingPolicies(
 		}
 	}
 	return responses, nil
+}
+
+// compileGeneratingPolicies compiles GeneratingPolicies with the given CEL exceptions.
+// It returns the slice of compiled gpolengine.Policy objects, or an error if any policy fails compilation.
+func compileGeneratingPolicies(
+	policies []policiesv1beta1.GeneratingPolicyLike,
+	celExceptions []*policiesv1beta1.PolicyException,
+) ([]gpolengine.Policy, error) {
+	compiler := gpolcompiler.NewCompiler()
+	out := make([]gpolengine.Policy, 0, len(policies))
+	for _, pol := range policies {
+		compiled, errs := compiler.Compile(pol, celExceptions)
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
+		}
+		out = append(out, gpolengine.Policy{
+			Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
+			CompiledPolicy: compiled,
+		})
+	}
+	return out, nil
 }
 
 // applyDeletingPolicies evaluates DeletingPolicies against the given
