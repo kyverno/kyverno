@@ -15,6 +15,12 @@ the `v1alpha1` API. It is registered only when `KYVERNO_EXPERIMENTAL=true` is se
   `context` is written to a temp file and passed as `ContextPath` (apply's `--context-file`), which
   is the only thing `resource.get` reads offline. `clusterResources` only seed the fake client.
   `TestEvaluateRequest` checks each field against `apply` run with the equivalent flag.
+- **Process-global state reset per request.** Request CRDs land in the global CRD processor, so
+  `evaluateWith` calls `resetCRDs` before and after each evaluation. `TestRequestCRDsDoNotLeak`
+  checks this.
+- **Consumers.** The Kyverno Playground backend (`kyverno/playground`, `backend/pkg/serve` and
+  `backend/pkg/playground`) talks to this API over HTTP. Its `scripts/e2e-kyverno-serve.sh` checks
+  that `apply`, serve and the Playground agree on `test/cli/serve` fixtures.
 - **Never fail open.** Startup uses `evaluator.LoadStrict`, which errors on any load problem.
   `decide` maps no results, or only skips, to `NoMatch` and never to `Allow`. Decode errors are 4xx
   and evaluation errors or panics are 5xx, all with a `Status` body.
