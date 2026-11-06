@@ -217,12 +217,16 @@ func (e *engineImpl) generate(
 			keys = append(keys, key)
 			genericpolex = append(genericpolex, engineapi.NewCELPolicyException(ex))
 
-			// evaluate exception priority from label
+			// evaluate exception priority from label, an exception without a valid label has priority 0
+			priority := 0
 			if val, ok := ex.GetLabels()[reportutils.LabelPolicyExceptionPriority]; ok {
-				if p, err := strconv.Atoi(val); err == nil && p > highestPriority {
-					highestPriority = p
-					selectedIndex = i
+				if p, err := strconv.Atoi(val); err == nil {
+					priority = p
 				}
+			}
+			if i == 0 || priority > highestPriority {
+				highestPriority = priority
+				selectedIndex = i
 			}
 		}
 		// determine final result based on highest-priority exception
