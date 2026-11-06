@@ -583,6 +583,8 @@ github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f h1:
 github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f/go.mod h1:2oJ/wAoh8hld09eMTT1KzlN3dHjKEQn1xJdu1WAZMa0=
 github.com/kyverno/sdk v0.0.0-20261029181513-303c2afde801 h1:Jl5jKjGhWbZt5ArPNpiTmZ3Rd2NM3PpN8ChHQdJbuho=
 github.com/kyverno/sdk v0.0.0-20261029181513-303c2afde801/go.mod h1:bKhtQ++IdQLguNAHpDq2tXPqdKcJKuyK2gcyAEc6JCE=
+github.com/kyverno/sdk v0.0.0-20261104161951-ec436f305bf4 h1:iNj8qJBMmxkJ51A0aw/53aQobCbVIqxrrQGdE7VRCZ4=
+github.com/kyverno/sdk v0.0.0-20261104161951-ec436f305bf4/go.mod h1:bKhtQ++IdQLguNAHpDq2tXPqdKcJKuyK2gcyAEc6JCE=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7 h1:k/1ku0yehLCPqERCHkIHMDqDg1R02AcCScRuHbamU3s=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7/go.mod h1:YR/zYthNdWfO8+0IOyHDcIDBBBS2JMnYUIwSsnwmRqU=
 github.com/lestrrat-go/blackmagic v1.0.4 h1:IwQibdnf8l2KoO+qC3uT4OaTWsW7tuRQXy9TRN9QanA=
