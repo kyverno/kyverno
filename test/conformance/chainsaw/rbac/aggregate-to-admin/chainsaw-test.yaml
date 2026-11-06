@@ -15,3 +15,5 @@ spec:
         file: admin-reports.yaml
     - assert:
         file: admin-updaterequest.yaml
+    - assert:
+        file: admin-globalcontextentries.yaml
