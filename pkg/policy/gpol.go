@@ -24,7 +24,7 @@ func (pc *policyController) createURForGeneratingPolicy(gpol *policiesv1beta1.Ge
 	if len(downstreams) == 0 {
 		// create a UR to restore the dynamic watcher cache in case backgound controller is restarted
 		pc.log.V(4).Info("no downstream resources found for generating policy, creating UR to restore dynamic watcher cache")
-		triggers := pc.getGpolTriggers(gpol.Spec.MatchConstraints)
+		triggers := pc.getGeneratingPolicyTriggers(gpol.Spec.MatchConstraints, "")
 		for _, trigger := range triggers {
 			addRuleContext(ur, gpol.GetName(), common.ResourceSpecFromUnstructured(*trigger.Unstructured), false, synchronize, true)
 		}
@@ -56,7 +56,7 @@ func (pc *policyController) createURForGeneratingPolicy(gpol *policiesv1beta1.Ge
 func (pc *policyController) handleGenerateExisting(gpol *policiesv1beta1.GeneratingPolicy) error {
 	ur := newGenerateUR(engineapi.NewGeneratingPolicy(gpol))
 	synchronize := gpol.Spec.SynchronizationEnabled()
-	triggers := pc.getGpolTriggers(gpol.Spec.MatchConstraints)
+	triggers := pc.getGeneratingPolicyTriggers(gpol.Spec.MatchConstraints, "")
 	for _, trigger := range triggers {
 		addRuleContext(ur, gpol.GetName(), common.ResourceSpecFromUnstructured(*trigger.Unstructured), false, synchronize, false)
 	}
@@ -82,7 +82,7 @@ func (pc *policyController) createURForNamespacedGeneratingPolicy(ngpol *policie
 	if len(downstreams) == 0 {
 		// create a UR to restore the dynamic watcher cache in case background controller is restarted
 		pc.log.V(4).Info("no downstream resources found for namespaced generating policy, creating UR to restore dynamic watcher cache")
-		triggers := filterTriggersByNamespace(pc.getGpolTriggers(ngpol.Spec.MatchConstraints), ngpol.GetNamespace())
+		triggers := pc.getGeneratingPolicyTriggers(ngpol.Spec.MatchConstraints, ngpol.GetNamespace())
 		for _, trigger := range triggers {
 			addRuleContext(ur, policyKey, common.ResourceSpecFromUnstructured(*trigger.Unstructured), false, synchronize, true)
 		}
@@ -114,7 +114,7 @@ func (pc *policyController) createURForNamespacedGeneratingPolicy(ngpol *policie
 func (pc *policyController) handleNamespacedGenerateExisting(ngpol *policiesv1beta1.NamespacedGeneratingPolicy) error {
 	ur := newGenerateUR(engineapi.NewNamespacedGeneratingPolicy(ngpol))
 	policyKey := ngpol.GetNamespace() + "/" + ngpol.GetName()
-	triggers := filterTriggersByNamespace(pc.getGpolTriggers(ngpol.Spec.MatchConstraints), ngpol.GetNamespace())
+	triggers := pc.getGeneratingPolicyTriggers(ngpol.Spec.MatchConstraints, ngpol.GetNamespace())
 	for _, trigger := range triggers {
 		addRuleContext(ur, policyKey, common.ResourceSpecFromUnstructured(*trigger.Unstructured), false, ngpol.Spec.SynchronizationEnabled(), false)
 	}
@@ -282,6 +282,43 @@ func (pc *policyController) resolveWildcardGroupTriggerGVRs(versions []string, r
 		}
 	}
 	return resolved
+}
+
+// getGeneratingPolicyTriggers collapses subresource and version matches for the
+// same parent object before a GeneratingPolicy creates RuleContexts. Generation
+// does not carry the admission SubResource into a RuleContext, unlike mutation.
+// Keep getGpolTriggers subresource-aware for MutatingPolicy callers.
+func (pc *policyController) getGeneratingPolicyTriggers(match *admissionregistrationv1.MatchResources, namespace string) []gpolTrigger {
+	return deduplicateGenerationTriggers(filterTriggersByNamespace(pc.getGpolTriggers(match), namespace))
+}
+
+// deduplicateGenerationTriggers retains the first eligible trigger for each
+// Kubernetes parent object, independent of API version or subresource. Trigger
+// matching and exclusions have already been applied by getGpolTriggers.
+func deduplicateGenerationTriggers(triggers []gpolTrigger) []gpolTrigger {
+	type objectKey struct {
+		groupKind schema.GroupKind
+		namespace string
+		name      string
+		uid       string
+	}
+
+	seen := make(map[objectKey]struct{}, len(triggers))
+	unique := make([]gpolTrigger, 0, len(triggers))
+	for _, trigger := range triggers {
+		key := objectKey{
+			groupKind: trigger.GroupVersionKind().GroupKind(),
+			namespace: trigger.GetNamespace(),
+			name:      trigger.GetName(),
+			uid:       string(trigger.GetUID()),
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		unique = append(unique, trigger)
+	}
+	return unique
 }
 
 func filterTriggersByNamespace(triggers []gpolTrigger, namespace string) []gpolTrigger {
