@@ -2092,6 +2092,58 @@ func TestHandleUpdate_SourcePropagation_PreservesDownstreamResourceVersion(t *te
 		"propagation must set the downstream's current resourceVersion (CRD updates reject an empty one)")
 }
 
+// TestHandleUpdate_SourcePropagation_CachesEachDownstreamsOwnContent pins that every downstream's
+// cache entry keeps its own copy of the propagated source content. The cache's Data is what
+// handleDelete and revertDownstream restore from, so sharing one map across the loop (the
+// unstructured content is stored by reference, not copied) makes every clone but the last one
+// restore the last downstream's identity: a deleted clone is recreated under the wrong
+// namespace and a revert carries the wrong resourceVersion.
+func TestHandleUpdate_SourcePropagation_CachesEachDownstreamsOwnContent(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	// The source object is not in the metadata cache, which routes handleUpdate to the propagation path.
+	src := makeUnstructured("500", "", "v1", "ConfigMap", "ca", "repro-src", "src-uid", nil)
+	_ = unstructured.SetNestedField(src.Object, "v2", "data", "ca.crt")
+
+	downstreams := map[types.UID]struct {
+		namespace string
+		live      *unstructured.Unstructured
+	}{
+		"ds-uid-a": {namespace: "a-target", live: makeUnstructured("301", "", "v1", "ConfigMap", "ca", "a-target", "ds-uid-a",
+			map[string]string{common.GenerateSourceUIDLabel: "src-uid"})},
+		"ds-uid-b": {namespace: "b-target", live: makeUnstructured("302", "", "v1", "ConfigMap", "ca", "b-target", "ds-uid-b",
+			map[string]string{common.GenerateSourceUIDLabel: "src-uid"})},
+		"ds-uid-c": {namespace: "c-target", live: makeUnstructured("303", "", "v1", "ConfigMap", "ca", "c-target", "ds-uid-c",
+			map[string]string{common.GenerateSourceUIDLabel: "src-uid"})},
+	}
+	cache := map[types.UID]Resource{}
+	list := make([]unstructured.Unstructured, 0, len(downstreams))
+	for uid, ds := range downstreams {
+		cache[uid] = Resource{Name: "ca", Namespace: ds.namespace, Labels: ds.live.GetLabels(), Hash: "stale", Data: ds.live}
+		list = append(list, *ds.live)
+	}
+
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: &MockClient{listItems: list},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {metadataCache: cache},
+		},
+	}
+
+	wm.handleUpdate(src, gvr)
+
+	updatedCache := wm.dynamicWatchers[gvr].metadataCache
+	for uid, ds := range downstreams {
+		require.NotNil(t, updatedCache[uid].Data, "cache entry %s must be refreshed", uid)
+		assert.Equal(t, ds.namespace, updatedCache[uid].Data.GetNamespace(),
+			"cache entry %s must carry its own namespace, not another downstream's", uid)
+		assert.Equal(t, ds.live.GetResourceVersion(), updatedCache[uid].Data.GetResourceVersion(),
+			"cache entry %s must carry its own resourceVersion, not another downstream's", uid)
+		assert.Equal(t, "v2", updatedCache[uid].Data.Object["data"].(map[string]interface{})["ca.crt"],
+			"cache entry %s must carry the updated source content", uid)
+	}
+}
+
 // usageDownstream returns a generated Crossplane Usage the way Kyverno caches it: its own labels and
 // spec, plus server-set metadata. A cache refreshed from the live object after a restart can also
 // hold what another controller added, so it carries Crossplane's finalizer too.

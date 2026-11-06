@@ -629,8 +629,12 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 					continue
 				}
 				// update the downstream resources with the source information.
-				newResource := &unstructured.Unstructured{}
-				newResource.SetUnstructuredContent(source.UnstructuredContent())
+				// DeepCopy instead of sharing the source's underlying map: SetUnstructuredContent
+				// stores the map by reference, so every newResource in this loop would alias the
+				// same content, and each iteration's SetName/SetNamespace/SetLabels would rewrite
+				// what earlier iterations cached in metadataCache (Data is what the revert and
+				// delete paths restore from).
+				newResource := source.DeepCopy()
 				newResource.SetName(downstream.GetName())
 				newResource.SetNamespace(downstream.GetNamespace())
 				newResource.SetKind(downstream.GetKind())
