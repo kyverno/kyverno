@@ -223,10 +223,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 		policy = engineapi.NewValidatingPolicy(vpol)
+		generatedAt := time.Now()
 		err = c.handleVAPGeneration(ctx, policy)
 		if err != nil {
 			return err
 		}
+		c.requeueAtExceptionExpiry(key, polType, name, generatedAt)
 	} else if polType == "MutatingPolicy" {
 		mpol, err := c.getMutatingPolicy(name)
 		if err != nil {
@@ -243,10 +245,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			}
 			logger.Info("generating MutatingAdmissionPolicy explicitly enabled in policy", "policy", mpol.GetName())
 		}
+		generatedAt := time.Now()
 		err = c.handleMAPGeneration(ctx, mpol)
 		if err != nil {
 			return err
 		}
+		c.requeueAtExceptionExpiry(key, polType, name, generatedAt)
 	}
 	return nil
 }
