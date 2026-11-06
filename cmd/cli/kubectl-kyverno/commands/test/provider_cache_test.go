@@ -154,6 +154,68 @@ spec:
 	assert.True(t, resp.Trigger[key2][0].IsSuccessful())
 }
 
+func TestRunTest_ProviderCachingJSONMutation(t *testing.T) {
+	fs := memfs.New()
+	for name, content := range map[string]string{
+		"kyverno-test.yaml": `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: json-mutation-cache
+policies:
+- policy.yaml
+jsonPayloads:
+- first.json
+- second.json
+`,
+		"policy.yaml": `apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: json-mutation
+spec:
+  evaluation:
+    mode: JSON
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op:"add",path:"/mutated",value:true}]'
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: unused-kubernetes-policy
+spec:
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: 'undefinedVariable'
+`,
+		"first.json":  `{}`,
+		"second.json": `{}`,
+	} {
+		file, err := fs.Create(name)
+		require.NoError(t, err)
+		_, err = file.Write([]byte(content))
+		require.NoError(t, err)
+		require.NoError(t, file.Close())
+	}
+	testCases := test.LoadTest(fs, "kyverno-test.yaml")
+	require.Len(t, testCases, 1)
+
+	var compilations int
+	hookMpolProviderCreated = func() { compilations++ }
+	t.Cleanup(func() { hookMpolProviderCreated = nil })
+
+	response, err := runTest(context.Background(), io.Discard, testCases[0], false)
+	require.NoError(t, err)
+	require.Equal(t, 1, compilations)
+	for _, name := range []string{"first.json", "second.json"} {
+		require.Len(t, response.Trigger[name], 1)
+		result := response.Trigger[name][0]
+		require.True(t, result.IsSuccessful())
+		require.Equal(t, true, result.PatchedResource.Object["mutated"])
+	}
+}
+
 func TestRunTest_ProviderCachingMutatingPolicy(t *testing.T) {
 	fs := memfs.New()
 

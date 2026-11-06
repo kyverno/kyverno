@@ -40,12 +40,12 @@ shape**:
   1.0, because a conformant `Read` still produces a local tree that `policy.Load` can walk, which is the same
   contract `ToTempDir` already relies on.
 
-**Open item: this status note is provisional.** Replacing a 2022 byte format is the right technical call — see the
-design record for #17660 for the full argument — but **the epic owner has not yet confirmed that #17660 may
-change a format that shipped in released CLIs**. Until that confirmation lands, treat this specification as the
-intended target, not yet a settled fact about what 1.20 ships. If the epic owner declines, the Flux-consumability
-and file-layout-preservation acceptance criteria for epic #17645 become unsatisfiable and must be dropped from the
-epic instead.
+**The format is committed as of 1.20.** `kyverno oci` ships ungated, without requiring `KYVERNO_EXPERIMENTAL`, as
+of 1.20, which settles the question of whether #17660 may change a format that shipped in released CLIs — it
+does, and this specification is the format 1.20 ships. The pre-1.20 bare-YAML-per-layer artifacts, under media
+types `application/vnd.cncf.kyverno.config.v1+json` and `application/vnd.cncf.kyverno.policy.layer.v1+yaml`, are
+superseded and rejected with an actionable "legacy image format" error; see
+[8. Format versioning and compatibility](#8-format-versioning-and-compatibility).
 
 **This specification also supersedes a 2022 design proposal.**
 `kyverno/KDP:proposals/store_kyverno_policies_in_oci_registries.md` (May 2022, tracking kyverno/kyverno#3154) is
@@ -131,7 +131,9 @@ in `docs/context/shared/api-versioning.md`, before it can go into a bundle.
   artifact without evaluating policies against it — is not bound by the "Reader MUST" list; design D11 scopes
   re-validation and the index cross-check to the readers whose output feeds policy evaluation, not to every
   possible consumer of the OCI artifact. Unqualified "reader" in this document means a conformant reader unless a
-  sentence says "generic consumer."
+  sentence says "generic consumer." `kyverno oci validate` is both a conformant reader, in reference mode
+  (`--image`), and a writer-policy checker: it additionally applies the checks in the "Writer-policy checks"
+  subsection of [9. Conformance](#9-conformance), which bind no other reader.
 - **Writer**: anything that produces a bundle, today only `kyverno oci push`.
 
 ## 3. Supported resources
@@ -172,25 +174,20 @@ a permitted version yet is a statement about that build, not about the format.
 | Version | Format status | 1.20 CLI accepts it? | Earliest release serving this version |
 |---|---|---|---|
 | `policies.kyverno.io/v1beta1` | Permitted (storage version) | **Yes** | 1.16 |
-| `policies.kyverno.io/v1` | Permitted (served, stable-named) | **No — see below** | 1.17 |
+| `policies.kyverno.io/v1` | Permitted (served, stable-named) | **Yes** | 1.17 |
 | `policies.kyverno.io/v1alpha1` | Rejected | No | 1.14 |
 
-**The 1.20 CLI accepts only `policies.kyverno.io/v1beta1`.** `internal.SupportedAPIVersion` in
-`cmd/cli/kubectl-kyverno/commands/oci/internal` is pinned to `v1beta1`, and both of the checks that enforce it —
-`validateDocuments`' raw `apiVersion` comparison and `validateResults`' `checkResource` — reject every `v1`
-document today, even though this table's "Format status" column permits `v1`. A bundle whose only resources are
-`v1beta1` round-trips through the 1.20 CLI; a bundle containing a `v1` resource does not, regardless of what the
-format itself would allow. **Widening the 1.20 CLI to accept `v1` is issue `#17664`'s job, not this document's or
-this implementation's** — see that issue's design record for why the accepted-version *check* is scoped there
-rather than to the `Assemble`/`Validate`/`Write`/`Read` split this document describes. An author targeting today's
-`kyverno oci push`/`pull` implementation MUST use `v1beta1`; `v1` is a format-permitted version whose CLI support
-is not yet built.
+**The 1.20 CLI accepts `policies.kyverno.io/v1beta1` and `policies.kyverno.io/v1`.**
+`internal.AcceptedAPIVersions` in `cmd/cli/kubectl-kyverno/commands/oci/internal` is this table's code form, built
+from `policiesv1beta1.GroupVersion` and `policiesv1.GroupVersion`; `internal.IsAcceptedAPIVersion` is what
+`validateDocuments` and `validateResults`' `checkResource` both call. A bundle whose resources are `v1beta1`, `v1`,
+or a mix of the two round-trips through the 1.20 CLI. `v1alpha1` stays rejected: every `v1alpha1` type in
+`github.com/kyverno/api` carries `+kubebuilder:deprecatedversion`, and the alpha tier carries no compatibility
+guarantee (see the stability table in `docs/context/shared/api-versioning.md`).
 
-`v1beta1` and `v1` are type aliases of one another in `github.com/kyverno/api`, so once a future CLI's accepted
-set includes both, a bundle can carry either, or both, without loss: a `v1` document stays `v1` in the archive
-and in the index, and a writer MUST NOT rewrite `apiVersion`. `v1alpha1` is rejected, by every CLI release, because
-every `v1alpha1` type in `github.com/kyverno/api` carries `+kubebuilder:deprecatedversion`, and the alpha tier
-carries no compatibility guarantee (see the stability table in `docs/context/shared/api-versioning.md`).
+`v1beta1` and `v1` have identical JSON schemas in `github.com/kyverno/api`, and the CLI's loader converts both
+into one set of Go types, so a bundle can carry either, or both, without loss: a `v1` document stays `v1` in the
+archive and in the index, and a writer MUST NOT rewrite `apiVersion`.
 
 This table's "Format status" column is governed by the same rules as `docs/context/shared/api-versioning.md`, not
 by this document's own semver: a version becomes format-permitted once it's served, and stops being
@@ -214,17 +211,16 @@ A writer and a reader both MUST reject:
   `MutatingAdmissionPolicy`, `MutatingAdmissionPolicyBinding`.
 - Any kind not in the table above.
 - Any `policies.kyverno.io` resource whose `apiVersion` the running release doesn't accept — for the 1.20 CLI,
-  anything other than `v1beta1` (see "Accepted API versions" above), which today includes `v1alpha1` permanently
-  and `v1` until `#17664` lands.
+  anything other than `v1beta1` or `v1` (see "Accepted API versions" above).
 
 ### Identity
 
 A resource's identity is `Kind/namespace/name`, with the API version deliberately excluded: once a CLI accepts
 more than one version for the same kind, a `v1` and a `v1beta1` document with the same kind, namespace, and name
 would name the same cluster object, and a bundle carrying both would be a duplicate, not two resources. This is a
-format-level rule, stated for whatever set of versions a given CLI accepts; the 1.20 CLI's accepted set is just
-`v1beta1` (see "Accepted API versions" above), so this rule has no `v1`-vs-`v1beta1` case to actually apply until
-`#17664` widens it. `namespace` is the resource's `metadata.namespace` field taken exactly as written, not forced
+format-level rule, stated for whatever set of versions a given CLI accepts; the 1.20 CLI's accepted set is both
+`v1beta1` and `v1` (see "Accepted API versions" above), so a `v1` and a `v1beta1` document with the same kind,
+namespace, and name are a duplicate identity today. `namespace` is the resource's `metadata.namespace` field taken exactly as written, not forced
 blank for a cluster-scoped kind: `ValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`, `DeletingPolicy`, and
 `ImageValidatingPolicy` are cluster-scoped and conventionally carry no `metadata.namespace`, but if an author's
 manifest sets one anyway, that value is part of the resource's identity, matching the existing push
@@ -302,12 +298,14 @@ Kyverno-specific annotations:
 | `io.kyverno.bundle.kyverno-version` | Kyverno version constraint the bundle targets |
 
 A writer MAY add further annotations from the descriptor's `spec.annotations` (see
-[7. Bundle descriptor](#7-bundle-descriptor)), but a writer MUST NOT let `spec.annotations` override a reserved
-key: if the descriptor's `spec.annotations` names any `io.kyverno.bundle.*` key or any of the
-`org.opencontainers.image.*` keys listed above, the writer-computed value wins and the descriptor's value for that
-key is discarded (an author aiming to set an OCI standard annotation not in the list above, or a non-reserved
-key, is unaffected). `org.opencontainers.image.created` is **omitted unless** the descriptor sets `spec.created` or
-the environment sets `SOURCE_DATE_EPOCH`, so that a default push produces a reproducible manifest.
+[7. Bundle descriptor](#7-bundle-descriptor)), but a writer MUST NOT let `spec.annotations` set a key under either
+reserved **prefix**, `io.kyverno.bundle.` or `org.opencontainers.image.`: this reservation covers the whole
+prefix, not only the specific keys a writer currently computes (listed above) — a descriptor naming, for example,
+`io.kyverno.bundle.custom` or any other key under either prefix is discarded the same as one naming
+`io.kyverno.bundle.version` directly, even though this format defines no such key today. A key outside both
+prefixes is unaffected. `org.opencontainers.image.created` is **omitted unless** the descriptor sets
+`spec.created` or the environment sets `SOURCE_DATE_EPOCH`, so that a default push produces a reproducible
+manifest.
 
 **Without a descriptor, a writer MUST NOT derive `io.kyverno.bundle.name`, `io.kyverno.bundle.version`, or
 `org.opencontainers.image.version` from the push reference (repository path or tag) or from any other environment
@@ -346,10 +344,11 @@ The content layer is a gzip-compressed tar archive (`tar+gzip`) of the bundle ro
   general-purpose loader already errors on a `cli.kyverno.io` document (`policy type not supported` from
   `processDocumentItem`), and that error is fatal to the whole directory load, not a per-file, non-fatal warning:
   it aborts `fsLoad` for the entire tree, so `kyverno oci push` fails at `policy.Load`, in `execute`, before
-  `buildImage` is ever reached. A planned loader change (#17663) will instead make the loader skip `cli.kyverno.io`
-  documents when reading a raw source tree for `apply` or `test`, which is why the writer's own detection here
-  can't rely on the loader erroring — it needs to hold regardless of what a future loader does with the same input
-  on a different read path.
+  `buildImage` is ever reached. A loader change that makes the loader skip `cli.kyverno.io` documents when reading
+  a raw source tree for `apply` or `test` is not yet implemented, tracked under epic
+  [#17645](https://github.com/kyverno/kyverno/issues/17645), which is why the writer's own detection here can't
+  rely on the loader erroring — it needs to hold regardless of what a future loader does with the same input on a
+  different read path.
 - Single-file input archives that one file at the root of the layer.
 
 ### What a writer excludes
@@ -521,11 +520,21 @@ generates. It's not something an author writes by hand; the author-facing input 
 | `name` | string | No | Bundle name |
 | `version` | string (semver) | No | Bundle version |
 | `description` | string | No | Free-text description |
-| `kyvernoVersion` | string (semver constraint) | No | Kyverno version constraint the bundle targets |
+| `kyvernoVersion` | string (semver constraint, for example `">=1.20"`; `Masterminds/semver` dialect) | No | Kyverno version constraint the bundle targets |
 | `source` | object (`url`, `revision`) | No | Where the bundle's source lives |
 | `created` | string (RFC 3339) | No | Creation time; omitted unless set explicitly (see below) |
 | `sets` | array of set objects | **Yes** | See "Set object" below |
 | `resources` | array of resource-index entries | **Yes** | See "Resource-index entry" below |
+
+A writer MUST reject a descriptor whose `kyvernoVersion` isn't a valid constraint in this dialect. A reader MUST
+pass `kyvernoVersion` through as opaque metadata (reader MUST 5 already states that the config is authoritative
+for compatibility) and MAY compare it against a Kyverno version. `kyverno oci validate` is a conformant reader
+that additionally applies the writer-policy checks on top of its reader role, so it, unlike `kyverno oci pull`,
+rejects a published bundle whose `kyvernoVersion` doesn't parse. `kyverno oci push` and `kyverno oci validate`
+compare `kyvernoVersion` against a Kyverno version, as CLI behavior over the format, not a format-level
+requirement: `kyverno oci push` and a plain `kyverno oci validate` compare it against the running CLI's own
+version and warn on a mismatch; `kyverno oci validate --kyverno-version X` compares it against the explicit
+target `X` instead and fails, rather than warns, if `X` doesn't satisfy the constraint.
 
 **`formatVersion`, `sets`, and `resources` are the fields a writer MUST populate in format 1.0.** `name`,
 `version`, `description`, `kyvernoVersion`, `source`, and `created` are optional, and a writer without a
@@ -562,7 +571,11 @@ breaking a 1.0 reader.
 or both; the format doesn't require separating them. Each index entry names the set it belongs to, and each set
 has a `type` of `policies` or `exceptions` in format 1.0. Whether a tool defaults to keeping policies and
 exceptions in separate bundles, with an explicit option to mix them, is CLI behavior over this format, not a
-constraint this format imposes.
+constraint this format imposes. Whether that default means separate *bundles* or separate *sets within one
+bundle* is a reading epic [#17645](https://github.com/kyverno/kyverno/issues/17645) still needs to confirm
+(raised while implementing [#17663](https://github.com/kyverno/kyverno/issues/17663)). The sets-within-one-bundle
+reading is already what `kyverno oci push` implements, and it's what the rest of this document and
+[7. Bundle descriptor](#7-bundle-descriptor) assume.
 
 A future minor version may add a new `type` value (see [8. Format versioning and compatibility](#8-format-versioning-and-compatibility)).
 **A reader MUST accept a set whose `type` it doesn't recognize**, treating it as opaque metadata the same way it
@@ -665,11 +678,59 @@ reproducible, per [4. Artifact structure](#4-artifact-structure) and [6. Config 
 overriding the by-kind default described in [6. Config blob](#6-config-blob). **This document fixes only the
 format-level contract on set assignment, not the assignment algorithm itself**: every `resources[]` entry MUST
 have a non-empty `set` value that names an entry in `sets[]` (see [6. Config blob](#6-config-blob), "Resource-index
-entry"), and every `sets[]` entry SHOULD be named by at least one `resources[]` entry. How a writer resolves a
-resource matching zero of `spec.sets[].paths`, matching more than one, matching a set whose `type` doesn't fit the
-resource's kind (for example a `PolicyException` matched by a `policies`-typed set), or which glob dialect
-`paths` uses (whether `**` matches across path separators) is set-derivation logic that design section 2 assigns
-to #17663, not specified in this document. **Without a descriptor, a writer
+entry"), and every `sets[]` entry SHOULD be named by at least one `resources[]` entry.
+
+The remainder of this section states how `kyverno oci push` resolves `spec.sets[].paths`, as writer behavior over
+this format, not as a new obligation on readers; `crossCheckIndex` and reader MUST 8 keep their existing meaning.
+
+**Glob dialect.** `paths` entries compile with `gobwas/glob`, `/` as the path separator, matched against the
+whole archived path. `*` and `?` don't cross a `/`; `**` does. `\` is an escape character, not a separator. A
+pattern like `**/x.yaml` matches `team/x.yaml` but not a root-level `x.yaml`, because `**/` still requires at
+least one path segment before the filename; write `{x.yaml,**/x.yaml}` to match both. A path MUST NOT be empty,
+start with `/`, start with `./`, or end with `/`; a writer rejects each of these and, for the trailing-`/` case,
+suggests appending `**` to match everything under that directory.
+
+**Matching and type as a filter.** A set *matches* a document when any of its compiled patterns matches the
+document's archived path. A set *claims* a document when it matches and the document's kind fits the set's
+`type`: a `policies`-typed set claims only documents that aren't `PolicyException`; an `exceptions`-typed set
+claims only documents that are. Treating `type` as a filter, not an assertion, lets one glob cover a
+multi-document file that mixes a policy and its exception, each claimed by the typed set that fits it.
+
+**Resolution rules:**
+
+- A document claimed by zero sets falls back to the by-kind default (`policies` or `exceptions`) from
+  [6. Config blob](#6-config-blob).
+- A document claimed by two or more sets of fitting type is a push error naming the document and the sets.
+- A set literally named `policies` MUST have `type: policies`; a set named `exceptions` MUST have
+  `type: exceptions`.
+- Every declared set MUST claim at least one indexed document, counted after type filtering; this applies to the
+  two reserved default names as well as any other set name.
+
+A mixed-type set (one set holding both policies and exceptions) isn't representable in format 1.0.0; see
+[8. Format versioning and compatibility](#8-format-versioning-and-compatibility) for how a future minor version
+could add one.
+
+The descriptor itself follows these shape rules: it's exactly one non-empty YAML document; its `apiVersion` and
+`kind` MUST be exactly `cli.kyverno.io/v1alpha1` and `PolicyBundle`; an unknown field anywhere in the document is
+rejected; `metadata.namespace` and other `ObjectMeta` fields besides `metadata.name` are accepted and ignored;
+`spec.created`, when set, MUST parse as RFC 3339 and is carried through to the config verbatim, not reformatted.
+Only the exact filename `kyverno-bundle.yaml` at the bundle root is a descriptor — `kyverno-bundle.yml` is
+ordinary content, and since its group is `cli.kyverno.io`, writer MUST 4 rejects it as a bundle-layout error, the
+same way it rejects any other `cli.kyverno.io` document. A *directory* named `kyverno-bundle.yaml` isn't a
+descriptor either; a writer treats it as ordinary content under that directory name, the same as if no descriptor
+were present, so a tree that used that name for content before this section existed keeps working.
+
+**Every string field under `metadata.name`, `metadata.annotations`, and `spec` MUST be quoted when it could
+otherwise be read as a YAML number or boolean** (for example `version: "1.20"`, not `version: 1.20`; `version:
+"yes"`, not `version: yes`): YAML parses an unquoted `1.20` as the number `1.2` and an unquoted `yes` as the
+boolean `true`, either of which would otherwise reach the config blob silently reformatted. This applies
+everywhere in that scope, including through a YAML alias or a `<<` merge key, not only to directly written
+scalars, and it applies to both sides of an annotation entry: an unquoted annotation key (for example
+`spec.annotations: {1.20: release}`) coerces exactly the same way an unquoted value does. A writer MUST reject
+an unquoted numeric or boolean scalar anywhere in this scope, as a key or as a value, rather than publish the
+reformatted value.
+
+**Without a descriptor, a writer
 MUST NOT derive `name`, `version`, `description`, `kyvernoVersion`, `source`, or `created` from the push
 reference or the environment; it omits them, and falls back to the by-kind `policies`/`exceptions` default for
 `sets`** (see [6. Config blob](#6-config-blob) for why `sets` alone can be required without a descriptor). This
@@ -704,10 +765,11 @@ follows directly from the descriptor's shape: **today**, that loader returns a f
 `cli.kyverno.io` document it encounters, and that error fails the whole directory load, not just the one file —
 `kyverno apply <bundle-root>` skips **every** policy in the directory, logging one "skipping invalid YAML file"
 entry for the directory as a whole, not one entry for the descriptor alone. A `kyverno-bundle.yaml` sitting in the
-source tree therefore already breaks `apply` on the whole tree today, which is a stronger argument for the
-loader-skip rule in issue `#17663` than a per-file skip would be, not a weaker one. That planned change (`#17663`) is expected
-to make the loader skip `cli.kyverno.io` documents outright when reading a source tree for `apply` or `test`, the
-same way it's expected to change how a `kyverno-test.yaml` sitting next to policies is handled today. That's CLI
+source tree therefore already breaks `apply` on the whole tree today, which is a stronger argument for a
+loader-wide skip rule than a per-file skip would be, not a weaker one. That loader change, making the loader skip
+`cli.kyverno.io` documents outright when reading a source tree for `apply` or `test`, is not yet implemented,
+tracked under epic [#17645](https://github.com/kyverno/kyverno/issues/17645), the same way it isn't implemented
+for how a `kyverno-test.yaml` sitting next to policies is handled today. That's CLI
 read-path behavior over the source tree, not a statement about bytes in the registry or about what makes a bundle
 valid, so it isn't a bundle conformance requirement — see [9. Conformance](#9-conformance).
 
@@ -740,7 +802,7 @@ version outright.
 
 | Kyverno CLI release | Supported major format version |
 |---|---|
-| 1.20 | 1 (`1.0.0` is the only version this document defines; see [1. Status and scope](#1-status-and-scope) for its provisional status) |
+| 1.20 | 1 (`1.0.0` is the only version this document defines; see [1. Status and scope](#1-status-and-scope)) |
 
 ### Legacy-image detection
 
@@ -780,7 +842,8 @@ the requirement binds.
    `subject`) with exactly one layer, at index 0, with media type
    `application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip` (4, 5).
 2. Emit a config blob with media type `application/vnd.cncf.kyverno.bundle.config.v1+json`, `formatVersion` set,
-   `sets[]` set (by descriptor or by the by-kind default), and `resources[]` populated for every archived
+   `sets[]` set (by descriptor or by the by-kind default; derived from the descriptor's `spec.sets[].paths` under
+   the rules in [7. Bundle descriptor](#7-bundle-descriptor)), and `resources[]` populated for every archived
    document (6).
 3. Archive only `.yaml`/`.yml` files, at their original relative paths and original bytes, excluding hidden
    paths and the reserved `kyverno-bundle.yaml` descriptor filename at the bundle root, and rejecting the same
@@ -817,11 +880,35 @@ the requirement binds.
     `io.kyverno.bundle.version`, or `org.opencontainers.image.version` from the push reference or any
     environment value other than `SOURCE_DATE_EPOCH` for `created`; omit these fields and annotations when no
     descriptor supplies them (4, 6, 7).
-14. Not let the descriptor's `spec.annotations` override a reserved `io.kyverno.bundle.*` or
-    `org.opencontainers.image.*` annotation key; the writer-computed value for a reserved key always wins (4).
+14. Not let the descriptor's `spec.annotations` set any key under the reserved `io.kyverno.bundle.` or
+    `org.opencontainers.image.` prefix — the whole prefix is reserved, not only the keys a writer currently
+    computes; strip any such key from `spec.annotations` before merging it, so the writer-computed value for a
+    key it does compute always wins, and a key under either prefix it does not compute is simply discarded (4).
 15. Keep every `io.kyverno.bundle.*` and relevant `org.opencontainers.image.*` manifest annotation in agreement
     with the config blob's corresponding field; the config is canonical, annotations are duplicates for
     discoverability, and a writer MUST NOT emit an annotation the config contradicts (4).
+16. Reject a descriptor whose `kyvernoVersion` isn't a valid semver constraint (6).
+
+### Writer-policy checks
+
+`kyverno oci push` and `kyverno oci validate` additionally apply these checks as their own strict defaults, not
+as format requirements:
+
+- Resolve every `PolicyException`'s policy references within the bundle (already covered by writer MUST 12).
+- Reject a policy whose `spec.matchConstraints.namespaceSelector` or `objectSelector` isn't a well-formed label
+  selector.
+- Reject a `PolicyException` whose compensating-control `spec.validations` expressions fail to compile.
+- Warn when a compensating control targets a kind that ignores it.
+- Warn when a `PolicyException`'s `spec.expiresAt` is earlier than the wall clock at validation time;
+  `kyverno oci validate --strict` turns this warning into a failure.
+
+None of these checks bind a reader, and `kyverno oci pull` doesn't run them. Expiry is a warning, not a
+rejection, for two reasons: the Kubernetes API server accepts an expired exception on create and the engine
+simply ignores it, so a bundle's writer-policy check is stricter than the cluster it targets, not a mirror of
+it; and an operator who pulls a vendor-authored bundle and re-pushes it to an internal registry, without
+authority to edit its content, must still be able to push it even if an exception inside it has expired.
+`SOURCE_DATE_EPOCH` is not the validation clock these checks use; the check always reads the wall clock. Whether
+a selector matches any live resource isn't checkable offline, and these checks don't attempt it.
 
 ### Reader MUST
 
@@ -863,8 +950,9 @@ safe as the equivalent local-directory command.
 
 ## 10. Consumption by generic tooling
 
-This chapter is informative, not normative. A worked, end-to-end Flux example is planned for the `kyverno/website`
-documentation as part of #17667 and doesn't exist yet.
+This chapter is informative, not normative. [`docs/dev/oci/flux-example.md`](./flux-example.md) is a worked,
+digest-pinned example of consuming a bundle with Flux. A user-facing, end-to-end GitOps guide based on it is in
+progress on the `kyverno/website` documentation as part of #17667.
 
 ### Flux `OCIRepository`
 
@@ -872,10 +960,13 @@ Flux's `OCIRepository` controller extracts the first layer of an artifact by def
 be `tar+gzip` for its default `extract` operation. Because this format's single content layer sits at index 0 with
 media type `application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip`, Flux's default configuration (no
 `layerSelector`) already extracts it correctly. An `OCIRepository` SHOULD still set
-`spec.layerSelector.mediaType: application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip` explicitly, so extraction
-keeps working even if a future format version adds a second layer — see
-[8. Format versioning and compatibility](#8-format-versioning-and-compatibility) for why that's a major change and
-not something that could happen silently.
+`spec.layerSelector.mediaType: application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip` explicitly: it selects
+today's content layer unambiguously instead of relying on Flux's `layers[0]` fallback, and it fails visibly
+rather than silently extracting the wrong layer if the artifact ever carries more than one. This does not give
+forward compatibility across a major format change: the major version is carried in the media type's `.v1`
+segment, so a format version that adds a second layer ships a new `.v2` media type — see
+[8. Format versioning and compatibility](#8-format-versioning-and-compatibility) — and a selector pinned to
+`.v1` then matches nothing, requiring the `OCIRepository` to be updated by hand.
 
 ### `crane` and `oras`
 
@@ -892,6 +983,15 @@ never derives from the push reference (see [4. Artifact structure](#4-artifact-s
 [6. Config blob](#6-config-blob)), retagging or mirroring the same bundle to a different reference doesn't change
 its digest, which is what makes the digest form meaningful as a stable identity independent of where the bundle
 is hosted.
+
+`kyverno oci resolve` is the way to obtain this digest. It applies reader MUST 1, 6, and 7
+([9. Conformance](#9-conformance)) — manifest shape, config parse, and major-version and legacy-image checks —
+before printing, so it never pins a non-bundle, a legacy pre-1.20 image, or an artifact whose format major
+version this CLI doesn't support. It does not apply reader MUST 2-4: it never fetches or extracts the content
+layer, so it can't check the archive against the index. A bundle whose manifest and config are well-formed but
+whose archive is malformed or disagrees with the index passes `resolve` and still fails `pull`. `--digest-only`
+prints the bare digest, the form `spec.ref.digest` on a Flux `OCIRepository` expects. For an artifact that isn't a
+Kyverno bundle, `crane digest` is the equivalent way to pin a reference.
 
 ### Signing and referrers
 
@@ -1009,3 +1109,16 @@ The descriptor, `kyverno-bundle.yaml`, isn't in that listing: it's an input, not
 ## 12. Changelog
 
 - `1.0.0`: first version of this format, replacing the per-resource-layer format Kyverno 1.9 through 1.19 shipped.
+  - Set-derivation rules for the descriptor ([7. Bundle descriptor](#7-bundle-descriptor)) specified by #17663.
+    This has no byte-level effect on any config a 1.0.0 reader already accepts. It doesn't take a patch bump
+    because 1.0.0 hasn't shipped in a release yet; the first released version carries these rules from the
+    start.
+  - Accepted-version table widened to `v1`, `kyvernoVersion` constraint semantics, and the writer-policy checks
+    specified by #17664. No byte-level effect on any 1.0.0 bundle; no bump because 1.0.0 hasn't shipped in a
+    release yet.
+  - `kyverno oci` graduated out of the experimental gate: it no longer requires `KYVERNO_EXPERIMENTAL`.
+    [1. Status and scope](#1-status-and-scope) records this format as committed as of 1.20. No byte-level effect
+    on any 1.0.0 bundle; no bump because 1.0.0 hasn't shipped in a release yet.
+  - `kyverno oci resolve` and the Flux example cross-reference added to
+    [10. Consumption by generic tooling](#10-consumption-by-generic-tooling) by #17667. Informative only; no
+    normative or byte-level change.

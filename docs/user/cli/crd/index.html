@@ -29,6 +29,8 @@ Resource Types:
 </li><li>
 <a href="#cli.kyverno.io/v1alpha1.Context">Context</a>
 </li><li>
+<a href="#cli.kyverno.io/v1alpha1.PolicyBundle">PolicyBundle</a>
+</li><li>
 <a href="#cli.kyverno.io/v1alpha1.Test">Test</a>
 </li><li>
 <a href="#cli.kyverno.io/v1alpha1.UserInfo">UserInfo</a>
@@ -201,6 +203,172 @@ ContextSpec
 </em>
 </td>
 <td>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.PolicyBundle">PolicyBundle
+</h3>
+<p>
+<p>PolicyBundle is the optional kyverno-bundle.yaml descriptor at the root of a <code>kyverno oci push</code>
+input tree. See docs/dev/oci/bundle-spec.md section 7 for the normative shape.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+cli.kyverno.io/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>PolicyBundle</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.PolicyBundleSpec">
+PolicyBundleSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares the bundle&rsquo;s metadata and named set membership.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>version</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Version is the bundle&rsquo;s own version string, passed through to the config blob verbatim.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>description</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Description is a human-readable summary of the bundle, passed through to the config blob.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>formatVersion</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>FormatVersion pins the bundle format version this descriptor was written against. It must
+exactly match the format version this CLI writes, or push fails before writing anything.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kyvernoVersion</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>KyvernoVersion is a semver constraint string (for example &ldquo;&gt;=1.20&rdquo;) naming the Kyverno
+versions this bundle targets. Push rejects a malformed one before writing anything; push and
+<code>kyverno oci validate</code> warn when the CLI&rsquo;s own version does not satisfy it.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>source</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.PolicyBundleSource">
+PolicyBundleSource
+</a>
+</em>
+</td>
+<td>
+<p>Source records where the bundle&rsquo;s content comes from.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>created</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Created is an RFC 3339 timestamp passed through to the config blob and manifest
+annotations verbatim.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sets</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.PolicyBundleSet">
+[]PolicyBundleSet
+</a>
+</em>
+</td>
+<td>
+<p>Sets declares named sets and the path globs that assign resources to them. A resource not
+claimed by any set here falls back to the by-kind default set (policies or exceptions).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>annotations</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Annotations are extra manifest annotations. A key under the reserved io.kyverno.bundle. or
+org.opencontainers.image. prefix here is discarded — the whole prefix is reserved, not only
+the specific keys a writer currently computes — and the writer-computed value for any key it
+does compute always wins. Quote a key or value that could otherwise be read as a YAML number
+or boolean; push rejects either.</p>
 </td>
 </tr>
 </table>
@@ -1279,6 +1447,231 @@ string
 </td>
 <td>
 <p>Rules are values for specific policy rules</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.PolicyBundleSet">PolicyBundleSet
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.PolicyBundleSpec">PolicyBundleSpec</a>)
+</p>
+<p>
+<p>PolicyBundleSet declares one named set and the path globs that assign resources to it.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the set&rsquo;s name. The reserved names &ldquo;policies&rdquo; and &ldquo;exceptions&rdquo; must carry the
+matching type.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>type</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Type is the set&rsquo;s type, &ldquo;policies&rdquo; or &ldquo;exceptions&rdquo;. It filters which matched documents the
+set claims: a &ldquo;policies&rdquo; set claims every matched document except PolicyException, and an
+&ldquo;exceptions&rdquo; set claims only matched PolicyException documents.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>paths</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>Paths are glob patterns, relative to the bundle root, matched against each archived
+document&rsquo;s path. &ldquo;*&rdquo; and &ldquo;?&rdquo; do not cross a &ldquo;/&rdquo;; &ldquo;**&rdquo; does.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.PolicyBundleSource">PolicyBundleSource
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.PolicyBundleSpec">PolicyBundleSpec</a>)
+</p>
+<p>
+<p>PolicyBundleSource records where a bundle&rsquo;s source lives.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>url</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>URL is the bundle&rsquo;s source location, for example a Git repository URL.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>revision</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Revision is the source revision the bundle was built from, for example a Git commit SHA.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="cli.kyverno.io/v1alpha1.PolicyBundleSpec">PolicyBundleSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#cli.kyverno.io/v1alpha1.PolicyBundle">PolicyBundle</a>)
+</p>
+<p>
+<p>PolicyBundleSpec is the descriptor&rsquo;s spec. Version, Description, FormatVersion, KyvernoVersion,
+and Created are scalar strings; Annotations is a map of strings; Source is a nested object and
+Sets is a list of nested objects, but every leaf scalar inside either of those, and
+metadata.name and metadata.annotations above, is still a string. Quote a value that could
+otherwise be read as a YAML number or boolean (for example &ldquo;1.20&rdquo;, &ldquo;yes&rdquo;, &ldquo;0123456&rdquo;). Push
+rejects an unquoted one anywhere in this scope instead of letting YAML silently reformat it.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>version</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Version is the bundle&rsquo;s own version string, passed through to the config blob verbatim.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>description</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Description is a human-readable summary of the bundle, passed through to the config blob.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>formatVersion</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>FormatVersion pins the bundle format version this descriptor was written against. It must
+exactly match the format version this CLI writes, or push fails before writing anything.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kyvernoVersion</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>KyvernoVersion is a semver constraint string (for example &ldquo;&gt;=1.20&rdquo;) naming the Kyverno
+versions this bundle targets. Push rejects a malformed one before writing anything; push and
+<code>kyverno oci validate</code> warn when the CLI&rsquo;s own version does not satisfy it.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>source</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.PolicyBundleSource">
+PolicyBundleSource
+</a>
+</em>
+</td>
+<td>
+<p>Source records where the bundle&rsquo;s content comes from.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>created</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Created is an RFC 3339 timestamp passed through to the config blob and manifest
+annotations verbatim.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sets</code><br/>
+<em>
+<a href="#cli.kyverno.io/v1alpha1.PolicyBundleSet">
+[]PolicyBundleSet
+</a>
+</em>
+</td>
+<td>
+<p>Sets declares named sets and the path globs that assign resources to them. A resource not
+claimed by any set here falls back to the by-kind default set (policies or exceptions).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>annotations</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Annotations are extra manifest annotations. A key under the reserved io.kyverno.bundle. or
+org.opencontainers.image. prefix here is discarded — the whole prefix is reserved, not only
+the specific keys a writer currently computes — and the writer-computed value for any key it
+does compute always wins. Quote a key or value that could otherwise be read as a YAML number
+or boolean; push rejects either.</p>
 </td>
 </tr>
 </tbody>
