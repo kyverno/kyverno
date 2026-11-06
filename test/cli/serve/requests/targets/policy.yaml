@@ -1,0 +1,28 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: route-to-gateway
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [gateway.networking.k8s.io]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [httproutes]
+  targetMatchConstraints:
+    objectSelector:
+      matchLabels:
+        selected: "true"
+    resourceRules:
+    - apiGroups: [gateway.networking.k8s.io]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [gateways]
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: >-
+        [JSONPatch{op: "add", path: "/metadata/annotations/route", value: request.object.metadata.name}]

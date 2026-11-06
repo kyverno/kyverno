@@ -1,0 +1,35 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-b
+  namespace: default
+  labels:
+    selected: "true"
+  annotations:
+    keep: original-b
+spec:
+  gatewayClassName: example
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-a
+  namespace: default
+  labels:
+    selected: "true"
+  annotations:
+    keep: original-a
+spec:
+  gatewayClassName: example
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-excluded
+  namespace: default
+  labels:
+    selected: "false"
+  annotations:
+    keep: excluded
+spec:
+  gatewayClassName: example

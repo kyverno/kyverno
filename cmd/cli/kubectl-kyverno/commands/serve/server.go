@@ -16,6 +16,7 @@ import (
 	"time"
 
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/evaluator"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -144,7 +145,7 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 		writeStatus(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	s.respond(w, r.Context(), mode, s.set, s.digest, in, nil, "")
+	s.respond(w, r.Context(), mode, s.set, s.digest, in, nil, evaluator.Options{})
 }
 
 // handleEvaluateRequest serves POST /v1alpha1/evaluate: the body is an EvaluationRequest carrying
@@ -215,6 +216,10 @@ func (s *Server) handleEvaluateRequest(w http.ResponseWriter, r *http.Request) {
 		writeStatus(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if in.TargetResources, err = decodeResources("targetResources", req.TargetResources); err != nil {
+		writeStatus(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if strings.TrimSpace(req.Exceptions) != "" {
 		objects, err := decodeResources("exceptions", req.Exceptions)
 		if err != nil {
@@ -232,6 +237,16 @@ func (s *Server) handleEvaluateRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		in.Exceptions = results.CELExceptions
 	}
+	var crdPaths []string
+	if strings.TrimSpace(req.CustomResourceDefinitions) != "" {
+		path, cleanup, err := writeCRDs(req.CustomResourceDefinitions)
+		if err != nil {
+			writeStatus(w, http.StatusBadRequest, "customResourceDefinitions: "+err.Error())
+			return
+		}
+		defer cleanup()
+		crdPaths = []string{path}
+	}
 	contextPath := ""
 	if strings.TrimSpace(req.Context) != "" {
 		path, cleanup, err := writeContext(req.Context)
@@ -242,7 +257,36 @@ func (s *Server) handleEvaluateRequest(w http.ResponseWriter, r *http.Request) {
 		defer cleanup()
 		contextPath = path
 	}
-	s.respond(w, r.Context(), mode, set, digest, in, clusterResources, contextPath)
+	s.respond(w, r.Context(), mode, set, digest, in, clusterResources, evaluator.Options{ContextPath: contextPath, CrdPaths: crdPaths})
+}
+
+// writeCRDs validates CustomResourceDefinitions and writes them to a private temp file, the form
+// the evaluator reads them in (apply's --crd-paths).
+func writeCRDs(content string) (string, func(), error) {
+	objects, err := resource.GetUnstructuredResources([]byte(content))
+	if err != nil {
+		return "", nil, err
+	}
+	for _, o := range objects {
+		if o.GetKind() != "CustomResourceDefinition" {
+			return "", nil, fmt.Errorf("every document must be a CustomResourceDefinition, got %s", o.GetKind())
+		}
+	}
+	f, err := os.CreateTemp("", "kyverno-serve-crds-*.yaml")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() { _ = os.Remove(f.Name()) }
+	if _, err := f.WriteString(content); err != nil {
+		f.Close()
+		cleanup()
+		return "", nil, err
+	}
+	if err := f.Close(); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	return f.Name(), cleanup, nil
 }
 
 // writeContext validates a Context document and writes it to a private temp file, because the
@@ -299,8 +343,8 @@ func (s *Server) readBody(w http.ResponseWriter, r *http.Request) ([]byte, bool)
 	return body, true
 }
 
-func (s *Server) respond(w http.ResponseWriter, ctx context.Context, mode evaluator.Mode, set *evaluator.PolicySet, digest string, in evaluator.Input, clusterResources []*unstructured.Unstructured, contextPath string) {
-	resp, err := s.evaluateWith(ctx, mode, set, digest, in, clusterResources, contextPath)
+func (s *Server) respond(w http.ResponseWriter, ctx context.Context, mode evaluator.Mode, set *evaluator.PolicySet, digest string, in evaluator.Input, clusterResources []*unstructured.Unstructured, opts evaluator.Options) {
+	resp, err := s.evaluateWith(ctx, mode, set, digest, in, clusterResources, opts)
 	if err != nil {
 		log.Log.V(2).Info("evaluation failed", "mode", mode, "error", err)
 		writeStatus(w, http.StatusInternalServerError, err.Error())
@@ -314,16 +358,16 @@ func (s *Server) Evaluate(ctx context.Context, mode evaluator.Mode, in evaluator
 	if s.set == nil {
 		return nil, errors.New("the server has no policies loaded")
 	}
-	return s.evaluateWith(ctx, mode, s.set, s.digest, in, nil, "")
+	return s.evaluateWith(ctx, mode, s.set, s.digest, in, nil, evaluator.Options{})
 }
 
 // evaluateWith builds fresh per-request state (store, variables, in-memory cluster seeded with the
 // payload, cluster and parameter resources) and holds the server lock for the evaluation.
-func (s *Server) evaluateWith(ctx context.Context, mode evaluator.Mode, set *evaluator.PolicySet, digest string, in evaluator.Input, clusterResources []*unstructured.Unstructured, contextPath string) (resp *EvaluationResponse, err error) {
+func (s *Server) evaluateWith(ctx context.Context, mode evaluator.Mode, set *evaluator.PolicySet, digest string, in evaluator.Input, clusterResources []*unstructured.Unstructured, opts evaluator.Options) (resp *EvaluationResponse, err error) {
 	st := &store.Store{}
 	st.SetLocal(true)
-	if len(in.Resources)+len(clusterResources)+len(in.ParameterResources) > 0 {
-		client, err := evaluator.NewFakeClient(in.Resources, clusterResources, in.ParameterResources)
+	if len(in.Resources)+len(clusterResources)+len(in.TargetResources)+len(in.ParameterResources) > 0 {
+		client, err := evaluator.NewFakeClient(in.Resources, append(slices.Clone(clusterResources), in.TargetResources...), in.ParameterResources)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create local resource client: %w", err)
 		}
@@ -340,13 +384,18 @@ func (s *Server) evaluateWith(ctx context.Context, mode evaluator.Mode, set *eva
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// CRDs loaded for one request are kept in the process-global CRD processor; clear them before
+	// and after every evaluation so they cannot leak into another request.
+	resetCRDs()
+	defer resetCRDs()
 	defer func() {
 		if p := recover(); p != nil {
 			log.Log.Error(fmt.Errorf("%v", p), "evaluation panicked", "stack", string(debug.Stack()))
 			resp, err = nil, fmt.Errorf("evaluation panicked: %v", p)
 		}
 	}()
-	result, err := s.evaluate(ctx, set, in, evaluator.Options{Out: io.Discard, ContextPath: contextPath})
+	opts.Out = io.Discard
+	result, err := s.evaluate(ctx, set, in, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -378,6 +427,12 @@ func (s *Server) ListenAndServe(ctx context.Context, address string, ready func(
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
+	}
+}
+
+func resetCRDs() {
+	if p := data.GetProcessor(); p != nil {
+		p.UpdateResourceGroups(nil)
 	}
 }
 

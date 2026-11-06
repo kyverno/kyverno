@@ -124,6 +124,7 @@ func TestEvaluateArtifacts(t *testing.T) {
 	require.Len(t, resp.Results, 1)
 	assert.Equal(t, "MutatingPolicy", resp.Results[0].Policy.Kind)
 	assert.Equal(t, &ObjectRef{APIVersion: "v1", Kind: "Pod", Namespace: "default", Name: "web"}, resp.Results[0].Resource)
+	assert.Equal(t, resp.Artifacts.Patched[0], resp.Results[0].PatchedResource)
 
 	code, resp = evaluate(t, h, evaluator.ModeKubernetes, fixture("payloads", "kubernetes", "namespace.yaml"))
 	require.Equal(t, http.StatusOK, code)
@@ -132,6 +133,8 @@ func TestEvaluateArtifacts(t *testing.T) {
 	generated := resp.Artifacts.Generated[0]
 	assert.Equal(t, "ConfigMap", generated["kind"])
 	assert.Equal(t, "team-a", generated["metadata"].(map[string]any)["namespace"])
+	require.Len(t, resp.Results, 1)
+	assert.Equal(t, resp.Artifacts.Generated, resp.Results[0].GeneratedResources)
 	assert.Equal(t, DecisionAllow, resp.Decision)
 }
 
