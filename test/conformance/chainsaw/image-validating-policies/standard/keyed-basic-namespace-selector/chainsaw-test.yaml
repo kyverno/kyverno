@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: keyed-basic-namespace-selector
+spec:
+  concurrent: false
+  steps:
+  - name: create selected and unselected namespaces
+    try:
+    - create:
+        file: chainsaw-step-01-apply-1.yaml
+    - create:
+        file: chainsaw-step-01-apply-2.yaml
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait for admission policy readiness
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: ImageValidatingPolicy
+          metadata:
+            name: ivpol-keyed-basic-namespace-selector
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - message: Webhook configured.
+                reason: Succeeded
+                status: "True"
+                type: WebhookConfigured
+              (conditions[?type == 'RBACPermissionsGranted']):
+              - message: Background scanning disabled; reporting permissions not required.
+                reason: Succeeded
+                status: "True"
+                type: RBACPermissionsGranted
+              ready: true
+  - name: verify namespace selector admission outcomes
+    try:
+    - create:
+        file: chainsaw-step-02-apply-1.yaml
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-signed-pod
+            namespace: test-verify-images
+          spec:
+            containers:
+            - name: test-secret
+              (starts_with(image, 'ghcr.io/kyverno/test-verify-image:signed@sha256:')): true
+    - create:
+        file: pod-unsigned.yaml
+        expect:
+        - check:
+            ($error != null): true
+            "($error != null && contains($error, 'Policy ivpol-keyed-basic-namespace-selector failed: image signature verification failed'))": true
+    - create:
+        file: pod-signed.yaml
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-signed-pod2
+            namespace: test-verify-images
+          spec:
+            containers:
+            - name: test-signed2
+              (starts_with(image, 'ghcr.io/kyverno/test-verify-image:signed@sha256:')): true
+    - create:
+        file: pod-unprotected-ns.yaml
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-unsigned-pod
+            namespace: test-verify-images-unprotected
+          spec:
+            containers:
+            - image: ghcr.io/kyverno/test-verify-image:unsigned
+              name: test-unsigned
