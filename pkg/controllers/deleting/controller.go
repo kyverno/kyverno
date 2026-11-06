@@ -286,10 +286,24 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 						continue
 					}
 
+					uid := resource.GetUID()
+					if uid == "" {
+						debug.Info("resource has no UID, skipping deletion")
+						continue
+					}
 					logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
-					if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
+					// the delete is by name, so pin it to the evaluated object: if that object was
+					// deleted and recreated under the same name since the list, the API server
+					// refuses the delete instead of removing an object the policy never evaluated
+					resourceDeleteOptions := deleteOptions
+					resourceDeleteOptions.Preconditions = &metav1.Preconditions{UID: &uid}
+					if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, resourceDeleteOptions); err != nil {
 						if apierrors.IsNotFound(err) {
 							debug.Info("resource not found")
+							continue
+						}
+						if apierrors.IsConflict(err) {
+							debug.Info("resource was replaced after it was evaluated, skipping")
 							continue
 						}
 						if c.metrics != nil {
