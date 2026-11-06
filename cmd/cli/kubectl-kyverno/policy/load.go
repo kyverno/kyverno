@@ -504,3 +504,9 @@ func stdinLoad(loader loader) (*LoaderResults, error) {
 	}
 	return loader("-", []byte(policyStr))
 }
+
+// LoadBytes loads policies from in-memory YAML/JSON content, with the same rules as Load (legacy
+// kyverno.io kinds are rejected). name is only used to label errors and warnings.
+func LoadBytes(name string, content []byte) (*LoaderResults, error) {
+	return kubectlValidateLoader()(name, content)
+}

@@ -117,6 +117,11 @@ func DecodeInput(mode Mode, body []byte) (Input, error) {
 	return in, nil
 }
 
+// ProcessResources normalizes decoded resources the way apply does before evaluating them.
+func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Unstructured {
+	return test.ProcessResources(resources)
+}
+
 func nonEmpty(resources []*unstructured.Unstructured) []*unstructured.Unstructured {
 	out := resources[:0]
 	for _, r := range resources {

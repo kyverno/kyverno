@@ -225,15 +225,8 @@ func LoadStrict(paths ...string) (*PolicySet, error) {
 	set := &PolicySet{}
 	for _, path := range paths {
 		results, err := policy.Load(nil, "", path)
-		if err != nil {
-			if pkgdeprecations.IsLegacyPolicyBlockError(err) {
-				return nil, err
-			}
-			return nil, fmt.Errorf("failed to load policies from %s: %w", path, err)
-		}
-		if results != nil && len(results.NonFatalErrors) > 0 {
-			e := results.NonFatalErrors[0]
-			return nil, fmt.Errorf("failed to load policies from %s: %s: %w", path, e.Path, e.Error)
+		if err := strict(path, results, err); err != nil {
+			return nil, err
 		}
 		set.Add(results)
 	}
@@ -241,4 +234,33 @@ func LoadStrict(paths ...string) (*PolicySet, error) {
 		return nil, fmt.Errorf("no policies found in %v", paths)
 	}
 	return set, nil
+}
+
+// LoadStrictBytes is LoadStrict for in-memory YAML/JSON content (one or more documents). CEL
+// PolicyExceptions in the content are kept in the set.
+func LoadStrictBytes(content []byte) (*PolicySet, error) {
+	results, err := policy.LoadBytes("request", content)
+	if err := strict("request", results, err); err != nil {
+		return nil, err
+	}
+	set := &PolicySet{}
+	set.Add(results)
+	if set.PolicyCount() == 0 {
+		return nil, fmt.Errorf("no policies found in request")
+	}
+	return set, nil
+}
+
+func strict(source string, results *policy.LoaderResults, err error) error {
+	if err != nil {
+		if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+			return err
+		}
+		return fmt.Errorf("failed to load policies from %s: %w", source, err)
+	}
+	if results != nil && len(results.NonFatalErrors) > 0 {
+		e := results.NonFatalErrors[0]
+		return fmt.Errorf("failed to load policies from %s: %s: %w", source, e.Path, e.Error)
+	}
+	return nil
 }

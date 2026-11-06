@@ -18,9 +18,10 @@ import (
 const DefaultAddress = "127.0.0.1:8080"
 
 type options struct {
-	policies []string
-	modes    []string
-	address  string
+	policies             []string
+	modes                []string
+	address              string
+	allowRequestPolicies bool
 }
 
 func Command() *cobra.Command {
@@ -41,7 +42,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVar(&opts.policies, "policies", nil, "Path to policy files or directories to load at startup (required)")
 	cmd.Flags().StringSliceVar(&opts.modes, "mode", nil, "Payload modes to serve: Kubernetes, JSON, HTTP, Envoy (repeatable or comma-separated; default all)")
 	cmd.Flags().StringVar(&opts.address, "address", DefaultAddress, "Address to listen on; defaults to loopback only")
-	_ = cmd.MarkFlagRequired("policies")
+	cmd.Flags().BoolVar(&opts.allowRequestPolicies, "allow-request-policies", false, "Accept policies inside POST /v1alpha1/evaluate requests (evaluated instead of --policies); --policies is optional when set")
 	return cmd
 }
 
@@ -50,7 +51,10 @@ func (o options) run(ctx context.Context, cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	server, err := newServerFromPaths(o.policies, modes)
+	if len(o.policies) == 0 && !o.allowRequestPolicies {
+		return fmt.Errorf("--policies is required unless --allow-request-policies is set")
+	}
+	server, err := newServerFromPaths(o.policies, Config{Modes: modes, AllowRequestPolicies: o.allowRequestPolicies})
 	if err != nil {
 		return err
 	}
@@ -59,19 +63,26 @@ func (o options) run(ctx context.Context, cmd *cobra.Command) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: listening on non-loopback address %s; kyverno serve has no authentication or TLS and is meant for local development only\n", o.address)
 	}
 	return server.ListenAndServe(ctx, o.address, func(addr string) {
-		fmt.Fprintf(out, "kyverno serve (experimental, API %s) loaded %d policies (digest %s), modes %v\n", APIVersion, server.set.PolicyCount(), server.digest, server.modes)
+		count := 0
+		if server.set != nil {
+			count = server.set.PolicyCount()
+		}
+		fmt.Fprintf(out, "kyverno serve (experimental, API %s) loaded %d policies (digest %s), modes %v, request policies allowed: %t\n", APIVersion, count, server.digest, server.modes, server.allowRequestPolicies)
 		fmt.Fprintf(out, "listening on http://%s\n", addr)
 	})
 }
 
-func newServerFromPaths(paths []string, modes []evaluator.Mode) (*Server, error) {
+func newServerFromPaths(paths []string, cfg Config) (*Server, error) {
 	// the CRD processor is process-global; set it once before loading and evaluating
 	data.InjectProcessor(data.NewCRDProcessor(nil))
-	set, err := evaluator.LoadStrict(paths...)
-	if err != nil {
-		return nil, err
+	var set *evaluator.PolicySet
+	if len(paths) > 0 {
+		var err error
+		if set, err = evaluator.LoadStrict(paths...); err != nil {
+			return nil, err
+		}
 	}
-	return NewServer(set, version.Version(), modes)
+	return NewServer(set, version.Version(), cfg)
 }
 
 func parseModes(values []string) ([]evaluator.Mode, error) {
