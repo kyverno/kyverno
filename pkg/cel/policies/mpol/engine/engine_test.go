@@ -835,7 +835,7 @@ func TestEvaluate(t *testing.T) {
 
 	// namespaceObject must be the target's namespace in mutateExisting evaluation, the same as
 	// it is at admission time; the background controller and the CLI both evaluate targets here.
-	namespaceObjectEngine := func(t *testing.T, nsResolver func(string) *corev1.Namespace) *engineImpl {
+	namespaceObjectEngine := func(t *testing.T, nsResolver func(string) *corev1.Namespace, explicitTarget bool) *engineImpl {
 		t.Helper()
 		mutateExisting := true
 		pol := &policiesv1beta1.MutatingPolicy{
@@ -866,6 +866,11 @@ func TestEvaluate(t *testing.T) {
 				}},
 			},
 		}
+		if explicitTarget {
+			// the target is selected by targetMatchConstraints and checked by targetMatchConditions
+			pol.Spec.TargetMatchConstraints = &policiesv1beta1.TargetMatchConstraints{MatchResources: *pol.Spec.MatchConstraints.DeepCopy()}
+			pol.Spec.TargetMatchConditions = pol.Spec.MatchConditions
+		}
 		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{pol}, nil, libs.NewFakeContextProvider())
 		if !assert.NoError(t, err) {
 			t.FailNow()
@@ -890,7 +895,7 @@ func TestEvaluate(t *testing.T) {
 		eng := namespaceObjectEngine(t, func(ns string) *corev1.Namespace {
 			resolved = append(resolved, ns)
 			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{"team": "payments"}}}
-		})
+		}, false)
 
 		resp, err := eng.Evaluate(ctx, namespaceObjectTarget(), namespaceObjectTrigger, predicate)
 
@@ -905,10 +910,31 @@ func TestEvaluate(t *testing.T) {
 		assert.Equal(t, []string{"payments"}, resolved)
 	})
 
+	t.Run("namespaceObject is resolved for an explicit target in another namespace", func(t *testing.T) {
+		var resolved []string
+		// each namespace carries its own name as its team label, so the patch shows which one was used
+		eng := namespaceObjectEngine(t, func(ns string) *corev1.Namespace {
+			resolved = append(resolved, ns)
+			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{"team": ns}}}
+		}, true)
+
+		resp, err := eng.Evaluate(ctx, namespaceObjectTarget(), namespaceObjectTrigger, predicate)
+
+		assert.NoError(t, err)
+		if assert.Len(t, resp.Policies, 1) && assert.Len(t, resp.Policies[0].Rules, 1) {
+			rule := resp.Policies[0].Rules[0]
+			assert.Equal(t, engineapi.RuleStatusPass, rule.Status(), rule.Message())
+		}
+		if assert.NotNil(t, resp.PatchedResource, "the target should have been mutated") {
+			assert.Equal(t, "payments", resp.PatchedResource.GetLabels()["team"], "namespaceObject must be the target's namespace, not the trigger's")
+		}
+		assert.Equal(t, []string{"payments"}, resolved)
+	})
+
 	// a namespace the resolver can't find leaves namespaceObject null, so a policy that reads it
 	// fails to evaluate on the target instead of being applied
 	t.Run("an unresolved target namespace leaves namespaceObject null", func(t *testing.T) {
-		eng := namespaceObjectEngine(t, func(string) *corev1.Namespace { return nil })
+		eng := namespaceObjectEngine(t, func(string) *corev1.Namespace { return nil }, false)
 
 		resp, err := eng.Evaluate(ctx, namespaceObjectTarget(), namespaceObjectTrigger, predicate)
 
@@ -926,7 +952,7 @@ func TestEvaluate(t *testing.T) {
 		eng := namespaceObjectEngine(t, func(ns string) *corev1.Namespace {
 			resolved = append(resolved, ns)
 			return nil
-		})
+		}, false)
 
 		resp, err := eng.Evaluate(ctx, namespaceObjectTarget(), namespaceObjectTrigger, func(policiesv1beta1.MutatingPolicyLike) bool { return false })
 
