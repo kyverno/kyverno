@@ -105,6 +105,11 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
+	namespacedDeletingPolicyRule = admissionregistrationv1.Rule{
+		Resources:   []string{"namespaceddeletingpolicies"},
+		APIGroups:   []string{"policies.kyverno.io"},
+		APIVersions: []string{"v1beta1", "v1"},
+	}
 	// policyRule matches create and update requests for the legacy kyverno.io
 	// ClusterPolicy and Policy kinds. Keep APIVersions as "v1" and "v2beta1"
 	// unchanged in 1.20 so admission coverage of legacy writes is not altered;
@@ -791,6 +796,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 					},
 				}, {
 					Rule: deletingPolicyRule,
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+				}, {
+					Rule: namespacedDeletingPolicyRule,
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
 						admissionregistrationv1.Update,
