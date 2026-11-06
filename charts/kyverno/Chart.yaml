@@ -30,6 +30,8 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
+    - kind: added
+      description: Add `rbac.serviceAccount.create` to each controller so an existing ServiceAccount can be used while the chart still creates the RBAC.
     - kind: fixed
       description: Grant the background controller every permission the chart aggregates into the admin and view roles, so generate rules can create RoleBindings to admin again.
     - kind: fixed

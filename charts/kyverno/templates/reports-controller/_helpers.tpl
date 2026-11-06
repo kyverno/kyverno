@@ -33,10 +33,10 @@
 {{- end -}}
 
 {{- define "kyverno.reports-controller.serviceAccountName" -}}
-{{- if .Values.reportsController.rbac.create -}}
+{{- if and .Values.reportsController.rbac.create .Values.reportsController.rbac.serviceAccount.create -}}
     {{ default (include "kyverno.reports-controller.name" .) .Values.reportsController.rbac.serviceAccount.name }}
 {{- else -}}
-    {{ required "A service account name is required when `rbac.create` is set to `false`" .Values.reportsController.rbac.serviceAccount.name }}
+    {{ required "A service account name is required when `rbac.create` or `rbac.serviceAccount.create` is set to `false`" .Values.reportsController.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
 
