@@ -896,6 +896,9 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	policySet := sets.New[string]() // collect policies for cache population
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(merged))
 	for _, result := range merged {
+		if !reportutils.IsResultAllowed(result.Result) {
+			continue
+		}
 		results = append(results, result)
 		if result.Policy != "" {
 			policySet.Insert(result.Policy)
