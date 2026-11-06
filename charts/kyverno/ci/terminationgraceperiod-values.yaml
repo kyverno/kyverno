@@ -1,0 +1,11 @@
+admissionController:
+  terminationGracePeriodSeconds: 30
+
+backgroundController:
+  terminationGracePeriodSeconds: 30
+
+cleanupController:
+  terminationGracePeriodSeconds: 30
+
+reportsController:
+  terminationGracePeriodSeconds: 30
