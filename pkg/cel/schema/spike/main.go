@@ -1,12 +1,13 @@
-// Command spike serves POST /approve over a schema-driven CEL policy, mirroring
-// the nono approval contract. Throwaway Phase 0 tooling, not a Kyverno binary.
+// Command spike serves schema-driven CEL policies over HTTP, loading
+// PayloadSchema, ValidatingPolicy (mode: Schema) and PayloadBinding resources
+// from a directory. Throwaway Phase 0 tooling, not a Kyverno binary.
 package main
 
 import (
-	"encoding/json"
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -15,72 +16,42 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/schema"
 )
 
-const maxBody = 1 << 20
-
-type response struct {
-	Decision string `json:"decision"`
-	Reason   string `json:"reason,omitempty"`
-}
-
-// handler is fail-closed: any decode, validation or evaluation problem denies.
-func handler(s *schema.Schema, policy string) http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /approve", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		deny := func(reason string) {
-			log.Printf("denied: %s", reason)
-			_ = json.NewEncoder(w).Encode(response{Decision: "denied", Reason: reason})
-		}
-		raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBody))
-		if err != nil {
-			deny("reading body: " + err.Error())
-			return
-		}
-		p, err := s.Decode(raw)
-		if err != nil {
-			deny(err.Error())
-			return
-		}
-		out, err := s.Eval(policy, p)
-		if err != nil {
-			deny("policy evaluation: " + err.Error())
-			return
-		}
-		if allowed, ok := out.(bool); !ok || !allowed {
-			deny("denied by policy")
-			return
-		}
-		_ = json.NewEncoder(w).Encode(response{Decision: "granted"})
-	})
-	return mux
-}
-
 func main() {
-	var (
-		addr         = flag.String("addr", "127.0.0.1:8080", "listen address")
-		schemaPath   = flag.String("schema", "pkg/cel/schema/testdata/nono/schema.json", "JSON Schema file")
-		computedPath = flag.String("computed", "pkg/cel/schema/testdata/nono/computed.json", "computed fields file (optional)")
-		policy       = flag.String("policy", `object.request.capability_type != 'command' || object.request.command != 'kubectl' || !derived.isMutatingKubectl`, "CEL expression that must evaluate to true to grant")
-	)
+	addr := flag.String("addr", "127.0.0.1:8080", "listen address")
+	dir := flag.String("resources", "pkg/cel/schema/examples", "directory of YAML/JSON resources")
+	certFile := flag.String("tls-cert", "", "server certificate (enables TLS)")
+	keyFile := flag.String("tls-key", "", "server private key")
+	clientCA := flag.String("client-ca", "", "CA bundle for client certificates (enables mTLS authorization)")
 	flag.Parse()
-	schemaJSON, err := os.ReadFile(*schemaPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	var computed []schema.Computed
-	if b, err := os.ReadFile(*computedPath); err == nil {
-		if err := json.Unmarshal(b, &computed); err != nil {
-			log.Fatalf("computed: %v", err)
+	var opts schema.Options
+	srv := &http.Server{Addr: *addr, ReadHeaderTimeout: 5 * time.Second}
+	if *clientCA != "" {
+		pem, err := os.ReadFile(*clientCA)
+		if err != nil {
+			log.Fatal(err)
 		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(pem) {
+			log.Fatal("no certificates found in -client-ca")
+		}
+		// Absent certs are answered 401 by the app; invalid ones fail the handshake.
+		srv.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, ClientAuth: tls.VerifyClientCertIfGiven, ClientCAs: pool}
+		opts.Principal = schema.MTLSPrincipal
+	} else {
+		fmt.Println("WARNING: no -client-ca; running unauthenticated, binding authorization is ignored")
 	}
-	s, err := schema.New(schemaJSON, computed)
+	reg, err := schema.LoadDir(*dir, opts)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("loading %s: %v", *dir, err)
 	}
-	if err := s.Check(*policy); err != nil {
-		log.Fatalf("policy: %v", err)
+	for _, line := range reg.Summary() {
+		fmt.Println("route:", line)
 	}
-	fmt.Printf("listening on http://%s/approve\n", *addr)
-	srv := &http.Server{Addr: *addr, Handler: handler(s, *policy), ReadHeaderTimeout: 5 * time.Second}
+	srv.Handler = reg
+	if *certFile != "" {
+		fmt.Printf("listening on https://%s\n", *addr)
+		log.Fatal(srv.ListenAndServeTLS(*certFile, *keyFile))
+	}
+	fmt.Printf("listening on http://%s\n", *addr)
 	log.Fatal(srv.ListenAndServe())
 }
