@@ -47,14 +47,14 @@ func TestValidate_BackgroundScan_UserInfoUsernameIsAvailable(t *testing.T) {
 	nodeGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
 
 	// The reports controller passes a non-nil but empty UserInfo for background scans.
-	resp, err := Validate(policyData, *resource, resource.GroupVersionKind(), nodeGVR, map[string]map[string]string{}, nil, &authenticationv1.UserInfo{}, true)
+	resp, err := Validate(policyData, *resource, resource.GroupVersionKind(), nodeGVR, map[string]map[string]string{}, nil, &authenticationv1.UserInfo{}, true, false)
 	assert.NilError(t, err)
 	assert.Assert(t, !hasUserInfoError(err, resp), "request.userInfo.username must be available during background scan")
 	assert.Equal(t, 1, len(resp.PolicyResponse.Rules))
 	assert.Equal(t, engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].Status())
 
 	// A nil UserInfo (the other background-scan entry point) must behave the same.
-	resp, err = Validate(policyData, *resource, resource.GroupVersionKind(), nodeGVR, map[string]map[string]string{}, nil, nil, true)
+	resp, err = Validate(policyData, *resource, resource.GroupVersionKind(), nodeGVR, map[string]map[string]string{}, nil, nil, true, false)
 	assert.NilError(t, err)
 	assert.Assert(t, !hasUserInfoError(err, resp), "request.userInfo.username must be available for nil UserInfo too")
 }
@@ -130,7 +130,7 @@ func TestValidate_BackgroundScan_GroupsAndUIDAreAvailable(t *testing.T) {
 			}
 			policyData := engineapi.NewValidatingAdmissionPolicyData(policy)
 
-			resp, err := Validate(policyData, *resource, resource.GroupVersionKind(), nodeGVR, map[string]map[string]string{}, nil, &authenticationv1.UserInfo{}, true)
+			resp, err := Validate(policyData, *resource, resource.GroupVersionKind(), nodeGVR, map[string]map[string]string{}, nil, &authenticationv1.UserInfo{}, true, false)
 			assert.NilError(t, err)
 			assert.Assert(t, !noSuchKey(tc.field, err, resp), "request.userInfo.%s must be available during background scan", tc.field)
 			assert.Equal(t, engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].Status(), "the synthetic scan user must not be a privileged group / known uid")
@@ -179,7 +179,7 @@ func TestValidate_RealUserInfoIsPreserved(t *testing.T) {
 	nodeGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
 
 	realUser := &authenticationv1.UserInfo{Username: "system:serviceaccount:kube-system:cronjob-controller"}
-	resp, err := Validate(policyData, *resource, resource.GroupVersionKind(), nodeGVR, map[string]map[string]string{}, nil, realUser, true)
+	resp, err := Validate(policyData, *resource, resource.GroupVersionKind(), nodeGVR, map[string]map[string]string{}, nil, realUser, true, false)
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(resp.PolicyResponse.Rules))
 	assert.Equal(t, engineapi.RuleStatusFail, resp.PolicyResponse.Rules[0].Status(), "the real username must be used, so the policy fails")
