@@ -140,7 +140,8 @@ spec:
               {{- join "," $secretNames -}}
             {{- end }}
             - --resyncPeriod={{ .Values.reportsController.resyncPeriod | default .Values.global.resyncPeriod }}
-            {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.reportsController.featuresOverride)
+            {{- $features := include "kyverno.features.merged" (dict "features" .Values.features "override" .Values.reportsController.featuresOverride) | fromYaml }}
+            {{- include "kyverno.features.flags" (pick $features
               "reporting"
               "admissionReports"
               "aggregateReports"
@@ -157,6 +158,7 @@ spec:
               "registryClient"
               "tuf"
             ) | nindent 12 }}
+            {{- include "kyverno.registryClient.egressFlags" $features.registryClient | nindent 12 }}
             {{- range $key, $value := .Values.reportsController.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}

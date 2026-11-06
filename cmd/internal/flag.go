@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/kyverno/pkg/utils/egress"
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
@@ -60,6 +61,7 @@ var (
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
 	registryCredentialHelpers string
+	privateRegistryEgressMode string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
 	// cleanupServer port and host for listening address
@@ -164,6 +166,25 @@ func initRegistryClientFlags() {
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github). No helpers are added when this flag is empty.")
 	flag.Int64Var(&imageVerifyPayloadLimit, "imageVerifyPayloadLimit", 0, "Maximum decompressed size in bytes of a sigstore bundle or attestation payload read during image validating policy verification. Raise it to verify payloads larger than the 10000000 byte default, such as large SBOM attestations. 0 keeps the default.")
+}
+
+// The denied host and IP lists are not flags. They are expected to grow long enough that
+// passing them on a command line is unworkable, so they live in the kyverno ConfigMap
+// alongside the other list-valued settings. Only the mode stays here, because it selects
+// between two behaviours rather than carrying data.
+func initRegistryEgressFlags() {
+	flag.StringVar(&privateRegistryEgressMode, "privateRegistryEgressMode", egress.ModeAudit, "Registry egress policy: audit logs requests enforce would block and connects anyway; enforce rejects them. The destinations themselves come from the registryEgressDeniedHosts and registryEgressDeniedIPs entries in the kyverno ConfigMap.")
+}
+
+// initRegistryFlags registers egress flags for controllers that only read image metadata as
+// well as those that carry full registry credentials.
+func initRegistryFlags(config Configuration) {
+	if config.UsesRegistryClient() {
+		initRegistryClientFlags()
+	}
+	if config.UsesRegistryEgress() {
+		initRegistryEgressFlags()
+	}
 }
 
 func initImageVerifyCacheFlags() {
@@ -272,9 +293,7 @@ func initFlags(config Configuration, opts ...Option) {
 		initCosignFlags()
 	}
 	// registry client
-	if config.UsesRegistryClient() {
-		initRegistryClientFlags()
-	}
+	initRegistryFlags(config)
 	// image verify cache
 	if config.UsesImageVerifyCache() {
 		initImageVerifyCacheFlags()

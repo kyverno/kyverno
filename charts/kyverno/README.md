@@ -403,6 +403,8 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | config.annotations | object | `{}` | Additional annotations to add to the configmap. |
 | config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
 | config.defaultRegistry | string | `"docker.io"` | The registry hostname used for the image mutation. |
+| config.registryEgressDeniedHosts | list | `["metadata.internal","metadata.google.internal","instance-data.ec2.internal"]` | Hostnames the image registry client refuses to reach. Exact names, no ports or wildcards. |
+| config.registryEgressDeniedIPs | list | `["127.0.0.0/8","::1/128","0.0.0.0/8","::/128","169.254.0.0/16","fe80::/10","224.0.0.0/4","ff00::/8","10.0.0.0/8","172.16.0.0/12","192.168.0.0/16","fc00::/7","100.100.100.200/32","168.63.129.16/32","fd00:ec2::254/128","100.64.0.0/10","198.18.0.0/15","192.0.0.0/24","192.88.99.0/24","240.0.0.0/4","2001::/23","100::/64","192.0.2.0/24","198.51.100.0/24","203.0.113.0/24","2001:db8::/32","3fff::/20","fec0::/10","5f00::/16","64:ff9b:1::/48"]` | Addresses the image registry client refuses to reach, as CIDRs or bare IPs. Replaces the default list rather than adding to it; `[]` disables address denial. |
 | config.excludeGroups | list | `["system:nodes"]` | Exclude groups |
 | config.excludeUsernames | list | `[]` | Exclude usernames |
 | config.excludeRoles | list | `[]` | Exclude roles |
@@ -476,6 +478,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
 | features.protectGenerationLabels.enabled | bool | `true` | Enables generation label protection webhook |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
+| features.registryClient.privateRegistryEgressMode | string | `"audit"` | Egress policy for image registry requests in the admission, background, reports, and cleanup controllers: `audit` logs the requests `enforce` would reject and connects anyway; `enforce` rejects them. The destinations themselves come from the `config.registryEgressDeniedHosts` and `config.registryEgressDeniedIPs` entries in the kyverno ConfigMap. |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
 | features.tuf.enabled | bool | `false` | Enables the feature |

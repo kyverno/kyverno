@@ -76,6 +76,8 @@ data:
   enableDefaultRegistryMutation: "true"
   defaultRegistry: "docker.io"
   generateSuccessEvents: "false"
+  registryEgressDeniedHosts: "metadata.internal,metadata.google.internal,instance-data.ec2.internal"
+  registryEgressDeniedIPs: "127.0.0.0/8,::1/128,0.0.0.0/8,::/128,169.254.0.0/16,fe80::/10,224.0.0.0/4,ff00::/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,100.100.100.200/32,168.63.129.16/32,fd00:ec2::254/128,100.64.0.0/10,198.18.0.0/15,192.0.0.0/24,192.88.99.0/24,240.0.0.0/4,2001::/23,100::/64,192.0.2.0/24,198.51.100.0/24,203.0.113.0/24,2001:db8::/32,3fff::/20,fec0::/10,5f00::/16,64:ff9b:1::/48"
   excludeGroups: "system:nodes"
   resourceFilters: >-
     [*/*,kyverno,*]
@@ -91334,6 +91336,7 @@ spec:
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
+            - --privateRegistryEgressMode=audit
             
           resources:
             limits:
@@ -91509,6 +91512,7 @@ spec:
             - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=false
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
+            - --privateRegistryEgressMode=audit
             
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
@@ -91640,6 +91644,7 @@ spec:
             - --v=2
             - --protectManagedResources=false
             - --ttlReconciliationInterval=1m
+            - --privateRegistryEgressMode=audit
             
           env:
           - name: KYVERNO_DEPLOYMENT
@@ -91811,6 +91816,7 @@ spec:
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
+            - --privateRegistryEgressMode=audit
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: kyverno-reports-controller
