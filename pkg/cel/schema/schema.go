@@ -34,6 +34,13 @@ type Schema struct {
 	root      *apiservercel.DeclType
 	computed  []computedProgram
 	env       *cel.Env
+	exposure  *Exposure
+}
+
+// WithExposure sets the projection applied to every payload before CEL sees it.
+func (s *Schema) WithExposure(e Exposure) *Schema {
+	s.exposure = &e
+	return s
 }
 
 // New compiles a JSON Schema document (and optional computed fields).
@@ -48,7 +55,7 @@ func New(schemaJSON []byte, computed []Computed) (*Schema, error) {
 		return nil, fmt.Errorf("schema has no CEL declaration")
 	}
 	provider := apiservercel.NewDeclTypeProvider(root.MaybeAssignTypeName(rootTypeName))
-	base, err := cel.NewEnv(ext.Lists())
+	base, err := cel.NewEnv(ext.Lists(), ext.Math())
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +70,7 @@ func New(schemaJSON []byte, computed []Computed) (*Schema, error) {
 	opts = append(opts,
 		cel.Variable("object", rootType.CelType()),
 		cel.Variable("derived", cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable("transport", cel.MapType(cel.StringType, cel.DynType)),
 	)
 	env, err := base.Extend(opts...)
 	if err != nil {
@@ -70,7 +78,7 @@ func New(schemaJSON []byte, computed []Computed) (*Schema, error) {
 	}
 	out := &Schema{validator: validator, provider: provider, root: rootType, env: env}
 	for _, c := range computed {
-		prog, err := out.program(c.Expression)
+		prog, _, err := out.program(c.Expression)
 		if err != nil {
 			return nil, fmt.Errorf("computed %q: %w", c.Name, err)
 		}
