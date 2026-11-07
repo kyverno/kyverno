@@ -249,7 +249,7 @@ func TestRetainAcknowledgedDownstreamsValidatesOwnershipAndUID(t *testing.T) {
 	})
 	replaced := makeUnstructured("1", "", "v1", "ConfigMap", "replaced", namespace, "new-uid", labels)
 	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{
-		"ConfigMap/"+namespace+"/old":      old,
+		"ConfigMap/" + namespace + "/old":      old,
 		"ConfigMap/" + namespace + "/foreign":  foreign,
 		"ConfigMap/" + namespace + "/replaced": replaced,
 	}}
@@ -290,7 +290,7 @@ func TestPartialGenerationRetryStatusRestoresPriorResources(t *testing.T) {
 	client := &partialReproClient{
 		objects: map[string]*unstructured.Unstructured{
 			"ConfigMap/" + namespace + "/trigger": trigger,
-			"ConfigMap/"+namespace+"/old":     old,
+			"ConfigMap/" + namespace + "/old":     old,
 		},
 		dyn: fakeDynamic,
 	}
@@ -364,8 +364,8 @@ func TestPartialGenerationSuccessfulRetryCleansStaleSameKind(t *testing.T) {
 	newResource := makeUnstructured("101", "", "v1", "ConfigMap", "new", namespace, "new-uid", labels)
 	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{
 		"ConfigMap/" + namespace + "/trigger": trigger,
-		"ConfigMap/"+namespace+"/old":     old,
-		"ConfigMap/"+namespace+"/new":     newResource,
+		"ConfigMap/" + namespace + "/old":     old,
+		"ConfigMap/" + namespace + "/new":     newResource,
 	}}
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)

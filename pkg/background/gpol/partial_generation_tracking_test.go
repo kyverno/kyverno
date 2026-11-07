@@ -43,7 +43,7 @@ func TestAddWatchersPreservesPriorGVRUntilSuccessfulRetry(t *testing.T) {
 				oldGVR: {
 					watcher: watch.MockWatcher{StopFunc: func() {}},
 					metadataCache: map[types.UID]Resource{
-						old.GetUID():     {Name: old.GetName(), Namespace: old.GetNamespace(), Labels: old.GetLabels(), Hash: "old-hash", Data: old},
+						old.GetUID(): {Name: old.GetName(), Namespace: old.GetNamespace(), Labels: old.GetLabels(), Hash: "old-hash", Data: old},
 					},
 				},
 				newGVR: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{}},
@@ -186,7 +186,7 @@ func TestPartialRetryPreservesSiblingTrigger(t *testing.T) {
 			oldGVR: {
 				watcher: watch.MockWatcher{StopFunc: func() {}},
 				metadataCache: map[types.UID]Resource{
-					old.GetUID(): {Name: old.GetName(), Namespace: old.GetNamespace(), Labels: old.GetLabels(), Hash: "old", Data: old},
+					old.GetUID():     {Name: old.GetName(), Namespace: old.GetNamespace(), Labels: old.GetLabels(), Hash: "old", Data: old},
 					sibling.GetUID(): {Name: sibling.GetName(), Namespace: sibling.GetNamespace(), Labels: sibling.GetLabels(), Hash: "sibling", Data: sibling},
 				},
 			},
@@ -218,10 +218,10 @@ func TestAddWatchersDifferentPolicyScopesWithSameName(t *testing.T) {
 	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
 	labelsFor := func(scope string) map[string]string {
 		return map[string]string{
-			common.GeneratePolicyLabel:     policyName,
+			common.GeneratePolicyLabel:      policyName,
 			common.GeneratePolicyScopeLabel: scope,
-			common.GenerateTriggerNSLabel:  namespace,
-			common.GenerateTriggerUIDLabel: "trigger-uid",
+			common.GenerateTriggerNSLabel:   namespace,
+			common.GenerateTriggerUIDLabel:  "trigger-uid",
 		}
 	}
 	cluster := makeUnstructured("1", "", "v1", "ConfigMap", "cluster-result", namespace, "cluster-uid", labelsFor(common.GeneratePolicyScopeCluster))
