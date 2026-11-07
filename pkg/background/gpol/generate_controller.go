@@ -24,6 +24,7 @@ import (
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -252,6 +253,12 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			}
 		}
 	}
+	if len(failures) > 0 {
+		// A transient read outage must not erase the only durable record of a
+		// previously acknowledged write. Preserve its UID in failed status,
+		// but never register an unverified object for synchronization/cleanup.
+		generatedResources = c.preserveUnverifiedFailedStatus(ctx, ur.Status.GeneratedResources, generatedResources)
+	}
 	return updateURStatus(c.statusControl, *ur, multierr.Combine(failures...), generatedResources)
 }
 
@@ -279,7 +286,7 @@ func (c *CELGenerateController) retainAcknowledgedDownstreams(ctx context.Contex
 		if _, alreadyTracked := seen[identity]; alreadyTracked {
 			continue
 		}
-		resource, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
+		_, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
 		if err != nil || resource == nil {
 			continue // absent or inaccessible objects cannot be re-adopted
 		}
@@ -294,6 +301,35 @@ func (c *CELGenerateController) retainAcknowledgedDownstreams(ctx context.Contex
 		}
 		current = append(current, resource)
 		seen[identity] = struct{}{}
+	}
+	return current
+}
+
+// preserveUnverifiedFailedStatus keeps UID-qualified previous identities only
+// when a transient Kubernetes read error prevents verification. A confirmed
+// NotFound or a readable replacement is not carried forward. This affects the
+// failed UR status only; no unverified object enters the WatchManager cache.
+func (c *CELGenerateController) preserveUnverifiedFailedStatus(ctx context.Context, previous, current []kyverno.ResourceSpec) []kyverno.ResourceSpec {
+	key := func(spec kyverno.ResourceSpec) string {
+		return spec.APIVersion + "\x00" + spec.Kind + "\x00" + spec.Namespace + "\x00" + spec.Name
+	}
+	seen := make(map[string]struct{}, len(current)+len(previous))
+	for _, spec := range current {
+		seen[key(spec)] = struct{}{}
+	}
+	for _, spec := range previous {
+		if spec.APIVersion == "" || spec.Kind == "" || spec.Name == "" || spec.UID == "" {
+			continue
+		}
+		identity := key(spec)
+		if _, ok := seen[identity]; ok {
+			continue
+		}
+		resource, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
+		if err != nil && !apierrors.IsNotFound(err) {
+			current = append(current, spec)
+			seen[identity] = struct{}{}
+		}
 	}
 	return current
 }

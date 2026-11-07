@@ -42,16 +42,20 @@ import (
 // Assert that acknowledged writes survive error paths for both trace modes.
 type partialReproClient struct {
 	dclient.Interface
-	objects map[string]*unstructured.Unstructured
-	deny    string
-	writes  int
-	deletes int
-	dyn     dynamic.Interface
+	objects   map[string]*unstructured.Unstructured
+	getErrors map[string]error
+	deny      string
+	writes    int
+	deletes   int
+	dyn       dynamic.Interface
 }
 
 func (c *partialReproClient) GetDynamicInterface() dynamic.Interface { return c.dyn }
 
 func (c *partialReproClient) GetResource(_ context.Context, _, kind, namespace, name string, _ ...string) (*unstructured.Unstructured, error) {
+	if err := c.getErrors[kind+"/"+namespace+"/"+name]; err != nil {
+		return nil, err
+	}
 	if obj := c.objects[kind+"/"+namespace+"/"+name]; obj != nil {
 		return obj.DeepCopy(), nil
 	}
@@ -421,4 +425,24 @@ func TestPartialGenerationSuccessfulRetryCleansStaleSameKind(t *testing.T) {
 	require.Equal(t, 1, client.deletes)
 	require.NotContains(t, client.objects, "ConfigMap/"+namespace+"/old")
 	require.Contains(t, client.objects, "ConfigMap/"+namespace+"/new")
+}
+
+// TestPreserveUnverifiedFailedStatusOnTransientReadError records identities
+// for future retries without promoting unknown resources into watcher state.
+func TestPreserveUnverifiedFailedStatusOnTransientReadError(t *testing.T) {
+	const namespace = "team-a"
+	old := kyverno.ResourceSpec{APIVersion: "v1", Kind: "ConfigMap", Namespace: namespace, Name: "old", UID: "original-uid"}
+	key := "ConfigMap/" + namespace + "/old"
+	client := &partialReproClient{
+		objects:   map[string]*unstructured.Unstructured{},
+		getErrors: map[string]error{key: apierrors.NewServiceUnavailable("temporary lookup failure")},
+	}
+	controller := &CELGenerateController{client: client}
+	retained := controller.preserveUnverifiedFailedStatus(context.Background(), []kyverno.ResourceSpec{old, old}, nil)
+	require.Equal(t, []kyverno.ResourceSpec{old}, retained, "transient errors retain UID exactly once")
+
+	client.getErrors = nil
+	require.Empty(t, controller.preserveUnverifiedFailedStatus(context.Background(), []kyverno.ResourceSpec{old}, nil), "confirmed deletion is not retained")
+	client.objects[key] = makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "replacement-uid", nil)
+	require.Empty(t, controller.preserveUnverifiedFailedStatus(context.Background(), []kyverno.ResourceSpec{old}, nil), "a readable replacement must not be retained")
 }
