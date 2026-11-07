@@ -46,7 +46,7 @@ includeOtherPolicies: []
 includeRestrictedPolicies: []
 # - require-run-as-non-root-user
 
-# -- Additional custom policies to include. Can be a list or a map (useful for Helm/ArgoCD value merging).
+# -- Additional custom policies to include. Can be a list or a map (useful for merging multiple Helm values files).
 customPolicies: []
 # List form:
 #   - apiVersion: policies.kyverno.io/v1beta1
