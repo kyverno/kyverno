@@ -180,6 +180,18 @@ metadata:
   annotations:
     value: .nan
 `, false},
+		{`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nan-and-nested
+  annotations:
+    numeric: .nan
+  labels:
+    app: example
+data:
+  nested:
+    - key: value
+`, false},
 	}
 	for _, seed := range seeds {
 		f.Add(seed.value, seed.interpolate)
@@ -232,12 +244,9 @@ metadata:
 			t.Fatalf("previously successful render failed: %v", err)
 		}
 
-		// CEL may produce NaN, which is not reflexively equal. Do not
-		// interpret IEEE-754 NaN semantics as nondeterminism.
-		if containsNaN(first) || containsNaN(second) {
-			return
-		}
-		if !reflect.DeepEqual(first, second) {
+		// YAML may contain NaN. Compare its scalar values by IEEE-754
+		// NaN semantics without skipping isolation checks for other fields.
+		if !equalFuzzRenderValues(first, second) {
 			t.Fatal("identical activations produced different resource trees")
 		}
 
@@ -255,14 +264,14 @@ metadata:
 				}
 			}
 		}
-		if !reflect.DeepEqual(baseline, second) {
+		if !equalFuzzRenderValues(baseline, second) {
 			t.Fatal("mutating the first render changed the second render")
 		}
 		third, err := compiled.Render(context.Background(), activation)
 		if err != nil {
 			t.Fatalf("render failed after output mutation: %v", err)
 		}
-		if !reflect.DeepEqual(baseline, third) {
+		if !equalFuzzRenderValues(baseline, third) {
 			t.Fatal("rendered resources share mutable state across calls")
 		}
 	})
@@ -304,30 +313,52 @@ func snapshotIsolationValue(v any) any {
 	}
 }
 
-func containsNaN(v any) bool {
-	switch v := v.(type) {
+// equalFuzzRenderValues compares YAML resource trees, treating two NaNs as
+// equal while continuing to compare their surrounding maps and sequences.
+// Unlike reflect.DeepEqual on aliased maps, the independent snapshot makes
+// mutations visible. Unknown leaf types retain normal DeepEqual semantics.
+func equalFuzzRenderValues(a, b any) bool {
+	switch a := a.(type) {
 	case float64:
-		return math.IsNaN(v)
+		b, ok := b.(float64)
+		return ok && (a == b || (math.IsNaN(a) && math.IsNaN(b)))
 	case []map[string]any:
-		for _, resource := range v {
-			if containsNaN(resource) {
-				return true
+		b, ok := b.([]map[string]any)
+		if !ok || (a == nil) != (b == nil) || len(a) != len(b) {
+			return false
+		}
+		for i := range a {
+			if !equalFuzzRenderValues(a[i], b[i]) {
+				return false
 			}
 		}
+		return true
 	case map[string]any:
-		for _, item := range v {
-			if containsNaN(item) {
-				return true
+		b, ok := b.(map[string]any)
+		if !ok || (a == nil) != (b == nil) || len(a) != len(b) {
+			return false
+		}
+		for key, value := range a {
+			other, exists := b[key]
+			if !exists || !equalFuzzRenderValues(value, other) {
+				return false
 			}
 		}
+		return true
 	case []any:
-		for _, item := range v {
-			if containsNaN(item) {
-				return true
+		b, ok := b.([]any)
+		if !ok || (a == nil) != (b == nil) || len(a) != len(b) {
+			return false
+		}
+		for i := range a {
+			if !equalFuzzRenderValues(a[i], b[i]) {
+				return false
 			}
 		}
+		return true
+	default:
+		return reflect.DeepEqual(a, b)
 	}
-	return false
 }
 
 // This deterministic regression check ensures the fuzz oracles detect nested
@@ -352,11 +383,41 @@ func TestGenerationTemplateFuzzOracles(t *testing.T) {
 	if !reflect.DeepEqual(snapshot[0]["data"], []any{map[string]any{"key": "value"}}) {
 		t.Fatal("snapshot shared a nested sequence")
 	}
-	if containsNaN(snapshot) {
-		t.Fatal("finite resource contains NaN")
+	// NaN must be reflexively comparable without excluding nearby mutable
+	// maps or lists from the oracle.
+	nanResources := []map[string]any{{
+		"data": []any{map[string]any{"double": math.NaN(), "name": "original"}},
+	}}
+	nanSnapshot := snapshotIsolationValue(nanResources).([]map[string]any)
+	if !equalFuzzRenderValues(nanResources, nanSnapshot) {
+		t.Fatal("equivalent resource trees containing NaN must compare equal")
 	}
-	if !containsNaN([]map[string]any{{"data": []any{map[string]any{"double": math.NaN()}}}}) {
-		t.Fatal("failed to detect NaN nested within a resource slice")
+	nanResources[0]["data"].([]any)[0].(map[string]any)["name"] = "changed"
+	if equalFuzzRenderValues(nanResources, nanSnapshot) {
+		t.Fatal("NaN comparison hid a nested mutation")
+	}
+	if equalFuzzRenderValues(
+		[]map[string]any{{"value": math.NaN()}},
+		[]map[string]any{{"value": 1.0}},
+	) {
+		t.Fatal("NaN must not compare equal to a finite float")
+	}
+
+	// Two distinct roots deliberately share only a nested map. The nested
+	// probe must mutate that shared state, and the independent snapshot must
+	// detect the change even though the root maps remain separate.
+	shared := map[string]any{"list": []any{map[string]any{"name": "original"}}}
+	first := []map[string]any{{"nested": shared}}
+	second := []map[string]any{{"nested": shared}}
+	baseline := snapshotIsolationValue(second).([]map[string]any)
+	if !mutateNestedOutput(first[0], 0) {
+		t.Fatal("nested isolation probe did not mutate output")
+	}
+	if equalFuzzRenderValues(baseline, second) {
+		t.Fatal("nested probe failed to expose shared state")
+	}
+	if !equalFuzzRenderValues(baseline, snapshotIsolationValue(baseline)) {
+		t.Fatal("snapshot changed while testing shared state")
 	}
 }
 
