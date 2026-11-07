@@ -1,9 +1,15 @@
 package common
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	"github.com/kyverno/kyverno/pkg/config"
+	"gotest.tools/v3/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -159,4 +165,80 @@ func TestResourceSpecFromUnstructured_EmptyObject(t *testing.T) {
 	if result.Name != "" {
 		t.Errorf("Name should be empty for empty object, got %q", result.Name)
 	}
+}
+
+func TestUpdateStatus_DeleteOnExceedRetryLimit(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur",
+			Namespace: config.KyvernoNamespace(),
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			RetryCount: 4, // exceeds retry limit of 3
+		},
+	}
+	_, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+	assert.NilError(t, err)
+
+	res, err := UpdateStatus(context.TODO(), client, nil, "test-ur", kyvernov2.Failed, "failure message", nil)
+	// When retry limit is exceeded, retryOrDeleteOnFailure deletes the UR from the cluster.
+	// UpdateStatus must return (nil, nil) and NOT fail with a 404 NotFound error!
+	assert.NilError(t, err)
+	assert.Assert(t, res == nil)
+
+	// Verify that the UR was deleted from the cluster
+	_, err = client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), "test-ur", metav1.GetOptions{})
+	assert.Assert(t, err != nil, "expected UR to be deleted from cluster")
+}
+
+func TestUpdateStatus_RetryUnderLimit(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur",
+			Namespace: config.KyvernoNamespace(),
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			RetryCount: 1, // under retry limit of 3
+		},
+	}
+	_, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+	assert.NilError(t, err)
+
+	res, err := UpdateStatus(context.TODO(), client, nil, "test-ur", kyvernov2.Failed, "failure message", nil)
+	assert.NilError(t, err)
+	assert.Assert(t, res != nil)
+
+	// Verify the UR was updated with incremented retry count and Failed state
+	fetched, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), "test-ur", metav1.GetOptions{})
+	assert.NilError(t, err)
+	assert.Equal(t, fetched.Status.RetryCount, 2)
+	assert.Equal(t, fetched.Status.State, kyvernov2.Failed)
+	assert.Equal(t, fetched.Status.Message, "failure message")
+}
+
+func TestUpdateStatus_CompletedState(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur",
+			Namespace: config.KyvernoNamespace(),
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			RetryCount: 1,
+		},
+	}
+	_, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+	assert.NilError(t, err)
+
+	res, err := UpdateStatus(context.TODO(), client, nil, "test-ur", kyvernov2.Completed, "", nil)
+	assert.NilError(t, err)
+	assert.Assert(t, res != nil)
+
+	// Verify the UR was updated to Completed without incrementing retry count
+	fetched, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), "test-ur", metav1.GetOptions{})
+	assert.NilError(t, err)
+	assert.Equal(t, fetched.Status.RetryCount, 1)
+	assert.Equal(t, fetched.Status.State, kyvernov2.Completed)
 }

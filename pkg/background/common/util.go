@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	errors "github.com/pkg/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -28,8 +29,11 @@ func UpdateStatus(ctx context.Context, client versioned.Interface, urLister kyve
 	}
 
 	if state == kyvernov2.Failed {
-		if latest, err = retryOrDeleteOnFailure(ctx, client, latest, 3); err != nil {
+		var deleted bool
+		if latest, deleted, err = retryOrDeleteOnFailure(ctx, client, latest, 3); err != nil {
 			return nil, err
+		} else if deleted {
+			return nil, nil
 		}
 	}
 	new, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
@@ -51,15 +55,17 @@ func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyverno.Resourc
 	}
 }
 
-func retryOrDeleteOnFailure(ctx context.Context, kyvernoClient versioned.Interface, ur *kyvernov2.UpdateRequest, limit int) (latest *kyvernov2.UpdateRequest, err error) {
+func retryOrDeleteOnFailure(ctx context.Context, kyvernoClient versioned.Interface, ur *kyvernov2.UpdateRequest, limit int) (latest *kyvernov2.UpdateRequest, deleted bool, err error) {
 	if ur.Status.RetryCount > limit {
 		err = kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(ctx, ur.GetName(), metav1.DeleteOptions{})
-		if err != nil {
-			return nil, errors.Wrapf(err, "exceeds retry limit, failed to delete the UR: %s, retry: %v, resourceVersion: %s", ur.Name, ur.Status.RetryCount, ur.GetResourceVersion())
+		if err != nil && !apierrors.IsNotFound(err) {
+			return nil, false, errors.Wrapf(err, "exceeds retry limit, failed to delete the UR: %s, retry: %v, resourceVersion: %s", ur.Name, ur.Status.RetryCount, ur.GetResourceVersion())
 		}
+		logging.V(2).Info("exceeds retry limit, deleted update request", "name", ur.Name, "retryCount", ur.Status.RetryCount)
+		return nil, true, nil
 	} else {
 		ur.Status.RetryCount++
 	}
 
-	return ur, nil
+	return ur, false, nil
 }
