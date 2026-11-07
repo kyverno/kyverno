@@ -144,6 +144,9 @@ func TestEvaluate_Tracing(t *testing.T) {
 				// when decision tracing is disabled.
 				require.NotNil(t, untraced)
 				require.Len(t, untraced.GeneratedResources, 1)
+				assert.Equal(t, "ConfigMap", untraced.GeneratedResources[0].GetKind())
+				assert.Equal(t, "cm-from-expression", untraced.GeneratedResources[0].GetName())
+				assert.Equal(t, tt.trigger, untraced.GeneratedResources[0].GetNamespace())
 				assert.Equal(t, untraced.GeneratedResources, traced.GeneratedResources)
 				assert.Nil(t, untraced.Trace)
 			case tt.wantSkipped:

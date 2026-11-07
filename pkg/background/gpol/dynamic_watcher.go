@@ -444,14 +444,21 @@ func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyve
 	}
 }
 
-// matchesPolicyKey checks the canonical policy key without changing the CEL
-// downstream label format. In particular, CEL downstreams intentionally do
-// not carry the legacy policy-namespace label. Namespaced policies only generate
-// for triggers in their own namespace, which the trigger-namespace label records.
+// matchesPolicyKey matches the policy name and durable CEL policy scope.
+// The latter prevents a cluster-scoped and a namespaced policy with identical
+// names from deleting each other's downstream resources. The older unmarked
+// resources retain their previous behavior until reconciled by the generator.
 func matchesPolicyKey(resourceLabels map[string]string, policyKey string) bool {
 	policyNamespace, policyName, err := cache.SplitMetaNamespaceKey(policyKey)
 	if err != nil || resourceLabels[common.GeneratePolicyLabel] != policyName {
 		return false
+	}
+	if scope, marked := resourceLabels[common.GeneratePolicyScopeLabel]; marked {
+		if policyNamespace == "" {
+			return scope == common.GeneratePolicyScopeCluster
+		}
+		return scope == common.GeneratePolicyScopeNamespaced &&
+			resourceLabels[common.GenerateTriggerNSLabel] == policyNamespace
 	}
 	return policyNamespace == "" || resourceLabels[common.GenerateTriggerNSLabel] == policyNamespace
 }

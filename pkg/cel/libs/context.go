@@ -428,6 +428,14 @@ func (cp *contextProvider) isManagedByPolicy(obj *unstructured.Unstructured) boo
 		return false
 	}
 	labels := obj.GetLabels()
+	if scope, marked := labels[common.GeneratePolicyScopeLabel]; marked {
+		if cp.genCtx.policyNamespace == "" && scope != common.GeneratePolicyScopeCluster {
+			return false
+		}
+		if cp.genCtx.policyNamespace != "" && scope != common.GeneratePolicyScopeNamespaced {
+			return false
+		}
+	}
 	return labels[kyverno.LabelAppManagedBy] == kyverno.ValueKyvernoApp &&
 		labels[common.GeneratePolicyLabel] == cp.genCtx.policyName &&
 		labels[common.GenerateTriggerUIDLabel] == cp.genCtx.triggerUID
@@ -441,6 +449,11 @@ func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
 
 	labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
 	labels[common.GeneratePolicyLabel] = cp.genCtx.policyName
+	if cp.genCtx.policyNamespace == "" {
+		labels[common.GeneratePolicyScopeLabel] = common.GeneratePolicyScopeCluster
+	} else {
+		labels[common.GeneratePolicyScopeLabel] = common.GeneratePolicyScopeNamespaced
+	}
 	labels[common.GenerateTriggerNameLabel] = cp.genCtx.triggerName
 	labels[common.GenerateTriggerNSLabel] = cp.genCtx.triggerNamespace
 	labels[common.GenerateTriggerUIDLabel] = cp.genCtx.triggerUID

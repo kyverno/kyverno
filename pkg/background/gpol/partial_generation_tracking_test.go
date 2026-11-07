@@ -43,7 +43,7 @@ func TestAddWatchersPreservesPriorGVRUntilSuccessfulRetry(t *testing.T) {
 				oldGVR: {
 					watcher: watch.MockWatcher{StopFunc: func() {}},
 					metadataCache: map[types.UID]Resource{
-						old.GetUID(): {Name: old.GetName(), Namespace: old.GetNamespace(), Labels: old.GetLabels(), Hash: "old-hash", Data: old},
+						old.GetUID():     {Name: old.GetName(), Namespace: old.GetNamespace(), Labels: old.GetLabels(), Hash: "old-hash", Data: old},
 					},
 				},
 				newGVR: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{}},
@@ -208,4 +208,50 @@ func TestPartialRetryPreservesSiblingTrigger(t *testing.T) {
 	require.Equal(t, 1, wm.refCount[oldGVR])
 	require.Equal(t, 1, wm.refCount[newGVR])
 	require.ElementsMatch(t, []schema.GroupVersionResource{oldGVR, newGVR}, wm.policyRefs[policyName])
+}
+
+// TestAddWatchersDifferentPolicyScopesWithSameName ensures cleanup does not
+// cross policy boundaries for same-name, same-trigger-namespace resources.
+func TestAddWatchersDifferentPolicyScopesWithSameName(t *testing.T) {
+	const policyName = "same-name"
+	const namespace = "team-a"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	labelsFor := func(scope string) map[string]string {
+		return map[string]string{
+			common.GeneratePolicyLabel:     policyName,
+			common.GeneratePolicyScopeLabel: scope,
+			common.GenerateTriggerNSLabel:  namespace,
+			common.GenerateTriggerUIDLabel: "trigger-uid",
+		}
+	}
+	cluster := makeUnstructured("1", "", "v1", "ConfigMap", "cluster-result", namespace, "cluster-uid", labelsFor(common.GeneratePolicyScopeCluster))
+	namespaced := makeUnstructured("1", "", "v1", "ConfigMap", "namespaced-result", namespace, "namespaced-uid", labelsFor(common.GeneratePolicyScopeNamespaced))
+	client := &MockClient{}
+	wm := &WatchManager{
+		log:    logging.WithName("scope-isolation"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(schema.GroupKind, string) (*meta.RESTMapping, error) {
+			return &meta.RESTMapping{Resource: gvr}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{}},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{},
+		refCount:   map[schema.GroupVersionResource]int{},
+	}
+	defer wm.StopWatchers()
+	require.NoError(t, wm.AddWatchers(policyName, nil, []*unstructured.Unstructured{cluster}, false))
+	require.NoError(t, wm.AddWatchers(namespace+"/"+policyName, nil, []*unstructured.Unstructured{namespaced}, false))
+	require.Equal(t, 2, wm.refCount[gvr])
+	require.Equal(t, []*unstructured.Unstructured{cluster}, wm.GetDownstreams(policyName))
+	require.Equal(t, []*unstructured.Unstructured{namespaced}, wm.GetDownstreams(namespace+"/"+policyName))
+
+	wm.RemoveWatchersForPolicy(namespace+"/"+policyName, true)
+	require.Equal(t, []string{"ConfigMap/team-a/namespaced-result"}, client.deleted)
+	require.Contains(t, wm.dynamicWatchers[gvr].metadataCache, cluster.GetUID())
+	require.Equal(t, 1, wm.refCount[gvr])
+	require.Equal(t, []*unstructured.Unstructured{cluster}, wm.GetDownstreams(policyName))
+
+	wm.RemoveWatchersForPolicy(policyName, true)
+	require.ElementsMatch(t, []string{"ConfigMap/team-a/namespaced-result", "ConfigMap/team-a/cluster-result"}, client.deleted)
 }

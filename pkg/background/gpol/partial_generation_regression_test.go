@@ -249,7 +249,7 @@ func TestRetainAcknowledgedDownstreamsValidatesOwnershipAndUID(t *testing.T) {
 	})
 	replaced := makeUnstructured("1", "", "v1", "ConfigMap", "replaced", namespace, "new-uid", labels)
 	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{
-		"ConfigMap/" + namespace + "/old":      old,
+		"ConfigMap/"+namespace+"/old":      old,
 		"ConfigMap/" + namespace + "/foreign":  foreign,
 		"ConfigMap/" + namespace + "/replaced": replaced,
 	}}
@@ -290,7 +290,7 @@ func TestPartialGenerationRetryStatusRestoresPriorResources(t *testing.T) {
 	client := &partialReproClient{
 		objects: map[string]*unstructured.Unstructured{
 			"ConfigMap/" + namespace + "/trigger": trigger,
-			"ConfigMap/" + namespace + "/old":     old,
+			"ConfigMap/"+namespace+"/old":     old,
 		},
 		dyn: fakeDynamic,
 	}
@@ -309,15 +309,15 @@ func TestPartialGenerationRetryStatusRestoresPriorResources(t *testing.T) {
 	watchManager := &WatchManager{
 		client: client, restMapper: mapper, log: logging.WithName("partial-retry"),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
-		policyRefs: map[string][]schema.GroupVersionResource{},
-		refCount:   map[schema.GroupVersionResource]int{},
+		policyRefs:      map[string][]schema.GroupVersionResource{},
+		refCount:        map[schema.GroupVersionResource]int{},
 	}
 	t.Cleanup(watchManager.StopWatchers)
 	status := &partialReproStatus{}
 	controller := &CELGenerateController{
 		client: client, restMapper: mapper, context: library,
-		engine: &errorEngine{},
-		provider: &testProvider{policy: gpolengine.Policy{Policy: policy}},
+		engine:       &errorEngine{},
+		provider:     &testProvider{policy: gpolengine.Policy{Policy: policy}},
 		watchManager: watchManager, statusControl: status, eventGen: testEventGen{},
 		log: logging.WithName("partial-retry"),
 	}
@@ -343,7 +343,7 @@ func TestPartialGenerationRetryStatusRestoresPriorResources(t *testing.T) {
 	require.Len(t, watchManager.GetDownstreams(policyName), 1)
 	watchManager.RemoveWatchersForPolicy(policyName, true)
 	require.Equal(t, 1, client.deletes)
-	require.NotContains(t, client.objects, "ConfigMap/" + namespace + "/old")
+	require.NotContains(t, client.objects, "ConfigMap/"+namespace+"/old")
 }
 
 func TestPartialGenerationSuccessfulRetryCleansStaleSameKind(t *testing.T) {
@@ -364,8 +364,8 @@ func TestPartialGenerationSuccessfulRetryCleansStaleSameKind(t *testing.T) {
 	newResource := makeUnstructured("101", "", "v1", "ConfigMap", "new", namespace, "new-uid", labels)
 	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{
 		"ConfigMap/" + namespace + "/trigger": trigger,
-		"ConfigMap/" + namespace + "/old":     old,
-		"ConfigMap/" + namespace + "/new":     newResource,
+		"ConfigMap/"+namespace+"/old":     old,
+		"ConfigMap/"+namespace+"/new":     newResource,
 	}}
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
 	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
@@ -397,8 +397,8 @@ func TestPartialGenerationSuccessfulRetryCleansStaleSameKind(t *testing.T) {
 	status := &partialReproStatus{}
 	controller := &CELGenerateController{
 		client: client, restMapper: mapper, context: library,
-		engine: &testEngine{generated: []*unstructured.Unstructured{newResource}},
-		provider: &testProvider{policy: gpolengine.Policy{Policy: policy}},
+		engine:       &testEngine{generated: []*unstructured.Unstructured{newResource}},
+		provider:     &testProvider{policy: gpolengine.Policy{Policy: policy}},
 		watchManager: watchManager, statusControl: status, eventGen: testEventGen{},
 		log: logging.WithName("partial-success-retry"),
 	}
@@ -419,6 +419,6 @@ func TestPartialGenerationSuccessfulRetryCleansStaleSameKind(t *testing.T) {
 	require.NoError(t, controller.ProcessUR(ur))
 	require.True(t, status.succeeded)
 	require.Equal(t, 1, client.deletes)
-	require.NotContains(t, client.objects, "ConfigMap/" + namespace + "/old")
-	require.Contains(t, client.objects, "ConfigMap/" + namespace + "/new")
+	require.NotContains(t, client.objects, "ConfigMap/"+namespace+"/old")
+	require.Contains(t, client.objects, "ConfigMap/"+namespace+"/new")
 }

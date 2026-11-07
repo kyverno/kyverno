@@ -176,3 +176,34 @@ func TestAddGenerateLabels_NeverWritesLegacyOnlyLabels(t *testing.T) {
 	// Sanity: the labels it does write are still present.
 	assert.Equal(t, "my-gpol", labels[common.GeneratePolicyLabel])
 }
+
+// TestCELGeneratePolicyScopeDisallowsCrossScopeAdoption ensures a cluster
+// GeneratingPolicy and a NamespacedGeneratingPolicy of the same name and
+// trigger UID cannot adopt each other's newly generated resources.
+func TestCELGeneratePolicyScopeDisallowsCrossScopeAdoption(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		namespace string
+		wantScope string
+	}{
+		{name: "cluster", wantScope: common.GeneratePolicyScopeCluster},
+		{name: "namespaced", namespace: "team-a", wantScope: common.GeneratePolicyScopeNamespaced},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cp := &contextProvider{}
+			cp.SetGenerateContext("same-name", tc.namespace, "trigger", "team-a", "v1", "", "ConfigMap", "same-trigger-uid", false, false)
+			obj := &unstructured.Unstructured{Object: map[string]any{}}
+			cp.addGenerateLabels(obj)
+			require.Equal(t, tc.wantScope, obj.GetLabels()[common.GeneratePolicyScopeLabel])
+			require.True(t, cp.isManagedByPolicy(obj))
+
+			other := &contextProvider{}
+			otherNamespace := ""
+			if tc.namespace == "" {
+				otherNamespace = "team-a"
+			}
+			other.SetGenerateContext("same-name", otherNamespace, "trigger", "team-a", "v1", "", "ConfigMap", "same-trigger-uid", false, false)
+			require.False(t, other.isManagedByPolicy(obj))
+		})
+	}
+}
