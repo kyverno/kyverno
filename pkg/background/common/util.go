@@ -15,6 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+// UpdateStatus updates the status subresource of an UpdateRequest. When state is Failed,
+// it delegates to retryOrDeleteOnFailure to increment the retry counter or delete exhausted
+// requests exceeding the retry limit. If the request was deleted, it returns early with nil.
 func UpdateStatus(ctx context.Context, client versioned.Interface, urLister kyvernov2listers.UpdateRequestNamespaceLister, name string, state kyvernov2.UpdateRequestState, message string, genResources []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	var latest *kyvernov2.UpdateRequest
 	ur, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(ctx, name, metav1.GetOptions{})
@@ -55,6 +58,10 @@ func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyverno.Resourc
 	}
 }
 
+// retryOrDeleteOnFailure checks whether the UpdateRequest has exceeded the retry limit.
+// If the limit is exceeded, it deletes the UpdateRequest from the cluster and reports
+// deleted=true. If deletion encounters a NotFound error, it is treated as successfully
+// cleaned up. If under the limit, it increments Status.RetryCount and reports deleted=false.
 func retryOrDeleteOnFailure(ctx context.Context, kyvernoClient versioned.Interface, ur *kyvernov2.UpdateRequest, limit int) (latest *kyvernov2.UpdateRequest, deleted bool, err error) {
 	if ur.Status.RetryCount > limit {
 		err = kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(ctx, ur.GetName(), metav1.DeleteOptions{})

@@ -2,6 +2,8 @@ package common
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -9,8 +11,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/config"
 	"gotest.tools/v3/assert"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestResourceSpecFromUnstructured(t *testing.T) {
@@ -241,4 +247,91 @@ func TestUpdateStatus_CompletedState(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, fetched.Status.RetryCount, 1)
 	assert.Equal(t, fetched.Status.State, kyvernov2.Completed)
+}
+
+func TestUpdateStatus_DeleteConcurrentNotFound(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur",
+			Namespace: config.KyvernoNamespace(),
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			RetryCount: 4, // exceeds retry limit of 3
+		},
+	}
+	_, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+	assert.NilError(t, err)
+
+	// Simulate concurrent deletion where Delete returns NotFound
+	client.PrependReactor("delete", "updaterequests", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewNotFound(schema.GroupResource{Group: kyvernov2.SchemeGroupVersion.Group, Resource: "updaterequests"}, "test-ur")
+	})
+
+	updateCalled := false
+	client.PrependReactor("update", "updaterequests", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		if action.GetSubresource() == "status" {
+			updateCalled = true
+		}
+		return false, nil, nil
+	})
+
+	res, err := UpdateStatus(context.TODO(), client, nil, "test-ur", kyvernov2.Failed, "failure message", nil)
+	assert.NilError(t, err)
+	assert.Assert(t, res == nil)
+	assert.Equal(t, updateCalled, false, "no status update should be issued after deletion")
+}
+
+func TestUpdateStatus_DeleteError(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur",
+			Namespace: config.KyvernoNamespace(),
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			RetryCount: 4,
+		},
+	}
+	_, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+	assert.NilError(t, err)
+
+	client.PrependReactor("delete", "updaterequests", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("transient delete error")
+	})
+
+	_, err = UpdateStatus(context.TODO(), client, nil, "test-ur", kyvernov2.Failed, "failure message", nil)
+	assert.Assert(t, err != nil)
+	assert.Assert(t, strings.Contains(err.Error(), "exceeds retry limit, failed to delete the UR"))
+}
+
+func TestUpdateStatus_RetryLimitBoundary(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur",
+			Namespace: config.KyvernoNamespace(),
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			RetryCount: 3, // exactly equal to limit of 3 (should not delete, 3 > 3 is false)
+		},
+	}
+	_, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+	assert.NilError(t, err)
+
+	deleteCalled := false
+	client.PrependReactor("delete", "updaterequests", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		deleteCalled = true
+		return false, nil, nil
+	})
+
+	res, err := UpdateStatus(context.TODO(), client, nil, "test-ur", kyvernov2.Failed, "failure message", nil)
+	assert.NilError(t, err)
+	assert.Assert(t, res != nil)
+	assert.Equal(t, deleteCalled, false, "UR should not be deleted when RetryCount equals limit")
+
+	fetched, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), "test-ur", metav1.GetOptions{})
+	assert.NilError(t, err)
+	assert.Equal(t, fetched.Status.RetryCount, 4)
+	assert.Equal(t, fetched.Status.State, kyvernov2.Failed)
 }
