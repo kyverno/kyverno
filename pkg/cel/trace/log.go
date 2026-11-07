@@ -62,9 +62,13 @@ func LogValues(d *Decision) []any {
 	if d.Verdict.Status == VerdictError {
 		if (verdictIsSec || isSecretValue(verdictResult)) && verdictResult != "" {
 			verdictResult = redacted
+		} else {
+			verdictResult = clip(verdictResult)
 		}
 		if (verdictIsSec || isSecretValue(verdictMsg)) && verdictMsg != "" {
 			verdictMsg = redacted
+		} else {
+			verdictMsg = clip(verdictMsg)
 		}
 	} else {
 		if (verdictIsSec || isSecretValue(verdictResult)) && verdictResult != "" && verdictResult != "true" && verdictResult != "false" {
@@ -392,7 +396,7 @@ func (l logFormat) error(err string, expr string) string {
 	if (l.secret || l.isSecretExpr(expr) || isSecretValue(err)) && err != "" {
 		return redacted
 	}
-	return err
+	return clip(err)
 }
 
 // named formats a NamedExpressionTrace, redacting its result if sensitive.

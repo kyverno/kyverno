@@ -385,10 +385,10 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 			Verdict: VerdictTrace{
 				Status: VerdictFail,
 				ExpressionTrace: ExpressionTrace{
-					Source: "variables.sec_backup == 'my-pod' && variables['sec'] != null",
+					Source: "variables.sec_backup == 'my-pod' && variables['sec'].data.pass == 'expected'",
 					Result: "false",
 					Nodes: []NodeTrace{
-						{Expression: "variables['sec']", Value: `map[data:map[pass:` + password + `] kind:Secret]`},
+						{Expression: "variables['sec'].data.pass", Value: password},
 					},
 				},
 			},
@@ -616,5 +616,77 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		assert.Equal(t, cmVal, entry.Variables[0].Result, "ConfigMap value must not be redacted")
 		require.Len(t, entry.Verdict.Evaluated, 1)
 		assert.Equal(t, cmVal, entry.Verdict.Evaluated[0].Value, "ConfigMap node value must not be redacted")
+	})
+
+	t.Run("Consumer-first variable ordering redacts secret data via fixed-point propagation", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "consumer-first",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				// Consumer listed first before producer
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables.dbSecret.data.password",
+						Result: password,
+					},
+				},
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db')",
+						Result: `map[data:map[password:` + password + `] kind:Secret]`,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.dbPass == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "variables.dbPass", Value: password},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[0].Result)
+		assert.Equal(t, redacted, entry.Variables[1].Result)
+		require.Len(t, entry.Verdict.Evaluated, 1)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+	})
+
+	t.Run("Long non-secret errors in verdict and nodes are clipped", func(t *testing.T) {
+		longError := "non-secret failure: " + strings.Repeat("e", 3*maxValueLen)
+		d := &Decision{
+			PolicyName:   "long-error",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Verdict: VerdictTrace{
+				Status:  VerdictError,
+				Message: longError,
+				ExpressionTrace: ExpressionTrace{
+					Source: "object.spec.replicas > 0",
+					Result: longError,
+					Nodes: []NodeTrace{
+						{Expression: "object.spec.replicas", Error: longError},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		assert.Equal(t, clip(longError), entry.Verdict.Result)
+		assert.Equal(t, clip(longError), entry.Verdict.Message)
+		require.Len(t, entry.Verdict.Evaluated, 1)
+		assert.Equal(t, clip(longError), entry.Verdict.Evaluated[0].Error)
 	})
 }
