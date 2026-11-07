@@ -248,7 +248,7 @@ func assembleFile(abs, rel string, atRoot bool, b *Bundle) error {
 		return nil
 	}
 
-	results, err := policy.Load(nil, "", false, abs)
+	results, err := policy.Load(nil, "", abs)
 	if err != nil {
 		return fmt.Errorf("loading %s: %w", rel, err)
 	}
@@ -277,9 +277,9 @@ func loaderResultCount(r *policy.LoaderResults) int {
 	if r == nil {
 		return 0
 	}
-	return len(r.Policies) + len(r.PolicyExceptions) + len(r.PolicyCelExceptions) +
+	return len(r.PolicyCelExceptions) +
 		len(r.VAPs) + len(r.VAPBindings) + len(r.MAPs) + len(r.MAPBindings) +
 		len(r.ValidatingPolicies) + len(r.EnvoyPolicies) + len(r.HTTPPolicies) +
 		len(r.ImageValidatingPolicies) + len(r.GeneratingPolicies) + len(r.DeletingPolicies) +
-		len(r.CleanupPolicies) + len(r.MutatingPolicies) + len(r.NonFatalErrors)
+		len(r.MutatingPolicies) + len(r.NonFatalErrors)
 }

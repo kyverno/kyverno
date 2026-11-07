@@ -13,7 +13,7 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/gpol"
 	"github.com/kyverno/kyverno/test/integration/framework"
@@ -196,8 +196,8 @@ func setupTenantSyncWith(t *testing.T, policy *policiesv1beta1.GeneratingPolicy,
 // namespaceTrigger returns the trigger the background controller records for a tenant namespace.
 // SyncWatchers uses its UID to scope stale downstream deletion to that one namespace, so it has to
 // match the trigger UID label on the generated resources, which comes from namespaceJSON.
-func namespaceTrigger(name string) *kyvernov1.ResourceSpec {
-	return &kyvernov1.ResourceSpec{APIVersion: "v1", Kind: "Namespace", Name: name, UID: types.UID("ns-uid-" + name)}
+func namespaceTrigger(name string) *kyverno.ResourceSpec {
+	return &kyverno.ResourceSpec{APIVersion: "v1", Kind: "Namespace", Name: name, UID: types.UID("ns-uid-" + name)}
 }
 
 func waitForQueueField(t *testing.T, name, field, expected string) {

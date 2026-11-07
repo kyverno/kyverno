@@ -5,7 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -15,27 +16,52 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 )
+
+// pssAnnotations mirrors the policies.kyverno.io/category and policies.kyverno.io/severity
+// annotations the retired legacy fixtures carried, so report metadata stays comparable.
+func pssAnnotations() map[string]string {
+	return map[string]string{
+		kyverno.AnnotationPolicyCategory: "Pod Security Standards (Restricted)",
+		kyverno.AnnotationPolicySeverity: "medium",
+	}
+}
+
+// admissionOnlyVpol builds a cluster-scoped ValidatingPolicy fixture that runs on admission only,
+// matching the admission:true/background:false legacy fixtures this test used to load from YAML.
+func admissionOnlyVpol(name, namespace string) *policiesv1beta1.ValidatingPolicy {
+	return &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: pssAnnotations(),
+		},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Admission:  &policiesv1beta1.AdmissionConfiguration{Enabled: ptr.To(true)},
+				Background: &policiesv1beta1.BackgroundConfiguration{Enabled: ptr.To(false)},
+			},
+		},
+	}
+}
 
 func TestComputePolicyReportsDecode(t *testing.T) {
 	scheme := runtime.NewScheme()
 	assert.NilError(t, openreportsv1alpha1.Install(scheme))
 	decoder := serializer.NewCodecFactory(scheme).UniversalDeserializer()
 	for _, tc := range []struct {
-		name    string
-		fixture string
-		kind    string
+		name      string
+		namespace string
+		kind      string
 	}{
-		{"cluster", "cpol-pod-requirements.yaml", "ClusterReport"},
-		{"namespaced", "pol-pod-requirements.yaml", "Report"},
+		{"cluster", "", "ClusterReport"},
+		{"namespaced", "test", "Report"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			policies, err := policy.Load(nil, "", true, "../_testdata/policies/"+tc.fixture)
-			assert.NilError(t, err)
-			assert.Equal(t, len(policies.Policies), 1)
-			p := policies.Policies[0]
-			response := engineapi.EngineResponse{}.WithPolicy(engineapi.NewKyvernoPolicy(p))
+			p := admissionOnlyVpol("pod-requirements", tc.namespace)
+			response := engineapi.EngineResponse{}.WithPolicy(engineapi.NewValidatingPolicy(p))
 			response.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RulePass("check", engineapi.Validation, "passed", nil))
 			clustered, namespaced := ComputePolicyReports(false, response)
 			assert.Equal(t, len(clustered)+len(namespaced), 1)
@@ -67,12 +93,9 @@ func TestComputePolicyReportsDecode(t *testing.T) {
 }
 
 func TestComputeClusterReports(t *testing.T) {
-	results, err := policy.Load(nil, "", true, "../_testdata/policies/cpol-pod-requirements.yaml")
-	assert.NilError(t, err)
-	assert.Equal(t, len(results.Policies), 1)
-	policy := results.Policies[0]
+	policy := admissionOnlyVpol("pod-requirements", "")
 	er := engineapi.EngineResponse{}
-	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
+	er = er.WithPolicy(engineapi.NewValidatingPolicy(policy))
 	er.PolicyResponse.Add(
 		engineapi.ExecutionStats{},
 		*engineapi.RuleFail(
@@ -103,12 +126,9 @@ func TestComputeClusterReports(t *testing.T) {
 }
 
 func TestComputePolicyReports(t *testing.T) {
-	results, err := policy.Load(nil, "", true, "../_testdata/policies/pol-pod-requirements.yaml")
-	assert.NilError(t, err)
-	assert.Equal(t, len(results.Policies), 1)
-	policy := results.Policies[0]
+	policy := admissionOnlyVpol("pod-requirements", "test")
 	er := engineapi.EngineResponse{}
-	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
+	er = er.WithPolicy(engineapi.NewValidatingPolicy(policy))
 	er.PolicyResponse.Add(
 		engineapi.ExecutionStats{},
 		*engineapi.RuleFail(
@@ -140,12 +160,9 @@ func TestComputePolicyReports(t *testing.T) {
 }
 
 func TestComputeReportResultsPerPolicyOld(t *testing.T) {
-	loaderResults, err := policy.Load(nil, "", true, "../_testdata/policies/cpol-pod-requirements.yaml")
-	assert.NilError(t, err)
-	assert.Equal(t, len(loaderResults.Policies), 1)
-	policy := loaderResults.Policies[0]
+	policy := admissionOnlyVpol("pod-requirements", "")
 	er := engineapi.EngineResponse{}
-	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
+	er = er.WithPolicy(engineapi.NewValidatingPolicy(policy))
 	er.PolicyResponse.Add(
 		engineapi.ExecutionStats{}, *engineapi.RuleFail(
 			"pods-require-account",
@@ -220,23 +237,18 @@ func TestMergeClusterReport(t *testing.T) {
 }
 
 func TestComputeReportResult(t *testing.T) {
-	results, err := policy.Load(nil, "", true, "../_testdata/policies/cpol-pod-requirements.yaml")
-	assert.NilError(t, err)
-	assert.Equal(t, len(results.Policies), 1)
-	policy := results.Policies[0]
+	policy := admissionOnlyVpol("pod-requirements", "")
 	tests := []struct {
 		name           string
-		auditWarn      bool
 		engineResponse engineapi.EngineResponse
 		ruleResponse   engineapi.RuleResponse
 		want           openreportsv1alpha1.ReportResult
 	}{{
 		name:           "skip",
-		auditWarn:      false,
-		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
+		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewValidatingPolicy(policy), nil),
 		ruleResponse:   *engineapi.RuleSkip("xxx", engineapi.Mutation, "test", nil),
 		want: openreportsv1alpha1.ReportResult{
-			Source:      "kyverno",
+			Source:      "KyvernoValidatingPolicy",
 			Policy:      "pod-requirements",
 			Rule:        "xxx",
 			Result:      openreports.StatusSkip,
@@ -249,11 +261,10 @@ func TestComputeReportResult(t *testing.T) {
 		},
 	}, {
 		name:           "pass",
-		auditWarn:      false,
-		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
+		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewValidatingPolicy(policy), nil),
 		ruleResponse:   *engineapi.RulePass("xxx", engineapi.Mutation, "test", nil),
 		want: openreportsv1alpha1.ReportResult{
-			Source:      "kyverno",
+			Source:      "KyvernoValidatingPolicy",
 			Policy:      "pod-requirements",
 			Rule:        "xxx",
 			Result:      openreports.StatusPass,
@@ -266,11 +277,10 @@ func TestComputeReportResult(t *testing.T) {
 		},
 	}, {
 		name:           "fail",
-		auditWarn:      false,
-		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
+		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewValidatingPolicy(policy), nil),
 		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
 		want: openreportsv1alpha1.ReportResult{
-			Source:      "kyverno",
+			Source:      "KyvernoValidatingPolicy",
 			Policy:      "pod-requirements",
 			Rule:        "xxx",
 			Result:      openreports.StatusFail,
@@ -282,29 +292,11 @@ func TestComputeReportResult(t *testing.T) {
 			Severity:    openreports.SeverityMedium,
 		},
 	}, {
-		name:           "fail - audit warn",
-		auditWarn:      true,
-		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
-		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
-		want: openreportsv1alpha1.ReportResult{
-			Source:      "kyverno",
-			Policy:      "pod-requirements",
-			Rule:        "xxx",
-			Result:      openreports.StatusWarn,
-			Subjects:    []corev1.ObjectReference{{}},
-			Description: "test",
-			Scored:      true,
-			Category:    "Pod Security Standards (Restricted)",
-			Properties:  map[string]string{"process": "admission review"},
-			Severity:    openreports.SeverityMedium,
-		},
-	}, {
 		name:           "error",
-		auditWarn:      false,
-		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
+		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewValidatingPolicy(policy), nil),
 		ruleResponse:   *engineapi.RuleError("xxx", engineapi.Mutation, "test", nil, nil),
 		want: openreportsv1alpha1.ReportResult{
-			Source:      "kyverno",
+			Source:      "KyvernoValidatingPolicy",
 			Policy:      "pod-requirements",
 			Rule:        "xxx",
 			Result:      openreports.StatusError,
@@ -317,11 +309,10 @@ func TestComputeReportResult(t *testing.T) {
 		},
 	}, {
 		name:           "warn",
-		auditWarn:      false,
-		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
+		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewValidatingPolicy(policy), nil),
 		ruleResponse:   *engineapi.RuleWarn("xxx", engineapi.Mutation, "test", nil),
 		want: openreportsv1alpha1.ReportResult{
-			Source:      "kyverno",
+			Source:      "KyvernoValidatingPolicy",
 			Policy:      "pod-requirements",
 			Rule:        "xxx",
 			Result:      openreports.StatusWarn,
@@ -335,7 +326,7 @@ func TestComputeReportResult(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ComputePolicyReportResult(tt.auditWarn, tt.engineResponse, tt.ruleResponse)
+			got := ComputePolicyReportResult(false, tt.engineResponse, tt.ruleResponse)
 			got.Timestamp = metav1.Timestamp{}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ComputeReportResult() = %v, want %v", got, tt.want)
@@ -345,23 +336,25 @@ func TestComputeReportResult(t *testing.T) {
 }
 
 func TestPSSComputeReportResult(t *testing.T) {
-	results, err := policy.Load(nil, "", true, "../_testdata/policies/restricted.yaml")
-	assert.NilError(t, err)
-	assert.Equal(t, len(results.Policies), 1)
-	policy := results.Policies[0]
+	// background-only fixture (background:true, no explicit admission override), matching the
+	// retired restricted.yaml legacy fixture.
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "psa",
+			Annotations: pssAnnotations(),
+		},
+	}
 	tests := []struct {
 		name           string
-		auditWarn      bool
 		engineResponse engineapi.EngineResponse
 		ruleResponse   engineapi.RuleResponse
 		want           openreportsv1alpha1.ReportResult
 	}{{
 		name:           "fail",
-		auditWarn:      false,
-		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewKyvernoPolicy(policy), nil),
+		engineResponse: engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewValidatingPolicy(policy), nil),
 		ruleResponse:   *engineapi.RuleFail("xxx", engineapi.Mutation, "test", nil),
 		want: openreportsv1alpha1.ReportResult{
-			Source:      "kyverno",
+			Source:      "KyvernoValidatingPolicy",
 			Policy:      "psa",
 			Rule:        "xxx",
 			Result:      openreports.StatusFail,
@@ -375,7 +368,7 @@ func TestPSSComputeReportResult(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ComputePolicyReportResult(tt.auditWarn, tt.engineResponse, tt.ruleResponse)
+			got := ComputePolicyReportResult(false, tt.engineResponse, tt.ruleResponse)
 			got.Timestamp = metav1.Timestamp{}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ComputeReportResult() = %v, want %v", got, tt.want)
@@ -387,12 +380,10 @@ func TestPSSComputeReportResult(t *testing.T) {
 func TestComputeReportResultsPerPolicy(t *testing.T) {
 	tests := []struct {
 		name            string
-		auditWarn       bool
 		engineResponses []engineapi.EngineResponse
 		want            map[engineapi.GenericPolicy][]openreportsv1alpha1.ReportResult
 	}{{
-		name:      "empty",
-		auditWarn: false,
+		name: "empty",
 		engineResponses: func() []engineapi.EngineResponse {
 			return []engineapi.EngineResponse{{}}
 		}(),
@@ -400,7 +391,7 @@ func TestComputeReportResultsPerPolicy(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ComputePolicyReportResultsPerPolicy(tt.auditWarn, tt.engineResponses...)
+			got := ComputePolicyReportResultsPerPolicy(false, tt.engineResponses...)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ComputeReportResultsPerPolicy() = %v, want %v", got, tt.want)
 			}
@@ -409,13 +400,10 @@ func TestComputeReportResultsPerPolicy(t *testing.T) {
 }
 
 func TestNamespacedPolicyReportGeneration(t *testing.T) {
-	results, err := policy.Load(nil, "", true, "../_testdata/policies/namespace-policy.yaml")
-	assert.NilError(t, err)
-	assert.Equal(t, len(results.Policies), 1)
-	policy := results.Policies[0]
+	policy := admissionOnlyVpol("require-namespace-labels", "test")
 
 	er := engineapi.EngineResponse{}
-	er = er.WithPolicy(engineapi.NewKyvernoPolicy(policy))
+	er = er.WithPolicy(engineapi.NewValidatingPolicy(policy))
 	er.PolicyResponse.Add(
 		engineapi.ExecutionStats{},
 		*engineapi.RuleFail(

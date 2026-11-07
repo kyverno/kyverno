@@ -2,6 +2,7 @@ package engine
 
 import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/policies"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -24,10 +25,7 @@ func MatchNames(names ...string) Predicate {
 // PolicyKey returns the stable identifier of a policy: namespace/name for
 // namespaced policies and the bare name for clustered policies.
 func PolicyKey(policy policiesv1beta1.MutatingPolicyLike) string {
-	if policy.GetNamespace() == "" {
-		return policy.GetName()
-	}
-	return policy.GetNamespace() + "/" + policy.GetName()
+	return policies.PolicyKey(policy)
 }
 
 func ClusteredPolicy() Predicate {

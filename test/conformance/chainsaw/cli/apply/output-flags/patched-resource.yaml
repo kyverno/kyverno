@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: output-example
+  namespace: default
+  labels:
+    output-test: "true"
+data:
+  message: hello

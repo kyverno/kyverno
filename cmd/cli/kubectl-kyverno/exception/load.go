@@ -44,25 +44,23 @@ func IsPolicyException(gvk schema.GroupVersionKind) bool {
 }
 
 type LoaderResults struct {
-	Exceptions    []*kyvernov2.PolicyException
 	CELExceptions []*policiesv1beta1.PolicyException
 	Warnings      []string
 }
 
-// Load loads policy exceptions from the given paths. When allowLegacyPolicies is false, a legacy
-// kyverno.io PolicyException is rejected with a migration hint, matching the 1.20 admission-time block.
-func Load(allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
+// Load loads policy exceptions from the given paths. A legacy kyverno.io PolicyException is rejected
+// with a migration hint, matching the 1.20 admission-time block.
+func Load(paths ...string) (*LoaderResults, error) {
 	loaderResults := &LoaderResults{}
 	for _, path := range paths {
 		bytes, err := os.ReadFile(filepath.Clean(path))
 		if err != nil {
 			return nil, fmt.Errorf("unable to read yaml (%w)", err)
 		}
-		results, err := load(bytes, allowLegacyPolicies)
+		results, err := load(bytes)
 		if err != nil {
 			return nil, fmt.Errorf("unable to load exceptions (%w)", err)
 		}
-		loaderResults.Exceptions = append(loaderResults.Exceptions, results.Exceptions...)
 		loaderResults.CELExceptions = append(loaderResults.CELExceptions, results.CELExceptions...)
 		for _, warning := range results.Warnings {
 			loaderResults.Warnings = append(loaderResults.Warnings, fmt.Sprintf("%s: %s", path, warning))
@@ -71,7 +69,7 @@ func Load(allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
 	return loaderResults, nil
 }
 
-func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
+func load(content []byte) (*LoaderResults, error) {
 	results := &LoaderResults{}
 	documents, err := yamlutils.SplitDocuments(content)
 	if err != nil {
@@ -100,10 +98,8 @@ func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
 			// The loader returns the parsed GVK alongside a schema-validation error, so a
 			// malformed legacy exception must still be blocked with the migration hint rather
 			// than surfacing only a generic validation error.
-			if !allowLegacyPolicies {
-				if blockErr, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
-					return nil, blockErr
-				}
+			if blockErr, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
+				return nil, blockErr
 			}
 			if pendingErr == nil {
 				pendingErr = err
@@ -115,19 +111,9 @@ func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
 			if warning, ok := pkgdeprecations.BuildKindWarning(gvk.Group, gvk.Version, gvk.Kind); ok {
 				results.Warnings = append(results.Warnings, warning.Message)
 			}
-			if !allowLegacyPolicies {
-				if err, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
-					return nil, err
-				}
+			if err, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
+				return nil, err
 			}
-			exception, err := convert.To[kyvernov2.PolicyException](untyped)
-			if err != nil {
-				if pendingErr == nil {
-					pendingErr = err
-				}
-				continue
-			}
-			results.Exceptions = append(results.Exceptions, exception)
 		case IsCELException(gvk):
 			exception, err := convert.To[policiesv1beta1.PolicyException](untyped)
 			if err != nil {
@@ -147,10 +133,10 @@ func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
 }
 
 // SelectFrom picks policy exceptions out of a slice of already-loaded resources (used for
-// --exceptions-within-resources/--inline-exceptions). When allowLegacyPolicies is false, a legacy
-// kyverno.io PolicyException among those resources is rejected with a migration hint, the same as
-// Load does for exceptions loaded from --exception files.
-func SelectFrom(resources []*unstructured.Unstructured, allowLegacyPolicies bool) (*LoaderResults, error) {
+// --exceptions-within-resources/--inline-exceptions). A legacy kyverno.io PolicyException among those
+// resources is rejected with a migration hint, the same as Load does for exceptions loaded from
+// --exception files.
+func SelectFrom(resources []*unstructured.Unstructured) (*LoaderResults, error) {
 	results := &LoaderResults{}
 	// pendingErr holds the first conversion error seen so far, matching load()'s behavior: keep
 	// scanning the rest of the resources rather than aborting the whole batch on one malformed
@@ -160,19 +146,9 @@ func SelectFrom(resources []*unstructured.Unstructured, allowLegacyPolicies bool
 		gvk := resource.GroupVersionKind()
 		switch {
 		case IsLegacyException(gvk):
-			if !allowLegacyPolicies {
-				if err, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
-					return nil, err
-				}
+			if err, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
+				return nil, err
 			}
-			exception, err := convert.To[kyvernov2.PolicyException](*resource)
-			if err != nil {
-				if pendingErr == nil {
-					pendingErr = err
-				}
-				continue
-			}
-			results.Exceptions = append(results.Exceptions, exception)
 		case IsCELException(gvk):
 			celException, err := convert.To[policiesv1beta1.PolicyException](*resource)
 			if err != nil {

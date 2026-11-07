@@ -192,6 +192,10 @@ func printTestResult(
 			for _, r := range test.Resources {
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
+						if r == resourceGVKAndName {
+							resources = append(resources, resourceGVKAndName)
+							continue
+						}
 						nameParts := strings.SplitN(resourceGVKAndName, ",", 4)
 						nsAndName := strings.Split(r, "/")
 						if len(nsAndName) == 1 {
@@ -257,6 +261,9 @@ func printTestResult(
 
 				for _, response := range trigger[resource] {
 					if response.Policy().GetName() != policyName {
+						continue
+					}
+					if response.Policy().GetNamespace() != policyNamespace {
 						continue
 					}
 

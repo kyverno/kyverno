@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	fatihcolor "github.com/fatih/color"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
@@ -124,7 +125,7 @@ func TestCommandHelp(t *testing.T) {
 }
 
 func TestCheckResultDetectsMismatch(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{}
+	policy := &policiesv1beta1.ValidatingPolicy{}
 	policy.SetName("test-policy")
 
 	resource := unstructured.Unstructured{
@@ -217,7 +218,7 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 
 			response := engineapi.NewEngineResponse(
 				resource,
-				engineapi.NewKyvernoPolicy(policy),
+				engineapi.NewValidatingPolicy(policy),
 				nil,
 			).WithPolicyResponse(engineapi.PolicyResponse{
 				Rules: []engineapi.RuleResponse{rule},
@@ -239,7 +240,7 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 }
 
 func TestCheckRuleResultOnly_GenerationNoGeneratedResources(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{}
+	policy := &policiesv1beta1.ValidatingPolicy{}
 	policy.SetName("test-policy")
 
 	resource := unstructured.Unstructured{
@@ -258,7 +259,7 @@ func TestCheckRuleResultOnly_GenerationNoGeneratedResources(t *testing.T) {
 
 	response := engineapi.NewEngineResponse(
 		resource,
-		engineapi.NewKyvernoPolicy(policy),
+		engineapi.NewValidatingPolicy(policy),
 		nil,
 	).WithPolicyResponse(engineapi.PolicyResponse{
 		Rules: []engineapi.RuleResponse{rule},
@@ -901,7 +902,7 @@ func TestLookupRuleResponses(t *testing.T) {
 }
 
 func TestCheckResultGeneratedResources(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{}
+	policy := &policiesv1beta1.ValidatingPolicy{}
 	policy.SetName("test-policy")
 
 	actual := unstructured.Unstructured{
@@ -941,7 +942,7 @@ spec:
 	rule := *engineapi.RulePass("test-rule", engineapi.Generation, "generated", nil)
 	response := engineapi.NewEngineResponse(
 		actual,
-		engineapi.NewKyvernoPolicy(policy),
+		engineapi.NewValidatingPolicy(policy),
 		nil,
 	).WithPolicyResponse(engineapi.PolicyResponse{
 		Rules: []engineapi.RuleResponse{rule},
@@ -1187,7 +1188,7 @@ func TestPrintTestResultExcludedResources(t *testing.T) {
 				"v1,Pod,default,test": {
 					engineapi.NewEngineResponse(
 						unstructured.Unstructured{},
-						engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "disallow-latest-tag",
 							},
@@ -1198,6 +1199,42 @@ func TestPrintTestResultExcludedResources(t *testing.T) {
 			},
 			wantSkip: 1,
 			wantFail: 0,
+		},
+		{
+			name:     "unqualified policy excludes a namespaced trigger response",
+			policy:   "same-name",
+			resource: "test",
+			result:   openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Pod,default,test": {
+					engineapi.NewEngineResponse(
+						unstructured.Unstructured{},
+						engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+							ObjectMeta: metav1.ObjectMeta{Name: "same-name", Namespace: "test-ns"},
+						}),
+						nil,
+					),
+				},
+			},
+			wantFail: 1,
+		},
+		{
+			name:     "qualified policy accepts its namespaced trigger response",
+			policy:   "test-ns/same-name",
+			resource: "test",
+			result:   openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Pod,default,test": {
+					engineapi.NewEngineResponse(
+						unstructured.Unstructured{},
+						engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
+							ObjectMeta: metav1.ObjectMeta{Name: "same-name", Namespace: "test-ns"},
+						}),
+						nil,
+					),
+				},
+			},
+			wantSkip: 1,
 		},
 	}
 
@@ -1478,7 +1515,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "competing-policy",
 						},
@@ -1507,7 +1544,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+					engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "test-policy",
 							Namespace: "test-ns-2",
@@ -1537,7 +1574,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test-policy",
 						},
@@ -1565,7 +1602,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			competingResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+					engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "test-policy",
 							Namespace: "test-ns",
@@ -1624,11 +1661,11 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			}
 			var genericPolicy engineapi.GenericPolicy
 			if tt.policyNamespace != "" {
-				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+				genericPolicy = engineapi.NewNamespacedValidatingPolicy(&policiesv1beta1.NamespacedValidatingPolicy{
 					ObjectMeta: policyMeta,
 				})
 			} else {
-				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+				genericPolicy = engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 					ObjectMeta: policyMeta,
 				})
 			}
@@ -1650,7 +1687,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			} else {
 				targetList = append(targetList, engineapi.NewEngineResponse(
 					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "competing-policy",
 						},
@@ -2192,4 +2229,240 @@ func TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger(t *testing.T)
 			"expected target ConfigMap to receive mutated=%s", targetLabel)
 		assert.NotEqual(t, triggerIdentity, describe(*patchedTarget), "target response must not be the trigger")
 	})
+}
+
+func Test_ClusterNamespaceSelector(t *testing.T) {
+	color.Init(true)
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "cluster-namespace-selector")
+	require.DirExists(t, testDir)
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+	require.NotNil(t, testResponse)
+
+	rc := &resultCounts{}
+	var resultsTable table.Table
+	resourcePath := filepath.Dir(testCase.Path)
+	err = printTestResult(testCase.Test.Results, testResponse, rc, &resultsTable, testCase.Fs, resourcePath, true)
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc.Fail, "Expected 0 test failures, resultsTable: %v", resultsTable.RawRows)
+	assert.Equal(t, 2, rc.Pass)
+	assert.Equal(t, 1, rc.Skip)
+}
+
+func TestCommand_SummaryColorEnabled(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+	fatihcolor.NoColor = false
+	color.Init(false)
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{testDir})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	out := outBuffer.String()
+	assert.Contains(t, out, "Loading test "+color.BoldCyan("kyverno-test"))
+	assert.Contains(t, out, "Test Summary: "+color.BoldGreen(2)+" tests passed and "+color.BoldGreen(0)+" tests failed")
+	assert.True(t, ansiRegex.MatchString(out), "expected output to contain ANSI color codes")
+}
+
+func TestCommand_SummaryColorDisabled(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{testDir, "--remove-color"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	out := outBuffer.String()
+	assert.Contains(t, out, "Loading test kyverno-test")
+	assert.Contains(t, out, "Test Summary: 2 tests passed and 0 tests failed")
+	assert.False(t, ansiRegex.MatchString(out), "expected output to have no ANSI color codes")
+}
+
+func TestCommand_SummaryFailureCounts(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	sourceDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	tmpDir := t.TempDir()
+	for _, file := range []string{"policy.yaml", "deployment1.yaml", "deployment2.yaml"} {
+		content, err := os.ReadFile(filepath.Join(sourceDir, file))
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(tmpDir, file), content, 0o600)
+		require.NoError(t, err)
+	}
+
+	testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- deployment1.yaml
+- deployment2.yaml
+results:
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - bad-deployment
+  result: pass
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - good-deployment
+  result: pass
+`
+	err = os.WriteFile(filepath.Join(tmpDir, "kyverno-test.yaml"), []byte(testYAML), 0o600)
+	require.NoError(t, err)
+
+	// 1. Color enabled
+	fatihcolor.NoColor = false
+	color.Init(false)
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{tmpDir})
+
+	err = cmd.Execute()
+	require.Error(t, err)
+
+	out := outBuffer.String()
+	expectedSummary := fmt.Sprintf("Test Summary: %s tests passed and %s tests failed", color.BoldGreen(1), color.BoldRed(1))
+	assert.Contains(t, out, expectedSummary)
+	assert.True(t, ansiRegex.MatchString(out), "expected colored failure count")
+
+	// 2. Color disabled with --remove-color
+	cmdNoColor := Command()
+	outBufferNoColor := bytes.NewBufferString("")
+	cmdNoColor.SetOut(outBufferNoColor)
+	cmdNoColor.SetErr(io.Discard)
+	cmdNoColor.SetArgs([]string{tmpDir, "--remove-color"})
+
+	err = cmdNoColor.Execute()
+	require.Error(t, err)
+
+	outNoColor := outBufferNoColor.String()
+	assert.Contains(t, outNoColor, "Test Summary: 1 tests passed and 1 tests failed")
+	assert.False(t, ansiRegex.MatchString(outNoColor), "expected plain output with --remove-color")
+
+	// 3. All tests fail: 0 passed should be neutral (not colored)
+	testAllFailYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- deployment2.yaml
+results:
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - bad-deployment
+  result: pass
+`
+	err = os.WriteFile(filepath.Join(tmpDir, "kyverno-test.yaml"), []byte(testAllFailYAML), 0o600)
+	require.NoError(t, err)
+
+	fatihcolor.NoColor = false
+	color.Init(false)
+	cmdAllFail := Command()
+	outBufferAllFail := bytes.NewBufferString("")
+	cmdAllFail.SetOut(outBufferAllFail)
+	cmdAllFail.SetErr(io.Discard)
+	cmdAllFail.SetArgs([]string{tmpDir})
+
+	err = cmdAllFail.Execute()
+	require.Error(t, err)
+
+	outAllFail := outBufferAllFail.String()
+	expectedAllFailSummary := fmt.Sprintf("Test Summary: 0 tests passed and %s tests failed", color.BoldRed(1))
+	assert.Contains(t, outAllFail, expectedAllFailSummary)
+	assert.NotContains(t, outAllFail, color.BoldGreen(0)+" tests passed")
+}
+
+func TestRunTest_WarningColor(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+
+	// Duplicate a resource to trigger the duplicate resource warning in test execution
+	testCase := testCases[0]
+	testCase.Test.Resources = append(testCase.Test.Resources, testCase.Test.Resources[0])
+
+	// With color enabled
+	fatihcolor.NoColor = false
+	color.Init(false)
+	outBuffer := bytes.NewBufferString("")
+	_, _ = runTest(context.TODO(), outBuffer, testCase, false)
+	out := outBuffer.String()
+	assert.Contains(t, out, color.BoldYellow("warning:"))
+	assert.True(t, ansiRegex.MatchString(out), "expected warning to be colored when color enabled")
+
+	// With color disabled
+	color.Init(true)
+	outBufferNoColor := bytes.NewBufferString("")
+	_, _ = runTest(context.TODO(), outBufferNoColor, testCase, false)
+	outNoColor := outBufferNoColor.String()
+	assert.Contains(t, outNoColor, "warning: found duplicated resource")
+	assert.False(t, ansiRegex.MatchString(outNoColor), "expected warning to not contain ANSI codes when color disabled")
 }

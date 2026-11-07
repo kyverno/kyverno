@@ -61,8 +61,11 @@ func Test_ImageAttestationVerificationStandard(t *testing.T) {
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, "sbom/cyclone-dx", cert, "")
+	verified, err := v.VerifyAttestationSignature(ctx, img, "sbom/cyclone-dx", cert, "")
 	assert.NoError(t, err)
+	if assert.Len(t, verified, 1) {
+		assert.Equal(t, "sbom/cyclone-dx", verified[0].ArtifactType)
+	}
 }
 
 func Test_ImageAttestationVerificationFailNotFound(t *testing.T) {
@@ -72,8 +75,9 @@ func Test_ImageAttestationVerificationFailNotFound(t *testing.T) {
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, "invalid", cert, "")
+	verified, err := v.VerifyAttestationSignature(ctx, img, "invalid", cert, "")
 	assert.ErrorContains(t, err, "attestation verification failed, no attestations found for type: invalid")
+	assert.Nil(t, verified)
 }
 
 func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
@@ -83,8 +87,9 @@ func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, "trivy/vulnerability-fail-test", cert, "")
+	verified, err := v.VerifyAttestationSignature(ctx, img, "trivy/vulnerability-fail-test", cert, "")
 	assert.ErrorContains(t, err, "failed to verify signature with digest sha256:5e52184f10b19c69105e5dd5d3c875753cfd824d3d2f86cd2122e4107bd13d16, the signature's certificate chain does not contain any trusted certificate")
+	assert.Nil(t, verified)
 }
 
 func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
@@ -94,6 +99,7 @@ func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
-	err = v.VerifyAttestationSignature(ctx, img, "application/vnd.cncf.notary.signature", cert, "")
+	verified, err := v.VerifyAttestationSignature(ctx, img, "application/vnd.cncf.notary.signature", cert, "")
 	assert.ErrorContains(t, err, "make sure the artifact was signed successfully")
+	assert.Nil(t, verified)
 }

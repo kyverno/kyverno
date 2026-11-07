@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
@@ -14,16 +15,20 @@ import (
 )
 
 func Command() *cobra.Command {
-	return &cobra.Command{
+	var removeColor bool
+	cmd := &cobra.Command{
 		Use:          "function [function_name]...",
 		Short:        command.FormatDescription(true, websiteUrl, false, description...),
 		Long:         command.FormatDescription(false, websiteUrl, false, description...),
 		Example:      command.FormatExamples(examples...),
 		SilenceUsage: true,
 		Run: func(cmd *cobra.Command, args []string) {
+			color.Init(removeColor)
 			printFunctions(cmd.OutOrStdout(), args...)
 		},
 	}
+	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
+	return cmd
 }
 
 func printFunctions(out io.Writer, names ...string) {
@@ -36,10 +41,10 @@ func printFunctions(out io.Writer, names ...string) {
 		if len(namesSet) == 0 || namesSet.Has(function.Name) {
 			note := function.Note
 			function.Note = ""
-			fmt.Fprintln(out, "Name:", function.Name)
+			fmt.Fprintln(out, "Name:", color.FunctionName(function.Name))
 			fmt.Fprintln(out, "  Signature:", function.String())
 			if note != "" {
-				fmt.Fprintln(out, "  Note:     ", note)
+				fmt.Fprintln(out, "  Note:     ", color.FunctionNote(note))
 			}
 			fmt.Fprintln(out)
 		}

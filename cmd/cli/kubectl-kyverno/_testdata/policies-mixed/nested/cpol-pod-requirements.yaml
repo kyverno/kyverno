@@ -1,45 +1,14 @@
----
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
 metadata:
-  annotations:
-    pod-policies.kyverno.io/autogen-controllers: none
-    policies.kyverno.io/category: Pod Security Standards (Restricted)
-    policies.kyverno.io/severity: medium
   name: pod-requirements
 spec:
-  admission: true
-  background: false
-  rules:
-  - match:
-      any:
-      - resources:
-          kinds:
-          - Pod
-    name: pods-require-account
-    validate:
-      failureAction: Audit
-      message: User pods must include an account for charging
-      pattern:
-        metadata:
-          labels:
-            account: '*?'
-  - match:
-      any:
-      - resources:
-          kinds:
-          - Pod
-    name: pods-require-limits
-    validate:
-      failureAction: Audit
-      message: CPU and memory resource requests and limits are required for user pods
-      pattern:
-        spec:
-          containers:
-          - resources:
-              limits:
-                cpu: ?*
-                memory: ?*
-              requests:
-                cpu: ?*
-                memory: ?*
+  validations:
+  - expression: "has(object.metadata.labels) && 'account' in object.metadata.labels"
+    message: "User pods must include an account for charging"
+  matchConstraints:
+    resourceRules:
+    - operations: ["CREATE", "UPDATE"]
+      apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["pods"]

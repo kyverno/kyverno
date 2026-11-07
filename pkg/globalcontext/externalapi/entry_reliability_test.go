@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -42,7 +42,7 @@ func reliabilityTestGCE() *kyvernov2beta1.GlobalContextEntry {
 		ObjectMeta: metav1.ObjectMeta{Name: "gce-reliability"},
 		Spec: kyvernov2beta1.GlobalContextEntrySpec{
 			APICall: &kyvernov2beta1.ExternalAPICall{
-				APICall:         kyvernov1.APICall{URLPath: "/apis", Method: "GET"},
+				APICall:         kyverno.APICall{URLPath: "/apis", Method: "GET"},
 				RefreshInterval: &metav1.Duration{Duration: time.Hour},
 				RetryLimit:      1,
 			},
@@ -112,7 +112,7 @@ func TestEntry_Publish_SerializesWithStop(t *testing.T) {
 		entry.publish(ctx, func() {
 			close(started)
 			<-release
-			entry.setData([]byte(`{"phase":"initial"}`), nil)
+			entry.setData(ctx, []byte(`{"phase":"initial"}`), nil)
 		})
 	}()
 	select {
@@ -166,7 +166,7 @@ type cancelingExecutor struct {
 	err    error
 }
 
-func (c *cancelingExecutor) Execute(context.Context, *kyvernov1.APICall) ([]byte, error) {
+func (c *cancelingExecutor) Execute(context.Context, *kyverno.APICall) ([]byte, error) {
 	c.calls++
 	c.cancel()
 	return nil, c.err
@@ -178,7 +178,7 @@ func TestDoCall_CancellationStopsRetries(t *testing.T) {
 	defer cancel()
 	backendErr := errors.New("backend failed during cancellation")
 	caller := &cancelingExecutor{cancel: cancel, err: backendErr}
-	_, err := doCall(ctx, caller, kyvernov1.APICall{}, 3)
+	_, err := doCall(ctx, caller, kyverno.APICall{}, 3)
 	require.ErrorIs(t, err, backendErr)
 	require.Equal(t, 1, caller.calls)
 }

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,16 +17,6 @@ func TestUnmarshalPolicy(t *testing.T) {
 		kind string
 		raw  []byte
 	}{
-		{
-			name: "Policy",
-			kind: "Policy",
-			raw:  []byte(`{"field":"value"}`),
-		},
-		{
-			name: "ClusterPolicy",
-			kind: "ClusterPolicy",
-			raw:  []byte(`{"field":"value"}`),
-		},
 		{
 			name: "ValidatingPolicy",
 			kind: "ValidatingPolicy",
@@ -53,28 +42,6 @@ func TestUnmarshalPolicy(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			policy, err := UnmarshalPolicy(test.kind, test.raw)
 			switch test.kind {
-			case "ClusterPolicy":
-				var expectedPolicy *kyvernov1.ClusterPolicy
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
-				if err := json.Unmarshal(test.raw, &expectedPolicy); err != nil {
-					expectedPolicy = nil
-				}
-				if !reflect.DeepEqual(policy.AsKyvernoPolicy(), expectedPolicy) {
-					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsKyvernoPolicy())
-				}
-			case "Policy":
-				var expectedPolicy *kyvernov1.Policy
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
-				if err := json.Unmarshal(test.raw, &expectedPolicy); err != nil {
-					expectedPolicy = nil
-				}
-				if !reflect.DeepEqual(policy.AsKyvernoPolicy(), expectedPolicy) {
-					t.Errorf("Expected policy %+v, got %+v", expectedPolicy, policy.AsKyvernoPolicy())
-				}
 			case "ValidatingPolicy":
 				var expectedPolicy *v1beta1.ValidatingPolicy
 				if err != nil {
