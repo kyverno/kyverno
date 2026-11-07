@@ -286,7 +286,7 @@ func (c *CELGenerateController) retainAcknowledgedDownstreams(ctx context.Contex
 		if _, alreadyTracked := seen[identity]; alreadyTracked {
 			continue
 		}
-		_, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
+		resource, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
 		if err != nil || resource == nil {
 			continue // absent or inaccessible objects cannot be re-adopted
 		}
@@ -325,7 +325,7 @@ func (c *CELGenerateController) preserveUnverifiedFailedStatus(ctx context.Conte
 		if _, ok := seen[identity]; ok {
 			continue
 		}
-		resource, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
+		_, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
 		if err != nil && !apierrors.IsNotFound(err) {
 			current = append(current, spec)
 			seen[identity] = struct{}{}
