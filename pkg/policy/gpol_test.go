@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -338,7 +339,14 @@ func TestGetGpolTriggers_DeduplicateTriggers(t *testing.T) {
 	}
 
 	triggers := pc.getGpolTriggers(match)
-	assert.Len(t, triggers, 1, "expected duplicate triggers from pods and pods/status to be deduplicated")
+	// Different admission subresources may have different mutation match conditions.
+	// Deduplicate repeated versions of the same context, not the base and status
+	// contexts of the same Kubernetes object.
+	require.Len(t, triggers, 2)
+	assert.ElementsMatch(t, []string{"", "status"}, []string{
+		triggers[0].SubResource,
+		triggers[1].SubResource,
+	})
 }
 
 func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
@@ -396,6 +404,8 @@ func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
 	assert.Len(t, triggers, 1)
 }
 
+// TestHandleGenerateExistingPropagatesSynchronization verifies both generating
+// policy scopes keep one parent RuleContext even when base and status match.
 func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 	groupResources := []*restmapper.APIGroupResources{newFakeRESTMapper(t)}
 	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
@@ -410,13 +420,23 @@ func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 			"namespace": "team-a",
 		},
 	}}
+	// The second resource is deliberately outside the namespaced policy's
+	// namespace. The generation caller must not create a RuleContext for it.
+	otherNamespaceCertificate := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "acm.services.k8s.aws/v1",
+		"kind":       "Certificate",
+		"metadata": map[string]any{
+			"name":      "cert-b",
+			"namespace": "team-b",
+		},
+	}}
 	matchConstraints := &admissionregistrationv1.MatchResources{
 		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{"acm.services.k8s.aws"},
+					APIGroups:   []string{"*"},
 					APIVersions: []string{"v1"},
-					Resources:   []string{"certificates"},
+					Resources:   []string{"certificates", "certificates/status"},
 				},
 			},
 		}},
@@ -433,7 +453,7 @@ func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{gvr: "CertificateList"}, certificate)
+			fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{gvr: "CertificateList"}, certificate, otherNamespaceCertificate)
 			require.NoError(t, err)
 			fakeClient.SetDiscovery(disco)
 
@@ -466,8 +486,370 @@ func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Len(t, generator.captured, 1)
-			require.Len(t, generator.captured[0].Spec.RuleContext, 1)
-			assert.Equal(t, tc.synchronize, generator.captured[0].Spec.RuleContext[0].Synchronize)
+
+			// Global generation includes both namespaces; a namespaced
+			// policy must create only team-a's context. Base and status
+			// matches still collapse into a single context per parent.
+			wantTriggers := []string{"team-a/cert-a", "team-b/cert-b"}
+			if tc.namespaced {
+				wantTriggers = []string{"team-a/cert-a"}
+			}
+			contexts := generator.captured[0].Spec.RuleContext
+			require.Len(t, contexts, len(wantTriggers))
+			gotTriggers := make([]string, 0, len(contexts))
+			for _, ruleContext := range contexts {
+				gotTriggers = append(gotTriggers, ruleContext.Trigger.Namespace+"/"+ruleContext.Trigger.Name)
+				assert.Equal(t, tc.synchronize, ruleContext.Synchronize)
+			}
+			assert.ElementsMatch(t, wantTriggers, gotTriggers)
 		})
 	}
+}
+
+// TestDeduplicateGenerationTriggers verifies that parent generation ignores
+// version/subresource aliases without conflating different Kubernetes objects.
+func TestDeduplicateGenerationTriggers(t *testing.T) {
+	newTrigger := func(apiVersion, kind, namespace, name, uid, subresource string) gpolTrigger {
+		object := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": apiVersion,
+			"kind":       kind,
+			"metadata": map[string]any{
+				"namespace": namespace,
+				"name":      name,
+				"uid":       uid,
+			},
+		}}
+		return gpolTrigger{Unstructured: object, SubResource: subresource}
+	}
+
+	triggers := []gpolTrigger{
+		newTrigger("example.io/v1alpha1", "Widget", "team-a", "widget", "uid-a", ""),
+		newTrigger("example.io/v1", "Widget", "team-a", "widget", "uid-a", "status"),
+		newTrigger("example.io/v1", "Widget", "team-a", "widget", "uid-a", ""),
+		newTrigger("example.io/v1alpha1", "Widget", "team-a", "widget", "uid-a", "scale"),
+		newTrigger("other.io/v1", "Widget", "team-a", "widget", "uid-a", ""),
+		newTrigger("example.io/v1", "Widget", "team-b", "widget", "uid-a", ""),
+		newTrigger("example.io/v1", "Widget", "team-a", "widget", "uid-new", ""),
+	}
+
+	got := deduplicateGenerationTriggers(triggers)
+	require.Len(t, got, 4)
+	assert.Same(t, triggers[0].Unstructured, got[0].Unstructured)
+	assert.Equal(t, "", got[0].SubResource)
+	assert.Equal(t, "other.io/v1", got[1].GetAPIVersion())
+	assert.Equal(t, "team-b", got[2].GetNamespace())
+	assert.Equal(t, "uid-new", string(got[3].GetUID()))
+}
+
+func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
+	const customGroup = "example.test.io"
+	coreGVR := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	coreNamespaceGVR := schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}
+	customAlphaGVR := schema.GroupVersionResource{Group: customGroup, Version: "v1alpha1", Resource: "configmaps"}
+	customV1GVR := schema.GroupVersionResource{Group: customGroup, Version: "v1", Resource: "configmaps"}
+
+	mapper := restmapper.NewDiscoveryRESTMapper([]*restmapper.APIGroupResources{
+		{
+			Group: metav1.APIGroup{
+				Name: "",
+				Versions: []metav1.GroupVersionForDiscovery{
+					{GroupVersion: "v1", Version: "v1"},
+				},
+				PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: "v1", Version: "v1"},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1": {
+					{Name: "configmaps", Namespaced: true, Kind: "ConfigMap"},
+					{Name: "namespaces", Namespaced: false, Kind: "Namespace"},
+				},
+			},
+		},
+		{
+			Group: metav1.APIGroup{
+				Name: customGroup,
+				Versions: []metav1.GroupVersionForDiscovery{
+					{GroupVersion: customGroup + "/v1alpha1", Version: "v1alpha1"},
+					{GroupVersion: customGroup + "/v1", Version: "v1"},
+				},
+				PreferredVersion: metav1.GroupVersionForDiscovery{
+					GroupVersion: customGroup + "/v1",
+					Version:      "v1",
+				},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1alpha1": {{Name: "configmaps", Namespaced: true, Kind: "ExampleConfigMap"}},
+				"v1":       {{Name: "configmaps", Namespaced: true, Kind: "ExampleConfigMap"}},
+			},
+		},
+	})
+
+	newResource := func(apiVersion, kind, name, uid string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": apiVersion,
+			"kind":       kind,
+			"metadata": map[string]any{
+				"name":      name,
+				"namespace": "default",
+				"uid":       uid,
+			},
+		}}
+	}
+	client, err := dclient.NewFakeClient(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			coreGVR:          "ConfigMapList",
+			coreNamespaceGVR: "NamespaceList",
+			customAlphaGVR:   "ExampleConfigMapList",
+			customV1GVR:      "ExampleConfigMapList",
+		},
+		newResource("v1", "ConfigMap", "core-config", "core-uid"),
+		&unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "v1", "kind": "Namespace",
+			"metadata": map[string]any{"name": "existing-ns", "uid": "namespace-uid"},
+		}},
+	)
+	require.NoError(t, err)
+
+	discovery := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{coreGVR, coreNamespaceGVR, customAlphaGVR, customV1GVR})
+	discovery.AddGVRToGVKMapping(coreGVR, coreGVR.GroupVersion().WithKind("ConfigMap"))
+	discovery.AddGVRToGVKMapping(coreNamespaceGVR, coreNamespaceGVR.GroupVersion().WithKind("Namespace"))
+	discovery.AddGVRToGVKMapping(customAlphaGVR, customAlphaGVR.GroupVersion().WithKind("ExampleConfigMap"))
+	discovery.AddGVRToGVKMapping(customV1GVR, customV1GVR.GroupVersion().WithKind("ExampleConfigMap"))
+	client.SetDiscovery(discovery)
+
+	// NewFakeClient's object tracker guesses the resource plural from Kind.
+	// In this fixture the custom kind deliberately uses "configmaps", so seed
+	// through the discovery-backed client to store it under the correct GVR.
+	for _, version := range []string{"v1alpha1", "v1"} {
+		apiVersion := customGroup + "/" + version
+		_, err := client.CreateResource(context.Background(), apiVersion, "ExampleConfigMap", "default",
+			newResource(apiVersion, "ExampleConfigMap", "custom-config", "custom-uid"), false)
+		require.NoError(t, err)
+	}
+	for _, version := range []string{"v1alpha1", "v1"} {
+		listed, err := client.ListResource(context.Background(), customGroup+"/"+version, "ExampleConfigMap", "", nil)
+		require.NoError(t, err)
+		require.Len(t, listed.Items, 1)
+	}
+
+	pc := &policyController{client: client, restMapper: mapper, log: logr.Discard()}
+	namespacedScope := admissionregistrationv1.NamespacedScope
+	clusterScope := admissionregistrationv1.ClusterScope
+	tests := []struct {
+		name                 string
+		groups               []string
+		versions             []string
+		resourceNames        []string
+		resource             string
+		scope                *admissionregistrationv1.ScopeType
+		excludeCore          bool
+		excludeAlpha         bool
+		excludeStatus        bool
+		overlapCore          bool
+		wantNames            []string
+		wantSubresource      string
+		wantCustomAPIVersion string
+	}{
+		{
+			name:   "wildcard group with v1 matches both groups",
+			groups: []string{"*"}, versions: []string{"v1"},
+			wantNames: []string{"core-config", "custom-config"},
+		},
+		{
+			name:   "wildcard group respects explicit version",
+			groups: []string{"*"}, versions: []string{"v1alpha1"},
+			wantNames: []string{"custom-config"},
+		},
+		{
+			name:   "wildcard group and version use one preferred version per group",
+			groups: []string{"*"}, versions: []string{"*"},
+			wantNames:            []string{"core-config", "custom-config"},
+			wantCustomAPIVersion: customGroup + "/v1",
+		},
+		{
+			name:   "multiple explicit versions retain eligible matches",
+			groups: []string{"*"}, versions: []string{"v1alpha1", "v1"},
+			wantNames:            []string{"core-config", "custom-config"},
+			wantCustomAPIVersion: customGroup + "/v1alpha1",
+		},
+		{
+			name:   "excluded earlier version does not hide a later match",
+			groups: []string{"*"}, versions: []string{"v1alpha1", "v1"},
+			excludeAlpha: true, wantNames: []string{"core-config", "custom-config"},
+			wantCustomAPIVersion: customGroup + "/v1",
+		},
+		{
+			name:   "concrete core group is unchanged",
+			groups: []string{""}, versions: []string{"v1"},
+			wantNames: []string{"core-config"},
+		},
+		{
+			name:   "concrete custom group wildcard version is unchanged",
+			groups: []string{customGroup}, versions: []string{"*"},
+			wantNames: []string{"custom-config"},
+		},
+		{
+			name:   "overlapping wildcard and concrete rules are deduplicated",
+			groups: []string{"*"}, versions: []string{"v1"},
+			overlapCore: true, wantNames: []string{"core-config", "custom-config"},
+		},
+		{
+			name:   "wildcard group preserves core group exclusions",
+			groups: []string{"*"}, versions: []string{"v1"},
+			excludeCore: true, wantNames: []string{"custom-config"},
+		},
+		{
+			name:   "wildcard group preserves subresource identity",
+			groups: []string{"*"}, versions: []string{"v1"}, resource: "configmaps/status",
+			wantNames: []string{"core-config", "custom-config"}, wantSubresource: "status",
+		},
+		{
+			name:   "wildcard group honors subresource exclusion",
+			groups: []string{"*"}, versions: []string{"v1"}, resource: "configmaps/status",
+			excludeStatus: true,
+		},
+		{
+			name:   "resource names are still respected",
+			groups: []string{"*"}, versions: []string{"v1"},
+			resourceNames: []string{"core-config"}, wantNames: []string{"core-config"},
+		},
+		{
+			name:   "namespaced scope includes namespaced resources",
+			groups: []string{"*"}, versions: []string{"v1"}, scope: &namespacedScope,
+			wantNames: []string{"core-config", "custom-config"},
+		},
+		{
+			name:   "cluster scope excludes namespaced resources",
+			groups: []string{"*"}, versions: []string{"v1"}, scope: &clusterScope,
+		},
+		{
+			name:   "cluster scope includes cluster-scoped resources",
+			groups: []string{"*"}, versions: []string{"v1"}, resource: "namespaces", scope: &clusterScope,
+			wantNames: []string{"existing-ns"},
+		},
+		{
+			name:   "namespaced scope excludes cluster-scoped resources",
+			groups: []string{"*"}, versions: []string{"v1"}, resource: "namespaces", scope: &namespacedScope,
+		},
+		{
+			name:   "unserved version does not produce a trigger",
+			groups: []string{"*"}, versions: []string{"v2"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resource := tc.resource
+			if resource == "" {
+				resource = "configmaps"
+			}
+			match := &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					ResourceNames: tc.resourceNames,
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   tc.groups,
+							APIVersions: tc.versions,
+							Resources:   []string{resource},
+							Scope:       tc.scope,
+						},
+					},
+				}},
+			}
+			if tc.overlapCore {
+				// Wildcards must be the sole element of APIGroups. Model overlap
+				// with separate valid match rules instead of ["*", ""].
+				match.ResourceRules = append(match.ResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				})
+			}
+			if tc.excludeAlpha {
+				match.ExcludeResourceRules = append(match.ExcludeResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{customGroup},
+							APIVersions: []string{"v1alpha1"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				})
+			}
+			if tc.excludeStatus {
+				match.ExcludeResourceRules = append(match.ExcludeResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"*"},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"configmaps/status"},
+						},
+					},
+				})
+			}
+			if tc.excludeCore {
+				match.ExcludeResourceRules = []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"*"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				}}
+			}
+			triggers := pc.getGpolTriggers(match)
+			gotNames := make([]string, 0, len(triggers))
+			for _, trigger := range triggers {
+				gotNames = append(gotNames, trigger.GetName())
+				if tc.wantSubresource != "" {
+					assert.Equal(t, tc.wantSubresource, trigger.SubResource)
+				}
+				if trigger.GetName() == "custom-config" {
+					if tc.wantCustomAPIVersion != "" {
+						assert.Equal(t, tc.wantCustomAPIVersion, trigger.GetAPIVersion())
+					}
+				}
+			}
+			assert.ElementsMatch(t, tc.wantNames, gotNames)
+		})
+	}
+	// The base resource and its status subresource represent distinct admission
+	// contexts. A mutating policy can accept only status updates, so processing
+	// a base rule first must not suppress the status trigger in another version.
+	t.Run("base and status contexts remain distinct across API versions", func(t *testing.T) {
+		makeRule := func(version, resource string) admissionregistrationv1.NamedRuleWithOperations {
+			return admissionregistrationv1.NamedRuleWithOperations{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{customGroup},
+						APIVersions: []string{version},
+						Resources:   []string{resource},
+					},
+				},
+			}
+		}
+		match := &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+				makeRule("v1alpha1", "configmaps"),
+				makeRule("v1", "configmaps/status"),
+				makeRule("v1alpha1", "configmaps/status"),
+			},
+		}
+		triggers := pc.getGpolTriggers(match)
+		require.Len(t, triggers, 2)
+		versionsBySubresource := make(map[string]string, len(triggers))
+		for _, trigger := range triggers {
+			assert.Equal(t, "custom-config", trigger.GetName())
+			versionsBySubresource[trigger.SubResource] = trigger.GetAPIVersion()
+		}
+		assert.Equal(t, map[string]string{
+			"":       customGroup + "/v1alpha1",
+			"status": customGroup + "/v1",
+		}, versionsBySubresource)
+	})
+
 }
