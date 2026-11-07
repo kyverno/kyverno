@@ -392,11 +392,14 @@ func createsSecretGVR(expr string, secretGVRVars map[string]bool) bool {
 	return created
 }
 
-// readsSecret reports whether expr calls resource.Get or resource.List for Secrets.
+// readsSecret reports whether expr calls resource.Get, resource.List, or globalContext.get for Secrets.
 func (l logFormat) readsSecret(expr string) bool {
 	ast, iss := celParserEnv.Parse(expr)
 	if iss != nil && iss.Err() != nil {
 		lower := strings.ToLower(expr)
+		if (strings.Contains(lower, "globalcontext.get") || strings.Contains(lower, "globalcontext.list")) && strings.Contains(lower, "secret") {
+			return true
+		}
 		if !strings.Contains(lower, "resource.get") && !strings.Contains(lower, "resource.list") {
 			return false
 		}
@@ -421,11 +424,26 @@ func (l logFormat) readsSecret(expr string) bool {
 		if fn != "get" && fn != "list" {
 			return
 		}
-		if call.Target() == nil || call.Target().Kind() != celast.IdentKind || !strings.EqualFold(call.Target().AsIdent(), "resource") {
+		if call.Target() == nil || call.Target().Kind() != celast.IdentKind {
 			return
 		}
+		targetIdent := call.Target().AsIdent()
 		args := call.Args()
 		if len(args) == 0 {
+			return
+		}
+
+		if strings.EqualFold(targetIdent, "globalcontext") {
+			for _, arg := range args {
+				if str, ok := literalString(arg); ok && (strings.Contains(strings.ToLower(str), "secret") || isSecretResourceName(str)) {
+					reads = true
+					return
+				}
+			}
+			return
+		}
+
+		if !strings.EqualFold(targetIdent, "resource") {
 			return
 		}
 

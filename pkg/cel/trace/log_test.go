@@ -612,6 +612,7 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 			},
 		}
 
+		assert.False(t, newLogFormat(d).isSecretExpr(d.Verdict.Source), "ConfigMap read comparing to literal 'secret' must not be classified as secret")
 		entry, _ := logged(t, d)
 		assert.Equal(t, cmVal, entry.Variables[0].Result, "ConfigMap value must not be redacted")
 		require.Len(t, entry.Verdict.Evaluated, 1)
@@ -927,5 +928,41 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		assert.Equal(t, redacted, entry.Mutations[1].Error)
 		require.Len(t, entry.Mutations[1].Evaluated, 1)
 		assert.Equal(t, redacted, entry.Mutations[1].Evaluated[0].Value)
+	})
+
+	t.Run("Secret read via globalContext.get is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "gctx-secret",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "projSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: `globalContext.get("secrets-cache", "")`,
+						Result: `map[password:` + password + `]`,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.projSecret.password == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "variables.projSecret.password", Value: password},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[0].Result)
+		require.Len(t, entry.Verdict.Evaluated, 1)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
 	})
 }
