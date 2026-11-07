@@ -237,15 +237,15 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 						// desired set of generated resources.
 						c.watchManager.CleanupStaleDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger, resourcesToSync)
 					}
-					// After watcher cache loss, the previous failed UR is the only
-					// durable record of acknowledged partial writes. Reconcile those
-					// identities against the complete desired set before status success.
-					if len(ur.Status.GeneratedResources) > 0 {
-						pending, err := c.cleanupAcknowledgedAfterRetry(ctx, ur.Spec.GetPolicyKey(), ur.Spec.RuleContext[i].Trigger, ur.Status.GeneratedResources, resourcesToSync)
-						generatedResources = append(generatedResources, pending...)
-						if err != nil {
-							failures = append(failures, fmt.Errorf("gpol %s stale downstream cleanup failed: %w", ur.Spec.GetPolicyKey(), err))
-						}
+				}
+				// A fully successful restore can generate zero objects. In that
+				// case skip broad cache reconciliation above, but still clean
+				// acknowledged obsolete objects using verified UID preconditions.
+				if res.Result.Status() == engineapi.RuleStatusPass && isSync && len(ur.Status.GeneratedResources) > 0 {
+					pending, err := c.cleanupAcknowledgedAfterRetry(ctx, ur.Spec.GetPolicyKey(), ur.Spec.RuleContext[i].Trigger, ur.Status.GeneratedResources, resourcesToSync)
+					generatedResources = append(generatedResources, pending...)
+					if err != nil {
+						failures = append(failures, fmt.Errorf("gpol %s stale downstream cleanup failed: %w", ur.Spec.GetPolicyKey(), err))
 					}
 				}
 			}

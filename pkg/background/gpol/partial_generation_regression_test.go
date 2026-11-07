@@ -476,4 +476,12 @@ func TestCleanupAcknowledgedAfterRetryRestoresCleanupAfterCacheLoss(t *testing.T
 	require.Equal(t, 1, client.deletes)
 	require.NotContains(t, client.objects, keyOld)
 	require.Contains(t, client.objects, keyNew)
+
+	// An empty complete result must also clean an acknowledged old write.
+	client.objects[keyOld] = old.DeepCopy()
+	pending, err = controller.cleanupAcknowledgedAfterRetry(context.Background(), policyName, kyverno.ResourceSpec{UID: "trigger-uid"}, []kyverno.ResourceSpec{oldSpec}, nil)
+	require.NoError(t, err)
+	require.Empty(t, pending)
+	require.Equal(t, 2, client.deletes)
+	require.NotContains(t, client.objects, keyOld)
 }
