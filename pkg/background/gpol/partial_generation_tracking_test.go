@@ -103,9 +103,10 @@ func TestAddWatchersNamespacedPolicyKeyKeepsNamespacesIsolated(t *testing.T) {
 	newDownstream := func(namespace string) *unstructured.Unstructured {
 		return makeUnstructured("1", "", "v1", "ConfigMap", "generated", namespace,
 			types.UID("generated-"+namespace), map[string]string{
-				common.GeneratePolicyLabel:     policyName,
-				common.GenerateTriggerNSLabel:  namespace,
-				common.GenerateTriggerUIDLabel: "trigger-" + namespace,
+				common.GeneratePolicyLabel:      policyName,
+				common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeNamespaced,
+				common.GenerateTriggerNSLabel:   namespace,
+				common.GenerateTriggerUIDLabel:  "trigger-" + namespace,
 			})
 	}
 	first, second := newDownstream("team-a"), newDownstream("team-b")
@@ -254,4 +255,15 @@ func TestAddWatchersDifferentPolicyScopesWithSameName(t *testing.T) {
 
 	wm.RemoveWatchersForPolicy(policyName, true)
 	require.ElementsMatch(t, []string{"ConfigMap/team-a/namespaced-result", "ConfigMap/team-a/cluster-result"}, client.deleted)
+}
+
+// TestUnmarkedLegacyPolicyCannotBeInferredFromTriggerNamespace proves
+// that ambiguous old objects are never selected for destructive cleanup.
+func TestUnmarkedLegacyPolicyCannotBeInferredFromTriggerNamespace(t *testing.T) {
+	labels := map[string]string{
+		common.GeneratePolicyLabel:    "same-name",
+		common.GenerateTriggerNSLabel: "team-a",
+	}
+	require.False(t, matchesPolicyKey(labels, "same-name"))
+	require.False(t, matchesPolicyKey(labels, "team-a/same-name"))
 }

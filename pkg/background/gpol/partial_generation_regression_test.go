@@ -240,16 +240,18 @@ func TestRetainAcknowledgedDownstreamsValidatesOwnershipAndUID(t *testing.T) {
 	const namespace = "team-a"
 	const policyName = "my-policy"
 	labels := map[string]string{
-		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-		common.GeneratePolicyLabel:     policyName,
-		common.GenerateTriggerNSLabel:  namespace,
-		common.GenerateTriggerUIDLabel: "trigger-uid",
+		kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:      policyName,
+		common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeNamespaced,
+		common.GenerateTriggerNSLabel:   namespace,
+		common.GenerateTriggerUIDLabel:  "trigger-uid",
 	}
 	old := makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "old-uid", labels)
 	foreign := makeUnstructured("1", "", "v1", "ConfigMap", "foreign", namespace, "foreign-uid", map[string]string{
-		common.GeneratePolicyLabel:     policyName,
-		common.GenerateTriggerNSLabel:  namespace,
-		common.GenerateTriggerUIDLabel: "different-trigger",
+		common.GeneratePolicyLabel:      policyName,
+		common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeNamespaced,
+		common.GenerateTriggerNSLabel:   namespace,
+		common.GenerateTriggerUIDLabel:  "different-trigger",
 	})
 	replaced := makeUnstructured("1", "", "v1", "ConfigMap", "replaced", namespace, "new-uid", labels)
 	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{
@@ -282,10 +284,11 @@ func TestPartialGenerationRetryStatusRestoresPriorResources(t *testing.T) {
 	const policyName = "partial-retry"
 	trigger := makeUnstructured("50", "", "v1", "ConfigMap", "trigger", namespace, "trigger-uid", nil)
 	old := makeUnstructured("100", "", "v1", "ConfigMap", "old", namespace, "old-uid", map[string]string{
-		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-		common.GeneratePolicyLabel:     policyName,
-		common.GenerateTriggerNSLabel:  namespace,
-		common.GenerateTriggerUIDLabel: "trigger-uid",
+		kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:      policyName,
+		common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeCluster,
+		common.GenerateTriggerNSLabel:   namespace,
+		common.GenerateTriggerUIDLabel:  "trigger-uid",
 	})
 	fakeDynamic := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 	fakeDynamic.PrependWatchReactor("*", func(clienttesting.Action) (bool, watch.Interface, error) {
@@ -359,10 +362,11 @@ func TestPartialGenerationSuccessfulRetryCleansStaleSameKind(t *testing.T) {
 	const policyName = "partial-retry-success"
 	trigger := makeUnstructured("50", "", "v1", "ConfigMap", "trigger", namespace, "trigger-uid", nil)
 	labels := map[string]string{
-		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-		common.GeneratePolicyLabel:     policyName,
-		common.GenerateTriggerNSLabel:  namespace,
-		common.GenerateTriggerUIDLabel: "trigger-uid",
+		kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:      policyName,
+		common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeCluster,
+		common.GenerateTriggerNSLabel:   namespace,
+		common.GenerateTriggerUIDLabel:  "trigger-uid",
 	}
 	old := makeUnstructured("100", "", "v1", "ConfigMap", "old", namespace, "old-uid", labels)
 	newResource := makeUnstructured("101", "", "v1", "ConfigMap", "new", namespace, "new-uid", labels)

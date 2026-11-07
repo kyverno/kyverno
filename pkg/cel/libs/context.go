@@ -435,6 +435,10 @@ func (cp *contextProvider) isManagedByPolicy(obj *unstructured.Unstructured) boo
 		if cp.genCtx.policyNamespace != "" && scope != common.GeneratePolicyScopeNamespaced {
 			return false
 		}
+	} else if labels[common.GenerateTriggerNSLabel] != "" {
+		// There is no safe way to infer the policy scope from the trigger
+		// namespace of an unmarked historical resource.
+		return false
 	}
 	return labels[kyverno.LabelAppManagedBy] == kyverno.ValueKyvernoApp &&
 		labels[common.GeneratePolicyLabel] == cp.genCtx.policyName &&

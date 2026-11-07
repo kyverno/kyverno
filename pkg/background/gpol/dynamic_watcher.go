@@ -460,7 +460,13 @@ func matchesPolicyKey(resourceLabels map[string]string, policyKey string) bool {
 		return scope == common.GeneratePolicyScopeNamespaced &&
 			resourceLabels[common.GenerateTriggerNSLabel] == policyNamespace
 	}
-	return policyNamespace == "" || resourceLabels[common.GenerateTriggerNSLabel] == policyNamespace
+	// Historical objects without an explicit scope cannot safely be
+	// attributed to either policy when a namespaced trigger is involved.
+	// Fail closed rather than risk deleting another policy's downstream.
+	if resourceLabels[common.GenerateTriggerNSLabel] != "" {
+		return false
+	}
+	return policyNamespace == ""
 }
 
 func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
