@@ -209,7 +209,6 @@ func TestEntry_Publish_RejectsCancelledContext(t *testing.T) {
 	require.False(t, called)
 }
 
-
 // immediateAPIClient lets the polling worker reach a real status refresh
 // without depending on network traffic or a timing-sensitive HTTP server.
 type immediateAPIClient struct{}
