@@ -42,12 +42,14 @@ import (
 // Assert that acknowledged writes survive error paths for both trace modes.
 type partialReproClient struct {
 	dclient.Interface
-	objects   map[string]*unstructured.Unstructured
-	getErrors map[string]error
-	deny      string
-	writes    int
-	deletes   int
-	dyn       dynamic.Interface
+	objects       map[string]*unstructured.Unstructured
+	getErrors     map[string]error
+	deleteErr     error
+	deleteOptions []metav1.DeleteOptions
+	deny          string
+	writes        int
+	deletes       int
+	dyn           dynamic.Interface
 }
 
 func (c *partialReproClient) GetDynamicInterface() dynamic.Interface { return c.dyn }
@@ -74,9 +76,19 @@ func (c *partialReproClient) CreateResource(_ context.Context, _, kind, namespac
 	return obj.DeepCopy(), nil
 }
 
-func (c *partialReproClient) DeleteResource(_ context.Context, _, kind, namespace, name string, _ bool, _ metav1.DeleteOptions) error {
+func (c *partialReproClient) DeleteResource(_ context.Context, _, kind, namespace, name string, _ bool, options metav1.DeleteOptions) error {
+	c.deleteOptions = append(c.deleteOptions, options)
+	if c.deleteErr != nil {
+		return c.deleteErr
+	}
+	key := kind + "/" + namespace + "/" + name
+	if options.Preconditions != nil && options.Preconditions.UID != nil {
+		if current := c.objects[key]; current != nil && current.GetUID() != *options.Preconditions.UID {
+			return apierrors.NewConflict(schema.GroupResource{Resource: "configmaps"}, name, fmt.Errorf("UID precondition mismatch"))
+		}
+	}
 	c.deletes++
-	delete(c.objects, kind+"/"+namespace+"/"+name)
+	delete(c.objects, key)
 	return nil
 }
 
@@ -273,6 +285,25 @@ func TestRetainAcknowledgedDownstreamsValidatesOwnershipAndUID(t *testing.T) {
 	got := controller.retainAcknowledgedDownstreams(context.Background(), ur, kyverno.ResourceSpec{UID: "trigger-uid"}, nil)
 	require.Len(t, got, 1)
 	require.Equal(t, old.GetUID(), got[0].GetUID())
+	require.Len(t, controller.retainAcknowledgedDownstreams(context.Background(), ur, kyverno.ResourceSpec{UID: "trigger-uid"}, []*unstructured.Unstructured{old}), 1, "current and previous resource must not duplicate")
+
+	clusterLabels := old.GetLabels()
+	clusterLabels[common.GeneratePolicyScopeLabel] = common.GeneratePolicyScopeCluster
+	old.SetLabels(clusterLabels)
+	ur.Spec.Policy = policyName
+	clusterOwned := controller.retainAcknowledgedDownstreams(context.Background(), ur, kyverno.ResourceSpec{UID: "trigger-uid"}, nil)
+	require.Len(t, clusterOwned, 1)
+	require.Equal(t, old.GetUID(), clusterOwned[0].GetUID())
+
+	// An unmarked legacy object can be recovered if no competing same-name
+	// policy exists. When a conflicting policy is created, fail closed.
+	legacyLabels := old.GetLabels()
+	delete(legacyLabels, common.GeneratePolicyScopeLabel)
+	old.SetLabels(legacyLabels)
+	legacyOwned := controller.retainAcknowledgedDownstreams(context.Background(), ur, kyverno.ResourceSpec{UID: "trigger-uid"}, nil)
+	require.Len(t, legacyOwned, 1)
+	client.objects["NamespacedGeneratingPolicy/"+namespace+"/"+policyName] = &unstructured.Unstructured{Object: map[string]any{"kind": "NamespacedGeneratingPolicy"}}
+	require.Empty(t, controller.retainAcknowledgedDownstreams(context.Background(), ur, kyverno.ResourceSpec{UID: "trigger-uid"}, nil), "ambiguous legacy ownership must not be inferred")
 }
 
 func TestPartialGenerationRetryStatusRestoresPriorResources(t *testing.T) {
@@ -447,7 +478,9 @@ func TestPreserveUnverifiedFailedStatusOnTransientReadError(t *testing.T) {
 
 	client.getErrors = nil
 	require.Empty(t, controller.preserveUnverifiedFailedStatus(context.Background(), []kyverno.ResourceSpec{old}, nil), "confirmed deletion is not retained")
-	client.objects[key] = makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "replacement-uid", nil)
+	client.objects[key] = makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "original-uid", nil)
+	require.Equal(t, []kyverno.ResourceSpec{old}, controller.preserveUnverifiedFailedStatus(context.Background(), []kyverno.ResourceSpec{old}, nil), "readable same-UID object must remain in failed status")
+	client.objects[key].SetUID("replacement-uid")
 	require.Empty(t, controller.preserveUnverifiedFailedStatus(context.Background(), []kyverno.ResourceSpec{old}, nil), "a readable replacement must not be retained")
 }
 
@@ -474,6 +507,9 @@ func TestCleanupAcknowledgedAfterRetryRestoresCleanupAfterCacheLoss(t *testing.T
 	require.NoError(t, err)
 	require.Empty(t, pending)
 	require.Equal(t, 1, client.deletes)
+	require.Len(t, client.deleteOptions, 1)
+	require.NotNil(t, client.deleteOptions[0].Preconditions)
+	require.Equal(t, old.GetUID(), *client.deleteOptions[0].Preconditions.UID)
 	require.NotContains(t, client.objects, keyOld)
 	require.Contains(t, client.objects, keyNew)
 
@@ -484,4 +520,112 @@ func TestCleanupAcknowledgedAfterRetryRestoresCleanupAfterCacheLoss(t *testing.T
 	require.Empty(t, pending)
 	require.Equal(t, 2, client.deletes)
 	require.NotContains(t, client.objects, keyOld)
+
+	client.objects[keyOld] = old.DeepCopy()
+	client.deleteErr = fmt.Errorf("injected delete outage")
+	pending, err = controller.cleanupAcknowledgedAfterRetry(context.Background(), policyName, kyverno.ResourceSpec{UID: "trigger-uid"}, []kyverno.ResourceSpec{oldSpec}, nil)
+	require.ErrorContains(t, err, "injected delete outage")
+	require.Equal(t, []kyverno.ResourceSpec{oldSpec}, pending)
+	require.Contains(t, client.objects, keyOld)
+	require.Equal(t, 2, client.deletes)
+}
+
+// TestCleanupAcrossServedVersionsKeepsDesiredObject checks that a served API
+// version change does not make the same custom resource look stale.
+func TestCleanupAcrossServedVersionsKeepsDesiredObject(t *testing.T) {
+	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{}}
+	controller := &CELGenerateController{client: client}
+	prior := kyverno.ResourceSpec{APIVersion: "example.io/v1alpha1", Kind: "Widget", Namespace: "team-a", Name: "same-name", UID: "same-uid"}
+	desired := makeUnstructured("1", "example.io", "v1beta1", "Widget", "same-name", "team-a", "same-uid", map[string]string{
+		kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:      "p",
+		common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeCluster,
+		common.GenerateTriggerUIDLabel:  "trigger-uid",
+	})
+	client.objects["Widget/team-a/same-name"] = desired
+	currentSpec := common.ResourceSpecFromUnstructured(*desired)
+	require.Len(t, controller.preserveUnverifiedFailedStatus(context.Background(), []kyverno.ResourceSpec{prior}, []kyverno.ResourceSpec{currentSpec}), 1, "served-version change must not duplicate failed UR status")
+	ur := &kyvernov2.UpdateRequest{
+		Spec:   kyvernov2.UpdateRequestSpec{Policy: "p"},
+		Status: kyvernov2.UpdateRequestStatus{GeneratedResources: []kyverno.ResourceSpec{prior}},
+	}
+	require.Len(t, controller.retainAcknowledgedDownstreams(context.Background(), ur, kyverno.ResourceSpec{UID: "trigger-uid"}, []*unstructured.Unstructured{desired}), 1, "served-version change must not duplicate current resources")
+	pending, err := controller.cleanupAcknowledgedAfterRetry(context.Background(), "p", kyverno.ResourceSpec{UID: "trigger-uid"}, []kyverno.ResourceSpec{prior}, []*unstructured.Unstructured{desired})
+	require.NoError(t, err)
+	require.Empty(t, pending)
+	require.Zero(t, client.deletes)
+}
+
+func TestPartialGenerationSuccessfulEmptyRestoreCleansRecordedDownstream(t *testing.T) {
+	previousReporting := reportutils.ReportingCfg
+	reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+	t.Cleanup(func() { reportutils.ReportingCfg = previousReporting })
+
+	const namespace = "team-a"
+	const policyName = "partial-retry"
+	trigger := makeUnstructured("50", "", "v1", "ConfigMap", "trigger", namespace, "trigger-uid", nil)
+	old := makeUnstructured("100", "", "v1", "ConfigMap", "old", namespace, "old-uid", map[string]string{
+		kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:      policyName,
+		common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeCluster,
+		common.GenerateTriggerNSLabel:   namespace,
+		common.GenerateTriggerUIDLabel:  "trigger-uid",
+	})
+	fakeDynamic := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	fakeDynamic.PrependWatchReactor("*", func(clienttesting.Action) (bool, watch.Interface, error) {
+		return true, watch.NewRaceFreeFake(), nil
+	})
+	client := &partialReproClient{
+		objects: map[string]*unstructured.Unstructured{
+			"ConfigMap/" + namespace + "/trigger": trigger,
+			"ConfigMap/" + namespace + "/old":     old,
+		},
+		dyn: fakeDynamic,
+	}
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+	library, err := libs.NewContextProvider(client, nil, nil, mapper, false)
+	require.NoError(t, err)
+	policy := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: policyName},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+				SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{Enabled: ptr.To(true)},
+			},
+		},
+	}
+	watchManager := &WatchManager{
+		client: client, restMapper: mapper, log: logging.WithName("partial-retry"),
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+		policyRefs:      map[string][]schema.GroupVersionResource{},
+		refCount:        map[schema.GroupVersionResource]int{},
+	}
+	t.Cleanup(watchManager.StopWatchers)
+	status := &partialReproStatus{}
+	controller := &CELGenerateController{
+		client: client, restMapper: mapper, context: library,
+		engine:       &testEngine{},
+		provider:     &testProvider{policy: gpolengine.Policy{Policy: policy}},
+		watchManager: watchManager, statusControl: status, eventGen: testEventGen{},
+		log: logging.WithName("partial-retry"),
+	}
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "partial-retry"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type: kyvernov2.CELGenerate, Policy: policyName,
+			RuleContext: []kyvernov2.RuleContext{{
+				Rule: "generate", Trigger: common.ResourceSpecFromUnstructured(*trigger), CacheRestore: true,
+			}},
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			State: kyvernov2.Pending, RetryCount: 1,
+			GeneratedResources: []kyverno.ResourceSpec{common.ResourceSpecFromUnstructured(*old)},
+		},
+	}
+	require.NoError(t, controller.ProcessUR(ur))
+	require.True(t, status.succeeded, "empty completed restore must not leave a failed UR")
+	require.Empty(t, status.resources)
+	require.Empty(t, watchManager.GetDownstreams(policyName))
+	require.Equal(t, 1, client.deletes)
+	require.NotContains(t, client.objects, "ConfigMap/"+namespace+"/old")
 }

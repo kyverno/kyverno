@@ -31,6 +31,8 @@ type Resource struct {
 	Hash      string
 	Labels    map[string]string
 	Data      *unstructured.Unstructured
+	// PolicyKey is the verified canonical owner used by restored legacy resources.
+	PolicyKey string
 	// ServerSideApply records that the generating policy uses server-side apply, so sync
 	// writes to this downstream apply what the policy generated instead of replacing it.
 	ServerSideApply bool
@@ -92,9 +94,8 @@ type skippedUpdate struct {
 	obj *unstructured.Unstructured
 }
 
-// generateKey identifies a policy/trigger pair. It uses the bare policy name and
-// trigger UID, the values the engine stamps on the downstream's
-// GeneratePolicyLabel and GenerateTriggerUIDLabel.
+// generateKey identifies a canonical policy/trigger pair. Namespace/name
+// disambiguates a namespaced policy from a same-name cluster policy.
 func generateKey(policyName string, triggerUID types.UID) string {
 	return policyName + "/" + string(triggerUID)
 }
@@ -204,6 +205,7 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 				Hash:            reportutils.CalculateResourceHash(*resource),
 				Data:            resource,
 				ServerSideApply: useServerSideApply,
+				PolicyKey:       policyName,
 			}
 			rememberGVR(gvr)
 			if existing.watcher != nil {
@@ -233,6 +235,7 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 			Hash:            reportutils.CalculateResourceHash(*resource),
 			Data:            resource,
 			ServerSideApply: useServerSideApply,
+			PolicyKey:       policyName,
 		}
 		rememberGVR(gvr)
 	}
@@ -260,7 +263,7 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 				var uidsToDelete []types.UID
 				for uid, resource := range oldWatcher.metadataCache {
 					// identify resources managed by this specific policy and trigger via labels
-					if !matchesPolicyKey(resource.Labels, policyName) {
+					if !matchesResourcePolicy(resource, policyName) {
 						continue
 					}
 					if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
@@ -277,7 +280,7 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 				// keep the watcher, the ref count and the policy reference in that case
 				stillReferenced := false
 				for _, resource := range oldWatcher.metadataCache {
-					if matchesPolicyKey(resource.Labels, policyName) {
+					if matchesResourcePolicy(resource, policyName) {
 						stillReferenced = true
 						break
 					}
@@ -328,7 +331,7 @@ func (wm *WatchManager) GetDownstreams(policyName string) []*unstructured.Unstru
 
 			for _, resource := range watcher.metadataCache {
 				// identify resources managed by this specific policy via a label
-				if matchesPolicyKey(resource.Labels, policyName) {
+				if matchesResourcePolicy(resource, policyName) {
 					// InvalidateDownstreams blanks the hash and leaves the entry so a
 					// later delete can still find it. It is not a live trigger.
 					if resource.Hash == "" {
@@ -392,7 +395,7 @@ func (wm *WatchManager) walkDownstreams(policyName string, trigger *kyverno.Reso
 			var uids []types.UID
 			for uid, resource := range watcher.metadataCache {
 				// identify resources managed by this specific policy via a label
-				if matchesPolicyKey(resource.Labels, policyName) {
+				if matchesResourcePolicy(resource, policyName) {
 					if trigger == nil || resource.Labels[common.GenerateTriggerUIDLabel] == string(trigger.UID) {
 						uids = append(uids, uid)
 					}
@@ -428,7 +431,7 @@ func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyve
 		var uidsToDelete []types.UID
 		for uid, resource := range watcher.metadataCache {
 			// identify resources managed by this specific policy and trigger via labels
-			if !matchesPolicyKey(resource.Labels, policyName) {
+			if !matchesResourcePolicy(resource, policyName) {
 				continue
 			}
 			if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
@@ -444,10 +447,18 @@ func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyve
 	}
 }
 
-// matchesPolicyKey matches the policy name and durable CEL policy scope.
-// The latter prevents a cluster-scoped and a namespaced policy with identical
-// names from deleting each other's downstream resources. The older unmarked
-// resources retain their previous behavior until reconciled by the generator.
+// matchesResourcePolicy prefers the verified owner from watcher registration,
+// which also makes restored pre-scope-label downstreams safe to track.
+func matchesResourcePolicy(resource Resource, policyKey string) bool {
+	if resource.PolicyKey != "" {
+		return resource.PolicyKey == policyKey
+	}
+	return matchesPolicyKey(resource.Labels, policyKey)
+}
+
+// matchesPolicyKey requires explicit scope from CEL labels; an unmarked
+// namespaced-trigger resource remains ambiguous until verified by the
+// controller and registered with its canonical policy key.
 func matchesPolicyKey(resourceLabels map[string]string, policyKey string) bool {
 	policyNamespace, policyName, err := cache.SplitMetaNamespaceKey(policyKey)
 	if err != nil || resourceLabels[common.GeneratePolicyLabel] != policyName {
@@ -470,7 +481,17 @@ func matchesPolicyKey(resourceLabels map[string]string, policyKey string) bool {
 }
 
 func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
-	return gvk.String() + "/" + namespace + "/" + name
+	return gvk.GroupKind().String() + "/" + namespace + "/" + name
+}
+
+// deleteResourceWithUID prevents a stale cache from deleting a replacement
+// with the same name. Kubernetes enforces the UID precondition atomically.
+func (wm *WatchManager) deleteResourceWithUID(res Resource, uid types.UID) error {
+	options := metav1.DeleteOptions{}
+	if uid != "" {
+		options.Preconditions = &metav1.Preconditions{UID: &uid}
+	}
+	return wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, options)
 }
 
 // deleteCachedDownstream deletes one generated object and drops its cache entry
@@ -478,7 +499,7 @@ func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
 // the entry so a later pass can retry.
 func (wm *WatchManager) deleteCachedDownstream(logger logr.Logger, watcher *watcher, uid types.UID, res Resource) {
 	logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-	err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
+	err := wm.deleteResourceWithUID(res, uid)
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
 		return
@@ -517,7 +538,7 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 				var uidsToDelete []types.UID
 				for uid, resource := range watcher.metadataCache {
 					// identify resources managed by this specific policy via a label
-					if matchesPolicyKey(resource.Labels, policyName) {
+					if matchesResourcePolicy(resource, policyName) {
 						uidsToDelete = append(uidsToDelete, uid)
 					}
 				}
@@ -528,7 +549,7 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 					if deleteDownstream {
 						if _, exists := res.Labels[common.GenerateSourceUIDLabel]; !exists {
 							logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-							err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
+							err := wm.deleteResourceWithUID(res, uid)
 							if err != nil {
 								logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
 							} else {
@@ -597,6 +618,7 @@ func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructure
 		Data:      resource,
 		// keep the setting SyncWatchers recorded when it restarts a watcher with this cache
 		ServerSideApply: metadataCache[resource.GetUID()].ServerSideApply,
+		PolicyKey:       metadataCache[resource.GetUID()].PolicyKey,
 	}
 	resourceVersion := resource.GetResourceVersion()
 	logger := wm.log.WithValues("resourceVersion", resourceVersion)
@@ -715,6 +737,7 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 						Hash:            hash,
 						Data:            newResource,
 						ServerSideApply: cached.ServerSideApply,
+						PolicyKey:       cached.PolicyKey,
 					}
 					wm.log.V(4).Info("resource metadata updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace(), "hash", hash)
 				}
@@ -725,8 +748,13 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			// if the cached resource has not been invalidated and is different from the hash of the resource,
 			// then we need to revert the downstream resource as it means that it has been updated by the user.
 			if hash != "" && hash != reportutils.CalculateResourceHash(*obj) {
-				cachedLabels := watcher.metadataCache[uid].Labels
-				key := generateKey(cachedLabels[common.GeneratePolicyLabel], types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
+				cached := watcher.metadataCache[uid]
+				cachedLabels := cached.Labels
+				policyKey := cached.PolicyKey
+				if policyKey == "" {
+					policyKey = cachedLabels[common.GeneratePolicyLabel]
+				}
+				key := generateKey(policyKey, types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
 				if pending := wm.pendingGenerates[key]; pending != nil {
 					// Likely Kyverno's own write racing the cache refresh (see
 					// BeginGenerate); re-checked when the window closes.

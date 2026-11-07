@@ -1,16 +1,21 @@
 package libs
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/version"
 )
 
@@ -195,7 +200,7 @@ func TestCELGeneratePolicyScopeDisallowsCrossScopeAdoption(t *testing.T) {
 			obj := &unstructured.Unstructured{Object: map[string]any{}}
 			cp.addGenerateLabels(obj)
 			require.Equal(t, tc.wantScope, obj.GetLabels()[common.GeneratePolicyScopeLabel])
-			require.True(t, cp.isManagedByPolicy(obj))
+			require.True(t, cp.isManagedByPolicy(context.Background(), obj))
 
 			other := &contextProvider{}
 			otherNamespace := ""
@@ -203,7 +208,64 @@ func TestCELGeneratePolicyScopeDisallowsCrossScopeAdoption(t *testing.T) {
 				otherNamespace = "team-a"
 			}
 			other.SetGenerateContext("same-name", otherNamespace, "trigger", "team-a", "v1", "", "ConfigMap", "same-trigger-uid", false, false)
-			require.False(t, other.isManagedByPolicy(obj))
+			require.False(t, other.isManagedByPolicy(context.Background(), obj))
 		})
 	}
+}
+
+// conflictingPolicyLookup answers whether the other scope owns a same-name
+// policy. Legacy resources can only be migrated when that ambiguity is absent.
+type conflictingPolicyLookup struct {
+	dclient.Interface
+	conflict bool
+}
+
+func (c conflictingPolicyLookup) GetResource(_ context.Context, _, _, _, _ string, _ ...string) (*unstructured.Unstructured, error) {
+	if c.conflict {
+		return &unstructured.Unstructured{Object: map[string]any{"kind": "GeneratingPolicy"}}, nil
+	}
+	return nil, apierrors.NewNotFound(schema.GroupResource{Group: "policies.kyverno.io", Resource: "generatingpolicies"}, "same-name")
+}
+
+func TestLegacyCELDownstreamAdoptionChecksConflictingPolicyScope(t *testing.T) {
+	for _, policyNamespace := range []string{"", "team-a"} {
+		t.Run("policy-namespace="+policyNamespace, func(t *testing.T) {
+			labels := map[string]string{
+				kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+				common.GeneratePolicyLabel:      "same-name",
+				common.GenerateTriggerNSLabel:   "team-a",
+				common.GenerateTriggerUIDLabel:  "same-trigger-uid",
+			}
+			obj := &unstructured.Unstructured{Object: map[string]any{}}
+			obj.SetLabels(labels)
+			client := &conflictingPolicyLookup{}
+			cp := &contextProvider{client: client}
+			cp.SetGenerateContext("same-name", policyNamespace, "trigger", "team-a", "v1", "", "ConfigMap", "same-trigger-uid", false, false)
+			require.True(t, cp.isManagedByPolicy(context.Background(), obj), "historical resource may be adopted when no counterpart exists")
+			client.conflict = true
+			require.False(t, cp.isManagedByPolicy(context.Background(), obj), "same-name policy in other scope prevents ambiguous adoption")
+			client.conflict = false
+			if policyNamespace == "" {
+				labels[common.GeneratePolicyScopeLabel] = common.GeneratePolicyScopeCluster
+			} else {
+				labels[common.GeneratePolicyScopeLabel] = common.GeneratePolicyScopeNamespaced
+			}
+			obj.SetLabels(labels)
+			require.True(t, cp.isManagedByPolicy(context.Background(), obj), "explicitly scoped object does not need a competing-policy lookup")
+		})
+	}
+}
+
+// A namespace (or other cluster-scoped trigger) cannot be owned by a
+// NamespacedGeneratingPolicy, so old CEL downstreams need no counterpart GET.
+func TestLegacyCELClusterTriggerRemainsAdoptable(t *testing.T) {
+	cp := &contextProvider{}
+	cp.SetGenerateContext("same-name", "", "trigger", "", "v1", "", "Namespace", "trigger-uid", false, false)
+	obj := &unstructured.Unstructured{Object: map[string]any{}}
+	obj.SetLabels(map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     "same-name",
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	})
+	require.True(t, cp.isManagedByPolicy(context.Background(), obj))
 }

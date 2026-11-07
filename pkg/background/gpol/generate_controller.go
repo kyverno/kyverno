@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 )
 
 // CELGenerateController is used to process URs that are generated as a result of an event from the trigger resource.
@@ -150,7 +152,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		isSync := policy.Policy.GetSpec().SynchronizationEnabled()
 		// Covers engine.Handle's write and the SyncWatchers call below that
 		// catches the watcher cache up; keyed like the labels the engine stamps.
-		endGenerate := c.watchManager.BeginGenerate(policy.Policy.GetName(), trigger.GetUID())
+		endGenerate := c.watchManager.BeginGenerate(ur.Spec.GetPolicyKey(), trigger.GetUID())
 		gpolResponse, err := c.engine.Handle(ctx, request, policy, ur.Spec.RuleContext[i].CacheRestore)
 		if err != nil {
 			endGenerate()
@@ -228,13 +230,10 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 							logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						}
 					}
-					if ur.Spec.RuleContext[i].Synchronize || len(ur.Status.GeneratedResources) > 0 {
-						// A successful retry is a complete desired set even when the
-						// original request was a CREATE (Synchronize=false). Remove
-						// obsolete partial writes only after that complete evaluation.
-						// the trigger was updated: delete downstream resources that were
-						// previously generated for it but are no longer part of the
-						// desired set of generated resources.
+					if ur.Spec.RuleContext[i].Synchronize {
+						// Trigger updates reconcile the watcher cache. CREATE retries
+						// must use the UID-verified cleanup below instead; a stale cache
+						// entry could otherwise delete a same-name replacement.
 						c.watchManager.CleanupStaleDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger, resourcesToSync)
 					}
 				}
@@ -273,6 +272,34 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	return updateURStatus(c.statusControl, *ur, multierr.Combine(failures...), generatedResources)
 }
 
+// matchesAcknowledgedPolicy allows safe recovery of CEL downstreams generated
+// before the explicit scope label existed. A legacy object is accepted only
+// when the other policy scope has no same-name policy; an ambiguous or failed
+// API lookup never authorizes adoption or deletion.
+func (c *CELGenerateController) matchesAcknowledgedPolicy(ctx context.Context, labels map[string]string, policyKey string) bool {
+	if matchesPolicyKey(labels, policyKey) {
+		return true
+	}
+	if _, marked := labels[common.GeneratePolicyScopeLabel]; marked {
+		return false
+	}
+	policyNamespace, policyName, err := cache.SplitMetaNamespaceKey(policyKey)
+	if err != nil || labels[common.GeneratePolicyLabel] != policyName {
+		return false
+	}
+	if policyNamespace != "" && labels[common.GenerateTriggerNSLabel] != policyNamespace {
+		return false
+	}
+	counterpartKind := "GeneratingPolicy"
+	counterpartNamespace := ""
+	if policyNamespace == "" {
+		counterpartKind = "NamespacedGeneratingPolicy"
+		counterpartNamespace = labels[common.GenerateTriggerNSLabel]
+	}
+	_, err = c.client.GetResource(ctx, "policies.kyverno.io/v1", counterpartKind, counterpartNamespace, policyName)
+	return apierrors.IsNotFound(err)
+}
+
 // retainAcknowledgedDownstreams preserves the identities recorded by prior
 // failed attempts. A retry or cache restore can error before evaluating the
 // expression that originally wrote a downstream, but the live object still
@@ -283,7 +310,11 @@ func (c *CELGenerateController) retainAcknowledgedDownstreams(ctx context.Contex
 		return current
 	}
 	key := func(apiVersion, kind, namespace, name string) string {
-		return apiVersion + "\x00" + kind + "\x00" + namespace + "\x00" + name
+		group := apiVersion
+		if gv, err := schema.ParseGroupVersion(apiVersion); err == nil {
+			group = gv.Group
+		}
+		return group + "\x00" + kind + "\x00" + namespace + "\x00" + name
 	}
 	seen := make(map[string]struct{}, len(current)+len(ur.Status.GeneratedResources))
 	for _, resource := range current {
@@ -303,7 +334,7 @@ func (c *CELGenerateController) retainAcknowledgedDownstreams(ctx context.Contex
 		}
 		labels := resource.GetLabels()
 		if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp ||
-			!matchesPolicyKey(labels, ur.Spec.GetPolicyKey()) ||
+			!c.matchesAcknowledgedPolicy(ctx, labels, ur.Spec.GetPolicyKey()) ||
 			labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
 			continue
 		}
@@ -322,7 +353,11 @@ func (c *CELGenerateController) retainAcknowledgedDownstreams(ctx context.Contex
 // failed UR status only; no unverified object enters the WatchManager cache.
 func (c *CELGenerateController) preserveUnverifiedFailedStatus(ctx context.Context, previous, current []kyverno.ResourceSpec) []kyverno.ResourceSpec {
 	key := func(spec kyverno.ResourceSpec) string {
-		return spec.APIVersion + "\x00" + spec.Kind + "\x00" + spec.Namespace + "\x00" + spec.Name
+		group := spec.APIVersion
+		if gv, err := schema.ParseGroupVersion(spec.APIVersion); err == nil {
+			group = gv.Group
+		}
+		return group + "\x00" + spec.Kind + "\x00" + spec.Namespace + "\x00" + spec.Name
 	}
 	seen := make(map[string]struct{}, len(current)+len(previous))
 	for _, spec := range current {
@@ -336,8 +371,13 @@ func (c *CELGenerateController) preserveUnverifiedFailedStatus(ctx context.Conte
 		if _, ok := seen[identity]; ok {
 			continue
 		}
-		_, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
-		if err != nil && !apierrors.IsNotFound(err) {
+		resource, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
+		if apierrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil || (resource != nil && resource.GetUID() == spec.UID) {
+			// Keep the durable record, not the unverified live object. A
+			// readable replacement with a different UID must never be adopted.
 			current = append(current, spec)
 			seen[identity] = struct{}{}
 		}
@@ -355,7 +395,11 @@ func (c *CELGenerateController) cleanupAcknowledgedAfterRetry(
 	previous []kyverno.ResourceSpec, desired []*unstructured.Unstructured,
 ) ([]kyverno.ResourceSpec, error) {
 	key := func(apiVersion, kind, namespace, name string) string {
-		return apiVersion + "\x00" + kind + "\x00" + namespace + "\x00" + name
+		group := apiVersion
+		if gv, err := schema.ParseGroupVersion(apiVersion); err == nil {
+			group = gv.Group
+		}
+		return group + "\x00" + kind + "\x00" + namespace + "\x00" + name
 	}
 	wanted := make(map[string]struct{}, len(desired))
 	for _, res := range desired {
@@ -390,7 +434,7 @@ func (c *CELGenerateController) cleanupAcknowledgedAfterRetry(
 		}
 		labels := live.GetLabels()
 		if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp ||
-			!matchesPolicyKey(labels, policyKey) ||
+			!c.matchesAcknowledgedPolicy(ctx, labels, policyKey) ||
 			labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
 			continue
 		}

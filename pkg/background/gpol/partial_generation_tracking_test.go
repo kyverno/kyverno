@@ -267,3 +267,50 @@ func TestUnmarkedLegacyPolicyCannotBeInferredFromTriggerNamespace(t *testing.T) 
 	require.False(t, matchesPolicyKey(labels, "same-name"))
 	require.False(t, matchesPolicyKey(labels, "team-a/same-name"))
 }
+
+// TestRestoredLegacyDownstreamUsesVerifiedCacheOwner confirms that an old
+// unmarked downstream can be tracked under the exact canonical policy key
+// without permitting a same-name cluster policy to claim it.
+func TestRestoredLegacyDownstreamUsesVerifiedCacheOwner(t *testing.T) {
+	const namespace = "team-a"
+	const policyName = "shared-name"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	legacy := makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "legacy-uid", map[string]string{
+		common.GeneratePolicyLabel:     policyName,
+		common.GenerateTriggerNSLabel:  namespace,
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	})
+	client := &MockClient{}
+	wm := &WatchManager{
+		log:    logging.WithName("legacy-owner"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(schema.GroupKind, string) (*meta.RESTMapping, error) {
+			return &meta.RESTMapping{Resource: gvr}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{}},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{},
+		refCount:   map[schema.GroupVersionResource]int{},
+	}
+	defer wm.StopWatchers()
+	policyKey := namespace + "/" + policyName
+	clusterLegacy := makeUnstructured("1", "", "v1", "ConfigMap", "cluster-old", namespace, "cluster-uid", legacy.GetLabels())
+	require.NoError(t, wm.AddWatchers(policyKey, nil, []*unstructured.Unstructured{legacy}, false))
+	require.NoError(t, wm.AddWatchers(policyName, nil, []*unstructured.Unstructured{clusterLegacy}, false))
+	require.Equal(t, 2, wm.refCount[gvr])
+	require.Equal(t, []*unstructured.Unstructured{legacy}, wm.GetDownstreams(policyKey))
+	require.Equal(t, []*unstructured.Unstructured{clusterLegacy}, wm.GetDownstreams(policyName))
+	wm.RemoveWatchersForPolicy(policyKey, true)
+	require.Equal(t, []string{"ConfigMap/team-a/old"}, client.deleted)
+	require.Contains(t, wm.dynamicWatchers[gvr].metadataCache, clusterLegacy.GetUID())
+	require.Equal(t, 1, wm.refCount[gvr])
+	wm.RemoveWatchersForPolicy(policyName, true)
+	require.ElementsMatch(t, []string{"ConfigMap/team-a/old", "ConfigMap/team-a/cluster-old"}, client.deleted)
+}
+
+func TestDownstreamKeyIgnoresServedVersion(t *testing.T) {
+	v1 := schema.GroupVersionKind{Group: "example.io", Version: "v1alpha1", Kind: "Widget"}
+	v2 := schema.GroupVersionKind{Group: "example.io", Version: "v1beta1", Kind: "Widget"}
+	require.Equal(t, downstreamKey(v1, "team-a", "same"), downstreamKey(v2, "team-a", "same"))
+}
