@@ -140,7 +140,12 @@ func TestEvaluate_Tracing(t *testing.T) {
 				require.Error(t, untracedErr)
 				require.Error(t, tracedErr)
 				assert.Equal(t, untracedErr.Error(), tracedErr.Error())
-				assert.Nil(t, untraced, "untraced errors keep returning a nil result")
+				// A failure after a successful write must preserve the write even
+				// when decision tracing is disabled.
+				require.NotNil(t, untraced)
+				require.Len(t, untraced.GeneratedResources, 1)
+				assert.Equal(t, untraced.GeneratedResources, traced.GeneratedResources)
+				assert.Nil(t, untraced.Trace)
 			case tt.wantSkipped:
 				require.NoError(t, untracedErr)
 				require.NoError(t, tracedErr)
@@ -202,9 +207,9 @@ func TestEvaluate_TracingRecordsMatchVariablesAndErrorNode(t *testing.T) {
 	assert.True(t, sawError, "the failing generate expression should show which sub-expression errored")
 }
 
-// TestEvaluate_TracingErrorPaths covers the error exits of Evaluate that the outcome table above
-// does not reach. Each must return exactly what it returned before tracing existed (a nil result
-// and the error) when tracing is off, and the same error plus the partial trace when it is on.
+// TestEvaluate_TracingErrorPaths covers error exits that the outcome table
+// above does not reach. Earlier writes survive errors in both tracing modes,
+// whereas errors before any write preserve the legacy nil untraced result.
 func TestEvaluate_TracingErrorPaths(t *testing.T) {
 	failingTemplate := v1beta1.Generation{Template: &v1beta1.GenerationTemplate{
 		Interpolate: v1beta1.InterpolationModeCEL,
@@ -270,7 +275,17 @@ metadata:
 			require.Error(t, untracedErr)
 			require.Error(t, tracedErr)
 			assert.Equal(t, untracedErr.Error(), tracedErr.Error(), "tracing must not change the error")
-			assert.Nil(t, untraced, "untraced errors keep returning a nil result")
+			if len(tt.exceptions) != 0 {
+				// This exception errors before generation has made any writes.
+				assert.Nil(t, untraced)
+				assert.Empty(t, traced.GeneratedResources)
+			} else {
+				// Template and audit failures happen after generation succeeded.
+				require.NotNil(t, untraced)
+				require.Len(t, untraced.GeneratedResources, 1)
+				assert.Equal(t, untraced.GeneratedResources, traced.GeneratedResources)
+				assert.Nil(t, untraced.Trace)
+			}
 
 			require.NotNil(t, traced)
 			require.NotNil(t, traced.Trace)

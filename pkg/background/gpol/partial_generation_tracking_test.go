@@ -76,3 +76,48 @@ func TestAddWatchersPreservesPriorGVRUntilSuccessfulRetry(t *testing.T) {
 		require.Contains(t, wm.dynamicWatchers[newGVR].metadataCache, newer.GetUID())
 	})
 }
+
+// NamespacedGeneratingPolicy UpdateRequests use namespace/name, while CEL
+// downstreams intentionally store only the bare policy name and the trigger
+// namespace in labels. A partial write must remain owned by exactly one policy.
+func TestAddWatchersNamespacedPolicyKeyKeepsNamespacesIsolated(t *testing.T) {
+	const policyName = "generate-config"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	client := &MockClient{}
+	wm := &WatchManager{
+		log:    logging.WithName("namespaced-partial-generation"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(schema.GroupKind, string) (*meta.RESTMapping, error) {
+			return &meta.RESTMapping{Resource: gvr}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{}},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{},
+		refCount:   map[schema.GroupVersionResource]int{},
+	}
+	defer wm.StopWatchers()
+
+	newDownstream := func(namespace string) *unstructured.Unstructured {
+		return makeUnstructured("1", "", "v1", "ConfigMap", "generated", namespace,
+			types.UID("generated-"+namespace), map[string]string{
+				common.GeneratePolicyLabel:     policyName,
+				common.GenerateTriggerNSLabel:  namespace,
+				common.GenerateTriggerUIDLabel: "trigger-"+namespace,
+			})
+	}
+	first, second := newDownstream("team-a"), newDownstream("team-b")
+	require.NoError(t, wm.AddWatchers("team-a/"+policyName, nil, []*unstructured.Unstructured{first}, false))
+	require.NoError(t, wm.AddWatchers("team-b/"+policyName, nil, []*unstructured.Unstructured{second}, false))
+	require.Equal(t, 2, wm.refCount[gvr])
+	require.Equal(t, []*unstructured.Unstructured{first}, wm.GetDownstreams("team-a/"+policyName))
+	require.Equal(t, []*unstructured.Unstructured{second}, wm.GetDownstreams("team-b/"+policyName))
+
+	wm.RemoveWatchersForPolicy("team-a/"+policyName, true)
+	require.Equal(t, []string{"ConfigMap/team-a/generated"}, client.deleted)
+	require.Equal(t, 1, wm.refCount[gvr])
+	require.Contains(t, wm.dynamicWatchers[gvr].metadataCache, second.GetUID())
+
+	wm.RemoveWatchersForPolicy("team-b/"+policyName, true)
+	require.ElementsMatch(t, []string{"ConfigMap/team-a/generated", "ConfigMap/team-b/generated"}, client.deleted)
+}
