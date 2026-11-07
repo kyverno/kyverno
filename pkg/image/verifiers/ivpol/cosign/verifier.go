@@ -27,6 +27,7 @@ import (
 	sgbundle "github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
+	"github.com/sigstore/sigstore/pkg/signature"
 	"google.golang.org/protobuf/encoding/protojson"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -136,7 +137,7 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 
 	bundles, hash := v.loadBundles(image.NameRef(), cOpts.RegistryClientOpts)
 	cOpts.NewBundleFormat = len(bundles) > 0
-	if cOpts.NewBundleFormat && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
+	if cOpts.NewBundleFormat && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.SigVerifier, cOpts.TrustedMaterial) {
 		cOpts.UseSignedTimestamps = true
 	}
 
@@ -324,13 +325,22 @@ func verifyBundles(ctx context.Context, cOpts *cosign.CheckOpts, bundles []*sgbu
 // the TSAs in the trusted root) allows verifying the certificate was valid at
 // signing time.
 //
-// trustedMaterial must be populated (it is nil when checkOptions took the
-// skipSigstoreInfra fast path for key/cert attestors), since signed-timestamp
-// verification needs the trusted root's timestamp authorities; without it
-// cosign/sigstore-go panics on a nil TrustedMaterial rather than returning an
-// error.
-func shouldUseSignedTimestamps(ignoreTlog, useSignedTimestamps bool, trustedMaterial root.TrustedMaterial) bool {
-	return ignoreTlog && !useSignedTimestamps && trustedMaterial != nil
+// trustedMaterial must be populated, since signed-timestamp verification needs
+// the trusted root's timestamp authorities; without it cosign/sigstore-go
+// panics on a nil TrustedMaterial rather than returning an error. It is nil
+// when checkOptions took the skipSigstoreInfra fast path without an inline
+// trustedRoot to resolve.
+//
+// sigVerifier must be nil. It is set for key and certificate attestors, and
+// cosign only falls back to WithCurrentTime() when it is nil
+// (verificationOptions()); with a verifier present cosign instead uses
+// WithNoObserverTimestamps(), so there is no certificate validity window to
+// work around. Enabling signed timestamps for those attestors would add a
+// WithSignedTimestamps(1) requirement with nothing to gain, and a key-signed
+// bundle carrying no RFC 3161 timestamp (cosign sign --key
+// --tlog-upload=false) would stop verifying.
+func shouldUseSignedTimestamps(ignoreTlog, useSignedTimestamps bool, sigVerifier signature.Verifier, trustedMaterial root.TrustedMaterial) bool {
+	return ignoreTlog && !useSignedTimestamps && sigVerifier == nil && trustedMaterial != nil
 }
 
 func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1beta1.Attestor) error {
