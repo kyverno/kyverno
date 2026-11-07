@@ -231,10 +231,10 @@ func TestLegacyCELDownstreamAdoptionChecksConflictingPolicyScope(t *testing.T) {
 	for _, policyNamespace := range []string{"", "team-a"} {
 		t.Run("policy-namespace="+policyNamespace, func(t *testing.T) {
 			labels := map[string]string{
-				kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
-				common.GeneratePolicyLabel:      "same-name",
-				common.GenerateTriggerNSLabel:   "team-a",
-				common.GenerateTriggerUIDLabel:  "same-trigger-uid",
+				kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+				common.GeneratePolicyLabel:     "same-name",
+				common.GenerateTriggerNSLabel:  "team-a",
+				common.GenerateTriggerUIDLabel: "same-trigger-uid",
 			}
 			obj := &unstructured.Unstructured{Object: map[string]any{}}
 			obj.SetLabels(labels)
