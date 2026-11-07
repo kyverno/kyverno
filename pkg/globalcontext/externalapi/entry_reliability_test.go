@@ -101,11 +101,21 @@ func TestEntry_Publish_SerializesWithStop(t *testing.T) {
 	defer cancel()
 
 	e, err := New(ctx, gce, &eventCollector{events: make(chan event.Info, 2)},
-		nil, nil, logr.Discard(), &blockingAPIClient{started: make(chan struct{})},
+		nil, nil, logr.Discard(), immediateAPIClient{},
 		gce.Spec.APICall.APICall, time.Hour, 0, time.Second, false, nil)
 	require.NoError(t, err)
 
 	entry := e.(*entry)
+	// Drain the initial successful poll before blocking publication ourselves.
+	// The worker is then sleeping until the next (hourly) tick and cannot
+	// contend for publishMu or hide a missing shutdown gate.
+	require.Eventually(t, func() bool {
+		_, getErr := entry.Get("")
+		return getErr == nil
+	}, 5*time.Second, time.Millisecond, "initial poll did not publish")
+	entry.publishMu.Lock()
+	entry.publishMu.Unlock()
+
 	started := make(chan struct{})
 	release := make(chan struct{})
 	published := make(chan struct{})
@@ -128,15 +138,6 @@ func TestEntry_Publish_SerializesWithStop(t *testing.T) {
 		e.Stop()
 		close(stopped)
 	}()
-
-	// Wait for the production Stop to cancel its polling context. This
-	// independently releases the blocking API caller, so it cannot mask a
-	// missing publication gate by holding up group.Wait.
-	select {
-	case <-ctx.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("Stop did not cancel the polling context")
-	}
 
 	// Only Stop takes statusMu in this test (status refresh is disabled).
 	// Seeing it locked proves Stop has advanced past cancellation and is
