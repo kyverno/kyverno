@@ -209,6 +209,17 @@ func TestPartialGenerationTracksCommittedWrites(t *testing.T) {
 					require.Len(t, status.resources, tc.wantWrites)
 					require.Equal(t, tc.wantWrites, tracked)
 				}
+				// Check identities in addition to counts, including on failed URs.
+				for index, resource := range status.resources {
+					expectedName := "first"
+					if index == 1 {
+						expectedName = "second"
+					}
+					require.Equal(t, "v1", resource.APIVersion)
+					require.Equal(t, "ConfigMap", resource.Kind)
+					require.Equal(t, namespace, resource.Namespace)
+					require.Equal(t, expectedName, resource.Name)
+				}
 				// Invoke the exact cleanup operation used by policy deletion.
 				wm.RemoveWatchersForPolicy(policy.Name, true)
 				remaining := len(client.objects) - 1 // exclude the trigger
@@ -218,4 +229,41 @@ func TestPartialGenerationTracksCommittedWrites(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestRetainAcknowledgedDownstreamsValidatesOwnershipAndUID(t *testing.T) {
+	const namespace = "team-a"
+	const policyName = "my-policy"
+	labels := map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     policyName,
+		common.GenerateTriggerNSLabel:  namespace,
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	}
+	old := makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "old-uid", labels)
+	foreign := makeUnstructured("1", "", "v1", "ConfigMap", "foreign", namespace, "foreign-uid", map[string]string{
+		common.GeneratePolicyLabel:     policyName,
+		common.GenerateTriggerNSLabel:  namespace,
+		common.GenerateTriggerUIDLabel: "different-trigger",
+	})
+	replaced := makeUnstructured("1", "", "v1", "ConfigMap", "replaced", namespace, "new-uid", labels)
+	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{
+		"ConfigMap/" + namespace + "/old": old,
+		"ConfigMap/" + namespace + "/foreign": foreign,
+		"ConfigMap/" + namespace + "/replaced": replaced,
+	}}
+	toSpec := func(name string, uid types.UID) kyverno.ResourceSpec {
+		return kyverno.ResourceSpec{APIVersion: "v1", Kind: "ConfigMap", Namespace: namespace, Name: name, UID: uid}
+	}
+	ur := &kyvernov2.UpdateRequest{
+		Spec: kyvernov2.UpdateRequestSpec{Policy: namespace + "/" + policyName},
+		Status: kyvernov2.UpdateRequestStatus{GeneratedResources: []kyverno.ResourceSpec{
+			toSpec("old", old.GetUID()), toSpec("old", old.GetUID()),
+			toSpec("foreign", foreign.GetUID()), toSpec("replaced", "stale-uid"),
+		}},
+	}
+	controller := &CELGenerateController{client: client}
+	got := controller.retainAcknowledgedDownstreams(context.Background(), ur, kyverno.ResourceSpec{UID: "trigger-uid"}, nil)
+	require.Len(t, got, 1)
+	require.Equal(t, old.GetUID(), got[0].GetUID())
 }

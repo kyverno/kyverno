@@ -163,6 +163,18 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 	defer wm.lock.Unlock()
 
 	logger := wm.log
+	// Persist the GVR reference as soon as an acknowledged downstream is
+	// cached. A later RESTMapping/watch error must not make that first
+	// registration invisible to policy-deletion cleanup.
+	rememberGVR := func(gvr schema.GroupVersionResource) {
+		for _, existing := range wm.policyRefs[policyName] {
+			if existing == gvr {
+				return
+			}
+		}
+		wm.policyRefs[policyName] = append(wm.policyRefs[policyName], gvr)
+		wm.refCount[gvr]++
+	}
 	newGVRs := make(map[schema.GroupVersionResource]bool)
 	if !reconcile {
 		// Retain existing GVR ownership and watcher caches for an incomplete
@@ -193,6 +205,7 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 				Data:            resource,
 				ServerSideApply: useServerSideApply,
 			}
+			rememberGVR(gvr)
 			if existing.watcher != nil {
 				logger.V(2).Info("watcher already exists for GVR", "gvr", gvr)
 				continue
@@ -221,6 +234,7 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 			Data:            resource,
 			ServerSideApply: useServerSideApply,
 		}
+		rememberGVR(gvr)
 	}
 
 	oldGVRs := wm.policyRefs[policyName]

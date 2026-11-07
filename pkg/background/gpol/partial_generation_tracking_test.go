@@ -1,6 +1,7 @@
 package gpol
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -120,4 +121,39 @@ func TestAddWatchersNamespacedPolicyKeyKeepsNamespacesIsolated(t *testing.T) {
 
 	wm.RemoveWatchersForPolicy("team-b/"+policyName, true)
 	require.ElementsMatch(t, []string{"ConfigMap/team-a/generated", "ConfigMap/team-b/generated"}, client.deleted)
+}
+
+func TestAddWatchersPreservesSuccessfulRegistrationOnLaterMappingError(t *testing.T) {
+	const policyName = "partial-policy"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	labels := map[string]string{
+		common.GeneratePolicyLabel:     policyName,
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	}
+	first := makeUnstructured("1", "", "v1", "ConfigMap", "first", "ns", "uid-first", labels)
+	second := makeUnstructured("1", "", "v1", "Secret", "second", "ns", "uid-second", labels)
+	client := &MockClient{}
+	wm := &WatchManager{
+		log:    logging.WithName("registration-error"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, _ string) (*meta.RESTMapping, error) {
+			if gk.Kind == "Secret" {
+				return nil, errors.New("second GVR mapping failed")
+			}
+			return &meta.RESTMapping{Resource: gvr}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{}},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{},
+		refCount:   map[schema.GroupVersionResource]int{},
+	}
+	defer wm.StopWatchers()
+	err := wm.AddWatchers(policyName, nil, []*unstructured.Unstructured{first, second}, false)
+	require.ErrorContains(t, err, "second GVR mapping failed")
+	require.Equal(t, 1, wm.refCount[gvr])
+	require.Equal(t, []schema.GroupVersionResource{gvr}, wm.policyRefs[policyName])
+	require.Equal(t, []*unstructured.Unstructured{first}, wm.GetDownstreams(policyName))
+	wm.RemoveWatchersForPolicy(policyName, true)
+	require.Equal(t, []string{"ConfigMap/ns/first"}, client.deleted)
 }

@@ -181,7 +181,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				// A failed evaluation can still contain acknowledged downstream writes.
 				// Report them with the failed UR and register them additively, without
 				// treating an incomplete set as a desired set for deletion.
-				resourcesToTrack := res.Result.GeneratedResources()
+				resourcesToTrack := c.retainAcknowledgedDownstreams(ctx, ur, ur.Spec.RuleContext[i].Trigger, res.Result.GeneratedResources())
 				for _, resource := range resourcesToTrack {
 					generatedResources = append(generatedResources, kyverno.ResourceSpec{
 						Kind:       resource.GetKind(),
@@ -224,7 +224,10 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 							logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						}
 					}
-					if ur.Spec.RuleContext[i].Synchronize {
+					if ur.Spec.RuleContext[i].Synchronize || len(ur.Status.GeneratedResources) > 0 {
+						// A successful retry is a complete desired set even when the
+						// original request was a CREATE (Synchronize=false). Remove
+						// obsolete partial writes only after that complete evaluation.
 						// the trigger was updated: delete downstream resources that were
 						// previously generated for it but are no longer part of the
 						// desired set of generated resources.
@@ -248,6 +251,49 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		}
 	}
 	return updateURStatus(c.statusControl, *ur, multierr.Combine(failures...), generatedResources)
+}
+
+// retainAcknowledgedDownstreams preserves the identities recorded by prior
+// failed attempts. A retry or cache restore can error before evaluating the
+// expression that originally wrote a downstream, but the live object still
+// needs synchronization and policy-deletion tracking. Never adopt objects
+// which no longer have the expected Kyverno policy/trigger ownership.
+func (c *CELGenerateController) retainAcknowledgedDownstreams(ctx context.Context, ur *kyvernov2.UpdateRequest, trigger kyverno.ResourceSpec, current []*unstructured.Unstructured) []*unstructured.Unstructured {
+	if len(ur.Status.GeneratedResources) == 0 {
+		return current
+	}
+	key := func(apiVersion, kind, namespace, name string) string {
+		return apiVersion + "\x00" + kind + "\x00" + namespace + "\x00" + name
+	}
+	seen := make(map[string]struct{}, len(current)+len(ur.Status.GeneratedResources))
+	for _, resource := range current {
+		seen[key(resource.GetAPIVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName())] = struct{}{}
+	}
+	for _, spec := range ur.Status.GeneratedResources {
+		if spec.APIVersion == "" || spec.Kind == "" || spec.Name == "" {
+			continue
+		}
+		identity := key(spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
+		if _, alreadyTracked := seen[identity]; alreadyTracked {
+			continue
+		}
+		resource, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
+		if err != nil || resource == nil {
+			continue // absent or inaccessible objects cannot be re-adopted
+		}
+		labels := resource.GetLabels()
+		if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp ||
+			!matchesPolicyKey(labels, ur.Spec.GetPolicyKey()) ||
+			labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
+			continue
+		}
+		if spec.UID != "" && resource.GetUID() != spec.UID {
+			continue // avoid adopting a replacement with the same name
+		}
+		current = append(current, resource)
+		seen[identity] = struct{}{}
+	}
+	return current
 }
 
 func (c *CELGenerateController) audit(ctx context.Context, engineResponse engineapi.EngineResponse, generatedResources []kyverno.ResourceSpec) error {
