@@ -103,7 +103,7 @@ func TestAddWatchersNamespacedPolicyKeyKeepsNamespacesIsolated(t *testing.T) {
 			types.UID("generated-"+namespace), map[string]string{
 				common.GeneratePolicyLabel:     policyName,
 				common.GenerateTriggerNSLabel:  namespace,
-				common.GenerateTriggerUIDLabel: "trigger-"+namespace,
+				common.GenerateTriggerUIDLabel: "trigger-" + namespace,
 			})
 	}
 	first, second := newDownstream("team-a"), newDownstream("team-b")
