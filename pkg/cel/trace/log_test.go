@@ -965,4 +965,43 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		require.Len(t, entry.Verdict.Evaluated, 1)
 		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
 	})
+
+	t.Run("Generating policy with source-less verdict redacts message quoting secret from generation rule", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "gpol-secret-gen",
+			PolicyKind:   "GeneratingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db')",
+						Result: `map[data:map[password:` + password + `] kind:Secret]`,
+					},
+				},
+			},
+			Generations: []GenerationTrace{
+				{
+					Name: "generate[0] (expression)",
+					ExpressionTrace: ExpressionTrace{
+						Source: "generator.Apply('default', [variables.dbSecret])",
+						Result: "false",
+					},
+					Error: "failed applying secret \"" + password + "\"",
+				},
+			},
+			Verdict: VerdictTrace{
+				Status:  VerdictError,
+				Message: "failed applying secret \"" + password + "\"",
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+		assert.Equal(t, redacted, entry.Variables[0].Result)
+	})
 }

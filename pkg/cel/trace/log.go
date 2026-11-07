@@ -208,7 +208,7 @@ func newLogFormat(d *Decision) logFormat {
 
 // isVerdictSecret reports whether a decision's verdict is associated with Secret data,
 // either via admitted kind, verdict source expression, or associated match, mutation,
-// validation, or variable traces (especially for source-less verdicts).
+// validation, generation, or variable traces (especially for source-less verdicts).
 func (l logFormat) isVerdictSecret(d *Decision) bool {
 	if l.secret {
 		return true
@@ -217,7 +217,7 @@ func (l logFormat) isVerdictSecret(d *Decision) bool {
 		return l.isSecretExpr(d.Verdict.Source)
 	}
 	// For source-less verdicts (e.g. in MutatingPolicy where verdict has no source expression,
-	// or when evaluation errors before/during match, variables, or mutations):
+	// or when evaluation errors before/during match, variables, mutations, or generations):
 	for _, m := range d.Match {
 		if l.isSecretExpr(m.Source) {
 			return true
@@ -230,6 +230,11 @@ func (l logFormat) isVerdictSecret(d *Decision) bool {
 	}
 	for _, v := range d.Validations {
 		if l.isSecretExpr(v.Source) {
+			return true
+		}
+	}
+	for _, g := range d.Generations {
+		if l.isSecretExpr(g.Source) {
 			return true
 		}
 	}
