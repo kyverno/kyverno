@@ -113,6 +113,9 @@ func TestEntry_Publish_SerializesWithStop(t *testing.T) {
 		_, getErr := entry.Get("")
 		return getErr == nil
 	}, 5*time.Second, time.Millisecond, "initial poll did not publish")
+	// Get succeeding proves setData ran, but the poll may still hold
+	// publishMu while finishing its publication callback. Acquiring it
+	// here waits for that callback to exit before this test owns the gate.
 	entry.publishMu.Lock()
 	entry.publishMu.Unlock()
 
@@ -139,9 +142,11 @@ func TestEntry_Publish_SerializesWithStop(t *testing.T) {
 		close(stopped)
 	}()
 
-	// Only Stop takes statusMu in this test (status refresh is disabled).
-	// Seeing it locked proves Stop has advanced past cancellation and is
-	// waiting to acquire publishMu, which our callback still owns.
+	// This probe is valid only because New was called with
+	// shouldUpdateStatus=false (and nil kyvernoClient), so Stop is the
+	// only goroutine that can hold statusMu. A successful TryLock releases
+	// it immediately; a failed TryLock means Stop has passed cancellation
+	// and is waiting on publishMu, still held by the callback above.
 	require.Eventually(t, func() bool {
 		if entry.statusMu.TryLock() {
 			entry.statusMu.Unlock()
