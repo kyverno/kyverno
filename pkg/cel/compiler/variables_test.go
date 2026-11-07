@@ -26,4 +26,7 @@ func TestVariablesProviderRegisterFieldDeduplicatesNames(t *testing.T) {
 	fieldType, found := provider.FindStructFieldType(VariablesType.DeclaredTypeName(), "count")
 	require.True(t, found)
 	assert.True(t, fieldType.Type.IsExactType(cel.StringType))
+
+	_, found = provider.FindStructFieldType(VariablesType.DeclaredTypeName(), "nonexistent")
+	assert.False(t, found)
 }
