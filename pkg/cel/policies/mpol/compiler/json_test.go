@@ -3,6 +3,7 @@ package compiler
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -279,6 +280,16 @@ func TestPatchJSONPreservesNumberTypes(t *testing.T) {
 		object:     map[string]any{},
 		want:       map[string]any{"limits": map[string]any{"ratio": float64(2)}},
 	}, {
+		name:       "integral double in an object initializer patch value",
+		expression: `[JSONPatch{op: "add", path: "/spec", value: Object.spec{ratio: 1.0}}]`,
+		object:     map[string]any{},
+		want:       map[string]any{"spec": map[string]any{"ratio": float64(1)}},
+	}, {
+		name:       "integral double in an object initializer nested in a list",
+		expression: `[JSONPatch{op: "add", path: "/items", value: [Object.items{ratio: 1.0}]}]`,
+		object:     map[string]any{},
+		want:       map[string]any{"items": []any{map[string]any{"ratio": float64(1)}}},
+	}, {
 		name:       "integers stay int64",
 		expression: `[JSONPatch{op: "add", path: "/count", value: 3}]`,
 		object:     map[string]any{"big": int64(9007199254740993)},
@@ -319,6 +330,19 @@ func TestMarshalDouble(t *testing.T) {
 			assert.Equal(t, tt.want, string(got))
 		})
 	}
+	for _, in := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
+		t.Run(fmt.Sprint(in), func(t *testing.T) {
+			_, err := marshalDouble(in)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestPatchJSONNonFiniteDouble(t *testing.T) {
+	patcher := compileJSONPatcher(t, `[JSONPatch{op: "add", path: "/region", value: "west"}]`)
+	object := map[string]any{"nested": map[string]any{"ratio": math.Inf(1)}}
+	_, _, err := patcher.PatchJSON(context.Background(), map[string]any{"object": object}, 10000000)
+	require.ErrorContains(t, err, "failed to encode JSON object")
 }
 
 func TestKeepDoubleFractionsWithoutDoubles(t *testing.T) {

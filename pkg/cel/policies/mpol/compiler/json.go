@@ -336,6 +336,11 @@ func patchValueToJSON(val ref.Val, keepDoubles bool) (gojson.RawMessage, error) 
 		if err != nil {
 			return nil, unmarshalableValue(err)
 		}
+		if keepDoubles {
+			if native, _, err = keepDoubleFractions(native); err != nil {
+				return nil, unmarshalableValue(err)
+			}
+		}
 		return marshalPatchValue(native)
 	case traits.Lister:
 		elements := []gojson.RawMessage{}
