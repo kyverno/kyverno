@@ -150,15 +150,27 @@ func newLogFormat(d *Decision) logFormat {
 		secretVars:    make(map[string]bool),
 		secretGVRVars: make(map[string]bool),
 	}
-	for _, v := range d.Variables {
-		if createsSecretGVR(v.Source) {
-			l.secretGVRVars[v.Name] = true
-		}
-	}
 	changed := true
 	for changed {
 		changed = false
 		for _, v := range d.Variables {
+			if !l.secretGVRVars[v.Name] {
+				if createsSecretGVR(v.Source, l.secretGVRVars) ||
+					isSecretResourceName(v.Result) ||
+					isSecretResourceName(v.Source) ||
+					isSecretGVRValue(v.Result) {
+					l.secretGVRVars[v.Name] = true
+					changed = true
+				} else {
+					for gvrVar := range l.secretGVRVars {
+						if containsVar(v.Source, gvrVar) {
+							l.secretGVRVars[v.Name] = true
+							changed = true
+							break
+						}
+					}
+				}
+			}
 			if !l.secretVars[v.Name] && (isSecretValue(v.Result) || l.isSecretExpr(v.Source)) {
 				l.secretVars[v.Name] = true
 				changed = true
@@ -169,7 +181,8 @@ func newLogFormat(d *Decision) logFormat {
 }
 
 // isVerdictSecret reports whether a decision's verdict is associated with Secret data,
-// either via admitted kind, verdict source expression, or associated mutation traces.
+// either via admitted kind, verdict source expression, or associated match, mutation,
+// validation, or variable traces (especially for source-less verdicts).
 func (l logFormat) isVerdictSecret(d *Decision) bool {
 	if l.secret {
 		return true
@@ -177,11 +190,28 @@ func (l logFormat) isVerdictSecret(d *Decision) bool {
 	if d.Verdict.Source != "" {
 		return l.isSecretExpr(d.Verdict.Source)
 	}
-	// For source-less verdicts (e.g. in MutatingPolicy where verdict has no source expression),
-	// check if any mutation that ran or errored is a secret expression.
+	// For source-less verdicts (e.g. in MutatingPolicy where verdict has no source expression,
+	// or when evaluation errors before/during match, variables, or mutations):
+	for _, m := range d.Match {
+		if l.isSecretExpr(m.Source) {
+			return true
+		}
+	}
 	for _, m := range d.Mutations {
 		if l.isSecretExpr(m.Source) {
 			return true
+		}
+	}
+	for _, v := range d.Validations {
+		if l.isSecretExpr(v.Source) {
+			return true
+		}
+	}
+	for _, v := range d.Variables {
+		if l.secretVars[v.Name] || l.isSecretExpr(v.Source) {
+			if d.Verdict.Status == VerdictError || isSecretValue(v.Result) {
+				return true
+			}
 		}
 	}
 	return false
@@ -196,20 +226,118 @@ func isSecretValue(v string) bool {
 
 // isSecretResourceName reports whether name refers to the Secret kind or resource.
 func isSecretResourceName(name string) bool {
-	lower := strings.ToLower(name)
-	return lower == "secret" || lower == "secrets" || strings.HasPrefix(lower, "secrets/") || strings.HasPrefix(lower, "secret/")
+	lower := strings.ToLower(strings.TrimSpace(name))
+	lower = strings.Trim(lower, `"'`)
+	return lower == "secret" || lower == "secrets" ||
+		strings.HasPrefix(lower, "secrets/") || strings.HasPrefix(lower, "secret/") ||
+		strings.HasSuffix(lower, "/secrets") || strings.HasSuffix(lower, "/secret")
+}
+
+// isSecretGVRValue reports whether val textually represents a Secret GVR string.
+func isSecretGVRValue(val string) bool {
+	lower := strings.ToLower(strings.TrimSpace(val))
+	return strings.Contains(lower, "resource=secret") || strings.Contains(lower, "resource=secrets")
+}
+
+// literalString extracts the string value of a literal AST expression if present.
+func literalString(e celast.Expr) (string, bool) {
+	if e == nil || e.Kind() != celast.LiteralKind {
+		return "", false
+	}
+	s, ok := e.AsLiteral().Value().(string)
+	return s, ok
+}
+
+// astContainsVar reports whether AST expression e references varName under variables.
+func astContainsVar(e celast.Expr, sourceInfo *celast.SourceInfo, varName string) bool {
+	if e == nil {
+		return false
+	}
+	if sourceInfo != nil {
+		if s, err := cel.ExprToString(e, sourceInfo); err == nil {
+			if containsVar(s, varName) {
+				return true
+			}
+		}
+	}
+	found := false
+	celast.PreOrderVisit(e, celast.NewExprVisitor(func(sub celast.Expr) {
+		if found {
+			return
+		}
+		switch sub.Kind() {
+		case celast.SelectKind:
+			sel := sub.AsSelect()
+			if sel.FieldName() == varName && sel.Operand().Kind() == celast.IdentKind && strings.EqualFold(sel.Operand().AsIdent(), "variables") {
+				found = true
+			}
+		case celast.CallKind:
+			call := sub.AsCall()
+			fn := call.FunctionName()
+			if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
+				if call.Args()[0].Kind() == celast.IdentKind && strings.EqualFold(call.Args()[0].AsIdent(), "variables") {
+					if call.Args()[1].Kind() == celast.LiteralKind {
+						if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
+							found = true
+						}
+					}
+				}
+			}
+		}
+	}))
+	return found
+}
+
+// createsSecretGVRCall reports whether AST node e is a call to resource.ToGVR targeting Secrets.
+func createsSecretGVRCall(e celast.Expr, secretGVRVars map[string]bool) bool {
+	if e == nil || e.Kind() != celast.CallKind {
+		return false
+	}
+	call := e.AsCall()
+	if !strings.EqualFold(call.FunctionName(), "ToGVR") {
+		return false
+	}
+	if call.Target() == nil || call.Target().Kind() != celast.IdentKind || !strings.EqualFold(call.Target().AsIdent(), "resource") {
+		return false
+	}
+	args := call.Args()
+	if len(args) == 0 {
+		return false
+	}
+	lastArg := args[len(args)-1]
+	if str, ok := literalString(lastArg); ok && (isSecretResourceName(str) || isSecretGVRValue(str)) {
+		return true
+	}
+	for gvrVar := range secretGVRVars {
+		if astContainsVar(lastArg, nil, gvrVar) {
+			return true
+		}
+	}
+	return false
 }
 
 // createsSecretGVR reports whether expr calls resource.ToGVR targeting Secrets.
-func createsSecretGVR(expr string) bool {
+func createsSecretGVR(expr string, secretGVRVars map[string]bool) bool {
 	ast, iss := celParserEnv.Parse(expr)
 	if iss != nil && iss.Err() != nil {
 		lower := strings.ToLower(expr)
-		return strings.Contains(lower, "togvr") && (strings.Contains(lower, "'secret") || strings.Contains(lower, "\"secret"))
+		if !strings.Contains(lower, "togvr") {
+			return false
+		}
+		if strings.Contains(lower, "'secret") || strings.Contains(lower, "\"secret") || strings.Contains(lower, "/secret") {
+			return true
+		}
+		for gvrVar := range secretGVRVars {
+			if containsVar(expr, gvrVar) {
+				return true
+			}
+		}
+		return false
 	}
 	created := false
+	sourceInfo := ast.NativeRep().SourceInfo()
 	celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
-		if e.Kind() != celast.CallKind {
+		if created || e.Kind() != celast.CallKind {
 			return
 		}
 		call := e.AsCall()
@@ -224,9 +352,14 @@ func createsSecretGVR(expr string) bool {
 			return
 		}
 		lastArg := args[len(args)-1]
-		if lastArg.Kind() == celast.LiteralKind {
-			if str, ok := lastArg.AsLiteral().Value().(string); ok && isSecretResourceName(str) {
+		if str, ok := literalString(lastArg); ok && (isSecretResourceName(str) || isSecretGVRValue(str)) {
+			created = true
+			return
+		}
+		for gvrVar := range secretGVRVars {
+			if astContainsVar(lastArg, sourceInfo, gvrVar) {
 				created = true
+				return
 			}
 		}
 	}))
@@ -238,13 +371,23 @@ func (l logFormat) readsSecret(expr string) bool {
 	ast, iss := celParserEnv.Parse(expr)
 	if iss != nil && iss.Err() != nil {
 		lower := strings.ToLower(expr)
-		return (strings.Contains(lower, "resource.get") || strings.Contains(lower, "resource.list")) &&
-			(strings.Contains(lower, "'secret") || strings.Contains(lower, "\"secret") || strings.Contains(lower, "/secret"))
+		if !strings.Contains(lower, "resource.get") && !strings.Contains(lower, "resource.list") {
+			return false
+		}
+		if strings.Contains(lower, "'secret") || strings.Contains(lower, "\"secret") || strings.Contains(lower, "/secret") {
+			return true
+		}
+		for gvrVar := range l.secretGVRVars {
+			if containsVar(expr, gvrVar) {
+				return true
+			}
+		}
+		return false
 	}
 	reads := false
 	sourceInfo := ast.NativeRep().SourceInfo()
 	celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
-		if e.Kind() != celast.CallKind {
+		if reads || e.Kind() != celast.CallKind {
 			return
 		}
 		call := e.AsCall()
@@ -260,41 +403,37 @@ func (l logFormat) readsSecret(expr string) bool {
 			return
 		}
 
-		// Pattern 1: resource.Get('v1', 'secrets', ...) or resource.List('v1', 'secrets', ...)
-		if len(args) >= 2 && args[0].Kind() == celast.LiteralKind {
-			if _, ok := args[0].AsLiteral().Value().(string); ok {
-				if args[1].Kind() == celast.LiteralKind {
-					if resName, ok := args[1].AsLiteral().Value().(string); ok && isSecretResourceName(resName) {
-						reads = true
-						return
-					}
-				}
-			}
+		// Check args[0]: can be GVR (e.g. resource.Get(gvr, ...), resource.Get('secrets', ...))
+		if str, ok := literalString(args[0]); ok && (isSecretResourceName(str) || isSecretGVRValue(str)) {
+			reads = true
+			return
 		}
-
-		// Pattern 2: resource.Get(gvr, ...) or resource.List(gvr, ...)
-		gvrArg := args[0]
-		if gvrArg.Kind() == celast.CallKind {
-			innerCall := gvrArg.AsCall()
-			if strings.EqualFold(innerCall.FunctionName(), "ToGVR") {
-				innerArgs := innerCall.Args()
-				if len(innerArgs) > 0 {
-					lastArg := innerArgs[len(innerArgs)-1]
-					if lastArg.Kind() == celast.LiteralKind {
-						if kindName, ok := lastArg.AsLiteral().Value().(string); ok && isSecretResourceName(kindName) {
-							reads = true
-							return
-						}
-					}
-				}
-			}
+		if createsSecretGVRCall(args[0], l.secretGVRVars) {
+			reads = true
+			return
 		}
-
 		for gvrVar := range l.secretGVRVars {
-			gvrExprStr, err := cel.ExprToString(gvrArg, sourceInfo)
-			if err == nil && containsVar(gvrExprStr, gvrVar) {
+			if astContainsVar(args[0], sourceInfo, gvrVar) {
 				reads = true
 				return
+			}
+		}
+
+		// Check args[1] if present: can be resource name in resource.Get(apiVersion, resource, ...)
+		if len(args) >= 2 {
+			if str, ok := literalString(args[1]); ok && (isSecretResourceName(str) || isSecretGVRValue(str)) {
+				reads = true
+				return
+			}
+			if createsSecretGVRCall(args[1], l.secretGVRVars) {
+				reads = true
+				return
+			}
+			for gvrVar := range l.secretGVRVars {
+				if astContainsVar(args[1], sourceInfo, gvrVar) {
+					reads = true
+					return
+				}
 			}
 		}
 	}))

@@ -689,4 +689,154 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		require.Len(t, entry.Verdict.Evaluated, 1)
 		assert.Equal(t, clip(longError), entry.Verdict.Evaluated[0].Error)
 	})
+
+	t.Run("Secret read via GVR variable alias chain is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "gvr-alias-chain",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "gvr",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.ToGVR('v1', 'Secret')",
+						Result: "/v1, Resource=secrets",
+					},
+				},
+				{
+					Name: "alias",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables.gvr",
+						Result: "/v1, Resource=secrets",
+					},
+				},
+				{
+					Name: "sec",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get(variables.alias, 'default', 'db')",
+						Result: `map[data:map[password:` + password + `]]`,
+					},
+				},
+				{
+					Name: "pass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables.sec.data.password",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.pass == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "variables.pass", Value: password},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[2].Result)
+		assert.Equal(t, redacted, entry.Variables[3].Result)
+		require.Len(t, entry.Verdict.Evaluated, 1)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+	})
+
+	t.Run("Secret read with variable resource name in resource.Get is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "variable-resource-name",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "resourceKind",
+					ExpressionTrace: ExpressionTrace{
+						Source: "'secrets'",
+						Result: "secrets",
+					},
+				},
+				{
+					Name: "sec",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', variables.resourceKind, 'default', 'db')",
+						Result: `map[data:map[password:` + password + `]]`,
+					},
+				},
+				{
+					Name: "pass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables.sec.data.password",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.pass == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "variables.pass", Value: password},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, "secrets", entry.Variables[0].Result, "Resource name variable itself should not be redacted")
+		assert.Equal(t, redacted, entry.Variables[1].Result)
+		assert.Equal(t, redacted, entry.Variables[2].Result)
+		require.Len(t, entry.Verdict.Evaluated, 1)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+	})
+
+	t.Run("Source-less verdict redacts error from failing match condition reading secret", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "mpol-match-error",
+			PolicyKind:   "MutatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Match: []NamedExpressionTrace{
+				{
+					Name: "check-pass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "timestamp(variables.dbSecret.data.password)",
+						Result: "invalid RFC 3339 timestamp \"" + password + "\"",
+					},
+				},
+			},
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db')",
+						Result: `map[data:map[password:` + password + `] kind:Secret]`,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status:  VerdictError,
+				Message: "invalid RFC 3339 timestamp \"" + password + "\"",
+				// Source is empty for source-less verdict
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+		assert.Equal(t, redacted, entry.Match[0].Result)
+		assert.Equal(t, redacted, entry.Variables[0].Result)
+	})
 }
