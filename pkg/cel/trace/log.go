@@ -1,6 +1,11 @@
 package trace
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/google/cel-go/cel"
+	celast "github.com/google/cel-go/common/ast"
+)
 
 // redacted stands in for a value that is left out of a logged trace.
 const redacted = "(redacted)"
@@ -51,13 +56,22 @@ func LogValues(d *Decision) []any {
 		return nil
 	}
 	l := newLogFormat(d)
+	verdictIsSec := l.isVerdictSecret(d)
 	verdictResult := d.Verdict.Result
 	verdictMsg := d.Verdict.Message
 	if d.Verdict.Status == VerdictError {
-		verdictResult = l.error(verdictResult, d.Verdict.Source)
-		verdictMsg = l.error(verdictMsg, d.Verdict.Source)
+		if (verdictIsSec || isSecretValue(verdictResult)) && verdictResult != "" {
+			verdictResult = redacted
+		}
+		if (verdictIsSec || isSecretValue(verdictMsg)) && verdictMsg != "" {
+			verdictMsg = redacted
+		}
 	} else {
-		verdictResult = l.value(verdictResult, d.Verdict.Source)
+		if (verdictIsSec || isSecretValue(verdictResult)) && verdictResult != "" && verdictResult != "true" && verdictResult != "false" {
+			verdictResult = redacted
+		} else {
+			verdictResult = clip(verdictResult)
+		}
 	}
 	entry := LogEntry{
 		Scope: d.Scope.Reason,
@@ -114,16 +128,26 @@ func LogValues(d *Decision) []any {
 	}
 }
 
+// celParserEnv is used for syntactic AST inspection of CEL expressions.
+var celParserEnv, _ = cel.NewEnv(cel.OptionalTypes())
+
 // logFormat holds what decides how a value is logged.
 type logFormat struct {
-	secret     bool
-	secretVars map[string]bool
+	secret        bool
+	secretVars    map[string]bool
+	secretGVRVars map[string]bool
 }
 
 func newLogFormat(d *Decision) logFormat {
 	l := logFormat{
-		secret:     strings.EqualFold(d.ResourceKind, "Secret"),
-		secretVars: make(map[string]bool),
+		secret:        strings.EqualFold(d.ResourceKind, "Secret"),
+		secretVars:    make(map[string]bool),
+		secretGVRVars: make(map[string]bool),
+	}
+	for _, v := range d.Variables {
+		if createsSecretGVR(v.Source) {
+			l.secretGVRVars[v.Name] = true
+		}
 	}
 	changed := true
 	for changed {
@@ -138,16 +162,133 @@ func newLogFormat(d *Decision) logFormat {
 	return l
 }
 
+func (l logFormat) isVerdictSecret(d *Decision) bool {
+	if l.secret {
+		return true
+	}
+	if d.Verdict.Source != "" {
+		return l.isSecretExpr(d.Verdict.Source)
+	}
+	// For source-less verdicts (e.g. in MutatingPolicy where verdict has no source expression),
+	// check if any mutation that ran or errored is a secret expression.
+	for _, m := range d.Mutations {
+		if l.isSecretExpr(m.Source) {
+			return true
+		}
+	}
+	return false
+}
+
 func isSecretValue(v string) bool {
 	lower := strings.ToLower(v)
 	return strings.Contains(lower, "kind:secret") || strings.Contains(lower, "kind: secret") ||
 		strings.Contains(lower, `"kind":"secret"`) || strings.Contains(lower, `"kind": "secret"`)
 }
 
-func readsSecret(expr string) bool {
-	lower := strings.ToLower(expr)
-	return (strings.Contains(lower, "resource.get") || strings.Contains(lower, "resource.list")) &&
-		(strings.Contains(lower, "'secret") || strings.Contains(lower, "\"secret") || strings.Contains(lower, "/secret"))
+func isSecretResourceName(name string) bool {
+	lower := strings.ToLower(name)
+	return lower == "secret" || lower == "secrets" || strings.HasPrefix(lower, "secrets/") || strings.HasPrefix(lower, "secret/")
+}
+
+// createsSecretGVR reports whether expr calls resource.ToGVR targeting Secrets.
+func createsSecretGVR(expr string) bool {
+	ast, iss := celParserEnv.Parse(expr)
+	if iss != nil && iss.Err() != nil {
+		lower := strings.ToLower(expr)
+		return strings.Contains(lower, "togvr") && (strings.Contains(lower, "'secret") || strings.Contains(lower, "\"secret"))
+	}
+	created := false
+	celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+		if e.Kind() != celast.CallKind {
+			return
+		}
+		call := e.AsCall()
+		if !strings.EqualFold(call.FunctionName(), "ToGVR") {
+			return
+		}
+		if call.Target() == nil || call.Target().Kind() != celast.IdentKind || !strings.EqualFold(call.Target().AsIdent(), "resource") {
+			return
+		}
+		args := call.Args()
+		if len(args) == 0 {
+			return
+		}
+		lastArg := args[len(args)-1]
+		if lastArg.Kind() == celast.LiteralKind {
+			if str, ok := lastArg.AsLiteral().Value().(string); ok && isSecretResourceName(str) {
+				created = true
+			}
+		}
+	}))
+	return created
+}
+
+// readsSecret reports whether expr calls resource.Get or resource.List for Secrets.
+func (l logFormat) readsSecret(expr string) bool {
+	ast, iss := celParserEnv.Parse(expr)
+	if iss != nil && iss.Err() != nil {
+		lower := strings.ToLower(expr)
+		return (strings.Contains(lower, "resource.get") || strings.Contains(lower, "resource.list")) &&
+			(strings.Contains(lower, "'secret") || strings.Contains(lower, "\"secret") || strings.Contains(lower, "/secret"))
+	}
+	reads := false
+	sourceInfo := ast.NativeRep().SourceInfo()
+	celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+		if e.Kind() != celast.CallKind {
+			return
+		}
+		call := e.AsCall()
+		fn := strings.ToLower(call.FunctionName())
+		if fn != "get" && fn != "list" {
+			return
+		}
+		if call.Target() == nil || call.Target().Kind() != celast.IdentKind || !strings.EqualFold(call.Target().AsIdent(), "resource") {
+			return
+		}
+		args := call.Args()
+		if len(args) == 0 {
+			return
+		}
+
+		// Pattern 1: resource.Get('v1', 'secrets', ...) or resource.List('v1', 'secrets', ...)
+		if len(args) >= 2 && args[0].Kind() == celast.LiteralKind {
+			if _, ok := args[0].AsLiteral().Value().(string); ok {
+				if args[1].Kind() == celast.LiteralKind {
+					if resName, ok := args[1].AsLiteral().Value().(string); ok && isSecretResourceName(resName) {
+						reads = true
+						return
+					}
+				}
+			}
+		}
+
+		// Pattern 2: resource.Get(gvr, ...) or resource.List(gvr, ...)
+		gvrArg := args[0]
+		if gvrArg.Kind() == celast.CallKind {
+			innerCall := gvrArg.AsCall()
+			if strings.EqualFold(innerCall.FunctionName(), "ToGVR") {
+				innerArgs := innerCall.Args()
+				if len(innerArgs) > 0 {
+					lastArg := innerArgs[len(innerArgs)-1]
+					if lastArg.Kind() == celast.LiteralKind {
+						if kindName, ok := lastArg.AsLiteral().Value().(string); ok && isSecretResourceName(kindName) {
+							reads = true
+							return
+						}
+					}
+				}
+			}
+		}
+
+		for gvrVar := range l.secretGVRVars {
+			gvrExprStr, err := cel.ExprToString(gvrArg, sourceInfo)
+			if err == nil && containsVar(gvrExprStr, gvrVar) {
+				reads = true
+				return
+			}
+		}
+	}))
+	return reads
 }
 
 func isIdentChar(c byte) bool {
@@ -187,7 +328,7 @@ func (l logFormat) isSecretExpr(expr string) bool {
 	if l.secret {
 		return true
 	}
-	if readsSecret(expr) {
+	if l.readsSecret(expr) {
 		return true
 	}
 	for name := range l.secretVars {
