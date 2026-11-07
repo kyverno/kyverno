@@ -111,16 +111,42 @@ func LogValues(d *Decision) []any {
 			})
 		}
 	}
+	mutationIsSecret := l.secret
 	for _, m := range d.Mutations {
+		if l.isSecretExpr(m.Source) {
+			mutationIsSecret = true
+		}
+		result := m.Result
+		if (mutationIsSecret || l.isSecretExpr(m.Source) || isSecretValue(result)) && result != "" && result != "true" && result != "false" {
+			result = redacted
+		} else {
+			result = clip(result)
+		}
+		err := m.Error
+		if (mutationIsSecret || l.isSecretExpr(m.Source) || isSecretValue(err)) && err != "" {
+			err = redacted
+		} else {
+			err = clip(err)
+		}
 		mutation := LogExpression{
 			Name:       m.Name,
 			Expression: m.Source,
-			Result:     l.value(m.Result, m.Source),
-			Error:      l.error(m.Error, m.Source),
+			Result:     result,
+			Error:      err,
 			NotApplied: m.NotApplied,
 		}
 		if m.Error != "" {
 			l.breakdown(&mutation, m.ExpressionTrace)
+			if mutationIsSecret {
+				for i := range mutation.Evaluated {
+					if mutation.Evaluated[i].Value != "" && mutation.Evaluated[i].Value != "true" && mutation.Evaluated[i].Value != "false" {
+						mutation.Evaluated[i].Value = redacted
+					}
+					if mutation.Evaluated[i].Error != "" {
+						mutation.Evaluated[i].Error = redacted
+					}
+				}
+			}
 		}
 		entry.Mutations = append(entry.Mutations, mutation)
 	}
@@ -506,12 +532,53 @@ func containsVar(expr, varName string) bool {
 	return false
 }
 
+// hasDynamicVariableAccess reports whether expr dynamically indexes into the variables map,
+// e.g. variables[key] or dyn(variables)[key] where key is not a literal string.
+func hasDynamicVariableAccess(expr string) bool {
+	ast, iss := celParserEnv.Parse(expr)
+	if iss == nil || iss.Err() == nil {
+		hasDynamic := false
+		celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+			if hasDynamic || e.Kind() != celast.CallKind {
+				return
+			}
+			call := e.AsCall()
+			fn := call.FunctionName()
+			if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
+				firstArg := call.Args()[0]
+				isVariables := false
+				if firstArg.Kind() == celast.IdentKind && strings.EqualFold(firstArg.AsIdent(), "variables") {
+					isVariables = true
+				} else if firstArg.Kind() == celast.CallKind {
+					inner := firstArg.AsCall()
+					if strings.EqualFold(inner.FunctionName(), "dyn") && len(inner.Args()) == 1 {
+						if inner.Args()[0].Kind() == celast.IdentKind && strings.EqualFold(inner.Args()[0].AsIdent(), "variables") {
+							isVariables = true
+						}
+					}
+				}
+				if isVariables && call.Args()[1].Kind() != celast.LiteralKind {
+					hasDynamic = true
+				}
+			}
+		}))
+		if hasDynamic {
+			return true
+		}
+	}
+	lower := strings.ToLower(expr)
+	return strings.Contains(lower, "dyn(variables)[") || (strings.Contains(lower, "variables[") && !strings.Contains(lower, "variables['") && !strings.Contains(lower, `variables["`))
+}
+
 // isSecretExpr reports whether expr reads a Secret or references a Secret-bearing variable.
 func (l logFormat) isSecretExpr(expr string) bool {
 	if l.secret {
 		return true
 	}
 	if l.readsSecret(expr) {
+		return true
+	}
+	if len(l.secretVars) > 0 && hasDynamicVariableAccess(expr) {
 		return true
 	}
 	for name := range l.secretVars {

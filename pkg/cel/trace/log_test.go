@@ -839,4 +839,93 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		assert.Equal(t, redacted, entry.Match[0].Result)
 		assert.Equal(t, redacted, entry.Variables[0].Result)
 	})
+
+	t.Run("Dynamic indexing through dyn(variables) is redacted when secret variables present", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "dynamic-variables-access",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db')",
+						Result: `map[data:map[password:` + password + `] kind:Secret]`,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "dyn(variables)[object.metadata.labels.key] == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "dyn(variables)[object.metadata.labels.key]", Value: password},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[0].Result)
+		require.Len(t, entry.Verdict.Evaluated, 1)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+	})
+
+	t.Run("Sensitivity propagates to subsequent mutations in mutating policy", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "mpol-sequential-mutations",
+			PolicyKind:   "MutatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "sec",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db')",
+						Result: `map[data:map[password:` + password + `] kind:Secret]`,
+					},
+				},
+			},
+			Mutations: []MutationTrace{
+				{
+					Name: "mutations[0] (copySecret)",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables.sec.data.password",
+						Result: password,
+					},
+				},
+				{
+					Name: "mutations[1] (readModifiedObject)",
+					Error: "failed patch with value \"" + password + "\"",
+					ExpressionTrace: ExpressionTrace{
+						Source: "object.spec.containers[0].env[0].value",
+						Result: password,
+						Nodes: []NodeTrace{
+							{Expression: "object.spec.containers[0].env[0].value", Value: password},
+						},
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status:  VerdictError,
+				Message: "failed patch with value \"" + password + "\"",
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+		assert.Equal(t, redacted, entry.Mutations[0].Result)
+		assert.Equal(t, redacted, entry.Mutations[1].Result)
+		assert.Equal(t, redacted, entry.Mutations[1].Error)
+		require.Len(t, entry.Mutations[1].Evaluated, 1)
+		assert.Equal(t, redacted, entry.Mutations[1].Evaluated[0].Value)
+	})
 }
