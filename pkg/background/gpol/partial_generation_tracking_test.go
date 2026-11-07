@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/stretchr/testify/require"
@@ -156,4 +157,55 @@ func TestAddWatchersPreservesSuccessfulRegistrationOnLaterMappingError(t *testin
 	require.Equal(t, []*unstructured.Unstructured{first}, wm.GetDownstreams(policyName))
 	wm.RemoveWatchersForPolicy(policyName, true)
 	require.Equal(t, []string{"ConfigMap/ns/first"}, client.deleted)
+}
+
+func TestPartialRetryPreservesSiblingTrigger(t *testing.T) {
+	const policyName = "shared-policy"
+	oldGVR := schema.GroupVersionResource{Version: "v1", Resource: "secrets"}
+	newGVR := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	labelsFor := func(triggerUID string) map[string]string {
+		return map[string]string{
+			common.GeneratePolicyLabel:     policyName,
+			common.GenerateTriggerUIDLabel: triggerUID,
+		}
+	}
+	old := makeUnstructured("1", "", "v1", "Secret", "old", "ns", "old-uid", labelsFor("first"))
+	sibling := makeUnstructured("1", "", "v1", "Secret", "sibling", "ns", "sibling-uid", labelsFor("sibling"))
+	newer := makeUnstructured("1", "", "v1", "ConfigMap", "new", "ns", "new-uid", labelsFor("first"))
+	client := &MockClient{}
+	wm := &WatchManager{
+		log:    logging.WithName("partial-sibling"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, _ string) (*meta.RESTMapping, error) {
+			if gk.Kind == "ConfigMap" {
+				return &meta.RESTMapping{Resource: newGVR}, nil
+			}
+			return &meta.RESTMapping{Resource: oldGVR}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			oldGVR: {
+				watcher: watch.MockWatcher{StopFunc: func() {}},
+				metadataCache: map[types.UID]Resource{
+					old.GetUID(): {Name: old.GetName(), Namespace: old.GetNamespace(), Labels: old.GetLabels(), Hash: "old", Data: old},
+					sibling.GetUID(): {Name: sibling.GetName(), Namespace: sibling.GetNamespace(), Labels: sibling.GetLabels(), Hash: "sibling", Data: sibling},
+				},
+			},
+			newGVR: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{}},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{policyName: {oldGVR}},
+		refCount:   map[schema.GroupVersionResource]int{oldGVR: 1},
+	}
+	defer wm.StopWatchers()
+
+	trigger := &kyverno.ResourceSpec{UID: "first"}
+	require.NoError(t, wm.AddWatchers(policyName, trigger, []*unstructured.Unstructured{newer}, false))
+	require.NoError(t, wm.SyncWatchers(policyName, trigger, []*unstructured.Unstructured{newer}, false))
+	wm.CleanupStaleDownstreams(policyName, trigger, []*unstructured.Unstructured{newer})
+
+	require.Equal(t, []string{"Secret/ns/old"}, client.deleted)
+	require.Contains(t, wm.dynamicWatchers[oldGVR].metadataCache, sibling.GetUID())
+	require.Contains(t, wm.dynamicWatchers[newGVR].metadataCache, newer.GetUID())
+	require.Equal(t, 1, wm.refCount[oldGVR])
+	require.Equal(t, 1, wm.refCount[newGVR])
+	require.ElementsMatch(t, []schema.GroupVersionResource{oldGVR, newGVR}, wm.policyRefs[policyName])
 }

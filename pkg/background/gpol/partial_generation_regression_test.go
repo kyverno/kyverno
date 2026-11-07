@@ -248,8 +248,8 @@ func TestRetainAcknowledgedDownstreamsValidatesOwnershipAndUID(t *testing.T) {
 	})
 	replaced := makeUnstructured("1", "", "v1", "ConfigMap", "replaced", namespace, "new-uid", labels)
 	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{
-		"ConfigMap/" + namespace + "/old": old,
-		"ConfigMap/" + namespace + "/foreign": foreign,
+		"ConfigMap/" + namespace + "/old":      old,
+		"ConfigMap/" + namespace + "/foreign":  foreign,
 		"ConfigMap/" + namespace + "/replaced": replaced,
 	}}
 	toSpec := func(name string, uid types.UID) kyverno.ResourceSpec {
@@ -266,4 +266,157 @@ func TestRetainAcknowledgedDownstreamsValidatesOwnershipAndUID(t *testing.T) {
 	got := controller.retainAcknowledgedDownstreams(context.Background(), ur, kyverno.ResourceSpec{UID: "trigger-uid"}, nil)
 	require.Len(t, got, 1)
 	require.Equal(t, old.GetUID(), got[0].GetUID())
+}
+
+func TestPartialGenerationRetryStatusRestoresPriorResources(t *testing.T) {
+	previousReporting := reportutils.ReportingCfg
+	reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+	t.Cleanup(func() { reportutils.ReportingCfg = previousReporting })
+
+	const namespace = "team-a"
+	const policyName = "partial-retry"
+	trigger := makeUnstructured("50", "", "v1", "ConfigMap", "trigger", namespace, "trigger-uid", nil)
+	old := makeUnstructured("100", "", "v1", "ConfigMap", "old", namespace, "old-uid", map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     policyName,
+		common.GenerateTriggerNSLabel:  namespace,
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	})
+	fakeDynamic := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	fakeDynamic.PrependWatchReactor("*", func(clienttesting.Action) (bool, watch.Interface, error) {
+		return true, watch.NewRaceFreeFake(), nil
+	})
+	client := &partialReproClient{
+		objects: map[string]*unstructured.Unstructured{
+			"ConfigMap/" + namespace + "/trigger": trigger,
+			"ConfigMap/" + namespace + "/old":     old,
+		},
+		dyn: fakeDynamic,
+	}
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+	library, err := libs.NewContextProvider(client, nil, nil, mapper, false)
+	require.NoError(t, err)
+	policy := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: policyName},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+				SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{Enabled: ptr.To(true)},
+			},
+		},
+	}
+	watchManager := &WatchManager{
+		client: client, restMapper: mapper, log: logging.WithName("partial-retry"),
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+		policyRefs: map[string][]schema.GroupVersionResource{},
+		refCount:   map[schema.GroupVersionResource]int{},
+	}
+	t.Cleanup(watchManager.StopWatchers)
+	status := &partialReproStatus{}
+	controller := &CELGenerateController{
+		client: client, restMapper: mapper, context: library,
+		engine: &errorEngine{},
+		provider: &testProvider{policy: gpolengine.Policy{Policy: policy}},
+		watchManager: watchManager, statusControl: status, eventGen: testEventGen{},
+		log: logging.WithName("partial-retry"),
+	}
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "partial-retry"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type: kyvernov2.CELGenerate, Policy: policyName,
+			RuleContext: []kyvernov2.RuleContext{{
+				Rule: "generate", Trigger: common.ResourceSpecFromUnstructured(*trigger), CacheRestore: true,
+			}},
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			State: kyvernov2.Pending, RetryCount: 1,
+			GeneratedResources: []kyverno.ResourceSpec{common.ResourceSpecFromUnstructured(*old)},
+		},
+	}
+	require.NoError(t, controller.ProcessUR(ur))
+	require.True(t, status.failed, "retry must retain its failure verdict")
+	require.Len(t, status.resources, 1)
+	require.Equal(t, "old", status.resources[0].Name)
+	require.Equal(t, namespace, status.resources[0].Namespace)
+	require.Len(t, watchManager.GetDownstreams(policyName), 1)
+	watchManager.RemoveWatchersForPolicy(policyName, true)
+	require.Equal(t, 1, client.deletes)
+	require.NotContains(t, client.objects, "ConfigMap/" + namespace + "/old")
+}
+
+func TestPartialGenerationSuccessfulRetryCleansStaleSameKind(t *testing.T) {
+	previousReporting := reportutils.ReportingCfg
+	reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+	t.Cleanup(func() { reportutils.ReportingCfg = previousReporting })
+
+	const namespace = "team-a"
+	const policyName = "partial-retry-success"
+	trigger := makeUnstructured("50", "", "v1", "ConfigMap", "trigger", namespace, "trigger-uid", nil)
+	labels := map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     policyName,
+		common.GenerateTriggerNSLabel:  namespace,
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	}
+	old := makeUnstructured("100", "", "v1", "ConfigMap", "old", namespace, "old-uid", labels)
+	newResource := makeUnstructured("101", "", "v1", "ConfigMap", "new", namespace, "new-uid", labels)
+	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{
+		"ConfigMap/" + namespace + "/trigger": trigger,
+		"ConfigMap/" + namespace + "/old":     old,
+		"ConfigMap/" + namespace + "/new":     newResource,
+	}}
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+	library, err := libs.NewContextProvider(client, nil, nil, mapper, false)
+	require.NoError(t, err)
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	watchManager := &WatchManager{
+		client: client, restMapper: mapper, log: logging.WithName("partial-success-retry"),
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {
+				watcher: watch.MockWatcher{StopFunc: func() {}},
+				metadataCache: map[types.UID]Resource{
+					old.GetUID(): {Name: old.GetName(), Namespace: namespace, Labels: labels, Hash: "old-hash", Data: old},
+				},
+			},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{policyName: {gvr}},
+		refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+	}
+	t.Cleanup(watchManager.StopWatchers)
+	policy := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: policyName},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+				SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{Enabled: ptr.To(true)},
+			},
+		},
+	}
+	status := &partialReproStatus{}
+	controller := &CELGenerateController{
+		client: client, restMapper: mapper, context: library,
+		engine: &testEngine{generated: []*unstructured.Unstructured{newResource}},
+		provider: &testProvider{policy: gpolengine.Policy{Policy: policy}},
+		watchManager: watchManager, statusControl: status, eventGen: testEventGen{},
+		log: logging.WithName("partial-success-retry"),
+	}
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "partial-success-retry"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type: kyvernov2.CELGenerate, Policy: policyName,
+			RuleContext: []kyvernov2.RuleContext{{
+				Rule: "generate", Trigger: common.ResourceSpecFromUnstructured(*trigger),
+				Synchronize: false,
+			}},
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			State: kyvernov2.Pending, RetryCount: 1,
+			GeneratedResources: []kyverno.ResourceSpec{common.ResourceSpecFromUnstructured(*old)},
+		},
+	}
+	require.NoError(t, controller.ProcessUR(ur))
+	require.True(t, status.succeeded)
+	require.Equal(t, 1, client.deletes)
+	require.NotContains(t, client.objects, "ConfigMap/" + namespace + "/old")
+	require.Contains(t, client.objects, "ConfigMap/" + namespace + "/new")
 }
