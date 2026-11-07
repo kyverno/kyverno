@@ -26,6 +26,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -236,6 +237,16 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 						// desired set of generated resources.
 						c.watchManager.CleanupStaleDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger, resourcesToSync)
 					}
+					// After watcher cache loss, the previous failed UR is the only
+					// durable record of acknowledged partial writes. Reconcile those
+					// identities against the complete desired set before status success.
+					if len(ur.Status.GeneratedResources) > 0 {
+						pending, err := c.cleanupAcknowledgedAfterRetry(ctx, ur.Spec.GetPolicyKey(), ur.Spec.RuleContext[i].Trigger, ur.Status.GeneratedResources, resourcesToSync)
+						generatedResources = append(generatedResources, pending...)
+						if err != nil {
+							failures = append(failures, fmt.Errorf("gpol %s stale downstream cleanup failed: %w", ur.Spec.GetPolicyKey(), err))
+						}
+					}
 				}
 			}
 			if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {
@@ -332,6 +343,66 @@ func (c *CELGenerateController) preserveUnverifiedFailedStatus(ctx context.Conte
 		}
 	}
 	return current
+}
+
+// cleanupAcknowledgedAfterRetry handles stale partial writes recorded by the
+// failed UpdateRequest even after watcher caches have been lost in a restart.
+// Only a live object with the original UID and verified policy/trigger ownership
+// may be deleted. DeleteOptions carries a UID precondition to guard races.
+// Failed API operations retain their original identity for the next retry.
+func (c *CELGenerateController) cleanupAcknowledgedAfterRetry(
+	ctx context.Context, policyKey string, trigger kyverno.ResourceSpec,
+	previous []kyverno.ResourceSpec, desired []*unstructured.Unstructured,
+) ([]kyverno.ResourceSpec, error) {
+	key := func(apiVersion, kind, namespace, name string) string {
+		return apiVersion + "\x00" + kind + "\x00" + namespace + "\x00" + name
+	}
+	wanted := make(map[string]struct{}, len(desired))
+	for _, res := range desired {
+		wanted[key(res.GetAPIVersion(), res.GetKind(), res.GetNamespace(), res.GetName())] = struct{}{}
+	}
+	seen := make(map[string]struct{}, len(previous))
+	var pending []kyverno.ResourceSpec
+	var failures []error
+	for _, spec := range previous {
+		if spec.APIVersion == "" || spec.Kind == "" || spec.Name == "" || spec.UID == "" {
+			continue
+		}
+		identity := key(spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
+		if _, exists := wanted[identity]; exists {
+			continue
+		}
+		if _, exists := seen[identity]; exists {
+			continue
+		}
+		seen[identity] = struct{}{}
+		live, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
+		if apierrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			pending = append(pending, spec)
+			failures = append(failures, fmt.Errorf("read stale downstream %s/%s: %w", spec.Namespace, spec.Name, err))
+			continue
+		}
+		if live == nil || live.GetUID() != spec.UID {
+			continue
+		}
+		labels := live.GetLabels()
+		if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp ||
+			!matchesPolicyKey(labels, policyKey) ||
+			labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
+			continue
+		}
+		uid := spec.UID
+		err = c.client.DeleteResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name, false,
+			metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &uid}})
+		if err != nil && !apierrors.IsNotFound(err) {
+			pending = append(pending, spec)
+			failures = append(failures, fmt.Errorf("delete stale downstream %s/%s: %w", spec.Namespace, spec.Name, err))
+		}
+	}
+	return pending, multierr.Combine(failures...)
 }
 
 func (c *CELGenerateController) audit(ctx context.Context, engineResponse engineapi.EngineResponse, generatedResources []kyverno.ResourceSpec) error {

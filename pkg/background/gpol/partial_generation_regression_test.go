@@ -450,3 +450,30 @@ func TestPreserveUnverifiedFailedStatusOnTransientReadError(t *testing.T) {
 	client.objects[key] = makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "replacement-uid", nil)
 	require.Empty(t, controller.preserveUnverifiedFailedStatus(context.Background(), []kyverno.ResourceSpec{old}, nil), "a readable replacement must not be retained")
 }
+
+// TestCleanupAcknowledgedAfterRetryRestoresCleanupAfterCacheLoss exercises
+// the previous UpdateRequest status as the recovery source after a restart.
+func TestCleanupAcknowledgedAfterRetryRestoresCleanupAfterCacheLoss(t *testing.T) {
+	const namespace = "team-a"
+	const policyName = "partial-retry"
+	labels := map[string]string{
+		kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:      policyName,
+		common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeCluster,
+		common.GenerateTriggerNSLabel:   namespace,
+		common.GenerateTriggerUIDLabel:  "trigger-uid",
+	}
+	old := makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "old-uid", labels)
+	newer := makeUnstructured("2", "", "v1", "ConfigMap", "new", namespace, "new-uid", labels)
+	keyOld := "ConfigMap/" + namespace + "/old"
+	keyNew := "ConfigMap/" + namespace + "/new"
+	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{keyOld: old, keyNew: newer}}
+	controller := &CELGenerateController{client: client}
+	oldSpec := kyverno.ResourceSpec{APIVersion: "v1", Kind: "ConfigMap", Namespace: namespace, Name: old.GetName(), UID: old.GetUID()}
+	pending, err := controller.cleanupAcknowledgedAfterRetry(context.Background(), policyName, kyverno.ResourceSpec{UID: "trigger-uid"}, []kyverno.ResourceSpec{oldSpec}, []*unstructured.Unstructured{newer})
+	require.NoError(t, err)
+	require.Empty(t, pending)
+	require.Equal(t, 1, client.deletes)
+	require.NotContains(t, client.objects, keyOld)
+	require.Contains(t, client.objects, keyNew)
+}
