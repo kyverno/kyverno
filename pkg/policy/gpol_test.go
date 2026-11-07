@@ -420,11 +420,21 @@ func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 			"namespace": "team-a",
 		},
 	}}
+	// The second resource is deliberately outside the namespaced policy's
+	// namespace. The generation caller must not create a RuleContext for it.
+	otherNamespaceCertificate := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "acm.services.k8s.aws/v1",
+		"kind":       "Certificate",
+		"metadata": map[string]any{
+			"name":      "cert-b",
+			"namespace": "team-b",
+		},
+	}}
 	matchConstraints := &admissionregistrationv1.MatchResources{
 		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{"acm.services.k8s.aws"},
+					APIGroups:   []string{"*"},
 					APIVersions: []string{"v1"},
 					Resources:   []string{"certificates", "certificates/status"},
 				},
@@ -443,7 +453,7 @@ func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{gvr: "CertificateList"}, certificate)
+			fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{gvr: "CertificateList"}, certificate, otherNamespaceCertificate)
 			require.NoError(t, err)
 			fakeClient.SetDiscovery(disco)
 
@@ -476,8 +486,22 @@ func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Len(t, generator.captured, 1)
-			require.Len(t, generator.captured[0].Spec.RuleContext, 1)
-			assert.Equal(t, tc.synchronize, generator.captured[0].Spec.RuleContext[0].Synchronize)
+
+			// Global generation includes both namespaces; a namespaced
+			// policy must create only team-a's context. Base and status
+			// matches still collapse into a single context per parent.
+			wantTriggers := []string{"team-a/cert-a", "team-b/cert-b"}
+			if tc.namespaced {
+				wantTriggers = []string{"team-a/cert-a"}
+			}
+			contexts := generator.captured[0].Spec.RuleContext
+			require.Len(t, contexts, len(wantTriggers))
+			gotTriggers := make([]string, 0, len(contexts))
+			for _, ruleContext := range contexts {
+				gotTriggers = append(gotTriggers, ruleContext.Trigger.Namespace+"/"+ruleContext.Trigger.Name)
+				assert.Equal(t, tc.synchronize, ruleContext.Synchronize)
+			}
+			assert.ElementsMatch(t, wantTriggers, gotTriggers)
 		})
 	}
 }
