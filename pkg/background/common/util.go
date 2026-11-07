@@ -31,6 +31,10 @@ func UpdateStatus(ctx context.Context, client versioned.Interface, urLister kyve
 		if latest, err = retryOrDeleteOnFailure(ctx, client, latest, 3); err != nil {
 			return nil, err
 		}
+		if latest == nil {
+			// the UR exceeded its retry limit and was deleted, there is no status left to update
+			return ur, nil
+		}
 	}
 	new, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 	if err != nil {
@@ -51,15 +55,16 @@ func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyverno.Resourc
 	}
 }
 
+// retryOrDeleteOnFailure increments the retry count, or deletes the UR once the limit is exceeded.
+// A nil UR with a nil error is returned when the UR was deleted.
 func retryOrDeleteOnFailure(ctx context.Context, kyvernoClient versioned.Interface, ur *kyvernov2.UpdateRequest, limit int) (latest *kyvernov2.UpdateRequest, err error) {
 	if ur.Status.RetryCount > limit {
 		err = kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(ctx, ur.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			return nil, errors.Wrapf(err, "exceeds retry limit, failed to delete the UR: %s, retry: %v, resourceVersion: %s", ur.Name, ur.Status.RetryCount, ur.GetResourceVersion())
 		}
-	} else {
-		ur.Status.RetryCount++
+		return nil, nil
 	}
-
+	ur.Status.RetryCount++
 	return ur, nil
 }
