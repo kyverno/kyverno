@@ -138,6 +138,8 @@ type logFormat struct {
 	secretGVRVars map[string]bool
 }
 
+// newLogFormat initializes logFormat by discovering Secret GVR variables, Secret-bearing variables,
+// and whether the admitted resource itself is a Secret.
 func newLogFormat(d *Decision) logFormat {
 	l := logFormat{
 		secret:        strings.EqualFold(d.ResourceKind, "Secret"),
@@ -162,6 +164,8 @@ func newLogFormat(d *Decision) logFormat {
 	return l
 }
 
+// isVerdictSecret reports whether a decision's verdict is associated with Secret data,
+// either via admitted kind, verdict source expression, or associated mutation traces.
 func (l logFormat) isVerdictSecret(d *Decision) bool {
 	if l.secret {
 		return true
@@ -179,12 +183,14 @@ func (l logFormat) isVerdictSecret(d *Decision) bool {
 	return false
 }
 
+// isSecretValue reports whether v textually represents a Secret manifest or item.
 func isSecretValue(v string) bool {
 	lower := strings.ToLower(v)
 	return strings.Contains(lower, "kind:secret") || strings.Contains(lower, "kind: secret") ||
 		strings.Contains(lower, `"kind":"secret"`) || strings.Contains(lower, `"kind": "secret"`)
 }
 
+// isSecretResourceName reports whether name refers to the Secret kind or resource.
 func isSecretResourceName(name string) bool {
 	lower := strings.ToLower(name)
 	return lower == "secret" || lower == "secrets" || strings.HasPrefix(lower, "secrets/") || strings.HasPrefix(lower, "secret/")
@@ -291,11 +297,44 @@ func (l logFormat) readsSecret(expr string) bool {
 	return reads
 }
 
+// isIdentChar reports whether c is a valid CEL identifier character.
 func isIdentChar(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
+// containsVar reports whether expr references varName under the variables map.
 func containsVar(expr, varName string) bool {
+	ast, iss := celParserEnv.Parse(expr)
+	if iss == nil || iss.Err() == nil {
+		found := false
+		celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+			if found {
+				return
+			}
+			switch e.Kind() {
+			case celast.SelectKind:
+				sel := e.AsSelect()
+				if sel.FieldName() == varName && sel.Operand().Kind() == celast.IdentKind && strings.EqualFold(sel.Operand().AsIdent(), "variables") {
+					found = true
+				}
+			case celast.CallKind:
+				call := e.AsCall()
+				fn := call.FunctionName()
+				if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
+					if call.Args()[0].Kind() == celast.IdentKind && strings.EqualFold(call.Args()[0].AsIdent(), "variables") {
+						if call.Args()[1].Kind() == celast.LiteralKind {
+							if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
+								found = true
+							}
+						}
+					}
+				}
+			}
+		}))
+		if found {
+			return true
+		}
+	}
 	prefixes := []string{"variables.", "variables.?"}
 	for _, prefix := range prefixes {
 		target := prefix + varName
@@ -324,6 +363,7 @@ func containsVar(expr, varName string) bool {
 	return false
 }
 
+// isSecretExpr reports whether expr reads a Secret or references a Secret-bearing variable.
 func (l logFormat) isSecretExpr(expr string) bool {
 	if l.secret {
 		return true
@@ -339,6 +379,7 @@ func (l logFormat) isSecretExpr(expr string) bool {
 	return false
 }
 
+// value formats a value for logging, redacting it if it originates from a Secret.
 func (l logFormat) value(v string, expr string) string {
 	if (l.secret || l.isSecretExpr(expr) || isSecretValue(v)) && v != "" && v != "true" && v != "false" {
 		return redacted
@@ -346,6 +387,7 @@ func (l logFormat) value(v string, expr string) string {
 	return clip(v)
 }
 
+// error formats an error for logging, redacting it if it originates from a Secret.
 func (l logFormat) error(err string, expr string) string {
 	if (l.secret || l.isSecretExpr(expr) || isSecretValue(err)) && err != "" {
 		return redacted
@@ -353,6 +395,7 @@ func (l logFormat) error(err string, expr string) string {
 	return err
 }
 
+// named formats a NamedExpressionTrace, redacting its result if sensitive.
 func (l logFormat) named(n NamedExpressionTrace) LogExpression {
 	isSec := l.secret || l.secretVars[n.Name] || l.isSecretExpr(n.Source) || isSecretValue(n.Result)
 	val := n.Result
@@ -364,6 +407,7 @@ func (l logFormat) named(n NamedExpressionTrace) LogExpression {
 	return LogExpression{Name: n.Name, Expression: n.Source, Result: val}
 }
 
+// breakdown populates the evaluated sub-expressions, redacting sensitive nodes.
 func (l logFormat) breakdown(e *LogExpression, et ExpressionTrace) {
 	e.LoopValuesOmitted = et.LoopValuesOmitted
 	isSecExpr := l.secret || l.isSecretExpr(et.Source)
