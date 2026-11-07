@@ -50,8 +50,10 @@ func FuzzGenerationTemplateScanner(f *testing.F) {
 		}
 
 		var literal strings.Builder
+		hasExpression := false
 		for _, segment := range segments {
 			if segment.isExpr {
+				hasExpression = true
 				if !hasPlaceholder {
 					t.Fatal("extracted expression without an unescaped opener")
 				}
@@ -64,6 +66,9 @@ func FuzzGenerationTemplateScanner(f *testing.F) {
 				}
 				literal.WriteString(segment.literal)
 			}
+		}
+		if hasPlaceholder && !hasExpression {
+			t.Fatal("successful scan returned no expression for an unescaped opener")
 		}
 
 		// When there are no placeholders, scanning must only unescape \((.
@@ -168,6 +173,13 @@ kind: ConfigMap
 metadata:
   name: (( variables.name ))
 `, false},
+		{`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nested-nan
+  annotations:
+    value: .nan
+`, false},
 	}
 	for _, seed := range seeds {
 		f.Add(seed.value, seed.interpolate)
@@ -229,8 +241,12 @@ metadata:
 			t.Fatal("identical activations produced different resource trees")
 		}
 
+		// Snapshot into test-owned storage: first and second might alias.
+		// A shallow copy or the production deep-copy helper could hide a bug.
+		baseline := snapshotIsolationValue(second).([]map[string]any)
+
 		// Mutate the first result at the root and inside a nested map/list
-		// when present. A subsequent render must still equal the baseline.
+		// when present. Subsequent renders must still equal the baseline.
 		if len(first) > 0 {
 			first[0]["__kyverno_fuzz_isolation_probe__"] = struct{}{}
 			for _, resource := range first {
@@ -239,20 +255,65 @@ metadata:
 				}
 			}
 		}
+		if !reflect.DeepEqual(baseline, second) {
+			t.Fatal("mutating the first render changed the second render")
+		}
 		third, err := compiled.Render(context.Background(), activation)
 		if err != nil {
 			t.Fatalf("render failed after output mutation: %v", err)
 		}
-		if !reflect.DeepEqual(second, third) {
+		if !reflect.DeepEqual(baseline, third) {
 			t.Fatal("rendered resources share mutable state across calls")
 		}
 	})
+}
+
+// snapshotIsolationValue is deliberately test-owned and does not call the
+// production deepCopyValue helper whose behavior this fuzz target checks.
+func snapshotIsolationValue(v any) any {
+	switch v := v.(type) {
+	case []map[string]any:
+		if v == nil {
+			return v
+		}
+		out := make([]map[string]any, len(v))
+		for i, resource := range v {
+			out[i] = snapshotIsolationValue(resource).(map[string]any)
+		}
+		return out
+	case map[string]any:
+		if v == nil {
+			return v
+		}
+		out := make(map[string]any, len(v))
+		for key, value := range v {
+			out[key] = snapshotIsolationValue(value)
+		}
+		return out
+	case []any:
+		if v == nil {
+			return v
+		}
+		out := make([]any, len(v))
+		for i, value := range v {
+			out[i] = snapshotIsolationValue(value)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 func containsNaN(v any) bool {
 	switch v := v.(type) {
 	case float64:
 		return math.IsNaN(v)
+	case []map[string]any:
+		for _, resource := range v {
+			if containsNaN(resource) {
+				return true
+			}
+		}
 	case map[string]any:
 		for _, item := range v {
 			if containsNaN(item) {
@@ -267,6 +328,36 @@ func containsNaN(v any) bool {
 		}
 	}
 	return false
+}
+
+// This deterministic regression check ensures the fuzz oracles detect nested
+// mutation and IEEE-754 NaN before running the fuzz corpus.
+func TestGenerationTemplateFuzzOracles(t *testing.T) {
+	t.Parallel()
+
+	output := []map[string]any{
+		{
+			"metadata": map[string]any{
+				"labels": map[string]any{"app": "original"},
+			},
+			"data": []any{map[string]any{"key": "value"}},
+		},
+	}
+	snapshot := snapshotIsolationValue(output).([]map[string]any)
+	output[0]["metadata"].(map[string]any)["labels"].(map[string]any)["app"] = "modified"
+	output[0]["data"].([]any)[0].(map[string]any)["key"] = "changed"
+	if !reflect.DeepEqual(snapshot[0]["metadata"], map[string]any{"labels": map[string]any{"app": "original"}}) {
+		t.Fatal("snapshot shared a nested mapping")
+	}
+	if !reflect.DeepEqual(snapshot[0]["data"], []any{map[string]any{"key": "value"}}) {
+		t.Fatal("snapshot shared a nested sequence")
+	}
+	if containsNaN(snapshot) {
+		t.Fatal("finite resource contains NaN")
+	}
+	if !containsNaN([]map[string]any{{"data": []any{map[string]any{"double": math.NaN()}}}}) {
+		t.Fatal("failed to detect NaN nested within a resource slice")
+	}
 }
 
 // mutateNestedOutput modifies an existing nested mapping or sequence.
