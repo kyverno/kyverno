@@ -17,6 +17,7 @@ func TestVariablesProviderRegisterFieldDeduplicatesNames(t *testing.T) {
 	provider.RegisterField("a", cel.BoolType)
 	provider.RegisterField("count", cel.IntType)
 	provider.RegisterField("count", cel.StringType)
+	provider.RegisterField("a", cel.BoolType)
 
 	names, found := provider.FindStructFieldNames(VariablesType.DeclaredTypeName())
 	require.True(t, found)
