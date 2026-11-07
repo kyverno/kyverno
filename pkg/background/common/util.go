@@ -28,8 +28,16 @@ func UpdateStatus(ctx context.Context, client versioned.Interface, urLister kyve
 	}
 
 	if state == kyvernov2.Failed {
-		if latest, err = retryOrDeleteOnFailure(ctx, client, latest, 3); err != nil {
+		var deleted bool
+		if latest, deleted, err = retryOrDeleteOnFailure(ctx, client, latest, 3); err != nil {
 			return nil, err
+		} else if deleted {
+			// The retry budget is spent and the request is gone, so there is
+			// nothing left to carry the status. Skip the write: issuing an
+			// UpdateStatus against the deleted object returns a 404 and the
+			// terminal cleanup gets reported as a reconciliation error.
+			logging.V(3).Info("dropped update request after exhausting retries", "name", name, "retryCount", latest.Status.RetryCount)
+			return ur, nil
 		}
 	}
 	new, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
@@ -51,15 +59,14 @@ func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyverno.Resourc
 	}
 }
 
-func retryOrDeleteOnFailure(ctx context.Context, kyvernoClient versioned.Interface, ur *kyvernov2.UpdateRequest, limit int) (latest *kyvernov2.UpdateRequest, err error) {
+func retryOrDeleteOnFailure(ctx context.Context, kyvernoClient versioned.Interface, ur *kyvernov2.UpdateRequest, limit int) (latest *kyvernov2.UpdateRequest, deleted bool, err error) {
 	if ur.Status.RetryCount > limit {
 		err = kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(ctx, ur.GetName(), metav1.DeleteOptions{})
 		if err != nil {
-			return nil, errors.Wrapf(err, "exceeds retry limit, failed to delete the UR: %s, retry: %v, resourceVersion: %s", ur.Name, ur.Status.RetryCount, ur.GetResourceVersion())
+			return nil, false, errors.Wrapf(err, "exceeds retry limit, failed to delete the UR: %s, retry: %v, resourceVersion: %s", ur.Name, ur.Status.RetryCount, ur.GetResourceVersion())
 		}
-	} else {
-		ur.Status.RetryCount++
+		return ur, true, nil
 	}
-
-	return ur, nil
+	ur.Status.RetryCount++
+	return ur, false, nil
 }
