@@ -205,3 +205,291 @@ func TestLogValues_JSON(t *testing.T) {
 		}
 	}`, string(raw))
 }
+
+func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
+	const password = "hunter2-super-secret"
+
+	t.Run("CEL error quoting secret value is redacted for Secret admission", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "check-secret-expiry",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Secret",
+			ResourceName: "db-credentials",
+			Verdict: VerdictTrace{
+				Status:  VerdictError,
+				Message: "invalid RFC 3339 timestamp \"" + password + "\"",
+				ExpressionTrace: ExpressionTrace{
+					Source: "timestamp(object.data.password) < timestamp('2026-01-01T00:00:00Z')",
+					Result: "invalid RFC 3339 timestamp \"" + password + "\"",
+					Nodes: []NodeTrace{
+						{
+							Expression: "timestamp(object.data.password)",
+							Error:      "invalid RFC 3339 timestamp \"" + password + "\"",
+						},
+						{
+							Expression: "object.data.password",
+							Value:      password,
+						},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Verdict.Result)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Error)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Secret read by policy on Pod via resource.Get or variable is redacted", func(t *testing.T) {
+		secretObjectStr := `map[apiVersion:v1 data:map[password:` + password + `] kind:Secret metadata:map[name:db-credentials namespace:default]]`
+		d := &Decision{
+			PolicyName:   "validate-pod-secret",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db-credentials')",
+						Result: secretObjectStr,
+					},
+				},
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables.dbSecret.data.password",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.dbPass == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{
+							Expression: "variables.dbPass == 'expected'",
+							Value:      "false",
+						},
+						{
+							Expression: "variables.dbPass",
+							Value:      password,
+						},
+						{
+							Expression: "variables.dbSecret.data",
+							Value:      "map[password:" + password + "]",
+						},
+						{
+							Expression: "variables.dbSecret",
+							Value:      secretObjectStr,
+						},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+
+		require.Len(t, entry.Variables, 2)
+		assert.Equal(t, redacted, entry.Variables[0].Result)
+		assert.Equal(t, redacted, entry.Variables[1].Result)
+
+		require.Len(t, entry.Verdict.Evaluated, 4)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[0].Value, "boolean verdict value is kept")
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[1].Value)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[2].Value)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[3].Value)
+	})
+
+	t.Run("CEL error on secret variable in Pod policy is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "pod-secret-error",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db-credentials')",
+						Result: `map[apiVersion:v1 data:map[password:` + password + `] kind:Secret]`,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status:  VerdictError,
+				Message: "invalid RFC 3339 timestamp \"" + password + "\"",
+				ExpressionTrace: ExpressionTrace{
+					Source: "timestamp(variables.dbSecret.data.password) < timestamp('2026-01-01T00:00:00Z')",
+					Result: "invalid RFC 3339 timestamp \"" + password + "\"",
+					Nodes: []NodeTrace{
+						{
+							Expression: "timestamp(variables.dbSecret.data.password)",
+							Error:      "invalid RFC 3339 timestamp \"" + password + "\"",
+						},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Verdict.Result)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+		require.Len(t, entry.Verdict.Evaluated, 1)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Error)
+	})
+
+	t.Run("Variable reference patterns (optional traversal, prefix collisions, index access) are redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "var-patterns",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "sec",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 's')",
+						Result: `map[kind:Secret]`,
+					},
+				},
+				{
+					Name: "sec_backup",
+					ExpressionTrace: ExpressionTrace{
+						Source: "object.metadata.name",
+						Result: "my-pod",
+					},
+				},
+				{
+					Name: "derived",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables.sec_backup == 'my-pod' ? variables.?sec.data.pass : 'fallback'",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.sec_backup == 'my-pod' && variables['sec'] != null",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "variables['sec']", Value: `map[data:map[pass:` + password + `] kind:Secret]`},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[0].Result)
+		assert.Equal(t, "my-pod", entry.Variables[1].Result, "non-secret variable is kept")
+		assert.Equal(t, redacted, entry.Variables[2].Result, "derived secret variable is redacted")
+		require.Len(t, entry.Verdict.Evaluated, 1)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+	})
+
+	t.Run("Direct resource.Get in validation without variable is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "direct-get",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "resource.Get('v1', 'secrets', 'default', 's').data.pass == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{
+							Expression: "resource.Get('v1', 'secrets', 'default', 's').data.pass == 'expected'",
+							Value:      "false",
+						},
+						{
+							Expression: "resource.Get('v1', 'secrets', 'default', 's').data.pass",
+							Value:      password,
+						},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Mutating policy error and value reading Secret are redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "mutate-with-secret",
+			PolicyKind:   "MutatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db')",
+						Result: `map[data:map[token:` + password + `] kind:Secret]`,
+					},
+				},
+			},
+			Mutations: []MutationTrace{
+				{
+					Name:  "mutations[0] (apply)",
+					Error: "failed applying token \"" + password + "\"",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables.dbSecret.data.token",
+						Result: password,
+						Nodes: []NodeTrace{
+							{
+								Expression: "variables.dbSecret.data.token",
+								Error:      "failed to parse token \"" + password + "\"",
+							},
+						},
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status:  VerdictError,
+				Message: "failed applying token \"" + password + "\"",
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.dbSecret.data.token",
+					Result: "failed applying token \"" + password + "\"",
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Verdict.Result)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+		require.Len(t, entry.Mutations, 1)
+		assert.Equal(t, redacted, entry.Mutations[0].Result)
+		assert.Equal(t, redacted, entry.Mutations[0].Error)
+		require.Len(t, entry.Mutations[0].Evaluated, 1)
+		assert.Equal(t, redacted, entry.Mutations[0].Evaluated[0].Error)
+	})
+}
