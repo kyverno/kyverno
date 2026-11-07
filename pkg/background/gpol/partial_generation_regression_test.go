@@ -219,6 +219,7 @@ func TestPartialGenerationTracksCommittedWrites(t *testing.T) {
 					require.Equal(t, "ConfigMap", resource.Kind)
 					require.Equal(t, namespace, resource.Namespace)
 					require.Equal(t, expectedName, resource.Name)
+					require.Equal(t, types.UID("uid-"+expectedName), resource.UID, "UR status must preserve the acknowledged UID to prevent replacement adoption")
 				}
 				// Invoke the exact cleanup operation used by policy deletion.
 				wm.RemoveWatchersForPolicy(policy.Name, true)
@@ -338,6 +339,7 @@ func TestPartialGenerationRetryStatusRestoresPriorResources(t *testing.T) {
 	require.Len(t, status.resources, 1)
 	require.Equal(t, "old", status.resources[0].Name)
 	require.Equal(t, namespace, status.resources[0].Namespace)
+	require.Equal(t, old.GetUID(), status.resources[0].UID, "a retry must retain the original downstream UID")
 	require.Len(t, watchManager.GetDownstreams(policyName), 1)
 	watchManager.RemoveWatchersForPolicy(policyName, true)
 	require.Equal(t, 1, client.deletes)

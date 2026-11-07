@@ -188,6 +188,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 						APIVersion: resource.GetAPIVersion(),
 						Name:       resource.GetName(),
 						Namespace:  resource.GetNamespace(),
+						UID:        resource.GetUID(),
 					})
 				}
 				if isSync && len(resourcesToTrack) > 0 {
@@ -209,6 +210,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 						APIVersion: resource.GetAPIVersion(),
 						Name:       resource.GetName(),
 						Namespace:  resource.GetNamespace(),
+						UID:        resource.GetUID(),
 					})
 				}
 
