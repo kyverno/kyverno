@@ -239,6 +239,96 @@ func TestPatchJSONLimits(t *testing.T) {
 	})
 }
 
+// https://github.com/kyverno/kyverno/issues/18496: a JSON-mode patch must not turn
+// integral doubles into integers, neither in fields it leaves alone nor in the values
+// it writes, while integers stay exact int64 values.
+func TestPatchJSONPreservesNumberTypes(t *testing.T) {
+	tests := []struct {
+		name       string
+		expression string
+		object     map[string]any
+		want       map[string]any
+	}{{
+		name:       "untouched integral double",
+		expression: `[JSONPatch{op: "add", path: "/region", value: "west"}]`,
+		object:     map[string]any{"ratio": float64(2)},
+		want:       map[string]any{"ratio": float64(2), "region": "west"},
+	}, {
+		name:       "untouched doubles nested in a list",
+		expression: `[JSONPatch{op: "add", path: "/region", value: "west"}]`,
+		object:     map[string]any{"weights": []any{float64(1), 0.5}},
+		want:       map[string]any{"weights": []any{float64(1), 0.5}, "region": "west"},
+	}, {
+		name:       "remove-only patch",
+		expression: `[JSONPatch{op: "remove", path: "/region"}]`,
+		object:     map[string]any{"ratio": float64(2), "region": "west"},
+		want:       map[string]any{"ratio": float64(2)},
+	}, {
+		name:       "integral double patch value",
+		expression: `[JSONPatch{op: "add", path: "/ratio", value: 1.0}]`,
+		object:     map[string]any{},
+		want:       map[string]any{"ratio": float64(1)},
+	}, {
+		name:       "integral doubles in a list patch value",
+		expression: `[JSONPatch{op: "add", path: "/weights", value: [1.0, 0.5]}]`,
+		object:     map[string]any{},
+		want:       map[string]any{"weights": []any{float64(1), 0.5}},
+	}, {
+		name:       "integral double in a map patch value",
+		expression: `[JSONPatch{op: "add", path: "/limits", value: {"ratio": 2.0}}]`,
+		object:     map[string]any{},
+		want:       map[string]any{"limits": map[string]any{"ratio": float64(2)}},
+	}, {
+		name:       "integers stay int64",
+		expression: `[JSONPatch{op: "add", path: "/count", value: 3}]`,
+		object:     map[string]any{"big": int64(9007199254740993)},
+		want:       map[string]any{"big": int64(9007199254740993), "count": int64(3)},
+	}, {
+		name:       "test operation on an integral double",
+		expression: `[JSONPatch{op: "test", path: "/ratio", value: 2.0}, JSONPatch{op: "add", path: "/region", value: "west"}]`,
+		object:     map[string]any{"ratio": float64(2)},
+		want:       map[string]any{"ratio": float64(2), "region": "west"},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			patcher := compileJSONPatcher(t, tt.expression)
+			patched, eval, err := patcher.PatchJSON(context.Background(), map[string]any{"object": tt.object}, 10000000)
+			require.NoError(t, err)
+			require.Empty(t, eval.NotApplied)
+			assert.Equal(t, tt.want, patched.Object)
+		})
+	}
+}
+
+func TestMarshalDouble(t *testing.T) {
+	tests := []struct {
+		in   float64
+		want string
+	}{
+		{in: 2, want: `2.0`},
+		{in: 0, want: `0.0`},
+		{in: -3, want: `-3.0`},
+		{in: 0.5, want: `0.5`},
+		{in: 1e21, want: `1e+21`},
+		{in: 1e-7, want: `1e-7`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			got, err := marshalDouble(tt.in)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, string(got))
+		})
+	}
+}
+
+func TestKeepDoubleFractionsWithoutDoubles(t *testing.T) {
+	object := map[string]any{"name": "x", "count": int64(3), "items": []any{"a", true}}
+	got, changed, err := keepDoubleFractions(object)
+	require.NoError(t, err)
+	assert.False(t, changed)
+	assert.Equal(t, object, got)
+}
+
 func TestJSONPatcherReusesDefaultSerializer(t *testing.T) {
 	patcher := compileJSONPatcher(t, `[JSONPatch{op: "add", path: "/spec/x", value: true}]`)
 	require.NotNil(t, patcher.jsonSerializer)
