@@ -1,0 +1,78 @@
+package gpol
+
+import (
+	"testing"
+
+	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
+)
+
+// An incomplete evaluation may add resources of a new kind, but must not
+// discard previously tracked kinds until a complete evaluation succeeds.
+func TestAddWatchersPreservesPriorGVRUntilSuccessfulRetry(t *testing.T) {
+	policyName := "partial-policy"
+	oldGVR := schema.GroupVersionResource{Version: "v1", Resource: "secrets"}
+	newGVR := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	labels := map[string]string{
+		common.GeneratePolicyLabel:     policyName,
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	}
+	old := makeUnstructured("1", "", "v1", "Secret", "old", "ns", types.UID("old-uid"), labels)
+	newer := makeUnstructured("1", "", "v1", "ConfigMap", "new", "ns", types.UID("new-uid"), labels)
+
+	setup := func() (*WatchManager, *MockClient) {
+		client := &MockClient{}
+		wm := &WatchManager{
+			log:    logging.WithName("partial-generation"),
+			client: client,
+			restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+				if gk.Kind == "ConfigMap" {
+					return &meta.RESTMapping{Resource: newGVR}, nil
+				}
+				return &meta.RESTMapping{Resource: oldGVR}, nil
+			}},
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				oldGVR: {
+					watcher: watch.MockWatcher{StopFunc: func() {}},
+					metadataCache: map[types.UID]Resource{
+						old.GetUID(): {Name: old.GetName(), Namespace: old.GetNamespace(), Labels: old.GetLabels(), Hash: "old-hash", Data: old},
+					},
+				},
+				newGVR: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{}},
+			},
+			policyRefs: map[string][]schema.GroupVersionResource{policyName: {oldGVR}},
+			refCount:   map[schema.GroupVersionResource]int{oldGVR: 1},
+		}
+		return wm, client
+	}
+
+	t.Run("partial failure retains both for policy deletion", func(t *testing.T) {
+		wm, client := setup()
+		for i := 0; i < 2; i++ {
+			require.NoError(t, wm.AddWatchers(policyName, nil, []*unstructured.Unstructured{newer}, false))
+		}
+		require.Equal(t, 1, wm.refCount[oldGVR])
+		require.Equal(t, 1, wm.refCount[newGVR])
+		require.Contains(t, wm.dynamicWatchers[oldGVR].metadataCache, old.GetUID())
+		require.Contains(t, wm.dynamicWatchers[newGVR].metadataCache, newer.GetUID())
+		require.Empty(t, client.deleted)
+
+		wm.RemoveWatchersForPolicy(policyName, true)
+		require.ElementsMatch(t, []string{"Secret/ns/old", "ConfigMap/ns/new"}, client.deleted)
+	})
+
+	t.Run("successful retry may prune obsolete kind", func(t *testing.T) {
+		wm, client := setup()
+		require.NoError(t, wm.AddWatchers(policyName, nil, []*unstructured.Unstructured{newer}, false))
+		require.Empty(t, client.deleted)
+		require.NoError(t, wm.SyncWatchers(policyName, nil, []*unstructured.Unstructured{newer}, false))
+		require.Equal(t, []string{"Secret/ns/old"}, client.deleted)
+		require.Contains(t, wm.dynamicWatchers[newGVR].metadataCache, newer.GetUID())
+	})
+}

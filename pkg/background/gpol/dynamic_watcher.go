@@ -149,11 +149,28 @@ func (wm *WatchManager) BeginGenerate(policyName string, triggerUID types.UID) f
 // A nil trigger matches all resources of the policy. useServerSideApply is the policy's
 // setting, recorded on each downstream for the writes sync makes to it later.
 func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.ResourceSpec, generatedResources []*unstructured.Unstructured, useServerSideApply bool) error {
+	return wm.registerWatchers(policyName, trigger, generatedResources, useServerSideApply, true)
+}
+
+// AddWatchers tracks acknowledged partial writes without pruning resources
+// which may still be desired by later, unevaluated generation expressions.
+func (wm *WatchManager) AddWatchers(policyName string, trigger *kyverno.ResourceSpec, generatedResources []*unstructured.Unstructured, useServerSideApply bool) error {
+	return wm.registerWatchers(policyName, trigger, generatedResources, useServerSideApply, false)
+}
+
+func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.ResourceSpec, generatedResources []*unstructured.Unstructured, useServerSideApply bool, reconcile bool) error {
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
 
 	logger := wm.log
 	newGVRs := make(map[schema.GroupVersionResource]bool)
+	if !reconcile {
+		// Retain existing GVR ownership and watcher caches for an incomplete
+		// evaluation. Repeated partial retries must not double-count refs.
+		for _, gvr := range wm.policyRefs[policyName] {
+			newGVRs[gvr] = true
+		}
+	}
 	// start a new watcher for each generated resource
 	for _, resource := range generatedResources {
 		gvk := resource.GroupVersionKind()

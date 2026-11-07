@@ -178,6 +178,23 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			if res.Result.Status() == engineapi.RuleStatusSkip {
 				c.eventGen.Add(event.NewPolicyExceptionEvents(engineResponse, *res.Result, event.GeneratePolicyController)...)
 			} else if res.Result.Status() == engineapi.RuleStatusError || res.Result.Status() == engineapi.RuleStatusFail {
+				// A failed evaluation can still contain acknowledged downstream writes.
+				// Report them with the failed UR and register them additively, without
+				// treating an incomplete set as a desired set for deletion.
+				resourcesToTrack := res.Result.GeneratedResources()
+				for _, resource := range resourcesToTrack {
+					generatedResources = append(generatedResources, kyverno.ResourceSpec{
+						Kind:       resource.GetKind(),
+						APIVersion: resource.GetAPIVersion(),
+						Name:       resource.GetName(),
+						Namespace:  resource.GetNamespace(),
+					})
+				}
+				if isSync && len(resourcesToTrack) > 0 {
+					if err := c.watchManager.AddWatchers(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger, resourcesToTrack, policy.Policy.GetSpec().UseServerSideApply); err != nil {
+						logger.Error(err, "failed to track partially generated resources", "gpol", ur.Spec.GetPolicyKey())
+					}
+				}
 				// surface evaluation/generation errors instead of silently
 				// reporting the UR as Completed, so users can diagnose why no
 				// resources were generated (https://github.com/kyverno/kyverno/issues/16983)
