@@ -6,6 +6,7 @@ It contains instructions to build, run, and test Kyverno.
 
 - [Open project in devcontainer](#open-project-in-devcontainer-recommended)
 - [Tools](#tools)
+- [Kubernetes CI matrix](#kubernetes-ci-matrix)
 - [Building local binaries](#building-local-binaries)
   - [Building kyvernopre locally](#building-kyvernopre-locally)
   - [Building kyverno locally](#building-kyverno-locally)
@@ -301,7 +302,7 @@ To create a local KinD cluster, run:
 make kind-create-cluster
 ```
 
-You can override the k8s version by setting the `KIND_IMAGE` environment variable (default value is `kindest/node:v1.29.1`).
+You can override the k8s version by setting the `KIND_IMAGE` environment variable (default value is `kindest/node:v1.35.1`).
 
 You can also override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
 
@@ -461,7 +462,7 @@ Based on the [APIs golang code definitions](./api), you can generate the corresp
 make codegen-api-docs
 ```
 
-This will output API docs in [/docs/crd](./docs/crd).
+This will output API docs in [/docs/user/crd](./docs/user/crd).
 
 ### Generating helm charts CRDs
 

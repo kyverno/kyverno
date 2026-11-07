@@ -158,6 +158,24 @@ func TestReconcile_ExtractionMode(t *testing.T) {
 	assert.True(t, sawJobSetVariant, "expected a jobsets autogen variant")
 }
 
+func TestReconcile_JSONModeDoesNotGenerateAutogenPolicies(t *testing.T) {
+	ctx := context.Background()
+	policy := jsonMutationPolicy("json-pod", `[JSONPatch{op:"add",path:"/metadata/labels/mutated",value:"yes"}]`)
+	policy.Spec.MatchConstraints = &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+				Rule:       admissionregistrationv1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"pods"}},
+			},
+		}},
+	}
+	rec := newReconciler(&fakeClient{policy: policy}, compiler.NewCompiler(), nil, false)
+
+	_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: policy.Name}})
+	require.NoError(t, err)
+	require.Len(t, rec.Fetch(ctx, false), 1)
+}
+
 func TestFetch(t *testing.T) {
 	trueBool := true
 	falseBool := false

@@ -56,10 +56,10 @@ type Source struct {
 }
 
 // Descriptor is the normalized form of the optional kyverno-bundle.yaml input that Write
-// serializes into the config blob and manifest annotations. Parsing kyverno-bundle.yaml into a
-// Descriptor, and deriving Sets from spec.sets[].paths, is #17663's job; a nil Descriptor is a
-// push with no descriptor, and Write applies the no-descriptor defaults from bundle-spec.md
-// section 6 in that case (omit every optional field, assign Sets by kind).
+// serializes into the config blob and manifest annotations. LoadDescriptor (descriptor.go) parses
+// kyverno-bundle.yaml and derives Sets from spec.sets[].paths; a nil Descriptor is a push with no
+// descriptor, and Write applies the no-descriptor defaults from bundle-spec.md section 6 in that
+// case (omit every optional field, assign Sets by kind).
 type Descriptor struct {
 	Name           string
 	Version        string

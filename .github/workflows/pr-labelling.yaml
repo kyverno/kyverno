@@ -7,27 +7,19 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened]
 
-permissions:
-  contents: read
-  pull-requests: write
-
-concurrency:
-  group: pr-labelling-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+permissions: {}
 
 jobs:
   labeler:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout trusted default branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-      - uses: ./.github/actions/pr-management
-        env:
-          GH_TOKEN: ${{ github.token }}
-        with:
-          mode: labels
-          dry-run: 'false'
+    # The shared workflow holds several jobs, so the caller grants their union; this job's own token is limited to
+    # contents: read, issues: write and pull-requests: write.
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: read
+      actions: read
+    uses: kyverno/assistant/.github/workflows/pr-management.yml@e2d2f01371144e88e99fdf124e885bf4879c705e
+    with:
+      mode: labels
+      dry-run: 'false'

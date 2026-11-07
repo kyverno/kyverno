@@ -11,8 +11,8 @@ results:
   kind: Pod
   policy: restrict-sysctls
   resources:
-  - unsafe-sysctl
   - mixed-sysctls
+  - unsafe-sysctl
   result: fail
 - isValidatingPolicy: true
   kind: Pod

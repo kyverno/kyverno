@@ -9,8 +9,6 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/bundle"
 )
 
@@ -50,19 +48,12 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 	if err == nil && !fi.IsDir() {
 		return fmt.Errorf("dir '%s' must be a directory", dir)
 	}
-	ref, err := name.ParseReference(o.imageRef)
+
+	img, ref, err := FetchImage(ctx, o.imageRef, keychain)
 	if err != nil {
-		return fmt.Errorf("parsing image reference: %v", err)
+		return err
 	}
 	fmt.Fprintf(os.Stderr, "Downloading policies from an image [%s]...\n", ref.Name())
-	rmt, err := remote.Get(ref, remote.WithContext(ctx), remote.WithAuthFromKeychain(keychain))
-	if err != nil {
-		return fmt.Errorf("fetching remote image: %v", err)
-	}
-	img, err := rmt.Image()
-	if err != nil {
-		return fmt.Errorf("loading image from manifest: %v", err)
-	}
 
 	if _, err := bundle.Read(img, dir); err != nil {
 		return err

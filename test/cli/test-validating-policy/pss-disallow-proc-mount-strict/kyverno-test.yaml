@@ -12,8 +12,8 @@ results:
   policy: disallow-proc-mount-strict
   resources:
   - strict-unmasked-host-users-absent
-  - strict-unmasked-host-users-true
   - strict-unmasked-host-users-false
+  - strict-unmasked-host-users-true
   - strict-unmasked-init-host-users-false
   result: fail
 - isValidatingPolicy: true

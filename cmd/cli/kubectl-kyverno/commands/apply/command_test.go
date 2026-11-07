@@ -10,7 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	fatihcolor "github.com/fatih/color"
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
@@ -19,6 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 )
 
 func TestMain(m *testing.M) {
@@ -27,24 +30,333 @@ func TestMain(m *testing.M) {
 }
 
 func TestPrintSkippedAndInvalidPolicies(t *testing.T) {
-	var out bytes.Buffer
-	printSkippedAndInvalidPolicies(&out, SkippedInvalidPolicies{
-		skipped: []PolicyDiagnostic{{
-			name:   "skipped-policy",
-			reason: "missing variable `request.operation`",
-		}},
-		invalid: []PolicyDiagnostic{{
-			name:   "invalid-policy",
-			reason: "failed to compile policy invalid-policy (spec.matchConditions[0].expression: Forbidden: variables cannot be referenced)",
-		}},
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
 	})
 
-	printed := out.String()
-	assert.Contains(t, printed, "Policies Skipped:")
-	assert.Contains(t, printed, "1. skipped-policy: missing variable `request.operation`")
-	assert.Contains(t, printed, "Invalid Policies:")
-	assert.Contains(t, printed, "1. invalid-policy: failed to compile policy invalid-policy")
-	assert.Contains(t, printed, "variables cannot be referenced")
+	testData := SkippedInvalidPolicies{
+		skipped: []PolicyDiagnostic{
+			{
+				name:   "skipped-policy",
+				reason: "missing variable `request.operation`",
+			},
+			{
+				name:   "skipped-policy-no-reason",
+				reason: "",
+			},
+		},
+		invalid: []PolicyDiagnostic{
+			{
+				name:   "invalid-policy",
+				reason: "failed to compile policy invalid-policy (spec.matchConditions[0].expression: Forbidden: variables cannot be referenced)",
+			},
+			{
+				name:   "invalid-policy-no-reason",
+				reason: "",
+			},
+			{
+				name:   "policies/team-a/typo.yaml",
+				reason: "failed to parse YAML",
+			},
+		},
+	}
+
+	t.Run("color disabled", func(t *testing.T) {
+		fatihcolor.NoColor = true
+		color.Init(true)
+		var out bytes.Buffer
+		printSkippedAndInvalidPolicies(&out, testData)
+
+		printed := out.String()
+		assert.Contains(t, printed, "Policies Skipped:")
+		assert.Contains(t, printed, "1. skipped-policy: missing variable `request.operation`")
+		assert.Contains(t, printed, "2. skipped-policy-no-reason")
+		assert.Contains(t, printed, "Invalid Policies:")
+		assert.Contains(t, printed, "1. invalid-policy: failed to compile policy invalid-policy")
+		assert.Contains(t, printed, "2. invalid-policy-no-reason")
+		assert.Contains(t, printed, "3. policies/team-a/typo.yaml: failed to parse YAML")
+		assert.Contains(t, printed, "variables cannot be referenced")
+		assert.NotContains(t, printed, "\x1b[")
+	})
+
+	t.Run("color enabled", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		color.Init(false)
+		var out bytes.Buffer
+		printSkippedAndInvalidPolicies(&out, testData)
+
+		printed := out.String()
+		assert.Contains(t, printed, "\x1b[33;1mPolicies Skipped:\x1b[0;22m")
+		assert.Contains(t, printed, "\x1b[36;1mskipped-policy\x1b[0;22m: missing variable `request.operation`")
+		assert.Contains(t, printed, "\x1b[36;1mskipped-policy-no-reason\x1b[0;22m")
+		assert.Contains(t, printed, "\x1b[31;1mInvalid Policies:\x1b[0;22m")
+		assert.Contains(t, printed, "\x1b[36;1minvalid-policy\x1b[0;22m: failed to compile policy invalid-policy")
+		assert.Contains(t, printed, "\x1b[36;1minvalid-policy-no-reason\x1b[0;22m")
+		assert.Contains(t, printed, "\x1b[36;1mpolicies/team-a/typo.yaml\x1b[0;22m: failed to parse YAML")
+	})
+}
+
+func TestPrintViolations(t *testing.T) {
+	rc := &processor.ResultCounts{
+		Pass:  1,
+		Fail:  2,
+		Warn:  3,
+		Error: 4,
+		Skip:  5,
+	}
+
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	t.Run("color disabled", func(t *testing.T) {
+		fatihcolor.NoColor = true
+		color.Init(true)
+		var out bytes.Buffer
+		printViolations(&out, rc)
+		expected := "\npass: 1, fail: 2, warn: 3, error: 4, skip: 5 \n"
+		assert.Equal(t, expected, out.String())
+		assert.NotContains(t, out.String(), "\x1b[")
+	})
+
+	t.Run("color enabled", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		color.Init(false)
+		var out bytes.Buffer
+		printViolations(&out, rc)
+		expected := "\npass: \x1b[32;1m1\x1b[0;22m, fail: \x1b[31;1m2\x1b[0;22m, warn: \x1b[33;1m3\x1b[0;22m, error: \x1b[31;1m4\x1b[0;22m, skip: \x1b[36;1m5\x1b[0;22m \n"
+		assert.Equal(t, expected, out.String())
+	})
+}
+
+func TestApplyJSONMutationUsesExistingOutput(t *testing.T) {
+	base := "../../../../../test/cli/test-mutating-policy/json-document-mutation/"
+	output := t.TempDir()
+	config := &ApplyCommandConfig{
+		PolicyPaths: []string{base + "policy.yaml"},
+		JSONPaths:   []string{base + "input.json", base + "nested/input.json"},
+		OutputDir:   output,
+	}
+	rc, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.NoError(t, err)
+	require.Equal(t, 4, rc.Pass)
+	require.Zero(t, rc.Error)
+	content, err := os.ReadFile(filepath.Join(output, "add-region-mutated.yaml"))
+	require.NoError(t, err)
+	require.Equal(t, 2, strings.Count(string(content), "region: west"))
+	require.Contains(t, string(content), "9007199254740993")
+}
+
+func TestApplyJSONMutationRejectsNonObject(t *testing.T) {
+	for _, root := range []string{"[]", "null", "true"} {
+		t.Run(root, func(t *testing.T) {
+			input := filepath.Join(t.TempDir(), "input.json")
+			require.NoError(t, os.WriteFile(input, []byte(root), 0o600))
+			config := &ApplyCommandConfig{
+				PolicyPaths: []string{"../../../../../test/cli/test-mutating-policy/json-document-mutation/policy.yaml"},
+				JSONPaths:   []string{input},
+			}
+			_, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+			require.ErrorContains(t, err, "top-level object")
+		})
+	}
+}
+
+func TestApplyJSONMutationSkipsUnusedKubernetesPolicy(t *testing.T) {
+	base := "../../../../../test/cli/test-mutating-policy/json-document-mutation/"
+	policies, err := os.ReadFile(base + "policy.yaml")
+	require.NoError(t, err)
+	policies = append(policies, []byte(`
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: unused-kubernetes-policy
+spec:
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: 'undefinedVariable'
+`)...)
+	path := filepath.Join(t.TempDir(), "policies.yaml")
+	require.NoError(t, os.WriteFile(path, policies, 0o600))
+	config := &ApplyCommandConfig{PolicyPaths: []string{path}, JSONPaths: []string{base + "input.json"}}
+	rc, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.NoError(t, err)
+	require.Equal(t, 2, rc.Pass)
+	require.Zero(t, rc.Error)
+}
+
+func TestApplyResourceMutationSkipsUnusedJSONPolicy(t *testing.T) {
+	for _, mutation := range []struct {
+		name string
+		yaml string
+	}{
+		{"invalid expression", `- patchType: JSONPatch
+    jsonPatch:
+      expression: 'undefinedVariable'`},
+		{"unsupported patch type", `- patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: 'Object{}'`},
+	} {
+		for _, inputs := range []struct {
+			name               string
+			withResourcePolicy bool
+			withJSONInput      bool
+		}{
+			{"resource only", true, false},
+			{"no applicable policies", false, false},
+			{"applicable invalid JSON policy", false, true},
+		} {
+			t.Run(mutation.name+"/"+inputs.name, func(t *testing.T) {
+				dir := t.TempDir()
+				policy := filepath.Join(dir, "policies.yaml")
+				policies := fmt.Sprintf(`
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: invalid-json-policy
+spec:
+  evaluation:
+    mode: JSON
+  mutations:
+  %s
+`, mutation.yaml)
+				if inputs.withResourcePolicy {
+					policies += `
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: mutate-resource
+spec:
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "add", path: "/data/mutated", value: "yes"}]'
+`
+				}
+				require.NoError(t, os.WriteFile(policy, []byte(policies), 0o600))
+				resource := filepath.Join(dir, "resource.yaml")
+				require.NoError(t, os.WriteFile(resource, []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: input
+data: {}
+`), 0o600))
+				config := &ApplyCommandConfig{PolicyPaths: []string{policy}, ResourcePaths: []string{resource}}
+				if inputs.withJSONInput {
+					config.ResourcePaths = nil
+					config.JSONPaths = []string{"../../../../../test/cli/test-mutating-policy/json-document-mutation/input.json"}
+				}
+				rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+				if inputs.withJSONInput {
+					require.ErrorContains(t, err, "failed to compile policy invalid-json-policy")
+					return
+				}
+				require.NoError(t, err)
+				require.Zero(t, rc.Error)
+				if inputs.withResourcePolicy {
+					require.Equal(t, 1, rc.Pass)
+					require.Len(t, responses, 1)
+					require.Equal(t, map[string]any{"mutated": "yes"}, responses[0].PatchedResource.Object["data"])
+				} else {
+					require.Zero(t, rc.Pass)
+					require.Empty(t, responses)
+				}
+			})
+		}
+	}
+}
+
+func TestApplyJSONMutationDoesNotMutateKubernetesObject(t *testing.T) {
+	input := filepath.Join(t.TempDir(), "resource.json")
+	require.NoError(t, os.WriteFile(input, []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"input"},"id":1}`), 0o600))
+	policy := filepath.Join(t.TempDir(), "json-policy.yaml")
+	require.NoError(t, os.WriteFile(policy, []byte(`
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: json-only
+spec:
+  evaluation:
+    mode: JSON
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "add", path: "/region", value: "west"}]'
+`), 0o600))
+	config := &ApplyCommandConfig{
+		PolicyPaths:   []string{policy},
+		ResourcePaths: []string{input},
+	}
+	rc, resources, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.NoError(t, err)
+	require.Zero(t, rc.Pass)
+	require.Zero(t, rc.Fail)
+	require.Zero(t, rc.Error)
+	require.Len(t, resources, 1)
+	require.Equal(t, "ConfigMap", resources[0].GetKind())
+	require.Equal(t, "input", resources[0].GetName())
+	require.Empty(t, responses)
+	require.NotContains(t, resources[0].Object, "region")
+}
+
+func TestApplyJSONMutationSkipDoesNotPrintSuccess(t *testing.T) {
+	base := "../../../../../test/cli/test-mutating-policy/json-document-mutation/"
+	for _, tc := range []struct {
+		name       string
+		match      string
+		expression string
+	}{
+		{
+			name:       "match condition",
+			match:      "false",
+			expression: `[JSONPatch{op: "add", path: "/region", value: "west"}]`,
+		},
+		{
+			name:       "failed patch test",
+			expression: `[JSONPatch{op: "test", path: "/id", value: 1}, JSONPatch{op: "add", path: "/region", value: "west"}]`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			policy := filepath.Join(t.TempDir(), "skip-policy.yaml")
+			matchCondition := ""
+			if tc.match != "" {
+				matchCondition = fmt.Sprintf(`
+  matchConditions:
+  - name: excluded
+    expression: %q`, tc.match)
+			}
+			require.NoError(t, os.WriteFile(policy, []byte(fmt.Sprintf(`
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: skip-json-mutation
+spec:
+  evaluation:
+    mode: JSON
+%s
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: %q
+`, matchCondition, tc.expression)), 0o600))
+			var out bytes.Buffer
+			config := &ApplyCommandConfig{PolicyPaths: []string{policy}, JSONPaths: []string{base + "input.json"}}
+			rc, _, _, responses, err := config.applyCommandHelper(context.Background(), &out)
+			require.NoError(t, err)
+			require.Equal(t, 1, rc.Skip)
+			require.Zero(t, rc.Pass)
+			require.Len(t, responses, 1)
+			require.NotContains(t, out.String(), "Mutation has been applied successfully")
+			require.NotContains(t, out.String(), "region: west")
+		})
+	}
 }
 
 func Test_Apply(t *testing.T) {
@@ -1796,6 +2108,14 @@ func Test_Apply_Explain(t *testing.T) {
 		},
 		want: []string{"(MutatingPolicy)", "SCOPE      applied", "MUTATIONS", "VERDICT    PASS"},
 	}, {
+		name: "mutating policy on a JSON payload",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{base + "test-mutating-policy/json-document-mutation/policy.yaml"},
+			JSONPaths:   []string{base + "test-mutating-policy/json-document-mutation/input.json"},
+		},
+		want:       []string{"add-region (MutatingPolicy)", "evaluated against a JSON payload", "MUTATIONS", "VERDICT    PASS"},
+		wantCounts: &processor.ResultCounts{Pass: 2},
+	}, {
 		name: "validating policy on a JSON payload",
 		config: ApplyCommandConfig{
 			PolicyPaths: []string{base + "test-validating-policy/json-check-dockerfile/policy.yaml"},
@@ -2035,4 +2355,124 @@ func Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition(t *testing.T) {
 			assert.Contains(t, out.String(), "evaluated against a JSON payload")
 		}
 	}
+}
+
+func TestCommandWithColorAndRemoveColor(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+
+	policyPath := "../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"
+	resourcePath := "../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"
+
+	t.Run("color enabled by default", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "\x1b[31;1mfailed:\x1b[0;22m")
+		assert.Contains(t, output, "\x1b[36;1mdisallow-host-path\x1b[0;22m")
+		assert.Contains(t, output, "\x1b[31;1m1\x1b[0;22m")
+	})
+
+	t.Run("remove color with flag", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--remove-color"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "failed:")
+		assert.Contains(t, output, "policy disallow-host-path -> resource default/Pod/bad-pod failed:")
+		assert.NotContains(t, output, "\x1b[")
+	})
+
+	t.Run("suppress color in policy-report structured output", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--policy-report"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: ClusterReport")
+		assert.NotContains(t, output, "\x1b[")
+	})
+
+	t.Run("suppress color in generate-exceptions structured output", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--generate-exceptions"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: PolicyException")
+		assert.NotContains(t, output, "\x1b[")
+
+		var parsed map[string]any
+		trimmed := bytes.TrimPrefix(out.Bytes(), []byte("---\n"))
+		require.NoError(t, yaml.Unmarshal(trimmed, &parsed))
+	})
+
+	t.Run("suppress color in stdin mode", func(t *testing.T) {
+		fatihcolor.NoColor = false
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--stdin"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "failed:")
+		assert.NotContains(t, output, "\x1b[")
+	})
+}
+
+func Test_Apply_PolicyReport_DeprecatedUserInfoWarningNoColor(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+	fatihcolor.NoColor = false
+	color.Init(false)
+
+	policyPath := "../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"
+	resourcePath := "../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"
+	userInfoPath := "../../_testdata/user-infos/valid.yaml"
+
+	cmd := Command()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "-u", userInfoPath, "-p"})
+	err := cmd.Execute()
+	assert.Error(t, err)
+
+	output := out.String()
+	assert.Contains(t, output, "WARNING: user infos file")
+	assert.Contains(t, output, "uses a deprecated schema")
+	assert.Contains(t, output, "kind: ClusterReport")
+	assert.NotContains(t, output, "\x1b[")
 }
