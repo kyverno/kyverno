@@ -749,6 +749,64 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
 	})
 
+	t.Run("Secret read via GVR variable alias with unclassifiable result is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "gvr-alias-source-only",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "gvr",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.ToGVR('v1', 'Secret')",
+						Result: "/v1, Resource=secrets",
+					},
+				},
+				{
+					Name: "alias",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables.gvr",
+						Result: "<gvr-alias-opaque>",
+					},
+				},
+				{
+					Name: "sec",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get(variables.alias, 'default', 'db')",
+						Result: `map[data:map[password:` + password + `]]`,
+					},
+				},
+				{
+					Name: "pass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables.sec.data.password",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.pass == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "variables.pass", Value: password},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[2].Result)
+		assert.Equal(t, redacted, entry.Variables[3].Result)
+		require.Len(t, entry.Verdict.Evaluated, 1)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+	})
+
 	t.Run("Secret read with variable resource name in resource.Get is redacted", func(t *testing.T) {
 		d := &Decision{
 			PolicyName:   "variable-resource-name",
