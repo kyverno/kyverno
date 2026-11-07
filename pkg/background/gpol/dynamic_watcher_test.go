@@ -2142,6 +2142,14 @@ func TestHandleUpdate_SourcePropagation_CachesEachDownstreamsOwnContent(t *testi
 		assert.Equal(t, "v2", updatedCache[uid].Data.Object["data"].(map[string]interface{})["ca.crt"],
 			"cache entry %s must carry the updated source content", uid)
 	}
+	// A shallow copy with separate metadata but shared content would pass the assertions above:
+	// mutate one entry's nested map and check the others retain their own content.
+	mutated := updatedCache["ds-uid-a"].Data.Object["data"].(map[string]interface{})
+	mutated["ca.crt"] = "poisoned"
+	assert.Equal(t, "v2", updatedCache["ds-uid-b"].Data.Object["data"].(map[string]interface{})["ca.crt"],
+		"mutating one cache entry's content must not leak into another downstream's entry")
+	assert.Equal(t, "v2", updatedCache["ds-uid-c"].Data.Object["data"].(map[string]interface{})["ca.crt"],
+		"mutating one cache entry's content must not leak into another downstream's entry")
 }
 
 // usageDownstream returns a generated Crossplane Usage the way Kyverno caches it: its own labels and
