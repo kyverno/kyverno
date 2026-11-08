@@ -183,10 +183,11 @@ func CreateNamespace(t *testing.T, kubeClient kubernetes.Interface, name string)
 // environment or tenant labels a policy's namespaceSelector or a namespaceObject expression reads.
 func CreateNamespaceWithLabels(t *testing.T, kubeClient kubernetes.Interface, name string, labels map[string]string) {
 	t.Helper()
-	nsLabels := map[string]string{"kubernetes.io/metadata.name": name}
+	nsLabels := make(map[string]string, len(labels)+1)
 	for k, v := range labels {
 		nsLabels[k] = v
 	}
+	nsLabels["kubernetes.io/metadata.name"] = name
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,

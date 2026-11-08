@@ -4,7 +4,7 @@ package vpol_test
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -23,28 +23,25 @@ import (
 // podJSON returns a minimal Pod manifest in the given namespace, with optional labels and an
 // optional pod-level runAsNonRoot setting.
 func podJSON(name, namespace string, labels map[string]string, runAsNonRoot bool) []byte {
-	labelsJSON := "{}"
-	if len(labels) > 0 {
-		labelsJSON = "{"
-		first := true
-		for k, v := range labels {
-			if !first {
-				labelsJSON += ","
-			}
-			labelsJSON += fmt.Sprintf("%q:%q", k, v)
-			first = false
-		}
-		labelsJSON += "}"
+	if labels == nil {
+		labels = map[string]string{}
 	}
-	securityContext := ""
+	spec := map[string]any{
+		"containers": []any{map[string]any{"name": "app", "image": "nginx:1.27"}},
+	}
 	if runAsNonRoot {
-		securityContext = `"securityContext": {"runAsNonRoot": true},`
+		spec["securityContext"] = map[string]any{"runAsNonRoot": true}
 	}
-	return []byte(fmt.Sprintf(`{
-		"apiVersion": "v1", "kind": "Pod",
-		"metadata": {"name": %q, "namespace": %q, "labels": %s},
-		"spec": {%s "containers": [{"name": "app", "image": "nginx:1.27"}]}
-	}`, name, namespace, labelsJSON, securityContext))
+	raw, err := json.Marshal(map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata":   map[string]any{"name": name, "namespace": namespace, "labels": labels},
+		"spec":       spec,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return raw
 }
 
 func TestValidate_NamespaceSelector_EnforcesOnlyInProductionNamespaces(t *testing.T) {

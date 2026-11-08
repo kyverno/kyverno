@@ -53,3 +53,13 @@ func TestCreateNamespaceWithLabels_KeepsTheMetadataNameLabel(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]string{"kubernetes.io/metadata.name": "orders", "team": "checkout"}, ns.Labels)
 }
+
+func TestCreateNamespaceWithLabels_MetadataNameAlwaysMatchesTheNamespace(t *testing.T) {
+	client := fake.NewClientset()
+
+	CreateNamespaceWithLabels(t, client, "orders", map[string]string{"kubernetes.io/metadata.name": "something-else"})
+
+	ns, err := client.CoreV1().Namespaces().Get(context.Background(), "orders", metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, "orders", ns.Labels["kubernetes.io/metadata.name"])
+}
