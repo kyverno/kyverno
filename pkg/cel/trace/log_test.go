@@ -1354,6 +1354,7 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 			},
 		}
 
+		assert.True(t, newLogFormat(d).isSecretExpr(`dyn ( variables ) [ "dbSecret" ].data.password`))
 		entry, _ := logged(t, d)
 		raw, err := json.Marshal(entry)
 		require.NoError(t, err)
@@ -1511,6 +1512,95 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 					Nodes: []NodeTrace{
 						{Expression: `dyn(Vars)["dbSecret"].data.password`, Value: password},
 						{Expression: `dyn(Vars)["dbSecret"].data.password == 'expected'`, Value: "false"},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Taint variables accessed through collections (e.g. [dyn(variables)][0].dbPass)", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "collection-variable-access",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db').data.password",
+						Result: password,
+					},
+				},
+				{
+					Name: "collectedPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "[dyn(variables)][0].dbPass",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.collectedPass == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "variables.collectedPass", Value: password},
+						{Expression: "variables.collectedPass == 'expected'", Value: "false"},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[0].Result)
+		assert.Equal(t, redacted, entry.Variables[1].Result)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Conditional resource.Get selector with safe and secret GVR is tainted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "conditional-safe-and-secret-gvr",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "cmGvr",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.ToGVR('v1', 'ConfigMap')",
+						Result: "v1/ConfigMap",
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "resource.Get(object.spec.useSecret ? resource.ToGVR('v1', 'Secret') : variables.cmGvr, 'default', 'db').data.password != ''",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{
+							Expression: "resource.Get(object.spec.useSecret ? resource.ToGVR('v1', 'Secret') : variables.cmGvr, 'default', 'db').data.password",
+							Value:      password,
+						},
+						{
+							Expression: "resource.Get(object.spec.useSecret ? resource.ToGVR('v1', 'Secret') : variables.cmGvr, 'default', 'db').data.password != ''",
+							Value:      "false",
+						},
 					},
 				},
 			},

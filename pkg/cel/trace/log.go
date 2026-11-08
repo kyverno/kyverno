@@ -431,7 +431,58 @@ func isVariablesExpr(e celast.Expr, varAliases map[string]bool) bool {
 	return false
 }
 
-// astContainsVar reports whether AST expression e references varName under variables or its aliases.
+// referencesVariablesRoot reports whether AST node e references the variables root or any of its aliases.
+func referencesVariablesRoot(e celast.Expr, varAliases map[string]bool) bool {
+	if e == nil {
+		return false
+	}
+	refs := false
+	celast.PreOrderVisit(e, celast.NewExprVisitor(func(sub celast.Expr) {
+		if refs {
+			return
+		}
+		if sub.Kind() == celast.IdentKind {
+			ident := sub.AsIdent()
+			if ident == "variables" || (varAliases != nil && varAliases[ident]) {
+				refs = true
+			}
+		}
+	}))
+	return refs
+}
+
+// isBareVariableRef reports whether AST expression e is a bare reference to varName
+// under variables or its aliases (e.g. varName, variables.varName, dyn(variables)["varName"]),
+// and NOT a composite expression such as a ternary or collection containing varName.
+func isBareVariableRef(e celast.Expr, varName string, varAliases map[string]bool) bool {
+	if e == nil {
+		return false
+	}
+	switch e.Kind() {
+	case celast.IdentKind:
+		return e.AsIdent() == varName
+	case celast.SelectKind:
+		sel := e.AsSelect()
+		return sel.FieldName() == varName && isVariablesExpr(sel.Operand(), varAliases)
+	case celast.CallKind:
+		call := e.AsCall()
+		fn := call.FunctionName()
+		if strings.EqualFold(fn, "dyn") && len(call.Args()) == 1 {
+			return isBareVariableRef(call.Args()[0], varName, varAliases)
+		}
+		if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
+			if isVariablesExpr(call.Args()[0], varAliases) && call.Args()[1].Kind() == celast.LiteralKind {
+				if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// astContainsVar reports whether AST expression e references varName under variables or its aliases,
+// including through collections, dyn wrapping, or property accesses.
 func astContainsVar(e celast.Expr, sourceInfo *celast.SourceInfo, varName string, varAliases map[string]bool) bool {
 	if e == nil {
 		return false
@@ -451,14 +502,14 @@ func astContainsVar(e celast.Expr, sourceInfo *celast.SourceInfo, varName string
 		switch sub.Kind() {
 		case celast.SelectKind:
 			sel := sub.AsSelect()
-			if sel.FieldName() == varName && isVariablesExpr(sel.Operand(), varAliases) {
+			if sel.FieldName() == varName && (isVariablesExpr(sel.Operand(), varAliases) || referencesVariablesRoot(sel.Operand(), varAliases)) {
 				found = true
 			}
 		case celast.CallKind:
 			call := sub.AsCall()
 			fn := call.FunctionName()
 			if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
-				if isVariablesExpr(call.Args()[0], varAliases) && call.Args()[1].Kind() == celast.LiteralKind {
+				if (isVariablesExpr(call.Args()[0], varAliases) || referencesVariablesRoot(call.Args()[0], varAliases)) && call.Args()[1].Kind() == celast.LiteralKind {
 					if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
 						found = true
 					}
@@ -671,6 +722,11 @@ func (l logFormat) readsSecret(expr string) bool {
 						return
 					}
 				}
+				for safeVar := range l.safeGVRVars {
+					if isBareVariableRef(args[1], safeVar, l.varAliases) {
+						return
+					}
+				}
 				// args[1] is a dynamic resource selector (e.g. cond ? 'secrets' : 'configmaps')
 				// Unknown dynamic selectors need conservative tainting.
 				reads = true
@@ -695,7 +751,7 @@ func (l logFormat) readsSecret(expr string) bool {
 			}
 		}
 		for safeVar := range l.safeGVRVars {
-			if astContainsVar(args[0], sourceInfo, safeVar, l.varAliases) {
+			if isBareVariableRef(args[0], safeVar, l.varAliases) {
 				return
 			}
 		}
@@ -744,14 +800,14 @@ func containsVar(expr, varName string, varAliases map[string]bool) bool {
 			switch e.Kind() {
 			case celast.SelectKind:
 				sel := e.AsSelect()
-				if sel.FieldName() == varName && isVariablesExpr(sel.Operand(), varAliases) {
+				if sel.FieldName() == varName && (isVariablesExpr(sel.Operand(), varAliases) || referencesVariablesRoot(sel.Operand(), varAliases)) {
 					found = true
 				}
 			case celast.CallKind:
 				call := e.AsCall()
 				fn := call.FunctionName()
 				if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
-					if isVariablesExpr(call.Args()[0], varAliases) && call.Args()[1].Kind() == celast.LiteralKind {
+					if (isVariablesExpr(call.Args()[0], varAliases) || referencesVariablesRoot(call.Args()[0], varAliases)) && call.Args()[1].Kind() == celast.LiteralKind {
 						if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
 							found = true
 						}
