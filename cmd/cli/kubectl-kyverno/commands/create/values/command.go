@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 
@@ -60,16 +61,10 @@ func Command() *cobra.Command {
 				return err
 			}
 
-			output := cmd.OutOrStdout()
 			if path != "" {
-				file, err := os.Create(path) // #nosec G304
-				if err != nil {
-					return err
-				}
-				defer file.Close()
-				output = file
+				return writeOutputFile(path, buf.Bytes())
 			}
-			_, err = output.Write(buf.Bytes())
+			_, err = cmd.OutOrStdout().Write(buf.Bytes())
 			return err
 		},
 	}
@@ -79,6 +74,45 @@ func Command() *cobra.Command {
 	cmd.Flags().StringArrayVar(&rules, "rule", nil, "Policy rule values")
 	cmd.Flags().StringArrayVar(&resources, "resource", nil, "Policy resource values")
 	return cmd
+}
+
+// writeOutputFile writes data safely to destination path using a temporary file in the same directory,
+// preserving any pre-existing permissions and symlink targets.
+func writeOutputFile(path string, data []byte) error {
+	targetPath := filepath.Clean(path)
+	if fi, err := os.Lstat(targetPath); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		if resolved, err := filepath.EvalSymlinks(targetPath); err == nil {
+			targetPath = resolved
+		}
+	}
+
+	mode := os.FileMode(0644)
+	if fi, err := os.Stat(targetPath); err == nil {
+		mode = fi.Mode().Perm()
+	}
+
+	dir := filepath.Dir(targetPath)
+	tmpFile, err := os.CreateTemp(dir, "values-*.tmp") // #nosec G304
+	if err != nil {
+		return err
+	}
+	tmpName := tmpFile.Name()
+	defer func() {
+		_ = os.Remove(tmpName) // #nosec G304
+	}()
+
+	if err := tmpFile.Chmod(mode); err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+	if _, err := tmpFile.Write(data); err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, targetPath) // #nosec G304
 }
 
 // formatValue formats a value for safe YAML template serialization.
