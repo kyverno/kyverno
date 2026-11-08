@@ -77,9 +77,9 @@ type contextProvider struct {
 	// UID-qualified identities from the current UpdateRequest, isolated per
 	// evaluation. These authorize only matching legacy downstream objects.
 	acknowledgedGeneratedResources map[string]string
-	genCtx             generateContext
-	cliEvaluation      bool // if true, libraries that create resources (like the generator library) don't post the created resource to an actual cluster
-	restMapper         meta.RESTMapper
+	genCtx                         generateContext
+	cliEvaluation                  bool // if true, libraries that create resources (like the generator library) don't post the created resource to an actual cluster
+	restMapper                     meta.RESTMapper
 }
 
 func NewContextProvider(

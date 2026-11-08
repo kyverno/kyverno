@@ -74,13 +74,13 @@ func NewWatchManager(log logr.Logger, client dclient.Interface) *WatchManager {
 		restMapper = meta.NewDefaultRESTMapper(nil)
 	}
 	return &WatchManager{
-		log:              log,
-		client:           client,
-		restMapper:       restMapper,
-		dynamicWatchers:  map[schema.GroupVersionResource]*watcher{},
-		policyRefs:       map[string][]schema.GroupVersionResource{},
-		refCount:         map[schema.GroupVersionResource]int{},
-		pendingGenerates: map[string]*pendingGenerate{},
+		log:                  log,
+		client:               client,
+		restMapper:           restMapper,
+		dynamicWatchers:      map[schema.GroupVersionResource]*watcher{},
+		policyRefs:           map[string][]schema.GroupVersionResource{},
+		refCount:             map[schema.GroupVersionResource]int{},
+		pendingGenerates:     map[string]*pendingGenerate{},
 		unmappedAcknowledged: map[string]map[types.UID]Resource{},
 	}
 }

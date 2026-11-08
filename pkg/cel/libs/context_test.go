@@ -363,8 +363,8 @@ func TestUIDVerifiedLegacyDownstreamRemainsInGenerationResult(t *testing.T) {
 	generated := map[string]any{
 		"apiVersion": "v1",
 		"kind":       "ConfigMap",
-		"metadata": map[string]any{"name": "old"},
-		"data": map[string]any{"key": "value"},
+		"metadata":   map[string]any{"name": "old"},
+		"data":       map[string]any{"key": "value"},
 	}
 	require.NoError(t, cp.GenerateResourcesContext(context.Background(), "team-a", []map[string]any{generated}))
 	require.Len(t, cp.GetGeneratedResources(), 1)

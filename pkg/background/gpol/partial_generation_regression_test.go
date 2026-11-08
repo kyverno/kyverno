@@ -703,17 +703,17 @@ func TestFailedStaleCleanupSuppressesWatcherRecreation(t *testing.T) {
 	const policyKey = "cleanup-failure-policy"
 	const namespace = "team-a"
 	labels := map[string]string{
-		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-		common.GeneratePolicyLabel:     policyKey,
+		kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:      policyKey,
 		common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeCluster,
-		common.GenerateTriggerNSLabel:  namespace,
-		common.GenerateTriggerUIDLabel: "trigger-uid",
+		common.GenerateTriggerNSLabel:   namespace,
+		common.GenerateTriggerUIDLabel:  "trigger-uid",
 	}
 	old := makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "old-uid", labels)
 	spec := common.ResourceSpecFromUnstructured(*old)
 	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
 	client := &partialReproClient{
-		objects: map[string]*unstructured.Unstructured{"ConfigMap/" + namespace + "/old": old},
+		objects:   map[string]*unstructured.Unstructured{"ConfigMap/" + namespace + "/old": old},
 		deleteErr: fmt.Errorf("temporary delete failure"),
 	}
 	wm := &WatchManager{
@@ -743,10 +743,10 @@ func TestAlreadyAbsentStaleCleanupEvictsWatcherUID(t *testing.T) {
 	const policyKey = "absent-cleanup-policy"
 	const namespace = "team-a"
 	labels := map[string]string{
-		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-		common.GeneratePolicyLabel:     policyKey,
+		kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:      policyKey,
 		common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeCluster,
-		common.GenerateTriggerUIDLabel: "trigger-uid",
+		common.GenerateTriggerUIDLabel:  "trigger-uid",
 	}
 	old := makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "old-uid", labels)
 	spec := common.ResourceSpecFromUnstructured(*old)

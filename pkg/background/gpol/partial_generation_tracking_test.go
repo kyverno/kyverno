@@ -164,7 +164,9 @@ func TestAddWatchersPreservesSuccessfulRegistrationOnLaterMappingError(t *testin
 	require.Equal(t, []schema.GroupVersionResource{gvr}, wm.policyRefs[policyName])
 	require.Equal(t, []*unstructured.Unstructured{first}, wm.GetDownstreams(policyName))
 	wm.RemoveWatchersForPolicy(policyName, true)
-	require.Equal(t, []string{"ConfigMap/ns/first"}, client.deleted)
+	// The mapped resource and the later unmapped acknowledged write are both
+	// UID-qualified cleanup targets. Deletion order is not significant.
+	require.ElementsMatch(t, []string{"ConfigMap/ns/first", "Secret/ns/second"}, client.deleted)
 }
 
 func TestPartialRetryPreservesSiblingTrigger(t *testing.T) {
