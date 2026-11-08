@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"unicode/utf8"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
@@ -117,7 +118,8 @@ func writeOutputFile(path string, data []byte) error {
 // formatValue formats a value for safe YAML template serialization.
 // Empty values are represented as explicit double-quoted strings ("\"\"").
 // Values containing YAML-sensitive sequences (such as inline comments " #" or "\t#",
-// leading characters "#", "*", "&", mapping indicators ": ", line breaks,
+// leading YAML indicator characters "#", "*", "&", "[", "{", "]", "}", "|", ">", "%",
+// "@", "`", "!", "?", sequence items "- ", mapping indicators ": ", line breaks,
 // or leading/trailing whitespace) are double-quoted so that YAML parsers retain
 // the full literal value while preserving native scalar typing.
 func formatValue(val string) string {
@@ -129,6 +131,19 @@ func formatValue(val string) string {
 		strings.HasPrefix(val, "#") ||
 		strings.HasPrefix(val, "*") ||
 		strings.HasPrefix(val, "&") ||
+		strings.HasPrefix(val, "[") ||
+		strings.HasPrefix(val, "{") ||
+		strings.HasPrefix(val, "]") ||
+		strings.HasPrefix(val, "}") ||
+		strings.HasPrefix(val, "|") ||
+		strings.HasPrefix(val, ">") ||
+		strings.HasPrefix(val, "%") ||
+		strings.HasPrefix(val, "@") ||
+		strings.HasPrefix(val, "`") ||
+		strings.HasPrefix(val, "!") ||
+		strings.HasPrefix(val, "?") ||
+		strings.HasPrefix(val, "- ") ||
+		val == "-" ||
 		strings.Contains(val, ": ") ||
 		strings.ContainsAny(val, "\r\n") ||
 		strings.TrimSpace(val) != val {
@@ -141,6 +156,9 @@ func formatValue(val string) string {
 // Empty values and YAML-sensitive values are safely quoted to prevent them
 // from being parsed as null, comments, or mappings.
 func parseKeyValue(in string) (string, string, error) {
+	if !utf8.ValidString(in) {
+		return "", "", fmt.Errorf("invalid UTF-8 in key=value pair: %s", in)
+	}
 	parts := strings.SplitN(in, "=", 2)
 	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
 		return "", "", fmt.Errorf("invalid key=value pair: %s", in)
