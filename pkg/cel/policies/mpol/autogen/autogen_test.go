@@ -775,6 +775,16 @@ func TestAutogenVariables(t *testing.T) {
 			Expression: "object.spec.template.metadata.labels.team",
 		},
 	}
+	cronjobVariables := []admissionregistrationv1.Variable{
+		{
+			Name:       "allContainers",
+			Expression: "object.spec.jobTemplate.spec.template.spec.containers + (has(object.spec.jobTemplate.spec.template.spec.initContainers) ? object.spec.jobTemplate.spec.template.spec.initContainers : [])",
+		},
+		{
+			Name:       "team",
+			Expression: "object.spec.jobTemplate.spec.template.metadata.labels.team",
+		},
+	}
 	policy := &policiesv1beta1.MutatingPolicy{
 		Spec: policiesv1beta1.MutatingPolicySpec{
 			MatchConstraints: &admissionregistrationv1.MatchResources{
@@ -799,16 +809,7 @@ func TestAutogenVariables(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result, 2)
 	assert.Equal(t, templateVariables, result[autogen.AutogenDefaults].Spec.Variables)
-	assert.Equal(t, []admissionregistrationv1.Variable{
-		{
-			Name:       "allContainers",
-			Expression: "object.spec.jobTemplate.spec.template.spec.containers + (has(object.spec.jobTemplate.spec.template.spec.initContainers) ? object.spec.jobTemplate.spec.template.spec.initContainers : [])",
-		},
-		{
-			Name:       "team",
-			Expression: "object.spec.jobTemplate.spec.template.metadata.labels.team",
-		},
-	}, result[autogen.AutogenCronjobs].Spec.Variables)
+	assert.Equal(t, cronjobVariables, result[autogen.AutogenCronjobs].Spec.Variables)
 
 	policy.Spec.AutogenConfiguration = &policiesv1beta1.MutatingPolicyAutogenConfiguration{
 		PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
