@@ -152,6 +152,8 @@ func TestBuild_SecretResourceReadProvenance(t *testing.T) {
 	require.NoError(t, err)
 	env, err = env.Extend(cel.Variable("object", cel.DynType))
 	require.NoError(t, err)
+	env, err = env.Extend(cel.Variable("gvr", resource.GVRType))
+	require.NoError(t, err)
 
 	tests := []struct {
 		name       string
@@ -195,6 +197,11 @@ func TestBuild_SecretResourceReadProvenance(t *testing.T) {
 			name:       "ConfigMap read through GVR",
 			expression: `resource.Get(resource.ToGVR("v1", "ConfigMap"), "default", "settings").data.password`,
 		},
+		{
+			name:       "Secret read through variable GVR",
+			expression: `resource.Get(gvr, "default", "db-credentials").data.password`,
+			wantSecret: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -202,7 +209,10 @@ func TestBuild_SecretResourceReadProvenance(t *testing.T) {
 			require.NoError(t, issues.Err())
 			prg, err := env.Program(ast, cel.EvalOptions(cel.OptTrackState))
 			require.NoError(t, err)
-			out, details, err := prg.ContextEval(context.Background(), map[string]any{"object": map[string]any{"kind": "Secret"}})
+			out, details, err := prg.ContextEval(context.Background(), map[string]any{
+				"object": map[string]any{"kind": "Secret"},
+				"gvr":    schema.GroupVersionResource{Version: "v1", Resource: "secrets"},
+			})
 			require.NoError(t, err)
 			require.NotNil(t, details)
 
