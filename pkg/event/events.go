@@ -27,10 +27,7 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 		UID:        pol.GetUID(),
 	}
 	related := engineResponse.GetResourceSpec()
-	message := ruleResp.Message()
-	if engineResponse.RedactMessages && message != "" {
-		message = "(redacted)"
-	}
+	message := ruleEventMessage(engineResponse, ruleResp)
 	return Info{
 		Regarding: regarding,
 		Related: &corev1.ObjectReference{
@@ -45,6 +42,14 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 		Message: buildPolicyEventMessageWithMessage(ruleResp, engineResponse.GetResourceSpec(), blocked, message),
 		Action:  action,
 	}
+}
+
+func ruleEventMessage(engineResponse engineapi.EngineResponse, ruleResp engineapi.RuleResponse) string {
+	message := ruleResp.Message()
+	if engineResponse.RedactMessages && message != "" {
+		return "(redacted)"
+	}
+	return message
 }
 
 func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.ResourceSpec, blocked bool) string {
@@ -125,12 +130,8 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	defer bldr.Reset()
 
 	pol := engineResponse.Policy()
-	message := ruleResp.Message()
-	if engineResponse.RedactMessages && message != "" {
-		message = "(redacted)"
-	}
 	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", pol.GetName(),
-		ruleResp.Name(), ruleResp.Status(), message)
+		ruleResp.Name(), ruleResp.Status(), ruleEventMessage(engineResponse, ruleResp))
 	resource := engineResponse.GetResourceSpec()
 	regarding := corev1.ObjectReference{
 		APIVersion: resource.APIVersion,
