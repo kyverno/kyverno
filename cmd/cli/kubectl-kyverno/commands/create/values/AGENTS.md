@@ -24,3 +24,7 @@ This package implements the `kyverno create values` (and `kubectl-kyverno create
 4. **Atomic Output Writing**:
    - Flag validation and template rendering execute in-memory before writing the output file (`-o/--output`).
    - Output files are written atomically using a temporary file in the destination directory and renamed into place. If validation or write fails, any pre-existing output file is preserved intact and never truncated.
+
+5. **YAML Scalar Encoding (`formatValue`)**:
+   - Values containing sequences sensitive in YAML plain scalars (such as inline comments ` #`, leading `#`, or mapping indicators `: `) are double-quoted so they are not truncated as comments or misinterpreted as mappings.
+   - Other scalars (numbers, booleans, and plain strings) remain unquoted to preserve native scalar typing.

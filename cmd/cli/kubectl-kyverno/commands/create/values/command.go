@@ -99,19 +99,30 @@ func writeOutputFile(path string, data []byte) error {
 	return os.Rename(tmpName, cleanPath) // #nosec G304
 }
 
+// formatValue formats a value for safe YAML template serialization.
+// Empty values are represented as explicit double-quoted strings ("\"\"").
+// Values containing YAML-sensitive sequences (such as inline comments " #" or mapping indicators ": ")
+// are double-quoted so that YAML parsers retain the full literal value while preserving native scalar typing.
+func formatValue(val string) string {
+	if val == "" {
+		return `""`
+	}
+	if strings.Contains(val, " #") || strings.HasPrefix(val, "#") || strings.Contains(val, ": ") {
+		return fmt.Sprintf("%q", val)
+	}
+	return val
+}
+
 // parseKeyValue parses a key=value string, preserving any '=' in the value.
-// Empty values are represented as explicit double-quoted strings ("\"\"") so
-// YAML unmarshaling preserves them as empty strings rather than null scalars.
+// Empty values and YAML-sensitive values are safely quoted to prevent them
+// from being parsed as null, comments, or mappings.
 func parseKeyValue(in string) (string, string, error) {
 	parts := strings.SplitN(in, "=", 2)
 	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
 		return "", "", fmt.Errorf("invalid key=value pair: %s", in)
 	}
 	key := strings.TrimSpace(parts[0])
-	val := parts[1]
-	if val == "" {
-		val = `""`
-	}
+	val := formatValue(parts[1])
 	return key, val, nil
 }
 
