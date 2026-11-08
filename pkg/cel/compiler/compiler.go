@@ -344,6 +344,9 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 			return Validation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
 		}
 		compiled.MessageExpression = program
+		if trace {
+			compiled.MessageExpressionAST = ast
+		}
 	}
 	return compiled, allErrs
 }

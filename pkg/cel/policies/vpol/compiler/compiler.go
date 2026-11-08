@@ -124,7 +124,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
-	compiledExceptions, errs := compileExceptions(policy.GetNamespace(), exceptions)
+	compiledExceptions, errs := compileExceptions(policy.GetNamespace(), exceptions, c.trace)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -195,7 +195,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		}
 	}
 
-	compiledExceptions, errs := compileExceptions(policy.GetNamespace(), exceptions)
+	compiledExceptions, errs := compileExceptions(policy.GetNamespace(), exceptions, c.trace)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -342,7 +342,7 @@ func NewExceptionEnv(namespace string) (*cel.Env, error) {
 	return envSet.Env(environment.StoredExpressions)
 }
 
-func compileExceptions(namespace string, exceptions []*policiesv1beta1.PolicyException) ([]compiler.Exception, field.ErrorList) {
+func compileExceptions(namespace string, exceptions []*policiesv1beta1.PolicyException, trace bool) ([]compiler.Exception, field.ErrorList) {
 	if len(exceptions) == 0 {
 		return nil, nil
 	}
@@ -350,5 +350,5 @@ func compileExceptions(namespace string, exceptions []*policiesv1beta1.PolicyExc
 	if err != nil {
 		return nil, field.ErrorList{field.InternalError(nil, fmt.Errorf(compileError, err))}
 	}
-	return compiler.CompileExceptionsWithValidations(env, exceptions)
+	return compiler.CompileExceptionsWithValidations(env, exceptions, trace)
 }

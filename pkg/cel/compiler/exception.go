@@ -11,9 +11,10 @@ import (
 )
 
 type Exception struct {
-	Exception       *policiesv1beta1.PolicyException
-	MatchConditions []cel.Program
-	Validations     []Validation
+	Exception          *policiesv1beta1.PolicyException
+	MatchConditions    []cel.Program
+	MatchConditionASTs []*cel.Ast
+	Validations        []Validation
 	// Now is an optional evaluation clock, used by deterministic cache-expiry
 	// tests. Production compilation leaves it nil and uses the API's clock.
 	Now func() time.Time
@@ -36,7 +37,7 @@ func (e Exception) IsExpired() bool {
 // CompileExceptionsWithValidations compiles each exception's match conditions and compensating
 // controls, sorted by namespace/name: informer order is not guaranteed, and the first refusal
 // supplies the reported message, so an unsorted list would vary that message between requests.
-func CompileExceptionsWithValidations(env *cel.Env, exceptions []*policiesv1beta1.PolicyException) ([]Exception, field.ErrorList) {
+func CompileExceptionsWithValidations(env *cel.Env, exceptions []*policiesv1beta1.PolicyException, trace bool) ([]Exception, field.ErrorList) {
 	var allErrs field.ErrorList
 	sorted := slices.Clone(exceptions)
 	slices.SortFunc(sorted, func(a, b *policiesv1beta1.PolicyException) int {
@@ -50,7 +51,7 @@ func CompileExceptionsWithValidations(env *cel.Env, exceptions []*policiesv1beta
 		// root the path at the exception, so an error in one is not reported as if it were in the
 		// policy's own spec
 		path := field.NewPath("exception").Key(polex.GetNamespace() + "/" + polex.GetName()).Child("spec")
-		matchConditions, errs := CompileMatchConditions(path.Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		matchConditions, tracedMatchConditions, errs := CompileMatchConditionsWithTrace(path.Child("matchConditions"), env, trace, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -59,10 +60,16 @@ func CompileExceptionsWithValidations(env *cel.Env, exceptions []*policiesv1beta
 			MatchConditions: matchConditions,
 			Validations:     make([]Validation, 0, len(polex.Spec.Validations)),
 		}
+		if trace {
+			exception.MatchConditionASTs = make([]*cel.Ast, 0, len(tracedMatchConditions))
+			for _, condition := range tracedMatchConditions {
+				exception.MatchConditionASTs = append(exception.MatchConditionASTs, condition.AST)
+			}
+		}
 		validationsPath := path.Child("validations")
 		for i, rule := range polex.Spec.Validations {
-			// an exception's own compensating-control validations are not traced (no Exceptions
-			// layer exists on trace.Decision yet), so trace is always false here
+			// Exception controls are not part of the trace; only their match-condition ASTs
+			// are retained to redact errors from an untraced Secret read.
 			validation, errs := CompileValidation(validationsPath.Index(i), env, rule, false)
 			if errs != nil {
 				return nil, append(allErrs, errs...)

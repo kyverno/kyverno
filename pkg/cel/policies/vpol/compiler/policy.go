@@ -122,11 +122,27 @@ func (p *Policy) evaluateWithData(
 			if polex.IsExpired() {
 				continue
 			}
-			match, err := p.match(ctx, dataNew, polex.MatchConditions, nil)
+			var sensitiveMatchError bool
+			recordExceptionMatch := func(index int, _ ref.Val, err error) {
+				if err != nil && index < len(polex.MatchConditionASTs) && trace.MayReadSecret(polex.MatchConditionASTs[index]) {
+					sensitiveMatchError = true
+				}
+			}
+			var record func(int, ref.Val, error)
+			if p.trace {
+				record = recordExceptionMatch
+			}
+			match, err := p.match(ctx, dataNew, polex.MatchConditions, record)
 			if err != nil {
 				if fullExemptionFound {
 					// exception already granted; a broken later exception must not negate it
 					continue
+				}
+				if p.trace {
+					return &EvaluationResult{Trace: &trace.Decision{
+						Sensitive: sensitiveMatchError,
+						Verdict:   trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()},
+					}}, err
 				}
 				return nil, err
 			}
@@ -287,6 +303,7 @@ func (p *Policy) evaluateWithData(
 			ran(index, trace.VerdictFail)
 			message, msgErr := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
 			verdict.Status, verdict.Message = trace.VerdictFail, message
+			verdict.HasSecretRead = verdict.HasSecretRead || trace.MayReadSecret(validation.MessageExpressionAST)
 			// an audit annotation error must not mask the failure
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {

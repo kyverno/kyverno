@@ -136,11 +136,11 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 		PolicyKind:   "ValidatingPolicy",
 		ResourceKind: "Secret",
 		ResourceName: "db-credentials",
-		Match:        []NamedExpressionTrace{{Name: "has-data", ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true"}}},
+		Match:        []NamedExpressionTrace{{Name: "has-data", ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true", ResultIsBoolean: true}}},
 		Variables:    []NamedExpressionTrace{{Name: "password", ExpressionTrace: ExpressionTrace{Source: "object.data.password", Result: password}}},
 		Validations: []ValidationTrace{
 			{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "object.type", Result: password}},
-			{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "variables.password.size() > 32", Result: "false"}},
+			{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "variables.password.size() > 32", Result: "false", ResultIsBoolean: true}},
 		},
 		Mutations: []MutationTrace{{Name: "mutations[0] (jsonPatch)", Error: "failed: " + password, ExpressionTrace: ExpressionTrace{
 			Source: "[JSONPatch{op: 'add', path: '/data/copy', value: object.data.password}]",
@@ -151,10 +151,11 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 			Status:  VerdictFail,
 			Message: password,
 			ExpressionTrace: ExpressionTrace{
-				Source: "variables.password.size() > 32",
-				Result: "false",
+				Source:          "variables.password.size() > 32",
+				Result:          "false",
+				ResultIsBoolean: true,
 				Nodes: []NodeTrace{
-					{Expression: "variables.password.size() > 32", Value: "false"},
+					{Expression: "variables.password.size() > 32", Value: "false", ValueIsBoolean: true},
 					{Expression: "variables.password.size()", Value: "18"},
 					{Expression: "variables.password", Value: password},
 				},
@@ -186,6 +187,35 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 	d.ResourceKind = "ConfigMap"
 	entry, _ = logged(t, d)
 	assert.Equal(t, password, entry.Variables[0].Result)
+}
+
+func TestLogValues_RedactsSecretStringBooleans(t *testing.T) {
+	d := &Decision{
+		Sensitive: true,
+		Variables: []NamedExpressionTrace{
+			{Name: "stringTrue", ExpressionTrace: ExpressionTrace{Result: "true"}},
+			{Name: "booleanTrue", ExpressionTrace: ExpressionTrace{Result: "true", ResultIsBoolean: true}},
+			{Name: "stringFalse", ExpressionTrace: ExpressionTrace{Result: "false"}},
+			{Name: "booleanFalse", ExpressionTrace: ExpressionTrace{Result: "false", ResultIsBoolean: true}},
+		},
+		Verdict: VerdictTrace{ExpressionTrace: ExpressionTrace{
+			Result:          "true",
+			ResultIsBoolean: true,
+			Nodes: []NodeTrace{
+				{Expression: "secretString", Value: "true"},
+				{Expression: "boolean", Value: "true", ValueIsBoolean: true},
+			},
+		}},
+	}
+	entry, _ := logged(t, d)
+
+	assert.Equal(t, redacted, entry.Variables[0].Result)
+	assert.Equal(t, "true", entry.Variables[1].Result)
+	assert.Equal(t, redacted, entry.Variables[2].Result)
+	assert.Equal(t, "false", entry.Variables[3].Result)
+	assert.Equal(t, "true", entry.Verdict.Result)
+	assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+	assert.Equal(t, "true", entry.Verdict.Evaluated[1].Value)
 }
 
 func TestLogValues_SecretReadValuesAndErrorsAreNotLogged(t *testing.T) {

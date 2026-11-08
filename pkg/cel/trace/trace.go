@@ -12,15 +12,17 @@ import (
 )
 
 type NodeTrace struct {
-	Expression string
-	Value      string
-	Error      string
+	Expression     string
+	Value          string
+	Error          string
+	ValueIsBoolean bool `json:"-"`
 }
 
 type ExpressionTrace struct {
-	Source string
-	Nodes  []NodeTrace
-	Result string
+	Source          string
+	Nodes           []NodeTrace
+	Result          string
+	ResultIsBoolean bool `json:"-"`
 	// HasSecretRead is set when the expression reads a Secret through resource.Get or
 	// resource.List. LogValues uses it to redact values derived by the whole decision.
 	HasSecretRead bool `json:"-"`
@@ -34,9 +36,10 @@ type ExpressionTrace struct {
 
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
 	et := ExpressionTrace{
-		Source:        source,
-		Result:        stringify(result),
-		HasSecretRead: hasSecretRead(ast),
+		Source:          source,
+		Result:          stringify(result),
+		ResultIsBoolean: isBoolean(result),
+		HasSecretRead:   MayReadSecret(ast),
 	}
 	if details == nil || ast == nil {
 		return et
@@ -118,7 +121,7 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 			// noise to a reader. The macro call itself renders without them and is kept.
 			return
 		}
-		nt := NodeTrace{Expression: text}
+		nt := NodeTrace{Expression: text, ValueIsBoolean: isBoolean(val)}
 		if types.IsError(val) {
 			nt.Error = stringify(val)
 		} else {
@@ -129,7 +132,8 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 	return et
 }
 
-func hasSecretRead(ast *cel.Ast) bool {
+// MayReadSecret reports whether ast reads a resource kind that is or may be a Secret.
+func MayReadSecret(ast *cel.Ast) bool {
 	if ast == nil {
 		return false
 	}
@@ -151,6 +155,10 @@ func hasSecretRead(ast *cel.Ast) bool {
 		found = resourceCallMayReadSecret(call)
 	}))
 	return found
+}
+
+func isBoolean(value ref.Val) bool {
+	return value != nil && value.Type() == types.BoolType
 }
 
 func resourceCallMayReadSecret(call celast.CallExpr) bool {
@@ -288,6 +296,8 @@ type Decision struct {
 	ResourceKind      string
 	ResourceName      string
 	ResourceNamespace string
+	// Sensitive marks untraced evaluation paths whose errors may contain Secret data.
+	Sensitive bool
 
 	Scope     ScopeTrace
 	Match     []NamedExpressionTrace

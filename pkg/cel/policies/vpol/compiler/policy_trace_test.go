@@ -2,15 +2,21 @@ package compiler
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/google/cel-go/cel"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func buildTracePolicy(validations ...admissionregistrationv1.Validation) *policiesv1beta1.ValidatingPolicy {
@@ -126,6 +132,69 @@ func TestEvaluate_TracingOn_FailStopsAtFailingValidation(t *testing.T) {
 	// validation 0 read the variable, so it was evaluated and traced
 	require.Len(t, result.Trace.Variables, 1)
 	assert.Equal(t, "true", result.Trace.Variables[0].Result)
+}
+
+func TestEvaluate_TracingOn_RedactsSecretMessageExpression(t *testing.T) {
+	const password = "hunter2-do-not-log"
+	fake := libs.NewFakeContextProvider()
+	require.NoError(t, fake.AddResource(schema.GroupVersionResource{Version: "v1", Resource: "secrets"}, &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata":   map[string]any{"namespace": "default", "name": "db-credentials"},
+			"data":       map[string]any{"password": password},
+		},
+	}))
+	oldLibraryContext := libs.LibraryContext
+	libs.LibraryContext = fake
+	t.Cleanup(func() {
+		libs.LibraryContext = oldLibraryContext
+	})
+
+	policy := buildTracePolicy(admissionregistrationv1.Validation{
+		Expression:        "false",
+		MessageExpression: `string(resource.Get("v1", "secrets", "default", "db-credentials").data.password)`,
+	})
+	p, errs := NewCompilerWithTrace(true).Compile(policy, nil)
+	require.Empty(t, errs)
+	result, err := p.Evaluate(context.Background(), podObject("prod", nil), nil, nil, nil, nil, fake)
+	require.NoError(t, err)
+	require.NotNil(t, result.Trace)
+	assert.Equal(t, password, result.Trace.Verdict.Message)
+	assert.True(t, result.Trace.Verdict.HasSecretRead)
+
+	values := trace.LogValues(result.Trace)
+	entry, ok := values[len(values)-1].(trace.LogEntry)
+	require.True(t, ok)
+	assert.Equal(t, "(redacted)", entry.Verdict.Message)
+}
+
+func TestEvaluate_TracingOn_RedactsSecretExceptionMatchErrors(t *testing.T) {
+	const password = "hunter2-do-not-log"
+	env, err := NewExceptionEnv("")
+	require.NoError(t, err)
+	ast, issues := env.Compile(`timestamp(resource.Get("v1", "secrets", "default", "db-credentials").data.password)`)
+	require.NoError(t, issues.Err())
+
+	p := &Policy{
+		trace: true,
+		exceptions: []celcompiler.Exception{{
+			MatchConditions:    []cel.Program{&mockVpolProgram{err: errors.New(`invalid timestamp "` + password + `"`)}},
+			MatchConditionASTs: []*cel.Ast{ast},
+			Exception:          &policiesv1beta1.PolicyException{},
+		}},
+	}
+	result, err := p.evaluateWithData(context.Background(), evaluationData{})
+	require.Error(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.Trace)
+	assert.True(t, result.Trace.Sensitive)
+
+	values := trace.LogValues(result.Trace)
+	entry, ok := values[len(values)-1].(trace.LogEntry)
+	require.True(t, ok)
+	assert.NotContains(t, entry.Verdict.Message, password)
+	assert.Equal(t, "(redacted)", entry.Verdict.Message)
 }
 
 func TestEvaluate_TracingOn_ErrorIsCapturedOnNode(t *testing.T) {

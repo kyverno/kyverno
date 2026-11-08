@@ -54,7 +54,7 @@ func LogValues(d *Decision) []any {
 		Verdict: LogExpression{
 			Status:     d.Verdict.Status,
 			Expression: d.Verdict.Source,
-			Result:     l.value(d.Verdict.Result),
+			Result:     l.value(d.Verdict.Result, d.Verdict.ResultIsBoolean),
 			Message:    l.text(d.Verdict.Message),
 		},
 	}
@@ -73,7 +73,7 @@ func LogValues(d *Decision) []any {
 			entry.Validations = append(entry.Validations, LogExpression{
 				Status:     v.Status,
 				Expression: v.Source,
-				Result:     l.value(v.Result),
+				Result:     l.value(v.Result, v.ResultIsBoolean),
 			})
 		}
 	}
@@ -81,7 +81,7 @@ func LogValues(d *Decision) []any {
 		mutation := LogExpression{
 			Name:       m.Name,
 			Expression: m.Source,
-			Result:     l.value(m.Result),
+			Result:     l.value(m.Result, m.ResultIsBoolean),
 			Error:      l.text(m.Error),
 			NotApplied: l.text(m.NotApplied),
 		}
@@ -104,6 +104,9 @@ type logFormat struct {
 }
 
 func decisionHasSecretRead(d *Decision) bool {
+	if d.Sensitive {
+		return true
+	}
 	if d.Verdict.HasSecretRead {
 		return true
 	}
@@ -135,8 +138,8 @@ func decisionHasSecretRead(d *Decision) bool {
 	return false
 }
 
-func (l logFormat) value(v string) string {
-	if l.sensitive && v != "" && v != "true" && v != "false" {
+func (l logFormat) value(v string, isBoolean bool) string {
+	if l.sensitive && v != "" && !(isBoolean && (v == "true" || v == "false")) {
 		return redacted
 	}
 	return clip(v)
@@ -150,12 +153,16 @@ func (l logFormat) text(v string) string {
 }
 
 func (l logFormat) named(n NamedExpressionTrace) LogExpression {
-	return LogExpression{Name: n.Name, Expression: n.Source, Result: l.value(n.Result)}
+	return LogExpression{Name: n.Name, Expression: n.Source, Result: l.value(n.Result, n.ResultIsBoolean)}
 }
 
 func (l logFormat) breakdown(e *LogExpression, et ExpressionTrace) {
 	e.LoopValuesOmitted = et.LoopValuesOmitted
 	for _, n := range et.Nodes {
-		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Value), Error: l.text(n.Error)})
+		e.Evaluated = append(e.Evaluated, LogNode{
+			Expression: n.Expression,
+			Value:      l.value(n.Value, n.ValueIsBoolean),
+			Error:      l.text(n.Error),
+		})
 	}
 }
