@@ -156,16 +156,18 @@ type logFormat struct {
 	secret        bool
 	secretVars    map[string]bool
 	secretGVRVars map[string]bool
+	safeGVRVars   map[string]bool
 	varAliases    map[string]bool
 }
 
 // newLogFormat initializes logFormat by discovering Secret GVR variables, Secret-bearing variables,
-// variables aliases, and whether the admitted resource itself is a Secret.
+// safe GVR variables, variables aliases, and whether the admitted resource itself is a Secret.
 func newLogFormat(d *Decision) logFormat {
 	l := logFormat{
 		secret:        strings.EqualFold(d.ResourceKind, "Secret"),
 		secretVars:    make(map[string]bool),
 		secretGVRVars: make(map[string]bool),
+		safeGVRVars:   make(map[string]bool),
 		varAliases:    map[string]bool{"variables": true},
 	}
 	changed := true
@@ -192,6 +194,14 @@ func newLogFormat(d *Decision) logFormat {
 						}
 					}
 				}
+			}
+			if !l.safeGVRVars[v.Name] && isStaticNonSecretGVR(v.Source) {
+				l.safeGVRVars[v.Name] = true
+				changed = true
+			}
+			if len(l.secretVars) > 0 && l.varAliases[v.Name] && !l.secretVars[v.Name] {
+				l.secretVars[v.Name] = true
+				changed = true
 			}
 			if !l.secretVars[v.Name] && (isSecretValue(v.Result) || l.isSecretExpr(v.Source)) {
 				l.secretVars[v.Name] = true
@@ -299,11 +309,65 @@ func (l logFormat) isPlaceholderErrorSecret(errStr string) bool {
 	return false
 }
 
-// isSecretValue reports whether v textually represents a Secret manifest or item.
+// isSecretValue reports whether v textually represents a Secret manifest or item,
+// matching the kind field as an exact "Secret" token rather than prefixing CRDs like SecretStore.
 func isSecretValue(v string) bool {
 	lower := strings.ToLower(v)
-	return strings.Contains(lower, "kind:secret") || strings.Contains(lower, "kind: secret") ||
-		strings.Contains(lower, `"kind":"secret"`) || strings.Contains(lower, `"kind": "secret"`)
+	pos := 0
+	for {
+		idx := strings.Index(lower[pos:], "kind")
+		if idx == -1 {
+			break
+		}
+		start := pos + idx + 4 // after "kind"
+		pos = start
+		if idx > 0 {
+			prev := lower[pos-5]
+			if isIdentChar(prev) && prev != '"' && prev != '\'' {
+				continue
+			}
+		}
+		rem := lower[start:]
+		i := 0
+		if i < len(rem) && (rem[i] == '"' || rem[i] == '\'') {
+			i++
+		}
+		for i < len(rem) && (rem[i] == ' ' || rem[i] == '\t') {
+			i++
+		}
+		if i >= len(rem) || rem[i] != ':' {
+			continue
+		}
+		i++ // skip ':'
+		for i < len(rem) && (rem[i] == ' ' || rem[i] == '\t') {
+			i++
+		}
+		hasQuote := false
+		var quoteChar byte
+		if i < len(rem) && (rem[i] == '"' || rem[i] == '\'') {
+			hasQuote = true
+			quoteChar = rem[i]
+			i++
+		}
+		if strings.HasPrefix(rem[i:], "secret") {
+			after := i + 6
+			if hasQuote {
+				if after < len(rem) && rem[after] == quoteChar {
+					after++
+				} else {
+					continue
+				}
+			}
+			if after < len(rem) {
+				next := rem[after]
+				if isIdentChar(next) || next == '-' {
+					continue
+				}
+			}
+			return true
+		}
+	}
+	return false
 }
 
 // isSecretResourceName reports whether name refers to the Secret kind or resource.
@@ -318,7 +382,25 @@ func isSecretResourceName(name string) bool {
 // isSecretGVRValue reports whether val textually represents a Secret GVR string.
 func isSecretGVRValue(val string) bool {
 	lower := strings.ToLower(strings.TrimSpace(val))
-	return strings.Contains(lower, "resource=secret") || strings.Contains(lower, "resource=secrets")
+	for _, pattern := range []string{"resource=secrets", "resource=secret"} {
+		pos := 0
+		for {
+			idx := strings.Index(lower[pos:], pattern)
+			if idx == -1 {
+				break
+			}
+			end := pos + idx + len(pattern)
+			pos = end
+			if end < len(lower) {
+				next := lower[end]
+				if isIdentChar(next) || next == '-' {
+					continue
+				}
+			}
+			return true
+		}
+	}
+	return false
 }
 
 // literalString extracts the string value of a literal AST expression if present.
@@ -328,6 +410,25 @@ func literalString(e celast.Expr) (string, bool) {
 	}
 	s, ok := e.AsLiteral().Value().(string)
 	return s, ok
+}
+
+// isVariablesExpr reports whether AST node e evaluates to the variables root or any of its aliases,
+// including dyn-wrapped forms like dyn(variables) or dyn(alias).
+func isVariablesExpr(e celast.Expr, varAliases map[string]bool) bool {
+	if e == nil {
+		return false
+	}
+	switch e.Kind() {
+	case celast.IdentKind:
+		ident := strings.ToLower(e.AsIdent())
+		return ident == "variables" || (varAliases != nil && varAliases[ident])
+	case celast.CallKind:
+		call := e.AsCall()
+		if strings.EqualFold(call.FunctionName(), "dyn") && len(call.Args()) == 1 {
+			return isVariablesExpr(call.Args()[0], varAliases)
+		}
+	}
+	return false
 }
 
 // astContainsVar reports whether AST expression e references varName under variables or its aliases.
@@ -350,25 +451,14 @@ func astContainsVar(e celast.Expr, sourceInfo *celast.SourceInfo, varName string
 		switch sub.Kind() {
 		case celast.SelectKind:
 			sel := sub.AsSelect()
-			if sel.FieldName() == varName && sel.Operand().Kind() == celast.IdentKind {
-				ident := strings.ToLower(sel.Operand().AsIdent())
-				if ident == "variables" || (varAliases != nil && varAliases[ident]) {
-					found = true
-				}
+			if sel.FieldName() == varName && isVariablesExpr(sel.Operand(), varAliases) {
+				found = true
 			}
 		case celast.CallKind:
 			call := sub.AsCall()
 			fn := call.FunctionName()
 			if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
-				firstArg := call.Args()[0]
-				isVar := false
-				if firstArg.Kind() == celast.IdentKind {
-					ident := strings.ToLower(firstArg.AsIdent())
-					if ident == "variables" || (varAliases != nil && varAliases[ident]) {
-						isVar = true
-					}
-				}
-				if isVar && call.Args()[1].Kind() == celast.LiteralKind {
+				if isVariablesExpr(call.Args()[0], varAliases) && call.Args()[1].Kind() == celast.LiteralKind {
 					if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
 						found = true
 					}
@@ -396,13 +486,42 @@ func createsSecretGVRCall(e celast.Expr, secretGVRVars map[string]bool, varAlias
 		return false
 	}
 	lastArg := args[len(args)-1]
-	if str, ok := literalString(lastArg); ok && (isSecretResourceName(str) || isSecretGVRValue(str)) {
-		return true
+	if str, ok := literalString(lastArg); ok {
+		return isSecretResourceName(str) || isSecretGVRValue(str)
 	}
 	for gvrVar := range secretGVRVars {
 		if astContainsVar(lastArg, nil, gvrVar, varAliases) {
 			return true
 		}
+	}
+	// Dynamic selector in resource.ToGVR: conservative tainting
+	return true
+}
+
+// isStaticNonSecretGVR reports whether expr statically creates a non-Secret GVR via resource.ToGVR.
+func isStaticNonSecretGVR(expr string) bool {
+	ast, iss := celParserEnv.Parse(expr)
+	if iss != nil && iss.Err() != nil {
+		return false
+	}
+	e := ast.NativeRep().Expr()
+	if e == nil || e.Kind() != celast.CallKind {
+		return false
+	}
+	call := e.AsCall()
+	if !strings.EqualFold(call.FunctionName(), "ToGVR") {
+		return false
+	}
+	if call.Target() == nil || call.Target().Kind() != celast.IdentKind || !strings.EqualFold(call.Target().AsIdent(), "resource") {
+		return false
+	}
+	args := call.Args()
+	if len(args) == 0 {
+		return false
+	}
+	lastArg := args[len(args)-1]
+	if str, ok := literalString(lastArg); ok {
+		return !isSecretResourceName(str) && !isSecretGVRValue(str)
 	}
 	return false
 }
@@ -443,8 +562,10 @@ func createsSecretGVR(expr string, secretGVRVars map[string]bool, varAliases map
 			return
 		}
 		lastArg := args[len(args)-1]
-		if str, ok := literalString(lastArg); ok && (isSecretResourceName(str) || isSecretGVRValue(str)) {
-			created = true
+		if str, ok := literalString(lastArg); ok {
+			if isSecretResourceName(str) || isSecretGVRValue(str) {
+				created = true
+			}
 			return
 		}
 		for gvrVar := range secretGVRVars {
@@ -453,8 +574,18 @@ func createsSecretGVR(expr string, secretGVRVars map[string]bool, varAliases map
 				return
 			}
 		}
+		// Dynamic selector in resource.ToGVR: conservative tainting
+		created = true
 	}))
 	return created
+}
+
+// isAPIVersion reports whether s textually represents a Kubernetes API version (e.g. "v1", "apps/v1").
+func isAPIVersion(s string) bool {
+	s = strings.TrimSpace(strings.ToLower(s))
+	parts := strings.Split(s, "/")
+	last := parts[len(parts)-1]
+	return len(last) >= 2 && last[0] == 'v' && last[1] >= '0' && last[1] <= '9'
 }
 
 // readsSecret reports whether expr calls resource.Get, resource.List, or globalContext.get for Secrets.
@@ -507,11 +638,42 @@ func (l logFormat) readsSecret(expr string) bool {
 			return
 		}
 
-		// Check args[0]: can be GVR (e.g. resource.Get(gvr, ...), resource.Get('secrets', ...))
-		if str, ok := literalString(args[0]); ok && (isSecretResourceName(str) || isSecretGVRValue(str)) {
-			reads = true
+		// Case 1: args[0] is a literal string
+		if str, ok := literalString(args[0]); ok {
+			if isSecretResourceName(str) || isSecretGVRValue(str) {
+				reads = true
+				return
+			}
+			if isAPIVersion(str) && len(args) >= 2 {
+				// args[0] is apiVersion, so args[1] is the resource selector
+				if str1, ok1 := literalString(args[1]); ok1 {
+					if isSecretResourceName(str1) || isSecretGVRValue(str1) {
+						reads = true
+						return
+					}
+					// args[1] is a known literal non-secret resource (e.g. 'configmaps', 'pods')
+					return
+				}
+				if createsSecretGVRCall(args[1], l.secretGVRVars, l.varAliases) {
+					reads = true
+					return
+				}
+				for gvrVar := range l.secretGVRVars {
+					if astContainsVar(args[1], sourceInfo, gvrVar, l.varAliases) {
+						reads = true
+						return
+					}
+				}
+				// args[1] is a dynamic resource selector (e.g. cond ? 'secrets' : 'configmaps')
+				// Unknown dynamic selectors need conservative tainting.
+				reads = true
+				return
+			}
+			// args[0] is a literal non-secret GVR (e.g. 'v1/configmaps')
 			return
 		}
+
+		// Case 2: args[0] is not a literal string
 		if createsSecretGVRCall(args[0], l.secretGVRVars, l.varAliases) {
 			reads = true
 			return
@@ -522,24 +684,14 @@ func (l logFormat) readsSecret(expr string) bool {
 				return
 			}
 		}
-
-		// Check args[1] if present: can be resource name in resource.Get(apiVersion, resource, ...)
-		if len(args) >= 2 {
-			if str, ok := literalString(args[1]); ok && (isSecretResourceName(str) || isSecretGVRValue(str)) {
-				reads = true
+		for safeVar := range l.safeGVRVars {
+			if astContainsVar(args[0], sourceInfo, safeVar, l.varAliases) {
 				return
-			}
-			if createsSecretGVRCall(args[1], l.secretGVRVars, l.varAliases) {
-				reads = true
-				return
-			}
-			for gvrVar := range l.secretGVRVars {
-				if astContainsVar(args[1], sourceInfo, gvrVar, l.varAliases) {
-					reads = true
-					return
-				}
 			}
 		}
+		// args[0] is an unknown dynamic selector (computed GVR or dynamic call): conservative tainting
+		reads = true
+		return
 	}))
 	return reads
 }
@@ -553,32 +705,19 @@ func isIdentChar(c byte) bool {
 func isVariablesAlias(expr string, varAliases map[string]bool) bool {
 	ast, iss := celParserEnv.Parse(expr)
 	if iss == nil || iss.Err() == nil {
-		e := ast.NativeRep().Expr()
-		if e.Kind() == celast.IdentKind {
-			ident := strings.ToLower(e.AsIdent())
-			if ident == "variables" || (varAliases != nil && varAliases[ident]) {
-				return true
-			}
-		} else if e.Kind() == celast.CallKind {
-			call := e.AsCall()
-			if strings.EqualFold(call.FunctionName(), "dyn") && len(call.Args()) == 1 {
-				arg := call.Args()[0]
-				if arg.Kind() == celast.IdentKind {
-					ident := strings.ToLower(arg.AsIdent())
-					if ident == "variables" || (varAliases != nil && varAliases[ident]) {
-						return true
-					}
-				}
-			}
+		if isVariablesExpr(ast.NativeRep().Expr(), varAliases) {
+			return true
 		}
 	}
 	trimmed := strings.ToLower(strings.TrimSpace(expr))
 	if trimmed == "variables" || (varAliases != nil && varAliases[trimmed]) {
 		return true
 	}
-	if strings.HasPrefix(trimmed, "dyn(") && strings.HasSuffix(trimmed, ")") {
-		inner := strings.TrimSpace(trimmed[4 : len(trimmed)-1])
-		return inner == "variables" || (varAliases != nil && varAliases[inner])
+	for strings.HasPrefix(trimmed, "dyn(") && strings.HasSuffix(trimmed, ")") {
+		trimmed = strings.TrimSpace(trimmed[4 : len(trimmed)-1])
+		if trimmed == "variables" || (varAliases != nil && varAliases[trimmed]) {
+			return true
+		}
 	}
 	return false
 }
@@ -595,25 +734,14 @@ func containsVar(expr, varName string, varAliases map[string]bool) bool {
 			switch e.Kind() {
 			case celast.SelectKind:
 				sel := e.AsSelect()
-				if sel.FieldName() == varName && sel.Operand().Kind() == celast.IdentKind {
-					ident := strings.ToLower(sel.Operand().AsIdent())
-					if ident == "variables" || (varAliases != nil && varAliases[ident]) {
-						found = true
-					}
+				if sel.FieldName() == varName && isVariablesExpr(sel.Operand(), varAliases) {
+					found = true
 				}
 			case celast.CallKind:
 				call := e.AsCall()
 				fn := call.FunctionName()
 				if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
-					firstArg := call.Args()[0]
-					isVar := false
-					if firstArg.Kind() == celast.IdentKind {
-						ident := strings.ToLower(firstArg.AsIdent())
-						if ident == "variables" || (varAliases != nil && varAliases[ident]) {
-							isVar = true
-						}
-					}
-					if isVar && call.Args()[1].Kind() == celast.LiteralKind {
+					if isVariablesExpr(call.Args()[0], varAliases) && call.Args()[1].Kind() == celast.LiteralKind {
 						if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
 							found = true
 						}
@@ -632,7 +760,7 @@ func containsVar(expr, varName string, varAliases map[string]bool) bool {
 		}
 	}
 	for _, alias := range aliases {
-		prefixes := []string{alias + ".", alias + ".?"}
+		prefixes := []string{alias + ".", alias + ".?", "dyn(" + alias + ").", "dyn(" + alias + ").?"}
 		for _, prefix := range prefixes {
 			target := prefix + varName
 			pos := 0
@@ -654,7 +782,8 @@ func containsVar(expr, varName string, varAliases map[string]bool) bool {
 				return true
 			}
 		}
-		if strings.Contains(expr, alias+"['"+varName+"']") || strings.Contains(expr, alias+`["`+varName+`"]`) {
+		if strings.Contains(expr, alias+"['"+varName+"']") || strings.Contains(expr, alias+`["`+varName+`"]`) ||
+			strings.Contains(expr, "dyn("+alias+")['"+varName+"']") || strings.Contains(expr, "dyn("+alias+`)["`+varName+`"]`) {
 			return true
 		}
 	}
@@ -674,25 +803,7 @@ func hasDynamicVariableAccess(expr string, varAliases map[string]bool) bool {
 			call := e.AsCall()
 			fn := call.FunctionName()
 			if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
-				firstArg := call.Args()[0]
-				isVar := false
-				if firstArg.Kind() == celast.IdentKind {
-					ident := strings.ToLower(firstArg.AsIdent())
-					if ident == "variables" || (varAliases != nil && varAliases[ident]) {
-						isVar = true
-					}
-				} else if firstArg.Kind() == celast.CallKind {
-					inner := firstArg.AsCall()
-					if strings.EqualFold(inner.FunctionName(), "dyn") && len(inner.Args()) == 1 {
-						if inner.Args()[0].Kind() == celast.IdentKind {
-							ident := strings.ToLower(inner.Args()[0].AsIdent())
-							if ident == "variables" || (varAliases != nil && varAliases[ident]) {
-								isVar = true
-							}
-						}
-					}
-				}
-				if isVar && call.Args()[1].Kind() != celast.LiteralKind {
+				if isVariablesExpr(call.Args()[0], varAliases) && call.Args()[1].Kind() != celast.LiteralKind {
 					hasDynamic = true
 				}
 			}
@@ -725,8 +836,10 @@ func (l logFormat) isSecretExpr(expr string) bool {
 	if l.readsSecret(expr) {
 		return true
 	}
-	if len(l.secretVars) > 0 && hasDynamicVariableAccess(expr, l.varAliases) {
-		return true
+	if len(l.secretVars) > 0 {
+		if hasDynamicVariableAccess(expr, l.varAliases) || isVariablesAlias(expr, l.varAliases) {
+			return true
+		}
 	}
 	for name := range l.secretVars {
 		if containsVar(expr, name, l.varAliases) {

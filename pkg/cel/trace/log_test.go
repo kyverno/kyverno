@@ -1291,4 +1291,166 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
 		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
 	})
+
+	t.Run("Dynamic resource selector in resource.Get is conservatively redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "dynamic-resource-selector",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "resource.Get('v1', object.metadata.labels.kind == 'secret' ? 'secrets' : 'configmaps', 'default', 'db').data.password != ''",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{
+							Expression: "resource.Get('v1', object.metadata.labels.kind == 'secret' ? 'secrets' : 'configmaps', 'default', 'db').data.password",
+							Value:      password,
+						},
+						{
+							Expression: "resource.Get('v1', object.metadata.labels.kind == 'secret' ? 'secrets' : 'configmaps', 'default', 'db').data.password != ''",
+							Value:      "false",
+						},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Literal indexing through dyn(variables) is recognized and redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "dyn-variables-literal-indexing",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db')",
+						Result: `map[data:map[password:` + password + `] kind:Secret]`,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: `dyn(variables)["dbSecret"].data.password == 'expected'`,
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: `dyn(variables)["dbSecret"].data.password`, Value: password},
+						{Expression: `dyn(variables)["dbSecret"].data.password == 'expected'`, Value: "false"},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[0].Result)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Variables map root and aliases are redacted when secretVars is non-empty", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "variables-root-redacted",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db')",
+						Result: `map[data:map[password:` + password + `] kind:Secret]`,
+					},
+				},
+				{
+					Name: "allVars",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables",
+						Result: `map[dbSecret:map[password:` + password + `]]`,
+					},
+				},
+				{
+					Name: "dynVars",
+					ExpressionTrace: ExpressionTrace{
+						Source: "dyn(variables)",
+						Result: `map[dbSecret:map[password:` + password + `]]`,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.allVars != null",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "variables", Value: `map[dbSecret:map[password:` + password + `]]`},
+						{Expression: "variables.allVars != null", Value: "false"},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[0].Result)
+		assert.Equal(t, redacted, entry.Variables[1].Result)
+		assert.Equal(t, redacted, entry.Variables[2].Result)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Unrelated CRDs starting with Secret (e.g. SecretStore) are not over-redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "secret-store-crd-not-redacted",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "storeManifest",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('external-secrets.io/v1beta1', 'secretstores', 'default', 'my-store')",
+						Result: `map[apiVersion:external-secrets.io/v1beta1 kind:SecretStore metadata:map[name:my-store]]`,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictPass,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.storeManifest.metadata.name == 'my-store'",
+					Result: "true",
+					Nodes: []NodeTrace{
+						{Expression: "variables.storeManifest.metadata.name", Value: "my-store"},
+						{Expression: "variables.storeManifest.metadata.name == 'my-store'", Value: "true"},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), "my-store")
+		assert.Contains(t, string(raw), "SecretStore")
+		assert.NotEqual(t, redacted, entry.Variables[0].Result)
+	})
 }
