@@ -149,7 +149,7 @@ func (l logFormat) text(v string) string {
 	if l.sensitive && v != "" {
 		return redacted
 	}
-	return v
+	return clip(v)
 }
 
 func (l logFormat) named(n NamedExpressionTrace) LogExpression {

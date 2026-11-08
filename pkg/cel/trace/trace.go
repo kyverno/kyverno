@@ -185,9 +185,14 @@ func resourceCallMayReadSecret(call celast.CallExpr) bool {
 	}
 	var resourceArg []celast.Expr
 	if args[0].Kind() == celast.CallKind {
-		name := callName(args[0].AsCall())
+		toGVR := args[0].AsCall()
+		name := callName(toGVR)
 		if strings.Contains(name, "togvr") || strings.Contains(name, "to_gvr") {
-			resourceArg = args[0].AsCall().Args()[1:]
+			toGVRArgs := toGVR.Args()
+			if len(toGVRArgs) < 2 {
+				return true
+			}
+			resourceArg = toGVRArgs[1:]
 		}
 	}
 	if resourceArg == nil {

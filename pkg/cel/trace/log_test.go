@@ -104,9 +104,15 @@ func TestLogValues(t *testing.T) {
 		long := strings.Repeat("x", 3*maxValueLen)
 		d.Variables[0].Result = long
 		d.Verdict.Nodes[1].Value = long
+		d.Verdict.Message = long
+		d.Mutations = []MutationTrace{{Error: long, NotApplied: long}}
 		entry, _ := logged(t, d)
-		assert.Equal(t, strings.Repeat("x", maxValueLen)+"...", entry.Variables[0].Result)
-		assert.Equal(t, strings.Repeat("x", maxValueLen)+"...", entry.Verdict.Evaluated[1].Value)
+		clipped := strings.Repeat("x", maxValueLen) + "..."
+		assert.Equal(t, clipped, entry.Variables[0].Result)
+		assert.Equal(t, clipped, entry.Verdict.Evaluated[1].Value)
+		assert.Equal(t, clipped, entry.Verdict.Message)
+		assert.Equal(t, clipped, entry.Mutations[0].Error)
+		assert.Equal(t, clipped, entry.Mutations[0].NotApplied)
 	})
 
 	t.Run("a mutation that failed keeps its breakdown, one that ran does not", func(t *testing.T) {
