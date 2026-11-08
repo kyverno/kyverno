@@ -9,20 +9,6 @@ resources:
 - resources.yaml
 results:
 - isImageValidatingPolicy: true
-  kind: Pod
-  policy: image-volumes-from-trusted-registry
-  resources:
-  - trusted-volume
-  - no-image-volume
-  - null-volumes
-  result: pass
-- isImageValidatingPolicy: true
-  kind: Pod
-  policy: image-volumes-from-trusted-registry
-  resources:
-  - untrusted-volume
-  result: fail
-- isImageValidatingPolicy: true
   kind: Deployment
   policy: image-volumes-from-trusted-registry
   resources:
@@ -30,7 +16,13 @@ results:
   result: fail
 - isImageValidatingPolicy: true
   kind: Pod
-  policy: image-volumes-required
+  policy: image-volumes-from-trusted-registry
+  resources:
+  - untrusted-volume
+  result: fail
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: image-volumes-from-trusted-registry
   resources:
   - trusted-volume
   - no-image-volume
@@ -42,3 +34,11 @@ results:
   resources:
   - untrusted-volume
   result: fail
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: image-volumes-required
+  resources:
+  - trusted-volume
+  - no-image-volume
+  - null-volumes
+  result: pass
