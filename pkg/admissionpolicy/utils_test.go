@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -51,23 +53,33 @@ type mockEngineClient struct {
 
 	isNamespacedResp bool
 	isNamespacedErr  error
+	discoveryCalls   int
+	getCalls         int
+	listCalls        int
 
 	getResourceResp *unstructured.Unstructured
 	getResourceErr  error
+	getNamespace    string
 
 	listResourceResp *unstructured.UnstructuredList
 	listResourceErr  error
+	listNamespace    string
 }
 
 func (m *mockEngineClient) IsNamespaced(group, version, kind string) (bool, error) {
+	m.discoveryCalls++
 	return m.isNamespacedResp, m.isNamespacedErr
 }
 
 func (m *mockEngineClient) GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	m.getCalls++
+	m.getNamespace = namespace
 	return m.getResourceResp, m.getResourceErr
 }
 
 func (m *mockEngineClient) ListResource(ctx context.Context, apiVersion, kind, namespace string, selector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	m.listCalls++
+	m.listNamespace = namespace
 	return m.listResourceResp, m.listResourceErr
 }
 
@@ -644,6 +656,178 @@ func TestCollectParams(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Len(t, res, tt.expectedLen)
+			}
+		})
+	}
+}
+
+func TestCollectParamsForPolicy(t *testing.T) {
+	t.Parallel()
+	configMapKind := &admissionregistrationv1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"}
+	nodeKind := &admissionregistrationv1.ParamKind{APIVersion: "v1", Kind: "Node"}
+
+	t.Run("defaults to policy namespace", func(t *testing.T) {
+		t.Parallel()
+		client := &mockEngineClient{
+			isNamespacedResp: true,
+			getResourceResp:  &unstructured.Unstructured{},
+		}
+		params, err := CollectParamsForPolicy(
+			context.Background(),
+			client,
+			configMapKind,
+			&admissionregistrationv1.ParamRef{Name: "params"},
+			"resource-ns",
+			&kyvernov1.Policy{ObjectMeta: metav1.ObjectMeta{Namespace: "policy-ns"}},
+		)
+		assert.NoError(t, err)
+		assert.Len(t, params, 1)
+		assert.Equal(t, "policy-ns", client.getNamespace)
+	})
+
+	t.Run("allows explicit policy namespace", func(t *testing.T) {
+		t.Parallel()
+		client := &mockEngineClient{
+			isNamespacedResp: true,
+			getResourceResp:  &unstructured.Unstructured{},
+		}
+		_, err := CollectParamsForPolicy(
+			context.Background(),
+			client,
+			configMapKind,
+			&admissionregistrationv1.ParamRef{Name: "params", Namespace: "policy-ns"},
+			"resource-ns",
+			&kyvernov1.Policy{ObjectMeta: metav1.ObjectMeta{Namespace: "policy-ns"}},
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, "policy-ns", client.getNamespace)
+	})
+
+	t.Run("selector is confined to policy namespace", func(t *testing.T) {
+		t.Parallel()
+		client := &mockEngineClient{
+			isNamespacedResp: true,
+			listResourceResp: &unstructured.UnstructuredList{},
+		}
+		_, err := CollectParamsForPolicy(
+			context.Background(),
+			client,
+			configMapKind,
+			&admissionregistrationv1.ParamRef{Selector: &metav1.LabelSelector{}},
+			"resource-ns",
+			&kyvernov1.Policy{ObjectMeta: metav1.ObjectMeta{Namespace: "policy-ns"}},
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, "policy-ns", client.listNamespace)
+	})
+
+	t.Run("rejects foreign namespace before reading", func(t *testing.T) {
+		t.Parallel()
+		client := &mockEngineClient{isNamespacedResp: true}
+		_, err := CollectParamsForPolicy(
+			context.Background(),
+			client,
+			configMapKind,
+			&admissionregistrationv1.ParamRef{Name: "params", Namespace: "foreign-ns"},
+			"resource-ns",
+			&kyvernov1.Policy{ObjectMeta: metav1.ObjectMeta{Namespace: "policy-ns"}},
+		)
+		assert.ErrorContains(t, err, "must match policy namespace")
+		assert.Zero(t, client.getCalls)
+		assert.Zero(t, client.listCalls)
+	})
+
+	t.Run("rejects cluster scoped kind before reading", func(t *testing.T) {
+		t.Parallel()
+		client := &mockEngineClient{isNamespacedResp: false}
+		_, err := CollectParamsForPolicy(
+			context.Background(),
+			client,
+			nodeKind,
+			&admissionregistrationv1.ParamRef{Name: "node"},
+			"resource-ns",
+			&kyvernov1.Policy{ObjectMeta: metav1.ObjectMeta{Namespace: "policy-ns"}},
+		)
+		assert.ErrorContains(t, err, "cluster-scoped paramKind is not allowed")
+		assert.Zero(t, client.getCalls)
+		assert.Zero(t, client.listCalls)
+	})
+}
+
+func TestCollectParamsForPolicy_RejectsInvalidScopeBeforeClientAccess(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		policy engineapi.PolicyScope
+		err    string
+	}{
+		{name: "nil policy", err: "policy scope must not be nil"},
+		{name: "typed nil policy", policy: (*kyvernov1.Policy)(nil), err: "policy scope must not be nil"},
+		{name: "namespaced policy without namespace", policy: &kyvernov1.Policy{}, err: "policy namespace must not be empty"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			for _, ref := range []struct {
+				name     string
+				paramRef *admissionregistrationv1.ParamRef
+			}{
+				{name: "named parameter", paramRef: &admissionregistrationv1.ParamRef{Name: "params", Namespace: "foreign-ns"}},
+				{name: "selector parameters", paramRef: &admissionregistrationv1.ParamRef{Selector: &metav1.LabelSelector{}}},
+			} {
+				t.Run(ref.name, func(t *testing.T) {
+					t.Parallel()
+					client := &mockEngineClient{isNamespacedResp: true}
+					params, err := CollectParamsForPolicy(context.Background(), client,
+						&admissionregistrationv1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"},
+						ref.paramRef, "resource-ns", test.policy)
+					assert.ErrorContains(t, err, test.err)
+					assert.Nil(t, params)
+					assert.Zero(t, client.discoveryCalls)
+					assert.Zero(t, client.getCalls)
+					assert.Zero(t, client.listCalls)
+				})
+			}
+		})
+	}
+}
+
+func TestCollectParamsForPolicy_NativeAdmissionPolicyScope(t *testing.T) {
+	t.Parallel()
+	for _, policy := range []struct {
+		name  string
+		scope engineapi.PolicyScope
+	}{
+		{name: "ValidatingAdmissionPolicy", scope: engineapi.NewValidatingAdmissionPolicy(&admissionregistrationv1.ValidatingAdmissionPolicy{})},
+		{name: "MutatingAdmissionPolicy", scope: engineapi.NewMutatingAdmissionPolicy(&admissionregistrationv1beta1.MutatingAdmissionPolicy{})},
+	} {
+		t.Run(policy.name, func(t *testing.T) {
+			t.Parallel()
+			for _, test := range []struct {
+				name              string
+				kind              string
+				isNamespaced      bool
+				paramNamespace    string
+				expectedNamespace string
+			}{
+				{name: "defaults to resource namespace", kind: "ConfigMap", isNamespaced: true, expectedNamespace: "resource-ns"},
+				{name: "allows explicit namespace", kind: "ConfigMap", isNamespaced: true, paramNamespace: "params-ns", expectedNamespace: "params-ns"},
+				{name: "allows cluster scoped parameters", kind: "Node"},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					t.Parallel()
+					client := &mockEngineClient{
+						isNamespacedResp: test.isNamespaced,
+						getResourceResp:  &unstructured.Unstructured{},
+					}
+					params, err := CollectParamsForPolicy(context.Background(), client,
+						&admissionregistrationv1.ParamKind{APIVersion: "v1", Kind: test.kind},
+						&admissionregistrationv1.ParamRef{Name: "params", Namespace: test.paramNamespace},
+						"resource-ns", policy.scope)
+					assert.NoError(t, err)
+					assert.Len(t, params, 1)
+					assert.Equal(t, 1, client.getCalls)
+					assert.Equal(t, test.expectedNamespace, client.getNamespace)
+				})
 			}
 		})
 	}
