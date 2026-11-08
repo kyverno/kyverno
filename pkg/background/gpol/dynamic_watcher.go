@@ -641,14 +641,6 @@ func (wm *WatchManager) StopWatchers() {
 	wm.refCount = map[schema.GroupVersionResource]int{}
 }
 
-// startWatcher starts a new watcher for the given resource and GVR.
-// It initializes the metadata cache and sets up the watch interface.
-// The watcher will handle events for the resource and update the metadata cache accordingly.
-// It returns a pointer to the watcher or an error if the watcher could not be created.
-func (wm *WatchManager) startWatcher(resource *unstructured.Unstructured, gvr schema.GroupVersionResource) (*watcher, error) {
-	return wm.startWatcherWithCache(resource, gvr, nil)
-}
-
 func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructured, gvr schema.GroupVersionResource, metadataCache map[types.UID]Resource) (*watcher, error) {
 	if metadataCache == nil {
 		metadataCache = map[types.UID]Resource{}

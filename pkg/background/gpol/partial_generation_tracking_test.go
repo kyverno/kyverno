@@ -342,7 +342,6 @@ func TestDownstreamKeyIgnoresServedVersion(t *testing.T) {
 	require.Equal(t, downstreamKey(v1, "team-a", "same"), downstreamKey(v2, "team-a", "same"))
 }
 
-
 // A CRD can serve the same object through two API versions. The old GVR's
 // cache entry is obsolete, but the object itself is still desired.
 func TestServedVersionWatcherReconciliationDoesNotDeleteDesiredUID(t *testing.T) {
@@ -356,7 +355,7 @@ func TestServedVersionWatcherReconciliationDoesNotDeleteDesiredUID(t *testing.T)
 	newer.SetAPIVersion("example.io/v1beta1")
 	client := &MockClient{}
 	wm := &WatchManager{
-		log: logging.WithName("served-version-reconcile"),
+		log:    logging.WithName("served-version-reconcile"),
 		client: client,
 		restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
 			if version == "v1beta1" {
@@ -371,7 +370,7 @@ func TestServedVersionWatcherReconciliationDoesNotDeleteDesiredUID(t *testing.T)
 			newGVR: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{}},
 		},
 		policyRefs: map[string][]schema.GroupVersionResource{policyKey: {oldGVR}},
-		refCount: map[schema.GroupVersionResource]int{oldGVR: 1},
+		refCount:   map[schema.GroupVersionResource]int{oldGVR: 1},
 	}
 	defer wm.StopWatchers()
 	require.NoError(t, wm.AddWatchers(policyKey, nil, []*unstructured.Unstructured{newer}, false))
@@ -393,14 +392,14 @@ func TestPartialWatcherStartupFailureRetainsCleanupIdentity(t *testing.T) {
 	})
 	client := &MockClient{}
 	wm := &WatchManager{
-		log: logging.WithName("watch-failure"),
+		log:    logging.WithName("watch-failure"),
 		client: client,
 		restMapper: &mockRESTMapper{fn: func(schema.GroupKind, string) (*meta.RESTMapping, error) {
 			return &meta.RESTMapping{Resource: gvr}, nil
 		}},
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
-		policyRefs: map[string][]schema.GroupVersionResource{},
-		refCount: map[schema.GroupVersionResource]int{},
+		policyRefs:      map[string][]schema.GroupVersionResource{},
+		refCount:        map[schema.GroupVersionResource]int{},
 	}
 	defer wm.StopWatchers()
 	require.Error(t, wm.AddWatchers(policyKey, nil, []*unstructured.Unstructured{obj}, false), "empty resourceVersion must fail watch initialization")

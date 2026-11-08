@@ -360,11 +360,16 @@ func (cp *contextProvider) GenerateResourcesContext(ctx context.Context, namespa
 				}
 				return err
 			}
-			if !cp.isManagedByPolicy(ctx, existing) {
-				// If the existing resource is NOT labeled as managed by this
-				// policy (e.g. an unrelated, user-created resource that
-				// happens to share the same name/kind/namespace), it must not
-				// be reported or updated here, otherwise it would be silently adopted.
+			owned, ownershipErr := cp.isManagedByPolicyChecked(ctx, existing)
+			if ownershipErr != nil {
+				// An incomplete desired set must not be reconciled as success.
+				// In particular, legacy scope ambiguity must stop evaluation,
+				// not silently make a previously generated object disappear.
+				return fmt.Errorf("verify generated resource %s/%s ownership: %w", targetNamespace, item.GetName(), ownershipErr)
+			}
+			if !owned {
+				// A pre-existing resource belonging to somebody else must not
+				// be reported or updated by this generating policy.
 				continue
 			}
 			// the resource already exists and is managed by this policy
@@ -424,37 +429,44 @@ func (cp *contextProvider) GenerateResourcesContext(ctx context.Context, namespa
 // different triggers of the same policy from "adopting" each other's
 // downstream resource when they happen to render the same target name.
 func (cp *contextProvider) isManagedByPolicy(ctx context.Context, obj *unstructured.Unstructured) bool {
+	owned, _ := cp.isManagedByPolicyChecked(ctx, obj)
+	return owned
+}
+
+func (cp *contextProvider) isManagedByPolicyChecked(ctx context.Context, obj *unstructured.Unstructured) (bool, error) {
 	if obj == nil {
-		return false
+		return false, nil
 	}
 	labels := obj.GetLabels()
 	if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp ||
 		labels[common.GeneratePolicyLabel] != cp.genCtx.policyName ||
 		labels[common.GenerateTriggerUIDLabel] != cp.genCtx.triggerUID {
-		return false
+		return false, nil
 	}
 	if cp.genCtx.policyNamespace != "" && !common.MatchesPolicyTriggerNamespace(labels, cp.genCtx.policyNamespace) {
-		return false
+		return false, nil
 	}
 	if scope, marked := labels[common.GeneratePolicyScopeLabel]; marked {
 		if cp.genCtx.policyNamespace == "" {
-			return scope == common.GeneratePolicyScopeCluster
+			return scope == common.GeneratePolicyScopeCluster, nil
 		}
-		return scope == common.GeneratePolicyScopeNamespaced
+		return scope == common.GeneratePolicyScopeNamespaced, nil
 	}
 	// Apart from Namespace, cluster-scoped triggers cannot belong to a
 	// namespaced policy. Namespace triggers can, so legacy objects need the
 	// counterpart policy lookup below before being adopted.
 	if cp.genCtx.policyNamespace == "" && labels[common.GenerateTriggerNSLabel] == "" &&
 		labels[common.GenerateTriggerKindLabel] != "Namespace" {
-		return true
+		return true, nil
 	}
 	// Historical downstreams with a namespaced or Namespace trigger have no
 	// durable policy-scope identity. The absence of a same-named policy in the
 	// other scope is NOT proof of origin: that policy may have been deleted.
 	// Do not adopt, update or delete these ambiguous objects without a
 	// UID-qualified UpdateRequest record (checked by the background controller).
-	return false
+	// Reject the evaluation rather than reporting a successful empty desired
+	// set that could prune an otherwise live watcher registration.
+	return false, fmt.Errorf("ambiguous legacy downstream without policy scope marker")
 }
 
 func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {

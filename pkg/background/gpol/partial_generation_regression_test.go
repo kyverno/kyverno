@@ -633,14 +633,13 @@ func TestPartialGenerationSuccessfulEmptyRestoreCleansRecordedDownstream(t *test
 	require.NotContains(t, client.objects, "ConfigMap/"+namespace+"/old")
 }
 
-
 func TestLegacyCounterpartLookupOutageRetainsRecordedUID(t *testing.T) {
 	const namespace = "team-a"
 	const policyKey = "legacy-outage"
 	labels := map[string]string{
-		kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
-		common.GeneratePolicyLabel: policyKey,
-		common.GenerateTriggerNSLabel: namespace,
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     policyKey,
+		common.GenerateTriggerNSLabel:  namespace,
 		common.GenerateTriggerUIDLabel: "trigger-uid",
 	}
 	old := makeUnstructured("7", "", "v1", "ConfigMap", "old", namespace, "old-uid", labels)
@@ -653,7 +652,7 @@ func TestLegacyCounterpartLookupOutageRetainsRecordedUID(t *testing.T) {
 	}
 	controller := &CELGenerateController{client: client}
 	ur := &kyvernov2.UpdateRequest{
-		Spec: kyvernov2.UpdateRequestSpec{Policy: policyKey},
+		Spec:   kyvernov2.UpdateRequestSpec{Policy: policyKey},
 		Status: kyvernov2.UpdateRequestStatus{GeneratedResources: []kyverno.ResourceSpec{oldSpec}},
 	}
 	_, err := controller.retainAcknowledgedDownstreamsChecked(context.Background(), ur, kyverno.ResourceSpec{UID: "trigger-uid"}, nil)
@@ -678,9 +677,9 @@ func TestLegacyAcknowledgedRetryRequiresNonemptyUID(t *testing.T) {
 	const namespace = "team-a"
 	const policyKey = "legacy-uid"
 	old := makeUnstructured("3", "", "v1", "ConfigMap", "old", namespace, "old-uid", map[string]string{
-		kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
-		common.GeneratePolicyLabel: policyKey,
-		common.GenerateTriggerNSLabel: namespace,
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     policyKey,
+		common.GenerateTriggerNSLabel:  namespace,
 		common.GenerateTriggerUIDLabel: "trigger-uid",
 	})
 	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{

@@ -306,3 +306,18 @@ func TestLegacyCELNamespaceTriggerRequiresCounterpartCheck(t *testing.T) {
 	client.conflict = false
 	require.False(t, cp.isManagedByPolicy(context.Background(), obj), "deleted counterpart still leaves historical ownership ambiguous")
 }
+
+func TestAmbiguousLegacyCELDownstreamFailsOwnershipVerification(t *testing.T) {
+	cp := &contextProvider{}
+	cp.SetGenerateContext("same-name", "", "trigger", "team-a", "v1", "", "ConfigMap", "trigger-uid", false, false)
+	obj := &unstructured.Unstructured{Object: map[string]any{}}
+	obj.SetLabels(map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     "same-name",
+		common.GenerateTriggerNSLabel:  "team-a",
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	})
+	owned, err := cp.isManagedByPolicyChecked(context.Background(), obj)
+	require.False(t, owned)
+	require.ErrorContains(t, err, "ambiguous legacy downstream")
+}
