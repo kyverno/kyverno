@@ -21,9 +21,9 @@ This package implements the `kyverno create values` (and `kubectl-kyverno create
    - `--ns-selector` expects `<namespace>,<key>=<value>...`.
    - Any malformed input returns a clear validation error rather than silently failing or dropping fields.
 
-4. **Atomic Output Writing**:
-   - Flag validation and template rendering execute in-memory before writing the output file (`-o/--output`).
-   - Output files are written atomically using a temporary file in the destination directory and renamed into place. If validation or write fails, any pre-existing output file is preserved intact and never truncated.
+4. **Output File Protection**:
+   - Flag validation and template rendering execute in-memory before opening the output file (`-o/--output`).
+   - If validation fails, any pre-existing output file is preserved intact and never truncated.
 
 5. **YAML Scalar Encoding (`formatValue`)**:
    - Values containing sequences sensitive in YAML plain scalars (such as inline comments ` #`, leading `#`, or mapping indicators `: `) are double-quoted so they are not truncated as comments or misinterpreted as mappings.

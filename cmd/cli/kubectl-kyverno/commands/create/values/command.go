@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/template"
 
@@ -61,10 +60,16 @@ func Command() *cobra.Command {
 				return err
 			}
 
+			output := cmd.OutOrStdout()
 			if path != "" {
-				return writeOutputFile(path, buf.Bytes())
+				file, err := os.Create(path) // #nosec G304
+				if err != nil {
+					return err
+				}
+				defer file.Close()
+				output = file
 			}
-			_, err = cmd.OutOrStdout().Write(buf.Bytes())
+			_, err = output.Write(buf.Bytes())
 			return err
 		},
 	}
@@ -74,29 +79,6 @@ func Command() *cobra.Command {
 	cmd.Flags().StringArrayVar(&rules, "rule", nil, "Policy rule values")
 	cmd.Flags().StringArrayVar(&resources, "resource", nil, "Policy resource values")
 	return cmd
-}
-
-// writeOutputFile writes data atomically to destination path using a temporary file in the same directory.
-func writeOutputFile(path string, data []byte) error {
-	cleanPath := filepath.Clean(path)
-	dir := filepath.Dir(cleanPath)
-	tmpFile, err := os.CreateTemp(dir, "values-*.tmp") // #nosec G304
-	if err != nil {
-		return err
-	}
-	tmpName := tmpFile.Name()
-	defer func() {
-		_ = os.Remove(tmpName) // #nosec G304
-	}()
-
-	if _, err := tmpFile.Write(data); err != nil {
-		_ = tmpFile.Close()
-		return err
-	}
-	if err := tmpFile.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmpName, cleanPath) // #nosec G304
 }
 
 // formatValue formats a value for safe YAML template serialization.
