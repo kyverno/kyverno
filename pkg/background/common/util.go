@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	errors "github.com/pkg/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -35,8 +36,11 @@ func UpdateStatus(ctx context.Context, client versioned.Interface, urLister kyve
 			// The retry budget is spent and the request is gone, so there is
 			// nothing left to carry the status. Skip the write: issuing an
 			// UpdateStatus against the deleted object returns a 404 and the
-			// terminal cleanup gets reported as a reconciliation error.
-			logging.V(3).Info("dropped update request after exhausting retries", "name", name, "retryCount", latest.Status.RetryCount)
+			// terminal cleanup gets reported as a reconciliation error. Keep
+			// the last failure message on the single drop record: it dies
+			// with the deleted object, and a silent drop leaves no record
+			// of why the work never completed.
+			logging.V(3).Info("dropped update request after exhausting retries", "name", name, "retryCount", latest.Status.RetryCount, "message", message)
 			return ur, nil
 		}
 	}
@@ -63,6 +67,13 @@ func retryOrDeleteOnFailure(ctx context.Context, kyvernoClient versioned.Interfa
 	if ur.Status.RetryCount > limit {
 		err = kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(ctx, ur.GetName(), metav1.DeleteOptions{})
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// Another worker or manual cleanup already removed the
+				// request between the fetch and this delete. The terminal
+				// state is reached either way, so report the delete as done
+				// instead of wrapping the race as an error and requeuing.
+				return ur, true, nil
+			}
 			return nil, false, errors.Wrapf(err, "exceeds retry limit, failed to delete the UR: %s, retry: %v, resourceVersion: %s", ur.Name, ur.Status.RetryCount, ur.GetResourceVersion())
 		}
 		return ur, true, nil

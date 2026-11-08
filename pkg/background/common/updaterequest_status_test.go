@@ -214,3 +214,42 @@ func TestRetryOrDeleteOnFailure_DeleteError(t *testing.T) {
 	assert.False(t, deleted)
 	assert.Nil(t, latest)
 }
+
+// A NotFound from the terminal delete means another worker or manual cleanup
+// already removed the request between the fetch and the delete. The terminal
+// state is reached either way, so the race reports deleted with no error
+// instead of surfacing a requeue-worthy failure.
+func TestRetryOrDeleteOnFailure_DeleteNotFoundCountsAsDeleted(t *testing.T) {
+	ur := newTestUR("ur", kyvernov2.Pending, 4)
+	client := fake.NewSimpleClientset(ur)
+	client.PrependReactor("delete", "updaterequests", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		// Model the competing cleanup: the request is really gone, and the
+		// API reports NotFound to the late delete.
+		assert.NoError(t, client.Tracker().Delete(action.GetResource(), action.GetNamespace(), ur.Name))
+		return true, nil, apierrors.NewNotFound(schema.GroupResource{Group: "kyverno.io", Resource: "updaterequests"}, "ur")
+	})
+
+	latest, deleted, err := retryOrDeleteOnFailure(context.TODO(), client, ur, 3)
+	assert.NoError(t, err, "an already-deleted request is the desired end state, not a failure")
+	assert.True(t, deleted, "NotFound still means the request is gone")
+	assert.NotNil(t, latest, "callers still expect the pre-delete object back")
+	_, gerr := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.Name, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(gerr), "the competing cleanup must actually remove the request")
+}
+
+// UpdateStatus must not report failure nor attempt a status write when the
+// terminal delete loses the race to another cleanup.
+func TestUpdateStatus_DeleteNotFoundSkipsStatusWrite(t *testing.T) {
+	ur := newTestUR("ur-gone-mid-delete", kyvernov2.Pending, 4)
+	client := fake.NewSimpleClientset(ur)
+	client.PrependReactor("delete", "updaterequests", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		assert.NoError(t, client.Tracker().Delete(action.GetResource(), action.GetNamespace(), ur.Name))
+		return true, nil, apierrors.NewNotFound(schema.GroupResource{Group: "kyverno.io", Resource: "updaterequests"}, "ur-gone-mid-delete")
+	})
+
+	_, err := UpdateStatus(context.TODO(), client, nil, "ur-gone-mid-delete", kyvernov2.Failed, "boom", nil)
+	assert.NoError(t, err, "losing the delete race must not requeue or log a failure")
+	assert.Equal(t, 0, statusUpdates(client.Actions()), "no status write when the request is already gone")
+	_, gerr := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.Name, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(gerr), "the competing cleanup must actually remove the request")
+}

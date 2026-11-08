@@ -9,6 +9,7 @@ import (
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/stretchr/testify/assert"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -601,4 +603,51 @@ func TestProcessUR_UnsupportedTypeFails(t *testing.T) {
 	assert.NoError(t, getErr)
 	assert.Equal(t, kyvernov2.Failed, updated.Status.State)
 	assert.Contains(t, updated.Status.Message, "unsupported update request type")
+}
+
+// recordingRateLimitingQueue records whether AddRateLimited was ever called.
+// NumRequeues alone cannot catch a rate-limited add that lands after Forget.
+type recordingRateLimitingQueue struct {
+	workqueue.TypedRateLimitingInterface[any]
+	addRateLimitedCalled bool
+}
+
+func (q *recordingRateLimitingQueue) AddRateLimited(item any) {
+	q.addRateLimitedCalled = true
+	q.TypedRateLimitingInterface.AddRateLimited(item)
+}
+
+// TestSyncUpdateRequest_ProcessURNotFoundForgetsKey exercises the full chain
+// TestHandleErr_WrappedNotFoundForgetsKey only simulates: the lister serves a
+// Pending request, but processUR's status write hits a Get that returns
+// NotFound (another worker already cleaned it up). The error must travel
+// through syncUpdateRequest's %w wrap and still make handleErr drop the key.
+// If the wrap ever degrades to %v, this test catches it.
+func TestSyncUpdateRequest_ProcessURNotFoundForgetsKey(t *testing.T) {
+	ur := newTestUpdateRequest("gone-ur", kyvernov2.Pending, kyvernov2.RequestType("bogus"))
+
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	assert.NoError(t, indexer.Add(ur))
+	urLister := kyvernov2listers.NewUpdateRequestLister(indexer).UpdateRequests(config.KyvernoNamespace())
+
+	// The API no longer has the request: processUR's status write 404s.
+	fakeClient := fake.NewSimpleClientset()
+
+	queue := &recordingRateLimitingQueue{TypedRateLimitingInterface: newTestQueue()}
+	c := &controller{
+		kyvernoClient: fakeClient,
+		urLister:      urLister,
+		queue:         queue,
+	}
+	t.Cleanup(c.queue.ShutDown)
+
+	key := config.KyvernoNamespace() + "/gone-ur"
+	err := c.syncUpdateRequest(key)
+	assert.Error(t, err)
+	assert.True(t, apierrors.IsNotFound(err), "the NotFound cause must survive syncUpdateRequest's wrap, got %v", err)
+
+	c.handleErr(err, key)
+	assert.False(t, queue.addRateLimitedCalled, "a vanished request must not be rate-limited")
+	assert.Equal(t, 0, c.queue.NumRequeues(key), "a vanished request must be dropped, not rate-limited")
+	assert.Equal(t, 0, c.queue.Len(), "nothing should be requeued for a deleted request")
 }

@@ -341,8 +341,14 @@ func (c *controller) reconcileURStatusAt(ur *kyvernov2.UpdateRequest, now time.T
 		// A concurrent terminal delete (retry exhaustion, manual cleanup)
 		// may have removed the request after the Get above. That is not a
 		// reconcile failure.
-		if err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-			errUpdate = err
+		if err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				// Record the already-gone outcome distinctly from a delete
+				// we performed, so the sync log shows who removed it.
+				logger.V(4).Info("completed update request was already deleted, nothing to remove", "name", ur.GetName())
+			} else {
+				errUpdate = err
+			}
 		}
 	case kyvernov2.Failed:
 		new.Status.State = kyvernov2.Pending
