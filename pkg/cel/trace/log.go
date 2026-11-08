@@ -533,22 +533,47 @@ func isBareVariableRef(e celast.Expr, varName string, varAliases map[string]bool
 	return false
 }
 
+// listContainsVarRoot reports whether list contains variables root or derived elements.
+func listContainsVarRoot(list celast.ListExpr, varAliases map[string]bool) bool {
+	for _, elem := range list.Elements() {
+		if isVariablesExpr(elem, varAliases) || isCollectionDerivedVariablesRoot(elem, varAliases) {
+			return true
+		}
+		if elem.Kind() == celast.ListKind && listContainsVarRoot(elem.AsList(), varAliases) {
+			return true
+		}
+	}
+	return false
+}
+
 // isCollectionDerivedVariablesRoot reports whether AST node e extracts the variables root
-// from a collection expression, e.g. [dyn(variables)][0] or [variables][0].
+// from a collection expression, e.g. [dyn(variables)][0], [variables][0], or [[variables]][0][0].
 func isCollectionDerivedVariablesRoot(e celast.Expr, varAliases map[string]bool) bool {
-	if e == nil || e.Kind() != celast.CallKind {
+	if e == nil {
 		return false
 	}
-	call := e.AsCall()
-	fn := call.FunctionName()
-	if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
-		target := call.Args()[0]
-		if target.Kind() == celast.ListKind {
-			for _, elem := range target.AsList().Elements() {
-				if isVariablesExpr(elem, varAliases) {
+	switch e.Kind() {
+	case celast.CallKind:
+		call := e.AsCall()
+		fn := call.FunctionName()
+		if strings.EqualFold(fn, "dyn") && len(call.Args()) == 1 {
+			return isCollectionDerivedVariablesRoot(call.Args()[0], varAliases)
+		}
+		if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
+			target := call.Args()[0]
+			if target.Kind() == celast.ListKind && listContainsVarRoot(target.AsList(), varAliases) {
+				return true
+			}
+			if target.Kind() == celast.ComprehensionKind {
+				comp := target.AsComprehension()
+				if isVariablesExpr(comp.IterRange(), varAliases) || isCollectionDerivedVariablesRoot(comp.IterRange(), varAliases) {
+					return true
+				}
+				if comp.IterRange().Kind() == celast.ListKind && listContainsVarRoot(comp.IterRange().AsList(), varAliases) {
 					return true
 				}
 			}
+			return isCollectionDerivedVariablesRoot(target, varAliases)
 		}
 	}
 	return false
@@ -587,7 +612,11 @@ func walkWithComprehensionScope(
 		}
 		if node.Kind() == celast.CallKind {
 			call := node.AsCall()
-			if strings.EqualFold(call.FunctionName(), "dyn") && len(call.Args()) == 1 {
+			fn := call.FunctionName()
+			if strings.EqualFold(fn, "dyn") && len(call.Args()) == 1 {
+				return hasVarRoot(call.Args()[0])
+			}
+			if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
 				return hasVarRoot(call.Args()[0])
 			}
 		}
@@ -596,6 +625,12 @@ func walkWithComprehensionScope(
 				if hasVarRoot(elem) {
 					return true
 				}
+			}
+		}
+		if node.Kind() == celast.ComprehensionKind {
+			comp := node.AsComprehension()
+			if hasVarRoot(comp.IterRange()) || hasVarRoot(comp.AccuInit()) {
+				return true
 			}
 		}
 		return false
@@ -1101,10 +1136,30 @@ func hasDynamicVariableAccess(expr string, varAliases map[string]bool) bool {
 	}
 	condensed := strings.ReplaceAll(strings.ReplaceAll(expr, " ", ""), "\t", "")
 	for _, alias := range aliases {
-		if (strings.Contains(condensed, "dyn("+alias+")[") && !strings.Contains(condensed, "dyn("+alias+")['") && !strings.Contains(condensed, "dyn("+alias+`["`)) ||
-			(strings.Contains(condensed, "[dyn("+alias+")][") && !strings.Contains(condensed, "[dyn("+alias+")]['") && !strings.Contains(condensed, `[dyn(`+alias+`)] ["`)) ||
-			(strings.Contains(condensed, alias+"[") && !strings.Contains(condensed, alias+"['") && !strings.Contains(condensed, alias+`["`)) {
-			return true
+		patterns := []string{
+			"dyn(" + alias + ")[",
+			"[dyn(" + alias + ")][",
+			"[dyn(" + alias + ")][[",
+			"[" + alias + "][",
+			"[" + alias + "][[",
+			alias + "[",
+		}
+		for _, prefix := range patterns {
+			pos := 0
+			for {
+				idx := strings.Index(condensed[pos:], prefix)
+				if idx == -1 {
+					break
+				}
+				start := pos + idx + len(prefix)
+				if start < len(condensed) {
+					firstChar := condensed[start]
+					if firstChar != '\'' && firstChar != '"' && (firstChar < '0' || firstChar > '9') {
+						return true
+					}
+				}
+				pos = start
+			}
 		}
 	}
 	return false

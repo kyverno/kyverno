@@ -2051,4 +2051,126 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		assert.Equal(t, "false", entry.Verdict.Evaluated[0].Value)
 		assert.Equal(t, redacted, entry.Verdict.Evaluated[1].Error)
 	})
+
+	t.Run("Nested collection [[variables]][0][0].dbPass propagates provenance and redacts secret", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "nested-collection-var-root",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db').data.password",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "[[variables]][0][0].dbPass == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "[[variables]][0][0].dbPass", Value: password},
+						{Expression: "[[variables]][0][0].dbPass == 'expected'", Value: "false"},
+					},
+				},
+			},
+		}
+
+		assert.True(t, newLogFormat(d).isSecretExpr("[[variables]][0][0].dbPass == 'expected'"))
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Mapped collection [variables].map(v, v)[0].dbPass propagates provenance and redacts secret", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "mapped-collection-var-root",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db').data.password",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "[variables].map(v, v)[0].dbPass == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "[variables].map(v, v)[0].dbPass", Value: password},
+						{Expression: "[variables].map(v, v)[0].dbPass == 'expected'", Value: "false"},
+					},
+				},
+			},
+		}
+
+		assert.True(t, newLogFormat(d).isSecretExpr("[variables].map(v, v)[0].dbPass == 'expected'"))
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Double-quoted literal index dyn(variables)[\"team\"] preserves value while mixed dynamic index is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "double-quoted-literal-dyn-index",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db').data.password",
+						Result: password,
+					},
+				},
+				{
+					Name: "team",
+					ExpressionTrace: ExpressionTrace{
+						Source: "'platform'",
+						Result: "platform",
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: `dyn(variables)["team"] == 'expected'`,
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: `dyn(variables)["team"]`, Value: "platform"},
+						{Expression: `dyn(variables)["team"] == 'expected'`, Value: "false"},
+					},
+				},
+			},
+		}
+
+		assert.False(t, newLogFormat(d).isSecretExpr(`dyn(variables)["team"] == 'expected'`))
+		assert.True(t, newLogFormat(d).isSecretExpr(`dyn(variables)["team"] == 'expected' && dyn(variables)[key] == 'foo'`))
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), "platform")
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, "platform", entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
 }
