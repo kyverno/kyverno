@@ -97,6 +97,23 @@ func TestCommandAggregateFilterErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "Invalid test-case-selector argument (invalid2)")
 }
 
+// invalid selectors must fail the command even when the directory contains tests,
+// otherwise every test runs unfiltered and the command can exit successfully
+func TestCommandFilterErrorsWithTests(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	cmd.SetErr(bytes.NewBufferString(""))
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	dir := filepath.Join("..", "..", "..", "..", "..", "test", "cli", "test-validating-policy", "json-check-dockerfile")
+	cmd.SetArgs([]string{dir, "--test-case-selector", "invalid-filter-1,invalid-filter-2"})
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid test-case-selector argument (invalid-filter-1)")
+	assert.Contains(t, err.Error(), "Invalid test-case-selector argument (invalid-filter-2)")
+	assert.NotContains(t, outBuffer.String(), "Test Summary")
+}
+
 func TestCommandWithInvalidFlag(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
