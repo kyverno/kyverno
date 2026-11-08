@@ -1062,4 +1062,91 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		assert.Equal(t, redacted, entry.Verdict.Message)
 		assert.Equal(t, redacted, entry.Variables[0].Result)
 	})
+
+	t.Run("Secret variable read through variables alias is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "variables-alias",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "vars",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables",
+						Result: "<map>",
+					},
+				},
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db')",
+						Result: `map[data:map[password:` + password + `] kind:Secret]`,
+					},
+				},
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "vars.dbSecret.data.password",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "vars.dbPass == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "vars.dbPass", Value: password},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[1].Result)
+		assert.Equal(t, redacted, entry.Variables[2].Result)
+		require.Len(t, entry.Verdict.Evaluated, 1)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+	})
+
+	t.Run("Secret read via globalContext.get with arbitrary entry name is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "gctx-arbitrary-name",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "cachedAuth",
+					ExpressionTrace: ExpressionTrace{
+						Source: `globalContext.get("external-auth-cache", "")`,
+						Result: `map[token:` + password + `]`,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.cachedAuth.token == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "variables.cachedAuth.token", Value: password},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[0].Result)
+		require.Len(t, entry.Verdict.Evaluated, 1)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+	})
 }
