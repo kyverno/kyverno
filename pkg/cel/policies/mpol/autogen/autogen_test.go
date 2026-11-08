@@ -806,4 +806,14 @@ func TestAutogenVariables(t *testing.T) {
 			Expression: "object.spec.jobTemplate.spec.template.metadata.labels.team",
 		},
 	}, result[autogen.AutogenCronjobs].Spec.Variables)
+
+	policy.Spec.AutogenConfiguration = &policiesv1beta1.MutatingPolicyAutogenConfiguration{
+		PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
+			Controllers: []string{"jobsets.v1alpha2.jobset.x-k8s.io"},
+		},
+	}
+	result, err = Autogen(policy)
+	require.NoError(t, err)
+	require.Len(t, result, 1)
+	assert.Equal(t, policy.Spec.Variables, result[autogen.ExtractionReplacementsRef].Spec.Variables)
 }
