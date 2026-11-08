@@ -116,11 +116,23 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 		workerCtx := c.context.Clone()
-		// Only this UpdateRequest's recorded UID-qualified downstreams may
-		// authorize adoption of unmarked historical CEL resources. The
-		// library still checks live UID and trigger labels before any write.
+		// Do not trust status UIDs in isolation. A historical object can have
+		// the same name and trigger labels as a policy in another scope.
+		// Verify live UID, trigger and counterpart-policy scope *before*
+		// allowing generation to treat an unmarked object as owned.
+		verifiedDownstreams, verifyErr := c.retainAcknowledgedDownstreamsChecked(
+			ctx, ur, ur.Spec.RuleContext[i].Trigger, nil,
+		)
+		if verifyErr != nil {
+			failures = append(failures, fmt.Errorf("gpol %s failed to verify prior generated ownership: %w", ur.Spec.GetPolicyKey(), verifyErr))
+			continue // never reconcile an incomplete, unverified desired set
+		}
 		if setter, ok := workerCtx.(interface{ SetAcknowledgedGeneratedResources([]kyverno.ResourceSpec) }); ok {
-			setter.SetAcknowledgedGeneratedResources(ur.Status.GeneratedResources)
+			verifiedSpecs := make([]kyverno.ResourceSpec, 0, len(verifiedDownstreams))
+			for _, downstream := range verifiedDownstreams {
+				verifiedSpecs = append(verifiedSpecs, common.ResourceSpecFromUnstructured(*downstream))
+			}
+			setter.SetAcknowledgedGeneratedResources(verifiedSpecs)
 		}
 		var request celengine.EngineRequest
 		admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
