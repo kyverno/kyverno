@@ -143,6 +143,42 @@ func TestCommandComplexValuesMerging(t *testing.T) {
 	assert.Equal(t, "us-east", prodNs.Labels["region"])
 }
 
+func TestCommandSameNameRuleAndResourceMerging(t *testing.T) {
+	cmd := Command()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{
+		"--rule", "testpol,rule1,k1=v1,k2=initial",
+		"--rule", "testpol,rule1,k2=overwritten,k3=v3",
+		"--resource", "testpol,res1,r1=v1,r2=initial",
+		"--resource", "testpol,res1,r2=overwritten,r3=v3",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+
+	var spec v1alpha1.ValuesSpec
+	err = yaml.Unmarshal(buf.Bytes(), &spec)
+	assert.NoError(t, err)
+
+	assert.Len(t, spec.Policies, 1)
+	pol := spec.Policies[0]
+	assert.Equal(t, "testpol", pol.Name)
+
+	// Single merged rule
+	assert.Len(t, pol.Rules, 1)
+	assert.Equal(t, "rule1", pol.Rules[0].Name)
+	assert.Equal(t, "v1", pol.Rules[0].Values["k1"])
+	assert.Equal(t, "overwritten", pol.Rules[0].Values["k2"])
+	assert.Equal(t, "v3", pol.Rules[0].Values["k3"])
+
+	// Single merged resource
+	assert.Len(t, pol.Resources, 1)
+	assert.Equal(t, "res1", pol.Resources[0].Name)
+	assert.Equal(t, "v1", pol.Resources[0].Values["r1"])
+	assert.Equal(t, "overwritten", pol.Resources[0].Values["r2"])
+	assert.Equal(t, "v3", pol.Resources[0].Values["r3"])
+}
+
 func TestCommandOutputToFile(t *testing.T) {
 	tempDir := t.TempDir()
 	outFile := filepath.Join(tempDir, "values.yaml")
@@ -165,6 +201,27 @@ func TestCommandOutputToFile(t *testing.T) {
 	assert.Equal(t, "test", spec.GlobalValues["env"])
 	assert.Len(t, spec.Policies, 1)
 	assert.Equal(t, "testpol", spec.Policies[0].Name)
+}
+
+func TestCommandErrorDoesNotTruncateFile(t *testing.T) {
+	tempDir := t.TempDir()
+	existingFile := filepath.Join(tempDir, "existing.yaml")
+	originalContent := []byte("original: content\ndo: not truncate\n")
+	err := os.WriteFile(existingFile, originalContent, 0644)
+	assert.NoError(t, err)
+
+	cmd := Command()
+	cmd.SetArgs([]string{
+		"-o", existingFile,
+		"--rule", "invalid_rule_format",
+	})
+	err = cmd.Execute()
+	assert.Error(t, err)
+
+	// Existing file must be untouched
+	content, err := os.ReadFile(existingFile)
+	assert.NoError(t, err)
+	assert.Equal(t, originalContent, content)
 }
 
 func TestCommandValidationErrors(t *testing.T) {
