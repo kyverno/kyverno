@@ -1,10 +1,14 @@
 package common
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -14,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8stesting "k8s.io/client-go/testing"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func newTestUR(name string, state kyvernov2.UpdateRequestState, retryCount int) *kyvernov2.UpdateRequest {
@@ -235,6 +240,30 @@ func TestRetryOrDeleteOnFailure_DeleteNotFoundCountsAsDeleted(t *testing.T) {
 	assert.NotNil(t, latest, "callers still expect the pre-delete object back")
 	_, gerr := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.Name, metav1.GetOptions{})
 	assert.True(t, apierrors.IsNotFound(gerr), "the competing cleanup must actually remove the request")
+}
+
+// The terminal drop record must stay free of the failure message: the message
+// can carry resource data from the failed target expression, and it dies with
+// the deleted object anyway. The name and retry count stay so the drop is
+// still attributable.
+func TestUpdateStatus_TerminalDropLogOmitsFailureMessage(t *testing.T) {
+	var buf bytes.Buffer
+	log.SetLogger(funcr.New(func(prefix, args string) {
+		fmt.Fprintf(&buf, "%s %s\n", prefix, args)
+	}, funcr.Options{Verbosity: 2}))
+	defer log.SetLogger(logr.Discard())
+
+	const message = "trigger-configmap-prod-secret-values-3f9c2a"
+	ur := newTestUR("ur-log-guard", kyvernov2.Pending, 4)
+	client := fake.NewSimpleClientset(ur)
+
+	_, err := UpdateStatus(context.TODO(), client, nil, "ur-log-guard", kyvernov2.Failed, message, nil)
+	assert.NoError(t, err)
+
+	out := buf.String()
+	assert.Contains(t, out, "dropped update request after exhausting retries", "the terminal drop must still be logged")
+	assert.Contains(t, out, "ur-log-guard", "the request name keeps the drop attributable")
+	assert.NotContains(t, out, message, "the failure message can carry resource data and must stay out of the log")
 }
 
 // UpdateStatus must not report failure nor attempt a status write when the
