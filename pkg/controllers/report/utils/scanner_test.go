@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -137,6 +138,14 @@ func TestScanResource_RedactsSecretMessageEvents(t *testing.T) {
 		require.NotNil(t, result.EngineResponse)
 		assert.True(t, result.EngineResponse.RedactMessages)
 	}
+}
+
+func TestHasSensitiveMessages(t *testing.T) {
+	assert.False(t, hasSensitiveMessages([]celengine.ValidatingPolicyResponse{{RedactMessages: false}}))
+	assert.True(t, hasSensitiveMessages([]celengine.ValidatingPolicyResponse{
+		{RedactMessages: false},
+		{RedactMessages: true},
+	}))
 }
 
 func newPodResource() (unstructured.Unstructured, schema.GroupVersionResource) {

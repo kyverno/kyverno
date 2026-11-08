@@ -44,6 +44,15 @@ type scanner struct {
 	typeConverter patch.TypeConverterManager
 }
 
+func hasSensitiveMessages(policies []celengine.ValidatingPolicyResponse) bool {
+	for _, policy := range policies {
+		if policy.RedactMessages {
+			return true
+		}
+	}
+	return false
+}
+
 type ScanResult struct {
 	EngineResponse *engineapi.EngineResponse
 	Error          error
@@ -161,7 +170,7 @@ func (s *scanner) ScanResource(
 
 			response := engineapi.EngineResponse{
 				Resource:       resource,
-				RedactMessages: len(engineResponse.Policies) > 0 && engineResponse.Policies[0].RedactMessages,
+				RedactMessages: hasSensitiveMessages(engineResponse.Policies),
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: rules,
 				},

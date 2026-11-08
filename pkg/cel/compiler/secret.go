@@ -31,6 +31,29 @@ func MayReadSecret(ast *cel.Ast) bool {
 	return found
 }
 
+// MayReadSecretWithVariables also considers reads through variables known to be Secret-derived.
+func MayReadSecretWithVariables(ast *cel.Ast, secretVariables map[string]bool) bool {
+	if MayReadSecret(ast) {
+		return true
+	}
+	if ast == nil || len(secretVariables) == 0 {
+		return false
+	}
+	found := false
+	celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+		if found || e.Kind() != celast.SelectKind {
+			return
+		}
+		selectExpr := e.AsSelect()
+		if selectExpr.Operand().Kind() == celast.IdentKind &&
+			selectExpr.Operand().AsIdent() == "variables" &&
+			secretVariables[selectExpr.FieldName()] {
+			found = true
+		}
+	}))
+	return found
+}
+
 func isResourceRead(call celast.CallExpr, overloadIDs []string) (bool, bool) {
 	var isGet, isList bool
 	for _, overloadID := range overloadIDs {

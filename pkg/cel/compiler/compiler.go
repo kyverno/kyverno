@@ -151,13 +151,13 @@ func CompileMatchConditions(path *field.Path, env *cel.Env, matchConditions ...a
 }
 
 func CompileVariable(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variable admissionregistrationv1.Variable) (cel.Program, field.ErrorList) {
-	traced, errs := compileVariable(path, env, VariablesProvider, variable, false)
+	traced, errs := compileVariable(path, env, VariablesProvider, variable, false, nil)
 	return traced.Program, errs
 }
 
 // compileVariable always builds the normal program; with trace it also builds the explain-only
 // tracking twin and keeps the AST (see TracedProgram).
-func compileVariable(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variable admissionregistrationv1.Variable, trace bool) (TracedProgram, field.ErrorList) {
+func compileVariable(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variable admissionregistrationv1.Variable, trace bool, secretVariables map[string]bool) (TracedProgram, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
@@ -171,43 +171,65 @@ func compileVariable(path *field.Path, env *cel.Env, VariablesProvider *Variable
 			return TracedProgram{}, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 		}
 		compiled := TracedProgram{Name: variable.Name, Program: prog}
+		if trace || secretVariables != nil {
+			compiled.HasSecretRead = MayReadSecretWithVariables(ast, secretVariables)
+		}
 		if trace {
 			if compiled.Traced, err = tracingProgram(env, ast); err != nil {
 				return TracedProgram{}, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 			}
 			compiled.AST = ast
-			compiled.HasSecretRead = MayReadSecret(ast)
 		}
 		return compiled, allErrs
 	}
 }
 
-// CompileVariablesWithTrace is the variable equivalent of CompileMatchConditionsWithTrace: with
-// trace false it is exactly CompileVariables; with trace true the returned programs are still the
-// normal ones, and the traced result adds each variable's tracking program and AST, keyed by name.
+// CompileVariablesWithTrace is the variable equivalent of CompileMatchConditionsWithTrace.
 func CompileVariablesWithTrace(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, trace bool, variables ...admissionregistrationv1.Variable) (map[string]cel.Program, map[string]TracedProgram, field.ErrorList) {
-	if !trace {
-		programs, errs := CompileVariables(path, env, VariablesProvider, variables...)
-		return programs, nil, errs
+	if len(variables) == 0 {
+		return nil, nil, nil
 	}
-	traced, errs := compileVariablesTraced(path, env, VariablesProvider, variables...)
-	programs := make(map[string]cel.Program, len(traced))
-	for name, t := range traced {
+	compiled, errs := compileVariablesTraced(path, env, VariablesProvider, trace, nil, variables...)
+	programs := make(map[string]cel.Program, len(compiled))
+	for name, t := range compiled {
 		programs[name] = t.Program
 	}
-	return programs, traced, errs
+	if !trace {
+		return programs, nil, errs
+	}
+	return programs, compiled, errs
 }
 
-func compileVariablesTraced(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variables ...admissionregistrationv1.Variable) (result map[string]TracedProgram, allErrs field.ErrorList) {
+// CompileVariablesWithSecretRead returns compile-time Secret-read provenance for each variable.
+func CompileVariablesWithSecretRead(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, trace bool, variables ...admissionregistrationv1.Variable) (map[string]cel.Program, map[string]TracedProgram, map[string]bool, field.ErrorList) {
+	if len(variables) == 0 {
+		return nil, nil, nil, nil
+	}
+	secretVariables := make(map[string]bool, len(variables))
+	compiled, errs := compileVariablesTraced(path, env, VariablesProvider, trace, secretVariables, variables...)
+	programs := make(map[string]cel.Program, len(compiled))
+	for name, t := range compiled {
+		programs[name] = t.Program
+	}
+	if !trace {
+		return programs, nil, secretVariables, errs
+	}
+	return programs, compiled, secretVariables, errs
+}
+
+func compileVariablesTraced(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, trace bool, secretVariables map[string]bool, variables ...admissionregistrationv1.Variable) (result map[string]TracedProgram, allErrs field.ErrorList) {
 	if len(variables) == 0 {
 		return nil, nil
 	}
 	result = make(map[string]TracedProgram, len(variables))
 	for i, variable := range variables {
-		compiled, errs := compileVariable(path.Index(i), env, VariablesProvider, variable, true)
+		compiled, errs := compileVariable(path.Index(i), env, VariablesProvider, variable, trace, secretVariables)
 		allErrs = append(allErrs, errs...)
 		if compiled.Program != nil {
 			result[variable.Name] = compiled
+			if secretVariables != nil {
+				secretVariables[variable.Name] = compiled.HasSecretRead
+			}
 		}
 	}
 	return result, allErrs
@@ -308,6 +330,10 @@ func CompileAuditAnnotations(path *field.Path, env *cel.Env, auditAnnotations ..
 }
 
 func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistrationv1.Validation, trace bool) (Validation, field.ErrorList) {
+	return CompileValidationWithSecretVariables(path, env, rule, trace, nil)
+}
+
+func CompileValidationWithSecretVariables(path *field.Path, env *cel.Env, rule admissionregistrationv1.Validation, trace bool, secretVariables map[string]bool) (Validation, field.ErrorList) {
 	var allErrs field.ErrorList
 	compiled := Validation{Message: rule.Message}
 	{
@@ -349,7 +375,7 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 			return Validation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
 		}
 		compiled.MessageExpression = program
-		compiled.MessageExpressionHasSecretRead = MayReadSecret(ast)
+		compiled.MessageExpressionHasSecretRead = MayReadSecretWithVariables(ast, secretVariables)
 	}
 	return compiled, allErrs
 }
