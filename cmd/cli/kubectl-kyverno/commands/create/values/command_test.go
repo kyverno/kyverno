@@ -197,6 +197,20 @@ func TestCommandYAMLSensitiveValues(t *testing.T) {
 		"--rule", "testpol,rule1,anchor=&base",
 		"--rule", "testpol,rule1,padded=  spaced  ",
 		"--rule", "testpol,rule1,multiline=line1\nline2",
+		"--rule", "testpol,rule1,bracket=[abc=def",
+		"--rule", "testpol,rule1,brace={key=val",
+		"--rule", "testpol,rule1,pipe=|block",
+		"--rule", "testpol,rule1,fold=>block",
+		"--rule", "testpol,rule1,directive=%YAML",
+		"--rule", "testpol,rule1,at=@mention",
+		"--rule", "testpol,rule1,tag=!ref",
+		"--rule", "testpol,rule1,question=?query",
+		"--rule", "testpol,rule1,dash=- item",
+		"--rule", "testpol,rule1,bool_true=true",
+		"--rule", "testpol,rule1,bool_false=false",
+		"--rule", "testpol,rule1,num_int=42",
+		"--rule", "testpol,rule1,num_float=3.14",
+		"--rule", "testpol,rule1,null_val=null",
 	})
 	err := cmd.Execute()
 	assert.NoError(t, err)
@@ -216,6 +230,20 @@ func TestCommandYAMLSensitiveValues(t *testing.T) {
 	assert.Equal(t, "&base", values["anchor"])
 	assert.Equal(t, "  spaced  ", values["padded"])
 	assert.Equal(t, "line1\nline2", values["multiline"])
+	assert.Equal(t, "[abc=def", values["bracket"])
+	assert.Equal(t, "{key=val", values["brace"])
+	assert.Equal(t, "|block", values["pipe"])
+	assert.Equal(t, ">block", values["fold"])
+	assert.Equal(t, "%YAML", values["directive"])
+	assert.Equal(t, "@mention", values["at"])
+	assert.Equal(t, "!ref", values["tag"])
+	assert.Equal(t, "?query", values["question"])
+	assert.Equal(t, "- item", values["dash"])
+	assert.Equal(t, true, values["bool_true"])
+	assert.Equal(t, false, values["bool_false"])
+	assert.Equal(t, float64(42), values["num_int"])
+	assert.Equal(t, 3.14, values["num_float"])
+	assert.Nil(t, values["null_val"])
 }
 
 func TestCommandOutputToFile(t *testing.T) {
@@ -273,6 +301,16 @@ func TestCommandValidationErrors(t *testing.T) {
 			name:     "InvalidGlobalNoEquals",
 			args:     []string{"-g", "invalid"},
 			errorMsg: "invalid key=value pair: invalid",
+		},
+		{
+			name:     "InvalidGlobalUTF8",
+			args:     []string{"-g", "bad=\xff\xfe"},
+			errorMsg: "invalid UTF-8 in key=value pair",
+		},
+		{
+			name:     "InvalidRuleUTF8",
+			args:     []string{"--rule", "mypol,rule1,bad=\xff\xfe"},
+			errorMsg: "invalid UTF-8 in key=value pair",
 		},
 		{
 			name:     "InvalidGlobalEmptyKey",
