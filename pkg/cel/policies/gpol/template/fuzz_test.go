@@ -2,6 +2,7 @@ package template
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"reflect"
 	"sort"
@@ -299,6 +300,16 @@ func snapshotIsolationValue(v any) any {
 			out[key] = snapshotIsolationValue(value)
 		}
 		return out
+	case map[any]any:
+		// Non-string YAML mapping keys can occur in literal subtrees.
+		if v == nil {
+			return v
+		}
+		out := make(map[any]any, len(v))
+		for key, value := range v {
+			out[key] = snapshotIsolationValue(value)
+		}
+		return out
 	case []any:
 		if v == nil {
 			return v
@@ -343,6 +354,33 @@ func equalFuzzRenderValues(a, b any) bool {
 			if !exists || !equalFuzzRenderValues(value, other) {
 				return false
 			}
+		}
+
+		return true
+	case map[any]any:
+		b, ok := b.(map[any]any)
+		if !ok || (a == nil) != (b == nil) || len(a) != len(b) {
+			return false
+		}
+		// Compare key/value pairs, rather than indexing by key: a YAML NaN
+		// mapping key is non-reflexive and cannot be looked up in a Go map.
+		type entry struct{ key, value any }
+		remaining := make([]entry, 0, len(b))
+		for key, value := range b {
+			remaining = append(remaining, entry{key, value})
+		}
+		for key, value := range a {
+			matched := -1
+			for i, candidate := range remaining {
+				if equalFuzzRenderValues(key, candidate.key) && equalFuzzRenderValues(value, candidate.value) {
+					matched = i
+					break
+				}
+			}
+			if matched < 0 {
+				return false
+			}
+			remaining = append(remaining[:matched], remaining[matched+1:]...)
 		}
 		return true
 	case []any:
@@ -419,6 +457,43 @@ func TestGenerationTemplateFuzzOracles(t *testing.T) {
 	if !equalFuzzRenderValues(baseline, snapshotIsolationValue(baseline)) {
 		t.Fatal("snapshot changed while testing shared state")
 	}
+
+	// A literal YAML subtree may decode into map[any]any when it has
+	// non-string keys. A shared map behind that shape must not evade the
+	// independent snapshot, NaN-aware equality, or nested mutation probe.
+	sharedMixed := map[any]any{
+		int64(7): []any{map[any]any{
+			true:      map[string]any{"name": "original"},
+			"numeric": math.NaN(),
+		}},
+	}
+	firstMixed := []map[string]any{{"nested": sharedMixed}}
+	secondMixed := []map[string]any{{"nested": sharedMixed}}
+	mixedBaseline := snapshotIsolationValue(secondMixed).([]map[string]any)
+	if !equalFuzzRenderValues(mixedBaseline, secondMixed) {
+		t.Fatal("independent snapshot of a non-string-key map differs")
+	}
+	if !mutateNestedOutput(firstMixed[0], 0) {
+		t.Fatal("nested probe failed to traverse a non-string-key map")
+	}
+	if equalFuzzRenderValues(mixedBaseline, secondMixed) {
+		t.Fatal("nested non-string-key map sharing was not detected")
+	}
+	if !equalFuzzRenderValues(mixedBaseline, snapshotIsolationValue(mixedBaseline)) {
+		t.Fatal("snapshot of a non-string-key map changed")
+	}
+	if !equalFuzzRenderValues(
+		map[any]any{math.NaN(): "value"},
+		map[any]any{math.NaN(): "value"},
+	) {
+		t.Fatal("equal non-reflexive map keys must compare equal")
+	}
+	if equalFuzzRenderValues(
+		map[any]any{math.NaN(): "value"},
+		map[any]any{math.NaN(): "changed"},
+	) {
+		t.Fatal("comparison ignored a value behind a non-reflexive map key")
+	}
 }
 
 // mutateNestedOutput modifies an existing nested mapping or sequence.
@@ -436,6 +511,29 @@ func mutateNestedOutput(v any, depth int) bool {
 		sort.Strings(keys)
 		for _, key := range keys {
 			if mutateNestedOutput(v[key], depth+1) {
+				return true
+			}
+		}
+		if depth > 0 {
+			v["__kyverno_fuzz_nested_probe__"] = struct{}{}
+			return true
+		}
+	case map[any]any:
+		// Iterate the decoded values, not v[key]: NaN keys cannot be looked
+		// up even when they were obtained from the same map.
+		type entry struct {
+			sortKey string
+			value   any
+		}
+		entries := make([]entry, 0, len(v))
+		for key, value := range v {
+			entries = append(entries, entry{fmt.Sprintf("%T:%#v", key, key), value})
+		}
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].sortKey < entries[j].sortKey
+		})
+		for _, item := range entries {
+			if mutateNestedOutput(item.value, depth+1) {
 				return true
 			}
 		}
