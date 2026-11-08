@@ -88,6 +88,7 @@ type compiledPolicy struct {
 	validationConfig               policiesv1alpha1.ValidationConfiguration
 	ivFuncs                        *imageverify.IvFuncs
 	hasSecretRead                  bool
+	attestorsHaveSecretRead        bool
 	auditAnnotationsHaveSecretRead bool
 	// trace is whether this policy was compiled for decision tracing. tracedMatchConditions is
 	// index-aligned with matchConditions and, like tracedVariables, is empty when trace is off.
@@ -134,7 +135,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	var validating bool
 	// verdict tracks the validation that decides the outcome, or the step that failed before any
 	// validation ran
-	verdict := trace.VerdictTrace{Status: trace.VerdictPass}
+	verdict := trace.VerdictTrace{Status: trace.VerdictPass, HasSecretRead: c.attestorsHaveSecretRead}
 	decision := func() *trace.Decision {
 		if !c.trace {
 			return nil
@@ -279,7 +280,11 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	if req, ok := request.(*admissionv1.AdmissionRequest); ok {
 		gvr = req.RequestResource
 	}
-	images, err := engine.ExtractImages(ctx, data, c.imageExtractors.ForResource(gvr))
+	extractors := c.imageExtractors.ForResource(gvr)
+	for _, extractor := range extractors {
+		verdict.HasSecretRead = verdict.HasSecretRead || extractor.HasSecretRead
+	}
+	images, err := engine.ExtractImages(ctx, data, extractors)
 	if err != nil {
 		return failed(err)
 	}
@@ -357,10 +362,12 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 			// and an expression that verifies images has no twin at all (see
 			// withoutVerificationTwin), so it is never re-run
 			details := engine.TraceDetails(ctx, v.Traced, data, err)
+			hasSecretRead := verdict.HasSecretRead || v.HasSecretRead
 			verdict = trace.VerdictTrace{
 				Status:          trace.VerdictPass,
 				ExpressionTrace: buildExpressionTrace(v.AST, v.HasSecretRead, out, details, err),
 			}
+			verdict.HasSecretRead = hasSecretRead
 		}
 		if err != nil {
 			ran(i, trace.VerdictError)
@@ -388,7 +395,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 			verdict.HasSecretRead = verdict.HasSecretRead || v.MessageExpressionHasSecretRead
 			auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 			if err != nil {
-				verdict.HasSecretRead = c.auditAnnotationsHaveSecretRead
+				verdict.HasSecretRead = verdict.HasSecretRead || c.auditAnnotationsHaveSecretRead
 				return failed(err)
 			}
 			return &EvaluationResult{
@@ -410,6 +417,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 
 	auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 	if err != nil {
+		verdict.HasSecretRead = verdict.HasSecretRead || c.auditAnnotationsHaveSecretRead
 		return failed(err)
 	}
 	// required is enforced by the caller via EnforceRequired, not here

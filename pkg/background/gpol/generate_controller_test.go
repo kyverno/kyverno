@@ -92,14 +92,22 @@ type testEventGen struct{}
 
 func (testEventGen) Add(...event.Info) {}
 
-type errorEngine struct{}
+type errorEngine struct {
+	message  string
+	redacted bool
+}
 
 func (e *errorEngine) Handle(_ context.Context, _ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
+	message := e.message
+	if message == "" {
+		message = "failed to evaluate policy"
+	}
 	return gpolengine.EngineResponse{
 		Trigger: &unstructured.Unstructured{},
 		Policies: []gpolengine.GeneratingPolicyResponse{{
-			Policy: p.Policy,
-			Result: engineapi.RuleError("rule", engineapi.Generation, "failed to evaluate policy", assert.AnError, nil),
+			Policy:         p.Policy,
+			Result:         engineapi.RuleError("rule", engineapi.Generation, message, assert.AnError, nil),
+			RedactMessages: e.redacted,
 		}},
 	}, nil
 }
@@ -555,53 +563,72 @@ func TestProcessUR_SyncWatchersMustCompleteBeforeReturn(t *testing.T) {
 // as Failed with the error message instead of silently reporting it as
 // Completed with nothing generated.
 func TestProcessUR_ErrorResultMarksURFailed(t *testing.T) {
-	policyName := "test-gpol"
-	trigger := makeUnstructured("", "", "v1", "ConfigMap", "trigger-cm", "tenant-a", "trigger-uid", nil)
-	// needsReports dereferences the global reporting configuration; set it
-	// explicitly for this test and restore the previous value afterwards to
-	// avoid order-dependent behavior across tests in this package.
-	prevReportingCfg := reportutils.ReportingCfg
-	reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
-	t.Cleanup(func() { reportutils.ReportingCfg = prevReportingCfg })
-	statusControl := &recordingStatusControl{}
-	controller := &CELGenerateController{
-		client: &triggerClient{
-			MockClient: &MockClient{},
-			trigger:    trigger,
-		},
-		restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
-			return &meta.RESTMapping{Resource: schema.GroupVersionResource{Group: gk.Group, Version: version, Resource: "configmaps"}}, nil
-		}},
-		context:       libs.NewFakeContextProvider(),
-		engine:        &errorEngine{},
-		provider:      &testProvider{policy: gpolengine.Policy{Policy: &policiesv1beta1.GeneratingPolicy{ObjectMeta: metav1.ObjectMeta{Name: policyName}}}},
-		watchManager:  &WatchManager{},
-		statusControl: statusControl,
-		eventGen:      testEventGen{},
-		log:           logging.WithName("test-gpol-controller"),
-	}
-
-	ur := &kyvernov2.UpdateRequest{
-		ObjectMeta: metav1.ObjectMeta{Name: "ur-error-result"},
-		Spec: kyvernov2.UpdateRequestSpec{
-			Type:   kyvernov2.CELGenerate,
-			Policy: policyName,
-			RuleContext: []kyvernov2.RuleContext{{
-				Rule: "rule",
-				Trigger: kyverno.ResourceSpec{
-					APIVersion: trigger.GetAPIVersion(),
-					Kind:       trigger.GetKind(),
-					Namespace:  trigger.GetNamespace(),
-					Name:       trigger.GetName(),
+	const secret = "secret-from-resource-do-not-log"
+	for _, tt := range []struct {
+		name        string
+		message     string
+		redacted    bool
+		wantMessage string
+	}{
+		{name: "ordinary message", message: "failed to evaluate policy", wantMessage: "failed to evaluate policy"},
+		{name: "secret-derived message", message: secret, redacted: true, wantMessage: "(redacted)"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			policyName := "test-gpol"
+			trigger := makeUnstructured("", "", "v1", "ConfigMap", "trigger-cm", "tenant-a", "trigger-uid", nil)
+			prevReportingCfg := reportutils.ReportingCfg
+			reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+			t.Cleanup(func() { reportutils.ReportingCfg = prevReportingCfg })
+			statusControl := &recordingStatusControl{}
+			eventGen := &recordingEventGen{}
+			controller := &CELGenerateController{
+				client: &triggerClient{
+					MockClient: &MockClient{},
+					trigger:    trigger,
 				},
-			}},
-		},
-	}
+				restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+					return &meta.RESTMapping{Resource: schema.GroupVersionResource{Group: gk.Group, Version: version, Resource: "configmaps"}}, nil
+				}},
+				context:       libs.NewFakeContextProvider(),
+				engine:        &errorEngine{message: tt.message, redacted: tt.redacted},
+				provider:      &testProvider{policy: gpolengine.Policy{Policy: &policiesv1beta1.GeneratingPolicy{ObjectMeta: metav1.ObjectMeta{Name: policyName}}}},
+				watchManager:  &WatchManager{},
+				statusControl: statusControl,
+				eventGen:      eventGen,
+				log:           logging.WithName("test-gpol-controller"),
+			}
 
-	require.NoError(t, controller.ProcessUR(ur))
-	assert.True(t, statusControl.failed, "UR should be marked as Failed")
-	assert.False(t, statusControl.success, "UR should not be marked as Completed")
-	assert.Contains(t, statusControl.message, "failed to evaluate policy")
+			ur := &kyvernov2.UpdateRequest{
+				ObjectMeta: metav1.ObjectMeta{Name: "ur-error-result"},
+				Spec: kyvernov2.UpdateRequestSpec{
+					Type:   kyvernov2.CELGenerate,
+					Policy: policyName,
+					RuleContext: []kyvernov2.RuleContext{{
+						Rule: "rule",
+						Trigger: kyverno.ResourceSpec{
+							APIVersion: trigger.GetAPIVersion(),
+							Kind:       trigger.GetKind(),
+							Namespace:  trigger.GetNamespace(),
+							Name:       trigger.GetName(),
+						},
+					}},
+				},
+			}
+
+			require.NoError(t, controller.ProcessUR(ur))
+			assert.True(t, statusControl.failed, "UR should be marked as Failed")
+			assert.False(t, statusControl.success, "UR should not be marked as Completed")
+			assert.Contains(t, statusControl.message, tt.wantMessage)
+			require.NotEmpty(t, eventGen.events)
+			assert.Contains(t, eventGen.events[0].Message, tt.wantMessage)
+			if tt.redacted {
+				assert.NotContains(t, statusControl.message, secret)
+				for _, emittedEvent := range eventGen.events {
+					assert.NotContains(t, emittedEvent.Message, secret)
+				}
+			}
+		})
+	}
 }
 
 // A gpol rule skipped by a CEL exception must emit a PolicySkipped event; deleting

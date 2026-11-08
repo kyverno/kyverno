@@ -146,12 +146,111 @@ func TestCompileMarksSecretDerivedVariable(t *testing.T) {
 				Expression:        "false",
 				MessageExpression: "string(variables.secretPassword)",
 			}},
+			ImageExtractors: []policiesv1beta1.ImageExtractor{{
+				Name:       "secret",
+				Expression: "[variables.secretPassword]",
+			}},
 		},
 	}
 
 	compiled, errs := NewCompiler(nil).Compile(policy, nil)
 	require.Empty(t, errs)
 	require.True(t, compiled.HasSecretRead())
+}
+
+func TestCompileMarksSecretDerivedAttestor(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "secretCertificate",
+				Expression: `string(resource.Get("v1", "secrets", "default", "db-credentials").data.certificate)`,
+			}},
+			Attestors: []policiesv1beta1.Attestor{{
+				Name: "notary",
+				Notary: &policiesv1beta1.Notary{
+					Certs: &policiesv1beta1.StringOrExpression{Expression: "variables.secretCertificate"},
+				},
+			}},
+			Validations: []admissionregistrationv1.Validation{{Expression: "true"}},
+		},
+	}
+
+	compiled, errs := NewCompiler(nil).Compile(policy, nil)
+	require.Empty(t, errs)
+	require.True(t, compiled.HasSecretRead())
+}
+
+func TestEvaluate_TracingOn_RedactsSecretImageExtractor(t *testing.T) {
+	const password = "secret-image-do-not-log"
+	fake := libs.NewFakeContextProvider()
+	require.NoError(t, fake.AddResource(schema.GroupVersionResource{Version: "v1", Resource: "secrets"}, &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata":   map[string]any{"namespace": "default", "name": "db-credentials"},
+			"data":       map[string]any{"password": password},
+		},
+	}))
+	oldLibraryContext := libs.LibraryContext
+	libs.LibraryContext = fake
+	t.Cleanup(func() {
+		libs.LibraryContext = oldLibraryContext
+	})
+
+	policy := traceTestPolicy(admissionregistrationv1.Validation{Expression: "true"})
+	policy.Spec.ValidationConfigurations.VerifyDigest = ptr.To(false)
+	policy.Spec.ImageExtractors = []policiesv1beta1.ImageExtractor{{
+		Name:       "secret",
+		Expression: `[string(resource.Get("v1", "secrets", "default", "db-credentials").data.password)]`,
+	}}
+	compiled, errs := NewCompilerWithTrace(nil, true).Compile(policy, nil)
+	require.Empty(t, errs)
+	require.True(t, compiled.HasSecretRead())
+
+	req, attr, _ := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
+	result, err := compiled.Evaluate(context.Background(), countingImages{gets: &atomic.Int32{}}, nil, imageverify.NewImageVerificationResults(), attr, req, nil, true, nil, fake)
+	require.NoError(t, err)
+	require.NotNil(t, result.Trace)
+	require.True(t, result.Trace.IsSensitive(), "%+v", result.Trace)
+	require.Contains(t, result.Trace.Images.Found, trace.ImageTrace{Category: "secret", Image: password, Checked: true})
+}
+
+func TestEvaluate_TracingOn_RedactsSecretAuditAnnotationError(t *testing.T) {
+	const password = "secret-audit-do-not-log"
+	fake := libs.NewFakeContextProvider()
+	require.NoError(t, fake.AddResource(schema.GroupVersionResource{Version: "v1", Resource: "secrets"}, &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata":   map[string]any{"namespace": "default", "name": "db-credentials"},
+			"data":       map[string]any{"password": password},
+		},
+	}))
+	oldLibraryContext := libs.LibraryContext
+	libs.LibraryContext = fake
+	t.Cleanup(func() {
+		libs.LibraryContext = oldLibraryContext
+	})
+
+	policy := traceTestPolicy(admissionregistrationv1.Validation{Expression: "true"})
+	policy.Spec.AuditAnnotations = []admissionregistrationv1.AuditAnnotation{{
+		Key:             "password",
+		ValueExpression: `string(duration(resource.Get("v1", "secrets", "default", "db-credentials").data.password))`,
+	}}
+	compiled, errs := NewCompilerWithTrace(nil, true).Compile(policy, nil)
+	require.Empty(t, errs)
+	req, attr, _ := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
+	result, err := compiled.Evaluate(context.Background(), countingImages{gets: &atomic.Int32{}}, nil, imageverify.NewImageVerificationResults(), attr, req, nil, true, nil, fake)
+	require.Error(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.Trace)
+	assert.True(t, result.Trace.IsSensitive())
+
+	values := trace.LogValues(result.Trace)
+	entry, ok := values[len(values)-1].(trace.LogEntry)
+	require.True(t, ok)
+	assert.NotContains(t, entry.Verdict.Message, password)
+	assert.Equal(t, "(redacted)", entry.Verdict.Message)
 }
 
 func TestEvaluate_TracingOn_RedactsSecretExceptionMatchError(t *testing.T) {

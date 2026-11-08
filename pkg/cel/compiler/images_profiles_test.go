@@ -43,5 +43,27 @@ func TestImageExtractorProfilesMatchRequestCompilation(t *testing.T) {
 				require.Equal(t, expected, actual)
 			}
 		}
+
 	}
+}
+
+func TestImageExtractorProfilesTrackSecretDerivedVariables(t *testing.T) {
+	base, err := NewBaseEnv()
+	require.NoError(t, err)
+	env, err := base.Extend(
+		cel.Variable(VariablesKey, cel.DynType),
+		cel.Variable(ObjectKey, cel.DynType),
+		cel.Variable(OldObjectKey, cel.DynType),
+	)
+	require.NoError(t, err)
+
+	profiles, errs := CompileImageExtractorProfilesWithSecretVariables(
+		field.NewPath("images"),
+		env,
+		map[string]bool{"secretPassword": true},
+		policiesv1beta1.ImageExtractor{Name: "custom", Expression: "[variables.secretPassword]"},
+	)
+	require.Empty(t, errs)
+	require.True(t, profiles[0]["custom"].HasSecretRead)
+	require.True(t, profiles.HasSecretRead())
 }

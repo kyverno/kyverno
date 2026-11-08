@@ -14,6 +14,7 @@ import (
 type CompiledAttestor struct {
 	Key               string
 	val               v1beta1.Attestor
+	HasSecretRead     bool
 	keyProg           cel.Program
 	certProg          cel.Program
 	certChainProg     cel.Program
@@ -23,6 +24,11 @@ type CompiledAttestor struct {
 }
 
 func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([]*CompiledAttestor, field.ErrorList) {
+	return CompileAttestorsWithSecretVariables(path, att, env, nil)
+}
+
+// CompileAttestorsWithSecretVariables compiles attestors and tracks Secret-derived variable reads.
+func CompileAttestorsWithSecretVariables(path *field.Path, att []v1beta1.Attestor, env *cel.Env, secretVariables map[string]bool) ([]*CompiledAttestor, field.ErrorList) {
 	var allErrs field.ErrorList
 	compiledAttestors := make([]*CompiledAttestor, 0, len(att))
 	for i, att := range att {
@@ -37,6 +43,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Cosign.Key, iss.Err().Error()))
 				}
+				compiledAtt.HasSecretRead = compiledAtt.HasSecretRead || celcompiler.MayReadSecretWithVariables(ast, secretVariables)
 				prg, err := celcompiler.NewProgram(env, ast)
 				if err != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Cosign.Key, err.Error()))
@@ -48,6 +55,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 					if iss.Err() != nil {
 						return nil, append(allErrs, field.Invalid(path, att.Cosign.Certificate, iss.Err().Error()))
 					}
+					compiledAtt.HasSecretRead = compiledAtt.HasSecretRead || celcompiler.MayReadSecretWithVariables(ast, secretVariables)
 					prg, err := celcompiler.NewProgram(env, ast)
 					if err != nil {
 						return nil, append(allErrs, field.Invalid(path, att.Cosign.Certificate, err.Error()))
@@ -59,6 +67,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 					if iss.Err() != nil {
 						return nil, append(allErrs, field.Invalid(path, att.Cosign.Certificate, iss.Err().Error()))
 					}
+					compiledAtt.HasSecretRead = compiledAtt.HasSecretRead || celcompiler.MayReadSecretWithVariables(ast, secretVariables)
 					prg, err := celcompiler.NewProgram(env, ast)
 					if err != nil {
 						return nil, append(allErrs, field.Invalid(path, att.Cosign.Certificate, err.Error()))
@@ -71,6 +80,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Cosign.TrustedRoot, iss.Err().Error()))
 				}
+				compiledAtt.HasSecretRead = compiledAtt.HasSecretRead || celcompiler.MayReadSecretWithVariables(ast, secretVariables)
 				prg, err := celcompiler.NewProgram(env, ast)
 				if err != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Cosign.TrustedRoot, err.Error()))
@@ -83,6 +93,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, iss.Err().Error()))
 				}
+				compiledAtt.HasSecretRead = compiledAtt.HasSecretRead || celcompiler.MayReadSecretWithVariables(ast, secretVariables)
 				prg, err := celcompiler.NewProgram(env, ast)
 				if err != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, err.Error()))
@@ -94,6 +105,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, iss.Err().Error()))
 				}
+				compiledAtt.HasSecretRead = compiledAtt.HasSecretRead || celcompiler.MayReadSecretWithVariables(ast, secretVariables)
 				prg, err := celcompiler.NewProgram(env, ast)
 				if err != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, err.Error()))

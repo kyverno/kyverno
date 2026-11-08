@@ -8,6 +8,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -194,6 +195,26 @@ func Test_Attestors(t *testing.T) {
 					assert.True(t, reflect.DeepEqual(a, tt.wantResult[i]))
 				}
 			}
+
 		})
 	}
+}
+
+func TestCompileAttestorsTracksSecretDerivedVariables(t *testing.T) {
+	env, err := cel.NewEnv(cel.Variable("variables", cel.DynType))
+	require.NoError(t, err)
+
+	compiled, errs := CompileAttestorsWithSecretVariables(
+		field.NewPath("spec", "attestors"),
+		[]v1beta1.Attestor{{
+			Name: "secret-cert",
+			Notary: &v1beta1.Notary{
+				Certs: &v1beta1.StringOrExpression{Expression: "variables.secretCertificate"},
+			},
+		}},
+		env,
+		map[string]bool{"secretCertificate": true},
+	)
+	require.Empty(t, errs)
+	require.True(t, compiled[0].HasSecretRead)
 }

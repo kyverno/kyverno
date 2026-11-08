@@ -57,6 +57,7 @@ var (
 
 type ImageExtractor struct {
 	cel.Program
+	HasSecretRead bool
 }
 
 func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1beta1.ImageExtractor {
@@ -84,6 +85,11 @@ func (c *ImageExtractor) GetImages(ctx context.Context, data map[string]any) ([]
 }
 
 func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVersionResource, imageExtractors ...v1beta1.ImageExtractor) (map[string]ImageExtractor, field.ErrorList) {
+	return CompileImageExtractorsWithSecretVariables(path, env, gvr, nil, imageExtractors...)
+}
+
+// CompileImageExtractorsWithSecretVariables compiles image extractors and propagates Secret provenance through variables.
+func CompileImageExtractorsWithSecretVariables(path *field.Path, env *cel.Env, gvr *metav1.GroupVersionResource, secretVariables map[string]bool, imageExtractors ...v1beta1.ImageExtractor) (map[string]ImageExtractor, field.ErrorList) {
 	var extractors []v1beta1.ImageExtractor
 	if gvr != nil {
 		extractors = append(extractors, getImageExtractorsFromGVR(*gvr)...)
@@ -110,7 +116,8 @@ func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVer
 			return nil, append(allErrs, field.Invalid(path, m.Expression, err.Error()))
 		}
 		compiled[m.Name] = ImageExtractor{
-			Program: prog,
+			Program:       prog,
+			HasSecretRead: MayReadSecretWithVariables(ast, secretVariables),
 		}
 	}
 	return compiled, nil
@@ -146,15 +153,32 @@ func (p ImageExtractorProfiles) ForResource(gvr *metav1.GroupVersionResource) ma
 	return p[0]
 }
 
+// HasSecretRead reports whether any extractor in the profiles may read Secret data.
+func (p ImageExtractorProfiles) HasSecretRead() bool {
+	for _, profile := range p {
+		for _, extractor := range profile {
+			if extractor.HasSecretRead {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func CompileImageExtractorProfiles(path *field.Path, env *cel.Env, custom ...v1beta1.ImageExtractor) (ImageExtractorProfiles, field.ErrorList) {
+	return CompileImageExtractorProfilesWithSecretVariables(path, env, nil, custom...)
+}
+
+// CompileImageExtractorProfilesWithSecretVariables compiles extractor profiles and propagates Secret provenance through variables.
+func CompileImageExtractorProfilesWithSecretVariables(path *field.Path, env *cel.Env, secretVariables map[string]bool, custom ...v1beta1.ImageExtractor) (ImageExtractorProfiles, field.ErrorList) {
 	var profiles ImageExtractorProfiles
-	compiledCustom, errs := CompileImageExtractors(path, env, nil, custom...)
+	compiledCustom, errs := CompileImageExtractorsWithSecretVariables(path, env, nil, secretVariables, custom...)
 	if len(errs) != 0 {
 		return profiles, errs
 	}
 	profiles[0] = compiledCustom
 	for i, gvr := range []metav1.GroupVersionResource{pods, deployments, cronjobs} {
-		defaults, errs := CompileImageExtractors(path, env, &gvr)
+		defaults, errs := CompileImageExtractorsWithSecretVariables(path, env, &gvr, secretVariables)
 		if len(errs) != 0 {
 			return profiles, errs
 		}

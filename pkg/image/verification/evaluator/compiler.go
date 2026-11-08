@@ -111,16 +111,6 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		return nil, append(allErrs, errs...)
 	}
 
-	var imageExtractors engine.ImageExtractorProfiles
-	if spec.EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
-		imageExtractors[0], errs = engine.CompileImageExtractors(path.Child("images"), env, nil, spec.ImageExtractors...)
-	} else {
-		imageExtractors, errs = engine.CompileImageExtractorProfiles(path.Child("images"), env, spec.ImageExtractors...)
-	}
-	if errs != nil {
-		return nil, append(allErrs, errs...)
-	}
-
 	variables, tracedVariables, secretVariables, errs := engine.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
@@ -128,6 +118,16 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	for name, t := range tracedVariables {
 		tracedVariables[name] = withoutVerificationTwin(t)
 	}
+	var imageExtractors engine.ImageExtractorProfiles
+	if spec.EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+		imageExtractors[0], errs = engine.CompileImageExtractorsWithSecretVariables(path.Child("images"), env, nil, secretVariables, spec.ImageExtractors...)
+	} else {
+		imageExtractors, errs = engine.CompileImageExtractorProfilesWithSecretVariables(path.Child("images"), env, secretVariables, spec.ImageExtractors...)
+	}
+	if errs != nil {
+		return nil, append(allErrs, errs...)
+	}
+
 	{
 		path := path.Child("matchConditions")
 		programs, traced, secretReads, errs := engine.CompileMatchConditionsWithSecretVariables(path, env, c.trace, secretVariables, spec.MatchConditions...)
@@ -142,11 +142,15 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}
 
 	var compiledAttestors []*ivpolvar.CompiledAttestor
+	var attestorsHaveSecretRead bool
 	{
 		path := path.Child("attestors")
-		compiledAttestors, errs = ivpolvar.CompileAttestors(path, spec.Attestors, env)
+		compiledAttestors, errs = ivpolvar.CompileAttestorsWithSecretVariables(path, spec.Attestors, env, secretVariables)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
+		}
+		for _, attestor := range compiledAttestors {
+			attestorsHaveSecretRead = attestorsHaveSecretRead || attestor.HasSecretRead
 		}
 	}
 
@@ -209,6 +213,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	for _, validation := range validations {
 		hasSecretRead = hasSecretRead || validation.HasSecretRead || validation.MessageExpressionHasSecretRead
 	}
+	hasSecretRead = hasSecretRead || imageExtractors.HasSecretRead() || attestorsHaveSecretRead
 	hasSecretRead = hasSecretRead || engine.AnySecretRead(auditAnnotationSecretReads...)
 	for _, exception := range compiledExceptions {
 		hasSecretRead = hasSecretRead || engine.AnySecretRead(exception.MatchConditionHasSecretRead...)
@@ -244,6 +249,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		tracedVariables:                tracedVariables,
 		ivFuncs:                        ivFuncs,
 		hasSecretRead:                  hasSecretRead,
+		attestorsHaveSecretRead:        attestorsHaveSecretRead,
 		auditAnnotationsHaveSecretRead: engine.AnySecretRead(auditAnnotationSecretReads...),
 	}, nil
 }

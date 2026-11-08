@@ -183,7 +183,8 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				// surface evaluation/generation errors instead of silently
 				// reporting the UR as Completed, so users can diagnose why no
 				// resources were generated (https://github.com/kyverno/kyverno/issues/16983)
-				err := fmt.Errorf("gpol %s rule %s %s for trigger %s: %s", ur.Spec.GetPolicyKey(), res.Result.Name(), res.Result.Status(), ur.Spec.RuleContext[i].Trigger.String(), res.Result.Message())
+				message := redactSensitiveMessage(res.Result.Message(), engineResponse.RedactMessages)
+				err := fmt.Errorf("gpol %s rule %s %s for trigger %s: %s", ur.Spec.GetPolicyKey(), res.Result.Name(), res.Result.Status(), ur.Spec.RuleContext[i].Trigger.String(), message)
 				logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey(), "rule", res.Result.Name(), "status", res.Result.Status())
 				failures = append(failures, err)
 			} else {
@@ -256,6 +257,10 @@ func (c *CELGenerateController) audit(ctx context.Context, engineResponse engine
 		}
 	}
 	if engineResponse.IsFailed() || engineResponse.IsError() {
+		message := redactSensitiveMessage(
+			engineResponse.PolicyResponse.Rules[0].Message(),
+			engineResponse.RedactMessages,
+		)
 		trigger := kyverno.ResourceSpec{
 			Kind:       engineResponse.Resource.GetKind(),
 			APIVersion: engineResponse.Resource.GetAPIVersion(),
@@ -263,7 +268,7 @@ func (c *CELGenerateController) audit(ctx context.Context, engineResponse engine
 			Namespace:  engineResponse.Resource.GetNamespace(),
 		}
 		c.eventGen.Add(event.NewBackgroundFailedEvent(
-			errors.New(engineResponse.PolicyResponse.Rules[0].Message()),
+			errors.New(message),
 			engineResponse.Policy(),
 			engineResponse.PolicyResponse.Rules[0].Name(),
 			event.GeneratePolicyController,
@@ -271,6 +276,13 @@ func (c *CELGenerateController) audit(ctx context.Context, engineResponse engine
 	}
 
 	return nil
+}
+
+func redactSensitiveMessage(message string, sensitive bool) string {
+	if sensitive && message != "" {
+		return "(redacted)"
+	}
+	return message
 }
 
 func (c *CELGenerateController) createReports(
