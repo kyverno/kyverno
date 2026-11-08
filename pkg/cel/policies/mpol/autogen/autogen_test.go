@@ -752,3 +752,58 @@ func TestAutogenPodControllersEnabled(t *testing.T) {
 		}}, result[autogen.AutogenDefaults].Targets)
 	})
 }
+
+func TestAutogenVariables(t *testing.T) {
+	policy := &policiesv1beta1.MutatingPolicy{
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						},
+					},
+				},
+			},
+			Variables: []admissionregistrationv1.Variable{
+				{
+					Name:       "allContainers",
+					Expression: "object.spec.containers + (has(object.spec.initContainers) ? object.spec.initContainers : [])",
+				},
+				{
+					Name:       "team",
+					Expression: "object.metadata.labels.team",
+				},
+			},
+		},
+	}
+
+	result, err := Autogen(policy)
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+	assert.Equal(t, []admissionregistrationv1.Variable{
+		{
+			Name:       "allContainers",
+			Expression: "object.spec.template.spec.containers + (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])",
+		},
+		{
+			Name:       "team",
+			Expression: "object.spec.template.metadata.labels.team",
+		},
+	}, result[autogen.AutogenDefaults].Spec.Variables)
+	assert.Equal(t, []admissionregistrationv1.Variable{
+		{
+			Name:       "allContainers",
+			Expression: "object.spec.jobTemplate.spec.template.spec.containers + (has(object.spec.jobTemplate.spec.template.spec.initContainers) ? object.spec.jobTemplate.spec.template.spec.initContainers : [])",
+		},
+		{
+			Name:       "team",
+			Expression: "object.spec.jobTemplate.spec.template.metadata.labels.team",
+		},
+	}, result[autogen.AutogenCronjobs].Spec.Variables)
+}
