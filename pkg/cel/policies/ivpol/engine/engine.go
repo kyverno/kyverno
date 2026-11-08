@@ -296,11 +296,11 @@ func (e *engineImpl) handleMutation(
 				Policy:     ivpol.Policy,
 				Actions:    ivpol.Actions,
 				Exceptions: ivpol.Exceptions,
-				Result:     *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", fmt.Errorf("compiled policy is missing"), nil),
+				Result:     *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", ivpol.compilationError(), nil),
 			})
 			continue
 		}
-		polPatches, err := compiled.MutateDigest(ctx, ictx, imageverifycache.DisabledImageVerifyCache(), nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
+		polPatches, err := compiled.MutateDigest(ctx, ictx, nil, nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
 		if err != nil {
 			// Record the failure as a policy result and carry on with the remaining
 			// policies rather than returning an error, which would abandon their
@@ -691,7 +691,7 @@ func (e *engineImpl) evaluatePolicies(
 			}()
 
 			if evaluation.compiled == nil {
-				evaluation.err = fmt.Errorf("compiled policy is missing")
+				evaluation.err = ivpol.compilationError()
 				return
 			}
 

@@ -6,8 +6,6 @@ Pulls policie(s) that are included in an OCI image from OCI registry and saves t
 
 Pulls policie(s) that are included in an OCI image from OCI registry and saves them to a local directory.
 
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
-
   For more information visit https://kyverno.io/docs/kyverno-cli/#pulling
 
 ```
@@ -51,5 +49,5 @@ kyverno oci pull [dir] [flags]
 
 ### SEE ALSO
 
-* [kyverno oci](kyverno_oci.md)	 - Pulls/pushes images that include policie(s) from/to OCI registries.
+* [kyverno oci](kyverno_oci.md)	 - Pushes, pulls, validates, inspects, and resolves Kyverno CEL Policy Bundles in OCI registries. See "kyverno oci <subcommand> --help" for each subcommand's own flags and examples.
 

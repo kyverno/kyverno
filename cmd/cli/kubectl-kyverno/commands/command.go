@@ -34,13 +34,13 @@ func RootCommand(experimental bool) *cobra.Command {
 		jp.Command(),
 		legacypolicies.Command(),
 		migrate.Command(),
+		oci.Command(),
 		test.Command(),
 		version.Command(),
 	)
 	if experimental {
 		cmd.AddCommand(
 			fix.Command(),
-			oci.Command(),
 		)
 	}
 	return cmd
