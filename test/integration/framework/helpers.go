@@ -176,12 +176,21 @@ func PodMatchRulesWithOps(ops ...admissionregistrationv1.OperationType) *admissi
 // any policy that relies on NamespaceSelector matching by namespace name.
 func CreateNamespace(t *testing.T, kubeClient kubernetes.Interface, name string) {
 	t.Helper()
+	CreateNamespaceWithLabels(t, kubeClient, name, nil)
+}
+
+// CreateNamespaceWithLabels is CreateNamespace for a namespace that carries labels, such as the
+// environment or tenant labels a policy's namespaceSelector or a namespaceObject expression reads.
+func CreateNamespaceWithLabels(t *testing.T, kubeClient kubernetes.Interface, name string, labels map[string]string) {
+	t.Helper()
+	nsLabels := map[string]string{"kubernetes.io/metadata.name": name}
+	for k, v := range labels {
+		nsLabels[k] = v
+	}
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				"kubernetes.io/metadata.name": name,
-			},
+			Name:   name,
+			Labels: nsLabels,
 		},
 	}
 	_, err := kubeClient.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
