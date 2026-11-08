@@ -26,6 +26,7 @@ type failingImages struct {
 	fail string
 }
 
+// Get fails for f.fail and answers every other reference as mutationImages does.
 func (f failingImages) Get(ctx context.Context, image string, remoteOpts []remote.Option, nameOpts []name.Option) (*imagedataloader.ImageData, error) {
 	if image == f.fail {
 		return nil, errors.New("registry unreachable")

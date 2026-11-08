@@ -21,6 +21,12 @@ results:
   - untrusted-volume
   result: fail
 - isImageValidatingPolicy: true
+  kind: Deployment
+  policy: image-volumes-from-trusted-registry
+  resources:
+  - trusted-volume-deployment
+  result: pass
+- isImageValidatingPolicy: true
   kind: Pod
   policy: image-volumes-from-trusted-registry
   resources:
