@@ -31,6 +31,8 @@ import (
 	"github.com/kyverno/sdk/extensions/registryclient"
 	"gomodules.xyz/jsonpatch/v2"
 	"gotest.tools/v3/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 )
@@ -662,6 +664,39 @@ func Test_SignatureGoodSigned(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, true, found)
 	assert.Equal(t, "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", image)
+}
+
+func Test_MutateImageHandler_ImageReferencesWithVariable(t *testing.T) {
+	policyWithVar := strings.Replace(testSampleSingleKeyPolicy, `"ghcr.io/kyverno/test-verify-image:*"`, `"{{ request.object.metadata.annotations.allowedImage }}"`, -1)
+	resourceWithAnno := strings.Replace(testSampleResource, `"metadata": {"name": "test"}`, `"metadata": {"name": "test", "annotations": {"allowedImage": "ghcr.io/kyverno/test-verify-image:*"}}`, -1)
+	policyContext := buildContext(t, policyWithVar, resourceWithAnno, "")
+	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(), nil, policyContext, cfg)
+	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message())
+}
+
+func Test_ValidateImage_ImageReferencesWithRuleContextVariable(t *testing.T) {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "image-config",
+			Namespace: "default",
+		},
+		Data: map[string]string{
+			"pattern": "ghcr.io/kyverno/test-verify-image:*",
+		},
+	}
+	kubeClient := kubefake.NewSimpleClientset(cm)
+	resolver, err := resolvers.NewClientBasedResolver(kubeClient)
+	assert.NilError(t, err)
+
+	ruleContextSnippet := `"context": [{"name": "imageconfig", "configMap": {"name": "image-config", "namespace": "default"}}], "name": "check-signature"`
+	policyWithRuleContext := strings.Replace(testSampleSingleKeyPolicy, `"name": "check-signature"`, ruleContextSnippet, 1)
+	policyWithRuleContext = strings.Replace(policyWithRuleContext, `"ghcr.io/kyverno/test-verify-image:*"`, `"{{ imageconfig.data.pattern }}"`, 1)
+
+	policyContext := buildContext(t, policyWithRuleContext, testSampleResource, "")
+	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(), resolver, policyContext, cfg)
+	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message())
 }
 
 func Test_SignatureUnsigned(t *testing.T) {

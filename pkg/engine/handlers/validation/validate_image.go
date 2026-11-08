@@ -42,12 +42,16 @@ func NewValidateImageHandler(
 	if engineutils.IsDeleteRequest(policyContext) {
 		return nil, nil
 	}
-	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
-	if err != nil {
-		return nil, err
-	}
-	if len(ruleImages) == 0 {
-		return nil, nil
+	var ruleImages []apiutils.ImageInfo
+	if !internal.ImageReferencesHasVariables(rule) {
+		var err error
+		ruleImages, _, err = engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
+		if err != nil {
+			return nil, err
+		}
+		if len(ruleImages) == 0 {
+			return nil, nil
+		}
 	}
 	return validateImageHandler{
 		rclientFactory: rclientFactory,
@@ -69,7 +73,7 @@ func (h validateImageHandler) Process(
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// check if there are policy exceptions that match the incoming resource
-	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
+	matchedExceptions := engineutils.MatchesExceptionWithContext(ctx, h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(matchedExceptions))
 		var keys []string
@@ -89,25 +93,45 @@ func (h validateImageHandler) Process(
 		)
 	}
 
-	// Resolve variable placeholders (for example a ConfigMap-backed public
-	// key) the same way the mutating path does, before using the rule for
-	// matching or verification: otherwise a rule that verifies fine at
-	// mutate time would see the literal, unresolved placeholder here and
-	// fail closed for the wrong reason on every cold-cache admission and
-	// background scan.
-	ruleCopy, err := internal.SubstituteRuleVariables(rule, policyContext.JSONContext(), logger)
+	ruleCopy, err := internal.SubstituteImageVerifyVariables(rule, policyContext.JSONContext(), logger)
 	if err != nil {
 		return resource, handlers.WithResponses(
 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err, rule.ReportProperties),
 		)
 	}
 
-	newResource := policyContext.NewResource()
-	resourceNamespace := newResource.GetNamespace()
+	var images []apiutils.ImageInfo
+	if internal.ImageReferencesHasVariables(rule) {
+		var imgMap map[string]map[string]apiutils.ImageInfo
+		if rule.ImageExtractors != nil {
+			imgMap, err = policyContext.JSONContext().GenerateCustomImageInfo(&resource, rule.ImageExtractors, h.configuration)
+			if err != nil {
+				return resource, handlers.WithError(rule, engineapi.ImageVerify, "failed to extract custom images", err)
+			}
+		} else {
+			imgMap, err = policyContext.JSONContext().GenerateCustomImageInfo(&resource, nil, h.configuration)
+			if err != nil {
+				return resource, handlers.WithError(rule, engineapi.ImageVerify, "failed to extract images", err)
+			}
+		}
+		matching, _ := engineutils.GetMatchingImages(imgMap, *ruleCopy)
+		if len(matching) == 0 {
+			return resource, nil
+		}
+		images = matching
+	} else {
+		images = h.images
+	}
+
+	resourceNamespace := resource.GetNamespace()
+	if resourceNamespace == "" {
+		newResource := policyContext.NewResource()
+		resourceNamespace = newResource.GetNamespace()
+	}
 	// Get imagePullSecrets from the first image (all images from same resource share the same secrets)
 	var imagePullSecrets []string
-	if len(h.images) > 0 {
-		imagePullSecrets = h.images[0].ImagePullSecrets
+	if len(images) > 0 {
+		imagePullSecrets = images[0].ImagePullSecrets
 	}
 
 	skippedImages := make([]string, 0)
@@ -115,12 +139,12 @@ func (h validateImageHandler) Process(
 	for _, v := range ruleCopy.VerifyImages {
 		imageVerify := v.Convert()
 		// GetMatchingImages appends an image once per matching verifyImages
-		// entry, so h.images holds duplicates whenever entries overlap. Each
+		// entry, so images holds duplicates whenever entries overlap. Each
 		// verification is registry and signature work now, so do each distinct
 		// image once per entry. The key includes the resource pointer so two
 		// containers sharing one image are still reported separately.
-		verified := make(map[string]struct{}, len(h.images))
-		for _, imageInfo := range h.images {
+		verified := make(map[string]struct{}, len(images))
+		for _, imageInfo := range images {
 			image := imageInfo.String()
 			key := imageInfo.Pointer + "\x00" + image
 			if _, done := verified[key]; done {

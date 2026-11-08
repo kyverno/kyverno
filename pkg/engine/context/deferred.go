@@ -133,6 +133,10 @@ func (d *deferredLoaders) clearMatches() {
 	}
 }
 
+func (d *deferredLoaders) ClearMatches() {
+	d.clearMatches()
+}
+
 func (d *deferredLoaders) LoadMatching(query string, level int) error {
 	if d.level >= 0 {
 		level = d.level

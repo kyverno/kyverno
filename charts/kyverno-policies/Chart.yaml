@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno-policies
-version: 3.9.2-rc.5  # VERSION
-appVersion: v1.19.2-rc.5
+version: 3.9.2  # VERSION
+appVersion: v1.19.2
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Pod Security Standards implemented as Kyverno policies
 keywords:
@@ -18,6 +18,8 @@ maintainers:
     email: cncf-kyverno-maintainers@lists.cncf.io
 kubeVersion: ">=1.25.0-0"
 annotations:
+  # Pod Security Admission versions that podSecurityVersion accepts. Keep in sync with psaMinVersion and psaMaxVersion.
+  kyverno.io/pod-security-versions: v1.25-v1.37
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
   artifacthub.io/changes: |
@@ -31,3 +33,5 @@ annotations:
       description: Fix the merging of policyExclude customizations to avoid wrong overrides
     - kind: added
       description: Add spec.validate[*].allowExistingViolations field to policies
+    - kind: added
+      description: Add the podSecurityVersion value to match a Kubernetes Pod Security Admission version, from v1.25 to v1.37

@@ -50,7 +50,8 @@ jobs:
           ignore-unfixed: true
           cache: false
         env:
-          TRIVY_DB_REPOSITORY: 'public.ecr.aws/aquasecurity/trivy-db:2'
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Cosign
         uses: ./.github/actions/tools/cosign
       - name: Publish kyverno

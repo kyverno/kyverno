@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: 3.9.2-rc.5](https://img.shields.io/badge/Version-3.9.2--rc.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.19.2-rc.5](https://img.shields.io/badge/AppVersion-v1.19.2--rc.5-informational?style=flat-square)
+![Version: 3.9.2](https://img.shields.io/badge/Version-3.9.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.19.2](https://img.shields.io/badge/AppVersion-v1.19.2-informational?style=flat-square)
 
 ## About
 
@@ -378,6 +378,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.policyExceptions.enabled | bool | `false` | Enables the feature |
 | features.policyExceptions.namespace | string | `""` | Restrict policy exceptions to a single namespace Set to "*" to allow exceptions in all namespaces |
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
+| features.protectGenerationLabels.enabled | bool | `true` | Enables generation label protection webhook |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
@@ -987,8 +988,8 @@ Kubernetes: `>=1.25.0-0`
 
 | Repository | Name | Version |
 |------------|------|---------|
-|  | crds | 3.9.2-rc.5 |
-|  | grafana | 3.9.2-rc.5 |
+|  | crds | 3.9.2 |
+|  | grafana | 3.9.2 |
 | https://kyverno.github.io/api | kyverno-api | 0.0.1-alpha.4 |
 | https://kyverno.github.io/reports-server/ | reports-server | 0.1.6 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |

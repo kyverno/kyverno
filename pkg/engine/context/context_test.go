@@ -7,12 +7,15 @@ import (
 	"strings"
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/stretchr/testify/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
@@ -460,4 +463,546 @@ func Test_ContextSizeLimitBlocksExponentialAmplification(t *testing.T) {
 	var sizeErr ContextSizeLimitExceededError
 	assert.ErrorAs(t, lastErr, &sizeErr)
 	assert.LessOrEqual(t, sizeErr.Limit, int64(testLimit))
+}
+
+func TestContext_CheckpointRestoreImages(t *testing.T) {
+	ctx := NewContext(jp).(*context)
+	pod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"spec": map[string]interface{}{
+				"imagePullSecrets": []interface{}{
+					map[string]interface{}{
+						"name": "my-secret",
+					},
+				},
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "app",
+						"image": "nginx:1.20",
+					},
+				},
+			},
+		},
+	}
+	err := ctx.AddImageInfos(pod, cfg)
+	assert.NoError(t, err)
+
+	imagesBefore := ctx.ImageInfo()
+	assert.Equal(t, 1, len(imagesBefore["containers"]))
+	assert.Equal(t, []string{"my-secret"}, imagesBefore["containers"]["app"].ImagePullSecrets)
+
+	ctx.Checkpoint()
+
+	// Mutate ImagePullSecrets slice in ctx.images to verify deep copy isolation
+	info := ctx.images["containers"]["app"]
+	info.ImagePullSecrets[0] = "mutated-secret"
+	info.ImagePullSecrets = append(info.ImagePullSecrets, "extra-secret")
+	ctx.images["containers"]["app"] = info
+
+	customPod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"data": map[string]interface{}{
+				"myImage": "redis:6.0",
+			},
+		},
+	}
+	customExtractors := kyvernov1.ImageExtractorConfigs{
+		"Pod": []kyvernov1.ImageExtractorConfig{
+			{
+				Path: "/data/myImage",
+				Name: "customImg",
+			},
+		},
+	}
+	_, err = ctx.GenerateCustomImageInfo(customPod, customExtractors, cfg)
+	assert.NoError(t, err)
+
+	imagesInsideCheckpoint := ctx.ImageInfo()
+	assert.Equal(t, 1, len(imagesInsideCheckpoint["customImg"]))
+
+	// Test Reset()
+	ctx.Reset()
+	imagesAfterReset := ctx.ImageInfo()
+	assert.Equal(t, 1, len(imagesAfterReset["containers"]))
+	assert.Equal(t, []string{"my-secret"}, imagesAfterReset["containers"]["app"].ImagePullSecrets)
+	assert.Nil(t, imagesAfterReset["customImg"])
+
+	// Verify deferred loading on Query("images...") does not overwrite the reset image map
+	queryVal, err := ctx.Query("images.containers.app.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "nginx", queryVal)
+	assert.Nil(t, ctx.ImageInfo()["customImg"])
+
+	// Mutate again before Restore
+	info2 := ctx.images["containers"]["app"]
+	info2.ImagePullSecrets[0] = "mutated-again"
+	ctx.images["containers"]["app"] = info2
+
+	ctx.Restore()
+
+	imagesAfterRestore := ctx.ImageInfo()
+	assert.Equal(t, 1, len(imagesAfterRestore["containers"]))
+	appInfo := imagesAfterRestore["containers"]["app"]
+	assert.Equal(t, "docker.io/nginx:1.20", appInfo.String())
+	assert.Equal(t, []string{"my-secret"}, appInfo.ImagePullSecrets)
+	assert.Nil(t, imagesAfterRestore["customImg"])
+
+	// Verify deferred loading on Query("images...") after Restore does not re-extract or overwrite
+	queryVal2, err := ctx.Query("images.containers.app.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "nginx", queryVal2)
+	assert.Nil(t, ctx.ImageInfo()["customImg"])
+}
+
+func TestContext_DeferredImageLoader_DoesNotOverwriteRestoredEmptyContext(t *testing.T) {
+	ctx := NewContext(jp).(*context)
+	pod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"spec": map[string]interface{}{
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "app",
+						"image": "nginx:1.20",
+					},
+				},
+			},
+		},
+	}
+	err := ctx.AddImageInfos(pod, cfg)
+	assert.NoError(t, err)
+
+	// Images are not loaded initially; loader has not loaded yet.
+	assert.Nil(t, ctx.images)
+
+	// Create a checkpoint where ctx.images is empty
+	ctx.Checkpoint()
+
+	// Inside checkpoint, custom images are generated (populating ctx.images)
+	customPod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"data": map[string]interface{}{
+				"myImage": "redis:6.0",
+			},
+		},
+	}
+	customExtractors := kyvernov1.ImageExtractorConfigs{
+		"Pod": []kyvernov1.ImageExtractorConfig{
+			{
+				Path: "/data/myImage",
+				Name: "customImg",
+			},
+		},
+	}
+	_, err = ctx.GenerateCustomImageInfo(customPod, customExtractors, cfg)
+	assert.NoError(t, err)
+
+	// A query for images occurs inside the checkpoint
+	queryVal, err := ctx.Query("images.customImg")
+	assert.NoError(t, err)
+	assert.NotNil(t, queryVal)
+	assert.True(t, ctx.imageInfoLoader.HasLoaded())
+
+	// Restore the checkpoint - should restore ctx.images to empty without reloading original pod
+	ctx.Restore()
+
+	// After restore, the loader's loaded state is restored to false
+	assert.False(t, ctx.imageInfoLoader.HasLoaded())
+	// Before querying images, ctx.images should remain nil (not populated with stale pod images)
+	assert.Nil(t, ctx.images)
+
+	// Explicit call to ImageInfo() after restore loads the original pod
+	images := ctx.ImageInfo()
+	assert.True(t, ctx.imageInfoLoader.HasLoaded())
+	assert.Equal(t, 1, len(images["containers"]))
+	assert.Equal(t, "nginx", images["containers"]["app"].Name)
+	assert.Nil(t, images["customImg"])
+}
+
+func TestContext_DeferredImageLoader_RetainsLoadedStateWhenPopulatedBeforeCheckpoint(t *testing.T) {
+	ctx := NewContext(jp).(*context)
+	pod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"spec": map[string]interface{}{
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "app",
+						"image": "nginx:1.20",
+					},
+				},
+			},
+		},
+	}
+	err := ctx.AddImageInfos(pod, cfg)
+	assert.NoError(t, err)
+
+	customPod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"data": map[string]interface{}{
+				"myImage": "redis:6.0",
+			},
+		},
+	}
+	customExtractors := kyvernov1.ImageExtractorConfigs{
+		"Pod": []kyvernov1.ImageExtractorConfig{
+			{
+				Path: "/data/myImage",
+				Name: "customImg",
+			},
+		},
+	}
+	// Custom images populated before checkpoint
+	_, err = ctx.GenerateCustomImageInfo(customPod, customExtractors, cfg)
+	assert.NoError(t, err)
+
+	// Query sets hasLoaded to true
+	_, err = ctx.Query("images.customImg")
+	assert.NoError(t, err)
+	assert.True(t, ctx.imageInfoLoader.HasLoaded())
+
+	ctx.Checkpoint()
+	assert.True(t, ctx.imageInfoLoader.HasLoaded())
+
+	ctx.Restore()
+	// After restore, loader retains loaded state since it was loaded prior to checkpoint
+	assert.True(t, ctx.imageInfoLoader.HasLoaded())
+	assert.NotNil(t, ctx.ImageInfo()["customImg"])
+}
+
+func TestContext_GenerateCustomImageInfo_SynchronizesRawContextAndClearsRemovedImages(t *testing.T) {
+	ctx := NewContext(jp).(*context)
+	pod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"spec": map[string]interface{}{
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "c1",
+						"image": "nginx:1.20",
+					},
+					map[string]interface{}{
+						"name":  "c2",
+						"image": "busybox:latest",
+					},
+				},
+			},
+		},
+	}
+
+	// Populate initial images
+	images, err := ctx.GenerateCustomImageInfo(pod, nil, cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(images["containers"]))
+
+	// Query both containers in context
+	c1Img, err := ctx.Query("images.containers.c1.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "nginx", c1Img)
+
+	c2Img, err := ctx.Query("images.containers.c2.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "busybox", c2Img)
+
+	// Simulate mutation that removed container c1 and only keeps c2
+	mutatedPod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"spec": map[string]interface{}{
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "c2",
+						"image": "busybox:latest",
+					},
+				},
+			},
+		},
+	}
+
+	imagesMutated, err := ctx.GenerateCustomImageInfo(mutatedPod, nil, cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(imagesMutated["containers"]))
+
+	// Removed container c1 must no longer exist in jsonRaw context
+	_, err = ctx.Query("images.containers.c1")
+	assert.ErrorContains(t, err, `Unknown key "c1" in path`)
+
+	// Kept container c2 remains accessible
+	c2After, err := ctx.Query("images.containers.c2.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "busybox", c2After)
+
+	// When all images are removed (e.g. empty spec), images context must be cleared
+	emptyPod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"spec": map[string]interface{}{},
+		},
+	}
+	imagesEmpty, err := ctx.GenerateCustomImageInfo(emptyPod, nil, cfg)
+	assert.NoError(t, err)
+	assert.Empty(t, imagesEmpty)
+	assert.Nil(t, ctx.images)
+
+	_, err = ctx.Query("images")
+	assert.ErrorContains(t, err, `Unknown key "images" in path`)
+}
+
+func TestContext_DeferredImageLoader_DoesNotResurrectImagesAfterEmptyRefreshWithoutPriorQuery(t *testing.T) {
+	ctx := NewContext(jp).(*context)
+	pod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"spec": map[string]interface{}{
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "app",
+						"image": "nginx:1.20",
+					},
+				},
+			},
+		},
+	}
+	// Add deferred loader with initial pod containing nginx.
+	// Intentionally DO NOT query images here, so hasLoaded remains false.
+	err := ctx.AddImageInfos(pod, cfg)
+	assert.NoError(t, err)
+	assert.False(t, ctx.imageInfoLoader.HasLoaded())
+
+	// Mutation removes all containers, so the resource now has no images.
+	emptyPod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"spec": map[string]interface{}{},
+		},
+	}
+
+	// GenerateCustomImageInfo is called for the mutated resource before any image query.
+	images, err := ctx.GenerateCustomImageInfo(emptyPod, nil, cfg)
+	assert.NoError(t, err)
+	assert.Empty(t, images)
+	assert.True(t, ctx.imageInfoLoader.HasLoaded())
+
+	// A later query for images must NOT resurrect images from the original pod via deferred loader.
+	_, err = ctx.Query("images.containers.app")
+	assert.ErrorContains(t, err, `Unknown key "images" in path`)
+
+	// Explicit call to ImageInfo() must also not reload the original pod.
+	assert.Empty(t, ctx.ImageInfo())
+}
+
+func TestContext_DeferredImageLoader_ClearsMatchesOnAddResource(t *testing.T) {
+	ctx := NewContext(jp).(*context)
+	pod1 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "pod1",
+			},
+			"spec": map[string]interface{}{
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "app",
+						"image": "nginx:1.20",
+					},
+				},
+			},
+		},
+	}
+	cfg := config.NewDefaultConfiguration(false)
+	err := ctx.AddImageInfos(pod1, cfg)
+	assert.NoError(t, err)
+
+	// Query images to trigger deferred loader, setting dl.matched = true
+	queryVal, err := ctx.Query("images.containers.app.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "nginx", queryVal)
+	assert.True(t, ctx.imageInfoLoader.HasLoaded())
+
+	// AddResource with a new pod containing a different image
+	pod2 := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]interface{}{
+			"name": "pod2",
+		},
+		"spec": map[string]interface{}{
+			"containers": []interface{}{
+				map[string]interface{}{
+					"name":  "app",
+					"image": "redis:6.0",
+				},
+			},
+		},
+	}
+	err = ctx.AddResource(pod2)
+	assert.NoError(t, err)
+	assert.False(t, ctx.imageInfoLoader.HasLoaded())
+
+	// Querying images again should re-trigger deferred loader because matches were cleared
+	queryVal, err = ctx.Query("images.containers.app.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "redis", queryVal)
+	assert.True(t, ctx.imageInfoLoader.HasLoaded())
+}
+
+func TestContext_AddResource_ClearsImageStateWithoutImageInfoLoader(t *testing.T) {
+	ctx := NewContext(jp).(*context)
+	pod1 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "pod1",
+			},
+			"spec": map[string]interface{}{
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "app",
+						"image": "nginx:1.20",
+					},
+				},
+			},
+		},
+	}
+	cfg := config.NewDefaultConfiguration(false)
+	_, err := ctx.GenerateCustomImageInfo(pod1, nil, cfg)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, ctx.ImageInfo())
+
+	queryVal, err := ctx.Query("images.containers.app.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "nginx", queryVal)
+
+	// AddResource with a new pod without imageInfoLoader installed
+	pod2 := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]interface{}{
+			"name": "pod2",
+		},
+		"spec": map[string]interface{}{
+			"containers": []interface{}{
+				map[string]interface{}{
+					"name":  "app",
+					"image": "redis:6.0",
+				},
+			},
+		},
+	}
+	err = ctx.AddResource(pod2)
+	assert.NoError(t, err)
+
+	// Images state must be cleared
+	assert.Empty(t, ctx.ImageInfo())
+	_, err = ctx.Query("images.containers.app.name")
+	assert.Error(t, err)
+}
+
+func TestContext_ImageInfoLoader_ReloadsOnAddResourceWhenDeferredLoadingDisabled(t *testing.T) {
+	_ = toggle.EnableDeferredLoading.Parse("false")
+	t.Cleanup(func() {
+		_ = toggle.EnableDeferredLoading.Parse("true")
+	})
+
+	ctx := NewContext(jp).(*context)
+	pod1 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "pod1",
+			},
+			"spec": map[string]interface{}{
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "app",
+						"image": "nginx:1.20",
+					},
+				},
+			},
+		},
+	}
+	cfg := config.NewDefaultConfiguration(false)
+	err := ctx.AddImageInfos(pod1, cfg)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, ctx.ImageInfo())
+
+	queryVal, err := ctx.Query("images.containers.app.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "nginx", queryVal)
+
+	// AddResource with a new pod while deferred loading is disabled
+	pod2 := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]interface{}{
+			"name": "pod2",
+		},
+		"spec": map[string]interface{}{
+			"containers": []interface{}{
+				map[string]interface{}{
+					"name":  "app",
+					"image": "redis:6.0",
+				},
+			},
+		},
+	}
+	err = ctx.AddResource(pod2)
+	assert.NoError(t, err)
+
+	// Images must be eagerly reloaded for pod2
+	assert.NotEmpty(t, ctx.ImageInfo())
+	queryVal, err = ctx.Query("images.containers.app.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "redis", queryVal)
 }

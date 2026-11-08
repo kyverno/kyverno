@@ -39,7 +39,7 @@ func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	set := pkglabels.Set{
 		kyvernov2.URMutatePolicyLabel: policyName,
 	}
-	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
+	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Pointer && reflect.ValueOf(trigger).IsNil())
 	if !isNil {
 		set[kyvernov2.URMutateTriggerNameLabel] = trimByLength(trigger.GetName(), 63)
 		set[kyvernov2.URMutateTriggerNSLabel] = trigger.GetNamespace()

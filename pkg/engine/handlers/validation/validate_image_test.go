@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -411,4 +412,148 @@ func TestValidateImage_SubstitutesVariablesBeforeMatchingAndVerifying(t *testing
 	_, responses := h.Process(context.Background(), logger, policyContext, *resource, rule, nil, nil)
 	require.NotEmpty(t, responses, "expected a rule response")
 	assert.Equal(t, engineapi.RuleStatusError, responses[0].Status(), responses[0].Message())
+}
+
+const verifyImageVariablePolicy = `{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+		"name": "verify-variable"
+	},
+	"spec": {
+		"rules": [{
+			"name": "verify-image",
+			"match": {
+				"any": [{
+					"resources": {
+						"kinds": ["Pod"]
+					}
+				}]
+			},
+			"verifyImages": [{
+				"imageReferences": ["{{ request.object.metadata.annotations.allowedImage }}"],
+				"required": true,
+				"verifyDigest": false
+			}]
+		}]
+	}
+}`
+
+const variableContainerPod = `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"name": "test-pod",
+		"namespace": "default",
+		"annotations": {
+			"allowedImage": "ghcr.io/verified/*"
+		}
+	},
+	"spec": {
+		"containers": [{
+			"name": "app",
+			"image": "ghcr.io/verified/app:v1"
+		}]
+	}
+}`
+
+func TestValidateImageHandler_ImageReferencesWithVariable(t *testing.T) {
+	t.Parallel()
+	var cpol kyvernov1.ClusterPolicy
+	require.NoError(t, json.Unmarshal([]byte(verifyImageVariablePolicy), &cpol))
+	resource, err := kubeutils.BytesToUnstructured([]byte(variableContainerPod))
+	require.NoError(t, err)
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	policyContext, err := policycontext.NewPolicyContext(jp, *resource, kyvernov1.Create, nil, cfg)
+	require.NoError(t, err)
+	policyContext = policyContext.WithPolicy(&cpol).WithNewResource(*resource)
+	rule := cpol.Spec.Rules[0]
+	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, nil, nil, nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+	logger := logr.Discard()
+	_, responses := handler.Process(context.Background(), logger, policyContext, *resource, rule, nil, nil)
+	require.NotEmpty(t, responses)
+	assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+	assert.Equal(t, engineapi.ImageVerify, responses[0].RuleType())
+	assert.Contains(t, responses[0].Message(), "rule requires image verification")
+}
+
+func TestValidateImageHandler_MutatedResourceImageReferencesWithVariable(t *testing.T) {
+	t.Parallel()
+	var cpol kyvernov1.ClusterPolicy
+	require.NoError(t, json.Unmarshal([]byte(verifyImageVariablePolicy), &cpol))
+
+	initialPodJSON := `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod",
+			"namespace": "default",
+			"annotations": {
+				"allowedImage": "ghcr.io/verified/*"
+			}
+		},
+		"spec": {
+			"containers": [{
+				"name": "app",
+				"image": "docker.io/unmutated/old:v1"
+			}]
+		}
+	}`
+	initialResource, err := kubeutils.BytesToUnstructured([]byte(initialPodJSON))
+	require.NoError(t, err)
+
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	policyContext, err := policycontext.NewPolicyContext(jp, *initialResource, kyvernov1.Create, nil, cfg)
+	require.NoError(t, err)
+	policyContext = policyContext.WithPolicy(&cpol).WithNewResource(*initialResource)
+
+	rule := cpol.Spec.Rules[0]
+	handler, err := NewValidateImageHandler(policyContext, *initialResource, rule, cfg, nil, nil, nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+
+	// Simulate preceding rule mutation updating container image to the verified image
+	mutatedResource, err := kubeutils.BytesToUnstructured([]byte(variableContainerPod))
+	require.NoError(t, err)
+	require.NoError(t, policyContext.JSONContext().AddResource(mutatedResource.Object))
+
+	logger := logr.Discard()
+	_, responses := handler.Process(context.Background(), logger, policyContext, *mutatedResource, rule, nil, nil)
+	require.NotEmpty(t, responses)
+	assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+	assert.Equal(t, engineapi.ImageVerify, responses[0].RuleType())
+	assert.Contains(t, responses[0].Message(), "rule requires image verification")
+}
+
+func TestValidateImageHandler_ImageReferencesWithPerImageMessage(t *testing.T) {
+	t.Parallel()
+	policyWithMsg := strings.Replace(
+		verifyImageVariablePolicy,
+		`"verifyDigest": false`,
+		`"verifyDigest": false, "validate": {"message": "{{ image.reference }} is not signed"}`,
+		1,
+	)
+	var cpol kyvernov1.ClusterPolicy
+	require.NoError(t, json.Unmarshal([]byte(policyWithMsg), &cpol))
+	resource, err := kubeutils.BytesToUnstructured([]byte(variableContainerPod))
+	require.NoError(t, err)
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	policyContext, err := policycontext.NewPolicyContext(jp, *resource, kyvernov1.Create, nil, cfg)
+	require.NoError(t, err)
+	policyContext = policyContext.WithPolicy(&cpol).WithNewResource(*resource)
+	rule := cpol.Spec.Rules[0]
+	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, nil, nil, nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+	logger := logr.Discard()
+	_, responses := handler.Process(context.Background(), logger, policyContext, *resource, rule, nil, nil)
+	require.NotEmpty(t, responses)
+	assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+	assert.Equal(t, engineapi.ImageVerify, responses[0].RuleType())
+	assert.Contains(t, responses[0].Message(), "rule requires image verification")
 }
