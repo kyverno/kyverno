@@ -19,3 +19,6 @@ This package implements the `kyverno create values` (and `kubectl-kyverno create
    - `--resource` expects at least `<policy>,<resource>` followed by zero or more `<key>=<value>` pairs.
    - `--ns-selector` expects `<namespace>,<key>=<value>...`.
    - Any malformed input returns a clear validation error rather than silently failing or dropping fields.
+
+4. **Atomic Output Writing**:
+   - Flag validation and template rendering execute in-memory before creating or modifying the output file (`-o/--output`). If validation fails, any pre-existing output file is preserved intact and never truncated.
