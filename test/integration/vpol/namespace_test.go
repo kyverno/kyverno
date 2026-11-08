@@ -78,6 +78,10 @@ func TestValidate_NamespaceSelector_EnforcesOnlyInProductionNamespaces(t *testin
 	assert.False(t, resp.Allowed, "a pod without a team label must be denied in a production namespace")
 
 	resp = h.ValidateClustered(context.Background(), logr.Discard(),
+		framework.PodAdmissionRequest("api", prod, podJSON("api", prod, map[string]string{"team": "payments"}, false)), "", time.Now())
+	assert.True(t, resp.Allowed, "a pod with a team label must be admitted in a production namespace: %v", resp.Result)
+
+	resp = h.ValidateClustered(context.Background(), logr.Discard(),
 		framework.PodAdmissionRequest("api", dev, podJSON("api", dev, nil, false)), "", time.Now())
 	assert.True(t, resp.Allowed, "the policy must not apply in a development namespace")
 }
@@ -138,8 +142,9 @@ func TestValidate_PolicyException_ExemptsNamespacesByLabel(t *testing.T) {
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1alpha1.PolicyRef{{Name: "require-run-as-non-root-user", Kind: "ValidatingPolicy"}},
 			MatchConditions: []admissionregistrationv1.MatchCondition{{
-				Name:       "namespace-allows-root",
-				Expression: "has(namespaceObject.metadata.labels) && namespaceObject.metadata.labels['security.example.com/run-as-root'] == 'allowed'",
+				Name: "namespace-allows-root",
+				Expression: "has(namespaceObject.metadata.labels) && 'security.example.com/run-as-root' in namespaceObject.metadata.labels && " +
+					"namespaceObject.metadata.labels['security.example.com/run-as-root'] == 'allowed'",
 			}},
 		},
 	}
@@ -166,4 +171,7 @@ func TestValidate_PolicyException_ExemptsNamespacesByLabel(t *testing.T) {
 	resp := h.ValidateClustered(ctx, logr.Discard(),
 		framework.PodAdmissionRequest("batch", regular, podJSON("batch", regular, nil, false)), "", time.Now())
 	assert.False(t, resp.Allowed, "the exception must not exempt a namespace without the label")
+	require.NotNil(t, resp.Result)
+	assert.Contains(t, resp.Result.Message, "pods must set securityContext.runAsNonRoot to true",
+		"the pod must be denied by the policy's validation, not by an error in the exception")
 }

@@ -17,11 +17,11 @@ import (
 // use (celengine.NewNamespaceResolver, wired as in cmd/kyverno/main.go): a namespace lister with a
 // live GET fallback for namespaces the informer has not seen yet. Engines use it to match a
 // namespaceSelector against the namespace's real labels and to populate namespaceObject, for
-// policies and PolicyExceptions alike. The informer runs until ctx is cancelled.
+// policies and PolicyExceptions alike. The informer runs until ctx is cancelled. It does not wait
+// for the informer to sync: until it has, lookups fall back to the live GET, as in production.
 func NewNamespaceResolver(ctx context.Context, kubeClient kubernetes.Interface) celengine.NamespaceResolver {
 	factory, lister := namespaceInformer(kubeClient)
 	factory.Start(ctx.Done())
-	factory.WaitForCacheSync(ctx.Done())
 	return celengine.NewNamespaceResolver(logr.Discard(), lister, kubeClient)
 }
 

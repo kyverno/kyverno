@@ -86,6 +86,7 @@ func TestGenerateFullFlow_NamespaceSelector_GeneratesDefaultDenyOnlyInIsolatedTe
 	assert.Len(t, np.Spec.PolicyTypes, 2)
 
 	trigger(shared)
+	require.Empty(t, mock.ProcessingErrors(), "processing should succeed without errors")
 	_, err = testEnv.KubeClient.NetworkingV1().NetworkPolicies(shared).Get(context.Background(), "default-deny", metav1.GetOptions{})
 	assert.True(t, apierrors.IsNotFound(err), "no NetworkPolicy may be generated in a namespace without the isolation label, got %v", err)
 }
