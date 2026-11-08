@@ -177,6 +177,20 @@ func TestFetchBundlesFallbackLayerFetchError(t *testing.T) {
 	assert.ErrorContains(t, err, "referrer layer")
 }
 
+func TestFetchBundlesFallbackIncompleteBundle(t *testing.T) {
+	t.Parallel()
+	// a referrer typed as a bundle whose layer is not a complete bundle is rejected, never appended
+	bundleMediaType := "application/vnd.dev.sigstore.bundle.v0.3+json"
+	ref := setupFallbackRegistry(t, []testReferrer{{
+		manifestArtifactType: bundleMediaType,
+		layerMediaType:       bundleMediaType,
+		layerData:            []byte(`{}`),
+	}})
+	bundles, _, err := fetchBundles(ref, attestationlimit, "", nil)
+	assert.ErrorContains(t, err, "failed to unmarshal bundle")
+	assert.Equal(t, len(bundles), 0)
+}
+
 func TestFetchBundlesFallbackFetchError(t *testing.T) {
 	t.Parallel()
 	// the registry refuses to serve the referrer manifest, as when access is denied
