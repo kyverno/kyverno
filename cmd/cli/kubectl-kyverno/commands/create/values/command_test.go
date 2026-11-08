@@ -251,9 +251,24 @@ func TestCommandValidationErrors(t *testing.T) {
 			errorMsg: "invalid key=value pair: nokeyvalue",
 		},
 		{
+			name:     "InvalidRuleEmptyKey",
+			args:     []string{"--rule", "mypol,rule1,=value"},
+			errorMsg: "invalid key=value pair: =value",
+		},
+		{
 			name:     "InvalidResourceTooFewParts",
 			args:     []string{"--resource", "mypol"},
 			errorMsg: "invalid resource format: mypol",
+		},
+		{
+			name:     "InvalidResourceNoKeyValue",
+			args:     []string{"--resource", "mypol,res1,nokeyvalue"},
+			errorMsg: "invalid key=value pair: nokeyvalue",
+		},
+		{
+			name:     "InvalidResourceEmptyKey",
+			args:     []string{"--resource", "mypol,res1,=value"},
+			errorMsg: "invalid key=value pair: =value",
 		},
 		{
 			name:     "InvalidNamespaceSelectorTooFewParts",
@@ -264,6 +279,11 @@ func TestCommandValidationErrors(t *testing.T) {
 			name:     "InvalidNamespaceSelectorNoKeyValue",
 			args:     []string{"-n", "prod,nokeyvalue"},
 			errorMsg: "invalid key=value pair: nokeyvalue",
+		},
+		{
+			name:     "InvalidNamespaceSelectorEmptyKey",
+			args:     []string{"-n", "prod,=value"},
+			errorMsg: "invalid key=value pair: =value",
 		},
 	}
 
