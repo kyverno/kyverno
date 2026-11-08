@@ -1,6 +1,7 @@
 package values
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
@@ -28,15 +29,6 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			output := cmd.OutOrStdout()
-			if path != "" {
-				file, err := os.Create(path)
-				if err != nil {
-					return err
-				}
-				defer file.Close()
-				output = file
-			}
 			values := v1alpha1.ValuesSpec{
 				GlobalValues: map[string]interface{}{},
 			}
@@ -62,7 +54,17 @@ func Command() *cobra.Command {
 					return err
 				}
 			}
-			return tmpl.Execute(output, values)
+
+			var buf bytes.Buffer
+			if err := tmpl.Execute(&buf, values); err != nil {
+				return err
+			}
+
+			if path != "" {
+				return os.WriteFile(path, buf.Bytes(), 0644)
+			}
+			_, err = cmd.OutOrStdout().Write(buf.Bytes())
+			return err
 		},
 	}
 	cmd.Flags().StringVarP(&path, "output", "o", "", "Output path (uses standard console output if not set)")
