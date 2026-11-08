@@ -208,6 +208,14 @@ func TestExpressionsUseHTTP(t *testing.T) {
 		name:        "empty string is skipped",
 		expressions: []string{"", "object.spec.name == 'test'"},
 		want:        false,
+	}, {
+		name:        "http call inside optional field selection",
+		expressions: []string{"object.?data.?x.orValue(http.Get('https://example.com')) != null"},
+		want:        true,
+	}, {
+		name:        "http call inside optional index",
+		expressions: []string{"object.data[?'x'].orValue(http.Get('https://example.com')) != null"},
+		want:        true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -219,6 +227,7 @@ func TestExpressionsUseHTTP(t *testing.T) {
 
 func TestExpressionsUseGlobalContext(t *testing.T) {
 	assert.True(t, ExpressionsUseGlobalContext(`globalContext.get("entry", "")`))
+	assert.True(t, ExpressionsUseGlobalContext(`object.?data.?x.orValue(globalContext.get("entry", ""))`))
 	assert.False(t, ExpressionsUseGlobalContext("object.metadata.name == 'foo'"))
 }
 
