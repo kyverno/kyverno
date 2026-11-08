@@ -454,12 +454,17 @@ func referencesVariablesRoot(e celast.Expr, varAliases map[string]bool) bool {
 // isBareVariableRef reports whether AST expression e is a bare reference to varName
 // under variables or its aliases (e.g. varName, variables.varName, dyn(variables)["varName"]),
 // and NOT a composite expression such as a ternary or collection containing varName.
-func isBareVariableRef(e celast.Expr, varName string, varAliases map[string]bool) bool {
+// If isShadowed reports that varName is shadowed by an active comprehension binding,
+// an unqualified identifier varName is not treated as the outer safe variable.
+func isBareVariableRef(e celast.Expr, varName string, varAliases map[string]bool, isShadowed func(string) bool) bool {
 	if e == nil {
 		return false
 	}
 	switch e.Kind() {
 	case celast.IdentKind:
+		if isShadowed != nil && isShadowed(varName) {
+			return false
+		}
 		return e.AsIdent() == varName
 	case celast.SelectKind:
 		sel := e.AsSelect()
@@ -468,7 +473,7 @@ func isBareVariableRef(e celast.Expr, varName string, varAliases map[string]bool
 		call := e.AsCall()
 		fn := call.FunctionName()
 		if strings.EqualFold(fn, "dyn") && len(call.Args()) == 1 {
-			return isBareVariableRef(call.Args()[0], varName, varAliases)
+			return isBareVariableRef(call.Args()[0], varName, varAliases, isShadowed)
 		}
 		if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
 			if isVariablesExpr(call.Args()[0], varAliases) && call.Args()[1].Kind() == celast.LiteralKind {
@@ -481,8 +486,144 @@ func isBareVariableRef(e celast.Expr, varName string, varAliases map[string]bool
 	return false
 }
 
+// isCollectionDerivedVariablesRoot reports whether AST node e extracts the variables root
+// from a collection expression, e.g. [dyn(variables)][0] or [variables][0].
+func isCollectionDerivedVariablesRoot(e celast.Expr, varAliases map[string]bool) bool {
+	if e == nil || e.Kind() != celast.CallKind {
+		return false
+	}
+	call := e.AsCall()
+	fn := call.FunctionName()
+	if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
+		target := call.Args()[0]
+		if target.Kind() == celast.ListKind {
+			for _, elem := range target.AsList().Elements() {
+				if isVariablesExpr(elem, varAliases) || referencesVariablesRoot(elem, varAliases) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// walkWithComprehensionScope traverses AST node e, tracking active comprehension iterator variables
+// and propagating variables-root provenance from IterRange to IterVar.
+func walkWithComprehensionScope(
+	e celast.Expr,
+	varAliases map[string]bool,
+	shadowed map[string]int,
+	boundVarsWithVarRoot map[string]int,
+	visitor func(node celast.Expr, isShadowed func(string) bool, hasVarRoot func(celast.Expr) bool),
+) {
+	if e == nil {
+		return
+	}
+
+	isShadowed := func(name string) bool {
+		return shadowed != nil && shadowed[name] > 0
+	}
+
+	hasVarRoot := func(node celast.Expr) bool {
+		if node == nil {
+			return false
+		}
+		if isVariablesExpr(node, varAliases) || isCollectionDerivedVariablesRoot(node, varAliases) || referencesVariablesRoot(node, varAliases) {
+			return true
+		}
+		if node.Kind() == celast.IdentKind {
+			ident := node.AsIdent()
+			if boundVarsWithVarRoot != nil && boundVarsWithVarRoot[ident] > 0 {
+				return true
+			}
+		}
+		return false
+	}
+
+	visitor(e, isShadowed, hasVarRoot)
+
+	switch e.Kind() {
+	case celast.ComprehensionKind:
+		comp := e.AsComprehension()
+		// IterRange and AccuInit are evaluated outside the iteration body
+		walkWithComprehensionScope(comp.IterRange(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
+		walkWithComprehensionScope(comp.AccuInit(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
+
+		iterHasVarRoot := hasVarRoot(comp.IterRange())
+
+		if shadowed == nil {
+			shadowed = make(map[string]int)
+		}
+		if boundVarsWithVarRoot == nil {
+			boundVarsWithVarRoot = make(map[string]int)
+		}
+
+		varsToUnshadow := []string{}
+		varsToUnroot := []string{}
+
+		if iv := comp.IterVar(); iv != "" {
+			shadowed[iv]++
+			varsToUnshadow = append(varsToUnshadow, iv)
+			if iterHasVarRoot {
+				boundVarsWithVarRoot[iv]++
+				varsToUnroot = append(varsToUnroot, iv)
+			}
+		}
+		if comp.HasIterVar2() {
+			if iv2 := comp.IterVar2(); iv2 != "" {
+				shadowed[iv2]++
+				varsToUnshadow = append(varsToUnshadow, iv2)
+			}
+		}
+		if av := comp.AccuVar(); av != "" {
+			shadowed[av]++
+			varsToUnshadow = append(varsToUnshadow, av)
+		}
+
+		walkWithComprehensionScope(comp.LoopCondition(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
+		walkWithComprehensionScope(comp.LoopStep(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
+		walkWithComprehensionScope(comp.Result(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
+
+		for _, v := range varsToUnshadow {
+			shadowed[v]--
+		}
+		for _, v := range varsToUnroot {
+			boundVarsWithVarRoot[v]--
+		}
+
+	case celast.CallKind:
+		call := e.AsCall()
+		if call.Target() != nil {
+			walkWithComprehensionScope(call.Target(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
+		}
+		for _, arg := range call.Args() {
+			walkWithComprehensionScope(arg, varAliases, shadowed, boundVarsWithVarRoot, visitor)
+		}
+
+	case celast.SelectKind:
+		walkWithComprehensionScope(e.AsSelect().Operand(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
+
+	case celast.ListKind:
+		for _, elem := range e.AsList().Elements() {
+			walkWithComprehensionScope(elem, varAliases, shadowed, boundVarsWithVarRoot, visitor)
+		}
+
+	case celast.MapKind:
+		for _, entry := range e.AsMap().Entries() {
+			me := entry.AsMapEntry()
+			walkWithComprehensionScope(me.Key(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
+			walkWithComprehensionScope(me.Value(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
+		}
+
+	case celast.StructKind:
+		for _, field := range e.AsStruct().Fields() {
+			walkWithComprehensionScope(field.AsStructField().Value(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
+		}
+	}
+}
+
 // astContainsVar reports whether AST expression e references varName under variables or its aliases,
-// including through collections, dyn wrapping, or property accesses.
+// including through collections, dyn wrapping, property accesses, or comprehension bindings.
 func astContainsVar(e celast.Expr, sourceInfo *celast.SourceInfo, varName string, varAliases map[string]bool) bool {
 	if e == nil {
 		return false
@@ -495,28 +636,28 @@ func astContainsVar(e celast.Expr, sourceInfo *celast.SourceInfo, varName string
 		}
 	}
 	found := false
-	celast.PreOrderVisit(e, celast.NewExprVisitor(func(sub celast.Expr) {
+	walkWithComprehensionScope(e, varAliases, nil, nil, func(sub celast.Expr, _ func(string) bool, hasVarRoot func(celast.Expr) bool) {
 		if found {
 			return
 		}
 		switch sub.Kind() {
 		case celast.SelectKind:
 			sel := sub.AsSelect()
-			if sel.FieldName() == varName && (isVariablesExpr(sel.Operand(), varAliases) || referencesVariablesRoot(sel.Operand(), varAliases)) {
+			if sel.FieldName() == varName && hasVarRoot(sel.Operand()) {
 				found = true
 			}
 		case celast.CallKind:
 			call := sub.AsCall()
 			fn := call.FunctionName()
 			if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
-				if (isVariablesExpr(call.Args()[0], varAliases) || referencesVariablesRoot(call.Args()[0], varAliases)) && call.Args()[1].Kind() == celast.LiteralKind {
+				if hasVarRoot(call.Args()[0]) && call.Args()[1].Kind() == celast.LiteralKind {
 					if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
 						found = true
 					}
 				}
 			}
 		}
-	}))
+	})
 	return found
 }
 
@@ -666,7 +807,7 @@ func (l logFormat) readsSecret(expr string) bool {
 	}
 	reads := false
 	sourceInfo := ast.NativeRep().SourceInfo()
-	celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+	walkWithComprehensionScope(ast.NativeRep().Expr(), l.varAliases, nil, nil, func(e celast.Expr, isShadowed func(string) bool, _ func(celast.Expr) bool) {
 		if reads || e.Kind() != celast.CallKind {
 			return
 		}
@@ -723,7 +864,7 @@ func (l logFormat) readsSecret(expr string) bool {
 					}
 				}
 				for safeVar := range l.safeGVRVars {
-					if isBareVariableRef(args[1], safeVar, l.varAliases) {
+					if isBareVariableRef(args[1], safeVar, l.varAliases, isShadowed) {
 						return
 					}
 				}
@@ -751,14 +892,14 @@ func (l logFormat) readsSecret(expr string) bool {
 			}
 		}
 		for safeVar := range l.safeGVRVars {
-			if isBareVariableRef(args[0], safeVar, l.varAliases) {
+			if isBareVariableRef(args[0], safeVar, l.varAliases, isShadowed) {
 				return
 			}
 		}
 		// args[0] is an unknown dynamic selector (computed GVR or dynamic call): conservative tainting
 		reads = true
 		return
-	}))
+	})
 	return reads
 }
 
@@ -771,7 +912,8 @@ func isIdentChar(c byte) bool {
 func isVariablesAlias(expr string, varAliases map[string]bool) bool {
 	ast, iss := celParserEnv.Parse(expr)
 	if iss == nil || iss.Err() == nil {
-		if isVariablesExpr(ast.NativeRep().Expr(), varAliases) {
+		root := ast.NativeRep().Expr()
+		if isVariablesExpr(root, varAliases) || isCollectionDerivedVariablesRoot(root, varAliases) {
 			return true
 		}
 	}
@@ -785,6 +927,12 @@ func isVariablesAlias(expr string, varAliases map[string]bool) bool {
 			return true
 		}
 	}
+	condensed := strings.ReplaceAll(strings.ReplaceAll(trimmed, " ", ""), "\t", "")
+	for a := range varAliases {
+		if strings.HasPrefix(condensed, "[dyn("+a+")][0]") || strings.HasPrefix(condensed, "["+a+"][0]") {
+			return true
+		}
+	}
 	return false
 }
 
@@ -793,28 +941,28 @@ func containsVar(expr, varName string, varAliases map[string]bool) bool {
 	ast, iss := celParserEnv.Parse(expr)
 	if iss == nil || iss.Err() == nil {
 		found := false
-		celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+		walkWithComprehensionScope(ast.NativeRep().Expr(), varAliases, nil, nil, func(e celast.Expr, _ func(string) bool, hasVarRoot func(celast.Expr) bool) {
 			if found {
 				return
 			}
 			switch e.Kind() {
 			case celast.SelectKind:
 				sel := e.AsSelect()
-				if sel.FieldName() == varName && (isVariablesExpr(sel.Operand(), varAliases) || referencesVariablesRoot(sel.Operand(), varAliases)) {
+				if sel.FieldName() == varName && hasVarRoot(sel.Operand()) {
 					found = true
 				}
 			case celast.CallKind:
 				call := e.AsCall()
 				fn := call.FunctionName()
 				if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
-					if (isVariablesExpr(call.Args()[0], varAliases) || referencesVariablesRoot(call.Args()[0], varAliases)) && call.Args()[1].Kind() == celast.LiteralKind {
+					if hasVarRoot(call.Args()[0]) && call.Args()[1].Kind() == celast.LiteralKind {
 						if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
 							found = true
 						}
 					}
 				}
 			}
-		}))
+		})
 		if found {
 			return true
 		}
@@ -857,23 +1005,24 @@ func containsVar(expr, varName string, varAliases map[string]bool) bool {
 }
 
 // hasDynamicVariableAccess reports whether expr dynamically indexes into variables or any of its aliases,
-// e.g. variables[key], vars[key], or dyn(vars)[key] where key is not a literal string.
+// e.g. variables[key], vars[key], dyn(vars)[key], or [dyn(variables)][0][key] where key is not a literal string.
 func hasDynamicVariableAccess(expr string, varAliases map[string]bool) bool {
 	ast, iss := celParserEnv.Parse(expr)
 	if iss == nil || iss.Err() == nil {
 		hasDynamic := false
-		celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+		walkWithComprehensionScope(ast.NativeRep().Expr(), varAliases, nil, nil, func(e celast.Expr, _ func(string) bool, hasVarRoot func(celast.Expr) bool) {
 			if hasDynamic || e.Kind() != celast.CallKind {
 				return
 			}
 			call := e.AsCall()
 			fn := call.FunctionName()
 			if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
-				if isVariablesExpr(call.Args()[0], varAliases) && call.Args()[1].Kind() != celast.LiteralKind {
+				target := call.Args()[0]
+				if (hasVarRoot(target) || isVariablesExpr(target, varAliases) || isCollectionDerivedVariablesRoot(target, varAliases) || referencesVariablesRoot(target, varAliases)) && call.Args()[1].Kind() != celast.LiteralKind {
 					hasDynamic = true
 				}
 			}
-		}))
+		})
 		if hasDynamic {
 			return true
 		}
@@ -884,9 +1033,11 @@ func hasDynamicVariableAccess(expr string, varAliases map[string]bool) bool {
 			aliases = append(aliases, a)
 		}
 	}
+	condensed := strings.ReplaceAll(strings.ReplaceAll(expr, " ", ""), "\t", "")
 	for _, alias := range aliases {
-		if strings.Contains(expr, "dyn("+alias+")[") ||
-			(strings.Contains(expr, alias+"[") && !strings.Contains(expr, alias+"['") && !strings.Contains(expr, alias+`["`)) {
+		if strings.Contains(condensed, "dyn("+alias+")[") ||
+			strings.Contains(condensed, "[dyn("+alias+")][") ||
+			(strings.Contains(condensed, alias+"[") && !strings.Contains(condensed, alias+"['") && !strings.Contains(condensed, alias+`["`)) {
 			return true
 		}
 	}

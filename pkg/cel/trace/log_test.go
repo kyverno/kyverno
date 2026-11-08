@@ -1517,6 +1517,7 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 			},
 		}
 
+		assert.True(t, newLogFormat(d).isSecretExpr(`dyn ( Vars ) [ object.metadata.labels.key ]`))
 		entry, _ := logged(t, d)
 		raw, err := json.Marshal(entry)
 		require.NoError(t, err)
@@ -1610,6 +1611,141 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		raw, err := json.Marshal(entry)
 		require.NoError(t, err)
 		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Secret variable referenced through comprehension binding (e.g. [variables].all(v, v.dbPass == ...)) is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "comprehension-variable-access",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db').data.password",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "[variables].all(v, v.dbPass == 'expected')",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "v.dbPass", Value: password},
+						{Expression: "[variables].all(v, v.dbPass == 'expected')", Value: "false"},
+					},
+				},
+			},
+		}
+
+		assert.True(t, newLogFormat(d).isSecretExpr("[variables].all(v, v.dbPass == 'expected')"))
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Safe GVR variable name shadowed by comprehension iterator is not exempted as safe", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "shadowed-safe-gvr",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "cmGvr",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.ToGVR('v1', 'ConfigMap')",
+						Result: "v1/ConfigMap",
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "[resource.ToGVR('v1', 'Secret')].all(cmGvr, resource.Get(cmGvr, 'default', 'db').data.password != '')",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{
+							Expression: "resource.Get(cmGvr, 'default', 'db').data.password",
+							Value:      password,
+						},
+						{
+							Expression: "[resource.ToGVR('v1', 'Secret')].all(cmGvr, resource.Get(cmGvr, 'default', 'db').data.password != '')",
+							Value:      "false",
+						},
+					},
+				},
+			},
+		}
+
+		assert.True(t, newLogFormat(d).isSecretExpr("[resource.ToGVR('v1', 'Secret')].all(cmGvr, resource.Get(cmGvr, 'default', 'db').data.password != '')"))
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Collection-derived variable root [dyn(variables)][0] is marked sensitive when secret variables present", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "collection-derived-root",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db').data.password",
+						Result: password,
+					},
+				},
+				{
+					Name: "rootVars",
+					ExpressionTrace: ExpressionTrace{
+						Source: "[dyn(variables)][0]",
+						Result: "<map>",
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "rootVars[object.metadata.labels.key] != ''",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{
+							Expression: "rootVars[object.metadata.labels.key]",
+							Value:      password,
+						},
+						{
+							Expression: "rootVars[object.metadata.labels.key] != ''",
+							Value:      "false",
+						},
+					},
+				},
+			},
+		}
+
+		assert.True(t, newLogFormat(d).isSecretExpr("[dyn(variables)][0][object.metadata.labels.key]"))
+		assert.True(t, newLogFormat(d).isSecretExpr("rootVars[object.metadata.labels.key]"))
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Variables[1].Result)
 		require.Len(t, entry.Verdict.Evaluated, 2)
 		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
 		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
