@@ -1,6 +1,7 @@
 package values
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"text/template"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Command returns a cobra.Command for creating a Kyverno values file.
 func Command() *cobra.Command {
 	var path string
 	var globalValues, namespaceSelector, rules, resources []string
@@ -35,30 +37,29 @@ func Command() *cobra.Command {
 				defer file.Close()
 				output = file
 			}
-			values := v1alpha1.ValuesSpec{}
-			values.GlobalValues = map[string]interface{}{}
+			values := v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{},
+			}
 			for _, result := range namespaceSelector {
-				result := parseNamespaceSelector(result)
-				if result != nil {
-					values.NamespaceSelectors = append(values.NamespaceSelectors, *result)
+				if err := addNamespaceSelector(&values, result); err != nil {
+					return err
 				}
 			}
 			for _, result := range globalValues {
-				k, v := parseKeyValue(result)
-				if k != "" && v != "" {
-					values.GlobalValues[k] = v
+				k, v, err := parseKeyValue(result)
+				if err != nil {
+					return err
 				}
+				values.GlobalValues[k] = v
 			}
 			for _, result := range rules {
-				result := parseRule(result)
-				if result != nil {
-					values.Policies = append(values.Policies, *result)
+				if err := addRule(&values, result); err != nil {
+					return err
 				}
 			}
 			for _, result := range resources {
-				result := parseResource(result)
-				if result != nil {
-					values.Policies = append(values.Policies, *result)
+				if err := addResource(&values, result); err != nil {
+					return err
 				}
 			}
 			return tmpl.Execute(output, values)
@@ -72,70 +73,138 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func parseNamespaceSelector(in string) *v1alpha1.NamespaceSelector {
+// parseKeyValue parses a key=value string, preserving any '=' in the value.
+func parseKeyValue(in string) (string, string, error) {
+	parts := strings.SplitN(in, "=", 2)
+	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
+		return "", "", fmt.Errorf("invalid key=value pair: %s", in)
+	}
+	return strings.TrimSpace(parts[0]), parts[1], nil
+}
+
+// addNamespaceSelector parses and merges namespace selector labels under the given namespace name.
+func addNamespaceSelector(spec *v1alpha1.ValuesSpec, in string) error {
 	parts := strings.Split(in, ",")
-	if len(parts) < 2 {
-		return nil
+	if len(parts) < 2 || strings.TrimSpace(parts[0]) == "" {
+		return fmt.Errorf("invalid namespace selector format: %s (expected <name>,<key>=<value>...)", in)
 	}
-	nsSelector := v1alpha1.NamespaceSelector{
-		Name:   parts[0],
-		Labels: map[string]string{},
+	nsName := strings.TrimSpace(parts[0])
+
+	var nsSelector *v1alpha1.NamespaceSelector
+	for i := range spec.NamespaceSelectors {
+		if spec.NamespaceSelectors[i].Name == nsName {
+			nsSelector = &spec.NamespaceSelectors[i]
+			break
+		}
 	}
+	if nsSelector == nil {
+		spec.NamespaceSelectors = append(spec.NamespaceSelectors, v1alpha1.NamespaceSelector{
+			Name:   nsName,
+			Labels: map[string]string{},
+		})
+		nsSelector = &spec.NamespaceSelectors[len(spec.NamespaceSelectors)-1]
+	}
+	if nsSelector.Labels == nil {
+		nsSelector.Labels = map[string]string{}
+	}
+
 	for _, label := range parts[1:] {
-		k, v := parseKeyValue(label)
-		if k != "" && v != "" {
-			nsSelector.Labels[k] = v
+		k, v, err := parseKeyValue(label)
+		if err != nil {
+			return err
+		}
+		nsSelector.Labels[k] = v
+	}
+	return nil
+}
+
+// getOrCreatePolicy finds an existing policy in spec by name, or creates a new one.
+func getOrCreatePolicy(spec *v1alpha1.ValuesSpec, name string) *v1alpha1.Policy {
+	for i := range spec.Policies {
+		if spec.Policies[i].Name == name {
+			return &spec.Policies[i]
 		}
 	}
-	return &nsSelector
+	spec.Policies = append(spec.Policies, v1alpha1.Policy{
+		Name: name,
+	})
+	return &spec.Policies[len(spec.Policies)-1]
 }
 
-func parseKeyValue(in string) (string, string) {
-	parts := strings.Split(in, "=")
-	if len(parts) == 2 {
-		return parts[0], parts[1]
-	}
-	return "", ""
-}
-
-func parseRule(in string) *v1alpha1.Policy {
+// addRule parses and merges a rule and its values under the specified policy.
+func addRule(spec *v1alpha1.ValuesSpec, in string) error {
 	parts := strings.Split(in, ",")
-	if len(parts) < 2 {
-		return nil
+	if len(parts) < 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+		return fmt.Errorf("invalid rule format: %s (expected <policy>,<rule>,<key>=<value>...)", in)
 	}
-	rule := v1alpha1.Rule{
-		Name:   parts[1],
-		Values: map[string]interface{}{},
-	}
-	for _, value := range parts[2:] {
-		k, v := parseKeyValue(value)
-		if k != "" && v != "" {
-			rule.Values[k] = v
+	policyName := strings.TrimSpace(parts[0])
+	ruleName := strings.TrimSpace(parts[1])
+
+	policy := getOrCreatePolicy(spec, policyName)
+
+	var rule *v1alpha1.Rule
+	for i := range policy.Rules {
+		if policy.Rules[i].Name == ruleName {
+			rule = &policy.Rules[i]
+			break
 		}
 	}
-	return &v1alpha1.Policy{
-		Name:  parts[0],
-		Rules: []v1alpha1.Rule{rule},
+	if rule == nil {
+		policy.Rules = append(policy.Rules, v1alpha1.Rule{
+			Name:   ruleName,
+			Values: map[string]interface{}{},
+		})
+		rule = &policy.Rules[len(policy.Rules)-1]
 	}
+	if rule.Values == nil {
+		rule.Values = map[string]interface{}{}
+	}
+
+	for _, value := range parts[2:] {
+		k, v, err := parseKeyValue(value)
+		if err != nil {
+			return err
+		}
+		rule.Values[k] = v
+	}
+	return nil
 }
 
-func parseResource(in string) *v1alpha1.Policy {
+// addResource parses and merges a resource and its values under the specified policy.
+func addResource(spec *v1alpha1.ValuesSpec, in string) error {
 	parts := strings.Split(in, ",")
-	if len(parts) < 2 {
-		return nil
+	if len(parts) < 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+		return fmt.Errorf("invalid resource format: %s (expected <policy>,<resource>,<key>=<value>...)", in)
 	}
-	resource := v1alpha1.Resource{
-		Name:   parts[1],
-		Values: map[string]interface{}{},
-	}
-	for _, value := range parts[2:] {
-		k, v := parseKeyValue(value)
-		if k != "" && v != "" {
-			resource.Values[k] = v
+	policyName := strings.TrimSpace(parts[0])
+	resourceName := strings.TrimSpace(parts[1])
+
+	policy := getOrCreatePolicy(spec, policyName)
+
+	var resource *v1alpha1.Resource
+	for i := range policy.Resources {
+		if policy.Resources[i].Name == resourceName {
+			resource = &policy.Resources[i]
+			break
 		}
 	}
-	return &v1alpha1.Policy{
-		Name:      parts[0],
-		Resources: []v1alpha1.Resource{resource},
+	if resource == nil {
+		policy.Resources = append(policy.Resources, v1alpha1.Resource{
+			Name:   resourceName,
+			Values: map[string]interface{}{},
+		})
+		resource = &policy.Resources[len(policy.Resources)-1]
 	}
+	if resource.Values == nil {
+		resource.Values = map[string]interface{}{}
+	}
+
+	for _, value := range parts[2:] {
+		k, v, err := parseKeyValue(value)
+		if err != nil {
+			return err
+		}
+		resource.Values[k] = v
+	}
+	return nil
 }
