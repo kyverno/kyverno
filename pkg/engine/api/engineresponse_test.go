@@ -1,11 +1,23 @@
 package api
 
 import (
+	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+func TestEngineResponse_RedactMessagesIsInternal(t *testing.T) {
+	raw, err := json.Marshal(EngineResponse{RedactMessages: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "RedactMessages") || strings.Contains(string(raw), "redactMessages") {
+		t.Fatalf("internal RedactMessages marker must not be serialized: %s", raw)
+	}
+}
 
 func TestEngineResponse_IsEmpty(t *testing.T) {
 	type fields struct {

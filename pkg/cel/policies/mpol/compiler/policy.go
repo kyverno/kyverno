@@ -309,7 +309,7 @@ func (p *Policy) evaluate(
 			details := compiler.TraceDetails(ctx, t.Traced, data, err)
 			matchTraces = append(matchTraces, trace.NamedExpressionTrace{
 				Name:            t.Name,
-				ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+				ExpressionTrace: buildExpressionTrace(t.AST, t.HasSecretRead, out, details, err),
 			})
 		}
 		recordVariable = func(name string, out ref.Val, err error) {
@@ -318,7 +318,7 @@ func (p *Policy) evaluate(
 				details := compiler.TraceDetails(ctx, t.Traced, data, err)
 				variableTraces = append(variableTraces, trace.NamedExpressionTrace{
 					Name:            name,
-					ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+					ExpressionTrace: buildExpressionTrace(t.AST, t.HasSecretRead, out, details, err),
 				})
 			}
 		}
@@ -410,7 +410,7 @@ func (p *Policy) evaluate(
 			// re-run before data moves on to the patched object, so the twin sees what the
 			// patcher saw
 			details := compiler.TraceDetails(ctx, t.Traced, data, err)
-			mt := trace.MutationTrace{Name: t.Name, ExpressionTrace: buildExpressionTrace(t.AST, out, details, err)}
+			mt := trace.MutationTrace{Name: t.Name, ExpressionTrace: buildExpressionTrace(t.AST, t.HasSecretRead, out, details, err)}
 			if err != nil {
 				mt.Error = err.Error()
 			}
@@ -467,7 +467,7 @@ func skipMessage(matchTraces []trace.NamedExpressionTrace) string {
 // read back from the retained AST. When the evaluation failed outright and produced no value,
 // the error itself becomes the result so the trace shows why. Mirrors vpol's
 // buildExpressionTrace (pkg/cel/policies/vpol/compiler/policy.go).
-func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
+func buildExpressionTrace(ast *cel.Ast, hasSecretRead bool, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
 	if out == nil && err != nil {
 		out = types.WrapErr(err)
 	}
@@ -475,7 +475,7 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 	if ast != nil {
 		source = ast.Source().Content()
 	}
-	et := trace.Build(source, ast, out, details)
+	et := trace.BuildWithSecretRead(source, ast, hasSecretRead, out, details)
 	// an expression with an external or non-repeatable call is never re-run to explain it
 	et.NoBreakdown = compiler.NoBreakdownReason(ast)
 	return et

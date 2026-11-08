@@ -152,11 +152,13 @@ func TestEvaluate_TracingOn_RedactsSecretMessageExpression(t *testing.T) {
 	})
 
 	policy := buildTracePolicy(admissionregistrationv1.Validation{
-		Expression:        "false",
+		Expression:        `string(resource.Get("v1", "secrets", "default", "db-credentials").data.password) == "not-the-password"`,
 		MessageExpression: `string(resource.Get("v1", "secrets", "default", "db-credentials").data.password)`,
 	})
 	p, errs := NewCompilerWithTrace(true).Compile(policy, nil)
 	require.Empty(t, errs)
+	require.Len(t, p.validations, 1)
+	assert.True(t, p.validations[0].HasSecretRead)
 	result, err := p.Evaluate(context.Background(), podObject("prod", nil), nil, nil, nil, nil, fake)
 	require.NoError(t, err)
 	require.NotNil(t, result.Trace)
@@ -192,6 +194,8 @@ func TestEvaluate_TracingOff_RetainsSecretMessageProvenance(t *testing.T) {
 	})
 	p, errs := NewCompilerWithTrace(false).Compile(policy, nil)
 	require.Empty(t, errs)
+	require.Len(t, p.validations, 1)
+	assert.True(t, p.validations[0].MessageExpressionHasSecretRead)
 	result, err := p.Evaluate(context.Background(), podObject("prod", nil), nil, nil, nil, nil, fake)
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -211,7 +215,7 @@ func TestEvaluate_TracingOn_RedactsSecretExceptionMatchErrors(t *testing.T) {
 		exceptions: []celcompiler.Exception{{
 			MatchConditions:    []cel.Program{&mockVpolProgram{err: errors.New(`invalid timestamp "` + password + `"`)}},
 			MatchConditionASTs: []*cel.Ast{ast},
-			Exception:          &policiesv1beta1.PolicyException{},
+			Exception:          &policiesv1beta1.PolicyException{ObjectMeta: metav1.ObjectMeta{Name: "secret-condition", Namespace: "default"}},
 		}},
 	}
 	result, err := p.evaluateWithData(context.Background(), evaluationData{})
@@ -225,6 +229,7 @@ func TestEvaluate_TracingOn_RedactsSecretExceptionMatchErrors(t *testing.T) {
 	require.True(t, ok)
 	assert.NotContains(t, entry.Verdict.Message, password)
 	assert.Equal(t, "(redacted)", entry.Verdict.Message)
+	assert.Equal(t, "exception default/secret-condition matchConditions[0]", entry.Verdict.Expression)
 }
 
 func TestEvaluate_TracingOn_RedactsExceptionMatchErrorsWithoutAST(t *testing.T) {
@@ -233,7 +238,7 @@ func TestEvaluate_TracingOn_RedactsExceptionMatchErrorsWithoutAST(t *testing.T) 
 		trace: true,
 		exceptions: []celcompiler.Exception{{
 			MatchConditions: []cel.Program{&mockVpolProgram{err: errors.New(`invalid timestamp "` + password + `"`)}},
-			Exception:       &policiesv1beta1.PolicyException{},
+			Exception:       &policiesv1beta1.PolicyException{ObjectMeta: metav1.ObjectMeta{Name: "broken-condition", Namespace: "default"}},
 		}},
 	}
 	result, err := p.evaluateWithData(context.Background(), evaluationData{})
@@ -247,6 +252,7 @@ func TestEvaluate_TracingOn_RedactsExceptionMatchErrorsWithoutAST(t *testing.T) 
 	require.True(t, ok)
 	assert.NotContains(t, entry.Verdict.Message, password)
 	assert.Equal(t, "(redacted)", entry.Verdict.Message)
+	assert.Equal(t, "exception default/broken-condition matchConditions[0]", entry.Verdict.Expression)
 }
 
 func TestEvaluate_TracingOn_ErrorIsCapturedOnNode(t *testing.T) {

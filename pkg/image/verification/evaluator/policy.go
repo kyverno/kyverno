@@ -136,7 +136,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 				validations = append(validations, trace.ValidationTrace{
 					Index:           i,
 					Status:          trace.VerdictNotRun,
-					ExpressionTrace: buildExpressionTrace(c.validations[i].AST, nil, nil, nil),
+					ExpressionTrace: buildExpressionTrace(c.validations[i].AST, c.validations[i].HasSecretRead, nil, nil, nil),
 				})
 			}
 		}
@@ -163,7 +163,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 			details := engine.TraceDetails(ctx, t.Traced, data, err)
 			matchTraces = append(matchTraces, trace.NamedExpressionTrace{
 				Name:            t.Name,
-				ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+				ExpressionTrace: buildExpressionTrace(t.AST, t.HasSecretRead, out, details, err),
 			})
 			if err != nil {
 				erroredMatches = append(erroredMatches, t.Name)
@@ -236,7 +236,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 					// variables are lazy, so this records them in the order they are first read
 					variableTraces = append(variableTraces, trace.NamedExpressionTrace{
 						Name:            name,
-						ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+						ExpressionTrace: buildExpressionTrace(t.AST, t.HasSecretRead, out, details, err),
 					})
 				}
 			}
@@ -347,7 +347,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 			details := engine.TraceDetails(ctx, v.Traced, data, err)
 			verdict = trace.VerdictTrace{
 				Status:          trace.VerdictPass,
-				ExpressionTrace: buildExpressionTrace(v.AST, out, details, err),
+				ExpressionTrace: buildExpressionTrace(v.AST, v.HasSecretRead, out, details, err),
 			}
 		}
 		if err != nil {
@@ -373,7 +373,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 			message += diagnostics
 			ran(i, trace.VerdictFail)
 			verdict.Status, verdict.Message = trace.VerdictFail, message
-			verdict.HasSecretRead = verdict.HasSecretRead || trace.MayReadSecret(v.MessageExpressionAST)
+			verdict.HasSecretRead = verdict.HasSecretRead || v.MessageExpressionHasSecretRead
 			auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 			if err != nil {
 				return failed(err)

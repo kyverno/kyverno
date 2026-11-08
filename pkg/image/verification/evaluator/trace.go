@@ -54,7 +54,7 @@ func withoutVerificationTwin(traced engine.TracedProgram) engine.TracedProgram {
 // read back from the retained AST. When the evaluation failed outright and produced no value, the
 // error itself becomes the result so the trace shows why. Mirrors vpol's buildExpressionTrace
 // (pkg/cel/policies/vpol/compiler/policy.go).
-func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
+func buildExpressionTrace(ast *cel.Ast, hasSecretRead bool, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
 	if out == nil && err != nil {
 		out = types.WrapErr(err)
 	}
@@ -62,7 +62,7 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 	if ast != nil {
 		source = ast.Source().Content()
 	}
-	et := trace.Build(source, ast, out, details)
+	et := trace.BuildWithSecretRead(source, ast, hasSecretRead, out, details)
 	if callsImageVerification(ast) {
 		et.NoBreakdown = "it verifies images, and verification is never run a second time"
 	}

@@ -123,8 +123,16 @@ func (p *Policy) evaluateWithData(
 				continue
 			}
 			var sensitiveMatchError bool
+			var matchErrorSource string
+			exceptionSource := "exception"
+			if polex.Exception != nil {
+				exceptionSource = fmt.Sprintf("exception %s/%s", polex.Exception.GetNamespace(), polex.Exception.GetName())
+			}
 			recordExceptionMatch := func(index int, _ ref.Val, err error) {
 				if err != nil {
+					if matchErrorSource == "" {
+						matchErrorSource = fmt.Sprintf("%s matchConditions[%d]", exceptionSource, index)
+					}
 					if index >= len(polex.MatchConditionASTs) || polex.MatchConditionASTs[index] == nil || trace.MayReadSecret(polex.MatchConditionASTs[index]) {
 						sensitiveMatchError = true
 					}
@@ -141,9 +149,16 @@ func (p *Policy) evaluateWithData(
 					continue
 				}
 				if p.trace {
+					if matchErrorSource == "" {
+						matchErrorSource = "exception match condition"
+					}
 					return &EvaluationResult{Trace: &trace.Decision{
 						Sensitive: sensitiveMatchError,
-						Verdict:   trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()},
+						Verdict: trace.VerdictTrace{
+							Status:          trace.VerdictError,
+							ExpressionTrace: trace.ExpressionTrace{Source: matchErrorSource},
+							Message:         err.Error(),
+						},
 					}}, err
 				}
 				return nil, err
@@ -195,7 +210,7 @@ func (p *Policy) evaluateWithData(
 			details := compiler.TraceDetails(ctx, t.Traced, dataNew, err)
 			matchTraces = append(matchTraces, trace.NamedExpressionTrace{
 				Name:            t.Name,
-				ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+				ExpressionTrace: buildExpressionTrace(t.AST, t.HasSecretRead, out, details, err),
 			})
 			if err != nil {
 				erroredMatches = append(erroredMatches, t.Name)
@@ -241,7 +256,7 @@ func (p *Policy) evaluateWithData(
 					// variables are lazy, so this records them in the order they are first read
 					variableTraces = append(variableTraces, trace.NamedExpressionTrace{
 						Name:            name,
-						ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+						ExpressionTrace: buildExpressionTrace(t.AST, t.HasSecretRead, out, details, err),
 					})
 				}
 			}
@@ -282,7 +297,7 @@ func (p *Policy) evaluateWithData(
 			validations = append(validations, trace.ValidationTrace{
 				Index:           i,
 				Status:          trace.VerdictNotRun,
-				ExpressionTrace: buildExpressionTrace(p.validations[i].AST, nil, nil, nil),
+				ExpressionTrace: buildExpressionTrace(p.validations[i].AST, p.validations[i].HasSecretRead, nil, nil, nil),
 			})
 		}
 		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Validations: validations, Verdict: verdict}
@@ -293,7 +308,7 @@ func (p *Policy) evaluateWithData(
 			details := compiler.TraceDetails(ctx, validation.Traced, dataNew, err)
 			verdict = trace.VerdictTrace{
 				Status:          trace.VerdictPass,
-				ExpressionTrace: buildExpressionTrace(validation.AST, out, details, err),
+				ExpressionTrace: buildExpressionTrace(validation.AST, validation.HasSecretRead, out, details, err),
 			}
 		}
 		if err != nil {
@@ -305,7 +320,7 @@ func (p *Policy) evaluateWithData(
 			ran(index, trace.VerdictFail)
 			message, msgErr := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
 			verdict.Status, verdict.Message = trace.VerdictFail, message
-			sensitiveMessage := trace.MayReadSecret(validation.MessageExpressionAST)
+			sensitiveMessage := validation.MessageExpressionHasSecretRead
 			verdict.HasSecretRead = verdict.HasSecretRead || sensitiveMessage
 			// an audit annotation error must not mask the failure
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
@@ -359,7 +374,7 @@ func skipMessage(recorded int, excludedBy string, errored []string) string {
 // buildExpressionTrace turns one traced evaluation into an ExpressionTrace. The source text is
 // read back from the retained AST. When the evaluation failed outright and produced no value,
 // the error itself becomes the result so the trace shows why.
-func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
+func buildExpressionTrace(ast *cel.Ast, hasSecretRead bool, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
 	if out == nil && err != nil {
 		out = types.WrapErr(err)
 	}
@@ -367,7 +382,7 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 	if ast != nil {
 		source = ast.Source().Content()
 	}
-	et := trace.Build(source, ast, out, details)
+	et := trace.BuildWithSecretRead(source, ast, hasSecretRead, out, details)
 	// an expression with an external or non-repeatable call is never re-run to explain it
 	et.NoBreakdown = compiler.NoBreakdownReason(ast)
 	return et

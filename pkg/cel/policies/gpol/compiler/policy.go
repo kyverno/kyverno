@@ -49,9 +49,10 @@ type Generation struct {
 	// name identifies the entry in a trace, e.g. "generate[0] (expression)"; traced and ast are
 	// the expression's explain-only tracking twin and AST, set only when the policy was compiled
 	// with tracing on (see compiler.TracedProgram)
-	name   string
-	traced cel.Program
-	ast    *cel.Ast
+	name          string
+	traced        cel.Program
+	ast           *cel.Ast
+	hasSecretRead bool
 }
 
 // dryRunGenerator stands in for the real generator when a tracking twin is re-run to explain a
@@ -199,7 +200,7 @@ func (p *Policy) Evaluate(
 			details := compiler.TraceDetails(ctx, t.Traced, dataNew, err)
 			matchTraces = append(matchTraces, trace.NamedExpressionTrace{
 				Name:            t.Name,
-				ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+				ExpressionTrace: buildExpressionTrace(t.AST, t.HasSecretRead, out, details, err),
 			})
 		}
 	}
@@ -233,7 +234,7 @@ func (p *Policy) Evaluate(
 					// variables are lazy, so this records them in the order they are first read
 					variableTraces = append(variableTraces, trace.NamedExpressionTrace{
 						Name:            name,
-						ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+						ExpressionTrace: buildExpressionTrace(t.AST, t.HasSecretRead, out, details, err),
 					})
 				}
 			}
@@ -288,7 +289,7 @@ func (p *Policy) Evaluate(
 		out, _, err := generation.expression.ContextEval(ctx, dataNew)
 		if p.trace {
 			details := compiler.TraceDetails(ctx, generation.traced, explainData, err)
-			record(buildExpressionTrace(generation.ast, out, details, err), err)
+			record(buildExpressionTrace(generation.ast, generation.hasSecretRead, out, details, err), err)
 		}
 		if err != nil {
 			return failed(err)
@@ -347,7 +348,7 @@ func skipMessage(matchTraces []trace.NamedExpressionTrace) string {
 }
 
 // buildExpressionTrace mirrors vpol's (pkg/cel/policies/vpol/compiler/policy.go).
-func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
+func buildExpressionTrace(ast *cel.Ast, hasSecretRead bool, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
 	if out == nil && err != nil {
 		out = types.WrapErr(err)
 	}
@@ -355,7 +356,7 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 	if ast != nil {
 		source = ast.Source().Content()
 	}
-	return trace.Build(source, ast, out, details)
+	return trace.BuildWithSecretRead(source, ast, hasSecretRead, out, details)
 }
 
 // applyTemplate renders a generation template and feeds the resulting

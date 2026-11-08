@@ -9,6 +9,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 )
 
 type NodeTrace struct {
@@ -35,11 +36,17 @@ type ExpressionTrace struct {
 }
 
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
+	return BuildWithSecretRead(source, ast, MayReadSecret(ast), result, details)
+}
+
+// BuildWithSecretRead builds an expression trace using Secret-read provenance computed at compile
+// time, avoiding a repeated AST walk for each evaluation.
+func BuildWithSecretRead(source string, ast *cel.Ast, hasSecretRead bool, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
 	et := ExpressionTrace{
 		Source:          source,
 		Result:          stringify(result),
 		ResultIsBoolean: isBoolean(result),
-		HasSecretRead:   MayReadSecret(ast),
+		HasSecretRead:   hasSecretRead,
 	}
 	if details == nil || ast == nil {
 		return et
@@ -134,88 +141,11 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 
 // MayReadSecret reports whether ast reads a resource kind that is or may be a Secret.
 func MayReadSecret(ast *cel.Ast) bool {
-	if ast == nil {
-		return false
-	}
-	found := false
-	native := ast.NativeRep()
-	celast.PreOrderVisit(native.Expr(), celast.NewExprVisitor(func(e celast.Expr) {
-		if found || e.Kind() != celast.CallKind {
-			return
-		}
-		call := e.AsCall()
-		if !call.IsMemberFunction() {
-			return
-		}
-		isGet, isList := isResourceRead(call, native.GetOverloadIDs(e.ID()))
-		if !isGet && !isList {
-			return
-		}
-		found = resourceCallMayReadSecret(call)
-	}))
-	return found
-}
-
-func isResourceRead(call celast.CallExpr, overloadIDs []string) (bool, bool) {
-	var isGet, isList bool
-	for _, overloadID := range overloadIDs {
-		overloadID = strings.ToLower(overloadID)
-		isGet = isGet || strings.HasPrefix(overloadID, "resource_get_") || strings.HasPrefix(overloadID, "get_resources_gvr_")
-		isList = isList || strings.HasPrefix(overloadID, "resource_list_") || strings.HasPrefix(overloadID, "list_resources_gvr_")
-	}
-	if isGet || isList {
-		return isGet, isList
-	}
-	if call.Target().Kind() != celast.IdentKind || call.Target().AsIdent() != "resource" {
-		return false, false
-	}
-	function := strings.ToLower(call.FunctionName())
-	return function == "get" || strings.HasPrefix(function, "resource_get_"),
-		function == "list" || strings.HasPrefix(function, "resource_list_")
+	return celcompiler.MayReadSecret(ast)
 }
 
 func isBoolean(value ref.Val) bool {
 	return value != nil && value.Type() == types.BoolType
-}
-
-func resourceCallMayReadSecret(call celast.CallExpr) bool {
-	args := call.Args()
-	if len(args) == 0 {
-		return true
-	}
-	var resourceArg []celast.Expr
-	if args[0].Kind() == celast.CallKind {
-		toGVR := args[0].AsCall()
-		name := callName(toGVR)
-		if strings.Contains(name, "togvr") || strings.Contains(name, "to_gvr") {
-			toGVRArgs := toGVR.Args()
-			if len(toGVRArgs) < 2 {
-				return true
-			}
-			resourceArg = toGVRArgs[1:]
-		}
-	}
-	if resourceArg == nil {
-		if args[0].Kind() != celast.LiteralKind || len(args) < 2 {
-			// A dynamically selected API version or GVR may identify a Secret.
-			return true
-		}
-		resourceArg = args[1:]
-	}
-	if len(resourceArg) == 0 || resourceArg[0].Kind() != celast.LiteralKind {
-		// A dynamically selected resource may be a Secret; redact rather than risk logging it.
-		return true
-	}
-	name, ok := resourceArg[0].AsLiteral().Value().(string)
-	if !ok {
-		return true
-	}
-	name = strings.ToLower(name)
-	return name == "secret" || name == "secrets"
-}
-
-func callName(call celast.CallExpr) string {
-	return strings.ToLower(call.FunctionName())
 }
 
 // referencesMacroInternal reports whether e mentions one of the synthetic identifiers (prefixed

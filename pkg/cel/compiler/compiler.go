@@ -24,10 +24,11 @@ import (
 // in cel-go v0.31 any state tracking switches off enforcement of the per-call cost limit, so a
 // tracking program can finish (and pass) an expression the normal program stops with an error.
 type TracedProgram struct {
-	Name    string
-	Program cel.Program
-	Traced  cel.Program
-	AST     *cel.Ast
+	Name          string
+	Program       cel.Program
+	Traced        cel.Program
+	AST           *cel.Ast
+	HasSecretRead bool
 }
 
 // tracingProgram builds the explain-only twin of a program: same AST, with state tracking on.
@@ -96,6 +97,7 @@ func compileMatchCondition(path *field.Path, env *cel.Env, matchCondition admiss
 				return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
 			}
 			compiled.AST = ast
+			compiled.HasSecretRead = MayReadSecret(ast)
 		}
 		return compiled, allErrs
 	}
@@ -174,6 +176,7 @@ func compileVariable(path *field.Path, env *cel.Env, VariablesProvider *Variable
 				return TracedProgram{}, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 			}
 			compiled.AST = ast
+			compiled.HasSecretRead = MayReadSecret(ast)
 		}
 		return compiled, allErrs
 	}
@@ -254,6 +257,7 @@ func compileMutation(path *field.Path, env *cel.Env, expression string, returnTy
 				return TracedProgram{}, append(allErrs, field.Invalid(path, expression, err.Error()))
 			}
 			compiled.AST = ast
+			compiled.HasSecretRead = MayReadSecret(ast)
 		}
 		return compiled, allErrs
 	}
@@ -327,6 +331,7 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 				return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 			}
 			compiled.AST = ast
+			compiled.HasSecretRead = MayReadSecret(ast)
 		}
 	}
 	if rule.MessageExpression != "" {
@@ -344,7 +349,7 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 			return Validation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
 		}
 		compiled.MessageExpression = program
-		compiled.MessageExpressionAST = ast
+		compiled.MessageExpressionHasSecretRead = MayReadSecret(ast)
 	}
 	return compiled, allErrs
 }

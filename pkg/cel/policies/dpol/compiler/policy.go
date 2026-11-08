@@ -71,7 +71,7 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 					// variables are lazy, so this records them in the order they are first read
 					variableTraces = append(variableTraces, trace.NamedExpressionTrace{
 						Name:            name,
-						ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+						ExpressionTrace: buildExpressionTrace(t.AST, t.HasSecretRead, out, details, err),
 					})
 				}
 			}
@@ -136,7 +136,7 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 			}
 			conditionTraces = append(conditionTraces, trace.NamedExpressionTrace{
 				Name:            name,
-				ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+				ExpressionTrace: buildExpressionTrace(t.AST, t.HasSecretRead, out, details, err),
 			})
 		}
 	}
@@ -180,7 +180,7 @@ func exemptMessage(exceptions []*policiesv1beta1.PolicyException) string {
 // read back from the retained AST. When the evaluation failed outright and produced no value,
 // the error itself becomes the result so the trace shows why. Mirrors vpol's
 // buildExpressionTrace (pkg/cel/policies/vpol/compiler/policy.go).
-func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
+func buildExpressionTrace(ast *cel.Ast, hasSecretRead bool, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
 	if out == nil && err != nil {
 		out = types.WrapErr(err)
 	}
@@ -188,7 +188,7 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 	if ast != nil {
 		source = ast.Source().Content()
 	}
-	return trace.Build(source, ast, out, details)
+	return trace.BuildWithSecretRead(source, ast, hasSecretRead, out, details)
 }
 
 // match evaluates conditions in order. record, when non-nil, is called for every condition that

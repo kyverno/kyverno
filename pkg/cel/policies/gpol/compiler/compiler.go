@@ -211,7 +211,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				generations = append(generations, Generation{expression: traced.Program, traced: traced.Traced, ast: traced.AST, name: fmt.Sprintf("generate[%d] (expression)", i)})
+				generations = append(generations, Generation{expression: traced.Program, traced: traced.Traced, ast: traced.AST, hasSecretRead: traced.HasSecretRead, name: fmt.Sprintf("generate[%d] (expression)", i)})
 			default:
 				return nil, append(allErrs, field.Required(entryPath, "one of expression or template must be set"))
 			}

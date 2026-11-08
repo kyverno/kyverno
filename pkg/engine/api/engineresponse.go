@@ -21,7 +21,7 @@ type EngineResponse struct {
 	// PolicyResponse contains the engine policy response
 	PolicyResponse PolicyResponse
 	// RedactMessages marks rule messages as sensitive for event generation.
-	RedactMessages bool
+	RedactMessages bool `json:"-" yaml:"-"`
 	// stats contains engine statistics
 	stats ExecutionStats
 }
