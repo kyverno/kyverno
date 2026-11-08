@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 
@@ -61,7 +62,7 @@ func Command() *cobra.Command {
 			}
 
 			if path != "" {
-				return os.WriteFile(path, buf.Bytes(), 0644)
+				return writeOutputFile(path, buf.Bytes())
 			}
 			_, err = cmd.OutOrStdout().Write(buf.Bytes())
 			return err
@@ -75,13 +76,40 @@ func Command() *cobra.Command {
 	return cmd
 }
 
+// writeOutputFile writes data atomically to destination path using a temporary file in the same directory.
+func writeOutputFile(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	tmpFile, err := os.CreateTemp(dir, "values-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpName := tmpFile.Name()
+	defer os.Remove(tmpName)
+
+	if _, err := tmpFile.Write(data); err != nil {
+		tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, path)
+}
+
 // parseKeyValue parses a key=value string, preserving any '=' in the value.
+// Empty values are represented as explicit double-quoted strings ("\"\"") so
+// YAML unmarshaling preserves them as empty strings rather than null scalars.
 func parseKeyValue(in string) (string, string, error) {
 	parts := strings.SplitN(in, "=", 2)
 	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
 		return "", "", fmt.Errorf("invalid key=value pair: %s", in)
 	}
-	return strings.TrimSpace(parts[0]), parts[1], nil
+	key := strings.TrimSpace(parts[0])
+	val := parts[1]
+	if val == "" {
+		val = `""`
+	}
+	return key, val, nil
 }
 
 // addNamespaceSelector parses and merges namespace selector labels under the given namespace name.

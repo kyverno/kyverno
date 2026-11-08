@@ -76,12 +76,13 @@ func TestCommandComplexValuesMerging(t *testing.T) {
 	cmd.SetArgs([]string{
 		"-g", "url=https://example.com?query=val&mode=dev",
 		"-g", "simple=val",
-		"--rule", "mypol,rule1,env=prod",
+		"-g", "empty=",
+		"--rule", "mypol,rule1,env=prod,emptyrule=",
 		"--rule", "mypol,rule2,env=dev,debug=true",
-		"--resource", "mypol,res1,app=nginx",
+		"--resource", "mypol,res1,app=nginx,emptyres=",
 		"--rule", "otherpol,check,k=v=w",
 		"-n", "prod,env=prod",
-		"-n", "prod,region=us-east",
+		"-n", "prod,region=us-east,emptyns=",
 		"-n", "staging,tier=backend",
 	})
 	err := cmd.Execute()
@@ -91,9 +92,10 @@ func TestCommandComplexValuesMerging(t *testing.T) {
 	err = yaml.Unmarshal(buf.Bytes(), &spec)
 	assert.NoError(t, err)
 
-	// Global values: '=' must be preserved
+	// Global values: '=' must be preserved and empty values rendered as empty strings
 	assert.Equal(t, "https://example.com?query=val&mode=dev", spec.GlobalValues["url"])
 	assert.Equal(t, "val", spec.GlobalValues["simple"])
+	assert.Equal(t, "", spec.GlobalValues["empty"])
 
 	// Policies must be deduplicated and merged by name
 	assert.Len(t, spec.Policies, 2)
@@ -110,12 +112,14 @@ func TestCommandComplexValuesMerging(t *testing.T) {
 	assert.Len(t, mypol.Rules, 2)
 	assert.Equal(t, "rule1", mypol.Rules[0].Name)
 	assert.Equal(t, "prod", mypol.Rules[0].Values["env"])
+	assert.Equal(t, "", mypol.Rules[0].Values["emptyrule"])
 	assert.Equal(t, "rule2", mypol.Rules[1].Name)
 	assert.Equal(t, "dev", mypol.Rules[1].Values["env"])
 	assert.Equal(t, true, mypol.Rules[1].Values["debug"])
 	assert.Len(t, mypol.Resources, 1)
 	assert.Equal(t, "res1", mypol.Resources[0].Name)
 	assert.Equal(t, "nginx", mypol.Resources[0].Values["app"])
+	assert.Equal(t, "", mypol.Resources[0].Values["emptyres"])
 
 	// Verify otherpol preserving '=' in rule value
 	var otherpol *v1alpha1.Policy
@@ -141,6 +145,7 @@ func TestCommandComplexValuesMerging(t *testing.T) {
 	assert.NotNil(t, prodNs)
 	assert.Equal(t, "prod", prodNs.Labels["env"])
 	assert.Equal(t, "us-east", prodNs.Labels["region"])
+	assert.Equal(t, "", prodNs.Labels["emptyns"])
 }
 
 func TestCommandSameNameRuleAndResourceMerging(t *testing.T) {
