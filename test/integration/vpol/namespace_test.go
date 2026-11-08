@@ -123,8 +123,10 @@ func TestValidate_PolicyException_ExemptsNamespacesByLabel(t *testing.T) {
 	// PolicyException whose matchCondition reads the namespace's labels.
 	legacy := "legacy-billing-" + rand.String(5)
 	regular := "orders-" + rand.String(5)
+	revoked := "legacy-reports-" + rand.String(5)
 	framework.CreateNamespaceWithLabels(t, testEnv.KubeClient, legacy, map[string]string{"security.example.com/run-as-root": "allowed"})
 	framework.CreateNamespaceWithLabels(t, testEnv.KubeClient, regular, nil)
+	framework.CreateNamespaceWithLabels(t, testEnv.KubeClient, revoked, map[string]string{"security.example.com/run-as-root": "denied"})
 
 	policy := &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "require-run-as-non-root-user"},
@@ -174,4 +176,10 @@ func TestValidate_PolicyException_ExemptsNamespacesByLabel(t *testing.T) {
 	require.NotNil(t, resp.Result)
 	assert.Contains(t, resp.Result.Message, "pods must set securityContext.runAsNonRoot to true",
 		"the pod must be denied by the policy's validation, not by an error in the exception")
+
+	resp = h.ValidateClustered(ctx, logr.Discard(),
+		framework.PodAdmissionRequest("batch", revoked, podJSON("batch", revoked, nil, false)), "", time.Now())
+	assert.False(t, resp.Allowed, "the exception must not exempt a namespace whose label has another value")
+	require.NotNil(t, resp.Result)
+	assert.Contains(t, resp.Result.Message, "pods must set securityContext.runAsNonRoot to true")
 }
