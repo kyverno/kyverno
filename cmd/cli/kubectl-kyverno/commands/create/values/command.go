@@ -78,22 +78,25 @@ func Command() *cobra.Command {
 
 // writeOutputFile writes data atomically to destination path using a temporary file in the same directory.
 func writeOutputFile(path string, data []byte) error {
-	dir := filepath.Dir(path)
-	tmpFile, err := os.CreateTemp(dir, "values-*.tmp")
+	cleanPath := filepath.Clean(path)
+	dir := filepath.Dir(cleanPath)
+	tmpFile, err := os.CreateTemp(dir, "values-*.tmp") // #nosec G304
 	if err != nil {
 		return err
 	}
 	tmpName := tmpFile.Name()
-	defer os.Remove(tmpName)
+	defer func() {
+		_ = os.Remove(tmpName) // #nosec G304
+	}()
 
 	if _, err := tmpFile.Write(data); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return err
 	}
 	if err := tmpFile.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmpName, path)
+	return os.Rename(tmpName, cleanPath) // #nosec G304
 }
 
 // parseKeyValue parses a key=value string, preserving any '=' in the value.
