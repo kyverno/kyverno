@@ -8,6 +8,7 @@ This package implements the `kyverno create values` (and `kubectl-kyverno create
    - Values may contain equal signs (e.g., URLs, query parameters, expressions, base64 data).
    - Parsing uses `strings.SplitN(in, "=", 2)` so that any subsequent `=` characters belong to the value payload and are preserved intact.
    - Keys must not be empty. Malformed pairs without `=` or with empty keys return validation errors.
+   - Empty values are rendered explicitly as double-quoted strings (`""`) so that YAML unmarshaling preserves them as empty strings rather than `null` scalars.
 
 2. **Deduplication and Hierarchical Merging**:
    - **Policies**: Multiple `--rule` or `--resource` flags referencing the same policy name are merged under a single `v1alpha1.Policy` entry rather than duplicating policy blocks.
@@ -21,4 +22,5 @@ This package implements the `kyverno create values` (and `kubectl-kyverno create
    - Any malformed input returns a clear validation error rather than silently failing or dropping fields.
 
 4. **Atomic Output Writing**:
-   - Flag validation and template rendering execute in-memory before creating or modifying the output file (`-o/--output`). If validation fails, any pre-existing output file is preserved intact and never truncated.
+   - Flag validation and template rendering execute in-memory before writing the output file (`-o/--output`).
+   - Output files are written atomically using a temporary file in the destination directory and renamed into place. If validation or write fails, any pre-existing output file is preserved intact and never truncated.
