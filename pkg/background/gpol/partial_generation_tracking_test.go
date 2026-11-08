@@ -316,6 +316,26 @@ func TestRestoredLegacyDownstreamUsesVerifiedCacheOwner(t *testing.T) {
 	require.ElementsMatch(t, []string{"ConfigMap/team-a/old", "ConfigMap/team-a/cluster-old"}, client.deleted)
 }
 
+// The Namespace trigger is cluster-scoped but may belong to a policy scoped
+// to that Namespace. Unmarked historical resources must not be inferred as
+// belonging to a same-name cluster policy without explicit verification.
+func TestMatchesPolicyKeyNamespaceTriggerRequiresScope(t *testing.T) {
+	labels := map[string]string{
+		common.GeneratePolicyLabel:       "shared",
+		common.GeneratePolicyScopeLabel:  common.GeneratePolicyScopeNamespaced,
+		common.GenerateTriggerNSLabel:    "",
+		common.GenerateTriggerNameLabel:  "team-a",
+		common.GenerateTriggerKindLabel:  "Namespace",
+		common.GenerateTriggerGroupLabel: "",
+	}
+	require.True(t, matchesPolicyKey(labels, "team-a/shared"))
+	require.False(t, matchesPolicyKey(labels, "team-b/shared"))
+	require.False(t, matchesPolicyKey(labels, "shared"))
+	delete(labels, common.GeneratePolicyScopeLabel)
+	require.False(t, matchesPolicyKey(labels, "shared"))
+	require.False(t, matchesPolicyKey(labels, "team-a/shared"))
+}
+
 func TestDownstreamKeyIgnoresServedVersion(t *testing.T) {
 	v1 := schema.GroupVersionKind{Group: "example.io", Version: "v1alpha1", Kind: "Widget"}
 	v2 := schema.GroupVersionKind{Group: "example.io", Version: "v1beta1", Kind: "Widget"}

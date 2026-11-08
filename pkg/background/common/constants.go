@@ -27,3 +27,19 @@ const (
 	GeneratePolicyScopeCluster    = "cluster"
 	GeneratePolicyScopeNamespaced = "namespaced"
 )
+
+// MatchesPolicyTriggerNamespace checks that a namespaced policy owns the trigger.
+// In addition to namespaced resources, policy controllers allow a policy to
+// select its own cluster-scoped Namespace (metadata.namespace is empty).
+func MatchesPolicyTriggerNamespace(labels map[string]string, policyNamespace string) bool {
+	if policyNamespace == "" {
+		return false
+	}
+	if labels[GenerateTriggerNSLabel] == policyNamespace {
+		return true
+	}
+	return labels[GenerateTriggerNSLabel] == "" &&
+		labels[GenerateTriggerGroupLabel] == "" &&
+		labels[GenerateTriggerKindLabel] == "Namespace" &&
+		labels[GenerateTriggerNameLabel] == policyNamespace
+}

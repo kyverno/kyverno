@@ -287,7 +287,7 @@ func (c *CELGenerateController) matchesAcknowledgedPolicy(ctx context.Context, l
 	if err != nil || labels[common.GeneratePolicyLabel] != policyName {
 		return false
 	}
-	if policyNamespace != "" && labels[common.GenerateTriggerNSLabel] != policyNamespace {
+	if policyNamespace != "" && !common.MatchesPolicyTriggerNamespace(labels, policyNamespace) {
 		return false
 	}
 	counterpartKind := "GeneratingPolicy"
@@ -295,6 +295,12 @@ func (c *CELGenerateController) matchesAcknowledgedPolicy(ctx context.Context, l
 	if policyNamespace == "" {
 		counterpartKind = "NamespacedGeneratingPolicy"
 		counterpartNamespace = labels[common.GenerateTriggerNSLabel]
+		if counterpartNamespace == "" && labels[common.GenerateTriggerKindLabel] == "Namespace" {
+			counterpartNamespace = labels[common.GenerateTriggerNameLabel]
+		}
+		if counterpartNamespace == "" {
+			return false
+		}
 	}
 	_, err = c.client.GetResource(ctx, "policies.kyverno.io/v1", counterpartKind, counterpartNamespace, policyName)
 	return apierrors.IsNotFound(err)

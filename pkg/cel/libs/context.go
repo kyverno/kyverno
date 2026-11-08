@@ -433,7 +433,7 @@ func (cp *contextProvider) isManagedByPolicy(ctx context.Context, obj *unstructu
 		labels[common.GenerateTriggerUIDLabel] != cp.genCtx.triggerUID {
 		return false
 	}
-	if cp.genCtx.policyNamespace != "" && labels[common.GenerateTriggerNSLabel] != cp.genCtx.policyNamespace {
+	if cp.genCtx.policyNamespace != "" && !common.MatchesPolicyTriggerNamespace(labels, cp.genCtx.policyNamespace) {
 		return false
 	}
 	if scope, marked := labels[common.GeneratePolicyScopeLabel]; marked {
@@ -442,9 +442,11 @@ func (cp *contextProvider) isManagedByPolicy(ctx context.Context, obj *unstructu
 		}
 		return scope == common.GeneratePolicyScopeNamespaced
 	}
-	// A cluster-scoped trigger cannot be selected by a namespaced policy.
-	// Its historical downstream is unambiguous even without a new marker.
-	if cp.genCtx.policyNamespace == "" && labels[common.GenerateTriggerNSLabel] == "" {
+	// Apart from Namespace, cluster-scoped triggers cannot belong to a
+	// namespaced policy. Namespace triggers can, so legacy objects need the
+	// counterpart policy lookup below before being adopted.
+	if cp.genCtx.policyNamespace == "" && labels[common.GenerateTriggerNSLabel] == "" &&
+		labels[common.GenerateTriggerKindLabel] != "Namespace" {
 		return true
 	}
 	// A historical namespaced-trigger downstream predates the scope marker.
@@ -458,6 +460,12 @@ func (cp *contextProvider) isManagedByPolicy(ctx context.Context, obj *unstructu
 	if cp.genCtx.policyNamespace == "" {
 		counterpartKind = "NamespacedGeneratingPolicy"
 		counterpartNamespace = labels[common.GenerateTriggerNSLabel]
+		if counterpartNamespace == "" && labels[common.GenerateTriggerKindLabel] == "Namespace" {
+			counterpartNamespace = labels[common.GenerateTriggerNameLabel]
+		}
+		if counterpartNamespace == "" {
+			return false
+		}
 	}
 	_, err := cp.client.GetResource(ctx, "policies.kyverno.io/v1", counterpartKind, counterpartNamespace, cp.genCtx.policyName)
 	return apierrors.IsNotFound(err)

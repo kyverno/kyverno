@@ -213,6 +213,22 @@ func TestCELGeneratePolicyScopeDisallowsCrossScopeAdoption(t *testing.T) {
 	}
 }
 
+// A NamespacedGeneratingPolicy can match the cluster-scoped Namespace object
+// with the same name as its own namespace. It must preserve ownership even
+// though that trigger has an empty metadata.namespace.
+func TestNamespacedCELPolicyCanTrackNamespaceTrigger(t *testing.T) {
+	cp := &contextProvider{}
+	cp.SetGenerateContext("same-name", "team-a", "team-a", "", "v1", "", "Namespace", "namespace-uid", false, false)
+	obj := &unstructured.Unstructured{Object: map[string]any{}}
+	cp.addGenerateLabels(obj)
+	require.Empty(t, obj.GetLabels()[common.GenerateTriggerNSLabel])
+	require.True(t, cp.isManagedByPolicy(context.Background(), obj))
+
+	other := &contextProvider{}
+	other.SetGenerateContext("same-name", "team-b", "team-b", "", "v1", "", "Namespace", "namespace-uid", false, false)
+	require.False(t, other.isManagedByPolicy(context.Background(), obj))
+}
+
 // conflictingPolicyLookup answers whether the other scope owns a same-name
 // policy. Legacy resources can only be migrated when that ambiguity is absent.
 type conflictingPolicyLookup struct {
@@ -256,11 +272,11 @@ func TestLegacyCELDownstreamAdoptionChecksConflictingPolicyScope(t *testing.T) {
 	}
 }
 
-// A namespace (or other cluster-scoped trigger) cannot be owned by a
+// Apart from Namespace, cluster-scoped triggers cannot be selected by a
 // NamespacedGeneratingPolicy, so old CEL downstreams need no counterpart GET.
 func TestLegacyCELClusterTriggerRemainsAdoptable(t *testing.T) {
 	cp := &contextProvider{}
-	cp.SetGenerateContext("same-name", "", "trigger", "", "v1", "", "Namespace", "trigger-uid", false, false)
+	cp.SetGenerateContext("same-name", "", "trigger", "", "v1", "", "Node", "trigger-uid", false, false)
 	obj := &unstructured.Unstructured{Object: map[string]any{}}
 	obj.SetLabels(map[string]string{
 		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
@@ -268,4 +284,24 @@ func TestLegacyCELClusterTriggerRemainsAdoptable(t *testing.T) {
 		common.GenerateTriggerUIDLabel: "trigger-uid",
 	})
 	require.True(t, cp.isManagedByPolicy(context.Background(), obj))
+}
+
+// Namespace triggers are different: a NamespacedGeneratingPolicy in that
+// namespace may have the same name and trigger UID as a cluster policy.
+// Legacy downstreams without a scope marker require a counterpart lookup.
+func TestLegacyCELNamespaceTriggerRequiresCounterpartCheck(t *testing.T) {
+	client := &conflictingPolicyLookup{conflict: true}
+	cp := &contextProvider{client: client}
+	cp.SetGenerateContext("same-name", "", "team-a", "", "v1", "", "Namespace", "trigger-uid", false, false)
+	obj := &unstructured.Unstructured{Object: map[string]any{}}
+	obj.SetLabels(map[string]string{
+		kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:      "same-name",
+		common.GenerateTriggerUIDLabel:  "trigger-uid",
+		common.GenerateTriggerNameLabel: "team-a",
+		common.GenerateTriggerKindLabel: "Namespace",
+	})
+	require.False(t, cp.isManagedByPolicy(context.Background(), obj), "a competing namespaced policy makes legacy ownership ambiguous")
+	client.conflict = false
+	require.True(t, cp.isManagedByPolicy(context.Background(), obj), "safe to adopt when the counterpart does not exist")
 }
