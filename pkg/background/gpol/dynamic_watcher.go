@@ -51,6 +51,9 @@ type WatchManager struct {
 	policyRefs map[string][]schema.GroupVersionResource
 	// refCount tracks the number of policies that generates the same resource.
 	refCount map[schema.GroupVersionResource]int
+	// unmappedAcknowledged keeps UID-qualified acknowledged writes independently
+	// of GVR discovery and watch registration until they are cached.
+	unmappedAcknowledged map[string]map[types.UID]Resource
 	// pendingGenerates tracks, per policy/trigger, generate writes that are being
 	// applied but are not yet reflected in the metadata cache. See BeginGenerate.
 	pendingGenerates map[string]*pendingGenerate
@@ -78,6 +81,7 @@ func NewWatchManager(log logr.Logger, client dclient.Interface) *WatchManager {
 		policyRefs:       map[string][]schema.GroupVersionResource{},
 		refCount:         map[schema.GroupVersionResource]int{},
 		pendingGenerates: map[string]*pendingGenerate{},
+		unmappedAcknowledged: map[string]map[types.UID]Resource{},
 	}
 }
 
@@ -169,6 +173,23 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 	// rememberGVR below persists new references immediately, including when a
 	// later resource mapping or watch setup fails.
 	oldGVRs := append([]schema.GroupVersionResource(nil), wm.policyRefs[policyName]...)
+	// Retain every acknowledged UID first: RESTMapping can fail at any
+	// position, so later objects must not disappear when iteration aborts.
+	if wm.unmappedAcknowledged == nil {
+		wm.unmappedAcknowledged = make(map[string]map[types.UID]Resource)
+	}
+	if wm.unmappedAcknowledged[policyName] == nil {
+		wm.unmappedAcknowledged[policyName] = make(map[types.UID]Resource)
+	}
+	for _, res := range generatedResources {
+		if res == nil || res.GetUID() == "" {
+			continue
+		}
+		wm.unmappedAcknowledged[policyName][res.GetUID()] = Resource{
+			Name: res.GetName(), Namespace: res.GetNamespace(),
+			Labels: res.GetLabels(), Data: res, PolicyKey: policyName,
+		}
+	}
 	// Persist the GVR reference as soon as an acknowledged downstream is
 	// cached. A later RESTMapping/watch error must not make that first
 	// registration invisible to policy-deletion cleanup.
@@ -221,6 +242,7 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 				PolicyKey:       policyName,
 			}
 			rememberGVR(gvr)
+			delete(wm.unmappedAcknowledged[policyName], resource.GetUID())
 			if existing.watcher != nil {
 				logger.V(2).Info("watcher already exists for GVR", "gvr", gvr)
 				continue
@@ -249,6 +271,7 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 		}
 		wm.dynamicWatchers[gvr] = &watcher{metadataCache: metadataCache}
 		rememberGVR(gvr)
+		delete(wm.unmappedAcknowledged[policyName], resource.GetUID())
 		w, err := wm.startWatcherWithCache(resource, gvr, metadataCache)
 		if err != nil {
 			return err
@@ -416,12 +439,51 @@ func (wm *WatchManager) SuppressDownstreamRecreation(policyKey string, uid types
 func (wm *WatchManager) ForgetDownstreamUID(policyKey string, uid types.UID) {
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
-	for _, gvr := range wm.policyRefs[policyKey] {
-		if w := wm.dynamicWatchers[gvr]; w != nil {
-			if res, found := w.metadataCache[uid]; found && matchesResourcePolicy(res, policyKey) {
-				delete(w.metadataCache, uid)
+	if pending := wm.unmappedAcknowledged[policyKey]; pending != nil {
+		delete(pending, uid)
+		if len(pending) == 0 {
+			delete(wm.unmappedAcknowledged, policyKey)
+		}
+	}
+	refs := wm.policyRefs[policyKey]
+	keptRefs := make([]schema.GroupVersionResource, 0, len(refs))
+	for _, gvr := range refs {
+		w := wm.dynamicWatchers[gvr]
+		if w == nil {
+			keptRefs = append(keptRefs, gvr)
+			continue
+		}
+		if res, found := w.metadataCache[uid]; found && matchesResourcePolicy(res, policyKey) {
+			delete(w.metadataCache, uid)
+		}
+		// Other triggers and siblings of this policy can still require
+		// this GVR. Keep the watch until its final policy reference ends.
+		stillOwned := false
+		for _, res := range w.metadataCache {
+			if matchesResourcePolicy(res, policyKey) {
+				stillOwned = true
+				break
 			}
 		}
+		if stillOwned {
+			keptRefs = append(keptRefs, gvr)
+			continue
+		}
+		if wm.refCount[gvr] > 0 {
+			wm.refCount[gvr]--
+		}
+		if wm.refCount[gvr] == 0 {
+			if w.watcher != nil {
+				w.watcher.Stop()
+			}
+			delete(wm.dynamicWatchers, gvr)
+			delete(wm.refCount, gvr)
+		}
+	}
+	if len(keptRefs) == 0 {
+		delete(wm.policyRefs, policyKey)
+	} else {
+		wm.policyRefs[policyKey] = keptRefs
 	}
 }
 
@@ -573,6 +635,26 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 	logger := wm.log.WithValues("policyName", policyName)
 	logger.V(2).Info("removing policy resources and watchers")
 
+	// An acknowledged resource can lack a GVR when REST discovery failed.
+	// Policy deletion still has enough API version, kind, name and UID to
+	// attempt a safe delete without relying on an active watcher.
+	if pending := wm.unmappedAcknowledged[policyName]; pending != nil {
+		for uid, res := range pending {
+			if deleteDownstream {
+				if _, cloned := res.Labels[common.GenerateSourceUIDLabel]; !cloned {
+					err := wm.deleteResourceWithUID(res, uid)
+					if err != nil && !apierrors.IsNotFound(err) {
+						logger.Error(err, "failed to delete unmapped acknowledged downstream", "name", res.Name)
+						continue
+					}
+				}
+			}
+			delete(pending, uid)
+		}
+		if len(pending) == 0 {
+			delete(wm.unmappedAcknowledged, policyName)
+		}
+	}
 	if gvrList, exists := wm.policyRefs[policyName]; exists {
 		for _, gvr := range gvrList {
 			logger := logger.WithValues("gvr", gvr)
@@ -639,6 +721,7 @@ func (wm *WatchManager) StopWatchers() {
 	wm.dynamicWatchers = map[schema.GroupVersionResource]*watcher{}
 	wm.policyRefs = map[string][]schema.GroupVersionResource{}
 	wm.refCount = map[schema.GroupVersionResource]int{}
+	wm.unmappedAcknowledged = map[string]map[types.UID]Resource{}
 }
 
 func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructured, gvr schema.GroupVersionResource, metadataCache map[types.UID]Resource) (*watcher, error) {

@@ -408,3 +408,56 @@ func TestPartialWatcherStartupFailureRetainsCleanupIdentity(t *testing.T) {
 	wm.RemoveWatchersForPolicy(policyKey, true)
 	require.Equal(t, []string{"ConfigMap/team-a/generated"}, client.deleted)
 }
+
+// Mapping a generated kind can fail before any watcher exists. The identity
+// must remain available to policy deletion without consulting the GVR cache.
+func TestUnmappedAcknowledgedResourceSurvivesDiscoveryFailure(t *testing.T) {
+	const policyKey = "unmapped-policy"
+	resource := makeUnstructured("5", "", "v1", "ConfigMap", "old", "team-a", "old-uid",
+		map[string]string{common.GeneratePolicyLabel: policyKey})
+	client := &MockClient{}
+	wm := &WatchManager{
+		log:    logging.WithName("unmapped"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(schema.GroupKind, string) (*meta.RESTMapping, error) {
+			return nil, errors.New("discovery unavailable")
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+		policyRefs:      map[string][]schema.GroupVersionResource{},
+		refCount:        map[schema.GroupVersionResource]int{},
+	}
+	defer wm.StopWatchers()
+	require.ErrorContains(t, wm.AddWatchers(policyKey, nil, []*unstructured.Unstructured{resource}, false), "discovery unavailable")
+	require.Contains(t, wm.unmappedAcknowledged[policyKey], resource.GetUID())
+	require.Empty(t, wm.policyRefs[policyKey])
+	wm.RemoveWatchersForPolicy(policyKey, true)
+	require.Equal(t, []string{"ConfigMap/team-a/old"}, client.deleted)
+	require.NotContains(t, wm.unmappedAcknowledged, policyKey)
+}
+
+func TestForgetDownstreamUIDReleasesOnlyUnusedWatcherReference(t *testing.T) {
+	const policyKey = "release-policy"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	first := makeUnstructured("1", "", "v1", "ConfigMap", "first", "team-a", "uid-first",
+		map[string]string{common.GeneratePolicyLabel: policyKey})
+	second := makeUnstructured("2", "", "v1", "ConfigMap", "second", "team-a", "uid-second",
+		map[string]string{common.GeneratePolicyLabel: policyKey})
+	wm := &WatchManager{
+		log: logging.WithName("release-ref"),
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{
+				first.GetUID():  {Name: first.GetName(), Data: first, Labels: first.GetLabels(), PolicyKey: policyKey},
+				second.GetUID(): {Name: second.GetName(), Data: second, Labels: second.GetLabels(), PolicyKey: policyKey},
+			}},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{policyKey: {gvr}},
+		refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+	}
+	wm.ForgetDownstreamUID(policyKey, first.GetUID())
+	require.Equal(t, 1, wm.refCount[gvr])
+	require.Contains(t, wm.dynamicWatchers[gvr].metadataCache, second.GetUID())
+	wm.ForgetDownstreamUID(policyKey, second.GetUID())
+	require.NotContains(t, wm.refCount, gvr)
+	require.NotContains(t, wm.dynamicWatchers, gvr)
+	require.NotContains(t, wm.policyRefs, policyKey)
+}

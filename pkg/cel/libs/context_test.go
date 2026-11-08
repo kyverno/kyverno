@@ -321,3 +321,52 @@ func TestAmbiguousLegacyCELDownstreamFailsOwnershipVerification(t *testing.T) {
 	require.False(t, owned)
 	require.ErrorContains(t, err, "ambiguous legacy downstream")
 }
+
+type acknowledgedLegacyGenerationClient struct {
+	dclient.Interface
+	resource *unstructured.Unstructured
+}
+
+func (c *acknowledgedLegacyGenerationClient) GetResource(_ context.Context, _, _, _, _ string, _ ...string) (*unstructured.Unstructured, error) {
+	return c.resource.DeepCopy(), nil
+}
+
+func (c *acknowledgedLegacyGenerationClient) UpdateResource(_ context.Context, _, _, _ string, obj interface{}, _ bool, _ ...string) (*unstructured.Unstructured, error) {
+	return obj.(*unstructured.Unstructured).DeepCopy(), nil
+}
+
+// A verified legacy downstream must appear in the successful generation result
+// so full watcher reconciliation cannot misinterpret it as obsolete.
+func TestUIDVerifiedLegacyDownstreamRemainsInGenerationResult(t *testing.T) {
+	old := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":            "old",
+			"namespace":       "team-a",
+			"uid":             "old-uid",
+			"resourceVersion": "5",
+		},
+	}}
+	old.SetLabels(map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     "same-name",
+		common.GenerateTriggerNSLabel:  "team-a",
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	})
+	client := &acknowledgedLegacyGenerationClient{resource: old}
+	cp := &contextProvider{client: client}
+	cp.SetGenerateContext("same-name", "", "trigger", "team-a", "v1", "", "ConfigMap", "trigger-uid", false, false)
+	cp.SetAcknowledgedGeneratedResources([]kyverno.ResourceSpec{{
+		APIVersion: "v1", Kind: "ConfigMap", Namespace: "team-a", Name: "old", UID: "old-uid",
+	}})
+	generated := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{"name": "old"},
+		"data": map[string]any{"key": "value"},
+	}
+	require.NoError(t, cp.GenerateResourcesContext(context.Background(), "team-a", []map[string]any{generated}))
+	require.Len(t, cp.GetGeneratedResources(), 1)
+	require.Equal(t, old.GetUID(), cp.GetGeneratedResources()[0].GetUID())
+}

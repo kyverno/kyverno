@@ -116,6 +116,12 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 		workerCtx := c.context.Clone()
+		// Only this UpdateRequest's recorded UID-qualified downstreams may
+		// authorize adoption of unmarked historical CEL resources. The
+		// library still checks live UID and trigger labels before any write.
+		if setter, ok := workerCtx.(interface{ SetAcknowledgedGeneratedResources([]kyverno.ResourceSpec) }); ok {
+			setter.SetAcknowledgedGeneratedResources(ur.Status.GeneratedResources)
+		}
 		var request celengine.EngineRequest
 		admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 		if admissionRequest == nil {
@@ -460,6 +466,9 @@ func (c *CELGenerateController) cleanupAcknowledgedAfterRetry(
 		seen[identity] = struct{}{}
 		live, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
 		if apierrors.IsNotFound(err) {
+			if c.watchManager != nil {
+				c.watchManager.ForgetDownstreamUID(policyKey, spec.UID)
+			}
 			continue
 		}
 		if err != nil {

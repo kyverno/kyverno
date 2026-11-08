@@ -698,3 +698,78 @@ func TestLegacyAcknowledgedRetryRequiresNonemptyUID(t *testing.T) {
 	require.Empty(t, recovered, "a name-only historical status must not adopt an object without its UID")
 	require.Zero(t, client.deletes)
 }
+
+func TestFailedStaleCleanupSuppressesWatcherRecreation(t *testing.T) {
+	const policyKey = "cleanup-failure-policy"
+	const namespace = "team-a"
+	labels := map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     policyKey,
+		common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeCluster,
+		common.GenerateTriggerNSLabel:  namespace,
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	}
+	old := makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "old-uid", labels)
+	spec := common.ResourceSpecFromUnstructured(*old)
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	client := &partialReproClient{
+		objects: map[string]*unstructured.Unstructured{"ConfigMap/" + namespace + "/old": old},
+		deleteErr: fmt.Errorf("temporary delete failure"),
+	}
+	wm := &WatchManager{
+		log:    logging.WithName("failed-stale-cleanup"),
+		client: client,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{
+				old.GetUID(): {Name: old.GetName(), Namespace: namespace, Data: old, Labels: labels, Hash: "old-hash", PolicyKey: policyKey},
+			}},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{policyKey: {gvr}},
+		refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+	}
+	defer wm.StopWatchers()
+	controller := &CELGenerateController{client: client, watchManager: wm}
+	pending, err := controller.cleanupAcknowledgedAfterRetry(context.Background(), policyKey,
+		kyverno.ResourceSpec{UID: "trigger-uid"}, []kyverno.ResourceSpec{spec}, nil)
+	require.ErrorContains(t, err, "temporary delete failure")
+	require.Equal(t, []kyverno.ResourceSpec{spec}, pending)
+	require.Contains(t, wm.dynamicWatchers[gvr].metadataCache, old.GetUID(), "failed delete must retain the cached entry")
+	require.Empty(t, wm.dynamicWatchers[gvr].metadataCache[old.GetUID()].Hash, "stale UID must be invalidated")
+	wm.handleDelete(old, gvr)
+	require.Zero(t, client.writes, "watcher must not recreate obsolete downstream following a failed delete")
+}
+
+func TestAlreadyAbsentStaleCleanupEvictsWatcherUID(t *testing.T) {
+	const policyKey = "absent-cleanup-policy"
+	const namespace = "team-a"
+	labels := map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     policyKey,
+		common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeCluster,
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	}
+	old := makeUnstructured("1", "", "v1", "ConfigMap", "old", namespace, "old-uid", labels)
+	spec := common.ResourceSpecFromUnstructured(*old)
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{}}
+	wm := &WatchManager{
+		log:    logging.WithName("absent-stale-cleanup"),
+		client: client,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{
+				old.GetUID(): {Name: old.GetName(), Namespace: namespace, Data: old, Labels: labels, Hash: "old-hash", PolicyKey: policyKey},
+			}},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{policyKey: {gvr}},
+		refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+	}
+	defer wm.StopWatchers()
+	controller := &CELGenerateController{client: client, watchManager: wm}
+	pending, err := controller.cleanupAcknowledgedAfterRetry(context.Background(), policyKey,
+		kyverno.ResourceSpec{UID: "trigger-uid"}, []kyverno.ResourceSpec{spec}, nil)
+	require.NoError(t, err)
+	require.Empty(t, pending)
+	require.NotContains(t, wm.dynamicWatchers, gvr, "NotFound must drop obsolete UID and final GVR reference")
+	wm.handleDelete(old, gvr)
+	require.Zero(t, client.writes, "absent objects must not be recreated")
+}

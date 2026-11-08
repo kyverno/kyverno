@@ -74,6 +74,9 @@ type contextProvider struct {
 	imagedata          imagedataloader.Fetcher
 	gctxStore          gctxstore.Store
 	generatedResources []*unstructured.Unstructured
+	// UID-qualified identities from the current UpdateRequest, isolated per
+	// evaluation. These authorize only matching legacy downstream objects.
+	acknowledgedGeneratedResources map[string]string
 	genCtx             generateContext
 	cliEvaluation      bool // if true, libraries that create resources (like the generator library) don't post the created resource to an actual cluster
 	restMapper         meta.RESTMapper
@@ -463,10 +466,15 @@ func (cp *contextProvider) isManagedByPolicyChecked(ctx context.Context, obj *un
 	// durable policy-scope identity. The absence of a same-named policy in the
 	// other scope is NOT proof of origin: that policy may have been deleted.
 	// Do not adopt, update or delete these ambiguous objects without a
-	// UID-qualified UpdateRequest record (checked by the background controller).
+	// UID-qualified UpdateRequest record. Compare the *live* object's UID to
+	// the persisted identity supplied for this evaluation by the controller.
+	if key := acknowledgedResourceKey(obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), obj.GetName()); key != "" &&
+		cp.acknowledgedGeneratedResources[key] != "" && cp.acknowledgedGeneratedResources[key] == string(obj.GetUID()) {
+		return true, nil
+	}
 	// Reject the evaluation rather than reporting a successful empty desired
 	// set that could prune an otherwise live watcher registration.
-	return false, fmt.Errorf("ambiguous legacy downstream without policy scope marker")
+	return false, fmt.Errorf("ambiguous legacy downstream without verified policy ownership")
 }
 
 func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
@@ -511,6 +519,31 @@ func (cp *contextProvider) SetGenerateContext(
 	cp.genCtx.triggerUID = triggerUID
 	cp.genCtx.restoreCache = restoreCache
 	cp.genCtx.useServerSideApply = useServerSideApply
+}
+
+// acknowledgedResourceKey ignores served API version but preserves the group,
+// kind and namespaced identity of a Kubernetes object.
+func acknowledgedResourceKey(apiVersion, kind, namespace, name string) string {
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return ""
+	}
+	return gv.Group + "\x00" + kind + "\x00" + namespace + "\x00" + name
+}
+
+// SetAcknowledgedGeneratedResources supplies the persisted UID identities of
+// previously generated resources for this evaluation only. It does not infer
+// ownership from the absence of a same-name policy in another scope.
+func (cp *contextProvider) SetAcknowledgedGeneratedResources(specs []kyverno.ResourceSpec) {
+	cp.acknowledgedGeneratedResources = make(map[string]string, len(specs))
+	for _, spec := range specs {
+		if spec.UID == "" || spec.Kind == "" || spec.Name == "" {
+			continue
+		}
+		if key := acknowledgedResourceKey(spec.APIVersion, spec.Kind, spec.Namespace, spec.Name); key != "" {
+			cp.acknowledgedGeneratedResources[key] = string(spec.UID)
+		}
+	}
 }
 
 func (cp *contextProvider) GetGeneratedResources() []*unstructured.Unstructured {
