@@ -40,21 +40,22 @@ type LogNode struct {
 // and the trace itself as a LogEntry. The resource is left to the caller's logger, which in an
 // admission handler already carries the request. A nil decision returns nil.
 //
-// A trace holds values read from the resource, and a log is read by more people than the resource
-// is. So every value is cut to maxValueLen, and for a Secret no value is logged at all except
-// true and false: the expressions and which of them did not hold are still there, the data is not.
+// A trace holds values read from resources, and a log is read by more people than the resource
+// is. So every value is cut to maxValueLen, and for a Secret or a trace that reads one no value is
+// logged at all except true and false: the expressions and which of them did not hold are still
+// there, the data is not.
 func LogValues(d *Decision) []any {
 	if d == nil {
 		return nil
 	}
-	l := logFormat{secret: d.ResourceKind == "Secret"}
+	l := logFormat{sensitive: d.ResourceKind == "Secret" || decisionHasSecretRead(d)}
 	entry := LogEntry{
 		Scope: d.Scope.Reason,
 		Verdict: LogExpression{
 			Status:     d.Verdict.Status,
 			Expression: d.Verdict.Source,
 			Result:     l.value(d.Verdict.Result),
-			Message:    d.Verdict.Message,
+			Message:    l.text(d.Verdict.Message),
 		},
 	}
 	if d.Verdict.Status != VerdictPass {
@@ -81,8 +82,8 @@ func LogValues(d *Decision) []any {
 			Name:       m.Name,
 			Expression: m.Source,
 			Result:     l.value(m.Result),
-			Error:      m.Error,
-			NotApplied: m.NotApplied,
+			Error:      l.text(m.Error),
+			NotApplied: l.text(m.NotApplied),
 		}
 		if m.Error != "" {
 			l.breakdown(&mutation, m.ExpressionTrace)
@@ -99,14 +100,53 @@ func LogValues(d *Decision) []any {
 
 // logFormat holds what decides how a value is logged.
 type logFormat struct {
-	secret bool
+	sensitive bool
+}
+
+func decisionHasSecretRead(d *Decision) bool {
+	if d.Verdict.HasSecretRead {
+		return true
+	}
+	for _, expression := range d.Match {
+		if expression.HasSecretRead {
+			return true
+		}
+	}
+	for _, expression := range d.Variables {
+		if expression.HasSecretRead {
+			return true
+		}
+	}
+	for _, expression := range d.Validations {
+		if expression.HasSecretRead {
+			return true
+		}
+	}
+	for _, expression := range d.Mutations {
+		if expression.HasSecretRead {
+			return true
+		}
+	}
+	for _, expression := range d.Generations {
+		if expression.HasSecretRead {
+			return true
+		}
+	}
+	return false
 }
 
 func (l logFormat) value(v string) string {
-	if l.secret && v != "" && v != "true" && v != "false" {
+	if l.sensitive && v != "" && v != "true" && v != "false" {
 		return redacted
 	}
 	return clip(v)
+}
+
+func (l logFormat) text(v string) string {
+	if l.sensitive && v != "" {
+		return redacted
+	}
+	return v
 }
 
 func (l logFormat) named(n NamedExpressionTrace) LogExpression {
@@ -116,6 +156,6 @@ func (l logFormat) named(n NamedExpressionTrace) LogExpression {
 func (l logFormat) breakdown(e *LogExpression, et ExpressionTrace) {
 	e.LoopValuesOmitted = et.LoopValuesOmitted
 	for _, n := range et.Nodes {
-		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Value), Error: n.Error})
+		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Value), Error: l.text(n.Error)})
 	}
 }

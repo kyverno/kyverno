@@ -142,13 +142,14 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 			{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "object.type", Result: password}},
 			{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "variables.password.size() > 32", Result: "false"}},
 		},
-		Mutations: []MutationTrace{{Name: "mutations[0] (jsonPatch)", Error: "failed", ExpressionTrace: ExpressionTrace{
+		Mutations: []MutationTrace{{Name: "mutations[0] (jsonPatch)", Error: "failed: " + password, ExpressionTrace: ExpressionTrace{
 			Source: "[JSONPatch{op: 'add', path: '/data/copy', value: object.data.password}]",
 			Result: password,
-			Nodes:  []NodeTrace{{Expression: "object.data.password", Value: password}},
+			Nodes:  []NodeTrace{{Expression: "object.data.password", Value: password, Error: "failed: " + password}},
 		}}},
 		Verdict: VerdictTrace{
-			Status: VerdictFail,
+			Status:  VerdictFail,
+			Message: password,
 			ExpressionTrace: ExpressionTrace{
 				Source: "variables.password.size() > 32",
 				Result: "false",
@@ -170,7 +171,10 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 	assert.Equal(t, redacted, entry.Validations[0].Result)
 	assert.Equal(t, "false", entry.Validations[1].Result)
 	assert.Equal(t, redacted, entry.Mutations[0].Result)
+	assert.Equal(t, redacted, entry.Mutations[0].Error)
 	assert.Equal(t, redacted, entry.Mutations[0].Evaluated[0].Value)
+	assert.Equal(t, redacted, entry.Mutations[0].Evaluated[0].Error)
+	assert.Equal(t, redacted, entry.Verdict.Message)
 	assert.Equal(t, "variables.password.size() > 32", entry.Verdict.Expression, "expressions are policy text, and are kept")
 	assert.Equal(t, []LogNode{
 		{Expression: "variables.password.size() > 32", Value: "false"},
@@ -182,6 +186,47 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 	d.ResourceKind = "ConfigMap"
 	entry, _ = logged(t, d)
 	assert.Equal(t, password, entry.Variables[0].Result)
+}
+
+func TestLogValues_SecretReadValuesAndErrorsAreNotLogged(t *testing.T) {
+	const password = "hunter2-do-not-log"
+	d := &Decision{
+		ResourceKind: "Pod",
+		Variables: []NamedExpressionTrace{{
+			Name: "credentials",
+			ExpressionTrace: ExpressionTrace{
+				Source:        `resource.Get("v1", "secrets", "default", "db-credentials")`,
+				Result:        password,
+				HasSecretRead: true,
+			},
+		}},
+		Verdict: VerdictTrace{
+			Status:  VerdictError,
+			Message: `invalid RFC 3339 timestamp "` + password + `"`,
+			ExpressionTrace: ExpressionTrace{
+				Source: `timestamp(variables.credentials) < timestamp("2026-01-01T00:00:00Z")`,
+				Result: `invalid RFC 3339 timestamp "` + password + `"`,
+				Nodes: []NodeTrace{
+					{Expression: "timestamp(variables.credentials)", Error: `invalid RFC 3339 timestamp "` + password + `"`},
+				},
+			},
+		},
+		Mutations: []MutationTrace{{
+			Name:       "mutations[0] (jsonPatch)",
+			Error:      `failed with "` + password + `"`,
+			NotApplied: `not applied: "` + password + `"`,
+		}},
+	}
+	entry, _ := logged(t, d)
+	raw, err := json.Marshal(entry)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), password)
+	assert.Equal(t, redacted, entry.Variables[0].Result)
+	assert.Equal(t, redacted, entry.Verdict.Result)
+	assert.Equal(t, redacted, entry.Verdict.Message)
+	assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Error)
+	assert.Equal(t, redacted, entry.Mutations[0].Error)
+	assert.Equal(t, redacted, entry.Mutations[0].NotApplied)
 }
 
 // TestLogValues_JSON pins the field names a logged trace is written with.

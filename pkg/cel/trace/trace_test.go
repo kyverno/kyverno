@@ -2,12 +2,16 @@ package trace
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // buildTrackedProgram compiles expr with cel.OptTrackState on, bypassing the real policy
@@ -114,6 +118,96 @@ func TestBuild(t *testing.T) {
 			assert.Equal(t, tt.expr, et.Source)
 			assert.Equal(t, tt.wantResult, et.Result)
 			assert.Equal(t, tt.wantNodes, et.Nodes)
+		})
+	}
+}
+
+func TestBuild_SecretResourceReadProvenance(t *testing.T) {
+	options := append(compiler.DefaultEnvOptions(), resource.Lib(resource.Context{ContextInterface: &resource.ContextMock{
+		ToGVRFunc: func(_, kind string) (*schema.GroupVersionResource, error) {
+			return &schema.GroupVersionResource{Version: "v1", Resource: strings.ToLower(kind) + "s"}, nil
+		},
+		ListResourcesFunc: func(_, resourceName, _ string, _ map[string]string) (*unstructured.UnstructuredList, error) {
+			kind := "ConfigMap"
+			if resourceName == "secrets" {
+				kind = "Secret"
+			}
+			return &unstructured.UnstructuredList{Items: []unstructured.Unstructured{{
+				Object: map[string]any{"kind": kind, "data": map[string]any{"password": "hunter2-do-not-log"}},
+			}}}, nil
+		},
+		GetResourceFunc: func(_, resourceName, _, _ string) (*unstructured.Unstructured, error) {
+			kind := "ConfigMap"
+			if resourceName == "secrets" {
+				kind = "Secret"
+			}
+			return &unstructured.Unstructured{Object: map[string]any{
+				"apiVersion": "v1",
+				"kind":       kind,
+				"data":       map[string]any{"password": "hunter2-do-not-log"},
+			}}, nil
+		},
+	}}, "", resource.Latest()))
+	env, err := compiler.NewEnv(options...)
+	require.NoError(t, err)
+	env, err = env.Extend(cel.Variable("object", cel.DynType))
+	require.NoError(t, err)
+
+	tests := []struct {
+		name       string
+		expression string
+		wantSecret bool
+	}{
+		{
+			name:       "Secret read",
+			expression: `resource.Get("v1", "secrets", "default", "db-credentials").data.password`,
+			wantSecret: true,
+		},
+		{
+			name:       "ConfigMap read",
+			expression: `resource.Get("v1", "configmaps", "default", "settings").data.password`,
+		},
+		{
+			name:       "Secret list",
+			expression: `resource.List("v1", "secrets", "default").items.size() > 0`,
+			wantSecret: true,
+		},
+		{
+			name:       "ConfigMap list",
+			expression: `resource.List("v1", "configmaps", "default").items.size() > 0`,
+		},
+		{
+			name:       "dynamic resource read",
+			expression: `resource.Get("v1", object.kind.lowerAscii() + "s", "default", "settings").data.password`,
+			wantSecret: true,
+		},
+		{
+			name:       "Secret read through GVR",
+			expression: `resource.Get(resource.ToGVR("v1", "Secret"), "default", "db-credentials").data.password`,
+			wantSecret: true,
+		},
+		{
+			name:       "dynamic Secret read through GVR",
+			expression: `resource.Get(resource.ToGVR("v1", object.kind), "default", "db-credentials").data.password`,
+			wantSecret: true,
+		},
+		{
+			name:       "ConfigMap read through GVR",
+			expression: `resource.Get(resource.ToGVR("v1", "ConfigMap"), "default", "settings").data.password`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ast, issues := env.Compile(tt.expression)
+			require.NoError(t, issues.Err())
+			prg, err := env.Program(ast, cel.EvalOptions(cel.OptTrackState))
+			require.NoError(t, err)
+			out, details, err := prg.ContextEval(context.Background(), map[string]any{"object": map[string]any{"kind": "Secret"}})
+			require.NoError(t, err)
+			require.NotNil(t, details)
+
+			et := Build(tt.expression, ast, out, details)
+			assert.Equal(t, tt.wantSecret, et.HasSecretRead)
 		})
 	}
 }

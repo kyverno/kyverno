@@ -21,6 +21,9 @@ type ExpressionTrace struct {
 	Source string
 	Nodes  []NodeTrace
 	Result string
+	// HasSecretRead is set when the expression reads a Secret through resource.Get or
+	// resource.List. LogValues uses it to redact values derived by the whole decision.
+	HasSecretRead bool `json:"-"`
 	// LoopValuesOmitted is set when nodes inside a loop body (all, exists, exists_one, map,
 	// filter) ran but were left out of Nodes; see Build for why.
 	LoopValuesOmitted bool
@@ -31,8 +34,9 @@ type ExpressionTrace struct {
 
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
 	et := ExpressionTrace{
-		Source: source,
-		Result: stringify(result),
+		Source:        source,
+		Result:        stringify(result),
+		HasSecretRead: hasSecretRead(ast),
 	}
 	if details == nil || ast == nil {
 		return et
@@ -123,6 +127,65 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 		et.Nodes = append(et.Nodes, nt)
 	}))
 	return et
+}
+
+func hasSecretRead(ast *cel.Ast) bool {
+	if ast == nil {
+		return false
+	}
+	found := false
+	celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+		if found || e.Kind() != celast.CallKind {
+			return
+		}
+		call := e.AsCall()
+		if !call.IsMemberFunction() || call.Target().Kind() != celast.IdentKind || call.Target().AsIdent() != "resource" {
+			return
+		}
+		function := strings.ToLower(call.FunctionName())
+		isGet := function == "get" || strings.HasPrefix(function, "resource_get_")
+		isList := function == "list" || strings.HasPrefix(function, "resource_list_")
+		if !isGet && !isList {
+			return
+		}
+		found = resourceCallMayReadSecret(call)
+	}))
+	return found
+}
+
+func resourceCallMayReadSecret(call celast.CallExpr) bool {
+	args := call.Args()
+	if len(args) == 0 {
+		return true
+	}
+	var resourceArg []celast.Expr
+	if args[0].Kind() == celast.CallKind {
+		name := callName(args[0].AsCall())
+		if strings.Contains(name, "togvr") || strings.Contains(name, "to_gvr") {
+			resourceArg = args[0].AsCall().Args()[1:]
+		}
+	}
+	if resourceArg == nil {
+		if args[0].Kind() != celast.LiteralKind || len(args) < 2 {
+			// A dynamically selected API version or GVR may identify a Secret.
+			return true
+		}
+		resourceArg = args[1:]
+	}
+	if len(resourceArg) == 0 || resourceArg[0].Kind() != celast.LiteralKind {
+		// A dynamically selected resource may be a Secret; redact rather than risk logging it.
+		return true
+	}
+	name, ok := resourceArg[0].AsLiteral().Value().(string)
+	if !ok {
+		return true
+	}
+	name = strings.ToLower(name)
+	return name == "secret" || name == "secrets"
+}
+
+func callName(call celast.CallExpr) string {
+	return strings.ToLower(call.FunctionName())
 }
 
 // referencesMacroInternal reports whether e mentions one of the synthetic identifiers (prefixed
