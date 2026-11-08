@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -754,6 +755,26 @@ func TestAutogenPodControllersEnabled(t *testing.T) {
 }
 
 func TestAutogenVariables(t *testing.T) {
+	variables := []admissionregistrationv1.Variable{
+		{
+			Name:       "allContainers",
+			Expression: "object.spec.containers + (has(object.spec.initContainers) ? object.spec.initContainers : [])",
+		},
+		{
+			Name:       "team",
+			Expression: "object.metadata.labels.team",
+		},
+	}
+	templateVariables := []admissionregistrationv1.Variable{
+		{
+			Name:       "allContainers",
+			Expression: "object.spec.template.spec.containers + (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])",
+		},
+		{
+			Name:       "team",
+			Expression: "object.spec.template.metadata.labels.team",
+		},
+	}
 	policy := &policiesv1beta1.MutatingPolicy{
 		Spec: policiesv1beta1.MutatingPolicySpec{
 			MatchConstraints: &admissionregistrationv1.MatchResources{
@@ -770,32 +791,14 @@ func TestAutogenVariables(t *testing.T) {
 					},
 				},
 			},
-			Variables: []admissionregistrationv1.Variable{
-				{
-					Name:       "allContainers",
-					Expression: "object.spec.containers + (has(object.spec.initContainers) ? object.spec.initContainers : [])",
-				},
-				{
-					Name:       "team",
-					Expression: "object.metadata.labels.team",
-				},
-			},
+			Variables: slices.Clone(variables),
 		},
 	}
 
 	result, err := Autogen(policy)
 	require.NoError(t, err)
 	require.Len(t, result, 2)
-	assert.Equal(t, []admissionregistrationv1.Variable{
-		{
-			Name:       "allContainers",
-			Expression: "object.spec.template.spec.containers + (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])",
-		},
-		{
-			Name:       "team",
-			Expression: "object.spec.template.metadata.labels.team",
-		},
-	}, result[autogen.AutogenDefaults].Spec.Variables)
+	assert.Equal(t, templateVariables, result[autogen.AutogenDefaults].Spec.Variables)
 	assert.Equal(t, []admissionregistrationv1.Variable{
 		{
 			Name:       "allContainers",
@@ -809,11 +812,13 @@ func TestAutogenVariables(t *testing.T) {
 
 	policy.Spec.AutogenConfiguration = &policiesv1beta1.MutatingPolicyAutogenConfiguration{
 		PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
-			Controllers: []string{"jobsets.v1alpha2.jobset.x-k8s.io"},
+			Controllers: []string{"deployments", "jobsets.v1alpha2.jobset.x-k8s.io"},
 		},
 	}
 	result, err = Autogen(policy)
 	require.NoError(t, err)
-	require.Len(t, result, 1)
-	assert.Equal(t, policy.Spec.Variables, result[autogen.ExtractionReplacementsRef].Spec.Variables)
+	require.Len(t, result, 2)
+	assert.Equal(t, templateVariables, result[autogen.AutogenDefaults].Spec.Variables)
+	assert.Equal(t, variables, result[autogen.ExtractionReplacementsRef].Spec.Variables)
+	assert.Equal(t, variables, policy.Spec.Variables)
 }
