@@ -19,14 +19,12 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	// check if the controller has the required permissions to generate ValidatingAdmissionPolicies.
 	if !admissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
 		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicies")
-		c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies")
-		return nil
+		return c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies")
 	}
 	// check if the controller has the required permissions to generate ValidatingAdmissionPolicyBindings.
 	if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
 		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
-		c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings")
-		return nil
+		return c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings")
 	}
 
 	vapName := "vpol-" + policy.GetName()
@@ -79,8 +77,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 				return err
 			}
 		}
-		c.updatePolicyStatus(ctx, policy, false, reason)
-		return nil
+		return c.updatePolicyStatus(ctx, policy, false, reason)
 	}
 	for _, exception := range celexceptions {
 		genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
@@ -151,7 +148,9 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 		}
 	}
 
-	c.updatePolicyStatus(ctx, policy, true, "")
+	if err := c.updatePolicyStatus(ctx, policy, true, ""); err != nil {
+		return err
+	}
 	c.eventGen.Add(event.NewValidatingAdmissionPolicyEvent(policy, observedVAP.Name, observedVAPbinding.Name)...)
 
 	return nil

@@ -6,8 +6,9 @@ into typed Kyverno APIs; two files deliberately do not.
 ## The type-free boundary
 
 `metadata.go` and `legacy.go` decode into `metav1.PartialObjectMetadata` only. They must never
-import a Kyverno policy type, because they have to keep working after #17713 deletes
-`api/kyverno/v1` and the generated clients. When you add a helper for the legacy denial path, follow
+import a Kyverno policy type: #17713 has already deleted `api/kyverno/v1`, `api/kyverno/v1beta1`,
+and the generated clients for them, and this package must keep working regardless of what else
+gets removed from `api/kyverno` later. When you add a helper for the legacy denial path, follow
 `metadata.go`'s shape rather than `policy.go`'s.
 
 ## `IsFinalizerRemovalOnTerminatingObject` is fail-closed

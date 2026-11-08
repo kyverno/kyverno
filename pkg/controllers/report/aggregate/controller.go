@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -28,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -425,7 +425,7 @@ func NewController(
 // legacy policies can no longer exist (decision C2).
 func (c *controller) legacyPoliciesPresent(ctx context.Context) (bool, error) {
 	for _, resource := range []string{"clusterpolicies", "policies"} {
-		gvr := kyvernov1.SchemeGroupVersion.WithResource(resource)
+		gvr := schema.GroupVersionResource{Group: "kyverno.io", Version: "v1", Resource: resource}
 		list, err := c.metaClient.Resource(gvr).List(ctx, metav1.ListOptions{Limit: 1})
 		if err != nil {
 			if apierrors.IsNotFound(err) {

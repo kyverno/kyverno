@@ -364,7 +364,7 @@ func main() {
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
-	flagset.BoolVar(&enableDecisionTraces, "enableDecisionTraces", false, "Set this flag to 'true' to log a decision trace for every ValidatingPolicy and MutatingPolicy admission decision: which expressions ran and what they resolved to. This is a debug mode: every expression is evaluated a second time to explain it, and the trace contains values read from the admitted resource (no values are logged for Secrets).")
+	flagset.BoolVar(&enableDecisionTraces, "enableDecisionTraces", false, "Set this flag to 'true' to log a decision trace for every ValidatingPolicy, MutatingPolicy and ImageValidatingPolicy admission decision: which expressions ran and what they resolved to. FAIL and ERROR decisions are logged at verbosity 2, PASS and SKIP decisions at verbosity 3, and policies that did not apply to the resource at verbosity 4. This is a debug mode: every expression is evaluated a second time to explain it, and the trace contains values read from the admitted resource (no values are logged for Secrets).")
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations (number of seconds, integer).")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
@@ -373,6 +373,7 @@ func main() {
 	flagset.BoolVar(&excludeBootstrapResources, "excludeBootstrapResources", false, "Set this flag to 'true' to exclude cluster bootstrap resources (Node, CertificateSigningRequest) from Fail resource webhooks, avoiding a webhook deadlock when the cluster restarts with no Kyverno pods running. Policies targeting these resources are not enforced while this is enabled.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
+	flagset.Func(toggle.ProtectGenerationLabelsFlagName, toggle.ProtectGenerationLabelsDescription, toggle.ProtectGenerationLabels.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
 	flagset.Func(toggle.GenerateMutatingAdmissionPolicyFlagName, toggle.GenerateMutatingAdmissionPolicyDescription, toggle.GenerateMutatingAdmissionPolicy.Parse)
@@ -682,8 +683,8 @@ func main() {
 			// without the exception, and never gets retried.
 			celExceptionLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), internal.ExceptionNamespace())
 			// create compiler
-			// with --enableDecisionTraces the policies are compiled for tracing, and the vpol and mpol
-			// handlers log the trace of every decision
+			// with --enableDecisionTraces the policies are compiled for tracing, and the vpol, mpol and
+			// ivpol handlers log the trace of every decision
 			compiler := vpolcompiler.NewCompilerWithTrace(enableDecisionTraces)
 			// create vpolProvider
 			vpolProvider, err := vpolengine.NewKubeProvider(
@@ -696,7 +697,7 @@ func main() {
 				setup.Logger.Error(err, "failed to create vpol provider")
 				os.Exit(1)
 			}
-			ivpolProvider, err := ivpolengine.NewKubeProvider(iveval.NewCompiler(setup.RegistrySecretLister), mgr, celExceptionLister, internal.PolicyExceptionEnabled())
+			ivpolProvider, err := ivpolengine.NewKubeProvider(iveval.NewCompilerWithTrace(setup.RegistrySecretLister, enableDecisionTraces), mgr, celExceptionLister, internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create ivpol provider")
 				os.Exit(1)
@@ -721,6 +722,22 @@ func main() {
 			if !mgr.GetCache().WaitForCacheSync(ctx) {
 				defer cancel()
 				setup.Logger.Error(err, "failed to create policy provider")
+				os.Exit(1)
+			}
+			// Compile all pre-existing CEL policies before the webhook server starts serving.
+			// WaitForCacheSync only guarantees the raw objects are in the cache, not that the
+			// reconcile workqueues have compiled them, so without this admission requests
+			// arriving right after startup would not be checked against these policies.
+			if err := vpolProvider.WarmUp(ctx); err != nil {
+				setup.Logger.Error(err, "failed to warm up vpol provider")
+				os.Exit(1)
+			}
+			if err := ivpolProvider.WarmUp(ctx); err != nil {
+				setup.Logger.Error(err, "failed to warm up ivpol provider")
+				os.Exit(1)
+			}
+			if err := mpolProvider.WarmUp(ctx); err != nil {
+				setup.Logger.Error(err, "failed to warm up mpol provider")
 				os.Exit(1)
 			}
 			vpolEngine = vpolengine.NewMetricWrapper(vpolengine.NewEngine(

@@ -22,6 +22,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+var apiConfig = APICallConfiguration{
+	maxAPICallResponseLength: 1 * 1000 * 1000,
+}
+
+type mockClient struct{}
+
+func (c *mockClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
+	return []byte("{}"), nil
+}
+
 type mockClientWithError struct {
 	err error
 }

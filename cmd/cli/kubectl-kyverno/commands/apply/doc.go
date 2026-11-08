@@ -8,6 +8,18 @@ var description = []string{
 
 var examples = [][]string{
 	{
+		"# Display evaluation results as a table",
+		"kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-format table",
+	},
+	{
+		"# Save mutated/generated resources to a directory",
+		"kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-dir /path/to/results/",
+	},
+	{
+		"# Save mutated/generated resources to a file",
+		"kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-file /path/to/results.yaml",
+	},
+	{
 		"# Apply on a resource",
 		"kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2",
 	},

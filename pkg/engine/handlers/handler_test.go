@@ -3,7 +3,6 @@ package handlers
 import (
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -21,11 +20,9 @@ func TestWithResponses_EmptyInput(t *testing.T) {
 }
 
 func TestWithResponses_MixedInput(t *testing.T) {
-	rule := kyvernov1.Rule{
-		Name: "test-rule",
-	}
+	ruleName := "test-rule"
 
-	ruleResponse := engineapi.RulePass(rule.Name, engineapi.Validation, "test", rule.ReportProperties)
+	ruleResponse := engineapi.RulePass(ruleName, engineapi.Validation, "test", nil)
 
 	responses := WithResponses(nil, ruleResponse, nil)
 
@@ -33,11 +30,8 @@ func TestWithResponses_MixedInput(t *testing.T) {
 }
 
 func TestWithResponses_MultipleResponses(t *testing.T) {
-	rule1 := kyvernov1.Rule{Name: "rule-1"}
-	rule2 := kyvernov1.Rule{Name: "rule-2"}
-
-	resp1 := engineapi.RulePass(rule1.Name, engineapi.Validation, "pass", rule1.ReportProperties)
-	resp2 := engineapi.RuleFail(rule2.Name, engineapi.Validation, "fail", rule2.ReportProperties)
+	resp1 := engineapi.RulePass("rule-1", engineapi.Validation, "pass", nil)
+	resp2 := engineapi.RuleFail("rule-2", engineapi.Validation, "fail", nil)
 
 	responses := WithResponses(resp1, resp2)
 

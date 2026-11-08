@@ -40,7 +40,6 @@ type MetricsConfig struct {
 	kyvernoInfoMetric    metric.Int64Gauge
 	breakerMetrics       *breakerMetrics
 	controllerMetrics    *controllerMetrics
-	cleanupMetrics       *cleanupMetrics
 	deletingMetrics      *deletingMetrics
 	updateRequestMetrics *updateRequestMetrics
 	ttlInfoMetrics       *ttlInfoMetrics
@@ -53,6 +52,7 @@ type MetricsConfig struct {
 	ivpolMetrics         *imageValidatingMetrics
 	mpolMetrics          *mutatingMetrics
 	gpolMetrics          *generatingMetrics
+	globalContextMetrics *globalContextMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -64,7 +64,6 @@ type MetricsConfigManager interface {
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 	BreakerMetrics() BreakerMetrics
 	ControllerMetrics() ControllerMetrics
-	CleanupMetrics() CleanupMetrics
 	DeletingMetrics() DeletingMetrics
 	UpdateRequestMetrics() UpdateRequestMetrics
 	TTLInfoMetrics() TTLInfoMetrics
@@ -77,6 +76,7 @@ type MetricsConfigManager interface {
 	IVPOLMetrics() ImageValidatingMetrics
 	MPOLMetrics() MutatingMetrics
 	GPOLMetrics() GeneratingMetrics
+	GlobalContextMetrics() GlobalContextMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
@@ -89,10 +89,6 @@ func (m *MetricsConfig) BreakerMetrics() BreakerMetrics {
 
 func (m *MetricsConfig) ControllerMetrics() ControllerMetrics {
 	return m.controllerMetrics
-}
-
-func (m *MetricsConfig) CleanupMetrics() CleanupMetrics {
-	return m.cleanupMetrics
 }
 
 func (m *MetricsConfig) DeletingMetrics() DeletingMetrics {
@@ -143,6 +139,10 @@ func (m *MetricsConfig) GPOLMetrics() GeneratingMetrics {
 	return m.gpolMetrics
 }
 
+func (m *MetricsConfig) GlobalContextMetrics() GlobalContextMetrics {
+	return m.globalContextMetrics
+}
+
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
@@ -165,7 +165,6 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 
 	m.breakerMetrics.init(meter)
 	m.controllerMetrics.init(meter)
-	m.cleanupMetrics.init(meter)
 	m.deletingMetrics.init(meter)
 	m.updateRequestMetrics.init(meter)
 	m.ttlInfoMetrics.init(meter)
@@ -178,6 +177,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.ivpolMetrics.init(meter)
 	m.mpolMetrics.init(meter)
 	m.gpolMetrics.init(meter)
+	m.globalContextMetrics.init(meter)
 
 	initKyvernoInfoMetric(m)
 	return nil
@@ -316,7 +316,6 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		config:               metricsConfiguration,
 		breakerMetrics:       &breakerMetrics{logger: logger.WithName("circuit-breaker")},
 		controllerMetrics:    &controllerMetrics{logger: logger.WithName("controller")},
-		cleanupMetrics:       &cleanupMetrics{logger: logger.WithName("cleanup")},
 		deletingMetrics:      &deletingMetrics{logger: logger.WithName("deleting")},
 		updateRequestMetrics: &updateRequestMetrics{logger: logger.WithName("updaterequest")},
 		ttlInfoMetrics:       &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
@@ -329,6 +328,7 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		ivpolMetrics:         &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
 		mpolMetrics:          &mutatingMetrics{logger: logger.WithName("mutating-policy")},
 		gpolMetrics:          &generatingMetrics{logger: logger.WithName("generating-policy")},
+		globalContextMetrics: &globalContextMetrics{logger: logger.WithName("global-context")},
 	}
 
 	return config

@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -20,6 +19,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	metafake "k8s.io/client-go/metadata/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -202,7 +202,7 @@ func TestBackReconcile_WithEphemeralReport_StillWrites(t *testing.T) {
 // sweeps only on (true, nil); a non-nil error must close the gate, not open it.
 // In-package because legacyPoliciesPresent is unexported.
 func TestLegacyPoliciesPresent(t *testing.T) {
-	legacyGVR := kyvernov1.SchemeGroupVersion.WithResource("clusterpolicies")
+	legacyGVR := schema.GroupVersionResource{Group: "kyverno.io", Version: "v1", Resource: "clusterpolicies"}
 	cpol := &metav1.PartialObjectMetadata{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "kyverno.io/v1", Kind: "ClusterPolicy"},
 		ObjectMeta: metav1.ObjectMeta{Name: "require-labels"},

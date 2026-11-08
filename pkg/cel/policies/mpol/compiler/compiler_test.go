@@ -3,12 +3,61 @@ package compiler
 import (
 	"testing"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 )
+
+type policyWithoutSpec struct {
+	v1beta1.MutatingPolicyLike
+}
+
+func (policyWithoutSpec) GetSpec() *v1beta1.MutatingPolicySpec { return nil }
+
+func TestCompileMissingPolicy(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name   string
+		policy v1beta1.MutatingPolicyLike
+	}{
+		{"nil", nil},
+		{"typed nil", (*v1beta1.MutatingPolicy)(nil)},
+		{"namespaced typed nil", (*v1beta1.NamespacedMutatingPolicy)(nil)},
+		{"missing spec", policyWithoutSpec{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			compiled, errs := NewCompiler().Compile(tc.policy, nil)
+			assert.Nil(t, compiled)
+			if assert.Len(t, errs, 1) {
+				assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+			}
+		})
+	}
+}
+
+func TestCompileJSONApplyConfigurationIsUnsupported(t *testing.T) {
+	policy := &v1beta1.MutatingPolicy{
+		Spec: v1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{}`,
+				},
+			}},
+		},
+	}
+	compiled, errs := NewCompiler().Compile(policy, nil)
+	assert.Nil(t, compiled)
+	if assert.NotEmpty(t, errs) {
+		assert.Contains(t, errs[0].Error(), "ApplyConfiguration mutations are not supported in JSON mode")
+	}
+}
 
 func TestCompile(t *testing.T) {
 	tests := []struct {

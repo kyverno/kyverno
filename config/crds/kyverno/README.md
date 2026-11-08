@@ -15,6 +15,17 @@ Snapshot baseline: commit `22a7827fe` (upstream/main, 2026-10-23). Generator:
 own version annotation only; it isn't the generator version and wasn't
 touched for this snapshot.
 
+Compatibility correction: the ClusterPolicy and Policy snapshots also retain
+`imageExtractors[].filter` from published chart **3.9.2** (Kyverno **1.19.2**).
+That optional string field was added on `release-1.19` by `4981845218`
+(#16269), but was absent from the main-branch snapshot. Its definition is
+retained in both `v1` and `v2beta1`, under both `spec.rules` and
+`status.autogen.rules`; all other schema fields and versions are unchanged.
+The corresponding frozen-file digests include this deliberate correction.
+The migration test continues to select the latest published `3.9` chart
+and compare complete schemas, rather than pinning an older baseline that
+would conceal pruning of a released field.
+
 ## Classification
 
 | File | Status | Versions | Refreshed by |

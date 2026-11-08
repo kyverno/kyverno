@@ -382,6 +382,57 @@ func TestHandle_ExtractionMode_MapKeyedTemplatesReportFirstSortedPath(t *testing
 	}
 }
 
+func TestHandle_ExtractionMode_TemplateNamespaceDoesNotEscapeMatchConditions(t *testing.T) {
+	for _, expression := range []string{
+		"object.metadata.namespace != 'kube-system'",
+		"request.namespace != 'kube-system'",
+	} {
+		t.Run(expression, func(t *testing.T) {
+			policy := buildDisallowLatestTagPolicy()
+			policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{
+				{Name: "skip-system-namespaces", Expression: expression},
+			}
+			provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+			require.NoError(t, err)
+			eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+			// the JobSet lives in default, so its pods are created in default no
+			// matter which namespace its pod template claims
+			jobSet := jobSetWithImage("nginx:latest")
+			replicatedJob := jobSet.Object["spec"].(map[string]any)["replicatedJobs"].([]any)[0].(map[string]any)
+			podTemplate := replicatedJob["template"].(map[string]any)["spec"].(map[string]any)["template"].(map[string]any)
+			podTemplate["metadata"] = map[string]any{"namespace": "kube-system"}
+
+			req := celengine.Request(
+				nil,
+				schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+				schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+				"",
+				"latest-tag-jobset",
+				"default",
+				admissionv1.Create,
+				authenticationv1.UserInfo{},
+				jobSet,
+				nil,
+				false,
+				nil,
+			)
+			resp, err := eng.Handle(context.Background(), req, nil)
+			require.NoError(t, err)
+			var fired []celengine.ValidatingPolicyResponse
+			for _, p := range resp.Policies {
+				if len(p.Rules) > 0 {
+					fired = append(fired, p)
+				}
+			}
+			require.Len(t, fired, 1)
+			require.Len(t, fired[0].Rules, 1)
+			rule := fired[0].Rules[0]
+			require.Equal(t, engineapi.RuleStatusFail, rule.Status(), "message: %s", rule.Message())
+		})
+	}
+}
+
 func TestWithValidationIndex(t *testing.T) {
 	t.Run("nil props", func(t *testing.T) {
 		out := withValidationIndex(nil, 3)
@@ -974,4 +1025,35 @@ func TestHandle_ExtractionMode_MultiTemplateTraceSelection(t *testing.T) {
 			assert.True(t, sawImage, "the reported trace should come from the template running %s", tt.wantImage)
 		})
 	}
+}
+
+func TestHandle_JsonPayload_PredicateFilter(t *testing.T) {
+	policy1 := buildJSONPolicy("policy-1", nil)
+	policy2 := buildJSONPolicy("policy-2", nil)
+
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy1, policy2}, nil)
+	require.NoError(t, err)
+	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+	jsonPayload := &unstructured.Unstructured{
+		Object: map[string]any{
+			"message": "hello",
+		},
+	}
+	req := celengine.RequestFromJSON(nil, jsonPayload)
+
+	t.Run("predicate filters policy", func(t *testing.T) {
+		resp, err := eng.Handle(context.Background(), req, func(p policiesv1beta1.ValidatingPolicyLike) bool {
+			return p.GetName() == "policy-1"
+		})
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, 1)
+		assert.Equal(t, "policy-1", resp.Policies[0].Policy.GetName())
+	})
+
+	t.Run("nil predicate evaluates all policies", func(t *testing.T) {
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, 2)
+	})
 }

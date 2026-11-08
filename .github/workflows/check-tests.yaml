@@ -81,6 +81,9 @@ jobs:
     name: K6 tests
     needs:
       - images
+    permissions:
+      contents: read
+      actions: read
     uses: ./.github/workflows/tests-k6.yaml
 
   perf:

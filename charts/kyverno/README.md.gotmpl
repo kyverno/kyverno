@@ -245,11 +245,11 @@ Starting with 1.20, Kyverno no longer enforces legacy `kyverno.io` policy resour
 `PolicyException`). Kyverno still admits their CRDs, so you can read, list, export, and delete
 existing objects, but Kyverno no longer runs the rules they contain, and it denies every create
 and almost every update against these kinds so the cluster's inventory of them cannot grow. See
-[Legacy policy write denial](#legacy-policy-write-denial) below for the exact rules. A later 1.20
-release removes the Go packages that implemented these types; anything that imports
-`github.com/kyverno/kyverno/api/kyverno/v1` or `v2` for `ClusterPolicy`, `Policy`,
-`CleanupPolicy`, `ClusterCleanupPolicy`, or the legacy `PolicyException` loses those imports at
-that point. Migrate to the `policies.kyverno.io` policy types; see the [migration
+[Legacy policy write denial](#legacy-policy-write-denial) below for the exact rules. 1.20 also
+removes the Go packages that implemented these types (`api/kyverno/v1`, `api/kyverno/v1beta1`, and
+the legacy `CleanupPolicy`/`ClusterCleanupPolicy`/`PolicyException` roots); see [Removed legacy Go
+API](https://github.com/kyverno/kyverno/blob/main/docs/dev/api/removed-legacy-go-api.md) for the
+removed imports and their replacements. Migrate to the `policies.kyverno.io` policy types; see the [migration
 guide](https://kyverno.io/docs/guides/migration-to-cel/).
 
 Installing or upgrading this chart is blocked by default while legacy `kyverno.io` policy
