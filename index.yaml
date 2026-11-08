@@ -24,8 +24,78 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "true"
     apiVersion: v2
+    appVersion: v1.20.0-rc.3
+    created: "2026-11-08T15:06:15.346217623Z"
+    dependencies:
+    - condition: grafana.enabled
+      name: grafana
+      repository: ""
+      version: 3.10.0-rc.3
+    - condition: crds.install
+      name: crds
+      repository: ""
+      version: 3.10.0-rc.3
+    - condition: crds.install
+      name: kyverno-api
+      repository: https://kyverno.github.io/api
+      version: 0.0.1-alpha.5
+    - condition: openreports.installCrds
+      name: openreports
+      repository: https://openreports.github.io/reports-api
+      version: 0.1.0
+    - condition: reportsServer.enabled
+      name: reports-server
+      repository: https://kyverno.github.io/reports-server/
+      version: 0.1.7
+    description: Kubernetes Native Policy Management
+    digest: 401b305113fbee5d537d2a1234f7e506479cc9c2d9cacb87afbdd7135016c64c
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - policy agent
+    - policy
+    - validating webhook
+    - admission controller
+    - mutation
+    - mutate
+    - validate
+    - generate
+    - supply chain
+    - security
+    kubeVersion: '>=1.25.0-0'
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-3.10.0-rc.3.tgz
+    version: 3.10.0-rc.3
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: fixed
+          description: Grant the background controller every permission the chart aggregates into the admin and view roles, so generate rules can create RoleBindings to admin again.
+        - kind: fixed
+          description: Bump bundled reports-server dependency to v0.1.7 to fix APIServices being de-registered on pod termination when another replica is still ready.
+        - kind: fixed
+          description: Ensure spec.template.metadata isn't null
+        - kind: removed
+          description: Remove the `delete` permission for policyexceptions in the admission controller
+        - kind: changed
+          description: Enable the flag `--generateValidatingAdmissionPolicy` by default in the admission controller.
+        - kind: changed
+          description: Enable the flag `--validatingAdmissionPolicyReports` by default in the reports controller.
+        - kind: added
+          description: Add support for configuring container lifecycle hooks (e.g. a preStop sleep) on the admission, background, cleanup and reports controllers.
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "true"
+    apiVersion: v2
     appVersion: v1.20.0-rc.2
-    created: "2026-11-06T11:15:07.742080354Z"
+    created: "2026-11-08T15:06:15.320063057Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -95,7 +165,7 @@ entries:
       artifacthub.io/prerelease: "true"
     apiVersion: v2
     appVersion: v1.20.0-rc.1
-    created: "2026-11-06T11:15:07.711345782Z"
+    created: "2026-11-08T15:06:15.294088188Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -161,7 +231,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.2
-    created: "2026-11-06T11:15:09.836779196Z"
+    created: "2026-11-08T15:06:16.942858285Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -227,7 +297,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.2-rc.5
-    created: "2026-11-06T11:15:09.804395403Z"
+    created: "2026-11-08T15:06:16.917784293Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -293,7 +363,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.1
-    created: "2026-11-06T11:15:09.767577194Z"
+    created: "2026-11-08T15:06:16.89214369Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -359,7 +429,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.0
-    created: "2026-11-06T11:15:09.733385053Z"
+    created: "2026-11-08T15:06:16.863076194Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -425,7 +495,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.0-rc.4
-    created: "2026-11-06T11:15:09.703568895Z"
+    created: "2026-11-08T15:06:16.835762742Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -491,7 +561,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.0-rc.3
-    created: "2026-11-06T11:15:09.672349332Z"
+    created: "2026-11-08T15:06:16.809103426Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -557,7 +627,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.0-rc.2
-    created: "2026-11-06T11:15:09.645262348Z"
+    created: "2026-11-08T15:06:16.785800374Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -621,7 +691,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.0-rc.1
-    created: "2026-11-06T11:15:09.60909235Z"
+    created: "2026-11-08T15:06:16.762157232Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -684,7 +754,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.2
-    created: "2026-11-06T11:15:09.573052743Z"
+    created: "2026-11-08T15:06:16.738520005Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -747,7 +817,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.2-rc.2
-    created: "2026-11-06T11:15:09.533718093Z"
+    created: "2026-11-08T15:06:16.714033811Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -810,7 +880,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.1
-    created: "2026-11-06T11:15:09.499399499Z"
+    created: "2026-11-08T15:06:16.690735968Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -873,7 +943,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.1-rc.2
-    created: "2026-11-06T11:15:09.471318922Z"
+    created: "2026-11-08T15:06:16.667751089Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -936,7 +1006,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.1-rc.1
-    created: "2026-11-06T11:15:09.435391002Z"
+    created: "2026-11-08T15:06:16.645376862Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -999,7 +1069,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.0
-    created: "2026-11-06T11:15:09.40261263Z"
+    created: "2026-11-08T15:06:16.619349482Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1062,7 +1132,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.0-rc.1
-    created: "2026-11-06T11:15:09.371551442Z"
+    created: "2026-11-08T15:06:16.595402146Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1125,7 +1195,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.2
-    created: "2026-11-06T11:15:09.333603104Z"
+    created: "2026-11-08T15:06:16.569956889Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1188,7 +1258,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.2-rc.1
-    created: "2026-11-06T11:15:09.297828068Z"
+    created: "2026-11-08T15:06:16.54646065Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1251,7 +1321,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.1
-    created: "2026-11-06T11:15:09.264271416Z"
+    created: "2026-11-08T15:06:16.519463221Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1314,7 +1384,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.1-rc.1
-    created: "2026-11-06T11:15:09.236204877Z"
+    created: "2026-11-08T15:06:16.497366764Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1377,7 +1447,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.0
-    created: "2026-11-06T11:15:09.20485319Z"
+    created: "2026-11-08T15:06:16.475197625Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1444,7 +1514,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.0-rc.3
-    created: "2026-11-06T11:15:09.17101219Z"
+    created: "2026-11-08T15:06:16.4535491Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1511,7 +1581,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.0-rc.2
-    created: "2026-11-06T11:15:09.141425349Z"
+    created: "2026-11-08T15:06:16.429971239Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1578,7 +1648,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.0-rc.1
-    created: "2026-11-06T11:15:09.10630578Z"
+    created: "2026-11-08T15:06:16.407100886Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1645,7 +1715,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.4
-    created: "2026-11-06T11:15:09.071529295Z"
+    created: "2026-11-08T15:06:16.381672797Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1704,7 +1774,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.4-rc.1
-    created: "2026-11-06T11:15:09.046092503Z"
+    created: "2026-11-08T15:06:16.365938234Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1763,7 +1833,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.3
-    created: "2026-11-06T11:15:09.02239424Z"
+    created: "2026-11-08T15:06:16.351306213Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1822,7 +1892,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.3-rc.1
-    created: "2026-11-06T11:15:09.005017643Z"
+    created: "2026-11-08T15:06:16.336354444Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1881,7 +1951,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.2
-    created: "2026-11-06T11:15:08.976418977Z"
+    created: "2026-11-08T15:06:16.318759591Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1940,7 +2010,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.1
-    created: "2026-11-06T11:15:08.956168296Z"
+    created: "2026-11-08T15:06:16.301327881Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -1999,7 +2069,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.1-rc.2
-    created: "2026-11-06T11:15:08.93469367Z"
+    created: "2026-11-08T15:06:16.286824239Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2058,7 +2128,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.1-rc.1
-    created: "2026-11-06T11:15:08.911703888Z"
+    created: "2026-11-08T15:06:16.27124823Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2117,7 +2187,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.0
-    created: "2026-11-06T11:15:08.888742558Z"
+    created: "2026-11-08T15:06:16.254987589Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2176,7 +2246,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: latest
-    created: "2026-11-06T11:15:08.863063838Z"
+    created: "2026-11-08T15:06:16.238733478Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2235,7 +2305,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.0-rc.1
-    created: "2026-11-06T11:15:08.844578588Z"
+    created: "2026-11-08T15:06:16.223512383Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2294,7 +2364,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.3
-    created: "2026-11-06T11:15:08.827202594Z"
+    created: "2026-11-08T15:06:16.207667934Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2353,7 +2423,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.3-rc.1
-    created: "2026-11-06T11:15:08.811553903Z"
+    created: "2026-11-08T15:06:16.195882937Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2412,7 +2482,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.2
-    created: "2026-11-06T11:15:08.795891229Z"
+    created: "2026-11-08T15:06:16.179887406Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2471,7 +2541,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.2-rc.1
-    created: "2026-11-06T11:15:08.776276261Z"
+    created: "2026-11-08T15:06:16.167345535Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2530,7 +2600,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.1
-    created: "2026-11-06T11:15:08.755760352Z"
+    created: "2026-11-08T15:06:16.152534243Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2589,7 +2659,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.1-rc.3
-    created: "2026-11-06T11:15:08.733776146Z"
+    created: "2026-11-08T15:06:16.13677768Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2648,7 +2718,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.1-rc.2
-    created: "2026-11-06T11:15:08.712353272Z"
+    created: "2026-11-08T15:06:16.122945415Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2707,7 +2777,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.1-rc.1
-    created: "2026-11-06T11:15:08.691798259Z"
+    created: "2026-11-08T15:06:16.109953975Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2766,7 +2836,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.0
-    created: "2026-11-06T11:15:08.668963537Z"
+    created: "2026-11-08T15:06:16.096735613Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2821,7 +2891,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.5
-    created: "2026-11-06T11:15:08.647496223Z"
+    created: "2026-11-08T15:06:16.082069285Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2872,7 +2942,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.5
-    created: "2026-11-06T11:15:08.633293054Z"
+    created: "2026-11-08T15:06:16.068106003Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2923,7 +2993,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.4
-    created: "2026-11-06T11:15:08.616677094Z"
+    created: "2026-11-08T15:06:16.054990661Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -2974,7 +3044,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.3
-    created: "2026-11-06T11:15:08.596735038Z"
+    created: "2026-11-08T15:06:16.042988899Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3025,7 +3095,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.2
-    created: "2026-11-06T11:15:08.578389826Z"
+    created: "2026-11-08T15:06:16.030698021Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3076,7 +3146,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.2-rc.1
-    created: "2026-11-06T11:15:08.558762963Z"
+    created: "2026-11-08T15:06:16.017216889Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3125,7 +3195,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.1
-    created: "2026-11-06T11:15:08.541464025Z"
+    created: "2026-11-08T15:06:16.003394785Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3174,7 +3244,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.0
-    created: "2026-11-06T11:15:08.524068783Z"
+    created: "2026-11-08T15:06:15.988039287Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3223,7 +3293,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.0-rc.1
-    created: "2026-11-06T11:15:08.497769063Z"
+    created: "2026-11-08T15:06:15.975196902Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3272,7 +3342,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.0-alpha.1
-    created: "2026-11-06T11:15:08.479641234Z"
+    created: "2026-11-08T15:06:15.960765537Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3321,7 +3391,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.6
-    created: "2026-11-06T11:15:08.459386475Z"
+    created: "2026-11-08T15:06:15.947444557Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3370,7 +3440,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.5
-    created: "2026-11-06T11:15:08.439740894Z"
+    created: "2026-11-08T15:06:15.934461329Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3419,7 +3489,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.4
-    created: "2026-11-06T11:15:08.416317568Z"
+    created: "2026-11-08T15:06:15.920612704Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3472,7 +3542,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.4
-    created: "2026-11-06T11:15:08.396503299Z"
+    created: "2026-11-08T15:06:15.909471792Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3525,7 +3595,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.3
-    created: "2026-11-06T11:15:08.378361785Z"
+    created: "2026-11-08T15:06:15.897390608Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3576,7 +3646,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.2
-    created: "2026-11-06T11:15:08.362179474Z"
+    created: "2026-11-08T15:06:15.884688194Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3627,7 +3697,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.2-rc.1
-    created: "2026-11-06T11:15:08.349005418Z"
+    created: "2026-11-08T15:06:15.871372136Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3678,7 +3748,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.1
-    created: "2026-11-06T11:15:08.330292126Z"
+    created: "2026-11-08T15:06:15.859952394Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3729,7 +3799,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.1-rc.1
-    created: "2026-11-06T11:15:08.315038839Z"
+    created: "2026-11-08T15:06:15.847318952Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3778,7 +3848,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.0
-    created: "2026-11-06T11:15:08.300362717Z"
+    created: "2026-11-08T15:06:15.834577752Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3827,7 +3897,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.0
-    created: "2026-11-06T11:15:08.284755744Z"
+    created: "2026-11-08T15:06:15.821246446Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3884,7 +3954,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.0
-    created: "2026-11-06T11:15:08.270296415Z"
+    created: "2026-11-08T15:06:15.809431203Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3941,7 +4011,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.0-rc.3
-    created: "2026-11-06T11:15:08.255868161Z"
+    created: "2026-11-08T15:06:15.796605434Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -3998,7 +4068,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.0-rc.2
-    created: "2026-11-06T11:15:08.241201505Z"
+    created: "2026-11-08T15:06:15.784262074Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4055,7 +4125,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.0-rc.1
-    created: "2026-11-06T11:15:08.226343033Z"
+    created: "2026-11-08T15:06:15.768809165Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4110,7 +4180,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.0-beta.1
-    created: "2026-11-06T11:15:08.211826456Z"
+    created: "2026-11-08T15:06:15.756862359Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4159,7 +4229,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.6
-    created: "2026-11-06T11:15:08.197064071Z"
+    created: "2026-11-08T15:06:15.741751504Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4210,7 +4280,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.6
-    created: "2026-11-06T11:15:08.183413247Z"
+    created: "2026-11-08T15:06:15.729585183Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4261,7 +4331,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.6-rc.3
-    created: "2026-11-06T11:15:08.169413692Z"
+    created: "2026-11-08T15:06:15.717361884Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4312,7 +4382,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.6-rc.2
-    created: "2026-11-06T11:15:08.154699144Z"
+    created: "2026-11-08T15:06:15.704954155Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4363,7 +4433,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.6-rc.1
-    created: "2026-11-06T11:15:08.140969981Z"
+    created: "2026-11-08T15:06:15.692371095Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4414,7 +4484,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.5
-    created: "2026-11-06T11:15:08.127190218Z"
+    created: "2026-11-08T15:06:15.678960998Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4465,7 +4535,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.5-rc.2
-    created: "2026-11-06T11:15:08.113053134Z"
+    created: "2026-11-08T15:06:15.665149455Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4516,7 +4586,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.5-rc.1
-    created: "2026-11-06T11:15:08.09886547Z"
+    created: "2026-11-08T15:06:15.652733398Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4565,7 +4635,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.4
-    created: "2026-11-06T11:15:08.083801536Z"
+    created: "2026-11-08T15:06:15.637299349Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4614,7 +4684,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.4-rc.2
-    created: "2026-11-06T11:15:08.068962751Z"
+    created: "2026-11-08T15:06:15.625572427Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4663,7 +4733,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.4-rc.1
-    created: "2026-11-06T11:15:08.054518205Z"
+    created: "2026-11-08T15:06:15.613468913Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4712,7 +4782,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.3
-    created: "2026-11-06T11:15:08.040660078Z"
+    created: "2026-11-08T15:06:15.598757736Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4761,7 +4831,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.3-rc.1
-    created: "2026-11-06T11:15:08.02359904Z"
+    created: "2026-11-08T15:06:15.586753591Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4810,7 +4880,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.2
-    created: "2026-11-06T11:15:08.009258811Z"
+    created: "2026-11-08T15:06:15.574341795Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4859,7 +4929,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.2-rc.3
-    created: "2026-11-06T11:15:07.99538283Z"
+    created: "2026-11-08T15:06:15.562515409Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4908,7 +4978,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.2-rc.2
-    created: "2026-11-06T11:15:07.980901929Z"
+    created: "2026-11-08T15:06:15.549902349Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -4957,7 +5027,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.2-rc.1
-    created: "2026-11-06T11:15:07.966192466Z"
+    created: "2026-11-08T15:06:15.53655991Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5006,7 +5076,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.1
-    created: "2026-11-06T11:15:07.952406614Z"
+    created: "2026-11-08T15:06:15.525072163Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5063,7 +5133,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.1
-    created: "2026-11-06T11:15:07.937907299Z"
+    created: "2026-11-08T15:06:15.513454199Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5118,7 +5188,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.1-rc.1
-    created: "2026-11-06T11:15:07.922529842Z"
+    created: "2026-11-08T15:06:15.500448917Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5173,7 +5243,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0
-    created: "2026-11-06T11:15:07.907442285Z"
+    created: "2026-11-08T15:06:15.488275936Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5228,7 +5298,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-rc.5
-    created: "2026-11-06T11:15:07.89300891Z"
+    created: "2026-11-08T15:06:15.47397989Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5283,7 +5353,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-rc.4
-    created: "2026-11-06T11:15:07.877739018Z"
+    created: "2026-11-08T15:06:15.461424863Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5338,7 +5408,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-rc.3
-    created: "2026-11-06T11:15:07.863640163Z"
+    created: "2026-11-08T15:06:15.446562041Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5393,7 +5463,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-rc.2
-    created: "2026-11-06T11:15:07.848670137Z"
+    created: "2026-11-08T15:06:15.434190198Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5448,7 +5518,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.5
-    created: "2026-11-06T11:15:07.832080041Z"
+    created: "2026-11-08T15:06:15.4207698Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5503,7 +5573,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.4
-    created: "2026-11-06T11:15:07.817457364Z"
+    created: "2026-11-08T15:06:15.408628623Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5558,7 +5628,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.3
-    created: "2026-11-06T11:15:07.80074217Z"
+    created: "2026-11-08T15:06:15.396574805Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5613,7 +5683,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.2
-    created: "2026-11-06T11:15:07.785844174Z"
+    created: "2026-11-08T15:06:15.384160366Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5668,7 +5738,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.1
-    created: "2026-11-06T11:15:07.771856528Z"
+    created: "2026-11-08T15:06:15.36977054Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5723,7 +5793,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.0
-    created: "2026-11-06T11:15:07.755995425Z"
+    created: "2026-11-08T15:06:15.357920003Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5769,7 +5839,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.5
-    created: "2026-11-06T11:15:07.682877392Z"
+    created: "2026-11-08T15:06:15.270093047Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5815,7 +5885,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.4
-    created: "2026-11-06T11:15:07.672154407Z"
+    created: "2026-11-08T15:06:15.261121738Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5861,7 +5931,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.3
-    created: "2026-11-06T11:15:07.659164078Z"
+    created: "2026-11-08T15:06:15.251690918Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -5958,7 +6028,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.2
-    created: "2026-11-06T11:15:07.646971092Z"
+    created: "2026-11-08T15:06:15.242399553Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -6051,7 +6121,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.2-rc.1
-    created: "2026-11-06T11:15:07.635377439Z"
+    created: "2026-11-08T15:06:15.2331671Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -6140,7 +6210,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.1
-    created: "2026-11-06T11:15:07.624125923Z"
+    created: "2026-11-08T15:06:15.223782231Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -6231,7 +6301,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0
-    created: "2026-11-06T11:15:07.612660034Z"
+    created: "2026-11-08T15:06:15.214251737Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -6322,7 +6392,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.8
-    created: "2026-11-06T11:15:07.601330863Z"
+    created: "2026-11-08T15:06:15.205033561Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -6413,7 +6483,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.7
-    created: "2026-11-06T11:15:07.589831601Z"
+    created: "2026-11-08T15:06:15.196127697Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -6504,7 +6574,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.6
-    created: "2026-11-06T11:15:07.578065188Z"
+    created: "2026-11-08T15:06:15.186767266Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -6595,7 +6665,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.5
-    created: "2026-11-06T11:15:07.566107792Z"
+    created: "2026-11-08T15:06:15.177532589Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -6686,7 +6756,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.4
-    created: "2026-11-06T11:15:07.553895768Z"
+    created: "2026-11-08T15:06:15.168497531Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -6777,7 +6847,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.3
-    created: "2026-11-06T11:15:07.542423409Z"
+    created: "2026-11-08T15:06:15.159568982Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -6861,7 +6931,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.2
-    created: "2026-11-06T11:15:07.531330394Z"
+    created: "2026-11-08T15:06:15.150273341Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -6945,7 +7015,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.1
-    created: "2026-11-06T11:15:07.519870218Z"
+    created: "2026-11-08T15:06:15.141335268Z"
     dependencies:
     - condition: grafana.enabled
       name: grafana
@@ -7029,7 +7099,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-beta.4
-    created: "2026-11-06T11:15:07.508158097Z"
+    created: "2026-11-08T15:06:15.126428102Z"
     description: Kubernetes Native Policy Management
     digest: aa7bc89b312ae1d58dc813c97690536477a254d384da9af89fa72c993d854527
     home: https://kyverno.io/
@@ -7104,7 +7174,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-beta.3
-    created: "2026-11-06T11:15:07.497332509Z"
+    created: "2026-11-08T15:06:15.117760927Z"
     description: Kubernetes Native Policy Management
     digest: 442174793309bee3f9cc53851acfbd22adc879c9cfd355a077ef206b4110ec76
     home: https://kyverno.io/
@@ -7179,7 +7249,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-beta.2
-    created: "2026-11-06T11:15:07.486666156Z"
+    created: "2026-11-08T15:06:15.108215265Z"
     description: Kubernetes Native Policy Management
     digest: 7d1f7819859382e7bfa787031c1813ba4a8e916548cc50f6308cd5e925369d96
     home: https://kyverno.io/
@@ -7254,7 +7324,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-beta.1
-    created: "2026-11-06T11:15:07.475464989Z"
+    created: "2026-11-08T15:06:15.098400181Z"
     description: Kubernetes Native Policy Management
     digest: dd750d028aaab699e1ca97e80e65a1220f620d33363af978c6e3a61e20d07ab7
     home: https://kyverno.io/
@@ -7303,7 +7373,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.7
-    created: "2026-11-06T11:15:07.464535279Z"
+    created: "2026-11-08T15:06:15.089971575Z"
     description: Kubernetes Native Policy Management
     digest: b6a16a1b6c98a77ef8b9057c480f7858335b925aad684e51b3a7d1c2f1737610
     home: https://kyverno.io/
@@ -7352,7 +7422,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.6
-    created: "2026-11-06T11:15:07.455717216Z"
+    created: "2026-11-08T15:06:15.082731815Z"
     description: Kubernetes Native Policy Management
     digest: 2524edc1f60e160d4644f5ace4aa0a5872b80a8d4bdc9db34a385767bdfdbad1
     home: https://kyverno.io/
@@ -7401,7 +7471,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.5
-    created: "2026-11-06T11:15:07.446790789Z"
+    created: "2026-11-08T15:06:15.075388826Z"
     description: Kubernetes Native Policy Management
     digest: a52b71d1a41d7563a20287b9e310a49d6d4ff40f1637595e20b2e6e514c7d4b3
     home: https://kyverno.io/
@@ -7450,7 +7520,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.4
-    created: "2026-11-06T11:15:07.437826795Z"
+    created: "2026-11-08T15:06:15.068196559Z"
     description: Kubernetes Native Policy Management
     digest: abafe10136227c2f02797662f0202b719992fdbd9b80c488c652a6db86a673cf
     home: https://kyverno.io/
@@ -7499,7 +7569,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.3
-    created: "2026-11-06T11:15:07.428928246Z"
+    created: "2026-11-08T15:06:15.061276314Z"
     description: Kubernetes Native Policy Management
     digest: eb8d4dd4b616a92959f516bbee4e10d2507ad35611c44ea92879ffcba4aa6ea5
     home: https://kyverno.io/
@@ -7548,7 +7618,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.2
-    created: "2026-11-06T11:15:07.420065646Z"
+    created: "2026-11-08T15:06:15.054063966Z"
     description: Kubernetes Native Policy Management
     digest: 1f476396ba36b9124d56dedfeeb8f8812cfa4a013373168764a5b8a5e44cc62f
     home: https://kyverno.io/
@@ -7595,7 +7665,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.2
-    created: "2026-11-06T11:15:07.410991111Z"
+    created: "2026-11-08T15:06:15.046873562Z"
     description: Kubernetes Native Policy Management
     digest: f102cede7fdeadd15db32bc9136debb2860d962d545aaa901957dbacc06a618b
     home: https://kyverno.io/
@@ -7632,7 +7702,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.1
-    created: "2026-11-06T11:15:07.398503956Z"
+    created: "2026-11-08T15:06:15.039652817Z"
     description: Kubernetes Native Policy Management
     digest: 3d3b14e7705f8351e05b955658842d44c010b1cbc15796c6b43d2e939278d97a
     home: https://kyverno.io/
@@ -7669,7 +7739,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.1-rc.1
-    created: "2026-11-06T11:15:07.388356686Z"
+    created: "2026-11-08T15:06:15.03251543Z"
     description: Kubernetes Native Policy Management
     digest: 2f0d73166c97ac2e213e9691f47493b045e3324b9823c64989267cac92ddd1cc
     home: https://kyverno.io/
@@ -7702,7 +7772,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.0
-    created: "2026-11-06T11:15:07.37776956Z"
+    created: "2026-11-08T15:06:15.025342619Z"
     description: Kubernetes Native Policy Management
     digest: fffcb39b4bc54e4fb8e8c90a87bc5d171bc4111e6075b9ec0bdedcccd20bf64c
     home: https://kyverno.io/
@@ -7749,7 +7819,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.0
-    created: "2026-11-06T11:15:07.366977093Z"
+    created: "2026-11-08T15:06:15.018222694Z"
     description: Kubernetes Native Policy Management
     digest: 4f27366a6b660f360fe59876f583ff9a3b5d5ddf83146a2b6af7d24cd2cb8f05
     home: https://kyverno.io/
@@ -7796,7 +7866,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.0-rc.1
-    created: "2026-11-06T11:15:07.358231928Z"
+    created: "2026-11-08T15:06:15.010969975Z"
     description: Kubernetes Native Policy Management
     digest: 71ad63a5b96254f89aa4b464ee1921e42719a9c7443cac09307ed94d701fe5ce
     home: https://kyverno.io/
@@ -7843,7 +7913,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.0-beta.1
-    created: "2026-11-06T11:15:07.349209653Z"
+    created: "2026-11-08T15:06:15.003530772Z"
     description: Kubernetes Native Policy Management
     digest: a3ed46ed3dcd50f8322f378e5acce5a412c7c7806c73cdb84134dc46b6ad6a6b
     home: https://kyverno.io/
@@ -7890,7 +7960,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.0-alpha.2
-    created: "2026-11-06T11:15:07.338051338Z"
+    created: "2026-11-08T15:06:14.99427059Z"
     description: Kubernetes Native Policy Management
     digest: cf6315c80e97d3fbc30e0cc47672c38f42b3858eb74f930b329317412b9dcc58
     home: https://kyverno.io/
@@ -7937,7 +8007,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.0-alpha.1
-    created: "2026-11-06T11:15:10.225932549Z"
+    created: "2026-11-08T15:06:17.197064116Z"
     description: Kubernetes Native Policy Management
     digest: 8a4c7d930747f725d788220b1ca583bb4bb62d3c8abe22b6a49bed722a8435e6
     home: https://kyverno.io/
@@ -7970,7 +8040,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.5
-    created: "2026-11-06T11:15:07.322537482Z"
+    created: "2026-11-08T15:06:14.985626486Z"
     description: Kubernetes Native Policy Management
     digest: 8dd81b8b993d070977322bacbda3ff811b03ea62f812bda33357551b60b9222d
     home: https://kyverno.io/
@@ -8003,7 +8073,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.4
-    created: "2026-11-06T11:15:07.315082074Z"
+    created: "2026-11-08T15:06:14.980420478Z"
     description: Kubernetes Native Policy Management
     digest: aaed9f6bbe94b193c908096f07feea01aadc6b3df59796b62e5b85f719c99c2d
     home: https://kyverno.io/
@@ -8036,7 +8106,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.3
-    created: "2026-11-06T11:15:07.307675514Z"
+    created: "2026-11-08T15:06:14.975082596Z"
     description: Kubernetes Native Policy Management
     digest: 48c998a3b36d3b9559e58abd4cdab6b54fb1a68733ec97e7d384ff9c38e2f68e
     home: https://kyverno.io/
@@ -8071,7 +8141,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.2
-    created: "2026-11-06T11:15:07.302335455Z"
+    created: "2026-11-08T15:06:14.969858301Z"
     description: Kubernetes Native Policy Management
     digest: 56c70d0483ca13570abe54068a29412811321b4ec13138e2d0b03d9ddd87db56
     home: https://kyverno.io/
@@ -8106,7 +8176,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.2-rc.1
-    created: "2026-11-06T11:15:07.296095034Z"
+    created: "2026-11-08T15:06:14.964530359Z"
     description: Kubernetes Native Policy Management
     digest: cd706ef53672c2ff4fb5fb46b0309c5ed9eefdceffed9edfaedb7f909351445a
     home: https://kyverno.io/
@@ -8141,7 +8211,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.1
-    created: "2026-11-06T11:15:07.289805082Z"
+    created: "2026-11-08T15:06:14.958987476Z"
     description: Kubernetes Native Policy Management
     digest: b97c756c56f6b3228b486543f61509b1506de4584c0af3b1cf622470c88fa3b0
     home: https://kyverno.io/
@@ -8176,7 +8246,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.1-rc.1
-    created: "2026-11-06T11:15:07.283474072Z"
+    created: "2026-11-08T15:06:14.953760415Z"
     description: Kubernetes Native Policy Management
     digest: b06ac0f42b62a9b7de0814e0ca915820b64a44f409876aff99048e72baaa4f14
     home: https://kyverno.io/
@@ -8211,7 +8281,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0
-    created: "2026-11-06T11:15:07.276746056Z"
+    created: "2026-11-08T15:06:14.948595461Z"
     description: Kubernetes Native Policy Management
     digest: 8c383033d74026ea92c5a6f250a02d293b867990cead20620751034fda5fe67a
     home: https://kyverno.io/
@@ -8246,7 +8316,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-rc.4
-    created: "2026-11-06T11:15:07.269371271Z"
+    created: "2026-11-08T15:06:14.943329831Z"
     description: Kubernetes Native Policy Management
     digest: b2b7d1270fdf07c30aa4e01cfa64f2c83e721dd9e274ffcdeaf00db8d746bbfa
     home: https://kyverno.io/
@@ -8281,7 +8351,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-rc.3
-    created: "2026-11-06T11:15:07.261213764Z"
+    created: "2026-11-08T15:06:14.938090081Z"
     description: Kubernetes Native Policy Management
     digest: d50e591911519bc7d750dc3f21e7339bd9c965b4f18d6852c4759d8ae3cecc1e
     home: https://kyverno.io/
@@ -8316,7 +8386,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-rc.2
-    created: "2026-11-06T11:15:07.255637677Z"
+    created: "2026-11-08T15:06:14.932463569Z"
     description: Kubernetes Native Policy Management
     digest: 9da2233163082430abc34c58856d6665fe10af87333e5b6acde97ee26a8fd86f
     home: https://kyverno.io/
@@ -8351,7 +8421,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-rc.1
-    created: "2026-11-06T11:15:07.249577983Z"
+    created: "2026-11-08T15:06:14.926986151Z"
     description: Kubernetes Native Policy Management
     digest: b4dcbf63ae1c18e6dc54933ecd39f0081bb0f024ed4a4d00c99dbe80cc71a036
     home: https://kyverno.io/
@@ -8386,7 +8456,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-beta.2
-    created: "2026-11-06T11:15:07.243126122Z"
+    created: "2026-11-08T15:06:14.921533062Z"
     description: Kubernetes Native Policy Management
     digest: fa497c73ba3aea0876a99d994ffffc47e87690f71bb130baeadc26569fc6da1d
     home: https://kyverno.io/
@@ -8449,7 +8519,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-beta.1
-    created: "2026-11-06T11:15:07.236812236Z"
+    created: "2026-11-08T15:06:14.915645691Z"
     description: Kubernetes Native Policy Management
     digest: 905ad6be1014935f2c464c61bc3cc048d262ee637d6c7037407acd3e1683fd01
     home: https://kyverno.io/
@@ -8512,7 +8582,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-beta.1
-    created: "2026-11-06T11:15:10.209048855Z"
+    created: "2026-11-08T15:06:17.186909829Z"
     description: Kubernetes Native Policy Management
     digest: 4c1d79e4683a92136f48986e17af203039fe162438d64fcbdbf4665418f79fc3
     home: https://kyverno.io/
@@ -8569,7 +8639,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.5
-    created: "2026-11-06T11:15:07.229915949Z"
+    created: "2026-11-08T15:06:14.91010027Z"
     description: Kubernetes Native Policy Management
     digest: 747ee2317b34e2e9831b7f47d01086b7582a5c01b188461b8d43638b99efff81
     home: https://kyverno.io/
@@ -8626,7 +8696,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.5-rc.1
-    created: "2026-11-06T11:15:07.224591095Z"
+    created: "2026-11-08T15:06:14.905717363Z"
     description: Kubernetes Native Policy Management
     digest: bf557f1d473637efaf7470eb2d941eb1ed9b132fb4b6020a7d4d5787e08d0233
     home: https://kyverno.io/
@@ -8683,7 +8753,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.4
-    created: "2026-11-06T11:15:07.218307615Z"
+    created: "2026-11-08T15:06:14.901869053Z"
     description: Kubernetes Native Policy Management
     digest: c33e0e873d545a905802775e365417826c45216dc4e6934f71264b708ec5e7e7
     home: https://kyverno.io/
@@ -8740,7 +8810,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.4-rc.1
-    created: "2026-11-06T11:15:07.212013265Z"
+    created: "2026-11-08T15:06:14.897486953Z"
     description: Kubernetes Native Policy Management
     digest: 0f16ea99655bb0309e78bbf3fbc6eb25d4426b0acc174297b357e57393bb2ae2
     home: https://kyverno.io/
@@ -8797,7 +8867,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.3
-    created: "2026-11-06T11:15:07.206867166Z"
+    created: "2026-11-08T15:06:14.893857896Z"
     description: Kubernetes Native Policy Management
     digest: 73cfb8f5d43805d2843a18cb4d92e67e55064905778a9549b63f8324536b05af
     home: https://kyverno.io/
@@ -8854,7 +8924,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.3-rc.2
-    created: "2026-11-06T11:15:07.201894408Z"
+    created: "2026-11-08T15:06:14.889755233Z"
     description: Kubernetes Native Policy Management
     digest: c302d6c05cf92082866a526e5833f16b757671f0b0ba0f0245604501901fedca
     home: https://kyverno.io/
@@ -8911,7 +8981,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.3-rc.1
-    created: "2026-11-06T11:15:07.19642425Z"
+    created: "2026-11-08T15:06:14.885342826Z"
     description: Kubernetes Native Policy Management
     digest: 29588ed6a01cfc7ac6ca9dcbb8c4229bda9e232074a26afdd8b07fb4676e647a
     home: https://kyverno.io/
@@ -8968,7 +9038,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.2
-    created: "2026-11-06T11:15:07.191452545Z"
+    created: "2026-11-08T15:06:14.880463919Z"
     description: Kubernetes Native Policy Management
     digest: 79b083bf69fb649df082b0c06ebeead4f88b916913093feb0a4930e67bb1dd8d
     home: https://kyverno.io/
@@ -9025,7 +9095,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.2-rc.2
-    created: "2026-11-06T11:15:07.185598472Z"
+    created: "2026-11-08T15:06:14.876238145Z"
     description: Kubernetes Native Policy Management
     digest: d152fe35674767e5094c671e9e3de195261335d15cb1b826e9160ece15bdf575
     home: https://kyverno.io/
@@ -9082,7 +9152,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.2-rc.1
-    created: "2026-11-06T11:15:07.181070327Z"
+    created: "2026-11-08T15:06:14.871332056Z"
     description: Kubernetes Native Policy Management
     digest: 2d580280610eeac21ce2df3c8e6853b60c6a8903efd7ffc5fe6dc0045547c9e3
     home: https://kyverno.io/
@@ -9135,7 +9205,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.1
-    created: "2026-11-06T11:15:07.175612979Z"
+    created: "2026-11-08T15:06:14.866532772Z"
     description: Kubernetes Native Policy Management
     digest: b2e826d03475efa1d1e03b10119a80a28cf04f6b410f6a8814782bb72ba9a096
     home: https://kyverno.io/
@@ -9186,7 +9256,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.1-rc1
-    created: "2026-11-06T11:15:07.171166709Z"
+    created: "2026-11-08T15:06:14.862399801Z"
     description: Kubernetes Native Policy Management
     digest: 4eef6f9ad60a2f51fb0c3d0d13bc3089d1333837ef8fae04b84ad9cf762c44f8
     home: https://kyverno.io/
@@ -9239,7 +9309,7 @@ entries:
       artifacthub.io/prerelease: "true"
     apiVersion: v2
     appVersion: v1.8.1-rc.4
-    created: "2026-11-06T11:15:07.165858431Z"
+    created: "2026-11-08T15:06:14.859316938Z"
     description: Kubernetes Native Policy Management
     digest: 3db22753af6d6324ea6ec5221e7aaa7da45c78565fa728146ab4e1701a07339f
     home: https://kyverno.io/
@@ -9293,7 +9363,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.1-rc.3
-    created: "2026-11-06T11:15:07.161370089Z"
+    created: "2026-11-08T15:06:14.854647955Z"
     description: Kubernetes Native Policy Management
     digest: 54892d4a4c582a5b6dca6b12477f7798b7c20d7f0e411e938aeaa5361ac1fdf4
     home: https://kyverno.io/
@@ -9347,7 +9417,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.1-rc.2
-    created: "2026-11-06T11:15:07.156883167Z"
+    created: "2026-11-08T15:06:14.851616922Z"
     description: Kubernetes Native Policy Management
     digest: e76df1730d8c731ca62558807855f0a9f512a4dda652738c892d95979eec612e
     home: https://kyverno.io/
@@ -9388,7 +9458,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0
-    created: "2026-11-06T11:15:07.152253796Z"
+    created: "2026-11-08T15:06:14.848141022Z"
     description: Kubernetes Native Policy Management
     digest: e515c9c567ee1f286f633e8a8c4406b48a43437be0d79a451d04f3b037f0aae0
     home: https://kyverno.io/
@@ -9429,7 +9499,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc6
-    created: "2026-11-06T11:15:07.1478706Z"
+    created: "2026-11-08T15:06:14.84449487Z"
     description: Kubernetes Native Policy Management
     digest: 1470fafa37e69ddf01afbba83ced1fe1a7c88885d5a359ddd860ababd1514cff
     home: https://kyverno.io/
@@ -9470,7 +9540,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc5
-    created: "2026-11-06T11:15:07.143290954Z"
+    created: "2026-11-08T15:06:14.841255785Z"
     description: Kubernetes Native Policy Management
     digest: 9b5cfa5414b95407776d96fda63bb9f68962f18deed03808d95709d2b428b302
     home: https://kyverno.io/
@@ -9511,7 +9581,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc4
-    created: "2026-11-06T11:15:07.13883776Z"
+    created: "2026-11-08T15:06:14.836272903Z"
     description: Kubernetes Native Policy Management
     digest: 2e1d4ae5183071e77e2b82d9243bef60ef7e3208aeb884cd1ca90bc7b040bd1b
     home: https://kyverno.io/
@@ -9552,7 +9622,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc3
-    created: "2026-11-06T11:15:07.133747465Z"
+    created: "2026-11-08T15:06:14.83229358Z"
     description: Kubernetes Native Policy Management
     digest: 9fe3849c99dc405d9b7c98e868fbe3295c33639fb638682893f9d109d5783dd4
     home: https://kyverno.io/
@@ -9593,7 +9663,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc2
-    created: "2026-11-06T11:15:07.12916424Z"
+    created: "2026-11-08T15:06:14.828086019Z"
     description: Kubernetes Native Policy Management
     digest: b41877b803ca264182f35e14a828e1ea6a546eaa262e3501ca1c926f39cd466e
     home: https://kyverno.io/
@@ -9634,7 +9704,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc1
-    created: "2026-11-06T11:15:07.124467204Z"
+    created: "2026-11-08T15:06:14.824056764Z"
     description: Kubernetes Native Policy Management
     digest: bd74f83a2657706c271e822ee62f4886f40e26c0d0055c1af4a10dd9e566254b
     home: https://kyverno.io/
@@ -9667,7 +9737,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.5
-    created: "2026-11-06T11:15:10.199353244Z"
+    created: "2026-11-08T15:06:17.18079715Z"
     description: Kubernetes Native Policy Management
     digest: eb09fc5f31fd96285bca6c6e161b9c8b77f05482cf40ce731a4a70505ead8fc2
     home: https://kyverno.io/
@@ -9700,7 +9770,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.4
-    created: "2026-11-06T11:15:10.196044727Z"
+    created: "2026-11-08T15:06:17.17930173Z"
     description: Kubernetes Native Policy Management
     digest: c9ac34465cdd59dfb73e55f13fe68a97fa73033b6eb4f352cacf9fa046e51b52
     home: https://kyverno.io/
@@ -9733,7 +9803,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.3
-    created: "2026-11-06T11:15:10.194122651Z"
+    created: "2026-11-08T15:06:17.177666995Z"
     description: Kubernetes Native Policy Management
     digest: dd27157abfd45fa5adf5aeb3b5e46ceda2516b1204738ed6e4d745596074dd30
     home: https://kyverno.io/
@@ -9766,7 +9836,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.2
-    created: "2026-11-06T11:15:10.192147485Z"
+    created: "2026-11-08T15:06:17.175021938Z"
     description: Kubernetes Native Policy Management
     digest: 8fc344b7f0997e35c327d7a43562695e85007d402d3bacd49c78c0b966d23df4
     home: https://kyverno.io/
@@ -9799,7 +9869,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.2-rc2
-    created: "2026-11-06T11:15:10.190210651Z"
+    created: "2026-11-08T15:06:17.173526678Z"
     description: Kubernetes Native Policy Management
     digest: fb215f734685dcb359276aa98820798d0d326c1bcef588e9642bdf320680c71a
     home: https://kyverno.io/
@@ -9832,7 +9902,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.2-rc1
-    created: "2026-11-06T11:15:10.187552419Z"
+    created: "2026-11-08T15:06:17.171923552Z"
     description: Kubernetes Native Policy Management
     digest: 885bb939863fbf05651a034e70ba4bbf56c04e1aae24a71a8da0c2ed1969593f
     home: https://kyverno.io/
@@ -9865,7 +9935,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.1
-    created: "2026-11-06T11:15:10.183627676Z"
+    created: "2026-11-08T15:06:17.169511796Z"
     description: Kubernetes Native Policy Management
     digest: 4552c59e49d5a0de1f3bcdabd461662aa2e5982c90a0ae8dfe305cfd0fb99251
     home: https://kyverno.io/
@@ -9898,7 +9968,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.0
-    created: "2026-11-06T11:15:10.180242795Z"
+    created: "2026-11-08T15:06:17.167971386Z"
     description: Kubernetes Native Policy Management
     digest: 348f5395717e2652d9963027e48d0cc718f36232a062f4d5ed3c2a5a5da2f1ea
     home: https://kyverno.io/
@@ -9935,7 +10005,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.0
-    created: "2026-11-06T11:15:10.177144546Z"
+    created: "2026-11-08T15:06:17.166398145Z"
     description: Kubernetes Native Policy Management
     digest: 2de6fc1f2c78038bf2eaf08b673dd57625d13df04227cdadca16aaa9b8a9e47c
     home: https://kyverno.io/
@@ -9972,7 +10042,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.0
-    created: "2026-11-06T11:15:10.17365469Z"
+    created: "2026-11-08T15:06:17.163637961Z"
     description: Kubernetes Native Policy Management
     digest: a0af55dce3de01b3d0f59c090b17d44694195cb448eb30b8ef9a2f7f0b86ea63
     home: https://kyverno.io/
@@ -10009,7 +10079,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.0-rc3
-    created: "2026-11-06T11:15:10.169248663Z"
+    created: "2026-11-08T15:06:17.162140918Z"
     description: Kubernetes Native Policy Management
     digest: 4f549c9fcb0aabdf7668e834c0aea4a91b6eba431c9eba5efc4f720b780c7456
     home: https://kyverno.io/
@@ -10046,7 +10116,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.0-rc2
-    created: "2026-11-06T11:15:10.166241934Z"
+    created: "2026-11-08T15:06:17.160602712Z"
     description: Kubernetes Native Policy Management
     digest: 1fa49866d199f4a55f383de91ddbfa9c02bed669e64bdee8e538d27e4d74b6fd
     home: https://kyverno.io/
@@ -10081,7 +10151,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.0-rc1
-    created: "2026-11-06T11:15:10.163291319Z"
+    created: "2026-11-08T15:06:17.15840754Z"
     description: Kubernetes Native Policy Management
     digest: d4a7bd98bbe5642bd64ebacd12d419441d74ee082d528d5754adb42ee826e84c
     home: https://kyverno.io/
@@ -10108,7 +10178,7 @@ entries:
         - "Allow defining imagePullSecrets"
     apiVersion: v1
     appVersion: v1.6.3
-    created: "2026-11-06T11:15:10.160402358Z"
+    created: "2026-11-08T15:06:17.156668824Z"
     description: Kubernetes Native Policy Management
     digest: e48b4d0e205eddbb8511ad1f9a54f1d53f7297047d31fc2ea3b7a7bc64092851
     home: https://kyverno.io/
@@ -10134,7 +10204,7 @@ entries:
         - "Allow defining imagePullSecrets"
     apiVersion: v1
     appVersion: v1.6.2
-    created: "2026-11-06T11:15:10.158234816Z"
+    created: "2026-11-08T15:06:17.155418583Z"
     description: Kubernetes Native Policy Management
     digest: 98427e2263567e5dccb923604ff00479e76b6907883a601152d73b83a5578239
     home: https://kyverno.io/
@@ -10157,7 +10227,7 @@ entries:
     version: v2.3.3
   - apiVersion: v1
     appVersion: v1.6.2
-    created: "2026-11-06T11:15:10.154894377Z"
+    created: "2026-11-08T15:06:17.153849779Z"
     description: Kubernetes Native Policy Management
     digest: 45c460c6c551072dc44733f88d055c8c6a45a868275317ae3813e67d01ab2b91
     home: https://kyverno.io/
@@ -10180,7 +10250,7 @@ entries:
     version: v2.3.2
   - apiVersion: v1
     appVersion: v1.6.2-rc3
-    created: "2026-11-06T11:15:10.153439908Z"
+    created: "2026-11-08T15:06:17.152016051Z"
     description: Kubernetes Native Policy Management
     digest: 2df102dd1a74b119ba7680ffe71c6b1feca6de512421164ce9c182afad5f59ab
     home: https://kyverno.io/
@@ -10203,7 +10273,7 @@ entries:
     version: v2.3.2-rc3
   - apiVersion: v1
     appVersion: v1.6.2-rc2
-    created: "2026-11-06T11:15:10.151950494Z"
+    created: "2026-11-08T15:06:17.150828857Z"
     description: Kubernetes Native Policy Management
     digest: 5449bb0d5f82908d58c7eeed96c851b39ea8a64592c5ee5744af26e71ef466f6
     home: https://kyverno.io/
@@ -10226,7 +10296,7 @@ entries:
     version: v2.3.2-rc2
   - apiVersion: v1
     appVersion: v1.6.2-rc1
-    created: "2026-11-06T11:15:10.149919896Z"
+    created: "2026-11-08T15:06:17.149634011Z"
     description: Kubernetes Native Policy Management
     digest: 438ce44d1520b6e07264a5b918bdabe17f8cf66cd1f6210e759496a5abba78be
     home: https://kyverno.io/
@@ -10249,7 +10319,7 @@ entries:
     version: v2.3.2-rc1
   - apiVersion: v1
     appVersion: v1.6.1
-    created: "2026-11-06T11:15:10.145471161Z"
+    created: "2026-11-08T15:06:17.14749384Z"
     description: Kubernetes Native Policy Management
     digest: f19c0ee94b267b98490703b906357433e03615e8d39a0c057327991a200496ed
     home: https://kyverno.io/
@@ -10272,7 +10342,7 @@ entries:
     version: v2.3.1
   - apiVersion: v1
     appVersion: v1.6.1-rc2
-    created: "2026-11-06T11:15:10.144067686Z"
+    created: "2026-11-08T15:06:17.146357855Z"
     description: Kubernetes Native Policy Management
     digest: f8370d8a8f3c5c95ffa90b734e8069cfcc491b1cdb4ea9d92d58f1f271d3fce7
     home: https://kyverno.io/
@@ -10295,7 +10365,7 @@ entries:
     version: v2.3.1-rc2
   - apiVersion: v1
     appVersion: v1.6.1-rc1
-    created: "2026-11-06T11:15:10.142639376Z"
+    created: "2026-11-08T15:06:17.145197332Z"
     description: Kubernetes Native Policy Management
     digest: 74145bc96e87f60da7179a1d51d9ee0c44ce81d3e15429e654049eb0bb0637c0
     home: https://kyverno.io/
@@ -10318,7 +10388,7 @@ entries:
     version: v2.3.1-rc1
   - apiVersion: v1
     appVersion: v1.6.0
-    created: "2026-11-06T11:15:10.141059564Z"
+    created: "2026-11-08T15:06:17.143614296Z"
     description: Kubernetes Native Policy Management
     digest: fc39513278ba4bc807f85bd3502987b3b03c9f4de85175c954157e3ca1c0d0c2
     home: https://kyverno.io/
@@ -10341,7 +10411,7 @@ entries:
     version: v2.3.0
   - apiVersion: v1
     appVersion: v1.6.0
-    created: "2026-11-06T11:15:10.137818156Z"
+    created: "2026-11-08T15:06:17.141575511Z"
     description: Kubernetes Native Policy Management
     digest: f457151a3edb1b850c2332176cf9043b257077ec4f511e84a1e3455ac84ee8e9
     home: https://kyverno.io/
@@ -10364,7 +10434,7 @@ entries:
     version: v2.2.1
   - apiVersion: v1
     appVersion: v1.6.0
-    created: "2026-11-06T11:15:10.136333211Z"
+    created: "2026-11-08T15:06:17.1403836Z"
     description: Kubernetes Native Policy Management
     digest: 8fdf8d0d1ef55a5c16b4e386ffe97a86ce5cd713a27e2092677b7b5c500f3fcf
     home: https://kyverno.io/
@@ -10387,7 +10457,7 @@ entries:
     version: v2.2.0
   - apiVersion: v1
     appVersion: v1.6.0-rc4
-    created: "2026-11-06T11:15:10.134878501Z"
+    created: "2026-11-08T15:06:17.139131545Z"
     description: Kubernetes Native Policy Management
     digest: e048166fc9b39af2bcf4c032c976f33c405d06de06da20bced0d3561a18f72ca
     home: https://kyverno.io/
@@ -10410,7 +10480,7 @@ entries:
     version: v2.2.0-rc4
   - apiVersion: v1
     appVersion: v1.6.0-rc3
-    created: "2026-11-06T11:15:10.133345978Z"
+    created: "2026-11-08T15:06:17.137100002Z"
     description: Kubernetes Native Policy Management
     digest: 5f95424834fbbbac0ee68677b31704c47b3867036a674d46f01e13c721833b90
     home: https://kyverno.io/
@@ -10433,7 +10503,7 @@ entries:
     version: v2.2.0-rc3
   - apiVersion: v1
     appVersion: v1.6.0-rc2
-    created: "2026-11-06T11:15:10.130450575Z"
+    created: "2026-11-08T15:06:17.135893037Z"
     description: Kubernetes Native Policy Management
     digest: 2ab2d7d1a65e6658dbc6f7fb98c77658a09a36f9e0287d3067eb890d0a18abb1
     home: https://kyverno.io/
@@ -10456,7 +10526,7 @@ entries:
     version: v2.2.0-rc2
   - apiVersion: v1
     appVersion: v1.5.8
-    created: "2026-11-06T11:15:10.092137843Z"
+    created: "2026-11-08T15:06:17.11349875Z"
     description: Kubernetes Native Policy Management
     digest: 88508b07c3102ef0a4dd4bc5b94863fd04e9cf35865fcbf8c0bd8c1b5f681455
     home: https://kyverno.io/
@@ -10479,7 +10549,7 @@ entries:
     version: v2.1.10
   - apiVersion: v1
     appVersion: v1.5.7
-    created: "2026-11-06T11:15:10.12773193Z"
+    created: "2026-11-08T15:06:17.13469108Z"
     description: Kubernetes Native Policy Management
     digest: deed1bf7f5dc06dc5b95a0ecdc56c3c989a3f4a7a83c1300d12f6a72cc9a2a97
     home: https://kyverno.io/
@@ -10502,7 +10572,7 @@ entries:
     version: v2.1.9
   - apiVersion: v1
     appVersion: v1.5.6
-    created: "2026-11-06T11:15:10.126337403Z"
+    created: "2026-11-08T15:06:17.132458982Z"
     description: Kubernetes Native Policy Management
     digest: 76cb311be944e5d613db56d0b04b77c853fad5585dfcf213c45f6d2acc31bdbc
     home: https://kyverno.io/
@@ -10525,7 +10595,7 @@ entries:
     version: v2.1.8
   - apiVersion: v1
     appVersion: v1.5.5
-    created: "2026-11-06T11:15:10.124889436Z"
+    created: "2026-11-08T15:06:17.131339553Z"
     description: Kubernetes Native Policy Management
     digest: e904becfaf4a4820343ea5ebd49133f8b8264fb4f48ddfc9dc613863500be224
     home: https://kyverno.io/
@@ -10548,7 +10618,7 @@ entries:
     version: v2.1.7
   - apiVersion: v1
     appVersion: v1.5.4
-    created: "2026-11-06T11:15:10.121536857Z"
+    created: "2026-11-08T15:06:17.130234986Z"
     description: Kubernetes Native Policy Management
     digest: c970c86fa083fc82523d589ad5449cb61f64eca257cf844cf3fe0c6377493996
     home: https://kyverno.io/
@@ -10571,7 +10641,7 @@ entries:
     version: v2.1.6
   - apiVersion: v1
     appVersion: v1.5.4-rc2
-    created: "2026-11-06T11:15:10.118634601Z"
+    created: "2026-11-08T15:06:17.129088125Z"
     description: Kubernetes Native Policy Management
     digest: 9bacaf3feac9a3070ecae124c2cbc421f357f60a628e3cc8ebd9f79f08d1ff73
     home: https://kyverno.io/
@@ -10594,7 +10664,7 @@ entries:
     version: v2.1.6-rc2
   - apiVersion: v1
     appVersion: v1.5.5-rc1
-    created: "2026-11-06T11:15:10.11638645Z"
+    created: "2026-11-08T15:06:17.127409231Z"
     description: Kubernetes Native Policy Management
     digest: 76563990e18f2f45a96e50132509da5749844de06fd96070904eac7e500c79fb
     home: https://kyverno.io/
@@ -10617,7 +10687,7 @@ entries:
     version: v2.1.6-rc1
   - apiVersion: v1
     appVersion: v1.5.3
-    created: "2026-11-06T11:15:10.114078798Z"
+    created: "2026-11-08T15:06:17.125893179Z"
     description: Kubernetes Native Policy Management
     digest: 09bf9a07db21de19050eae190a1b97eb38c4b8d5e370da0aba0db31f570468e3
     home: https://kyverno.io/
@@ -10640,7 +10710,7 @@ entries:
     version: v2.1.5
   - apiVersion: v1
     appVersion: v1.5.3-rc1
-    created: "2026-11-06T11:15:10.11089124Z"
+    created: "2026-11-08T15:06:17.124791056Z"
     description: Kubernetes Native Policy Management
     digest: a0a39e6f72dca4d1f10042956ca75fae3445761132b47b1a0ca6ee6cc1ea643f
     home: https://kyverno.io/
@@ -10663,7 +10733,7 @@ entries:
     version: v2.1.5-rc1
   - apiVersion: v1
     appVersion: v1.5.2
-    created: "2026-11-06T11:15:10.109427584Z"
+    created: "2026-11-08T15:06:17.12366112Z"
     description: Kubernetes Native Policy Management
     digest: 68e8daee7a6e1d9bdb6f54fcd1eb21dd5b3758bf2d310a96853e10e68adbb89b
     home: https://kyverno.io/
@@ -10686,7 +10756,7 @@ entries:
     version: v2.1.4
   - apiVersion: v1
     appVersion: v1.5.2-rc5
-    created: "2026-11-06T11:15:10.107968366Z"
+    created: "2026-11-08T15:06:17.121661691Z"
     description: Kubernetes Native Policy Management
     digest: 84812a862907e04c98b013e561edc7044ca9295b0992b91dea63c2b16fe437a8
     home: https://kyverno.io/
@@ -10709,7 +10779,7 @@ entries:
     version: v2.1.4-rc5
   - apiVersion: v1
     appVersion: v1.5.2-rc4
-    created: "2026-11-06T11:15:10.106553571Z"
+    created: "2026-11-08T15:06:17.120529362Z"
     description: Kubernetes Native Policy Management
     digest: ec6981c0e92fd462a843aa51f56d894497077f8997ee5934c8eb88b019beb258
     home: https://kyverno.io/
@@ -10732,7 +10802,7 @@ entries:
     version: v2.1.4-rc4
   - apiVersion: v1
     appVersion: v1.5.2-rc3
-    created: "2026-11-06T11:15:10.103711227Z"
+    created: "2026-11-08T15:06:17.119399987Z"
     description: Kubernetes Native Policy Management
     digest: 0f5f76672b45c01c96b8d089d623f6f2a2500a8314a440555814b2fd1514539b
     home: https://kyverno.io/
@@ -10755,7 +10825,7 @@ entries:
     version: v2.1.4-rc3
   - apiVersion: v1
     appVersion: v1.5.2-rc2
-    created: "2026-11-06T11:15:10.101189097Z"
+    created: "2026-11-08T15:06:17.117852882Z"
     description: Kubernetes Native Policy Management
     digest: 84ec2bb3617bc3fb2975ed82e1a48859120e4af500d429d462cdf73a7993491b
     home: https://kyverno.io/
@@ -10778,7 +10848,7 @@ entries:
     version: v2.1.4-rc2
   - apiVersion: v1
     appVersion: v1.5.1
-    created: "2026-11-06T11:15:10.098538198Z"
+    created: "2026-11-08T15:06:17.116186793Z"
     description: Kubernetes Native Policy Management
     digest: 3320de2191433a605a9a3a8ebef27f85bf78860a94349d59375ef09fb958d834
     home: https://kyverno.io/
@@ -10801,7 +10871,7 @@ entries:
     version: v2.1.3
   - apiVersion: v1
     appVersion: v1.5.1
-    created: "2026-11-06T11:15:10.096012922Z"
+    created: "2026-11-08T15:06:17.115027762Z"
     description: Kubernetes Native Policy Management
     digest: 7035541f5c32ad6d15c8baf5a1945beeb5d5f39ee8ed9f79b1465efd945db721
     home: https://kyverno.io/
@@ -10824,7 +10894,7 @@ entries:
     version: v2.1.2
   - apiVersion: v1
     appVersion: v1.5.0
-    created: "2026-11-06T11:15:10.090581826Z"
+    created: "2026-11-08T15:06:17.1114595Z"
     description: Kubernetes Native Policy Management
     digest: f4c649b70f883ac169e16b7e2742b20cf99e0244355ab0ede75fd3aa302c991b
     home: https://kyverno.io/
@@ -10847,7 +10917,7 @@ entries:
     version: v2.1.1
   - apiVersion: v1
     appVersion: v1.5.0-rc4
-    created: "2026-11-06T11:15:10.088939067Z"
+    created: "2026-11-08T15:06:17.110358369Z"
     description: Kubernetes Native Policy Management
     digest: 4401d58636bff426668ad83e61c9fe35a08547e33e434d626ca64095f3da57cd
     home: https://kyverno.io/
@@ -10870,7 +10940,7 @@ entries:
     version: v2.1.1-rc4
   - apiVersion: v1
     appVersion: v1.5.0-rc3
-    created: "2026-11-06T11:15:10.087313651Z"
+    created: "2026-11-08T15:06:17.109240972Z"
     description: Kubernetes Native Policy Management
     digest: 379ae37f9a481cc1041f208f69e087fecca9fe897ea412b4a09ec2dfb3e09fe1
     home: https://kyverno.io/
@@ -10893,7 +10963,7 @@ entries:
     version: v2.1.1-rc3
   - apiVersion: v1
     appVersion: v1.5.0-rc2
-    created: "2026-11-06T11:15:10.085154342Z"
+    created: "2026-11-08T15:06:17.106710904Z"
     description: Kubernetes Native Policy Management
     digest: 4692d125400f5450a57dd1879e9dfb5f14a77abecb96c7bde8645f071a7ff80b
     home: https://kyverno.io/
@@ -10916,7 +10986,7 @@ entries:
     version: v2.1.1-rc2
   - apiVersion: v1
     appVersion: v1.5.0-rc1
-    created: "2026-11-06T11:15:10.081245639Z"
+    created: "2026-11-08T15:06:17.105386748Z"
     description: Kubernetes Native Policy Management
     digest: dad84eef692d8075d41a650089d41738fa9497aa73dcc3ba94670aa5e7e76476
     home: https://kyverno.io/
@@ -10939,7 +11009,7 @@ entries:
     version: v2.1.0
   - apiVersion: v1
     appVersion: v1.4.3
-    created: "2026-11-06T11:15:10.078063887Z"
+    created: "2026-11-08T15:06:17.102592896Z"
     description: Kubernetes Native Policy Management
     digest: 31bf6cf37943cdd60ff7e7f9fb8b1d3d37271f3d6e8262211f8a17d1cae16ca0
     home: https://kyverno.io/
@@ -10962,7 +11032,7 @@ entries:
     version: v2.0.3
   - apiVersion: v1
     appVersion: v1.4.3-rc2
-    created: "2026-11-06T11:15:10.077116839Z"
+    created: "2026-11-08T15:06:17.101646855Z"
     description: Kubernetes Native Policy Management
     digest: 1eda1fd379cc277e98f9d8437b01bb225f98bfa034c37c4cba4f3e2e794285ce
     home: https://kyverno.io/
@@ -10985,7 +11055,7 @@ entries:
     version: v2.0.3-rc2
   - apiVersion: v1
     appVersion: v1.4.3-rc1
-    created: "2026-11-06T11:15:10.076217951Z"
+    created: "2026-11-08T15:06:17.100901203Z"
     description: Kubernetes Native Policy Management
     digest: e6528a938a18c4c463d401a914a3c18b45da27130706bfa915f2c5bfa524128f
     home: https://kyverno.io/
@@ -11008,7 +11078,7 @@ entries:
     version: v2.0.3-rc1
   - apiVersion: v1
     appVersion: v1.4.2
-    created: "2026-11-06T11:15:10.075262008Z"
+    created: "2026-11-08T15:06:17.100181261Z"
     description: Kubernetes Native Policy Management
     digest: bbe8d1cf6185293d7e84bfcd4b524a256282bce45599b40f5b6c9e12285195e8
     home: https://kyverno.io/
@@ -11031,7 +11101,7 @@ entries:
     version: v2.0.2
   - apiVersion: v1
     appVersion: v1.4.2
-    created: "2026-11-06T11:15:10.073869213Z"
+    created: "2026-11-08T15:06:17.099492256Z"
     description: Kubernetes Native Policy Management
     digest: 21bd8e657e74451c6b8c166d2079a8dcca9acbb32cb6cd4c52837ae0423028e3
     home: https://kyverno.io/
@@ -11054,7 +11124,7 @@ entries:
     version: v2.0.1
   - apiVersion: v1
     appVersion: v1.4.2
-    created: "2026-11-06T11:15:10.079301113Z"
+    created: "2026-11-08T15:06:17.104104988Z"
     description: Kubernetes Native Policy Management
     digest: e134f3ae2948196eb1f3306c2654e848c1df8f4867d5062d75ebf0ad912239bb
     home: https://kyverno.io/
@@ -11077,7 +11147,7 @@ entries:
     version: v2.0
   - apiVersion: v1
     appVersion: v1.4.2-rc4
-    created: "2026-11-06T11:15:10.071226637Z"
+    created: "2026-11-08T15:06:17.09840766Z"
     description: Kubernetes Native Policy Management
     digest: c35ef86aa9cd9d86213493f96945a3df552c7a396b047edcfdf3f7c3acff274b
     home: https://kyverno.io/
@@ -11100,7 +11170,7 @@ entries:
     version: v2.0-rc5
   - apiVersion: v1
     appVersion: v1.4.2-rc3
-    created: "2026-11-06T11:15:10.069058965Z"
+    created: "2026-11-08T15:06:17.09697362Z"
     description: Kubernetes Native Policy Management
     digest: 2e033691a07ea5adb93f2d278b5549bcdcf6226fcfc14828ceedb1578625c69d
     home: https://kyverno.io/
@@ -11123,7 +11193,7 @@ entries:
     version: v2.0-rc4
   - apiVersion: v1
     appVersion: v1.4.2-rc3
-    created: "2026-11-06T11:15:10.066881945Z"
+    created: "2026-11-08T15:06:17.095252551Z"
     description: Kubernetes Native Policy Management
     digest: c5043ac74e146659ea4c8f0dcce04de1e39ba41492912794f0a20ec41a0b738a
     home: https://kyverno.io/
@@ -11146,7 +11216,7 @@ entries:
     version: v2.0-rc3
   - apiVersion: v1
     appVersion: v1.4.2-rc2
-    created: "2026-11-06T11:15:10.064798269Z"
+    created: "2026-11-08T15:06:17.094262352Z"
     description: Kubernetes Native Policy Management
     digest: fc3e26c04f648f3e48b200291367bc77e514693c3d5a65db40a3fd87fbcea1ed
     home: https://kyverno.io/
@@ -11169,7 +11239,7 @@ entries:
     version: v1.4.3-rc2
   - apiVersion: v1
     appVersion: v1.4.2-rc1
-    created: "2026-11-06T11:15:10.062495264Z"
+    created: "2026-11-08T15:06:17.093254234Z"
     description: Kubernetes Native Policy Management
     digest: f0f88e76114a52253f21c942166a97f208665e828b13e91c56e279e996163208
     home: https://kyverno.io/
@@ -11192,7 +11262,7 @@ entries:
     version: v1.4.3-rc1
   - apiVersion: v1
     appVersion: v1.4.1
-    created: "2026-11-06T11:15:10.059992771Z"
+    created: "2026-11-08T15:06:17.092259227Z"
     description: Kubernetes Native Policy Management
     digest: 8383bb15e3b985837c1a25af4e5cc5a88029fafd22525b0f92d1318ffd13fcaa
     home: https://kyverno.io/
@@ -11215,7 +11285,7 @@ entries:
     version: v1.4.2
   - apiVersion: v1
     appVersion: v1.4.1
-    created: "2026-11-06T11:15:10.058151624Z"
+    created: "2026-11-08T15:06:17.090777658Z"
     description: Kubernetes Native Policy Management
     digest: 6b7958a173ebc6a158083db18e011a7d003fe50f70756ddfdc11833e235cc53c
     home: https://kyverno.io/
@@ -11238,7 +11308,7 @@ entries:
     version: v1.4.1
   - apiVersion: v1
     appVersion: v1.4.0
-    created: "2026-11-06T11:15:10.056323962Z"
+    created: "2026-11-08T15:06:17.089264565Z"
     description: Kubernetes Native Policy Management
     digest: eee4bf294bdeb9bf12ff53d3f6480f9dfee66a16a5c27fbd45635a2e86223f6b
     home: https://kyverno.io/
@@ -11261,7 +11331,7 @@ entries:
     version: v1.4.0
   - apiVersion: v1
     appVersion: v1.4.0-rc4
-    created: "2026-11-06T11:15:10.054565329Z"
+    created: "2026-11-08T15:06:17.088330772Z"
     description: Kubernetes Native Policy Management
     digest: 71fec5f274156931a68a8fb0ae9a1aaf79e8981f90be4d453e3567ed6288301c
     home: https://kyverno.io/
@@ -11284,7 +11354,7 @@ entries:
     version: v1.4.0-rc4
   - apiVersion: v1
     appVersion: v1.4.0-rc3
-    created: "2026-11-06T11:15:10.052782831Z"
+    created: "2026-11-08T15:06:17.087414136Z"
     description: Kubernetes Native Policy Management
     digest: f43fd7dedff835177f02c7097bf976a6d692c8c2b1a8569b9133e7e7108080ce
     home: https://kyverno.io/
@@ -11307,7 +11377,7 @@ entries:
     version: v1.4.0-rc3
   - apiVersion: v1
     appVersion: v1.4.0-rc2
-    created: "2026-11-06T11:15:10.050974997Z"
+    created: "2026-11-08T15:06:17.086393149Z"
     description: Kubernetes Native Policy Management
     digest: af2e1a1446604193f88760a305fa0201a75a90f5b956bfe36896d30d55802682
     home: https://kyverno.io/
@@ -11330,7 +11400,7 @@ entries:
     version: v1.4.0-rc2
   - apiVersion: v1
     appVersion: v1.4.0-rc1
-    created: "2026-11-06T11:15:10.048869479Z"
+    created: "2026-11-08T15:06:17.085025862Z"
     description: Kubernetes Native Policy Management
     digest: 228101589b984c178dad913edcd59c1af69d01e5591a823c2f54241198c73b53
     home: https://kyverno.io/
@@ -11353,7 +11423,7 @@ entries:
     version: v1.4.0-rc1
   - apiVersion: v1
     appVersion: v1.4.0-beta1
-    created: "2026-11-06T11:15:10.046633003Z"
+    created: "2026-11-08T15:06:17.083630126Z"
     description: Kubernetes Native Policy Management
     digest: 7328d0263f48e143b0d8ca3a3fd4579e9f0179720ac9029c704406ea92327bf6
     home: https://kyverno.io/
@@ -11376,7 +11446,7 @@ entries:
     version: v1.4.0-beta1
   - apiVersion: v1
     appVersion: v1.3.6
-    created: "2026-11-06T11:15:10.044759366Z"
+    created: "2026-11-08T15:06:17.082742074Z"
     description: Kubernetes Native Policy Management
     digest: 57ec6f9078b26bfcf43e5a4944c7ab2443e3fe3c38e40289c7fcafad7af280d8
     home: https://kyverno.io/
@@ -11399,7 +11469,7 @@ entries:
     version: v1.3.6
   - apiVersion: v1
     appVersion: v1.3.6-rc5
-    created: "2026-11-06T11:15:10.043663753Z"
+    created: "2026-11-08T15:06:17.081848403Z"
     description: Kubernetes Native Policy Management
     digest: f0a9d18976063d30b7705471b1d3db01e659bb010392d1ad0f127dc55dbd2ef6
     home: https://kyverno.io/
@@ -11422,7 +11492,7 @@ entries:
     version: v1.3.6-rc5
   - apiVersion: v1
     appVersion: v1.3.6-rc4
-    created: "2026-11-06T11:15:10.04257379Z"
+    created: "2026-11-08T15:06:17.080936755Z"
     description: Kubernetes Native Policy Management
     digest: 28792a458a7a4769245a74a43671107b8bb2c6785e98e47e33339129f5de1c99
     home: https://kyverno.io/
@@ -11445,7 +11515,7 @@ entries:
     version: v1.3.6-rc4
   - apiVersion: v1
     appVersion: v1.3.6-rc3
-    created: "2026-11-06T11:15:10.041468369Z"
+    created: "2026-11-08T15:06:17.07957454Z"
     description: Kubernetes Native Policy Management
     digest: 24ed02dbc66b21b28422732272e5cbcac14e0bef464852189abedcbdbc57bbd0
     home: https://kyverno.io/
@@ -11468,7 +11538,7 @@ entries:
     version: v1.3.6-rc3
   - apiVersion: v1
     appVersion: v1.3.6-rc2
-    created: "2026-11-06T11:15:10.040323505Z"
+    created: "2026-11-08T15:06:17.078153049Z"
     description: Kubernetes Native Policy Management
     digest: 97c3bc1646772328fdfc734f344011dd9b8c23fb5c9e6e773d7036e4a49a1284
     home: https://kyverno.io/
@@ -11491,7 +11561,7 @@ entries:
     version: v1.3.6-rc2
   - apiVersion: v1
     appVersion: v1.3.6-rc1
-    created: "2026-11-06T11:15:10.038014697Z"
+    created: "2026-11-08T15:06:17.077245817Z"
     description: Kubernetes Native Policy Management
     digest: 0f642c9134572eb3fbb08c72c116c45fa592bcfdfe417b9b1836ab0bb08d3a34
     home: https://kyverno.io/
@@ -11514,7 +11584,7 @@ entries:
     version: v1.3.6-rc1
   - apiVersion: v1
     appVersion: v1.3.5
-    created: "2026-11-06T11:15:10.036147092Z"
+    created: "2026-11-08T15:06:17.076177998Z"
     description: Kubernetes Native Policy Management
     digest: dd1ebb637be04f7bdb2cec5d2a14d2f9255255bd1c508d02cf9ae8321b48eab4
     home: https://kyverno.io/
@@ -11537,7 +11607,7 @@ entries:
     version: v1.3.5
   - apiVersion: v1
     appVersion: v1.3.5-rc5
-    created: "2026-11-06T11:15:10.035069492Z"
+    created: "2026-11-08T15:06:17.075268422Z"
     description: Kubernetes Native Policy Management
     digest: 760efff2ec4e0069c2fbc0be12cfbc010bd25808556922f1cb23c6fa183cfc70
     home: https://kyverno.io/
@@ -11560,7 +11630,7 @@ entries:
     version: v1.3.5-rc5
   - apiVersion: v1
     appVersion: v1.3.5-rc4
-    created: "2026-11-06T11:15:10.034033741Z"
+    created: "2026-11-08T15:06:17.074060331Z"
     description: Kubernetes Native Policy Management
     digest: 79f01710ae4c7343d4534bcd07f00c03565cf87a7cf0e31bbd1ad7d3044a39a5
     home: https://kyverno.io/
@@ -11583,7 +11653,7 @@ entries:
     version: v1.3.5-rc4
   - apiVersion: v1
     appVersion: v1.3.5-rc3
-    created: "2026-11-06T11:15:10.032970147Z"
+    created: "2026-11-08T15:06:17.072678106Z"
     description: Kubernetes Native Policy Management
     digest: 369d29e85846089cd6cd885e47090d8c94e567401d41d83b8b792f265150305a
     home: https://kyverno.io/
@@ -11606,7 +11676,7 @@ entries:
     version: v1.3.5-rc3
   - apiVersion: v1
     appVersion: v1.3.5-rc2
-    created: "2026-11-06T11:15:10.031878722Z"
+    created: "2026-11-08T15:06:17.071818077Z"
     description: Kubernetes Native Policy Management
     digest: 33adc4def1be820ec318c2c824fd5cde287481644783d25937e19030950e4c21
     home: https://kyverno.io/
@@ -11629,7 +11699,7 @@ entries:
     version: v1.3.5-rc2
   - apiVersion: v1
     appVersion: v1.3.5-rc1
-    created: "2026-11-06T11:15:10.030680929Z"
+    created: "2026-11-08T15:06:17.070938468Z"
     description: Kubernetes Native Policy Management
     digest: 66cc32f5e591b5abc5436d88ef2a39043d36449909ef9befc63c33ddf2234d92
     home: https://kyverno.io/
@@ -11652,7 +11722,7 @@ entries:
     version: v1.3.5-rc1
   - apiVersion: v1
     appVersion: v1.3.4
-    created: "2026-11-06T11:15:10.02902035Z"
+    created: "2026-11-08T15:06:17.069987509Z"
     description: Kubernetes Native Policy Management
     digest: 9d685301d944ad9aa9de9fc7087ffc41189f8d9a578a40a679238acef2f7921d
     home: https://kyverno.io/
@@ -11675,7 +11745,7 @@ entries:
     version: v1.3.4
   - apiVersion: v1
     appVersion: v1.3.4-rc1
-    created: "2026-11-06T11:15:10.026406219Z"
+    created: "2026-11-08T15:06:17.068934106Z"
     description: Kubernetes Native Policy Management
     digest: eb9f9336602918e2c6ec810d6e579b4566aed2c657c55456fa51e9ba3c5eed5e
     home: https://kyverno.io/
@@ -11698,7 +11768,7 @@ entries:
     version: v1.3.4-rc1
   - apiVersion: v1
     appVersion: v1.3.3
-    created: "2026-11-06T11:15:10.024781444Z"
+    created: "2026-11-08T15:06:17.067374662Z"
     description: Kubernetes Native Policy Management
     digest: 73a06ecdcfd1d15af28e9fea64088796d4f05eb774c507cb3b57b61e253b0747
     home: https://kyverno.io/
@@ -11721,7 +11791,7 @@ entries:
     version: v1.3.3
   - apiVersion: v1
     appVersion: v1.3.2
-    created: "2026-11-06T11:15:10.023552333Z"
+    created: "2026-11-08T15:06:17.066414229Z"
     description: Kubernetes Native Policy Management
     digest: 182f4d0f04a8f55e67dc64648315e9d0c87f88b2e587c2a6eb627cbad67a2bd5
     home: https://kyverno.io/
@@ -11744,7 +11814,7 @@ entries:
     version: v1.3.2
   - apiVersion: v1
     appVersion: v1.3.2-rc2
-    created: "2026-11-06T11:15:10.018662079Z"
+    created: "2026-11-08T15:06:17.065570315Z"
     description: Kubernetes Native Policy Management
     digest: 7750e5e906cb7a77095168a5474e5c052f755eed5a1517d6f383d7d12431dd03
     home: https://kyverno.io/
@@ -11767,7 +11837,7 @@ entries:
     version: v1.3.2-rc2
   - apiVersion: v1
     appVersion: v1.3.2-rc1
-    created: "2026-11-06T11:15:10.017623812Z"
+    created: "2026-11-08T15:06:17.064721874Z"
     description: Kubernetes Native Policy Management
     digest: 40903dee54a4e2e26042ba073bbc5ae0003bc9320d1307aad38db656e9c25813
     home: https://kyverno.io/
@@ -11790,7 +11860,7 @@ entries:
     version: v1.3.2-rc1
   - apiVersion: v1
     appVersion: v1.3.1
-    created: "2026-11-06T11:15:10.01676571Z"
+    created: "2026-11-08T15:06:17.064047212Z"
     description: Kubernetes Native Policy Management
     digest: 9d4e9b1635395ddeff0891b00394e549e29d5e0cfbda6379b3fbea3fa16f17cd
     home: https://kyverno.io/
@@ -11813,7 +11883,7 @@ entries:
     version: v1.3.1
   - apiVersion: v1
     appVersion: v1.3.0
-    created: "2026-11-06T11:15:10.015723686Z"
+    created: "2026-11-08T15:06:17.062956822Z"
     description: Kubernetes Native Policy Management
     digest: fb773d2c59f99bccde49198a0efc3d5cac966c01402c53d5604d1eac95b347cc
     home: https://kyverno.io/
@@ -11836,7 +11906,7 @@ entries:
     version: v1.3.0
   - apiVersion: v1
     appVersion: v1.3.0-rc12
-    created: "2026-11-06T11:15:10.013810143Z"
+    created: "2026-11-08T15:06:17.061477502Z"
     description: Kubernetes Native Policy Management
     digest: b6291b063bd37ef6b84d696e4226d2e32f1362cadb2c129abcc91c9dc418ac6b
     home: https://kyverno.io/
@@ -11859,7 +11929,7 @@ entries:
     version: v1.3.0-rc12
   - apiVersion: v1
     appVersion: v1.3.0-rc11
-    created: "2026-11-06T11:15:10.011772374Z"
+    created: "2026-11-08T15:06:17.060616672Z"
     description: Kubernetes Native Policy Management
     digest: afea9fde0aa1bb1dc00ab992dbdbff1c590efe947b4f9a38708eb0130d505a64
     home: https://kyverno.io/
@@ -11882,7 +11952,7 @@ entries:
     version: v1.3.0-rc11
   - apiVersion: v1
     appVersion: v1.2.1
-    created: "2026-11-06T11:15:07.117744747Z"
+    created: "2026-11-08T15:06:14.81719883Z"
     description: Kubernetes Native Policy Management
     digest: f50dec98f09a2c43cba43d033c8839c8033df2a85fead98f6ae28980f7b72e5f
     home: https://kyverno.io/
@@ -11905,7 +11975,7 @@ entries:
     version: 1.2.1
   - apiVersion: v1
     appVersion: v1.2.0
-    created: "2026-11-06T11:15:07.116386225Z"
+    created: "2026-11-08T15:06:14.816699718Z"
     description: Kubernetes Native Policy Management
     digest: ac4beee71de8260fa38bcfbd0c702f15ab393a678ebc3875cbb2bcd5022027f5
     home: https://kyverno.io/
@@ -11928,7 +11998,7 @@ entries:
     version: 1.2.0
   - apiVersion: v1
     appVersion: v1.1.12
-    created: "2026-11-06T11:15:07.110626818Z"
+    created: "2026-11-08T15:06:14.811640512Z"
     description: Kubernetes Native Policy Management
     digest: 981825fc3baf31d4a96c7ddfce78010fc4859dd0983974f06fe51cc7e2f546b5
     home: https://kyverno.io/
@@ -11951,7 +12021,7 @@ entries:
     version: 1.1.12
   - apiVersion: v1
     appVersion: v1.1.11
-    created: "2026-11-06T11:15:07.110080605Z"
+    created: "2026-11-08T15:06:14.81117265Z"
     description: Kubernetes Native Policy Management
     digest: ff3d523b5f3bc51ecea3298a5525243783c74f8e376ed07c77e2ae45a9a135f9
     home: https://kyverno.io/
@@ -11974,7 +12044,7 @@ entries:
     version: 1.1.11
   - apiVersion: v1
     appVersion: v1.1.10
-    created: "2026-11-06T11:15:07.109500368Z"
+    created: "2026-11-08T15:06:14.810633697Z"
     description: Kubernetes Native Policy Management
     digest: 00422185695d4013fe3f39d4cc65b48cf45c892dda2c9cea4c2297ed7e29db6d
     home: https://kyverno.io/
@@ -11997,7 +12067,7 @@ entries:
     version: 1.1.10
   - apiVersion: v1
     appVersion: v1.1.9
-    created: "2026-11-06T11:15:07.115231783Z"
+    created: "2026-11-08T15:06:14.816017545Z"
     description: Kubernetes Native Policy Management
     digest: 92ea360e34f11a9702d93709e7db471f924cf7dc4772a1939f283a555f375dfd
     home: https://kyverno.io/
@@ -12019,7 +12089,7 @@ entries:
     version: 1.1.9
   - apiVersion: v1
     appVersion: v1.1.8
-    created: "2026-11-06T11:15:07.114616231Z"
+    created: "2026-11-08T15:06:14.814798581Z"
     description: Kubernetes Native Policy Management
     digest: c9ec4ba5c167cd340cf9b9b28b2215fa79c3cf4ba2ff0c15780f63cccb5ea7c7
     home: https://kyverno.io/
@@ -12041,7 +12111,7 @@ entries:
     version: 1.1.8
   - apiVersion: v1
     appVersion: v1.1.7
-    created: "2026-11-06T11:15:07.113980221Z"
+    created: "2026-11-08T15:06:14.814381367Z"
     description: Kubernetes Native Policy Management
     digest: 11793a44e5d02a1c7d3da960cbcdd6ffd7a8086b4fee2bdf96fe4a9d9cf94221
     home: https://kyverno.io/
@@ -12063,7 +12133,7 @@ entries:
     version: 1.1.7
   - apiVersion: v1
     appVersion: v1.1.7-rc4
-    created: "2026-11-06T11:15:07.113389374Z"
+    created: "2026-11-08T15:06:14.813905562Z"
     description: Kubernetes Native Policy Management
     digest: 4cd7930de3481c1faee9bbb8dca43a0e2f8c61aa2109e7c3b13e68588e38aec6
     home: https://kyverno.io/
@@ -12085,7 +12155,7 @@ entries:
     version: 1.1.7-rc4
   - apiVersion: v1
     appVersion: v1.1.7-rc3
-    created: "2026-11-06T11:15:07.112849903Z"
+    created: "2026-11-08T15:06:14.813463238Z"
     description: Kubernetes Native Policy Management
     digest: 5dd9ef0b9e62429459799da8ed321640c9fb4aac707aeb67eed42df02bb4d287
     home: https://kyverno.io/
@@ -12107,7 +12177,7 @@ entries:
     version: 1.1.7-rc3
   - apiVersion: v1
     appVersion: v1.1.7-rc2
-    created: "2026-11-06T11:15:07.112285005Z"
+    created: "2026-11-08T15:06:14.813014625Z"
     description: Kubernetes Native Policy Management
     digest: b73be8fd958b090262f6bac6e6077ca5f627a3d8d41a9eb95c0de1674da74b15
     home: https://kyverno.io/
@@ -12129,7 +12199,7 @@ entries:
     version: 1.1.7-rc2
   - apiVersion: v1
     appVersion: v1.1.7-rc1
-    created: "2026-11-06T11:15:07.111768346Z"
+    created: "2026-11-08T15:06:14.812567384Z"
     description: Kubernetes Native Policy Management
     digest: b0c29a95280dab94e5bca807e423588894f08828534922c1b2b0e7a3e6cdfb93
     home: https://kyverno.io/
@@ -12151,7 +12221,7 @@ entries:
     version: 1.1.7-rc1
   - apiVersion: v1
     appVersion: v1.1.6
-    created: "2026-11-06T11:15:07.111212505Z"
+    created: "2026-11-08T15:06:14.812103187Z"
     description: Kubernetes Native Policy Management
     digest: 9b2a1cf9bebb4bed5168d1c591132b461b91048cd85872c35a389bd48941ca20
     home: https://kyverno.io/
@@ -12173,7 +12243,7 @@ entries:
     version: 1.1.6
   - apiVersion: v1
     appVersion: v1.1.5
-    created: "2026-11-06T11:15:07.108882211Z"
+    created: "2026-11-08T15:06:14.81016293Z"
     description: Kubernetes Native Policy Management
     digest: 1c97920d5024cd7f79cf9c0df55a2cd4fcc8d883ea94f3cf6525e234ba884093
     home: https://kyverno.io/
@@ -12212,8 +12282,48 @@ entries:
       artifacthub.io/prerelease: "true"
       kyverno.io/pod-security-versions: v1.25-v1.37
     apiVersion: v2
+    appVersion: v1.20.0-rc.3
+    created: "2026-11-08T15:06:16.9806789Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 88d1037760092c035685db2b480a14c1193e42b7e702426c559cc6aeb1864fde
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - email: cncf-kyverno-maintainers@lists.cncf.io
+      name: kyverno-maintainers
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-3.10.0-rc.3.tgz
+    version: 3.10.0-rc.3
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: removed
+          description: Removed the policyType chart value; the built-in PSS templates now render only ValidatingPolicy (policies.kyverno.io) types
+        - kind: removed
+          description: Remove spec.validationFailureAction field from policies as it is deprecated
+        - kind: added
+          description: Add spec.validate[*].failureAction field to policies
+        - kind: fixed
+          description: Fix the merging of policyExclude customizations to avoid wrong overrides
+        - kind: added
+          description: Add spec.validate[*].allowExistingViolations field to policies
+        - kind: added
+          description: Add the podSecurityVersion value to match a Kubernetes Pod Security Admission version, from v1.25 to v1.37
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "true"
+      kyverno.io/pod-security-versions: v1.25-v1.37
+    apiVersion: v2
     appVersion: v1.20.0-rc.2
-    created: "2026-11-06T11:15:09.887361963Z"
+    created: "2026-11-08T15:06:16.979526685Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: f018663dbc80d361ea6f597ce4f8e865a22278bea9031c047e694cd9fd18863e
     home: https://kyverno.io/policies/
@@ -12253,7 +12363,7 @@ entries:
       kyverno.io/pod-security-versions: v1.25-v1.37
     apiVersion: v2
     appVersion: v1.20.0-rc.1
-    created: "2026-11-06T11:15:09.886611711Z"
+    created: "2026-11-08T15:06:16.978537827Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 395f01e0b518b43edf9642e9876b37c239295c2d85d743f8d4a61158c2ecb402
     home: https://kyverno.io/policies/
@@ -12290,7 +12400,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.2
-    created: "2026-11-06T11:15:09.984340387Z"
+    created: "2026-11-08T15:06:17.03968888Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 70ab274622b5a6467e3b638be958d9511c5a2eca31f494bcf9866b2869db400d
     home: https://kyverno.io/policies/
@@ -12327,7 +12437,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.2-rc.5
-    created: "2026-11-06T11:15:09.982762549Z"
+    created: "2026-11-08T15:06:17.038893471Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: dbc660bf626ef9986d00ab2b52d3b74c3b8a7e4ac973b25249359fbd862b1430
     home: https://kyverno.io/policies/
@@ -12364,7 +12474,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.1
-    created: "2026-11-06T11:15:09.981818958Z"
+    created: "2026-11-08T15:06:17.038055577Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 42078dacb0954041a00b3f2f086bf1a2b5d6588ff5ac42ee7fbecc3148f6fb7d
     home: https://kyverno.io/policies/
@@ -12401,7 +12511,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.0
-    created: "2026-11-06T11:15:09.980924438Z"
+    created: "2026-11-08T15:06:17.036760591Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 75eece1dd8c5f995c5818ed05a60f7714a2c60cac0a9eec69d331dbba24fc501
     home: https://kyverno.io/policies/
@@ -12438,7 +12548,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.0-rc.4
-    created: "2026-11-06T11:15:09.980044265Z"
+    created: "2026-11-08T15:06:17.035848357Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: bbc55efabec4bf6becb36649f2ac8a8f327edffc5b5dee2f6410d94258625089
     home: https://kyverno.io/policies/
@@ -12475,7 +12585,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.0-rc.3
-    created: "2026-11-06T11:15:09.979116995Z"
+    created: "2026-11-08T15:06:17.035100762Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: ce197a15c53f6ce299b533e7290a2267e10d45001840fa6f0cff7f72366f9d1b
     home: https://kyverno.io/policies/
@@ -12512,7 +12622,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.0-rc.2
-    created: "2026-11-06T11:15:09.978150411Z"
+    created: "2026-11-08T15:06:17.034369352Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 2678bd4ad402b1ad1ea8d1b6221a6545b221816ec95c785f7b531abc415dbe1c
     home: https://kyverno.io/policies/
@@ -12549,7 +12659,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.19.0-rc.1
-    created: "2026-11-06T11:15:09.976339844Z"
+    created: "2026-11-08T15:06:17.03360421Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 03835dc18ea17a9a595a46ced2ad792965ebd0b57e69e5912943375f1a560928
     home: https://kyverno.io/policies/
@@ -12584,7 +12694,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.2
-    created: "2026-11-06T11:15:09.97479225Z"
+    created: "2026-11-08T15:06:17.032812587Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: a9e9377c7f068842274b9fce133832a4579c81429cb099a5956bb33bd66a0ccc
     home: https://kyverno.io/policies/
@@ -12619,7 +12729,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.2-rc.2
-    created: "2026-11-06T11:15:09.971114374Z"
+    created: "2026-11-08T15:06:17.031874708Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: ca7ff68895be9988fca4fc84bbbb46bea674a96b1701b93bce89e258953721fd
     home: https://kyverno.io/policies/
@@ -12654,7 +12764,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.1
-    created: "2026-11-06T11:15:09.970015656Z"
+    created: "2026-11-08T15:06:17.03042963Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 7725a49f006e56d1be57ad45e9a400d1e006c61de487b8e5cc4305201cb47639
     home: https://kyverno.io/policies/
@@ -12689,7 +12799,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.1-rc.2
-    created: "2026-11-06T11:15:09.969110055Z"
+    created: "2026-11-08T15:06:17.029673853Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: c2bccc35d3cd2966c272230a90ef5252c2c97261d0974129078878bf7e76b8b7
     home: https://kyverno.io/policies/
@@ -12724,7 +12834,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.1-rc.1
-    created: "2026-11-06T11:15:09.968191671Z"
+    created: "2026-11-08T15:06:17.028923143Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: cf8c0e584398a5682db11558fe9d20b515a3a6db180b1915c7a2713e56cda499
     home: https://kyverno.io/policies/
@@ -12759,7 +12869,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.0
-    created: "2026-11-06T11:15:09.967282203Z"
+    created: "2026-11-08T15:06:17.028191723Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 2cd1634d32be18cf72eaadddaa418651d402c8e13f273a18eb16348c4157d320
     home: https://kyverno.io/policies/
@@ -12794,7 +12904,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.18.0-rc.1
-    created: "2026-11-06T11:15:09.965404589Z"
+    created: "2026-11-08T15:06:17.027439441Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 09128f0b37c61dbcaabe4ff2264f2c3f572f19c1c088b1e536d4890b8ee77881
     home: https://kyverno.io/policies/
@@ -12829,7 +12939,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.2
-    created: "2026-11-06T11:15:09.963635108Z"
+    created: "2026-11-08T15:06:17.026644262Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: d7c859b0e3fe2f2cd759f61d7fedb49effe4b46d3011d3a9837655257485b7dd
     home: https://kyverno.io/policies/
@@ -12864,7 +12974,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.2-rc.1
-    created: "2026-11-06T11:15:09.962864098Z"
+    created: "2026-11-08T15:06:17.025612228Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 04562645eef0b0d1b06d0987cfa0defa1e8c6fc91aa737be577429c08c635707
     home: https://kyverno.io/policies/
@@ -12899,7 +13009,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.1
-    created: "2026-11-06T11:15:09.962103065Z"
+    created: "2026-11-08T15:06:17.024181688Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 67244e1077319f1e58bb3db84e3f9fb5ae7f43dbc3871ef3830e602cc9611c1d
     home: https://kyverno.io/policies/
@@ -12934,7 +13044,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.1-rc.1
-    created: "2026-11-06T11:15:09.961336643Z"
+    created: "2026-11-08T15:06:17.023533977Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: e9b67417c744a740989dfe07a63ef9cc51d237a0019b9642f39f7e8249f97ab5
     home: https://kyverno.io/policies/
@@ -12969,7 +13079,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.0
-    created: "2026-11-06T11:15:09.960604585Z"
+    created: "2026-11-08T15:06:17.022853766Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 6c7170e627c020db8b90fd0dccbe73e3b88a2a9151d62abe96df2ab698ea7475
     home: https://kyverno.io/policies/
@@ -13005,7 +13115,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.0-rc.3
-    created: "2026-11-06T11:15:09.959834466Z"
+    created: "2026-11-08T15:06:17.022206005Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: f97f10538d41fb4b321026838de8c6aa12cdf74488699e16b2c6ccc45adef0de
     home: https://kyverno.io/policies/
@@ -13041,7 +13151,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.0-rc.2
-    created: "2026-11-06T11:15:09.959056231Z"
+    created: "2026-11-08T15:06:17.021556562Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: e76caeca5e909543d68b04920efb4483f60a2c19fee3bc7a68dffb347ee64ae3
     home: https://kyverno.io/policies/
@@ -13077,7 +13187,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.17.0-rc.1
-    created: "2026-11-06T11:15:09.958234216Z"
+    created: "2026-11-08T15:06:17.020903153Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 267d72ae025f0615d13f89b7d7d4a8ff8ec1b0e321896f629620bb904e7184a9
     home: https://kyverno.io/policies/
@@ -13113,7 +13223,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.4
-    created: "2026-11-06T11:15:09.956651537Z"
+    created: "2026-11-08T15:06:17.020256484Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: cce7a422bb81aa8badd9df8b0e45f11967691bb50f93a2edaaa8fc4add2399a8
     home: https://kyverno.io/policies/
@@ -13149,7 +13259,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.4-rc.1
-    created: "2026-11-06T11:15:09.955346037Z"
+    created: "2026-11-08T15:06:17.019645059Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 6ac5c3817b324caf7d04ce086b5ab6c52cea7bad4f80c0003006586cdc595994
     home: https://kyverno.io/policies/
@@ -13185,7 +13295,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.3
-    created: "2026-11-06T11:15:09.954359386Z"
+    created: "2026-11-08T15:06:17.01864863Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: ae87e4abe0c8ea2eba3bac9771786470307973c124a292c71fc4db7d019d0038
     home: https://kyverno.io/policies/
@@ -13221,7 +13331,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.3-rc.1
-    created: "2026-11-06T11:15:09.953355313Z"
+    created: "2026-11-08T15:06:17.01778783Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: bc4b70974a918377cbdcaeeec43e032fe88a5c003b77913494d18a033690792c
     home: https://kyverno.io/policies/
@@ -13257,7 +13367,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.2
-    created: "2026-11-06T11:15:09.952427591Z"
+    created: "2026-11-08T15:06:17.017298694Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 4ba72b30445a785b03b6c3f160fbf81fac6ad33f87ca9ce3be9e9d775f8f68c5
     home: https://kyverno.io/policies/
@@ -13293,7 +13403,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.2-rc.1
-    created: "2026-11-06T11:15:09.951852544Z"
+    created: "2026-11-08T15:06:17.01678444Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: e57a806eb82927df1e53cb18f61bab54a4bd55daad354409fb3ecb3920ba10da
     home: https://kyverno.io/policies/
@@ -13329,7 +13439,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.1
-    created: "2026-11-06T11:15:09.951241621Z"
+    created: "2026-11-08T15:06:17.016246378Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: c4ddaebc852b146bebf24817c1c1e8ca9f63169e3290c25d00fcb6edd7ad663b
     home: https://kyverno.io/policies/
@@ -13365,7 +13475,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.1-rc.2
-    created: "2026-11-06T11:15:09.950661714Z"
+    created: "2026-11-08T15:06:17.015744673Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 3f5800ad828a1311575610be9bf4a705cc703b011c04f213d2f59859586e2eb7
     home: https://kyverno.io/policies/
@@ -13401,7 +13511,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.1-rc.1
-    created: "2026-11-06T11:15:09.950035292Z"
+    created: "2026-11-08T15:06:17.015255357Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: e1961e96fbb26600bdfe4c4394047e703c80f97f6749a6fcd6f45afadf6c596e
     home: https://kyverno.io/policies/
@@ -13437,7 +13547,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.0
-    created: "2026-11-06T11:15:09.949408088Z"
+    created: "2026-11-08T15:06:17.014720561Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 14f556d2cc0f1b8618bdb50082aadf25c8a442a0f0661859e31ba3869cf13f7e
     home: https://kyverno.io/policies/
@@ -13473,7 +13583,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: latest
-    created: "2026-11-06T11:15:09.948782938Z"
+    created: "2026-11-08T15:06:17.01422804Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 13457ddd4a2b4000bc42250e0f1a837293b991b7ee65327b494a8de03bd953f4
     home: https://kyverno.io/policies/
@@ -13509,7 +13619,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.16.0-rc.1
-    created: "2026-11-06T11:15:09.948103137Z"
+    created: "2026-11-08T15:06:17.013712333Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 6ded6e6a8105dd23c66a64c35b58e055d6265d88b4e2c38978c618aa6b7e01b4
     home: https://kyverno.io/policies/
@@ -13545,7 +13655,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.3
-    created: "2026-11-06T11:15:09.947025377Z"
+    created: "2026-11-08T15:06:17.0131921Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: cc125f044cc31fd0188464d54921a6a5235b41a7f6debef6616f4c08683ed6bc
     home: https://kyverno.io/policies/
@@ -13581,7 +13691,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.2
-    created: "2026-11-06T11:15:09.944979047Z"
+    created: "2026-11-08T15:06:17.012230484Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 389d2310d62e49fb03440d755ab6a94d395bf98f0e5752724b64f13c857284ac
     home: https://kyverno.io/policies/
@@ -13617,7 +13727,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.2-rc.1
-    created: "2026-11-06T11:15:09.944133778Z"
+    created: "2026-11-08T15:06:17.011389455Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 3be7ac70602442721c012b4f543da5edc2f031047a2f950efbf6bd3400ae36c0
     home: https://kyverno.io/policies/
@@ -13653,7 +13763,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.1
-    created: "2026-11-06T11:15:09.9426857Z"
+    created: "2026-11-08T15:06:17.010753377Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: f34927c646d380e788021132ea04c4909abefb0558575ccb1f8a89702752e8ee
     home: https://kyverno.io/policies/
@@ -13689,7 +13799,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.1-rc.3
-    created: "2026-11-06T11:15:09.941730508Z"
+    created: "2026-11-08T15:06:17.010275449Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 11fe9ef09c5f7bb776abc40f63437f9886cb3000b18077345f9679e539a5b758
     home: https://kyverno.io/policies/
@@ -13725,7 +13835,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.1-rc.1
-    created: "2026-11-06T11:15:09.940785324Z"
+    created: "2026-11-08T15:06:17.009763037Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 77b375d508ee188964b017ec9a0400ed34c20ba08f5340cecfdcfc5e838f9f43
     home: https://kyverno.io/policies/
@@ -13761,7 +13871,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.15.0
-    created: "2026-11-06T11:15:09.939839619Z"
+    created: "2026-11-08T15:06:17.009246009Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: c7aae26f97532dbeb115f1dda911612d6730ee5b9be2860e1e297bb999b64152
     home: https://kyverno.io/policies/
@@ -13797,7 +13907,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.5
-    created: "2026-11-06T11:15:09.938873937Z"
+    created: "2026-11-08T15:06:17.008746177Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 0ea6a3ccf2c74f1b65814be6c83127950a1059a088400e5812bfd683eb81aa12
     home: https://kyverno.io/policies/
@@ -13833,7 +13943,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.5-rc.1
-    created: "2026-11-06T11:15:09.93790551Z"
+    created: "2026-11-08T15:06:17.008255739Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: fdd0f1628cffd2ce6766f49199ab79893030bb4ec82e85f497d34d5e1036cbd7
     home: https://kyverno.io/policies/
@@ -13869,7 +13979,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.4
-    created: "2026-11-06T11:15:09.936934628Z"
+    created: "2026-11-08T15:06:17.00773877Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: bf7f4b50d5555e0a16171fcbe774e4358c36cd422dad5deb5053a27b02f6c8f5
     home: https://kyverno.io/policies/
@@ -13905,7 +14015,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.3
-    created: "2026-11-06T11:15:09.935989635Z"
+    created: "2026-11-08T15:06:17.007245999Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: b7e3dd13930b2ce284913b27ede4d083fcf44cf5a95f506d5df745dfdc0dc456
     home: https://kyverno.io/policies/
@@ -13941,7 +14051,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.2
-    created: "2026-11-06T11:15:09.935035394Z"
+    created: "2026-11-08T15:06:17.006711733Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: f552fe68f82b514e986b78ba6d4e9548e915e6d7208a59b096e663625eba33bd
     home: https://kyverno.io/policies/
@@ -13977,7 +14087,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.2-rc.1
-    created: "2026-11-06T11:15:09.9340145Z"
+    created: "2026-11-08T15:06:17.005849321Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 966d2f96c7be9b31e61d4ce81eb466f012ceed6281196b7f72f00cf51502d41d
     home: https://kyverno.io/policies/
@@ -14013,7 +14123,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.1
-    created: "2026-11-06T11:15:09.932994958Z"
+    created: "2026-11-08T15:06:17.004681797Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 2ab3d472e3115147f56c6fff945f4bc6e225114d4eb2e906d9d4830b306b62aa
     home: https://kyverno.io/policies/
@@ -14049,7 +14159,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.0
-    created: "2026-11-06T11:15:09.93185363Z"
+    created: "2026-11-08T15:06:17.004195346Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 7ed907e5e9f7ea98adde57b6963d47291229701910afcc9e1401ea3cbb526441
     home: https://kyverno.io/policies/
@@ -14085,7 +14195,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.0-rc.1
-    created: "2026-11-06T11:15:09.930425129Z"
+    created: "2026-11-08T15:06:17.003711438Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: a3938b80ef718d862fce960e0e79b74a43baf21413b1eeff4c97d78d8eaab356
     home: https://kyverno.io/policies/
@@ -14121,7 +14231,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.14.0-alpha.1
-    created: "2026-11-06T11:15:09.929231284Z"
+    created: "2026-11-08T15:06:17.00321401Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: c378de3a9a9ee299834209da08f43ca147ba315db621daa5197260992927a99c
     home: https://kyverno.io/policies/
@@ -14157,7 +14267,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.6
-    created: "2026-11-06T11:15:09.925695733Z"
+    created: "2026-11-08T15:06:17.002701488Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 8bf0e453fc53acc9730f17eb926de32dfc91675146bd2a06d9ad8d513818b54d
     home: https://kyverno.io/policies/
@@ -14193,7 +14303,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.5
-    created: "2026-11-06T11:15:09.92475636Z"
+    created: "2026-11-08T15:06:17.002201906Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: f678b143ac3fa796111cd85c7c32e31bb966b1f1d66fca04765da719ed40fc58
     home: https://kyverno.io/policies/
@@ -14229,7 +14339,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.4
-    created: "2026-11-06T11:15:09.923848305Z"
+    created: "2026-11-08T15:06:17.001637264Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 5229b540425d7ca3f07b8ad0f3dfd42b1dde23144bbd61e4be34f49296dba189
     home: https://kyverno.io/policies/
@@ -14265,7 +14375,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.3
-    created: "2026-11-06T11:15:09.92291895Z"
+    created: "2026-11-08T15:06:17.00114922Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: da57a2dc8f0995657fe6c40d22066f694a60f486a0ba38ff3ae27f4874f68684
     home: https://kyverno.io/policies/
@@ -14301,7 +14411,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.2
-    created: "2026-11-06T11:15:09.921990447Z"
+    created: "2026-11-08T15:06:17.000647495Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 47262b3a8d8dd6363799be7193b8aadb43afdbc88a087d28383188050bbbe6e9
     home: https://kyverno.io/policies/
@@ -14337,7 +14447,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.2-rc.1
-    created: "2026-11-06T11:15:09.921044682Z"
+    created: "2026-11-08T15:06:17.000149045Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 5aa817f3b975c07bb84258089c9e95f2e5449b957e864b8d94425a0b060f1617
     home: https://kyverno.io/policies/
@@ -14369,7 +14479,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.1
-    created: "2026-11-06T11:15:09.920120507Z"
+    created: "2026-11-08T15:06:16.999555017Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: e583c1ba29abeffd1a39181fd91ebc4d73888b16fd7f7d26a20cbd9b2ab51c9d
     home: https://kyverno.io/policies/
@@ -14401,7 +14511,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.1-rc.1
-    created: "2026-11-06T11:15:09.919202924Z"
+    created: "2026-11-08T15:06:16.998463881Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: c78b1135567921bd2182f007069da32375682c78a8d5d0b0a8de489fe3804aae
     home: https://kyverno.io/policies/
@@ -14433,7 +14543,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.0
-    created: "2026-11-06T11:15:09.918291604Z"
+    created: "2026-11-08T15:06:16.99765371Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 302e5dd3f26cee058c6a6688dd1ffb2acd345af00d17b5df2f12437f723914cc
     home: https://kyverno.io/policies/
@@ -14465,7 +14575,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.0-rc.3
-    created: "2026-11-06T11:15:09.917313038Z"
+    created: "2026-11-08T15:06:16.997193679Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: cbcd7a57b230dc1a95284254980098aa71c36ff6d09d5b4f856c740ff803ac59
     home: https://kyverno.io/policies/
@@ -14497,7 +14607,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.0-rc.2
-    created: "2026-11-06T11:15:09.916249083Z"
+    created: "2026-11-08T15:06:16.996698444Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 7bd454ddd9b05ff6cb4bef20dbc991245b2c672b5952f7e5ca6be87b6935378b
     home: https://kyverno.io/policies/
@@ -14529,7 +14639,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.13.0-beta.1
-    created: "2026-11-06T11:15:09.914955713Z"
+    created: "2026-11-08T15:06:16.996221397Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 6436b384724db24a643177a30bbe8669229df773a473ac4115d0133a10fa1bc7
     home: https://kyverno.io/policies/
@@ -14556,7 +14666,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.6
-    created: "2026-11-06T11:15:09.913057482Z"
+    created: "2026-11-08T15:06:16.995713262Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 7b475a7ebbe4d85ff894d4eedcecb249431dcd78a4a6cb982679c8e9cf295b6a
     home: https://kyverno.io/policies/
@@ -14583,7 +14693,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.6-rc.3
-    created: "2026-11-06T11:15:09.911579979Z"
+    created: "2026-11-08T15:06:16.995277178Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 6952f722c02c37a995b3ea2559b9bebe7332b574956286ad9e49db02f203f18c
     home: https://kyverno.io/policies/
@@ -14610,7 +14720,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.6-rc.2
-    created: "2026-11-06T11:15:09.910707671Z"
+    created: "2026-11-08T15:06:16.994828735Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 05c636e629e9af0ddaf9bdf2780d38632df4c8eb8df0852d496beeed095d1a05
     home: https://kyverno.io/policies/
@@ -14637,7 +14747,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.5
-    created: "2026-11-06T11:15:09.909848516Z"
+    created: "2026-11-08T15:06:16.99439801Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: ea4177263c37c75abe61f373b05a12c5c2cebc607c5ae458949389f2293e74de
     home: https://kyverno.io/policies/
@@ -14664,7 +14774,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.5-rc.2
-    created: "2026-11-06T11:15:09.908926946Z"
+    created: "2026-11-08T15:06:16.993931439Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: e22a83ba6a339b9e37fbcf9b52dd3051e0998b4c3584a6b929e95f2d20064f56
     home: https://kyverno.io/policies/
@@ -14691,7 +14801,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.5-rc.1
-    created: "2026-11-06T11:15:09.908070497Z"
+    created: "2026-11-08T15:06:16.99348521Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 6a689c1888aac72a343c253f95976f5f4e125588cd4e70b8d57ff9151c04bd45
     home: https://kyverno.io/policies/
@@ -14718,7 +14828,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.4
-    created: "2026-11-06T11:15:09.90717244Z"
+    created: "2026-11-08T15:06:16.992904222Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 5c7581542f0cf77760278383881e1eb38586903880739ed5bd905de14b8f9015
     home: https://kyverno.io/policies/
@@ -14745,7 +14855,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.4-rc.2
-    created: "2026-11-06T11:15:09.906253615Z"
+    created: "2026-11-08T15:06:16.992053853Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 153517c7f5cccf34c54a10eb4502210e19d16132ac71fda3b420b2a67f53fa63
     home: https://kyverno.io/policies/
@@ -14772,7 +14882,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.4-rc.1
-    created: "2026-11-06T11:15:09.905398228Z"
+    created: "2026-11-08T15:06:16.991196178Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 95a225e6a1b8d457430f910192c3cc00a06b73bc4945bc257aaeedb71c7b882f
     home: https://kyverno.io/policies/
@@ -14799,7 +14909,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.3
-    created: "2026-11-06T11:15:09.904554282Z"
+    created: "2026-11-08T15:06:16.990755267Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: cf873b9141cb2510a8b4e877815504202f2655491fbbed1041e29bd1e6df1ba3
     home: https://kyverno.io/policies/
@@ -14826,7 +14936,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.3-rc.1
-    created: "2026-11-06T11:15:09.90362616Z"
+    created: "2026-11-08T15:06:16.990326234Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 6bd132ac6babe7375b175334bbfaf6f35f39b2a0920d4e4b7b30d654d1bd44ee
     home: https://kyverno.io/policies/
@@ -14853,7 +14963,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.2
-    created: "2026-11-06T11:15:09.902641172Z"
+    created: "2026-11-08T15:06:16.989879844Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 9f0bcb59b5966c80aed82c9f150afc2836b2e315c759e5d73af1a4ac4219e192
     home: https://kyverno.io/policies/
@@ -14880,7 +14990,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.2-rc.3
-    created: "2026-11-06T11:15:09.900080882Z"
+    created: "2026-11-08T15:06:16.989451262Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 96bb0cbfc17855a02195d3bac2c01593e72466538eb6cd19e5e340b6c5d9b735
     home: https://kyverno.io/policies/
@@ -14907,7 +15017,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.2-rc.2
-    created: "2026-11-06T11:15:09.898628757Z"
+    created: "2026-11-08T15:06:16.989004392Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: af2970f452776670f3ac3da8fe8f25cac8fca813b5c24a83b65f0ad38855fcb4
     home: https://kyverno.io/policies/
@@ -14934,7 +15044,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.2-rc.1
-    created: "2026-11-06T11:15:09.898079037Z"
+    created: "2026-11-08T15:06:16.988577062Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 34694c0c3a9f95766a7b92a9a0c0dc7059c1d94a8820cfd907e450ea1e6f6b67
     home: https://kyverno.io/policies/
@@ -14961,7 +15071,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.1
-    created: "2026-11-06T11:15:09.897526742Z"
+    created: "2026-11-08T15:06:16.988145114Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 42b8504029a48ddde086dcf833d8bf7db21d7d5c01228e86ec44081d22b21055
     home: https://kyverno.io/policies/
@@ -14988,7 +15098,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.1-rc.1
-    created: "2026-11-06T11:15:09.896969548Z"
+    created: "2026-11-08T15:06:16.987674858Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 6a19c78b059d2b355ea54fe7266579b73dced7509b05c4872f645a1395234926
     home: https://kyverno.io/policies/
@@ -15015,7 +15125,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0
-    created: "2026-11-06T11:15:09.896392267Z"
+    created: "2026-11-08T15:06:16.98718412Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 1d1491734d78f91c2a1018e9e9ddab77c4eb080f181631df2eb3c693a0f63d86
     home: https://kyverno.io/policies/
@@ -15042,7 +15152,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-rc.5
-    created: "2026-11-06T11:15:09.895879155Z"
+    created: "2026-11-08T15:06:16.986670887Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: ca5ad29a442d29d249084c5399d16a76ec5b93d6262ce3c3a4523a8ece3baadd
     home: https://kyverno.io/policies/
@@ -15069,7 +15179,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-rc.4
-    created: "2026-11-06T11:15:09.895344022Z"
+    created: "2026-11-08T15:06:16.98570868Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 7bc8394c69326a542708af0ca3cf3f90f48d43449cddd516503ace7b0ca48a2e
     home: https://kyverno.io/policies/
@@ -15096,7 +15206,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-rc.3
-    created: "2026-11-06T11:15:09.894832783Z"
+    created: "2026-11-08T15:06:16.98485431Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 0fd80b88f26ba11b7647299a06fec14b2b52489c05bed2ff72c48d919456ad83
     home: https://kyverno.io/policies/
@@ -15123,7 +15233,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-rc.2
-    created: "2026-11-06T11:15:09.894286439Z"
+    created: "2026-11-08T15:06:16.984417746Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 0fe41bf2e57ffb84ff8b15499c4ec30cbaf810915dbec5532f111ac9bd54f18c
     home: https://kyverno.io/policies/
@@ -15150,7 +15260,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-rc.1
-    created: "2026-11-06T11:15:09.893749172Z"
+    created: "2026-11-08T15:06:16.983944395Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: d5b3b04d58166240663bb3f3fa42833a27bde45ed4dc28b35595479a2a08fe63
     home: https://kyverno.io/policies/
@@ -15177,7 +15287,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.5
-    created: "2026-11-06T11:15:09.893093726Z"
+    created: "2026-11-08T15:06:16.983497494Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 545d72bf604fb350e3e47b6b17b75e7e15b55c278ebca0492799b16d621f15fe
     home: https://kyverno.io/policies/
@@ -15204,7 +15314,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.4
-    created: "2026-11-06T11:15:09.892424264Z"
+    created: "2026-11-08T15:06:16.983012956Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 508b960d534eaeb62ed0ece300d7479b5a5296ac50d52650edcbc2ac1b7f3ef9
     home: https://kyverno.io/policies/
@@ -15231,7 +15341,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.3
-    created: "2026-11-06T11:15:09.891232274Z"
+    created: "2026-11-08T15:06:16.982576141Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 5ee987c7c017ab2005ad49700a1f44ee0426d23166f27f5dfc3b9c48946670d0
     home: https://kyverno.io/policies/
@@ -15258,7 +15368,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.2
-    created: "2026-11-06T11:15:09.889967798Z"
+    created: "2026-11-08T15:06:16.98210327Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: b9676d5c82861acc98a0e05aa5c985373acdf64f64278448de929a6c1703afd4
     home: https://kyverno.io/policies/
@@ -15285,7 +15395,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.1
-    created: "2026-11-06T11:15:09.889135203Z"
+    created: "2026-11-08T15:06:16.981652514Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 95aab3aaab031a968b3cedad887a9f190e0386af403a3b028c2f98920128028b
     home: https://kyverno.io/policies/
@@ -15312,7 +15422,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.12.0-alpha.0
-    created: "2026-11-06T11:15:09.887927051Z"
+    created: "2026-11-08T15:06:16.981189228Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 11306b2302f061586afb4494ea825ad633249e70a7010ccc8f56bb3bebcea6a1
     home: https://kyverno.io/policies/
@@ -15339,7 +15449,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.5
-    created: "2026-11-06T11:15:09.88578717Z"
+    created: "2026-11-08T15:06:16.977871918Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: b6fd2e386e305a3db8318721d309b921bab4a4d43480ba4698d51b3a6e91f320
     home: https://kyverno.io/policies/
@@ -15366,7 +15476,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.4
-    created: "2026-11-06T11:15:09.885233002Z"
+    created: "2026-11-08T15:06:16.977433471Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 588327dcec4cd3d0c472f85da1bfdd8c231062fb869ab4a7b10274b58ee0b3b8
     home: https://kyverno.io/policies/
@@ -15393,7 +15503,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.3
-    created: "2026-11-06T11:15:09.884721503Z"
+    created: "2026-11-08T15:06:16.976957045Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 7eb26437b86f92902a63074649f75df31b1659d8542fe5e70c2128e48f29cd60
     home: https://kyverno.io/policies/
@@ -15431,7 +15541,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.2
-    created: "2026-11-06T11:15:09.884178345Z"
+    created: "2026-11-08T15:06:16.976521182Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 1e7a57e3ee49482c663c0949a586c27bbcf4a4f49b6f5c306bc15ab5376a640a
     home: https://kyverno.io/policies/
@@ -15469,7 +15579,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.1
-    created: "2026-11-06T11:15:09.883644364Z"
+    created: "2026-11-08T15:06:16.975933003Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 42e4a8e721fa04e49e031eaa21d44dc1b1d938d8896190bad5c19f95a4af68f8
     home: https://kyverno.io/policies/
@@ -15505,7 +15615,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0
-    created: "2026-11-06T11:15:09.883061092Z"
+    created: "2026-11-08T15:06:16.975485401Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: b3e9a4011fe41e7b058d003ce61d62657e84a6a3f1bfefa3f14c7d1acf6647cc
     home: https://kyverno.io/policies/
@@ -15541,7 +15651,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.7
-    created: "2026-11-06T11:15:09.8821007Z"
+    created: "2026-11-08T15:06:16.975013553Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: d28588501f13e15f0c194c174e2379fd7f4c1431e5cca70b9638703dad9a4c56
     home: https://kyverno.io/policies/
@@ -15577,7 +15687,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.6
-    created: "2026-11-06T11:15:09.881199848Z"
+    created: "2026-11-08T15:06:16.974551679Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 7a5c93886001dc0bdb7bdff86ce0e63911105517ddd0a5e81ac09f53e8edef2a
     home: https://kyverno.io/policies/
@@ -15613,7 +15723,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.5
-    created: "2026-11-06T11:15:09.88009806Z"
+    created: "2026-11-08T15:06:16.974046258Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 152e801306cd593590a0bec0cfcb2ae0ab58f9f3647ce73dac7094f11a742731
     home: https://kyverno.io/policies/
@@ -15649,7 +15759,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.4
-    created: "2026-11-06T11:15:09.878807505Z"
+    created: "2026-11-08T15:06:16.972931957Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 8a8bff79c1ec6ab2a6586086056ba0174f2ff92f6337ba01b69ec3e63896992d
     home: https://kyverno.io/policies/
@@ -15685,7 +15795,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.3
-    created: "2026-11-06T11:15:09.877938543Z"
+    created: "2026-11-08T15:06:16.971892671Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: eca77c2ef9daba973a4cb1e10f3f05641733256e8abe5fe7fbcf02abc90149a8
     home: https://kyverno.io/policies/
@@ -15721,7 +15831,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.2
-    created: "2026-11-06T11:15:09.877064851Z"
+    created: "2026-11-08T15:06:16.971449987Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 304029d74501be8713a1c90c20eb62030c143e02fc1a033eab3964e58ea6d1a1
     home: https://kyverno.io/policies/
@@ -15757,7 +15867,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-rc.1
-    created: "2026-11-06T11:15:09.876215515Z"
+    created: "2026-11-08T15:06:16.970982235Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 6c95b6a68818ff780f4761a887687591d197396259cc78b59d842c031166c57e
     home: https://kyverno.io/policies/
@@ -15793,7 +15903,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-beta.4
-    created: "2026-11-06T11:15:09.875353556Z"
+    created: "2026-11-08T15:06:16.970546682Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 4abca6fb5fc1a288dbe4ac23a4af5de250609a7e60daaf516cf6eb2fd04f1386
     home: https://kyverno.io/policies/
@@ -15829,7 +15939,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-beta.3
-    created: "2026-11-06T11:15:09.874521462Z"
+    created: "2026-11-08T15:06:16.970089165Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 27bb76ea0e5d7be6def4abe5a2ea02a9a03b7c9ede67a2f0bf6f121770d9c824
     home: https://kyverno.io/policies/
@@ -15865,7 +15975,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-beta.2
-    created: "2026-11-06T11:15:09.873641449Z"
+    created: "2026-11-08T15:06:16.969643636Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 87044ebe49f338b25bebea86fbe3f614be08c0c5283dd7d8fe333dfedc0e160d
     home: https://kyverno.io/policies/
@@ -15901,7 +16011,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.11.0-beta.1
-    created: "2026-11-06T11:15:09.872733774Z"
+    created: "2026-11-08T15:06:16.969187822Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 6dcab90003c00e5c546aaa245eec5816ab2bb2ba208fb98a88a4aab9493c4d1c
     home: https://kyverno.io/policies/
@@ -15937,7 +16047,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.6
-    created: "2026-11-06T11:15:09.871660022Z"
+    created: "2026-11-08T15:06:16.968699017Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 24c42acef517a37daf5a26621dca80d709255cc656535620587ab3e058d6c847
     home: https://kyverno.io/policies/
@@ -15973,7 +16083,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.5
-    created: "2026-11-06T11:15:09.870788665Z"
+    created: "2026-11-08T15:06:16.968221139Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: d26a7a5ac1b1d029635e26817711734dc1804926abf160a3664af936914f4a0d
     home: https://kyverno.io/policies/
@@ -16009,7 +16119,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.4
-    created: "2026-11-06T11:15:09.869926585Z"
+    created: "2026-11-08T15:06:16.967733706Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 3ad601560d8c925fca3dd3e5e68f0cfa1a5490effe992b91f9295c542b4eda47
     home: https://kyverno.io/policies/
@@ -16045,7 +16155,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.3
-    created: "2026-11-06T11:15:09.868878601Z"
+    created: "2026-11-08T15:06:16.966896988Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: f658372c213c7e58947ee0a0e9f46736d75ba8fbbc4d5ebac1209ea237fc4d19
     home: https://kyverno.io/policies/
@@ -16081,7 +16191,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.2
-    created: "2026-11-06T11:15:09.867719854Z"
+    created: "2026-11-08T15:06:16.965484972Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 9cd1153f63a1b09d479dca7427e24989515b85f9e6691b20c58d7ef5ab58d352
     home: https://kyverno.io/policies/
@@ -16117,7 +16227,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.2
-    created: "2026-11-06T11:15:09.866366503Z"
+    created: "2026-11-08T15:06:16.965034225Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 2c051f5fe56a66afe8b3e722bda7d9f8a7469e9fa79451395e2548f68e343bfe
     home: https://kyverno.io/policies/
@@ -16151,7 +16261,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.1
-    created: "2026-11-06T11:15:09.865809088Z"
+    created: "2026-11-08T15:06:16.964594005Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 47f3cd40b43a0e231e4f470a78373f4beb1ed6261635c6406d18af165ae55338
     home: https://kyverno.io/policies/
@@ -16185,7 +16295,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.1-rc.1
-    created: "2026-11-06T11:15:09.865248738Z"
+    created: "2026-11-08T15:06:16.964159103Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 3c3f730bc15d8dc9543846f88ef28df0335b7ae5bd1732ebff781fd023357c59
     home: https://kyverno.io/policies/
@@ -16219,7 +16329,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.0
-    created: "2026-11-06T11:15:09.864722442Z"
+    created: "2026-11-08T15:06:16.963702508Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 8d2c8c1478f6853cdb7d22e07f301059800151dd639a7ad34bacbdf7eae08e51
     home: https://kyverno.io/policies/
@@ -16253,7 +16363,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.0-rc.1
-    created: "2026-11-06T11:15:09.864142425Z"
+    created: "2026-11-08T15:06:16.963264621Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: c30b19da79b54022ba43434d227a853e21d2092242085c07fe9646552174be0f
     home: https://kyverno.io/policies/
@@ -16287,7 +16397,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.0-beta.1
-    created: "2026-11-06T11:15:09.863567068Z"
+    created: "2026-11-08T15:06:16.962813414Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 32703a3cece60ffc74ca318fd9bc9c1faed615ddba06717be6d8fa8f61a16224
     home: https://kyverno.io/policies/
@@ -16321,7 +16431,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.0-alpha.2
-    created: "2026-11-06T11:15:09.862844497Z"
+    created: "2026-11-08T15:06:16.962366304Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: f9dd71fe3e345e53fc6fb4d6742d3dbb802d25876c75f86a10ab644ba40f2d54
     home: https://kyverno.io/policies/
@@ -16355,7 +16465,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.10.0-alpha.1
-    created: "2026-11-06T11:15:10.010825437Z"
+    created: "2026-11-08T15:06:17.059778978Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: cc3ca64d7ad7dcbbfce290028f78b79724c692c08158858e41a5f60a656061ab
     home: https://kyverno.io/policies/
@@ -16389,7 +16499,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.5
-    created: "2026-11-06T11:15:09.861845824Z"
+    created: "2026-11-08T15:06:16.961908236Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: fc4d9285351b32709b97dd420a7cbc8c9d891a0ccc65bd2edb8cd70af3314815
     home: https://kyverno.io/policies/
@@ -16423,7 +16533,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.4
-    created: "2026-11-06T11:15:09.861276958Z"
+    created: "2026-11-08T15:06:16.96145803Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: af0db98502eb6efd80be0978fddef4eaaa9551139cd71fad5691e3eee43d3093
     home: https://kyverno.io/policies/
@@ -16457,7 +16567,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.3
-    created: "2026-11-06T11:15:09.860735854Z"
+    created: "2026-11-08T15:06:16.960944337Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 39271e0df4ef8232f328759279f7b30de2aecd12746c694827f7bbe6d965165a
     home: https://kyverno.io/policies/
@@ -16491,7 +16601,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.2
-    created: "2026-11-06T11:15:09.860150898Z"
+    created: "2026-11-08T15:06:16.959944767Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: a177a151edb8adac79e6dda5caeba08308cf399afc4445d58bcff19971ed6362
     home: https://kyverno.io/policies/
@@ -16525,7 +16635,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.2-rc.1
-    created: "2026-11-06T11:15:09.859209361Z"
+    created: "2026-11-08T15:06:16.959148817Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: c310ba91e3b17a8a35fe09a719f701d7bc9d7f44b2c70202a67ef08e475ce0d8
     home: https://kyverno.io/policies/
@@ -16559,7 +16669,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.1
-    created: "2026-11-06T11:15:09.85812705Z"
+    created: "2026-11-08T15:06:16.958672161Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: ba2378e12e3c92e463477ad70c67de38f69e421799643e18a470797acdf5e447
     home: https://kyverno.io/policies/
@@ -16593,7 +16703,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.1-rc.1
-    created: "2026-11-06T11:15:09.856901696Z"
+    created: "2026-11-08T15:06:16.958175233Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 6be35a3e6287d3ddc2289393fe5629b457ca0e023edebf275b7eaf4bfb8cccc6
     home: https://kyverno.io/policies/
@@ -16627,7 +16737,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0
-    created: "2026-11-06T11:15:09.856306372Z"
+    created: "2026-11-08T15:06:16.957691546Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 9cfb298a800256ac3ba99cde9b3ae860a83dc927269ab63709796ad637d3cff8
     home: https://kyverno.io/policies/
@@ -16661,7 +16771,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-rc.4
-    created: "2026-11-06T11:15:09.855757453Z"
+    created: "2026-11-08T15:06:16.957239057Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: b31a54d37092e6fbd489ae51af95e9768d3ce3e29d60bf41d25f1e4823d0252f
     home: https://kyverno.io/policies/
@@ -16695,7 +16805,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-rc.3
-    created: "2026-11-06T11:15:09.855203986Z"
+    created: "2026-11-08T15:06:16.956747858Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: f2a17bc2610711f21c0742cd5d35a894a06f7e4c9efa8541283d63d2485344ad
     home: https://kyverno.io/policies/
@@ -16729,7 +16839,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-rc.2
-    created: "2026-11-06T11:15:09.854674454Z"
+    created: "2026-11-08T15:06:16.956168633Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: c033a90686309021c786d1f6c88ec4acf11a182219f2bcae43e968787620ec85
     home: https://kyverno.io/policies/
@@ -16763,7 +16873,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-rc.1
-    created: "2026-11-06T11:15:09.854104957Z"
+    created: "2026-11-08T15:06:16.955448481Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: f4175c5e7bbcab41925bbc12d4f3b4648fe97675483715ffb037cde88cdc5438
     home: https://kyverno.io/policies/
@@ -16797,7 +16907,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-beta.2
-    created: "2026-11-06T11:15:09.853576646Z"
+    created: "2026-11-08T15:06:16.954948218Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: ca97540d7bec151daa754701e1eac3d3f74eb6d129efaa1a50641d8feaa6d236
     home: https://kyverno.io/policies/
@@ -16829,7 +16939,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-beta.1
-    created: "2026-11-06T11:15:09.853002251Z"
+    created: "2026-11-08T15:06:16.954323883Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: a7f77567cc59375fd54fe450cfb566860d9c0a37cbfd4f2769b08d00c4062e19
     home: https://kyverno.io/policies/
@@ -16861,7 +16971,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-beta.1
-    created: "2026-11-06T11:15:10.010274344Z"
+    created: "2026-11-08T15:06:17.059352779Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 1d0bd33e7bbe47eca0d96e70d47349e2afff50438dedb51c278c98016aea5321
     home: https://kyverno.io/policies/
@@ -16893,7 +17003,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.5
-    created: "2026-11-06T11:15:09.852318281Z"
+    created: "2026-11-08T15:06:16.953155073Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 0f653ee4272289914b3e35f6ea48ba82688619eef51127ede74f66d752615796
     home: https://kyverno.io/policies/
@@ -16925,7 +17035,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.5-rc.1
-    created: "2026-11-06T11:15:09.851659379Z"
+    created: "2026-11-08T15:06:16.952314084Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: c83b9dbaebf122670712a4c5ec60785ad8aa8ea23630bf27e36cded6e02fb4d8
     home: https://kyverno.io/policies/
@@ -16957,7 +17067,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.4
-    created: "2026-11-06T11:15:09.851077259Z"
+    created: "2026-11-08T15:06:16.951827111Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 5b9feb1c0883c8b9ec9325912cf0a9600a7df891593b47da5072241efb7b604f
     home: https://kyverno.io/policies/
@@ -16989,7 +17099,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.4-rc.1
-    created: "2026-11-06T11:15:09.850118249Z"
+    created: "2026-11-08T15:06:16.951370416Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: b6cb6452d2b4b5ad0815025d0af60838d16bf1d4494df35363ab70829fa6d238
     home: https://kyverno.io/policies/
@@ -17021,7 +17131,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.3
-    created: "2026-11-06T11:15:09.848792889Z"
+    created: "2026-11-08T15:06:16.950865726Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 7bf1c05b42ae4432d03404524ccbd79e6b897220b83a36d46c3b883ff76f1f7f
     home: https://kyverno.io/policies/
@@ -17053,7 +17163,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.3-rc.2
-    created: "2026-11-06T11:15:09.847685174Z"
+    created: "2026-11-08T15:06:16.950425456Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 506a1a53d2e635207a26a37845af3c1d401bd009b5fb9ce9416270b53799b92e
     home: https://kyverno.io/policies/
@@ -17099,7 +17209,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.2
-    created: "2026-11-06T11:15:09.846999542Z"
+    created: "2026-11-08T15:06:16.949952936Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 3b8db05dc4070b49993707e6c0e476559525acea57258f5bf4371ed0d52419dc
     home: https://kyverno.io/policies/
@@ -17145,7 +17255,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.2-rc.2
-    created: "2026-11-06T11:15:09.846231406Z"
+    created: "2026-11-08T15:06:16.949519446Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 26ab84324f85cb6722729e3411b948f303240a4e9c30c45650a8edd7846ceb5f
     home: https://kyverno.io/policies/
@@ -17191,7 +17301,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.2-rc.1
-    created: "2026-11-06T11:15:09.845498797Z"
+    created: "2026-11-08T15:06:16.949054959Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 206a34540e21a15de781bcad24fd5e6070e17c70672dbb2458fb10abc7308965
     home: https://kyverno.io/policies/
@@ -17237,7 +17347,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.1
-    created: "2026-11-06T11:15:09.84477283Z"
+    created: "2026-11-08T15:06:16.948591503Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: ad7b46b1200edfa2f487b5be6296e9666c901f05c0ec2eb3879ae4ab6c999c70
     home: https://kyverno.io/policies/
@@ -17283,7 +17393,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.1-rc1
-    created: "2026-11-06T11:15:09.844043526Z"
+    created: "2026-11-08T15:06:16.948154417Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 2edd487d4fa3da856d613e1744ae39f50ff0b618c54dbaa9241148f4523733e3
     home: https://kyverno.io/policies/
@@ -17329,7 +17439,7 @@ entries:
       artifacthub.io/prerelease: "true"
     apiVersion: v2
     appVersion: v1.8.1-rc.4
-    created: "2026-11-06T11:15:09.843345551Z"
+    created: "2026-11-08T15:06:16.947684912Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 7c166679e29b805284eb2aaf333b11c364b065463d1039262843103696f94084
     home: https://kyverno.io/policies/
@@ -17375,7 +17485,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.1-rc.3
-    created: "2026-11-06T11:15:09.842616158Z"
+    created: "2026-11-08T15:06:16.947239224Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 908ff4efbcc80aadc1b981a21ea3e18aeb3f640643d4b05f90c2e17af56568f4
     home: https://kyverno.io/policies/
@@ -17421,7 +17531,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.1-rc.2
-    created: "2026-11-06T11:15:09.841807106Z"
+    created: "2026-11-08T15:06:16.946681061Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 811eee1e200df504e4b94cdaee28c7edb4a94ed3321071818755d2d5e1154958
     home: https://kyverno.io/policies/
@@ -17463,7 +17573,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0
-    created: "2026-11-06T11:15:09.841091959Z"
+    created: "2026-11-08T15:06:16.946225578Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: a8d658e865cb3e927d813b8da34c89455efd33315bd9f8fb732d25963e02cc62
     home: https://kyverno.io/policies/
@@ -17505,7 +17615,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc6
-    created: "2026-11-06T11:15:09.840399945Z"
+    created: "2026-11-08T15:06:16.945703481Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 9dfd79468382932c0eb03d56a9ed616f8049ea9323a0751e8e6c9d86ba340057
     home: https://kyverno.io/policies/
@@ -17547,7 +17657,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc5
-    created: "2026-11-06T11:15:09.839675761Z"
+    created: "2026-11-08T15:06:16.945218822Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 134f39e4a72d872042b30ad5703df98f13e8750b8a9bd95426f59a8de240a0e8
     home: https://kyverno.io/policies/
@@ -17589,7 +17699,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc4
-    created: "2026-11-06T11:15:09.839073994Z"
+    created: "2026-11-08T15:06:16.944746472Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 47d6cb6d7222b33a7a9cf0f9b9f87e9b90b4a67e3064c3ae9f1b29c2222d9bce
     home: https://kyverno.io/policies/
@@ -17631,7 +17741,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc3
-    created: "2026-11-06T11:15:09.838542067Z"
+    created: "2026-11-08T15:06:16.94429843Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 625a10949c50f36242803632ffd460a180fbc3fc335a6ca9c604b6768eb14064
     home: https://kyverno.io/policies/
@@ -17673,7 +17783,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc2
-    created: "2026-11-06T11:15:09.83798812Z"
+    created: "2026-11-08T15:06:16.943831869Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 4f1dca0edeaef77c1fe815105887d5651f1784daf1135cd6c2a3a443fec857d7
     home: https://kyverno.io/policies/
@@ -17715,7 +17825,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc1
-    created: "2026-11-06T11:15:09.837381304Z"
+    created: "2026-11-08T15:06:16.943378379Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: a8577eddae397f9e5e8411851424e0e1d25e689e3b1aaf6802ff467411b8a628
     home: https://kyverno.io/policies/
@@ -17749,7 +17859,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.5
-    created: "2026-11-06T11:15:10.009756343Z"
+    created: "2026-11-08T15:06:17.058890155Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: b7121bfedae551a06e7035188673f78fa80add5d70c9c23b9eb075f8c1255a8e
     home: https://kyverno.io/policies/
@@ -17783,7 +17893,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.4
-    created: "2026-11-06T11:15:10.009207805Z"
+    created: "2026-11-08T15:06:17.058483206Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 5f9d7dbb66342b4f6148114e6b55cd9c047e19b636bbe28e0084f57d9e205e88
     home: https://kyverno.io/policies/
@@ -17817,7 +17927,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.3
-    created: "2026-11-06T11:15:10.008692168Z"
+    created: "2026-11-08T15:06:17.058024798Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 89d97f14fd9b25ce14bd3b8e036e69ccc803b2331f402b666ee15fa640380616
     home: https://kyverno.io/policies/
@@ -17851,7 +17961,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.2
-    created: "2026-11-06T11:15:10.008166433Z"
+    created: "2026-11-08T15:06:17.057598339Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 453169f753300ec97b754dd300ad4dd99b3be7f6dde39eba85ff4a14aaa63558
     home: https://kyverno.io/policies/
@@ -17885,7 +17995,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.2-rc2
-    created: "2026-11-06T11:15:10.007654252Z"
+    created: "2026-11-08T15:06:17.057000746Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: a90d9fa3dcdd773b14d882a6f3fa8c86bf05c2f880f4139698b495fcde853133
     home: https://kyverno.io/policies/
@@ -17919,7 +18029,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.2-rc1
-    created: "2026-11-06T11:15:10.00710329Z"
+    created: "2026-11-08T15:06:17.05623316Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 973013667cfd949f7ae34906f18d2f7e8cfa54a6a2f52bebdd2c9cd9d675d525
     home: https://kyverno.io/policies/
@@ -17953,7 +18063,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.1
-    created: "2026-11-06T11:15:10.006350149Z"
+    created: "2026-11-08T15:06:17.055401725Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: de2143e846d02bf9796777486789e34d5e4338527d141ffd6f4080444ea0de28
     home: https://kyverno.io/policies/
@@ -17987,7 +18097,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.0
-    created: "2026-11-06T11:15:10.005340565Z"
+    created: "2026-11-08T15:06:17.054791477Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 450b2062210d486f2159e0cd9e06121f01c0e7676f0329aaa569cff5c970b628
     home: https://kyverno.io/policies/
@@ -18021,7 +18131,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.0
-    created: "2026-11-06T11:15:10.004111095Z"
+    created: "2026-11-08T15:06:17.054391579Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 8d188100fcff6c1f2ecdbdffef39fec7769fba77bcfe9f6b43ce6b90440d7220
     home: https://kyverno.io/policies/
@@ -18051,7 +18161,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.0
-    created: "2026-11-06T11:15:10.003625704Z"
+    created: "2026-11-08T15:06:17.053972031Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 4b213b6131c86082a3d3e8b3efbcc6d9d86d05ad19081abb008d18a5681ca2c8
     home: https://kyverno.io/policies/
@@ -18081,7 +18191,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.0-rc2
-    created: "2026-11-06T11:15:10.003114325Z"
+    created: "2026-11-08T15:06:17.053578052Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: ca2246635a0d70747da744e88096e02ccd94afa3515d88488719828bbea836fa
     home: https://kyverno.io/policies/
@@ -18111,7 +18221,7 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.7.0-rc1
-    created: "2026-11-06T11:15:10.002623975Z"
+    created: "2026-11-08T15:06:17.053166987Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 91460f098c739b0cb61c08e6905606e20190655248597b9bf07d0120629b7f01
     home: https://kyverno.io/policies/
@@ -18138,7 +18248,7 @@ entries:
         - "Do not evaluate `foreach` policies on DELETE"
     apiVersion: v1
     appVersion: v1.6.3
-    created: "2026-11-06T11:15:10.002096837Z"
+    created: "2026-11-08T15:06:17.052753238Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 28353bdb0e038b0a91720a0cd63d7a1219e064dd4cd8c3acd9178d92a9d538bd
     home: https://kyverno.io/policies/
@@ -18164,7 +18274,7 @@ entries:
         - "Do not evaluate `foreach` policies on DELETE"
     apiVersion: v1
     appVersion: v1.6.2
-    created: "2026-11-06T11:15:10.001615975Z"
+    created: "2026-11-08T15:06:17.052360702Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 14018d974333a827d45475420e3c1cc85d583c07c2a4224d1b74d0b20df099ce
     home: https://kyverno.io/policies/
@@ -18190,7 +18300,7 @@ entries:
         - "Add policyPreconditions value to allow policies and rules to have preconditions added"
     apiVersion: v1
     appVersion: v1.6.2
-    created: "2026-11-06T11:15:10.001068729Z"
+    created: "2026-11-08T15:06:17.051940993Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 69232bf54303d1f2cb50e8fe9453e665a86dfcd0dc041c448d91c07be555f20d
     home: https://kyverno.io/policies/
@@ -18213,7 +18323,7 @@ entries:
     version: v2.3.3
   - apiVersion: v1
     appVersion: v1.6.2
-    created: "2026-11-06T11:15:10.000583248Z"
+    created: "2026-11-08T15:06:17.051552924Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 28528093caed60abfca8d514057867d0a720f8eba4cbfa3829cd8d6d1602f2dd
     home: https://kyverno.io/policies/
@@ -18236,7 +18346,7 @@ entries:
     version: v2.3.2
   - apiVersion: v1
     appVersion: v1.6.2-rc3
-    created: "2026-11-06T11:15:10.00009894Z"
+    created: "2026-11-08T15:06:17.051171895Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: a986f93d2c503e7631c088fbb9f7ab929bf365ec2660d166c7338bb3cf914e03
     home: https://kyverno.io/policies/
@@ -18259,7 +18369,7 @@ entries:
     version: v2.3.2-rc3
   - apiVersion: v1
     appVersion: v1.6.2-rc2
-    created: "2026-11-06T11:15:09.999654775Z"
+    created: "2026-11-08T15:06:17.050760049Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 5d3fc140b6a03ea08693ef2c8eed6b8c24776aaf3ba37a4fe2dc26b1c18a9b1d
     home: https://kyverno.io/policies/
@@ -18282,7 +18392,7 @@ entries:
     version: v2.3.2-rc2
   - apiVersion: v1
     appVersion: v1.6.2-rc1
-    created: "2026-11-06T11:15:09.999177099Z"
+    created: "2026-11-08T15:06:17.050052371Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 0ef5c44c7b205dba71e8e76423cb1c13b34032972ba0cd71e75817d2199a3d86
     home: https://kyverno.io/policies/
@@ -18305,7 +18415,7 @@ entries:
     version: v2.3.2-rc1
   - apiVersion: v1
     appVersion: v1.6.1
-    created: "2026-11-06T11:15:09.998639912Z"
+    created: "2026-11-08T15:06:17.049310244Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 3085d0ce74803c63c89e8e9a6942f83709cd94a1e4dbd2edf92741434e575331
     home: https://kyverno.io/policies/
@@ -18328,7 +18438,7 @@ entries:
     version: v2.3.1
   - apiVersion: v1
     appVersion: v1.6.1-rc2
-    created: "2026-11-06T11:15:09.998056029Z"
+    created: "2026-11-08T15:06:17.048770841Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 5d3ac9535959e1d618cc0c0a7e8a041bc0e35fc0b9d74a048752d274df9e560f
     home: https://kyverno.io/policies/
@@ -18351,7 +18461,7 @@ entries:
     version: v2.3.1-rc2
   - apiVersion: v1
     appVersion: v1.6.1-rc1
-    created: "2026-11-06T11:15:09.997192817Z"
+    created: "2026-11-08T15:06:17.048402823Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 0f77a5c116549a6821426adb9b9275a71977cfc1f54911d29c6f62dd083eb827
     home: https://kyverno.io/policies/
@@ -18374,7 +18484,7 @@ entries:
     version: v2.3.1-rc1
   - apiVersion: v1
     appVersion: v1.6.0
-    created: "2026-11-06T11:15:09.996567076Z"
+    created: "2026-11-08T15:06:17.048042656Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 3f3087acdf632584b908782cc1d76c38165f4c5db6663e30ff424e3d37a231a1
     home: https://kyverno.io/policies/
@@ -18397,7 +18507,7 @@ entries:
     version: v2.3.0
   - apiVersion: v1
     appVersion: v1.6.0
-    created: "2026-11-06T11:15:09.995517902Z"
+    created: "2026-11-08T15:06:17.047685595Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: de56b6083c84137ea7463efc1628ee1c75ad8f1f04329089bf7646915bba430f
     home: https://kyverno.io/policies/
@@ -18420,7 +18530,7 @@ entries:
     version: v2.2.1
   - apiVersion: v1
     appVersion: v1.6.0
-    created: "2026-11-06T11:15:09.99436352Z"
+    created: "2026-11-08T15:06:17.047321252Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 9596ea4ef3c4188315b5b33ed13a66475e2984919e57c55ba7000feb82de8a46
     home: https://kyverno.io/policies/
@@ -18443,7 +18553,7 @@ entries:
     version: v2.2.0
   - apiVersion: v1
     appVersion: v1.6.0-rc4
-    created: "2026-11-06T11:15:09.993936707Z"
+    created: "2026-11-08T15:06:17.046969148Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: b24eaf7d5d5b23daeff085a113bd262b1fb2208d7d22d80c9a049ba1994c7a20
     home: https://kyverno.io/policies/
@@ -18466,7 +18576,7 @@ entries:
     version: v2.2.0-rc4
   - apiVersion: v1
     appVersion: v1.6.0-rc3
-    created: "2026-11-06T11:15:09.993511939Z"
+    created: "2026-11-08T15:06:17.046628572Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
     digest: 5286c5f2f5d18656a882a8877f9fa16f7a7af77ff8afb7cb9c21a12075633ee1
     home: https://kyverno.io/policies/
@@ -18489,7 +18599,7 @@ entries:
     version: v2.2.0-rc3
   - apiVersion: v1
     appVersion: v1.6.0-rc2
-    created: "2026-11-06T11:15:09.993067364Z"
+    created: "2026-11-08T15:06:17.046261184Z"
     description: Kubernetes Native Policy Management Policies
     digest: c0aee0c6f56f426dccfaf50782ec50fcf2628aa09a3c8a3427e9fc5271e81b69
     home: https://kyverno.io/
@@ -18512,7 +18622,7 @@ entries:
     version: v2.2.0-rc2
   - apiVersion: v1
     appVersion: v1.5.8
-    created: "2026-11-06T11:15:09.988154478Z"
+    created: "2026-11-08T15:06:17.041299619Z"
     description: Kubernetes Native Policy Management Policies
     digest: 4ea9bdc45283aadfe401815cefcf422e1df02191ad9b8998a7585701a88d0519
     home: https://kyverno.io/
@@ -18535,7 +18645,7 @@ entries:
     version: v2.1.10
   - apiVersion: v1
     appVersion: v1.5.5
-    created: "2026-11-06T11:15:09.99275244Z"
+    created: "2026-11-08T15:06:17.04598039Z"
     description: Kubernetes Native Policy Management Policies
     digest: 2dac9549a336a65631687b9156dc701e63f8cf15a6f95f6ae1eb87f45006e42f
     home: https://kyverno.io/
@@ -18558,7 +18668,7 @@ entries:
     version: v2.1.7
   - apiVersion: v1
     appVersion: v1.5.5-rc1
-    created: "2026-11-06T11:15:09.992408752Z"
+    created: "2026-11-08T15:06:17.045726328Z"
     description: Kubernetes Native Policy Management Policies
     digest: d1d6cdd64d408ca6f0db33e2f6b1124487863e5ccd9024bef7911e0802557a6b
     home: https://kyverno.io/
@@ -18581,7 +18691,7 @@ entries:
     version: v2.1.7-rc1
   - apiVersion: v1
     appVersion: v1.5.4
-    created: "2026-11-06T11:15:09.992076004Z"
+    created: "2026-11-08T15:06:17.045471123Z"
     description: Kubernetes Native Policy Management Policies
     digest: 7cb224d7708dff8cb7cb398c90a31166b1ff4e6794806a1b3a888acf59ee200f
     home: https://kyverno.io/
@@ -18604,7 +18714,7 @@ entries:
     version: v2.1.6
   - apiVersion: v1
     appVersion: v1.5.4-rc2
-    created: "2026-11-06T11:15:09.991765989Z"
+    created: "2026-11-08T15:06:17.045214948Z"
     description: Kubernetes Native Policy Management Policies
     digest: d6fef1df637b2080a2592a9df55154c43cdc7ac3de8b6f5b0539f0db53bdb4af
     home: https://kyverno.io/
@@ -18627,7 +18737,7 @@ entries:
     version: v2.1.6-rc2
   - apiVersion: v1
     appVersion: v1.5.4-rc1
-    created: "2026-11-06T11:15:09.991436297Z"
+    created: "2026-11-08T15:06:17.04492514Z"
     description: Kubernetes Native Policy Management Policies
     digest: b3fe015ad4d0a8885e8139ff15a7837e57c84756150a5405bb6cb32f14d814cc
     home: https://kyverno.io/
@@ -18650,7 +18760,7 @@ entries:
     version: v2.1.6-rc1
   - apiVersion: v1
     appVersion: v1.5.3
-    created: "2026-11-06T11:15:09.991125941Z"
+    created: "2026-11-08T15:06:17.044654912Z"
     description: Kubernetes Native Policy Management Policies
     digest: d9d407883f14d83c2943631fe141d96f5fae84bfd1c781021796d1338a6856b6
     home: https://kyverno.io/
@@ -18673,7 +18783,7 @@ entries:
     version: v2.1.5
   - apiVersion: v1
     appVersion: v1.5.3-rc1
-    created: "2026-11-06T11:15:09.990806459Z"
+    created: "2026-11-08T15:06:17.044366296Z"
     description: Kubernetes Native Policy Management Policies
     digest: 3a22124a6f75828290cf52fdf46ba0813c880ac8f0e60e8b640834727285380e
     home: https://kyverno.io/
@@ -18696,7 +18806,7 @@ entries:
     version: v2.1.5-rc1
   - apiVersion: v1
     appVersion: v1.5.2
-    created: "2026-11-06T11:15:09.990474493Z"
+    created: "2026-11-08T15:06:17.043786371Z"
     description: Kubernetes Native Policy Management Policies
     digest: 98f3438aaed37227b80bab04e84f009328bd59f8eb4204b9f89da260951807b7
     home: https://kyverno.io/
@@ -18719,7 +18829,7 @@ entries:
     version: v2.1.4
   - apiVersion: v1
     appVersion: v1.5.2-rc5
-    created: "2026-11-06T11:15:09.990162844Z"
+    created: "2026-11-08T15:06:17.043267148Z"
     description: Kubernetes Native Policy Management Policies
     digest: 3d163a751677201e891823d8bd960c9b32e17b1aafc5a55695520e45b7387224
     home: https://kyverno.io/
@@ -18742,7 +18852,7 @@ entries:
     version: v2.1.4-rc5
   - apiVersion: v1
     appVersion: v1.5.2-rc4
-    created: "2026-11-06T11:15:09.989851807Z"
+    created: "2026-11-08T15:06:17.042592827Z"
     description: Kubernetes Native Policy Management Policies
     digest: 883caf27154dcaacf219c9d9c62e794ef6860e17e9d26b847ba01372181ef4ae
     home: https://kyverno.io/
@@ -18765,7 +18875,7 @@ entries:
     version: v2.1.4-rc4
   - apiVersion: v1
     appVersion: v1.5.2-rc3
-    created: "2026-11-06T11:15:09.989528087Z"
+    created: "2026-11-08T15:06:17.042331603Z"
     description: Kubernetes Native Policy Management Policies
     digest: ebf39aad01bbb001b9915129d1164caad1284a09669eed2866c5e66f10deb062
     home: https://kyverno.io/
@@ -18788,7 +18898,7 @@ entries:
     version: v2.1.4-rc3
   - apiVersion: v1
     appVersion: v1.5.2-rc2
-    created: "2026-11-06T11:15:09.989158621Z"
+    created: "2026-11-08T15:06:17.042059743Z"
     description: Kubernetes Native Policy Management Policies
     digest: b9df18c0c90cc209dfe05fbee18bb113fef04303ed497489fc1e066f4be69e81
     home: https://kyverno.io/
@@ -18811,7 +18921,7 @@ entries:
     version: v2.1.4-rc2
   - apiVersion: v1
     appVersion: v1.5.1
-    created: "2026-11-06T11:15:09.988830252Z"
+    created: "2026-11-08T15:06:17.041808976Z"
     description: Kubernetes Native Policy Management Policies
     digest: baaf4ca1c87141d778038c3c6cad8e4b953ba2c59c01ad08c7df985112f747a1
     home: https://kyverno.io/
@@ -18834,7 +18944,7 @@ entries:
     version: v2.1.3
   - apiVersion: v1
     appVersion: v1.5.1
-    created: "2026-11-06T11:15:09.988496041Z"
+    created: "2026-11-08T15:06:17.041555043Z"
     description: Kubernetes Native Policy Management Policies
     digest: b9bec54c2056dba139018b51863d4af1456ba05f29efce16a276e9686e9dbfb7
     home: https://kyverno.io/
@@ -18857,7 +18967,7 @@ entries:
     version: v2.1.2
   - apiVersion: v1
     appVersion: v1.5.0
-    created: "2026-11-06T11:15:09.987826339Z"
+    created: "2026-11-08T15:06:17.041023973Z"
     description: Kubernetes Native Policy Management Policies
     digest: 21925e94f19f87d7d3be0d1b46e64fef2e2e51550a7b36b06da0c2eb417cfb74
     home: https://kyverno.io/
@@ -18880,7 +18990,7 @@ entries:
     version: v2.1.1
   - apiVersion: v1
     appVersion: v1.5.0-rc4
-    created: "2026-11-06T11:15:09.987275617Z"
+    created: "2026-11-08T15:06:17.040774778Z"
     description: Kubernetes Native Policy Management Policies
     digest: a5d7abe7cea8ee0c926e44496bf382ee4451bd2c441fcc4d21e13001c5d1771c
     home: https://kyverno.io/
@@ -18903,7 +19013,7 @@ entries:
     version: v2.1.1-rc4
   - apiVersion: v1
     appVersion: v1.5.0-rc3
-    created: "2026-11-06T11:15:09.986579315Z"
+    created: "2026-11-08T15:06:17.040521437Z"
     description: Kubernetes Native Policy Management Policies
     digest: 464fd21756d55b57e0bcee0d4eb74b0059f83ada5007d2cbb9abc8e67904bcff
     home: https://kyverno.io/
@@ -18926,7 +19036,7 @@ entries:
     version: v2.1.1-rc3
   - apiVersion: v1
     appVersion: v1.5.0-rc2
-    created: "2026-11-06T11:15:09.985898882Z"
+    created: "2026-11-08T15:06:17.040253412Z"
     description: Kubernetes Native Policy Management Policies
     digest: c9a418c02816cc647a3d129e228791bc3331c974019eef7ad6bceeb818d76758
     home: https://kyverno.io/
@@ -18949,7 +19059,7 @@ entries:
     version: v2.1.1-rc2
   - apiVersion: v1
     appVersion: v1.5.0-rc1
-    created: "2026-11-06T11:15:09.985154701Z"
+    created: "2026-11-08T15:06:17.039956133Z"
     description: Kubernetes Native Policy Management Policies
     digest: dcfbf1d1c1e5b4fb520ed1eba4527e88357ccf352893b836c0e6b00fc6ad4708
     home: https://kyverno.io/
@@ -18970,4 +19080,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2026-11-06T11:15:07.108090492Z"
+generated: "2026-11-08T15:06:14.80940565Z"
