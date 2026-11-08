@@ -182,6 +182,14 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 		wm.refCount[gvr]++
 	}
 	newGVRs := make(map[schema.GroupVersionResource]bool)
+	// A served-version change may use a different GVR for the same
+	// Kubernetes object. Never delete a UID that is still desired.
+	desiredUIDs := make(map[types.UID]struct{}, len(generatedResources))
+	for _, resource := range generatedResources {
+		if resource.GetUID() != "" {
+			desiredUIDs[resource.GetUID()] = struct{}{}
+		}
+	}
 	if !reconcile {
 		// Retain existing GVR ownership and watcher caches for an incomplete
 		// evaluation. Repeated partial retries must not double-count refs.
@@ -226,23 +234,26 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 			continue
 		}
 
-		// start a new watcher for this GVR
-		w, err := wm.startWatcher(resource, gvr)
+		// Cache an acknowledged write *before* starting the watch. A watch
+		// setup error must not make it invisible to same-process cleanup.
+		metadataCache := map[types.UID]Resource{
+			resource.GetUID(): {
+				Name:            resource.GetName(),
+				Namespace:       resource.GetNamespace(),
+				Labels:          resource.GetLabels(),
+				Hash:            reportutils.CalculateResourceHash(*resource),
+				Data:            resource,
+				ServerSideApply: useServerSideApply,
+				PolicyKey:       policyName,
+			},
+		}
+		wm.dynamicWatchers[gvr] = &watcher{metadataCache: metadataCache}
+		rememberGVR(gvr)
+		w, err := wm.startWatcherWithCache(resource, gvr, metadataCache)
 		if err != nil {
 			return err
 		}
 		wm.dynamicWatchers[gvr] = w
-		// add the resource to the metadata cache
-		wm.dynamicWatchers[gvr].metadataCache[resource.GetUID()] = Resource{
-			Name:            resource.GetName(),
-			Namespace:       resource.GetNamespace(),
-			Labels:          resource.GetLabels(),
-			Hash:            reportutils.CalculateResourceHash(*resource),
-			Data:            resource,
-			ServerSideApply: useServerSideApply,
-			PolicyKey:       policyName,
-		}
-		rememberGVR(gvr)
 	}
 
 	// New GVRs were already counted when their cache entries were registered.
@@ -261,6 +272,12 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 						continue
 					}
 					if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
+						continue
+					}
+					if _, desired := desiredUIDs[uid]; desired {
+						// Same object, now served via another API version.
+						// Drop only the obsolete cache entry, not the object.
+						delete(oldWatcher.metadataCache, uid)
 						continue
 					}
 					uidsToDelete = append(uidsToDelete, uid)
@@ -376,6 +393,36 @@ func (wm *WatchManager) InvalidateDownstreams(policyName string, trigger *kyvern
 		res.Hash = ""
 		watcher.metadataCache[uid] = res
 	})
+}
+
+// SuppressDownstreamRecreation prevents a stale acknowledged downstream from
+// being recreated by a watch delete event while UID-preconditioned cleanup runs.
+// Failed deletes retain an invalidated cache record for a later retry.
+func (wm *WatchManager) SuppressDownstreamRecreation(policyKey string, uid types.UID) {
+	wm.lock.Lock()
+	defer wm.lock.Unlock()
+	for _, gvr := range wm.policyRefs[policyKey] {
+		if w := wm.dynamicWatchers[gvr]; w != nil {
+			if res, found := w.metadataCache[uid]; found && matchesResourcePolicy(res, policyKey) {
+				res.Hash = ""
+				w.metadataCache[uid] = res
+			}
+		}
+	}
+}
+
+// ForgetDownstreamUID removes only a verified, obsolete cached identity after
+// its server-side deletion succeeds (or the API confirms it is already gone).
+func (wm *WatchManager) ForgetDownstreamUID(policyKey string, uid types.UID) {
+	wm.lock.Lock()
+	defer wm.lock.Unlock()
+	for _, gvr := range wm.policyRefs[policyKey] {
+		if w := wm.dynamicWatchers[gvr]; w != nil {
+			if res, found := w.metadataCache[uid]; found && matchesResourcePolicy(res, policyKey) {
+				delete(w.metadataCache, uid)
+			}
+		}
+	}
 }
 
 func (wm *WatchManager) walkDownstreams(policyName string, trigger *kyverno.ResourceSpec, walkFunc func(watcher *watcher, uid types.UID, res Resource)) {

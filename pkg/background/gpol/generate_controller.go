@@ -185,7 +185,10 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				// A failed evaluation can still contain acknowledged downstream writes.
 				// Report them with the failed UR and register them additively, without
 				// treating an incomplete set as a desired set for deletion.
-				resourcesToTrack := c.retainAcknowledgedDownstreams(ctx, ur, ur.Spec.RuleContext[i].Trigger, res.Result.GeneratedResources())
+				resourcesToTrack, trackingErr := c.retainAcknowledgedDownstreamsChecked(ctx, ur, ur.Spec.RuleContext[i].Trigger, res.Result.GeneratedResources())
+				if trackingErr != nil {
+					failures = append(failures, fmt.Errorf("gpol %s failed to verify prior downstream: %w", ur.Spec.GetPolicyKey(), trackingErr))
+				}
 				for _, resource := range resourcesToTrack {
 					generatedResources = append(generatedResources, kyverno.ResourceSpec{
 						Kind:       resource.GetKind(),
@@ -198,6 +201,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				if isSync && len(resourcesToTrack) > 0 {
 					if err := c.watchManager.AddWatchers(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger, resourcesToTrack, policy.Policy.GetSpec().UseServerSideApply); err != nil {
 						logger.Error(err, "failed to track partially generated resources", "gpol", ur.Spec.GetPolicyKey())
+						failures = append(failures, fmt.Errorf("gpol %s failed to track acknowledged downstreams: %w", ur.Spec.GetPolicyKey(), err))
 					}
 				}
 				// surface evaluation/generation errors instead of silently
@@ -223,14 +227,17 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 					(!ur.Spec.RuleContext[i].CacheRestore || len(resourcesToSync) > 0) {
 					// Synchronous so the watcher cache holds this write's hash before
 					// ProcessUR returns.
+					watchersSynced := true
 					if len(resourcesToSync) > 0 {
 						if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger, resourcesToSync, policy.Policy.GetSpec().UseServerSideApply); err != nil {
 							logger.Error(err, "failed to sync watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
+							watchersSynced = false
+							failures = append(failures, fmt.Errorf("gpol %s failed to sync downstream watchers: %w", ur.Spec.GetPolicyKey(), err))
 						} else {
 							logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						}
 					}
-					if ur.Spec.RuleContext[i].Synchronize {
+					if ur.Spec.RuleContext[i].Synchronize && watchersSynced {
 						// Trigger updates reconcile the watcher cache. CREATE retries
 						// must use the UID-verified cleanup below instead; a stale cache
 						// entry could otherwise delete a same-name replacement.
@@ -276,19 +283,19 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 // before the explicit scope label existed. A legacy object is accepted only
 // when the other policy scope has no same-name policy; an ambiguous or failed
 // API lookup never authorizes adoption or deletion.
-func (c *CELGenerateController) matchesAcknowledgedPolicy(ctx context.Context, labels map[string]string, policyKey string) bool {
+func (c *CELGenerateController) matchesAcknowledgedPolicy(ctx context.Context, labels map[string]string, policyKey string) (bool, error) {
 	if matchesPolicyKey(labels, policyKey) {
-		return true
+		return true, nil
 	}
 	if _, marked := labels[common.GeneratePolicyScopeLabel]; marked {
-		return false
+		return false, nil
 	}
 	policyNamespace, policyName, err := cache.SplitMetaNamespaceKey(policyKey)
 	if err != nil || labels[common.GeneratePolicyLabel] != policyName {
-		return false
+		return false, nil
 	}
 	if policyNamespace != "" && !common.MatchesPolicyTriggerNamespace(labels, policyNamespace) {
-		return false
+		return false, nil
 	}
 	counterpartKind := "GeneratingPolicy"
 	counterpartNamespace := ""
@@ -299,11 +306,20 @@ func (c *CELGenerateController) matchesAcknowledgedPolicy(ctx context.Context, l
 			counterpartNamespace = labels[common.GenerateTriggerNameLabel]
 		}
 		if counterpartNamespace == "" {
-			return false
+			return false, nil
 		}
 	}
 	_, err = c.client.GetResource(ctx, "policies.kyverno.io/v1", counterpartKind, counterpartNamespace, policyName)
-	return apierrors.IsNotFound(err)
+	if apierrors.IsNotFound(err) {
+		// Only callers with a UID-qualified identity from the persisted
+		// UpdateRequest may use this legacy fallback. Absence of a competing
+		// policy alone is not ownership proof.
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("verify legacy counterpart %s %s/%s: %w", counterpartKind, counterpartNamespace, policyName, err)
+	}
+	return false, nil
 }
 
 // retainAcknowledgedDownstreams preserves the identities recorded by prior
@@ -311,9 +327,16 @@ func (c *CELGenerateController) matchesAcknowledgedPolicy(ctx context.Context, l
 // expression that originally wrote a downstream, but the live object still
 // needs synchronization and policy-deletion tracking. Never adopt objects
 // which no longer have the expected Kyverno policy/trigger ownership.
+// retainAcknowledgedDownstreams is used by existing regression fixtures;
+// processing uses the checked variant to surface transient ownership errors.
 func (c *CELGenerateController) retainAcknowledgedDownstreams(ctx context.Context, ur *kyvernov2.UpdateRequest, trigger kyverno.ResourceSpec, current []*unstructured.Unstructured) []*unstructured.Unstructured {
+	resources, _ := c.retainAcknowledgedDownstreamsChecked(ctx, ur, trigger, current)
+	return resources
+}
+
+func (c *CELGenerateController) retainAcknowledgedDownstreamsChecked(ctx context.Context, ur *kyvernov2.UpdateRequest, trigger kyverno.ResourceSpec, current []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
 	if len(ur.Status.GeneratedResources) == 0 {
-		return current
+		return current, nil
 	}
 	key := func(apiVersion, kind, namespace, name string) string {
 		group := apiVersion
@@ -327,7 +350,7 @@ func (c *CELGenerateController) retainAcknowledgedDownstreams(ctx context.Contex
 		seen[key(resource.GetAPIVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName())] = struct{}{}
 	}
 	for _, spec := range ur.Status.GeneratedResources {
-		if spec.APIVersion == "" || spec.Kind == "" || spec.Name == "" {
+		if spec.APIVersion == "" || spec.Kind == "" || spec.Name == "" || spec.UID == "" {
 			continue
 		}
 		identity := key(spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
@@ -335,22 +358,31 @@ func (c *CELGenerateController) retainAcknowledgedDownstreams(ctx context.Contex
 			continue
 		}
 		resource, err := c.client.GetResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name)
-		if err != nil || resource == nil {
-			continue // absent or inaccessible objects cannot be re-adopted
+		if apierrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return current, fmt.Errorf("read acknowledged downstream %s/%s: %w", spec.Namespace, spec.Name, err)
+		}
+		if resource == nil || resource.GetUID() != spec.UID {
+			continue // never adopt a same-name replacement
 		}
 		labels := resource.GetLabels()
 		if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp ||
-			!c.matchesAcknowledgedPolicy(ctx, labels, ur.Spec.GetPolicyKey()) ||
 			labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
 			continue
 		}
-		if spec.UID != "" && resource.GetUID() != spec.UID {
-			continue // avoid adopting a replacement with the same name
+		owned, ownershipErr := c.matchesAcknowledgedPolicy(ctx, labels, ur.Spec.GetPolicyKey())
+		if ownershipErr != nil {
+			return current, ownershipErr
+		}
+		if !owned {
+			continue
 		}
 		current = append(current, resource)
 		seen[identity] = struct{}{}
 	}
-	return current
+	return current, nil
 }
 
 // preserveUnverifiedFailedStatus keeps UID-qualified previous identities only
@@ -440,16 +472,31 @@ func (c *CELGenerateController) cleanupAcknowledgedAfterRetry(
 		}
 		labels := live.GetLabels()
 		if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp ||
-			!c.matchesAcknowledgedPolicy(ctx, labels, policyKey) ||
 			labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
 			continue
 		}
+		owned, ownershipErr := c.matchesAcknowledgedPolicy(ctx, labels, policyKey)
+		if ownershipErr != nil {
+			pending = append(pending, spec)
+			failures = append(failures, ownershipErr)
+			continue
+		}
+		if !owned {
+			continue
+		}
 		uid := spec.UID
+		// Mark stale before issuing DELETE: an asynchronous delete event must
+		// not recreate this now-obsolete object from a still-active cache.
+		if c.watchManager != nil {
+			c.watchManager.SuppressDownstreamRecreation(policyKey, uid)
+		}
 		err = c.client.DeleteResource(ctx, spec.APIVersion, spec.Kind, spec.Namespace, spec.Name, false,
 			metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &uid}})
 		if err != nil && !apierrors.IsNotFound(err) {
 			pending = append(pending, spec)
 			failures = append(failures, fmt.Errorf("delete stale downstream %s/%s: %w", spec.Namespace, spec.Name, err))
+		} else if c.watchManager != nil {
+			c.watchManager.ForgetDownstreamUID(policyKey, uid)
 		}
 	}
 	return pending, multierr.Combine(failures...)

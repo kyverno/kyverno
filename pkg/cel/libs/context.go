@@ -449,26 +449,12 @@ func (cp *contextProvider) isManagedByPolicy(ctx context.Context, obj *unstructu
 		labels[common.GenerateTriggerKindLabel] != "Namespace" {
 		return true
 	}
-	// A historical namespaced-trigger downstream predates the scope marker.
-	// Verify no same-name policy exists in the other scope before adopting it.
-	// If that check cannot be completed, fail closed.
-	if cp.client == nil {
-		return false
-	}
-	counterpartKind := "GeneratingPolicy"
-	counterpartNamespace := ""
-	if cp.genCtx.policyNamespace == "" {
-		counterpartKind = "NamespacedGeneratingPolicy"
-		counterpartNamespace = labels[common.GenerateTriggerNSLabel]
-		if counterpartNamespace == "" && labels[common.GenerateTriggerKindLabel] == "Namespace" {
-			counterpartNamespace = labels[common.GenerateTriggerNameLabel]
-		}
-		if counterpartNamespace == "" {
-			return false
-		}
-	}
-	_, err := cp.client.GetResource(ctx, "policies.kyverno.io/v1", counterpartKind, counterpartNamespace, cp.genCtx.policyName)
-	return apierrors.IsNotFound(err)
+	// Historical downstreams with a namespaced or Namespace trigger have no
+	// durable policy-scope identity. The absence of a same-named policy in the
+	// other scope is NOT proof of origin: that policy may have been deleted.
+	// Do not adopt, update or delete these ambiguous objects without a
+	// UID-qualified UpdateRequest record (checked by the background controller).
+	return false
 }
 
 func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {

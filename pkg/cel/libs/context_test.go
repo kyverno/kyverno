@@ -229,8 +229,8 @@ func TestNamespacedCELPolicyCanTrackNamespaceTrigger(t *testing.T) {
 	require.False(t, other.isManagedByPolicy(context.Background(), obj))
 }
 
-// conflictingPolicyLookup answers whether the other scope owns a same-name
-// policy. Legacy resources can only be migrated when that ambiguity is absent.
+// conflictingPolicyLookup models policy presence/absence for legacy tests.
+// Neither case can prove origin without a persisted UID-qualified record.
 type conflictingPolicyLookup struct {
 	dclient.Interface
 	conflict bool
@@ -257,7 +257,7 @@ func TestLegacyCELDownstreamAdoptionChecksConflictingPolicyScope(t *testing.T) {
 			client := &conflictingPolicyLookup{}
 			cp := &contextProvider{client: client}
 			cp.SetGenerateContext("same-name", policyNamespace, "trigger", "team-a", "v1", "", "ConfigMap", "same-trigger-uid", false, false)
-			require.True(t, cp.isManagedByPolicy(context.Background(), obj), "historical resource may be adopted when no counterpart exists")
+			require.False(t, cp.isManagedByPolicy(context.Background(), obj), "missing counterpart cannot prove historical ownership")
 			client.conflict = true
 			require.False(t, cp.isManagedByPolicy(context.Background(), obj), "same-name policy in other scope prevents ambiguous adoption")
 			client.conflict = false
@@ -288,7 +288,8 @@ func TestLegacyCELClusterTriggerRemainsAdoptable(t *testing.T) {
 
 // Namespace triggers are different: a NamespacedGeneratingPolicy in that
 // namespace may have the same name and trigger UID as a cluster policy.
-// Legacy downstreams without a scope marker require a counterpart lookup.
+// Legacy downstreams without a scope marker must not be adopted even when
+// the counterpart has been deleted.
 func TestLegacyCELNamespaceTriggerRequiresCounterpartCheck(t *testing.T) {
 	client := &conflictingPolicyLookup{conflict: true}
 	cp := &contextProvider{client: client}
@@ -303,5 +304,5 @@ func TestLegacyCELNamespaceTriggerRequiresCounterpartCheck(t *testing.T) {
 	})
 	require.False(t, cp.isManagedByPolicy(context.Background(), obj), "a competing namespaced policy makes legacy ownership ambiguous")
 	client.conflict = false
-	require.True(t, cp.isManagedByPolicy(context.Background(), obj), "safe to adopt when the counterpart does not exist")
+	require.False(t, cp.isManagedByPolicy(context.Background(), obj), "deleted counterpart still leaves historical ownership ambiguous")
 }

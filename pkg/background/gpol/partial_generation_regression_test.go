@@ -460,6 +460,9 @@ func TestPartialGenerationSuccessfulRetryCleansStaleSameKind(t *testing.T) {
 	require.Equal(t, 1, client.deletes)
 	require.NotContains(t, client.objects, "ConfigMap/"+namespace+"/old")
 	require.Contains(t, client.objects, "ConfigMap/"+namespace+"/new")
+	require.NotContains(t, watchManager.dynamicWatchers[gvr].metadataCache, old.GetUID(), "successful UID-verified cleanup must evict the stale watcher entry")
+	watchManager.handleDelete(old, gvr)
+	require.NotContains(t, client.objects, "ConfigMap/"+namespace+"/old", "watch delete event must not resurrect the obsolete downstream")
 }
 
 // TestPreserveUnverifiedFailedStatusOnTransientReadError records identities
@@ -628,4 +631,71 @@ func TestPartialGenerationSuccessfulEmptyRestoreCleansRecordedDownstream(t *test
 	require.Empty(t, watchManager.GetDownstreams(policyName))
 	require.Equal(t, 1, client.deletes)
 	require.NotContains(t, client.objects, "ConfigMap/"+namespace+"/old")
+}
+
+
+func TestLegacyCounterpartLookupOutageRetainsRecordedUID(t *testing.T) {
+	const namespace = "team-a"
+	const policyKey = "legacy-outage"
+	labels := map[string]string{
+		kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel: policyKey,
+		common.GenerateTriggerNSLabel: namespace,
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	}
+	old := makeUnstructured("7", "", "v1", "ConfigMap", "old", namespace, "old-uid", labels)
+	oldSpec := common.ResourceSpecFromUnstructured(*old)
+	client := &partialReproClient{
+		objects: map[string]*unstructured.Unstructured{"ConfigMap/" + namespace + "/old": old},
+		getErrors: map[string]error{
+			"NamespacedGeneratingPolicy/" + namespace + "/" + policyKey: apierrors.NewServiceUnavailable("counterpart read outage"),
+		},
+	}
+	controller := &CELGenerateController{client: client}
+	ur := &kyvernov2.UpdateRequest{
+		Spec: kyvernov2.UpdateRequestSpec{Policy: policyKey},
+		Status: kyvernov2.UpdateRequestStatus{GeneratedResources: []kyverno.ResourceSpec{oldSpec}},
+	}
+	_, err := controller.retainAcknowledgedDownstreamsChecked(context.Background(), ur, kyverno.ResourceSpec{UID: "trigger-uid"}, nil)
+	require.ErrorContains(t, err, "counterpart read outage", "retry must not silently produce an empty successful desired set")
+	pending, err := controller.cleanupAcknowledgedAfterRetry(context.Background(), policyKey,
+		kyverno.ResourceSpec{UID: "trigger-uid"}, []kyverno.ResourceSpec{oldSpec}, nil)
+	require.ErrorContains(t, err, "counterpart read outage")
+	require.Equal(t, []kyverno.ResourceSpec{oldSpec}, pending, "failed identity verification must keep the durable status record")
+	require.Zero(t, client.deletes)
+
+	// The recorded UID, not a mere name match or absent counterpart, makes
+	// the subsequent retry eligible to clean up the old resource.
+	client.getErrors = nil
+	pending, err = controller.cleanupAcknowledgedAfterRetry(context.Background(), policyKey,
+		kyverno.ResourceSpec{UID: "trigger-uid"}, []kyverno.ResourceSpec{oldSpec}, nil)
+	require.NoError(t, err)
+	require.Empty(t, pending)
+	require.Equal(t, 1, client.deletes)
+}
+
+func TestLegacyAcknowledgedRetryRequiresNonemptyUID(t *testing.T) {
+	const namespace = "team-a"
+	const policyKey = "legacy-uid"
+	old := makeUnstructured("3", "", "v1", "ConfigMap", "old", namespace, "old-uid", map[string]string{
+		kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel: policyKey,
+		common.GenerateTriggerNSLabel: namespace,
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	})
+	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{
+		"ConfigMap/" + namespace + "/old": old,
+	}}
+	ur := &kyvernov2.UpdateRequest{
+		Spec: kyvernov2.UpdateRequestSpec{Policy: policyKey},
+		Status: kyvernov2.UpdateRequestStatus{GeneratedResources: []kyverno.ResourceSpec{{
+			APIVersion: "v1", Kind: "ConfigMap", Name: "old", Namespace: namespace,
+		}}},
+	}
+	controller := &CELGenerateController{client: client}
+	recovered, err := controller.retainAcknowledgedDownstreamsChecked(context.Background(), ur,
+		kyverno.ResourceSpec{UID: "trigger-uid"}, nil)
+	require.NoError(t, err)
+	require.Empty(t, recovered, "a name-only historical status must not adopt an object without its UID")
+	require.Zero(t, client.deletes)
 }

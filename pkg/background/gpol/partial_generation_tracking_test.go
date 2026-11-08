@@ -341,3 +341,71 @@ func TestDownstreamKeyIgnoresServedVersion(t *testing.T) {
 	v2 := schema.GroupVersionKind{Group: "example.io", Version: "v1beta1", Kind: "Widget"}
 	require.Equal(t, downstreamKey(v1, "team-a", "same"), downstreamKey(v2, "team-a", "same"))
 }
+
+
+// A CRD can serve the same object through two API versions. The old GVR's
+// cache entry is obsolete, but the object itself is still desired.
+func TestServedVersionWatcherReconciliationDoesNotDeleteDesiredUID(t *testing.T) {
+	const policyKey = "served-version-policy"
+	oldGVR := schema.GroupVersionResource{Group: "example.io", Version: "v1alpha1", Resource: "widgets"}
+	newGVR := schema.GroupVersionResource{Group: "example.io", Version: "v1beta1", Resource: "widgets"}
+	old := makeUnstructured("1", "example.io", "v1alpha1", "Widget", "widget", "team-a", "widget-uid", map[string]string{
+		common.GeneratePolicyLabel: policyKey,
+	})
+	newer := old.DeepCopy()
+	newer.SetAPIVersion("example.io/v1beta1")
+	client := &MockClient{}
+	wm := &WatchManager{
+		log: logging.WithName("served-version-reconcile"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+			if version == "v1beta1" {
+				return &meta.RESTMapping{Resource: newGVR}, nil
+			}
+			return &meta.RESTMapping{Resource: oldGVR}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			oldGVR: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{
+				old.GetUID(): {Name: old.GetName(), Namespace: old.GetNamespace(), Data: old, Labels: old.GetLabels(), PolicyKey: policyKey, Hash: "old-hash"},
+			}},
+			newGVR: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{}},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{policyKey: {oldGVR}},
+		refCount: map[schema.GroupVersionResource]int{oldGVR: 1},
+	}
+	defer wm.StopWatchers()
+	require.NoError(t, wm.AddWatchers(policyKey, nil, []*unstructured.Unstructured{newer}, false))
+	require.Empty(t, client.deleted)
+	require.NoError(t, wm.SyncWatchers(policyKey, nil, []*unstructured.Unstructured{newer}, false))
+	require.Empty(t, client.deleted, "old API-version cache pruning must not delete the same desired UID")
+	require.NotContains(t, wm.dynamicWatchers, oldGVR)
+	require.Contains(t, wm.dynamicWatchers[newGVR].metadataCache, newer.GetUID())
+	require.Equal(t, 1, wm.refCount[newGVR])
+}
+
+// Even a failed watch setup must not discard an already acknowledged write
+// before policy deletion can clean it up in the same controller process.
+func TestPartialWatcherStartupFailureRetainsCleanupIdentity(t *testing.T) {
+	const policyKey = "watch-failure-policy"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	obj := makeUnstructured("", "", "v1", "ConfigMap", "generated", "team-a", "generated-uid", map[string]string{
+		common.GeneratePolicyLabel: policyKey,
+	})
+	client := &MockClient{}
+	wm := &WatchManager{
+		log: logging.WithName("watch-failure"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(schema.GroupKind, string) (*meta.RESTMapping, error) {
+			return &meta.RESTMapping{Resource: gvr}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+		policyRefs: map[string][]schema.GroupVersionResource{},
+		refCount: map[schema.GroupVersionResource]int{},
+	}
+	defer wm.StopWatchers()
+	require.Error(t, wm.AddWatchers(policyKey, nil, []*unstructured.Unstructured{obj}, false), "empty resourceVersion must fail watch initialization")
+	require.Equal(t, []schema.GroupVersionResource{gvr}, wm.policyRefs[policyKey])
+	require.Contains(t, wm.dynamicWatchers[gvr].metadataCache, obj.GetUID())
+	wm.RemoveWatchersForPolicy(policyKey, true)
+	require.Equal(t, []string{"ConfigMap/team-a/generated"}, client.deleted)
+}
