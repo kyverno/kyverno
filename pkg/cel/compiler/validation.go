@@ -5,8 +5,9 @@ import (
 )
 
 type Validation struct {
-	Message           string
-	MessageExpression cel.Program
+	Message                 string
+	MessageExpression       cel.Program
+	MessageExpressionSource string
 	// Program decides the validation. Traced and AST are only set when compiled for tracing:
 	// Traced is the explain-only tracking twin of Program, see TracedProgram for why they differ.
 	Program cel.Program

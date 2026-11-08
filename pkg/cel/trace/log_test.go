@@ -1965,4 +1965,90 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		assert.Equal(t, "platform", entry.Verdict.Evaluated[0].Value)
 		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
 	})
+
+	t.Run("Secret-targeting resource.Post result and scalar projection are redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "post-secret-policy",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "resource.Post('v1', 'secrets', 'default', request.payload).data.password == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "resource.Post('v1', 'secrets', 'default', request.payload).data.password", Value: password},
+						{Expression: "resource.Post('v1', 'secrets', 'default', request.payload).data.password == 'expected'", Value: "false"},
+					},
+				},
+			},
+		}
+
+		assert.True(t, newLogFormat(d).readsSecret("resource.Post('v1', 'secrets', 'default', request.payload).data.password"))
+		assert.True(t, newLogFormat(d).isSecretExpr("resource.Post('v1', 'secrets', 'default', request.payload).data.password"))
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Secret value in validation messageExpression is redacted for non-secret admission", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "vpol-msg-expr-secret",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "false",
+					Result: "false",
+				},
+				Message:           "secret database password is " + password,
+				MessageExpression: "resource.Get('v1', 'secrets', 'default', 'db-secret').data.password",
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+		assert.Equal(t, "false", entry.Verdict.Result)
+	})
+
+	t.Run("Error trace preserves boolean results for Secret decisions", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "secret-error-bool-preserved",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Secret",
+			ResourceName: "my-secret",
+			Verdict: VerdictTrace{
+				Status: VerdictError,
+				ExpressionTrace: ExpressionTrace{
+					Source: "object.data.password.size() > 0",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "object.data.password.size() > 0", Value: "false"},
+						{Expression: "object.data.password.size()", Error: "type error: " + password},
+					},
+				},
+				Message: "evaluation error: " + password,
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, "false", entry.Verdict.Result)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[1].Error)
+	})
 }

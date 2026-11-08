@@ -250,7 +250,13 @@ func (p *Policy) evaluateWithData(
 	var validationTraces []trace.ValidationTrace
 	ran := func(index int, status string) {
 		if p.trace {
-			validationTraces = append(validationTraces, trace.ValidationTrace{Index: index, Status: status, ExpressionTrace: verdict.ExpressionTrace})
+			validationTraces = append(validationTraces, trace.ValidationTrace{
+				Index:             index,
+				Status:            status,
+				ExpressionTrace:   verdict.ExpressionTrace,
+				Message:           verdict.Message,
+				MessageExpression: p.validations[index].MessageExpressionSource,
+			})
 		}
 	}
 	decision := func() *trace.Decision {
@@ -262,9 +268,11 @@ func (p *Policy) evaluateWithData(
 		validations := validationTraces
 		for i := len(validationTraces); i < len(p.validations); i++ {
 			validations = append(validations, trace.ValidationTrace{
-				Index:           i,
-				Status:          trace.VerdictNotRun,
-				ExpressionTrace: buildExpressionTrace(p.validations[i].AST, nil, nil, nil),
+				Index:             i,
+				Status:            trace.VerdictNotRun,
+				ExpressionTrace:   buildExpressionTrace(p.validations[i].AST, nil, nil, nil),
+				Message:           p.validations[i].Message,
+				MessageExpression: p.validations[i].MessageExpressionSource,
 			})
 		}
 		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Validations: validations, Verdict: verdict}
@@ -274,19 +282,21 @@ func (p *Policy) evaluateWithData(
 		if p.trace {
 			details := compiler.TraceDetails(ctx, validation.Traced, dataNew, err)
 			verdict = trace.VerdictTrace{
-				Status:          trace.VerdictPass,
-				ExpressionTrace: buildExpressionTrace(validation.AST, out, details, err),
+				Status:            trace.VerdictPass,
+				ExpressionTrace:   buildExpressionTrace(validation.AST, out, details, err),
+				MessageExpression: validation.MessageExpressionSource,
 			}
 		}
 		if err != nil {
-			ran(index, trace.VerdictError)
 			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+			ran(index, trace.VerdictError)
 			return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
 		}
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
-			ran(index, trace.VerdictFail)
 			message, msgErr := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
 			verdict.Status, verdict.Message = trace.VerdictFail, message
+			verdict.MessageExpression = validation.MessageExpressionSource
+			ran(index, trace.VerdictFail)
 			// an audit annotation error must not mask the failure
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {
@@ -302,8 +312,8 @@ func (p *Policy) evaluateWithData(
 				Trace:                  decision(),
 			}, nil
 		} else if err != nil {
-			ran(index, trace.VerdictError)
 			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+			ran(index, trace.VerdictError)
 			return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
 		}
 		ran(index, trace.VerdictPass)

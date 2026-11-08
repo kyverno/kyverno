@@ -58,21 +58,13 @@ func LogValues(d *Decision) []any {
 	l := newLogFormat(d)
 	verdictIsSec := l.isVerdictSecret(d)
 	verdictExprIsSec := l.secret || (d.Verdict.Source != "" && l.isSecretExpr(d.Verdict.Source)) || (d.Verdict.Source == "" && verdictIsSec)
-	verdictMsgIsSec := verdictIsSec || len(l.secretVars) > 0 || isSecretValue(d.Verdict.Message)
+	verdictMsgIsSec := verdictIsSec || (d.Verdict.MessageExpression != "" && l.isSecretExpr(d.Verdict.MessageExpression)) || len(l.secretVars) > 0 || isSecretValue(d.Verdict.Message)
 	verdictResult := d.Verdict.Result
 	verdictMsg := d.Verdict.Message
-	if d.Verdict.Status == VerdictError {
-		if (verdictExprIsSec || isSecretValue(verdictResult)) && verdictResult != "" {
-			verdictResult = redacted
-		} else {
-			verdictResult = clip(verdictResult)
-		}
+	if (verdictExprIsSec || isSecretValue(verdictResult)) && verdictResult != "" && verdictResult != "true" && verdictResult != "false" {
+		verdictResult = redacted
 	} else {
-		if (verdictExprIsSec || isSecretValue(verdictResult)) && verdictResult != "" && verdictResult != "true" && verdictResult != "false" {
-			verdictResult = redacted
-		} else {
-			verdictResult = clip(verdictResult)
-		}
+		verdictResult = clip(verdictResult)
 	}
 	if (verdictMsgIsSec || isSecretValue(verdictMsg)) && verdictMsg != "" {
 		verdictMsg = redacted
@@ -101,15 +93,24 @@ func LogValues(d *Decision) []any {
 	if len(d.Validations) > 1 {
 		for _, v := range d.Validations {
 			valResult := v.Result
-			if v.Status == VerdictError {
-				valResult = l.error(valResult, v.Source)
+			isSecVal := l.secret || l.isSecretExpr(v.Source) || isSecretValue(valResult)
+			if isSecVal && valResult != "" && valResult != "true" && valResult != "false" {
+				valResult = redacted
 			} else {
-				valResult = l.value(valResult, v.Source)
+				valResult = clip(valResult)
+			}
+			valMsg := v.Message
+			isSecMsg := l.secret || l.isSecretExpr(v.Source) || (v.MessageExpression != "" && l.isSecretExpr(v.MessageExpression)) || isSecretValue(valMsg)
+			if isSecMsg && valMsg != "" {
+				valMsg = redacted
+			} else {
+				valMsg = clip(valMsg)
 			}
 			entry.Validations = append(entry.Validations, LogExpression{
 				Status:     v.Status,
 				Expression: v.Source,
 				Result:     valResult,
+				Message:    valMsg,
 			})
 		}
 	}
@@ -222,7 +223,15 @@ func (l logFormat) isVerdictSecret(d *Decision) bool {
 		return true
 	}
 	if d.Verdict.Source != "" {
-		return l.isSecretExpr(d.Verdict.Source) || l.isPlaceholderErrorSecret(d.Verdict.Message) || isSecretValue(d.Verdict.Message)
+		if l.isSecretExpr(d.Verdict.Source) || l.isPlaceholderErrorSecret(d.Verdict.Message) || isSecretValue(d.Verdict.Message) {
+			return true
+		}
+		if d.Verdict.MessageExpression != "" && l.isSecretExpr(d.Verdict.MessageExpression) {
+			return true
+		}
+	}
+	if d.Verdict.MessageExpression != "" && l.isSecretExpr(d.Verdict.MessageExpression) {
+		return true
 	}
 	// For source-less verdicts (e.g. mutation or generation errors without a verdict expression),
 	// derive context from associated traces.
@@ -240,7 +249,7 @@ func (l logFormat) isVerdictSecret(d *Decision) bool {
 		}
 	}
 	for _, v := range d.Validations {
-		if l.isSecretExpr(v.Source) {
+		if l.isSecretExpr(v.Source) || (v.MessageExpression != "" && l.isSecretExpr(v.MessageExpression)) {
 			return true
 		}
 	}
@@ -841,7 +850,7 @@ func isAPIVersion(s string) bool {
 	return len(last) >= 2 && last[0] == 'v' && last[1] >= '0' && last[1] <= '9'
 }
 
-// readsSecret reports whether expr calls resource.Get, resource.List, or globalContext.get for Secrets.
+// readsSecret reports whether expr calls resource.Get, resource.List, resource.Post, or globalContext.get for Secrets.
 func (l logFormat) readsSecret(expr string) bool {
 	ast, iss := celParserEnv.Parse(expr)
 	if iss != nil && iss.Err() != nil {
@@ -849,7 +858,7 @@ func (l logFormat) readsSecret(expr string) bool {
 		if strings.Contains(lower, "globalcontext.get") || strings.Contains(lower, "globalcontext.list") {
 			return true
 		}
-		if !strings.Contains(lower, "resource.get") && !strings.Contains(lower, "resource.list") {
+		if !strings.Contains(lower, "resource.get") && !strings.Contains(lower, "resource.list") && !strings.Contains(lower, "resource.post") {
 			return false
 		}
 		if strings.Contains(lower, "'secret") || strings.Contains(lower, "\"secret") || strings.Contains(lower, "/secret") {
@@ -870,7 +879,7 @@ func (l logFormat) readsSecret(expr string) bool {
 		}
 		call := e.AsCall()
 		fn := strings.ToLower(call.FunctionName())
-		if fn != "get" && fn != "list" {
+		if fn != "get" && fn != "list" && fn != "post" {
 			return
 		}
 		if call.Target() == nil || call.Target().Kind() != celast.IdentKind {

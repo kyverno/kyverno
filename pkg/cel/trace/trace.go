@@ -208,15 +208,18 @@ type ImageTrace struct {
 // ValidationTrace is one validation's own outcome. Index is its position in the policy's
 // validations, since validations have no names.
 type ValidationTrace struct {
-	Index  int
-	Status string
+	Index             int
+	Status            string
 	ExpressionTrace
+	Message           string
+	MessageExpression string
 }
 
 type VerdictTrace struct {
-	Status string
+	Status            string
 	ExpressionTrace
-	Message string
+	Message           string
+	MessageExpression string
 }
 
 type Decision struct {
