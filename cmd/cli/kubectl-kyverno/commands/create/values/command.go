@@ -81,14 +81,11 @@ func Command() *cobra.Command {
 func writeOutputFile(path string, data []byte) error {
 	targetPath := filepath.Clean(path)
 	if fi, err := os.Lstat(targetPath); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-		if resolved, err := filepath.EvalSymlinks(targetPath); err == nil {
-			targetPath = resolved
+		resolved, err := filepath.EvalSymlinks(targetPath)
+		if err != nil {
+			return err
 		}
-	}
-
-	mode := os.FileMode(0644)
-	if fi, err := os.Stat(targetPath); err == nil {
-		mode = fi.Mode().Perm()
+		targetPath = resolved
 	}
 
 	dir := filepath.Dir(targetPath)
@@ -101,9 +98,11 @@ func writeOutputFile(path string, data []byte) error {
 		_ = os.Remove(tmpName) // #nosec G304
 	}()
 
-	if err := tmpFile.Chmod(mode); err != nil {
-		_ = tmpFile.Close()
-		return err
+	if fi, err := os.Stat(targetPath); err == nil {
+		if err := tmpFile.Chmod(fi.Mode().Perm()); err != nil {
+			_ = tmpFile.Close()
+			return err
+		}
 	}
 	if _, err := tmpFile.Write(data); err != nil {
 		_ = tmpFile.Close()
