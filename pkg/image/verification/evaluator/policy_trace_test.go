@@ -180,6 +180,25 @@ func TestCompileMarksSecretDerivedAttestor(t *testing.T) {
 	require.True(t, compiled.HasSecretRead())
 }
 
+func TestCompileRejectsVariableReferencesInMatchConditions(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "enabled",
+				Expression: "true",
+			}},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "uses-variable",
+				Expression: "variables.enabled",
+			}},
+			Validations: []admissionregistrationv1.Validation{{Expression: "true"}},
+		},
+	}
+
+	_, errs := NewCompiler(nil).Compile(policy, nil)
+	require.NotEmpty(t, errs)
+}
+
 func TestEvaluate_TracingOn_RedactsSecretImageExtractor(t *testing.T) {
 	const password = "secret-image-do-not-log"
 	fake := libs.NewFakeContextProvider()

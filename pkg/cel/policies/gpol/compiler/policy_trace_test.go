@@ -85,6 +85,8 @@ func TestCompileMarksSecretDerivedTemplate(t *testing.T) {
 	compiled, errs := NewCompiler().Compile(policy, nil)
 	require.Empty(t, errs)
 	require.True(t, compiled.HasSecretRead())
+	require.Len(t, compiled.generations, 1)
+	require.True(t, compiled.generations[0].hasSecretRead)
 }
 
 func TestEvaluate_Tracing(t *testing.T) {

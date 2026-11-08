@@ -17,6 +17,7 @@ func TestMayReadSecretWithVariablesTracksAliases(t *testing.T) {
 	for _, expression := range []string{
 		"variables.secretValue",
 		"[variables.secretValue].map(v, v)[0].dbPass",
+		"[variables].map(v, v.secretValue)[0]",
 	} {
 		t.Run(expression, func(t *testing.T) {
 			ast, issues := env.Compile(expression)
@@ -26,6 +27,10 @@ func TestMayReadSecretWithVariablesTracksAliases(t *testing.T) {
 	}
 
 	ast, issues := env.Compile("object.metadata.name")
+	require.NoError(t, issues.Err())
+	require.False(t, MayReadSecretWithVariables(ast, map[string]bool{"secretValue": true}))
+
+	ast, issues = env.Compile("variables.publicName")
 	require.NoError(t, issues.Err())
 	require.False(t, MayReadSecretWithVariables(ast, map[string]bool{"secretValue": true}))
 }

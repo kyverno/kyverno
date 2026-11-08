@@ -111,6 +111,19 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		return nil, append(allErrs, errs...)
 	}
 
+	{
+		path := path.Child("matchConditions")
+		programs, traced, secretReads, errs := engine.CompileMatchConditionsWithSecretVariables(path, env, c.trace, nil, spec.MatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		matchConditions = append(matchConditions, programs...)
+		matchConditionSecretReads = secretReads
+		for _, t := range traced {
+			tracedMatchConditions = append(tracedMatchConditions, withoutVerificationTwin(t))
+		}
+	}
+
 	variables, tracedVariables, secretVariables, errs := engine.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
@@ -126,19 +139,6 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}
 	if errs != nil {
 		return nil, append(allErrs, errs...)
-	}
-
-	{
-		path := path.Child("matchConditions")
-		programs, traced, secretReads, errs := engine.CompileMatchConditionsWithSecretVariables(path, env, c.trace, secretVariables, spec.MatchConditions...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		matchConditions = append(matchConditions, programs...)
-		matchConditionSecretReads = secretReads
-		for _, t := range traced {
-			tracedMatchConditions = append(tracedMatchConditions, withoutVerificationTwin(t))
-		}
 	}
 
 	var compiledAttestors []*ivpolvar.CompiledAttestor

@@ -194,3 +194,22 @@ func TestCompile(t *testing.T) {
 		assert.NotNil(t, errs)
 	})
 }
+
+func TestCompileRejectsVariableReferencesInMatchConditions(t *testing.T) {
+	policy := &v1beta1.GeneratingPolicy{
+		Spec: v1beta1.GeneratingPolicySpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "uses-variable",
+				Expression: "variables.enabled",
+			}},
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "enabled",
+				Expression: "true",
+			}},
+		},
+	}
+
+	compiled, errs := NewCompiler().Compile(policy, nil)
+	assert.Nil(t, compiled)
+	assert.NotNil(t, errs)
+}

@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -137,6 +138,15 @@ func TestScanResource_RedactsSecretMessageEvents(t *testing.T) {
 		require.NoError(t, result.Error)
 		require.NotNil(t, result.EngineResponse)
 		assert.True(t, result.EngineResponse.RedactMessages)
+		require.NotEmpty(t, result.EngineResponse.PolicyResponse.Rules)
+		assert.Contains(t, result.EngineResponse.PolicyResponse.Rules[0].Message(), "do-not-log")
+
+		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{*result.EngineResponse}, false)
+		require.Len(t, events, 2)
+		for _, generatedEvent := range events {
+			assert.Contains(t, generatedEvent.Message, "(redacted)")
+			assert.NotContains(t, generatedEvent.Message, "do-not-log")
+		}
 	}
 }
 

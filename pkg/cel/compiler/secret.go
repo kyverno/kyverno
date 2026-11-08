@@ -40,6 +40,16 @@ func MayReadSecretWithVariables(ast *cel.Ast, secretVariables map[string]bool) b
 		return false
 	}
 	found := false
+	directVariableSelections := map[int64]struct{}{}
+	celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+		if e.Kind() != celast.SelectKind {
+			return
+		}
+		operand := e.AsSelect().Operand()
+		if operand.Kind() == celast.IdentKind && operand.AsIdent() == "variables" {
+			directVariableSelections[operand.ID()] = struct{}{}
+		}
+	}))
 	celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
 		if found {
 			return
@@ -49,6 +59,9 @@ func MayReadSecretWithVariables(ast *cel.Ast, secretVariables map[string]bool) b
 			// A comprehension may iterate, index, or otherwise alias the whole
 			// variables map, so a field-only check is not sufficient.
 			if e.AsIdent() == "variables" {
+				if _, isDirectSelection := directVariableSelections[e.ID()]; isDirectSelection {
+					return
+				}
 				for _, isSecret := range secretVariables {
 					found = found || isSecret
 				}

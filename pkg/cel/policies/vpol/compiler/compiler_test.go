@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,4 +41,25 @@ func TestCompile_PolicyScopedIdentifiersStayDeclared(t *testing.T) {
 			assert.Assert(t, errs == nil, "expected %q to compile, got %v", tt.expression, errs)
 		})
 	}
+}
+
+func TestCompile_RejectsVariableReferencesInMatchConditions(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "enabled",
+				Expression: "true",
+			}},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "uses-variable",
+				Expression: "variables.enabled",
+			}},
+			Validations: []admissionregistrationv1.Validation{{Expression: "true"}},
+		},
+	}
+
+	compiled, errs := NewCompiler().Compile(policy, nil)
+	require.Nil(t, compiled)
+	require.NotEmpty(t, errs)
 }

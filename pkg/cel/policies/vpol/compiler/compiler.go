@@ -93,23 +93,22 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	// append a place holder error to the errors list to be displayed in case the error list was returned
 	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
 
-	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
-	}
-
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	var tracedMatchConditions []compiler.TracedProgram
 	var matchConditionHasSecretReads []bool
 	{
 		path := path.Child("matchConditions")
-		programs, traced, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(path, env, c.trace, secretVariables, spec.MatchConditions...)
+		programs, traced, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(path, env, c.trace, nil, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
 		tracedMatchConditions = traced
 		matchConditionHasSecretReads = secretReads
+	}
+	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
 	}
 
 	validations := make([]compiler.Validation, 0, len(spec.Validations))
@@ -193,23 +192,22 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
-	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
-	}
-
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	var tracedMatchConditions []compiler.TracedProgram
 	var matchConditionHasSecretReads []bool
 	{
 		path := path.Child("matchConditions")
-		programs, traced, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(path, env, c.trace, secretVariables, spec.MatchConditions...)
+		programs, traced, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(path, env, c.trace, nil, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
 		tracedMatchConditions = traced
 		matchConditionHasSecretReads = secretReads
+	}
+	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
 	}
 
 	validations := make([]compiler.Validation, 0, len(spec.Validations))

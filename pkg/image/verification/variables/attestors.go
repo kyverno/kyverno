@@ -11,9 +11,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+// CompiledAttestor contains compiled CEL programs for an attestor.
 type CompiledAttestor struct {
-	Key               string
-	val               v1beta1.Attestor
+	Key string
+	val v1beta1.Attestor
+	// HasSecretRead reports whether an expression may read Secret data.
 	HasSecretRead     bool
 	keyProg           cel.Program
 	certProg          cel.Program
@@ -23,6 +25,7 @@ type CompiledAttestor struct {
 	trustedRootProg   cel.Program
 }
 
+// CompileAttestors compiles attestor expressions.
 func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([]*CompiledAttestor, field.ErrorList) {
 	return CompileAttestorsWithSecretVariables(path, att, env, nil)
 }
@@ -118,6 +121,7 @@ func CompileAttestorsWithSecretVariables(path *field.Path, att []v1beta1.Attesto
 	return compiledAttestors, nil
 }
 
+// Evaluate evaluates an attestor's compiled expressions against data.
 func (c *CompiledAttestor) Evaluate(ctx context.Context, data any) (v1beta1.Attestor, error) {
 	value := c.val.DeepCopy()
 	if c.keyProg != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -93,8 +94,9 @@ type testEventGen struct{}
 func (testEventGen) Add(...event.Info) {}
 
 type errorEngine struct {
-	message  string
-	redacted bool
+	message        string
+	redacted       bool
+	traceSensitive bool
 }
 
 func (e *errorEngine) Handle(_ context.Context, _ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
@@ -108,6 +110,7 @@ func (e *errorEngine) Handle(_ context.Context, _ celengine.EngineRequest, p gpo
 			Policy:         p.Policy,
 			Result:         engineapi.RuleError("rule", engineapi.Generation, message, assert.AnError, nil),
 			RedactMessages: e.redacted,
+			Trace:          &trace.Decision{Sensitive: e.traceSensitive},
 		}},
 	}, nil
 }
@@ -568,10 +571,12 @@ func TestProcessUR_ErrorResultMarksURFailed(t *testing.T) {
 		name        string
 		message     string
 		redacted    bool
+		sensitive   bool
 		wantMessage string
 	}{
 		{name: "ordinary message", message: "failed to evaluate policy", wantMessage: "failed to evaluate policy"},
-		{name: "secret-derived message", message: secret, redacted: true, wantMessage: "(redacted)"},
+		{name: "sensitive marker", message: secret, redacted: true, wantMessage: "(redacted)"},
+		{name: "sensitive trace", message: secret, sensitive: true, wantMessage: "(redacted)"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			policyName := "test-gpol"
@@ -590,7 +595,7 @@ func TestProcessUR_ErrorResultMarksURFailed(t *testing.T) {
 					return &meta.RESTMapping{Resource: schema.GroupVersionResource{Group: gk.Group, Version: version, Resource: "configmaps"}}, nil
 				}},
 				context:       libs.NewFakeContextProvider(),
-				engine:        &errorEngine{message: tt.message, redacted: tt.redacted},
+				engine:        &errorEngine{message: tt.message, redacted: tt.redacted, traceSensitive: tt.sensitive},
 				provider:      &testProvider{policy: gpolengine.Policy{Policy: &policiesv1beta1.GeneratingPolicy{ObjectMeta: metav1.ObjectMeta{Name: policyName}}}},
 				watchManager:  &WatchManager{},
 				statusControl: statusControl,
@@ -621,7 +626,7 @@ func TestProcessUR_ErrorResultMarksURFailed(t *testing.T) {
 			assert.Contains(t, statusControl.message, tt.wantMessage)
 			require.NotEmpty(t, eventGen.events)
 			assert.Contains(t, eventGen.events[0].Message, tt.wantMessage)
-			if tt.redacted {
+			if tt.redacted || tt.sensitive {
 				assert.NotContains(t, statusControl.message, secret)
 				for _, emittedEvent := range eventGen.events {
 					assert.NotContains(t, emittedEvent.Message, secret)

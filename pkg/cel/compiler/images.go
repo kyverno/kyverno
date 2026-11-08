@@ -55,6 +55,7 @@ var (
 	cronjobs     = metav1.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
 )
 
+// ImageExtractor is a compiled image extraction expression with its Secret-read provenance.
 type ImageExtractor struct {
 	cel.Program
 	HasSecretRead bool
@@ -72,6 +73,7 @@ func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1beta1.ImageE
 	return nil
 }
 
+// GetImages evaluates the extractor and converts its result to a string slice.
 func (c *ImageExtractor) GetImages(ctx context.Context, data map[string]any) ([]string, error) {
 	out, _, err := c.ContextEval(ctx, data)
 	if err != nil {
@@ -84,6 +86,7 @@ func (c *ImageExtractor) GetImages(ctx context.Context, data map[string]any) ([]
 	return result, nil
 }
 
+// CompileImageExtractors compiles custom and resource-specific image extractors.
 func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVersionResource, imageExtractors ...v1beta1.ImageExtractor) (map[string]ImageExtractor, field.ErrorList) {
 	return CompileImageExtractorsWithSecretVariables(path, env, gvr, nil, imageExtractors...)
 }
@@ -123,6 +126,7 @@ func CompileImageExtractorsWithSecretVariables(path *field.Path, env *cel.Env, g
 	return compiled, nil
 }
 
+// ExtractImages evaluates each extractor and returns images grouped by extractor name.
 func ExtractImages(ctx context.Context, data map[string]any, extractors map[string]ImageExtractor) (map[string][]string, error) {
 	result := make(map[string][]string, len(extractors))
 	for key, value := range extractors {
@@ -139,6 +143,7 @@ func ExtractImages(ctx context.Context, data map[string]any, extractors map[stri
 // custom-only extraction. All maps and programs are immutable after compilation.
 type ImageExtractorProfiles [4]map[string]ImageExtractor
 
+// ForResource selects the built-in profile matching gvr, overlaid with custom extractors.
 func (p ImageExtractorProfiles) ForResource(gvr *metav1.GroupVersionResource) map[string]ImageExtractor {
 	if gvr != nil {
 		switch *gvr {
@@ -165,6 +170,7 @@ func (p ImageExtractorProfiles) HasSecretRead() bool {
 	return false
 }
 
+// CompileImageExtractorProfiles compiles the built-in profiles and custom extractors.
 func CompileImageExtractorProfiles(path *field.Path, env *cel.Env, custom ...v1beta1.ImageExtractor) (ImageExtractorProfiles, field.ErrorList) {
 	return CompileImageExtractorProfilesWithSecretVariables(path, env, nil, custom...)
 }

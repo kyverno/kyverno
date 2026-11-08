@@ -177,22 +177,22 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 
 	spec := policy.GetSpec()
 
-	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
-	}
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	var tracedMatchConditions []compiler.TracedProgram
 	var matchConditionSecretReads []bool
 	{
 		path := path.Child("matchConditions")
-		programs, traced, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(path, env, c.trace, secretVariables, spec.MatchConditions...)
+		programs, traced, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(path, env, c.trace, nil, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
 		tracedMatchConditions = traced
 		matchConditionSecretReads = secretReads
+	}
+	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
 	}
 	generations := make([]Generation, 0, len(spec.Generation))
 	generationSecretReads := make([]bool, 0, len(spec.Generation))

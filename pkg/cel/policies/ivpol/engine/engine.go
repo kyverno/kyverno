@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"strings"
@@ -312,7 +313,11 @@ func (e *engineImpl) handleMutation(
 			// and continues (pkg/engine/internal/imageverifier.go). The webhook
 			// handler turns this result into a denial when the policy's
 			// validationActions include Deny.
-			logging.WithName("ivpol/mutateDigest").Error(err, "failed to update digest",
+			logErr := err
+			if compiled.HasSecretRead() {
+				logErr = errors.New("(redacted)")
+			}
+			logging.WithName("ivpol/mutateDigest").Error(logErr, "failed to update digest",
 				"policy", ivpol.Policy.GetName())
 			responses = append(responses, eval.ImageVerifyPolicyResponse{
 				Policy:         ivpol.Policy,
