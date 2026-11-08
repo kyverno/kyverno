@@ -24,8 +24,8 @@ This package implements the `kyverno create values` (and `kubectl-kyverno create
 4. **Failure-Safe Output Writing**:
    - Flag validation and template rendering execute in-memory before writing the output file (`-o/--output`).
    - Output files are written and closed via a temporary file in the destination directory and atomically renamed into place. If validation, write, or close fails, pre-existing output files remain intact and untruncated.
-   - Symlink destinations and pre-existing file permissions are preserved intact.
+   - Resolved symlink destinations and pre-existing file permissions are preserved intact (dangling symlinks return an error, and newly created files default to restrictive 0600 permissions).
 
 5. **YAML Scalar Encoding (`formatValue`)**:
-   - Values containing sequences sensitive in YAML plain scalars (such as inline comments ` #`, leading `#`, or mapping indicators `: `) are double-quoted so they are not truncated as comments or misinterpreted as mappings.
-   - Other scalars (numbers, booleans, and plain strings) remain unquoted to preserve native scalar typing.
+   - Values containing sequences or characters sensitive in YAML plain scalars (such as inline comments ` #` or `\t#`, leading indicators `#`, `*`, `&`, `[`, `{`, `]`, `}`, `|`, `>`, `%`, `@`, `` ` ``, `!`, `?`, `- `, or mapping indicators `: `, line breaks, or leading/trailing whitespace) are double-quoted so they are not truncated as comments, parsed as mappings/sequences/aliases, or altered on unmarshal.
+   - Other scalars (numbers, booleans, null, and plain strings) remain unquoted to preserve native scalar typing.

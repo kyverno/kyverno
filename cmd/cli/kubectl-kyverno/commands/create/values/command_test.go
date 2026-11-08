@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// TestCommand verifies default command execution without arguments.
 func TestCommand(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
@@ -20,6 +21,7 @@ func TestCommand(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestCommandWithArgs verifies that positional arguments return an error.
 func TestCommandWithArgs(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
@@ -28,6 +30,7 @@ func TestCommandWithArgs(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// TestCommandWithInvalidArg verifies error messages when invalid arguments are provided.
 func TestCommandWithInvalidArg(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
@@ -42,6 +45,7 @@ func TestCommandWithInvalidArg(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
+// TestCommandWithInvalidFlag verifies error messages when unknown flags are provided.
 func TestCommandWithInvalidFlag(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
@@ -56,6 +60,7 @@ func TestCommandWithInvalidFlag(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
+// TestCommandHelp verifies that the help flag outputs command usage.
 func TestCommandHelp(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
@@ -69,6 +74,7 @@ func TestCommandHelp(t *testing.T) {
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
 }
 
+// TestCommandComplexValuesMerging verifies hierarchical merging of policies, rules, resources, and selectors, and '=' preservation.
 func TestCommandComplexValuesMerging(t *testing.T) {
 	cmd := Command()
 	var buf bytes.Buffer
@@ -148,6 +154,7 @@ func TestCommandComplexValuesMerging(t *testing.T) {
 	assert.Equal(t, "", prodNs.Labels["emptyns"])
 }
 
+// TestCommandSameNameRuleAndResourceMerging verifies that repeated rules and resources under the same policy merge correctly.
 func TestCommandSameNameRuleAndResourceMerging(t *testing.T) {
 	cmd := Command()
 	var buf bytes.Buffer
@@ -184,6 +191,7 @@ func TestCommandSameNameRuleAndResourceMerging(t *testing.T) {
 	assert.Equal(t, "v3", pol.Resources[0].Values["r3"])
 }
 
+// TestCommandYAMLSensitiveValues verifies that YAML-sensitive characters are quoted while native scalar typing is preserved.
 func TestCommandYAMLSensitiveValues(t *testing.T) {
 	cmd := Command()
 	var buf bytes.Buffer
@@ -246,6 +254,7 @@ func TestCommandYAMLSensitiveValues(t *testing.T) {
 	assert.Nil(t, values["null_val"])
 }
 
+// TestCommandOutputToFile verifies writing generated values to an output file.
 func TestCommandOutputToFile(t *testing.T) {
 	tempDir := t.TempDir()
 	outFile := filepath.Join(tempDir, "values.yaml")
@@ -270,6 +279,7 @@ func TestCommandOutputToFile(t *testing.T) {
 	assert.Equal(t, "testpol", spec.Policies[0].Name)
 }
 
+// TestCommandErrorDoesNotTruncateFile verifies that validation failures do not overwrite or truncate an existing file.
 func TestCommandErrorDoesNotTruncateFile(t *testing.T) {
 	tempDir := t.TempDir()
 	existingFile := filepath.Join(tempDir, "existing.yaml")
@@ -291,6 +301,7 @@ func TestCommandErrorDoesNotTruncateFile(t *testing.T) {
 	assert.Equal(t, originalContent, content)
 }
 
+// TestCommandValidationErrors verifies descriptive error reporting for malformed command inputs.
 func TestCommandValidationErrors(t *testing.T) {
 	tests := []struct {
 		name     string
