@@ -37,10 +37,10 @@ func UpdateStatus(ctx context.Context, client versioned.Interface, urLister kyve
 			// nothing left to carry the status. Skip the write: issuing an
 			// UpdateStatus against the deleted object returns a 404 and the
 			// terminal cleanup gets reported as a reconciliation error. Keep
-			// the last failure message on the single drop record: it dies
-			// with the deleted object, and a silent drop leaves no record
-			// of why the work never completed.
-			logging.V(3).Info("dropped update request after exhausting retries", "name", name, "retryCount", latest.Status.RetryCount, "message", message)
+			// the last failure message on the single drop record at the
+			// default verbosity: it dies with the deleted object, and a
+			// silent drop leaves no record of why the work never completed.
+			logging.V(2).Info("dropped update request after exhausting retries", "name", name, "retryCount", latest.Status.RetryCount, "message", message)
 			return ur, nil
 		}
 	}
