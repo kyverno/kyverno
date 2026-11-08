@@ -169,6 +169,36 @@ func TestEvaluate_TracingOn_RedactsSecretMessageExpression(t *testing.T) {
 	assert.Equal(t, "(redacted)", entry.Verdict.Message)
 }
 
+func TestEvaluate_TracingOff_RetainsSecretMessageProvenance(t *testing.T) {
+	const password = "hunter2-do-not-log"
+	fake := libs.NewFakeContextProvider()
+	require.NoError(t, fake.AddResource(schema.GroupVersionResource{Version: "v1", Resource: "secrets"}, &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata":   map[string]any{"namespace": "default", "name": "db-credentials"},
+			"data":       map[string]any{"password": password},
+		},
+	}))
+	oldLibraryContext := libs.LibraryContext
+	libs.LibraryContext = fake
+	t.Cleanup(func() {
+		libs.LibraryContext = oldLibraryContext
+	})
+
+	policy := buildTracePolicy(admissionregistrationv1.Validation{
+		Expression:        "false",
+		MessageExpression: `string(resource.Get("v1", "secrets", "default", "db-credentials").data.password)`,
+	})
+	p, errs := NewCompilerWithTrace(false).Compile(policy, nil)
+	require.Empty(t, errs)
+	result, err := p.Evaluate(context.Background(), podObject("prod", nil), nil, nil, nil, nil, fake)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Nil(t, result.Trace)
+	assert.True(t, result.SensitiveMessage)
+}
+
 func TestEvaluate_TracingOn_RedactsSecretExceptionMatchErrors(t *testing.T) {
 	const password = "hunter2-do-not-log"
 	env, err := NewExceptionEnv("")

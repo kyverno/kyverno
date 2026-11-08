@@ -46,7 +46,7 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 
 func ruleEventMessage(engineResponse engineapi.EngineResponse, ruleResp engineapi.RuleResponse) string {
 	message := ruleResp.Message()
-	if engineResponse.RedactMessages && message != "" {
+	if (engineResponse.RedactMessages || strings.EqualFold(engineResponse.GetResourceSpec().Kind, "Secret")) && message != "" {
 		return "(redacted)"
 	}
 	return message

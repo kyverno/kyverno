@@ -160,7 +160,8 @@ func (s *scanner) ScanResource(
 			}
 
 			response := engineapi.EngineResponse{
-				Resource: resource,
+				Resource:       resource,
+				RedactMessages: len(engineResponse.Policies) > 0 && engineResponse.Policies[0].RedactMessages,
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: rules,
 				},

@@ -120,7 +120,7 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 	for _, r := range response.Policies {
 		engineResponse := engineapi.EngineResponse{
 			Resource:       *response.Resource,
-			RedactMessages: r.Trace != nil && r.Trace.IsSensitive(),
+			RedactMessages: r.RedactMessages || (r.Trace != nil && r.Trace.IsSensitive()),
 			PolicyResponse: engineapi.PolicyResponse{
 				Rules: r.Rules,
 			},

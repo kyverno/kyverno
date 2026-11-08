@@ -179,14 +179,21 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 
 	compiledExceptions := make([]engine.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := engine.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		polexMatchConditions, tracedMatchConditions, errs := engine.CompileMatchConditionsWithTrace(field.NewPath("spec").Child("matchConditions"), env, c.trace, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
-		compiledExceptions = append(compiledExceptions, engine.Exception{
+		exception := engine.Exception{
 			Exception:       polex,
 			MatchConditions: polexMatchConditions,
-		})
+		}
+		if c.trace {
+			exception.MatchConditionASTs = make([]*cel.Ast, 0, len(tracedMatchConditions))
+			for _, condition := range tracedMatchConditions {
+				exception.MatchConditionASTs = append(exception.MatchConditionASTs, condition.AST)
+			}
+		}
+		compiledExceptions = append(compiledExceptions, exception)
 	}
 
 	if len(allErrs) > 0 {

@@ -133,6 +133,26 @@ func TestPolicyFailureEvents_RedactSensitiveMessages(t *testing.T) {
 	}
 }
 
+func TestPolicyFailureEvents_RedactSecretResourceMessagesWithoutMarker(t *testing.T) {
+	const secret = "do-not-log"
+	resource := unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Secret",
+		"metadata":   map[string]any{"namespace": "default", "name": "credentials"},
+	}}
+	policy := &policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "sensitive-policy"}}
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingPolicy(policy), nil)
+	rule := *engineapi.RuleError("validation", engineapi.Validation, "error", errors.New(secret), nil)
+
+	policyEvent := NewPolicyFailEvent(AdmissionController, PolicyViolation, engineResponse, rule, false)
+	resourceEvent := NewResourceViolationEvent(AdmissionController, PolicyViolation, engineResponse, rule)
+
+	for _, event := range []Info{policyEvent, resourceEvent} {
+		assert.NotContains(t, event.Message, secret)
+		assert.Contains(t, event.Message, "(redacted)")
+	}
+}
+
 func Test_buildPolicyEventMessage_mutation(t *testing.T) {
 	resp := engineapi.NewRuleResponse("inject-sidecar", engineapi.Mutation, "added istio-proxy container", engineapi.RuleStatusPass, nil)
 	res := engineapi.ResourceSpec{

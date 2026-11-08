@@ -18,6 +18,8 @@ type ValidatingPolicyResponse struct {
 	Actions sets.Set[admissionregistrationv1.ValidationAction]
 	Policy  policiesv1beta1.ValidatingPolicyLike
 	Rules   []engineapi.RuleResponse
+	// RedactMessages marks rule messages as sensitive for event generation, even without tracing.
+	RedactMessages bool
 	// Trace explains how this policy reached its result. It is nil unless the policy was
 	// compiled with tracing on, so callers must nil-check it.
 	Trace *trace.Decision

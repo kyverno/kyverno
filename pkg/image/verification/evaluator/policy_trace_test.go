@@ -135,6 +135,45 @@ func TestEvaluate_TracingOn_RedactsSecretMessageExpressionError(t *testing.T) {
 	assert.Equal(t, "(redacted)", entry.Verdict.Message)
 }
 
+func TestEvaluate_TracingOn_RedactsSecretExceptionMatchError(t *testing.T) {
+	const password = "hunter2-do-not-log"
+	fake := libs.NewFakeContextProvider()
+	require.NoError(t, fake.AddResource(schema.GroupVersionResource{Version: "v1", Resource: "secrets"}, &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata":   map[string]any{"namespace": "default", "name": "db-credentials"},
+			"data":       map[string]any{"password": password},
+		},
+	}))
+	oldLibraryContext := libs.LibraryContext
+	libs.LibraryContext = fake
+	t.Cleanup(func() {
+		libs.LibraryContext = oldLibraryContext
+	})
+
+	exception := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "secret-condition", Namespace: "default"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "invalid-secret-timestamp",
+				Expression: `timestamp(resource.Get("v1", "secrets", "default", "db-credentials").data.password) == timestamp("2023-01-01T00:00:00Z")`,
+			}},
+		},
+	}
+	result, err, _ := evaluateTraced(t, true, traceTestPolicy(admissionregistrationv1.Validation{Expression: "true"}), exception)
+	require.Error(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.Trace)
+	assert.True(t, result.Trace.IsSensitive())
+
+	values := trace.LogValues(result.Trace)
+	entry, ok := values[len(values)-1].(trace.LogEntry)
+	require.True(t, ok)
+	assert.NotContains(t, entry.Verdict.Message, password)
+	assert.Equal(t, "(redacted)", entry.Verdict.Message)
+}
+
 // TestEvaluate_TracingOn_VerificationIsNeverRunTwice is option C: an expression that calls image
 // verification has no tracking twin, so explaining it never repeats the registry calls (or the
 // verification it records). It is still traced, by its source and its result, and the failure

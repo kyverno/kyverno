@@ -202,6 +202,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 					// exception already granted; a broken later exception must not negate it
 					continue
 				}
+				if c.trace && exceptionMatchMayReadSecret(polex) {
+					verdict.HasSecretRead = true
+				}
 				return failed(err)
 			}
 			if match {
@@ -398,6 +401,18 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	}
 	// required is enforced by the caller via EnforceRequired, not here
 	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, MatchedImages: imgList, Trace: decision()}, nil
+}
+
+func exceptionMatchMayReadSecret(exception engine.Exception) bool {
+	if len(exception.MatchConditionASTs) != len(exception.MatchConditions) {
+		return true
+	}
+	for _, ast := range exception.MatchConditionASTs {
+		if ast == nil || trace.MayReadSecret(ast) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, error) {

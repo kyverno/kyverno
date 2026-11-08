@@ -289,6 +289,9 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, props).WithMessageExpressionError(result.MessageExpressionError))
 		}
 	}
+	if result != nil {
+		response.RedactMessages = result.SensitiveMessage || (result.Trace != nil && result.Trace.IsSensitive())
+	}
 	if tracing {
 		switch {
 		case err != nil && result != nil && result.Trace != nil:

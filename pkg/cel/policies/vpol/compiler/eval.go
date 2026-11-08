@@ -21,6 +21,7 @@ type EvaluationResult struct {
 	// the failure message itself could not be computed.
 	MessageExpressionError error
 	Message                string
+	SensitiveMessage       bool
 	Index                  int
 	Result                 bool
 	AuditAnnotations       map[string]string

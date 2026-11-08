@@ -5,11 +5,13 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -98,6 +100,43 @@ func TestScanResource_ImageValidatingPolicy(t *testing.T) {
 	results := newTestScanner(t).ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, nil, policy)
 
 	assert.Len(t, results, 1, "ImageValidatingPolicy must not be silently skipped by the scanner")
+}
+
+func TestScanResource_RedactsSecretMessageEvents(t *testing.T) {
+	fake := libs.NewFakeContextProvider()
+	assert.NoError(t, fake.AddResource(schema.GroupVersionResource{Version: "v1", Resource: "secrets"}, &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata":   map[string]any{"namespace": "default", "name": "db-credentials"},
+			"data":       map[string]any{"password": "do-not-log"},
+		},
+	}))
+	oldLibraryContext := libs.LibraryContext
+	libs.LibraryContext = fake
+	t.Cleanup(func() {
+		libs.LibraryContext = oldLibraryContext
+	})
+
+	policy := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-vpol"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: podMatchSpec.MatchConstraints,
+			Validations: []admissionregistrationv1.Validation{{
+				Expression:        "false",
+				MessageExpression: `string(resource.Get("v1", "secrets", "default", "db-credentials").data.password)`,
+			}},
+		},
+	})
+	resource, gvr := newPodResource()
+	results := newTestScanner(t).ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, nil, policy)
+
+	require.Len(t, results, 1)
+	for _, result := range results {
+		require.NoError(t, result.Error)
+		require.NotNil(t, result.EngineResponse)
+		assert.True(t, result.EngineResponse.RedactMessages)
+	}
 }
 
 func newPodResource() (unstructured.Unstructured, schema.GroupVersionResource) {

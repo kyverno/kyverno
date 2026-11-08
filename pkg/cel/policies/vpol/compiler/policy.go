@@ -305,7 +305,8 @@ func (p *Policy) evaluateWithData(
 			ran(index, trace.VerdictFail)
 			message, msgErr := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
 			verdict.Status, verdict.Message = trace.VerdictFail, message
-			verdict.HasSecretRead = verdict.HasSecretRead || trace.MayReadSecret(validation.MessageExpressionAST)
+			sensitiveMessage := trace.MayReadSecret(validation.MessageExpressionAST)
+			verdict.HasSecretRead = verdict.HasSecretRead || sensitiveMessage
 			// an audit annotation error must not mask the failure
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {
@@ -317,6 +318,7 @@ func (p *Policy) evaluateWithData(
 				MessageExpressionError: msgErr,
 				Index:                  index,
 				AuditAnnotations:       auditAnnotations,
+				SensitiveMessage:       sensitiveMessage,
 				RefusedException:       refused,
 				Trace:                  decision(),
 			}, nil
