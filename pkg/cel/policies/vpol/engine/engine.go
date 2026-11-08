@@ -159,6 +159,7 @@ func annotateTraces(response *EngineResponse) {
 	}
 }
 
+// handlePolicy evaluates one ValidatingPolicy and builds its admission response.
 func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, requestMapFn func() (map[string]any, error), context libs.Context) engine.ValidatingPolicyResponse {
 	response := engine.ValidatingPolicyResponse{
 		Actions:        policy.Actions,

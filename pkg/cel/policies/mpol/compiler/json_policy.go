@@ -25,6 +25,7 @@ import (
 	"k8s.io/apiserver/pkg/cel/mutation"
 )
 
+// compileForJSON compiles a MutatingPolicy for JSON-object evaluation.
 func (c *compilerImpl) compileForJSON(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	spec := policy.GetSpec()
 	path := field.NewPath("spec")

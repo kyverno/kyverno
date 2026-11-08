@@ -234,6 +234,7 @@ func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, 
 	return response, patches, nil
 }
 
+// handleMutation pins image digests for matching ImageValidatingPolicies.
 func (e *engineImpl) handleMutation(
 	ctx context.Context,
 	policies []Policy,
@@ -517,6 +518,7 @@ func (e *engineImpl) handleValidation(
 	return out, nil
 }
 
+// filterPolicies evaluates match constraints and records each policy's admission scope.
 func (e *engineImpl) filterPolicies(
 	policies []Policy,
 	attr admission.Attributes,
@@ -610,6 +612,7 @@ func withTraceHeader(d *trace.Decision, pol Policy, attr admission.Attributes) *
 	return d
 }
 
+// evaluatePolicies evaluates the selected policies and aggregates their verification results.
 func (e *engineImpl) evaluatePolicies(
 	ctx context.Context,
 	policies []Policy,

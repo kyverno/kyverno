@@ -174,6 +174,7 @@ func (h *handler) filterBackgroundPolicies(logger logr.Logger, policies []string
 	return filtered
 }
 
+// audit emits events for mutating-policy results and returns event-generation errors.
 func (h *handler) audit(ctx context.Context, response mpolengine.EngineResponse, request celengine.EngineRequest) error {
 	allEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	reportableEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))

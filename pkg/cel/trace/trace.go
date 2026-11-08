@@ -35,6 +35,7 @@ type ExpressionTrace struct {
 	NoBreakdown string
 }
 
+// Build creates an expression trace from the source AST and CEL evaluation details.
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
 	return BuildWithSecretRead(source, ast, MayReadSecret(ast), result, details)
 }
@@ -144,6 +145,7 @@ func MayReadSecret(ast *cel.Ast) bool {
 	return celcompiler.MayReadSecret(ast)
 }
 
+// isBoolean reports whether a CEL result is a native or CEL boolean value.
 func isBoolean(value ref.Val) bool {
 	return value != nil && value.Type() == types.BoolType
 }

@@ -64,6 +64,7 @@ func NewCompilerWithTrace(trace bool) Compiler {
 
 type compilerImpl struct{ trace bool }
 
+// Compile builds an executable MutatingPolicy for its configured evaluation mode.
 func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	path := field.NewPath("spec")
 	if policy == nil || (reflect.ValueOf(policy).Kind() == reflect.Pointer && reflect.ValueOf(policy).IsNil()) {
@@ -79,6 +80,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	return c.compileForKubernetes(policy, exceptions)
 }
 
+// compileForKubernetes compiles a MutatingPolicy for Kubernetes-object evaluation.
 func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	libCtx := libs.GetLibsCtx()

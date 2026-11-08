@@ -111,6 +111,7 @@ func (p *Policy) evaluateAuditAnnotations(ctx context.Context, data map[string]a
 	return annotations, nil
 }
 
+// Evaluate runs a GeneratingPolicy against an admission request and records its results.
 func (p *Policy) Evaluate(
 	ctx context.Context,
 	attr admission.Attributes,

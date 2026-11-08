@@ -78,6 +78,7 @@ func TraceDetails(ctx context.Context, traced cel.Program, activation any, decid
 	return details
 }
 
+// CompileMatchCondition compiles one match condition and reports validation errors.
 func CompileMatchCondition(path *field.Path, env *cel.Env, matchCondition admissionregistrationv1.MatchCondition) (cel.Program, field.ErrorList) {
 	traced, errs := compileMatchCondition(path, env, matchCondition, false, nil)
 	return traced.Program, errs
@@ -164,6 +165,7 @@ func CompileMatchConditionsWithTrace(path *field.Path, env *cel.Env, trace bool,
 	return programs, traced, errs
 }
 
+// compileMatchConditionsTraced compiles match conditions with the trace-only AST and programs.
 func compileMatchConditionsTraced(path *field.Path, env *cel.Env, matchConditions ...admissionregistrationv1.MatchCondition) (result []TracedProgram, allErrs field.ErrorList) {
 	if len(matchConditions) == 0 {
 		return nil, nil
@@ -178,6 +180,7 @@ func compileMatchConditionsTraced(path *field.Path, env *cel.Env, matchCondition
 	return result, allErrs
 }
 
+// CompileMatchConditions compiles match conditions and aggregates validation errors.
 func CompileMatchConditions(path *field.Path, env *cel.Env, matchConditions ...admissionregistrationv1.MatchCondition) (result []cel.Program, allErrs field.ErrorList) {
 	if len(matchConditions) == 0 {
 		return nil, nil
@@ -192,6 +195,7 @@ func CompileMatchConditions(path *field.Path, env *cel.Env, matchConditions ...a
 	return result, allErrs
 }
 
+// CompileVariable compiles a variable expression and registers its output type.
 func CompileVariable(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variable admissionregistrationv1.Variable) (cel.Program, field.ErrorList) {
 	traced, errs := compileVariable(path, env, VariablesProvider, variable, false, nil)
 	return traced.Program, errs
@@ -259,6 +263,7 @@ func CompileVariablesWithSecretRead(path *field.Path, env *cel.Env, VariablesPro
 	return programs, compiled, secretVariables, errs
 }
 
+// compileVariablesTraced compiles variables in order and records their Secret provenance.
 func compileVariablesTraced(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, trace bool, secretVariables map[string]bool, variables ...admissionregistrationv1.Variable) (result map[string]TracedProgram, allErrs field.ErrorList) {
 	if len(variables) == 0 {
 		return nil, nil
@@ -277,6 +282,7 @@ func compileVariablesTraced(path *field.Path, env *cel.Env, VariablesProvider *V
 	return result, allErrs
 }
 
+// CompileVariables compiles variables and registers their output types with the provider.
 func CompileVariables(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variables ...admissionregistrationv1.Variable) (result map[string]cel.Program, allErrs field.ErrorList) {
 	if len(variables) == 0 {
 		return nil, nil
@@ -292,6 +298,7 @@ func CompileVariables(path *field.Path, env *cel.Env, VariablesProvider *Variabl
 	return result, allErrs
 }
 
+// CompileMutation compiles a mutation expression and checks its expected return type.
 func CompileMutation(path *field.Path, env *cel.Env, expression string, returnType *types.Type) (cel.Program, field.ErrorList) {
 	traced, errs := compileMutation(path, env, expression, returnType, false, nil)
 	return traced.Program, errs
@@ -342,6 +349,7 @@ func CompileMutationWithSecretVariables(path *field.Path, env *cel.Env, expressi
 	return compileMutation(path, env, expression, returnType, trace, secretVariables)
 }
 
+// CompileAuditAnnotation compiles an audit annotation's value expression.
 func CompileAuditAnnotation(path *field.Path, env *cel.Env, auditAnnotation admissionregistrationv1.AuditAnnotation) (cel.Program, field.ErrorList) {
 	program, _, errs := CompileAuditAnnotationWithSecretRead(path, env, auditAnnotation)
 	return program, errs
@@ -373,6 +381,7 @@ func CompileAuditAnnotationWithSecretVariables(path *field.Path, env *cel.Env, a
 	}
 }
 
+// CompileAuditAnnotations compiles audit annotation expressions keyed by annotation name.
 func CompileAuditAnnotations(path *field.Path, env *cel.Env, auditAnnotations ...admissionregistrationv1.AuditAnnotation) (result map[string]cel.Program, allErrs field.ErrorList) {
 	if len(auditAnnotations) == 0 {
 		return nil, nil
@@ -392,6 +401,7 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 	return CompileValidationWithSecretVariables(path, env, rule, trace, nil)
 }
 
+// CompileValidationWithSecretVariables compiles a validation and propagates Secret provenance from variables.
 func CompileValidationWithSecretVariables(path *field.Path, env *cel.Env, rule admissionregistrationv1.Validation, trace bool, secretVariables map[string]bool) (Validation, field.ErrorList) {
 	var allErrs field.ErrorList
 	compiled := Validation{Message: rule.Message}

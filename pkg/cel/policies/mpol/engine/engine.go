@@ -44,6 +44,7 @@ type EngineResponse struct {
 	Policies        []MutatingPolicyResponse
 }
 
+// GetPatches returns the JSON patch from the original resource to the patched resource.
 func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
 	originalBytes, err := er.Resource.MarshalJSON()
 	if err != nil {
@@ -271,6 +272,7 @@ func annotateTraces(policies []MutatingPolicyResponse, resource *unstructured.Un
 	}
 }
 
+// handlePolicy evaluates a MutatingPolicy and returns its response and any patched object.
 func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error), target bool, jsonPayload *unstructured.Unstructured) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
 		Policy:         mpol.Policy,

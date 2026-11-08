@@ -103,6 +103,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	return response, nil
 }
 
+// generate evaluates one policy and applies its generated resources.
 func (e *engineImpl) generate(
 	ctx context.Context,
 	policy Policy,

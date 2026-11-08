@@ -106,6 +106,7 @@ func logDecisionTraces(logger logr.Logger, response vpolengine.EngineResponse) {
 	go webhookutils.LogDecisionTraces(logger, traces...)
 }
 
+// audit emits events for policy results and logs any available decision traces.
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request vpolengine.EngineRequest, response vpolengine.EngineResponse) {
 	blocked := false
 	for _, p := range response.Policies {

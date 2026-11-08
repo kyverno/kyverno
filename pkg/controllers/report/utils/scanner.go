@@ -44,6 +44,7 @@ type scanner struct {
 	typeConverter patch.TypeConverterManager
 }
 
+// hasSensitiveMessages reports whether any policy response requires message redaction.
 func hasSensitiveMessages[T any](policies []T, isSensitive func(T) bool) bool {
 	for _, policy := range policies {
 		if isSensitive(policy) {
@@ -92,6 +93,7 @@ func NewScanner(
 	}
 }
 
+// ScanResource evaluates the applicable policies for one resource and builds scan results.
 func (s *scanner) ScanResource(
 	ctx context.Context,
 	resource unstructured.Unstructured,

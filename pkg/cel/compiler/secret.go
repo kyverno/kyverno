@@ -65,6 +65,7 @@ func MayReadSecretWithVariables(ast *cel.Ast, secretVariables map[string]bool) b
 	return found
 }
 
+// isResourceRead identifies resource.Get and resource.List calls by overload or receiver.
 func isResourceRead(call celast.CallExpr, overloadIDs []string) (bool, bool) {
 	var isGet, isList bool
 	for _, overloadID := range overloadIDs {
@@ -83,6 +84,7 @@ func isResourceRead(call celast.CallExpr, overloadIDs []string) (bool, bool) {
 		function == "list" || strings.HasPrefix(function, "resource_list_")
 }
 
+// resourceCallMayReadSecret conservatively classifies a resource read that may target a Secret.
 func resourceCallMayReadSecret(call celast.CallExpr) bool {
 	args := call.Args()
 	if len(args) == 0 {

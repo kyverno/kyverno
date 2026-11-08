@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// NewPolicyFailEvent creates a policy failure event, redacting sensitive rule messages.
 func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp engineapi.RuleResponse, blocked bool) Info {
 	action := ResourcePassed
 	if blocked {
@@ -44,6 +45,7 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 	}
 }
 
+// ruleEventMessage returns the rule message, redacted when its response is sensitive.
 func ruleEventMessage(engineResponse engineapi.EngineResponse, ruleResp engineapi.RuleResponse) string {
 	message := ruleResp.Message()
 	if (engineResponse.RedactMessages || strings.EqualFold(engineResponse.GetResourceSpec().Kind, "Secret")) && message != "" {
@@ -52,10 +54,12 @@ func ruleEventMessage(engineResponse engineapi.EngineResponse, ruleResp engineap
 	return message
 }
 
+// buildPolicyEventMessage formats a rule result for a policy event.
 func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.ResourceSpec, blocked bool) string {
 	return buildPolicyEventMessageWithMessage(resp, resource, blocked, resp.Message())
 }
 
+// buildPolicyEventMessageWithMessage formats a policy event using a preprocessed message.
 func buildPolicyEventMessageWithMessage(resp engineapi.RuleResponse, resource engineapi.ResourceSpec, blocked bool, message string) string {
 	var b strings.Builder
 	if resource.Namespace != "" {
@@ -125,6 +129,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineRespons
 	}
 }
 
+// NewResourceViolationEvent creates an event for a resource violation.
 func NewResourceViolationEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp engineapi.RuleResponse) Info {
 	var bldr strings.Builder
 	defer bldr.Reset()

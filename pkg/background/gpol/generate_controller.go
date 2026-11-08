@@ -85,6 +85,7 @@ func NewCELGenerateController(
 	}
 }
 
+// ProcessUR evaluates a GeneratingPolicy for an UpdateRequest and applies its generated resources.
 func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	generatedResources := make([]kyverno.ResourceSpec, 0)

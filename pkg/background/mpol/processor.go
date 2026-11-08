@@ -407,6 +407,7 @@ func (p *processor) resolveTargetRoute(object unstructured.Unstructured, constra
 	return mapping.Resource, "", mapping.Scope.Name(), nil
 }
 
+// audit emits events and reports for the results of a MutatingPolicy evaluation.
 func (p *processor) audit(object *unstructured.Unstructured, response *mpolengine.EngineResponse) error {
 	allEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	reportableEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))

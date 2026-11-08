@@ -38,6 +38,7 @@ func (p *Policy) Tracing() bool {
 	return p.trace
 }
 
+// Evaluate runs the policy's variables, match conditions, and validations for an object.
 func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured, namespace runtime.Object, context libs.Context) (*EvaluationResult, error) {
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	namespaceVal, err := utils.ObjectToResolveVal(namespace)

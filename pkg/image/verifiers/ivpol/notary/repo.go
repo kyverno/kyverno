@@ -13,6 +13,7 @@ type repositoryClient struct {
 	image *imagedataloader.ImageData
 }
 
+// NewRepository adapts ImageData to the Notation registry interface.
 func NewRepository(image *imagedataloader.ImageData) notationregistry.Repository {
 	return &repositoryClient{
 		image: image,
@@ -23,6 +24,7 @@ func NewRepository(image *imagedataloader.ImageData) notationregistry.Repository
 // first to stop a verification that was cancelled because an earlier-listed
 // referrer verified.
 
+// Resolve fetches an image descriptor unless the verification context was cancelled.
 func (c *repositoryClient) Resolve(ctx context.Context, img string) (ocispec.Descriptor, error) {
 	if err := ctx.Err(); err != nil {
 		return ocispec.Descriptor{}, err
@@ -30,6 +32,7 @@ func (c *repositoryClient) Resolve(ctx context.Context, img string) (ocispec.Des
 	return c.image.FetchReference(img)
 }
 
+// ListSignatures passes the image's Notation referrer descriptors to fn.
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -47,6 +50,7 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 	return fn(descriptorList)
 }
 
+// FetchSignatureBlob retrieves a referrer's payload unless the context was cancelled.
 func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, ocispec.Descriptor{}, err

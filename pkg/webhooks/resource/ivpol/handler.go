@@ -241,6 +241,7 @@ func (h *handler) validationResponse(request celengine.EngineRequest, response e
 	return admissionutils.Response(request.AdmissionRequest().UID, multierr.Combine(errs...), warnings...)
 }
 
+// audit emits image-policy events and logs any available decision traces.
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request celengine.EngineRequest, response eval.ImageVerifyEngineResponse) {
 	blocked := false
 	for _, p := range response.Policies {

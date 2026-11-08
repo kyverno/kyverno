@@ -65,6 +65,7 @@ func NewCompilerWithTrace(trace bool) Compiler {
 
 type compilerImpl struct{ trace bool }
 
+// Compile builds an executable ValidatingPolicy for its configured evaluation mode.
 func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
 	case policieskyvernoio.EvaluationModeJSON:
@@ -74,6 +75,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exce
 	}
 }
 
+// compileForKubernetes compiles a ValidatingPolicy for Kubernetes-object evaluation.
 func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	vpolEnvSet, variablesProvider, err := createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace(), true)
@@ -168,6 +170,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	}, nil
 }
 
+// compileForJSON compiles a ValidatingPolicy for JSON-object evaluation.
 func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
 	vpolEnvSet, variablesProvider, err := createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace(), true)
@@ -384,6 +387,7 @@ func NewExceptionEnv(namespace string) (*cel.Env, error) {
 	return envSet.Env(environment.StoredExpressions)
 }
 
+// compileExceptions compiles exception match conditions for a namespaced policy.
 func compileExceptions(namespace string, exceptions []*policiesv1beta1.PolicyException, trace bool) ([]compiler.Exception, field.ErrorList) {
 	if len(exceptions) == 0 {
 		return nil, nil

@@ -26,6 +26,7 @@ type Verifier struct {
 	log logr.Logger
 }
 
+// VerifyImageSignature verifies an image's Notation signature and timestamp certificates.
 func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, certsData, tsaCertsData string) error {
 	logger := v.log.WithValues("image", image.Image, "digest", image.Digest)
 	logger.V(2).Info("verifying notary image signature", "image", image.Image)

@@ -364,6 +364,7 @@ func (c *templateCompiler) compileScalar(n *yaml.Node) (node, error) {
 	return &interpolatedNode{segments: segments, programs: programs}, nil
 }
 
+// compileExpression compiles a template placeholder and records its Secret provenance.
 func (c *templateCompiler) compileExpression(n *yaml.Node, expression string) (cel.Program, error) {
 	ast, issues := c.env.Compile(expression)
 	if err := issues.Err(); err != nil {

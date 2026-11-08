@@ -65,6 +65,7 @@ type compilerImpl struct {
 	trace  bool
 }
 
+// Compile builds an executable ImageValidatingPolicy and records its Secret provenance.
 func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	ivpolicy, allErrs := imagecredentials.ScopePolicy(ivpolicy)
 	if len(allErrs) != 0 {

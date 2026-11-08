@@ -49,6 +49,7 @@ func NewCompilerWithTrace(trace bool) Compiler {
 
 type compilerImpl struct{ trace bool }
 
+// Compile builds an executable DeletingPolicy and compiles its exception conditions.
 func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	if policy == nil {
 		return nil, field.ErrorList{field.Required(field.NewPath("policy"), "policy must not be nil")}

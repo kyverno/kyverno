@@ -196,6 +196,7 @@ func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.At
 	return utils.ConvertToNative[map[string]interface{}](out)
 }
 
+// Evaluate applies a compiled MutatingPolicy to an admission object or JSON payload.
 func (p *Policy) Evaluate(
 	ctx context.Context,
 	attr admission.Attributes,
@@ -230,6 +231,7 @@ func (p *Policy) EvaluateTarget(
 	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, contextProvider, true)
 }
 
+// evaluate runs the policy's match conditions, variables, and mutations.
 func (p *Policy) evaluate(
 	ctx context.Context,
 	attr admission.Attributes,

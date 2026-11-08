@@ -96,14 +96,17 @@ type compiledPolicy struct {
 	tracedVariables       map[string]engine.TracedProgram
 }
 
+// Tracing reports whether Evaluate builds a decision trace.
 func (c *compiledPolicy) Tracing() bool {
 	return c.trace
 }
 
+// HasSecretRead reports whether any compiled policy expression may read Secret data.
 func (c *compiledPolicy) HasSecretRead() bool {
 	return c.hasSecretRead
 }
 
+// Evaluate checks an image against this policy and returns its validation and trace results.
 func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *imageverify.ImageVerificationResults, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, requestMapFn func() (map[string]any, error), context libs.Context) (*EvaluationResult, error) {
 	data, err := prepareK8sData(attr, request, namespace, isK8s, requestMapFn)
 	if err != nil {
@@ -413,6 +416,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, MatchedImages: imgList, Trace: decision()}, nil
 }
 
+// exceptionMatchMayReadSecret reports whether exception matching may access Secret data.
 func exceptionMatchMayReadSecret(exception engine.Exception) bool {
 	return engine.AnySecretRead(exception.MatchConditionHasSecretRead...)
 }

@@ -98,6 +98,7 @@ func LogValues(d *Decision) []any {
 	}
 }
 
+// IsSensitive reports whether any part of the decision trace may contain Secret data.
 func (d *Decision) IsSensitive() bool {
 	return d != nil && (d.ResourceKind == "Secret" || decisionHasSecretRead(d))
 }
@@ -107,6 +108,7 @@ type logFormat struct {
 	sensitive bool
 }
 
+// decisionHasSecretRead reports whether a trace section was compiled as Secret-reading.
 func decisionHasSecretRead(d *Decision) bool {
 	if d.Sensitive {
 		return true
@@ -142,6 +144,7 @@ func decisionHasSecretRead(d *Decision) bool {
 	return false
 }
 
+// value formats an evaluated CEL value, preserving only boolean results in sensitive traces.
 func (l logFormat) value(v string, isBoolean bool) string {
 	if l.sensitive && v != "" && !(isBoolean && (v == "true" || v == "false")) {
 		return redacted
@@ -149,6 +152,7 @@ func (l logFormat) value(v string, isBoolean bool) string {
 	return clip(v)
 }
 
+// text formats free-form trace text and errors, redacting them for sensitive traces.
 func (l logFormat) text(v string) string {
 	if l.sensitive && v != "" {
 		return redacted
@@ -156,10 +160,12 @@ func (l logFormat) text(v string) string {
 	return clip(v)
 }
 
+// named converts an expression trace to its log representation.
 func (l logFormat) named(n NamedExpressionTrace) LogExpression {
 	return LogExpression{Name: n.Name, Expression: n.Source, Result: l.value(n.Result, n.ResultIsBoolean)}
 }
 
+// breakdown appends the evaluated nodes to an expression's log representation.
 func (l logFormat) breakdown(e *LogExpression, et ExpressionTrace) {
 	e.LoopValuesOmitted = et.LoopValuesOmitted
 	for _, n := range et.Nodes {
