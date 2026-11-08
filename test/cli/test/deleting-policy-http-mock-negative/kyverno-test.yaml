@@ -1,0 +1,22 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-deleting-policy-http-mock-negative
+apiCallResponses:
+  - method: GET
+    url: https://api.example.invalid/status
+    response:
+      statusCode: 200
+      body:
+        status: healthy
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - isDeletingPolicy: true
+    kind: ConfigMap
+    policy: delete-unhealthy-configs
+    resources:
+      - test-cm
+    result: fail
