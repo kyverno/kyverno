@@ -174,7 +174,7 @@ func TestFetchBundlesFallbackLayerFetchError(t *testing.T) {
 		skipLayerUpload:      true,
 	}})
 	_, _, err := fetchBundles(ref, attestationlimit, "", nil)
-	assert.ErrorContains(t, err, "failed to fetch referrer")
+	assert.ErrorContains(t, err, "referrer layer")
 }
 
 func TestFetchBundlesFallbackFetchError(t *testing.T) {
