@@ -184,6 +184,30 @@ func TestCommandSameNameRuleAndResourceMerging(t *testing.T) {
 	assert.Equal(t, "v3", pol.Resources[0].Values["r3"])
 }
 
+func TestCommandYAMLSensitiveValues(t *testing.T) {
+	cmd := Command()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{
+		"--rule", "testpol,rule1,query=a=b #suffix",
+		"--rule", "testpol,rule1,mapping=key: value",
+		"--rule", "testpol,rule1,comment=#standalone",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+
+	var spec v1alpha1.ValuesSpec
+	err = yaml.Unmarshal(buf.Bytes(), &spec)
+	assert.NoError(t, err)
+
+	assert.Len(t, spec.Policies, 1)
+	assert.Len(t, spec.Policies[0].Rules, 1)
+	values := spec.Policies[0].Rules[0].Values
+	assert.Equal(t, "a=b #suffix", values["query"])
+	assert.Equal(t, "key: value", values["mapping"])
+	assert.Equal(t, "#standalone", values["comment"])
+}
+
 func TestCommandOutputToFile(t *testing.T) {
 	tempDir := t.TempDir()
 	outFile := filepath.Join(tempDir, "values.yaml")
