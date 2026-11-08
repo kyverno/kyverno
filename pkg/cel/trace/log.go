@@ -420,7 +420,7 @@ func isVariablesExpr(e celast.Expr, varAliases map[string]bool) bool {
 	}
 	switch e.Kind() {
 	case celast.IdentKind:
-		ident := strings.ToLower(e.AsIdent())
+		ident := e.AsIdent()
 		return ident == "variables" || (varAliases != nil && varAliases[ident])
 	case celast.CallKind:
 		call := e.AsCall()
@@ -498,13 +498,8 @@ func createsSecretGVRCall(e celast.Expr, secretGVRVars map[string]bool, varAlias
 	return true
 }
 
-// isStaticNonSecretGVR reports whether expr statically creates a non-Secret GVR via resource.ToGVR.
-func isStaticNonSecretGVR(expr string) bool {
-	ast, iss := celParserEnv.Parse(expr)
-	if iss != nil && iss.Err() != nil {
-		return false
-	}
-	e := ast.NativeRep().Expr()
+// isStaticNonSecretGVRCall reports whether AST node e is a call to resource.ToGVR with a statically known non-Secret target.
+func isStaticNonSecretGVRCall(e celast.Expr) bool {
 	if e == nil || e.Kind() != celast.CallKind {
 		return false
 	}
@@ -524,6 +519,15 @@ func isStaticNonSecretGVR(expr string) bool {
 		return !isSecretResourceName(str) && !isSecretGVRValue(str)
 	}
 	return false
+}
+
+// isStaticNonSecretGVR reports whether expr statically creates a non-Secret GVR via resource.ToGVR.
+func isStaticNonSecretGVR(expr string) bool {
+	ast, iss := celParserEnv.Parse(expr)
+	if iss != nil && iss.Err() != nil {
+		return false
+	}
+	return isStaticNonSecretGVRCall(ast.NativeRep().Expr())
 }
 
 // createsSecretGVR reports whether expr calls resource.ToGVR targeting Secrets.
@@ -654,6 +658,9 @@ func (l logFormat) readsSecret(expr string) bool {
 					// args[1] is a known literal non-secret resource (e.g. 'configmaps', 'pods')
 					return
 				}
+				if isStaticNonSecretGVRCall(args[1]) {
+					return
+				}
 				if createsSecretGVRCall(args[1], l.secretGVRVars, l.varAliases) {
 					reads = true
 					return
@@ -674,6 +681,9 @@ func (l logFormat) readsSecret(expr string) bool {
 		}
 
 		// Case 2: args[0] is not a literal string
+		if isStaticNonSecretGVRCall(args[0]) {
+			return
+		}
 		if createsSecretGVRCall(args[0], l.secretGVRVars, l.varAliases) {
 			reads = true
 			return
@@ -709,7 +719,7 @@ func isVariablesAlias(expr string, varAliases map[string]bool) bool {
 			return true
 		}
 	}
-	trimmed := strings.ToLower(strings.TrimSpace(expr))
+	trimmed := strings.TrimSpace(expr)
 	if trimmed == "variables" || (varAliases != nil && varAliases[trimmed]) {
 		return true
 	}
@@ -812,7 +822,6 @@ func hasDynamicVariableAccess(expr string, varAliases map[string]bool) bool {
 			return true
 		}
 	}
-	lower := strings.ToLower(expr)
 	aliases := []string{"variables"}
 	for a := range varAliases {
 		if a != "variables" {
@@ -820,8 +829,8 @@ func hasDynamicVariableAccess(expr string, varAliases map[string]bool) bool {
 		}
 	}
 	for _, alias := range aliases {
-		if strings.Contains(lower, "dyn("+alias+")[") ||
-			(strings.Contains(lower, alias+"[") && !strings.Contains(lower, alias+"['") && !strings.Contains(lower, alias+`["`)) {
+		if strings.Contains(expr, "dyn("+alias+")[") ||
+			(strings.Contains(expr, alias+"[") && !strings.Contains(expr, alias+"['") && !strings.Contains(expr, alias+`["`)) {
 			return true
 		}
 	}

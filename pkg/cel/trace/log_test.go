@@ -1453,4 +1453,75 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		assert.Contains(t, string(raw), "SecretStore")
 		assert.NotEqual(t, redacted, entry.Variables[0].Result)
 	})
+
+	t.Run("Direct literal non-Secret ToGVR call in resource.Get is not redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "direct-non-secret-togvr",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "resource.Get(resource.ToGVR('v1', 'ConfigMap'), 'default', 'cm').data.key == 'val'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "resource.Get(resource.ToGVR('v1', 'ConfigMap'), 'default', 'cm').data.key", Value: "val"},
+						{Expression: "resource.Get(resource.ToGVR('v1', 'ConfigMap'), 'default', 'cm').data.key == 'val'", Value: "false"},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), "val")
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, "val", entry.Verdict.Evaluated[0].Value)
+	})
+
+	t.Run("Case-sensitive variables alias (e.g. Vars) is recognized and redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "case-sensitive-alias",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "Vars",
+					ExpressionTrace: ExpressionTrace{
+						Source: "variables",
+						Result: "<map>",
+					},
+				},
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db')",
+						Result: `map[data:map[password:` + password + `] kind:Secret]`,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: `dyn(Vars)["dbSecret"].data.password == 'expected'`,
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: `dyn(Vars)["dbSecret"].data.password`, Value: password},
+						{Expression: `dyn(Vars)["dbSecret"].data.password == 'expected'`, Value: "false"},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
 }
