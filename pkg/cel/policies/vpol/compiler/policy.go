@@ -124,8 +124,10 @@ func (p *Policy) evaluateWithData(
 			}
 			var sensitiveMatchError bool
 			recordExceptionMatch := func(index int, _ ref.Val, err error) {
-				if err != nil && index < len(polex.MatchConditionASTs) && trace.MayReadSecret(polex.MatchConditionASTs[index]) {
-					sensitiveMatchError = true
+				if err != nil {
+					if index >= len(polex.MatchConditionASTs) || polex.MatchConditionASTs[index] == nil || trace.MayReadSecret(polex.MatchConditionASTs[index]) {
+						sensitiveMatchError = true
+					}
 				}
 			}
 			var record func(int, ref.Val, error)

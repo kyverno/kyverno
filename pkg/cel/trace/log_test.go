@@ -113,6 +113,15 @@ func TestLogValues(t *testing.T) {
 		assert.Equal(t, clipped, entry.Verdict.Message)
 		assert.Equal(t, clipped, entry.Mutations[0].Error)
 		assert.Equal(t, clipped, entry.Mutations[0].NotApplied)
+
+		d.Sensitive = true
+		entry, _ = logged(t, d)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+		assert.Equal(t, redacted, entry.Mutations[0].Error)
+		assert.Equal(t, redacted, entry.Mutations[0].NotApplied)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), long[:maxValueLen])
 	})
 
 	t.Run("a mutation that failed keeps its breakdown, one that ran does not", func(t *testing.T) {

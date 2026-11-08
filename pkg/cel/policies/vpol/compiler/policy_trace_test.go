@@ -197,6 +197,28 @@ func TestEvaluate_TracingOn_RedactsSecretExceptionMatchErrors(t *testing.T) {
 	assert.Equal(t, "(redacted)", entry.Verdict.Message)
 }
 
+func TestEvaluate_TracingOn_RedactsExceptionMatchErrorsWithoutAST(t *testing.T) {
+	const password = "hunter2-do-not-log"
+	p := &Policy{
+		trace: true,
+		exceptions: []celcompiler.Exception{{
+			MatchConditions: []cel.Program{&mockVpolProgram{err: errors.New(`invalid timestamp "` + password + `"`)}},
+			Exception:       &policiesv1beta1.PolicyException{},
+		}},
+	}
+	result, err := p.evaluateWithData(context.Background(), evaluationData{})
+	require.Error(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.Trace)
+	assert.True(t, result.Trace.Sensitive)
+
+	values := trace.LogValues(result.Trace)
+	entry, ok := values[len(values)-1].(trace.LogEntry)
+	require.True(t, ok)
+	assert.NotContains(t, entry.Verdict.Message, password)
+	assert.Equal(t, "(redacted)", entry.Verdict.Message)
+}
+
 func TestEvaluate_TracingOn_ErrorIsCapturedOnNode(t *testing.T) {
 	policy := buildTracePolicy(admissionregistrationv1.Validation{
 		Expression: "object.metadata.labels.team == 'a'",
