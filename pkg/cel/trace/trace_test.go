@@ -166,12 +166,26 @@ func TestBuild_SecretResourceReadProvenance(t *testing.T) {
 			wantSecret: true,
 		},
 		{
+			name:       "Secret read through aliased resource",
+			expression: `[resource].map(r, r.Get("v1", "secrets", "default", "db-credentials").data.password)[0]`,
+			wantSecret: true,
+		},
+		{
 			name:       "ConfigMap read",
 			expression: `resource.Get("v1", "configmaps", "default", "settings").data.password`,
 		},
 		{
+			name:       "ConfigMap read through aliased resource",
+			expression: `[resource].map(r, r.Get("v1", "configmaps", "default", "settings").data.password)[0]`,
+		},
+		{
 			name:       "Secret list",
 			expression: `resource.List("v1", "secrets", "default").items.size() > 0`,
+			wantSecret: true,
+		},
+		{
+			name:       "Secret list through aliased resource",
+			expression: `[resource].map(r, r.List("v1", "secrets", "default").items.size() > 0)[0]`,
 			wantSecret: true,
 		},
 		{
@@ -220,6 +234,19 @@ func TestBuild_SecretResourceReadProvenance(t *testing.T) {
 			assert.Equal(t, tt.wantSecret, et.HasSecretRead)
 		})
 	}
+
+	failingExpression := `timestamp(resource.Get("v1", "secrets", "default", "db-credentials").data.password)`
+	failingAST, issues := env.Compile(failingExpression)
+	require.NoError(t, issues.Err())
+	failingProgram, err := env.Program(failingAST)
+	require.NoError(t, err)
+	out, details, err := failingProgram.ContextEval(context.Background(), map[string]any{
+		"object": map[string]any{"kind": "Secret"},
+		"gvr":    schema.GroupVersionResource{Version: "v1", Resource: "secrets"},
+	})
+	assert.Error(t, err)
+	assert.True(t, Build(failingExpression, failingAST, out, details).HasSecretRead)
+	assert.True(t, Build(failingExpression, failingAST, nil, nil).HasSecretRead)
 }
 
 // TestBuild_StableOrder runs the same expression many times and checks the node order never

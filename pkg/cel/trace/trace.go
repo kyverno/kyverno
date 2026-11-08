@@ -138,23 +138,40 @@ func MayReadSecret(ast *cel.Ast) bool {
 		return false
 	}
 	found := false
-	celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+	native := ast.NativeRep()
+	celast.PreOrderVisit(native.Expr(), celast.NewExprVisitor(func(e celast.Expr) {
 		if found || e.Kind() != celast.CallKind {
 			return
 		}
 		call := e.AsCall()
-		if !call.IsMemberFunction() || call.Target().Kind() != celast.IdentKind || call.Target().AsIdent() != "resource" {
+		if !call.IsMemberFunction() {
 			return
 		}
-		function := strings.ToLower(call.FunctionName())
-		isGet := function == "get" || strings.HasPrefix(function, "resource_get_")
-		isList := function == "list" || strings.HasPrefix(function, "resource_list_")
+		isGet, isList := isResourceRead(call, native.GetOverloadIDs(e.ID()))
 		if !isGet && !isList {
 			return
 		}
 		found = resourceCallMayReadSecret(call)
 	}))
 	return found
+}
+
+func isResourceRead(call celast.CallExpr, overloadIDs []string) (bool, bool) {
+	var isGet, isList bool
+	for _, overloadID := range overloadIDs {
+		overloadID = strings.ToLower(overloadID)
+		isGet = isGet || strings.HasPrefix(overloadID, "resource_get_") || strings.HasPrefix(overloadID, "get_resources_gvr_")
+		isList = isList || strings.HasPrefix(overloadID, "resource_list_") || strings.HasPrefix(overloadID, "list_resources_gvr_")
+	}
+	if isGet || isList {
+		return isGet, isList
+	}
+	if call.Target().Kind() != celast.IdentKind || call.Target().AsIdent() != "resource" {
+		return false, false
+	}
+	function := strings.ToLower(call.FunctionName())
+	return function == "get" || strings.HasPrefix(function, "resource_get_"),
+		function == "list" || strings.HasPrefix(function, "resource_list_")
 }
 
 func isBoolean(value ref.Val) bool {

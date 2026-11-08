@@ -218,6 +218,40 @@ func TestLogValues_RedactsSecretStringBooleans(t *testing.T) {
 	assert.Equal(t, "true", entry.Verdict.Evaluated[1].Value)
 }
 
+func TestLogValues_SecretProvenanceAcrossTraceSections(t *testing.T) {
+	tests := []string{"Match", "Validations", "Mutations", "Generations", "Verdict"}
+	for _, section := range tests {
+		t.Run(section, func(t *testing.T) {
+			secret := ExpressionTrace{HasSecretRead: true}
+			d := &Decision{
+				Verdict: VerdictTrace{
+					Status: VerdictFail,
+					ExpressionTrace: ExpressionTrace{
+						Result: "secret-result",
+					},
+					Message: "secret-message",
+				},
+			}
+			switch section {
+			case "Match":
+				d.Match = []NamedExpressionTrace{{ExpressionTrace: secret}}
+			case "Validations":
+				d.Validations = []ValidationTrace{{ExpressionTrace: secret}}
+			case "Mutations":
+				d.Mutations = []MutationTrace{{ExpressionTrace: secret}}
+			case "Generations":
+				d.Generations = []GenerationTrace{{ExpressionTrace: secret}}
+			case "Verdict":
+				d.Verdict.HasSecretRead = true
+			}
+
+			entry, _ := logged(t, d)
+			assert.Equal(t, redacted, entry.Verdict.Result)
+			assert.Equal(t, redacted, entry.Verdict.Message)
+		})
+	}
+}
+
 func TestLogValues_SecretReadValuesAndErrorsAreNotLogged(t *testing.T) {
 	const password = "hunter2-do-not-log"
 	d := &Decision{
