@@ -20,6 +20,8 @@ type EngineResponse struct {
 	PatchedResource unstructured.Unstructured
 	// PolicyResponse contains the engine policy response
 	PolicyResponse PolicyResponse
+	// RedactMessages marks rule messages as sensitive for event generation.
+	RedactMessages bool
 	// stats contains engine statistics
 	stats ExecutionStats
 }

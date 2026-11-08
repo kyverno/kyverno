@@ -48,7 +48,7 @@ func LogValues(d *Decision) []any {
 	if d == nil {
 		return nil
 	}
-	l := logFormat{sensitive: d.ResourceKind == "Secret" || decisionHasSecretRead(d)}
+	l := logFormat{sensitive: d.IsSensitive()}
 	entry := LogEntry{
 		Scope: d.Scope.Reason,
 		Verdict: LogExpression{
@@ -96,6 +96,10 @@ func LogValues(d *Decision) []any {
 		"verdict", d.Verdict.Status,
 		"trace", entry,
 	}
+}
+
+func (d *Decision) IsSensitive() bool {
+	return d != nil && (d.ResourceKind == "Secret" || decisionHasSecretRead(d))
 }
 
 // logFormat holds what decides how a value is logged.

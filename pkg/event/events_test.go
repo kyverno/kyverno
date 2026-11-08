@@ -112,6 +112,27 @@ func Test_buildPolicyEventMessage_error_status(t *testing.T) {
 	assert.Contains(t, msg, "cosign verification failed")
 }
 
+func TestPolicyFailureEvents_RedactSensitiveMessages(t *testing.T) {
+	const secret = "hunter2-do-not-log"
+	resource := unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata":   map[string]any{"namespace": "default", "name": "web"},
+	}}
+	policy := &policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "sensitive-policy"}}
+	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingPolicy(policy), nil)
+	engineResponse.RedactMessages = true
+	rule := *engineapi.RuleError("validation", engineapi.Validation, "error", errors.New(secret), nil)
+
+	policyEvent := NewPolicyFailEvent(AdmissionController, PolicyViolation, engineResponse, rule, false)
+	resourceEvent := NewResourceViolationEvent(AdmissionController, PolicyViolation, engineResponse, rule)
+
+	for _, event := range []Info{policyEvent, resourceEvent} {
+		assert.NotContains(t, event.Message, secret)
+		assert.Contains(t, event.Message, "(redacted)")
+	}
+}
+
 func Test_buildPolicyEventMessage_mutation(t *testing.T) {
 	resp := engineapi.NewRuleResponse("inject-sidecar", engineapi.Mutation, "added istio-proxy container", engineapi.RuleStatusPass, nil)
 	res := engineapi.ResourceSpec{

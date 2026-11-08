@@ -370,6 +370,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 			message += diagnostics
 			ran(i, trace.VerdictFail)
 			verdict.Status, verdict.Message = trace.VerdictFail, message
+			verdict.HasSecretRead = verdict.HasSecretRead || trace.MayReadSecret(v.MessageExpressionAST)
 			auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 			if err != nil {
 				return failed(err)

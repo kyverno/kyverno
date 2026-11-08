@@ -27,6 +27,10 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 		UID:        pol.GetUID(),
 	}
 	related := engineResponse.GetResourceSpec()
+	message := ruleResp.Message()
+	if engineResponse.RedactMessages && message != "" {
+		message = "(redacted)"
+	}
 	return Info{
 		Regarding: regarding,
 		Related: &corev1.ObjectReference{
@@ -38,12 +42,16 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.E
 		},
 		Reason:  reason,
 		Source:  source,
-		Message: buildPolicyEventMessage(ruleResp, engineResponse.GetResourceSpec(), blocked),
+		Message: buildPolicyEventMessageWithMessage(ruleResp, engineResponse.GetResourceSpec(), blocked, message),
 		Action:  action,
 	}
 }
 
 func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.ResourceSpec, blocked bool) string {
+	return buildPolicyEventMessageWithMessage(resp, resource, blocked, resp.Message())
+}
+
+func buildPolicyEventMessageWithMessage(resp engineapi.RuleResponse, resource engineapi.ResourceSpec, blocked bool, message string) string {
 	var b strings.Builder
 	if resource.Namespace != "" {
 		fmt.Fprintf(&b, "%s %s/%s", resource.Kind, resource.Namespace, resource.Name)
@@ -61,8 +69,8 @@ func buildPolicyEventMessage(resp engineapi.RuleResponse, resource engineapi.Res
 		fmt.Fprintf(&b, " (blocked)")
 	}
 
-	if resp.Message() != "" {
-		fmt.Fprintf(&b, "; %s", resp.Message())
+	if message != "" {
+		fmt.Fprintf(&b, "; %s", message)
 	}
 	return b.String()
 }
@@ -117,8 +125,12 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	defer bldr.Reset()
 
 	pol := engineResponse.Policy()
+	message := ruleResp.Message()
+	if engineResponse.RedactMessages && message != "" {
+		message = "(redacted)"
+	}
 	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", pol.GetName(),
-		ruleResp.Name(), ruleResp.Status(), ruleResp.Message())
+		ruleResp.Name(), ruleResp.Status(), message)
 	resource := engineResponse.GetResourceSpec()
 	regarding := corev1.ObjectReference{
 		APIVersion: resource.APIVersion,

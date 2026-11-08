@@ -11,6 +11,7 @@ import (
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -19,6 +20,8 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 )
 
@@ -94,6 +97,42 @@ func TestEvaluate_TracingOn_Pass(t *testing.T) {
 		assert.Equal(t, "true", v.Result)
 		assert.NotEmpty(t, v.Nodes, "an expression that verifies nothing gets its full breakdown")
 	}
+}
+
+func TestEvaluate_TracingOn_RedactsSecretMessageExpressionError(t *testing.T) {
+	const password = "hunter2-do-not-log"
+	fake := libs.NewFakeContextProvider()
+	require.NoError(t, fake.AddResource(schema.GroupVersionResource{Version: "v1", Resource: "secrets"}, &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata":   map[string]any{"namespace": "default", "name": "db-credentials"},
+			"data":       map[string]any{"password": password},
+		},
+	}))
+	oldLibraryContext := libs.LibraryContext
+	libs.LibraryContext = fake
+	t.Cleanup(func() {
+		libs.LibraryContext = oldLibraryContext
+	})
+
+	policy := traceTestPolicy(admissionregistrationv1.Validation{
+		Expression:        "false",
+		MessageExpression: `string(duration(resource.Get("v1", "secrets", "default", "db-credentials").data.password))`,
+	})
+	compiled, errs := NewCompilerWithTrace(nil, true).Compile(policy, nil)
+	require.Empty(t, errs)
+	req, attr, _ := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
+	result, err := compiled.Evaluate(context.Background(), countingImages{gets: &atomic.Int32{}}, nil, imageverify.NewImageVerificationResults(), attr, req, nil, true, nil, fake)
+	require.NoError(t, err)
+	require.NotNil(t, result.Trace)
+	assert.Contains(t, result.Trace.Verdict.Message, "failed to evaluate message expression:")
+	assert.True(t, result.Trace.Verdict.HasSecretRead)
+
+	values := trace.LogValues(result.Trace)
+	entry, ok := values[len(values)-1].(trace.LogEntry)
+	require.True(t, ok)
+	assert.Equal(t, "(redacted)", entry.Verdict.Message)
 }
 
 // TestEvaluate_TracingOn_VerificationIsNeverRunTwice is option C: an expression that calls image
