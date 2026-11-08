@@ -83,13 +83,22 @@ func Command() *cobra.Command {
 
 // formatValue formats a value for safe YAML template serialization.
 // Empty values are represented as explicit double-quoted strings ("\"\"").
-// Values containing YAML-sensitive sequences (such as inline comments " #" or mapping indicators ": ")
-// are double-quoted so that YAML parsers retain the full literal value while preserving native scalar typing.
+// Values containing YAML-sensitive sequences (such as inline comments " #" or "\t#",
+// leading characters "#", "*", "&", mapping indicators ": ", line breaks,
+// or leading/trailing whitespace) are double-quoted so that YAML parsers retain
+// the full literal value while preserving native scalar typing.
 func formatValue(val string) string {
 	if val == "" {
 		return `""`
 	}
-	if strings.Contains(val, " #") || strings.HasPrefix(val, "#") || strings.Contains(val, ": ") {
+	if strings.Contains(val, " #") ||
+		strings.Contains(val, "\t#") ||
+		strings.HasPrefix(val, "#") ||
+		strings.HasPrefix(val, "*") ||
+		strings.HasPrefix(val, "&") ||
+		strings.Contains(val, ": ") ||
+		strings.ContainsAny(val, "\r\n") ||
+		strings.TrimSpace(val) != val {
 		return fmt.Sprintf("%q", val)
 	}
 	return val

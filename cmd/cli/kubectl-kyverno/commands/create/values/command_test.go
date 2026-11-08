@@ -190,8 +190,13 @@ func TestCommandYAMLSensitiveValues(t *testing.T) {
 	cmd.SetOut(&buf)
 	cmd.SetArgs([]string{
 		"--rule", "testpol,rule1,query=a=b #suffix",
+		"--rule", "testpol,rule1,tabbed=a=b\t#suffix",
 		"--rule", "testpol,rule1,mapping=key: value",
 		"--rule", "testpol,rule1,comment=#standalone",
+		"--rule", "testpol,rule1,alias=*missing",
+		"--rule", "testpol,rule1,anchor=&base",
+		"--rule", "testpol,rule1,padded=  spaced  ",
+		"--rule", "testpol,rule1,multiline=line1\nline2",
 	})
 	err := cmd.Execute()
 	assert.NoError(t, err)
@@ -204,8 +209,13 @@ func TestCommandYAMLSensitiveValues(t *testing.T) {
 	assert.Len(t, spec.Policies[0].Rules, 1)
 	values := spec.Policies[0].Rules[0].Values
 	assert.Equal(t, "a=b #suffix", values["query"])
+	assert.Equal(t, "a=b\t#suffix", values["tabbed"])
 	assert.Equal(t, "key: value", values["mapping"])
 	assert.Equal(t, "#standalone", values["comment"])
+	assert.Equal(t, "*missing", values["alias"])
+	assert.Equal(t, "&base", values["anchor"])
+	assert.Equal(t, "  spaced  ", values["padded"])
+	assert.Equal(t, "line1\nline2", values["multiline"])
 }
 
 func TestCommandOutputToFile(t *testing.T) {
