@@ -75,6 +75,13 @@ func TestAddWatchersPreservesPriorGVRUntilSuccessfulRetry(t *testing.T) {
 		require.Empty(t, client.deleted)
 		require.NoError(t, wm.SyncWatchers(policyName, nil, []*unstructured.Unstructured{newer}, false))
 		require.Equal(t, []string{"Secret/ns/old"}, client.deleted)
+		require.Equal(t, []schema.GroupVersionResource{newGVR}, wm.policyRefs[policyName])
+		require.NotContains(t, wm.refCount, oldGVR)
+		require.NotContains(t, wm.dynamicWatchers, oldGVR)
+		require.Equal(t, 1, wm.refCount[newGVR], "a full retry must not double-count a partial registration")
+		require.NoError(t, wm.SyncWatchers(policyName, nil, []*unstructured.Unstructured{newer}, false))
+		require.Equal(t, []string{"Secret/ns/old"}, client.deleted, "repeated reconciliation must not delete twice")
+		require.Equal(t, 1, wm.refCount[newGVR])
 		require.Contains(t, wm.dynamicWatchers[newGVR].metadataCache, newer.GetUID())
 	})
 }

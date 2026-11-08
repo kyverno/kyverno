@@ -164,6 +164,11 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 	defer wm.lock.Unlock()
 
 	logger := wm.log
+	// Keep the original references separate from newly registered ones: only
+	// a full successful reconciliation may prune GVRs that are no longer desired.
+	// rememberGVR below persists new references immediately, including when a
+	// later resource mapping or watch setup fails.
+	oldGVRs := append([]schema.GroupVersionResource(nil), wm.policyRefs[policyName]...)
 	// Persist the GVR reference as soon as an acknowledged downstream is
 	// cached. A later RESTMapping/watch error must not make that first
 	// registration invisible to policy-deletion cleanup.
@@ -240,20 +245,9 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 		rememberGVR(gvr)
 	}
 
-	oldGVRs := wm.policyRefs[policyName]
-	// update the ref count for the new GVRs
-	for gvr := range newGVRs {
-		found := false
-		for _, oldGVR := range oldGVRs {
-			if gvr == oldGVR {
-				found = true
-				break
-			}
-		}
-		if !found {
-			wm.refCount[gvr]++
-		}
-	}
+	// New GVRs were already counted when their cache entries were registered.
+	// Re-counting here would double-count the same policy's ownership.
+
 	// process old watchers that are not in the new gvr list.
 	// it means that this trigger's evaluation no longer generates those resources.
 	for _, oldGVR := range oldGVRs {
