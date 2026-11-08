@@ -57,22 +57,24 @@ func LogValues(d *Decision) []any {
 	}
 	l := newLogFormat(d)
 	verdictIsSec := l.isVerdictSecret(d)
+	verdictExprIsSec := l.secret || (d.Verdict.Source != "" && l.isSecretExpr(d.Verdict.Source)) || (d.Verdict.Source == "" && verdictIsSec)
+	verdictMsgIsSec := verdictIsSec || len(l.secretVars) > 0 || isSecretValue(d.Verdict.Message)
 	verdictResult := d.Verdict.Result
 	verdictMsg := d.Verdict.Message
 	if d.Verdict.Status == VerdictError {
-		if (verdictIsSec || isSecretValue(verdictResult)) && verdictResult != "" {
+		if (verdictExprIsSec || isSecretValue(verdictResult)) && verdictResult != "" {
 			verdictResult = redacted
 		} else {
 			verdictResult = clip(verdictResult)
 		}
 	} else {
-		if (verdictIsSec || isSecretValue(verdictResult)) && verdictResult != "" && verdictResult != "true" && verdictResult != "false" {
+		if (verdictExprIsSec || isSecretValue(verdictResult)) && verdictResult != "" && verdictResult != "true" && verdictResult != "false" {
 			verdictResult = redacted
 		} else {
 			verdictResult = clip(verdictResult)
 		}
 	}
-	if (verdictIsSec || isSecretValue(verdictMsg)) && verdictMsg != "" {
+	if (verdictMsgIsSec || isSecretValue(verdictMsg)) && verdictMsg != "" {
 		verdictMsg = redacted
 	} else {
 		verdictMsg = clip(verdictMsg)
@@ -87,7 +89,7 @@ func LogValues(d *Decision) []any {
 		},
 	}
 	if d.Verdict.Status != VerdictPass {
-		l.breakdown(&entry.Verdict, d.Verdict.ExpressionTrace, verdictIsSec)
+		l.breakdown(&entry.Verdict, d.Verdict.ExpressionTrace, verdictExprIsSec)
 	}
 	for _, m := range d.Match {
 		entry.Match = append(entry.Match, l.named(m))
@@ -219,10 +221,12 @@ func (l logFormat) isVerdictSecret(d *Decision) bool {
 	if l.secret {
 		return true
 	}
-	if d.Verdict.Source != "" && l.isSecretExpr(d.Verdict.Source) {
-		return true
+	if d.Verdict.Source != "" {
+		return l.isSecretExpr(d.Verdict.Source) || l.isPlaceholderErrorSecret(d.Verdict.Message) || isSecretValue(d.Verdict.Message)
 	}
-	if l.isPlaceholderErrorSecret(d.Verdict.Message) {
+	// For source-less verdicts (e.g. mutation or generation errors without a verdict expression),
+	// derive context from associated traces.
+	if l.isPlaceholderErrorSecret(d.Verdict.Message) || isSecretValue(d.Verdict.Message) {
 		return true
 	}
 	for _, m := range d.Match {
@@ -451,11 +455,39 @@ func referencesVariablesRoot(e celast.Expr, varAliases map[string]bool) bool {
 	return refs
 }
 
+// isRootShadowed reports whether the root identifier of expression e is shadowed by an active comprehension binding.
+func isRootShadowed(e celast.Expr, isShadowed func(string) bool) bool {
+	if e == nil || isShadowed == nil {
+		return false
+	}
+	for {
+		switch e.Kind() {
+		case celast.IdentKind:
+			return isShadowed(e.AsIdent())
+		case celast.SelectKind:
+			e = e.AsSelect().Operand()
+		case celast.CallKind:
+			call := e.AsCall()
+			if strings.EqualFold(call.FunctionName(), "dyn") && len(call.Args()) == 1 {
+				e = call.Args()[0]
+				continue
+			}
+			if (call.FunctionName() == "_[_]" || call.FunctionName() == "_[?_]") && len(call.Args()) == 2 {
+				e = call.Args()[0]
+				continue
+			}
+			return false
+		default:
+			return false
+		}
+	}
+}
+
 // isBareVariableRef reports whether AST expression e is a bare reference to varName
 // under variables or its aliases (e.g. varName, variables.varName, dyn(variables)["varName"]),
 // and NOT a composite expression such as a ternary or collection containing varName.
-// If isShadowed reports that varName is shadowed by an active comprehension binding,
-// an unqualified identifier varName is not treated as the outer safe variable.
+// If isShadowed reports that varName or the root identifier is shadowed by an active comprehension binding,
+// it is not treated as the outer safe variable.
 func isBareVariableRef(e celast.Expr, varName string, varAliases map[string]bool, isShadowed func(string) bool) bool {
 	if e == nil {
 		return false
@@ -468,6 +500,9 @@ func isBareVariableRef(e celast.Expr, varName string, varAliases map[string]bool
 		return e.AsIdent() == varName
 	case celast.SelectKind:
 		sel := e.AsSelect()
+		if isShadowed != nil && isRootShadowed(sel.Operand(), isShadowed) {
+			return false
+		}
 		return sel.FieldName() == varName && isVariablesExpr(sel.Operand(), varAliases)
 	case celast.CallKind:
 		call := e.AsCall()
@@ -476,6 +511,9 @@ func isBareVariableRef(e celast.Expr, varName string, varAliases map[string]bool
 			return isBareVariableRef(call.Args()[0], varName, varAliases, isShadowed)
 		}
 		if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
+			if isShadowed != nil && isRootShadowed(call.Args()[0], isShadowed) {
+				return false
+			}
 			if isVariablesExpr(call.Args()[0], varAliases) && call.Args()[1].Kind() == celast.LiteralKind {
 				if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
 					return true
@@ -498,7 +536,7 @@ func isCollectionDerivedVariablesRoot(e celast.Expr, varAliases map[string]bool)
 		target := call.Args()[0]
 		if target.Kind() == celast.ListKind {
 			for _, elem := range target.AsList().Elements() {
-				if isVariablesExpr(elem, varAliases) || referencesVariablesRoot(elem, varAliases) {
+				if isVariablesExpr(elem, varAliases) {
 					return true
 				}
 			}
@@ -508,7 +546,7 @@ func isCollectionDerivedVariablesRoot(e celast.Expr, varAliases map[string]bool)
 }
 
 // walkWithComprehensionScope traverses AST node e, tracking active comprehension iterator variables
-// and propagating variables-root provenance from IterRange to IterVar.
+// and propagating variables-root provenance from IterRange and AccuInit to IterVar and AccuVar.
 func walkWithComprehensionScope(
 	e celast.Expr,
 	varAliases map[string]bool,
@@ -524,17 +562,31 @@ func walkWithComprehensionScope(
 		return shadowed != nil && shadowed[name] > 0
 	}
 
-	hasVarRoot := func(node celast.Expr) bool {
+	var hasVarRoot func(node celast.Expr) bool
+	hasVarRoot = func(node celast.Expr) bool {
 		if node == nil {
 			return false
 		}
-		if isVariablesExpr(node, varAliases) || isCollectionDerivedVariablesRoot(node, varAliases) || referencesVariablesRoot(node, varAliases) {
+		if isVariablesExpr(node, varAliases) || isCollectionDerivedVariablesRoot(node, varAliases) {
 			return true
 		}
 		if node.Kind() == celast.IdentKind {
 			ident := node.AsIdent()
 			if boundVarsWithVarRoot != nil && boundVarsWithVarRoot[ident] > 0 {
 				return true
+			}
+		}
+		if node.Kind() == celast.CallKind {
+			call := node.AsCall()
+			if strings.EqualFold(call.FunctionName(), "dyn") && len(call.Args()) == 1 {
+				return hasVarRoot(call.Args()[0])
+			}
+		}
+		if node.Kind() == celast.ListKind {
+			for _, elem := range node.AsList().Elements() {
+				if hasVarRoot(elem) {
+					return true
+				}
 			}
 		}
 		return false
@@ -550,6 +602,7 @@ func walkWithComprehensionScope(
 		walkWithComprehensionScope(comp.AccuInit(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
 
 		iterHasVarRoot := hasVarRoot(comp.IterRange())
+		accuHasVarRoot := hasVarRoot(comp.AccuInit())
 
 		if shadowed == nil {
 			shadowed = make(map[string]int)
@@ -578,6 +631,10 @@ func walkWithComprehensionScope(
 		if av := comp.AccuVar(); av != "" {
 			shadowed[av]++
 			varsToUnshadow = append(varsToUnshadow, av)
+			if accuHasVarRoot || iterHasVarRoot {
+				boundVarsWithVarRoot[av]++
+				varsToUnroot = append(varsToUnroot, av)
+			}
 		}
 
 		walkWithComprehensionScope(comp.LoopCondition(), varAliases, shadowed, boundVarsWithVarRoot, visitor)
@@ -649,7 +706,7 @@ func astContainsVar(e celast.Expr, sourceInfo *celast.SourceInfo, varName string
 		case celast.CallKind:
 			call := sub.AsCall()
 			fn := call.FunctionName()
-			if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
+			if (fn == "_[_]" || fn == "_[?_]" || fn == "_?._" || fn == ".?") && len(call.Args()) == 2 {
 				if hasVarRoot(call.Args()[0]) && call.Args()[1].Kind() == celast.LiteralKind {
 					if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
 						found = true
@@ -929,7 +986,7 @@ func isVariablesAlias(expr string, varAliases map[string]bool) bool {
 	}
 	condensed := strings.ReplaceAll(strings.ReplaceAll(trimmed, " ", ""), "\t", "")
 	for a := range varAliases {
-		if strings.HasPrefix(condensed, "[dyn("+a+")][0]") || strings.HasPrefix(condensed, "["+a+"][0]") {
+		if condensed == "[dyn("+a+")][0]" || condensed == "["+a+"][0]" {
 			return true
 		}
 	}
@@ -954,7 +1011,7 @@ func containsVar(expr, varName string, varAliases map[string]bool) bool {
 			case celast.CallKind:
 				call := e.AsCall()
 				fn := call.FunctionName()
-				if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
+				if (fn == "_[_]" || fn == "_[?_]" || fn == "_?._" || fn == ".?") && len(call.Args()) == 2 {
 					if hasVarRoot(call.Args()[0]) && call.Args()[1].Kind() == celast.LiteralKind {
 						if str, ok := call.Args()[1].AsLiteral().Value().(string); ok && str == varName {
 							found = true
@@ -1018,7 +1075,7 @@ func hasDynamicVariableAccess(expr string, varAliases map[string]bool) bool {
 			fn := call.FunctionName()
 			if (fn == "_[_]" || fn == "_[?_]") && len(call.Args()) == 2 {
 				target := call.Args()[0]
-				if (hasVarRoot(target) || isVariablesExpr(target, varAliases) || isCollectionDerivedVariablesRoot(target, varAliases) || referencesVariablesRoot(target, varAliases)) && call.Args()[1].Kind() != celast.LiteralKind {
+				if (hasVarRoot(target) || isVariablesExpr(target, varAliases) || isCollectionDerivedVariablesRoot(target, varAliases)) && call.Args()[1].Kind() != celast.LiteralKind {
 					hasDynamic = true
 				}
 			}
@@ -1035,8 +1092,8 @@ func hasDynamicVariableAccess(expr string, varAliases map[string]bool) bool {
 	}
 	condensed := strings.ReplaceAll(strings.ReplaceAll(expr, " ", ""), "\t", "")
 	for _, alias := range aliases {
-		if strings.Contains(condensed, "dyn("+alias+")[") ||
-			strings.Contains(condensed, "[dyn("+alias+")][") ||
+		if (strings.Contains(condensed, "dyn("+alias+")[") && !strings.Contains(condensed, "dyn("+alias+")['") && !strings.Contains(condensed, "dyn("+alias+`["`)) ||
+			(strings.Contains(condensed, "[dyn("+alias+")][") && !strings.Contains(condensed, "[dyn("+alias+")]['") && !strings.Contains(condensed, `[dyn(`+alias+`)] ["`)) ||
 			(strings.Contains(condensed, alias+"[") && !strings.Contains(condensed, alias+"['") && !strings.Contains(condensed, alias+`["`)) {
 			return true
 		}

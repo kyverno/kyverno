@@ -1696,6 +1696,47 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		require.Len(t, entry.Verdict.Evaluated, 2)
 		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
 		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+
+		// Safe-GVR control: unshadowed cmGvr reading ConfigMap is NOT redacted
+		dSafe := &Decision{
+			PolicyName:   "unshadowed-safe-gvr",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "cmGvr",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.ToGVR('v1', 'ConfigMap')",
+						Result: "v1/ConfigMap",
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "resource.Get(variables.cmGvr, 'default', 'cm').data.config == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{
+							Expression: "resource.Get(variables.cmGvr, 'default', 'cm').data.config",
+							Value:      "safe-config",
+						},
+						{
+							Expression: "resource.Get(variables.cmGvr, 'default', 'cm').data.config == 'expected'",
+							Value:      "false",
+						},
+					},
+				},
+			},
+		}
+		assert.False(t, newLogFormat(dSafe).isSecretExpr("resource.Get(variables.cmGvr, 'default', 'cm').data.config == 'expected'"))
+		entrySafe, _ := logged(t, dSafe)
+		rawSafe, errSafe := json.Marshal(entrySafe)
+		require.NoError(t, errSafe)
+		assert.Contains(t, string(rawSafe), "safe-config")
+		require.Len(t, entrySafe.Verdict.Evaluated, 2)
+		assert.Equal(t, "safe-config", entrySafe.Verdict.Evaluated[0].Value)
 	})
 
 	t.Run("Collection-derived variable root [dyn(variables)][0] is marked sensitive when secret variables present", func(t *testing.T) {
@@ -1748,6 +1789,180 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		assert.Equal(t, redacted, entry.Variables[1].Result)
 		require.Len(t, entry.Verdict.Evaluated, 2)
 		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Comprehension binding wrapped by dyn and carried through collection [variables].map(v, dyn(v).dbPass)[0] is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "nested-dyn-comprehension",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db').data.password",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "[variables].map(v, dyn(v).dbPass)[0] == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "[variables].map(v, dyn(v).dbPass)[0]", Value: password},
+						{Expression: "[variables].map(v, dyn(v).dbPass)[0] == 'expected'", Value: "false"},
+					},
+				},
+			},
+		}
+
+		assert.True(t, newLogFormat(d).isSecretExpr("[variables].map(v, dyn(v).dbPass)[0] == 'expected'"))
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Optional field-selection on comprehension binding v.?dbPass.orValue(...) is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "optional-field-comprehension",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db').data.password",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "[variables].all(v, v.?dbPass.orValue('default') == 'expected')",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "v.?dbPass.orValue('default')", Value: password},
+						{Expression: "[variables].all(v, v.?dbPass.orValue('default') == 'expected')", Value: "false"},
+					},
+				},
+			},
+		}
+
+		assert.True(t, newLogFormat(d).isSecretExpr("[variables].all(v, v.?dbPass.orValue('default') == 'expected')"))
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Scalar indexing [variables.team][0] is not treated as a variables-root alias and retains public value", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "scalar-index-not-root",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db').data.password",
+						Result: password,
+					},
+				},
+				{
+					Name: "team",
+					ExpressionTrace: ExpressionTrace{
+						Source: "'platform'",
+						Result: "platform",
+					},
+				},
+				{
+					Name: "scalarCopy",
+					ExpressionTrace: ExpressionTrace{
+						Source: "[variables.team][0]",
+						Result: "platform",
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "variables.scalarCopy == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "variables.scalarCopy", Value: "platform"},
+						{Expression: "variables.scalarCopy == 'expected'", Value: "false"},
+					},
+				},
+			},
+		}
+
+		assert.False(t, newLogFormat(d).isSecretExpr("variables.scalarCopy == 'expected'"))
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), "platform")
+		assert.Equal(t, "platform", entry.Variables[2].Result)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, "platform", entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
+
+	t.Run("Literal index dyn(variables)['team'] is not treated as dynamic access when secret variable present", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "literal-dyn-index-not-dynamic",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'secrets', 'default', 'db').data.password",
+						Result: password,
+					},
+				},
+				{
+					Name: "team",
+					ExpressionTrace: ExpressionTrace{
+						Source: "'platform'",
+						Result: "platform",
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "dyn(variables)['team'] == 'expected'",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "dyn(variables)['team']", Value: "platform"},
+						{Expression: "dyn(variables)['team'] == 'expected'", Value: "false"},
+					},
+				},
+			},
+		}
+
+		assert.False(t, newLogFormat(d).isSecretExpr("dyn(variables)['team'] == 'expected'"))
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.Contains(t, string(raw), "platform")
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, "platform", entry.Verdict.Evaluated[0].Value)
 		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
 	})
 }
