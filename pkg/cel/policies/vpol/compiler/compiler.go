@@ -91,21 +91,23 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	// append a place holder error to the errors list to be displayed in case the error list was returned
 	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
 
+	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
+	}
+
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	var tracedMatchConditions []compiler.TracedProgram
+	var matchConditionHasSecretReads []bool
 	{
 		path := path.Child("matchConditions")
-		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
+		programs, traced, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(path, env, c.trace, secretVariables, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
 		tracedMatchConditions = traced
-	}
-
-	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
+		matchConditionHasSecretReads = secretReads
 	}
 
 	validations := make([]compiler.Validation, 0, len(spec.Validations))
@@ -120,26 +122,49 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 			validations = append(validations, program)
 		}
 	}
-	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), env, spec.AuditAnnotations...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
+	auditAnnotations := make(map[string]cel.Program, len(spec.AuditAnnotations))
+	var auditAnnotationHasSecretReads []bool
+	for i, annotation := range spec.AuditAnnotations {
+		program, secretRead, errs := compiler.CompileAuditAnnotationWithSecretVariables(path.Child("auditAnnotations").Index(i), env, annotation, secretVariables)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		auditAnnotations[annotation.Key] = program
+		auditAnnotationHasSecretReads = append(auditAnnotationHasSecretReads, secretRead)
 	}
 	compiledExceptions, errs := compileExceptions(policy.GetNamespace(), exceptions, c.trace)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
+	hasSecretRead := compiler.AnySecretRead(matchConditionHasSecretReads...)
+	for _, read := range secretVariables {
+		hasSecretRead = hasSecretRead || read
+	}
+	for _, validation := range validations {
+		hasSecretRead = hasSecretRead || validation.HasSecretRead || validation.MessageExpressionHasSecretRead
+	}
+	for _, exception := range compiledExceptions {
+		hasSecretRead = hasSecretRead || compiler.AnySecretRead(exception.MatchConditionHasSecretRead...)
+		for _, validation := range exception.Validations {
+			hasSecretRead = hasSecretRead || validation.HasSecretRead || validation.MessageExpressionHasSecretRead
+		}
+	}
+	hasSecretRead = hasSecretRead || compiler.AnySecretRead(auditAnnotationHasSecretReads...)
 	return &Policy{
-		mode:                  policieskyvernoio.EvaluationModeKubernetes,
-		failurePolicy:         policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
-		matchConstraints:      spec.MatchConstraints,
-		matchConditions:       matchConditions,
-		variables:             variables,
-		validations:           validations,
-		auditAnnotations:      auditAnnotations,
-		exceptions:            compiledExceptions,
-		trace:                 c.trace,
-		tracedMatchConditions: tracedMatchConditions,
-		tracedVariables:       tracedVariables,
+		mode:                           policieskyvernoio.EvaluationModeKubernetes,
+		failurePolicy:                  policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		matchConstraints:               spec.MatchConstraints,
+		matchConditions:                matchConditions,
+		variables:                      variables,
+		validations:                    validations,
+		auditAnnotations:               auditAnnotations,
+		auditAnnotationsHaveSecretRead: compiler.AnySecretRead(auditAnnotationHasSecretReads...),
+		exceptions:                     compiledExceptions,
+		hasSecretRead:                  hasSecretRead,
+		trace:                          c.trace,
+		tracedMatchConditions:          tracedMatchConditions,
+		tracedVariables:                tracedVariables,
+		matchConditionHasSecretReads:   matchConditionHasSecretReads,
 	}, nil
 }
 
@@ -158,18 +183,6 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	path := field.NewPath("spec")
 	spec := policy.GetValidatingPolicySpec()
 
-	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
-	var tracedMatchConditions []compiler.TracedProgram
-	{
-		path := path.Child("matchConditions")
-		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		matchConditions = append(matchConditions, programs...)
-		tracedMatchConditions = traced
-	}
-
 	env, err = env.Extend(
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
@@ -180,6 +193,20 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
+	}
+
+	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
+	var tracedMatchConditions []compiler.TracedProgram
+	var matchConditionHasSecretReads []bool
+	{
+		path := path.Child("matchConditions")
+		programs, traced, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(path, env, c.trace, secretVariables, spec.MatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		matchConditions = append(matchConditions, programs...)
+		tracedMatchConditions = traced
+		matchConditionHasSecretReads = secretReads
 	}
 
 	validations := make([]compiler.Validation, 0, len(spec.Validations))
@@ -199,17 +226,32 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
+	hasSecretRead := compiler.AnySecretRead(matchConditionHasSecretReads...)
+	for _, read := range secretVariables {
+		hasSecretRead = hasSecretRead || read
+	}
+	for _, validation := range validations {
+		hasSecretRead = hasSecretRead || validation.HasSecretRead || validation.MessageExpressionHasSecretRead
+	}
+	for _, exception := range compiledExceptions {
+		hasSecretRead = hasSecretRead || compiler.AnySecretRead(exception.MatchConditionHasSecretRead...)
+		for _, validation := range exception.Validations {
+			hasSecretRead = hasSecretRead || validation.HasSecretRead || validation.MessageExpressionHasSecretRead
+		}
+	}
 
 	return &Policy{
-		mode:                  policieskyvernoio.EvaluationModeJSON,
-		failurePolicy:         policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
-		matchConditions:       matchConditions,
-		variables:             variables,
-		validations:           validations,
-		exceptions:            compiledExceptions,
-		trace:                 c.trace,
-		tracedMatchConditions: tracedMatchConditions,
-		tracedVariables:       tracedVariables,
+		mode:                         policieskyvernoio.EvaluationModeJSON,
+		failurePolicy:                policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		matchConditions:              matchConditions,
+		variables:                    variables,
+		validations:                  validations,
+		exceptions:                   compiledExceptions,
+		hasSecretRead:                hasSecretRead,
+		trace:                        c.trace,
+		tracedMatchConditions:        tracedMatchConditions,
+		tracedVariables:              tracedVariables,
+		matchConditionHasSecretReads: matchConditionHasSecretReads,
 	}, nil
 }
 

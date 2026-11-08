@@ -25,22 +25,25 @@ import (
 )
 
 type Policy struct {
-	mode             policiesv1beta1.EvaluationMode
-	failurePolicy    admissionregistrationv1.FailurePolicyType
-	matchConstraints *admissionregistrationv1.MatchResources
-	matchConditions  []cel.Program
-	variables        map[string]cel.Program
-	validations      []compiler.Validation
-	auditAnnotations map[string]cel.Program
-	exceptions       []compiler.Exception
+	mode                           policiesv1beta1.EvaluationMode
+	failurePolicy                  admissionregistrationv1.FailurePolicyType
+	matchConstraints               *admissionregistrationv1.MatchResources
+	matchConditions                []cel.Program
+	variables                      map[string]cel.Program
+	validations                    []compiler.Validation
+	auditAnnotations               map[string]cel.Program
+	exceptions                     []compiler.Exception
+	hasSecretRead                  bool
+	auditAnnotationsHaveSecretRead bool
 
 	// trace is set when the policy was compiled with tracing on. Only then are the traced
 	// match conditions and variables populated (they hold the ASTs trace.Build needs), and
 	// only then does evaluation attach a trace to its result. With tracing off all three are
 	// zero values and evaluation takes exactly the same path as before.
-	trace                 bool
-	tracedMatchConditions []compiler.TracedProgram
-	tracedVariables       map[string]compiler.TracedProgram
+	trace                        bool
+	tracedMatchConditions        []compiler.TracedProgram
+	tracedVariables              map[string]compiler.TracedProgram
+	matchConditionHasSecretReads []bool
 }
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
@@ -51,6 +54,11 @@ func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
 // results carry a Trace.
 func (p *Policy) Tracing() bool {
 	return p.trace
+}
+
+// HasSecretRead reports whether this policy can read Secret data in any compiled expression.
+func (p *Policy) HasSecretRead() bool {
+	return p.hasSecretRead
 }
 
 func (p *Policy) Evaluate(
@@ -133,16 +141,12 @@ func (p *Policy) evaluateWithData(
 					if matchErrorSource == "" {
 						matchErrorSource = fmt.Sprintf("%s matchConditions[%d]", exceptionSource, index)
 					}
-					if index >= len(polex.MatchConditionASTs) || polex.MatchConditionASTs[index] == nil || trace.MayReadSecret(polex.MatchConditionASTs[index]) {
+					if index >= len(polex.MatchConditionHasSecretRead) || polex.MatchConditionHasSecretRead[index] {
 						sensitiveMatchError = true
 					}
 				}
 			}
-			var record func(int, ref.Val, error)
-			if p.trace {
-				record = recordExceptionMatch
-			}
-			match, err := p.match(ctx, dataNew, polex.MatchConditions, record)
+			match, err := p.match(ctx, dataNew, polex.MatchConditions, recordExceptionMatch)
 			if err != nil {
 				if fullExemptionFound {
 					// exception already granted; a broken later exception must not negate it
@@ -198,11 +202,12 @@ func (p *Policy) evaluateWithData(
 	// after every condition has run, so the skip message needs these rather than the last trace.
 	var excludedBy string
 	var erroredMatches []string
-	var recordMatch func(int, ref.Val, error)
-	if p.trace {
-		// out and err are the deciding evaluation's; the tracking twin is only re-run here to
-		// collect node values for the trace (see compiler.TracedProgram)
-		recordMatch = func(i int, out ref.Val, err error) {
+	var sensitiveMatchError bool
+	recordMatch := func(i int, out ref.Val, err error) {
+		if err != nil && i < len(p.matchConditionHasSecretReads) && p.matchConditionHasSecretReads[i] {
+			sensitiveMatchError = true
+		}
+		if p.trace {
 			if i >= len(p.tracedMatchConditions) {
 				return
 			}
@@ -230,8 +235,9 @@ func (p *Policy) evaluateWithData(
 		// result only carries the match traces recorded up to the failure, so --explain can show
 		// which condition errored instead of a bare ERROR
 		return &EvaluationResult{Trace: &trace.Decision{
-			Match:   matchTraces,
-			Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()},
+			Sensitive: sensitiveMatchError,
+			Match:     matchTraces,
+			Verdict:   trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()},
 		}}, err
 	}
 	if !match {
@@ -314,7 +320,7 @@ func (p *Policy) evaluateWithData(
 		if err != nil {
 			ran(index, trace.VerdictError)
 			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
-			return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
+			return &EvaluationResult{Error: err, Index: index, SensitiveMessage: validation.HasSecretRead, Trace: decision()}, nil
 		}
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			ran(index, trace.VerdictFail)
@@ -346,7 +352,12 @@ func (p *Policy) evaluateWithData(
 	}
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 	if err != nil {
-		return nil, err
+		if !p.trace {
+			return nil, err
+		}
+		verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+		verdict.HasSecretRead = p.auditAnnotationsHaveSecretRead
+		return &EvaluationResult{SensitiveMessage: p.auditAnnotationsHaveSecretRead, Trace: decision()}, err
 	}
 	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, Trace: decision()}, nil
 }

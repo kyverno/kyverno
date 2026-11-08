@@ -64,6 +64,7 @@ type MutatingPolicyResponse struct {
 	Policy          policiesv1beta1.MutatingPolicyLike
 	Rules           []engineapi.RuleResponse
 	PatchedResource *unstructured.Unstructured
+	RedactMessages  bool
 	// Trace explains how this policy reached its result. It is nil unless the policy was
 	// compiled with tracing on, so callers must nil-check it. Mirrors vpol's
 	// ValidatingPolicyResponse.Trace (pkg/cel/engine/response.go).
@@ -256,6 +257,7 @@ func annotateTraces(policies []MutatingPolicyResponse, resource *unstructured.Un
 		if p.Trace == nil {
 			continue
 		}
+		p.RedactMessages = p.RedactMessages || p.Trace.IsSensitive()
 		p.Trace.PolicyName = p.Policy.GetName()
 		p.Trace.PolicyKind = p.Policy.GetKind()
 		if p.Trace.PolicyKind == "" {
@@ -271,8 +273,9 @@ func annotateTraces(policies []MutatingPolicyResponse, resource *unstructured.Un
 
 func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error), target bool, jsonPayload *unstructured.Unstructured) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
-		Policy: mpol.Policy,
-		Rules:  []engineapi.RuleResponse{},
+		Policy:         mpol.Policy,
+		Rules:          []engineapi.RuleResponse{},
+		RedactMessages: mpol.CompiledPolicy.HasSecretRead(),
 	}
 
 	tracing := mpol.CompiledPolicy.Tracing()

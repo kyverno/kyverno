@@ -65,26 +65,30 @@ type CompiledPolicy interface {
 	EnforceRequired(images []string, verifications *imageverify.ImageVerificationResults) error
 	// Tracing reports whether Evaluate fills EvaluationResult.Trace.
 	Tracing() bool
+	// HasSecretRead reports whether any compiled policy expression may read Secret data.
+	HasSecretRead() bool
 	MutateDigest(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration, libs.Context) ([]jsonpatch.JsonPatchOperation, error)
 }
 
 type compiledPolicy struct {
-	namespace            string
-	failurePolicy        admissionregistrationv1.FailurePolicyType
-	verifyDigest         bool
-	matchConditions      []cel.Program
-	matchImageReferences []engine.MatchImageReference
-	validations          []engine.Validation
-	imageExtractors      engine.ImageExtractorProfiles
-	attestors            []*variables.CompiledAttestor
-	attestationList      map[string]string
-	auditAnnotations     map[string]cel.Program
-	authOpts             []remote.Option
-	nameOpts             []name.Option
-	exceptions           []engine.Exception
-	variables            map[string]cel.Program
-	validationConfig     policiesv1alpha1.ValidationConfiguration
-	ivFuncs              *imageverify.IvFuncs
+	namespace                      string
+	failurePolicy                  admissionregistrationv1.FailurePolicyType
+	verifyDigest                   bool
+	matchConditions                []cel.Program
+	matchImageReferences           []engine.MatchImageReference
+	validations                    []engine.Validation
+	imageExtractors                engine.ImageExtractorProfiles
+	attestors                      []*variables.CompiledAttestor
+	attestationList                map[string]string
+	auditAnnotations               map[string]cel.Program
+	authOpts                       []remote.Option
+	nameOpts                       []name.Option
+	exceptions                     []engine.Exception
+	variables                      map[string]cel.Program
+	validationConfig               policiesv1alpha1.ValidationConfiguration
+	ivFuncs                        *imageverify.IvFuncs
+	hasSecretRead                  bool
+	auditAnnotationsHaveSecretRead bool
 	// trace is whether this policy was compiled for decision tracing. tracedMatchConditions is
 	// index-aligned with matchConditions and, like tracedVariables, is empty when trace is off.
 	trace                 bool
@@ -94,6 +98,10 @@ type compiledPolicy struct {
 
 func (c *compiledPolicy) Tracing() bool {
 	return c.trace
+}
+
+func (c *compiledPolicy) HasSecretRead() bool {
+	return c.hasSecretRead
 }
 
 func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *imageverify.ImageVerificationResults, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, requestMapFn func() (map[string]any, error), context libs.Context) (*EvaluationResult, error) {
@@ -176,6 +184,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	}
 	matched, err := c.match(ctx, data, c.matchConditions, recordMatch)
 	if err != nil {
+		verdict.HasSecretRead = c.auditAnnotationsHaveSecretRead
 		return failed(err)
 	}
 	if !matched {
@@ -376,6 +385,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 			verdict.HasSecretRead = verdict.HasSecretRead || v.MessageExpressionHasSecretRead
 			auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 			if err != nil {
+				verdict.HasSecretRead = c.auditAnnotationsHaveSecretRead
 				return failed(err)
 			}
 			return &EvaluationResult{
@@ -404,15 +414,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 }
 
 func exceptionMatchMayReadSecret(exception engine.Exception) bool {
-	if len(exception.MatchConditionASTs) != len(exception.MatchConditions) {
-		return true
-	}
-	for _, ast := range exception.MatchConditionASTs {
-		if ast == nil || trace.MayReadSecret(ast) {
-			return true
-		}
-	}
-	return false
+	return engine.AnySecretRead(exception.MatchConditionHasSecretRead...)
 }
 
 func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, error) {

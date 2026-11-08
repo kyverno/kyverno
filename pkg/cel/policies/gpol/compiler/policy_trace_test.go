@@ -70,6 +70,23 @@ func evaluateNamespace(t *testing.T, traced bool, policy *v1beta1.GeneratingPoli
 	return compiled.Evaluate(context.Background(), attr, &request.Request, &unstructured.Unstructured{}, ctxProvider)
 }
 
+func TestCompileMarksSecretDerivedTemplate(t *testing.T) {
+	policy := traceTestPolicy(v1beta1.Generation{
+		Template: &v1beta1.GenerationTemplate{
+			Interpolate: v1beta1.InterpolationModeCEL,
+			Value:       "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: ((variables.secretPassword))\n",
+		},
+	})
+	policy.Spec.Variables = append(policy.Spec.Variables, admissionregistrationv1.Variable{
+		Name:       "secretPassword",
+		Expression: `string(resource.Get("v1", "secrets", "default", "db-credentials").data.password)`,
+	})
+
+	compiled, errs := NewCompiler().Compile(policy, nil)
+	require.Empty(t, errs)
+	require.True(t, compiled.HasSecretRead())
+}
+
 func TestEvaluate_Tracing(t *testing.T) {
 	exemptAll := &v1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "skip-generation", Namespace: "default"},

@@ -6,6 +6,7 @@ import (
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -57,6 +58,25 @@ func TestCompileJSONApplyConfigurationIsUnsupported(t *testing.T) {
 	if assert.NotEmpty(t, errs) {
 		assert.Contains(t, errs[0].Error(), "ApplyConfiguration mutations are not supported in JSON mode")
 	}
+}
+
+func TestCompileMarksSecretDerivedVariable(t *testing.T) {
+	policy := &v1beta1.MutatingPolicy{
+		Spec: v1beta1.MutatingPolicySpec{
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "secretPassword",
+				Expression: `string(resource.Get("v1", "secrets", "default", "db-credentials").data.password)`,
+			}},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "secret-match",
+				Expression: `variables.secretPassword == "expected"`,
+			}},
+		},
+	}
+
+	compiled, errs := NewCompiler().Compile(policy, nil)
+	require.Empty(t, errs)
+	require.True(t, compiled.HasSecretRead())
 }
 
 func TestCompile(t *testing.T) {

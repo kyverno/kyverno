@@ -105,7 +105,11 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 				if !p.trace {
 					return nil, err
 				}
-				return &EvaluationResult{Trace: decision(trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()})}, err
+				return &EvaluationResult{Trace: decision(trace.VerdictTrace{
+					Status:        trace.VerdictError,
+					Message:       err.Error(),
+					HasSecretRead: compiler.AnySecretRead(polex.MatchConditionHasSecretRead...),
+				})}, err
 			}
 			if match {
 				matchedExceptions = append(matchedExceptions, polex.Exception)

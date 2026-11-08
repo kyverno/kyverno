@@ -44,9 +44,9 @@ type scanner struct {
 	typeConverter patch.TypeConverterManager
 }
 
-func hasSensitiveMessages(policies []celengine.ValidatingPolicyResponse) bool {
+func hasSensitiveMessages[T any](policies []T, isSensitive func(T) bool) bool {
 	for _, policy := range policies {
-		if policy.RedactMessages {
+		if isSensitive(policy) {
 			return true
 		}
 	}
@@ -169,8 +169,10 @@ func (s *scanner) ScanResource(
 			}
 
 			response := engineapi.EngineResponse{
-				Resource:       resource,
-				RedactMessages: hasSensitiveMessages(engineResponse.Policies),
+				Resource: resource,
+				RedactMessages: hasSensitiveMessages(engineResponse.Policies, func(policy celengine.ValidatingPolicyResponse) bool {
+					return policy.RedactMessages
+				}),
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: rules,
 				},
@@ -227,6 +229,9 @@ func (s *scanner) ScanResource(
 
 			response := engineapi.EngineResponse{
 				Resource: resource,
+				RedactMessages: hasSensitiveMessages(engineResponse.Policies, func(policy mpolengine.MutatingPolicyResponse) bool {
+					return policy.RedactMessages
+				}),
 				PolicyResponse: engineapi.PolicyResponse{
 					Rules: rules,
 				},
@@ -267,7 +272,10 @@ func (s *scanner) ScanResource(
 			)
 			engineResponse, err := engine.HandleValidating(ctx, request, nil)
 			response := engineapi.EngineResponse{
-				Resource:       resource,
+				Resource: resource,
+				RedactMessages: hasSensitiveMessages(engineResponse.Policies, func(policy iveval.ImageVerifyPolicyResponse) bool {
+					return policy.RedactMessages
+				}),
 				PolicyResponse: engineapi.PolicyResponse{},
 			}.WithPolicy(ivpols[i])
 

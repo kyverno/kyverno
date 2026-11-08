@@ -206,7 +206,8 @@ func (h *handler) mutationEvents(ctx context.Context, response eval.ImageVerifyE
 	responses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, r := range response.Policies {
 		engineResponse := engineapi.EngineResponse{
-			Resource: *response.Resource,
+			Resource:       *response.Resource,
+			RedactMessages: r.RedactMessages || (r.Trace != nil && r.Trace.IsSensitive()),
 			PolicyResponse: engineapi.PolicyResponse{
 				Rules: []engineapi.RuleResponse{r.Result},
 			},
@@ -253,7 +254,8 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 	reportableEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, r := range response.Policies {
 		engineResponse := engineapi.EngineResponse{
-			Resource: *response.Resource,
+			Resource:       *response.Resource,
+			RedactMessages: r.RedactMessages || (r.Trace != nil && r.Trace.IsSensitive()),
 			PolicyResponse: engineapi.PolicyResponse{
 				Rules: []engineapi.RuleResponse{r.Result},
 			},

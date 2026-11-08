@@ -43,6 +43,7 @@ func TestCompileAndRender(t *testing.T) {
 			"nsList": []any{"a", "b"},
 		},
 	}
+
 	tests := []struct {
 		name        string
 		value       string
@@ -275,6 +276,20 @@ metadata:
 			assert.Equal(t, want, gotAny)
 		})
 	}
+}
+
+func TestCompileWithSecretVariables(t *testing.T) {
+	compiled, errs := CompileWithSecretVariables(
+		field.NewPath("spec", "generate").Index(0).Child("template"),
+		testEnv(t),
+		&policiesv1beta1.GenerationTemplate{
+			Interpolate: policiesv1beta1.InterpolationModeCEL,
+			Value:       "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: ((variables.password))\n",
+		},
+		map[string]bool{"password": true},
+	)
+	require.Empty(t, errs)
+	require.True(t, compiled.HasSecretRead())
 }
 
 func TestCompileErrors(t *testing.T) {

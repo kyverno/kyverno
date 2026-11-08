@@ -19,10 +19,11 @@ type ImageVerifyEngineResponse struct {
 }
 
 type ImageVerifyPolicyResponse struct {
-	Policy     policiesv1beta1.ImageValidatingPolicyLike
-	Exceptions []*policiesv1beta1.PolicyException
-	Actions    sets.Set[admissionregistrationv1.ValidationAction]
-	Result     engineapi.RuleResponse
+	Policy         policiesv1beta1.ImageValidatingPolicyLike
+	Exceptions     []*policiesv1beta1.PolicyException
+	Actions        sets.Set[admissionregistrationv1.ValidationAction]
+	Result         engineapi.RuleResponse
+	RedactMessages bool
 	// Trace explains how the policy reached Result. It is nil unless the policy was compiled
 	// with tracing on (NewCompilerWithTrace). A traced policy that did not apply, or that a
 	// match condition skipped, is still returned so its trace is not lost, with an empty Result.

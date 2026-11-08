@@ -270,10 +270,11 @@ func (e *engineImpl) handleMutation(
 			// explicit skip so the policy doesn't silently vanish from the
 			// response as if mutation had run normally.
 			responses = append(responses, eval.ImageVerifyPolicyResponse{
-				Policy:     ivpol.Policy,
-				Actions:    ivpol.Actions,
-				Exceptions: ivpol.Exceptions,
-				Result:     *engineapi.RuleSkip("mutateDigest", engineapi.ImageVerify, "digest-pinning mutation is not supported for extraction-mode targets", nil),
+				Policy:         ivpol.Policy,
+				Actions:        ivpol.Actions,
+				Exceptions:     ivpol.Exceptions,
+				RedactMessages: ivpol.CompiledPolicy != nil && ivpol.CompiledPolicy.HasSecretRead(),
+				Result:         *engineapi.RuleSkip("mutateDigest", engineapi.ImageVerify, "digest-pinning mutation is not supported for extraction-mode targets", nil),
 			})
 			continue
 		}
@@ -293,10 +294,11 @@ func (e *engineImpl) handleMutation(
 		compiled := ivpol.CompiledPolicy
 		if compiled == nil {
 			responses = append(responses, eval.ImageVerifyPolicyResponse{
-				Policy:     ivpol.Policy,
-				Actions:    ivpol.Actions,
-				Exceptions: ivpol.Exceptions,
-				Result:     *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", ivpol.compilationError(), nil),
+				Policy:         ivpol.Policy,
+				Actions:        ivpol.Actions,
+				Exceptions:     ivpol.Exceptions,
+				RedactMessages: ivpol.CompiledPolicy != nil && ivpol.CompiledPolicy.HasSecretRead(),
+				Result:         *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", ivpol.compilationError(), nil),
 			})
 			continue
 		}
@@ -312,10 +314,11 @@ func (e *engineImpl) handleMutation(
 			logging.WithName("ivpol/mutateDigest").Error(err, "failed to update digest",
 				"policy", ivpol.Policy.GetName())
 			responses = append(responses, eval.ImageVerifyPolicyResponse{
-				Policy:     ivpol.Policy,
-				Actions:    ivpol.Actions,
-				Exceptions: ivpol.Exceptions,
-				Result:     *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", err, nil),
+				Policy:         ivpol.Policy,
+				Actions:        ivpol.Actions,
+				Exceptions:     ivpol.Exceptions,
+				RedactMessages: compiled.HasSecretRead(),
+				Result:         *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", err, nil),
 			})
 			// deliberately no continue: MutateDigest resolves each image on its own, so
 			// the images it did pin keep their patch even though another one failed
@@ -534,9 +537,10 @@ func (e *engineImpl) filterPolicies(
 	for _, pol := range policies {
 		matches, err := e.matchPolicy(pol, attr, namespace)
 		response := eval.ImageVerifyPolicyResponse{
-			Policy:     pol.Policy,
-			Actions:    pol.Actions,
-			Exceptions: pol.Exceptions,
+			Policy:         pol.Policy,
+			Actions:        pol.Actions,
+			Exceptions:     pol.Exceptions,
+			RedactMessages: pol.CompiledPolicy != nil && pol.CompiledPolicy.HasSecretRead(),
 		}
 		traced := tracing(pol)
 		var scope trace.ScopeTrace
@@ -664,9 +668,10 @@ func (e *engineImpl) evaluatePolicies(
 	for i, ivpol := range policies {
 		results[i] = evaluation{
 			response: eval.ImageVerifyPolicyResponse{
-				Policy:     ivpol.Policy,
-				Actions:    ivpol.Actions,
-				Exceptions: ivpol.Exceptions,
+				Policy:         ivpol.Policy,
+				Actions:        ivpol.Actions,
+				Exceptions:     ivpol.Exceptions,
+				RedactMessages: ivpol.CompiledPolicy != nil && ivpol.CompiledPolicy.HasSecretRead(),
 			},
 			compiled:  ivpol.CompiledPolicy,
 			startTime: time.Now(),
@@ -724,6 +729,7 @@ func (e *engineImpl) evaluatePolicies(
 				d.Scope = scopes[i]
 			}
 			response.Trace = withTraceHeader(d, ivpol, attr)
+			response.RedactMessages = response.RedactMessages || d.IsSensitive()
 		}
 
 		key := policyKey(ivpol.Policy)

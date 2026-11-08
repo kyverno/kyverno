@@ -176,23 +176,25 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 
 	spec := policy.GetSpec()
 
+	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
+	}
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	var tracedMatchConditions []compiler.TracedProgram
+	var matchConditionSecretReads []bool
 	{
 		path := path.Child("matchConditions")
-		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
+		programs, traced, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(path, env, c.trace, secretVariables, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
 		tracedMatchConditions = traced
-	}
-
-	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
+		matchConditionSecretReads = secretReads
 	}
 	generations := make([]Generation, 0, len(spec.Generation))
+	generationSecretReads := make([]bool, 0, len(spec.Generation))
 	{
 		path := path.Child("generate")
 		for i, generation := range spec.Generation {
@@ -201,46 +203,70 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 			case generation.Template != nil && generation.Expression != "":
 				return nil, append(allErrs, field.Invalid(entryPath, generation, "only one of expression or template may be set"))
 			case generation.Template != nil:
-				tpl, errs := template.Compile(entryPath.Child("template"), env, generation.Template)
+				tpl, errs := template.CompileWithSecretVariables(entryPath.Child("template"), env, generation.Template, secretVariables)
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				generations = append(generations, Generation{template: tpl, name: fmt.Sprintf("generate[%d] (template)", i)})
+				generations = append(generations, Generation{
+					template:      tpl,
+					hasSecretRead: tpl.HasSecretRead(),
+					name:          fmt.Sprintf("generate[%d] (template)", i),
+				})
+				generationSecretReads = append(generationSecretReads, tpl.HasSecretRead())
 			case generation.Expression != "":
-				traced, errs := compiler.CompileGenerationWithTrace(entryPath, env, generation, c.trace)
+				traced, errs := compiler.CompileGenerationWithSecretVariables(entryPath, env, generation, c.trace, secretVariables)
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
 				generations = append(generations, Generation{expression: traced.Program, traced: traced.Traced, ast: traced.AST, hasSecretRead: traced.HasSecretRead, name: fmt.Sprintf("generate[%d] (expression)", i)})
+				generationSecretReads = append(generationSecretReads, traced.HasSecretRead)
 			default:
 				return nil, append(allErrs, field.Required(entryPath, "one of expression or template must be set"))
 			}
 		}
 	}
-	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), env, spec.AuditAnnotations...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
+	auditAnnotations := make(map[string]cel.Program)
+	auditSecretReads := make([]bool, 0, len(spec.AuditAnnotations))
+	for i, annotation := range spec.AuditAnnotations {
+		program, secretRead, errs := compiler.CompileAuditAnnotationWithSecretVariables(path.Child("auditAnnotations").Index(i), env, annotation, secretVariables)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		auditAnnotations[annotation.Key] = program
+		auditSecretReads = append(auditSecretReads, secretRead)
 	}
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		polexMatchConditions, _, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(field.NewPath("spec").Child("matchConditions"), env, c.trace, secretVariables, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		compiledExceptions = append(compiledExceptions, compiler.Exception{
-			Exception:       polex,
-			MatchConditions: polexMatchConditions,
+			Exception:                   polex,
+			MatchConditions:             polexMatchConditions,
+			MatchConditionHasSecretRead: secretReads,
 		})
 	}
+	hasSecretRead := compiler.AnySecretRead(matchConditionSecretReads...) ||
+		compiler.AnySecretRead(generationSecretReads...) ||
+		compiler.AnySecretRead(auditSecretReads...)
+	for _, read := range secretVariables {
+		hasSecretRead = hasSecretRead || read
+	}
+	for _, exception := range compiledExceptions {
+		hasSecretRead = hasSecretRead || compiler.AnySecretRead(exception.MatchConditionHasSecretRead...)
+	}
 	return &Policy{
-		namespace:        policy.GetNamespace(),
-		matchConditions:  matchConditions,
-		variables:        variables,
-		generations:      generations,
-		auditAnnotations: auditAnnotations,
-		exceptions:       compiledExceptions,
-		matchConstraints: policy.GetSpec().MatchConstraints,
+		namespace:                      policy.GetNamespace(),
+		matchConditions:                matchConditions,
+		variables:                      variables,
+		generations:                    generations,
+		auditAnnotations:               auditAnnotations,
+		auditAnnotationsHaveSecretRead: compiler.AnySecretRead(auditSecretReads...),
+		exceptions:                     compiledExceptions,
+		matchConstraints:               policy.GetSpec().MatchConstraints,
+		hasSecretRead:                  hasSecretRead,
 
 		trace:                 c.trace,
 		tracedMatchConditions: tracedMatchConditions,

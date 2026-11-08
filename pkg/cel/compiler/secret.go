@@ -41,14 +41,25 @@ func MayReadSecretWithVariables(ast *cel.Ast, secretVariables map[string]bool) b
 	}
 	found := false
 	celast.PreOrderVisit(ast.NativeRep().Expr(), celast.NewExprVisitor(func(e celast.Expr) {
-		if found || e.Kind() != celast.SelectKind {
+		if found {
 			return
 		}
-		selectExpr := e.AsSelect()
-		if selectExpr.Operand().Kind() == celast.IdentKind &&
-			selectExpr.Operand().AsIdent() == "variables" &&
-			secretVariables[selectExpr.FieldName()] {
-			found = true
+		switch e.Kind() {
+		case celast.IdentKind:
+			// A comprehension may iterate, index, or otherwise alias the whole
+			// variables map, so a field-only check is not sufficient.
+			if e.AsIdent() == "variables" {
+				for _, isSecret := range secretVariables {
+					found = found || isSecret
+				}
+			}
+		case celast.SelectKind:
+			selectExpr := e.AsSelect()
+			if selectExpr.Operand().Kind() == celast.IdentKind &&
+				selectExpr.Operand().AsIdent() == "variables" &&
+				secretVariables[selectExpr.FieldName()] {
+				found = true
+			}
 		}
 	}))
 	return found

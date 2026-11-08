@@ -35,16 +35,22 @@ import (
 // Template is a compiled generation template. It is safe for concurrent use;
 // Render produces a fresh resource tree on every call.
 type Template struct {
-	docs []node
+	docs          []node
+	hasSecretRead bool
 }
 
 // Compile parses and compiles a generation template. All placeholder CEL
 // expressions are compiled eagerly so that authoring errors are reported at
 // admission time with their YAML location.
 func Compile(path *field.Path, env *cel.Env, tpl *policiesv1beta1.GenerationTemplate) (*Template, field.ErrorList) {
+	return CompileWithSecretVariables(path, env, tpl, nil)
+}
+
+// CompileWithSecretVariables compiles a template and propagates Secret-read provenance through variables.
+func CompileWithSecretVariables(path *field.Path, env *cel.Env, tpl *policiesv1beta1.GenerationTemplate, secretVariables map[string]bool) (*Template, field.ErrorList) {
 	path = path.Child("value")
 	interpolate := tpl.Interpolate == policiesv1beta1.InterpolationModeCEL
-	c := &templateCompiler{env: env, interpolate: interpolate}
+	c := &templateCompiler{env: env, interpolate: interpolate, secretVariables: secretVariables}
 	decoder := yaml.NewDecoder(strings.NewReader(tpl.Value))
 	var docs []node
 	for {
@@ -77,7 +83,12 @@ func Compile(path *field.Path, env *cel.Env, tpl *policiesv1beta1.GenerationTemp
 	if len(docs) == 0 {
 		return nil, field.ErrorList{field.Invalid(path, tpl.Value, "template must contain at least one YAML document")}
 	}
-	return &Template{docs: docs}, nil
+	return &Template{docs: docs, hasSecretRead: c.hasSecretRead}, nil
+}
+
+// HasSecretRead reports whether a placeholder can read Secret-derived data.
+func (t *Template) HasSecretRead() bool {
+	return t != nil && t.hasSecretRead
 }
 
 // Render evaluates all placeholders against the given CEL activation and
@@ -153,8 +164,10 @@ func isMappingRoot(n node) bool {
 }
 
 type templateCompiler struct {
-	env         *cel.Env
-	interpolate bool
+	env             *cel.Env
+	interpolate     bool
+	secretVariables map[string]bool
+	hasSecretRead   bool
 }
 
 // node is a compiled fragment of a template document.
@@ -360,6 +373,7 @@ func (c *templateCompiler) compileExpression(n *yaml.Node, expression string) (c
 	if err != nil {
 		return nil, fmt.Errorf("line %d: failed to build placeholder program %q: %v", n.Line, expression, err)
 	}
+	c.hasSecretRead = c.hasSecretRead || celcompiler.MayReadSecretWithVariables(ast, c.secretVariables)
 	return program, nil
 }
 

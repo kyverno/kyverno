@@ -114,7 +114,8 @@ func (e *engineImpl) generate(
 	cacheRestore bool,
 ) GeneratingPolicyResponse {
 	response := GeneratingPolicyResponse{
-		Policy: policy.Policy,
+		Policy:         policy.Policy,
+		RedactMessages: policy.CompiledPolicy != nil && policy.CompiledPolicy.HasSecretRead(),
 	}
 	if policy.Policy == nil {
 		response.Result = engineapi.RuleError("", engineapi.Generation, "policy is not provided", errNilPolicy, nil)
@@ -145,6 +146,7 @@ func (e *engineImpl) generate(
 			d.ResourceNamespace = trigger.GetNamespace()
 		}
 		response.Trace = d
+		response.RedactMessages = response.RedactMessages || d.IsSensitive()
 	}
 	errored := func(err error) *trace.Decision {
 		return &trace.Decision{Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()}}

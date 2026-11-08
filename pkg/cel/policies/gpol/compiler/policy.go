@@ -26,19 +26,26 @@ import (
 )
 
 type Policy struct {
-	namespace        string
-	matchConditions  []cel.Program
-	variables        map[string]cel.Program
-	generations      []Generation
-	auditAnnotations map[string]cel.Program
-	exceptions       []compiler.Exception
-	matchConstraints *admissionregistrationv1.MatchResources
+	namespace                      string
+	hasSecretRead                  bool
+	auditAnnotationsHaveSecretRead bool
+	matchConditions                []cel.Program
+	variables                      map[string]cel.Program
+	generations                    []Generation
+	auditAnnotations               map[string]cel.Program
+	exceptions                     []compiler.Exception
+	matchConstraints               *admissionregistrationv1.MatchResources
 
 	// trace is whether this policy was compiled for decision tracing. tracedMatchConditions is
 	// index-aligned with matchConditions and, like tracedVariables, is empty when trace is off.
 	trace                 bool
 	tracedMatchConditions []compiler.TracedProgram
 	tracedVariables       map[string]compiler.TracedProgram
+}
+
+// HasSecretRead reports whether this policy can read Secret data in any compiled expression.
+func (p *Policy) HasSecretRead() bool {
+	return p.hasSecretRead
 }
 
 // Generation is a compiled generate entry: either a CEL expression program or
@@ -140,11 +147,15 @@ func (p *Policy) Evaluate(
 	}
 	// failed returns what Evaluate returned on this error before tracing existed (nil, err),
 	// plus, with tracing on, a result carrying what was traced up to the failure
-	failed := func(err error) (*EvaluationResult, error) {
+	failed := func(err error, secretReads ...bool) (*EvaluationResult, error) {
 		if !p.trace {
 			return nil, err
 		}
-		return &EvaluationResult{Trace: decision(trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()})}, err
+		return &EvaluationResult{Trace: decision(trace.VerdictTrace{
+			Status:        trace.VerdictError,
+			Message:       err.Error(),
+			HasSecretRead: compiler.AnySecretRead(secretReads...),
+		})}, err
 	}
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
@@ -161,7 +172,7 @@ func (p *Policy) Evaluate(
 					// exception already granted; a broken later exception must not negate it
 					continue
 				}
-				return failed(err)
+				return failed(err, polex.MatchConditionHasSecretRead...)
 			}
 			if match {
 				matchedExceptions = append(matchedExceptions, polex.Exception)
@@ -280,10 +291,10 @@ func (p *Policy) Evaluate(
 		}
 		if generation.template != nil {
 			if err := p.applyTemplate(ctx, generation.template, dataNew, data.Context); err != nil {
-				record(trace.ExpressionTrace{}, err)
+				record(trace.ExpressionTrace{HasSecretRead: generation.hasSecretRead}, err)
 				return failed(err)
 			}
-			record(trace.ExpressionTrace{}, nil)
+			record(trace.ExpressionTrace{HasSecretRead: generation.hasSecretRead}, nil)
 			continue
 		}
 		out, _, err := generation.expression.ContextEval(ctx, dataNew)
@@ -297,7 +308,7 @@ func (p *Policy) Evaluate(
 	}
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 	if err != nil {
-		return failed(err)
+		return failed(err, p.auditAnnotationsHaveSecretRead)
 	}
 	generatedResources := data.Context.GetGeneratedResources()
 	return &EvaluationResult{

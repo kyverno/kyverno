@@ -98,19 +98,9 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}
 
 	path := field.NewPath("spec")
-	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
+	var matchConditions []cel.Program
 	var tracedMatchConditions []engine.TracedProgram
-	{
-		path := path.Child("matchConditions")
-		programs, traced, errs := engine.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		matchConditions = append(matchConditions, programs...)
-		for _, t := range traced {
-			tracedMatchConditions = append(tracedMatchConditions, withoutVerificationTwin(t))
-		}
-	}
+	var matchConditionSecretReads []bool
 	matchImageEnv, err := engine.NewMatchImageEnv()
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
@@ -130,12 +120,24 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		return nil, append(allErrs, errs...)
 	}
 
-	variables, tracedVariables, errs := engine.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
+	variables, tracedVariables, secretVariables, errs := engine.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 	for name, t := range tracedVariables {
 		tracedVariables[name] = withoutVerificationTwin(t)
+	}
+	{
+		path := path.Child("matchConditions")
+		programs, traced, secretReads, errs := engine.CompileMatchConditionsWithSecretVariables(path, env, c.trace, secretVariables, spec.MatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		matchConditions = append(matchConditions, programs...)
+		matchConditionSecretReads = secretReads
+		for _, t := range traced {
+			tracedMatchConditions = append(tracedMatchConditions, withoutVerificationTwin(t))
+		}
 	}
 
 	var compiledAttestors []*ivpolvar.CompiledAttestor
@@ -152,7 +154,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		path := path.Child("validations")
 		for i, rule := range spec.Validations {
 			path := path.Index(i)
-			program, errs := engine.CompileValidation(path, env, rule, c.trace)
+			program, errs := engine.CompileValidationWithSecretVariables(path, env, rule, c.trace, secretVariables)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -165,27 +167,30 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}
 
 	auditAnnotations := make(map[string]cel.Program, len(spec.AuditAnnotations))
+	var auditAnnotationSecretReads []bool
 	{
 		path := path.Child("auditAnnotations")
 		for i, auditAnnotation := range spec.AuditAnnotations {
 			path := path.Index(i)
-			program, errs := engine.CompileAuditAnnotation(path, env, auditAnnotation)
+			program, secretRead, errs := engine.CompileAuditAnnotationWithSecretVariables(path, env, auditAnnotation, secretVariables)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
 			auditAnnotations[auditAnnotation.Key] = program
+			auditAnnotationSecretReads = append(auditAnnotationSecretReads, secretRead)
 		}
 	}
 
 	compiledExceptions := make([]engine.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, tracedMatchConditions, errs := engine.CompileMatchConditionsWithTrace(field.NewPath("spec").Child("matchConditions"), env, c.trace, polex.Spec.MatchConditions...)
+		polexMatchConditions, tracedMatchConditions, secretReads, errs := engine.CompileMatchConditionsWithSecretVariables(field.NewPath("spec").Child("matchConditions"), env, c.trace, secretVariables, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		exception := engine.Exception{
-			Exception:       polex,
-			MatchConditions: polexMatchConditions,
+			Exception:                   polex,
+			MatchConditions:             polexMatchConditions,
+			MatchConditionHasSecretRead: secretReads,
 		}
 		if c.trace {
 			exception.MatchConditionASTs = make([]*cel.Ast, 0, len(tracedMatchConditions))
@@ -194,6 +199,18 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 			}
 		}
 		compiledExceptions = append(compiledExceptions, exception)
+	}
+
+	hasSecretRead := engine.AnySecretRead(matchConditionSecretReads...)
+	for _, read := range secretVariables {
+		hasSecretRead = hasSecretRead || read
+	}
+	for _, validation := range validations {
+		hasSecretRead = hasSecretRead || validation.HasSecretRead || validation.MessageExpressionHasSecretRead
+	}
+	hasSecretRead = hasSecretRead || engine.AnySecretRead(auditAnnotationSecretReads...)
+	for _, exception := range compiledExceptions {
+		hasSecretRead = hasSecretRead || engine.AnySecretRead(exception.MatchConditionHasSecretRead...)
 	}
 
 	if len(allErrs) > 0 {
@@ -206,25 +223,27 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}
 
 	return &compiledPolicy{
-		namespace:             ivpolicy.GetNamespace(),
-		failurePolicy:         ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
-		verifyDigest:          spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest,
-		matchConditions:       matchConditions,
-		matchImageReferences:  matchImageReferences,
-		validations:           validations,
-		auditAnnotations:      auditAnnotations,
-		imageExtractors:       imageExtractors,
-		attestors:             compiledAttestors,
-		attestationList:       getAttestations(spec.Attestations),
-		nameOpts:              nameOpts,
-		authOpts:              authOpts,
-		exceptions:            compiledExceptions,
-		variables:             variables,
-		validationConfig:      spec.ValidationConfigurations,
-		trace:                 c.trace,
-		tracedMatchConditions: tracedMatchConditions,
-		tracedVariables:       tracedVariables,
-		ivFuncs:               ivFuncs,
+		namespace:                      ivpolicy.GetNamespace(),
+		failurePolicy:                  ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		verifyDigest:                   spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest,
+		matchConditions:                matchConditions,
+		matchImageReferences:           matchImageReferences,
+		validations:                    validations,
+		auditAnnotations:               auditAnnotations,
+		imageExtractors:                imageExtractors,
+		attestors:                      compiledAttestors,
+		attestationList:                getAttestations(spec.Attestations),
+		nameOpts:                       nameOpts,
+		authOpts:                       authOpts,
+		exceptions:                     compiledExceptions,
+		variables:                      variables,
+		validationConfig:               spec.ValidationConfigurations,
+		trace:                          c.trace,
+		tracedMatchConditions:          tracedMatchConditions,
+		tracedVariables:                tracedVariables,
+		ivFuncs:                        ivFuncs,
+		hasSecretRead:                  hasSecretRead,
+		auditAnnotationsHaveSecretRead: engine.AnySecretRead(auditAnnotationSecretReads...),
 	}, nil
 }
 

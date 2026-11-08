@@ -31,6 +31,16 @@ type TracedProgram struct {
 	HasSecretRead bool
 }
 
+// AnySecretRead reports whether any expression in reads may access a Secret.
+func AnySecretRead(reads ...bool) bool {
+	for _, read := range reads {
+		if read {
+			return true
+		}
+	}
+	return false
+}
+
 // tracingProgram builds the explain-only twin of a program: same AST, with state tracking on.
 // It goes through NewProgram like every other program, so the twin's own evaluation is priced
 // and charged: it runs the expression a second time and that work is as real as the first. An
@@ -69,13 +79,13 @@ func TraceDetails(ctx context.Context, traced cel.Program, activation any, decid
 }
 
 func CompileMatchCondition(path *field.Path, env *cel.Env, matchCondition admissionregistrationv1.MatchCondition) (cel.Program, field.ErrorList) {
-	traced, errs := compileMatchCondition(path, env, matchCondition, false)
+	traced, errs := compileMatchCondition(path, env, matchCondition, false, nil)
 	return traced.Program, errs
 }
 
 // compileMatchCondition always builds the normal program; with trace it also builds the
 // explain-only tracking twin and keeps the AST (see TracedProgram).
-func compileMatchCondition(path *field.Path, env *cel.Env, matchCondition admissionregistrationv1.MatchCondition, trace bool) (TracedProgram, field.ErrorList) {
+func compileMatchCondition(path *field.Path, env *cel.Env, matchCondition admissionregistrationv1.MatchCondition, trace bool, secretVariables map[string]bool) (TracedProgram, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
@@ -92,15 +102,47 @@ func compileMatchCondition(path *field.Path, env *cel.Env, matchCondition admiss
 			return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
 		}
 		compiled := TracedProgram{Name: matchCondition.Name, Program: prog}
+		compiled.HasSecretRead = MayReadSecretWithVariables(ast, secretVariables)
 		if trace {
 			if compiled.Traced, err = tracingProgram(env, ast); err != nil {
 				return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
 			}
 			compiled.AST = ast
-			compiled.HasSecretRead = MayReadSecret(ast)
 		}
 		return compiled, allErrs
 	}
+}
+
+// CompileMatchConditionsWithSecretRead returns Secret-read provenance independently of tracing.
+func CompileMatchConditionsWithSecretRead(path *field.Path, env *cel.Env, trace bool, matchConditions ...admissionregistrationv1.MatchCondition) ([]cel.Program, []TracedProgram, []bool, field.ErrorList) {
+	return CompileMatchConditionsWithSecretVariables(path, env, trace, nil, matchConditions...)
+}
+
+// CompileMatchConditionsWithSecretVariables also propagates Secret-read provenance from variables.
+func CompileMatchConditionsWithSecretVariables(path *field.Path, env *cel.Env, trace bool, secretVariables map[string]bool, matchConditions ...admissionregistrationv1.MatchCondition) ([]cel.Program, []TracedProgram, []bool, field.ErrorList) {
+	if len(matchConditions) == 0 {
+		return nil, nil, nil, nil
+	}
+	programs := make([]cel.Program, 0, len(matchConditions))
+	var traced []TracedProgram
+	secretReads := make([]bool, 0, len(matchConditions))
+	var allErrs field.ErrorList
+	for i, matchCondition := range matchConditions {
+		compiled, errs := compileMatchCondition(path.Index(i), env, matchCondition, trace, secretVariables)
+		allErrs = append(allErrs, errs...)
+		if compiled.Program == nil {
+			continue
+		}
+		programs = append(programs, compiled.Program)
+		secretReads = append(secretReads, compiled.HasSecretRead)
+		if trace {
+			traced = append(traced, compiled)
+		}
+	}
+	if !trace {
+		traced = nil
+	}
+	return programs, traced, secretReads, allErrs
 }
 
 // CompileMatchConditionsWithTrace is the tracing-aware entry point for match conditions. With
@@ -127,7 +169,7 @@ func compileMatchConditionsTraced(path *field.Path, env *cel.Env, matchCondition
 		return nil, nil
 	}
 	for i, matchCondition := range matchConditions {
-		compiled, errs := compileMatchCondition(path.Index(i), env, matchCondition, true)
+		compiled, errs := compileMatchCondition(path.Index(i), env, matchCondition, true, nil)
 		allErrs = append(allErrs, errs...)
 		if compiled.Program != nil {
 			result = append(result, compiled)
@@ -251,13 +293,13 @@ func CompileVariables(path *field.Path, env *cel.Env, VariablesProvider *Variabl
 }
 
 func CompileMutation(path *field.Path, env *cel.Env, expression string, returnType *types.Type) (cel.Program, field.ErrorList) {
-	traced, errs := compileMutation(path, env, expression, returnType, false)
+	traced, errs := compileMutation(path, env, expression, returnType, false, nil)
 	return traced.Program, errs
 }
 
 // compileMutation always builds the normal program; with trace it also builds the explain-only
 // tracking twin and keeps the AST (see TracedProgram).
-func compileMutation(path *field.Path, env *cel.Env, expression string, returnType *types.Type, trace bool) (TracedProgram, field.ErrorList) {
+func compileMutation(path *field.Path, env *cel.Env, expression string, returnType *types.Type, trace bool, secretVariables map[string]bool) (TracedProgram, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
@@ -274,12 +316,13 @@ func compileMutation(path *field.Path, env *cel.Env, expression string, returnTy
 			return TracedProgram{}, append(allErrs, field.Invalid(path, expression, err.Error()))
 		}
 		compiled := TracedProgram{Program: prog}
+		compiled.HasSecretRead = MayReadSecretWithVariables(ast, secretVariables)
+
 		if trace {
 			if compiled.Traced, err = tracingProgram(env, ast); err != nil {
 				return TracedProgram{}, append(allErrs, field.Invalid(path, expression, err.Error()))
 			}
 			compiled.AST = ast
-			compiled.HasSecretRead = MayReadSecret(ast)
 		}
 		return compiled, allErrs
 	}
@@ -291,26 +334,42 @@ func compileMutation(path *field.Path, env *cel.Env, expression string, returnTy
 // explain-only tracking twin and AST is retained, so trace.Build can turn a later evaluation into
 // a per-node breakdown of the mutation (see TracedProgram).
 func CompileMutationWithTrace(path *field.Path, env *cel.Env, expression string, returnType *types.Type, trace bool) (TracedProgram, field.ErrorList) {
-	return compileMutation(path, env, expression, returnType, trace)
+	return compileMutation(path, env, expression, returnType, trace, nil)
+}
+
+// CompileMutationWithSecretVariables propagates Secret-read provenance through variables.
+func CompileMutationWithSecretVariables(path *field.Path, env *cel.Env, expression string, returnType *types.Type, trace bool, secretVariables map[string]bool) (TracedProgram, field.ErrorList) {
+	return compileMutation(path, env, expression, returnType, trace, secretVariables)
 }
 
 func CompileAuditAnnotation(path *field.Path, env *cel.Env, auditAnnotation admissionregistrationv1.AuditAnnotation) (cel.Program, field.ErrorList) {
+	program, _, errs := CompileAuditAnnotationWithSecretRead(path, env, auditAnnotation)
+	return program, errs
+}
+
+// CompileAuditAnnotationWithSecretRead compiles an audit annotation and reports whether it can read a Secret.
+func CompileAuditAnnotationWithSecretRead(path *field.Path, env *cel.Env, auditAnnotation admissionregistrationv1.AuditAnnotation) (cel.Program, bool, field.ErrorList) {
+	return CompileAuditAnnotationWithSecretVariables(path, env, auditAnnotation, nil)
+}
+
+// CompileAuditAnnotationWithSecretVariables propagates Secret-read provenance through variables.
+func CompileAuditAnnotationWithSecretVariables(path *field.Path, env *cel.Env, auditAnnotation admissionregistrationv1.AuditAnnotation, secretVariables map[string]bool) (cel.Program, bool, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("valueExpression")
 		ast, err := Compile(env, auditAnnotation.ValueExpression)
 		if err != nil {
-			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
+			return nil, false, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.StringType) && !ast.OutputType().IsExactType(types.NullType) {
 			msg := fmt.Sprintf("output is expected to be either of type %s or %s", types.StringType.TypeName(), types.NullType.TypeName())
-			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, msg))
+			return nil, false, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, msg))
 		}
 		prog, err := NewProgram(env, ast)
 		if err != nil {
-			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
+			return nil, false, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
 		}
-		return prog, allErrs
+		return prog, MayReadSecretWithVariables(ast, secretVariables), allErrs
 	}
 }
 
@@ -351,13 +410,13 @@ func CompileValidationWithSecretVariables(path *field.Path, env *cel.Env, rule a
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 		}
 		compiled.Program = program
+		compiled.HasSecretRead = MayReadSecretWithVariables(ast, secretVariables)
 		if trace {
 			// explain-only twin; Program above still decides (see TracedProgram)
 			if compiled.Traced, err = tracingProgram(env, ast); err != nil {
 				return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 			}
 			compiled.AST = ast
-			compiled.HasSecretRead = MayReadSecret(ast)
 		}
 	}
 	if rule.MessageExpression != "" {
@@ -451,10 +510,11 @@ func CompileGeneration(path *field.Path, env *cel.Env, generation policiesv1beta
 // explain-only tracking twin and AST is retained (see TracedProgram). CompileGeneration itself is
 // left unchanged.
 func CompileGenerationWithTrace(path *field.Path, env *cel.Env, generation policiesv1beta1.Generation, trace bool) (TracedProgram, field.ErrorList) {
-	if !trace {
-		prog, errs := CompileGeneration(path, env, generation)
-		return TracedProgram{Program: prog}, errs
-	}
+	return CompileGenerationWithSecretVariables(path, env, generation, trace, nil)
+}
+
+// CompileGenerationWithSecretVariables propagates Secret-read provenance through variables.
+func CompileGenerationWithSecretVariables(path *field.Path, env *cel.Env, generation policiesv1beta1.Generation, trace bool, secretVariables map[string]bool) (TracedProgram, field.ErrorList) {
 	var allErrs field.ErrorList
 	path = path.Child("expression")
 	ast, err := Compile(env, generation.Expression)
@@ -469,11 +529,14 @@ func CompileGenerationWithTrace(path *field.Path, env *cel.Env, generation polic
 	if err != nil {
 		return TracedProgram{}, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
 	}
+	if !trace {
+		return TracedProgram{Program: prog, HasSecretRead: MayReadSecretWithVariables(ast, secretVariables)}, allErrs
+	}
 	traced, err := tracingProgram(env, ast)
 	if err != nil {
 		return TracedProgram{}, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
 	}
-	return TracedProgram{Program: prog, Traced: traced, AST: ast}, allErrs
+	return TracedProgram{Program: prog, Traced: traced, AST: ast, HasSecretRead: MayReadSecretWithVariables(ast, secretVariables)}, allErrs
 }
 
 func CompileGenerations(path *field.Path, env *cel.Env, generations ...policiesv1beta1.Generation) (result []cel.Program, allErrs field.ErrorList) {

@@ -13,8 +13,9 @@ type EngineResponse struct {
 }
 
 type GeneratingPolicyResponse struct {
-	Policy policiesv1beta1.GeneratingPolicyLike
-	Result *engineapi.RuleResponse
+	Policy         policiesv1beta1.GeneratingPolicyLike
+	Result         *engineapi.RuleResponse
+	RedactMessages bool
 	// Trace explains how this policy reached its result. It is nil unless the policy was
 	// compiled with tracing on (compiler.NewCompilerWithTrace).
 	Trace *trace.Decision

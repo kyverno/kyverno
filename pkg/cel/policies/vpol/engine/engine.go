@@ -161,8 +161,9 @@ func annotateTraces(response *EngineResponse) {
 
 func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, requestMapFn func() (map[string]any, error), context libs.Context) engine.ValidatingPolicyResponse {
 	response := engine.ValidatingPolicyResponse{
-		Actions: policy.Actions,
-		Policy:  policy.Policy,
+		Actions:        policy.Actions,
+		Policy:         policy.Policy,
+		RedactMessages: policy.CompiledPolicy.HasSecretRead(),
 	}
 	tracing := policy.CompiledPolicy.Tracing()
 	var scope trace.ScopeTrace
@@ -290,7 +291,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		}
 	}
 	if result != nil {
-		response.RedactMessages = result.SensitiveMessage || (result.Trace != nil && result.Trace.IsSensitive())
+		response.RedactMessages = response.RedactMessages || result.SensitiveMessage || (result.Trace != nil && result.Trace.IsSensitive())
 	}
 	if tracing {
 		switch {

@@ -271,7 +271,8 @@ func (c *countingNilThunkCompiledPolicy) Evaluate(
 	return &eval.EvaluationResult{Result: true}, nil
 }
 
-func (c *countingNilThunkCompiledPolicy) Tracing() bool { return false }
+func (c *countingNilThunkCompiledPolicy) Tracing() bool       { return false }
+func (c *countingNilThunkCompiledPolicy) HasSecretRead() bool { return false }
 
 func (c *countingNilThunkCompiledPolicy) EnforceRequired(images []string, _ *imageverify.ImageVerificationResults) error {
 	return nil

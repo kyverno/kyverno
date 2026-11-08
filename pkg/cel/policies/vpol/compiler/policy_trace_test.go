@@ -80,6 +80,21 @@ func TestEvaluate_TracingOff_NoTrace(t *testing.T) {
 	assert.Nil(t, fail.Trace)
 }
 
+func TestCompileMarksSecretDerivedVariable(t *testing.T) {
+	policy := buildTracePolicy(admissionregistrationv1.Validation{
+		Expression:        "false",
+		MessageExpression: "string(variables.secretPassword)",
+	})
+	policy.Spec.Variables = append(policy.Spec.Variables, admissionregistrationv1.Variable{
+		Name:       "secretPassword",
+		Expression: `string(resource.Get("v1", "secrets", "default", "db-credentials").data.password)`,
+	})
+
+	compiled, errs := NewCompiler().Compile(policy, nil)
+	require.Empty(t, errs)
+	require.True(t, compiled.HasSecretRead())
+}
+
 func TestEvaluate_TracingOn_Pass(t *testing.T) {
 	policy := buildTracePolicy(threeValidations()...)
 	result := compileAndEvaluate(t, true, policy, podObject("prod", map[string]any{"team": "a", "app": "b"}))
@@ -152,13 +167,14 @@ func TestEvaluate_TracingOn_RedactsSecretMessageExpression(t *testing.T) {
 	})
 
 	policy := buildTracePolicy(admissionregistrationv1.Validation{
-		Expression:        `string(resource.Get("v1", "secrets", "default", "db-credentials").data.password) == "not-the-password"`,
+		Expression:        "false",
 		MessageExpression: `string(resource.Get("v1", "secrets", "default", "db-credentials").data.password)`,
 	})
 	p, errs := NewCompilerWithTrace(true).Compile(policy, nil)
 	require.Empty(t, errs)
 	require.Len(t, p.validations, 1)
-	assert.True(t, p.validations[0].HasSecretRead)
+	assert.False(t, p.validations[0].HasSecretRead)
+	assert.True(t, p.validations[0].MessageExpressionHasSecretRead)
 	result, err := p.Evaluate(context.Background(), podObject("prod", nil), nil, nil, nil, nil, fake)
 	require.NoError(t, err)
 	require.NotNil(t, result.Trace)

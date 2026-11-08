@@ -171,6 +171,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			}
 			engineResponse := engineapi.EngineResponse{
 				Resource:       *gpolResponse.Trigger,
+				RedactMessages: res.RedactMessages || (res.Trace != nil && res.Trace.IsSensitive()),
 				PolicyResponse: engineapi.PolicyResponse{},
 			}
 			engineResponse.PolicyResponse.Rules = []engineapi.RuleResponse{*res.Result}

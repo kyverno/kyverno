@@ -141,11 +141,14 @@ func TestScanResource_RedactsSecretMessageEvents(t *testing.T) {
 }
 
 func TestHasSensitiveMessages(t *testing.T) {
-	assert.False(t, hasSensitiveMessages([]celengine.ValidatingPolicyResponse{{RedactMessages: false}}))
+	isSensitive := func(policy celengine.ValidatingPolicyResponse) bool {
+		return policy.RedactMessages
+	}
+	assert.False(t, hasSensitiveMessages([]celengine.ValidatingPolicyResponse{{RedactMessages: false}}, isSensitive))
 	assert.True(t, hasSensitiveMessages([]celengine.ValidatingPolicyResponse{
 		{RedactMessages: false},
 		{RedactMessages: true},
-	}))
+	}, isSensitive))
 }
 
 func newPodResource() (unstructured.Unstructured, schema.GroupVersionResource) {

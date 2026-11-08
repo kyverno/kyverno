@@ -135,6 +135,25 @@ func TestEvaluate_TracingOn_RedactsSecretMessageExpressionError(t *testing.T) {
 	assert.Equal(t, "(redacted)", entry.Verdict.Message)
 }
 
+func TestCompileMarksSecretDerivedVariable(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "secretPassword",
+				Expression: `string(resource.Get("v1", "secrets", "default", "db-credentials").data.password)`,
+			}},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression:        "false",
+				MessageExpression: "string(variables.secretPassword)",
+			}},
+		},
+	}
+
+	compiled, errs := NewCompiler(nil).Compile(policy, nil)
+	require.Empty(t, errs)
+	require.True(t, compiled.HasSecretRead())
+}
+
 func TestEvaluate_TracingOn_RedactsSecretExceptionMatchError(t *testing.T) {
 	const password = "hunter2-do-not-log"
 	fake := libs.NewFakeContextProvider()

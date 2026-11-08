@@ -39,30 +39,44 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.MutatingPolicyLike,
 
 	result := &Policy{jsonMode: true, trace: c.trace}
 	var errs field.ErrorList
-	result.variables, result.tracedVariables, errs = celcompiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
+	var secretVariables map[string]bool
+	result.variables, result.tracedVariables, secretVariables, errs = celcompiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if len(errs) > 0 {
 		return nil, errs
 	}
-	result.matchConditions, result.tracedMatchConditions, errs = celcompiler.CompileMatchConditionsWithTrace(path.Child("matchConditions"), env, c.trace, spec.MatchConditions...)
+	for _, read := range secretVariables {
+		result.hasSecretRead = result.hasSecretRead || read
+	}
+	var matchReads []bool
+	result.matchConditions, result.tracedMatchConditions, matchReads, errs = celcompiler.CompileMatchConditionsWithSecretVariables(path.Child("matchConditions"), env, c.trace, secretVariables, spec.MatchConditions...)
 	if len(errs) > 0 {
 		return nil, errs
 	}
+	result.hasSecretRead = result.hasSecretRead || celcompiler.AnySecretRead(matchReads...)
 	for i, exception := range exceptions {
 		if exception == nil {
 			return nil, field.ErrorList{field.Required(field.NewPath("exceptions").Index(i), "exception is required")}
 		}
-		matchConditions, errs := celcompiler.CompileMatchConditions(field.NewPath("exceptions").Index(i).Child("matchConditions"), env, exception.Spec.MatchConditions...)
+		matchConditions, _, secretReads, errs := celcompiler.CompileMatchConditionsWithSecretVariables(field.NewPath("exceptions").Index(i).Child("matchConditions"), env, c.trace, secretVariables, exception.Spec.MatchConditions...)
 		if len(errs) > 0 {
 			return nil, errs
 		}
 		result.exceptions = append(result.exceptions, celcompiler.Exception{
-			Exception:       exception.DeepCopy(),
-			MatchConditions: matchConditions,
+			Exception:                   exception.DeepCopy(),
+			MatchConditions:             matchConditions,
+			MatchConditionHasSecretRead: secretReads,
 		})
+		result.hasSecretRead = result.hasSecretRead || celcompiler.AnySecretRead(secretReads...)
 	}
-	result.auditAnnotations, errs = celcompiler.CompileAuditAnnotations(path.Child("auditAnnotations"), env, spec.AuditAnnotations...)
-	if len(errs) > 0 {
-		return nil, errs
+	result.auditAnnotations = make(map[string]cel.Program)
+	for i, annotation := range spec.AuditAnnotations {
+		program, secretRead, errs := celcompiler.CompileAuditAnnotationWithSecretVariables(path.Child("auditAnnotations").Index(i), env, annotation, secretVariables)
+		if len(errs) > 0 {
+			return nil, errs
+		}
+		result.auditAnnotations[annotation.Key] = program
+		result.auditAnnotationsHaveSecretRead = result.auditAnnotationsHaveSecretRead || secretRead
+		result.hasSecretRead = result.hasSecretRead || secretRead
 	}
 
 	for i, mutation := range spec.Mutations {
@@ -71,17 +85,19 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.MutatingPolicyLike,
 			if mutation.JSONPatch == nil {
 				continue
 			}
-			compiled, errs := celcompiler.CompileMutationWithTrace(
+			compiled, errs := celcompiler.CompileMutationWithSecretVariables(
 				path.Child("mutations").Index(i).Child("jsonPatch"),
 				env,
 				mutation.JSONPatch.Expression,
 				cel.ListType(jsonPatchType),
 				c.trace,
+				secretVariables,
 			)
 			if len(errs) > 0 {
 				return nil, errs
 			}
 			result.patchers = append(result.patchers, newJSONPatcher(compiled.Program))
+			result.hasSecretRead = result.hasSecretRead || compiled.HasSecretRead
 			if c.trace {
 				compiled.Name = fmt.Sprintf("mutations[%d] (jsonPatch)", i)
 				result.tracedMutations = append(result.tracedMutations, compiled)

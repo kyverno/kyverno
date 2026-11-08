@@ -50,7 +50,8 @@ func (p panickingCompiledPolicy) EnforceRequired([]string, *imageverify.ImageVer
 }
 
 // Tracing reports false: the stub is never compiled for decision tracing.
-func (p panickingCompiledPolicy) Tracing() bool { return false }
+func (p panickingCompiledPolicy) Tracing() bool       { return false }
+func (p panickingCompiledPolicy) HasSecretRead() bool { return false }
 
 func (p panickingCompiledPolicy) MutateDigest(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, apiruntime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration, libs.Context) ([]jsonpatch.JsonPatchOperation, error) {
 	return nil, nil

@@ -66,7 +66,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	path := field.NewPath("spec")
 	// append a place holder error to the errors list to be displayed in case the error list was returned
 	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
-	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
+	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -74,7 +74,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	var tracedConditions []compiler.TracedProgram
 	{
 		path := path.Child("conditions")
-		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.Conditions...)
+		programs, traced, _, errs := compiler.CompileMatchConditionsWithSecretVariables(path, env, c.trace, secretVariables, spec.Conditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -84,13 +84,14 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		polexMatchConditions, _, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(field.NewPath("spec").Child("matchConditions"), env, c.trace, secretVariables, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		compiledExceptions = append(compiledExceptions, compiler.Exception{
-			Exception:       polex,
-			MatchConditions: polexMatchConditions,
+			Exception:                   polex,
+			MatchConditions:             polexMatchConditions,
+			MatchConditionHasSecretRead: secretReads,
 		})
 	}
 	return &Policy{

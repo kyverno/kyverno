@@ -11,10 +11,11 @@ import (
 )
 
 type Exception struct {
-	Exception          *policiesv1beta1.PolicyException
-	MatchConditions    []cel.Program
-	MatchConditionASTs []*cel.Ast
-	Validations        []Validation
+	Exception                   *policiesv1beta1.PolicyException
+	MatchConditions             []cel.Program
+	MatchConditionASTs          []*cel.Ast
+	MatchConditionHasSecretRead []bool
+	Validations                 []Validation
 	// Now is an optional evaluation clock, used by deterministic cache-expiry
 	// tests. Production compilation leaves it nil and uses the API's clock.
 	Now func() time.Time
@@ -51,14 +52,15 @@ func CompileExceptionsWithValidations(env *cel.Env, exceptions []*policiesv1beta
 		// root the path at the exception, so an error in one is not reported as if it were in the
 		// policy's own spec
 		path := field.NewPath("exception").Key(polex.GetNamespace() + "/" + polex.GetName()).Child("spec")
-		matchConditions, tracedMatchConditions, errs := CompileMatchConditionsWithTrace(path.Child("matchConditions"), env, trace, polex.Spec.MatchConditions...)
+		matchConditions, tracedMatchConditions, secretReads, errs := CompileMatchConditionsWithSecretRead(path.Child("matchConditions"), env, trace, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		exception := Exception{
-			Exception:       polex,
-			MatchConditions: matchConditions,
-			Validations:     make([]Validation, 0, len(polex.Spec.Validations)),
+			Exception:                   polex,
+			MatchConditions:             matchConditions,
+			MatchConditionHasSecretRead: secretReads,
+			Validations:                 make([]Validation, 0, len(polex.Spec.Validations)),
 		}
 		if trace {
 			exception.MatchConditionASTs = make([]*cel.Ast, 0, len(tracedMatchConditions))

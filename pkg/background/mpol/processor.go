@@ -412,7 +412,8 @@ func (p *processor) audit(object *unstructured.Unstructured, response *mpolengin
 	reportableEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, r := range response.Policies {
 		engineResponse := engineapi.EngineResponse{
-			Resource: *response.Resource,
+			Resource:       *response.Resource,
+			RedactMessages: r.RedactMessages || (r.Trace != nil && r.Trace.IsSensitive()),
 			PolicyResponse: engineapi.PolicyResponse{
 				Rules: r.Rules,
 			},

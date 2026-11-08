@@ -41,15 +41,22 @@ type Policy struct {
 	// fields below populated (they hold the ASTs trace.Build needs); with tracing off they are
 	// all zero values and evaluation takes exactly the same path as before. Mirrors vpol's
 	// Policy.trace (pkg/cel/policies/vpol/compiler/policy.go).
-	trace                       bool
-	tracedMatchConditions       []compiler.TracedProgram
-	tracedTargetMatchConditions []compiler.TracedProgram
-	tracedVariables             map[string]compiler.TracedProgram
+	trace                          bool
+	hasSecretRead                  bool
+	auditAnnotationsHaveSecretRead bool
+	tracedMatchConditions          []compiler.TracedProgram
+	tracedTargetMatchConditions    []compiler.TracedProgram
+	tracedVariables                map[string]compiler.TracedProgram
 	// tracedMutations is index-aligned with patchers: tracedMutations[i] is the traced compile
 	// output for the expression patchers[i] was built from. Patcher itself only exposes
 	// Patch(...), not the underlying Program/AST, so this is kept alongside it rather than
 	// inside it.
 	tracedMutations []compiler.TracedProgram
+}
+
+// HasSecretRead reports whether this policy can read Secret data in any compiled expression.
+func (p *Policy) HasSecretRead() bool {
+	return p.hasSecretRead
 }
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
@@ -261,7 +268,15 @@ func (p *Policy) evaluate(
 					// exception already granted; a broken later exception must not negate it
 					continue
 				}
-				return &EvaluationResult{Error: err}
+				result := &EvaluationResult{Error: err}
+				if p.trace {
+					result.Trace = &trace.Decision{Verdict: trace.VerdictTrace{
+						Status:        trace.VerdictError,
+						Message:       err.Error(),
+						HasSecretRead: compiler.AnySecretRead(polex.MatchConditionHasSecretRead...),
+					}}
+				}
+				return result
 			}
 			if match {
 				matchedExceptions = append(matchedExceptions, polex.Exception)
@@ -439,6 +454,7 @@ func (p *Policy) evaluate(
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, data)
 	if err != nil {
 		verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+		verdict.HasSecretRead = p.auditAnnotationsHaveSecretRead
 		return &EvaluationResult{Error: err, Trace: decision()}
 	}
 

@@ -95,24 +95,27 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 		return nil, allErrs
 	}
 
-	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), extendedCompiler, variablesProvider, c.trace, spec.Variables...)
+	variables, tracedVariables, secretVariables, errs := compiler.CompileVariablesWithSecretRead(path.Child("variables"), extendedCompiler, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	var tracedMatchConditions []compiler.TracedProgram
+	var matchConditionSecretReads []bool
 	{
 		path := path.Child("matchConditions")
-		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, extendedCompiler, c.trace, spec.MatchConditions...)
+		programs, traced, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(path, extendedCompiler, c.trace, secretVariables, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
 		tracedMatchConditions = traced
+		matchConditionSecretReads = secretReads
 	}
 
 	var targetExpression cel.Program
+	var targetExpressionHasSecretRead bool
 	if expression := policy.GetTargetMatchConstraints().Expression; expression != "" {
 		ast, issues := extendedCompiler.Compile(expression)
 		if err := issues.Err(); err != nil {
@@ -125,36 +128,56 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 		if err != nil {
 			return nil, append(allErrs, field.InternalError(path.Child("targetMatchConstraints").Child("expression"), err))
 		}
+		targetExpressionHasSecretRead = compiler.MayReadSecretWithVariables(ast, secretVariables)
 	}
 
 	targetMatchConditions := make([]cel.Program, 0, len(spec.TargetMatchConditions))
 	var tracedTargetMatchConditions []compiler.TracedProgram
+	var targetMatchConditionSecretReads []bool
 	{
 		path := path.Child("targetMatchConditions")
-		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, extendedCompiler, c.trace, spec.TargetMatchConditions...)
+		programs, traced, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(path, extendedCompiler, c.trace, secretVariables, spec.TargetMatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		targetMatchConditions = append(targetMatchConditions, programs...)
 		tracedTargetMatchConditions = traced
+		targetMatchConditionSecretReads = secretReads
 	}
 
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), extendedCompiler, polex.Spec.MatchConditions...)
+		polexMatchConditions, _, secretReads, errs := compiler.CompileMatchConditionsWithSecretVariables(field.NewPath("spec").Child("matchConditions"), extendedCompiler, c.trace, secretVariables, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		compiledExceptions = append(compiledExceptions, compiler.Exception{
-			Exception:       polex,
-			MatchConditions: polexMatchConditions,
+			Exception:                   polex,
+			MatchConditions:             polexMatchConditions,
+			MatchConditionHasSecretRead: secretReads,
 		})
 	}
 
-	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), extendedCompiler, spec.AuditAnnotations...)
-	if errs != nil {
-		return nil, append(allErrs, errs...)
+	auditAnnotations := make(map[string]cel.Program)
+	auditAnnotationSecretReads := make([]bool, 0, len(spec.AuditAnnotations))
+	for i, annotation := range spec.AuditAnnotations {
+		program, secretRead, errs := compiler.CompileAuditAnnotationWithSecretVariables(path.Child("auditAnnotations").Index(i), extendedCompiler, annotation, secretVariables)
+		if len(errs) != 0 {
+			return nil, append(allErrs, errs...)
+		}
+		auditAnnotations[annotation.Key] = program
+		auditAnnotationSecretReads = append(auditAnnotationSecretReads, secretRead)
+	}
+	hasSecretRead := compiler.AnySecretRead(targetExpressionHasSecretRead) ||
+		compiler.AnySecretRead(matchConditionSecretReads...) ||
+		compiler.AnySecretRead(targetMatchConditionSecretReads...) ||
+		compiler.AnySecretRead(auditAnnotationSecretReads...)
+	for _, read := range secretVariables {
+		hasSecretRead = hasSecretRead || read
+	}
+	for _, exception := range compiledExceptions {
+		hasSecretRead = hasSecretRead || compiler.AnySecretRead(exception.MatchConditionHasSecretRead...)
 	}
 
 	useServerSideApply := false
@@ -168,11 +191,12 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 		switch m.PatchType {
 		case admissionregistrationv1alpha1.PatchTypeJSONPatch:
 			if m.JSONPatch != nil {
-				traced, errs := compiler.CompileMutationWithTrace(path.Child("mutations").Index(i).Child("jsonPatch"), extendedCompiler, m.JSONPatch.Expression, cel.ListType(jsonPatchType), c.trace)
+				traced, errs := compiler.CompileMutationWithSecretVariables(path.Child("mutations").Index(i).Child("jsonPatch"), extendedCompiler, m.JSONPatch.Expression, cel.ListType(jsonPatchType), c.trace, secretVariables)
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
 				patchers = append(patchers, newJSONPatcher(traced.Program))
+				hasSecretRead = hasSecretRead || traced.HasSecretRead
 				if c.trace {
 					traced.Name = fmt.Sprintf("mutations[%d] (jsonPatch)", i)
 					tracedMutations = append(tracedMutations, traced)
@@ -180,11 +204,12 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 			}
 		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
 			if m.ApplyConfiguration != nil {
-				traced, errs := compiler.CompileMutationWithTrace(path.Child("mutations").Index(i).Child("applyConfiguration"), extendedCompiler, m.ApplyConfiguration.Expression, applyConfigObjectType, c.trace)
+				traced, errs := compiler.CompileMutationWithSecretVariables(path.Child("mutations").Index(i).Child("applyConfiguration"), extendedCompiler, m.ApplyConfiguration.Expression, applyConfigObjectType, c.trace, secretVariables)
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
 				patchers = append(patchers, newApplyConfigPatcher(traced.Program, useServerSideApply))
+				hasSecretRead = hasSecretRead || traced.HasSecretRead
 				if c.trace {
 					traced.Name = fmt.Sprintf("mutations[%d] (applyConfiguration)", i)
 					tracedMutations = append(tracedMutations, traced)
@@ -194,19 +219,21 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolic
 	}
 
 	return &Policy{
-		matchConditions:             matchConditions,
-		targetMatchConditions:       targetMatchConditions,
-		targetExpression:            targetExpression,
-		variables:                   variables,
-		auditAnnotations:            auditAnnotations,
-		exceptions:                  compiledExceptions,
-		matchConstraints:            policy.GetSpec().MatchConstraints,
-		patchers:                    patchers,
-		trace:                       c.trace,
-		tracedMatchConditions:       tracedMatchConditions,
-		tracedTargetMatchConditions: tracedTargetMatchConditions,
-		tracedVariables:             tracedVariables,
-		tracedMutations:             tracedMutations,
+		matchConditions:                matchConditions,
+		targetMatchConditions:          targetMatchConditions,
+		targetExpression:               targetExpression,
+		variables:                      variables,
+		auditAnnotations:               auditAnnotations,
+		exceptions:                     compiledExceptions,
+		matchConstraints:               policy.GetSpec().MatchConstraints,
+		patchers:                       patchers,
+		hasSecretRead:                  hasSecretRead,
+		auditAnnotationsHaveSecretRead: compiler.AnySecretRead(auditAnnotationSecretReads...),
+		trace:                          c.trace,
+		tracedMatchConditions:          tracedMatchConditions,
+		tracedTargetMatchConditions:    tracedTargetMatchConditions,
+		tracedVariables:                tracedVariables,
+		tracedMutations:                tracedMutations,
 	}, allErrs
 }
 
