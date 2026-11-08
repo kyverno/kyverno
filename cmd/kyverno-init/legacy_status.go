@@ -38,7 +38,7 @@ var legacyReadyConditionMessage = fmt.Sprintf(
 
 // legacyStatusKinds are the legacy kinds whose Ready condition is shown in kubectl's READY and
 // MESSAGE printer columns.
-var legacyStatusKinds = []string{"ClusterPolicy", "Policy"}
+var legacyStatusKinds = []string{"ClusterPolicy", "Policy", "CleanupPolicy", "ClusterCleanupPolicy"}
 
 // markLegacyPoliciesUnsupported rewrites the status of every legacy ClusterPolicy and Policy so
 // its conditions are exactly one Ready=False/Unsupported condition
