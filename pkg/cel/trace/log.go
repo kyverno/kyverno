@@ -65,17 +65,17 @@ func LogValues(d *Decision) []any {
 		} else {
 			verdictResult = clip(verdictResult)
 		}
-		if (verdictIsSec || isSecretValue(verdictMsg)) && verdictMsg != "" {
-			verdictMsg = redacted
-		} else {
-			verdictMsg = clip(verdictMsg)
-		}
 	} else {
 		if (verdictIsSec || isSecretValue(verdictResult)) && verdictResult != "" && verdictResult != "true" && verdictResult != "false" {
 			verdictResult = redacted
 		} else {
 			verdictResult = clip(verdictResult)
 		}
+	}
+	if (verdictIsSec || isSecretValue(verdictMsg)) && verdictMsg != "" {
+		verdictMsg = redacted
+	} else {
+		verdictMsg = clip(verdictMsg)
 	}
 	entry := LogEntry{
 		Scope: d.Scope.Reason,
@@ -87,7 +87,7 @@ func LogValues(d *Decision) []any {
 		},
 	}
 	if d.Verdict.Status != VerdictPass {
-		l.breakdown(&entry.Verdict, d.Verdict.ExpressionTrace)
+		l.breakdown(&entry.Verdict, d.Verdict.ExpressionTrace, verdictIsSec)
 	}
 	for _, m := range d.Match {
 		entry.Match = append(entry.Match, l.named(m))
@@ -136,17 +136,7 @@ func LogValues(d *Decision) []any {
 			NotApplied: m.NotApplied,
 		}
 		if m.Error != "" {
-			l.breakdown(&mutation, m.ExpressionTrace)
-			if mutationIsSecret {
-				for i := range mutation.Evaluated {
-					if mutation.Evaluated[i].Value != "" && mutation.Evaluated[i].Value != "true" && mutation.Evaluated[i].Value != "false" {
-						mutation.Evaluated[i].Value = redacted
-					}
-					if mutation.Evaluated[i].Error != "" {
-						mutation.Evaluated[i].Error = redacted
-					}
-				}
-			}
+			l.breakdown(&mutation, m.ExpressionTrace, mutationIsSecret)
 		}
 		entry.Mutations = append(entry.Mutations, mutation)
 	}
@@ -219,11 +209,12 @@ func (l logFormat) isVerdictSecret(d *Decision) bool {
 	if l.secret {
 		return true
 	}
-	if d.Verdict.Source != "" {
-		return l.isSecretExpr(d.Verdict.Source)
+	if d.Verdict.Source != "" && l.isSecretExpr(d.Verdict.Source) {
+		return true
 	}
-	// For source-less verdicts (e.g. in MutatingPolicy where verdict has no source expression,
-	// or when evaluation errors before/during match, variables, mutations, or generations):
+	if l.isPlaceholderErrorSecret(d.Verdict.Message) {
+		return true
+	}
 	for _, m := range d.Match {
 		if l.isSecretExpr(m.Source) {
 			return true
@@ -240,15 +231,69 @@ func (l logFormat) isVerdictSecret(d *Decision) bool {
 		}
 	}
 	for _, g := range d.Generations {
-		if l.isSecretExpr(g.Source) {
+		if l.isSecretExpr(g.Source) || l.isPlaceholderErrorSecret(g.Error) {
 			return true
+		}
+		for _, gen := range g.Generated {
+			if strings.HasPrefix(gen, "Secret ") || gen == "Secret" {
+				return true
+			}
 		}
 	}
 	for _, v := range d.Variables {
 		if l.secretVars[v.Name] || l.isSecretExpr(v.Source) {
-			if d.Verdict.Status == VerdictError || isSecretValue(v.Result) {
+			return true
+		}
+	}
+	return false
+}
+
+// isPlaceholderErrorSecret reports whether errStr arises from a template placeholder
+// expression that accesses Secret data or Secret variables.
+func (l logFormat) isPlaceholderErrorSecret(errStr string) bool {
+	if errStr == "" {
+		return false
+	}
+	if isSecretValue(errStr) {
+		return true
+	}
+	for name := range l.secretVars {
+		if strings.Contains(errStr, name) {
+			return true
+		}
+	}
+	for _, quote := range []string{`placeholder "`, "placeholder `", "placeholder '"} {
+		remaining := errStr
+		for {
+			idx := strings.Index(remaining, quote)
+			if idx == -1 {
+				break
+			}
+			start := idx + len(quote)
+			rest := remaining[start:]
+			qChar := quote[len(quote)-1]
+			end := -1
+			for i := 0; i < len(rest); i++ {
+				if rest[i] == '\\' {
+					i++
+					continue
+				}
+				if rest[i] == qChar {
+					end = i
+					break
+				}
+			}
+			if end == -1 {
+				break
+			}
+			expr := rest[:end]
+			if qChar == '"' {
+				expr = strings.ReplaceAll(expr, `\"`, `"`)
+			}
+			if l.isSecretExpr(expr) {
 				return true
 			}
+			remaining = rest[end+1:]
 		}
 	}
 	return false
@@ -720,18 +765,30 @@ func (l logFormat) named(n NamedExpressionTrace) LogExpression {
 }
 
 // breakdown populates the evaluated sub-expressions, redacting sensitive nodes.
-func (l logFormat) breakdown(e *LogExpression, et ExpressionTrace) {
+func (l logFormat) breakdown(e *LogExpression, et ExpressionTrace, isSec bool) {
 	e.LoopValuesOmitted = et.LoopValuesOmitted
-	isSecExpr := l.secret || l.isSecretExpr(et.Source)
+	isSecExpr := l.secret || isSec || l.isSecretExpr(et.Source)
 	for _, n := range et.Nodes {
+		valExpr := n.Expression
 		errExpr := n.Expression
 		if isSecExpr {
+			valExpr = et.Source
 			errExpr = et.Source
+		}
+		val := l.value(n.Value, valExpr)
+		err := l.error(n.Error, errExpr)
+		if isSecExpr {
+			if val != "" && val != "true" && val != "false" {
+				val = redacted
+			}
+			if err != "" {
+				err = redacted
+			}
 		}
 		e.Evaluated = append(e.Evaluated, LogNode{
 			Expression: n.Expression,
-			Value:      l.value(n.Value, n.Expression),
-			Error:      l.error(n.Error, errExpr),
+			Value:      val,
+			Error:      err,
 		})
 	}
 }

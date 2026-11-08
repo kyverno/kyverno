@@ -1149,4 +1149,146 @@ func TestLogValues_SecretDataRedactedInErrorsAndExternalGets(t *testing.T) {
 		require.Len(t, entry.Verdict.Evaluated, 1)
 		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
 	})
+
+	t.Run("VerdictFail with secret message from messageExpression is redacted", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "vpol-msg-expr-secret",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Secret",
+			ResourceName: "my-secret",
+			Verdict: VerdictTrace{
+				Status:  VerdictFail,
+				Message: "Password validation failed: " + password,
+				ExpressionTrace: ExpressionTrace{
+					Source: "false",
+					Result: "false",
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+		assert.Equal(t, "false", entry.Verdict.Result)
+	})
+
+	t.Run("Secret variable taints verdict message on non-secret validation source", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "vpol-var-taint-msg",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbSecret",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'Secret', 'default', 'db')",
+						Result: `map[data:map[password:` + password + `] kind:Secret]`,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status:  VerdictFail,
+				Message: "Authentication failed with secret token: " + password,
+				ExpressionTrace: ExpressionTrace{
+					Source: "object.spec.replicas > 1",
+					Result: "false",
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+		assert.Equal(t, "false", entry.Verdict.Result)
+	})
+
+	t.Run("Template-based generation placeholder error reading secret is redacted", func(t *testing.T) {
+		placeholderErr := `failed to render generation template: document 1: field "data": field "password": failed to evaluate placeholder "resource.Get('v1', 'Secret', 'default', 'db').data.password": connection refused for ` + password
+		d := &Decision{
+			PolicyName:   "gpol-template-placeholder",
+			PolicyKind:   "GeneratingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Generations: []GenerationTrace{
+				{
+					Name: "generate[0] (template)",
+					ExpressionTrace: ExpressionTrace{
+						Source: "",
+					},
+					Error: placeholderErr,
+				},
+			},
+			Verdict: VerdictTrace{
+				Status:  VerdictError,
+				Message: placeholderErr,
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+	})
+
+	t.Run("Source-less verdict with scalar secret variable is redacted on FAIL", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "sourceless-scalar-secret-var",
+			PolicyKind:   "GeneratingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Variables: []NamedExpressionTrace{
+				{
+					Name: "dbPass",
+					ExpressionTrace: ExpressionTrace{
+						Source: "resource.Get('v1', 'Secret', 'default', 'db').data.password",
+						Result: password,
+					},
+				},
+			},
+			Verdict: VerdictTrace{
+				Status:  VerdictFail,
+				Message: "Generation precondition failed quoting " + password,
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		assert.Equal(t, redacted, entry.Verdict.Message)
+	})
+
+	t.Run("Trace breakdown node values in secret expressions are redacted while preserving boolean results", func(t *testing.T) {
+		d := &Decision{
+			PolicyName:   "breakdown-node-values",
+			PolicyKind:   "ValidatingPolicy",
+			ResourceKind: "Pod",
+			ResourceName: "my-pod",
+			Verdict: VerdictTrace{
+				Status: VerdictFail,
+				ExpressionTrace: ExpressionTrace{
+					Source: "resource.Get('v1', 'Secret', 'default', 'db').data.token != ''",
+					Result: "false",
+					Nodes: []NodeTrace{
+						{Expression: "resource.Get('v1', 'Secret', 'default', 'db').data.token", Value: password},
+						{Expression: "resource.Get('v1', 'Secret', 'default', 'db').data.token != ''", Value: "false"},
+					},
+				},
+			},
+		}
+
+		entry, _ := logged(t, d)
+		raw, err := json.Marshal(entry)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), password)
+		require.Len(t, entry.Verdict.Evaluated, 2)
+		assert.Equal(t, redacted, entry.Verdict.Evaluated[0].Value)
+		assert.Equal(t, "false", entry.Verdict.Evaluated[1].Value)
+	})
 }
