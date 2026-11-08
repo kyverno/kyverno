@@ -131,7 +131,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
 | customPolicies | list | `[]` | Additional custom policies to include. |
 | failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/ |
-| validationFailureAction | string | `"Warn"` | Validation failure action (`Audit`, `Warn`, `Deny`). For more info https://kyverno.io/docs/policy-types/cluster-policy/validate. |
+| validationFailureAction | string | `"Warn"` | Validation failure action (`Audit`, `Warn`, `Deny`). For more info https://kyverno.io/docs/policy-types/validating-policy/ |
 | validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |
 | auditAnnotations | object | `{}` | Default audit annotations applied to all ValidatingPolicy policies. Map of annotation key to CEL valueExpression. Audit annotations are recorded in the API server audit log. For more info https://kyverno.io/docs/policy-types/validating-policy/#using-auditannotations-to-add-custom-data |
 | auditAnnotationsByPolicy | object | `{}` | Define audit annotations for specific ValidatingPolicy policies. Per-policy entries override defaults when they share the same key. |
