@@ -218,10 +218,26 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
 		}
-		// Match MutatingPolicy behavior: explicit per-policy native generation must
-		// work even when the global default is disabled.
+		// Explicit per-policy generation must work even when the global toggle is
+		// disabled. When both are off, skip idle policies but still reconcile
+		// previously generated native resources (including after a restart).
 		if !toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy() && !vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() {
-			return nil
+			// No native VAP API means there are no served resources to clean up.
+			if c.vapLister == nil || c.vapbindingLister == nil {
+				return nil
+			}
+			vapName := "vpol-" + vpol.Name
+			_, vapErr := c.getValidatingAdmissionPolicy(vapName)
+			_, bindingErr := c.getValidatingAdmissionPolicyBinding(constructBindingName(vapName))
+			if vapErr != nil && !apierrors.IsNotFound(vapErr) {
+				return vapErr
+			}
+			if bindingErr != nil && !apierrors.IsNotFound(bindingErr) {
+				return bindingErr
+			}
+			if apierrors.IsNotFound(vapErr) && apierrors.IsNotFound(bindingErr) && !vpol.Status.Generated {
+				return nil
+			}
 		}
 		policy = engineapi.NewValidatingPolicy(vpol)
 		err = c.handleVAPGeneration(ctx, policy)

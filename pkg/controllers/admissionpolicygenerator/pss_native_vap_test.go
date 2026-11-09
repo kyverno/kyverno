@@ -212,6 +212,33 @@ func TestPSSNativeVAP(t *testing.T) {
 		assert.Contains(t, string(output), "cannot be combined with subject")
 	})
 
+	t.Run("rejects-other-native-exclusion-types", func(t *testing.T) {
+		for _, tt := range []struct {
+			name    string
+			setting string
+		}{
+			{
+				name:    "custom match conditions",
+				setting: "vpolExclude.matchConditions[0].name=skip",
+			},
+			{
+				name:    "resource rule exclusions",
+				setting: "vpolExclude.excludeResourceRules[0].resources[0]=pods",
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				cmd := exec.Command(helm, "template", "verify-pss", chart,
+					"--kube-version", "v1.37.0",
+					"--api-versions", "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy",
+					"--set", "generateValidatingAdmissionPolicy=true",
+					"--set", tt.setting)
+				output, err := cmd.CombinedOutput()
+				require.Error(t, err)
+				assert.Contains(t, string(output), "cannot be combined with subject")
+			})
+		}
+	})
+
 	t.Run("rejects-controller-subject-exclusions", func(t *testing.T) {
 		cmd := exec.Command(helm, "template", "verify-pss", chart,
 			"--kube-version", "v1.37.0",
