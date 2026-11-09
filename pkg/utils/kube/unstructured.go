@@ -1,9 +1,8 @@
 package kube
 
 import (
-	"encoding/json"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
 // BytesToUnstructured converts the resource to unstructured format

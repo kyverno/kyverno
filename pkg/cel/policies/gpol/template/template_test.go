@@ -2,6 +2,7 @@ package template
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apiserver/pkg/cel/lazy"
 )
 
 func testEnv(t *testing.T) *cel.Env {
@@ -273,6 +275,62 @@ metadata:
 				gotAny = append(gotAny, any(m))
 			}
 			assert.Equal(t, want, gotAny)
+		})
+	}
+}
+
+func TestRenderCollectionIntegers(t *testing.T) {
+	t.Parallel()
+	const sequence = int64(1<<53 + 1)
+	tests := []struct {
+		name  string
+		value any
+		want  any
+		err   string
+	}{
+		{
+			name:  "map with integer and decimal string",
+			value: map[string]any{"sequence": sequence, "label": "9007199254740993"},
+			want:  map[string]any{"sequence": sequence, "label": "9007199254740993"},
+		},
+		{
+			name:  "list of signed limits and representable uint",
+			value: []any{int64(math.MinInt64), -sequence, uint64(math.MaxInt64)},
+			want:  []any{int64(math.MinInt64), -sequence, int64(math.MaxInt64)},
+		},
+		{
+			name:  "nested collections with other JSON values",
+			value: map[string]any{"entries": []any{map[string]any{"sequence": sequence}, nil, true, 1.5, []byte("a"), math.Inf(1)}},
+			want:  map[string]any{"entries": []any{map[string]any{"sequence": sequence}, nil, true, 1.5, "YQ==", "Infinity"}},
+		},
+		{
+			name:  "nested uint overflow",
+			value: map[string]any{"entries": []any{uint64(math.MaxInt64) + 1}},
+			err:   "uint value 9223372036854775808 overflows",
+		},
+		{
+			name:  "nested non-string key",
+			value: []any{map[int64]string{1: "value"}},
+			err:   "string key",
+		},
+		{
+			name:  "opaque variables object cannot be spliced as a map",
+			value: []any{lazy.NewMapValue(cel.ObjectType("Variables"))},
+			err:   "disallowed conversion",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tpl, errs := compileTemplate(t, "spec: (( variables.payload ))", policiesv1beta1.InterpolationModeCEL)
+			require.Empty(t, errs)
+			got, err := tpl.Render(t.Context(), map[string]any{"variables": map[string]any{"payload": tc.value}})
+			if tc.err != "" {
+				require.ErrorContains(t, err, tc.err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, []map[string]any{{"spec": tc.want}}, got)
 		})
 	}
 }

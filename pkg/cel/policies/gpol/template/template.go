@@ -25,6 +25,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"go.yaml.in/yaml/v3"
@@ -384,9 +385,17 @@ func nodeContainsPlaceholder(n *yaml.Node) bool {
 // celValueToNative converts a CEL evaluation result into a plain Go value
 // suitable for an unstructured resource map.
 func celValueToNative(val ref.Val) (any, error) {
-	if types.IsError(val) {
-		return nil, fmt.Errorf("%v", val)
+	// Preserve native doubles for scalar placeholders. Inside collections, the
+	// protobuf JSON conversion gives non-finite doubles their string encoding.
+	if val.Type() == types.DoubleType {
+		return val.Value().(float64), nil
 	}
+	return celJSONValue(val)
+}
+
+// Walk collections before converting their leaves. structpb.Value encodes
+// large CEL integers as decimal strings, including when nested in a map or list.
+func celJSONValue(val ref.Val) (any, error) {
 	switch val.Type() {
 	case types.NullType:
 		return nil, nil
@@ -402,8 +411,33 @@ func celValueToNative(val ref.Val) (any, error) {
 			return nil, fmt.Errorf("uint value %d overflows the supported integer range", v)
 		}
 		return int64(v), nil
-	case types.DoubleType:
-		return val.Value().(float64), nil
+	case types.MapType:
+		v := val.(traits.Mapper)
+		out := make(map[string]any, v.Size().(types.Int))
+		for it := v.Iterator(); it.HasNext() == types.True; {
+			key := it.Next()
+			name, ok := key.(types.String)
+			if !ok {
+				return nil, fmt.Errorf("expected a string key, got %s", key.Type().TypeName())
+			}
+			value, err := celJSONValue(v.Get(key))
+			if err != nil {
+				return nil, fmt.Errorf("field %q: %w", name, err)
+			}
+			out[string(name)] = value
+		}
+		return out, nil
+	case types.ListType:
+		v := val.(traits.Lister)
+		out := make([]any, 0, v.Size().(types.Int))
+		for it := v.Iterator(); it.HasNext() == types.True; {
+			value, err := celJSONValue(it.Next())
+			if err != nil {
+				return nil, fmt.Errorf("item %d: %w", len(out), err)
+			}
+			out = append(out, value)
+		}
+		return out, nil
 	}
 	pv, err := val.ConvertToNative(reflect.TypeOf(&structpb.Value{}))
 	if err != nil {

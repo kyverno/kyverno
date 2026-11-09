@@ -26,6 +26,15 @@ func TestConvertToUnstructured(t *testing.T) {
 			}},
 		},
 		{
+			name: "preserve integers when preparing an unstructured object for a write",
+			obj: &unstructured.Unstructured{Object: map[string]interface{}{
+				"spec": []interface{}{int64(9007199254740993), 1.5, "9007199254740993"},
+			}},
+			want: &unstructured.Unstructured{Object: map[string]interface{}{
+				"spec": []interface{}{int64(9007199254740993), 1.5, "9007199254740993"},
+			}},
+		},
+		{
 			name: "Test invalid JSON",
 			obj:  func() {},
 			err:  fmt.Errorf("json: unsupported type: func()"),
