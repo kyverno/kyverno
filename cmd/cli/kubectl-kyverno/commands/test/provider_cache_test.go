@@ -1204,6 +1204,7 @@ spec:
     - expression: >-
         globalContext.get("allowed-envs", "tier") == "production" &&
         object.metadata.name.startsWith("test-nginx") &&
+        (object.metadata.name.contains("json") || resource.get("v1", "configmaps", "default", "cluster-settings").data["enabled"] == "true") &&
         (!object.metadata.name.contains("json") || (http.Get("https://api.example.com/status").body.status == "healthy" && resource.get("v1", "configmaps", "default", "json-settings").data["enabled"] == "true"))
       name: check-pod-name
   schedule: '*/1 * * * *'
@@ -1258,6 +1259,13 @@ spec:
       kind: Namespace
       metadata:
         name: default
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: cluster-settings
+        namespace: default
+      data:
+        enabled: "true"
 `
 	fc, err := fs.Create("clusterresources.yaml")
 	require.NoError(t, err)
