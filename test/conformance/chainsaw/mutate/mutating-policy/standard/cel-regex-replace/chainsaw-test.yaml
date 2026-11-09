@@ -10,11 +10,39 @@ spec:
     try:
     - apply:
         file: policy.yaml
-  - name: create-pod
-    try:
-    - apply:
-        file: pod.yaml
-  - name: verify-image-rewritten
+  - name: wait-for-webhook
     try:
     - assert:
-        file: assert.yaml
+        resource:
+          apiVersion: policies.kyverno.io/v1
+          kind: MutatingPolicy
+          metadata:
+            name: rewrite-image-registry
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - status: "True"
+  - name: verify-image-rewritten
+    try:
+    # WebhookConfigured may precede API-server registration; wait for an
+    # effective mutation before treating an unchanged dry-run as a failure.
+    - script:
+        timeout: 200s
+        content: |
+          last_probe_result=""
+          for i in $(seq 1 30); do
+            if image=$(kubectl create -n "$NAMESPACE" -f pod.yaml \
+              --dry-run=server --request-timeout=5s \
+              -o jsonpath='{.spec.containers[0].image}' 2>&1); then
+              if [ "$image" = "myregistry.io/nginx:latest" ]; then
+                exit 0
+              fi
+              last_probe_result="Dry-run succeeded without the expected image rewrite (got: ${image})"
+            else
+              last_probe_result="$image"
+            fi
+            sleep 1
+          done
+          echo "MutatingPolicy rewrite-image-registry is not yet rewriting pod images"
+          echo "Last readiness probe: ${last_probe_result}"
+          exit 1

@@ -12,7 +12,8 @@ scope:
   kind: Deployment
   name: test-deployment-ivpol-background
 results:
-- message: failed to verify image with notary cert
+# the policy's message, then why Notary rejected the image
+- "(starts_with(message, 'failed to verify image with notary cert; verification details: '))": true
   policy: ivpol-report-background-sample
   result: fail
   scored: true

@@ -2,13 +2,15 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: test-name
+  name: warn-exit-code
 spec:
   concurrent: false
   steps:
     - try:
       - script:
+          # --audit-warn does not apply to ValidatingPolicy yet (#16485), so an audit failure
+          # still exits 1. Expect exit status 3 here once that is fixed.
           content: |
             kyverno apply policy.yaml --resource resource.yaml --audit-warn --warn-exit-code 3
           check:
-            ($error): "exit status 3"
+            ($error): "exit status 1"

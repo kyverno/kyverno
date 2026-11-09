@@ -22,14 +22,16 @@ spec:
     try:
     - apply:
         file: configmap.yaml
+  # WebhookConfigured only means the webhook configuration was written; give the
+  # API server time to start calling it before the pod is created.
+  - name: wait-webhook
+    try:
+    - sleep:
+        duration: 5s
   - name: step-03
     try:
     - apply:
         file: pod.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: verify-pod-mutated
     try:
     - assert:

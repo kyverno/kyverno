@@ -6,6 +6,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -36,7 +37,7 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1be
 		logger.V(2).Info("No MutatingAdmissionPolicy lister available, skipping MAP generation", "policy", mpol.GetName())
 		if mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
 			genericPolicy := engineapi.NewMutatingPolicy(mpol)
-			c.updatePolicyStatus(ctx, genericPolicy, false, "skip generating MutatingAdmissionPolicy: requested but no MutatingAdmissionPolicy API/informers are available.")
+			return c.updatePolicyStatus(ctx, genericPolicy, false, "skip generating MutatingAdmissionPolicy: requested but no MutatingAdmissionPolicy API/informers are available.")
 		}
 		return nil
 	}
@@ -48,19 +49,20 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	genericPolicy := engineapi.NewMutatingPolicy(mpol)
 	if !admissionpolicy.HasMutatingAdmissionPolicyPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicies")
-		c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies")
-		return nil
+		return c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies")
 	}
 	if !admissionpolicy.HasMutatingAdmissionPolicyBindingPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicyBindings")
-		c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicyBindings")
-		return nil
+		return c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicyBindings")
 	}
 
 	mapName := "mpol-" + mpol.GetName()
 	mapBindingName := constructBindingName(mapName)
 
-	reason := mapGenerationSkipReason(mpol)
+	reason, err := mapGenerationSkipReason(mpol)
+	if err != nil {
+		return fmt.Errorf("failed to compute autogen configs for %s: %w", mpol.GetName(), err)
+	}
 	shouldDelete := reason != ""
 
 	switch version {
@@ -90,11 +92,10 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 				return err
 			}
 		}
-		c.updatePolicyStatus(ctx, genericPolicy, false, reason)
-		return nil
+		return c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 	}
 
-	celexceptions, err := c.getCELExceptions(mpol.GetName())
+	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
@@ -144,8 +145,7 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 		}
 	}
 
-	c.updatePolicyStatus(ctx, genericPolicy, true, "")
-	return nil
+	return c.updatePolicyStatus(ctx, genericPolicy, true, "")
 }
 
 // mapGenerationSkipReason returns a non-empty reason when a MutatingAdmissionPolicy must not be
@@ -153,17 +153,23 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 // useServerSideApply mutates atomic fields that a native MutatingAdmissionPolicy rejects, so a
 // generated MAP (which becomes the sole admission path once status.generated is set) would drop the
 // mutation. Pod-controller autogen is likewise incompatible with MAP generation.
-func mapGenerationSkipReason(mpol *policiesv1beta1.MutatingPolicy) string {
+func mapGenerationSkipReason(mpol *policiesv1beta1.MutatingPolicy) (string, error) {
 	if !mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
-		return "skip generating MutatingAdmissionPolicy: not enabled."
+		return "skip generating MutatingAdmissionPolicy: not enabled.", nil
 	}
 	if ec := mpol.GetSpec().EvaluationConfiguration; ec != nil && ec.UseServerSideApply {
-		return "skip generating MutatingAdmissionPolicy: useServerSideApply is enabled, which mutates atomic fields that a native MutatingAdmissionPolicy rejects."
+		return "skip generating MutatingAdmissionPolicy: useServerSideApply is enabled, which mutates atomic fields that a native MutatingAdmissionPolicy rejects.", nil
 	}
-	if len(mpol.GetStatus().Autogen.Configs) > 0 {
-		return "skip generating MutatingAdmissionPolicy: pod controllers autogen is enabled."
+	// Read autogen from the spec: status.autogen is written later by the
+	// policystatus controller and can still be empty on a new policy.
+	autogenConfigs, err := mpolautogen.Autogen(mpol)
+	if err != nil {
+		return "", err
 	}
-	return ""
+	if len(autogenConfigs) > 0 {
+		return "skip generating MutatingAdmissionPolicy: pod controllers autogen is enabled.", nil
+	}
+	return "", nil
 }
 
 func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {
@@ -181,11 +187,10 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 				return err
 			}
 		}
-		c.updatePolicyStatus(ctx, genericPolicy, false, reason)
-		return nil
+		return c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 	}
 
-	celexceptions, err := c.getCELExceptions(mpol.GetName())
+	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
@@ -237,8 +242,7 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 		}
 	}
 
-	c.updatePolicyStatus(ctx, genericPolicy, true, "")
-	return nil
+	return c.updatePolicyStatus(ctx, genericPolicy, true, "")
 }
 
 func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {
@@ -256,11 +260,10 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 				return err
 			}
 		}
-		c.updatePolicyStatus(ctx, genericPolicy, false, reason)
-		return nil
+		return c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 	}
 
-	celexceptions, err := c.getCELExceptions(mpol.GetName())
+	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
@@ -312,6 +315,5 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 		}
 	}
 
-	c.updatePolicyStatus(ctx, genericPolicy, true, "")
-	return nil
+	return c.updatePolicyStatus(ctx, genericPolicy, true, "")
 }

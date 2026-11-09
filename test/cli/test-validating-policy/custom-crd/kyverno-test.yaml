@@ -1,0 +1,24 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: validating-policy-custom-crd
+policies:
+- policy.yaml
+resources:
+- pass-destinationrule.yaml
+- fail-destinationrule.yaml
+results:
+- isValidatingPolicy: true
+  kind: DestinationRule
+  policy: destinationrule-specific-host
+  resources:
+  - fail-wildcard-host
+  result: fail
+- isValidatingPolicy: true
+  kind: DestinationRule
+  policy: destinationrule-specific-host
+  resources:
+  - pass-specific-host
+  result: pass

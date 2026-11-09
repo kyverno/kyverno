@@ -1,10 +1,14 @@
 package admissionpolicy
 
 import (
+	"reflect"
 	"testing"
+
+	"github.com/google/cel-go/cel"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -322,4 +326,59 @@ func TestBuildMutatingAdmissionPolicyBeta_MutationTypeConversion(t *testing.T) {
 	assert.Equal(t, admissionregistrationv1beta1.PatchTypeJSONPatch, mapol2.Spec.Mutations[0].PatchType)
 	assert.NotNil(t, mapol2.Spec.Mutations[0].JSONPatch)
 	assert.Equal(t, "[{'op': 'add', 'path': '/metadata/labels/app', 'value': 'test'}]", mapol2.Spec.Mutations[0].JSONPatch.Expression)
+}
+
+func TestCELStringListLiteral_ValuesStayLiterals(t *testing.T) {
+	// Each value is what a PolicyException author puts in spec.images or
+	// spec.allowedValues. Every one of them must survive as a plain string.
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{"plain image reference", "ghcr.io/kyverno/kyverno:v1.19.0"},
+		{"quote, brackets and an object path", "x'] + [object.spec.containers[0].image] + ['y"},
+		{"quote and an object path", "a' + object.metadata.name + '"},
+		{"quote, brackets and a division", "x'] + [string(1/0)] + ['y"},
+		{"unbalanced single quote", "a'"},
+		{"double quote", `weird"quote`},
+		{"backslash", `back\slash`},
+		{"newline", "new\nline"},
+	}
+
+	env, err := cel.NewEnv(cel.Variable("object", cel.DynType))
+	require.NoError(t, err)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expression, err := celStringListLiteral([]string{tt.value})
+			require.NoError(t, err)
+
+			// The rendered expression must be valid CEL, so the generated policy is
+			// always writable. Interpolating the value produced a syntax error for the
+			// quote, backslash and newline cases, which left a stale policy enforcing.
+			ast, issues := env.Compile(expression)
+			require.NoError(t, issues.Err())
+
+			// It must evaluate to exactly the author's string, with nothing resolved
+			// from the object under review.
+			program, err := env.Program(ast)
+			require.NoError(t, err)
+			out, _, err := program.Eval(map[string]any{"object": map[string]any{}})
+			require.NoError(t, err)
+
+			native, err := out.ConvertToNative(reflect.TypeOf([]string{}))
+			require.NoError(t, err)
+			assert.Equal(t, []string{tt.value}, native)
+		})
+	}
+}
+
+func TestCELStringListLiteral_Shapes(t *testing.T) {
+	expression, err := celStringListLiteral([]string{"a", "b"})
+	assert.NoError(t, err)
+	assert.Equal(t, `["a","b"]`, expression)
+
+	expression, err = celStringListLiteral(nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "null", expression)
 }

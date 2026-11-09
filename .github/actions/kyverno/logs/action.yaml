@@ -24,7 +24,9 @@ runs:
     - shell: bash
       run: |
         set -e
-        kubectl -n kyverno describe pod | grep -i events -A10
+        # kubectl 1.36+ hides events when describing several objects, and a failed grep
+        # here would skip the controller logs below.
+        kubectl -n kyverno describe pod --show-events=true | grep -i events -A10 || true
     - shell: bash
       run: |
         set -e

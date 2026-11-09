@@ -22,6 +22,16 @@ import (
 
 type Provider = engine.Provider[Policy]
 
+// KubeProvider is a Provider whose policies are compiled asynchronously by a controller watching the
+// cluster, as returned by NewKubeProvider.
+type KubeProvider interface {
+	Provider
+	// WarmUp synchronously compiles all policies that already exist in the cluster. It must be called
+	// after the manager cache has started and before admission traffic is served, otherwise Fetch
+	// can return no policies until the controller workqueue has caught up.
+	WarmUp(ctx context.Context) error
+}
+
 type ProviderFunc func(context.Context) ([]Policy, error)
 
 func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
@@ -61,7 +71,11 @@ func NewProvider(
 		for config, generatedPolicy := range generated {
 			autogenPolicy := policy.DeepCopyObject().(policiesv1beta1.ValidatingPolicyLike)
 			*autogenPolicy.GetValidatingPolicySpec() = *generatedPolicy.Spec
-			compiled, errs := compiler.Compile(autogenPolicy, matchedExceptions)
+			rewrittenExceptions, err := autogen.RewriteExceptions(matchedExceptions, config)
+			if err != nil {
+				return nil, err
+			}
+			compiled, errs := compiler.Compile(autogenPolicy, rewrittenExceptions)
 			if len(errs) > 0 {
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", autogenPolicy.GetName(), errs.ToAggregate())
 			}
@@ -83,7 +97,7 @@ func NewKubeProvider(
 	mgr ctrl.Manager,
 	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
-) (Provider, error) {
+) (KubeProvider, error) {
 	// Lets an unrecognized bare controller name (e.g. "jobsets") resolve via
 	// live discovery instead of requiring the explicit
 	// "<resource>.<version>.<group>" format - see autogen.BareNameResolver.

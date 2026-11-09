@@ -1,0 +1,56 @@
+apiVersion: cli.kyverno.io/v1alpha1
+checks:
+- assert:
+    message: The label `team` is required.
+    status: fail
+  error: null
+  match:
+    policy:
+      kind: ValidatingPolicy
+      metadata:
+        name: require-team-label
+    resource:
+      kind: Pod
+      metadata:
+        name: no-team-label
+- assert:
+    (object.message.contains('`team`')): true
+  error:
+    status: pass
+  match:
+    resource:
+      metadata:
+        name: no-team-label
+- assert:
+    status: pass
+  error:
+    status: fail
+  match:
+    policy:
+      metadata:
+        name: require-team-label
+    resource:
+      metadata:
+        labels:
+          team: platform
+        name: with-team-label
+kind: Test
+metadata:
+  name: check-team-label-test
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-team-label
+  resources:
+  - no-team-label
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-team-label
+  resources:
+  - with-team-label
+  result: pass

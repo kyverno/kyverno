@@ -147,3 +147,4 @@ webhooks:
     scope: '*'
   sideEffects: NoneOnDryRun
   timeoutSeconds: 20
+- name: protect-generation-labels.kyverno.svc

@@ -12,6 +12,7 @@ spec:
         content: kubectl apply -f policy.yaml
         check:
           ($error != null): true
-          # This check ensures the contents of stderr are exactly as shown.  
-          (trim_space($stderr)): |-
-            The GeneratingPolicy "zk-kafka-address" is invalid: spec.generate: Required value
+          # The API server lists one more error after this one when it skips the CRD's CEL
+          # rules for an invalid object, so only the missing field is checked.
+          (contains($stderr, 'The GeneratingPolicy "zk-kafka-address" is invalid')): true
+          "(contains($stderr, 'spec.generate: Required value'))": true

@@ -14,6 +14,17 @@ spec:
             file: http-pod.yaml
         - apply:
             file: service.yaml
+        - assert:
+            timeout: 120s
+            resource:
+              apiVersion: v1
+              kind: Pod
+              metadata:
+                name: test-api
+                namespace: default
+              status:
+                (conditions[?type == 'Ready']):
+                - status: "True"
     - name: step-02
       try:
         - apply:

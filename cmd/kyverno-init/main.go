@@ -39,6 +39,7 @@ func main() {
 		internal.WithOpenreports(),
 		internal.WithApiServerClient(),
 		internal.WithEventsClient(),
+		internal.WithMetadataClient(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -80,6 +81,7 @@ func main() {
 	// produces N events per rollout. This is acceptable and relies on normal Kubernetes
 	// event garbage collection (default TTL) to age them out.
 	checkLegacyPolicies(ctx, setup)
+	markLegacyPoliciesUnsupported(ctx, setup)
 	checkOrphanedWebhookConfigs(ctx, setup)
 
 	run := func(context.Context) {

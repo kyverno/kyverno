@@ -1,12 +1,12 @@
 package gpol
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func buildURSpecNew(requestType kyvernov2.RequestType, policyName string, trigger kyvernov1.ResourceSpec, deleteDownstream, synchronize bool) kyvernov2.UpdateRequestSpec {
+func buildURSpecNew(requestType kyvernov2.RequestType, policyName string, trigger kyverno.ResourceSpec, deleteDownstream, synchronize bool) kyvernov2.UpdateRequestSpec {
 	ruleCtx := buildRuleContext(policyName, trigger, deleteDownstream, synchronize)
 	return kyvernov2.UpdateRequestSpec{
 		Type:        requestType,
@@ -15,7 +15,7 @@ func buildURSpecNew(requestType kyvernov2.RequestType, policyName string, trigge
 	}
 }
 
-func buildRuleContext(policyName string, trigger kyvernov1.ResourceSpec, deleteDownstream, synchronize bool) kyvernov2.RuleContext {
+func buildRuleContext(policyName string, trigger kyverno.ResourceSpec, deleteDownstream, synchronize bool) kyvernov2.RuleContext {
 	return kyvernov2.RuleContext{
 		Rule:             policyName,
 		Trigger:          trigger,

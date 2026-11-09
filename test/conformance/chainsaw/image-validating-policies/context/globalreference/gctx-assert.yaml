@@ -8,7 +8,5 @@ spec:
       refreshInterval: 1h
       urlPath: /apis/apps/v1/deployments
     projections:
-    - jmesPath: items[?metadata.namespace=='test-globalcontext-apicall-correct'] |
-        length(@)
+    - expression: object.items.filter(i, i.metadata.namespace == 'test-globalcontext-apicall-correct').size()
       name: test-globalcontext-apicall-correct-projections_deployment_count
-

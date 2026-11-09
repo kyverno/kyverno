@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+    name: autogen-daemonset-background
+status:
+  conditionStatus:
+    conditions:
+    - message: Policy is ready for reporting.
+      reason: Succeeded
+      status: "True"
+      type: RBACPermissionsGranted
+    ready: true

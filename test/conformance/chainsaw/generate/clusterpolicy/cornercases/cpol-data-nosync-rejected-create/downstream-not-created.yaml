@@ -1,5 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: generated-cm
-  namespace: cpol-rejected-create-ns

@@ -1,0 +1,26 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: DaemonSet
+    name: privileged-daemonset
+results:
+- policy: autogen-daemonset-background
+  properties:
+    exceptions: exclude-privileged-daemonset
+  result: skip
+  scored: true
+  source: KyvernoValidatingPolicy
+scope:
+  apiVersion: apps/v1
+  kind: DaemonSet
+  name: privileged-daemonset
+summary:
+  error: 0
+  fail: 0
+  pass: 0
+  skip: 1
+  warn: 0

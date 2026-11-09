@@ -26,6 +26,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"go.yaml.in/yaml/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -355,7 +356,7 @@ func (c *templateCompiler) compileExpression(n *yaml.Node, expression string) (c
 	if err := issues.Err(); err != nil {
 		return nil, fmt.Errorf("line %d: invalid placeholder expression %q: %v", n.Line, expression, err)
 	}
-	program, err := c.env.Program(ast)
+	program, err := celcompiler.NewProgram(c.env, ast)
 	if err != nil {
 		return nil, fmt.Errorf("line %d: failed to build placeholder program %q: %v", n.Line, expression, err)
 	}

@@ -2057,6 +2057,37 @@ Required.</p>
     
     
       <tr>
+        <td><code>validations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Validation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validations are compensating controls that must be satisfied for this exception to be
+granted. They are evaluated only for resources that already matched MatchConditions.
+If any expression evaluates to false, the exception is not granted and the resource is
+rejected with that validation's message.
+Only honored for exceptions referencing a ValidatingPolicy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>images</code>
           
           </br>
@@ -8036,6 +8067,36 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
     
     
       <tr>
+        <td><code>enabled</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">bool</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Enabled specifies whether to generate pod controller rules.
+Optional. Defaults to &quot;true&quot; if not specified.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>controllers</code>
           
           <span style="color:blue;"> *</span>
@@ -8052,7 +8113,10 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
         <td>
           
 
-          
+          <p>Controllers specifies the list of pod controllers to generate rules for,
+for example DaemonSet, Deployment, Job, StatefulSet, ReplicaSet, ReplicationController, CronJob.
+Optional. Defaults to all supported pod controllers if not specified.</p>
+
 
           
 
@@ -8146,6 +8210,37 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
           
 
           <p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Validation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validations are compensating controls that must be satisfied for this exception to be
+granted. They are evaluated only for resources that already matched MatchConditions.
+If any expression evaluates to false, the exception is not granted and the resource is
+rejected with that validation's message.
+Only honored for exceptions referencing a ValidatingPolicy.</p>
 
 
           

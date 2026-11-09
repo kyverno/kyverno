@@ -196,7 +196,7 @@ func wirePolicyType(ctx context.Context, env *TestEnv, pt PolicyType, polexEnabl
 		gpolLister, ngpolLister := NewGpolListers(ctx, env.KyvernoClient)
 		if polexEnabled {
 			polexLister := NewGpolPolexLister(ctx, env.KyvernoClient)
-			gpolEngine, gpolProvider := NewGpolEngineWithExceptions(gpolLister, ngpolLister, polexLister)
+			gpolEngine, gpolProvider := NewGpolEngineWithExceptions(ctx, env.KubeClient, gpolLister, ngpolLister, polexLister)
 			env.Gpol = &GpolSetup{
 				Engine:           gpolEngine,
 				Provider:         gpolProvider,
@@ -204,7 +204,7 @@ func wirePolicyType(ctx context.Context, env *TestEnv, pt PolicyType, polexEnabl
 				NamespacedLister: ngpolLister,
 			}
 		} else {
-			gpolEngine, gpolProvider := NewGpolEngine(gpolLister, ngpolLister)
+			gpolEngine, gpolProvider := NewGpolEngine(ctx, env.KubeClient, gpolLister, ngpolLister)
 			env.Gpol = &GpolSetup{
 				Engine:           gpolEngine,
 				Provider:         gpolProvider,

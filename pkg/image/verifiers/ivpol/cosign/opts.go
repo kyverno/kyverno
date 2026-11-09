@@ -7,15 +7,18 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	imagecredentials "github.com/kyverno/kyverno/pkg/image/verification/credentials"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/sigstoretuf"
-	"github.com/kyverno/sdk/extensions/regcreds"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/sigstore/cosign/v3/pkg/blob"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
@@ -81,6 +84,8 @@ func countPEMCertBlocks(pem []byte) int {
 }
 
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister) (*cosign.CheckOpts, error) {
+	// Each verification owns the options appended for its source and context.
+	baseROpts = slices.Clone(baseROpts)
 	// Key/certificate verification with the transparency log ignored needs no
 	// Sigstore infrastructure (TUF, Rekor, CTLog), mirroring cosign.
 	ignoreTlog := att.CTLog != nil && att.CTLog.InsecureIgnoreTlog
@@ -106,6 +111,8 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			cosignRemoteOpts = append(cosignRemoteOpts, ociremote.WithPrefix(att.Source.TagPrefix))
 		}
 	}
+	// A cached image may carry older registry options; verification owns the request context.
+	baseROpts = append(baseROpts, remote.WithContext(ctx))
 	cosignRemoteOpts = append(cosignRemoteOpts, ociremote.WithRemoteOptions(baseROpts...), ociremote.WithNameOptions(baseNOpts...))
 
 	var err error
@@ -196,6 +203,9 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 					SubjectRegExp: id.SubjectRegExp,
 				})
 		}
+		if err := applyAdditionalExtensions(opts, att.Keyless.AdditionalExtensions); err != nil {
+			return nil, err
+		}
 		// trust is always non-nil when att.Keyless != nil because
 		// skipSigstoreInfra requires keyOrCert=true (att.Keyless==nil).
 		opts.RootCerts = trust.fulcioRoots
@@ -281,6 +291,60 @@ type sigstoreTrustMaterial struct {
 	trustedRoot         *root.TrustedRoot
 	fulcioRoots         *x509.CertPool
 	fulcioIntermediates *x509.CertPool
+}
+
+// take extensions that exist in the policy's definition and use them to populate
+// attestation opts
+func applyAdditionalExtensions(opts *cosign.CheckOpts, extensions map[string]string) error {
+	// canonicalize friendly names to OIDs so that both spellings of the same
+	// extension collapse to one entry, rejecting conflicting values
+	byOID := make(map[string]string, len(extensions))
+	for _, key := range slices.Sorted(maps.Keys(extensions)) {
+		oid, ok := canonicalExtensionOID(key) // translate a friendly key to an OID
+		if !ok {
+			return fmt.Errorf("invalid certificate extension %q in additionalExtensions", key)
+		}
+		if oid == cosign.CertExtensionOIDCIssuer {
+			return fmt.Errorf("additionalExtensions key %q is not supported, use identities issuer or issuerRegExp", key)
+		}
+		value := extensions[key]
+		if prev, isDuplicated := byOID[oid]; isDuplicated && prev != value {
+			return fmt.Errorf("additionalExtensions contains conflicting values for certificate extension %s (%s): %q and %q",
+				oid, cosign.CertExtensionMap[oid], prev, value)
+		}
+		byOID[oid] = value
+	}
+	for oid, value := range byOID {
+		switch oid {
+		case cosign.CertExtensionGithubWorkflowTrigger:
+			opts.CertGithubWorkflowTrigger = value
+		case cosign.CertExtensionGithubWorkflowSha:
+			opts.CertGithubWorkflowSha = value
+		case cosign.CertExtensionGithubWorkflowName:
+			opts.CertGithubWorkflowName = value
+		case cosign.CertExtensionGithubWorkflowRepository:
+			opts.CertGithubWorkflowRepository = value
+		case cosign.CertExtensionGithubWorkflowRef:
+			opts.CertGithubWorkflowRef = value
+		}
+	}
+	return nil
+}
+
+// canonicalExtensionOID resolves an OID or its friendly name to the OID.
+func canonicalExtensionOID(key string) (string, bool) {
+	// its an oid, return that directly
+	if _, ok := cosign.CertExtensionMap[key]; ok {
+		return key, true
+	}
+	// if its a friendly name, iterate on the extensions map and check
+	// if the value is equal to the passed key, then return that map key
+	for oid, name := range cosign.CertExtensionMap {
+		if name == key {
+			return oid, true
+		}
+	}
+	return "", false
 }
 
 // initTUFAndFetch pre-reads any file-based TUF root (pure I/O), then
@@ -385,7 +449,13 @@ func sourceRemoteOpts(secretLister corev1listers.SecretLister, src *v1beta1.Sour
 		for _, s := range src.SignaturePullSecrets {
 			signaturePullSecrets = append(signaturePullSecrets, s.Name)
 		}
-		kc := regcreds.NewSecretsKeychain(secretLister, config.KyvernoNamespace(), logging.GlobalLogger(), signaturePullSecrets...)
+		// No policy is in scope here, so take the namespace from the lister the
+		// verifier was built with: NewIvFuncs confines it to the policy
+		// namespace for a namespaced policy and leaves it unconfined for a
+		// cluster-scoped one, which is exactly the distinction a bare
+		// signaturePullSecrets name needs.
+		namespace := kubeutils.CredentialNamespace(secretLister, config.KyvernoNamespace())
+		kc := imagecredentials.NewSecretsKeychain(secretLister, namespace, logging.GlobalLogger(), signaturePullSecrets...)
 		opts = append(opts, remote.WithAuthFromKeychain(kc))
 	}
 	return opts, nil

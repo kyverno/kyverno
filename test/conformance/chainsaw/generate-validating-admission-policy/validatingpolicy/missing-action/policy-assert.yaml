@@ -5,7 +5,7 @@ metadata:
 status:
   conditionStatus:
     (conditions[?type == 'WebhookConfigured']):
-    - message: Webhook configured.
+    - message: Admission is enforced by the generated ValidatingAdmissionPolicy.
       reason: Succeeded
       status: "True"
     (conditions[?type == 'RBACPermissionsGranted']):

@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -166,6 +167,51 @@ func TestHandleValidating_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *t
 	})
 }
 
+func TestHandleValidating_ExtractionMode_TemplateNamespaceDoesNotEscapeMatchConditions(t *testing.T) {
+	for _, expression := range []string{
+		"object.metadata.namespace != 'kube-system'",
+		"request.namespace != 'kube-system'",
+	} {
+		t.Run(expression, func(t *testing.T) {
+			policy := buildExtractionModeRequestPolicy()
+			policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{
+				{Name: "skip-system-namespaces", Expression: expression},
+			}
+			provider, err := NewProvider(iveval.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{policy}, nil)
+			require.NoError(t, err)
+			eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
+			eng.newImageContext = func() (imagedataloader.ImageContext, error) {
+				return fakeImageContext{}, nil
+			}
+
+			// the JobSet lives in default, so its pods are created in default no
+			// matter which namespace its pod template claims
+			obj := jobSetWithImage("bash:latest")
+			replicatedJob := obj.Object["spec"].(map[string]any)["replicatedJobs"].([]any)[0].(map[string]any)
+			podTemplate := replicatedJob["template"].(map[string]any)["spec"].(map[string]any)["template"].(map[string]any)
+			podTemplate["metadata"] = map[string]any{"namespace": "kube-system"}
+			raw, err := obj.MarshalJSON()
+			require.NoError(t, err)
+			req := engine.EngineRequest{
+				Request: v1.AdmissionRequest{
+					Operation:       v1.Create,
+					Kind:            metav1.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+					Resource:        metav1.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+					RequestResource: &metav1.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+					Namespace:       "default",
+					Name:            "latest-tag-jobset",
+					Object:          apiruntime.RawExtension{Raw: raw},
+				},
+			}
+			resp, err := eng.HandleValidating(context.Background(), req, nil)
+			require.NoError(t, err)
+			require.Len(t, resp.Policies, 1)
+			rule := resp.Policies[0].Result
+			assert.Equal(t, engineapi.RuleStatusFail, rule.Status(), "message: %s", rule.Message())
+		})
+	}
+}
+
 // jobSetWithNTemplates builds a JobSet with n independent replicatedJobs
 // entries, each containing exactly one pod template -- so
 // extract.ExtractPodTemplates(obj) finds exactly n templates.
@@ -208,7 +254,9 @@ type countingNilThunkCompiledPolicy struct {
 
 func (c *countingNilThunkCompiledPolicy) Evaluate(
 	_ context.Context,
-	_ *imageverify.Runtime,
+	_ imagedataloader.ImageContext,
+	_ imageverifycache.Client,
+	_ *imageverify.ImageVerificationResults,
 	_ admission.Attributes,
 	_ interface{},
 	_ apiruntime.Object,
@@ -223,13 +271,17 @@ func (c *countingNilThunkCompiledPolicy) Evaluate(
 	return &eval.EvaluationResult{Result: true}, nil
 }
 
+func (c *countingNilThunkCompiledPolicy) Tracing() bool { return false }
+
 func (c *countingNilThunkCompiledPolicy) EnforceRequired(images []string, _ *imageverify.ImageVerificationResults) error {
 	return nil
 }
 
 func (c *countingNilThunkCompiledPolicy) MutateDigest(
 	context.Context,
-	*imageverify.Runtime,
+	imagedataloader.ImageContext,
+	imageverifycache.Client,
+	*imageverify.ImageVerificationResults,
 	admission.Attributes,
 	interface{},
 	apiruntime.Object,
@@ -281,7 +333,7 @@ func TestEvaluateExtractedIv_BuildsExactlyOncePerTemplate_NeverSharesOuterThunk(
 
 	compiled := &countingNilThunkCompiledPolicy{t: t}
 	e := &engineImpl{}
-	result, err := e.evaluateExtractedIv(context.Background(), compiled, &imageverify.Runtime{ImageContext: fakeImageContext{}}, attr, request, nil, nil)
+	result, err := e.evaluateExtractedIv(context.Background(), compiled, fakeImageContext{}, nil, nil, attr, request, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Nil(t, result.Error)

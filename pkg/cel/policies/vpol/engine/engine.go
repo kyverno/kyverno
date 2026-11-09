@@ -16,6 +16,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -50,7 +52,14 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 	}
 }
 
+// newActivationBuilder constructs the ActivationBuilder for an admission review.
+// Swapped in unit tests to observe builder instantiation and assembly across Handle.
+var newActivationBuilder = celcompiler.NewActivationBuilder
+
 func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicate Predicate) (EngineResponse, error) {
+	// A shared CEL cost budget for every policy this call evaluates (requestbudget.Ensure
+	// is a no-op if the webhook handler already set one on ctx).
+	ctx, _ = requestbudget.Ensure(ctx)
 	var response EngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)
@@ -61,8 +70,12 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 	if request.JsonPayload != nil {
 		response.Resource = request.JsonPayload
 		for _, policy := range policies {
-			response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.JsonPayload.Object, nil, nil, nil, nil, request.Context))
+			if predicate != nil && !predicate(policy.Policy) {
+				continue
+			}
+			response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.JsonPayload.Object, nil, nil, nil, nil, nil, request.Context))
 		}
+		annotateTraces(&response)
 		return response, nil
 	}
 	// load objects
@@ -111,6 +124,7 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
 		return celcompiler.BuildRawRequestMap(&request.Request)
 	})
+	activationBuilder := newActivationBuilder(attr, &request.Request, namespace, requestMapFn, celcompiler.BuildRawRequestMap)
 	// evaluate policies
 	for _, policy := range policies {
 		if predicate != nil && !predicate(policy.Policy) {
@@ -118,29 +132,67 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		}
 
 		startTime := time.Now()
-		pol := e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, requestMapFn, request.Context)
+		pol := e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, activationBuilder, requestMapFn, request.Context)
 		for i, rule := range pol.Rules {
 			pol.Rules[i] = rule.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 		}
 
 		response.Policies = append(response.Policies, pol)
 	}
+	annotateTraces(&response)
 	return response, nil
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, requestMapFn func() (map[string]any, error), context libs.Context) engine.ValidatingPolicyResponse {
+// annotateTraces fills in the policy and resource header of every trace. handlePolicy cannot do
+// it because the resource is only known once the whole request has been unpacked.
+func annotateTraces(response *EngineResponse) {
+	for i := range response.Policies {
+		p := &response.Policies[i]
+		if p.Trace == nil {
+			continue
+		}
+		p.Trace.PolicyName = p.Policy.GetName()
+		p.Trace.PolicyKind = p.Policy.GetKind()
+		if p.Trace.PolicyKind == "" {
+			p.Trace.PolicyKind = "ValidatingPolicy"
+		}
+		if r := response.Resource; r != nil {
+			p.Trace.ResourceKind = r.GetKind()
+			p.Trace.ResourceName = r.GetName()
+			p.Trace.ResourceNamespace = r.GetNamespace()
+		}
+	}
+}
+
+// handlePolicy matches and evaluates a single ValidatingPolicy using the shared activationBuilder.
+func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, activationBuilder celcompiler.ActivationBuilder, requestMapFn func() (map[string]any, error), context libs.Context) engine.ValidatingPolicyResponse {
 	response := engine.ValidatingPolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
 	}
+	tracing := policy.CompiledPolicy.Tracing()
+	var scope trace.ScopeTrace
 	if e.matcher != nil {
-		matches, err := e.matchPolicy(policy.CompiledPolicy.MatchConstraints(), attr, namespace)
+		constraints := policy.CompiledPolicy.MatchConstraints()
+		matches, err := e.matchPolicy(constraints, attr, namespace)
+		if tracing {
+			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(constraints, attr, namespace, matches)}
+		}
 		if err != nil {
 			response.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
+			if tracing {
+				scope.Reason = "failed to evaluate matchConstraints: " + err.Error()
+				response.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()}}
+			}
 			return response
 		} else if !matches {
+			if tracing {
+				response.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "the policy does not apply to this resource"}}
+			}
 			return response
 		}
+	} else if tracing {
+		scope = trace.ScopeTrace{Applied: true, Reason: "evaluated against a JSON payload, so no matchConstraints apply"}
 	}
 	var result *compiler.EvaluationResult
 	var err error
@@ -153,12 +205,11 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		// requestMapFn above - it must not be forwarded here.
 		result, err = e.evaluateExtracted(ctx, policy, attr, request, namespace, context)
 	default:
-		result, err = policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, requestMapFn, context)
+		result, err = policy.CompiledPolicy.EvaluateWithActivation(ctx, nil, attr, request, namespace, activationBuilder, requestMapFn, context)
 	}
-	// TODO: error is about match conditions here ?
 	if err != nil {
-		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
-	} else if result == nil {
+		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to evaluate policy", err, nil))
+	} else if result == nil || result.Skipped {
 		response.Rules = append(response.Rules, *engineapi.RuleSkip("", engineapi.Validation, "skip", nil).WithSkipReason(engineapi.SkipReasonMatchConditions))
 	} else if len(result.Exceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
@@ -217,14 +268,65 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	} else {
 		ruleName := "validation"
 		if result.Error != nil {
-			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
+			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)).WithMessageExpressionError(result.MessageExpressionError))
 		} else if result.Result {
 			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
+		} else if refused := result.RefusedException; refused != nil {
+			// an exception matched but its controls were not satisfied, and the policy then
+			// failed. Report what the exception required: nowhere else does the submitter learn
+			// one was in play. reportResult is not consulted — nothing was granted.
+			exceptions := []engineapi.GenericException{engineapi.NewCELPolicyException(refused.Exception)}
+			msgErr := result.MessageExpressionError
+			if refused.MessageExpressionError != nil {
+				msgErr = refused.MessageExpressionError
+			}
+			if refused.Error != nil {
+				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation,
+					fmt.Sprintf("failed to evaluate compensating controls of policy exception %s", cache.MetaObjectToName(refused.Exception)),
+					refused.Error, withValidationIndex(nil, result.Index),
+				).WithExceptions(exceptions).WithMessageExpressionError(msgErr))
+			} else {
+				props := withValidationIndex(result.AuditAnnotations, result.Index)
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, refused.Message, props).WithExceptions(exceptions).WithMessageExpressionError(msgErr))
+			}
 		} else {
-			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
+			props := withValidationIndex(result.AuditAnnotations, result.Index)
+			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, props).WithMessageExpressionError(result.MessageExpressionError))
+		}
+	}
+	if tracing {
+		switch {
+		case err != nil && result != nil && result.Trace != nil:
+			// Evaluate failed partway (e.g. a match condition errored) but kept what it traced
+			result.Trace.Scope = scope
+			response.Trace = result.Trace
+		case err != nil:
+			response.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()}}
+		case result != nil && result.Trace != nil:
+			result.Trace.Scope = scope
+			response.Trace = result.Trace
+		case result != nil && len(result.Exceptions) > 0:
+			response.Trace = &trace.Decision{Scope: scope, Verdict: exceptionVerdict(response.Rules)}
 		}
 	}
 	return response
+}
+
+// exceptionVerdict mirrors the rule reported for an exempted resource: the selected exception's
+// reportResult decides between pass and skip, and the rule's message names the exceptions.
+func exceptionVerdict(rules []engineapi.RuleResponse) trace.VerdictTrace {
+	verdict := trace.VerdictTrace{Status: trace.VerdictSkip, Message: "exempted by a policy exception"}
+	if len(rules) == 0 {
+		return verdict
+	}
+	rule := rules[len(rules)-1]
+	if rule.Status() == engineapi.RuleStatusPass {
+		verdict.Status = trace.VerdictPass
+	}
+	if message := rule.Message(); message != "" {
+		verdict.Message = message
+	}
+	return verdict
 }
 
 // evaluateExtracted implements ExtractionMode: instead of evaluating
@@ -267,6 +369,7 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 	}
 	var (
 		last          *compiler.EvaluationResult
+		lastSkipped   *compiler.EvaluationResult
 		allExceptions []*policiesv1beta1.PolicyException
 	)
 	for _, tpl := range templates {
@@ -289,9 +392,21 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 		// nil-fallback).
 		result, err := policy.CompiledPolicy.Evaluate(ctx, nil, synthAttr, synthRequest, namespace, nil, context)
 		if err != nil {
-			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
+			err = fmt.Errorf("pod template at %s: %w", tpl.Path, err)
+			// result is nil here unless tracing is on, in which case it carries what was traced
+			// before the failure (e.g. the match conditions); pass it up with the error so
+			// handlePolicy can still render it, labelled with the same template path
+			if result != nil && result.Trace != nil {
+				result.Trace.Verdict.Message = err.Error()
+			}
+			return result, err
 		}
-		if result == nil {
+		if result == nil || result.Skipped {
+			// with tracing on, a skipped template still carries its match-condition trace;
+			// keep the most recent one so it is not lost if every template ends up skipped.
+			if result != nil && result.Trace != nil {
+				lastSkipped = result
+			}
 			continue
 		}
 		// A policy-exception match is a per-template skip, not a failure - it
@@ -308,12 +423,24 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 			if result.Error != nil {
 				result.Error = fmt.Errorf("%w (pod template at %s)", result.Error, tpl.Path)
 			}
+			// a refusal is what gets reported, so it must carry the path too
+			if refused := result.RefusedException; refused != nil {
+				if refused.Message != "" {
+					refused.Message = fmt.Sprintf("%s (pod template at %s)", refused.Message, tpl.Path)
+				}
+				if refused.Error != nil {
+					refused.Error = fmt.Errorf("%w (pod template at %s)", refused.Error, tpl.Path)
+				}
+			}
 			return result, nil
 		}
 		last = result
 	}
 	if last == nil && len(allExceptions) > 0 {
 		return &compiler.EvaluationResult{Exceptions: allExceptions}, nil
+	}
+	if last == nil && lastSkipped != nil {
+		return lastSkipped, nil
 	}
 	return last, nil
 }

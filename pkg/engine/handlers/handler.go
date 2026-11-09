@@ -1,42 +1,8 @@
 package handlers
 
 import (
-	"context"
-
-	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-type Handler interface {
-	Process(
-		context.Context,
-		logr.Logger,
-		engineapi.PolicyContext,
-		unstructured.Unstructured,
-		kyvernov1.Rule,
-		engineapi.EngineContextLoader,
-		[]*kyvernov2.PolicyException,
-	) (unstructured.Unstructured, []engineapi.RuleResponse)
-}
-
-func WithError(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, err error) []engineapi.RuleResponse {
-	return WithResponses(engineapi.RuleError(rule.Name, ruleType, msg, err, rule.ReportProperties))
-}
-
-func WithSkip(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
-	return WithResponses(engineapi.RuleSkip(rule.Name, ruleType, msg, rule.ReportProperties))
-}
-
-func WithPass(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
-	return WithResponses(engineapi.RulePass(rule.Name, ruleType, msg, rule.ReportProperties))
-}
-
-func WithFail(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
-	return WithResponses(engineapi.RuleFail(rule.Name, ruleType, msg, rule.ReportProperties))
-}
 
 func WithResponses(rrs ...*engineapi.RuleResponse) []engineapi.RuleResponse {
 	var out []engineapi.RuleResponse

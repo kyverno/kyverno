@@ -1,0 +1,7 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: fail-wildcard-host
+  namespace: default
+spec:
+  host: "*.default.svc.cluster.local"

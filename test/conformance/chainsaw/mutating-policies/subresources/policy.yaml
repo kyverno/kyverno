@@ -18,8 +18,6 @@ spec:
       expression: >
         Object{
           status: Object.status{
-            capacity: Object.status.capacity{
-              example.com/dongle: "4"
-            }
+            capacity: {"example.com/dongle": "4"}
           }
-        }ß
+        }

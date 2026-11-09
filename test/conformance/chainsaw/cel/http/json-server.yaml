@@ -12,7 +12,7 @@ spec:
   automountServiceAccountToken: false
   containers:
   - name: server
-    image: public.ecr.aws/docker/library/python:3.9-slim
+    image: mirror.gcr.io/library/python:3.9-slim
     command: [python3, -c]
     args:
     - |

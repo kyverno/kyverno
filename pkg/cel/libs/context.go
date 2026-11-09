@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -129,7 +128,9 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 			return nil, err
 		}
 		if out != nil {
-			return *out, nil
+			// Return the map form: since cel-go v0.31 (#17067) NativeToValue only converts
+			// registered native types, and unstructured.Unstructured is not one.
+			return out.UnstructuredContent(), nil
 		} else {
 			return nil, errors.New("failed to convert to Unstructured")
 		}
@@ -139,6 +140,10 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 }
 
 func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option) (map[string]any, error) {
+	return cp.GetImageDataContext(context.TODO(), image, remoteOpts)
+}
+
+func (cp *contextProvider) GetImageDataContext(ctx context.Context, image string, remoteOpts []remote.Option) (map[string]any, error) {
 	// NOTE: we deliberately not pass name options here because there is currently only one
 	// name option we build, which is name.Insecure. This option already gets build and passed
 	// during the fetching of the global registry client options and then building the image data
@@ -146,7 +151,7 @@ func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option
 	// the current state means we are using the flags of the registry client to denote whether we use the name insecure option here
 	// so we aren't honoring it per policy. but if we did per policy, then a policy without anything wouldn't pass this opt
 	// but the if the flag is set, the registry client opts will come with the name insecure option
-	data, err := cp.imagedata.FetchImageData(context.TODO(), image, remoteOpts, nil)
+	data, err := cp.imagedata.FetchImageData(ctx, image, remoteOpts, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -154,10 +159,24 @@ func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option
 }
 
 func (cp *contextProvider) ListResources(apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
+	return cp.ListResourcesContext(context.TODO(), apiVersion, resource, namespace, l)
+}
+
+func (cp *contextProvider) ListResourcesContext(ctx context.Context, apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
 	}
+	if err := validateGroupVersion(groupVersion); err != nil {
+		return nil, err
+	}
+	if err := validateNamespaceSegment(namespace); err != nil {
+		return nil, err
+	}
+	if err := validatePathSegment("resource", resource); err != nil {
+		return nil, err
+	}
+
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 
 	labelSelector := labels.Everything()
@@ -165,38 +184,73 @@ func (cp *contextProvider) ListResources(apiVersion, resource, namespace string,
 		labelSelector = labels.SelectorFromSet(l)
 	}
 
-	return resourceInteface.List(context.TODO(), metav1.ListOptions{
+	return resourceInteface.List(ctx, metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 }
 
 func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+	return cp.GetResourceContext(context.TODO(), apiVersion, resource, namespace, name)
+}
+
+func (cp *contextProvider) GetResourceContext(ctx context.Context, apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
 	}
-	parts := strings.Split(resource, "/")
-	resource = parts[0]
-	subresources := parts[1:]
+	if err := validateGroupVersion(groupVersion); err != nil {
+		return nil, err
+	}
+	if err := validateNamespaceSegment(namespace); err != nil {
+		return nil, err
+	}
+	resource, subresources, err := splitResourcePath(resource)
+	if err != nil {
+		return nil, err
+	}
+	if err := validatePathSegment("name", name); err != nil {
+		return nil, err
+	}
 
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{}, subresources...)
+	return resourceInteface.Get(ctx, name, metav1.GetOptions{}, subresources...)
 }
 
 func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
+	return cp.PostResourceContext(context.TODO(), apiVersion, resource, namespace, data)
+}
+
+func (cp *contextProvider) PostResourceContext(ctx context.Context, apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
 	}
-	parts := strings.Split(resource, "/")
-	resource = parts[0]
-	subresources := parts[1:]
+	if err := validateGroupVersion(groupVersion); err != nil {
+		return nil, err
+	}
+	if err := validateNamespaceSegment(namespace); err != nil {
+		return nil, err
+	}
+	resource, subresources, err := splitResourcePath(resource)
+	if err != nil {
+		return nil, err
+	}
 
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{}, subresources...)
+	return resourceInteface.Create(ctx, &unstructured.Unstructured{Object: data}, metav1.CreateOptions{}, subresources...)
 }
 
 func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
+	return cp.GenerateResourcesContext(context.TODO(), namespace, dataList)
+}
+
+func (cp *contextProvider) GenerateResourcesContext(ctx context.Context, namespace string, dataList []map[string]any) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	for _, data := range dataList {
 		resource := &unstructured.Unstructured{Object: data}
 
@@ -265,7 +319,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			item.SetNamespace(targetNamespace)
 			// check if the resource already exists
 			existing, err := cp.client.GetResource(
-				context.TODO(),
+				ctx,
 				item.GetAPIVersion(),
 				item.GetKind(),
 				targetNamespace,
@@ -278,7 +332,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 						var generatedRes *unstructured.Unstructured
 						if cp.genCtx.useServerSideApply {
 							generatedRes, err = cp.client.ApplyResource(
-								context.TODO(),
+								ctx,
 								item.GetAPIVersion(),
 								item.GetKind(),
 								targetNamespace,
@@ -289,7 +343,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 							)
 						} else {
 							generatedRes, err = cp.client.CreateResource(
-								context.TODO(),
+								ctx,
 								item.GetAPIVersion(),
 								item.GetKind(),
 								targetNamespace,
@@ -324,7 +378,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			}
 			if cp.genCtx.useServerSideApply {
 				generatedRes, err := cp.client.ApplyResource(
-					context.TODO(),
+					ctx,
 					item.GetAPIVersion(),
 					item.GetKind(),
 					targetNamespace,
@@ -346,7 +400,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			item.SetUID(existing.GetUID())
 			item.SetResourceVersion(existing.GetResourceVersion())
 			generatedRes, err := cp.client.UpdateResource(
-				context.TODO(),
+				ctx,
 				item.GetAPIVersion(),
 				item.GetKind(),
 				targetNamespace,

@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/cel-go/cel"
@@ -70,8 +71,8 @@ func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1beta1.ImageE
 	return nil
 }
 
-func (c *ImageExtractor) GetImages(data map[string]any) ([]string, error) {
-	out, _, err := c.Eval(data)
+func (c *ImageExtractor) GetImages(ctx context.Context, data map[string]any) ([]string, error) {
+	out, _, err := c.ContextEval(ctx, data)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +105,7 @@ func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVer
 			msg := fmt.Sprintf("output is expected to be of type %s", expectedType.TypeName())
 			return nil, append(allErrs, field.Invalid(path, m.Expression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, m.Expression, err.Error()))
 		}
@@ -115,10 +116,10 @@ func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVer
 	return compiled, nil
 }
 
-func ExtractImages(data map[string]any, extractors map[string]ImageExtractor) (map[string][]string, error) {
+func ExtractImages(ctx context.Context, data map[string]any, extractors map[string]ImageExtractor) (map[string][]string, error) {
 	result := make(map[string][]string, len(extractors))
 	for key, value := range extractors {
-		if images, err := value.GetImages(data); err != nil {
+		if images, err := value.GetImages(ctx, data); err != nil {
 			return nil, err
 		} else {
 			result[key] = images

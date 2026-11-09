@@ -1,0 +1,7 @@
+apiVersion: example.com/v1
+kind: Gadget
+metadata:
+  name: good-gadget
+  namespace: default
+  labels:
+    app: my-app

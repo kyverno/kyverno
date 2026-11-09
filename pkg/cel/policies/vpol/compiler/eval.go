@@ -1,12 +1,10 @@
 package compiler
 
 import (
-	"fmt"
-
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/sdk/extensions/cel/utils"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,13 +13,39 @@ import (
 )
 
 type EvaluationResult struct {
-	Error            error
-	Message          string
-	Index            int
-	Result           bool
-	AuditAnnotations map[string]string
-	Exceptions       []*policiesv1beta1.PolicyException
-	PatchedResource  unstructured.Unstructured
+	Error error
+	// MessageExpressionError holds the raw error returned when evaluating the
+	// CEL messageExpression field fails at runtime. The Message field is still
+	// set to a human-readable fallback string (per the Kubernetes API spec), but
+	// this field lets tooling distinguish a legitimate rule failure from one where
+	// the failure message itself could not be computed.
+	MessageExpressionError error
+	Message                string
+	Index                  int
+	Result                 bool
+	AuditAnnotations       map[string]string
+	Exceptions             []*policiesv1beta1.PolicyException
+	PatchedResource        unstructured.Unstructured
+	RefusedException       *RefusedException
+	// Trace is the decision trace for this evaluation. It is nil unless the policy was compiled
+	// with tracing on, so callers must nil-check it. Only Match, Variables and Verdict are
+	// filled here; the policy/resource header and Scope are unknown at this level and are left
+	// for the caller to fill in.
+	Trace *trace.Decision
+	// Skipped is set when a match condition excluded the resource. Without tracing that case
+	// returns a nil result, and it still does; a non-nil skipped result is only returned when
+	// tracing is on, so the match traces are not lost. Consumers must treat it exactly like nil.
+	Skipped bool
+}
+
+// RefusedException records an exception that matched but whose compensating controls did not
+// hold. It rides alongside the policy's own outcome: a compliant resource needs no exception and
+// must not be denied by one, so this is only reported, as the message, once the policy failed.
+type RefusedException struct {
+	Exception              *policiesv1beta1.PolicyException
+	Message                string
+	Error                  error
+	MessageExpressionError error
 }
 
 type evaluationData struct {
@@ -50,35 +74,34 @@ func prepareK8sData(
 	requestMapFn func() (map[string]any, error),
 	context libs.Context,
 ) (evaluationData, error) {
-	if attr == nil {
-		return evaluationData{}, fmt.Errorf("cannot evaluate Kubernetes-mode policy without admission attributes (hint: use a non-Kubernetes evaluation mode for raw payloads)")
-	}
-	namespaceVal, err := utils.ObjectToResolveVal(namespace)
-	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
-	}
-	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
-	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-	}
-	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
-	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-	}
-	var requestMap map[string]any
-	if requestMapFn != nil {
-		requestMap, err = requestMapFn()
+	return prepareK8sDataWithActivation(attr, request, namespace, nil, requestMapFn, context)
+}
+
+// prepareK8sDataWithActivation assembles evaluationData using an optional precomputed
+// ActivationBuilder. When activationBuilder is nil, it falls back to PrepareK8sActivation.
+func prepareK8sDataWithActivation(
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace runtime.Object,
+	activationBuilder compiler.ActivationBuilder,
+	requestMapFn func() (map[string]any, error),
+	context libs.Context,
+) (evaluationData, error) {
+	var activation compiler.ActivationData
+	var err error
+	if activationBuilder != nil {
+		activation, err = activationBuilder()
 	} else {
-		requestMap, err = compiler.BuildRawRequestMap(request)
+		activation, err = compiler.PrepareK8sActivation(attr, request, namespace, requestMapFn, compiler.BuildRawRequestMap)
 	}
 	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+		return evaluationData{}, err
 	}
 	return evaluationData{
-		Namespace: namespaceVal,
-		Object:    objectVal,
-		OldObject: oldObjectVal,
-		Request:   requestMap,
+		Namespace: activation.Namespace,
+		Object:    activation.Object,
+		OldObject: activation.OldObject,
+		Request:   activation.Request,
 		Context:   context,
 	}, nil
 }

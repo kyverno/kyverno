@@ -10,12 +10,10 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -178,76 +176,32 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 
 func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) {
 	for _, policy := range rf.Policies {
-		if kpol := policy.AsKyvernoPolicy(); kpol != nil {
-			for _, rule := range autogen.Default.ComputeRules(kpol, "") {
-				rf.getKindsFromRule(rule, info)
-			}
-		} else {
-			var matchResources *admissionregistrationv1.MatchResources
-			if vap := policy.AsValidatingAdmissionPolicy(); vap != nil {
-				matchResources = vap.GetDefinition().Spec.MatchConstraints
-			} else if vp := policy.AsValidatingPolicy(); vp != nil {
-				matchResources = vp.Spec.MatchConstraints
-			} else if nvp := policy.AsNamespacedValidatingPolicy(); nvp != nil {
-				matchResources = nvp.Spec.MatchConstraints
-			} else if ivp := policy.AsImageValidatingPolicy(); ivp != nil {
-				matchResources = ivp.Spec.MatchConstraints
-			} else if nivp := policy.AsNamespacedImageValidatingPolicy(); nivp != nil {
-				matchResources = nivp.Spec.MatchConstraints
-			} else if dp := policy.AsDeletingPolicy(); dp != nil {
-				matchResources = dp.GetDeletingPolicySpec().MatchConstraints
-			} else if cp := policy.AsCleanupPolicy(); cp != nil {
-				// CleanupPolicy match resources are Kyverno-specific match resources.
-				// For cluster fetching, translate the cleanup policy's match/exclude kinds into candidate GVKs.
-				if spec := cp.GetSpec(); spec != nil {
-					for _, kind := range spec.MatchResources.GetKinds() {
-						rf.addToresourceTypeInfo(kind, info)
-					}
-					if spec.ExcludeResources != nil {
-						for _, kind := range spec.ExcludeResources.GetKinds() {
-							rf.addToresourceTypeInfo(kind, info)
-						}
-					}
-				}
-				continue
-			} else if mapPolicy := policy.AsMutatingAdmissionPolicy(); mapPolicy != nil {
-				converted := admissionpolicy.ConvertMatchResources(mapPolicy.GetDefinition().Spec.MatchConstraints)
-				matchResources = converted
-			} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
-				matchResources = gpol.Spec.MatchConstraints
-			} else if ngpol := policy.AsNamespacedGeneratingPolicy(); ngpol != nil {
-				matchResources = ngpol.Spec.MatchConstraints
-			} else if mp := policy.AsMutatingPolicy(); mp != nil {
-				matchResources = mp.Spec.MatchConstraints
-			} else if nmp := policy.AsNamespacedMutatingPolicy(); nmp != nil {
-				matchResources = nmp.Spec.MatchConstraints
-			}
-			rf.getKindsFromPolicy(matchResources, info)
+		var matchResources *admissionregistrationv1.MatchResources
+		if vap := policy.AsValidatingAdmissionPolicy(); vap != nil {
+			matchResources = vap.GetDefinition().Spec.MatchConstraints
+		} else if vp := policy.AsValidatingPolicy(); vp != nil {
+			matchResources = vp.Spec.MatchConstraints
+		} else if nvp := policy.AsNamespacedValidatingPolicy(); nvp != nil {
+			matchResources = nvp.Spec.MatchConstraints
+		} else if ivp := policy.AsImageValidatingPolicy(); ivp != nil {
+			matchResources = ivp.Spec.MatchConstraints
+		} else if nivp := policy.AsNamespacedImageValidatingPolicy(); nivp != nil {
+			matchResources = nivp.Spec.MatchConstraints
+		} else if dp := policy.AsDeletingPolicy(); dp != nil {
+			matchResources = dp.GetDeletingPolicySpec().MatchConstraints
+		} else if mapPolicy := policy.AsMutatingAdmissionPolicy(); mapPolicy != nil {
+			converted := admissionpolicy.ConvertMatchResources(mapPolicy.GetDefinition().Spec.MatchConstraints)
+			matchResources = converted
+		} else if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+			matchResources = gpol.Spec.MatchConstraints
+		} else if ngpol := policy.AsNamespacedGeneratingPolicy(); ngpol != nil {
+			matchResources = ngpol.Spec.MatchConstraints
+		} else if mp := policy.AsMutatingPolicy(); mp != nil {
+			matchResources = mp.Spec.MatchConstraints
+		} else if nmp := policy.AsNamespacedMutatingPolicy(); nmp != nil {
+			matchResources = nmp.Spec.MatchConstraints
 		}
-	}
-}
-
-// getKindsFromRule will return the kinds from policy match block
-func (rf *ResourceFetcher) getKindsFromRule(
-	rule kyvernov1.Rule,
-	info *resourceTypeInfo,
-) {
-	for _, kind := range rule.MatchResources.Kinds {
-		rf.addToresourceTypeInfo(kind, info)
-	}
-	if rule.MatchResources.Any != nil {
-		for _, resFilter := range rule.MatchResources.Any {
-			for _, kind := range resFilter.ResourceDescription.Kinds {
-				rf.addToresourceTypeInfo(kind, info)
-			}
-		}
-	}
-	if rule.MatchResources.All != nil {
-		for _, resFilter := range rule.MatchResources.All {
-			for _, kind := range resFilter.ResourceDescription.Kinds {
-				rf.addToresourceTypeInfo(kind, info)
-			}
-		}
+		rf.getKindsFromPolicy(matchResources, info)
 	}
 }
 

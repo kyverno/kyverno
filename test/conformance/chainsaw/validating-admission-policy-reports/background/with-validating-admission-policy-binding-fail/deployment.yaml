@@ -15,6 +15,7 @@ spec:
       labels:
         app: nginx
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: nginx
         image: public.ecr.aws/docker/library/nginx:1.14.2

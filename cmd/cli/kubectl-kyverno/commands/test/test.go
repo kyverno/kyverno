@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -11,9 +10,9 @@ import (
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/go-git/go-billy/v5"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
@@ -21,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -34,21 +34,24 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/ext/cluster"
 	"github.com/kyverno/kyverno/ext/output/pluralize"
-	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/background/generate"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
+	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
+	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
-	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -70,9 +73,26 @@ type TestResponse struct {
 	TriggerByOperation map[string]map[string][]engineapi.EngineResponse
 	Target             map[string][]engineapi.EngineResponse
 	SkippedPolicies    map[string]string
+	DeletingPolicies   map[string]struct{}
 }
 
+func deletingPolicyKey(namespace, name string) string {
+	if namespace == "" {
+		return name
+	}
+	return namespace + "/" + name
+}
+
+var (
+	hookVpolProviderCreated    func()
+	hookMpolProviderCreated    func()
+	hookGpolCompiled           func()
+	hookDpolProviderCreated    func()
+	hookContextProviderCreated func()
+)
+
 // `kyverno test` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
+
 func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
 	failOnWarnings := len(warningsAsErrors) > 0 && warningsAsErrors[0]
 	crdProcessor := data.NewCRDProcessor(nil)
@@ -81,7 +101,14 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
-	fmt.Fprintln(out, "Loading test", testCase.Test.Name, "(", testCase.Path, ")", "...")
+	testName := testCase.Test.GetName()
+	if testName == "" {
+		testName = testCase.Test.Name
+	}
+	if testName != "" {
+		testName = color.BoldCyan(testName)
+	}
+	fmt.Fprintln(out, "Loading test", testName, "(", testCase.Path, ")", "...")
 	isGit := testCase.Fs != nil
 	testDir := testCase.Dir()
 	var dClient dclient.Interface
@@ -126,12 +153,12 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 	}
 	policyFullPath := path.GetFullPaths(regularPolicies, testDir, isGit)
-	results, err := policy.Load(testCase.Fs, testDir, false, policyFullPath...)
+	results, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
 	}
 	if len(ociPolicies) > 0 {
-		ociResults, err := policy.Load(nil, "", false, ociPolicies...)
+		ociResults, err := policy.Load(nil, "", ociPolicies...)
 		if err != nil {
 			return nil, fmt.Errorf("error: failed to load OCI policies (%s)", err)
 		}
@@ -143,21 +170,18 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 	if results != nil && results.NonFatalErrors != nil {
 		for _, e := range results.NonFatalErrors {
-			fmt.Fprintf(out, "  ERROR: %s: %s\n", e.Path, e.Error)
+			fmt.Fprintf(out, "  %s %s: %s\n", color.BoldRed("ERROR:"), e.Path, e.Error)
 		}
 	}
 	if results != nil && results.Warnings != nil {
 		for _, warning := range results.Warnings {
-			fmt.Fprintf(out, "  Warning: %s: %s\n", warning.Path, warning.Warning)
+			fmt.Fprintf(out, "  %s %s: %s\n", color.BoldYellow("Warning:"), warning.Path, warning.Warning)
 		}
 		if failOnWarnings && len(results.Warnings) > 0 {
 			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(results.Warnings))
 		}
 	}
-	genericPolicies := make([]engineapi.GenericPolicy, 0, len(results.Policies)+len(results.VAPs))
-	for _, pol := range results.Policies {
-		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
-	}
+	genericPolicies := make([]engineapi.GenericPolicy, 0, len(results.VAPs))
 	for _, pol := range results.VAPs {
 		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
 	}
@@ -175,7 +199,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	uniques, duplicates := resource.RemoveDuplicates(resources)
 	if len(duplicates) > 0 {
 		for dup := range duplicates {
-			fmt.Fprintln(out, "  warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
+			fmt.Fprintln(out, "  "+color.BoldYellow("warning:")+" found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
 	uniquesObjectArr := []runtime.Object{}
@@ -199,7 +223,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				var fileBytes []byte
 				fileBytes, loadErr = common.ReadFile(testCase.Fs, filepath.Join(testDir, jp))
 				if loadErr == nil {
-					loadErr = json.Unmarshal(fileBytes, &data)
+					data, loadErr = payload.Parse(jp, fileBytes)
 				}
 			} else {
 				data, loadErr = payload.Load(jp)
@@ -330,19 +354,19 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	// exceptions
 	fmt.Fprintln(out, "  Loading exceptions", "...")
 	exceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
-	polexLoader, err := exception.Load(false, exceptionFullPath...)
+	polexLoader, err := exception.Load(exceptionFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load exceptions (%s)", err)
 	}
 	if polexLoader != nil && polexLoader.Warnings != nil {
 		for _, warning := range polexLoader.Warnings {
-			fmt.Fprintf(out, "  Warning: %s\n", warning)
+			fmt.Fprintf(out, "  %s %s\n", color.BoldYellow("Warning:"), warning)
 		}
 		if failOnWarnings && len(polexLoader.Warnings) > 0 {
 			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(polexLoader.Warnings))
 		}
 	}
-	if len(results.VAPs) > 0 && len(polexLoader.Exceptions) > 0 {
+	if len(results.VAPs) > 0 && len(polexLoader.CELExceptions) > 0 {
 		return nil, fmt.Errorf("error: use of exceptions with ValidatingAdmissionPolicies is not supported")
 	}
 	if err := v1alpha1.ValidateAPICallResponses(testCase.Test.APICallResponses); err != nil {
@@ -378,6 +402,11 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 	store.SetHTTPMockIndex(httpMockIndex)
 
+	// Build an in-memory map of global context entry mock data so the engine
+	// can resolve GlobalContext references without a live cluster. Each entry
+	// is keyed by its name and contains the data returned by
+	// resolveGlobalContextMock (which honours the inline data / resourceFiles
+	// already normalised above).
 	var gceMap map[string]interface{}
 	if len(testCase.Test.GlobalContextEntries) > 0 {
 		gceMap = make(map[string]interface{}, len(testCase.Test.GlobalContextEntries))
@@ -390,87 +419,19 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 	}
 
-	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
+	policyCount := len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
 	if polexLoader != nil {
-		exceptionCount := len(polexLoader.Exceptions)
-		exceptionCount += len(polexLoader.CELExceptions)
+		exceptionCount := len(polexLoader.CELExceptions)
 		exceptionsPlural := pluralize.Pluralize(exceptionCount, "exception", "exceptions")
 		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "with", exceptionCount, exceptionsPlural, "...")
 	} else {
 		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "...")
 	}
 
-	// TODO document the code below
-	ruleToCloneSourceResource := map[string]string{}
-	for _, policy := range results.Policies {
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
-			for _, res := range testCase.Test.Results {
-				if isRulelessPolicyKind(policy.GetKind()) {
-					continue
-				}
-				resPolicyNamespace, resPolicyName := "", res.Policy
-				if ns, name, ok := strings.Cut(res.Policy, "/"); ok {
-					resPolicyNamespace, resPolicyName = ns, name
-					// Reject invalid forms like "ns/name/extra".
-					if strings.Contains(resPolicyName, "/") {
-						continue
-					}
-				}
-				if resPolicyName == "" || policy.GetName() != resPolicyName || policy.GetNamespace() != resPolicyNamespace {
-					continue
-				}
-
-				if rule.Name == res.Rule {
-					if rule.HasGenerate() {
-						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
-							// We cannot cast this to an unstructured object because it doesn't have a kind.
-							if isGit {
-								ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = res.CloneSourceResource
-							} else {
-								ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = path.GetFullPath(res.CloneSourceResource, testDir)
-							}
-						} else { // clone or data
-							ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
-							if err != nil {
-								fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
-								break
-							}
-							genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
-							if err != nil {
-								fmt.Fprintf(out, "    Error: failed to read data (%s)\n", err)
-								break
-							}
-							if len(genClone) != 0 {
-								if isGit {
-									ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = res.CloneSourceResource
-								} else {
-									ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = path.GetFullPath(res.CloneSourceResource, testDir)
-								}
-							}
-						}
-					}
-					break
-				}
-			}
-		}
-	}
-	// validate policies
-	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(results.Policies))
-	skippedPolicyNames := make(map[string]string)
-	for _, pol := range results.Policies {
-		// TODO we should return this info to the caller
-		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
-		if err != nil {
-			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
-			skippedPolicyNames[pol.GetName()] = err.Error()
-			continue
-		}
-		validPolicies = append(validPolicies, pol)
-	}
+	skippedPolicyNames := map[string]string{}
 	// execute engine
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
@@ -479,9 +440,17 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
 		Target:             map[string][]engineapi.EngineResponse{},
 		SkippedPolicies:    skippedPolicyNames,
+		DeletingPolicies:   map[string]struct{}{},
 	}
-	// validate the operations declared on test results and collect the distinct
-	// explicit operations, each of which triggers a dedicated evaluation run
+	for _, policy := range results.DeletingPolicies {
+		testResponse.DeletingPolicies[deletingPolicyKey(policy.GetNamespace(), policy.GetName())] = struct{}{}
+	}
+	// Validate the admission operation declared on each test result and collect
+	// the distinct explicit operations. Each explicit operation triggers an
+	// additional evaluation run (see the evalResource loop below) so that
+	// admission-operation-specific rule branches are exercised correctly.
+	// Deleting policies are cluster-driven (not admission-driven) and therefore
+	// do not support an explicit operation override.
 	if _, err := processor.NormalizeValuesOperation(vars.GlobalOperation()); err != nil {
 		return nil, err
 	}
@@ -498,11 +467,151 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		explicitOperations.Insert(res.Operation)
 	}
+	nsResolver := processor.GetNamespaceResolver(vars, dClient, len(testCase.Test.ClusterResources) > 0)
+
+	var contextProvider libs.Context
+	var vpolProvider vpolengine.Provider
+	var vpolProviderErr error
+	var vpolJSONProvider vpolengine.Provider
+	var vpolJSONProviderErr error
+	var mpolProvider mpolengine.Provider
+	var mpolProviderErr error
+	var gpolCompiledPolicies []gpolengine.Policy
+	var gpolCompiledPoliciesErr error
+	var gpolCompiledJSONPolicies []gpolengine.Policy
+	var gpolCompiledJSONPoliciesErr error
+	var dpolProvider dpolengine.ProviderFunc
+	var dpolProviderErr error
+	var jsonContextProvider libs.Context
+	var dpolJSONProvider dpolengine.ProviderFunc
+
+	if (len(uniques) > 0 || len(jsonPayloads) > 0) && (len(results.ValidatingPolicies) != 0 || len(results.MutatingPolicies) != 0 || len(results.GeneratingPolicies) != 0 || len(results.DeletingPolicies) != 0) {
+		if restMapper == nil {
+			var err error
+			restMapper, err = utils.GetRESTMapper(dClient)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var err error
+		contextProvider, err = processor.NewContextProvider(dClient, restMapper, testCase.Fs, contextPath, registryAccess, !(len(testCase.Test.ClusterResources) > 0), gceMap, store.GetHTTPMockIndex())
+		if err != nil {
+			return nil, err
+		}
+		if hookContextProviderCreated != nil {
+			hookContextProviderCreated()
+		}
+		var celExceptions []*policiesv1beta1.PolicyException
+		if polexLoader != nil {
+			celExceptions = polexLoader.CELExceptions
+		}
+		if len(results.ValidatingPolicies) != 0 {
+			compiler := vpolcompiler.NewCompiler()
+			var jsonPolicies []policiesv1beta1.ValidatingPolicyLike
+			var k8sPolicies []policiesv1beta1.ValidatingPolicyLike
+			for i := range results.ValidatingPolicies {
+				pol := results.ValidatingPolicies[i]
+				if pol.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+					jsonPolicies = append(jsonPolicies, pol)
+				} else {
+					k8sPolicies = append(k8sPolicies, pol)
+				}
+			}
+			if len(k8sPolicies) > 0 && len(uniques) > 0 {
+				vpolProvider, vpolProviderErr = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
+				if hookVpolProviderCreated != nil {
+					hookVpolProviderCreated()
+				}
+			}
+			if len(jsonPolicies) > 0 {
+				vpolJSONProvider, vpolJSONProviderErr = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
+				if hookVpolProviderCreated != nil {
+					hookVpolProviderCreated()
+				}
+			}
+		}
+		if len(results.MutatingPolicies) != 0 {
+			var policies []policiesv1beta1.MutatingPolicyLike
+			for _, policy := range results.MutatingPolicies {
+				if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+					if len(jsonPayloads) > 0 {
+						policies = append(policies, policy)
+					}
+				} else if len(uniques) > 0 {
+					policies = append(policies, policy)
+				}
+			}
+			compiler := mpolcompiler.NewCompiler()
+			mpolProvider, mpolProviderErr = mpolengine.NewProvider(compiler, policies, celExceptions, contextProvider)
+			if hookMpolProviderCreated != nil {
+				hookMpolProviderCreated()
+			}
+		}
+		if len(results.GeneratingPolicies) != 0 {
+			gpolCompiledPolicies, gpolCompiledPoliciesErr = compileGeneratingPolicies(results.GeneratingPolicies, celExceptions)
+			if hookGpolCompiled != nil {
+				hookGpolCompiled()
+			}
+		}
+		if len(results.DeletingPolicies) != 0 {
+			dpolProvider, dpolProviderErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions)
+			if dpolProviderErr != nil {
+				return nil, dpolProviderErr
+			}
+			if hookDpolProviderCreated != nil {
+				hookDpolProviderCreated()
+			}
+		}
+		if len(jsonPayloads) > 0 {
+			if len(testCase.Test.ClusterResources) == 0 {
+				jsonContextProvider = contextProvider
+				dpolJSONProvider = dpolProvider
+				gpolCompiledJSONPolicies = gpolCompiledPolicies
+				gpolCompiledJSONPoliciesErr = gpolCompiledPoliciesErr
+			} else {
+				var err error
+				jsonContextProvider, err = processor.NewContextProvider(dClient, restMapper, testCase.Fs, contextPath, registryAccess, true, gceMap, store.GetHTTPMockIndex())
+				if err != nil {
+					return nil, err
+				}
+				if hookContextProviderCreated != nil {
+					hookContextProviderCreated()
+				}
+				if len(results.GeneratingPolicies) != 0 {
+					gpolCompiledJSONPolicies, gpolCompiledJSONPoliciesErr = compileGeneratingPolicies(results.GeneratingPolicies, celExceptions)
+					if hookGpolCompiled != nil {
+						hookGpolCompiled()
+					}
+				}
+				if len(results.DeletingPolicies) != 0 {
+					var dpolErr error
+					dpolJSONProvider, dpolErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions)
+					if dpolErr != nil {
+						return nil, dpolErr
+					}
+					if hookDpolProviderCreated != nil {
+						hookDpolProviderCreated()
+					}
+				}
+				// Restore LibraryContext to cluster contextProvider for resource evaluation
+				libs.LibraryContext = contextProvider
+			}
+		}
+	}
+
+	// evalResource is a closure that applies all loaded policies to a single
+	// resource under the given admission operation. The defaultRun flag controls
+	// whether DeletingPolicies are evaluated (they run only once, in the default
+	// pass, because they are not tied to an admission operation).
+	//
+	// The closure captures all shared state (store, policies, exceptions,
+	// variables, context, …) from the enclosing runTest scope so each call
+	// site only needs to supply the resource and operation.
 	evalResource := func(resource *unstructured.Unstructured, operation string, defaultRun bool) ([]engineapi.EngineResponse, error) {
 		// the policy processor is for multiple policies at once
 		pp := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             &store,
-			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			ValidatingPolicies:                results.ValidatingPolicies,
@@ -513,7 +622,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			TargetResources:                   targetResources,
 			Resource:                          *resource,
 			Operation:                         operation,
-			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			ParameterResources:                paramObjectsArr,
 			MutateLogPath:                     "",
@@ -525,7 +633,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
-			RuleToCloneSourceResource:         ruleToCloneSourceResource,
 			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
@@ -533,6 +640,15 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			ConfigMapResolver:                 cmResolver,
 			RESTMapper:                        restMapper,
 			CrdPaths:                          crdPaths,
+			ContextProvider:                   contextProvider,
+			VpolProvider:                      vpolProvider,
+			VpolProviderErr:                   vpolProviderErr,
+			VpolJSONProvider:                  vpolJSONProvider,
+			VpolJSONProviderErr:               vpolJSONProviderErr,
+			MpolProvider:                      mpolProvider,
+			MpolProviderErr:                   mpolProviderErr,
+			GpolCompiledPolicies:              gpolCompiledPolicies,
+			GpolCompiledPoliciesErr:           gpolCompiledPoliciesErr,
 		}
 		ers, err := pp.ApplyPoliciesOnResource()
 		if err != nil {
@@ -544,7 +660,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				nil,
 				[]*unstructured.Unstructured{resource},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				userInfo,
 				&resultCounts,
 				dClient,
@@ -562,14 +678,14 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			}
 			ers = append(ers, ivpols...)
 		}
-		// deleting policies are not admission driven, they are only evaluated in
-		// the default run
+		// Deleting policies are cluster-driven rather than admission-driven,
+		// so they are evaluated only in the default run.
 		if defaultRun && len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{resource},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				&resultCounts,
 				dClient,
 				true,
@@ -578,6 +694,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				!(len(testCase.Test.ClusterResources) > 0),
 				restMapper,
 				gceMap,
+				contextProvider,
+				dpolProvider,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -586,6 +704,13 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		return ers, nil
 	}
+	// Evaluate resource-oriented policies against each unique Kubernetes resource.
+	// In the default pass, the standard PolicyProcessor resolves the operation
+	// from the values file (or uses CREATE), but ImageValidatingPolicies use
+	// CREATE and DeletingPolicies have no admission operation. A separate run
+	// is executed for each distinct operation explicitly declared on test
+	// results, populating TriggerByOperation so that the result-matching phase
+	// can look up responses for each operation-scoped test result.
 	for _, resource := range uniques {
 		resourceKey := generateResourceKey(resource)
 		// default run, honoring the values file operation when set
@@ -609,10 +734,14 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 	}
 
+	// Evaluate all policies against each JSON payload. JSON payloads are
+	// arbitrary JSON objects (not full Kubernetes resources) and are evaluated
+	// without an explicit operation. Results are stored under the payload's
+	// file name in testResponse.Trigger.
 	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             &store,
-			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			MutatingAdmissionPolicies:         results.MAPs,
@@ -622,7 +751,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			ValidatingPolicies:                results.ValidatingPolicies,
 			TargetResources:                   targetResources,
 			JsonPayload:                       unstructured.Unstructured{Object: jp.data},
-			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,
@@ -633,17 +761,34 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
-			RuleToCloneSourceResource:         ruleToCloneSourceResource,
 			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
 			CrdPaths:                          crdPaths,
 			RESTMapper:                        restMapper,
+			ContextProvider:                   jsonContextProvider,
+			VpolProvider:                      vpolProvider,
+			VpolProviderErr:                   vpolProviderErr,
+			VpolJSONProvider:                  vpolJSONProvider,
+			VpolJSONProviderErr:               vpolJSONProviderErr,
+			MpolProvider:                      mpolProvider,
+			MpolProviderErr:                   mpolProviderErr,
+			GpolCompiledPolicies:              gpolCompiledJSONPolicies,
+			GpolCompiledPoliciesErr:           gpolCompiledJSONPoliciesErr,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
+			hasError := false
+			for _, response := range ers {
+				hasError = hasError || response.IsError()
+			}
+			if !hasError {
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %s (%w)", jp.name, err)
+			}
+		}
+		if processor.JsonPayload.Object != nil {
+			jp.data = processor.JsonPayload.Object
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(
@@ -651,7 +796,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				[]*unstructured.Unstructured{{Object: jp.data}},
 				nil,
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				userInfo,
 				&resultCounts,
 				dClient,
@@ -675,7 +820,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{{Object: jp.data}},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				&resultCounts,
 				dClient,
 				true,
@@ -684,6 +829,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				true,
 				restMapper,
 				gceMap,
+				jsonContextProvider,
+				dpolJSONProvider,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.name, err)
@@ -696,6 +843,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 
 	authProzessor := processor.NewAuthzProcessor(&resultCounts, dClient, results.HTTPPolicies, results.EnvoyPolicies)
+	// Evaluate HTTP-authorization policies against each HTTP check payload.
+	// Results are keyed by the payload file path in testResponse.Trigger.
 	if len(httpPayloads) > 0 {
 		for file, payload := range httpPayloads {
 			ers, err := authProzessor.ApplyHTTPPolicies([]*authzhttp.CheckRequest{payload})
@@ -706,6 +855,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
+	// Evaluate Envoy-authorization policies against each Envoy check payload.
+	// Results are keyed by the payload file path in testResponse.Trigger.
 	if len(envoyPayloads) > 0 {
 		for file, payload := range envoyPayloads {
 			ers, err := authProzessor.ApplyEnvoyPolicies([]*authv3.CheckRequest{payload})
@@ -717,9 +868,14 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 	}
 
+	// Correlate engine responses to declared target resources using
+	// responseTargetsResource. A response can match through a patched target,
+	// or through a MutatingPolicy response with target provenance (or an
+	// empty-rule response with target or match constraints) for the same resource.
+	// Store matches in testResponse.Target for target-result assertions.
 	for _, targetResource := range targetResources {
 		for _, engineResponse := range engineResponses {
-			if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), engineResponse); r != nil {
+			if responseTargetsResource(targetResource, engineResponse) {
 				resourceKey := generateResourceKey(targetResource)
 				testResponse.Target[resourceKey] = append(testResponse.Target[resourceKey], engineResponse)
 			}
@@ -729,6 +885,46 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	return &testResponse, nil
 }
 
+func responseTargetsResource(targetResource *unstructured.Unstructured, response engineapi.EngineResponse) bool {
+	if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), response); r != nil {
+		return true
+	}
+	pol := response.Policy()
+	if pol == nil {
+		return false
+	}
+	if mpol := pol.AsMutatingPolicyLike(); mpol != nil {
+		if response.Resource.GetAPIVersion() == targetResource.GetAPIVersion() &&
+			response.Resource.GetKind() == targetResource.GetKind() &&
+			response.Resource.GetName() == targetResource.GetName() &&
+			response.Resource.GetNamespace() == targetResource.GetNamespace() {
+			hasTargetProvenance := false
+			for _, rr := range response.PolicyResponse.Rules {
+				if rr.Properties() != nil && rr.Properties()["kyverno.io/target"] == "true" {
+					hasTargetProvenance = true
+					break
+				}
+			}
+			if hasTargetProvenance {
+				return true
+			}
+			if len(response.PolicyResponse.Rules) == 0 {
+				tc := mpol.GetTargetMatchConstraints()
+				mc := mpol.GetMatchConstraints()
+				if tc.Expression != "" || len(tc.ResourceRules) != 0 || len(mc.ResourceRules) != 0 {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// applyImageValidatingPolicies evaluates ImageValidatingPolicies against the
+// given Kubernetes resources and JSON payloads. For resources it uses the
+// CEL-based ivpol engine (HandleValidating); for JSON payloads it uses the
+// lower-level eval.Evaluate API. Results are accumulated into a flat slice
+// of EngineResponse values and counted via rc.
 func applyImageValidatingPolicies(
 	ivps []policiesv1beta1.ImageValidatingPolicyLike,
 	jsonPayloads []*unstructured.Unstructured,
@@ -785,7 +981,7 @@ func applyImageValidatingPolicies(
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
-		imageverifycache.DisabledImageVerifyCache(),
+		nil,
 		config.NewDefaultConfiguration(false),
 	)
 
@@ -888,6 +1084,32 @@ func applyImageValidatingPolicies(
 	return responses, nil
 }
 
+// compileGeneratingPolicies compiles GeneratingPolicies with the given CEL exceptions.
+// It returns the slice of compiled gpolengine.Policy objects, or an error if any policy fails compilation.
+func compileGeneratingPolicies(
+	policies []policiesv1beta1.GeneratingPolicyLike,
+	celExceptions []*policiesv1beta1.PolicyException,
+) ([]gpolengine.Policy, error) {
+	compiler := gpolcompiler.NewCompiler()
+	out := make([]gpolengine.Policy, 0, len(policies))
+	for _, pol := range policies {
+		compiled, errs := compiler.Compile(pol, celExceptions)
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
+		}
+		out = append(out, gpolengine.Policy{
+			Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
+			CompiledPolicy: compiled,
+		})
+	}
+	return out, nil
+}
+
+// applyDeletingPolicies evaluates DeletingPolicies against the given
+// resources. DeletingPolicies may be cluster-scoped or namespaced; they are
+// not admission-driven. The caller invokes this helper in the default
+// resource pass or in the separate JSON-payload pass.
+// Results are accumulated into a flat slice of EngineResponse values.
 func applyDeletingPolicies(
 	dps []policiesv1beta1.DeletingPolicyLike,
 	resources []*unstructured.Unstructured,
@@ -901,6 +1123,8 @@ func applyDeletingPolicies(
 	isFake bool,
 	restMapper meta.RESTMapper,
 	gceMap map[string]interface{},
+	cachedContext libs.Context,
+	cachedDpolProvider dpolengine.ProviderFunc,
 ) ([]engineapi.EngineResponse, error) {
 	if restMapper == nil {
 		var mapErr error
@@ -909,13 +1133,29 @@ func applyDeletingPolicies(
 			return nil, mapErr
 		}
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
-	if err != nil {
-		return nil, err
+	contextProvider := cachedContext
+	if contextProvider == nil {
+		var err error
+		contextProvider, err = processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
+		if err != nil {
+			return nil, err
+		}
+		if hookContextProviderCreated != nil {
+			hookContextProviderCreated()
+		}
 	}
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
-	if err != nil {
-		return nil, err
+	var provider dpolengine.ProviderFunc
+	if cachedDpolProvider != nil {
+		provider = cachedDpolProvider
+	} else {
+		var err error
+		provider, err = dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
+		if err != nil {
+			return nil, err
+		}
+		if hookDpolProviderCreated != nil {
+			hookDpolProviderCreated()
+		}
 	}
 
 	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewMatcher())
@@ -976,6 +1216,10 @@ func applyDeletingPolicies(
 	return responses, nil
 }
 
+// generateResourceKey returns a stable string key for an unstructured
+// resource composed of APIVersion, Kind, Namespace, and Name. This key is
+// used to index engine responses in TestResponse.Trigger and
+// TestResponse.Target.
 func generateResourceKey(resource *unstructured.Unstructured) string {
 	return resource.GetAPIVersion() + "," + resource.GetKind() + "," + resource.GetNamespace() + "," + resource.GetName()
 }
@@ -1018,6 +1262,10 @@ func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Un
 	return resources
 }
 
+// buildHTTPMockIndex constructs an in-memory lookup table for HTTP API-call
+// mock responses. Keys use "[METHOD:]URL"; omitting METHOD creates a URL-only
+// fallback for both GET and POST after the method-specific lookup. Values
+// contain the response body and status code for the engine context.
 func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]interface{}, error) {
 	if len(mocks) == 0 {
 		return nil, nil
@@ -1040,6 +1288,9 @@ func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]inter
 	return index, nil
 }
 
+// wrapHTTPResponse wraps a raw response body with its HTTP status code into
+// the standard shape expected by the CEL http() context function. A missing
+// status code is defaulted to 200.
 func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
 	if statusCode == 0 {
 		statusCode = 200

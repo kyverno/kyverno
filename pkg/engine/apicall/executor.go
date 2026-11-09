@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/tracing"
@@ -27,7 +27,7 @@ import (
 )
 
 type Executor interface {
-	Execute(context.Context, *kyvernov1.APICall) ([]byte, error)
+	Execute(context.Context, *kyverno.APICall) ([]byte, error)
 }
 
 type executor struct {
@@ -51,14 +51,14 @@ func NewExecutor(
 	}
 }
 
-func (a *executor) Execute(ctx context.Context, call *kyvernov1.APICall) ([]byte, error) {
+func (a *executor) Execute(ctx context.Context, call *kyverno.APICall) ([]byte, error) {
 	if call.URLPath != "" {
 		return a.executeK8sAPICall(ctx, call.URLPath, call.Method, call.Data)
 	}
 	return a.executeServiceCall(ctx, call)
 }
 
-func (a *executor) executeK8sAPICall(ctx context.Context, path string, method kyvernov1.Method, data []kyvernov1.RequestData) ([]byte, error) {
+func (a *executor) executeK8sAPICall(ctx context.Context, path string, method kyverno.Method, data []kyverno.RequestData) ([]byte, error) {
 	requestData, err := a.buildRequestData(data)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (a *executor) executeK8sAPICall(ctx context.Context, path string, method ky
 	return jsonData, nil
 }
 
-func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.APICall) ([]byte, error) {
+func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyverno.APICall) ([]byte, error) {
 	if apiCall.Service == nil {
 		return nil, fmt.Errorf("missing service for APICall %s", a.name)
 	}
@@ -133,7 +133,7 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 	return body, nil
 }
 
-func (a *executor) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.APICall) (*http.Request, error) {
+func (a *executor) buildHTTPRequest(ctx context.Context, apiCall *kyverno.APICall) (*http.Request, error) {
 	if apiCall.Service == nil {
 		return nil, fmt.Errorf("missing service")
 	}
@@ -163,7 +163,7 @@ func (a *executor) buildHTTPRequest(ctx context.Context, apiCall *kyvernov1.APIC
 	return req, nil
 }
 
-func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHeader) error {
+func (a *executor) addHTTPHeaders(req *http.Request, headers []kyverno.HTTPHeader) error {
 	for _, header := range headers {
 		req.Header.Add(header.Key, header.Value)
 	}
@@ -177,7 +177,7 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 	return nil
 }
 
-func (a *executor) buildHTTPClient(policy *egressPolicy, base http.RoundTripper, service *kyvernov1.ServiceCall) (*http.Client, error) {
+func (a *executor) buildHTTPClient(policy *egressPolicy, base http.RoundTripper, service *kyverno.ServiceCall) (*http.Client, error) {
 	timeout := a.config.GetTimeout()
 	if service == nil || service.CABundle == "" {
 		return &http.Client{Transport: base, Timeout: timeout, CheckRedirect: checkServiceRedirect(policy)}, nil
@@ -282,7 +282,7 @@ func proxyAwareDestinationCheck(policy *egressPolicy, base func(*http.Request) (
 	}
 }
 
-func (a *executor) buildRequestData(data []kyvernov1.RequestData) (io.Reader, error) {
+func (a *executor) buildRequestData(data []kyverno.RequestData) (io.Reader, error) {
 	dataMap := make(map[string]interface{})
 	for _, d := range data {
 		dataMap[d.Key] = d.Value

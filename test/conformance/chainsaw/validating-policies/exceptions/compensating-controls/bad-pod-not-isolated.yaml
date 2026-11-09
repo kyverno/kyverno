@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: legacy-app-not-isolated
+  annotations:
+    security.company.com/ticket-id: SEC-1234
+spec:
+  containers:
+  - name: app
+    image: public.ecr.aws/docker/library/busybox:latest

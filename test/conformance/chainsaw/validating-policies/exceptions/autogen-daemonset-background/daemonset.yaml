@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: privileged-daemonset
+  labels:
+    app: privileged-daemonset
+spec:
+  selector:
+    matchLabels:
+      app: privileged-daemonset
+  template:
+    metadata:
+      labels:
+        app: privileged-daemonset
+    spec:
+      containers:
+      - name: agent
+        image: public.ecr.aws/docker/library/busybox:latest
+        command: ["sleep", "3600"]
+        securityContext:
+          allowPrivilegeEscalation: true

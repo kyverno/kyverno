@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: PR stale author action
+
+permissions: {}
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only print what would be done
+        type: boolean
+        default: true
+  schedule:
+    - cron: "17 6 * * *"
+
+jobs:
+  sweep:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: read
+      actions: read
+    uses: kyverno/assistant/.github/workflows/pr-management.yml@e2d2f01371144e88e99fdf124e885bf4879c705e
+    with:
+      mode: stale
+      dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}

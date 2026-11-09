@@ -21,9 +21,12 @@ spec:
             name: test-api
             namespace: default
           status:
-            phase: Running
+            (conditions[?type == 'Ready']):
+            - status: "True"
+    # A Ready pod is not always reachable through its Service yet (the node's
+    # Service rules can lag), and the policy calls it through the Service.
     - sleep:
-        duration: 30s
+        duration: 5s
   - name: create policy
     use:
       template: ../../../_step-templates/create-policy.yaml

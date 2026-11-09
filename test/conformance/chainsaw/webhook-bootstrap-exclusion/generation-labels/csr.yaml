@@ -1,0 +1,12 @@
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  generateName: generation-bootstrap-probe-
+  labels:
+    generate.kyverno.io/policy-name: bootstrap-probe
+    test.kyverno.io/bootstrap-probe: "true"
+spec:
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlIaE1JR0hBZ0VBTUNVeEl6QWhCZ05WQkFNTUdtZGxibVZ5WVhScGIyNHRZbTl2ZEhOMGNtRndMWEJ5YjJKbApNRmt3RXdZSEtvWkl6ajBDQVFZSUtvWkl6ajBEQVFjRFFnQUVLK2dESExYS0xVMDBySFFPdDRHWWRRWDYxY25JCm9JU1QzeDNzR3M0dGVFMU9JUVRMWk4wSWU5WUhGbGt3anVsTmdsK1dRZ05sM0RWYVVCZ256eXE5VmFBQU1Bb0cKQ0NxR1NNNDlCQU1DQTBrQU1FWUNJUUNOQ095MEoxYzI0cHhjekhvL2d6SGRlNlRkcERDZkFRLzdWUlp3U2ZweAplZ0loQU9EUTU5TkZ1Q2wxWXAvNlFiUmJLUnIxZmRPWnVxTkF1QUNVVmdoQ1liMTMKLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0tCg==
+  signerName: example.com/bootstrap-probe
+  usages:
+  - digital signature

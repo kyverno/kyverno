@@ -34,12 +34,10 @@ spec:
         file: configmap-assert.yaml
   - name: delete the downstream
     try:
-    - delete:
-        ref:
-          apiVersion: v1
-          kind: ConfigMap
-          name: update-policy-to-disable-sync
-          namespace: update-policy-to-disable-sync
+    # Kyverno recreates a synchronized downstream as soon as it is deleted, so a chainsaw
+    # delete (which waits for the object to be gone) can time out.
+    - script:
+        content: kubectl delete configmap update-policy-to-disable-sync -n update-policy-to-disable-sync --wait=false
   - name: sleep
     try:
     - sleep:

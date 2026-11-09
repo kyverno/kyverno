@@ -3,6 +3,8 @@ package legacypolicies
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/deprecations"
@@ -197,4 +199,20 @@ func TestLegacyKindsAreInDeprecationsTable(t *testing.T) {
 			t.Errorf("kind %s is not in the deprecations table", lk.Kind)
 		}
 	}
+}
+
+// TestAcknowledgeSettingHintMatchesChartValue guards against the CLI's hint drifting from the
+// chart's actual consent key again: the chart's pre-install/pre-upgrade hook Job runs this
+// command, and the render-time gate (charts/kyverno/templates/validate.yaml) hard-fails a stale
+// upgrade.allowLegacyPolicies=true, so a hint that still names the old key would tell a user to
+// set a value their own chart rejects.
+func TestAcknowledgeSettingHintMatchesChartValue(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "charts", "kyverno", "values.yaml"))
+	require.NoError(t, err)
+
+	require.Contains(t, string(raw), "acknowledgeLegacyPoliciesNotEnforced:",
+		"charts/kyverno/values.yaml no longer defines upgrade.acknowledgeLegacyPoliciesNotEnforced; update acknowledgeSettingHint and this test together")
+	require.Equal(t, "upgrade.acknowledgeLegacyPoliciesNotEnforced=true", acknowledgeSettingHint)
+	require.NotContains(t, acknowledgeSettingHint, "allowLegacyPolicies",
+		"acknowledgeSettingHint must not regress to the removed upgrade.allowLegacyPolicies key")
 }

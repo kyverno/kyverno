@@ -19,7 +19,6 @@ limitations under the License.
 **Cloud Native Policy Management 🎉**
 
 [![Build Status](https://github.com/kyverno/kyverno/actions/workflows/check-tests.yaml/badge.svg)](https://github.com/kyverno/kyverno/actions/workflows/check-tests.yaml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno)
 ![License: Apache-2.0](https://img.shields.io/github/license/kyverno/kyverno?color=blue)
 [![GitHub Repo stars](https://img.shields.io/github/stars/kyverno/kyverno)](https://github.com/kyverno/kyverno/stargazers)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5327/badge)](https://bestpractices.coreinfrastructure.org/projects/5327)

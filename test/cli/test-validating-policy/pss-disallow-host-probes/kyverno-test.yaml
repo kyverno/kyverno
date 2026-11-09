@@ -1,0 +1,34 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-host-probes
+  resources:
+  - bad-pod-ephemeral-container
+  - bad-pod-init-container
+  - bad-pod-liveness-httpget
+  - bad-pod-liveness-tcpsocket
+  - bad-pod-poststart-httpget
+  - bad-pod-poststart-tcpsocket
+  - bad-pod-prestop-httpget
+  - bad-pod-prestop-tcpsocket
+  - bad-pod-readiness-httpget
+  - bad-pod-readiness-tcpsocket
+  - bad-pod-startup-httpget
+  - bad-pod-startup-tcpsocket
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-host-probes
+  resources:
+  - good-pod-empty-hosts
+  - good-pod-hosts-unset
+  - good-pod-no-probes
+  result: pass

@@ -79,19 +79,15 @@ func TestMain(m *testing.M) {
 // them out at match time).
 func waitForPolicyReady(t *testing.T, name, namespace string) {
 	t.Helper()
-	require.Eventually(t, func() bool {
-		policies, err := provider.Fetch(context.Background())
-		if err != nil {
-			return false
-		}
-		for _, p := range policies {
-			if p.Policy.GetName() == name && p.Policy.GetNamespace() == namespace {
-				return true
-			}
-		}
-		return false
-	}, 5*time.Second, 100*time.Millisecond, "policy %q (namespace %q) not reconciled in time", name, namespace)
+	if namespace != "" {
+		name = namespace + "/" + name
+	}
+	framework.WaitForIvpols(t, provider, name)
 }
+
+// signatureDenial is the message of the validation ivpolSpec builds, so a pod denied with it was
+// denied by the signature check rather than by anything that runs before it.
+const signatureDenial = "images must be signed by the platform cosign key"
 
 // ivpolSpec returns an authentic ImageValidatingPolicy spec: match pods on CREATE, verify a cosign
 // signature on every image against the test key. actions selects the validation actions, defaulting
@@ -111,7 +107,7 @@ func ivpolSpec(actions ...admissionregistrationv1.ValidationAction) policiesv1be
 		}},
 		Validations: []admissionregistrationv1.Validation{{
 			Expression: "images.containers.map(image, verifyImageSignatures(image, [attestors.cosign])).all(e, e > 0)",
-			Message:    "images must be signed by the platform cosign key",
+			Message:    signatureDenial,
 		}},
 	}
 }

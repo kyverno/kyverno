@@ -36,5 +36,5 @@ spec:
         file: skipped-deployment.yaml
         expect:
           - check:
-              ($error): >-
-                 admission webhook "ivpol.validate.kyverno.svc-ignore-finegrained-ivpol-sample" denied the request: Policy ivpol-sample failed: failed to verify image with notary cert
+              # the policy's message, then why Notary rejected the image
+              "(starts_with($error, 'admission webhook \"ivpol.validate.kyverno.svc-ignore-finegrained-ivpol-sample\" denied the request: Policy ivpol-sample failed: failed to verify image with notary cert; verification details: '))": true

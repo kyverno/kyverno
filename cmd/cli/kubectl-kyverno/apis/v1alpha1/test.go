@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -58,6 +59,9 @@ type Test struct {
 	// Results are the results to be checked in the test
 	Results []TestResult `json:"results,omitempty"`
 
+	// Checks are the verifications to be checked in the test
+	Checks []CheckResult `json:"checks,omitempty"`
+
 	// Values are the values to be used in the test
 	Values *ValuesSpec `json:"values,omitempty"`
 
@@ -106,13 +110,23 @@ type APICallResponse struct {
 	Body runtime.RawExtension `json:"body"`
 }
 
-// GlobalContextProjection pairs a policy-visible name with a JMESPath over the mock root.
+// GlobalContextProjection pairs a policy-visible name with a JMESPath or CEL expression over
+// the mock root. Mirrors GlobalContextEntryProjection's exactly-one-of jmesPath/expression
+// contract (api/kyverno/v2beta1), so a test fixture can mock either kind of projection.
 type GlobalContextProjection struct {
 	// Name is the key policies see on the mocked global context object.
 	Name string `json:"name"`
 
 	// Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.
-	Path string `json:"path"`
+	// Mutually exclusive with Expression.
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// Expression is a CEL expression evaluated against the root after FieldPath (if any) is
+	// applied, bound to the `object` variable, matching the real GlobalContextEntry projection's
+	// expression field. Mutually exclusive with Path.
+	// +optional
+	Expression string `json:"expression,omitempty"`
 }
 
 // GlobalContextEntryValue provides static data for a named GlobalContextEntry.
@@ -140,7 +154,8 @@ type GlobalContextEntryValue struct {
 	// FieldPath is an optional JMESPath applied to decoded Data (or the resources list) to produce the root before projections.
 	FieldPath string `json:"fieldPath,omitempty"`
 
-	// Projections are optional named JMESPath extracts (see GlobalContextProjection).
+	// Projections are optional named extracts, each written in either JMESPath or CEL
+	// (see GlobalContextProjection).
 	Projections []GlobalContextProjection `json:"projections,omitempty"`
 }
 
@@ -243,8 +258,13 @@ func ValidateGlobalContextEntries(entries []GlobalContextEntryValue) error {
 			if strings.TrimSpace(p.Name) == "" {
 				return fmt.Errorf("globalContextEntries entry %q: projection name is required", e.Name)
 			}
-			if strings.TrimSpace(p.Path) == "" {
-				return fmt.Errorf("globalContextEntries entry %q projection %q: path is required", e.Name, p.Name)
+			hasPath := strings.TrimSpace(p.Path) != ""
+			hasExpression := strings.TrimSpace(p.Expression) != ""
+			if hasPath && hasExpression {
+				return fmt.Errorf("globalContextEntries entry %q projection %q: path and expression are mutually exclusive", e.Name, p.Name)
+			}
+			if !hasPath && !hasExpression {
+				return fmt.Errorf("globalContextEntries entry %q projection %q: one of path or expression is required", e.Name, p.Name)
 			}
 		}
 
@@ -324,6 +344,19 @@ func RawExtensionToObject(raw runtime.RawExtension) (interface{}, error) {
 	return v, nil
 }
 
+type CheckResult struct {
+	// Match tells how to match relevant rule responses
+	Match CheckMatch `json:"match,omitempty"`
+
+	// Assert contains assertion to be performed on the relevant rule responses
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Assert kyverno.Any `json:"assert"`
+
+	// Error contains negative assertion to be performed on the relevant rule responses
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Error kyverno.Any `json:"error"`
+}
+
 type TestResourceSpec struct {
 	Group       string `json:"group,omitempty"`
 	Version     string `json:"version,omitempty"`
@@ -331,4 +364,18 @@ type TestResourceSpec struct {
 	Namespace   string `json:"namespace,omitempty"`
 	Subresource string `json:"subresource,omitempty"`
 	Name        string `json:"name,omitempty"`
+}
+
+type CheckMatch struct {
+	// Resource filters engine responses
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Resource *kyverno.Any `json:"resource,omitempty"`
+
+	// Policy filters engine responses
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Policy *kyverno.Any `json:"policy,omitempty"`
+
+	// Rule filters rule responses
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Rule *kyverno.Any `json:"rule,omitempty"`
 }

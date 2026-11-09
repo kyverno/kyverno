@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: PR readiness check
+
+permissions: {}
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only print what would be done
+        type: boolean
+        default: true
+  schedule:
+    - cron: "0 * * * *"
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+
+jobs:
+  check:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: read
+      actions: read
+    uses: kyverno/assistant/.github/workflows/pr-management.yml@e2d2f01371144e88e99fdf124e885bf4879c705e
+    with:
+      mode: readiness
+      dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}

@@ -1,0 +1,65 @@
+apiVersion: cli.kyverno.io/v1alpha1
+exceptions:
+- exception.yaml
+kind: Test
+metadata:
+  name: exceptions-autogen-controller-metadata
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: CronJob
+  policy: disallow-privilege-escalation
+  resources:
+  - bad-cronjob
+  result: fail
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: disallow-privilege-escalation
+  resources:
+  - bad-deployment
+  result: fail
+- isValidatingPolicy: true
+  kind: StatefulSet
+  policy: disallow-privilege-escalation
+  resources:
+  - bad-statefulset
+  result: fail
+- isValidatingPolicy: true
+  kind: CronJob
+  policy: disallow-privilege-escalation
+  resources:
+  - good-cronjob
+  result: pass
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: disallow-privilege-escalation
+  resources:
+  - good-deployment
+  result: pass
+- isValidatingPolicy: true
+  kind: StatefulSet
+  policy: disallow-privilege-escalation
+  resources:
+  - good-statefulset
+  result: pass
+- isValidatingPolicy: true
+  kind: CronJob
+  policy: disallow-privilege-escalation
+  resources:
+  - skipped-cronjob
+  result: skip
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: disallow-privilege-escalation
+  resources:
+  - skipped-deployment
+  result: skip
+- isValidatingPolicy: true
+  kind: StatefulSet
+  policy: disallow-privilege-escalation
+  resources:
+  - skipped-statefulset
+  result: skip

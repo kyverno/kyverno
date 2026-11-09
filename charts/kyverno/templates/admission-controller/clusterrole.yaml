@@ -63,10 +63,6 @@ rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - policies
-      - policies/status
-      - clusterpolicies
-      - clusterpolicies/status
       - updaterequests
       - updaterequests/status
       - globalcontextentries
@@ -80,27 +76,32 @@ rules:
       - update
       - watch
       - deletecollection
+  # Read-only: kyverno-init's startup inventory and the admission controller's
+  # kyverno_legacy_policies_total gauge list the legacy kyverno.io kinds. Nothing in this
+  # pod creates, updates, or deletes them (kyverno-init only patches their status, below).
   - apiGroups:
       - kyverno.io
     resources:
+      - clusterpolicies
+      - policies
       - policyexceptions
-    verbs:
-      - create
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  # Read-only: lets kyverno-init report legacy CleanupPolicy/ClusterCleanupPolicy
-  # custom resources still present in the cluster. These kinds are otherwise owned
-  # by the cleanup-controller, which has its own read/write RBAC for them.
-  - apiGroups:
-      - kyverno.io
-    resources:
       - cleanuppolicies
       - clustercleanuppolicies
     verbs:
       - list
+  # kyverno-init replaces the stale Ready condition on legacy ClusterPolicy/Policy objects
+  # (see cmd/kyverno-init/legacy_status.go). Status only: spec stays read-only.
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - clusterpolicies/status
+      - policies/status
+      - cleanuppolicies/status
+      - clustercleanuppolicies/status
+    verbs:
+      - list
+      - patch
+      - update
   - apiGroups:
       - policies.kyverno.io
     resources:

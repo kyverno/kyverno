@@ -14,6 +14,9 @@ file to edit.
   like `policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"`. Only the generated CRD manifests
   (`config/crds/policies.kyverno.io/*.yaml`) and consuming Go code live here. See
   [repo-boundaries.md](./repo-boundaries.md) for why (no backfilled ADR exists yet for this decision).
+- A handful of types shared across `kyverno.io` versions (`ResourceSpec`, `APICall`, `ServiceCall`, `Method`,
+  `RequestData`, `HTTPHeader`) live in the version-less `api/kyverno` root package; `v1` re-exports them as
+  type aliases for compatibility. See [`api/AGENTS.md`](../../../api/AGENTS.md) for the alias rules.
 
 ## Stability tiers
 

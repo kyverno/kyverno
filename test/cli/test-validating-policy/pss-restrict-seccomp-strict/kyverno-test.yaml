@@ -1,0 +1,28 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pss-restrict-seccomp-strict
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: restrict-seccomp-strict
+  resources:
+  - linux-container-unconfined
+  - linux-explicit-os-unset
+  - linux-init-unset
+  - linux-pod-unconfined
+  - linux-unset
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: restrict-seccomp-strict
+  resources:
+  - linux-container-runtime-default
+  - linux-pod-localhost
+  - linux-pod-runtime-default
+  - windows-unset
+  result: pass

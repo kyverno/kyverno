@@ -2,9 +2,13 @@ package store
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -99,6 +103,115 @@ func TestResolveGlobalContextMockData(t *testing.T) {
 			Name:      "g",
 			FieldPath: "this is not valid jmespath {{{",
 			Data:      raw(map[string]interface{}{"a": 1}),
+		}
+		_, err := resolveGlobalContextMockData(jp, entry)
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
+
+	t.Run("CEL expression projection", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Data: raw(map[string]interface{}{
+				"deployments": []interface{}{
+					map[string]interface{}{"name": "a"},
+					map[string]interface{}{"name": "b"},
+				},
+			}),
+			Projections: []v1alpha1.GlobalContextProjection{
+				{Name: "count", Expression: "object.deployments.size()"},
+			},
+		}
+		got, err := resolveGlobalContextMockData(jp, entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m, ok := got.(map[string]interface{})
+		if !ok {
+			t.Fatalf("got %T", got)
+		}
+		count, ok := m["count"].(int64)
+		if !ok || count != 2 {
+			t.Fatalf("count: %#v", m["count"])
+		}
+	})
+
+	t.Run("CEL expression and JMESPath projections together", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Data: raw(map[string]interface{}{
+				"deployments": []interface{}{
+					map[string]interface{}{"name": "a"},
+				},
+			}),
+			Projections: []v1alpha1.GlobalContextProjection{
+				{Name: "fromCEL", Expression: "object.deployments.size()"},
+				{Name: "fromJMESPath", Path: "deployments"},
+			},
+		}
+		got, err := resolveGlobalContextMockData(jp, entry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := got.(map[string]interface{})
+		if m["fromCEL"].(int64) != 1 {
+			t.Fatalf("fromCEL: %#v", m["fromCEL"])
+		}
+		if items, ok := m["fromJMESPath"].([]interface{}); !ok || len(items) != 1 {
+			t.Fatalf("fromJMESPath: %#v", m["fromJMESPath"])
+		}
+	})
+
+	t.Run("CEL projections share one budget across the whole entry", func(t *testing.T) {
+		// Each evaluation costs ~600,000 of the 3,000,000 background ceiling (same blob-size
+		// math as pkg/cel/compiler's TestBudgetRefusalArrivesWithAUsableValue). If the budget
+		// were established fresh per projection instead of once per entry, six projections
+		// would each get their own 3,000,000 ceiling and never refuse.
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Data: raw(map[string]interface{}{"blob": strings.Repeat("b", 1_000_000)}),
+		}
+		for i := 0; i < 6; i++ {
+			entry.Projections = append(entry.Projections, v1alpha1.GlobalContextProjection{
+				Name:       fmt.Sprintf("p%d", i),
+				Expression: "(object.blob + object.blob).size()",
+			})
+		}
+		// Control: one projection over the same blob must succeed. Without this, the
+		// six-projection refusal below would also pass if a single evaluation already
+		// exceeded the ceiling on its own, which would prove nothing about sharing.
+		single := v1alpha1.GlobalContextEntryValue{
+			Name: entry.Name,
+			Data: entry.Data,
+			Projections: []v1alpha1.GlobalContextProjection{
+				{Name: "p0", Expression: "(object.blob + object.blob).size()"},
+			},
+		}
+		got, err := resolveGlobalContextMockData(jp, single)
+		if err != nil {
+			t.Fatalf("a single projection must fit the ceiling, got %v", err)
+		}
+		if m, ok := got.(map[string]interface{}); !ok || m["p0"] == nil {
+			t.Fatalf("expected a value from the single projection, got %#v", got)
+		}
+
+		_, err = resolveGlobalContextMockData(jp, entry)
+		if err == nil {
+			t.Fatal("expected the shared per-entry budget to be exceeded")
+		}
+		if !errors.Is(err, requestbudget.ErrBudgetExceeded) {
+			t.Fatalf("expected a budget refusal, got %v", err)
+		}
+	})
+
+	t.Run("invalid CEL expression", func(t *testing.T) {
+		entry := v1alpha1.GlobalContextEntryValue{
+			Name: "g",
+			Data: raw(map[string]interface{}{"a": 1}),
+			Projections: []v1alpha1.GlobalContextProjection{
+				{Name: "x", Expression: "object.sizee()"},
+			},
 		}
 		_, err := resolveGlobalContextMockData(jp, entry)
 		if err == nil {

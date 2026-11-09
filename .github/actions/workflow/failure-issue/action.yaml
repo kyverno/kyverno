@@ -15,6 +15,10 @@ inputs:
     description: 'Extra labels for the tracking issue, comma-separated, in addition to workflow-failure'
     required: false
     default: ''
+  note:
+    description: 'Extra markdown appended to the tracking issue body'
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -22,6 +26,7 @@ runs:
     - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
       env:
         EXTRA_LABELS: ${{ inputs.labels }}
+        NOTE: ${{ inputs.note }}
       with:
         script: |
           const { owner, repo } = context.repo;
@@ -263,6 +268,7 @@ runs:
               `| **Conclusion** | \`${conclusion}\` |`,
               ...formatNeedsResultsTable(needs),
               ...failedJobsSection,
+              ...(process.env.NOTE && process.env.NOTE.trim() ? ['', process.env.NOTE.trim(), ''] : []),
               '---',
               '*This issue is maintained by the Workflow failure issue workflow. It will be closed when the workflow succeeds.*',
               '',

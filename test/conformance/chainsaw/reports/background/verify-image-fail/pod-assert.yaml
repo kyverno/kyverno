@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: unsigned
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: signed-by-someone-else
