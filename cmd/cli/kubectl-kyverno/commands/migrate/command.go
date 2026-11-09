@@ -127,6 +127,11 @@ func migrate(ctx context.Context, crd *v1.CustomResourceDefinition, dynamicClien
 	fmt.Println("migrating resources...")
 	list, err := client.List(ctx, metav1.ListOptions{})
 	if err != nil {
+		// If the resource was removed between CRD Get and resource List, skip cleanly.
+		if apierrors.IsNotFound(err) {
+			fmt.Printf("resource %s not found on cluster, skipping\n", gvr.Resource)
+			return nil
+		}
 		return err
 	}
 
@@ -149,13 +154,24 @@ func migrate(ctx context.Context, crd *v1.CustomResourceDefinition, dynamicClien
 	}
 
 	fmt.Println("patching status...")
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		latestCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crd.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
+		}
+		if (crd.UID != "" && latestCrd.UID != crd.UID) || latestCrd.Generation != crd.Generation {
+			return fmt.Errorf("crd %s was modified during migration (UID or generation changed), please rerun migration", crd.GetName())
 		}
 		latestCrd.Status.StoredVersions = []string{storedVersion.Name}
 		_, err = apiServerClient.ApiextensionsV1().CustomResourceDefinitions().UpdateStatus(ctx, latestCrd, metav1.UpdateOptions{})
 		return err
 	})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			fmt.Printf("crd %s was removed before status update, skipping\n", crd.GetName())
+			return nil
+		}
+		return err
+	}
+	return nil
 }

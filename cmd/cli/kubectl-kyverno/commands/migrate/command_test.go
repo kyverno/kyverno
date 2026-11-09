@@ -322,7 +322,7 @@ func TestMigrateResources_FailsOnUnrelatedUpdateError_LeavesStoredVersionsUnchan
 	require.Equal(t, []string{"v1alpha1", "v1"}, unchangedCrd.Status.StoredVersions)
 }
 
-func TestMigrateResources_RetriesOnConflict(t *testing.T) {
+func TestMigrateResources_SkipsResourceWhenListReturnsNotFound(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
 
@@ -360,11 +360,190 @@ func TestMigrateResources_RetriesOnConflict(t *testing.T) {
 		gvr: "TestPolicyList",
 	})
 
+	dynamicClient.PrependReactor("list", "testpolicies", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewNotFound(schema.GroupResource{Group: "policies.kyverno.io", Resource: "testpolicies"}, "")
+	})
+
+	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
+	require.NoError(t, err)
+
+	unchangedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "testpolicies.policies.kyverno.io", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{"v1alpha1", "v1"}, unchangedCrd.Status.StoredVersions)
+}
+
+func TestMigrateResources_SkipsCRDWhenStatusUpdateReturnsNotFound(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1.AddToScheme(scheme))
+
+	crd := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testpolicies.policies.kyverno.io",
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Group: "policies.kyverno.io",
+			Names: v1.CustomResourceDefinitionNames{
+				Plural: "testpolicies",
+			},
+			Scope: v1.ClusterScoped,
+			Versions: []v1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Storage: true,
+					Served:  true,
+				},
+			},
+		},
+		Status: v1.CustomResourceDefinitionStatus{
+			StoredVersions: []string{"v1alpha1", "v1"},
+		},
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "policies.kyverno.io",
+		Version:  "v1",
+		Resource: "testpolicies",
+	}
+
+	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+		gvr: "TestPolicyList",
+	})
+
+	// Return NotFound when refetching CRD during status update
+	firstGet := true
+	apiServerClient.PrependReactor("get", "customresourcedefinitions", func(action ktesting.Action) (bool, runtime.Object, error) {
+		if firstGet {
+			firstGet = false
+			return false, nil, nil
+		}
+		return true, nil, apierrors.NewNotFound(schema.GroupResource{Group: "apiextensions.k8s.io", Resource: "customresourcedefinitions"}, "testpolicies.policies.kyverno.io")
+	})
+
+	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
+	require.NoError(t, err)
+}
+
+func TestMigrateResources_AbortsWhenCRDGenerationOrUIDChanges(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1.AddToScheme(scheme))
+
+	crd := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "testpolicies.policies.kyverno.io",
+			Generation: 1,
+			UID:        "uid-1",
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Group: "policies.kyverno.io",
+			Names: v1.CustomResourceDefinitionNames{
+				Plural: "testpolicies",
+			},
+			Scope: v1.ClusterScoped,
+			Versions: []v1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Storage: true,
+					Served:  true,
+				},
+			},
+		},
+		Status: v1.CustomResourceDefinitionStatus{
+			StoredVersions: []string{"v1alpha1", "v1"},
+		},
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "policies.kyverno.io",
+		Version:  "v1",
+		Resource: "testpolicies",
+	}
+
+	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+		gvr: "TestPolicyList",
+	})
+
+	// When refetched during status update, simulate CRD having been modified concurrently (generation bumped)
+	firstGet := true
+	apiServerClient.PrependReactor("get", "customresourcedefinitions", func(action ktesting.Action) (bool, runtime.Object, error) {
+		if firstGet {
+			firstGet = false
+			return false, nil, nil
+		}
+		modifiedCRD := crd.DeepCopy()
+		modifiedCRD.Generation = 2
+		return true, modifiedCRD, nil
+	})
+
+	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "was modified during migration (UID or generation changed), please rerun migration")
+
+	unchangedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "testpolicies.policies.kyverno.io", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{"v1alpha1", "v1"}, unchangedCrd.Status.StoredVersions)
+}
+
+func TestMigrateResources_RetriesOnConflict(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1.AddToScheme(scheme))
+
+	crd := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "testpolicies.policies.kyverno.io",
+			ResourceVersion: "1",
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Group: "policies.kyverno.io",
+			Names: v1.CustomResourceDefinitionNames{
+				Plural: "testpolicies",
+			},
+			Scope: v1.ClusterScoped,
+			Versions: []v1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Storage: true,
+					Served:  true,
+				},
+			},
+		},
+		Status: v1.CustomResourceDefinitionStatus{
+			StoredVersions: []string{"v1alpha1", "v1"},
+		},
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "policies.kyverno.io",
+		Version:  "v1",
+		Resource: "testpolicies",
+	}
+
+	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+		gvr: "TestPolicyList",
+	})
+
+	crdGVR := schema.GroupVersionResource{
+		Group:    "apiextensions.k8s.io",
+		Version:  "v1",
+		Resource: "customresourcedefinitions",
+	}
+
 	attempts := 0
 	apiServerClient.PrependReactor("update", "customresourcedefinitions", func(action ktesting.Action) (bool, runtime.Object, error) {
 		if action.GetSubresource() == "status" && attempts == 0 {
 			attempts++
+			// Simulate a concurrent controller updating the CRD's ResourceVersion
+			updatedCRD := crd.DeepCopy()
+			updatedCRD.SetResourceVersion("2")
+			_ = apiServerClient.Tracker().Update(crdGVR, updatedCRD, "")
 			return true, nil, apierrors.NewConflict(schema.GroupResource{Group: "apiextensions.k8s.io", Resource: "customresourcedefinitions"}, "testpolicies.policies.kyverno.io", errors.New("conflict"))
+		}
+		if action.GetSubresource() == "status" && attempts == 1 {
+			updateAction := action.(ktesting.UpdateAction)
+			updatedObj := updateAction.GetObject().(*v1.CustomResourceDefinition)
+			require.Equal(t, "2", updatedObj.GetResourceVersion(), "retried update must use latest resourceVersion")
 		}
 		return false, nil, nil
 	})
