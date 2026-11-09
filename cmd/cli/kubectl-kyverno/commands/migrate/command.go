@@ -162,7 +162,19 @@ func migrate(ctx context.Context, crd *v1.CustomResourceDefinition, dynamicClien
 		if (crd.UID != "" && latestCrd.UID != crd.UID) || latestCrd.Generation != crd.Generation {
 			return fmt.Errorf("crd %s was modified during migration (UID or generation changed), please rerun migration", crd.GetName())
 		}
-		latestCrd.Status.StoredVersions = []string{storedVersion.Name}
+		var latestStoredVersion *v1.CustomResourceDefinitionVersion
+		for i := range latestCrd.Spec.Versions {
+			if latestCrd.Spec.Versions[i].Storage {
+				latestStoredVersion = &latestCrd.Spec.Versions[i]
+			}
+		}
+		if latestStoredVersion == nil {
+			return errors.New("stored version not found")
+		}
+		if latestStoredVersion.Name != storedVersion.Name {
+			return fmt.Errorf("crd %s storage version changed from %s to %s during migration, please rerun migration", crd.GetName(), storedVersion.Name, latestStoredVersion.Name)
+		}
+		latestCrd.Status.StoredVersions = []string{latestStoredVersion.Name}
 		_, err = apiServerClient.ApiextensionsV1().CustomResourceDefinitions().UpdateStatus(ctx, latestCrd, metav1.UpdateOptions{})
 		return err
 	})

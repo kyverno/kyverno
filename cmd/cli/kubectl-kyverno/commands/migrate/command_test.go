@@ -485,6 +485,81 @@ func TestMigrateResources_AbortsWhenCRDGenerationOrUIDChanges(t *testing.T) {
 	require.Equal(t, []string{"v1alpha1", "v1"}, unchangedCrd.Status.StoredVersions)
 }
 
+func TestMigrateResources_AbortsWhenStorageVersionChangesDuringMigration(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1.AddToScheme(scheme))
+
+	crd := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testpolicies.policies.kyverno.io",
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Group: "policies.kyverno.io",
+			Names: v1.CustomResourceDefinitionNames{
+				Plural: "testpolicies",
+			},
+			Scope: v1.ClusterScoped,
+			Versions: []v1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1alpha1",
+					Storage: false,
+					Served:  true,
+				},
+				{
+					Name:    "v1",
+					Storage: true,
+					Served:  true,
+				},
+			},
+		},
+		Status: v1.CustomResourceDefinitionStatus{
+			StoredVersions: []string{"v1alpha1", "v1"},
+		},
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "policies.kyverno.io",
+		Version:  "v1",
+		Resource: "testpolicies",
+	}
+
+	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+		gvr: "TestPolicyList",
+	})
+
+	// When refetched during status update, simulate storage version having been switched to v2 concurrently
+	firstGet := true
+	apiServerClient.PrependReactor("get", "customresourcedefinitions", func(action ktesting.Action) (bool, runtime.Object, error) {
+		if firstGet {
+			firstGet = false
+			return false, nil, nil
+		}
+		modifiedCRD := crd.DeepCopy()
+		modifiedCRD.Spec.Versions = []v1.CustomResourceDefinitionVersion{
+			{
+				Name:    "v1",
+				Storage: false,
+				Served:  true,
+			},
+			{
+				Name:    "v2",
+				Storage: true,
+				Served:  true,
+			},
+		}
+		return true, modifiedCRD, nil
+	})
+
+	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "storage version changed from v1 to v2 during migration, please rerun migration")
+
+	unchangedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "testpolicies.policies.kyverno.io", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{"v1alpha1", "v1"}, unchangedCrd.Status.StoredVersions)
+}
+
 func TestMigrateResources_RetriesOnConflict(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
