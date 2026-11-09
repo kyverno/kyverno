@@ -385,3 +385,85 @@ func TestCommandValidationErrors(t *testing.T) {
 		})
 	}
 }
+
+// TestCommandNamespaceLabelTypes verifies that namespace selector labels are always quoted as strings,
+// preventing YAML unmarshaling errors into map[string]string for boolean or numeric labels.
+func TestCommandNamespaceLabelTypes(t *testing.T) {
+	cmd := Command()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{
+		"-n", "prod,env=true,tier=1,active=false,name=production",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+
+	yamlStr := buf.String()
+	assert.Contains(t, yamlStr, `env: "true"`)
+	assert.Contains(t, yamlStr, `tier: "1"`)
+	assert.Contains(t, yamlStr, `active: "false"`)
+	assert.Contains(t, yamlStr, `name: "production"`)
+
+	var spec v1alpha1.ValuesSpec
+	err = yaml.UnmarshalStrict(buf.Bytes(), &spec)
+	assert.NoError(t, err)
+
+	assert.Len(t, spec.NamespaceSelectors, 1)
+	labels := spec.NamespaceSelectors[0].Labels
+	assert.Equal(t, "true", labels["env"])
+	assert.Equal(t, "1", labels["tier"])
+	assert.Equal(t, "false", labels["active"])
+	assert.Equal(t, "production", labels["name"])
+}
+
+// TestCommandGlobalValueWithCommas verifies that --global uses StringArrayVarP so values with commas (e.g., URLs) are not split.
+func TestCommandGlobalValueWithCommas(t *testing.T) {
+	cmd := Command()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{
+		"-g", "url=https://example.com?a=1,b=2",
+		"-g", "list=item1,item2,item3",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+
+	var spec v1alpha1.ValuesSpec
+	err = yaml.UnmarshalStrict(buf.Bytes(), &spec)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "https://example.com?a=1,b=2", spec.GlobalValues["url"])
+	assert.Equal(t, "item1,item2,item3", spec.GlobalValues["list"])
+}
+
+// TestCommandEmptyRuleAndResourceValues verifies that rules and resources without key-value pairs emit values: {} instead of null.
+func TestCommandEmptyRuleAndResourceValues(t *testing.T) {
+	cmd := Command()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{
+		"--rule", "mypol,rule1",
+		"--resource", "mypol,res1",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+
+	yamlStr := buf.String()
+	assert.Contains(t, yamlStr, "values: {}")
+
+	var spec v1alpha1.ValuesSpec
+	err = yaml.UnmarshalStrict(buf.Bytes(), &spec)
+	assert.NoError(t, err)
+
+	assert.Len(t, spec.Policies, 1)
+	pol := spec.Policies[0]
+	assert.Len(t, pol.Rules, 1)
+	assert.Equal(t, "rule1", pol.Rules[0].Name)
+	assert.NotNil(t, pol.Rules[0].Values)
+	assert.Empty(t, pol.Rules[0].Values)
+
+	assert.Len(t, pol.Resources, 1)
+	assert.Equal(t, "res1", pol.Resources[0].Name)
+	assert.NotNil(t, pol.Resources[0].Values)
+	assert.Empty(t, pol.Resources[0].Values)
+}
