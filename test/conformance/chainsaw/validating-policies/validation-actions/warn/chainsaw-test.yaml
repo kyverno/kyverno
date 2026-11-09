@@ -28,6 +28,8 @@ spec:
         entrypoint: kubectl
         args:
         - create
+        - --namespace
+        - $NAMESPACE
         - --dry-run=server
         - -f
         - deployment.yaml
@@ -36,13 +38,14 @@ spec:
         check:
           ($error): null
           (contains($stderr, 'Deployment labels must be env=prod')): true
-
   - name: create deployment and verify warning
     try:
     - command:
         entrypoint: kubectl
         args:
         - create
+        - --namespace
+        - $NAMESPACE
         - -f
         - deployment.yaml
         - -o
