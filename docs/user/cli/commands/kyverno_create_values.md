@@ -22,7 +22,7 @@ kyverno create values [flags]
 ### Options
 
 ```
-  -g, --global strings            Global value
+  -g, --global stringArray        Global value
   -h, --help                      help for values
   -n, --ns-selector stringArray   Namespace selector
   -o, --output string             Output path (uses standard console output if not set)
