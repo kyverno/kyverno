@@ -1153,6 +1153,13 @@ globalContextEntries:
     projections:
       - name: tier
         path: tier
+apiCallResponses:
+  - url: https://api.example.com/status
+    method: GET
+    response:
+      statusCode: 200
+      body:
+        status: healthy
 jsonPayloads:
   - payload.json
   - payload-2.json
@@ -1182,7 +1189,10 @@ spec:
         apiVersions: ["v1"]
         resources: ["pods"]
   conditions:
-    - expression: globalContext.get("allowed-envs", "tier") == "production" && object.metadata.name.startsWith("test-nginx")
+    - expression: >-
+        globalContext.get("allowed-envs", "tier") == "production" &&
+        object.metadata.name.startsWith("test-nginx") &&
+        (!object.metadata.name.contains("json") || http.Get("https://api.example.com/status").body.status == "healthy")
       name: check-pod-name
   schedule: '*/1 * * * *'
 `
