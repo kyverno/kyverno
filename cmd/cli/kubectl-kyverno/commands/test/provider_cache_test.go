@@ -1157,6 +1157,7 @@ resources:
   - dresources.yaml
 clusterResources:
   - clusterresources.yaml
+context: context.yaml
 globalContextEntries:
   - name: allowed-envs
     data:
@@ -1203,7 +1204,7 @@ spec:
     - expression: >-
         globalContext.get("allowed-envs", "tier") == "production" &&
         object.metadata.name.startsWith("test-nginx") &&
-        (!object.metadata.name.contains("json") || http.Get("https://api.example.com/status").body.status == "healthy")
+        (!object.metadata.name.contains("json") || (http.Get("https://api.example.com/status").body.status == "healthy" && resource.get("v1", "configmaps", "default", "json-settings").data["enabled"] == "true"))
       name: check-pod-name
   schedule: '*/1 * * * *'
 `
@@ -1263,6 +1264,26 @@ spec:
 	_, err = fc.Write([]byte(clusterResourcesYAML))
 	require.NoError(t, err)
 	fc.Close()
+
+	contextYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Context
+metadata:
+  name: context
+spec:
+  resources:
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: json-settings
+        namespace: default
+      data:
+        enabled: "true"
+`
+	fctx, err := fs.Create("context.yaml")
+	require.NoError(t, err)
+	_, err = fctx.Write([]byte(contextYAML))
+	require.NoError(t, err)
+	fctx.Close()
 
 	f4, err := fs.Create("payload.json")
 	require.NoError(t, err)
