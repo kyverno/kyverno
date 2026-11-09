@@ -19,12 +19,14 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
+// options holds configuration flags and parameters for the migrate command.
 type options struct {
 	KubeConfig string
 	Context    string
 	Resources  []string
 }
 
+// Command returns the Cobra command for migrating CRD storage versions and existing custom resources.
 func Command() *cobra.Command {
 	var options options
 	cmd := &cobra.Command{
@@ -67,6 +69,8 @@ func Command() *cobra.Command {
 	return cmd
 }
 
+// migrateResources iterates through the provided CRD names, looks up each CRD, and migrates its instances and status.
+// Missing CRDs (NotFound errors) are logged as informational messages and skipped cleanly.
 func migrateResources(ctx context.Context, resources []string, apiServerClient clientset.Interface, dynamicClient dynamic.Interface) error {
 	for _, resource := range resources {
 		fmt.Println("migrating resource:", resource, "...")
@@ -85,6 +89,11 @@ func migrateResources(ctx context.Context, resources []string, apiServerClient c
 	return nil
 }
 
+// migrate coordinates the storage-version migration of a single CRD:
+// 1. Identifies the active storage version from the CRD spec.
+// 2. Skips legacy policy kinds whose writes are blocked in Kyverno 1.20+.
+// 3. Lists and rewrites all existing instances of the resource so they are stored in the active storage version.
+// 4. Retries on conflict, verifies the CRD UID/Generation/StorageVersion identity, and updates status.storedVersions.
 func migrate(ctx context.Context, crd *v1.CustomResourceDefinition, dynamicClient dynamic.Interface, apiServerClient clientset.Interface) error {
 	var storedVersion *v1.CustomResourceDefinitionVersion
 	for i := range crd.Spec.Versions {
