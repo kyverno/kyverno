@@ -2,6 +2,7 @@ package autogen
 
 import (
 	"bytes"
+	"fmt"
 )
 
 // protectedSuffixes lists field paths that must remain anchored to the
@@ -241,7 +242,7 @@ func replaceCEL(data, from, to []byte) []byte {
 				if isValidBoundary(data, i) {
 					rest := data[i+len(from):]
 					if isValidTrailingBoundary(from, rest) {
-						if isProtected(from, rest) {
+						if isProtected(from, rest) || isAlreadyRewritten(from, rest) {
 							buf.Write(from)
 						} else {
 							buf.Write(to)
@@ -319,4 +320,111 @@ func replaceCEL(data, from, to []byte) []byte {
 		i++
 	}
 	return buf.Bytes()
+}
+
+// isAlreadyRewritten reports whether rest begins with .template / .jobTemplate,
+// preventing redundant double-rewriting on spec paths.
+func isAlreadyRewritten(from, rest []byte) bool {
+	if bytes.HasSuffix(from, []byte("spec")) || bytes.HasSuffix(from, []byte("spec']")) || bytes.HasSuffix(from, []byte("spec\"]")) {
+		return bytes.HasPrefix(rest, []byte(".template")) ||
+			bytes.HasPrefix(rest, []byte(".?template")) ||
+			bytes.HasPrefix(rest, []byte(".jobTemplate")) ||
+			bytes.HasPrefix(rest, []byte(".?jobTemplate"))
+	}
+	return false
+}
+
+// ApplyMutatingCEL applies pod-to-template expression conversions for MutatingPolicy.
+// It is syntax-aware and skips CEL string literals, rewrites bracket and dot selectors
+// for spec, metadata.labels, and metadata.annotations, and preserves controller metadata fields.
+func ApplyMutatingCEL(data []byte, config string) []byte {
+	specRepl := "spec.template.spec"
+	metaRepl := "spec.template.metadata"
+	if config == "cronjobs" {
+		specRepl = "spec.jobTemplate.spec.template.spec"
+		metaRepl = "spec.jobTemplate.spec.template.metadata"
+	}
+
+	roots := []string{"object", "oldObject", "Object"}
+
+	// 1. Rewrite metadata.labels and metadata.annotations first
+	for _, root := range roots {
+		// dot and optional dot syntax for labels
+		for _, optMeta := range []string{".", ".?"} {
+			for _, optLabels := range []string{".", ".?"} {
+				from := fmt.Sprintf("%s%smetadata%slabels", root, optMeta, optLabels)
+				to := fmt.Sprintf("%s%s%s%slabels", root, optMeta, metaRepl, optLabels)
+				data = replaceCEL(data, []byte(from), []byte(to))
+			}
+			// bracket labels with dot/optional-dot metadata
+			for _, q := range []string{"'", "\""} {
+				fromOpt := fmt.Sprintf("%s%smetadata[?%slabels%s]", root, optMeta, q, q)
+				fromNoOpt := fmt.Sprintf("%s%smetadata[%slabels%s]", root, optMeta, q, q)
+				data = replaceCEL(data, []byte(fromOpt), []byte(fmt.Sprintf("%s%s%s.?labels", root, optMeta, metaRepl)))
+				data = replaceCEL(data, []byte(fromNoOpt), []byte(fmt.Sprintf("%s%s%s.labels", root, optMeta, metaRepl)))
+			}
+		}
+		// bracket metadata
+		for _, qM := range []string{"'", "\""} {
+			for _, optMeta := range []bool{false, true} {
+				metaPrefix := fmt.Sprintf("%s[%s%smetadata%s]", root, map[bool]string{false: "", true: "?"}[optMeta], qM, qM)
+				metaDelim := map[bool]string{false: ".", true: ".?"}[optMeta]
+
+				for _, optLabels := range []string{".", ".?"} {
+					from := fmt.Sprintf("%s%slabels", metaPrefix, optLabels)
+					to := fmt.Sprintf("%s%s%s%slabels", root, metaDelim, metaRepl, optLabels)
+					data = replaceCEL(data, []byte(from), []byte(to))
+				}
+				for _, qL := range []string{"'", "\""} {
+					fromOpt := fmt.Sprintf("%s[?%slabels%s]", metaPrefix, qL, qL)
+					fromNoOpt := fmt.Sprintf("%s[%slabels%s]", metaPrefix, qL, qL)
+					data = replaceCEL(data, []byte(fromOpt), []byte(fmt.Sprintf("%s%s%s.?labels", root, metaDelim, metaRepl)))
+					data = replaceCEL(data, []byte(fromNoOpt), []byte(fmt.Sprintf("%s%s%s.labels", root, metaDelim, metaRepl)))
+				}
+			}
+		}
+
+		// dot and optional dot syntax for annotations
+		for _, optMeta := range []string{".", ".?"} {
+			for _, optAnn := range []string{".", ".?"} {
+				from := fmt.Sprintf("%s%smetadata%sannotations", root, optMeta, optAnn)
+				to := fmt.Sprintf("%s%s%s%sannotations", root, optMeta, metaRepl, optAnn)
+				data = replaceCEL(data, []byte(from), []byte(to))
+			}
+			for _, q := range []string{"'", "\""} {
+				fromOpt := fmt.Sprintf("%s%smetadata[?%sannotations%s]", root, optMeta, q, q)
+				fromNoOpt := fmt.Sprintf("%s%smetadata[%sannotations%s]", root, optMeta, q, q)
+				data = replaceCEL(data, []byte(fromOpt), []byte(fmt.Sprintf("%s%s%s.?annotations", root, optMeta, metaRepl)))
+				data = replaceCEL(data, []byte(fromNoOpt), []byte(fmt.Sprintf("%s%s%s.annotations", root, optMeta, metaRepl)))
+			}
+		}
+		for _, qM := range []string{"'", "\""} {
+			for _, optMeta := range []bool{false, true} {
+				metaPrefix := fmt.Sprintf("%s[%s%smetadata%s]", root, map[bool]string{false: "", true: "?"}[optMeta], qM, qM)
+				metaDelim := map[bool]string{false: ".", true: ".?"}[optMeta]
+
+				for _, optAnn := range []string{".", ".?"} {
+					from := fmt.Sprintf("%s%sannotations", metaPrefix, optAnn)
+					to := fmt.Sprintf("%s%s%s%sannotations", root, metaDelim, metaRepl, optAnn)
+					data = replaceCEL(data, []byte(from), []byte(to))
+				}
+				for _, qL := range []string{"'", "\""} {
+					fromOpt := fmt.Sprintf("%s[?%sannotations%s]", metaPrefix, qL, qL)
+					fromNoOpt := fmt.Sprintf("%s[%sannotations%s]", metaPrefix, qL, qL)
+					data = replaceCEL(data, []byte(fromOpt), []byte(fmt.Sprintf("%s%s%s.?annotations", root, metaDelim, metaRepl)))
+					data = replaceCEL(data, []byte(fromNoOpt), []byte(fmt.Sprintf("%s%s%s.annotations", root, metaDelim, metaRepl)))
+				}
+			}
+		}
+
+		// 2. Rewrite spec
+		data = replaceCEL(data, []byte(root+".spec"), []byte(root+"."+specRepl))
+		data = replaceCEL(data, []byte(root+".?spec"), []byte(root+".?"+specRepl))
+		for _, q := range []string{"'", "\""} {
+			data = replaceCEL(data, []byte(fmt.Sprintf("%s[%sspec%s]", root, q, q)), []byte(root+"."+specRepl))
+			data = replaceCEL(data, []byte(fmt.Sprintf("%s[?%sspec%s]", root, q, q)), []byte(root+".?"+specRepl))
+		}
+	}
+
+	return data
 }

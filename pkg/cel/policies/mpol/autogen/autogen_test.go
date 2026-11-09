@@ -239,6 +239,18 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
 			input:    `foo.object.spec.containers.all(c, true)`,
 			expected: `foo.object.spec.containers.all(c, true)`,
 		},
+		{
+			name:     "string literals containing selector patterns are not rewritten",
+			config:   "deployments",
+			input:    `object.metadata.labels['message'] == "object[?'spec']"`,
+			expected: `object.spec.template.metadata.labels['message'] == "object[?'spec']"`,
+		},
+		{
+			name:     "repeated match following existing template spec is not skipped",
+			config:   "deployments",
+			input:    `(object.spec.template.spec) && (object.spec.containers.exists(c, true))`,
+			expected: `(object.spec.template.spec) && (object.spec.template.spec.containers.exists(c, true))`,
+		},
 	}
 
 	for _, tt := range tests {
