@@ -28,6 +28,12 @@ var protectedSuffixes = [][]byte{
 	[]byte("[?'namespace']"),
 	[]byte("[?\"namespace\"]"),
 	[]byte("[?\\\"namespace\\\"]"),
+	[]byte("[? 'name']"),
+	[]byte("[? \"name\"]"),
+	[]byte("[? \\\"name\\\"]"),
+	[]byte("[? 'namespace']"),
+	[]byte("[? \"namespace\"]"),
+	[]byte("[? \\\"namespace\\\"]"),
 }
 
 type Replacement struct {
@@ -64,6 +70,16 @@ func (r *Replacement) Apply(data []byte) []byte {
 	data = replace(data, []byte("object[?\\\""+r.From+"\\\"]"), []byte("object.?"+r.To))
 	data = replace(data, []byte("oldObject[?\\\""+r.From+"\\\"]"), []byte("oldObject.?"+r.To))
 
+	// optional indexing with whitespace tolerance: object[? 'spec']
+	data = replace(data, []byte("object[? '"+r.From+"']"), []byte("object.?"+r.To))
+	data = replace(data, []byte("oldObject[? '"+r.From+"']"), []byte("oldObject.?"+r.To))
+	data = replace(data, []byte("object[? \""+r.From+"\" ]"), []byte("object.?"+r.To))
+	data = replace(data, []byte("oldObject[? \""+r.From+"\" ]"), []byte("oldObject.?"+r.To))
+	data = replace(data, []byte("object[? \""+r.From+"\"]"), []byte("object.?"+r.To))
+	data = replace(data, []byte("oldObject[? \""+r.From+"\"]"), []byte("oldObject.?"+r.To))
+	data = replace(data, []byte("object[? \\\""+r.From+"\\\"]"), []byte("object.?"+r.To))
+	data = replace(data, []byte("oldObject[? \\\""+r.From+"\\\"]"), []byte("oldObject.?"+r.To))
+
 	return data
 }
 
@@ -98,7 +114,7 @@ func replace(data, from, to []byte) []byte {
 			if isValidBoundary(data, i) {
 				rest := data[i+len(from):]
 				if isValidTrailingBoundary(from, rest) {
-					if isProtected(from, rest) {
+					if isProtected(from, rest) || isAlreadyRewritten(from, rest) {
 						buf.Write(from)
 					} else {
 						buf.Write(to)
@@ -149,9 +165,12 @@ func isValidTrailingBoundary(from, rest []byte) bool {
 // character so that fields like `metadata.namespace` are protected while
 // hypothetical fields like `metadata.namespaceFoo` are not.
 func isProtected(from, rest []byte) bool {
-	// The protected suffixes (like .name and .namespace) only apply when rewriting metadata paths.
-	// We do not want to protect .name if the user wrote object.spec.name.
-	if !bytes.Contains(from, []byte("metadata")) {
+	// The protected suffixes (like .name and .namespace) only apply when rewriting direct metadata paths (e.g. object.metadata),
+	// not subfields like object.metadata.labels or object.metadata.annotations, and not object.spec.
+	if !bytes.HasSuffix(from, []byte("metadata")) &&
+		!bytes.HasSuffix(from, []byte("metadata']")) &&
+		!bytes.HasSuffix(from, []byte("metadata\"]")) &&
+		!bytes.HasSuffix(from, []byte("metadata\\\"]")) {
 		return false
 	}
 	for _, suffix := range protectedSuffixes {
@@ -211,6 +230,16 @@ func ApplyCEL(data []byte, replacements ...Replacement) []byte {
 
 		data = replaceCEL(data, []byte("object[?\\\""+replacement.From+"\\\"]"), []byte("object.?"+replacement.To))
 		data = replaceCEL(data, []byte("oldObject[?\\\""+replacement.From+"\\\"]"), []byte("oldObject.?"+replacement.To))
+
+		// optional indexing with whitespace tolerance: object[? 'spec']
+		data = replaceCEL(data, []byte("object[? '"+replacement.From+"']"), []byte("object.?"+replacement.To))
+		data = replaceCEL(data, []byte("oldObject[? '"+replacement.From+"']"), []byte("oldObject.?"+replacement.To))
+		data = replaceCEL(data, []byte("object[? \""+replacement.From+"\" ]"), []byte("object.?"+replacement.To))
+		data = replaceCEL(data, []byte("oldObject[? \""+replacement.From+"\" ]"), []byte("oldObject.?"+replacement.To))
+		data = replaceCEL(data, []byte("object[? \""+replacement.From+"\"]"), []byte("object.?"+replacement.To))
+		data = replaceCEL(data, []byte("oldObject[? \""+replacement.From+"\"]"), []byte("oldObject.?"+replacement.To))
+		data = replaceCEL(data, []byte("object[? \\\""+replacement.From+"\\\"]"), []byte("object.?"+replacement.To))
+		data = replaceCEL(data, []byte("oldObject[? \\\""+replacement.From+"\\\"]"), []byte("oldObject.?"+replacement.To))
 	}
 	return data
 }
@@ -238,6 +267,18 @@ func replaceCEL(data, from, to []byte) []byte {
 
 	for i := 0; i < len(data); {
 		if !inString {
+			// Skip CEL single-line comments so apostrophes inside comments do not trigger inString
+			if bytes.HasPrefix(data[i:], []byte("//")) {
+				newlineIdx := bytes.IndexByte(data[i:], '\n')
+				if newlineIdx == -1 {
+					buf.Write(data[i:])
+					break
+				}
+				buf.Write(data[i : i+newlineIdx+1])
+				i += newlineIdx + 1
+				continue
+			}
+
 			if bytes.HasPrefix(data[i:], from) {
 				if isValidBoundary(data, i) {
 					rest := data[i+len(from):]
@@ -253,8 +294,20 @@ func replaceCEL(data, from, to []byte) []byte {
 				}
 			}
 
-			// Check for string start
-			if bytes.HasPrefix(data[i:], []byte("'''")) {
+			// Check for string start (check raw triple quotes before raw single quotes)
+			if bytes.HasPrefix(data[i:], []byte("r'''")) || bytes.HasPrefix(data[i:], []byte("R'''")) {
+				inString = true
+				stringQuote = "r'''"
+				buf.Write(data[i : i+4])
+				i += 4
+				continue
+			} else if bytes.HasPrefix(data[i:], []byte("r\"\"\"")) || bytes.HasPrefix(data[i:], []byte("R\"\"\"")) {
+				inString = true
+				stringQuote = "r\"\"\""
+				buf.Write(data[i : i+4])
+				i += 4
+				continue
+			} else if bytes.HasPrefix(data[i:], []byte("'''")) {
 				inString = true
 				stringQuote = "'''"
 				buf.Write(data[i : i+3])
@@ -290,26 +343,30 @@ func replaceCEL(data, from, to []byte) []byte {
 			}
 		} else {
 			// Check for string end
-			if stringQuote == "'''" && bytes.HasPrefix(data[i:], []byte("'''")) && !escaped {
+			if (stringQuote == "'''" || stringQuote == "r'''") && bytes.HasPrefix(data[i:], []byte("'''")) {
+				if stringQuote == "r'''" || !escaped {
+					inString = false
+					buf.Write(data[i : i+3])
+					i += 3
+					continue
+				}
+			} else if (stringQuote == "\"\"\"" || stringQuote == "r\"\"\"") && bytes.HasPrefix(data[i:], []byte("\"\"\"")) {
+				if stringQuote == "r\"\"\"" || !escaped {
+					inString = false
+					buf.Write(data[i : i+3])
+					i += 3
+					continue
+				}
+			} else if (stringQuote == "'" || stringQuote == "r'") && data[i] == '\'' && (stringQuote == "r'" || !escaped) {
 				inString = false
-				buf.Write(data[i : i+3])
-				i += 3
-				continue
-			} else if stringQuote == "\"\"\"" && bytes.HasPrefix(data[i:], []byte("\"\"\"")) && !escaped {
-				inString = false
-				buf.Write(data[i : i+3])
-				i += 3
-				continue
-			} else if (stringQuote == "'" || stringQuote == "r'") && data[i] == '\'' && !escaped {
-				inString = false
-			} else if (stringQuote == "\"" || stringQuote == "r\"") && data[i] == '"' && !escaped {
+			} else if (stringQuote == "\"" || stringQuote == "r\"") && data[i] == '"' && (stringQuote == "r\"" || !escaped) {
 				inString = false
 			} else if stringQuote == "`" && data[i] == '`' {
 				inString = false
 			}
 
-			// Manage escapes
-			if data[i] == '\\' && stringQuote != "r'" && stringQuote != "r\"" && stringQuote != "`" {
+			// Manage escapes (raw strings and backtick strings do not process escape sequences)
+			if data[i] == '\\' && stringQuote != "r'" && stringQuote != "r\"" && stringQuote != "r'''" && stringQuote != "r\"\"\"" && stringQuote != "`" {
 				escaped = !escaped
 			} else {
 				escaped = false
@@ -324,12 +381,24 @@ func replaceCEL(data, from, to []byte) []byte {
 
 // isAlreadyRewritten reports whether rest begins with .template / .jobTemplate,
 // preventing redundant double-rewriting on spec paths.
+// isAlreadyRewritten reports whether rest begins with .template / .jobTemplate as a complete path segment,
+// preventing redundant double-rewriting on spec paths while preserving distinct fields like templateSpec.
 func isAlreadyRewritten(from, rest []byte) bool {
 	if bytes.HasSuffix(from, []byte("spec")) || bytes.HasSuffix(from, []byte("spec']")) || bytes.HasSuffix(from, []byte("spec\"]")) {
-		return bytes.HasPrefix(rest, []byte(".template")) ||
-			bytes.HasPrefix(rest, []byte(".?template")) ||
-			bytes.HasPrefix(rest, []byte(".jobTemplate")) ||
-			bytes.HasPrefix(rest, []byte(".?jobTemplate"))
+		suffixes := [][]byte{
+			[]byte(".template"),
+			[]byte(".?template"),
+			[]byte(".jobTemplate"),
+			[]byte(".?jobTemplate"),
+		}
+		for _, s := range suffixes {
+			if bytes.HasPrefix(rest, s) {
+				next := rest[len(s):]
+				if len(next) == 0 || !isIdentifierByte(next[0]) {
+					return true
+				}
+			}
+		}
 	}
 	return false
 }
@@ -421,8 +490,13 @@ func ApplyMutatingCEL(data []byte, config string) []byte {
 		data = replaceCEL(data, []byte(root+".spec"), []byte(root+"."+specRepl))
 		data = replaceCEL(data, []byte(root+".?spec"), []byte(root+".?"+specRepl))
 		for _, q := range []string{"'", "\""} {
-			data = replaceCEL(data, []byte(fmt.Sprintf("%s[%sspec%s]", root, q, q)), []byte(root+"."+specRepl))
-			data = replaceCEL(data, []byte(fmt.Sprintf("%s[?%sspec%s]", root, q, q)), []byte(root+".?"+specRepl))
+			for _, ws := range []string{"", " "} {
+				data = replaceCEL(data, []byte(fmt.Sprintf("%s[%s%sspec%s]", root, ws, q, q)), []byte(root+"."+specRepl))
+				data = replaceCEL(data, []byte(fmt.Sprintf("%s[?%s%sspec%s]", root, ws, q, q)), []byte(root+".?"+specRepl))
+				data = replaceCEL(data, []byte(fmt.Sprintf("%s[ %s?%sspec%s]", root, ws, q, q)), []byte(root+".?"+specRepl))
+				data = replaceCEL(data, []byte(fmt.Sprintf("%s[%s%sspec%s ]", root, ws, q, q)), []byte(root+"."+specRepl))
+				data = replaceCEL(data, []byte(fmt.Sprintf("%s[?%s%sspec%s ]", root, ws, q, q)), []byte(root+".?"+specRepl))
+			}
 		}
 	}
 

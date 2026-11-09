@@ -251,6 +251,78 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
 			input:    `(object.spec.template.spec) && (object.spec.containers.exists(c, true))`,
 			expected: `(object.spec.template.spec) && (object.spec.template.spec.containers.exists(c, true))`,
 		},
+		{
+			name:     "negative case: namespaceObject.?spec is untouched",
+			config:   "deployments",
+			input:    `namespaceObject.?spec.?containers.all(c, true)`,
+			expected: `namespaceObject.?spec.?containers.all(c, true)`,
+		},
+		{
+			name:     "negative case: namespaceObject.spec is untouched",
+			config:   "deployments",
+			input:    `namespaceObject.spec.containers.all(c, true)`,
+			expected: `namespaceObject.spec.containers.all(c, true)`,
+		},
+		{
+			name:     "negative case: object.?metadata.name preserved",
+			config:   "deployments",
+			input:    `object.?metadata.name == 'prod'`,
+			expected: `object.?metadata.name == 'prod'`,
+		},
+		{
+			name:     "negative case: object.?metadata.?name preserved",
+			config:   "deployments",
+			input:    `object.?metadata.?name == 'prod'`,
+			expected: `object.?metadata.?name == 'prod'`,
+		},
+		{
+			name:     "negative case: object.?metadata[?'name'] preserved",
+			config:   "deployments",
+			input:    `object.?metadata[?'name'] == 'prod'`,
+			expected: `object.?metadata[?'name'] == 'prod'`,
+		},
+		{
+			name:     "negative case: object.?metadata[?'namespace'] preserved",
+			config:   "deployments",
+			input:    `object.?metadata[?'namespace'] == 'prod'`,
+			expected: `object.?metadata[?'namespace'] == 'prod'`,
+		},
+		{
+			name:     "bracket spec with space is rewritten",
+			config:   "deployments",
+			input:    `object[? 'spec'].containers.all(c, true)`,
+			expected: `object.?spec.template.spec.containers.all(c, true)`,
+		},
+		{
+			name:     "comment with apostrophe does not suppress spec rewrite",
+			config:   "deployments",
+			input:    "// don't match\nobject.spec.containers.all(c, true)",
+			expected: "// don't match\nobject.spec.template.spec.containers.all(c, true)",
+		},
+		{
+			name:     "raw triple-quoted string literal is preserved",
+			config:   "deployments",
+			input:    `r"""a" object.?spec.containers """`,
+			expected: `r"""a" object.?spec.containers """`,
+		},
+		{
+			name:     "metadata label named name is rewritten to template",
+			config:   "deployments",
+			input:    `object.metadata.labels['name'] == 'foo'`,
+			expected: `object.spec.template.metadata.labels['name'] == 'foo'`,
+		},
+		{
+			name:     "metadata label dot name is rewritten to template",
+			config:   "deployments",
+			input:    `object.metadata.labels.name == 'foo'`,
+			expected: `object.spec.template.metadata.labels.name == 'foo'`,
+		},
+		{
+			name:     "field templateSpec on spec is rewritten to template spec",
+			config:   "deployments",
+			input:    `object.spec.templateSpec == 'foo'`,
+			expected: `object.spec.template.spec.templateSpec == 'foo'`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -493,6 +565,34 @@ func TestGenerateRuleForControllers(t *testing.T) {
 			expectedRules: 1,
 			expectedError: false,
 		},
+		{
+			name: "deployment with variables autogen",
+			spec: &policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							},
+						},
+					},
+				},
+				Variables: []admissionregistrationv1.Variable{
+					{
+						Name:       "containers",
+						Expression: "object[?'spec'].?containers.orValue([])",
+					},
+				},
+			},
+			configs:       sets.New("deployments"),
+			expectedRules: 1,
+			expectedError: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -509,6 +609,17 @@ func TestGenerateRuleForControllers(t *testing.T) {
 
 			for config, rule := range rules {
 				assert.NotNil(t, rule.Spec)
+
+				if len(tt.spec.Variables) > 0 {
+					assert.Len(t, rule.Spec.Variables, len(tt.spec.Variables))
+					for _, v := range rule.Spec.Variables {
+						if config == "cronjobs" {
+							assert.Contains(t, v.Expression, "jobTemplate.spec.template.spec")
+						} else {
+							assert.Contains(t, v.Expression, "template.spec")
+						}
+					}
+				}
 
 				if len(tt.spec.Mutations) > 0 {
 					assert.Len(t, rule.Spec.Mutations, len(tt.spec.Mutations))

@@ -64,6 +64,13 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 		// expressions to the built-in flat shape, which is wrong for
 		// whatever custom CRD this config actually targets.
 		if config != autogen.ExtractionReplacementsRef {
+			for i := range spec.Variables {
+				if spec.Variables[i].Expression != "" {
+					convertedExpr := convertPodToTemplateExpression(spec.Variables[i].Expression, config)
+					spec.Variables[i].Expression = convertedExpr
+				}
+			}
+
 			for i := range spec.MatchConditions {
 				if spec.MatchConditions[i].Expression != "" {
 					convertedExpr := convertPodToTemplateExpression(spec.MatchConditions[i].Expression, config)

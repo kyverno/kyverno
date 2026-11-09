@@ -337,6 +337,48 @@ func TestApplyRewritesExpressions(t *testing.T) {
 			config: "deployments",
 			want:   "request.?object.?spec.template.spec.replicas > 0",
 		},
+		{
+			name:   "deployments object.spec.templateSpec is rewritten",
+			expr:   "object.spec.templateSpec == 'foo'",
+			config: "deployments",
+			want:   "object.spec.template.spec.templateSpec == 'foo'",
+		},
+		{
+			name:   "deployments object.spec.jobTemplateX is rewritten",
+			expr:   "object.spec.jobTemplateX == 'foo'",
+			config: "deployments",
+			want:   "object.spec.template.spec.jobTemplateX == 'foo'",
+		},
+		{
+			name:   "deployments object[? 'spec'] with whitespace is rewritten",
+			expr:   "object[? 'spec'].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.?spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments object.?metadata[? 'name'] with whitespace is preserved",
+			expr:   "object.?metadata[? 'name'] == 'foo'",
+			config: "deployments",
+			want:   "object.?metadata[? 'name'] == 'foo'",
+		},
+		{
+			name:   "deployments object.?metadata[? 'namespace'] with whitespace is preserved",
+			expr:   "object.?metadata[? 'namespace'] == 'foo'",
+			config: "deployments",
+			want:   "object.?metadata[? 'namespace'] == 'foo'",
+		},
+		{
+			name:   "deployments object.metadata.labels['name'] is rewritten",
+			expr:   "object.metadata.labels['name'] == 'foo'",
+			config: "deployments",
+			want:   "object.spec.template.metadata.labels['name'] == 'foo'",
+		},
+		{
+			name:   "deployments object.metadata.labels.name is rewritten",
+			expr:   "object.metadata.labels.name == 'foo'",
+			config: "deployments",
+			want:   "object.spec.template.metadata.labels.name == 'foo'",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -598,6 +640,54 @@ func TestApplyCELRewritesExpressions(t *testing.T) {
 			expr:   "object.?metadata.?labels['app']",
 			config: "cronjobs",
 			want:   "object.?spec.jobTemplate.spec.template.metadata.?labels['app']",
+		},
+		{
+			name:   "deployments object.spec.templateSpec is rewritten in CEL",
+			expr:   "object.spec.templateSpec == 'foo'",
+			config: "deployments",
+			want:   "object.spec.template.spec.templateSpec == 'foo'",
+		},
+		{
+			name:   "deployments object.spec.jobTemplateX is rewritten in CEL",
+			expr:   "object.spec.jobTemplateX == 'foo'",
+			config: "deployments",
+			want:   "object.spec.template.spec.jobTemplateX == 'foo'",
+		},
+		{
+			name:   "deployments object[? 'spec'] with whitespace is rewritten in CEL",
+			expr:   "object[? 'spec'].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.?spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments comment with apostrophe does not prevent spec rewrite in CEL",
+			expr:   "// don't match\nobject.spec.replicas > 0",
+			config: "deployments",
+			want:   "// don't match\nobject.spec.template.spec.replicas > 0",
+		},
+		{
+			name:   "deployments raw triple-quoted string literal is not rewritten",
+			expr:   "r\"\"\"a\" object.?spec.containers \"\"\"",
+			config: "deployments",
+			want:   "r\"\"\"a\" object.?spec.containers \"\"\"",
+		},
+		{
+			name:   "deployments object.metadata.labels['name'] is rewritten in CEL",
+			expr:   "object.metadata.labels['name'] == 'foo'",
+			config: "deployments",
+			want:   "object.spec.template.metadata.labels['name'] == 'foo'",
+		},
+		{
+			name:   "deployments object.metadata.labels.name is rewritten in CEL",
+			expr:   "object.metadata.labels.name == 'foo'",
+			config: "deployments",
+			want:   "object.spec.template.metadata.labels.name == 'foo'",
+		},
+		{
+			name:   "deployments object.?metadata[? 'name'] with whitespace is preserved in CEL",
+			expr:   "object.?metadata[? 'name'] == 'foo'",
+			config: "deployments",
+			want:   "object.?metadata[? 'name'] == 'foo'",
 		},
 	}
 	for _, tt := range tests {
