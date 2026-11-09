@@ -62,6 +62,7 @@ var (
 	HookFallbackVpolCompiled     func()
 	HookFallbackVpolJSONCompiled func()
 	HookFallbackMpolCompiled     func()
+	HookFallbackGpolCompiled     func()
 	HookFallbackContextCreated   func()
 )
 
@@ -89,32 +90,34 @@ type PolicyProcessor struct {
 	Variables          *variables.Variables
 	ParameterResources []runtime.Object
 	// TODO
-	ContextFs            billy.Filesystem
-	ContextPath          string
-	GlobalContextEntries map[string]interface{}
-	Cluster              bool
-	UserInfo             *kyvernov2.RequestInfo
-	PolicyReport         bool
-	NamespaceSelectorMap map[string]map[string]string
-	NamespaceResolver    celengine.NamespaceResolver
-	Stdin                bool
-	Rc                   *ResultCounts
-	PrintPatchResource   bool
-	Client               dclient.Interface
-	AuditWarn            bool
-	Subresources         []v1alpha1.Subresource
-	Out                  io.Writer
-	CrdPaths             []string
-	CrdPreloaded         bool
-	ConfigMapResolver    engineapi.ConfigmapResolver
-	RESTMapper           meta.RESTMapper
-	ContextProvider      libs.Context
-	VpolProvider         vpolengine.Provider
-	VpolProviderErr      error
-	VpolJSONProvider     vpolengine.Provider
-	VpolJSONProviderErr  error
-	MpolProvider         mpolengine.Provider
-	MpolProviderErr      error
+	ContextFs               billy.Filesystem
+	ContextPath             string
+	GlobalContextEntries    map[string]interface{}
+	Cluster                 bool
+	UserInfo                *kyvernov2.RequestInfo
+	PolicyReport            bool
+	NamespaceSelectorMap    map[string]map[string]string
+	NamespaceResolver       celengine.NamespaceResolver
+	Stdin                   bool
+	Rc                      *ResultCounts
+	PrintPatchResource      bool
+	Client                  dclient.Interface
+	AuditWarn               bool
+	Subresources            []v1alpha1.Subresource
+	Out                     io.Writer
+	CrdPaths                []string
+	CrdPreloaded            bool
+	ConfigMapResolver       engineapi.ConfigmapResolver
+	RESTMapper              meta.RESTMapper
+	ContextProvider         libs.Context
+	VpolProvider            vpolengine.Provider
+	VpolProviderErr         error
+	VpolJSONProvider        vpolengine.Provider
+	VpolJSONProviderErr     error
+	MpolProvider            mpolengine.Provider
+	MpolProviderErr         error
+	GpolCompiledPolicies    []gpolengine.Policy
+	GpolCompiledPoliciesErr error
 	// Explain compiles validating and mutating policies with tracing on and prints, for each
 	// policy, how it arrived at its result (scope, match conditions, variables, the validations
 	// or mutations it ran, and verdict).
@@ -680,17 +683,28 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			libs.LibraryContext = contextProvider
 		}
 
-		compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
-		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
-		for _, pol := range p.GeneratingPolicies {
-			compiled, errs := compiler.Compile(pol, p.CELExceptions)
-			if len(errs) > 0 {
-				return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
+		var compiledPolicies []gpolengine.Policy
+		if p.GpolCompiledPoliciesErr != nil {
+			return nil, p.GpolCompiledPoliciesErr
+		}
+		if p.GpolCompiledPolicies != nil {
+			compiledPolicies = p.GpolCompiledPolicies
+		} else {
+			if HookFallbackGpolCompiled != nil {
+				HookFallbackGpolCompiled()
 			}
-			compiledPolicies = append(compiledPolicies, gpolengine.Policy{
-				Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
-				CompiledPolicy: compiled,
-			})
+			compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
+			compiledPolicies = make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
+			for _, pol := range p.GeneratingPolicies {
+				compiled, errs := compiler.Compile(pol, p.CELExceptions)
+				if len(errs) > 0 {
+					return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
+				}
+				compiledPolicies = append(compiledPolicies, gpolengine.Policy{
+					Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
+					CompiledPolicy: compiled,
+				})
+			}
 		}
 		if resource.Object != nil {
 			engine := gpolengine.NewEngine(p.getNamespaceResolver(), matching.NewMatcher())
