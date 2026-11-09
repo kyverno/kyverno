@@ -118,21 +118,19 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
      Identity and custom match exclusions are unsafe without workload-template admission:
      an excluded controller could create a Pod bypassing the policy. */}}
 {{- define "kyverno-policies.pssNativeVAP" -}}
-{{- if .Values.generateValidatingAdmissionPolicy -}}
-  {{- if not (semverCompare ">=1.30.0-0" .Capabilities.KubeVersion.Version) -}}
+{{- $root := .ctx -}}
+{{- if $root.Values.generateValidatingAdmissionPolicy -}}
+  {{- if not (semverCompare ">=1.30.0-0" $root.Capabilities.KubeVersion.Version) -}}
     {{- fail "generateValidatingAdmissionPolicy requires Kubernetes v1.30 or newer" -}}
   {{- end -}}
-  {{- if not (.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy") -}}
+  {{- if not ($root.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy") -}}
     {{- fail "generateValidatingAdmissionPolicy requires the served admissionregistration.k8s.io/v1 ValidatingAdmissionPolicy API" -}}
   {{- end -}}
-  {{- $exclusions := list (.Values.vpolExclude | default dict) -}}
-  {{- range $_, $config := (.Values.vpolExcludeByPolicy | default dict) -}}
-    {{- $exclusions = append $exclusions ($config | default dict) -}}
-  {{- end -}}
-  {{- range $config := $exclusions -}}
-    {{- if or (gt (len ($config.excludeSubjects | default list)) 0) (gt (len ($config.matchConditions | default list)) 0) (gt (len ($config.excludeResourceRules | default list)) 0) -}}
-      {{- fail "generateValidatingAdmissionPolicy cannot be combined with subject, custom match-condition, or resource-rule exclusions; excluded controllers could bypass Pod admission" -}}
-    {{- end -}}
+  {{- /* Per-policy exclusion settings replace global settings. Validate only the
+        effective exclusions for this rendered PSS policy, not unused policies. */ -}}
+  {{- $config := include "kyverno-policies.policyVpolExclude" (dict "name" .name "values" $root.Values) | fromYaml | default dict -}}
+  {{- if or (gt (len ($config.excludeSubjects | default list)) 0) (gt (len ($config.matchConditions | default list)) 0) (gt (len ($config.excludeResourceRules | default list)) 0) -}}
+    {{- fail "generateValidatingAdmissionPolicy cannot be combined with subject, custom match-condition, or resource-rule exclusions; excluded controllers could bypass Pod admission" -}}
   {{- end -}}
 autogen:
   podControllers:

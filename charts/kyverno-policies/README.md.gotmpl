@@ -37,8 +37,10 @@ that API is unavailable. Native checks include `pods/ephemeralcontainers` update
 workload-template admission is not enforced in this mode. The chart rejects subject
 exclusions, custom match conditions, and resource-rule exclusions in native mode because
 exempting workload controllers could bypass Pod admission. Namespace exclusions remain
-supported. The Kyverno policy generator must be enabled and have permission to manage
-VAPs and bindings. Verify any PolicyExceptions before enabling native generation.
+supported. Kyverno's admission-policy controller must have permission to manage VAPs and
+bindings. The per-policy opt-in also works if the global VAP generator flag is
+disabled. Review PolicyExceptions carefully: exceptions added later can alter
+the effective native policy enforcement.
 
 The following policies are included in each profile.
 

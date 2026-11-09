@@ -143,9 +143,29 @@ func TestPSSNativeVAP(t *testing.T) {
 		require.Len(t, policies, 19)
 		found := false
 		for _, policy := range policies {
-			if policy.Name == "disallow-proc-mount-strict" {
-				found = true
+			if policy.Name != "disallow-proc-mount-strict" {
+				continue
 			}
+			found = true
+			require.True(t, policy.Spec.GenerateValidatingAdmissionPolicyEnabled())
+			policy.UID = "pss-strict-native-vap-test"
+			ctx := context.Background()
+			c, kubeClient, kyvernoClient := newVAPTestController(t, &policy)
+			require.NoError(t, c.handleVAPGeneration(ctx, engineapi.NewValidatingPolicy(&policy)))
+			name := "vpol-" + policy.Name
+			vap, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, name, metav1.GetOptions{})
+			require.NoError(t, err)
+			binding, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, name+"-binding", metav1.GetOptions{})
+			require.NoError(t, err)
+			assert.Equal(t, policy.Spec.MatchConstraints, vap.Spec.MatchConstraints)
+			assert.Equal(t, policy.Spec.MatchConditions, vap.Spec.MatchConditions)
+			assert.Equal(t, policy.Spec.Validations, vap.Spec.Validations)
+			assert.Equal(t, policy.Spec.Variables, vap.Spec.Variables)
+			assert.Equal(t, policy.Spec.ValidationActions(), binding.Spec.ValidationActions)
+			assert.Equal(t, name, binding.Spec.PolicyName)
+			updated, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
+			require.NoError(t, err)
+			assert.True(t, updated.Status.Generated)
 		}
 		assert.True(t, found, "missing conditional restricted proc-mount policy")
 	})
@@ -158,6 +178,38 @@ func TestPSSNativeVAP(t *testing.T) {
 		output, err := cmd.CombinedOutput()
 		require.Error(t, err)
 		assert.Contains(t, string(output), "requires Kubernetes v1.30 or newer")
+	})
+
+	t.Run("rejects-missing-vap-api", func(t *testing.T) {
+		cmd := exec.Command(helm, "template", "verify-pss", chart,
+			"--kube-version", "v1.37.0",
+			"--set", "generateValidatingAdmissionPolicy=true")
+		output, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(output), "requires the served admissionregistration.k8s.io/v1 ValidatingAdmissionPolicy API")
+	})
+
+	t.Run("ignores-unused-policy-exclusions", func(t *testing.T) {
+		policies := renderPSSNativeVAPPolicies(t, helm, chart, "baseline",
+			"--set", "generateValidatingAdmissionPolicy=true",
+			"--set", "vpolExcludeByPolicy.require-non-root-groups.excludeSubjects[0].kind=User",
+			"--set", "vpolExcludeByPolicy.require-non-root-groups.excludeSubjects[0].name=unrelated")
+		require.Len(t, policies, 12)
+		for _, policy := range policies {
+			assert.True(t, policy.Spec.GenerateValidatingAdmissionPolicyEnabled(), policy.Name)
+		}
+	})
+
+	t.Run("rejects-effective-policy-exclusions", func(t *testing.T) {
+		cmd := exec.Command(helm, "template", "verify-pss", chart,
+			"--kube-version", "v1.37.0",
+			"--api-versions", "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy",
+			"--set", "generateValidatingAdmissionPolicy=true",
+			"--set", "vpolExcludeByPolicy.disallow-host-path.excludeSubjects[0].kind=User",
+			"--set", "vpolExcludeByPolicy.disallow-host-path.excludeSubjects[0].name=controller")
+		output, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(output), "cannot be combined with subject")
 	})
 
 	t.Run("rejects-controller-subject-exclusions", func(t *testing.T) {

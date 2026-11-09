@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -11,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -146,6 +148,46 @@ func TestHandleVAPGeneration_PodControllerAutogen(t *testing.T) {
 				assert.True(t, apierrors.IsNotFound(bindingErr), "no ValidatingAdmissionPolicyBinding expected: got err=%v", bindingErr)
 			}
 			assert.Equal(t, tt.wantGenerated, updated.Status.Generated)
+		})
+	}
+}
+
+
+// disabledVAPGenerationToggle simulates the global feature flag being disabled,
+// while retaining the rest of the current feature-toggle configuration.
+type disabledVAPGenerationToggle struct{ toggle.Toggles }
+
+func (disabledVAPGenerationToggle) GenerateValidatingAdmissionPolicy() bool { return false }
+
+// TestReconcileVAPExplicitOptIn tests the per-policy override at the controller
+// reconcile entrypoint, where the global generation toggle is checked.
+func TestReconcileVAPExplicitOptIn(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		perPolicy bool
+	}{
+		{name: "explicitly enabled with global flag off", perPolicy: true},
+		{name: "disabled with global flag off", perPolicy: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := disallowPrivilegeEscalationVpol(nil)
+			policy.Spec.AutogenConfiguration.PodControllers.Controllers = []string{}
+			policy.Spec.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled = ptr.To(tt.perPolicy)
+
+			c, kubeClient, _ := newVAPTestController(t, policy)
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			require.NoError(t, indexer.Add(policy))
+			c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(indexer)
+
+			baseCtx := context.Background()
+			ctx := toggle.NewContext(baseCtx, disabledVAPGenerationToggle{Toggles: toggle.FromContext(baseCtx)})
+			require.NoError(t, c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/"+policy.Name, "", policy.Name))
+			_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "vpol-"+policy.Name, metav1.GetOptions{})
+			if tt.perPolicy {
+				require.NoError(t, err, "explicit per-policy opt-in must override the global default")
+			} else {
+				assert.True(t, apierrors.IsNotFound(err), "disabled policy must not generate a VAP: %v", err)
+			}
 		})
 	}
 }

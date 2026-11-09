@@ -9,7 +9,8 @@ podSecurityStandard: baseline
 # are checked at Pod admission, but workload templates are not checked on creation.
 # Subject exclusions, custom match conditions, and exclude resource rules are rejected
 # in native mode to prevent excluded controllers from bypassing Pod admission.
-# Requires Kyverno native generation and permissions to manage VAPs and bindings.
+# Kyverno's admission-policy controller needs native VAP permissions; this per-policy
+# opt-in also works when the global VAP generator flag is disabled.
 generateValidatingAdmissionPolicy: false
 
 # -- Pod Security Standard severity (`low`, `medium`, `high`).

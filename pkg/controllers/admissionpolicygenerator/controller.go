@@ -210,10 +210,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	polType := strings.Split(key, "/")[0]
 	if polType == "ValidatingPolicy" {
-		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-		if !generateValidatingAdmissionPolicy {
-			return nil
-		}
 		vpol, err := c.getValidatingPolicy(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -221,6 +217,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			}
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
+		}
+		// Match MutatingPolicy behavior: explicit per-policy native generation must
+		// work even when the global default is disabled.
+		if !toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy() && !vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() {
+			return nil
 		}
 		policy = engineapi.NewValidatingPolicy(vpol)
 		err = c.handleVAPGeneration(ctx, policy)
