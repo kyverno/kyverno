@@ -240,6 +240,23 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			if err != nil {
 				return nil, fmt.Errorf("failed to load public key from %s: %w", att.Key.KMS, err)
 			}
+		} else {
+			// A key attestor with neither data nor kms carries no verifier material.
+			// data, kms and expression are all optional in the CRD with no one-of
+			// rule, and an expression is resolved into Data before checkOptions runs
+			// (variables.CompiledAttestor.Evaluate), so nothing can populate it later.
+			//
+			// This used to fail closed only incidentally: TrustedMaterial stayed nil
+			// on this path, so cosign's "a trusted root is required" guard tripped.
+			// Now that an inline trustedRoot is resolved here, the trusted root alone
+			// would satisfy that guard and cosign would attempt identity-based
+			// verification with no key and no identities configured, since Identities
+			// is only populated for a keyless attestor. Reject it explicitly instead.
+			//
+			// Only the key branch is checked. A certificate attestor legitimately
+			// leaves SigVerifier nil when it supplies certChain without a leaf cert,
+			// which is the identity-based configuration issue #17562 is about.
+			return nil, fmt.Errorf("key attestor requires one of data, kms or expression")
 		}
 		return opts, nil
 	}

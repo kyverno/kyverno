@@ -770,7 +770,13 @@ func TestVerifyImageSignature_ErrorCases(t *testing.T) {
 		v := Verifier{log: logr.Discard()}
 		err = v.VerifyImageSignature(context.TODO(), img, attestor)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to verify cosign signatures")
+		// A key attestor with no verifier material is now rejected while building
+		// the options, like the malformed-key case above, instead of reaching
+		// cosign and failing there. Both fail closed; rejecting it up front gives
+		// a message that names the misconfiguration, and keeps an inline
+		// trustedRoot from being the only trust material left on this path.
+		assert.Contains(t, err.Error(), "failed to build cosign verification opts")
+		assert.Contains(t, err.Error(), "key attestor requires one of data, kms or expression")
 	})
 }
 
