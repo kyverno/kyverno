@@ -463,3 +463,64 @@ func TestForgetDownstreamUIDReleasesOnlyUnusedWatcherReference(t *testing.T) {
 	require.NotContains(t, wm.dynamicWatchers, gvr)
 	require.NotContains(t, wm.policyRefs, policyKey)
 }
+
+// TestUnmappedAcknowledgementsAreTriggerScopedAndRetryable checks that
+// discovery failures cannot orphan acknowledged writes when one trigger is
+// deleted, and that transient and UID-conflict deletes preserve retry state.
+func TestUnmappedAcknowledgementsAreTriggerScopedAndRetryable(t *testing.T) {
+	const policyKey = "unmapped-trigger-policy"
+	first := makeUnstructured("1", "", "v1", "ConfigMap", "first", "team-a", "first-uid", map[string]string{
+		common.GeneratePolicyLabel:     policyKey,
+		common.GenerateTriggerUIDLabel: "first-trigger",
+	})
+	sibling := makeUnstructured("1", "", "v1", "ConfigMap", "sibling", "team-a", "sibling-uid", map[string]string{
+		common.GeneratePolicyLabel:     policyKey,
+		common.GenerateTriggerUIDLabel: "sibling-trigger",
+	})
+	firstKey := "ConfigMap/team-a/first"
+	siblingKey := "ConfigMap/team-a/sibling"
+	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{
+		firstKey: first, siblingKey: sibling,
+	}}
+	wm := &WatchManager{
+		log:    logging.WithName("unmapped-trigger-cleanup"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(schema.GroupKind, string) (*meta.RESTMapping, error) {
+			return nil, errors.New("temporary discovery outage")
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
+		policyRefs:      map[string][]schema.GroupVersionResource{},
+		refCount:        map[schema.GroupVersionResource]int{},
+	}
+	require.ErrorContains(t, wm.AddWatchers(policyKey, nil, []*unstructured.Unstructured{first, sibling}, false), "temporary discovery outage")
+	require.Len(t, wm.unmappedAcknowledged[policyKey], 2)
+	require.Empty(t, wm.policyRefs[policyKey])
+
+	client.deleteErr = errors.New("temporary delete outage")
+	wm.DeleteDownstreams(policyKey, &kyverno.ResourceSpec{UID: "first-trigger"})
+	require.Contains(t, wm.unmappedAcknowledged[policyKey], first.GetUID(), "failed deletion must retain retry identity")
+	require.Contains(t, wm.unmappedAcknowledged[policyKey], sibling.GetUID(), "sibling trigger must remain untouched")
+	require.Zero(t, client.deletes)
+
+	client.deleteErr = nil
+	replacement := first.DeepCopy()
+	replacement.SetUID("replacement-uid")
+	client.objects[firstKey] = replacement
+	wm.DeleteDownstreams(policyKey, &kyverno.ResourceSpec{UID: "first-trigger"})
+	require.Contains(t, wm.unmappedAcknowledged[policyKey], first.GetUID(), "UID conflict must preserve the recorded identity")
+	require.Equal(t, replacement.GetUID(), client.objects[firstKey].GetUID())
+	require.Zero(t, client.deletes, "a same-name replacement must survive")
+
+	client.objects[firstKey] = first
+	wm.DeleteDownstreams(policyKey, &kyverno.ResourceSpec{UID: "first-trigger"})
+	require.NotContains(t, wm.unmappedAcknowledged[policyKey], first.GetUID())
+	require.Contains(t, wm.unmappedAcknowledged[policyKey], sibling.GetUID())
+	require.Equal(t, 1, client.deletes)
+	require.Equal(t, first.GetUID(), *client.deleteOptions[len(client.deleteOptions)-1].Preconditions.UID)
+	require.Contains(t, client.objects, siblingKey)
+
+	wm.DeleteDownstreams(policyKey, &kyverno.ResourceSpec{UID: "sibling-trigger"})
+	require.NotContains(t, wm.unmappedAcknowledged, policyKey)
+	require.Equal(t, 2, client.deletes)
+	require.NotContains(t, client.objects, siblingKey)
+}

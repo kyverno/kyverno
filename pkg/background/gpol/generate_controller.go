@@ -383,6 +383,11 @@ func (c *CELGenerateController) retainAcknowledgedDownstreamsChecked(ctx context
 			return current, fmt.Errorf("read acknowledged downstream %s/%s: %w", spec.Namespace, spec.Name, err)
 		}
 		if resource == nil || resource.GetUID() != spec.UID {
+			// A same-name replacement must not inherit the old UID's watch.
+			// Otherwise a late delete event could recreate the stale object.
+			if c.watchManager != nil {
+				c.watchManager.ForgetDownstreamUID(ur.Spec.GetPolicyKey(), spec.UID)
+			}
 			continue // never adopt a same-name replacement
 		}
 		labels := resource.GetLabels()
@@ -489,8 +494,16 @@ func (c *CELGenerateController) cleanupAcknowledgedAfterRetry(
 			continue
 		}
 		if live == nil || live.GetUID() != spec.UID {
+			// The recorded resource no longer exists under its original UID.
+			// Evict its watcher identity without touching the live replacement.
+			if c.watchManager != nil {
+				c.watchManager.ForgetDownstreamUID(policyKey, spec.UID)
+			}
 			continue
 		}
+		// UpdateRequest status aggregates acknowledgements from all rule
+		// contexts. Only this trigger's live, UID-matched downstreams
+		// may be considered stale by this reconciliation pass.
 		labels := live.GetLabels()
 		if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp ||
 			labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {

@@ -773,3 +773,102 @@ func TestAlreadyAbsentStaleCleanupEvictsWatcherUID(t *testing.T) {
 	wm.handleDelete(old, gvr)
 	require.Zero(t, client.writes, "absent objects must not be recreated")
 }
+
+// TestCleanupRetryDoesNotDeleteSiblingTriggers guards the UR-wide status
+// against cleanup of resources belonging to another rule context's trigger.
+func TestCleanupRetryDoesNotDeleteSiblingTriggers(t *testing.T) {
+	const policyKey = "multi-trigger-policy"
+	const namespace = "team-a"
+	labelsFor := func(uid string) map[string]string {
+		return map[string]string{
+			kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+			common.GeneratePolicyLabel:      policyKey,
+			common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeCluster,
+			common.GenerateTriggerUIDLabel:  uid,
+		}
+	}
+	first := makeUnstructured("1", "", "v1", "ConfigMap", "first", namespace, "first-uid", labelsFor("first-trigger"))
+	sibling := makeUnstructured("1", "", "v1", "ConfigMap", "sibling", namespace, "sibling-uid", labelsFor("sibling-trigger"))
+	firstKey := "ConfigMap/" + namespace + "/first"
+	siblingKey := "ConfigMap/" + namespace + "/sibling"
+	client := &partialReproClient{objects: map[string]*unstructured.Unstructured{
+		firstKey: first, siblingKey: sibling,
+	}}
+	controller := &CELGenerateController{client: client}
+	prior := []kyverno.ResourceSpec{
+		common.ResourceSpecFromUnstructured(*first),
+		common.ResourceSpecFromUnstructured(*sibling),
+	}
+
+	pending, err := controller.cleanupAcknowledgedAfterRetry(context.Background(), policyKey,
+		kyverno.ResourceSpec{UID: "first-trigger"}, prior, nil)
+	require.NoError(t, err)
+	require.Empty(t, pending)
+	require.Equal(t, 1, client.deletes)
+	require.NotContains(t, client.objects, firstKey)
+	require.Contains(t, client.objects, siblingKey, "another trigger must not be reconciled as stale")
+	require.Len(t, client.deleteOptions, 1)
+	require.Equal(t, first.GetUID(), *client.deleteOptions[0].Preconditions.UID)
+}
+
+// TestUIDMismatchEvictsOnlyRecordedWatcherIdentity prevents an old watch
+// delete event from recreating a different live object with the same name.
+func TestUIDMismatchEvictsOnlyRecordedWatcherIdentity(t *testing.T) {
+	const namespace = "team-a"
+	const policyKey = "replacement-protection"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+
+	for _, mode := range []string{"retry-retention", "stale-cleanup"} {
+		t.Run(mode, func(t *testing.T) {
+			labels := map[string]string{
+				kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+				common.GeneratePolicyLabel:      policyKey,
+				common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeCluster,
+				common.GenerateTriggerUIDLabel:  "trigger-uid",
+			}
+			old := makeUnstructured("1", "", "v1", "ConfigMap", "generated", namespace, "old-uid", labels)
+			replacement := old.DeepCopy()
+			replacement.SetUID("new-uid")
+			key := "ConfigMap/" + namespace + "/generated"
+			client := &partialReproClient{objects: map[string]*unstructured.Unstructured{key: replacement}}
+			wm := &WatchManager{
+				log:    logging.WithName("replacement-protection"),
+				client: client,
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					gvr: {watcher: watch.MockWatcher{StopFunc: func() {}}, metadataCache: map[types.UID]Resource{
+						old.GetUID(): {Name: old.GetName(), Namespace: namespace, Data: old, Labels: labels, PolicyKey: policyKey, Hash: "old-hash"},
+					}},
+				},
+				policyRefs: map[string][]schema.GroupVersionResource{policyKey: {gvr}},
+				refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+			}
+			controller := &CELGenerateController{client: client, watchManager: wm}
+			spec := common.ResourceSpecFromUnstructured(*old)
+
+			if mode == "retry-retention" {
+				ur := &kyvernov2.UpdateRequest{
+					Spec: kyvernov2.UpdateRequestSpec{Policy: policyKey},
+					Status: kyvernov2.UpdateRequestStatus{
+						GeneratedResources: []kyverno.ResourceSpec{spec},
+					},
+				}
+				resources, err := controller.retainAcknowledgedDownstreamsChecked(context.Background(), ur,
+					kyverno.ResourceSpec{UID: "trigger-uid"}, nil)
+				require.NoError(t, err)
+				require.Empty(t, resources)
+			} else {
+				pending, err := controller.cleanupAcknowledgedAfterRetry(context.Background(), policyKey,
+					kyverno.ResourceSpec{UID: "trigger-uid"}, []kyverno.ResourceSpec{spec}, nil)
+				require.NoError(t, err)
+				require.Empty(t, pending)
+			}
+
+			require.NotContains(t, wm.dynamicWatchers, gvr, "old UID's last watcher must be released")
+			require.NotContains(t, wm.policyRefs, policyKey)
+			wm.handleDelete(old, gvr)
+			require.Zero(t, client.writes, "stale watch delete event must not recreate the old object")
+			require.Zero(t, client.deletes, "live replacement must not be deleted")
+			require.Equal(t, replacement.GetUID(), client.objects[key].GetUID())
+		})
+	}
+}
