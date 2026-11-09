@@ -32,4 +32,5 @@ spec:
         - -o
         - name
         check:
+          ($error): null
           (contains($stderr, 'Deployment labels must be env=prod')): true
