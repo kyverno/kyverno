@@ -376,14 +376,36 @@ func TestMigrateResources_SkipsCRDWhenStatusUpdateReturnsNotFound(t *testing.T) 
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
 
-	crd := &v1.CustomResourceDefinition{
+	crd1 := &v1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "testpolicies.policies.kyverno.io",
+			Name: "crd1.policies.kyverno.io",
 		},
 		Spec: v1.CustomResourceDefinitionSpec{
 			Group: "policies.kyverno.io",
 			Names: v1.CustomResourceDefinitionNames{
-				Plural: "testpolicies",
+				Plural: "crd1s",
+			},
+			Scope: v1.ClusterScoped,
+			Versions: []v1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Storage: true,
+					Served:  true,
+				},
+			},
+		},
+		Status: v1.CustomResourceDefinitionStatus{
+			StoredVersions: []string{"v1alpha1", "v1"},
+		},
+	}
+	crd2 := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "crd2.policies.kyverno.io",
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Group: "policies.kyverno.io",
+			Names: v1.CustomResourceDefinitionNames{
+				Plural: "crd2s",
 			},
 			Scope: v1.ClusterScoped,
 			Versions: []v1.CustomResourceDefinitionVersion{
@@ -399,29 +421,34 @@ func TestMigrateResources_SkipsCRDWhenStatusUpdateReturnsNotFound(t *testing.T) 
 		},
 	}
 
-	gvr := schema.GroupVersionResource{
-		Group:    "policies.kyverno.io",
-		Version:  "v1",
-		Resource: "testpolicies",
-	}
+	gvr1 := schema.GroupVersionResource{Group: "policies.kyverno.io", Version: "v1", Resource: "crd1s"}
+	gvr2 := schema.GroupVersionResource{Group: "policies.kyverno.io", Version: "v1", Resource: "crd2s"}
 
-	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
+	apiServerClient := apiextensionsfake.NewSimpleClientset(crd1, crd2)
 	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
-		gvr: "TestPolicyList",
+		gvr1: "Crd1List",
+		gvr2: "Crd2List",
 	})
 
-	// Return NotFound when refetching CRD during status update
-	firstGet := true
-	apiServerClient.PrependReactor("get", "customresourcedefinitions", func(action ktesting.Action) (bool, runtime.Object, error) {
-		if firstGet {
-			firstGet = false
-			return false, nil, nil
+	// When updating status for crd1, return NotFound (simulating deletion during status update)
+	apiServerClient.PrependReactor("update", "customresourcedefinitions", func(action ktesting.Action) (bool, runtime.Object, error) {
+		if action.GetSubresource() == "status" {
+			updateAction := action.(ktesting.UpdateAction)
+			obj := updateAction.GetObject().(*v1.CustomResourceDefinition)
+			if obj.GetName() == "crd1.policies.kyverno.io" {
+				return true, nil, apierrors.NewNotFound(schema.GroupResource{Group: "apiextensions.k8s.io", Resource: "customresourcedefinitions"}, "crd1.policies.kyverno.io")
+			}
 		}
-		return true, nil, apierrors.NewNotFound(schema.GroupResource{Group: "apiextensions.k8s.io", Resource: "customresourcedefinitions"}, "testpolicies.policies.kyverno.io")
+		return false, nil, nil
 	})
 
-	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
+	err := migrateResources(context.Background(), []string{"crd1.policies.kyverno.io", "crd2.policies.kyverno.io"}, apiServerClient, dynamicClient)
 	require.NoError(t, err)
+
+	// Verify crd2 was migrated successfully and its storedVersions updated
+	updatedCrd2, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "crd2.policies.kyverno.io", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{"v1"}, updatedCrd2.Status.StoredVersions)
 }
 
 func TestMigrateResources_AbortsWhenCRDGenerationOrUIDChanges(t *testing.T) {
@@ -480,9 +507,21 @@ func TestMigrateResources_AbortsWhenCRDGenerationOrUIDChanges(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "was modified during migration (UID or generation changed), please rerun migration")
 
-	unchangedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "testpolicies.policies.kyverno.io", metav1.GetOptions{})
+	for _, action := range apiServerClient.Actions() {
+		if action.GetVerb() == "update" && action.GetSubresource() == "status" {
+			t.Fatalf("unexpected UpdateStatus action when CRD generation was modified: %v", action)
+		}
+	}
+
+	crdGVR := schema.GroupVersionResource{
+		Group:    "apiextensions.k8s.io",
+		Version:  "v1",
+		Resource: "customresourcedefinitions",
+	}
+	trackedObj, err := apiServerClient.Tracker().Get(crdGVR, "", "testpolicies.policies.kyverno.io")
 	require.NoError(t, err)
-	require.Equal(t, []string{"v1alpha1", "v1"}, unchangedCrd.Status.StoredVersions)
+	trackedCrd := trackedObj.(*v1.CustomResourceDefinition)
+	require.Equal(t, []string{"v1alpha1", "v1"}, trackedCrd.Status.StoredVersions)
 }
 
 func TestMigrateResources_AbortsWhenStorageVersionChangesDuringMigration(t *testing.T) {
@@ -555,9 +594,21 @@ func TestMigrateResources_AbortsWhenStorageVersionChangesDuringMigration(t *test
 	require.Error(t, err)
 	require.ErrorContains(t, err, "storage version changed from v1 to v2 during migration, please rerun migration")
 
-	unchangedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "testpolicies.policies.kyverno.io", metav1.GetOptions{})
+	for _, action := range apiServerClient.Actions() {
+		if action.GetVerb() == "update" && action.GetSubresource() == "status" {
+			t.Fatalf("unexpected UpdateStatus action when storage version was modified: %v", action)
+		}
+	}
+
+	crdGVR := schema.GroupVersionResource{
+		Group:    "apiextensions.k8s.io",
+		Version:  "v1",
+		Resource: "customresourcedefinitions",
+	}
+	trackedObj, err := apiServerClient.Tracker().Get(crdGVR, "", "testpolicies.policies.kyverno.io")
 	require.NoError(t, err)
-	require.Equal(t, []string{"v1alpha1", "v1"}, unchangedCrd.Status.StoredVersions)
+	trackedCrd := trackedObj.(*v1.CustomResourceDefinition)
+	require.Equal(t, []string{"v1alpha1", "v1"}, trackedCrd.Status.StoredVersions)
 }
 
 func TestMigrateResources_RetriesOnConflict(t *testing.T) {
