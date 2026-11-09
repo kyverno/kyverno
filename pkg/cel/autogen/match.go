@@ -65,7 +65,7 @@ func CreateMatchConstraints(targets []policiesv1beta1.Target, operations []admis
 	}
 }
 
-func CreateMatchConditions(config string, targets []policiesv1beta1.Target, conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+func CreateMatchConditions(config string, targets []policiesv1beta1.Target, conditions []admissionregistrationv1.MatchCondition, used ...sets.Set[string]) []admissionregistrationv1.MatchCondition {
 	if len(targets) == 0 {
 		return nil
 	}
@@ -97,7 +97,12 @@ func CreateMatchConditions(config string, targets []policiesv1beta1.Target, cond
 	}
 	precondition := strings.Join(sets.List(preconditions), " || ")
 	matchConditions := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
-	usedNames := sets.New[string]()
+	var usedNames sets.Set[string]
+	if len(used) > 0 && used[0] != nil {
+		usedNames = used[0]
+	} else {
+		usedNames = sets.New[string]()
+	}
 	prefix := "autogen"
 	if config != "" {
 		prefix = "autogen-" + config

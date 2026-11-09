@@ -505,3 +505,43 @@ func TestCELCompilationWithTrailingComment(t *testing.T) {
 	require.NoError(t, issues.Err(), fmt.Sprintf("CEL expression failed to compile: %s", result[0].Expression))
 	require.NotNil(t, ast)
 }
+
+func TestCreateMatchConditions_SharedCollisionTracking(t *testing.T) {
+	podTarget := []policiesv1beta1.Target{{
+		Group:    "",
+		Version:  "v1",
+		Resource: "pods",
+		Kind:     "Pod",
+	}}
+	deployTarget := []policiesv1beta1.Target{{
+		Group:    "apps",
+		Version:  "v1",
+		Resource: "deployments",
+		Kind:     "Deployment",
+	}}
+
+	sharedUsed := sets.New[string]()
+
+	// Call 1: pod condition with name "defaults-" + 50 'a's (prefix "autogen")
+	cond1 := []admissionregistrationv1.MatchCondition{{
+		Name:       "defaults-" + strings.Repeat("a", 50),
+		Expression: "true",
+	}}
+	res1 := CreateMatchConditions("", podTarget, cond1, sharedUsed)
+	require.Len(t, res1, 1)
+
+	// Call 2: controller autogen condition with name 50 'a's (prefix "autogen-defaults")
+	// Without shared tracking, both would produce the identical hashed name "autogen-defaults-aaaa...-xxxxxxxx".
+	cond2 := []admissionregistrationv1.MatchCondition{{
+		Name:       strings.Repeat("a", 50),
+		Expression: "true",
+	}}
+	res2 := CreateMatchConditions("defaults", deployTarget, cond2, sharedUsed)
+	require.Len(t, res2, 1)
+
+	assert.NotEqual(t, res1[0].Name, res2[0].Name)
+	assert.LessOrEqual(t, len(res1[0].Name), 63)
+	assert.LessOrEqual(t, len(res2[0].Name), 63)
+	assert.Empty(t, validation.IsQualifiedName(res1[0].Name))
+	assert.Empty(t, validation.IsQualifiedName(res2[0].Name))
+}

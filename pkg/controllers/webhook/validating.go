@@ -22,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 )
 
@@ -55,6 +56,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				SideEffects:             &noneOnDryRun,
 				AdmissionReviewVersions: []string{"v1"},
 			}
+			usedConditionNames := sets.New[string]()
 			matchConditions := webhookMatchConditions(validConditions(expressionCache, p.GetMatchConditions()))
 			if spec := generatingPolicySpec(policy); spec != nil && spec.SynchronizationEnabled() {
 				// For synchronize-enabled generating policies, match conditions must only
@@ -75,9 +77,13 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 							Kind:     "Pod",
 						}},
 						matchConditions,
+						usedConditionNames,
 					)...,
 				)
 			} else {
+				for _, mc := range matchConditions {
+					usedConditionNames.Insert(mc.Name)
+				}
 				webhook.MatchConditions = append(webhook.MatchConditions, matchConditions...)
 			}
 
@@ -107,7 +113,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)))...,
+						autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)), usedConditionNames)...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -123,7 +129,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)))...,
+						autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)), usedConditionNames)...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -141,7 +147,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					autogenPolicy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, autogenPolicy.Targets, webhookMatchConditions(validConditions(expressionCache, autogenPolicy.Spec.MatchConditions)))...,
+						autogen.CreateMatchConditions(config, autogenPolicy.Targets, webhookMatchConditions(validConditions(expressionCache, autogenPolicy.Spec.MatchConditions)), usedConditionNames)...,
 					)
 					for _, match := range autogenPolicy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)

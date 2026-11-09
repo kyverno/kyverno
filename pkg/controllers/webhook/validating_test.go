@@ -13,9 +13,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation"
 	coordinationv1listers "k8s.io/client-go/listers/coordination/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
@@ -1634,4 +1637,71 @@ func TestBuildForJSONPolicies_ImageValidatingPolicyWebhookNamesDoNotCollide(t *t
 		config.ImageValidatingPolicyMutateWebhookName + "-fail",
 		config.NamespacedImageValidatingPolicyMutateWebhookName + "-fail",
 	}, mutatingNames)
+}
+
+func TestBuildWebhookRules_FineGrained_SharedCollisionTracking(t *testing.T) {
+	// Create a ValidatingPolicy with two conditions:
+	// 1. "defaults-" + 50 'a's (triggers autogen for Pod with prefix "autogen")
+	// 2. 50 'a's (triggers autogen for controllers with prefix "autogen-defaults")
+	// Without shared tracking across calls on the webhook, both produce the identical name.
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-shared-collision",
+		},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "defaults-" + strings.Repeat("a", 50),
+					Expression: "true",
+				},
+				{
+					Name:       strings.Repeat("a", 50),
+					Expression: "true",
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "true",
+				},
+			},
+		},
+	}
+
+	expressionCache := NewExpressionCache()
+	expressionCache.AddPolicyExpressions(vpol.GetMatchConditions())
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.ValidatingPolicyWebhookName,
+		"/vpol",
+		0,
+		nil,
+		[]engineapi.GenericPolicy{engineapi.NewValidatingPolicy(vpol)},
+		expressionCache,
+	)
+
+	require.Len(t, webhooks, 1)
+	assert.NotEmpty(t, webhooks[0].MatchConditions)
+
+	seen := sets.New[string]()
+	for _, mc := range webhooks[0].MatchConditions {
+		assert.False(t, seen.Has(mc.Name), "duplicate matchCondition name found on webhook: %s", mc.Name)
+		seen.Insert(mc.Name)
+		assert.LessOrEqual(t, len(mc.Name), 63)
+		assert.Empty(t, validation.IsQualifiedName(mc.Name))
+	}
 }
