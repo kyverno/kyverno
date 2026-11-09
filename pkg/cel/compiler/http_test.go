@@ -216,6 +216,10 @@ func TestExpressionsUseHTTP(t *testing.T) {
 		name:        "http call inside optional index",
 		expressions: []string{"object.data[?'x'].orValue(http.Get('https://example.com')) != null"},
 		want:        true,
+	}, {
+		name:        "optional field named http is not the http library",
+		expressions: []string{"object.?http.orValue('') == ''", "object.?spec.?http.hasValue()"},
+		want:        false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

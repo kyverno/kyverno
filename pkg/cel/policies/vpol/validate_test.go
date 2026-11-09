@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -31,6 +33,9 @@ func Test_Validate_NamespacedPolicyRejectsGlobalContext(t *testing.T) {
 }
 
 func Test_Validate_NamespacedPolicyRejectsHTTP(t *testing.T) {
+	require.NoError(t, toggle.AllowHTTPInNamespacedPolicies.Parse("false"))
+	t.Cleanup(func() { _ = toggle.AllowHTTPInNamespacedPolicies.Parse("") })
+
 	for _, expr := range []string{
 		`http.Get('https://example.com') != null`,
 		`object.?data.?x.orValue(http.Get('https://example.com')) != null`,
