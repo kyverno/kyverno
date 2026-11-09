@@ -81,6 +81,20 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
+{{/* Resources the policies match.
+     pods/ephemeralcontainers is included so that debug containers added with
+     `kubectl debug` are checked too. Kyverno before 1.20 turns off autogen for
+     pod controllers when a policy names a subresource, so it is left out there.
+     When the version can't be detected or isn't a version number, it is included. */}}
+{{- define "kyverno-policies.podResources" -}}
+{{- $version := include "kyverno-policies.kyvernoVersion" . | trim -}}
+{{- if and (regexMatch "^v?[0-9]+\\.[0-9]+\\.[0-9]+" $version) (semverCompare "<1.20.0-0" $version) -}}
+[pods]
+{{- else -}}
+[pods, pods/ephemeralcontainers]
+{{- end -}}
+{{- end -}}
+
 {{/* Custom annotations with per-policy overrides.
      Merges default customAnnotations with per-policy overrides.
      Per-policy entries override defaults when they share the same key.

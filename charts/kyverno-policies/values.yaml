@@ -83,7 +83,8 @@ auditAnnotationsByPolicy: {}
 
 # -- Default excludes applied to ALL ValidatingPolicy policies.
 # Supports the following optional keys:
-#   excludeResourceRules: list of Kubernetes NamedRuleWithOperations (native VAP excludes)
+#   excludeResourceRules: list of Kubernetes NamedRuleWithOperations (native VAP excludes).
+#                         The policies match pods and pods/ephemeralcontainers, so list both resources to exclude both.
 #   excludeNamespaces:    list of namespace names to exclude (generates CEL matchCondition)
 #   excludeSubjects:      list of subjects to exclude (generates CEL matchCondition)
 #   matchConditions:      list of CEL matchConditions for advanced filtering (passthrough of custom condition)
@@ -145,7 +146,13 @@ customLabels: {}
 
 # -- Kyverno version
 # The default of "autodetect" will try to determine the currently installed version from the deployment
+# The policies match `pods/ephemeralcontainers` from Kyverno 1.20. Set this when you run an older Kyverno, because autodetect does not always find the version.
 kyvernoVersion: autodetect
+
+# -- Create a ClusterRole that lets the reports controller read `pods/ephemeralcontainers`.
+# The policies match that subresource from Kyverno 1.20, and Kyverno marks a policy not ready if the reports controller cannot read what it matches.
+# Set to `false` if you manage this RBAC yourself.
+ephemeralContainersRBAC: true
 
 # -- Kubernetes version override
 # Override default value of kubeVersion set by release team taken from Chart.yaml with custom value. Ideally range of versions no more than two prior (ex., 1.28-1.31), must be enclosed in quotes.

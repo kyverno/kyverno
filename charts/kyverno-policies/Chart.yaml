@@ -23,6 +23,10 @@ annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
   artifacthub.io/changes: |
+    - kind: fixed
+      description: Match the pods/ephemeralcontainers subresource in the Pod Security Standards policies so debug containers added with kubectl debug are checked
+    - kind: added
+      description: Add the ephemeralContainersRBAC value to let the reports controller read pods/ephemeralcontainers
     - kind: removed
       description: Removed the policyType chart value; the built-in PSS templates now render only ValidatingPolicy (policies.kyverno.io) types
     - kind: removed

@@ -47,6 +47,7 @@ cli_test_policy() {
     --set podSecurityStandard=custom \
     --set 'podSecurityPolicies={restrict-sysctls,disallow-selinux,disallow-host-probes,disallow-proc-mount,require-run-as-nonroot,require-run-as-non-root-user}' \
     --set podSecurityUserNamespaces=true \
+    --set ephemeralContainersRBAC=false \
     "$@" |
     normalize
 }
@@ -227,5 +228,44 @@ if render v1.37.0 v1.24 --set podSecurityStandard=privileged >/dev/null 2>&1; th
   fail "podSecurityVersion=v1.24 rendered with the privileged profile, want an error"
 fi
 log "  OK   podSecurityVersion=v1.24 fails with the privileged profile"
+
+log "ephemeral containers (policies match pods/ephemeralcontainers from Kyverno 1.20)"
+# count_rendered counts the lines of the rendered chart that match a pattern.
+count_rendered() {
+  local pattern="$1"
+  shift
+  render v1.37.0 latest "$@" | grep -c -- "${pattern}" || true
+}
+# expect_ephemeral checks every policy matches the wanted resources, and the reports controller role is there or not.
+# Usage: expect_ephemeral NAME WANT_SUBRESOURCE(true|false) [helm args]
+expect_ephemeral() {
+  local name="$1" want="$2"
+  shift 2
+  local policies with without role
+  policies="$(count_rendered '^kind: ValidatingPolicy$' "$@")"
+  with="$(count_rendered 'resources: \[pods, pods/ephemeralcontainers\]$' "$@")"
+  without="$(count_rendered 'resources: \[pods\]$' "$@")"
+  role="$(count_rendered '^  name: verify:reports-controller:ephemeralcontainers$' "$@")"
+  [ "${policies}" -gt 0 ] || fail "${name}: no policies rendered"
+  if [ "${want}" = true ]; then
+    expect "${name} policies matching the subresource" "${policies}" "${with}"
+    expect "${name} policies matching pods only" 0 "${without}"
+    expect "${name} reports controller role" 1 "${role}"
+  else
+    expect "${name} policies matching the subresource" 0 "${with}"
+    expect "${name} policies matching pods only" "${policies}" "${without}"
+    expect "${name} reports controller role" 0 "${role}"
+  fi
+}
+expect_ephemeral "baseline, Kyverno not detected" true
+expect_ephemeral "restricted, Kyverno not detected" true "${RESTRICTED[@]}"
+expect_ephemeral "baseline with other policies" true --set 'includeOtherPolicies={require-non-root-groups}'
+expect_ephemeral "Kyverno 1.20.0" true --set kyvernoVersion=1.20.0
+expect_ephemeral "Kyverno v1.20.0-rc.3" true --set kyvernoVersion=v1.20.0-rc.3
+expect_ephemeral "Kyverno latest tag" true --set kyvernoVersion=latest
+expect_ephemeral "Kyverno 1.19.2" false --set kyvernoVersion=1.19.2
+expect_ephemeral "restricted on Kyverno 1.19.2" false --set kyvernoVersion=1.19.2 "${RESTRICTED[@]}"
+expect "ephemeralContainersRBAC=false reports controller role" 0 "$(count_rendered '^kind: ClusterRole$' --set ephemeralContainersRBAC=false)"
+expect "privileged profile reports controller role" 0 "$(count_rendered '^kind: ClusterRole$' --set podSecurityStandard=privileged)"
 
 log "kyverno-policies renders the PSA behavior for every podSecurityVersion"
