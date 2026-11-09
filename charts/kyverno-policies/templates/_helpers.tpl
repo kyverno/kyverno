@@ -113,6 +113,19 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
+{{/* Native API-server VAP generation cannot coexist with Pod-controller rule autogen.
+     Do not change the default: controller-template admission checks must remain available
+     until the cluster operator explicitly opts into Pod-only native evaluation. */}}
+{{- define "kyverno-policies.pssNativeVAP" -}}
+{{- if .Values.generateValidatingAdmissionPolicy -}}
+autogen:
+  podControllers:
+    enabled: false
+  validatingAdmissionPolicy:
+    enabled: true
+{{- end -}}
+{{- end -}}
+
 {{/* Get validationActions from validationFailureAction for ValidatingPolicy */}}
 {{/* Maps: Audit -> Audit, Enforce -> Deny */}}
 {{- define "kyverno-policies.validationActions" -}}
@@ -188,7 +201,7 @@ matchConditions:
      Supported kinds: User, Group, ServiceAccount.
      - User:           request.userInfo.username == '<name>'
      - Group:          '<name>' in request.userInfo.groups
-     - ServiceAccount: (parseServiceAccount(request.userInfo.username).Namespace == '<ns>' && parseServiceAccount(request.userInfo.username).Name == '<name>')
+     - ServiceAccount: request.userInfo.username == 'system:serviceaccount:<ns>:<name>'
 */}}
 {{- define "kyverno-policies.celSubjectFragment" -}}
 {{- $kind := .kind | required "excludeSubjects entries must have a 'kind' (User, Group, or ServiceAccount)" -}}
@@ -199,7 +212,7 @@ matchConditions:
   '{{ $name }}' in request.userInfo.groups
 {{- else if eq $kind "ServiceAccount" -}}
   {{- $ns := .namespace | required "excludeSubjects ServiceAccount entries must have a 'namespace'" -}}
-  (parseServiceAccount(request.userInfo.username).Namespace == '{{ $ns }}' && parseServiceAccount(request.userInfo.username).Name == '{{ $name }}')
+  request.userInfo.username == 'system:serviceaccount:{{ $ns }}:{{ $name }}'
 {{- else -}}
   {{- fail (printf "excludeSubjects: unsupported kind '%s' — must be User, Group, or ServiceAccount" $kind) -}}
 {{- end -}}

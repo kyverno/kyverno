@@ -2,6 +2,14 @@
 # For more info https://kyverno.io/policies/pod-security.
 podSecurityStandard: baseline
 
+# -- Generate native Kubernetes ValidatingAdmissionPolicies and bindings for built-in PSS
+# ValidatingPolicies. Defaults to false to retain Pod-controller template admission checks.
+# When true, Pod-controller autogen is disabled because Kyverno currently treats the two
+# features as mutually exclusive. Pods created by controllers are still evaluated at Pod
+# admission; Deployment/Job/etc. templates are no longer validated at workload admission.
+# Requires Kyverno's generateValidatingAdmissionPolicy feature and permissions.
+generateValidatingAdmissionPolicy: false
+
 # -- Pod Security Standard severity (`low`, `medium`, `high`).
 podSecuritySeverity: medium
 

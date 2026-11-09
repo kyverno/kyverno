@@ -7,6 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -381,4 +382,29 @@ func TestCELStringListLiteral_Shapes(t *testing.T) {
 	expression, err = celStringListLiteral(nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "null", expression)
+}
+
+func TestBuildValidatingAdmissionPolicyPreservesFailurePolicy(t *testing.T) {
+	for _, failure := range []admissionregistrationv1.FailurePolicyType{
+		admissionregistrationv1.Fail,
+		admissionregistrationv1.Ignore,
+	} {
+		t.Run(string(failure), func(t *testing.T) {
+			policy := &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "pss-policy"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					FailurePolicy: &failure,
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations: []admissionregistrationv1.Validation{{Expression: "true"}},
+				},
+			}
+			vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "vpol-pss-policy"},
+			}
+
+			require.NoError(t, BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(policy), nil))
+			assert.Equal(t, &failure, vap.Spec.FailurePolicy)
+			assert.Equal(t, policy.Spec.Validations, vap.Spec.Validations)
+		})
+	}
 }

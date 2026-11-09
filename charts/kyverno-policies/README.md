@@ -23,6 +23,18 @@ replaced. Migrate anything you rely on before you upgrade.
 
 This chart contains Kyverno's implementation of the Kubernetes Pod Security Standards (PSS) as documented at https://kubernetes.io/docs/concepts/security/pod-security-standards/ and are a Helm packaged version of those found at https://github.com/kyverno/policies/tree/main/pod-security. The goal of the PSS controls is to provide a good starting point for general Kubernetes cluster operational security. These controls are broken down into two categories, Baseline and Restricted. Baseline policies implement the most basic of Pod security controls while Restricted implements more strict controls. Restricted is cumulative and encompasses those listed in Baseline.
 
+### Kubernetes-native VAPs (opt-in)
+
+The built-in Baseline and Restricted `ValidatingPolicy` checks can generate native Kubernetes
+`ValidatingAdmissionPolicy` objects and bindings with `--set generateValidatingAdmissionPolicy=true`.
+The default remains `false`, preserving Kyverno's Pod-controller autogen and early validation
+of Deployment, Job and other workload Pod templates. **These modes are mutually exclusive:**
+when native generation is selected, the PSS checks still apply at Pod admission (including Pods
+created by controllers), but no longer validate Pod templates at workload admission.
+The Kyverno admission policy generator must have its native-VAP feature enabled and permissions
+to create VAPs/bindings. Review PolicyExceptions and custom CEL match conditions before using
+native evaluation, since not all Kyverno-specific behavior can run in the API server.
+
 The following policies are included in each profile.
 
 **Baseline**
@@ -120,6 +132,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
+| generateValidatingAdmissionPolicy | bool | `false` | Opt in to Kubernetes-native VAPs for built-in PSS ValidatingPolicies. Disables Pod-controller rule autogen and workload-template admission checks; Pods remain covered at Pod admission. |
 | podSecuritySeverity | string | `"medium"` | Pod Security Standard severity (`low`, `medium`, `high`). |
 | podSecuritySeverityByPolicy | object | `{}` | Define podSecuritySeverity overrides for specific policies. Override the global `podSecuritySeverity` with an individual severity for individual policies. An empty string per-policy entry suppresses the annotation entirely. |
 | podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
