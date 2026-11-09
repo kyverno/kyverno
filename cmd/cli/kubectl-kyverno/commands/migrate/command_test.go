@@ -2,16 +2,19 @@ package migrate
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+	ktesting "k8s.io/client-go/testing"
 )
 
 func TestCommandRequiresResource(t *testing.T) {
@@ -134,6 +137,222 @@ func TestMigrateResources_MigratesAndUpdatesStoredVersions(t *testing.T) {
 
 	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
 	require.NoError(t, err)
+
+	updatedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "testpolicies.policies.kyverno.io", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{"v1"}, updatedCrd.Status.StoredVersions)
+}
+
+func TestMigrateResources_SkipsLegacyPolicyKind(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1.AddToScheme(scheme))
+
+	crd := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "clusterpolicies.kyverno.io",
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Group: "kyverno.io",
+			Names: v1.CustomResourceDefinitionNames{
+				Kind:   "ClusterPolicy",
+				Plural: "clusterpolicies",
+			},
+			Scope: v1.ClusterScoped,
+			Versions: []v1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Storage: true,
+					Served:  true,
+				},
+			},
+		},
+		Status: v1.CustomResourceDefinitionStatus{
+			StoredVersions: []string{"v1alpha2", "v1"},
+		},
+	}
+
+	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+
+	err := migrateResources(context.Background(), []string{"clusterpolicies.kyverno.io"}, apiServerClient, dynamicClient)
+	require.NoError(t, err)
+
+	unchangedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "clusterpolicies.kyverno.io", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{"v1alpha2", "v1"}, unchangedCrd.Status.StoredVersions)
+}
+
+func TestMigrateResources_IgnoresDeletedResourceDuringUpdate(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1.AddToScheme(scheme))
+
+	crd := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testpolicies.policies.kyverno.io",
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Group: "policies.kyverno.io",
+			Names: v1.CustomResourceDefinitionNames{
+				Plural: "testpolicies",
+			},
+			Scope: v1.ClusterScoped,
+			Versions: []v1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Storage: true,
+					Served:  true,
+				},
+			},
+		},
+		Status: v1.CustomResourceDefinitionStatus{
+			StoredVersions: []string{"v1alpha1", "v1"},
+		},
+	}
+
+	policyObj := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "policies.kyverno.io/v1",
+			"kind":       "TestPolicy",
+			"metadata": map[string]any{
+				"name": "transient-policy",
+			},
+		},
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "policies.kyverno.io",
+		Version:  "v1",
+		Resource: "testpolicies",
+	}
+
+	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+		gvr: "TestPolicyList",
+	}, policyObj)
+
+	dynamicClient.PrependReactor("update", "testpolicies", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewNotFound(schema.GroupResource{Group: "policies.kyverno.io", Resource: "testpolicies"}, "transient-policy")
+	})
+
+	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
+	require.NoError(t, err)
+
+	updatedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "testpolicies.policies.kyverno.io", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{"v1"}, updatedCrd.Status.StoredVersions)
+}
+
+func TestMigrateResources_FailsOnUnrelatedUpdateError_LeavesStoredVersionsUnchanged(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1.AddToScheme(scheme))
+
+	crd := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testpolicies.policies.kyverno.io",
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Group: "policies.kyverno.io",
+			Names: v1.CustomResourceDefinitionNames{
+				Plural: "testpolicies",
+			},
+			Scope: v1.ClusterScoped,
+			Versions: []v1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Storage: true,
+					Served:  true,
+				},
+			},
+		},
+		Status: v1.CustomResourceDefinitionStatus{
+			StoredVersions: []string{"v1alpha1", "v1"},
+		},
+	}
+
+	policyObj := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "policies.kyverno.io/v1",
+			"kind":       "TestPolicy",
+			"metadata": map[string]any{
+				"name": "failing-policy",
+			},
+		},
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "policies.kyverno.io",
+		Version:  "v1",
+		Resource: "testpolicies",
+	}
+
+	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+		gvr: "TestPolicyList",
+	}, policyObj)
+
+	dynamicClient.PrependReactor("update", "testpolicies", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("webhook connection refused")
+	})
+
+	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "webhook connection refused")
+
+	unchangedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "testpolicies.policies.kyverno.io", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{"v1alpha1", "v1"}, unchangedCrd.Status.StoredVersions)
+}
+
+func TestMigrateResources_RetriesOnConflict(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1.AddToScheme(scheme))
+
+	crd := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testpolicies.policies.kyverno.io",
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Group: "policies.kyverno.io",
+			Names: v1.CustomResourceDefinitionNames{
+				Plural: "testpolicies",
+			},
+			Scope: v1.ClusterScoped,
+			Versions: []v1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Storage: true,
+					Served:  true,
+				},
+			},
+		},
+		Status: v1.CustomResourceDefinitionStatus{
+			StoredVersions: []string{"v1alpha1", "v1"},
+		},
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "policies.kyverno.io",
+		Version:  "v1",
+		Resource: "testpolicies",
+	}
+
+	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+		gvr: "TestPolicyList",
+	})
+
+	attempts := 0
+	apiServerClient.PrependReactor("update", "customresourcedefinitions", func(action ktesting.Action) (bool, runtime.Object, error) {
+		if action.GetSubresource() == "status" && attempts == 0 {
+			attempts++
+			return true, nil, apierrors.NewConflict(schema.GroupResource{Group: "apiextensions.k8s.io", Resource: "customresourcedefinitions"}, "testpolicies.policies.kyverno.io", errors.New("conflict"))
+		}
+		return false, nil, nil
+	})
+
+	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
+	require.NoError(t, err)
+	require.Equal(t, 1, attempts)
 
 	updatedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "testpolicies.policies.kyverno.io", metav1.GetOptions{})
 	require.NoError(t, err)
