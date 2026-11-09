@@ -66,7 +66,7 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 		if config != autogen.ExtractionReplacementsRef {
 			for i := range spec.Variables {
 				if spec.Variables[i].Expression != "" {
-					convertedExpr := convertPodToTemplateExpression(spec.Variables[i].Expression, config)
+					convertedExpr := string(autogen.ApplyMutatingCEL([]byte(spec.Variables[i].Expression), config))
 					spec.Variables[i].Expression = convertedExpr
 				}
 			}

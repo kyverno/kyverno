@@ -182,7 +182,56 @@ func isProtected(from, rest []byte) bool {
 			return true
 		}
 	}
-	return false
+	return isProtectedBracket(rest)
+}
+
+// isProtectedBracket reports whether rest starts with a bracket selector for a protected field
+// ('name' or 'namespace'), tolerating optional '?' and arbitrary whitespace within the brackets.
+func isProtectedBracket(rest []byte) bool {
+	if len(rest) < 3 || rest[0] != '[' {
+		return false
+	}
+	i := 1
+	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\r' || rest[i] == '\n') {
+		i++
+	}
+	if i < len(rest) && rest[i] == '?' {
+		i++
+	}
+	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\r' || rest[i] == '\n') {
+		i++
+	}
+	if i >= len(rest) {
+		return false
+	}
+	var quote []byte
+	if rest[i] == '\'' {
+		quote = []byte("'")
+		i++
+	} else if rest[i] == '"' {
+		quote = []byte("\"")
+		i++
+	} else if bytes.HasPrefix(rest[i:], []byte(`\"`)) {
+		quote = []byte(`\"`)
+		i += 2
+	} else {
+		return false
+	}
+	if bytes.HasPrefix(rest[i:], []byte("namespace")) {
+		i += 9
+	} else if bytes.HasPrefix(rest[i:], []byte("name")) {
+		i += 4
+	} else {
+		return false
+	}
+	if !bytes.HasPrefix(rest[i:], quote) {
+		return false
+	}
+	i += len(quote)
+	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\r' || rest[i] == '\n') {
+		i++
+	}
+	return i < len(rest) && rest[i] == ']'
 }
 
 // isIdentifierByte reports whether b can be part of a CEL identifier segment.
@@ -276,6 +325,18 @@ func replaceCEL(data, from, to []byte) []byte {
 				}
 				buf.Write(data[i : i+newlineIdx+1])
 				i += newlineIdx + 1
+				continue
+			}
+
+			// Skip CEL block comments (/* ... */)
+			if bytes.HasPrefix(data[i:], []byte("/*")) {
+				endCommentIdx := bytes.Index(data[i+2:], []byte("*/"))
+				if endCommentIdx == -1 {
+					buf.Write(data[i:])
+					break
+				}
+				buf.Write(data[i : i+2+endCommentIdx+2])
+				i += 2 + endCommentIdx + 2
 				continue
 			}
 

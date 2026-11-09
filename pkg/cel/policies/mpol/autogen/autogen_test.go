@@ -593,6 +593,38 @@ func TestGenerateRuleForControllers(t *testing.T) {
 			expectedRules: 1,
 			expectedError: false,
 		},
+		{
+			name: "policy with Object constructor in variables preserves value semantics",
+			spec: &policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							},
+						},
+					},
+				},
+				Variables: []admissionregistrationv1.Variable{
+					{
+						Name:       "customObj",
+						Expression: "Object{labels: object.metadata.labels, name: object.metadata.name}",
+					},
+					{
+						Name:       "containers",
+						Expression: "object[?'spec'].?containers.orValue([])",
+					},
+				},
+			},
+			configs:       sets.New("deployments"),
+			expectedRules: 1,
+			expectedError: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -613,6 +645,11 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				if len(tt.spec.Variables) > 0 {
 					assert.Len(t, rule.Spec.Variables, len(tt.spec.Variables))
 					for _, v := range rule.Spec.Variables {
+						if v.Name == "customObj" {
+							assert.Equal(t, "Object{labels: object.spec.template.metadata.labels, name: object.metadata.name}", v.Expression)
+							assert.NotContains(t, v.Expression, "Object{spec:")
+							continue
+						}
 						if config == "cronjobs" {
 							assert.Contains(t, v.Expression, "jobTemplate.spec.template.spec")
 						} else {

@@ -689,6 +689,48 @@ func TestApplyCELRewritesExpressions(t *testing.T) {
 			config: "deployments",
 			want:   "object.?metadata[? 'name'] == 'foo'",
 		},
+		{
+			name:   "deployments object.metadata[?'name' ] with whitespace before closing bracket is preserved in CEL",
+			expr:   "object.metadata[?'name' ] == 'foo'",
+			config: "deployments",
+			want:   "object.metadata[?'name' ] == 'foo'",
+		},
+		{
+			name:   "deployments object.metadata[? 'name' ] with whitespace on both sides is preserved in CEL",
+			expr:   "object.metadata[? 'name' ] == 'foo'",
+			config: "deployments",
+			want:   "object.metadata[? 'name' ] == 'foo'",
+		},
+		{
+			name:   "deployments object.metadata[ 'name' ] with spaces is preserved in CEL",
+			expr:   "object.metadata[ 'name' ] == 'foo'",
+			config: "deployments",
+			want:   "object.metadata[ 'name' ] == 'foo'",
+		},
+		{
+			name:   "deployments object.metadata[ ?\"namespace\" ] with spaces is preserved in CEL",
+			expr:   "object.metadata[ ?\"namespace\" ] == 'default'",
+			config: "deployments",
+			want:   "object.metadata[ ?\"namespace\" ] == 'default'",
+		},
+		{
+			name:   "deployments object.metadata[?\\\"name\\\" ] with JSON escaped quote and space is preserved in CEL",
+			expr:   "object.metadata[?\\\"name\\\" ] == 'foo'",
+			config: "deployments",
+			want:   "object.metadata[?\\\"name\\\" ] == 'foo'",
+		},
+		{
+			name:   "deployments object.metadata[?'other' ] is rewritten to template metadata in CEL",
+			expr:   "object.metadata[?'other' ] == 'foo'",
+			config: "deployments",
+			want:   "object.spec.template.metadata[?'other' ] == 'foo'",
+		},
+		{
+			name:   "deployments block comment with apostrophe does not prevent spec rewrite in CEL",
+			expr:   "/* don't match */ object.spec.replicas > 0",
+			config: "deployments",
+			want:   "/* don't match */ object.spec.template.spec.replicas > 0",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
