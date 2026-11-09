@@ -161,6 +161,30 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
   }
 }}}`,
 		},
+		{
+			name:     "deployment object.?spec conversion",
+			config:   "deployments",
+			input:    `object.?spec.?containers.all(c, true)`,
+			expected: `object.?spec.template.spec.?containers.all(c, true)`,
+		},
+		{
+			name:     "cronjob object.?spec conversion",
+			config:   "cronjobs",
+			input:    `object.?spec.?containers.all(c, true)`,
+			expected: `object.?spec.jobTemplate.spec.template.spec.?containers.all(c, true)`,
+		},
+		{
+			name:     "deployment object.?metadata.?labels conversion",
+			config:   "deployments",
+			input:    `object.?metadata.?labels['env'] == 'prod'`,
+			expected: `object.?spec.template.metadata.?labels['env'] == 'prod'`,
+		},
+		{
+			name:     "deployment object.?metadata.?annotations conversion",
+			config:   "deployments",
+			input:    `object.?metadata.?annotations['link'] != ''`,
+			expected: `object.?spec.template.metadata.?annotations['link'] != ''`,
+		},
 	}
 
 	for _, tt := range tests {

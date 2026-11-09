@@ -13,12 +13,20 @@ import (
 var protectedSuffixes = [][]byte{
 	[]byte(".namespace"),
 	[]byte(".name"),
+	[]byte(".?namespace"),
+	[]byte(".?name"),
 	[]byte("['name']"),
 	[]byte("[\"name\"]"),
 	[]byte("[\\\"name\\\"]"),
+	[]byte("[?'name']"),
+	[]byte("[?\"name\"]"),
+	[]byte("[?\\\"name\\\"]"),
 	[]byte("['namespace']"),
 	[]byte("[\"namespace\"]"),
 	[]byte("[\\\"namespace\\\"]"), // Handle JSON-escaped namespace paths
+	[]byte("[?'namespace']"),
+	[]byte("[?\"namespace\"]"),
+	[]byte("[?\\\"namespace\\\"]"),
 }
 
 type Replacement struct {
@@ -27,10 +35,12 @@ type Replacement struct {
 }
 
 // Apply rewrites the configured field paths in the given data,
-// replacing both the "object." and "oldObject." prefixes.
+// replacing both the "object." and "oldObject." prefixes (including optional traversal ".?").
 func (r *Replacement) Apply(data []byte) []byte {
 	data = replace(data, []byte("object."+r.From), []byte("object."+r.To))
+	data = replace(data, []byte("object.?"+r.From), []byte("object.?"+r.To))
 	data = replace(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
+	data = replace(data, []byte("oldObject.?"+r.From), []byte("oldObject.?"+r.To))
 	return data
 }
 
@@ -122,6 +132,8 @@ func ApplyCEL(data []byte, replacements ...Replacement) []byte {
 		// dot syntax
 		data = replaceCEL(data, []byte("object."+replacement.From), []byte("object."+replacement.To))
 		data = replaceCEL(data, []byte("oldObject."+replacement.From), []byte("oldObject."+replacement.To))
+		data = replaceCEL(data, []byte("object.?"+replacement.From), []byte("object.?"+replacement.To))
+		data = replaceCEL(data, []byte("oldObject.?"+replacement.From), []byte("oldObject.?"+replacement.To))
 
 		// equivalent selector forms (bracket syntax)
 		data = replaceCEL(data, []byte("object['"+replacement.From+"']"), []byte("object."+replacement.To))
@@ -129,6 +141,13 @@ func ApplyCEL(data []byte, replacements ...Replacement) []byte {
 
 		data = replaceCEL(data, []byte("object[\""+replacement.From+"\"]"), []byte("object."+replacement.To))
 		data = replaceCEL(data, []byte("oldObject[\""+replacement.From+"\"]"), []byte("oldObject."+replacement.To))
+
+		// optional indexing (bracket syntax with ?)
+		data = replaceCEL(data, []byte("object[?'"+replacement.From+"']"), []byte("object.?"+replacement.To))
+		data = replaceCEL(data, []byte("oldObject[?'"+replacement.From+"']"), []byte("oldObject.?"+replacement.To))
+
+		data = replaceCEL(data, []byte("object[?\""+replacement.From+"\"]"), []byte("object.?"+replacement.To))
+		data = replaceCEL(data, []byte("oldObject[?\""+replacement.From+"\"]"), []byte("oldObject.?"+replacement.To))
 	}
 	return data
 }
@@ -163,6 +182,12 @@ func replaceCEL(data, from, to []byte) []byte {
 				} else if data[i-1] == '.' {
 					if i >= 8 && bytes.Equal(data[i-8:i], []byte("request.")) {
 						if i == 8 || (!isIdentifierByte(data[i-9]) && data[i-9] != '.') {
+							validBoundary = true
+						}
+					}
+				} else if data[i-1] == '?' && i >= 2 && data[i-2] == '.' {
+					if i >= 9 && bytes.Equal(data[i-9:i], []byte("request.?")) {
+						if i == 9 || (!isIdentifierByte(data[i-10]) && data[i-10] != '.') {
 							validBoundary = true
 						}
 					}

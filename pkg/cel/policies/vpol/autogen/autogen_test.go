@@ -21,6 +21,67 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		generatedRule map[string]policiesv1beta1.ValidatingPolicyAutogen
 	}{
 		{
+			name:        "autogen rule for deployments with CEL optional traversal",
+			controllers: sets.New("deployments"),
+			policySpec: []byte(`{
+				"matchConstraints": {
+					"resourceRules": [
+						{
+							"apiGroups": [
+								""
+							],
+							"apiVersions": [
+								"v1"
+							],
+							"operations": [
+								"CREATE",
+								"UPDATE"
+							],
+							"resources": [
+								"pods"
+							]
+						}
+					]
+				},
+				"validations": [
+					{
+						"expression": "object.?spec.?containers.orValue([]).all(c, !c.image.endsWith(':latest'))"
+					}
+				]
+			}`),
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
+				autogen.AutogenDefaults: {
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "object.?spec.template.spec.?containers.orValue([]).all(c, !c.image.endsWith(':latest'))",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:        "autogen rule for deployments",
 			controllers: sets.New("deployments"),
 			policySpec: []byte(`{
