@@ -71,7 +71,7 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&path, "output", "o", "", "Output path (uses standard console output if not set)")
 	cmd.Flags().StringArrayVarP(&namespaceSelector, "ns-selector", "n", nil, "Namespace selector")
-	cmd.Flags().StringSliceVarP(&globalValues, "global", "g", nil, "Global value")
+	cmd.Flags().StringArrayVarP(&globalValues, "global", "g", nil, "Global value")
 	cmd.Flags().StringArrayVar(&rules, "rule", nil, "Policy rule values")
 	cmd.Flags().StringArrayVar(&resources, "resource", nil, "Policy resource values")
 	return cmd
@@ -168,6 +168,23 @@ func parseKeyValue(in string) (string, string, error) {
 	return key, val, nil
 }
 
+// parseLabelKeyValue parses a key=value label pair, preserving any '=' in the value,
+// and always formats the value as an explicit YAML double-quoted string. This ensures
+// compatibility with Kubernetes namespace labels (map[string]string), preventing YAML
+// unmarshal errors when values are boolean, numeric, or contain special characters.
+func parseLabelKeyValue(in string) (string, string, error) {
+	if !utf8.ValidString(in) {
+		return "", "", fmt.Errorf("invalid UTF-8 in key=value pair: %s", in)
+	}
+	parts := strings.SplitN(in, "=", 2)
+	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
+		return "", "", fmt.Errorf("invalid key=value pair: %s", in)
+	}
+	key := strings.TrimSpace(parts[0])
+	val := fmt.Sprintf("%q", parts[1])
+	return key, val, nil
+}
+
 // addNamespaceSelector parses and merges namespace selector labels under the given namespace name.
 func addNamespaceSelector(spec *v1alpha1.ValuesSpec, in string) error {
 	parts := strings.Split(in, ",")
@@ -195,7 +212,7 @@ func addNamespaceSelector(spec *v1alpha1.ValuesSpec, in string) error {
 	}
 
 	for _, label := range parts[1:] {
-		k, v, err := parseKeyValue(label)
+		k, v, err := parseLabelKeyValue(label)
 		if err != nil {
 			return err
 		}
