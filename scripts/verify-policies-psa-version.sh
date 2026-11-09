@@ -260,6 +260,10 @@ expect_ephemeral() {
 expect_ephemeral "baseline, Kyverno not detected" true
 expect_ephemeral "restricted, Kyverno not detected" true "${RESTRICTED[@]}"
 expect_ephemeral "baseline with other policies" true --set 'includeOtherPolicies={require-non-root-groups}'
+# The role follows the policies that render, not the profile alone.
+expect_ephemeral "privileged with includeRestrictedPolicies" true --set podSecurityStandard=privileged --set 'includeRestrictedPolicies={require-run-as-nonroot}'
+expect_ephemeral "privileged with includeOtherPolicies" true --set podSecurityStandard=privileged --set 'includeOtherPolicies={require-non-root-groups}'
+expect_ephemeral "custom with podSecurityPolicies" true --set podSecurityStandard=custom --set 'podSecurityPolicies={disallow-host-path}'
 expect_ephemeral "Kyverno 1.20.0" true --set kyvernoVersion=1.20.0
 expect_ephemeral "Kyverno v1.20.0-rc.3" true --set kyvernoVersion=v1.20.0-rc.3
 expect_ephemeral "Kyverno latest tag" true --set kyvernoVersion=latest

@@ -139,7 +139,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | customAnnotations | object | `{}` | Additional Annotations. |
 | customAnnotationsByPolicy | object | `{}` | Define custom annotations for specific policies. Per-policy entries override defaults when they share the same key. |
 | customLabels | object | `{}` | Additional labels. |
-| kyvernoVersion | string | `"autodetect"` | Kyverno version The default of "autodetect" will try to determine the currently installed version from the deployment The policies match `pods/ephemeralcontainers` from Kyverno 1.20. Set this when you run an older Kyverno, because autodetect does not always find the version. |
+| kyvernoVersion | string | `"autodetect"` | Kyverno version The default of "autodetect" will try to determine the currently installed version from the deployment The policies match `pods/ephemeralcontainers` from Kyverno 1.20. Autodetect reads the admission controller in the release namespace. Set this when Kyverno runs elsewhere, or when you render with `helm template`, and you use an older Kyverno. |
 | ephemeralContainersRBAC | bool | `true` | Create a ClusterRole that lets the reports controller read `pods/ephemeralcontainers`. The policies match that subresource from Kyverno 1.20, and Kyverno marks a policy not ready if the reports controller cannot read what it matches. Set to `false` if you manage this RBAC yourself. |
 | kubeVersionOverride | string | `nil` | Kubernetes version override Override default value of kubeVersion set by release team taken from Chart.yaml with custom value. Ideally range of versions no more than two prior (ex., 1.28-1.31), must be enclosed in quotes. |
 

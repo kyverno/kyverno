@@ -3,7 +3,8 @@
   controller can read every resource a policy matches. Without this role, each
   policy reports RBACPermissionsGranted=False.
 */ -}}
-{{- if and .Values.ephemeralContainersRBAC (ne .Values.podSecurityStandard "privileged") (contains "pods/ephemeralcontainers" (include "kyverno-policies.podResources" .)) }}
+{{- $policies := or (has .Values.podSecurityStandard (list "baseline" "restricted")) (and (eq .Values.podSecurityStandard "custom") .Values.podSecurityPolicies) .Values.includeRestrictedPolicies .Values.includeOtherPolicies }}
+{{- if and .Values.ephemeralContainersRBAC $policies (contains "pods/ephemeralcontainers" (include "kyverno-policies.podResources" .)) }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
