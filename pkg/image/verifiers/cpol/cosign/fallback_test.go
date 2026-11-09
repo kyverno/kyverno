@@ -40,8 +40,8 @@ type testReferrer struct {
 	layerData              []byte
 	// skipLayerUpload leaves the layer blob out of the registry, so reading it fails
 	skipLayerUpload bool
-	// skipManifestUpload lists the manifest in the fallback index without pushing it, like a deleted referrer
-	skipManifestUpload bool
+	// deleteManifest removes the manifest after the fallback index is written, like a deleted referrer
+	deleteManifest bool
 }
 
 // pushReferrer pushes a single-layer manifest and returns its descriptor for the fallback index.
@@ -74,9 +74,7 @@ func pushReferrer(t *testing.T, repo name.Repository, r testReferrer) v1.Descrip
 	assert.NilError(t, err)
 	digest, size, err := v1.SHA256(bytes.NewReader(body))
 	assert.NilError(t, err)
-	if !r.skipManifestUpload {
-		assert.NilError(t, remote.Put(repo.Digest(digest.String()), rawManifest{body: body, mediaType: types.OCIManifestSchema1}))
-	}
+	assert.NilError(t, remote.Put(repo.Digest(digest.String()), rawManifest{body: body, mediaType: types.OCIManifestSchema1}))
 	return v1.Descriptor{
 		MediaType:    types.OCIManifestSchema1,
 		Digest:       digest,
@@ -113,6 +111,11 @@ func setupFallbackRegistry(t *testing.T, referrers []testReferrer) name.Referenc
 	assert.NilError(t, err)
 	fallbackTag := repo.Tag(fmt.Sprintf("%s-%s", imgDigest.Algorithm, imgDigest.Hex))
 	assert.NilError(t, remote.Put(fallbackTag, rawManifest{body: index, mediaType: types.OCIImageIndex}))
+	for i, r := range referrers {
+		if r.deleteManifest {
+			assert.NilError(t, remote.Delete(repo.Digest(manifests[i].Digest.String())))
+		}
+	}
 	return ref
 }
 
@@ -176,9 +179,9 @@ func TestFetchBundlesFallbackMissingReferrer(t *testing.T) {
 	// a stale untyped entry whose manifest was deleted does not hide the valid bundle next to it
 	bundleMediaType := "application/vnd.dev.sigstore.bundle.v0.3+json"
 	ref := setupFallbackRegistry(t, []testReferrer{{
-		layerMediaType:     "application/json",
-		layerData:          []byte(`{}`),
-		skipManifestUpload: true,
+		layerMediaType: "application/json",
+		layerData:      []byte(`{}`),
+		deleteManifest: true,
 	}, {
 		manifestArtifactType: bundleMediaType,
 		layerMediaType:       bundleMediaType,
