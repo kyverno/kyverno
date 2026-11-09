@@ -17,6 +17,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 )
 
+// TestCommandRequiresResource verifies that the migrate command requires the --resource flag.
 func TestCommandRequiresResource(t *testing.T) {
 	cmd := Command()
 	cmd.SetArgs([]string{})
@@ -27,6 +28,7 @@ func TestCommandRequiresResource(t *testing.T) {
 	require.ErrorContains(t, err, `required flag(s) "resource" not set`)
 }
 
+// TestCommandRejectsEmptyResource verifies that passing an empty or whitespace-only string to --resource is rejected.
 func TestCommandRejectsEmptyResource(t *testing.T) {
 	cmd := Command()
 	cmd.SetArgs([]string{"--resource", "   "})
@@ -37,6 +39,7 @@ func TestCommandRejectsEmptyResource(t *testing.T) {
 	require.ErrorContains(t, err, "resource cannot be empty")
 }
 
+// TestMigrateResources_SkipsMissingCRD verifies that a CRD not present on the cluster is skipped cleanly without failing the command.
 func TestMigrateResources_SkipsMissingCRD(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
@@ -48,6 +51,7 @@ func TestMigrateResources_SkipsMissingCRD(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestMigrateResources_UpToDateCRD verifies that a CRD whose storedVersions is already up to date requires no resource updates.
 func TestMigrateResources_UpToDateCRD(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
@@ -82,6 +86,7 @@ func TestMigrateResources_UpToDateCRD(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestMigrateResources_MigratesAndUpdatesStoredVersions verifies that existing custom resources are rewritten and status.storedVersions is updated.
 func TestMigrateResources_MigratesAndUpdatesStoredVersions(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
@@ -143,6 +148,7 @@ func TestMigrateResources_MigratesAndUpdatesStoredVersions(t *testing.T) {
 	require.Equal(t, []string{"v1"}, updatedCrd.Status.StoredVersions)
 }
 
+// TestMigrateResources_SkipsLegacyPolicyKind verifies that legacy policy kinds with admission write blocks are skipped cleanly.
 func TestMigrateResources_SkipsLegacyPolicyKind(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
@@ -182,6 +188,7 @@ func TestMigrateResources_SkipsLegacyPolicyKind(t *testing.T) {
 	require.Equal(t, []string{"v1alpha2", "v1"}, unchangedCrd.Status.StoredVersions)
 }
 
+// TestMigrateResources_IgnoresDeletedResourceDuringUpdate verifies that an in-flight deletion during update does not stop subsequent objects from migrating.
 func TestMigrateResources_IgnoresDeletedResourceDuringUpdate(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
@@ -261,6 +268,7 @@ func TestMigrateResources_IgnoresDeletedResourceDuringUpdate(t *testing.T) {
 	require.Equal(t, []string{"v1"}, updatedCrd.Status.StoredVersions)
 }
 
+// TestMigrateResources_FailsOnUnrelatedUpdateError_LeavesStoredVersionsUnchanged verifies that unexpected update errors abort migration and preserve storedVersions.
 func TestMigrateResources_FailsOnUnrelatedUpdateError_LeavesStoredVersionsUnchanged(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
@@ -322,6 +330,7 @@ func TestMigrateResources_FailsOnUnrelatedUpdateError_LeavesStoredVersionsUnchan
 	require.Equal(t, []string{"v1alpha1", "v1"}, unchangedCrd.Status.StoredVersions)
 }
 
+// TestMigrateResources_SkipsResourceWhenListReturnsNotFound verifies that if a resource returns NotFound during dynamic listing, migration skips it cleanly.
 func TestMigrateResources_SkipsResourceWhenListReturnsNotFound(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
@@ -372,6 +381,7 @@ func TestMigrateResources_SkipsResourceWhenListReturnsNotFound(t *testing.T) {
 	require.Equal(t, []string{"v1alpha1", "v1"}, unchangedCrd.Status.StoredVersions)
 }
 
+// TestMigrateResources_SkipsCRDWhenStatusRefetchReturnsNotFound verifies that if a CRD returns NotFound during status refetch, migration skips to the next CRD.
 func TestMigrateResources_SkipsCRDWhenStatusRefetchReturnsNotFound(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
@@ -453,6 +463,7 @@ func TestMigrateResources_SkipsCRDWhenStatusRefetchReturnsNotFound(t *testing.T)
 	require.Equal(t, []string{"v1"}, updatedCrd2.Status.StoredVersions)
 }
 
+// TestMigrateResources_SkipsCRDWhenStatusUpdateReturnsNotFound verifies that if a CRD returns NotFound during UpdateStatus, migration skips to the next CRD.
 func TestMigrateResources_SkipsCRDWhenStatusUpdateReturnsNotFound(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
@@ -532,6 +543,7 @@ func TestMigrateResources_SkipsCRDWhenStatusUpdateReturnsNotFound(t *testing.T) 
 	require.Equal(t, []string{"v1"}, updatedCrd2.Status.StoredVersions)
 }
 
+// TestMigrateResources_AbortsWhenCRDGenerationOrUIDChanges verifies that if a CRD UID or generation changes concurrently, migration aborts without writing status.
 func TestMigrateResources_AbortsWhenCRDGenerationOrUIDChanges(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -629,6 +641,7 @@ func TestMigrateResources_AbortsWhenCRDGenerationOrUIDChanges(t *testing.T) {
 	}
 }
 
+// TestMigrateResources_AbortsWhenStorageVersionChangesDuringMigration verifies that if a CRD storage version is changed concurrently, migration aborts without writing status.
 func TestMigrateResources_AbortsWhenStorageVersionChangesDuringMigration(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
@@ -716,6 +729,7 @@ func TestMigrateResources_AbortsWhenStorageVersionChangesDuringMigration(t *test
 	require.Equal(t, []string{"v1alpha1", "v1"}, trackedCrd.Status.StoredVersions)
 }
 
+// TestMigrateResources_RetriesOnConflict verifies that optimistic concurrency conflicts during status updates are retried with the latest resourceVersion.
 func TestMigrateResources_RetriesOnConflict(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1.AddToScheme(scheme))
