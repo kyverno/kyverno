@@ -818,6 +818,9 @@ func TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace(t *testing.T) {
 	assert.Equal(t, engineapi.RuleStatusError, untraced.Rules[0].Status())
 	assert.Equal(t, untraced.Rules[0].Status(), traced.Rules[0].Status())
 	assert.Equal(t, untraced.Rules[0].Message(), traced.Rules[0].Message())
+	assert.Contains(t, untraced.Rules[0].Message(), "failed to evaluate policy")
+	assert.NotContains(t, untraced.Rules[0].Message(), "failed to load context")
+	assert.Contains(t, untraced.Rules[0].Message(), "no such key: labels")
 	assert.Nil(t, untraced.Trace)
 
 	// with tracing, the failing condition is kept instead of a bare ERROR
