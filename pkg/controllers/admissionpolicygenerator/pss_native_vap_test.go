@@ -15,6 +15,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -38,7 +39,7 @@ func TestPSSNativeVAP(t *testing.T) {
 		count int
 	}{
 		{name: "baseline", count: 12},
-		{name: "restricted", count: 19},
+		{name: "restricted", count: 18}, // The additional strict proc-mount policy requires podSecurityUserNamespaces=true.
 	}
 	for _, profile := range profiles {
 		t.Run(profile.name, func(t *testing.T) {
@@ -50,6 +51,9 @@ func TestPSSNativeVAP(t *testing.T) {
 				configs, err := vpolautogen.Autogen(&policy)
 				require.NoError(t, err, policy.Name)
 				require.NotEmpty(t, configs, policy.Name)
+				require.NotNil(t, policy.Spec.MatchConstraints)
+				require.Len(t, policy.Spec.MatchConstraints.ResourceRules, 1, policy.Name)
+				assert.Contains(t, policy.Spec.MatchConstraints.ResourceRules[0].Resources, "pods/ephemeralcontainers", policy.Name)
 			}
 
 			policies := renderPSSNativeVAPPolicies(t, helm, chart, profile.name,
@@ -59,6 +63,9 @@ func TestPSSNativeVAP(t *testing.T) {
 			for _, policy := range policies {
 				t.Run(policy.Name, func(t *testing.T) {
 					require.True(t, policy.Spec.GenerateValidatingAdmissionPolicyEnabled())
+					require.NotNil(t, policy.Spec.FailurePolicy)
+					assert.Equal(t, admissionregistrationv1.Ignore, *policy.Spec.FailurePolicy)
+					policy.UID = "pss-native-vap-test"
 					require.NotNil(t, policy.Spec.AutogenConfiguration)
 					require.NotNil(t, policy.Spec.AutogenConfiguration.PodControllers)
 					require.NotNil(t, policy.Spec.AutogenConfiguration.PodControllers.Enabled)
@@ -67,6 +74,13 @@ func TestPSSNativeVAP(t *testing.T) {
 					require.NoError(t, err)
 					assert.Empty(t, configs, "native VAPs cannot include Pod-controller rules")
 					assert.NotEmpty(t, policy.Spec.Validations)
+					require.NotNil(t, policy.Spec.MatchConstraints)
+					require.Len(t, policy.Spec.MatchConstraints.ResourceRules, 1)
+					rule := policy.Spec.MatchConstraints.ResourceRules[0]
+					assert.Contains(t, rule.Resources, "pods")
+					assert.Contains(t, rule.Resources, "pods/ephemeralcontainers")
+					assert.Contains(t, rule.Operations, admissionregistrationv1.Create)
+					assert.Contains(t, rule.Operations, admissionregistrationv1.Update)
 
 					ctx := context.Background()
 					c, kubeClient, kyvernoClient := newVAPTestController(t, &policy)
@@ -91,6 +105,8 @@ func TestPSSNativeVAP(t *testing.T) {
 					require.Len(t, binding.OwnerReferences, 1)
 					assert.Equal(t, policy.Name, vap.OwnerReferences[0].Name)
 					assert.Equal(t, policy.Name, binding.OwnerReferences[0].Name)
+					assert.Equal(t, policy.UID, vap.OwnerReferences[0].UID)
+					assert.Equal(t, policy.UID, binding.OwnerReferences[0].UID)
 
 					updated, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
 					require.NoError(t, err)
@@ -102,7 +118,6 @@ func TestPSSNativeVAP(t *testing.T) {
 
 	t.Run("service-account-exclusions-use-native-CEL", func(t *testing.T) {
 		policies := renderPSSNativeVAPPolicies(t, helm, chart, "baseline",
-			"--set", "generateValidatingAdmissionPolicy=true",
 			"--set", "vpolExclude.excludeSubjects[0].kind=ServiceAccount",
 			"--set", "vpolExclude.excludeSubjects[0].namespace=kube-system",
 			"--set", "vpolExclude.excludeSubjects[0].name=default")
@@ -112,18 +127,56 @@ func TestPSSNativeVAP(t *testing.T) {
 			found := false
 			for _, condition := range policy.Spec.MatchConditions {
 				assert.NotContains(t, condition.Expression, "parseServiceAccount(", policy.Name)
-				if strings.Contains(condition.Expression, "system:serviceaccount:kube-system:default") {
+				if condition.Name == "exclude-subjects" {
+					assert.Equal(t, "!(request.userInfo.username == 'system:serviceaccount:kube-system:default')", strings.TrimSpace(condition.Expression))
 					found = true
 				}
 			}
 			assert.True(t, found, "missing native-compatible ServiceAccount exclusion for %s", policy.Name)
 		}
 	})
+
+	t.Run("restricted-user-namespace-policies", func(t *testing.T) {
+		policies := renderPSSNativeVAPPolicies(t, helm, chart, "restricted",
+			"--set", "podSecurityUserNamespaces=true",
+			"--set", "generateValidatingAdmissionPolicy=true")
+		require.Len(t, policies, 19)
+		found := false
+		for _, policy := range policies {
+			if policy.Name == "disallow-proc-mount-strict" {
+				found = true
+			}
+		}
+		assert.True(t, found, "missing conditional restricted proc-mount policy")
+	})
+
+	t.Run("rejects-old-kubernetes", func(t *testing.T) {
+		cmd := exec.Command(helm, "template", "verify-pss", chart,
+			"--kube-version", "v1.29.0",
+			"--api-versions", "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy",
+			"--set", "generateValidatingAdmissionPolicy=true")
+		output, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(output), "requires Kubernetes v1.30 or newer")
+	})
+
+	t.Run("rejects-controller-subject-exclusions", func(t *testing.T) {
+		cmd := exec.Command(helm, "template", "verify-pss", chart,
+			"--kube-version", "v1.37.0",
+			"--api-versions", "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy",
+			"--set", "generateValidatingAdmissionPolicy=true",
+			"--set", "vpolExclude.excludeSubjects[0].kind=ServiceAccount",
+			"--set", "vpolExclude.excludeSubjects[0].namespace=kube-system",
+			"--set", "vpolExclude.excludeSubjects[0].name=replicaset-controller")
+		output, err := cmd.CombinedOutput()
+		require.Error(t, err)
+		assert.Contains(t, string(output), "cannot be combined with subject")
+	})
 }
 
 func renderPSSNativeVAPPolicies(t *testing.T, helm, chart, profile string, args ...string) []policiesv1beta1.ValidatingPolicy {
 	t.Helper()
-	helmArgs := []string{"template", "verify-pss", chart, "--kube-version", "v1.37.0", "--set", "podSecurityStandard=" + profile, "--set", "podSecurityVersion=v1.37"}
+	helmArgs := []string{"template", "verify-pss", chart, "--kube-version", "v1.37.0", "--api-versions", "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy", "--set", "podSecurityStandard=" + profile, "--set", "podSecurityVersion=v1.37"}
 	helmArgs = append(helmArgs, args...)
 	cmd := exec.Command(helm, helmArgs...)
 	output, err := cmd.CombinedOutput()

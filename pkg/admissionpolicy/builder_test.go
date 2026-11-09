@@ -393,9 +393,9 @@ func TestBuildValidatingAdmissionPolicyPreservesFailurePolicy(t *testing.T) {
 			policy := &policiesv1beta1.ValidatingPolicy{
 				ObjectMeta: metav1.ObjectMeta{Name: "pss-policy"},
 				Spec: policiesv1beta1.ValidatingPolicySpec{
-					FailurePolicy: &failure,
+					FailurePolicy:    &failure,
 					MatchConstraints: &admissionregistrationv1.MatchResources{},
-					Validations: []admissionregistrationv1.Validation{{Expression: "true"}},
+					Validations:      []admissionregistrationv1.Validation{{Expression: "true"}},
 				},
 			}
 			vap := &admissionregistrationv1.ValidatingAdmissionPolicy{

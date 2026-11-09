@@ -31,7 +31,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
     {{- with (include "kyverno-policies.policyVpolExclude" (dict "name" $name "values" .Values) | fromYaml) }}
     {{- with .excludeResourceRules }}
     excludeResourceRules:

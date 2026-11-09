@@ -113,11 +113,27 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
-{{/* Native API-server VAP generation cannot coexist with Pod-controller rule autogen.
-     Do not change the default: controller-template admission checks must remain available
-     until the cluster operator explicitly opts into Pod-only native evaluation. */}}
+{{/* Native VAPs are served in admissionregistration.k8s.io/v1 from Kubernetes v1.30.
+     Reject unsupported clusters instead of silently disabling Pod-controller checks.
+     Identity and custom match exclusions are unsafe without workload-template admission:
+     an excluded controller could create a Pod bypassing the policy. */}}
 {{- define "kyverno-policies.pssNativeVAP" -}}
 {{- if .Values.generateValidatingAdmissionPolicy -}}
+  {{- if not (semverCompare ">=1.30.0-0" .Capabilities.KubeVersion.Version) -}}
+    {{- fail "generateValidatingAdmissionPolicy requires Kubernetes v1.30 or newer" -}}
+  {{- end -}}
+  {{- if not (.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy") -}}
+    {{- fail "generateValidatingAdmissionPolicy requires the served admissionregistration.k8s.io/v1 ValidatingAdmissionPolicy API" -}}
+  {{- end -}}
+  {{- $exclusions := list (.Values.vpolExclude | default dict) -}}
+  {{- range $_, $config := (.Values.vpolExcludeByPolicy | default dict) -}}
+    {{- $exclusions = append $exclusions ($config | default dict) -}}
+  {{- end -}}
+  {{- range $config := $exclusions -}}
+    {{- if or (gt (len ($config.excludeSubjects | default list)) 0) (gt (len ($config.matchConditions | default list)) 0) (gt (len ($config.excludeResourceRules | default list)) 0) -}}
+      {{- fail "generateValidatingAdmissionPolicy cannot be combined with subject, custom match-condition, or resource-rule exclusions; excluded controllers could bypass Pod admission" -}}
+    {{- end -}}
+  {{- end -}}
 autogen:
   podControllers:
     enabled: false
