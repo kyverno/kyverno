@@ -74,7 +74,26 @@ func prepareK8sData(
 	requestMapFn func() (map[string]any, error),
 	context libs.Context,
 ) (evaluationData, error) {
-	activation, err := compiler.PrepareK8sActivation(attr, request, namespace, requestMapFn, compiler.BuildRawRequestMap)
+	return prepareK8sDataWithActivation(attr, request, namespace, nil, requestMapFn, context)
+}
+
+// prepareK8sDataWithActivation assembles evaluationData using an optional precomputed
+// ActivationBuilder. When activationBuilder is nil, it falls back to PrepareK8sActivation.
+func prepareK8sDataWithActivation(
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace runtime.Object,
+	activationBuilder compiler.ActivationBuilder,
+	requestMapFn func() (map[string]any, error),
+	context libs.Context,
+) (evaluationData, error) {
+	var activation compiler.ActivationData
+	var err error
+	if activationBuilder != nil {
+		activation, err = activationBuilder()
+	} else {
+		activation, err = compiler.PrepareK8sActivation(attr, request, namespace, requestMapFn, compiler.BuildRawRequestMap)
+	}
 	if err != nil {
 		return evaluationData{}, err
 	}
