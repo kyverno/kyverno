@@ -1,6 +1,7 @@
 package dclient
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -87,7 +88,54 @@ func (f *flippingDiscovery) WithLegacy() discovery.DiscoveryInterface {
 	panic("not used by the aggregated refresh path")
 }
 
-var _ discovery.AggregatedDiscoveryInterface = &flippingDiscovery{}
+// client-go 0.37's memory.NewMemCacheClient wraps a delegate that lacks the
+// context-aware methods, which hides GroupsAndMaybeResources; implement them
+// so the cache keeps taking the aggregated refresh path.
+func (f *flippingDiscovery) GroupsAndMaybeResourcesWithContext(context.Context) (*metav1.APIGroupList, map[schema.GroupVersion]*metav1.APIResourceList, map[schema.GroupVersion]error, error) {
+	return f.GroupsAndMaybeResources()
+}
+
+func (f *flippingDiscovery) ServerGroupsWithContext(context.Context) (*metav1.APIGroupList, error) {
+	return f.ServerGroups()
+}
+
+func (f *flippingDiscovery) ServerResourcesForGroupVersionWithContext(_ context.Context, gv string) (*metav1.APIResourceList, error) {
+	return f.ServerResourcesForGroupVersion(gv)
+}
+
+func (f *flippingDiscovery) ServerGroupsAndResourcesWithContext(context.Context) ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+	return f.ServerGroupsAndResources()
+}
+
+func (f *flippingDiscovery) ServerPreferredResourcesWithContext(context.Context) ([]*metav1.APIResourceList, error) {
+	return f.ServerPreferredResources()
+}
+
+func (f *flippingDiscovery) ServerPreferredNamespacedResourcesWithContext(context.Context) ([]*metav1.APIResourceList, error) {
+	return f.ServerPreferredNamespacedResources()
+}
+
+func (f *flippingDiscovery) ServerVersionWithContext(context.Context) (*version.Info, error) {
+	return f.ServerVersion()
+}
+
+func (f *flippingDiscovery) OpenAPISchemaWithContext(context.Context) (*openapi_v2.Document, error) {
+	return f.OpenAPISchema()
+}
+
+func (f *flippingDiscovery) OpenAPIV3WithContext(context.Context) openapi.ClientWithContext {
+	panic("not used by the aggregated refresh path")
+}
+
+func (f *flippingDiscovery) WithLegacyWithContext(context.Context) discovery.DiscoveryInterfaceWithContext {
+	panic("not used by the aggregated refresh path")
+}
+
+var (
+	_ discovery.AggregatedDiscoveryInterface            = &flippingDiscovery{}
+	_ discovery.AggregatedDiscoveryInterfaceWithContext = &flippingDiscovery{}
+	_ discovery.DiscoveryInterfaceWithContext           = &flippingDiscovery{}
+)
 
 func newStaleCacheDiscovery(t *testing.T, readyAfter time.Duration) (IDiscovery, *flippingDiscovery) {
 	t.Helper()

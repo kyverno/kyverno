@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 var fieldIndexPattern = regexp.MustCompile(`\[\d+\]`)
@@ -124,4 +125,36 @@ func BuildKindError(group, version, kind string) (error, bool) {
 
 func NormalizeFieldPath(field string) string {
 	return fieldIndexPattern.ReplaceAllString(field, "[]")
+}
+
+// GlobalContextEntry projection language constants. A projection sets exactly one of
+// jmesPath or expression (enforced by GlobalContextEntryProjection.Validate()); these are
+// the two values every admission warning, CLI warning, and usage metric around that choice
+// should use, so the three sites classify a projection the same way instead of drifting.
+const (
+	ProjectionLanguageJMESPath = "jmespath"
+	ProjectionLanguageCEL      = "cel"
+)
+
+// ProjectionLanguage reports which language a GlobalContextEntry projection uses, given its
+// jmesPath and expression fields.
+func ProjectionLanguage(jmesPath, expression string) string {
+	if jmesPath != "" {
+		return ProjectionLanguageJMESPath
+	}
+	return ProjectionLanguageCEL
+}
+
+// BuildProjectionWarning returns a field-level deprecation warning naming the given
+// GlobalContextEntry projection field paths (for example "spec.projections[0].jmesPath")
+// that still use jmesPath, pointing at the replacement expression (CEL) field.
+func BuildProjectionWarning(paths []string) DeprecationWarning {
+	fields := strings.Join(paths, ", ")
+	return DeprecationWarning{
+		Field: fields,
+		Message: fmt.Sprintf(
+			"%s is deprecated and will be removed in 1.21; migrate to the projection's expression (CEL) field instead",
+			fields,
+		),
+	}
 }

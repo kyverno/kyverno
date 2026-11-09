@@ -61,7 +61,6 @@ func Test_Evaluate_CacheHitSkipsImageFetch(t *testing.T) {
 	require.Empty(t, errList)
 
 	cacheClient, err := imageverifycache.New(
-		imageverifycache.WithCacheEnableFlag(true),
 		imageverifycache.WithMaxSize(100),
 	)
 	require.NoError(t, err)

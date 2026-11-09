@@ -192,6 +192,10 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
 		for _, polex := range c.exceptions {
+			// Compiled exceptions can expire without a policy or exception update.
+			if polex.IsExpired() {
+				continue
+			}
 			match, err := c.match(ctx, data, polex.MatchConditions, nil)
 			if err != nil {
 				if fullExemptionFound {
@@ -484,6 +488,10 @@ func (c *compiledPolicy) MutateDigest(
 	// exceptions must not skip digest pinning for the whole resource — same rule as
 	// Evaluate, so validating and mutating paths stay aligned.
 	for _, polex := range c.exceptions {
+		// Recheck on every admission: the compiled policy may outlive this exception.
+		if polex.IsExpired() {
+			continue
+		}
 		match, err := c.match(ctx, data, polex.MatchConditions, nil)
 		if err != nil {
 			return nil, err
@@ -602,11 +610,6 @@ func (p *compiledPolicy) match(
 // requestMapFn is a memoized request-map builder shared across every policy in the
 // admission request; pass nil to build the map from request instead (JSON mode,
 // ExtractionMode synthetic requests). The request map MUST be treated as immutable.
-//
-// TODO(#17586): this helper is a twin of vpol's prepareK8sData
-// (pkg/cel/policies/vpol/compiler/eval.go). Both should move behind a shared
-// choke point in pkg/cel/compiler so a fourth engine cannot reintroduce the
-// per-policy rebuild this design eliminates here and in #17572.
 func prepareK8sData(
 	attr admission.Attributes,
 	request interface{},
@@ -614,36 +617,15 @@ func prepareK8sData(
 	isK8s bool,
 	requestMapFn func() (map[string]any, error),
 ) (map[string]any, error) {
-	data := map[string]any{}
 	if !isK8s {
-		data[engine.ObjectKey] = request
-		return data, nil
+		return map[string]any{
+			engine.ObjectKey: request,
+		}, nil
 	}
-	namespaceVal, err := utils.ObjectToResolveVal(namespace)
+	admissionReq, _ := request.(*admissionv1.AdmissionRequest)
+	activation, err := engine.PrepareK8sActivation(attr, admissionReq, namespace, requestMapFn, engine.BuildRawRequestMap)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
+		return nil, err
 	}
-	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-	}
-	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-	}
-	var requestMap map[string]any
-	if requestMapFn != nil {
-		requestMap, err = requestMapFn()
-	} else {
-		admissionReq, _ := request.(*admissionv1.AdmissionRequest)
-		requestMap, err = engine.BuildRawRequestMap(admissionReq)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-	}
-	data[engine.NamespaceObjectKey] = namespaceVal
-	data[engine.RequestKey] = requestMap
-	data[engine.ObjectKey] = objectVal
-	data[engine.OldObjectKey] = oldObjectVal
-	return data, nil
+	return activation.ToMap(), nil
 }

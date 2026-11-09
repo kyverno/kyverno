@@ -13,15 +13,15 @@ results:
   kind: Deployment
   policy: check-deployment-replicas
   resources:
-  - staging-deployment-1
   - production-deployment-1
+  - staging-deployment-1
   result: fail
 - isValidatingAdmissionPolicy: true
   kind: Deployment
   policy: check-deployment-replicas
   resources:
-  - staging-deployment-2
   - production-deployment-2
+  - staging-deployment-2
   result: pass
 - isValidatingAdmissionPolicy: true
   kind: Deployment

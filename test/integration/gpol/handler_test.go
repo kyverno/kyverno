@@ -64,7 +64,7 @@ func TestMain(m *testing.M) {
 
 	// Use exception-enabled engine so full-flow tests can verify exception behavior.
 	// When no exceptions exist, this behaves identically to NewGpolEngine.
-	gpolEngine, gpolProvider = framework.NewGpolEngineWithExceptions(gpolLister, ngpolLister, polexLister)
+	gpolEngine, gpolProvider = framework.NewGpolEngineWithExceptions(infCtx, testEnv.KubeClient, gpolLister, ngpolLister, polexLister)
 
 	if err := testEnv.Start(); err != nil {
 		cancel()

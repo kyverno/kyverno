@@ -55,7 +55,6 @@ import (
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
@@ -68,6 +67,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -159,6 +159,9 @@ func Command() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			out := cmd.OutOrStdout()
+			if applyCommandConfig.PolicyReport || applyCommandConfig.GenerateExceptions || applyCommandConfig.Stdin {
+				removeColor = true
+			}
 			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
 			table, err = applyCommandConfig.resolveOutputFlags(cmd, table, detailedResults)
@@ -190,25 +193,25 @@ func Command() *cobra.Command {
 						}
 						if rule.RuleType() == engineapi.Mutation {
 							if rule.Status() == engineapi.RuleStatusSkip {
-								fmt.Fprintln(out, "\nskipped mutate policy", response.Policy().GetName(), "->", "resource", resPath)
+								fmt.Fprintln(out, "\n"+color.BoldYellow("skipped mutate policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath)
 							} else if rule.Status() == engineapi.RuleStatusError {
-								fmt.Fprintln(out, "\nerror while applying mutate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror: ", rule.Message())
+								fmt.Fprintln(out, "\n"+color.BoldRed("error while applying mutate policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath, "\n"+color.BoldRed("error:")+" ", rule.Message())
 							}
 						}
 						if rule.RuleType() == engineapi.Generation {
 							if rule.Status() == engineapi.RuleStatusError {
-								fmt.Fprintln(out, "\nerror while applying generate policy", response.Policy().GetName(), "->", "resource", resPath, "\nerror:", rule.Message())
+								fmt.Fprintln(out, "\n"+color.BoldRed("error while applying generate policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath, "\n"+color.BoldRed("error:"), rule.Message())
 							}
 						}
 					}
 					if len(failedRules) > 0 {
-						fmt.Fprintln(out, "policy", response.Policy().GetName(), "->", "resource", resPath, "failed:")
+						fmt.Fprintln(out, "policy", color.Policy("", response.Policy().GetName()), "->", "resource", resPath, color.BoldRed("failed:"))
 						for i, rule := range failedRules {
 							msg := rule.Message()
 							if msg == "" {
 								msg = "validation failed"
 							}
-							fmt.Fprintln(out, i+1, "-", rule.Name(), msg)
+							fmt.Fprintln(out, i+1, "-", color.Rule(rule.Name()), msg)
 						}
 					}
 				}
@@ -363,6 +366,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+	c.recordGlobalContextEntryDeprecationWarnings(out, gctxEntries)
 
 	if !c.Cluster && (len(resources)+len(targetResources)+len(parameterResources)) > 0 {
 		dClient, err = createFakeClientFromResources(resources, targetResources, parameterResources)
@@ -455,6 +459,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 
+	nsResolver := processor.GetNamespaceResolver(variables, dClient, c.Cluster)
 	rc, resources1, responses1, err := c.applyPolicies(
 		out,
 		&store,
@@ -474,21 +479,22 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		dClient,
 		userInfo,
 		mutateLogPathIsDir,
+		nsResolver,
 	)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
+	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, nsResolver, userInfo, rc, dClient, variables.GlobalOperation())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses5, err := c.applyDeletingPolicies(out, dps, resources1, celExceptions, variables.Namespace, rc, dClient, "resource")
+	responses5, err := c.applyDeletingPolicies(out, dps, resources1, celExceptions, nsResolver, rc, dClient, "resource")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses6, err := c.applyDeletingPolicies(out, dps, jsonPayloads, celExceptions, variables.Namespace, rc, dClient, "json")
+	responses6, err := c.applyDeletingPolicies(out, dps, jsonPayloads, celExceptions, nsResolver, rc, dClient, "json")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -553,6 +559,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	dClient dclient.Interface,
 	userInfo *kyvernov2.RequestInfo,
 	mutateLogPathIsDir bool,
+	nsResolver celengine.NamespaceResolver,
 ) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
 	if vars != nil {
 		vars.SetInStore(store)
@@ -648,7 +655,13 @@ func (c *ApplyCommandConfig) applyPolicies(
 
 				if len(mpols) != 0 {
 					compiler := mpolcompiler.NewCompilerWithTrace(c.Explain)
-					mpolProvider, err = mpolengine.NewProvider(compiler, mpols, celExceptions, contextProvider)
+					toCompile := slices.DeleteFunc(slices.Clone(mpols), func(policy policiesv1beta1.MutatingPolicyLike) bool {
+						if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+							return len(jsonPayloads) == 0
+						}
+						return len(resources) == 0
+					})
+					mpolProvider, err = mpolengine.NewProvider(compiler, toCompile, celExceptions, contextProvider)
 					if err != nil {
 						if !c.ContinueOnFail {
 							return &rc, resources, responses, err
@@ -661,8 +674,13 @@ func (c *ApplyCommandConfig) applyPolicies(
 		}
 	}
 
+	if nsResolver == nil {
+		nsResolver = processor.GetNamespaceResolver(vars, dClient, c.Cluster)
+	}
+
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             store,
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
@@ -713,6 +731,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	}
 	for _, resource := range jsonPayloads {
 		processor := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             store,
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
@@ -758,6 +777,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
+		*resource = processor.JsonPayload
 	}
 	return &rc, resources, responses, nil
 }
@@ -821,7 +841,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
-		imageverifycache.DisabledImageVerifyCache(),
+		nil,
 		config.NewDefaultConfiguration(false),
 	)
 
@@ -1071,7 +1091,11 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 				return nil, nil, fmt.Errorf("failed to load JSON payload (%w)", err)
 			}
 
-			jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: payload.(map[string]interface{})})
+			object, ok := payload.(map[string]interface{})
+			if !ok {
+				return nil, nil, fmt.Errorf("JSON payload %s must be a top-level object", path)
+			}
+			jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: object})
 		}
 	}
 	return resources, jsonPayloads, nil
@@ -1205,6 +1229,27 @@ func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []poli
 	for _, warning := range warnings {
 		msg := fmt.Sprintf("Warning: %s: %s", warning.Path, warning.Warning)
 		fmt.Fprintln(out, msg)
+		c.deprecationWarnings = append(c.deprecationWarnings, msg)
+	}
+}
+
+// recordGlobalContextEntryDeprecationWarnings warns, once per GlobalContextEntry, about any
+// projection still using jmesPath, routed through the same deprecationWarnings accumulator as
+// every other CLI deprecation warning so --warnings-as-errors picks it up for free.
+func (c *ApplyCommandConfig) recordGlobalContextEntryDeprecationWarnings(out io.Writer, gctxEntries []*kyvernov2.GlobalContextEntry) {
+	for _, gce := range gctxEntries {
+		var jmesPathFields []string
+		path := field.NewPath("spec", "projections")
+		for i, p := range gce.Spec.Projections {
+			if p.JMESPath != "" {
+				jmesPathFields = append(jmesPathFields, path.Index(i).Child("jmesPath").String())
+			}
+		}
+		if len(jmesPathFields) == 0 {
+			continue
+		}
+		msg := fmt.Sprintf("GlobalContextEntry %q: %s", gce.Name, pkgdeprecations.BuildProjectionWarning(jmesPathFields).Message)
+		fmt.Fprintln(out, "Warning: "+msg)
 		c.deprecationWarnings = append(c.deprecationWarnings, msg)
 	}
 }
