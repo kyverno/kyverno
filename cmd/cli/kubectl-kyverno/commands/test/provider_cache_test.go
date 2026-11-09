@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestRunTest_ProviderCachingValidatingPolicy verifies caching of ValidatingPolicy providers across resource evaluations.
 func TestRunTest_ProviderCachingValidatingPolicy(t *testing.T) {
 	fs := memfs.New()
 
@@ -154,6 +155,7 @@ spec:
 	assert.True(t, resp.Trigger[key2][0].IsSuccessful())
 }
 
+// TestRunTest_ProviderCachingJSONMutation verifies caching of MutatingPolicy providers across JSON mutation targets.
 func TestRunTest_ProviderCachingJSONMutation(t *testing.T) {
 	fs := memfs.New()
 	for name, content := range map[string]string{
@@ -216,6 +218,7 @@ spec:
 	}
 }
 
+// TestRunTest_ProviderCachingMutatingPolicy verifies caching of MutatingPolicy providers across resource evaluations.
 func TestRunTest_ProviderCachingMutatingPolicy(t *testing.T) {
 	fs := memfs.New()
 
@@ -353,6 +356,7 @@ spec:
 	assert.True(t, found2, "pod-2 should be mutated with cached=true")
 }
 
+// TestRunTest_ProviderCachingJSONPayload verifies caching of ValidatingPolicy providers across JSON payloads.
 func TestRunTest_ProviderCachingJSONPayload(t *testing.T) {
 	fs := memfs.New()
 
@@ -451,6 +455,7 @@ spec:
 	assert.Equal(t, engineapi.RuleStatusFail, resp.Trigger["payload3.json"][0].PolicyResponse.Rules[0].Status())
 }
 
+// TestRunTest_ProviderCachingGeneratingPolicy verifies that compiled GeneratingPolicies are reused across resource evaluations.
 func TestRunTest_ProviderCachingGeneratingPolicy(t *testing.T) {
 	fs := memfs.New()
 
@@ -601,6 +606,7 @@ spec:
 	assert.Equal(t, "app-2-config", gen2[0].GetName())
 }
 
+// TestRunTest_ProviderCachingGeneratingPolicyCompileFailure verifies error propagation when GeneratingPolicy compilation fails.
 func TestRunTest_ProviderCachingGeneratingPolicyCompileFailure(t *testing.T) {
 	fs := memfs.New()
 
@@ -682,6 +688,7 @@ spec:
 	assert.ErrorContains(t, err, "failed to compile policy invalid-generate")
 }
 
+// TestRunTest_ProviderCachingGeneratingPolicyWithClusterResources verifies GeneratingPolicy compilation caching with cluster resources and JSON payloads.
 func TestRunTest_ProviderCachingGeneratingPolicyWithClusterResources(t *testing.T) {
 	fs := memfs.New()
 
@@ -871,6 +878,7 @@ spec:
 	assert.Equal(t, "app-2-config", gen2[0].GetName())
 }
 
+// TestRunTest_ProviderCachingDeletingPolicyCompileFailure verifies error propagation when DeletingPolicy compilation fails.
 func TestRunTest_ProviderCachingDeletingPolicyCompileFailure(t *testing.T) {
 	tests := []struct {
 		name                 string
@@ -995,6 +1003,7 @@ spec:
 	}
 }
 
+// TestRunTest_ProviderCachingDeletingPolicy verifies that DeletingPolicy providers are reused across resource evaluations.
 func TestRunTest_ProviderCachingDeletingPolicy(t *testing.T) {
 	fs := memfs.New()
 
@@ -1127,12 +1136,14 @@ spec:
 	assert.Equal(t, "deleting-pod-by-name", resp.Trigger[key2][0].Policy().GetName())
 	assert.Equal(t, "deleting-pod-by-name", resp.Trigger["payload.json"][0].Policy().GetName())
 	assert.Equal(t, "deleting-pod-by-name", resp.Trigger["payload-2.json"][0].Policy().GetName())
-	assert.True(t, resp.Trigger[key1][0].IsSuccessful())
-	assert.True(t, resp.Trigger[key2][0].IsSuccessful())
-	assert.True(t, resp.Trigger["payload.json"][0].IsSuccessful())
-	assert.True(t, resp.Trigger["payload-2.json"][0].IsSuccessful())
+	for _, key := range []string{key1, key2, "payload.json", "payload-2.json"} {
+		assert.True(t, resp.Trigger[key][0].IsSuccessful())
+		require.NotEmpty(t, resp.Trigger[key][0].PolicyResponse.Rules)
+		assert.Equal(t, engineapi.RuleStatusPass, resp.Trigger[key][0].PolicyResponse.Rules[0].Status())
+	}
 }
 
+// TestRunTest_ProviderCachingDeletingPolicyWithClusterResources verifies DeletingPolicy provider and context caching with cluster resources and JSON payloads.
 func TestRunTest_ProviderCachingDeletingPolicyWithClusterResources(t *testing.T) {
 	fs := memfs.New()
 
@@ -1298,8 +1309,9 @@ spec:
 	require.NotEmpty(t, resp.Trigger[key2])
 	require.NotEmpty(t, resp.Trigger["payload.json"])
 	require.NotEmpty(t, resp.Trigger["payload-2.json"])
-	assert.True(t, resp.Trigger[key1][0].IsSuccessful())
-	assert.True(t, resp.Trigger[key2][0].IsSuccessful())
-	assert.True(t, resp.Trigger["payload.json"][0].IsSuccessful())
-	assert.True(t, resp.Trigger["payload-2.json"][0].IsSuccessful())
+	for _, key := range []string{key1, key2, "payload.json", "payload-2.json"} {
+		assert.True(t, resp.Trigger[key][0].IsSuccessful())
+		require.NotEmpty(t, resp.Trigger[key][0].PolicyResponse.Rules)
+		assert.Equal(t, engineapi.RuleStatusPass, resp.Trigger[key][0].PolicyResponse.Rules[0].Status())
+	}
 }
