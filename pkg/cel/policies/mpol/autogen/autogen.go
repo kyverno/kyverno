@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	specRe                = regexp.MustCompile(`\b(object|oldObject|Object)(\.|\.\?)spec\b`)
-	metadataLabelsRe      = regexp.MustCompile(`\b(object|oldObject|Object)(\.|\.\?)metadata(\.|\.\?)labels\b`)
-	metadataAnnotationsRe = regexp.MustCompile(`\b(object|oldObject|Object)(\.|\.\?)metadata(\.|\.\?)annotations\b`)
+	rootSpecRe            = regexp.MustCompile(`(^|request\.\??|[^\w.?])(object|oldObject|Object)((\.|\.\?)spec\b|\[\s*(\?)?\s*['"]spec['"]\s*\])`)
+	rootMetaLabelsRe      = regexp.MustCompile(`(^|request\.\??|[^\w.?])(object|oldObject|Object)((\.|\.\?)metadata\b|\[\s*(\?)?\s*['"]metadata['"]\s*\])((\.|\.\?)labels\b|\[\s*(\?)?\s*['"]labels['"]\s*\])`)
+	rootMetaAnnotationsRe = regexp.MustCompile(`(^|request\.\??|[^\w.?])(object|oldObject|Object)((\.|\.\?)metadata\b|\[\s*(\?)?\s*['"]metadata['"]\s*\])((\.|\.\?)annotations\b|\[\s*(\?)?\s*['"]annotations['"]\s*\])`)
 )
 
 // ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
@@ -124,9 +124,64 @@ func convertPodToTemplateExpression(expression string, config string) string {
 		metadataReplacement = "spec.template.metadata"
 	}
 
-	expression = specRe.ReplaceAllString(expression, "${1}${2}"+specReplacement)
-	expression = metadataLabelsRe.ReplaceAllString(expression, "${1}${2}"+metadataReplacement+"${3}labels")
-	expression = metadataAnnotationsRe.ReplaceAllString(expression, "${1}${2}"+metadataReplacement+"${3}annotations")
+	expression = rootMetaLabelsRe.ReplaceAllStringFunc(expression, func(m string) string {
+		sub := rootMetaLabelsRe.FindStringSubmatch(m)
+		prefix := sub[1]
+		root := sub[2]
+		metaPart := sub[3]
+		labelsPart := sub[6]
+
+		metaDelim := "."
+		if strings.Contains(metaPart, "?") {
+			metaDelim = ".?"
+		}
+		labelsDelim := "."
+		if strings.Contains(labelsPart, "?") {
+			labelsDelim = ".?"
+		}
+		return prefix + root + metaDelim + metadataReplacement + labelsDelim + "labels"
+	})
+
+	expression = rootMetaAnnotationsRe.ReplaceAllStringFunc(expression, func(m string) string {
+		sub := rootMetaAnnotationsRe.FindStringSubmatch(m)
+		prefix := sub[1]
+		root := sub[2]
+		metaPart := sub[3]
+		annPart := sub[6]
+
+		metaDelim := "."
+		if strings.Contains(metaPart, "?") {
+			metaDelim = ".?"
+		}
+		annDelim := "."
+		if strings.Contains(annPart, "?") {
+			annDelim = ".?"
+		}
+		return prefix + root + metaDelim + metadataReplacement + annDelim + "annotations"
+	})
+
+	expression = rootSpecRe.ReplaceAllStringFunc(expression, func(m string) string {
+		sub := rootSpecRe.FindStringSubmatch(m)
+		prefix := sub[1]
+		root := sub[2]
+		specPart := sub[3]
+
+		// Avoid double-replacement if already rewritten to template.
+		idx := strings.Index(expression, m)
+		if idx >= 0 {
+			after := expression[idx+len(m):]
+			if strings.HasPrefix(after, ".template") || strings.HasPrefix(after, ".?template") ||
+				strings.HasPrefix(after, ".jobTemplate") || strings.HasPrefix(after, ".?jobTemplate") {
+				return m
+			}
+		}
+
+		specDelim := "."
+		if strings.Contains(specPart, "?") {
+			specDelim = ".?"
+		}
+		return prefix + root + specDelim + specReplacement
+	})
 
 	// Detect the root "Object{...}" constructor, tolerating optional whitespace
 	// between "Object" and "{" (e.g. "Object {"), which is valid CEL.

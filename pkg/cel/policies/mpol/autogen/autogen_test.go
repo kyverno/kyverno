@@ -185,6 +185,60 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
 			input:    `object.?metadata.?annotations['link'] != ''`,
 			expected: `object.?spec.template.metadata.?annotations['link'] != ''`,
 		},
+		{
+			name:     "deployment object[?'spec'] bracket indexing",
+			config:   "deployments",
+			input:    `object[?'spec'].containers.all(c, true)`,
+			expected: `object.?spec.template.spec.containers.all(c, true)`,
+		},
+		{
+			name:     "deployment object['spec'] bracket indexing",
+			config:   "deployments",
+			input:    `object['spec'].containers.all(c, true)`,
+			expected: `object.spec.template.spec.containers.all(c, true)`,
+		},
+		{
+			name:     "deployment oldObject[?\"spec\"] bracket indexing",
+			config:   "deployments",
+			input:    `oldObject[?"spec"].containers.all(c, true)`,
+			expected: `oldObject.?spec.template.spec.containers.all(c, true)`,
+		},
+		{
+			name:     "deployment object.?metadata[?'labels'] conversion",
+			config:   "deployments",
+			input:    `object.?metadata[?'labels']['env'] == 'prod'`,
+			expected: `object.?spec.template.metadata.?labels['env'] == 'prod'`,
+		},
+		{
+			name:     "deployment object[?'metadata'][?'labels'] conversion",
+			config:   "deployments",
+			input:    `object[?'metadata'][?'labels']['env'] == 'prod'`,
+			expected: `object.?spec.template.metadata.?labels['env'] == 'prod'`,
+		},
+		{
+			name:     "deployment object[?'metadata'].annotations conversion",
+			config:   "deployments",
+			input:    `object[?'metadata'].annotations['link'] != ''`,
+			expected: `object.?spec.template.metadata.annotations['link'] != ''`,
+		},
+		{
+			name:     "deployment object.metadata.name preserved",
+			config:   "deployments",
+			input:    `object.metadata.name == 'prod'`,
+			expected: `object.metadata.name == 'prod'`,
+		},
+		{
+			name:     "nested foo.?object.?spec untouched",
+			config:   "deployments",
+			input:    `foo.?object.?spec.containers.all(c, true)`,
+			expected: `foo.?object.?spec.containers.all(c, true)`,
+		},
+		{
+			name:     "nested foo.object.spec untouched",
+			config:   "deployments",
+			input:    `foo.object.spec.containers.all(c, true)`,
+			expected: `foo.object.spec.containers.all(c, true)`,
+		},
 	}
 
 	for _, tt := range tests {

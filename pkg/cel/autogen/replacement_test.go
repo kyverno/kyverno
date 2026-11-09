@@ -241,6 +241,102 @@ func TestApplyRewritesExpressions(t *testing.T) {
 			config: "deployments",
 			want:   "object.?spec.template.spec.?containers.orValue([]).all(c, !c.image.endsWith(':latest'))",
 		},
+		{
+			name:   "deployments object['spec'] is rewritten",
+			expr:   "object['spec'].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments object[\"spec\"] is rewritten",
+			expr:   "object[\"spec\"].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments JSON-escaped object[\\\"spec\\\"] is rewritten",
+			expr:   "object[\\\"spec\\\"].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments object[?'spec'] is rewritten",
+			expr:   "object[?'spec'].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.?spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments object[?'spec'].?containers is rewritten",
+			expr:   "object[?'spec'].?containers.orValue([]).all(c, !c.image.endsWith(':latest'))",
+			config: "deployments",
+			want:   "object.?spec.template.spec.?containers.orValue([]).all(c, !c.image.endsWith(':latest'))",
+		},
+		{
+			name:   "deployments object[?\"spec\"] is rewritten",
+			expr:   "object[?\"spec\"].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.?spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments JSON-escaped object[?\\\"spec\\\"] is rewritten",
+			expr:   "object[?\\\"spec\\\"].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.?spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments oldObject[?'spec'] is rewritten",
+			expr:   "oldObject[?'spec'].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "oldObject.?spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "cronjobs object[?'spec'] is rewritten",
+			expr:   "object[?'spec'].containers.exists(c, c.name == 'nginx')",
+			config: "cronjobs",
+			want:   "object.?spec.jobTemplate.spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments object[?'metadata'][?'name'] is preserved",
+			expr:   "object[?'metadata'][?'name'] == 'foo'",
+			config: "deployments",
+			want:   "object[?'metadata'][?'name'] == 'foo'",
+		},
+		{
+			name:   "deployments object[?'metadata'][?'namespace'] is preserved",
+			expr:   "object[?'metadata'][?'namespace'] == 'foo'",
+			config: "deployments",
+			want:   "object[?'metadata'][?'namespace'] == 'foo'",
+		},
+		{
+			name:   "deployments object.?metadata[?'name'] is preserved",
+			expr:   "object.?metadata[?'name'] == 'foo'",
+			config: "deployments",
+			want:   "object.?metadata[?'name'] == 'foo'",
+		},
+		{
+			name:   "deployments object.?metadata[?'namespace'] is preserved",
+			expr:   "object.?metadata[?'namespace'] == 'foo'",
+			config: "deployments",
+			want:   "object.?metadata[?'namespace'] == 'foo'",
+		},
+		{
+			name:   "deployments object.?metadata[?'labels'] is rewritten",
+			expr:   "object.?metadata[?'labels']['env'] == 'prod'",
+			config: "deployments",
+			want:   "object.?spec.template.metadata[?'labels']['env'] == 'prod'",
+		},
+		{
+			name:   "deployments foo.?object.?spec is skipped",
+			expr:   "foo.?object.?spec == true",
+			config: "deployments",
+			want:   "foo.?object.?spec == true",
+		},
+		{
+			name:   "deployments request.?object.?spec is rewritten",
+			expr:   "request.?object.?spec.replicas > 0",
+			config: "deployments",
+			want:   "request.?object.?spec.template.spec.replicas > 0",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -460,6 +556,48 @@ func TestApplyCELRewritesExpressions(t *testing.T) {
 			expr:   "object.metadata.name == 'object.?spec'",
 			config: "deployments",
 			want:   "object.metadata.name == 'object.?spec'",
+		},
+		{
+			name:   "cronjobs object.?spec is rewritten",
+			expr:   "object.?spec",
+			config: "cronjobs",
+			want:   "object.?spec.jobTemplate.spec.template.spec",
+		},
+		{
+			name:   "cronjobs oldObject.?spec is rewritten",
+			expr:   "oldObject.?spec",
+			config: "cronjobs",
+			want:   "oldObject.?spec.jobTemplate.spec.template.spec",
+		},
+		{
+			name:   "cronjobs object[?'spec'] is rewritten",
+			expr:   "object[?'spec'].containers.exists(c, c.name == 'nginx')",
+			config: "cronjobs",
+			want:   "object.?spec.jobTemplate.spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments object.?metadata.?labels is rewritten",
+			expr:   "object.?metadata.?labels['app']",
+			config: "deployments",
+			want:   "object.?spec.template.metadata.?labels['app']",
+		},
+		{
+			name:   "deployments object.?metadata.labels is rewritten",
+			expr:   "object.?metadata.labels['app']",
+			config: "deployments",
+			want:   "object.?spec.template.metadata.labels['app']",
+		},
+		{
+			name:   "deployments object.metadata.?labels is rewritten",
+			expr:   "object.metadata.?labels['app']",
+			config: "deployments",
+			want:   "object.spec.template.metadata.?labels['app']",
+		},
+		{
+			name:   "cronjobs object.?metadata.?labels is rewritten",
+			expr:   "object.?metadata.?labels['app']",
+			config: "cronjobs",
+			want:   "object.?spec.jobTemplate.spec.template.metadata.?labels['app']",
 		},
 	}
 	for _, tt := range tests {

@@ -35,12 +35,34 @@ type Replacement struct {
 }
 
 // Apply rewrites the configured field paths in the given data,
-// replacing both the "object." and "oldObject." prefixes (including optional traversal ".?").
+// replacing both the "object." and "oldObject." prefixes (including optional traversal ".?" and bracket selectors).
 func (r *Replacement) Apply(data []byte) []byte {
+	// dot syntax
 	data = replace(data, []byte("object."+r.From), []byte("object."+r.To))
 	data = replace(data, []byte("object.?"+r.From), []byte("object.?"+r.To))
 	data = replace(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
 	data = replace(data, []byte("oldObject.?"+r.From), []byte("oldObject.?"+r.To))
+
+	// equivalent selector forms (bracket syntax)
+	data = replace(data, []byte("object['"+r.From+"']"), []byte("object."+r.To))
+	data = replace(data, []byte("oldObject['"+r.From+"']"), []byte("oldObject."+r.To))
+
+	data = replace(data, []byte("object[\""+r.From+"\"]"), []byte("object."+r.To))
+	data = replace(data, []byte("oldObject[\""+r.From+"\"]"), []byte("oldObject."+r.To))
+
+	data = replace(data, []byte("object[\\\""+r.From+"\\\"]"), []byte("object."+r.To))
+	data = replace(data, []byte("oldObject[\\\""+r.From+"\\\"]"), []byte("oldObject."+r.To))
+
+	// optional indexing (bracket syntax with ?)
+	data = replace(data, []byte("object[?'"+r.From+"']"), []byte("object.?"+r.To))
+	data = replace(data, []byte("oldObject[?'"+r.From+"']"), []byte("oldObject.?"+r.To))
+
+	data = replace(data, []byte("object[?\""+r.From+"\"]"), []byte("object.?"+r.To))
+	data = replace(data, []byte("oldObject[?\""+r.From+"\"]"), []byte("oldObject.?"+r.To))
+
+	data = replace(data, []byte("object[?\\\""+r.From+"\\\"]"), []byte("object.?"+r.To))
+	data = replace(data, []byte("oldObject[?\\\""+r.From+"\\\"]"), []byte("oldObject.?"+r.To))
+
 	return data
 }
 
@@ -70,20 +92,54 @@ func replace(data, from, to []byte) []byte {
 	}
 	var buf bytes.Buffer
 	buf.Grow(size)
-	for idx >= 0 {
-		buf.Write(data[:idx])
-		rest := data[idx+len(from):]
-		if isProtected(from, rest) {
-			// Leave this occurrence untouched and continue scanning after it.
-			buf.Write(from)
-		} else {
-			buf.Write(to)
+	for i := 0; i < len(data); {
+		if bytes.HasPrefix(data[i:], from) {
+			if isValidBoundary(data, i) {
+				rest := data[i+len(from):]
+				if isValidTrailingBoundary(from, rest) {
+					if isProtected(from, rest) {
+						buf.Write(from)
+					} else {
+						buf.Write(to)
+					}
+					i += len(from)
+					continue
+				}
+			}
 		}
-		data = rest
-		idx = bytes.Index(data, from)
+		buf.WriteByte(data[i])
+		i++
 	}
-	buf.Write(data)
 	return buf.Bytes()
+}
+
+// isValidBoundary reports whether data[i:] starts at a valid CEL root boundary.
+func isValidBoundary(data []byte, i int) bool {
+	if i == 0 {
+		return true
+	}
+	if data[i-1] == '.' {
+		if i >= 8 && bytes.Equal(data[i-8:i], []byte("request.")) {
+			return i == 8 || (!isIdentifierByte(data[i-9]) && data[i-9] != '.')
+		}
+		return false
+	}
+	if data[i-1] == '?' && i >= 2 && data[i-2] == '.' {
+		if i >= 9 && bytes.Equal(data[i-9:i], []byte("request.?")) {
+			return i == 9 || (!isIdentifierByte(data[i-10]) && data[i-10] != '.')
+		}
+		return false
+	}
+	return !isIdentifierByte(data[i-1])
+}
+
+// isValidTrailingBoundary reports whether rest starts at a valid identifier boundary
+// when from ends with an identifier byte.
+func isValidTrailingBoundary(from, rest []byte) bool {
+	if len(from) > 0 && isIdentifierByte(from[len(from)-1]) {
+		return len(rest) == 0 || !isIdentifierByte(rest[0])
+	}
+	return true
 }
 
 // isProtected reports whether rest (the bytes immediately following a match)
@@ -142,12 +198,18 @@ func ApplyCEL(data []byte, replacements ...Replacement) []byte {
 		data = replaceCEL(data, []byte("object[\""+replacement.From+"\"]"), []byte("object."+replacement.To))
 		data = replaceCEL(data, []byte("oldObject[\""+replacement.From+"\"]"), []byte("oldObject."+replacement.To))
 
+		data = replaceCEL(data, []byte("object[\\\""+replacement.From+"\\\"]"), []byte("object."+replacement.To))
+		data = replaceCEL(data, []byte("oldObject[\\\""+replacement.From+"\\\"]"), []byte("oldObject."+replacement.To))
+
 		// optional indexing (bracket syntax with ?)
 		data = replaceCEL(data, []byte("object[?'"+replacement.From+"']"), []byte("object.?"+replacement.To))
 		data = replaceCEL(data, []byte("oldObject[?'"+replacement.From+"']"), []byte("oldObject.?"+replacement.To))
 
 		data = replaceCEL(data, []byte("object[?\""+replacement.From+"\"]"), []byte("object.?"+replacement.To))
 		data = replaceCEL(data, []byte("oldObject[?\""+replacement.From+"\"]"), []byte("oldObject.?"+replacement.To))
+
+		data = replaceCEL(data, []byte("object[?\\\""+replacement.From+"\\\"]"), []byte("object.?"+replacement.To))
+		data = replaceCEL(data, []byte("oldObject[?\\\""+replacement.From+"\\\"]"), []byte("oldObject.?"+replacement.To))
 	}
 	return data
 }
@@ -176,28 +238,9 @@ func replaceCEL(data, from, to []byte) []byte {
 	for i := 0; i < len(data); {
 		if !inString {
 			if bytes.HasPrefix(data[i:], from) {
-				validBoundary := false
-				if i == 0 {
-					validBoundary = true
-				} else if data[i-1] == '.' {
-					if i >= 8 && bytes.Equal(data[i-8:i], []byte("request.")) {
-						if i == 8 || (!isIdentifierByte(data[i-9]) && data[i-9] != '.') {
-							validBoundary = true
-						}
-					}
-				} else if data[i-1] == '?' && i >= 2 && data[i-2] == '.' {
-					if i >= 9 && bytes.Equal(data[i-9:i], []byte("request.?")) {
-						if i == 9 || (!isIdentifierByte(data[i-10]) && data[i-10] != '.') {
-							validBoundary = true
-						}
-					}
-				} else if !isIdentifierByte(data[i-1]) {
-					validBoundary = true
-				}
-
-				if validBoundary {
+				if isValidBoundary(data, i) {
 					rest := data[i+len(from):]
-					if len(rest) == 0 || !isIdentifierByte(rest[0]) {
+					if isValidTrailingBoundary(from, rest) {
 						if isProtected(from, rest) {
 							buf.Write(from)
 						} else {
