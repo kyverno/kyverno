@@ -364,6 +364,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				failures = append(failures, fmt.Errorf("failed to update target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 				continue
 			}
+			logger.V(4).Info("successfully mutated existing resource", "policy", ur.Spec.GetPolicyKey(), "namespace", new.GetNamespace(), "name", new.GetName())
 
 			err := p.audit(object, &response)
 			if err != nil {
