@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -330,6 +331,70 @@ func TestPrepareK8sActivation_MemoizedRequestMapFnError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to prepare request variable for evaluation")
 	assert.False(t, fallbackCalled)
+}
+
+func TestNewActivationBuilder_Memoized(t *testing.T) {
+	cmObj := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-cm",
+		},
+		Data: map[string]string{"foo": "bar"},
+	}
+	attr := admission.NewAttributesRecord(
+		cmObj,
+		nil,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+		"test-ns",
+		"test-cm",
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+		"",
+		admission.Create,
+		nil,
+		false,
+		nil,
+	)
+
+	t.Run("successful activation memoization and pointer identity", func(t *testing.T) {
+		calls := 0
+		reqFn := func() (map[string]any, error) {
+			calls++
+			return map[string]any{"name": "test-cm"}, nil
+		}
+		builder := NewActivationBuilder(attr, nil, nil, reqFn, BuildRawRequestMap)
+		res1, err := builder()
+		require.NoError(t, err)
+		res2, err := builder()
+		require.NoError(t, err)
+
+		assert.Equal(t, 1, calls, "activation builder should evaluate activation only once")
+		assert.Equal(t, res1.Object, res2.Object)
+		// Verify identity reuse: pointer of the memoized Request map must be identical
+		assert.Equal(t, reflect.ValueOf(res1.Request).Pointer(), reflect.ValueOf(res2.Request).Pointer(),
+			"repeated builder calls must reuse the memoized activation instance rather than re-converting")
+	})
+
+	t.Run("error memoization", func(t *testing.T) {
+		errExpected := fmt.Errorf("simulated request map failure")
+		errCalls := 0
+		errReqFn := func() (map[string]any, error) {
+			errCalls++
+			return nil, errExpected
+		}
+		builder := NewActivationBuilder(attr, nil, nil, errReqFn, BuildRawRequestMap)
+		_, err1 := builder()
+		require.Error(t, err1)
+		assert.ErrorIs(t, err1, errExpected)
+
+		_, err2 := builder()
+		require.Error(t, err2)
+		assert.ErrorIs(t, err2, errExpected)
+
+		assert.Equal(t, 1, errCalls, "error from request map builder should be memoized and not re-executed")
+	})
 }
 
 func isInsideSyncOnceValues(stack []ast.Node) bool {
