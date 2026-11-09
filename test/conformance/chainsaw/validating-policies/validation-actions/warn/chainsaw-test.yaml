@@ -20,7 +20,16 @@ spec:
         bindings:
         - name: name
           value: check-deployment-labels
-  - name: create deployment
+  - name: verify admission warning
     try:
-    - create:
-        file: deployment.yaml
+    - command:
+        entrypoint: kubectl
+        args:
+        - create
+        - --dry-run=server
+        - -f
+        - deployment.yaml
+        - -o
+        - name
+        check:
+          (contains($stderr, 'Deployment labels must be env=prod')): true
