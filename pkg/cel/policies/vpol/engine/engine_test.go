@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"testing"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
@@ -1167,14 +1166,17 @@ func TestHandle_SharedActivationBuilder_MultiplePolicies(t *testing.T) {
 		fallback celcompiler.RequestMapBuilder,
 	) celcompiler.ActivationBuilder {
 		builderInstantiations++
-		memoized := orig(attr, request, namespace, requestMapFn, fallback)
-		innerMemoized := sync.OnceValues(func() (celcompiler.ActivationData, error) {
+		countedRequestMapFn := func() (map[string]any, error) {
 			assemblyInvocations++
-			return memoized()
-		})
+			if requestMapFn != nil {
+				return requestMapFn()
+			}
+			return nil, nil
+		}
+		realBuilder := orig(attr, request, namespace, countedRequestMapFn, fallback)
 		return func() (celcompiler.ActivationData, error) {
 			builderInvocations++
-			return innerMemoized()
+			return realBuilder()
 		}
 	}
 	defer func() { newActivationBuilder = orig }()
