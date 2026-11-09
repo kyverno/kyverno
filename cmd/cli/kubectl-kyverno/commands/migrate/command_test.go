@@ -148,6 +148,105 @@ func TestMigrateResources_MigratesAndUpdatesStoredVersions(t *testing.T) {
 	require.Equal(t, []string{"v1"}, updatedCrd.Status.StoredVersions)
 }
 
+// TestMigrateResources_NamespaceScoped verifies migration of namespace-scoped custom resources.
+func TestMigrateResources_NamespaceScoped(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1.AddToScheme(scheme))
+
+	crd := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "namespacedpolicies.policies.kyverno.io",
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Group: "policies.kyverno.io",
+			Names: v1.CustomResourceDefinitionNames{
+				Plural: "namespacedpolicies",
+			},
+			Scope: v1.NamespaceScoped,
+			Versions: []v1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1alpha1",
+					Storage: false,
+					Served:  true,
+				},
+				{
+					Name:    "v1",
+					Storage: true,
+					Served:  true,
+				},
+			},
+		},
+		Status: v1.CustomResourceDefinitionStatus{
+			StoredVersions: []string{"v1alpha1", "v1"},
+		},
+	}
+
+	policyObj := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "policies.kyverno.io/v1",
+			"kind":       "NamespacedPolicy",
+			"metadata": map[string]any{
+				"name":      "my-namespaced-policy",
+				"namespace": "test-ns",
+			},
+		},
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "policies.kyverno.io",
+		Version:  "v1",
+		Resource: "namespacedpolicies",
+	}
+
+	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+		gvr: "NamespacedPolicyList",
+	}, policyObj)
+
+	err := migrateResources(context.Background(), []string{"namespacedpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
+	require.NoError(t, err)
+
+	updatedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "namespacedpolicies.policies.kyverno.io", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{"v1"}, updatedCrd.Status.StoredVersions)
+}
+
+// TestMigrateResources_NoStoredVersionError verifies that a CRD without any storage version fails with an error.
+func TestMigrateResources_NoStoredVersionError(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1.AddToScheme(scheme))
+
+	crd := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testpolicies.policies.kyverno.io",
+		},
+		Spec: v1.CustomResourceDefinitionSpec{
+			Group: "policies.kyverno.io",
+			Names: v1.CustomResourceDefinitionNames{
+				Plural: "testpolicies",
+			},
+			Scope: v1.ClusterScoped,
+			Versions: []v1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1",
+					Storage: false,
+					Served:  true,
+				},
+			},
+		},
+		Status: v1.CustomResourceDefinitionStatus{
+			StoredVersions: []string{"v1"},
+		},
+	}
+
+	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+
+	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "stored version not found")
+}
+
 // TestMigrateResources_SkipsLegacyPolicyKind verifies that legacy policy kinds with admission write blocks are skipped cleanly.
 func TestMigrateResources_SkipsLegacyPolicyKind(t *testing.T) {
 	scheme := runtime.NewScheme()
