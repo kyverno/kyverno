@@ -10,6 +10,7 @@ import (
 	"maps"
 	"path"
 	"slices"
+	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
@@ -470,9 +471,13 @@ func restrictMatchConditionsToCreate(conditions []admissionregistrationv1.MatchC
 	}
 	wrapped := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
 	for _, condition := range conditions {
+		expr := condition.Expression
+		if strings.Contains(expr, "//") && !strings.HasSuffix(expr, "\n") {
+			expr += "\n"
+		}
 		wrapped = append(wrapped, admissionregistrationv1.MatchCondition{
 			Name:       condition.Name,
-			Expression: "request.operation != 'CREATE' || (" + condition.Expression + ")",
+			Expression: "request.operation != 'CREATE' || (" + expr + ")",
 		})
 	}
 	return wrapped

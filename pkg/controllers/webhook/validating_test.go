@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/cel-go/cel"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -1057,7 +1058,10 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 }
 
 func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *testing.T) {
-	makeGpol := func(name string, syncEnabled bool) *policiesv1beta1.GeneratingPolicy {
+	makeGpol := func(name string, syncEnabled bool, expr string) *policiesv1beta1.GeneratingPolicy {
+		if expr == "" {
+			expr = `object.metadata.?labels["opt-in"].orValue("") == "true"`
+		}
 		spec := policiesv1beta1.GeneratingPolicySpec{
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
@@ -1073,7 +1077,7 @@ func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *te
 			},
 			MatchConditions: []admissionregistrationv1.MatchCondition{{
 				Name:       "opt-in",
-				Expression: `object.metadata.?labels["opt-in"].orValue("") == "true"`,
+				Expression: expr,
 			}},
 		}
 		if syncEnabled {
@@ -1092,6 +1096,7 @@ func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *te
 	tests := []struct {
 		name               string
 		syncEnabled        bool
+		expression         string
 		expectedExpression string
 	}{
 		{
@@ -1107,11 +1112,17 @@ func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *te
 			syncEnabled:        false,
 			expectedExpression: `object.metadata.?labels["opt-in"].orValue("") == "true"`,
 		},
+		{
+			name:               "synchronize enabled with trailing comment inserts newline before closing parenthesis",
+			syncEnabled:        true,
+			expression:         `object.metadata.?labels["opt-in"].orValue("") == "true" // check opt-in`,
+			expectedExpression: "request.operation != 'CREATE' || (object.metadata.?labels[\"opt-in\"].orValue(\"\") == \"true\" // check opt-in\n)",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gpol := makeGpol("gpol-optin", tt.syncEnabled)
+			gpol := makeGpol("gpol-optin", tt.syncEnabled, tt.expression)
 			expressionCache := NewExpressionCache()
 			expressionCache.AddPolicyExpressions(gpol.GetMatchConditions())
 			webhooks := buildWebhookRules(
@@ -1128,7 +1139,73 @@ func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *te
 			assert.Len(t, webhooks[0].MatchConditions, 1)
 			assert.Equal(t, "opt-in", webhooks[0].MatchConditions[0].Name)
 			assert.Equal(t, tt.expectedExpression, webhooks[0].MatchConditions[0].Expression)
+
+			// Verify wrapped expression compiles cleanly in CEL
+			env, err := cel.NewEnv(
+				cel.OptionalTypes(),
+				cel.Variable("object", cel.MapType(cel.StringType, cel.DynType)),
+				cel.Variable("request", cel.MapType(cel.StringType, cel.DynType)),
+			)
+			assert.NoError(t, err)
+			ast, issues := env.Compile(webhooks[0].MatchConditions[0].Expression)
+			assert.NoError(t, issues.Err(), fmt.Sprintf("expression failed to compile: %s", webhooks[0].MatchConditions[0].Expression))
+			assert.NotNil(t, ast)
 		})
+	}
+}
+
+func TestBuildWebhookRules_GeneratingPolicy_Synchronize_Autogen_TrailingComment(t *testing.T) {
+	spec := policiesv1beta1.GeneratingPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			}},
+		},
+		MatchConditions: []admissionregistrationv1.MatchCondition{{
+			Name:       "opt-in",
+			Expression: `object.metadata.?labels["opt-in"].orValue("") == "true" // check opt-in`,
+		}},
+		EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+			SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{
+				Enabled: ptr.To(true),
+			},
+		},
+	}
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "gpol-optin"},
+		Spec:       spec,
+	}
+	expressionCache := NewExpressionCache()
+	expressionCache.AddPolicyExpressions(gpol.GetMatchConditions())
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.GeneratingPolicyWebhookName,
+		"/gpol",
+		0,
+		nil,
+		[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
+		expressionCache,
+	)
+	assert.Len(t, webhooks, 1)
+	assert.NotEmpty(t, webhooks[0].MatchConditions)
+	for _, mc := range webhooks[0].MatchConditions {
+		env, err := cel.NewEnv(
+			cel.OptionalTypes(),
+			cel.Variable("object", cel.MapType(cel.StringType, cel.DynType)),
+			cel.Variable("request", cel.MapType(cel.StringType, cel.DynType)),
+		)
+		assert.NoError(t, err)
+		ast, issues := env.Compile(mc.Expression)
+		assert.NoError(t, issues.Err(), fmt.Sprintf("autogen expression failed to compile: %s", mc.Expression))
+		assert.NotNil(t, ast)
 	}
 }
 

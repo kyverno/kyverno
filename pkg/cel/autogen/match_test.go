@@ -368,6 +368,18 @@ func TestFormatMatchConditionName(t *testing.T) {
 			condName: strings.Repeat("a", 54-len("autogen-defaults-")-1) + "-suffix-that-will-be-truncated",
 		},
 		{
+			name:   "boundary slash at truncation point",
+			prefix: "autogen-defaults",
+			// 54th character lands on a slash separator in a qualified name
+			condName: strings.Repeat("a", 32) + ".com/" + strings.Repeat("b", 26),
+		},
+		{
+			name:   "qualified name with slash retained before truncation point",
+			prefix: "autogen-defaults",
+			// Slash is at index 25, followed by long name
+			condName: "example.com/" + strings.Repeat("subpart-", 10),
+		},
+		{
 			name:     "very long condition name 120 characters",
 			prefix:   "autogen-cronjobs",
 			condName: strings.Repeat("very-long-name-", 8),

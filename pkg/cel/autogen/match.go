@@ -122,6 +122,6 @@ func formatMatchConditionName(prefix, name string) string {
 		return fullName
 	}
 	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fullName)))[:8]
-	trimmed := strings.TrimRight(fullName[:maxMatchConditionNameLength-len(hash)-1], "-_.")
+	trimmed := strings.TrimRight(fullName[:maxMatchConditionNameLength-len(hash)-1], "-_./")
 	return fmt.Sprintf(`%s-%s`, trimmed, hash)
 }
