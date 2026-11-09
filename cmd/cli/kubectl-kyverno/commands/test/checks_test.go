@@ -293,3 +293,46 @@ func TestPrintCheckResultExcludesExplicitOperations(t *testing.T) {
 		})
 	}
 }
+
+func TestCollectUniqueCheckResponsesDeterministicOrder(t *testing.T) {
+	newResponse := func(name string) engineapi.EngineResponse {
+		response := engineapi.NewEngineResponse(
+			unstructured.Unstructured{Object: map[string]any{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+				"metadata":   map[string]any{"name": name},
+			}},
+			nil,
+			nil,
+		)
+		response.PolicyResponse.Rules = []engineapi.RuleResponse{
+			*engineapi.RulePass("rule", engineapi.Validation, "", nil),
+		}
+		return response
+	}
+	triggerA := newResponse("trigger-a")
+	responses := TestResponse{
+		Trigger: map[string][]engineapi.EngineResponse{
+			"z": {newResponse("trigger-z1"), newResponse("trigger-z2")},
+			"a": {triggerA},
+			"m": {newResponse("trigger-m")},
+		},
+		Target: map[string][]engineapi.EngineResponse{
+			"z": {newResponse("target-z"), triggerA},
+			"a": {newResponse("target-a")},
+			"m": {newResponse("target-m")},
+		},
+	}
+	want := []string{
+		"trigger-a", "trigger-m", "trigger-z1", "trigger-z2",
+		"target-a", "target-m", "target-z",
+	}
+	for range 20 {
+		collected := collectUniqueCheckResponses(responses)
+		got := make([]string, 0, len(collected))
+		for _, response := range collected {
+			got = append(got, response.Resource.GetName())
+		}
+		require.Equal(t, want, got)
+	}
+}

@@ -6,6 +6,8 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -39,8 +41,8 @@ func collectUniqueCheckResponses(responses TestResponse) []engineapi.EngineRespo
 		seen[key] = struct{}{}
 		collected = append(collected, response)
 	}
-	for _, responseList := range responses.Trigger {
-		for _, response := range responseList {
+	for _, key := range slices.Sorted(maps.Keys(responses.Trigger)) {
+		for _, response := range responses.Trigger[key] {
 			add(response)
 		}
 	}
@@ -54,8 +56,8 @@ func collectUniqueCheckResponses(responses TestResponse) []engineapi.EngineRespo
 			}
 		}
 	}
-	for _, responseList := range responses.Target {
-		for _, response := range responseList {
+	for _, key := range slices.Sorted(maps.Keys(responses.Target)) {
+		for _, response := range responses.Target[key] {
 			if len(response.PolicyResponse.Rules) > 0 {
 				if _, explicit := operationResponses[&response.PolicyResponse.Rules[0]]; explicit {
 					continue
