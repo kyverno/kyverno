@@ -152,7 +152,6 @@ func TestHandleVAPGeneration_PodControllerAutogen(t *testing.T) {
 	}
 }
 
-
 // disabledVAPGenerationToggle simulates the global feature flag being disabled,
 // while retaining the rest of the current feature-toggle configuration.
 type disabledVAPGenerationToggle struct{ toggle.Toggles }
