@@ -2,6 +2,7 @@ package autogen
 
 import (
 	"cmp"
+	"crypto/sha256"
 	"fmt"
 	"maps"
 	"slices"
@@ -101,10 +102,26 @@ func CreateMatchConditions(config string, targets []policiesv1beta1.Target, cond
 		prefix = "autogen-" + config
 	}
 	for _, m := range conditions {
+		expr := m.Expression
+		if strings.Contains(expr, "//") && !strings.HasSuffix(expr, "\n") {
+			expr += "\n"
+		}
 		matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{
-			Name:       fmt.Sprintf(`%s-%s`, prefix, m.Name),
-			Expression: fmt.Sprintf(`!(%s) || (%s)`, precondition, m.Expression),
+			Name:       formatMatchConditionName(prefix, m.Name),
+			Expression: fmt.Sprintf(`!(%s) || (%s)`, precondition, expr),
 		})
 	}
 	return matchConditions
+}
+
+const maxMatchConditionNameLength = 63
+
+func formatMatchConditionName(prefix, name string) string {
+	fullName := fmt.Sprintf(`%s-%s`, prefix, name)
+	if len(fullName) <= maxMatchConditionNameLength {
+		return fullName
+	}
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fullName)))[:8]
+	trimmed := strings.TrimRight(fullName[:maxMatchConditionNameLength-len(hash)-1], "-_.")
+	return fmt.Sprintf(`%s-%s`, trimmed, hash)
 }
