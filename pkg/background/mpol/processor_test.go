@@ -832,31 +832,64 @@ func TestProcess_TargetUnchangedSinceList_EvaluatesOnce(t *testing.T) {
 	assert.Equal(t, 1, eng.calls)
 }
 
-func TestProcess_SuccessfulUpdateIsLogged(t *testing.T) {
-	var lines []map[string]any
-	original := logger
-	logger = funcr.NewJSON(func(obj string) {
-		var line map[string]any
-		assert.NoError(t, json.Unmarshal([]byte(obj), &line))
-		lines = append(lines, line)
-	}, funcr.Options{Verbosity: 4})
-	t.Cleanup(func() { logger = original })
+func TestProcess_OnlySuccessfulUpdateIsLogged(t *testing.T) {
+	tests := []struct {
+		name      string
+		updateErr error
+		wantData  map[string]string
+	}{{
+		name:     "the update succeeds",
+		wantData: map[string]string{},
+	}, {
+		name:      "the update fails",
+		updateErr: errors.New("the API server rejected the update"),
+		wantData:  map[string]string{"a": "1"},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var lines []map[string]any
+			original := logger
+			logger = funcr.NewJSON(func(obj string) {
+				var line map[string]any
+				assert.NoError(t, json.Unmarshal([]byte(obj), &line))
+				lines = append(lines, line)
+			}, funcr.Options{Verbosity: 4})
+			t.Cleanup(func() { logger = original })
 
-	fakeClient, kyvernoClient, restMapper := newRemoveAFixture(t)
-	data, _ := runRemoveA(t, fakeClient, kyvernoClient, restMapper, &removeKeyEngine{})
-	assert.Equal(t, map[string]string{}, data)
+			fakeClient, kyvernoClient, restMapper := newRemoveAFixture(t)
+			var updates int
+			client := &mockUpdateTrackingClient{
+				Interface: fakeClient,
+				updateResource: func(ctx context.Context, apiVersion, kind, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
+					updates++
+					if tt.updateErr != nil {
+						return nil, tt.updateErr
+					}
+					return fakeClient.UpdateResource(ctx, apiVersion, kind, namespace, obj, dryRun, subresources...)
+				},
+			}
+			data, sc := runRemoveA(t, client, kyvernoClient, restMapper, &removeKeyEngine{})
+			assert.Equal(t, 1, updates)
+			assert.Equal(t, tt.wantData, data)
+			assert.Equal(t, tt.updateErr != nil, sc.failedCalled)
 
-	var logged []map[string]any
-	for _, line := range lines {
-		if line["msg"] == "successfully mutated existing resource" {
-			logged = append(logged, line)
-		}
-	}
-	if assert.Len(t, logged, 1) {
-		assert.InDelta(t, 4, logged[0]["level"], 0)
-		assert.Equal(t, "remove-a", logged[0]["policy"])
-		assert.Equal(t, "shared", logged[0]["namespace"])
-		assert.Equal(t, "shared-cm", logged[0]["name"])
+			var logged []map[string]any
+			for _, line := range lines {
+				if line["msg"] == "successfully mutated existing resource" {
+					logged = append(logged, line)
+				}
+			}
+			if tt.updateErr != nil {
+				assert.Empty(t, logged)
+				return
+			}
+			if assert.Len(t, logged, 1) {
+				assert.InDelta(t, 4, logged[0]["level"], 0)
+				assert.Equal(t, "remove-a", logged[0]["policy"])
+				assert.Equal(t, "shared", logged[0]["namespace"])
+				assert.Equal(t, "shared-cm", logged[0]["name"])
+			}
+		})
 	}
 }
 
