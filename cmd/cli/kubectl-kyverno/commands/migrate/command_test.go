@@ -209,12 +209,21 @@ func TestMigrateResources_IgnoresDeletedResourceDuringUpdate(t *testing.T) {
 		},
 	}
 
-	policyObj := &unstructured.Unstructured{
+	transientPolicy := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "policies.kyverno.io/v1",
 			"kind":       "TestPolicy",
 			"metadata": map[string]any{
 				"name": "transient-policy",
+			},
+		},
+	}
+	persistedPolicy := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "policies.kyverno.io/v1",
+			"kind":       "TestPolicy",
+			"metadata": map[string]any{
+				"name": "persisted-policy",
 			},
 		},
 	}
@@ -228,14 +237,24 @@ func TestMigrateResources_IgnoresDeletedResourceDuringUpdate(t *testing.T) {
 	apiServerClient := apiextensionsfake.NewSimpleClientset(crd)
 	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
 		gvr: "TestPolicyList",
-	}, policyObj)
+	}, transientPolicy, persistedPolicy)
 
+	persistedUpdated := false
 	dynamicClient.PrependReactor("update", "testpolicies", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, nil, apierrors.NewNotFound(schema.GroupResource{Group: "policies.kyverno.io", Resource: "testpolicies"}, "transient-policy")
+		updateAction := action.(ktesting.UpdateAction)
+		obj := updateAction.GetObject().(*unstructured.Unstructured)
+		if obj.GetName() == "transient-policy" {
+			return true, nil, apierrors.NewNotFound(schema.GroupResource{Group: "policies.kyverno.io", Resource: "testpolicies"}, "transient-policy")
+		}
+		if obj.GetName() == "persisted-policy" {
+			persistedUpdated = true
+		}
+		return false, nil, nil
 	})
 
 	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
 	require.NoError(t, err)
+	require.True(t, persistedUpdated, "persisted-policy should be updated even if prior object returned NotFound")
 
 	updatedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "testpolicies.policies.kyverno.io", metav1.GetOptions{})
 	require.NoError(t, err)
