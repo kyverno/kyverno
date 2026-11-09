@@ -37,7 +37,16 @@ spec:
           ($error): null
           (contains($stderr, 'Deployment labels must be env=prod')): true
 
-  - name: create deployment
+  - name: create deployment and verify warning
     try:
-    - create:
-        file: deployment.yaml
+    - command:
+        entrypoint: kubectl
+        args:
+        - create
+        - -f
+        - deployment.yaml
+        - -o
+        - name
+        check:
+          ($error): null
+          (contains($stderr, 'Deployment labels must be env=prod')): true
