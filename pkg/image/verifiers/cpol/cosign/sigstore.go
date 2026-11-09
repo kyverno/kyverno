@@ -90,6 +90,7 @@ const (
 	ociEmptyArtifactType       = "application/vnd.oci.empty.v1+json"
 )
 
+// isSigstoreBundleType reports whether a media or artifact type is any version of the sigstore bundle type.
 func isSigstoreBundleType(mediaType string) bool {
 	return strings.HasPrefix(mediaType, sigstoreBundleArtifactType)
 }
@@ -108,6 +109,8 @@ func isNotFound(err error) bool {
 	return errors.As(err, &terr) && terr.StatusCode == http.StatusNotFound
 }
 
+// fetchBundles lists the referrers of ref and returns the sigstore bundles among them, filtered by predicateType when set,
+// along with the descriptor of the image the bundles must cover.
 func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpts []remote.Option) ([]*verificationBundle, *v1.Descriptor, error) {
 	bundles := make([]*verificationBundle, 0)
 	desc, err := remote.Head(ref, remoteOpts...)

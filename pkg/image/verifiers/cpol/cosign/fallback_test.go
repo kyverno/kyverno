@@ -29,7 +29,10 @@ type rawManifest struct {
 	mediaType types.MediaType
 }
 
-func (m rawManifest) RawManifest() ([]byte, error)        { return m.body, nil }
+// RawManifest returns the manifest body unchanged.
+func (m rawManifest) RawManifest() ([]byte, error) { return m.body, nil }
+
+// MediaType returns the media type the manifest is pushed with.
 func (m rawManifest) MediaType() (types.MediaType, error) { return m.mediaType, nil }
 
 type testReferrer struct {
@@ -119,6 +122,7 @@ func setupFallbackRegistry(t *testing.T, referrers []testReferrer) name.Referenc
 	return ref
 }
 
+// TestFetchBundlesFallbackTag checks which untyped and typed fallback index entries are resolved as bundles.
 func TestFetchBundlesFallbackTag(t *testing.T) {
 	t.Parallel()
 	bundleJSON, err := os.ReadFile("testdata/bundle.json")
@@ -172,11 +176,12 @@ func TestFetchBundlesFallbackTag(t *testing.T) {
 	}
 }
 
+// TestFetchBundlesFallbackMissingReferrer checks that a stale untyped entry whose manifest was deleted
+// does not hide the valid bundle next to it.
 func TestFetchBundlesFallbackMissingReferrer(t *testing.T) {
 	t.Parallel()
 	bundleJSON, err := os.ReadFile("testdata/bundle.json")
 	assert.NilError(t, err)
-	// a stale untyped entry whose manifest was deleted does not hide the valid bundle next to it
 	bundleMediaType := "application/vnd.dev.sigstore.bundle.v0.3+json"
 	ref := setupFallbackRegistry(t, []testReferrer{{
 		layerMediaType: "application/json",
@@ -192,6 +197,7 @@ func TestFetchBundlesFallbackMissingReferrer(t *testing.T) {
 	assert.Equal(t, len(bundles), 1)
 }
 
+// TestFetchBundlesFallbackLayerFetchError checks that a bundle layer the registry cannot serve is returned as an error.
 func TestFetchBundlesFallbackLayerFetchError(t *testing.T) {
 	t.Parallel()
 	ref := setupFallbackRegistry(t, []testReferrer{{
@@ -204,9 +210,10 @@ func TestFetchBundlesFallbackLayerFetchError(t *testing.T) {
 	assert.ErrorContains(t, err, "referrer layer")
 }
 
+// TestFetchBundlesFallbackIncompleteBundle checks that a referrer typed as a bundle whose layer is not a complete bundle
+// is rejected, never appended.
 func TestFetchBundlesFallbackIncompleteBundle(t *testing.T) {
 	t.Parallel()
-	// a referrer typed as a bundle whose layer is not a complete bundle is rejected, never appended
 	bundleMediaType := "application/vnd.dev.sigstore.bundle.v0.3+json"
 	ref := setupFallbackRegistry(t, []testReferrer{{
 		manifestArtifactType: bundleMediaType,
@@ -218,9 +225,10 @@ func TestFetchBundlesFallbackIncompleteBundle(t *testing.T) {
 	assert.Equal(t, len(bundles), 0)
 }
 
+// TestFetchBundlesFallbackFetchError checks that an untyped referrer the registry refuses to serve is returned as an error
+// instead of being skipped.
 func TestFetchBundlesFallbackFetchError(t *testing.T) {
 	t.Parallel()
-	// the registry refuses to serve the referrer manifest, as when access is denied
 	var blocked atomic.Pointer[string]
 	handler := registry.New(registry.Logger(log.New(io.Discard, "", 0)))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
