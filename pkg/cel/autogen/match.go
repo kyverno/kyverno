@@ -97,6 +97,7 @@ func CreateMatchConditions(config string, targets []policiesv1beta1.Target, cond
 	}
 	precondition := strings.Join(sets.List(preconditions), " || ")
 	matchConditions := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
+	usedNames := sets.New[string]()
 	prefix := "autogen"
 	if config != "" {
 		prefix = "autogen-" + config
@@ -106,8 +107,10 @@ func CreateMatchConditions(config string, targets []policiesv1beta1.Target, cond
 		if strings.Contains(expr, "//") && !strings.HasSuffix(expr, "\n") {
 			expr += "\n"
 		}
+		name := formatMatchConditionName(prefix, m.Name, usedNames)
+		usedNames.Insert(name)
 		matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{
-			Name:       formatMatchConditionName(prefix, m.Name),
+			Name:       name,
 			Expression: fmt.Sprintf(`!(%s) || (%s)`, precondition, expr),
 		})
 	}
@@ -116,12 +119,30 @@ func CreateMatchConditions(config string, targets []policiesv1beta1.Target, cond
 
 const maxMatchConditionNameLength = 63
 
-func formatMatchConditionName(prefix, name string) string {
+func formatMatchConditionName(prefix, name string, used sets.Set[string]) string {
 	fullName := fmt.Sprintf(`%s-%s`, prefix, name)
-	if len(fullName) <= maxMatchConditionNameLength {
+	if len(fullName) <= maxMatchConditionNameLength && (used == nil || !used.Has(fullName)) {
 		return fullName
 	}
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fullName)))[:8]
-	trimmed := strings.TrimRight(fullName[:maxMatchConditionNameLength-len(hash)-1], "-_./")
-	return fmt.Sprintf(`%s-%s`, trimmed, hash)
+
+	maxBaseLen := maxMatchConditionNameLength - 8 - 1 // 54
+
+	for counter := 0; ; counter++ {
+		var hash string
+		if counter == 0 {
+			hash = fmt.Sprintf("%x", sha256.Sum256([]byte(fullName)))[:8]
+		} else {
+			hash = fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s#%d", fullName, counter))))[:8]
+		}
+
+		base := fullName
+		if len(base) > maxBaseLen {
+			base = base[:maxBaseLen]
+		}
+		trimmed := strings.TrimRight(base, "-_./")
+		cand := fmt.Sprintf(`%s-%s`, trimmed, hash)
+		if used == nil || !used.Has(cand) {
+			return cand
+		}
+	}
 }

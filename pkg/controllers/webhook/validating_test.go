@@ -1154,58 +1154,67 @@ func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *te
 	}
 }
 
-func TestBuildWebhookRules_GeneratingPolicy_Synchronize_Autogen_TrailingComment(t *testing.T) {
-	spec := policiesv1beta1.GeneratingPolicySpec{
-		MatchConstraints: &admissionregistrationv1.MatchResources{
-			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
-				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
-					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{""},
-						APIVersions: []string{"v1"},
-						Resources:   []string{"pods"},
-					},
+func TestBuildWebhookRules_GeneratingPolicy_Autogen_TrailingComment(t *testing.T) {
+	for _, syncEnabled := range []bool{true, false} {
+		t.Run(fmt.Sprintf("syncEnabled=%v", syncEnabled), func(t *testing.T) {
+			spec := policiesv1beta1.GeneratingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					}},
 				},
-			}},
-		},
-		MatchConditions: []admissionregistrationv1.MatchCondition{{
-			Name:       "opt-in",
-			Expression: `object.metadata.?labels["opt-in"].orValue("") == "true" // check opt-in`,
-		}},
-		EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
-			SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{
-				Enabled: ptr.To(true),
-			},
-		},
-	}
-	gpol := &policiesv1beta1.GeneratingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "gpol-optin"},
-		Spec:       spec,
-	}
-	expressionCache := NewExpressionCache()
-	expressionCache.AddPolicyExpressions(gpol.GetMatchConditions())
-	webhooks := buildWebhookRules(
-		config.NewDefaultConfiguration(false),
-		"",
-		config.GeneratingPolicyWebhookName,
-		"/gpol",
-		0,
-		nil,
-		[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
-		expressionCache,
-	)
-	assert.Len(t, webhooks, 1)
-	assert.NotEmpty(t, webhooks[0].MatchConditions)
-	for _, mc := range webhooks[0].MatchConditions {
-		env, err := cel.NewEnv(
-			cel.OptionalTypes(),
-			cel.Variable("object", cel.MapType(cel.StringType, cel.DynType)),
-			cel.Variable("request", cel.MapType(cel.StringType, cel.DynType)),
-		)
-		assert.NoError(t, err)
-		ast, issues := env.Compile(mc.Expression)
-		assert.NoError(t, issues.Err(), fmt.Sprintf("autogen expression failed to compile: %s", mc.Expression))
-		assert.NotNil(t, ast)
+				MatchConditions: []admissionregistrationv1.MatchCondition{{
+					Name:       "opt-in",
+					Expression: `object.metadata.?labels["opt-in"].orValue("") == "true" // check opt-in`,
+				}},
+			}
+			if syncEnabled {
+				spec.EvaluationConfiguration = &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+					SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{
+						Enabled: ptr.To(true),
+					},
+				}
+			}
+			gpol := &policiesv1beta1.GeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "gpol-optin"},
+				Spec:       spec,
+			}
+			expressionCache := NewExpressionCache()
+			expressionCache.AddPolicyExpressions(gpol.GetMatchConditions())
+			webhooks := buildWebhookRules(
+				config.NewDefaultConfiguration(false),
+				"",
+				config.GeneratingPolicyWebhookName,
+				"/gpol",
+				0,
+				nil,
+				[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
+				expressionCache,
+			)
+			assert.Len(t, webhooks, 1)
+			assert.NotEmpty(t, webhooks[0].MatchConditions)
+			for _, mc := range webhooks[0].MatchConditions {
+				if !syncEnabled {
+					assert.Contains(t, mc.Expression, "// check opt-in\n)")
+				}
+				env, err := cel.NewEnv(
+					cel.OptionalTypes(),
+					cel.Variable("object", cel.MapType(cel.StringType, cel.DynType)),
+					cel.Variable("request", cel.MapType(cel.StringType, cel.DynType)),
+				)
+				assert.NoError(t, err)
+				ast, issues := env.Compile(mc.Expression)
+				assert.NoError(t, issues.Err(), fmt.Sprintf("autogen expression failed to compile: %s", mc.Expression))
+				assert.NotNil(t, ast)
+			}
+		})
 	}
 }
 

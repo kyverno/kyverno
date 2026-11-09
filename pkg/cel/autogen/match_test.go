@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
@@ -284,9 +285,42 @@ func TestCreateMatchConditions(t *testing.T) {
 			Expression: "object.metadata.namespace != 'kube-system'",
 		}},
 		want: []admissionregistrationv1.MatchCondition{{
-			Name:       formatMatchConditionName("autogen-defaults", "exclude-kube-system-and-monitoring-workloads-canary"),
+			Name:       formatMatchConditionName("autogen-defaults", "exclude-kube-system-and-monitoring-workloads-canary", nil),
 			Expression: "!((object.apiVersion == 'v1' && object.kind =='Pod')) || (object.metadata.namespace != 'kube-system')",
 		}},
+	}, {
+		name:         "long condition and sibling colliding short condition both receive unique names",
+		replacements: "defaults",
+		targets: []policiesv1beta1.Target{{
+			Group:    "",
+			Version:  "v1",
+			Resource: "pods",
+			Kind:     "Pod",
+		}},
+		conditions: []admissionregistrationv1.MatchCondition{
+			{
+				Name:       strings.Repeat("a", 60),
+				Expression: "true",
+			},
+			{
+				Name:       formatMatchConditionName("autogen-defaults", strings.Repeat("a", 60), nil)[len("autogen-defaults-"):],
+				Expression: "true",
+			},
+		},
+		want: []admissionregistrationv1.MatchCondition{
+			{
+				Name:       formatMatchConditionName("autogen-defaults", strings.Repeat("a", 60), nil),
+				Expression: "!((object.apiVersion == 'v1' && object.kind =='Pod')) || (true)",
+			},
+			{
+				Name: formatMatchConditionName(
+					"autogen-defaults",
+					formatMatchConditionName("autogen-defaults", strings.Repeat("a", 60), nil)[len("autogen-defaults-"):],
+					sets.New(formatMatchConditionName("autogen-defaults", strings.Repeat("a", 60), nil)),
+				),
+				Expression: "!((object.apiVersion == 'v1' && object.kind =='Pod')) || (true)",
+			},
+		},
 	}, {
 		name:         "condition expression with single-line comment gets newline before closing parenthesis",
 		replacements: "defaults",
@@ -388,7 +422,7 @@ func TestFormatMatchConditionName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatMatchConditionName(tt.prefix, tt.condName)
+			result := formatMatchConditionName(tt.prefix, tt.condName, nil)
 
 			// Must not exceed 63 characters
 			assert.LessOrEqual(t, len(result), 63, fmt.Sprintf("formatted name %q exceeds 63 characters: len=%d", result, len(result)))
@@ -398,19 +432,51 @@ func TestFormatMatchConditionName(t *testing.T) {
 			assert.Empty(t, errs, fmt.Sprintf("formatted name %q is not a valid qualified name: %v", result, errs))
 
 			// Must be deterministic
-			result2 := formatMatchConditionName(tt.prefix, tt.condName)
+			result2 := formatMatchConditionName(tt.prefix, tt.condName, nil)
 			assert.Equal(t, result, result2)
 		})
 	}
 
 	t.Run("collision avoidance for shared prefix", func(t *testing.T) {
-		name1 := formatMatchConditionName("autogen-defaults", "shared-prefix-that-is-long-enough-to-be-truncated-variant-1")
-		name2 := formatMatchConditionName("autogen-defaults", "shared-prefix-that-is-long-enough-to-be-truncated-variant-2")
+		name1 := formatMatchConditionName("autogen-defaults", "shared-prefix-that-is-long-enough-to-be-truncated-variant-1", nil)
+		name2 := formatMatchConditionName("autogen-defaults", "shared-prefix-that-is-long-enough-to-be-truncated-variant-2", nil)
 		assert.NotEqual(t, name1, name2)
 		assert.LessOrEqual(t, len(name1), 63)
 		assert.LessOrEqual(t, len(name2), 63)
 		assert.Empty(t, validation.IsQualifiedName(name1))
 		assert.Empty(t, validation.IsQualifiedName(name2))
+	})
+
+	t.Run("long-vs-short collisions resolved deterministically", func(t *testing.T) {
+		used := sets.New[string]()
+		longName := strings.Repeat("a", 60)
+		name1 := formatMatchConditionName("autogen-defaults", longName, used)
+		used.Insert(name1)
+
+		// Short name crafted to collide with the truncated+hashed result of longName
+		shortCollidingName := strings.TrimPrefix(name1, "autogen-defaults-")
+		name2 := formatMatchConditionName("autogen-defaults", shortCollidingName, used)
+		used.Insert(name2)
+
+		assert.NotEqual(t, name1, name2)
+		assert.LessOrEqual(t, len(name1), 63)
+		assert.LessOrEqual(t, len(name2), 63)
+		assert.Empty(t, validation.IsQualifiedName(name1))
+		assert.Empty(t, validation.IsQualifiedName(name2))
+
+		// Reverse order: short condition arrives first
+		usedReverse := sets.New[string]()
+		rName2 := formatMatchConditionName("autogen-defaults", shortCollidingName, usedReverse)
+		usedReverse.Insert(rName2)
+
+		rName1 := formatMatchConditionName("autogen-defaults", longName, usedReverse)
+		usedReverse.Insert(rName1)
+
+		assert.NotEqual(t, rName1, rName2)
+		assert.LessOrEqual(t, len(rName1), 63)
+		assert.LessOrEqual(t, len(rName2), 63)
+		assert.Empty(t, validation.IsQualifiedName(rName1))
+		assert.Empty(t, validation.IsQualifiedName(rName2))
 	})
 }
 
