@@ -5,12 +5,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/sigstoretuf"
@@ -100,6 +102,12 @@ func isSigstoreBundleManifest(manifest *v1.Manifest) bool {
 	return len(manifest.Layers) > 0 && isSigstoreBundleType(string(manifest.Layers[0].MediaType))
 }
 
+// isNotFound reports whether the registry answered that the requested manifest does not exist.
+func isNotFound(err error) bool {
+	var terr *transport.Error
+	return errors.As(err, &terr) && terr.StatusCode == http.StatusNotFound
+}
+
 func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpts []remote.Option) ([]*verificationBundle, *v1.Descriptor, error) {
 	bundles := make([]*verificationBundle, 0)
 	desc, err := remote.Head(ref, remoteOpts...)
@@ -126,6 +134,12 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		}
 		refImg, err := remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
 		if err != nil {
+			// a fallback tag index is not cleaned up when a referrer is deleted, so an untyped
+			// entry whose manifest is gone is skipped instead of failing the whole lookup
+			if untyped && isNotFound(err) {
+				logger.V(4).Info("skipping missing fallback referrer", "digest", manifestDesc.Digest.String())
+				continue
+			}
 			return nil, nil, fmt.Errorf("failed to fetch referrer image: %w", err)
 		}
 		if untyped {
