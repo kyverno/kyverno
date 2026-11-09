@@ -24,6 +24,7 @@ import (
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/admission"
@@ -238,3 +239,35 @@ func TestMutate_BackgroundRequestAllowedWhenDisabled(t *testing.T) {
 // Admission-disabled policies are excluded from admission-driven UR creation
 // inside the engine's MatchesMutateExisting (see the reconciler/provider tests);
 // the handler creates URs for whatever the engine returns.
+
+func TestLogAppliedMutations(t *testing.T) {
+	resource := func(labels map[string]string) *unstructured.Unstructured {
+		u := &unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}
+		u.SetLabels(labels)
+		return u
+	}
+	policy := func(name string, patched *unstructured.Unstructured) mpolengine.MutatingPolicyResponse {
+		return mpolengine.MutatingPolicyResponse{
+			Policy:          &policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: name}},
+			PatchedResource: patched,
+		}
+	}
+	afterFirst := resource(map[string]string{"team": "platform"})
+	var log capturedLog
+	logAppliedMutations(log.logger(2), mpolengine.EngineResponse{
+		Resource: resource(nil),
+		Policies: []mpolengine.MutatingPolicyResponse{
+			policy("adds-label", afterFirst),
+			policy("skipped", nil),
+			policy("no-change", afterFirst.DeepCopy()),
+			policy("adds-another-label", resource(map[string]string{"team": "platform", "env": "prod"})),
+		},
+	})
+	var logged []any
+	for _, line := range log.lines {
+		if line["msg"] == "mutation rules from policy applied successfully" {
+			logged = append(logged, line["policy"])
+		}
+	}
+	assert.Equal(t, []any{"adds-label", "adds-another-label"}, logged)
+}

@@ -224,6 +224,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 			continue
 		}
 		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace, requestMapFn, false, nil)
+		ruleResponse.PatchedResource = patchedResource
 		response.Policies = append(response.Policies, ruleResponse)
 		if patchedResource != nil {
 			response.PatchedResource = patchedResource

@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -846,6 +847,8 @@ func TestHandle(t *testing.T) {
 		expectPatched  bool
 		expectLabel    string
 		expectLabels   map[string]string // for multiple label checks
+		// the label each policy adds, in order: policy i's PatchedResource has label i and not label i+1
+		expectPolicyLabels []string
 	}{
 		{
 			name: "Successful match and mutation",
@@ -1028,6 +1031,7 @@ func TestHandle(t *testing.T) {
 				"team":    "platform",
 				"version": "v1",
 			},
+			expectPolicyLabels: []string{"env", "team", "version"},
 		},
 	}
 
@@ -1097,6 +1101,14 @@ func TestHandle(t *testing.T) {
 				}
 			} else {
 				assert.Nil(t, resp.PatchedResource)
+			}
+			for i, label := range tc.expectPolicyLabels {
+				require.NotNil(t, resp.Policies[i].PatchedResource)
+				labels := resp.Policies[i].PatchedResource.GetLabels()
+				assert.Contains(t, labels, label)
+				if i+1 < len(tc.expectPolicyLabels) {
+					assert.NotContains(t, labels, tc.expectPolicyLabels[i+1], "a later policy must not change the result of an earlier one")
+				}
 			}
 		})
 	}
