@@ -8,9 +8,13 @@ spec:
   steps:
     - try:
       - script:
-          # --audit-warn does not apply to ValidatingPolicy yet (#16485), so an audit failure
-          # still exits 1. Expect exit status 3 here once that is fixed.
           content: |
             kyverno apply policy.yaml --resource resource.yaml --audit-warn --warn-exit-code 3
           check:
-            ($error): "exit status 1"
+            ($error): "exit status 3"
+    - try:
+      - script:
+          content: |
+            kyverno apply policy.yaml --resource resource.yaml --audit-warn
+          check:
+            ($error): null

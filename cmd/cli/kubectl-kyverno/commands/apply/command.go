@@ -205,7 +205,11 @@ func Command() *cobra.Command {
 						}
 					}
 					if len(failedRules) > 0 {
-						fmt.Fprintln(out, "policy", color.Policy("", response.Policy().GetName()), "->", "resource", resPath, color.BoldRed("failed:"))
+						label := color.BoldRed("failed:")
+						if applyCommandConfig.AuditWarn && processor.IsAuditOnlyValidatingPolicy(response.Policy()) {
+							label = color.BoldYellow("warning:")
+						}
+						fmt.Fprintln(out, "policy", color.Policy("", response.Policy().GetName()), "->", "resource", resPath, label)
 						for i, rule := range failedRules {
 							msg := rule.Message()
 							if msg == "" {
@@ -250,7 +254,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
 	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
 	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy, MutatingPolicy, GeneratingPolicy, ImageValidatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, the images it checked, and its validations, the mutations it ran, the generate entries it ran or its delete conditions. The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive")
-	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "Currently has no effect; ValidatingPolicy audit support is tracked by https://github.com/kyverno/kyverno/issues/16485")
+	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "Treat audit-only ValidatingPolicy and ImageValidatingPolicy violations as warnings (counted as warn; by default exit 0)")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
 	cmd.Flags().BoolVar(&applyCommandConfig.warningsAsErrors, "warnings-as-errors", false, "Treat deprecation warnings as errors")
@@ -278,6 +282,8 @@ func Command() *cobra.Command {
 	return cmd
 }
 
+// applyCommandHelper coordinates loading, validating, and applying policies and resources,
+// returning aggregated result counts, parsed resources, skipped policies, and engine responses.
 func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	c.deprecationWarnings = nil
@@ -499,7 +505,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	authzProcessor := processor.NewAuthzProcessor(rc, dClient, httpPols, envoyPols)
+	authzProcessor := processor.NewAuthzProcessor(rc, dClient, httpPols, envoyPols, c.AuditWarn)
 
 	httpResponses, err := authzProcessor.ApplyHTTPPolicies(httpRequests)
 	if err != nil {
@@ -782,6 +788,8 @@ func (c *ApplyCommandConfig) applyPolicies(
 	return &rc, resources, responses, nil
 }
 
+// applyImageValidatingPolicies evaluates image validating policies against target resources,
+// updating result counts and returning engine responses.
 func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	out io.Writer,
 	ivps []policiesv1beta1.ImageValidatingPolicyLike,
@@ -898,7 +906,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			}
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
-			rc.AddValidatingPolicyResponse(resp)
+			rc.AddValidatingPolicyResponse(c.AuditWarn, resp)
 			responses = append(responses, resp)
 		}
 	}
@@ -950,7 +958,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 				}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
-			rc.AddValidatingPolicyResponse(resp)
+			rc.AddValidatingPolicyResponse(c.AuditWarn, resp)
 			responses = append(responses, resp)
 		}
 	}
@@ -967,6 +975,8 @@ func (c *ApplyCommandConfig) printTrace(out io.Writer, d *trace.Decision) {
 	fmt.Fprintln(out)
 }
 
+// applyDeletingPolicies evaluates deleting policies against target resources,
+// updating result counts and returning engine responses.
 func (c *ApplyCommandConfig) applyDeletingPolicies(
 	out io.Writer,
 	dps []policiesv1beta1.DeletingPolicyLike,
@@ -1033,7 +1043,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 				}})
 
 				responses = append(responses, response)
-				rc.AddValidatingPolicyResponse(response)
+				rc.AddValidatingPolicyResponse(c.AuditWarn, response)
 
 				if c.ContinueOnFail {
 					fmt.Printf("failed to apply deleting policies on %s: %v\n", payloadType, err)
@@ -1063,7 +1073,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 
 			responses = append(responses, response)
 
-			rc.AddValidatingPolicyResponse(response)
+			rc.AddValidatingPolicyResponse(c.AuditWarn, response)
 		}
 	}
 
