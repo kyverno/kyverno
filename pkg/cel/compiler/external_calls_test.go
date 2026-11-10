@@ -49,7 +49,7 @@ func countingHTTPEnv(t *testing.T) (*cel.Env, *atomic.Int32) {
 func failingHTTPEnv(t *testing.T, requestErr error) (*cel.Env, *atomic.Int32) {
 	t.Helper()
 	calls := &atomic.Int32{}
-	env, err := costLimitedEnv(t).Extend(http.Lib(http.Context{ContextInterface: countingHTTP{calls: calls, err: requestErr}}, http.Latest()))
+	env, err := costLimitedEnv(t).Extend(http.Lib(http.Context{ContextInterface: countingHTTP{calls: calls, err: requestErr}}, http.Latest(), false))
 	require.NoError(t, err)
 	return env, calls
 }
