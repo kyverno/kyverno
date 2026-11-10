@@ -113,6 +113,11 @@ func TestDecodeInput(t *testing.T) {
 			assert.Equal(t, "GET", in.HTTPRequests[0].Attributes.Method)
 		},
 	}, {
+		name:    "http unknown field",
+		mode:    ModeHTTP,
+		body:    []byte(`{"attribute":{"method":"GET"}}`),
+		wantErr: `unknown field "attribute"`,
+	}, {
 		name:    "http malformed",
 		mode:    ModeHTTP,
 		body:    []byte(`{"attributes":`),

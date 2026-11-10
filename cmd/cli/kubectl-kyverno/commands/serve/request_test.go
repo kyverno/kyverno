@@ -157,6 +157,7 @@ func TestEvaluateRequestErrors(t *testing.T) {
 	}{
 		{"not json", locked, `{`, http.StatusBadRequest, "failed to decode EvaluationRequest"},
 		{"unknown field", locked, `{"mode":"Kubernetes","payload":"x","previousObject":"y"}`, http.StatusBadRequest, "unknown field"},
+		{"trailing data", locked, `{"mode":"Kubernetes","payload":"x"}{}`, http.StatusBadRequest, "unexpected data after the request object"},
 		{"wrong kind", locked, `{"kind":"AdmissionReview","mode":"Kubernetes","payload":"x"}`, http.StatusBadRequest, "unsupported apiVersion/kind"},
 		{"bad mode", locked, `{"mode":"SOAP","payload":"x"}`, http.StatusBadRequest, "unsupported mode"},
 		{"disabled mode", locked, `{"mode":"Envoy","payload":"{}"}`, http.StatusBadRequest, "not enabled"},
