@@ -410,3 +410,89 @@ func TestRender_SecretRedactsImagesAndGenerations(t *testing.T) {
 	assert.Contains(t, out, "IMAGES     skipped  initContainers: "+redacted)
 	assert.Contains(t, out, "generated "+redacted)
 }
+
+// TestRender_SecretRedactsRemainingPaths is a table-driven test that verifies every changed
+// Render path for a Secret resource does not leak the sensitive value.
+func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
+	const pw = "hunter2-do-not-render"
+
+	tests := []struct {
+		name     string
+		decision *Decision
+	}{
+		{
+			name: "mutation Error",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Mutations:    []MutationTrace{{Name: "mutations[0]", Error: "failed: " + pw}},
+				Verdict:      VerdictTrace{Status: VerdictPass},
+			},
+		},
+		{
+			name: "mutation NotApplied",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Mutations: []MutationTrace{{
+					Name:       "mutations[0]",
+					NotApplied: "skipped: " + pw,
+					ExpressionTrace: ExpressionTrace{
+						Source: "Object{}",
+						Result: "{}",
+					},
+				}},
+				Verdict: VerdictTrace{Status: VerdictPass},
+			},
+		},
+		{
+			name: "generation Error",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Generations:  []GenerationTrace{{Name: "generate[0]", Error: "failed: " + pw}},
+				Verdict:      VerdictTrace{Status: VerdictPass},
+			},
+		},
+		{
+			name: "node Error through printNodes",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Verdict: VerdictTrace{
+					Status: VerdictFail,
+					ExpressionTrace: ExpressionTrace{
+						Source: "object.data.x",
+						Result: "err: " + pw,
+						Nodes:  []NodeTrace{{Expression: "object.data.x", Error: "err: " + pw}},
+					},
+				},
+			},
+		},
+		{
+			name: "multiple Validations rows",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Validations: []ValidationTrace{
+					{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: pw}},
+					{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "object.type == 'tls'", Result: pw}},
+				},
+				Verdict: VerdictTrace{
+					Status:          VerdictFail,
+					ExpressionTrace: ExpressionTrace{Source: "object.type == 'tls'", Result: pw},
+				},
+			},
+		},
+		{
+			name: "verdict with no Source uses rf.text for message",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Verdict:      VerdictTrace{Status: VerdictFail, Message: pw},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var sb strings.Builder
+			Render(&sb, tc.decision)
+			assert.NotContains(t, sb.String(), pw, "sensitive value must not appear in rendered output")
+		})
+	}
+}
