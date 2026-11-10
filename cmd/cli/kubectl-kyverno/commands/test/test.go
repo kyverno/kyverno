@@ -842,7 +842,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		engineResponses = append(engineResponses, ers...)
 	}
 
-	authProzessor := processor.NewAuthzProcessor(&resultCounts, dClient, results.HTTPPolicies, results.EnvoyPolicies)
+	authProzessor := processor.NewAuthzProcessor(&resultCounts, dClient, results.HTTPPolicies, results.EnvoyPolicies, false)
 	// Evaluate HTTP-authorization policies against each HTTP check payload.
 	// Results are keyed by the payload file path in testResponse.Trigger.
 	if len(httpPayloads) > 0 {
@@ -1036,7 +1036,7 @@ func applyImageValidatingPolicies(
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
-			rc.AddValidatingPolicyResponse(resp)
+			rc.AddValidatingPolicyResponse(false, resp)
 			responses = append(responses, resp)
 		}
 	}
@@ -1077,7 +1077,7 @@ func applyImageValidatingPolicies(
 				}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
-			rc.AddValidatingPolicyResponse(resp)
+			rc.AddValidatingPolicyResponse(false, resp)
 			responses = append(responses, resp)
 		}
 	}
@@ -1183,7 +1183,7 @@ func applyDeletingPolicies(
 				}})
 
 				responses = append(responses, response)
-				rc.AddValidatingPolicyResponse(response)
+				rc.AddValidatingPolicyResponse(false, response)
 
 				continue
 			}
@@ -1209,7 +1209,7 @@ func applyDeletingPolicies(
 
 			responses = append(responses, response)
 
-			rc.AddValidatingPolicyResponse(response)
+			rc.AddValidatingPolicyResponse(false, response)
 		}
 	}
 
