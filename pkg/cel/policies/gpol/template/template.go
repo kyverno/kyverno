@@ -396,6 +396,9 @@ func celValueToNative(val ref.Val) (any, error) {
 // Walk collections before converting their leaves. structpb.Value encodes
 // large CEL integers as decimal strings, including when nested in a map or list.
 func celJSONValue(val ref.Val) (any, error) {
+	if types.IsError(val) {
+		return nil, fmt.Errorf("%v", val)
+	}
 	switch val.Type() {
 	case types.NullType:
 		return nil, nil

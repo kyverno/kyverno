@@ -28,10 +28,10 @@ func TestConvertToUnstructured(t *testing.T) {
 		{
 			name: "preserve integers when preparing an unstructured object for a write",
 			obj: &unstructured.Unstructured{Object: map[string]interface{}{
-				"spec": []interface{}{int64(9007199254740993), 1.5, "9007199254740993"},
+				"spec": []interface{}{int64(9007199254740993), float64(2), 1.5, "9007199254740993"},
 			}},
 			want: &unstructured.Unstructured{Object: map[string]interface{}{
-				"spec": []interface{}{int64(9007199254740993), 1.5, "9007199254740993"},
+				"spec": []interface{}{int64(9007199254740993), float64(2), 1.5, "9007199254740993"},
 			}},
 		},
 		{
@@ -77,5 +77,19 @@ func TestConvertToUnstructured(t *testing.T) {
 				t.Errorf("expected %v but got %v", tc.want, got)
 			}
 		})
+	}
+}
+
+func TestObjToUnstructuredDoesNotAliasInput(t *testing.T) {
+	original := &unstructured.Unstructured{Object: map[string]interface{}{
+		"spec": map[string]interface{}{"revision": int64(9007199254740993), "ratio": float64(2)},
+	}}
+	got, err := ObjToUnstructured(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got.Object["spec"].(map[string]interface{})["revision"] = int64(1)
+	if gotRevision := original.Object["spec"].(map[string]interface{})["revision"]; gotRevision != int64(9007199254740993) {
+		t.Fatalf("conversion mutated original revision: %v", gotRevision)
 	}
 }

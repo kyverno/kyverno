@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -333,6 +334,12 @@ func TestRenderCollectionIntegers(t *testing.T) {
 			require.Equal(t, []map[string]any{{"spec": tc.want}}, got)
 		})
 	}
+}
+
+func TestCelJSONValueError(t *testing.T) {
+	t.Parallel()
+	_, err := celJSONValue(types.NewErr("nested CEL evaluation failed"))
+	require.ErrorContains(t, err, "nested CEL evaluation failed")
 }
 
 func TestCompileErrors(t *testing.T) {
