@@ -60,6 +60,26 @@ var (
 	)
 )
 
+type recordingContext struct {
+	libs.Context
+	triggerUID       string
+	triggerNamespace string
+}
+
+func (r *recordingContext) SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache, useServerSideApply bool) {
+	r.triggerUID = triggerUID
+	r.triggerNamespace = triggerNamespace
+	r.Context.SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID, restoreCache, useServerSideApply)
+}
+
+func (r *recordingContext) Clone() libs.Context {
+	return &recordingContext{
+		Context:          r.Context.Clone(),
+		triggerUID:       r.triggerUID,
+		triggerNamespace: r.triggerNamespace,
+	}
+}
+
 func TestHandle(t *testing.T) {
 	t.Run("should handle policy with match constraints and return response", func(t *testing.T) {
 		pol := Policy{
@@ -334,8 +354,9 @@ func TestHandle(t *testing.T) {
 			},
 		}
 
+		recCtx := &recordingContext{Context: libs.NewFakeContextProvider()}
 		deleteReq := engine.Request(
-			ctx1,
+			recCtx,
 			schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
 			schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
 			"",
@@ -355,6 +376,9 @@ func TestHandle(t *testing.T) {
 			},
 			Spec: v1beta1.GeneratingPolicySpec{
 				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"environment": "prod"},
+					},
 					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 						{
 							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -385,56 +409,53 @@ func TestHandle(t *testing.T) {
 			CompiledPolicy: compiledGpol,
 		}
 
+		var resolvedNamespace string
 		engWithMatcher := NewEngine(func(ns string) *corev1.Namespace {
+			resolvedNamespace = ns
 			return &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: ns,
+					Name:   ns,
+					Labels: map[string]string{"environment": "prod"},
 				},
 			}
 		}, matcher)
 
 		resp, err := engWithMatcher.Handle(context.TODO(), deleteReq, pol, false)
 		assert.NoError(t, err)
+		assert.Equal(t, "prod-apps", resolvedNamespace)
+		assert.Equal(t, "cm-uid-12345", recCtx.triggerUID)
+		assert.Equal(t, "prod-apps", recCtx.triggerNamespace)
 		assert.NotNil(t, resp)
 		assert.Equal(t, &deletedObj, resp.Trigger)
 		assert.Len(t, resp.Policies, 1)
-		assert.NotNil(t, resp.Policies[0].Result)
-		assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Result.Status())
+		if assert.NotNil(t, resp.Policies[0].Result) {
+			assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Result.Status())
+		}
 	})
 
 	t.Run("should fallback to trigger namespace when request namespace is empty on DELETE", func(t *testing.T) {
-		deletedObj := unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "ConfigMap",
-				"metadata": map[string]interface{}{
-					"name":      "test-cm",
-					"namespace": "fallback-ns",
-					"uid":       "cm-uid-67890",
-				},
-			},
-		}
-
-		deleteReq := engine.Request(
-			ctx1,
-			schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
-			schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
-			"",
-			"test-cm",
-			"", // empty request namespace
-			admissionv1.Delete,
-			v1.UserInfo{},
-			nil,
-			&deletedObj,
-			false,
-			nil,
-		)
-
 		gpol := &v1beta1.GeneratingPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "generate-fallback-ns",
 			},
 			Spec: v1beta1.GeneratingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"kubernetes.io/metadata.name": "fallback-ns"},
+					},
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Delete},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"configmaps"},
+								},
+							},
+						},
+					},
+				},
 				Generation: []v1beta1.Generation{
 					{
 						Expression: `generator.Apply("fallback-ns", [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap"), "metadata": {"name": dyn("cm-out")}}])`,
@@ -452,12 +473,104 @@ func TestHandle(t *testing.T) {
 			CompiledPolicy: compiledGpol,
 		}
 
-		resp, err := eng.Handle(context.TODO(), deleteReq, pol, false)
-		assert.NoError(t, err)
-		assert.NotNil(t, resp)
-		assert.Equal(t, &deletedObj, resp.Trigger)
-		assert.Len(t, resp.Policies, 1)
-		assert.NotNil(t, resp.Policies[0].Result)
-		assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Result.Status())
+		t.Run("matching fallback namespace", func(t *testing.T) {
+			deletedObj := unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":      "test-cm",
+						"namespace": "fallback-ns",
+						"uid":       "cm-uid-67890",
+					},
+				},
+			}
+
+			recCtx := &recordingContext{Context: libs.NewFakeContextProvider()}
+			deleteReq := engine.Request(
+				recCtx,
+				schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+				"",
+				"test-cm",
+				"", // empty request namespace
+				admissionv1.Delete,
+				v1.UserInfo{},
+				nil,
+				&deletedObj,
+				false,
+				nil,
+			)
+
+			var resolvedNamespace string
+			engWithMatcher := NewEngine(func(ns string) *corev1.Namespace {
+				resolvedNamespace = ns
+				return &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   ns,
+						Labels: map[string]string{"kubernetes.io/metadata.name": ns},
+					},
+				}
+			}, matcher)
+
+			resp, err := engWithMatcher.Handle(context.TODO(), deleteReq, pol, false)
+			assert.NoError(t, err)
+			assert.Equal(t, "fallback-ns", resolvedNamespace)
+			assert.Equal(t, "cm-uid-67890", recCtx.triggerUID)
+			assert.Equal(t, "fallback-ns", recCtx.triggerNamespace)
+			assert.NotNil(t, resp)
+			assert.Equal(t, &deletedObj, resp.Trigger)
+			assert.Len(t, resp.Policies, 1)
+			if assert.NotNil(t, resp.Policies[0].Result) {
+				assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Result.Status())
+			}
+		})
+
+		t.Run("non-matching fallback namespace is skipped", func(t *testing.T) {
+			deletedObj := unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":      "test-cm",
+						"namespace": "other-ns",
+						"uid":       "cm-uid-67890",
+					},
+				},
+			}
+
+			deleteReq := engine.Request(
+				ctx1,
+				schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+				schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+				"",
+				"test-cm",
+				"", // empty request namespace
+				admissionv1.Delete,
+				v1.UserInfo{},
+				nil,
+				&deletedObj,
+				false,
+				nil,
+			)
+
+			var resolvedNamespace string
+			engWithMatcher := NewEngine(func(ns string) *corev1.Namespace {
+				resolvedNamespace = ns
+				return &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   ns,
+						Labels: map[string]string{"kubernetes.io/metadata.name": ns},
+					},
+				}
+			}, matcher)
+
+			resp, err := engWithMatcher.Handle(context.TODO(), deleteReq, pol, false)
+			assert.NoError(t, err)
+			assert.Equal(t, "other-ns", resolvedNamespace)
+			assert.NotNil(t, resp)
+			assert.Len(t, resp.Policies, 1)
+			assert.Nil(t, resp.Policies[0].Result)
+		})
 	})
 }
