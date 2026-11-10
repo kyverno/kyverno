@@ -429,6 +429,7 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 				Mutations:    []MutationTrace{{Name: "mutations[0]", Error: "failed: " + pw}},
 				Verdict:      VerdictTrace{Status: VerdictPass},
 			},
+			wantContains: []string{redacted},
 		},
 		{
 			name: "mutation Error empty value not panics",
@@ -478,6 +479,7 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 				Generations:  []GenerationTrace{{Name: "generate[0]", Error: "failed: " + pw}},
 				Verdict:      VerdictTrace{Status: VerdictPass},
 			},
+			wantContains: []string{redacted},
 		},
 		{
 			name: "node Error through printNodes is redacted",
@@ -495,10 +497,11 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 					},
 				},
 			},
-			// boolean node value "false" and the verdict result "false" must stay visible
+			// verdict result "false" and node boolean "false" must stay visible; node Error is redacted
 			wantContains: []string{
-				"object.data.x == true  ->  false",
-				"object.data.x == true  ->  false",
+				"object.data.x == true  ->  false",         // verdict line
+				"   object.data.x == true  ->  false",      // node boolean value kept
+				"   object.data.x  ->  ERROR: " + redacted, // node error redacted
 			},
 		},
 		{
@@ -526,6 +529,7 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 				ResourceKind: "Secret",
 				Verdict:      VerdictTrace{Status: VerdictFail, Message: pw},
 			},
+			wantContains: []string{redacted},
 		},
 		{
 			name: "verdict with no Source empty message not panics",
