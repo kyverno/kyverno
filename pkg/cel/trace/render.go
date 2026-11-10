@@ -78,16 +78,16 @@ func Render(w io.Writer, d *Decision) {
 		if m.Error == "" {
 			row(w, "MUTATIONS", "", rf.namedLine(NamedExpressionTrace{Name: m.Name, ExpressionTrace: m.ExpressionTrace}))
 			if m.NotApplied != "" {
-				fmt.Fprintf(w, "%-10s %-8s (not applied: %s)\n", "", "", rf.value(m.NotApplied))
+				fmt.Fprintf(w, "%-10s %-8s (not applied: %s)\n", "", "", rf.text(m.NotApplied))
 			}
 			continue
 		}
-		row(w, "MUTATIONS", VerdictError, m.Name+": "+rf.value(m.Error))
+		row(w, "MUTATIONS", VerdictError, m.Name+": "+rf.text(m.Error))
 		rf.printNodes(w, m.ExpressionTrace)
 	}
 	for _, g := range d.Generations {
 		if g.Error != "" {
-			row(w, "GENERATE", VerdictError, g.Name+": "+rf.value(g.Error))
+			row(w, "GENERATE", VerdictError, g.Name+": "+rf.text(g.Error))
 			rf.printNodes(w, g.ExpressionTrace)
 			continue
 		}
@@ -116,7 +116,7 @@ func Render(w io.Writer, d *Decision) {
 	if v.Source != "" {
 		row(w, "VERDICT", v.Status, rf.expressionLine(v.ExpressionTrace))
 	} else {
-		message := rf.value(v.Message)
+		message := rf.text(v.Message)
 		if message == "" && v.Status == VerdictPass {
 			switch {
 			case len(d.Mutations) > 0:
@@ -134,7 +134,7 @@ func Render(w io.Writer, d *Decision) {
 		return
 	}
 	if v.Message != "" && v.Status != VerdictPass {
-		fmt.Fprintf(w, "%-10s %-8s message: %q\n", "", "", rf.value(v.Message))
+		fmt.Fprintf(w, "%-10s %-8s message: %q\n", "", "", rf.text(v.Message))
 	}
 	if v.Status != VerdictPass {
 		rf.printNodes(w, v.ExpressionTrace)
@@ -148,12 +148,22 @@ type renderFormat struct {
 }
 
 // value formats an evaluated CEL value for rendering: "true" and "false" are always kept; all
-// other values are replaced with "(redacted)" in secret traces.
+// other values are replaced with "(redacted)" in secret traces. Values are clipped to maxValueLen.
 func (rf renderFormat) value(v string) string {
 	if rf.secret && v != "" && v != "true" && v != "false" {
 		return redacted
 	}
 	return clip(v)
+}
+
+// text formats free-form text (errors, messages, notApplied) for rendering: redacted in secret
+// traces, printed in full otherwise. Unlike value, non-secret text is not clipped so that long
+// error messages and rejection reasons are not silently truncated.
+func (rf renderFormat) text(v string) string {
+	if rf.secret && v != "" {
+		return redacted
+	}
+	return v
 }
 
 // expressionLine formats "source  ->  result", redacting the result when secret.
