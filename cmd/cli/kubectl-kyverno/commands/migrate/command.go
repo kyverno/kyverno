@@ -70,7 +70,8 @@ func Command() *cobra.Command {
 }
 
 // migrateResources iterates through the provided CRD names, looks up each CRD, and migrates its instances and status.
-// Missing CRDs (NotFound errors) are logged as informational messages and skipped cleanly.
+// Missing CRDs (NotFound errors) are logged as informational messages and skipped cleanly
+// to tolerate partial CRD installations during cluster and Helm upgrades.
 func migrateResources(ctx context.Context, resources []string, apiServerClient clientset.Interface, dynamicClient dynamic.Interface) error {
 	for _, resource := range resources {
 		fmt.Println("migrating resource:", resource, "...")
