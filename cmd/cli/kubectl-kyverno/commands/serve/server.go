@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
+	"net"
 	"net/http"
 	"os"
 	"runtime/debug"
@@ -56,7 +58,10 @@ type Server struct {
 	modes                []evaluator.Mode
 	allowRequestPolicies bool
 	maxBodyBytes         int64
-	evaluate             evaluateFunc
+	// loopbackOnly rejects requests whose Host is not loopback; ListenAndServe sets it when the
+	// server listens on a loopback address.
+	loopbackOnly bool
+	evaluate     evaluateFunc
 
 	mu sync.Mutex
 }
@@ -88,17 +93,71 @@ func NewServer(set *evaluator.PolicySet, version string, cfg Config) (*Server, e
 }
 
 // Handler returns the HTTP handler for the v1alpha1 API.
+//
+// Routes are registered without a method so that a wrong method gets the JSON Status body every
+// other failure gets, instead of ServeMux's plain-text 405.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /v1alpha1/evaluate", s.handleEvaluateRequest)
-	mux.HandleFunc("POST /v1alpha1/evaluate/{mode}", s.handleEvaluate)
-	mux.HandleFunc("GET /v1alpha1/policies", s.handlePolicies)
-	mux.HandleFunc("GET /healthz", s.handleHealth)
-	mux.HandleFunc("GET /readyz", s.handleHealth)
+	mux.HandleFunc("/v1alpha1/evaluate", only(http.MethodPost, requireContentType(requestContentTypes, s.handleEvaluateRequest)))
+	mux.HandleFunc("/v1alpha1/evaluate/{mode}", only(http.MethodPost, requireContentType(payloadContentTypes, s.handleEvaluate)))
+	mux.HandleFunc("/v1alpha1/policies", only(http.MethodGet, s.handlePolicies))
+	mux.HandleFunc("/healthz", only(http.MethodGet, s.handleHealth))
+	mux.HandleFunc("/readyz", only(http.MethodGet, s.handleHealth))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeStatus(w, http.StatusNotFound, fmt.Sprintf("no route for %s %s", r.Method, r.URL.Path))
 	})
+	if s.loopbackOnly {
+		return requireLoopbackHost(mux)
+	}
 	return mux
+}
+
+// requestContentTypes are accepted by POST /v1alpha1/evaluate; payloadContentTypes by
+// POST /v1alpha1/evaluate/{mode}. None is a CORS "simple" type (text/plain, form or multipart),
+// so a web page cannot send these requests without a preflight that kyverno serve never answers.
+var (
+	requestContentTypes = []string{"application/json"}
+	payloadContentTypes = []string{"application/json", "application/yaml", "application/x-yaml", "text/yaml", "text/x-yaml"}
+)
+
+// only rejects any method but method (GET also accepts HEAD) with a 405 Status.
+func only(method string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != method && (method != http.MethodGet || r.Method != http.MethodHead) {
+			w.Header().Set("Allow", method)
+			writeStatus(w, http.StatusMethodNotAllowed, fmt.Sprintf("method %s is not allowed on %s, use %s", r.Method, r.URL.Path, method))
+			return
+		}
+		next(w, r)
+	}
+}
+
+// requireContentType rejects a request whose Content-Type is not one of allowed with a 415 Status.
+func requireContentType(allowed []string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil || !slices.Contains(allowed, strings.ToLower(mediaType)) {
+			writeStatus(w, http.StatusUnsupportedMediaType, fmt.Sprintf("Content-Type must be one of %v", allowed))
+			return
+		}
+		next(w, r)
+	}
+}
+
+// requireLoopbackHost rejects requests whose Host is not a loopback name or address. A server
+// listening on loopback is only reachable as such, so any other Host is a DNS rebinding attempt.
+func requireLoopbackHost(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		if !isLoopback(strings.ToLower(strings.Trim(host, "[]"))) {
+			writeStatus(w, http.StatusForbidden, fmt.Sprintf("host %q is not allowed; kyverno serve on a loopback address only accepts loopback hosts", r.Host))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -160,6 +219,10 @@ func (s *Server) handleEvaluateRequest(w http.ResponseWriter, r *http.Request) {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&req); err != nil {
 		writeStatus(w, http.StatusBadRequest, fmt.Sprintf("failed to decode EvaluationRequest: %v", err))
+		return
+	}
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		writeStatus(w, http.StatusBadRequest, "failed to decode EvaluationRequest: unexpected data after the request object")
 		return
 	}
 	if (req.APIVersion != "" && req.APIVersion != APIVersion) || (req.Kind != "" && req.Kind != "EvaluationRequest") {
@@ -417,6 +480,9 @@ func (s *Server) evaluateWith(ctx context.Context, mode evaluator.Mode, set *eva
 // ListenAndServe serves on address until ctx is cancelled, then shuts down gracefully.
 // ready, if non-nil, receives the bound address once the listener is accepting connections.
 func (s *Server) ListenAndServe(ctx context.Context, address string, ready func(string)) error {
+	if host, _, err := net.SplitHostPort(address); err == nil && isLoopback(host) {
+		s.loopbackOnly = true
+	}
 	srv := &http.Server{
 		Handler:           s.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,

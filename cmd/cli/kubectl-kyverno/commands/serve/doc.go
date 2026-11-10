@@ -29,7 +29,7 @@ var examples = [][]string{
 	},
 	{
 		`# Evaluate a Kubernetes resource`,
-		`curl -s -X POST --data-binary @pod.yaml http://127.0.0.1:8080/v1alpha1/evaluate/Kubernetes`,
+		`curl -s -X POST -H 'Content-Type: application/yaml' --data-binary @pod.yaml http://127.0.0.1:8080/v1alpha1/evaluate/Kubernetes`,
 	},
 	{
 		`# Serve only Envoy check requests on another port`,

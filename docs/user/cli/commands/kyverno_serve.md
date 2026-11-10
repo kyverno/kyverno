@@ -37,7 +37,7 @@ kyverno serve [flags]
   KYVERNO_EXPERIMENTAL=true kyverno serve --policies ./policies
 
   # Evaluate a Kubernetes resource
-  curl -s -X POST --data-binary @pod.yaml http://127.0.0.1:8080/v1alpha1/evaluate/Kubernetes
+  curl -s -X POST -H 'Content-Type: application/yaml' --data-binary @pod.yaml http://127.0.0.1:8080/v1alpha1/evaluate/Kubernetes
 
   # Serve only Envoy check requests on another port
   KYVERNO_EXPERIMENTAL=true kyverno serve --policies ./envoy-policies --mode Envoy --address 127.0.0.1:9000
@@ -49,8 +49,9 @@ kyverno serve [flags]
       --address string           Address to listen on; defaults to loopback only (default "127.0.0.1:8080")
       --allow-request-policies   Accept policies inside POST /v1alpha1/evaluate requests (evaluated instead of --policies); --policies is optional when set
   -h, --help                     help for serve
+      --http-timeout duration    Maximum time a policy HTTP call (CEL http.Get or http.Post) may wait for a response (default 30s)
       --mode strings             Payload modes to serve: Kubernetes, JSON, HTTP, Envoy (repeatable or comma-separated; default all)
-      --policies strings         Path to policy files or directories to load at startup (required)
+      --policies strings         Path to policy files or directories to load at startup; required unless --allow-request-policies is set
 ```
 
 ### Options inherited from parent commands
