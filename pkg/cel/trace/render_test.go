@@ -381,3 +381,32 @@ func TestRender_NonSecretDecisionIsNotRedacted(t *testing.T) {
 	assert.Contains(t, out, "payments")
 	assert.Contains(t, out, `message: "team must be platform"`)
 }
+
+// TestRender_SecretRedactsImagesAndGenerations checks that IMAGES rows and generated-resource
+// descriptors are also redacted when the resource is a Secret.
+func TestRender_SecretRedactsImagesAndGenerations(t *testing.T) {
+	const password = "hunter2-do-not-render"
+	d := &Decision{
+		ResourceKind: "Secret",
+		Images: &ImagesTrace{Found: []ImageTrace{
+			{Category: "containers", Image: password, Checked: true},
+			{Category: "initContainers", Image: password, Checked: false},
+		}},
+		Generations: []GenerationTrace{
+			{
+				Name:      "generate[0] (template)",
+				Generated: []string{"ConfigMap default/" + password},
+			},
+		},
+		Verdict: VerdictTrace{Status: VerdictPass},
+	}
+
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+
+	assert.NotContains(t, out, password)
+	assert.Contains(t, out, "IMAGES     checked  containers: "+redacted)
+	assert.Contains(t, out, "IMAGES     skipped  initContainers: "+redacted)
+	assert.Contains(t, out, "generated "+redacted)
+}

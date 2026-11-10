@@ -205,3 +205,40 @@ func TestLogValues_JSON(t *testing.T) {
 		}
 	}`, string(raw))
 }
+
+// TestLogValues_SecretMutationErrorAndMessageAreRedacted checks that mutation Error, NotApplied,
+// breakdown node errors, and the verdict Message are all redacted in a Secret trace.
+func TestLogValues_SecretMutationErrorAndMessageAreRedacted(t *testing.T) {
+	const password = "hunter2-do-not-log"
+	d := &Decision{
+		ResourceKind: "Secret",
+		Mutations: []MutationTrace{{
+			Name:       "mutations[0] (jsonPatch)",
+			Error:      "failed: " + password,
+			NotApplied: "skipped: " + password,
+			ExpressionTrace: ExpressionTrace{
+				Source: "[...]",
+				Result: password,
+				Nodes:  []NodeTrace{{Expression: "object.data.pw", Value: password, Error: "err: " + password}},
+			},
+		}},
+		Verdict: VerdictTrace{
+			Status:  VerdictFail,
+			Message: password,
+			ExpressionTrace: ExpressionTrace{
+				Source: "variables.x",
+				Result: "false",
+			},
+		},
+	}
+	entry, _ := logged(t, d)
+	raw, err := json.Marshal(entry)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), password, "password must not appear anywhere in the log JSON")
+
+	assert.Equal(t, redacted, entry.Mutations[0].Error)
+	assert.Equal(t, redacted, entry.Mutations[0].NotApplied)
+	assert.Equal(t, redacted, entry.Mutations[0].Evaluated[0].Value)
+	assert.Equal(t, redacted, entry.Mutations[0].Evaluated[0].Error)
+	assert.Equal(t, redacted, entry.Verdict.Message)
+}

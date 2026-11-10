@@ -54,7 +54,7 @@ func LogValues(d *Decision) []any {
 			Status:     d.Verdict.Status,
 			Expression: d.Verdict.Source,
 			Result:     l.value(d.Verdict.Result),
-			Message:    d.Verdict.Message,
+			Message:    l.value(d.Verdict.Message),
 		},
 	}
 	if d.Verdict.Status != VerdictPass {
@@ -81,8 +81,8 @@ func LogValues(d *Decision) []any {
 			Name:       m.Name,
 			Expression: m.Source,
 			Result:     l.value(m.Result),
-			Error:      m.Error,
-			NotApplied: m.NotApplied,
+			Error:      l.value(m.Error),
+			NotApplied: l.value(m.NotApplied),
 		}
 		if m.Error != "" {
 			l.breakdown(&mutation, m.ExpressionTrace)
@@ -116,6 +116,6 @@ func (l logFormat) named(n NamedExpressionTrace) LogExpression {
 func (l logFormat) breakdown(e *LogExpression, et ExpressionTrace) {
 	e.LoopValuesOmitted = et.LoopValuesOmitted
 	for _, n := range et.Nodes {
-		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Value), Error: n.Error})
+		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Value), Error: l.value(n.Error)})
 	}
 }

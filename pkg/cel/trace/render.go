@@ -57,10 +57,10 @@ func Render(w io.Writer, d *Decision) {
 		}
 		for _, img := range d.Images.Found {
 			if img.Checked {
-				row(w, "IMAGES", "checked", img.Category+": "+img.Image)
+				row(w, "IMAGES", "checked", img.Category+": "+rf.value(img.Image))
 				continue
 			}
-			row(w, "IMAGES", "skipped", img.Category+": "+img.Image+"  (not matched by matchImageReferences)")
+			row(w, "IMAGES", "skipped", img.Category+": "+rf.value(img.Image)+"  (not matched by matchImageReferences)")
 		}
 	}
 	// with a single validation the list would only repeat the verdict line
@@ -100,7 +100,7 @@ func Render(w io.Writer, d *Decision) {
 			fmt.Fprintf(w, "%-10s %-8s generated nothing\n", "", "")
 		}
 		for _, r := range g.Generated {
-			fmt.Fprintf(w, "%-10s %-8s generated %s\n", "", "", r)
+			fmt.Fprintf(w, "%-10s %-8s generated %s\n", "", "", rf.value(r))
 		}
 	}
 
