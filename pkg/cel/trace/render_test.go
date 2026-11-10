@@ -299,3 +299,85 @@ func TestRender_NoBreakdownNote(t *testing.T) {
 	assert.NotContains(t, sb.String(), "no breakdown", "a pass shows no breakdown, so no note either")
 
 }
+
+// TestRender_SecretValuesAreRedacted checks that Render replaces non-boolean resolved values with
+// "(redacted)" when the resource is a Secret, and prints a NOTE banner.
+func TestRender_SecretValuesAreRedacted(t *testing.T) {
+	const password = "hunter2-do-not-render"
+	d := &Decision{
+		PolicyName:   "secret-rules",
+		PolicyKind:   "ValidatingPolicy",
+		ResourceKind: "Secret",
+		ResourceName: "db-credentials",
+		Match: []NamedExpressionTrace{{
+			Name:            "has-data",
+			ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true"},
+		}},
+		Variables: []NamedExpressionTrace{{
+			Name:            "pw",
+			ExpressionTrace: ExpressionTrace{Source: "object.data.password", Result: password},
+		}},
+		Verdict: VerdictTrace{
+			Status:  VerdictFail,
+			Message: password,
+			ExpressionTrace: ExpressionTrace{
+				Source: "variables.pw.size() > 32",
+				Result: "false",
+				Nodes: []NodeTrace{
+					{Expression: "variables.pw.size() > 32", Value: "false"},
+					{Expression: "variables.pw.size()", Value: "18"},
+					{Expression: "variables.pw", Value: password},
+				},
+			},
+		},
+	}
+
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+
+	assert.NotContains(t, out, password, "secret value must not appear in rendered output")
+	assert.Contains(t, out, "NOTE:", "a banner must explain why values are redacted")
+	assert.Contains(t, out, redacted)
+	// "true" and "false" say nothing about the data, and are always kept
+	assert.Contains(t, out, "has(object.data)  ->  true", "literal true is kept")
+	assert.Contains(t, out, "variables.pw.size() > 32  ->  false", "literal false is kept")
+	// non-boolean results are redacted
+	assert.Contains(t, out, "pw: object.data.password  ->  "+redacted, "variable result is redacted")
+	assert.Contains(t, out, `message: "`+redacted+`"`, "message is redacted")
+	// node breakdown
+	assert.Contains(t, out, "variables.pw.size()  ->  "+redacted, "non-boolean node value is redacted")
+	assert.Contains(t, out, "variables.pw  ->  "+redacted, "node containing the password is redacted")
+}
+
+// TestRender_NonSecretDecisionIsNotRedacted checks that a non-Secret decision is rendered with its
+// real values and no NOTE banner.
+func TestRender_NonSecretDecisionIsNotRedacted(t *testing.T) {
+	d := &Decision{
+		ResourceKind: "Pod",
+		Variables: []NamedExpressionTrace{{
+			Name:            "team",
+			ExpressionTrace: ExpressionTrace{Source: "object.metadata.labels.team", Result: "payments"},
+		}},
+		Verdict: VerdictTrace{
+			Status: VerdictFail,
+			ExpressionTrace: ExpressionTrace{
+				Source: "variables.team == 'platform'",
+				Result: "false",
+				Nodes: []NodeTrace{
+					{Expression: "variables.team", Value: "payments"},
+				},
+			},
+			Message: "team must be platform",
+		},
+	}
+
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+
+	assert.NotContains(t, out, "NOTE:")
+	assert.NotContains(t, out, redacted)
+	assert.Contains(t, out, "payments")
+	assert.Contains(t, out, `message: "team must be platform"`)
+}
