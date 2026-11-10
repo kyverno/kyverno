@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -318,5 +319,145 @@ func TestHandle(t *testing.T) {
 		assert.NotNil(t, result)
 		// Audit annotations are always surfaced on successful evaluation
 		assert.Equal(t, "ns/default", result.Properties()["triggeredBy"])
+	})
+
+	t.Run("should match namespace and pass trigger UID on trigger DELETE operation", func(t *testing.T) {
+		deletedObj := unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "ConfigMap",
+				"metadata": map[string]interface{}{
+					"name":      "test-cm",
+					"namespace": "prod-apps",
+					"uid":       "cm-uid-12345",
+				},
+			},
+		}
+
+		deleteReq := engine.Request(
+			ctx1,
+			schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+			"",
+			"test-cm",
+			"prod-apps",
+			admissionv1.Delete,
+			v1.UserInfo{},
+			nil,
+			&deletedObj,
+			false,
+			nil,
+		)
+
+		gpol := &v1beta1.GeneratingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "generate-on-delete",
+			},
+			Spec: v1beta1.GeneratingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Delete},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"configmaps"},
+								},
+							},
+						},
+					},
+				},
+				Generation: []v1beta1.Generation{
+					{
+						Expression: `generator.Apply("prod-apps", [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap"), "metadata": {"name": dyn("backup-cm")}}])`,
+					},
+				},
+			},
+		}
+
+		comp := compiler.NewCompiler()
+		compiledGpol, errs := comp.Compile(gpol, nil)
+		assert.Empty(t, errs)
+
+		pol := Policy{
+			Policy:         gpol,
+			CompiledPolicy: compiledGpol,
+		}
+
+		engWithMatcher := NewEngine(func(ns string) *corev1.Namespace {
+			return &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: ns,
+				},
+			}
+		}, matcher)
+
+		resp, err := engWithMatcher.Handle(context.TODO(), deleteReq, pol, false)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, &deletedObj, resp.Trigger)
+		assert.Len(t, resp.Policies, 1)
+		assert.NotNil(t, resp.Policies[0].Result)
+		assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Result.Status())
+	})
+
+	t.Run("should fallback to trigger namespace when request namespace is empty on DELETE", func(t *testing.T) {
+		deletedObj := unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "ConfigMap",
+				"metadata": map[string]interface{}{
+					"name":      "test-cm",
+					"namespace": "fallback-ns",
+					"uid":       "cm-uid-67890",
+				},
+			},
+		}
+
+		deleteReq := engine.Request(
+			ctx1,
+			schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+			"",
+			"test-cm",
+			"", // empty request namespace
+			admissionv1.Delete,
+			v1.UserInfo{},
+			nil,
+			&deletedObj,
+			false,
+			nil,
+		)
+
+		gpol := &v1beta1.GeneratingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "generate-fallback-ns",
+			},
+			Spec: v1beta1.GeneratingPolicySpec{
+				Generation: []v1beta1.Generation{
+					{
+						Expression: `generator.Apply("fallback-ns", [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap"), "metadata": {"name": dyn("cm-out")}}])`,
+					},
+				},
+			},
+		}
+
+		comp := compiler.NewCompiler()
+		compiledGpol, errs := comp.Compile(gpol, nil)
+		assert.Empty(t, errs)
+
+		pol := Policy{
+			Policy:         gpol,
+			CompiledPolicy: compiledGpol,
+		}
+
+		resp, err := eng.Handle(context.TODO(), deleteReq, pol, false)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, &deletedObj, resp.Trigger)
+		assert.Len(t, resp.Policies, 1)
+		assert.NotNil(t, resp.Policies[0].Result)
+		assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Result.Status())
 	})
 }
