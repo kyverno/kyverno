@@ -143,6 +143,21 @@ func TestMigrateResources_MigratesAndUpdatesStoredVersions(t *testing.T) {
 	err := migrateResources(context.Background(), []string{"testpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
 	require.NoError(t, err)
 
+	var updatedObj bool
+	for _, action := range dynamicClient.Actions() {
+		if action.GetVerb() == "update" && action.GetNamespace() == "" {
+			updateAction, ok := action.(ktesting.UpdateAction)
+			if ok && updateAction.GetObject() != nil {
+				unstr, ok := updateAction.GetObject().(*unstructured.Unstructured)
+				if ok && unstr.GetName() == "my-policy" {
+					updatedObj = true
+					break
+				}
+			}
+		}
+	}
+	require.True(t, updatedObj, "expected update action on cluster-scoped my-policy")
+
 	updatedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "testpolicies.policies.kyverno.io", metav1.GetOptions{})
 	require.NoError(t, err)
 	require.Equal(t, []string{"v1"}, updatedCrd.Status.StoredVersions)
@@ -205,6 +220,21 @@ func TestMigrateResources_NamespaceScoped(t *testing.T) {
 
 	err := migrateResources(context.Background(), []string{"namespacedpolicies.policies.kyverno.io"}, apiServerClient, dynamicClient)
 	require.NoError(t, err)
+
+	var updatedObj bool
+	for _, action := range dynamicClient.Actions() {
+		if action.GetVerb() == "update" && action.GetNamespace() == "test-ns" {
+			updateAction, ok := action.(ktesting.UpdateAction)
+			if ok && updateAction.GetObject() != nil {
+				unstr, ok := updateAction.GetObject().(*unstructured.Unstructured)
+				if ok && unstr.GetName() == "my-namespaced-policy" {
+					updatedObj = true
+					break
+				}
+			}
+		}
+	}
+	require.True(t, updatedObj, "expected update action on test-ns/my-namespaced-policy")
 
 	updatedCrd, err := apiServerClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "namespacedpolicies.policies.kyverno.io", metav1.GetOptions{})
 	require.NoError(t, err)
