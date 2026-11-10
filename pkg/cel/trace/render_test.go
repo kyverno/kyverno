@@ -412,16 +412,18 @@ func TestRender_SecretRedactsImagesAndGenerations(t *testing.T) {
 }
 
 // TestRender_SecretRedactsRemainingPaths is a table-driven test that verifies every changed
-// Render path for a Secret resource does not leak the sensitive value.
+// Render path for a Secret resource does not leak the sensitive value, that "true" and "false"
+// remain visible (over-redaction guard), and that empty values are handled without panic.
 func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 	const pw = "hunter2-do-not-render"
 
 	tests := []struct {
-		name     string
-		decision *Decision
+		name         string
+		decision     *Decision
+		wantContains []string // substrings that must appear (e.g. booleans kept)
 	}{
 		{
-			name: "mutation Error",
+			name: "mutation Error is redacted",
 			decision: &Decision{
 				ResourceKind: "Secret",
 				Mutations:    []MutationTrace{{Name: "mutations[0]", Error: "failed: " + pw}},
@@ -429,7 +431,15 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 			},
 		},
 		{
-			name: "mutation NotApplied",
+			name: "mutation Error empty value not panics",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Mutations:    []MutationTrace{{Name: "mutations[0]", Error: ""}},
+				Verdict:      VerdictTrace{Status: VerdictPass},
+			},
+		},
+		{
+			name: "mutation NotApplied is redacted",
 			decision: &Decision{
 				ResourceKind: "Secret",
 				Mutations: []MutationTrace{{
@@ -437,14 +447,32 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 					NotApplied: "skipped: " + pw,
 					ExpressionTrace: ExpressionTrace{
 						Source: "Object{}",
-						Result: "{}",
+						Result: "true",
 					},
 				}},
 				Verdict: VerdictTrace{Status: VerdictPass},
 			},
+			// the expression result "true" must stay visible
+			wantContains: []string{"Object{}  ->  true"},
 		},
 		{
-			name: "generation Error",
+			name: "mutation NotApplied empty value not panics",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Mutations: []MutationTrace{{
+					Name:       "mutations[0]",
+					NotApplied: "",
+					ExpressionTrace: ExpressionTrace{
+						Source: "Object{}",
+						Result: "false",
+					},
+				}},
+				Verdict: VerdictTrace{Status: VerdictPass},
+			},
+			wantContains: []string{"Object{}  ->  false"},
+		},
+		{
+			name: "generation Error is redacted",
 			decision: &Decision{
 				ResourceKind: "Secret",
 				Generations:  []GenerationTrace{{Name: "generate[0]", Error: "failed: " + pw}},
@@ -452,38 +480,58 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 			},
 		},
 		{
-			name: "node Error through printNodes",
+			name: "node Error through printNodes is redacted",
 			decision: &Decision{
 				ResourceKind: "Secret",
 				Verdict: VerdictTrace{
 					Status: VerdictFail,
 					ExpressionTrace: ExpressionTrace{
-						Source: "object.data.x",
-						Result: "err: " + pw,
-						Nodes:  []NodeTrace{{Expression: "object.data.x", Error: "err: " + pw}},
+						Source: "object.data.x == true",
+						Result: "false",
+						Nodes: []NodeTrace{
+							{Expression: "object.data.x == true", Value: "false"},
+							{Expression: "object.data.x", Error: "err: " + pw},
+						},
 					},
 				},
 			},
+			// boolean node value "false" and the verdict result "false" must stay visible
+			wantContains: []string{
+				"object.data.x == true  ->  false",
+				"object.data.x == true  ->  false",
+			},
 		},
 		{
-			name: "multiple Validations rows",
+			name: "multiple Validations rows are redacted",
 			decision: &Decision{
 				ResourceKind: "Secret",
 				Validations: []ValidationTrace{
-					{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: pw}},
+					{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true"}},
 					{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "object.type == 'tls'", Result: pw}},
 				},
 				Verdict: VerdictTrace{
 					Status:          VerdictFail,
-					ExpressionTrace: ExpressionTrace{Source: "object.type == 'tls'", Result: pw},
+					ExpressionTrace: ExpressionTrace{Source: "object.type == 'tls'", Result: "false"},
 				},
+			},
+			// "true" and "false" results in validation rows must be kept
+			wantContains: []string{
+				"has(object.data)  ->  true",
+				"object.type == 'tls'  ->  " + redacted,
 			},
 		},
 		{
-			name: "verdict with no Source uses rf.text for message",
+			name: "verdict with no Source message is redacted",
 			decision: &Decision{
 				ResourceKind: "Secret",
 				Verdict:      VerdictTrace{Status: VerdictFail, Message: pw},
+			},
+		},
+		{
+			name: "verdict with no Source empty message not panics",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Verdict:      VerdictTrace{Status: VerdictFail, Message: ""},
 			},
 		},
 	}
@@ -492,7 +540,11 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var sb strings.Builder
 			Render(&sb, tc.decision)
-			assert.NotContains(t, sb.String(), pw, "sensitive value must not appear in rendered output")
+			out := sb.String()
+			assert.NotContains(t, out, pw, "sensitive value must not appear in rendered output")
+			for _, want := range tc.wantContains {
+				assert.Contains(t, out, want)
+			}
 		})
 	}
 }
