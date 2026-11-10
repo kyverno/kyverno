@@ -96,8 +96,12 @@ func DecodeInput(mode Mode, body []byte) (Input, error) {
 		if err != nil {
 			return in, fmt.Errorf("failed to decode HTTP check request: %w", err)
 		}
+		// reject unknown fields: a misspelled one (say "attribute") would otherwise be dropped and the
+		// verdict given for a different request
 		var request authzhttp.CheckRequest
-		if err := json.Unmarshal(data, &request); err != nil {
+		dec := json.NewDecoder(bytes.NewReader(data))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&request); err != nil {
 			return in, fmt.Errorf("failed to decode HTTP check request: %w", err)
 		}
 		in.HTTPRequests = []*authzhttp.CheckRequest{&request}

@@ -6,6 +6,7 @@ import (
 	"net"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
@@ -22,6 +23,7 @@ type options struct {
 	modes                []string
 	address              string
 	allowRequestPolicies bool
+	httpTimeout          time.Duration
 }
 
 func Command() *cobra.Command {
@@ -39,10 +41,11 @@ func Command() *cobra.Command {
 			return opts.run(ctx, cmd)
 		},
 	}
-	cmd.Flags().StringSliceVar(&opts.policies, "policies", nil, "Path to policy files or directories to load at startup (required)")
+	cmd.Flags().StringSliceVar(&opts.policies, "policies", nil, "Path to policy files or directories to load at startup; required unless --allow-request-policies is set")
 	cmd.Flags().StringSliceVar(&opts.modes, "mode", nil, "Payload modes to serve: Kubernetes, JSON, HTTP, Envoy (repeatable or comma-separated; default all)")
 	cmd.Flags().StringVar(&opts.address, "address", DefaultAddress, "Address to listen on; defaults to loopback only")
 	cmd.Flags().BoolVar(&opts.allowRequestPolicies, "allow-request-policies", false, "Accept policies inside POST /v1alpha1/evaluate requests (evaluated instead of --policies); --policies is optional when set")
+	cmd.Flags().DurationVar(&opts.httpTimeout, "http-timeout", DefaultHTTPTimeout, "Maximum time a policy HTTP call (CEL http.Get or http.Post) may wait for a response")
 	return cmd
 }
 
@@ -54,6 +57,10 @@ func (o options) run(ctx context.Context, cmd *cobra.Command) error {
 	if len(o.policies) == 0 && !o.allowRequestPolicies {
 		return fmt.Errorf("--policies is required unless --allow-request-policies is set")
 	}
+	if o.httpTimeout <= 0 {
+		return fmt.Errorf("--http-timeout must be positive")
+	}
+	boundPolicyHTTP(o.httpTimeout)
 	server, err := newServerFromPaths(o.policies, Config{Modes: modes, AllowRequestPolicies: o.allowRequestPolicies})
 	if err != nil {
 		return err

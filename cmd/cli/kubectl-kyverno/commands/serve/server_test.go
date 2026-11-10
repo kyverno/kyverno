@@ -50,6 +50,7 @@ func newTestServer(t *testing.T, modes []evaluator.Mode, dirs ...string) *Server
 func do(t *testing.T, h http.Handler, method, path string, body []byte) (int, []byte) {
 	t.Helper()
 	req := httptest.NewRequest(method, path, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	return rec.Code, rec.Body.Bytes()

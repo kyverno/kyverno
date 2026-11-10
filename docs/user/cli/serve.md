@@ -22,6 +22,7 @@ kyverno serve --allow-request-policies                   # policies arrive with 
 | `--mode` | all | The modes to serve: `Kubernetes`, `JSON`, `HTTP`, `Envoy`. Can be repeated or comma-separated. |
 | `--address` | `127.0.0.1:8080` | Listen address. A non-loopback address prints a warning. |
 | `--allow-request-policies` | `false` | Accept policies inside `POST /v1alpha1/evaluate` requests. They are evaluated instead of `--policies`. |
+| `--http-timeout` | `30s` | How long a policy HTTP call (CEL `http.Get`/`http.Post`) may wait for a response. Requests are serialized, so an unbounded call would stall every later request. |
 
 **Startup is strict.** Policies are loaded once. The server refuses to start if:
 
@@ -52,6 +53,18 @@ allow every later request that policy should have checked.
 | `Envoy` | An Envoy ext_authz `CheckRequest` (protojson) | `--envoy-payload` |
 
 Bodies are limited to 10 MiB.
+
+Evaluation requests must set `Content-Type`:
+
+- `POST /v1alpha1/evaluate/{mode}`: `application/json`, `application/yaml`, `application/x-yaml`,
+  `text/yaml` or `text/x-yaml`.
+- `POST /v1alpha1/evaluate`: `application/json`.
+
+Any other type, or none, is a 415. `curl --data-binary` sends `application/x-www-form-urlencoded`
+unless you pass `-H`. These are not the "simple" types a web page can send without a CORS
+preflight, so a page you visit cannot make your browser send policies to a local `kyverno serve`.
+For the same reason, a server listening on a loopback address answers only requests whose `Host`
+is a loopback name or address (`localhost`, `127.0.0.1`, `[::1]`), which blocks DNS rebinding.
 
 For each Kubernetes-mode request, the resources in the body are loaded into an in-memory cluster.
 Policies that look objects up see only those resources, the same as `kyverno apply -r`.
@@ -140,10 +153,12 @@ Every non-2xx response has this body:
 
 | Code | When |
 |---|---|
-| 400 | Empty body, a body that does not parse, a JSON-mode body that is not a single object, Kubernetes resources without `apiVersion` or `kind`, an invalid `EvaluationRequest` field (unknown field, bad operation, request policies that fail to load), or no policies at all |
-| 403 | The request carries `policies` but the server was not started with `--allow-request-policies` |
-| 404 | Unknown mode, mode not enabled with `--mode`, unknown route |
+| 400 | Empty body, a body that does not parse, a JSON-mode body that is not a single object, an HTTP-mode body with unknown fields, Kubernetes resources without `apiVersion` or `kind`, or no policies at all. On `POST /v1alpha1/evaluate` also: an invalid `EvaluationRequest` (unknown field, data after the object, bad operation, request policies that fail to load), and an unknown `mode` or one not enabled with `--mode` |
+| 403 | The request carries `policies` but the server was not started with `--allow-request-policies`, or a loopback server got a non-loopback `Host` |
+| 404 | On `POST /v1alpha1/evaluate/{mode}`: an unknown mode or one not enabled with `--mode`. On any path: an unknown route |
+| 405 | A known route called with the wrong method; the `Allow` header names the right one |
 | 413 | Body over the size limit |
+| 415 | Missing or unsupported `Content-Type` on an evaluate endpoint |
 | 500 | The evaluation failed, including a recovered panic |
 
 ## Behavior notes

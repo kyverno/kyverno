@@ -43,7 +43,7 @@ check() { # name port mode payload expected-http-code jq-filter-that-must-be-tru
   local name="$1" port="$2" mode="$3" payload="$4" want_code="$5" filter="$6"
   local body code
   body="$(mktemp)"
-  code="$(curl -s -o "$body" -w '%{http_code}' -X POST --data-binary "@$payload" "http://127.0.0.1:$port/v1alpha1/evaluate/$mode")"
+  code="$(curl -s -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/yaml' --data-binary "@$payload" "http://127.0.0.1:$port/v1alpha1/evaluate/$mode")"
   if [ "$code" = "$want_code" ] && jq -e "$filter" "$body" >/dev/null; then
     echo "PASS  $name"
   else
@@ -128,9 +128,41 @@ check_request "request: DELETE does not match a CREATE/UPDATE policy" 200 '.deci
     '{mode:"Kubernetes",policies:$p,payload:$r,operation:"DELETE"}')"
 check_request "request: unknown field is a 400" 400 '.status == "Failure"' '{"mode":"Kubernetes","payload":"x","bogus":1}'
 
-# invalid policies must fail startup
-if KYVERNO_EXPERIMENTAL=true "$CLI" serve --policies "$DIR/policies/invalid" --address "127.0.0.1:$((PORT_BASE + 9))" >/dev/null 2>&1; then
-  echo "FAIL  invalid policies did not fail startup"
+# browser-style requests are refused
+expect_status() { # name expected-http-code curl-args...
+  local name="$1" want_code="$2" body code
+  shift 2
+  body="$(mktemp)"
+  code="$(curl -s -o "$body" -w '%{http_code}' "$@")"
+  if [ "$code" = "$want_code" ] && jq -e '.kind == "Status"' "$body" >/dev/null; then
+    echo "PASS  $name"
+  else
+    echo "FAIL  $name (HTTP $code, want $want_code)"
+    cat "$body"
+    FAILURES=$((FAILURES + 1))
+  fi
+  rm -f "$body"
+}
+expect_status "text/plain request is a 415" 415 -X POST -H 'Content-Type: text/plain' --data-binary "@$P/kubernetes/pod.yaml" "http://127.0.0.1:$K/v1alpha1/evaluate/Kubernetes"
+expect_status "request without content type is a 415" 415 -X POST --data-binary '{"mode":"Kubernetes","payload":"x"}' "http://127.0.0.1:$R/v1alpha1/evaluate"
+expect_status "non-loopback Host is a 403" 403 -H 'Host: rebind.example.com' "http://127.0.0.1:$K/healthz"
+expect_status "wrong method is a JSON 405" 405 "http://127.0.0.1:$K/v1alpha1/evaluate/Kubernetes"
+
+# invalid policies must fail startup; bounded so a regression that starts the server fails instead
+# of hanging the script
+KYVERNO_EXPERIMENTAL=true "$CLI" serve --policies "$DIR/policies/invalid" --address "127.0.0.1:$((PORT_BASE + 9))" >/dev/null 2>&1 &
+INVALID_PID=$!
+PIDS+=("$INVALID_PID")
+for _ in $(seq 1 100); do
+  kill -0 "$INVALID_PID" 2>/dev/null || break
+  sleep 0.1
+done
+if kill -0 "$INVALID_PID" 2>/dev/null; then
+  kill "$INVALID_PID" 2>/dev/null || true
+  echo "FAIL  invalid policies did not fail startup (server still running after 10s)"
+  FAILURES=$((FAILURES + 1))
+elif wait "$INVALID_PID"; then
+  echo "FAIL  invalid policies did not fail startup (exit 0)"
   FAILURES=$((FAILURES + 1))
 else
   echo "PASS  invalid policies fail startup"

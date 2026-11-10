@@ -9,7 +9,7 @@ the `v1alpha1` API. It is registered only when `KYVERNO_EXPERIMENTAL=true` is se
   and `serve` against `test/cli/serve/` and compares their summaries.
 - **Requests are serialized (`Server.mu`).** `Evaluate` depends on process-global state. That
   includes `data.InjectProcessor` and the CEL library context that the processors set. Each request
-  builds a new `store.Store`, `variables.Variables`, and in-memory client in `Server.Evaluate`.
+  builds a new `store.Store`, `variables.Variables`, and in-memory client in `Server.evaluateWith`.
   Never share them across requests. `TestConcurrentRequestsDoNotLeakState` must pass under `-race`.
 - **`POST /v1alpha1/evaluate` (EvaluationRequest)** maps each field to the matching `apply` flag:
   `context` is written to a temp file and passed as `ContextPath` (apply's `--context-file`), which
@@ -27,3 +27,12 @@ the `v1alpha1` API. It is registered only when `KYVERNO_EXPERIMENTAL=true` is se
 - **The response schema in `api.go` is the integration contract** for curl users and the Kyverno
   Playground. Changing a field is a `v1alpha1` API change, so update `docs/user/cli/serve.md` and
   `test/cli/serve/e2e.sh` along with it.
+- **Browser requests are blocked, not trusted.** The evaluate routes require a non-"simple"
+  `Content-Type` (`requireContentType`), and a loopback listener rejects non-loopback `Host`
+  headers (`requireLoopbackHost`), so web pages cannot reach request policies through CSRF or DNS
+  rebinding. Routes are registered without methods and wrapped in `only`, so a wrong method still
+  gets a JSON `Status`. Keep new routes behind the same wrappers.
+- **Policy HTTP calls are bounded process-wide.** The CEL HTTP library sends requests without a
+  deadline, so `boundPolicyHTTP` (run once in `options.run`, `--http-timeout`) sets
+  `http.DefaultClient.Timeout` and `http.DefaultTransport`'s `ResponseHeaderTimeout`. It must run
+  before the first evaluation, because the library clones the default transport lazily.
