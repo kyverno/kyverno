@@ -12,24 +12,29 @@ import (
 )
 
 func Test_Validate_NamespacedPolicyRejectsGlobalContext(t *testing.T) {
-	vpol := &v1beta1.ValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "gctx", Namespace: "tenant-ns"},
-		Spec: v1beta1.ValidatingPolicySpec{
-			MatchConstraints: &admissionregistrationv1.MatchResources{
-				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Rule: admissionregistrationv1.Rule{APIGroups: []string{""}, Resources: []string{"pods"}},
+	for _, expr := range []string{
+		`globalContext.get("cluster-entry", "") == null`,
+		`object.?metadata.?name.orValue(globalContext.get("cluster-entry", "")) == null`,
+	} {
+		t.Run(expr, func(t *testing.T) {
+			vpol := &v1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "gctx", Namespace: "tenant-ns"},
+				Spec: v1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{
+						ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Rule: admissionregistrationv1.Rule{APIGroups: []string{""}, Resources: []string{"pods"}},
+							},
+						}},
 					},
-				}},
-			},
-			Validations: []admissionregistrationv1.Validation{
-				{Expression: `globalContext.get("cluster-entry", "") == null`},
-			},
-		},
-	}
+					Validations: []admissionregistrationv1.Validation{{Expression: expr}},
+				},
+			}
 
-	_, err := Validate(vpol)
-	assert.ErrorContains(t, err, "globalContext.* is not allowed in namespaced policies")
+			_, err := Validate(vpol)
+			assert.ErrorContains(t, err, "globalContext.* is not allowed in namespaced policies")
+		})
+	}
 }
 
 func Test_Validate_NamespacedPolicyHTTPToggle(t *testing.T) {
