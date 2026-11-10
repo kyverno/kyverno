@@ -2476,3 +2476,73 @@ func Test_Apply_PolicyReport_DeprecatedUserInfoWarningNoColor(t *testing.T) {
 	assert.Contains(t, output, "kind: ClusterReport")
 	assert.NotContains(t, output, "\x1b[")
 }
+
+// TestApplyMutateExistingTargets checks that --target-resource objects are handed to
+// mutateExisting MutatingPolicies (they used to only seed the fake client, so the policy never ran).
+func TestApplyMutateExistingTargets(t *testing.T) {
+	base := "../../../../../test/cli/test-mutating-policy/mutate-existing/"
+	policy, err := os.ReadFile(base + "policy.yaml")
+	require.NoError(t, err)
+	dir := t.TempDir()
+	write := func(name, content string) string {
+		path := filepath.Join(dir, name)
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+		return path
+	}
+	// the policy only matches Deployments on CREATE
+	statefulSet := write("statefulset.yaml", `apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: test-sts
+  namespace: test-ns
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+`)
+	disabled := write("disabled.yaml", strings.Replace(string(policy), "enabled: true", "enabled: false", 1))
+	tests := []struct {
+		name      string
+		policy    string
+		trigger   string
+		wantPass  int
+		mutatedCM bool
+	}{
+		{"matching trigger mutates the target", base + "policy.yaml", base + "trigger.yaml", 1, true},
+		{"non-matching trigger leaves the target alone", base + "policy.yaml", statefulSet, 0, false},
+		{"mutateExisting disabled leaves the target alone", disabled, base + "trigger.yaml", 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &ApplyCommandConfig{
+				PolicyPaths:         []string{tt.policy},
+				ResourcePaths:       []string{tt.trigger},
+				TargetResourcePaths: []string{base + "target.yaml"},
+			}
+			rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantPass, rc.Pass)
+			var patched []string
+			for _, response := range responses {
+				for _, rule := range response.PolicyResponse.Rules {
+					if target, _, _ := rule.PatchedTarget(); target != nil {
+						patched = append(patched, target.GetKind()+"/"+target.GetName()+" mutated="+target.GetLabels()["mutated"])
+					}
+				}
+			}
+			if tt.mutatedCM {
+				require.Equal(t, []string{"ConfigMap/test-configmap mutated=true"}, patched)
+			} else {
+				require.Empty(t, patched)
+			}
+		})
+	}
+}

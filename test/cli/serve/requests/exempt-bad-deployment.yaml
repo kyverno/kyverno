@@ -1,0 +1,11 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: exempt-bad-deployment
+spec:
+  policyRefs:
+  - name: check-deployment-labels
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: is-bad-deployment
+    expression: "object.metadata.name == 'bad-deployment'"

@@ -66,3 +66,13 @@ func (p *PolicyProcessor) resolveOperation() string {
 	}
 	return ""
 }
+
+// AdmissionRequestShapeWithOld is AdmissionRequestShape with an explicit previous state: for UPDATE
+// and DELETE, oldResource (when non-nil) is used as the old object instead of a copy of resource.
+func AdmissionRequestShapeWithOld(operation string, resource, oldResource *unstructured.Unstructured) (admissionv1.Operation, runtime.Object, runtime.Object) {
+	op, object, oldObject := AdmissionRequestShape(operation, resource)
+	if oldResource != nil && oldObject != nil {
+		oldObject = oldResource.DeepCopy()
+	}
+	return op, object, oldObject
+}

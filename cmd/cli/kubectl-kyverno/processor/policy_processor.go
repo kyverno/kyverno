@@ -42,6 +42,7 @@ import (
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	celutils "github.com/kyverno/sdk/extensions/cel/utils"
 	"go.yaml.in/yaml/v3"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -52,6 +53,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
 	"k8s.io/client-go/openapi"
@@ -78,8 +80,11 @@ type PolicyProcessor struct {
 	GeneratingPolicies                []policiesv1beta1.GeneratingPolicyLike
 	MutatingPolicies                  []policiesv1beta1.MutatingPolicyLike
 	TargetResources                   []*unstructured.Unstructured
-	Resource                          unstructured.Unstructured
-	JsonPayload                       unstructured.Unstructured
+	// OldResource, when set, is the previous state of Resource for UPDATE and DELETE requests;
+	// otherwise Resource itself is used as the old object.
+	OldResource *unstructured.Unstructured
+	Resource    unstructured.Unstructured
+	JsonPayload unstructured.Unstructured
 	// Operation is the admission operation to simulate (CREATE, UPDATE or DELETE).
 	// When empty, the `request.operation` global value from the values file is
 	// honored, defaulting to CREATE.
@@ -305,7 +310,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			// create engine request
-			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
+			operation, object, oldObject := p.requestShape(&resource)
 			request := celengine.Request(
 				contextProvider,
 				gvk,
@@ -380,6 +385,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if err != nil {
 					return nil, fmt.Errorf("failed to discover CEL targets: %w", err)
 				}
+				// Only policies whose trigger side matches (matchConstraints, matchConditions,
+				// mutateExisting enabled) may mutate targets, as in the admission path.
+				triggered := sets.New(mutExistEng.MatchedMutateExistingPolicies(context.TODO(), request)...)
 				for _, target := range p.TargetResources {
 					targetGVK := target.GroupVersionKind()
 					targetMapping, err := restMapper.RESTMapping(targetGVK.GroupKind(), targetGVK.Version)
@@ -400,7 +408,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						false,
 						nil,
 					)
-					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, targetMatchPredicate(targetMatcher, attr, celTargets))
+					targetPredicate := targetMatchPredicate(targetMatcher, attr, celTargets, nsResolver)
+					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, func(policy policiesv1beta1.MutatingPolicyLike) bool {
+						return triggered.Has(mpolengine.PolicyKey(policy)) && targetPredicate(policy)
+					})
 					if err != nil {
 						return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
 					}
@@ -440,6 +451,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 							},
 						}
 						resp = resp.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
+						if p.Rc != nil {
+							p.Rc.addMutateResponse(resp)
+						}
 						responses = append(responses, resp)
 					}
 				}
@@ -551,7 +565,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					user = p.UserInfo.AdmissionUserInfo
 				}
 				// create engine request
-				operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
+				operation, object, oldObject := p.requestShape(&resource)
 				request := celengine.Request(
 					contextProvider,
 					gvk,
@@ -734,7 +748,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			// create engine request
-			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
+			operation, object, oldObject := p.requestShape(&resource)
 			request := celengine.Request(
 				contextProvider,
 				gvk,
@@ -1002,7 +1016,12 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 // the background controller does via API list calls before calling Evaluate.
 // celTargets maps policy names to the set of target keys (namespace/name) discovered
 // by evaluating CEL expressions.
-func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTargets map[string]map[string]bool) func(policiesv1beta1.MutatingPolicyLike) bool {
+func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTargets map[string]map[string]bool, nsResolver celengine.NamespaceResolver) func(policiesv1beta1.MutatingPolicyLike) bool {
+	// resolve the target's namespace so a namespaceSelector in the target constraints can match
+	var namespace *corev1.Namespace
+	if ns := attr.GetNamespace(); ns != "" && nsResolver != nil {
+		namespace = nsResolver(ns)
+	}
 	return func(mpol policiesv1beta1.MutatingPolicyLike) bool {
 		tc := mpol.GetTargetMatchConstraints()
 		if tc.Expression != "" {
@@ -1033,7 +1052,7 @@ func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTarg
 			rules[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
 		}
 		constraints.ResourceRules = rules
-		matches, err := m.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, nil)
+		matches, err := m.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
 		if err != nil {
 			return false
 		}
@@ -1210,6 +1229,29 @@ func GetNamespaceResolver(vars *variables.Variables, client dclient.Interface, c
 			return resolved
 		}
 	}
+	if client != nil {
+		// offline: after the values file, fall back to Namespace objects in the in-memory cluster
+		// (the resources apply/serve were given)
+		return func(name string) *corev1.Namespace {
+			if name == "" {
+				return nil
+			}
+			if localResolver != nil {
+				if ns := localResolver(name); ns != nil {
+					return ns
+				}
+			}
+			obj := lookupNamespace(client, name)
+			if obj == nil {
+				return nil
+			}
+			var ns corev1.Namespace
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &ns); err != nil {
+				return nil
+			}
+			return &ns
+		}
+	}
 	if localResolver != nil {
 		return localResolver
 	}
@@ -1333,4 +1375,28 @@ func selectTracesMutations(policies []mpolengine.MutatingPolicyResponse) []*trac
 		selected = append(selected, chosen[key])
 	}
 	return selected
+}
+
+// requestShape is AdmissionRequestShape with the explicit old object, when one is set.
+func (p *PolicyProcessor) requestShape(resource *unstructured.Unstructured) (admissionv1.Operation, runtime.Object, runtime.Object) {
+	return AdmissionRequestShapeWithOld(p.resolveOperation(), resource, p.OldResource)
+}
+
+// lookupNamespace reads a Namespace from an in-memory client's dynamic interface. It returns nil
+// when the client has none, the namespace is absent, or the fake client cannot serve the lookup.
+func lookupNamespace(client dclient.Interface, name string) (obj *unstructured.Unstructured) {
+	defer func() {
+		if recover() != nil {
+			obj = nil
+		}
+	}()
+	dyn := client.GetDynamicInterface()
+	if dyn == nil {
+		return nil
+	}
+	ns, err := dyn.Resource(corev1.SchemeGroupVersion.WithResource("namespaces")).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil
+	}
+	return ns
 }

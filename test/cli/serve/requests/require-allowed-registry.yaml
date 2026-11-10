@@ -1,0 +1,17 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-allowed-registry
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  variables:
+  - name: registry
+    expression: "resource.get('v1', 'configmaps', object.metadata.namespace, 'allowed-registry').data.registry"
+  validations:
+  - expression: "object.spec.containers.all(c, c.image.startsWith(variables.registry + '/'))"
+    messageExpression: "'images must come from ' + variables.registry"

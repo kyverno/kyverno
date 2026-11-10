@@ -1,0 +1,527 @@
+package serve
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"mime"
+	"net"
+	"net/http"
+	"os"
+	"runtime/debug"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
+	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/evaluator"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
+
+// DefaultMaxBodyBytes caps a request body.
+const DefaultMaxBodyBytes int64 = 10 << 20
+
+// evaluateFunc is the evaluation entrypoint; a variable so tests can inject failures and panics.
+type evaluateFunc func(context.Context, *evaluator.PolicySet, evaluator.Input, evaluator.Options) (*evaluator.Result, error)
+
+// Config configures a Server.
+type Config struct {
+	// Modes restricts which modes can be evaluated; empty enables all of them.
+	Modes []evaluator.Mode
+	// AllowRequestPolicies lets POST /v1alpha1/evaluate carry its own policies, which are then
+	// evaluated instead of the server's policy set.
+	AllowRequestPolicies bool
+}
+
+// Server serves the v1alpha1 evaluation API.
+//
+// Evaluations are serialized: the CLI processors behind evaluator.Evaluate rely on
+// process-global state (the CRD processor, the CEL library context), so running two at once could
+// leak one request's state into another. Throughput is deliberately limited; kyverno serve is a
+// local development and testing tool.
+type Server struct {
+	// set is the policy set loaded at startup; nil when the server only evaluates request policies.
+	set                  *evaluator.PolicySet
+	digest               string
+	version              string
+	modes                []evaluator.Mode
+	allowRequestPolicies bool
+	maxBodyBytes         int64
+	// loopbackOnly rejects requests whose Host is not loopback; ListenAndServe sets it when the
+	// server listens on a loopback address.
+	loopbackOnly bool
+	evaluate     evaluateFunc
+
+	mu sync.Mutex
+}
+
+// NewServer builds a server for set. set may be nil only when cfg.AllowRequestPolicies is true.
+func NewServer(set *evaluator.PolicySet, version string, cfg Config) (*Server, error) {
+	s := &Server{
+		version:              version,
+		modes:                cfg.Modes,
+		allowRequestPolicies: cfg.AllowRequestPolicies,
+		maxBodyBytes:         DefaultMaxBodyBytes,
+		evaluate:             evaluator.Evaluate,
+	}
+	if len(s.modes) == 0 {
+		s.modes = slices.Clone(evaluator.Modes)
+	}
+	if set == nil || set.PolicyCount() == 0 {
+		if !cfg.AllowRequestPolicies {
+			return nil, errors.New("policy set is empty")
+		}
+		return s, nil
+	}
+	digest, err := set.Digest()
+	if err != nil {
+		return nil, err
+	}
+	s.set, s.digest = set, digest
+	return s, nil
+}
+
+// Handler returns the HTTP handler for the v1alpha1 API.
+//
+// Routes are registered without a method so that a wrong method gets the JSON Status body every
+// other failure gets, instead of ServeMux's plain-text 405.
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1alpha1/evaluate", only(http.MethodPost, requireContentType(requestContentTypes, s.handleEvaluateRequest)))
+	mux.HandleFunc("/v1alpha1/evaluate/{mode}", only(http.MethodPost, requireContentType(payloadContentTypes, s.handleEvaluate)))
+	mux.HandleFunc("/v1alpha1/policies", only(http.MethodGet, s.handlePolicies))
+	mux.HandleFunc("/healthz", only(http.MethodGet, s.handleHealth))
+	mux.HandleFunc("/readyz", only(http.MethodGet, s.handleHealth))
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		writeStatus(w, http.StatusNotFound, fmt.Sprintf("no route for %s %s", r.Method, r.URL.Path))
+	})
+	if s.loopbackOnly {
+		return requireLoopbackHost(mux)
+	}
+	return mux
+}
+
+// requestContentTypes are accepted by POST /v1alpha1/evaluate; payloadContentTypes by
+// POST /v1alpha1/evaluate/{mode}. None is a CORS "simple" type (text/plain, form or multipart),
+// so a web page cannot send these requests without a preflight that kyverno serve never answers.
+var (
+	requestContentTypes = []string{"application/json"}
+	payloadContentTypes = []string{"application/json", "application/yaml", "application/x-yaml", "text/yaml", "text/x-yaml"}
+)
+
+// only rejects any method but method (GET also accepts HEAD) with a 405 Status.
+func only(method string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != method && (method != http.MethodGet || r.Method != http.MethodHead) {
+			w.Header().Set("Allow", method)
+			writeStatus(w, http.StatusMethodNotAllowed, fmt.Sprintf("method %s is not allowed on %s, use %s", r.Method, r.URL.Path, method))
+			return
+		}
+		next(w, r)
+	}
+}
+
+// requireContentType rejects a request whose Content-Type is not one of allowed with a 415 Status.
+func requireContentType(allowed []string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil || !slices.Contains(allowed, strings.ToLower(mediaType)) {
+			writeStatus(w, http.StatusUnsupportedMediaType, fmt.Sprintf("Content-Type must be one of %v", allowed))
+			return
+		}
+		next(w, r)
+	}
+}
+
+// requireLoopbackHost rejects requests whose Host is not a loopback name or address. A server
+// listening on loopback is only reachable as such, so any other Host is a DNS rebinding attempt.
+func requireLoopbackHost(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		if !isLoopback(strings.ToLower(strings.Trim(host, "[]"))) {
+			writeStatus(w, http.StatusForbidden, fmt.Sprintf("host %q is not allowed; kyverno serve on a loopback address only accepts loopback hosts", r.Host))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, Status{APIVersion: APIVersion, Kind: "Status", Status: "ok", Code: http.StatusOK})
+}
+
+func (s *Server) handlePolicies(w http.ResponseWriter, _ *http.Request) {
+	list := PolicyList{
+		APIVersion:      APIVersion,
+		Kind:            "PolicyList",
+		KyvernoVersion:  s.version,
+		PolicySetDigest: s.digest,
+		Modes:           s.modes,
+		Policies:        []evaluator.PolicyRef{},
+	}
+	if s.set != nil {
+		list.Policies = s.set.Policies()
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+// handleEvaluate serves POST /v1alpha1/evaluate/{mode}: the raw payload is the body, and the
+// server's policy set is used.
+func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
+	mode, err := evaluator.ParseMode(r.PathValue("mode"))
+	if err != nil {
+		writeStatus(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if !slices.Contains(s.modes, mode) {
+		writeStatus(w, http.StatusNotFound, fmt.Sprintf("mode %s is not enabled on this server (enabled: %v)", mode, s.modes))
+		return
+	}
+	if s.set == nil {
+		writeStatus(w, http.StatusBadRequest, "the server has no policies loaded; send them with POST /v1alpha1/evaluate")
+		return
+	}
+	body, ok := s.readBody(w, r)
+	if !ok {
+		return
+	}
+	in, err := evaluator.DecodeInput(mode, body)
+	if err != nil {
+		writeStatus(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	s.respond(w, r.Context(), mode, s.set, s.digest, in, nil, evaluator.Options{})
+}
+
+// handleEvaluateRequest serves POST /v1alpha1/evaluate: the body is an EvaluationRequest carrying
+// the payload, its context and, optionally, the policies.
+func (s *Server) handleEvaluateRequest(w http.ResponseWriter, r *http.Request) {
+	body, ok := s.readBody(w, r)
+	if !ok {
+		return
+	}
+	var req EvaluationRequest
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		writeStatus(w, http.StatusBadRequest, fmt.Sprintf("failed to decode EvaluationRequest: %v", err))
+		return
+	}
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		writeStatus(w, http.StatusBadRequest, "failed to decode EvaluationRequest: unexpected data after the request object")
+		return
+	}
+	if (req.APIVersion != "" && req.APIVersion != APIVersion) || (req.Kind != "" && req.Kind != "EvaluationRequest") {
+		writeStatus(w, http.StatusBadRequest, fmt.Sprintf("unsupported apiVersion/kind %q/%q, want %q/%q", req.APIVersion, req.Kind, APIVersion, "EvaluationRequest"))
+		return
+	}
+	mode, err := evaluator.ParseMode(string(req.Mode))
+	if err != nil {
+		writeStatus(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !slices.Contains(s.modes, mode) {
+		writeStatus(w, http.StatusBadRequest, fmt.Sprintf("mode %s is not enabled on this server (enabled: %v)", mode, s.modes))
+		return
+	}
+	in, err := evaluator.DecodeInput(mode, []byte(req.Payload))
+	if err != nil {
+		writeStatus(w, http.StatusBadRequest, "payload: "+err.Error())
+		return
+	}
+	operation, err := processor.NormalizeOperation(strings.ToUpper(strings.TrimSpace(req.Operation)))
+	if err != nil {
+		writeStatus(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	in.Operation = operation
+
+	set, digest := s.set, s.digest
+	if strings.TrimSpace(req.Policies) != "" {
+		if !s.allowRequestPolicies {
+			writeStatus(w, http.StatusForbidden, "request policies are disabled; start kyverno serve with --allow-request-policies")
+			return
+		}
+		set, err = evaluator.LoadStrictBytes([]byte(req.Policies))
+		if err != nil {
+			writeStatus(w, http.StatusBadRequest, "policies: "+err.Error())
+			return
+		}
+		if digest, err = set.Digest(); err != nil {
+			writeStatus(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else if set == nil {
+		writeStatus(w, http.StatusBadRequest, "the server has no policies loaded and the request has none")
+		return
+	}
+
+	if in.ParameterResources, err = decodeResources("parameterResources", req.ParameterResources); err != nil {
+		writeStatus(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	clusterResources, err := decodeResources("clusterResources", req.ClusterResources)
+	if err != nil {
+		writeStatus(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if strings.TrimSpace(req.OldPayload) != "" {
+		if mode != evaluator.ModeKubernetes {
+			writeStatus(w, http.StatusBadRequest, "oldPayload is only supported in Kubernetes mode")
+			return
+		}
+		if in.OldResources, err = decodeResources("oldPayload", req.OldPayload); err != nil {
+			writeStatus(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	if in.TargetResources, err = decodeResources("targetResources", req.TargetResources); err != nil {
+		writeStatus(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if strings.TrimSpace(req.Exceptions) != "" {
+		objects, err := decodeResources("exceptions", req.Exceptions)
+		if err != nil {
+			writeStatus(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		results, err := exception.SelectFrom(objects)
+		if err != nil {
+			writeStatus(w, http.StatusBadRequest, "exceptions: "+err.Error())
+			return
+		}
+		if len(results.CELExceptions) != len(objects) {
+			writeStatus(w, http.StatusBadRequest, "exceptions: every document must be a CEL PolicyException (policies.kyverno.io)")
+			return
+		}
+		in.Exceptions = results.CELExceptions
+	}
+	var crdPaths []string
+	if strings.TrimSpace(req.CustomResourceDefinitions) != "" {
+		path, cleanup, err := writeCRDs(req.CustomResourceDefinitions)
+		if err != nil {
+			writeStatus(w, http.StatusBadRequest, "customResourceDefinitions: "+err.Error())
+			return
+		}
+		defer cleanup()
+		crdPaths = []string{path}
+	}
+	contextPath := ""
+	if strings.TrimSpace(req.Context) != "" {
+		path, cleanup, err := writeContext(req.Context)
+		if err != nil {
+			writeStatus(w, http.StatusBadRequest, "context: "+err.Error())
+			return
+		}
+		defer cleanup()
+		contextPath = path
+	}
+	s.respond(w, r.Context(), mode, set, digest, in, clusterResources, evaluator.Options{ContextPath: contextPath, CrdPaths: crdPaths})
+}
+
+// writeCRDs validates CustomResourceDefinitions and writes them to a private temp file, the form
+// the evaluator reads them in (apply's --crd-paths).
+func writeCRDs(content string) (string, func(), error) {
+	objects, err := resource.GetUnstructuredResources([]byte(content))
+	if err != nil {
+		return "", nil, err
+	}
+	for _, o := range objects {
+		if o.GetKind() != "CustomResourceDefinition" {
+			return "", nil, fmt.Errorf("every document must be a CustomResourceDefinition, got %s", o.GetKind())
+		}
+	}
+	f, err := os.CreateTemp("", "kyverno-serve-crds-*.yaml")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() { _ = os.Remove(f.Name()) }
+	if _, err := f.WriteString(content); err != nil {
+		f.Close()
+		cleanup()
+		return "", nil, err
+	}
+	if err := f.Close(); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	return f.Name(), cleanup, nil
+}
+
+// writeContext validates a Context document and writes it to a private temp file, because the
+// evaluator reads the context the way apply does, from a --context-file path.
+func writeContext(content string) (string, func(), error) {
+	f, err := os.CreateTemp("", "kyverno-serve-context-*.yaml")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() { _ = os.Remove(f.Name()) }
+	if _, err := f.WriteString(content); err != nil {
+		f.Close()
+		cleanup()
+		return "", nil, err
+	}
+	if err := f.Close(); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	ctx, err := clicontext.Load(nil, f.Name())
+	if err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	if ctx.Kind != "Context" {
+		cleanup()
+		return "", nil, fmt.Errorf("kind must be Context, got %q", ctx.Kind)
+	}
+	return f.Name(), cleanup, nil
+}
+
+func decodeResources(field, content string) ([]*unstructured.Unstructured, error) {
+	if strings.TrimSpace(content) == "" {
+		return nil, nil
+	}
+	objects, err := resource.GetUnstructuredResources([]byte(content))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", field, err)
+	}
+	return evaluator.ProcessResources(objects), nil
+}
+
+func (s *Server) readBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, s.maxBodyBytes))
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeStatus(w, http.StatusRequestEntityTooLarge, fmt.Sprintf("request body exceeds %d bytes", tooLarge.Limit))
+			return nil, false
+		}
+		writeStatus(w, http.StatusBadRequest, fmt.Sprintf("failed to read request body: %v", err))
+		return nil, false
+	}
+	return body, true
+}
+
+func (s *Server) respond(w http.ResponseWriter, ctx context.Context, mode evaluator.Mode, set *evaluator.PolicySet, digest string, in evaluator.Input, clusterResources []*unstructured.Unstructured, opts evaluator.Options) {
+	resp, err := s.evaluateWith(ctx, mode, set, digest, in, clusterResources, opts)
+	if err != nil {
+		log.Log.V(2).Info("evaluation failed", "mode", mode, "error", err)
+		writeStatus(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// Evaluate runs one decoded request against the server's policy set.
+func (s *Server) Evaluate(ctx context.Context, mode evaluator.Mode, in evaluator.Input) (*EvaluationResponse, error) {
+	if s.set == nil {
+		return nil, errors.New("the server has no policies loaded")
+	}
+	return s.evaluateWith(ctx, mode, s.set, s.digest, in, nil, evaluator.Options{})
+}
+
+// evaluateWith builds fresh per-request state (store, variables, in-memory cluster seeded with the
+// payload, cluster and parameter resources) and holds the server lock for the evaluation.
+func (s *Server) evaluateWith(ctx context.Context, mode evaluator.Mode, set *evaluator.PolicySet, digest string, in evaluator.Input, clusterResources []*unstructured.Unstructured, opts evaluator.Options) (resp *EvaluationResponse, err error) {
+	// recover anything below (building the in-memory cluster included), so a request that trips a
+	// panic gets a 500 Status instead of a dropped connection
+	defer func() {
+		if p := recover(); p != nil {
+			log.Log.Error(fmt.Errorf("%v", p), "evaluation panicked", "stack", string(debug.Stack()))
+			resp, err = nil, fmt.Errorf("evaluation panicked: %v", p)
+		}
+	}()
+	st := &store.Store{}
+	st.SetLocal(true)
+	if len(in.Resources)+len(clusterResources)+len(in.TargetResources)+len(in.ParameterResources) > 0 {
+		client, err := evaluator.NewFakeClient(in.Resources, append(slices.Clone(clusterResources), in.TargetResources...), in.ParameterResources)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create local resource client: %w", err)
+		}
+		in.Client = client
+		st.AllowApiCall(true)
+	}
+	vars, err := variables.New(io.Discard, nil, "", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	in.Store = st
+	in.Variables = vars
+	in.Exceptions = append(slices.Clone(set.PolicyCelExceptions), in.Exceptions...)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// CRDs loaded for one request are kept in the process-global CRD processor; clear them before
+	// and after every evaluation so they cannot leak into another request.
+	resetCRDs()
+	defer resetCRDs()
+	opts.Out = io.Discard
+	result, err := s.evaluate(ctx, set, in, opts)
+	if err != nil {
+		return nil, err
+	}
+	return newEvaluationResponse(mode, s.version, digest, result.Responses), nil
+}
+
+// ListenAndServe serves on address until ctx is cancelled, then shuts down gracefully.
+// ready, if non-nil, receives the bound address once the listener is accepting connections.
+func (s *Server) ListenAndServe(ctx context.Context, address string, ready func(string)) error {
+	if host, _, err := net.SplitHostPort(address); err == nil && isLoopback(host) {
+		s.loopbackOnly = true
+	}
+	srv := &http.Server{
+		Handler:           s.Handler(),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       time.Minute,
+		WriteTimeout:      5 * time.Minute,
+	}
+	ln, err := listen(ctx, address)
+	if err != nil {
+		return err
+	}
+	if ready != nil {
+		ready(ln.Addr().String())
+	}
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Serve(ln) }()
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return srv.Shutdown(shutdownCtx)
+	}
+}
+
+func resetCRDs() {
+	if p := data.GetProcessor(); p != nil {
+		p.UpdateResourceGroups(nil)
+	}
+}
+
+func writeStatus(w http.ResponseWriter, code int, message string) {
+	writeJSON(w, code, Status{APIVersion: APIVersion, Kind: "Status", Status: "Failure", Code: code, Message: message})
+}
+
+func writeJSON(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(v)
+}

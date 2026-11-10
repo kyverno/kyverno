@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -17,7 +15,6 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -26,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/evaluator"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
@@ -38,40 +36,20 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
-	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/cel/matching"
-	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
-	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
-	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
-	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
-	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
-	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
-	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
-	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
-	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"github.com/spf13/cobra"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	authenticationv1 "k8s.io/api/authentication/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/metadata"
 )
 
@@ -306,35 +284,14 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	}
 	var store store.Store
 
-	celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, envoyPols, httpPols, err := c.loadPolicies(ctx, out)
+	policySet, err := c.loadPolicies(ctx, out)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	if err := c.failOnDeprecationWarnings(); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-	genericPolicies := make([]engineapi.GenericPolicy, 0, len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps))
-	for _, pol := range vaps {
-		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
-	}
-	for _, pol := range maps {
-		genericPolicies = append(genericPolicies, engineapi.NewMutatingAdmissionPolicy(&pol))
-	}
-	for _, pol := range vps {
-		genericPolicies = append(genericPolicies, engineapi.NewValidatingPolicyFromLike(pol))
-	}
-	for _, pol := range ivps {
-		genericPolicies = append(genericPolicies, engineapi.NewImageValidatingPolicyFromLike(pol))
-	}
-	for _, pol := range gps {
-		genericPolicies = append(genericPolicies, engineapi.NewGeneratingPolicyFromLike(pol))
-	}
-	for i := range dps {
-		genericPolicies = append(genericPolicies, engineapi.NewDeletingPolicyFromLike(dps[i]))
-	}
-	for i := range mps {
-		genericPolicies = append(genericPolicies, engineapi.NewMutatingPolicyFromLike(mps[i]))
-	}
+	genericPolicies := policySet.GenericPolicies()
 	var targetResources []*unstructured.Unstructured
 	if len(c.TargetResourcePaths) > 0 {
 		targetResources, _, err = c.loadResources(out, c.TargetResourcePaths, genericPolicies, nil)
@@ -411,20 +368,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	}
 
 	if c.exceptionsWithinPolicies {
-		celExceptions = append(celExceptions, celpolexs...)
+		celExceptions = append(celExceptions, policySet.PolicyCelExceptions...)
 	}
 
 	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
-		var policyRulesCount int
-		policyRulesCount += len(vaps)
-		policyRulesCount += len(vps)
-		policyRulesCount += len(ivps)
-		policyRulesCount += len(maps)
-		policyRulesCount += len(gps)
-		policyRulesCount += len(dps)
-		policyRulesCount += len(mps)
-		policyRulesCount += len(envoyPols)
-		policyRulesCount += len(httpPols)
+		policyRulesCount := policySet.PolicyCount()
 		exceptionsCount := len(celExceptions)
 		resourceCount := len(resources) + len(jsonPayloads)
 		if exceptionsCount > 0 {
@@ -459,66 +407,35 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 
-	nsResolver := processor.GetNamespaceResolver(variables, dClient, c.Cluster)
-	rc, resources1, responses1, err := c.applyPolicies(
-		out,
-		&store,
-		variables,
-		vaps,
-		vapBindings,
-		vps,
-		gps,
-		mps,
-		maps,
-		mapBindings,
-		resources,
-		parameterResources,
-		jsonPayloads,
-		celExceptions,
-		&skippedInvalidPolicies,
-		dClient,
-		userInfo,
-		mutateLogPathIsDir,
-		nsResolver,
-	)
-	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses1, err
-	}
-	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, nsResolver, userInfo, rc, dClient, variables.GlobalOperation())
-	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses4, err
-	}
-
-	responses5, err := c.applyDeletingPolicies(out, dps, resources1, celExceptions, nsResolver, rc, dClient, "resource")
-	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses4, err
-	}
-
-	responses6, err := c.applyDeletingPolicies(out, dps, jsonPayloads, celExceptions, nsResolver, rc, dClient, "json")
-	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses4, err
-	}
-
-	authzProcessor := processor.NewAuthzProcessor(rc, dClient, httpPols, envoyPols)
-
-	httpResponses, err := authzProcessor.ApplyHTTPPolicies(httpRequests)
-	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses4, err
-	}
-
-	envoyResponses, err := authzProcessor.ApplyEnvoyPolicies(envoyRequests)
-	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses4, err
-	}
-
-	responses := make([]engineapi.EngineResponse, 0, len(responses1)+len(responses4)+len(responses5)+len(responses6)+len(httpResponses)+len(envoyResponses))
-	responses = append(responses, responses1...)
-	responses = append(responses, responses4...)
-	responses = append(responses, responses5...)
-	responses = append(responses, responses6...)
-	responses = append(responses, httpResponses...)
-	responses = append(responses, envoyResponses...)
-	return rc, resources1, skippedInvalidPolicies, responses, nil
+	result, err := evaluator.Evaluate(ctx, policySet, evaluator.Input{
+		Resources:          resources,
+		JSONPayloads:       jsonPayloads,
+		HTTPRequests:       httpRequests,
+		EnvoyRequests:      envoyRequests,
+		TargetResources:    targetResources,
+		ParameterResources: parameterResources,
+		Exceptions:         celExceptions,
+		Client:             dClient,
+		Store:              &store,
+		Variables:          variables,
+		UserInfo:           userInfo,
+		NamespaceResolver:  processor.GetNamespaceResolver(variables, dClient, c.Cluster),
+	}, evaluator.Options{
+		Out:                out,
+		Cluster:            c.Cluster,
+		ContinueOnFail:     c.ContinueOnFail,
+		Explain:            c.Explain,
+		RegistryAccess:     c.RegistryAccess,
+		PolicyReport:       c.PolicyReport,
+		Stdin:              c.Stdin,
+		AuditWarn:          c.AuditWarn,
+		PrintPatchResource: true,
+		ContextPath:        c.ContextPath,
+		CrdPaths:           c.CrdPaths,
+		MutateLogPath:      c.MutateLogPath,
+		MutateLogPathIsDir: mutateLogPathIsDir,
+	})
+	return result.Counts, result.Resources, skippedInvalidPolicies, result.Responses, err
 }
 
 func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
@@ -538,536 +455,6 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
 		return false, fmt.Errorf("failed to create file/folder (%w)", err)
 	}
 	return mutateLogPathIsDir, nil
-}
-
-func (c *ApplyCommandConfig) applyPolicies(
-	out io.Writer,
-	store *store.Store,
-	vars *variables.Variables,
-	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
-	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	vpols []policiesv1beta1.ValidatingPolicyLike,
-	gpols []policiesv1beta1.GeneratingPolicyLike,
-	mpols []policiesv1beta1.MutatingPolicyLike,
-	maps []admissionregistrationv1beta1.MutatingAdmissionPolicy,
-	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
-	resources []*unstructured.Unstructured,
-	parameterResources []*unstructured.Unstructured,
-	jsonPayloads []*unstructured.Unstructured,
-	celExceptions []*policiesv1beta1.PolicyException,
-	skipInvalidPolicies *SkippedInvalidPolicies,
-	dClient dclient.Interface,
-	userInfo *kyvernov2.RequestInfo,
-	mutateLogPathIsDir bool,
-	nsResolver celengine.NamespaceResolver,
-) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
-	if vars != nil {
-		vars.SetInStore(store)
-	}
-	var rc processor.ResultCounts
-	var responses []engineapi.EngineResponse
-
-	params := make([]runtime.Object, len(parameterResources))
-	for i, p := range parameterResources {
-		params[i] = p
-	}
-
-	crdPreloaded := false
-	crdPreloadFailed := false
-	if len(c.CrdPaths) > 0 {
-		crdPreloaded = true
-		for _, crdPath := range c.CrdPaths {
-			if strings.TrimSpace(crdPath) == "" {
-				continue
-			}
-			if err := common.LoadCrdsFromPath(crdPath); err != nil {
-				if !c.ContinueOnFail {
-					return &rc, resources, responses, err
-				}
-				log.Log.V(2).Info(fmt.Sprintf("failed to load CRDs from %s: %v", crdPath, err))
-				rc.IncrementError(1)
-				crdPreloaded = false
-				crdPreloadFailed = true
-				break
-			}
-		}
-	}
-
-	var restMapper meta.RESTMapper
-	var contextProvider libs.Context
-	var vpolProvider vpolengine.Provider
-	var vpolProviderErr error
-	var vpolJSONProvider vpolengine.Provider
-	var vpolJSONProviderErr error
-	var mpolProvider mpolengine.Provider
-	var mpolProviderErr error
-
-	if !crdPreloadFailed && (len(resources) > 0 || len(jsonPayloads) > 0) && (len(vpols) != 0 || len(gpols) != 0 || len(mpols) != 0) {
-		var err error
-		restMapper, err = utils.GetRESTMapper(dClient)
-		if err != nil {
-			if !c.ContinueOnFail {
-				return &rc, resources, responses, err
-			}
-			rc.IncrementError(1)
-		} else {
-			contextProvider, err = processor.NewContextProvider(dClient, restMapper, nil, c.ContextPath, true, !c.Cluster, nil, store.GetHTTPMockIndex())
-			if err != nil {
-				if !c.ContinueOnFail {
-					return &rc, resources, responses, err
-				}
-				rc.IncrementError(1)
-				contextProvider = nil
-			} else {
-				if len(vpols) != 0 {
-					compiler := vpolcompiler.NewCompilerWithTrace(c.Explain)
-					var jsonPolicies []policiesv1beta1.ValidatingPolicyLike
-					var k8sPolicies []policiesv1beta1.ValidatingPolicyLike
-					for i := range vpols {
-						pol := vpols[i]
-						if pol.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
-							jsonPolicies = append(jsonPolicies, pol)
-						} else {
-							k8sPolicies = append(k8sPolicies, pol)
-						}
-					}
-					if len(k8sPolicies) > 0 && len(resources) > 0 {
-						vpolProvider, err = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
-						if err != nil {
-							if !c.ContinueOnFail {
-								return &rc, resources, responses, err
-							}
-							vpolProvider = nil
-							vpolProviderErr = err
-						}
-					}
-					if len(jsonPolicies) > 0 {
-						vpolJSONProvider, err = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
-						if err != nil {
-							if !c.ContinueOnFail {
-								return &rc, resources, responses, err
-							}
-							vpolJSONProvider = nil
-							vpolJSONProviderErr = err
-						}
-					}
-				}
-
-				if len(mpols) != 0 {
-					compiler := mpolcompiler.NewCompilerWithTrace(c.Explain)
-					toCompile := slices.DeleteFunc(slices.Clone(mpols), func(policy policiesv1beta1.MutatingPolicyLike) bool {
-						if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
-							return len(jsonPayloads) == 0
-						}
-						return len(resources) == 0
-					})
-					mpolProvider, err = mpolengine.NewProvider(compiler, toCompile, celExceptions, contextProvider)
-					if err != nil {
-						if !c.ContinueOnFail {
-							return &rc, resources, responses, err
-						}
-						mpolProvider = nil
-						mpolProviderErr = err
-					}
-				}
-			}
-		}
-	}
-
-	if nsResolver == nil {
-		nsResolver = processor.GetNamespaceResolver(vars, dClient, c.Cluster)
-	}
-
-	for _, resource := range resources {
-		processor := processor.PolicyProcessor{
-			NamespaceResolver:                 nsResolver,
-			Store:                             store,
-			ValidatingAdmissionPolicies:       vaps,
-			ValidatingAdmissionPolicyBindings: vapBindings,
-			ValidatingPolicies:                vpols,
-			GeneratingPolicies:                gpols,
-			MutatingPolicies:                  mpols,
-			MutatingAdmissionPolicies:         maps,
-			MutatingAdmissionPolicyBindings:   mapBindings,
-			Resource:                          *resource,
-			CELExceptions:                     celExceptions,
-			MutateLogPath:                     c.MutateLogPath,
-			MutateLogPathIsDir:                mutateLogPathIsDir,
-			ParameterResources:                params,
-			Variables:                         vars,
-			ContextPath:                       c.ContextPath,
-			UserInfo:                          userInfo,
-			PolicyReport:                      c.PolicyReport,
-			NamespaceSelectorMap:              vars.NamespaceSelectors(),
-			Stdin:                             c.Stdin,
-			Rc:                                &rc,
-			PrintPatchResource:                true,
-			Cluster:                           c.Cluster,
-			Client:                            dClient,
-			AuditWarn:                         c.AuditWarn,
-			Explain:                           c.Explain,
-			Subresources:                      vars.Subresources(),
-			Out:                               out,
-			CrdPaths:                          c.CrdPaths,
-			CrdPreloaded:                      crdPreloaded,
-			RESTMapper:                        restMapper,
-			ContextProvider:                   contextProvider,
-			VpolProvider:                      vpolProvider,
-			VpolProviderErr:                   vpolProviderErr,
-			VpolJSONProvider:                  vpolJSONProvider,
-			VpolJSONProviderErr:               vpolJSONProviderErr,
-			MpolProvider:                      mpolProvider,
-			MpolProviderErr:                   mpolProviderErr,
-		}
-		ers, err := processor.ApplyPoliciesOnResource()
-		if err != nil {
-			if c.ContinueOnFail {
-				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
-				continue
-			}
-			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
-		}
-		responses = append(responses, ers...)
-	}
-	for _, resource := range jsonPayloads {
-		processor := processor.PolicyProcessor{
-			NamespaceResolver:                 nsResolver,
-			Store:                             store,
-			ValidatingAdmissionPolicies:       vaps,
-			ValidatingAdmissionPolicyBindings: vapBindings,
-			ValidatingPolicies:                vpols,
-			MutatingPolicies:                  mpols,
-			MutatingAdmissionPolicies:         maps,
-			MutatingAdmissionPolicyBindings:   mapBindings,
-			JsonPayload:                       *resource,
-			CELExceptions:                     celExceptions,
-			MutateLogPath:                     c.MutateLogPath,
-			MutateLogPathIsDir:                mutateLogPathIsDir,
-			Variables:                         vars,
-			ContextPath:                       c.ContextPath,
-			UserInfo:                          userInfo,
-			PolicyReport:                      c.PolicyReport,
-			NamespaceSelectorMap:              vars.NamespaceSelectors(),
-			Stdin:                             c.Stdin,
-			Rc:                                &rc,
-			PrintPatchResource:                true,
-			Cluster:                           c.Cluster,
-			Client:                            dClient,
-			AuditWarn:                         c.AuditWarn,
-			Explain:                           c.Explain,
-			Subresources:                      vars.Subresources(),
-			Out:                               out,
-			CrdPaths:                          c.CrdPaths,
-			CrdPreloaded:                      crdPreloaded,
-			RESTMapper:                        restMapper,
-			ContextProvider:                   contextProvider,
-			VpolProvider:                      vpolProvider,
-			VpolProviderErr:                   vpolProviderErr,
-			VpolJSONProvider:                  vpolJSONProvider,
-			VpolJSONProviderErr:               vpolJSONProviderErr,
-			MpolProvider:                      mpolProvider,
-			MpolProviderErr:                   mpolProviderErr,
-		}
-		ers, err := processor.ApplyPoliciesOnResource()
-		if err != nil {
-			if c.ContinueOnFail {
-				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
-				continue
-			}
-			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
-		}
-		responses = append(responses, ers...)
-		*resource = processor.JsonPayload
-	}
-	return &rc, resources, responses, nil
-}
-
-func (c *ApplyCommandConfig) applyImageValidatingPolicies(
-	out io.Writer,
-	ivps []policiesv1beta1.ImageValidatingPolicyLike,
-	jsonPayloads []*unstructured.Unstructured,
-	resources []*unstructured.Unstructured,
-	celExceptions []*policiesv1beta1.PolicyException,
-	namespaceProvider func(string) *corev1.Namespace,
-	userInfo *kyvernov2.RequestInfo,
-	rc *processor.ResultCounts,
-	dclient dclient.Interface,
-	operation string,
-) ([]engineapi.EngineResponse, error) {
-	if len(ivps) == 0 {
-		return nil, nil
-	}
-
-	var lister corev1listers.SecretLister
-	if dclient != nil {
-		kubeClient := dclient.GetKubeClient()
-		informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
-
-		stopCh := make(chan struct{})
-		// This informer will automatically die at the end of this function and thats ok,
-		// we don't care about it past applying image validating policies anyways
-		defer close(stopCh)
-		secretsInformer := informerFactory.Core().V1().Secrets()
-		informerFactory.Start(stopCh)
-		informerFactory.WaitForCacheSync(stopCh)
-
-		lister = secretsInformer.Lister()
-	}
-
-	restMapper, err := utils.GetRESTMapper(dclient)
-	if err != nil {
-		return nil, err
-	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster, nil, nil)
-	if err != nil {
-		if !c.ContinueOnFail {
-			return nil, err
-		}
-		log.Log.V(2).Info(fmt.Sprintf("failed to initialize context for image validating policies: %v", err))
-		if rc != nil {
-			rc.IncrementError(1)
-		}
-		return nil, nil
-	}
-
-	// Compilation captures the CLI library defaults, so initialize them first.
-	provider, err := ivpolengine.NewProvider(eval.NewCompilerWithTrace(lister, c.Explain), ivps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
-
-	engine := ivpolengine.NewEngine(
-		provider,
-		namespaceProvider,
-		matching.NewMatcher(),
-		lister,
-		nil,
-		config.NewDefaultConfiguration(false),
-	)
-
-	responses := make([]engineapi.EngineResponse, 0)
-	for _, resource := range resources {
-		gvk := resource.GroupVersionKind()
-		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		if err != nil {
-			log.Log.Error(err, "failed to map gvk to gvr", "gkv", gvk)
-			if c.ContinueOnFail {
-				continue
-			}
-			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
-		}
-		gvr := mapping.Resource
-		var user authenticationv1.UserInfo
-		if userInfo != nil {
-			user = userInfo.AdmissionUserInfo
-		}
-		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
-		request := celengine.Request(
-			contextProvider,
-			resource.GroupVersionKind(),
-			gvr,
-			"",
-			resource.GetName(),
-			resource.GetNamespace(),
-			op,
-			user,
-			object,
-			oldObject,
-			false,
-			nil,
-		)
-		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
-		if err != nil {
-			if c.ContinueOnFail {
-				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
-				continue
-			}
-			return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
-		}
-		resp := engineapi.EngineResponse{
-			Resource:       *resource,
-			PolicyResponse: engineapi.PolicyResponse{},
-		}
-
-		for _, r := range engineResponse.Policies {
-			c.printTrace(out, r.Trace)
-			if r.Result.Name() == "" {
-				// a traced policy that did not apply, or that a match condition skipped: it is only
-				// returned for its trace and has no result, like the untraced run, which omits it
-				continue
-			}
-			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
-			rc.AddValidatingPolicyResponse(resp)
-			responses = append(responses, resp)
-		}
-	}
-
-	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
-	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
-
-	for i := range ivps {
-		p := ivps[i]
-		pMap[p.GetName()] = p
-		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
-	}
-
-	for _, json := range jsonPayloads {
-		result, err := eval.EvaluateWithTrace(context.TODO(), ivpols, json.Object, nil, nil, lister, c.Explain)
-		// before the error is handled, so a policy that errored still shows how far it got
-		for _, name := range slices.Sorted(maps.Keys(result)) {
-			if rslt := result[name]; rslt != nil {
-				c.printTrace(out, rslt.Trace)
-			}
-		}
-		if err != nil {
-			if c.ContinueOnFail {
-				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
-				continue
-			}
-			return responses, fmt.Errorf("failed to apply image validating policies on JSON payload: %w", err)
-		}
-		resp := engineapi.EngineResponse{
-			Resource:       *json,
-			PolicyResponse: engineapi.PolicyResponse{},
-		}
-		for p, rslt := range result {
-			if rslt == nil || rslt.Skipped {
-				// a match condition excluded the payload, so there is nothing to report
-				continue
-			}
-			if rslt.Error != nil {
-				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy for JSON", rslt.Error, nil),
-				}
-			} else if rslt.Result {
-				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RulePass(p, engineapi.ImageVerify, "success", nil),
-				}
-			} else {
-				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, rslt.AuditAnnotations),
-				}
-			}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
-			rc.AddValidatingPolicyResponse(resp)
-			responses = append(responses, resp)
-		}
-	}
-	return responses, nil
-}
-
-// printTrace prints one decision trace. It prints nothing unless --explain is set and the policy
-// was traced, so it is safe to call for every response.
-func (c *ApplyCommandConfig) printTrace(out io.Writer, d *trace.Decision) {
-	if !c.Explain || d == nil {
-		return
-	}
-	trace.Render(out, d)
-	fmt.Fprintln(out)
-}
-
-func (c *ApplyCommandConfig) applyDeletingPolicies(
-	out io.Writer,
-	dps []policiesv1beta1.DeletingPolicyLike,
-	resources []*unstructured.Unstructured,
-	celExceptions []*policiesv1beta1.PolicyException,
-	namespaceProvider func(string) *corev1.Namespace,
-	rc *processor.ResultCounts,
-	dclient dclient.Interface,
-	payloadType string,
-) ([]engineapi.EngineResponse, error) {
-	if len(dps) == 0 || len(resources) == 0 {
-		return nil, nil
-	}
-
-	restMapper, err := utils.GetRESTMapper(dclient)
-	if err != nil {
-		return nil, err
-	}
-
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster, nil, nil)
-	if err != nil {
-		if !c.ContinueOnFail {
-			return nil, err
-		}
-		log.Log.V(2).Info(fmt.Sprintf("failed to initialize context for deleting policies: %v", err))
-		if rc != nil {
-			rc.IncrementError(1)
-		}
-		return nil, nil
-	}
-
-	// Compilation captures the CLI library defaults, so initialize them first.
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
-
-	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewMatcher())
-
-	policies, err := provider.Fetch(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	responses := make([]engineapi.EngineResponse, 0)
-	for _, resource := range resources {
-		for _, dpol := range policies {
-			genericPolicy := engineapi.NewDeletingPolicyFromLike(dpol.Policy)
-			if genericPolicy == nil {
-				return nil, fmt.Errorf("unsupported deleting policy type %T", dpol.Policy)
-			}
-			policyName := dpol.Policy.GetName()
-			resp, err := engine.Handle(context.TODO(), dpol, *resource)
-			// before the error and not-matched branches below, so their traces are printed too;
-			// Trace is only ever set when the policy was compiled with --explain
-			if resp.Trace != nil {
-				trace.Render(out, resp.Trace)
-				fmt.Fprintln(out)
-			}
-			if err != nil {
-				response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)
-				response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
-					*engineapi.NewRuleResponse(policyName, engineapi.Deletion, err.Error(), engineapi.RuleStatusError, nil),
-				}})
-
-				responses = append(responses, response)
-				rc.AddValidatingPolicyResponse(response)
-
-				if c.ContinueOnFail {
-					fmt.Printf("failed to apply deleting policies on %s: %v\n", payloadType, err)
-					continue
-				}
-				return responses, fmt.Errorf("failed to apply deleting policies on %s: %w", payloadType, err)
-			}
-
-			status := engineapi.RuleStatusPass
-			message := fmt.Sprintf("%s matched", payloadType)
-			if !resp.Match {
-				if !resp.PolicyMatched {
-					// The resource is not selected by the policy's matchConstraints
-					// (resourceRules, objectSelector, namespaceSelector). Align with
-					// the other CEL policy types (vpol/mpol), which emit no result
-					// row for constraint-excluded resources.
-					continue
-				}
-				status = engineapi.RuleStatusFail
-				message = fmt.Sprintf("%s did not match", payloadType)
-			}
-
-			response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)
-			response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
-				*engineapi.NewRuleResponse(policyName, engineapi.Deletion, message, status, nil),
-			}})
-
-			responses = append(responses, response)
-
-			rc.AddValidatingPolicyResponse(response)
-		}
-	}
-
-	return responses, nil
 }
 
 func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []engineapi.GenericPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
@@ -1101,39 +488,13 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	return resources, jsonPayloads, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
-	[]*policiesv1beta1.PolicyException,
-	[]admissionregistrationv1.ValidatingAdmissionPolicy,
-	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
-	[]admissionregistrationv1beta1.MutatingAdmissionPolicy,
-	[]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
-	[]policiesv1beta1.ValidatingPolicyLike,
-	[]policiesv1beta1.ImageValidatingPolicyLike,
-	[]policiesv1beta1.GeneratingPolicyLike,
-	[]policiesv1beta1.DeletingPolicyLike,
-	[]policiesv1beta1.MutatingPolicyLike,
-	[]*policiesv1beta1.ValidatingPolicy, // Envoy policies
-	[]*policiesv1beta1.ValidatingPolicy, // HTTP policies
-	error,
-) {
-	// load policies
-	var celExceptions []*policiesv1beta1.PolicyException
-	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
-	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-	var vps []policiesv1beta1.ValidatingPolicyLike
-	var maps []admissionregistrationv1beta1.MutatingAdmissionPolicy
-	var mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
-	var ivps []policiesv1beta1.ImageValidatingPolicyLike
-	var gps []policiesv1beta1.GeneratingPolicyLike
-	var dps []policiesv1beta1.DeletingPolicyLike
-	var mps []policiesv1beta1.MutatingPolicyLike
-	var envoyPols []*policiesv1beta1.ValidatingPolicy
-	var httpPols []*policiesv1beta1.ValidatingPolicy
+func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (*evaluator.PolicySet, error) {
+	set := &evaluator.PolicySet{}
 	for _, path := range c.PolicyPaths {
 		if source.IsOCI(path) {
 			tmpDir, cleanup, err := pull.ToTempDir(ctx, source.StripOCIPrefix(path), pull.NewKeychain())
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to pull OCI bundle (%w)", err)
+				return nil, fmt.Errorf("failed to pull OCI bundle (%w)", err)
 			}
 			defer cleanup()
 			path = tmpDir
@@ -1142,12 +503,12 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				return nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
+				return nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -1160,11 +521,11 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 			}
 			if _, err := c.cloneRepo(repoURL, fs, c.GitBranch, *auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
+				return nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
@@ -1175,23 +536,12 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 				}
 				if err != nil {
 					if pkgdeprecations.IsLegacyPolicyBlockError(err) {
-						return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
+						return nil, err
 					}
 					continue
 				}
 				c.recordPolicyWarnings(out, loaderResults.Warnings)
-				vaps = append(vaps, loaderResults.VAPs...)
-				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
-				vps = append(vps, loaderResults.ValidatingPolicies...)
-				maps = append(maps, loaderResults.MAPs...)
-				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
-				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
-				celExceptions = append(celExceptions, loaderResults.PolicyCelExceptions...)
-				gps = append(gps, loaderResults.GeneratingPolicies...)
-				dps = append(dps, loaderResults.DeletingPolicies...)
-				mps = append(mps, loaderResults.MutatingPolicies...)
-				envoyPols = append(envoyPols, loaderResults.EnvoyPolicies...)
-				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
+				set.Add(loaderResults)
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
@@ -1201,28 +551,17 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 				}
 			}
 			if err != nil && pkgdeprecations.IsLegacyPolicyBlockError(err) {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
+				return nil, err
 			}
 			if err != nil {
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
 			} else {
 				c.recordPolicyWarnings(out, loaderResults.Warnings)
-				vaps = append(vaps, loaderResults.VAPs...)
-				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
-				vps = append(vps, loaderResults.ValidatingPolicies...)
-				maps = append(maps, loaderResults.MAPs...)
-				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
-				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
-				celExceptions = append(celExceptions, loaderResults.PolicyCelExceptions...)
-				gps = append(gps, loaderResults.GeneratingPolicies...)
-				dps = append(dps, loaderResults.DeletingPolicies...)
-				mps = append(mps, loaderResults.MutatingPolicies...)
-				envoyPols = append(envoyPols, loaderResults.EnvoyPolicies...)
-				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
+				set.Add(loaderResults)
 			}
 		}
 	}
-	return celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, envoyPols, httpPols, nil
+	return set, nil
 }
 
 func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []policy.LoaderWarning) {
@@ -1399,51 +738,7 @@ func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.U
 }
 
 func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
-	allResources := make([]*unstructured.Unstructured, 0, len(resources)+len(targetResources)+len(parameterResources))
-	allResources = append(allResources, resources...)
-	allResources = append(allResources, targetResources...)
-	allResources = append(allResources, parameterResources...)
-
-	flatResources, err := flattenResources(allResources)
-	if err != nil {
-		return nil, err
-	}
-	allResources = flatResources
-
-	gvrToListKind := make(map[schema.GroupVersionResource]string)
-	// gvrToGVK holds the authoritative GVR→GVK mapping derived directly from
-	// each resource's TypeMeta. This avoids relying on inferKindFromResourceName,
-	// which mishandles multi-word kinds such as ClusterRole ("clusterroles" → "Clusterrol").
-	gvrToGVK := make(map[schema.GroupVersionResource]schema.GroupVersionKind)
-	var discoveryGVRs []schema.GroupVersionResource
-	seen := make(map[schema.GroupVersionResource]bool)
-
-	objects := make([]runtime.Object, 0, len(allResources))
-	for _, r := range allResources {
-		objects = append(objects, r.DeepCopy())
-		gvk := r.GroupVersionKind()
-		if gvk.Kind == "" || gvk.Version == "" {
-			return nil, fmt.Errorf("resource %s/%s is missing TypeMeta (apiVersion=%q kind=%q)", r.GetNamespace(), r.GetName(), r.GetAPIVersion(), gvk.Kind)
-		}
-		gvr, _ := meta.UnsafeGuessKindToResource(gvk)
-		if !seen[gvr] {
-			seen[gvr] = true
-			gvrToListKind[gvr] = gvk.Kind + "List"
-			gvrToGVK[gvr] = gvk
-			discoveryGVRs = append(discoveryGVRs, gvr)
-		}
-	}
-
-	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), gvrToListKind, objects...)
-	if err != nil {
-		return nil, err
-	}
-	disco := dclient.NewFakeDiscoveryClient(discoveryGVRs)
-	for gvr, gvk := range gvrToGVK {
-		disco.AddGVRToGVKMapping(gvr, gvk)
-	}
-	fakeClient.SetDiscovery(disco)
-	return fakeClient, nil
+	return evaluator.NewFakeClient(resources, targetResources, parameterResources)
 }
 
 func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPassed bool) error {
