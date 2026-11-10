@@ -191,16 +191,21 @@ func Command() *cobra.Command {
 						if rule.Status() == engineapi.RuleStatusFail {
 							failedRules = append(failedRules, rule)
 						}
-						if rule.RuleType() == engineapi.Mutation {
-							if rule.Status() == engineapi.RuleStatusSkip {
-								fmt.Fprintln(out, "\n"+color.BoldYellow("skipped mutate policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath)
-							} else if rule.Status() == engineapi.RuleStatusError {
-								fmt.Fprintln(out, "\n"+color.BoldRed("error while applying mutate policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath, "\n"+color.BoldRed("error:")+" ", rule.Message())
-							}
+						if rule.RuleType() == engineapi.Mutation && rule.Status() == engineapi.RuleStatusSkip {
+							fmt.Fprintln(out, "\n"+color.BoldYellow("skipped mutate policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath)
 						}
-						if rule.RuleType() == engineapi.Generation {
-							if rule.Status() == engineapi.RuleStatusError {
+						if rule.Status() == engineapi.RuleStatusError {
+							// Mutation/Generation get their own wording; every other rule type (Validation,
+							// ImageVerify, Deletion, ...) falls back to a generic message so an error is
+							// always printed here instead of only showing up in the pass/fail/error tally
+							// with no explanation anywhere in the default text output.
+							switch rule.RuleType() {
+							case engineapi.Mutation:
+								fmt.Fprintln(out, "\n"+color.BoldRed("error while applying mutate policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath, "\n"+color.BoldRed("error:")+" ", rule.Message())
+							case engineapi.Generation:
 								fmt.Fprintln(out, "\n"+color.BoldRed("error while applying generate policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath, "\n"+color.BoldRed("error:"), rule.Message())
+							default:
+								fmt.Fprintln(out, "\n"+color.BoldRed("error while applying policy"), color.Policy("", response.Policy().GetName()), "->", "resource", resPath, "\n"+color.BoldRed("error:"), rule.Message())
 							}
 						}
 					}
