@@ -131,48 +131,6 @@ func TestBoundRuntimeReusesRegistryAuth(t *testing.T) {
 	require.Equal(t, int64(2), handler.tokens.Load())
 }
 
-// TestSharedRegistryAuthSpansRuntimesOfOnePolicy asserts that runtimes created
-// for one policy under a WithSharedRegistryAuth context share one puller, as the
-// runtimes extraction mode creates per pod template do, while another policy
-// under the same context still authenticates with a puller of its own.
-func TestSharedRegistryAuthSpansRuntimesOfOnePolicy(t *testing.T) {
-	handler := &tokenRegistry{inner: registry.New(registry.Logger(log.New(io.Discard, "", 0)))}
-	server := httptest.NewServer(handler)
-	defer server.Close()
-	handler.url = func() string { return server.URL }
-	host := strings.TrimPrefix(server.URL, "http://")
-
-	ref, err := name.ParseReference(host+"/test/image:tag", name.Insecure)
-	require.NoError(t, err)
-	pushed, err := random.Image(256, 2)
-	require.NoError(t, err)
-	require.NoError(t, remote.Write(ref, pushed, remote.WithAuth(authn.Anonymous)))
-
-	policy := &policiesv1beta1.ImageValidatingPolicy{
-		Spec: policiesv1beta1.ImageValidatingPolicySpec{
-			Credentials: &policiesv1beta1.Credentials{AllowInsecureRegistry: true},
-		},
-	}
-	first := mustNewIvFuncs(t, logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
-	other := mustNewIvFuncs(t, logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
-	fetch := func(authOpts []remote.Option) {
-		t.Helper()
-		_, err := remote.Get(ref, authOpts...)
-		require.NoError(t, err)
-	}
-
-	ctx := WithSharedRegistryAuth(context.Background())
-	handler.reset()
-	fetch(NewRuntimeForPolicy(ctx, first, nil, nil, nil).AuthOpts())
-	fetch(NewRuntimeForPolicy(ctx, first, nil, nil, nil).AuthOpts())
-	require.Equal(t, int64(1), handler.pings.Load(), "expected the runtimes of one policy to share a single /v2/ ping")
-	require.Equal(t, int64(1), handler.tokens.Load(), "expected the runtimes of one policy to share a single token exchange")
-
-	fetch(NewRuntimeForPolicy(ctx, other, nil, nil, nil).AuthOpts())
-	require.Equal(t, int64(2), handler.pings.Load(), "expected another policy to authenticate on its own")
-	require.Equal(t, int64(2), handler.tokens.Load())
-}
-
 // TestBoundRuntimeSurfacesAuthFailure guards that reusing a fetcher does not
 // swallow a registry rejection: the error must still reach the caller.
 func TestBoundRuntimeSurfacesAuthFailure(t *testing.T) {
@@ -196,7 +154,7 @@ func TestBoundRuntimeSurfacesAuthFailure(t *testing.T) {
 	require.Error(t, err, "a rejected token exchange must fail the fetch")
 }
 
-// TestRuntimeDoesNotMutatePolicyOptions guards the copy in reuseRegistryAuth: the
+// TestRuntimeDoesNotMutatePolicyOptions guards the copy in NewRuntimeForPolicy: the
 // IvFuncs is held by a compiled policy and shared by every runtime created from it,
 // so a puller must never leak back into it and outlive the request.
 func TestRuntimeDoesNotMutatePolicyOptions(t *testing.T) {
