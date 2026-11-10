@@ -55,7 +55,7 @@ func TestGeneratingPolicyCloneSourceNamespaces(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			provider := &cloneSourceContext{Context: libs.NewFakeContextProvider()}
-			env, _, err := (&compilerImpl{}).createBaseGpolEnv(provider, tt.namespace)
+			env, _, err := (&compilerImpl{}).createBaseGpolEnv(provider, tt.namespace, false)
 			require.NoError(t, err)
 			ast, issues := env.Compile(tt.expression)
 			if tt.compileError {

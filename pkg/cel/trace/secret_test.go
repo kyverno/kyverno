@@ -38,7 +38,7 @@ func secretEnv(t *testing.T, namespace string) *cel.Env {
 		ext.Encoders(),
 		cel.Variable("object", cel.DynType),
 		cel.Variable("variables", cel.MapType(cel.StringType, cel.DynType)),
-		resource.Lib(resource.Context{ContextInterface: cluster}, namespace, resource.Latest()),
+		resource.Lib(resource.Context{ContextInterface: cluster}, namespace, resource.Latest(), false),
 	)
 	require.NoError(t, err)
 	return env

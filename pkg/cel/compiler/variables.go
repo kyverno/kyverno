@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
@@ -21,6 +22,13 @@ func NewVariablesProvider(inner types.Provider) *VariablesProvider {
 		inner:  inner,
 		fields: make(map[string]*types.Type),
 	}
+}
+
+// create an env whose type provider is `vp` after `vp` is extended to be aware
+// of all the types registered in that env through changing its inner
+func NewWithVariablesProvider(base *cel.Env, vp *VariablesProvider) (*cel.Env, error) {
+	vp.inner = base.CELTypeProvider()
+	return base.Extend(cel.CustomTypeProvider(vp))
 }
 
 func (p *VariablesProvider) RegisterField(name string, t *types.Type) {

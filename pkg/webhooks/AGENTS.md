@@ -58,9 +58,9 @@ the block themselves; they only run once the gate has already let a request thro
 
 `pkg/webhooks/exception` (legacy `kyverno.io` `PolicyException`) and `pkg/webhooks/celexception` (CEL
 `policies.kyverno.io` `PolicyException`) are wired to two different webhook service paths because they're different
-CRDs. Only the CEL handler compiles `matchConditions` as CEL expressions — and it grandfathers already-stored
-expressions under a looser validation environment than brand-new ones (see
-[pkg/cel/AGENTS.md](../cel/AGENTS.md)'s PolicyException section for the mechanism).
+CRDs. Only the CEL handler compiles `matchConditions` as CEL expressions, all of them against the read-only
+`NewExceptionEnv` with no special treatment for already-stored ones (see
+[pkg/cel/AGENTS.md](../cel/AGENTS.md)'s PolicyException section).
 
 ## Recent bug pattern: namespace-scoping/routing for CEL policy variants
 

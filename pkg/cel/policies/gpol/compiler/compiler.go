@@ -55,7 +55,7 @@ func NewCompilerWithTrace(trace bool) Compiler {
 
 type compilerImpl struct{ trace bool }
 
-func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
+func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string, readOnly bool) (*cel.Env, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.EnvOptionsForVersion(
 		gpolCompilerVersion,
 		compiler.VersionedEnvOptions{
@@ -107,6 +107,7 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 					resource.Context{ContextInterface: libsctx},
 					namespace,
 					resource.Latest(),
+					readOnly,
 				),
 				image.Lib(
 					image.Latest(),
@@ -148,6 +149,7 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 				http.Lib(
 					http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
 					http.Latest(),
+					readOnly,
 				),
 			},
 		},
@@ -165,7 +167,22 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	env, variablesProvider, err := c.createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
+	// create a read/write env for evaluating generations
+	env, variablesProvider, err := c.createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace(), false)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
+	}
+
+	// create a read-only env for evaluating variables and match conditions. expressions
+	// in either of those policy fields shouldn't be allowed to mutate external state
+	roBase, _, err := c.createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace(), true)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
+	}
+
+	// we don't wanna have to compile variables twice (through the variables provider of
+	// each env). create another read-only with the variables provider of the read/write env
+	roEnv, err := compiler.NewWithVariablesProvider(roBase, variablesProvider)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -180,16 +197,22 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, roEnv, c.trace, spec.MatchConditions...)
 		if errs != nil {
+			if ro := compiler.ReadOnlyMatchConditionErrors(path, spec.MatchConditions...); len(ro) > 0 {
+				return nil, append(allErrs, ro...)
+			}
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
 		tracedMatchConditions = traced
 	}
 
-	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), roEnv, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
+		if ro := compiler.ReadOnlyVariableErrors(path.Child("variables"), spec.Variables...); len(ro) > 0 {
+			return nil, append(allErrs, ro...)
+		}
 		return nil, append(allErrs, errs...)
 	}
 	generations := make([]Generation, 0, len(spec.Generation))
@@ -224,7 +247,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
 	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
+		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), roEnv, polex.Spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}

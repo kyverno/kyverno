@@ -364,7 +364,11 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 		if errs := ex.Validate(); len(errs) > 0 {
 			return fmt.Errorf("validating policy exception %q: %v", ex.GetName(), errs.ToAggregate())
 		}
-		if errs := celcompiler.CompilePolicyExceptionMatchConditions(ex.Spec.MatchConditions, nil); len(errs) > 0 {
+		env, err := vpolcompiler.NewExceptionEnv(ex.GetNamespace(), true)
+		if err != nil {
+			return fmt.Errorf("building CEL environment for policy exception %q: %w", ex.GetName(), err)
+		}
+		if errs := celcompiler.CompilePolicyExceptionMatchConditions(env, ex.Spec.MatchConditions); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in policy exception %q: %v", ex.GetName(), errs.ToAggregate())
 		}
 		if !strict {
@@ -406,7 +410,7 @@ func compileCompensatingControlExpressions(polex *policiesv1beta1.PolicyExceptio
 	if len(polex.Spec.Validations) == 0 {
 		return nil
 	}
-	env, err := vpolcompiler.NewExceptionEnv(polex.GetNamespace())
+	env, err := vpolcompiler.NewExceptionEnv(polex.GetNamespace(), false)
 	if err != nil {
 		// failing to build our own environment is not the author's fault; the engine surfaces
 		// it on the policy itself if it ever happens
