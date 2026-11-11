@@ -11,21 +11,21 @@ results:
   kind: Pod
   policy: restrict-apparmor-profiles
   resources:
-  - annotation-unconfined
   - annotation-bogus
-  - pod-profile-unconfined
+  - annotation-unconfined
   - container-profile-unconfined
-  - init-profile-unconfined
   - ephemeral-profile-unconfined
+  - init-profile-unconfined
+  - pod-profile-unconfined
   result: fail
 - isValidatingPolicy: true
   kind: Pod
   policy: restrict-apparmor-profiles
   resources:
+  - annotation-empty
   - annotation-localhost
   - annotation-runtime-default
-  - annotation-empty
   - annotation-unrelated
-  - profile-localhost
   - no-apparmor
+  - profile-localhost
   result: pass

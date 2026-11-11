@@ -9,6 +9,7 @@ import (
 	"regexp"
 
 	"github.com/go-git/go-billy/v5"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
@@ -116,16 +117,16 @@ func testCommandExecute(
 	filter, filterErrs := filter.ParseFilter(testCase)
 	if len(filterErrs) > 0 {
 		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Filter errors:")
+		fmt.Fprintln(out, color.BoldRed("Filter errors:"))
 		for _, e := range filterErrs {
-			fmt.Fprintln(out, "  Error:", e)
+			fmt.Fprintln(out, "  "+color.BoldRed("Error:"), e)
 		}
 	}
 	// load tests
 	tests, err := loadTests(dirPath, fileName, gitBranch)
 	if err != nil {
 		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Error loading tests:", err)
+		fmt.Fprintln(out, color.BoldRed("Error loading tests:"), err)
 		return err
 	}
 	if len(tests) == 0 {
@@ -134,10 +135,10 @@ func testCommandExecute(
 	}
 	if errs := tests.Errors(); len(errs) > 0 {
 		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Test errors:")
+		fmt.Fprintln(out, color.BoldRed("Test errors:"))
 		for _, e := range errs {
 			fmt.Fprintln(out, "  Path:", e.Path)
-			fmt.Fprintln(out, "    Error:", e.Err)
+			fmt.Fprintln(out, "    "+color.BoldRed("Error:"), e.Err)
 		}
 		return fmt.Errorf("found %d errors after loading tests", len(errs))
 	}
@@ -195,10 +196,22 @@ func testCommandExecute(
 			}
 		}
 	}
-	if !failOnly {
-		fmt.Fprintf(out, "\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
+	var passCount string
+	if rc.Pass+rc.Skip > 0 {
+		passCount = color.BoldGreen(rc.Pass + rc.Skip)
 	} else {
-		fmt.Fprintf(out, "\nTest Summary: %d out of %d tests failed\n", rc.Fail, rc.Pass+rc.Skip+rc.Fail)
+		passCount = fmt.Sprintf("%d", rc.Pass+rc.Skip)
+	}
+	var failCount string
+	if rc.Fail > 0 {
+		failCount = color.BoldRed(rc.Fail)
+	} else {
+		failCount = color.BoldGreen(rc.Fail)
+	}
+	if !failOnly {
+		fmt.Fprintf(out, "\nTest Summary: %s tests passed and %s tests failed\n", passCount, failCount)
+	} else {
+		fmt.Fprintf(out, "\nTest Summary: %s out of %d tests failed\n", failCount, rc.Pass+rc.Skip+rc.Fail)
 	}
 	fmt.Fprintln(out)
 	if rc.Fail > 0 {
@@ -226,7 +239,11 @@ func checkResult(
 	expected := test.Result
 	expectedPatchResources := test.PatchedResources
 	if expectedPatchResources != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources")
+		jsonMode := false
+		if policy := response.Policy().AsMutatingPolicyLike(); policy != nil {
+			jsonMode = policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+		}
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources", jsonMode)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -241,7 +258,7 @@ func checkResult(
 		}
 	}
 	if test.GeneratedResource != "" && len(test.GeneratedResources) == 0 {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource")
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource", false)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -259,7 +276,7 @@ func checkResult(
 		var lastDiff string
 		var lastErr error
 		for _, expectedRes := range test.GeneratedResources {
-			equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedRes), "GeneratedResources")
+			equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedRes), "GeneratedResources", false)
 			if err != nil {
 				lastErr = err
 				continue

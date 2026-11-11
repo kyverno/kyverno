@@ -268,12 +268,7 @@ crds:
 
     # -- Resources to migrate
     resources:
-      - cleanuppolicies.kyverno.io
-      - clustercleanuppolicies.kyverno.io
-      - clusterpolicies.kyverno.io
       - globalcontextentries.kyverno.io
-      - policies.kyverno.io
-      - policyexceptions.kyverno.io
       - updaterequests.kyverno.io
       # policies.kyverno.io
       - deletingpolicies.policies.kyverno.io

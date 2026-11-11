@@ -114,7 +114,54 @@ func (d *raceDelegate) WithLegacy() discovery.DiscoveryInterface {
 	panic("not used by the aggregated refresh path")
 }
 
-var _ discovery.AggregatedDiscoveryInterface = &raceDelegate{}
+// client-go 0.37's memory.NewMemCacheClient wraps a delegate that lacks the
+// context-aware methods, which hides GroupsAndMaybeResources; implement them
+// so the cache keeps taking the aggregated refresh path.
+func (d *raceDelegate) GroupsAndMaybeResourcesWithContext(context.Context) (*metav1.APIGroupList, map[schema.GroupVersion]*metav1.APIResourceList, map[schema.GroupVersion]error, error) {
+	return d.GroupsAndMaybeResources()
+}
+
+func (d *raceDelegate) ServerGroupsWithContext(context.Context) (*metav1.APIGroupList, error) {
+	return d.ServerGroups()
+}
+
+func (d *raceDelegate) ServerResourcesForGroupVersionWithContext(_ context.Context, gv string) (*metav1.APIResourceList, error) {
+	return d.ServerResourcesForGroupVersion(gv)
+}
+
+func (d *raceDelegate) ServerGroupsAndResourcesWithContext(context.Context) ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+	return d.ServerGroupsAndResources()
+}
+
+func (d *raceDelegate) ServerPreferredResourcesWithContext(context.Context) ([]*metav1.APIResourceList, error) {
+	return d.ServerPreferredResources()
+}
+
+func (d *raceDelegate) ServerPreferredNamespacedResourcesWithContext(context.Context) ([]*metav1.APIResourceList, error) {
+	return d.ServerPreferredNamespacedResources()
+}
+
+func (d *raceDelegate) ServerVersionWithContext(context.Context) (*version.Info, error) {
+	return d.ServerVersion()
+}
+
+func (d *raceDelegate) OpenAPISchemaWithContext(context.Context) (*openapi_v2.Document, error) {
+	return d.OpenAPISchema()
+}
+
+func (d *raceDelegate) OpenAPIV3WithContext(context.Context) openapi.ClientWithContext {
+	panic("not used by the aggregated refresh path")
+}
+
+func (d *raceDelegate) WithLegacyWithContext(context.Context) discovery.DiscoveryInterfaceWithContext {
+	panic("not used by the aggregated refresh path")
+}
+
+var (
+	_ discovery.AggregatedDiscoveryInterface            = &raceDelegate{}
+	_ discovery.AggregatedDiscoveryInterfaceWithContext = &raceDelegate{}
+	_ discovery.DiscoveryInterfaceWithContext           = &raceDelegate{}
+)
 
 // raceEngine stands in for the CEL engine's GenerateResources step: it
 // resolves the target GVR and calls client.CreateResource, same as production.

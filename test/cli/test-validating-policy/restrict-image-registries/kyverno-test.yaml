@@ -13,16 +13,16 @@ results:
   policy: advanced-restrict-image-registries
   resources:
   - badpod01
+  - badpod04
   - imageregistries-ns01/badpod02
   - imageregistries-ns01/badpod03
-  - badpod04
   result: fail
 - isValidatingPolicy: true
   kind: Pod
   policy: advanced-restrict-image-registries
   resources:
+  - goodpod03
   - imageregistries-ns01/goodpod01
   - imageregistries-ns01/goodpod02
-  - goodpod03
   result: pass
 variables: value.yaml

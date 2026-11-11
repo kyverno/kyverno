@@ -11,11 +11,11 @@ results:
   kind: Pod
   policy: disallow-privilege-escalation
   resources:
-  - linux-unset
-  - linux-true
-  - linux-init-unset
   - linux-ephemeral-unset
   - linux-explicit-os-unset
+  - linux-init-unset
+  - linux-true
+  - linux-unset
   result: fail
 - isValidatingPolicy: true
   kind: Pod
