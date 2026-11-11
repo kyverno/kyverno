@@ -183,7 +183,11 @@ func (e *engineImpl) generate(
 		return response
 	}
 	if result == nil || result.Skipped {
-		// policy did not match; with tracing on a skip still carries the match-condition trace
+		// matchConditions excluded the resource (or evaluation returned no result at all) - record
+		// a skip the same way vpol/mpol's engines already do for this exact case, so it counts as
+		// a skip instead of leaving response.Result nil, which --explain's own trace already calls
+		// "VERDICT SKIP" but nothing downstream (kyverno test, kyverno apply's tally) ever counted.
+		response.Result = engineapi.RuleSkip(policy.Policy.GetName(), engineapi.Generation, "skip", nil).WithSkipReason(engineapi.SkipReasonMatchConditions)
 		if result != nil {
 			withTrace(result.Trace)
 		}

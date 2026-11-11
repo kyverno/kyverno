@@ -78,6 +78,7 @@ func TestHandle_Tracing(t *testing.T) {
 	}, {
 		name:        "match condition skips",
 		policy:      newPolicy("namespaces", admissionregistrationv1.MatchCondition{Name: "never", Expression: "false"}),
+		wantRule:    engineapi.RuleStatusSkip,
 		wantApplied: true,
 		wantStatus:  trace.VerdictSkip,
 		wantMessage: `match condition "never" did not pass`,
