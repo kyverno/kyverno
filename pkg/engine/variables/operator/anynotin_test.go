@@ -206,6 +206,60 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			},
 			want: true,
 		},
+		// A request-supplied key of "*" is matched literally, so it is
+		// absent from a concrete policy allow-list and AnyNotIn reports
+		// true, in both scalar- and list-key form.
+		{
+			name: "scalar request key wildcard is matched literally against the policy allow-list",
+			args: args{
+				key:   "*",
+				value: []interface{}{"apple", "banana"},
+			},
+			want: true,
+		},
+		{
+			name: "list request key wildcard is matched literally against the policy allow-list",
+			args: args{
+				key:   []interface{}{"*"},
+				value: []interface{}{"apple", "banana"},
+			},
+			want: true,
+		},
+		{
+			name: "mixed list request key, concrete element still witnesses AnyNotIn",
+			args: args{
+				key:   []interface{}{"*", "grape"},
+				value: []interface{}{"apple", "banana"},
+			},
+			want: true,
+		},
+		// Invariant: an admin value-side wildcard still matches a
+		// concrete request key, in both forms, so AnyNotIn is false.
+		{
+			name: "scalar key: admin value wildcard still matches concrete key",
+			args: args{
+				key:   "prod-web",
+				value: []interface{}{"prod-*"},
+			},
+			want: false,
+		},
+		{
+			name: "list key: admin value wildcard still matches concrete key",
+			args: args{
+				key:   []interface{}{"prod-web"},
+				value: []interface{}{"prod-*"},
+			},
+			want: false,
+		},
+		// Invariant: an admin universal catch-all still matches any key.
+		{
+			name: "scalar key: admin universal catch-all still matches any concrete key",
+			args: args{
+				key:   "anything",
+				value: []interface{}{"*"},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

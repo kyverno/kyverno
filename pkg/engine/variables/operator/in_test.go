@@ -150,6 +150,30 @@ func TestInHandler_Evaluate(t *testing.T) {
 			value:    []interface{}{"apple", "banana", "cherry"},
 			expected: false,
 		},
+		// A request-supplied key of "*" is matched literally and must never
+		// act as a pattern against a concrete policy allow-list.
+		{
+			name:     "request key wildcard is matched literally against the policy allow-list",
+			key:      "*",
+			value:    []interface{}{"apple", "banana"},
+			expected: false,
+		},
+		// Invariant: an admin value-side wildcard still matches a
+		// concrete request key.
+		{
+			name:     "admin value wildcard still matches concrete key",
+			key:      "prod-web",
+			value:    []interface{}{"prod-*"},
+			expected: true,
+		},
+		// Invariant: an admin universal catch-all still matches any key,
+		// including an opaque one.
+		{
+			name:     "admin universal catch-all still matches any concrete key",
+			key:      "anything",
+			value:    []interface{}{"*"},
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -292,11 +316,11 @@ func TestKeyExistsInArray(t *testing.T) {
 			expectKeyExist: true,
 		},
 		{
-			name:           "key is wildcard matches value",
+			name:           "request key wildcard is matched literally against concrete value",
 			key:            "hello-*",
 			value:          []interface{}{"hello-world", "goodbye"},
 			expectInvalid:  false,
-			expectKeyExist: true,
+			expectKeyExist: false,
 		},
 		{
 			name:           "key matches string value",
