@@ -976,19 +976,30 @@ func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, namespa
 			constraints = tc.MatchResources
 		}
 		// Override operations to wildcard — operations are irrelevant for target matching
-		// (the background controller doesn't check operations either)
-		rules := make([]admissionregistrationv1.NamedRuleWithOperations, len(constraints.ResourceRules))
-		for i, r := range constraints.ResourceRules {
-			rules[i] = r
-			rules[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
-		}
-		constraints.ResourceRules = rules
+		// (the background controller doesn't check operations either). The supplied target carries no
+		// admission operation, so exclusions are made operation-independent too; otherwise an exclusion
+		// limited to e.g. CREATE would never match and the excluded target would still be mutated.
+		constraints.ResourceRules = withAllOperations(constraints.ResourceRules)
+		constraints.ExcludeResourceRules = withAllOperations(constraints.ExcludeResourceRules)
 		matches, err := m.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
 		if err != nil {
 			return false
 		}
 		return matches
 	}
+}
+
+// withAllOperations returns a copy of rules matching every operation, leaving the policy's own rules untouched.
+func withAllOperations(rules []admissionregistrationv1.NamedRuleWithOperations) []admissionregistrationv1.NamedRuleWithOperations {
+	if len(rules) == 0 {
+		return rules
+	}
+	out := make([]admissionregistrationv1.NamedRuleWithOperations, len(rules))
+	for i, r := range rules {
+		out[i] = r
+		out[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
+	}
+	return out
 }
 
 // discoverCELTargets evaluates the CEL targetMatchConstraints expressions of the triggered mutateExisting

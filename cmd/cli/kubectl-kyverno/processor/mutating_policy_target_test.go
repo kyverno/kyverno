@@ -14,6 +14,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/yaml"
@@ -806,4 +807,45 @@ func TestApplyPoliciesOnResource_TargetNamespaceSelectorUsesNamespaceLabels(t *t
 	}
 	assert.Equal(t, []string{"test-ns/test-deploy"}, mutated, "only the target in a namespace labelled env=prod must be mutated")
 	assert.Equal(t, 1, rc.Pass)
+}
+
+// TestApplyPoliciesOnResource_TargetExcludeResourceRulesIgnoreOperations checks that an exclusion limited to
+// one operation still keeps a supplied target out of the mutation, as the target has no admission operation.
+func TestApplyPoliciesOnResource_TargetExcludeResourceRulesIgnoreOperations(t *testing.T) {
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	included := readUnstructured(t, filepath.Join(targetFixture, "target.yaml"))
+	excluded := included.DeepCopy()
+	excluded.SetName("excluded-deploy")
+	targetPolicy, err := os.ReadFile(filepath.Join(targetFixture, "policy.yaml"))
+	require.NoError(t, err)
+	withExclude := strings.Replace(string(targetPolicy), "  targetMatchConstraints:\n", "  targetMatchConstraints:\n    excludeResourceRules:\n    - apiGroups: [\"apps\"]\n      apiVersions: [\"v1\"]\n      operations: [\"CREATE\"]\n      resources: [\"deployments\"]\n      resourceNames: [\"excluded-deploy\"]\n", 1)
+	require.NotEqual(t, string(targetPolicy), withExclude)
+	loaded := loadMutatingPolicies(t, withExclude)
+	require.Len(t, loaded.MutatingPolicies, 1)
+
+	rc := &ResultCounts{}
+	processor := PolicyProcessor{
+		Store:              &store.Store{},
+		MutatingPolicies:   loaded.MutatingPolicies,
+		Resource:           *secret.DeepCopy(),
+		TargetResources:    []*unstructured.Unstructured{included.DeepCopy(), excluded},
+		Rc:                 rc,
+		PrintPatchResource: true,
+		Out:                &bytes.Buffer{},
+	}
+	responses, err := processor.ApplyPoliciesOnResource()
+	require.NoError(t, err)
+
+	var mutated []string
+	for _, response := range responses {
+		for _, rule := range response.PolicyResponse.Rules {
+			if patched, _, _ := rule.PatchedTarget(); patched != nil {
+				mutated = append(mutated, patched.GetName())
+			}
+		}
+	}
+	assert.Equal(t, []string{included.GetName()}, mutated, "the excluded target must not be mutated")
+	assert.Equal(t, 1, rc.Pass)
+	// the policy's own rules must not be rewritten by the matching
+	assert.Equal(t, []admissionregistrationv1.OperationType{admissionregistrationv1.Create}, loaded.MutatingPolicies[0].GetTargetMatchConstraints().ExcludeResourceRules[0].Operations)
 }
