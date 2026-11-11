@@ -25,6 +25,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -687,96 +688,135 @@ func TestProcessUR_SkippedByExceptionEmitsEvent(t *testing.T) {
 // event, since this isn't a PolicyException - the trigger just doesn't match anymore. Before
 // pkg/cel/policies/gpol/engine started reporting this case as a real RuleStatusSkip, it fell
 // through generate_controller.go's res.Result == nil branch and this worked by construction;
-// this test pins the same behavior now that Result is no longer nil for this specific reason.
+// this table pins the same behavior now that Result is no longer nil for this specific reason,
+// plus the two guards around it: a non-synchronized rule context must never delete anything,
+// and a delete failure (not just success) must still leave the cache entry alone and the UR
+// marked Success rather than Failed, matching deleteCachedDownstream's own retry-later contract.
 func TestProcessUR_MatchConditionsSkipDeletesDownstreamWithoutException(t *testing.T) {
 	policyName := "test-gpol"
-	prevReportingCfg := reportutils.ReportingCfg
-	reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
-	t.Cleanup(func() { reportutils.ReportingCfg = prevReportingCfg })
 
-	trigger := makeUnstructured("", "", "v1", "ConfigMap", "trigger-cm", "tenant-a", "trigger-uid", nil)
-	downstream := makeUnstructured("", "", "v1", "ConfigMap", "test-cm", "tenant-a", "downstream-uid", map[string]string{
-		common.GeneratePolicyLabel:     policyName,
-		common.GenerateTriggerUIDLabel: string(trigger.GetUID()),
-	})
-	configMapGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	tests := []struct {
+		name          string
+		synchronize   bool
+		deleteErr     error
+		wantDeleted   int
+		wantCacheKept bool
+	}{{
+		name:          "synchronized, delete succeeds",
+		synchronize:   true,
+		wantDeleted:   1,
+		wantCacheKept: false,
+	}, {
+		name:          "synchronize disabled, no delete attempted",
+		synchronize:   false,
+		wantDeleted:   0,
+		wantCacheKept: true,
+	}, {
+		name:          "synchronized, delete fails with a non-NotFound error",
+		synchronize:   true,
+		deleteErr:     apierrors.NewForbidden(schema.GroupResource{Resource: "configmaps"}, "test-cm", assert.AnError),
+		wantDeleted:   1,
+		wantCacheKept: true,
+	}}
 
-	client := &triggerClient{
-		MockClient: &MockClient{},
-		trigger:    trigger,
-	}
-	wm := &WatchManager{
-		client: client,
-		restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
-			return &meta.RESTMapping{Resource: configMapGVR}, nil
-		}},
-		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
-			configMapGVR: {
-				watcher: watch.NewFake(),
-				metadataCache: map[types.UID]Resource{
-					downstream.GetUID(): {
-						Name:      downstream.GetName(),
-						Namespace: downstream.GetNamespace(),
-						Labels:    downstream.GetLabels(),
-						Data:      downstream.DeepCopy(),
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prevReportingCfg := reportutils.ReportingCfg
+			reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+			t.Cleanup(func() { reportutils.ReportingCfg = prevReportingCfg })
+
+			trigger := makeUnstructured("", "", "v1", "ConfigMap", "trigger-cm", "tenant-a", "trigger-uid", nil)
+			downstream := makeUnstructured("", "", "v1", "ConfigMap", "test-cm", "tenant-a", "downstream-uid", map[string]string{
+				common.GeneratePolicyLabel:     policyName,
+				common.GenerateTriggerUIDLabel: string(trigger.GetUID()),
+			})
+			configMapGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+
+			client := &triggerClient{
+				MockClient: &MockClient{err: tt.deleteErr},
+				trigger:    trigger,
+			}
+			wm := &WatchManager{
+				client: client,
+				restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+					return &meta.RESTMapping{Resource: configMapGVR}, nil
+				}},
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					configMapGVR: {
+						watcher: watch.NewFake(),
+						metadataCache: map[types.UID]Resource{
+							downstream.GetUID(): {
+								Name:      downstream.GetName(),
+								Namespace: downstream.GetNamespace(),
+								Labels:    downstream.GetLabels(),
+								Data:      downstream.DeepCopy(),
+							},
+						},
 					},
 				},
-			},
-		},
-		policyRefs: map[string][]schema.GroupVersionResource{
-			policyName: {configMapGVR},
-		},
-		refCount: map[schema.GroupVersionResource]int{
-			configMapGVR: 1,
-		},
-		log: logging.WithName("test-watch-manager"),
-	}
-
-	statusControl := &recordingStatusControl{}
-	eventGen := &recordingEventGen{}
-	controller := &CELGenerateController{
-		client:        client,
-		restMapper:    wm.restMapper,
-		context:       libs.NewFakeContextProvider(),
-		engine:        &matchConditionsSkippedEngine{},
-		provider:      &testProvider{policy: gpolengine.Policy{Policy: &policiesv1beta1.GeneratingPolicy{ObjectMeta: metav1.ObjectMeta{Name: policyName}}}},
-		watchManager:  wm,
-		statusControl: statusControl,
-		eventGen:      eventGen,
-		log:           logging.WithName("test-gpol-controller"),
-	}
-
-	ur := &kyvernov2.UpdateRequest{
-		ObjectMeta: metav1.ObjectMeta{Name: "ur-matchconditions-skip"},
-		Spec: kyvernov2.UpdateRequestSpec{
-			Type:   kyvernov2.CELGenerate,
-			Policy: policyName,
-			RuleContext: []kyvernov2.RuleContext{{
-				Rule:        "rule",
-				Synchronize: true,
-				Trigger: kyverno.ResourceSpec{
-					APIVersion: trigger.GetAPIVersion(),
-					Kind:       trigger.GetKind(),
-					Namespace:  trigger.GetNamespace(),
-					Name:       trigger.GetName(),
-					UID:        trigger.GetUID(),
+				policyRefs: map[string][]schema.GroupVersionResource{
+					policyName: {configMapGVR},
 				},
-			}},
-		},
+				refCount: map[schema.GroupVersionResource]int{
+					configMapGVR: 1,
+				},
+				log: logging.WithName("test-watch-manager"),
+			}
+
+			statusControl := &recordingStatusControl{}
+			eventGen := &recordingEventGen{}
+			controller := &CELGenerateController{
+				client:        client,
+				restMapper:    wm.restMapper,
+				context:       libs.NewFakeContextProvider(),
+				engine:        &matchConditionsSkippedEngine{},
+				provider:      &testProvider{policy: gpolengine.Policy{Policy: &policiesv1beta1.GeneratingPolicy{ObjectMeta: metav1.ObjectMeta{Name: policyName}}}},
+				watchManager:  wm,
+				statusControl: statusControl,
+				eventGen:      eventGen,
+				log:           logging.WithName("test-gpol-controller"),
+			}
+
+			ur := &kyvernov2.UpdateRequest{
+				ObjectMeta: metav1.ObjectMeta{Name: "ur-matchconditions-skip"},
+				Spec: kyvernov2.UpdateRequestSpec{
+					Type:   kyvernov2.CELGenerate,
+					Policy: policyName,
+					RuleContext: []kyvernov2.RuleContext{{
+						Rule:        "rule",
+						Synchronize: tt.synchronize,
+						Trigger: kyverno.ResourceSpec{
+							APIVersion: trigger.GetAPIVersion(),
+							Kind:       trigger.GetKind(),
+							Namespace:  trigger.GetNamespace(),
+							Name:       trigger.GetName(),
+							UID:        trigger.GetUID(),
+						},
+					}},
+				},
+			}
+
+			require.NoError(t, controller.ProcessUR(ur))
+			assert.False(t, statusControl.failed, "UR should not be marked as Failed")
+			assert.True(t, statusControl.success, "UR should be marked as Success")
+
+			for _, e := range eventGen.events {
+				assert.NotEqual(t, event.PolicySkipped, e.Reason, "a matchConditions skip is not a policy exception and must not emit a PolicySkipped event")
+			}
+
+			wm.lock.Lock()
+			defer wm.lock.Unlock()
+			require.Len(t, client.deleted, tt.wantDeleted)
+			if tt.wantDeleted > 0 {
+				assert.Equal(t, "ConfigMap/tenant-a/test-cm", client.deleted[0])
+			}
+			if tt.wantCacheKept {
+				assert.Contains(t, wm.dynamicWatchers[configMapGVR].metadataCache, downstream.GetUID(), "downstream should still be in the cache")
+			} else {
+				assert.NotContains(t, wm.dynamicWatchers[configMapGVR].metadataCache, downstream.GetUID(), "downstream should have been deleted from the cache")
+			}
+		})
 	}
-
-	require.NoError(t, controller.ProcessUR(ur))
-	assert.False(t, statusControl.failed, "UR should not be marked as Failed")
-
-	for _, e := range eventGen.events {
-		assert.NotEqual(t, event.PolicySkipped, e.Reason, "a matchConditions skip is not a policy exception and must not emit a PolicySkipped event")
-	}
-
-	wm.lock.Lock()
-	defer wm.lock.Unlock()
-	assert.NotContains(t, wm.dynamicWatchers[configMapGVR].metadataCache, downstream.GetUID(), "downstream should have been deleted from the cache")
-	require.Len(t, client.deleted, 1, "downstream resource should have been deleted")
-	assert.Equal(t, "ConfigMap/tenant-a/test-cm", client.deleted[0])
 }
 
 const (
