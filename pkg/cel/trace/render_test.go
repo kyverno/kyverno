@@ -25,11 +25,11 @@ func TestRender_FailingDecision(t *testing.T) {
 		Scope:             ScopeTrace{Applied: true, Reason: "matched kind Pod, namespace prod, operation CREATE"},
 		Match: []NamedExpressionTrace{{
 			Name:            "not-kube-system",
-			ExpressionTrace: ExpressionTrace{Source: "object.metadata.namespace != 'kube-system'", Result: "true"},
+			ExpressionTrace: ExpressionTrace{Source: "object.metadata.namespace != 'kube-system'", Result: "true", ResultIsBoolean: true},
 		}},
 		Variables: []NamedExpressionTrace{{
 			Name:            "hasTeam",
-			ExpressionTrace: ExpressionTrace{Source: "has(object.metadata.labels.team)", Result: "false"},
+			ExpressionTrace: ExpressionTrace{Source: "has(object.metadata.labels.team)", Result: "false", ResultIsBoolean: true},
 		}},
 		Verdict: VerdictTrace{
 			Status: VerdictFail,
@@ -177,7 +177,7 @@ func TestRender_ValidationsList(t *testing.T) {
 		var sb strings.Builder
 		Render(&sb, &Decision{
 			Validations: []ValidationTrace{validation(0, VerdictPass, "a", "true"), validation(1, VerdictPass, "b", "true")},
-			Verdict:     VerdictTrace{Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "b", Result: "true"}},
+			Verdict:     VerdictTrace{Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "b", Result: "true", ResultIsBoolean: true}},
 		})
 		out := sb.String()
 		assert.Contains(t, out, "VALIDATION PASS     [0] a  ->  true")
@@ -193,7 +193,7 @@ func TestRender_ValidationsList(t *testing.T) {
 				validation(1, VerdictFail, "b", "false"),
 				validation(2, VerdictNotRun, "c", ""),
 			},
-			Verdict: VerdictTrace{Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "b", Result: "false"}, Message: "needs b"},
+			Verdict: VerdictTrace{Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "b", Result: "false", ResultIsBoolean: true}, Message: "needs b"},
 		})
 		out := sb.String()
 		assert.Contains(t, out, "VALIDATION FAIL     [1] b  ->  false")
@@ -205,7 +205,7 @@ func TestRender_ValidationsList(t *testing.T) {
 		var sb strings.Builder
 		Render(&sb, &Decision{
 			Validations: []ValidationTrace{validation(0, VerdictPass, "a", "true")},
-			Verdict:     VerdictTrace{Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "a", Result: "true"}},
+			Verdict:     VerdictTrace{Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "a", Result: "true", ResultIsBoolean: true}},
 		})
 		assert.NotContains(t, sb.String(), "VALIDATION")
 		assert.Contains(t, sb.String(), "VERDICT    PASS     a  ->  true")
@@ -232,7 +232,7 @@ func TestRender_Generations(t *testing.T) {
 		Generations: []GenerationTrace{
 			{
 				Name:            "generate[0] (expression)",
-				ExpressionTrace: ExpressionTrace{Source: "generator.Apply(ns, [cm])", Result: "true"},
+				ExpressionTrace: ExpressionTrace{Source: "generator.Apply(ns, [cm])", Result: "true", ResultIsBoolean: true},
 				Generated:       []string{"ConfigMap prod/zk-kafka-address"},
 			},
 			{Name: "generate[1] (template)"},
@@ -268,7 +268,7 @@ func TestRender_Images(t *testing.T) {
 			{Category: "containers", Image: "ghcr.io/x/app:1.0", Checked: true},
 			{Category: "containers", Image: "docker.io/busybox:1", Checked: false},
 		}},
-		Verdict: VerdictTrace{Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "true", Result: "true"}},
+		Verdict: VerdictTrace{Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "true", Result: "true", ResultIsBoolean: true}},
 	})
 	out := sb.String()
 	assert.Contains(t, out, "IMAGES     checked  containers: ghcr.io/x/app:1.0")
@@ -311,7 +311,7 @@ func TestRender_SecretValuesAreRedacted(t *testing.T) {
 		ResourceName: "db-credentials",
 		Match: []NamedExpressionTrace{{
 			Name:            "has-data",
-			ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true"},
+			ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true", ResultIsBoolean: true},
 		}},
 		Variables: []NamedExpressionTrace{{
 			Name:            "pw",
@@ -321,10 +321,11 @@ func TestRender_SecretValuesAreRedacted(t *testing.T) {
 			Status:  VerdictFail,
 			Message: password,
 			ExpressionTrace: ExpressionTrace{
-				Source: "variables.pw.size() > 32",
-				Result: "false",
+				Source:          "variables.pw.size() > 32",
+				Result:          "false",
+				ResultIsBoolean: true,
 				Nodes: []NodeTrace{
-					{Expression: "variables.pw.size() > 32", Value: "false"},
+					{Expression: "variables.pw.size() > 32", Value: "false", ValueIsBoolean: true},
 					{Expression: "variables.pw.size()", Value: "18"},
 					{Expression: "variables.pw", Value: password},
 				},
@@ -447,13 +448,14 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 					Name:       "mutations[0]",
 					NotApplied: "skipped: " + pw,
 					ExpressionTrace: ExpressionTrace{
-						Source: "Object{}",
-						Result: "true",
+						Source:          "Object{}",
+						Result:          "true",
+						ResultIsBoolean: true,
 					},
 				}},
 				Verdict: VerdictTrace{Status: VerdictPass},
 			},
-			// the expression result "true" must stay visible
+			// the expression result "true" is a real boolean and must stay visible
 			wantContains: []string{"Object{}  ->  true"},
 		},
 		{
@@ -464,8 +466,9 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 					Name:       "mutations[0]",
 					NotApplied: "",
 					ExpressionTrace: ExpressionTrace{
-						Source: "Object{}",
-						Result: "false",
+						Source:          "Object{}",
+						Result:          "false",
+						ResultIsBoolean: true,
 					},
 				}},
 				Verdict: VerdictTrace{Status: VerdictPass},
@@ -488,10 +491,11 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 				Verdict: VerdictTrace{
 					Status: VerdictFail,
 					ExpressionTrace: ExpressionTrace{
-						Source: "object.data.x == true",
-						Result: "false",
+						Source:          "object.data.x == true",
+						Result:          "false",
+						ResultIsBoolean: true,
 						Nodes: []NodeTrace{
-							{Expression: "object.data.x == true", Value: "false"},
+							{Expression: "object.data.x == true", Value: "false", ValueIsBoolean: true},
 							{Expression: "object.data.x", Error: "err: " + pw},
 						},
 					},
@@ -509,12 +513,12 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 			decision: &Decision{
 				ResourceKind: "Secret",
 				Validations: []ValidationTrace{
-					{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true"}},
+					{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true", ResultIsBoolean: true}},
 					{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "object.type == 'tls'", Result: pw}},
 				},
 				Verdict: VerdictTrace{
 					Status:          VerdictFail,
-					ExpressionTrace: ExpressionTrace{Source: "object.type == 'tls'", Result: "false"},
+					ExpressionTrace: ExpressionTrace{Source: "object.type == 'tls'", Result: "false", ResultIsBoolean: true},
 				},
 			},
 			// "true" and "false" results in validation rows must be kept

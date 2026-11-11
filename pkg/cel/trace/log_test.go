@@ -32,7 +32,7 @@ func failedPodDecision() *Decision {
 		ResourceKind: "Pod",
 		ResourceName: "web",
 		Scope:        ScopeTrace{Applied: true, Reason: "matched resourceRules[0]"},
-		Match:        []NamedExpressionTrace{{Name: "not-system", ExpressionTrace: ExpressionTrace{Source: "object.metadata.namespace != 'kube-system'", Result: "true"}}},
+		Match:        []NamedExpressionTrace{{Name: "not-system", ExpressionTrace: ExpressionTrace{Source: "object.metadata.namespace != 'kube-system'", Result: "true", ResultIsBoolean: true}}},
 		Variables:    []NamedExpressionTrace{{Name: "team", ExpressionTrace: ExpressionTrace{Source: "object.metadata.labels.team", Result: "payments"}}},
 		Verdict: VerdictTrace{
 			Status:  VerdictFail,
@@ -87,8 +87,8 @@ func TestLogValues(t *testing.T) {
 	t.Run("several validations are listed with their own status", func(t *testing.T) {
 		d := failedPodDecision()
 		d.Validations = []ValidationTrace{
-			{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "has(object.metadata.labels)", Result: "true"}},
-			{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "variables.team == 'platform'", Result: "false"}},
+			{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "has(object.metadata.labels)", Result: "true", ResultIsBoolean: true}},
+			{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "variables.team == 'platform'", Result: "false", ResultIsBoolean: true}},
 			{Index: 2, Status: VerdictNotRun, ExpressionTrace: ExpressionTrace{Source: "object.spec.replicas > 1"}},
 		}
 		entry, _ := logged(t, d)
@@ -136,11 +136,11 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 		PolicyKind:   "ValidatingPolicy",
 		ResourceKind: "Secret",
 		ResourceName: "db-credentials",
-		Match:        []NamedExpressionTrace{{Name: "has-data", ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true"}}},
+		Match:        []NamedExpressionTrace{{Name: "has-data", ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true", ResultIsBoolean: true}}},
 		Variables:    []NamedExpressionTrace{{Name: "password", ExpressionTrace: ExpressionTrace{Source: "object.data.password", Result: password}}},
 		Validations: []ValidationTrace{
 			{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "object.type", Result: password}},
-			{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "variables.password.size() > 32", Result: "false"}},
+			{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "variables.password.size() > 32", Result: "false", ResultIsBoolean: true}},
 		},
 		Mutations: []MutationTrace{{Name: "mutations[0] (jsonPatch)", Error: "failed", ExpressionTrace: ExpressionTrace{
 			Source: "[JSONPatch{op: 'add', path: '/data/copy', value: object.data.password}]",
@@ -150,10 +150,11 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 		Verdict: VerdictTrace{
 			Status: VerdictFail,
 			ExpressionTrace: ExpressionTrace{
-				Source: "variables.password.size() > 32",
-				Result: "false",
+				Source:          "variables.password.size() > 32",
+				Result:          "false",
+				ResultIsBoolean: true,
 				Nodes: []NodeTrace{
-					{Expression: "variables.password.size() > 32", Value: "false"},
+					{Expression: "variables.password.size() > 32", Value: "false", ValueIsBoolean: true},
 					{Expression: "variables.password.size()", Value: "18"},
 					{Expression: "variables.password", Value: password},
 				},

@@ -57,10 +57,10 @@ func Render(w io.Writer, d *Decision) {
 		}
 		for _, img := range d.Images.Found {
 			if img.Checked {
-				row(w, "IMAGES", "checked", img.Category+": "+rf.value(img.Image))
+				row(w, "IMAGES", "checked", img.Category+": "+rf.value(img.Image, false))
 				continue
 			}
-			row(w, "IMAGES", "skipped", img.Category+": "+rf.value(img.Image)+"  (not matched by matchImageReferences)")
+			row(w, "IMAGES", "skipped", img.Category+": "+rf.value(img.Image, false)+"  (not matched by matchImageReferences)")
 		}
 	}
 	// with a single validation the list would only repeat the verdict line
@@ -100,7 +100,7 @@ func Render(w io.Writer, d *Decision) {
 			fmt.Fprintf(w, "%-10s %-8s generated nothing\n", "", "")
 		}
 		for _, r := range g.Generated {
-			fmt.Fprintf(w, "%-10s %-8s generated %s\n", "", "", rf.value(r))
+			fmt.Fprintf(w, "%-10s %-8s generated %s\n", "", "", rf.value(r, false))
 		}
 	}
 
@@ -147,10 +147,12 @@ type renderFormat struct {
 	secret bool
 }
 
-// value formats an evaluated CEL value for rendering: "true" and "false" are always kept; all
-// other values are replaced with "(redacted)" in secret traces. Values are clipped to maxValueLen.
-func (rf renderFormat) value(v string) string {
-	if rf.secret && v != "" && v != "true" && v != "false" {
+// value formats an evaluated CEL value for rendering. In a secret trace, only genuine CEL boolean
+// results (flagged by isBoolean) are kept; all other non-empty values are replaced with
+// "(redacted)". This prevents a Secret field whose decoded value is literally "true" or "false"
+// from bypassing redaction. Values are clipped to maxValueLen.
+func (rf renderFormat) value(v string, isBoolean bool) string {
+	if rf.secret && v != "" && !isBoolean {
 		return redacted
 	}
 	return clip(v)
@@ -168,7 +170,7 @@ func (rf renderFormat) text(v string) string {
 
 // expressionLine formats "source  ->  result", redacting the result when secret.
 func (rf renderFormat) expressionLine(et ExpressionTrace) string {
-	return fmt.Sprintf("%s  ->  %s", et.Source, rf.value(et.Result))
+	return fmt.Sprintf("%s  ->  %s", et.Source, rf.value(et.Result, et.ResultIsBoolean))
 }
 
 // namedLine prefixes the expression line with its declared name, when it has one.
@@ -187,10 +189,10 @@ func (rf renderFormat) printNodes(w io.Writer, et ExpressionTrace) {
 		fmt.Fprintf(w, "%-10s %-8s evaluated:\n", "", "")
 		for _, n := range et.Nodes {
 			if n.Error != "" {
-				fmt.Fprintf(w, "%-10s %-8s   %s  ->  ERROR: %s\n", "", "", n.Expression, rf.value(n.Error))
+				fmt.Fprintf(w, "%-10s %-8s   %s  ->  ERROR: %s\n", "", "", n.Expression, rf.text(n.Error))
 				continue
 			}
-			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, rf.value(n.Value))
+			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, rf.value(n.Value, n.ValueIsBoolean))
 		}
 	}
 	if et.LoopValuesOmitted {

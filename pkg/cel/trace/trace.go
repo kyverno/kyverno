@@ -14,13 +14,19 @@ import (
 type NodeTrace struct {
 	Expression string
 	Value      string
-	Error      string
+	// ValueIsBoolean is true when Value was produced by a CEL boolean (types.Bool), not a string
+	// that happens to contain "true" or "false". Used by redaction to distinguish the two.
+	ValueIsBoolean bool
+	Error          string
 }
 
 type ExpressionTrace struct {
 	Source string
 	Nodes  []NodeTrace
 	Result string
+	// ResultIsBoolean is true when Result was produced by a CEL boolean (types.Bool), not a string
+	// that happens to contain "true" or "false". Used by redaction to distinguish the two.
+	ResultIsBoolean bool
 	// LoopValuesOmitted is set when nodes inside a loop body (all, exists, exists_one, map,
 	// filter) ran but were left out of Nodes; see Build for why.
 	LoopValuesOmitted bool
@@ -31,8 +37,9 @@ type ExpressionTrace struct {
 
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
 	et := ExpressionTrace{
-		Source: source,
-		Result: stringify(result),
+		Source:          source,
+		Result:          stringify(result),
+		ResultIsBoolean: result != nil && result.Type() == types.BoolType,
 	}
 	if details == nil || ast == nil {
 		return et
@@ -114,7 +121,10 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 			// noise to a reader. The macro call itself renders without them and is kept.
 			return
 		}
-		nt := NodeTrace{Expression: text}
+		nt := NodeTrace{
+			Expression:     text,
+			ValueIsBoolean: !types.IsError(val) && val.Type() == types.BoolType,
+		}
 		if types.IsError(val) {
 			nt.Error = stringify(val)
 		} else {
