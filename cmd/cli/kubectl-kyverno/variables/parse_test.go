@@ -58,6 +58,24 @@ func Test_parse(t *testing.T) {
 			"object.spec": "abc",
 		},
 	}, {
+		name: "value containing equals",
+		vars: []string{
+			"url=https://example.com/api?a=1&b=2",
+			"token=aGVsbG8=",
+			"expr=a==b",
+		},
+		want: map[string]string{
+			"url":   "https://example.com/api?a=1&b=2",
+			"token": "aGVsbG8=",
+			"expr":  "a==b",
+		},
+	}, {
+		name: "empty key with equals in value",
+		vars: []string{
+			"=a=b",
+		},
+		want: nil,
+	}, {
 		name: "mixed",
 		vars: []string{
 			"object.data=123",

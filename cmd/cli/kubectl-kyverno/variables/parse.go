@@ -10,13 +10,15 @@ func parse(vars ...string) map[string]string {
 	result := map[string]string{}
 	for _, variable := range vars {
 		variable = strings.TrimSpace(variable)
-		kvs := strings.Split(variable, "=")
-		if len(kvs) != 2 {
+		// split on the first "=" only so that values containing "=" (URLs with
+		// query strings, base64 padding, connection strings, ...) are preserved
+		rawKey, rawValue, found := strings.Cut(variable, "=")
+		if !found {
 			log.Log.V(3).Info("ignored variable", "variable", variable)
 			continue
 		}
-		key := strings.TrimSpace(kvs[0])
-		value := strings.TrimSpace(kvs[1])
+		key := strings.TrimSpace(rawKey)
+		value := strings.TrimSpace(rawValue)
 		if len(value) == 0 || len(key) == 0 {
 			log.Log.V(3).Info("ignored variable", "variable", variable)
 			continue
