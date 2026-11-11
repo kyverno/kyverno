@@ -2192,6 +2192,22 @@ func Test_Apply_Explain(t *testing.T) {
 			"VERDICT    ERROR    no such key: labels",
 		},
 		wantCounts: &processor.ResultCounts{Error: 1},
+	}, {
+		// one namespace matches the policy's matchCondition and generates, the other is
+		// excluded by it - this is what gpol/engine/engine.go's RuleSkip fix (and the
+		// generate_controller.go cleanup fix next to it) made countable and traceable;
+		// before both fixes this resource printed and counted nothing at all.
+		name: "generating policy excluded by a matchCondition",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/matchconditions-skip/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/matchconditions-skip/resources.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			`VERDICT    SKIP     match condition "workload-namespaces-only" did not pass, so the policy was skipped`,
+			"VERDICT    PASS     generated 1 resource",
+		},
+		wantCounts: &processor.ResultCounts{Pass: 1, Skip: 1},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2223,6 +2239,45 @@ func Test_Apply_Explain(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Test_Apply_GeneratingPolicyMatchConditionSkip_Table covers the --table side of the same
+// matchCondition-skip fixture used above: the excluded namespace must render its own Skip row
+// instead of being missing from the table entirely, next to the matching namespace's Pass row.
+func Test_Apply_GeneratingPolicyMatchConditionSkip_Table(t *testing.T) {
+	const base = "../../../../../test/cli/test-generating-policy/matchconditions-skip/"
+	cmd := Command()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{base + "policy.yaml", "--resource", base + "resources.yaml", "--table", "--remove-color"})
+	require.NoError(t, cmd.Execute())
+
+	// Find each namespace's own row and check its result there, not just that "Pass"/"Skip"
+	// appear somewhere in the output - a whole-output Contains check would still pass if the
+	// two namespaces' results were swapped.
+	rowFor := func(resource string) string {
+		for _, line := range strings.Split(out.String(), "\n") {
+			// only the rendered table's box-drawn rows, not the "policy ... applied to ..."
+			// text printed above the table for the mutation/generate result itself
+			if strings.Contains(line, "│") && strings.Contains(line, resource) {
+				return line
+			}
+		}
+		return ""
+	}
+
+	workloadRow := rowFor("workload-namespace")
+	require.NotEmpty(t, workloadRow, "workload-namespace must have its own table row")
+	assert.Contains(t, workloadRow, "generate-configmap-for-workloads")
+	assert.Contains(t, workloadRow, "Pass")
+	assert.NotContains(t, workloadRow, "Skip")
+
+	excludedRow := rowFor("excluded-namespace")
+	require.NotEmpty(t, excludedRow, "excluded-namespace must have its own table row")
+	assert.Contains(t, excludedRow, "generate-configmap-for-workloads")
+	assert.Contains(t, excludedRow, "Skip")
+	assert.NotContains(t, excludedRow, "Pass")
 }
 
 // Test_Apply_ExplainThroughTheCommand runs `apply --explain` the way a user does, through the
