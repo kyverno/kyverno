@@ -22,7 +22,6 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/blob"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
-	sigs "github.com/sigstore/cosign/v3/pkg/signature"
 	rekor "github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/sigstore-go/pkg/root"
@@ -228,7 +227,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 				return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
 			}
 		} else if len(att.Key.KMS) != 0 {
-			opts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, att.Key.KMS, signatureAlgorithmMap[att.Key.HashAlgorithm])
+			opts.SigVerifier, err = kmsVerifiers.get(ctx, att.Key.KMS, signatureAlgorithmMap[att.Key.HashAlgorithm])
 			if err != nil {
 				return nil, fmt.Errorf("failed to load public key from %s: %w", att.Key.KMS, err)
 			}
