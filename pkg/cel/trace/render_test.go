@@ -340,13 +340,14 @@ func TestRender_SecretValuesAreRedacted(t *testing.T) {
 	assert.NotContains(t, out, password, "secret value must not appear in rendered output")
 	assert.Contains(t, out, "NOTE:", "a banner must explain why values are redacted")
 	assert.Contains(t, out, redacted)
-	// "true" and "false" say nothing about the data, and are always kept
-	assert.Contains(t, out, "has(object.data)  ->  true", "literal true is kept")
-	assert.Contains(t, out, "variables.pw.size() > 32  ->  false", "literal false is kept")
+	// top-level expression results that are genuine booleans are kept (they only reflect the verdict)
+	assert.Contains(t, out, "has(object.data)  ->  true", "top-level boolean true is kept")
+	assert.Contains(t, out, "variables.pw.size() > 32  ->  false", "top-level boolean false is kept")
 	// non-boolean results are redacted
 	assert.Contains(t, out, "pw: object.data.password  ->  "+redacted, "variable result is redacted")
 	assert.Contains(t, out, `message: "`+redacted+`"`, "message is redacted")
-	// node breakdown
+	// ALL node breakdown values are redacted, even booleans (boolean nodes can probe secret content)
+	assert.Contains(t, out, "variables.pw.size() > 32  ->  "+redacted, "boolean node value is redacted")
 	assert.Contains(t, out, "variables.pw.size()  ->  "+redacted, "non-boolean node value is redacted")
 	assert.Contains(t, out, "variables.pw  ->  "+redacted, "node containing the password is redacted")
 }
@@ -501,11 +502,11 @@ func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
 					},
 				},
 			},
-			// verdict result "false" and node boolean "false" must stay visible; node Error is redacted
+			// verdict result "false" (top-level) is kept; ALL node values including booleans are redacted
 			wantContains: []string{
-				"object.data.x == true  ->  false",         // verdict line
-				"   object.data.x == true  ->  false",      // node boolean value kept
-				"   object.data.x  ->  ERROR: " + redacted, // node error redacted
+				"object.data.x == true  ->  false",          // verdict line (top-level boolean kept)
+				"   object.data.x == true  ->  " + redacted, // node boolean value is redacted
+				"   object.data.x  ->  ERROR: " + redacted,  // node error redacted
 			},
 		},
 		{

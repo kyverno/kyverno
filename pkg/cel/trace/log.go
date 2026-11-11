@@ -120,6 +120,9 @@ func (l logFormat) named(n NamedExpressionTrace) LogExpression {
 func (l logFormat) breakdown(e *LogExpression, et ExpressionTrace) {
 	e.LoopValuesOmitted = et.LoopValuesOmitted
 	for _, n := range et.Nodes {
-		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Value, n.ValueIsBoolean), Error: l.value(n.Error, false)})
+		// Node values are always redacted in secret traces, even booleans: an intermediate boolean
+		// such as "object.data.token.startsWith('YQ') -> true" leaks structural information about
+		// the secret and can be used for character-by-character probing.
+		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Value, false), Error: l.value(n.Error, false)})
 	}
 }

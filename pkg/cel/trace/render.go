@@ -192,7 +192,10 @@ func (rf renderFormat) printNodes(w io.Writer, et ExpressionTrace) {
 				fmt.Fprintf(w, "%-10s %-8s   %s  ->  ERROR: %s\n", "", "", n.Expression, rf.text(n.Error))
 				continue
 			}
-			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, rf.value(n.Value, n.ValueIsBoolean))
+			// Node values are always redacted in secret traces, even booleans: an intermediate
+			// boolean result such as "object.data.token.startsWith('YQ') -> true" reveals structural
+			// information about the secret and can be used for character-by-character probing.
+			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, rf.value(n.Value, false))
 		}
 	}
 	if et.LoopValuesOmitted {

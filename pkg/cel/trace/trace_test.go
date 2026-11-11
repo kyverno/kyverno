@@ -118,6 +118,36 @@ func TestBuild(t *testing.T) {
 	}
 }
 
+// TestBuild_BooleanFlagDistinguishesFromStringTrue verifies that Build sets ResultIsBoolean and
+// ValueIsBoolean to true only for genuine CEL booleans, not for strings whose text is "true" or
+// "false". This is the property that makes redaction safe: a Secret field decoded to the string
+// "true" gets isBoolean=false and will be redacted, while a real boolean comparison result gets
+// isBoolean=true and may be preserved.
+func TestBuild_BooleanFlagDistinguishesFromStringTrue(t *testing.T) {
+	// expr evaluates to the CEL bool true (a real boolean)
+	boolExpr := "object.metadata.name == object.metadata.name"
+	// expr evaluates to the CEL string "true" (a string, not a boolean)
+	stringExpr := "object.metadata.name"
+
+	prg, ast := buildTrackedProgram(t, boolExpr)
+	out, details, err := prg.ContextEval(context.TODO(), map[string]any{
+		"object": map[string]any{"metadata": map[string]any{"name": "true"}},
+	})
+	require.NoError(t, err)
+	et := Build(boolExpr, ast, out, details)
+	assert.Equal(t, "true", et.Result)
+	assert.True(t, et.ResultIsBoolean, "a CEL boolean true must set ResultIsBoolean")
+
+	prg2, ast2 := buildTrackedProgram(t, stringExpr)
+	out2, details2, err := prg2.ContextEval(context.TODO(), map[string]any{
+		"object": map[string]any{"metadata": map[string]any{"name": "true"}},
+	})
+	require.NoError(t, err)
+	et2 := Build(stringExpr, ast2, out2, details2)
+	assert.Equal(t, "true", et2.Result)
+	assert.False(t, et2.ResultIsBoolean, "a CEL string 'true' must NOT set ResultIsBoolean")
+}
+
 // TestBuild_StableOrder runs the same expression many times and checks the node order never
 // changes -- this is what the map-order fix (collecting nodes during PreOrderVisit instead of
 // from state.IDs()) is actually guaranteeing.

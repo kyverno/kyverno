@@ -173,8 +173,9 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 	assert.Equal(t, redacted, entry.Mutations[0].Result)
 	assert.Equal(t, redacted, entry.Mutations[0].Evaluated[0].Value)
 	assert.Equal(t, "variables.password.size() > 32", entry.Verdict.Expression, "expressions are policy text, and are kept")
+	// ALL node values are redacted, even booleans (boolean nodes can probe secret content)
 	assert.Equal(t, []LogNode{
-		{Expression: "variables.password.size() > 32", Value: "false"},
+		{Expression: "variables.password.size() > 32", Value: redacted},
 		{Expression: "variables.password.size()", Value: redacted},
 		{Expression: "variables.password", Value: redacted},
 	}, entry.Verdict.Evaluated)
