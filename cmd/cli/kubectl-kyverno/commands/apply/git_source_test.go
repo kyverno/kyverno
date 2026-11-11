@@ -2,6 +2,7 @@ package apply
 
 import (
 	"context"
+	"errors"
 	"io"
 	"testing"
 
@@ -67,4 +68,20 @@ spec:
 			assert.Equal(t, "require-labels", vps[0].GetName())
 		})
 	}
+}
+
+func TestLoadPoliciesGitSourceSchemeCaseCloneError(t *testing.T) {
+	errClone := errors.New("clone failed")
+	var gotURL string
+	c := &ApplyCommandConfig{
+		PolicyPaths: []string{"HTTPS://github.com/kyverno/policies/main"},
+		Cloner: func(url string, _ billy.Filesystem, _ string, _ http.BasicAuth) (*git.Repository, error) {
+			gotURL = url
+			return nil, errClone
+		},
+	}
+	_, _, _, _, _, vps, _, _, _, _, _, _, err := c.loadPolicies(context.Background(), io.Discard)
+	require.ErrorIs(t, err, errClone)
+	assert.Equal(t, "https://github.com/kyverno/policies", gotURL)
+	assert.Empty(t, vps)
 }
