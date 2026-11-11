@@ -1,6 +1,7 @@
 package test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
@@ -71,4 +72,20 @@ resources:
 			assert.Equal(t, tt.wantFiles, gotFiles)
 		})
 	}
+}
+
+func TestLoadTestGitSourceSchemeCaseCloneError(t *testing.T) {
+	var gotURL string
+	orig := cloneRepo
+	t.Cleanup(func() { cloneRepo = orig })
+	cloneRepo = func(url string, _ billy.Filesystem, _ string, _ http.BasicAuth) (*git.Repository, error) {
+		gotURL = url
+		return nil, errors.New("clone failed")
+	}
+
+	tests, err := loadTest("HtTpS://github.com/kyverno/policies/main", "kyverno-test.yaml", "")
+	require.ErrorContains(t, err, "failed to clone repository")
+	require.ErrorContains(t, err, "clone failed")
+	assert.Equal(t, "https://github.com/kyverno/policies", gotURL)
+	assert.Empty(t, tests)
 }
