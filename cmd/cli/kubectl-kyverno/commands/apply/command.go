@@ -1154,6 +1154,9 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 			if err != nil {
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
+			// url.Parse lower-cases the scheme, so do the same in path to keep it
+			// comparable with repoURL when the branch and directory are derived.
+			path = gitSourceURL.Scheme + path[len(gitSourceURL.Scheme):]
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)

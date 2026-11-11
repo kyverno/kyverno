@@ -20,6 +20,14 @@ func TestIsHttp(t *testing.T) {
 		in:   "https://github.com/kyverno/policies",
 		want: true,
 	}, {
+		name: "upper case https",
+		in:   "HTTPS://github.com/kyverno/policies",
+		want: true,
+	}, {
+		name: "mixed case http",
+		in:   "HtTp://github.com/kyverno/policies",
+		want: true,
+	}, {
 		name: "local path",
 		in:   "/github.com/kyverno/policies",
 		want: false,

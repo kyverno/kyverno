@@ -14,6 +14,10 @@ import (
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 )
 
+// cloneRepo clones the repository of a git test source. Tests replace it to
+// avoid network calls.
+var cloneRepo gitutils.CloneFunc = gitutils.Clone
+
 func loadTests(paths []string, fileName string, gitBranch string) (test.TestCases, error) {
 	var tests []test.TestCase
 	for _, path := range paths {
@@ -34,6 +38,9 @@ func loadTest(path string, fileName string, gitBranch string) (test.TestCases, e
 		if err != nil {
 			return nil, err
 		} else {
+			// url.Parse lower-cases the scheme, so do the same in path to keep it
+			// comparable with repoURL when the branch and directory are derived.
+			path = gitURL.Scheme + path[len(gitURL.Scheme):]
 			pathElems := strings.Split(gitURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				return nil, fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
@@ -61,7 +68,7 @@ func loadTest(path string, fileName string, gitBranch string) (test.TestCases, e
 				}
 			}
 			var auth http.BasicAuth
-			if _, err := gitutils.Clone(repoURL, fs, gitBranch, auth); err != nil {
+			if _, err := cloneRepo(repoURL, fs, gitBranch, auth); err != nil {
 				return nil, fmt.Errorf("error: failed to clone repository \nCause: %s", err)
 			}
 			yamlFiles, err := gitutils.ListYamls(fs, gitPathToYamls)

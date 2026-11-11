@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -355,6 +356,21 @@ func TestGetFileBytesHTTP(t *testing.T) {
 				t.Errorf("expected %q, got %q", tt.body, string(content))
 			}
 		})
+	}
+}
+
+func TestGetFileBytesHTTPUpperCaseScheme(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("kind: Pod"))
+	}))
+	defer server.Close()
+
+	content, err := GetFileBytes("HTTP" + strings.TrimPrefix(server.URL, "http"))
+	if err != nil {
+		t.Fatalf("GetFileBytes() error = %v", err)
+	}
+	if string(content) != "kind: Pod" {
+		t.Errorf("expected %q, got %q", "kind: Pod", string(content))
 	}
 }
 
