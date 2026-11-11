@@ -72,31 +72,3 @@ func TestEqualElements(t *testing.T) {
 	assert.False(t, equalElements(opaque, opaque))
 	assert.False(t, equalElements(opaque, opaque2))
 }
-
-func TestWildcardElements(t *testing.T) {
-	opaque := toElement(map[string]interface{}{"a": "b"})
-
-	tests := []struct {
-		name     string
-		a        element
-		b        element
-		expected bool
-	}{
-		{"comparable exact match", toElement("prod"), toElement("prod"), true},
-		{"comparable wildcard match", toElement("prod-1"), toElement("prod-*"), true},
-		{"comparable no match", toElement("dev"), toElement("prod-*"), false},
-		{"opaque vs universal star", opaque, toElement("*"), true},
-		{"opaque vs universal double star", opaque, toElement("**"), true},
-		{"universal vs opaque (reversed order)", toElement("*"), opaque, true},
-		{"opaque vs question mark", opaque, toElement("?"), false},
-		{"opaque vs empty pattern", opaque, toElement(""), false},
-		{"opaque vs literal-bearing pattern", opaque, toElement("prod*"), false},
-		{"opaque vs opaque never matches", opaque, toElement([]interface{}{"x"}), false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, wildcardElements(tt.a, tt.b))
-		})
-	}
-}

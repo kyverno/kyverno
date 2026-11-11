@@ -181,6 +181,7 @@ spec:
       failureAction: Audit
       deny:
         conditions:
+        # key-side wildcard "A=*" is matched literally, so it no longer matches "A=ATest".
         - key: A=*
           operator: AnyNotIn
           value: '{{ obj }}'
