@@ -56,13 +56,14 @@ func TestHandle_Tracing(t *testing.T) {
 		}
 	}
 	tests := []struct {
-		name        string
-		policy      *v1beta1.GeneratingPolicy
-		exceptions  []*v1beta1.PolicyException
-		wantRule    engineapi.RuleStatus // empty means no rule result at all
-		wantApplied bool
-		wantStatus  string
-		wantMessage string
+		name           string
+		policy         *v1beta1.GeneratingPolicy
+		exceptions     []*v1beta1.PolicyException
+		wantRule       engineapi.RuleStatus // empty means no rule result at all
+		wantApplied    bool
+		wantStatus     string
+		wantMessage    string
+		wantSkipReason engineapi.SkipReason // zero value means not a matchConditions skip
 	}{{
 		name:        "generates",
 		policy:      newPolicy("namespaces"),
@@ -76,12 +77,13 @@ func TestHandle_Tracing(t *testing.T) {
 		wantStatus:  trace.VerdictSkip,
 		wantMessage: "the policy does not apply to this resource",
 	}, {
-		name:        "match condition skips",
-		policy:      newPolicy("namespaces", admissionregistrationv1.MatchCondition{Name: "never", Expression: "false"}),
-		wantRule:    engineapi.RuleStatusSkip,
-		wantApplied: true,
-		wantStatus:  trace.VerdictSkip,
-		wantMessage: `match condition "never" did not pass`,
+		name:           "match condition skips",
+		policy:         newPolicy("namespaces", admissionregistrationv1.MatchCondition{Name: "never", Expression: "false"}),
+		wantRule:       engineapi.RuleStatusSkip,
+		wantApplied:    true,
+		wantStatus:     trace.VerdictSkip,
+		wantMessage:    `match condition "never" did not pass`,
+		wantSkipReason: engineapi.SkipReasonMatchConditions,
 	}, {
 		name:        "exception reported as skip",
 		policy:      newPolicy("namespaces"),
@@ -134,6 +136,7 @@ func TestHandle_Tracing(t *testing.T) {
 				assert.Equal(t, untraced.Result.Status(), traced.Result.Status())
 				assert.Equal(t, untraced.Result.Message(), traced.Result.Message())
 				assert.Equal(t, len(untraced.Result.GeneratedResources()), len(traced.Result.GeneratedResources()))
+				assert.Equal(t, tt.wantSkipReason, untraced.Result.SkipReason())
 			}
 			assert.Nil(t, untraced.Trace, "no trace when compiled without tracing")
 

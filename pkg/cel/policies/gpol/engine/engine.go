@@ -187,7 +187,7 @@ func (e *engineImpl) generate(
 		// a skip the same way vpol/mpol's engines already do for this exact case, so it counts as
 		// a skip instead of leaving response.Result nil, which --explain's own trace already calls
 		// "VERDICT SKIP" but nothing downstream (kyverno test, kyverno apply's tally) ever counted.
-response.Result = engineapi.RuleSkip("", engineapi.Generation, "skip", nil).WithSkipReason(engineapi.SkipReasonMatchConditions)
+		response.Result = engineapi.RuleSkip("", engineapi.Generation, "skip", nil).WithSkipReason(engineapi.SkipReasonMatchConditions)
 		if result != nil {
 			withTrace(result.Trace)
 		}
