@@ -1342,5 +1342,264 @@ class RetryAndGates(unittest.TestCase):
                 }), expected, tag_name)
 
 
+class ChartOnlyFailover(unittest.TestCase):
+    CHART_TAG = "kyverno-chart-3.10.0-rc.5"
+
+    def setUp(self):
+        self.previous = Path.cwd()
+        self.path = ROOT / f".release-test-{uuid.uuid4().hex}"
+        self.path.mkdir()
+        os.chdir(self.path)
+        self.addCleanup(self.cleanup)
+
+    def cleanup(self):
+        os.chdir(self.previous)
+        shutil.rmtree(self.path)
+
+    def chart_plan(self, tag=CHART_TAG, application="v1.20.0-rc.4"):
+        return release.chart_plan(tag, SHA, MAPPING, lambda line: application)
+
+    @staticmethod
+    def lookup(published):
+        return lambda name, version: published.get((name, version))
+
+    def test_bump_follows_each_version_spelling(self):
+        for version, expected in (("3.10.0-rc.5", "3.10.0-rc.6"), ("3.10.2-rc3", "3.10.2-rc4"),
+                                  ("3.10.2-alpha.1", "3.10.2-alpha.2"), ("3.10.2", "3.10.3"),
+                                  ("3.10.9-rc.9", "3.10.9-rc.10")):
+            self.assertEqual(release.bump(version), expected)
+        with self.assertRaisesRegex(ValueError, "trailing number"):
+            release.bump("3.10.0-rc")
+
+    def test_unpublished_mapped_versions_are_the_default(self):
+        metadata = release.plan("v1.20.0-rc.5", SHA, MAPPING)
+        self.assertEqual(release.allocate_charts(metadata, self.lookup({})), {})
+        self.assertEqual(metadata["charts"], {"kyverno": "3.10.0-rc.5", "kyverno-policies": "4.2.0-rc.5"})
+        self.assertNotIn("chart_bumps", metadata)
+
+    def test_version_taken_by_another_release_moves_to_the_next_free_one(self):
+        metadata = release.plan("v1.20.0-rc.5", SHA, MAPPING)
+        published = {("kyverno", "3.10.0-rc.5"): "v1.20.0-rc.4",  # chart-only failover
+                     ("kyverno", "3.10.0-rc.6"): "v1.20.0-rc.4"}  # a second one
+        bumped = release.allocate_charts(metadata, self.lookup(published))
+        self.assertEqual(metadata["charts"], {"kyverno": "3.10.0-rc.7", "kyverno-policies": "4.2.0-rc.5"})
+        self.assertEqual(bumped, {"kyverno": {"requested": "3.10.0-rc.5", "allocated": "3.10.0-rc.7"}})
+        self.assertEqual(metadata["chart_bumps"], bumped)
+        # Images and appVersion still follow the application tag, never the chart version.
+        self.assertTrue(all(ref.endswith(":v1.20.0-rc.5") for ref in metadata["images"].values()))
+
+    def test_version_published_for_the_same_application_tag_is_an_idempotent_retry(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        release.allocate_charts(metadata, self.lookup({("kyverno", "3.10.2"): "v1.20.2"}))
+        self.assertEqual(metadata["charts"]["kyverno"], "3.10.2")
+
+    def test_published_version_without_app_version_is_never_claimed(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        release.allocate_charts(metadata, self.lookup({("kyverno", "3.10.2"): ""}))
+        self.assertEqual(metadata["charts"]["kyverno"], "3.10.3")
+
+    def test_allocation_search_is_bounded(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        with self.assertRaisesRegex(ValueError, "No free kyverno chart version"):
+            release.allocate_charts(metadata, lambda name, version: "v1.19.0")
+
+    def test_published_lookup_reads_index_then_oci_and_fails_closed(self):
+        index = {"entries": {"kyverno": [{"version": "3.10.0-rc.4", "appVersion": "v1.20.0-rc.4"}]}}
+        with patch.object(release.subprocess, "run") as run:
+            self.assertEqual(release.published_app_version("kyverno", "3.10.0-rc.4", "kyverno", index),
+                             "v1.20.0-rc.4")
+            run.assert_not_called()
+        for result, expected in (
+            (subprocess.CompletedProcess([], 0, "appVersion: v1.20.0-rc.4\n", ""), "v1.20.0-rc.4"),
+            (subprocess.CompletedProcess([], 1, "", "Error: ...:3.10.0-rc.5: not found"), None),
+        ):
+            with patch.object(release.subprocess, "run", return_value=result):
+                self.assertEqual(release.published_app_version("kyverno", "3.10.0-rc.5", "kyverno", index),
+                                 expected)
+        with patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess(
+                [], 1, "", "Error: unauthorized")):
+            with self.assertRaisesRegex(ValueError, "Cannot check published chart"):
+                release.published_app_version("kyverno", "3.10.0-rc.5", "kyverno", index)
+
+    def test_chart_plan_pins_one_chart_to_the_published_application(self):
+        metadata = self.chart_plan()
+        self.assertEqual(metadata["tag"], self.CHART_TAG)
+        self.assertEqual(release.app_tag(metadata), "v1.20.0-rc.4")
+        self.assertEqual(metadata["charts"], {"kyverno": "3.10.0-rc.5"})
+        self.assertTrue(metadata["chart_only"])
+        self.assertTrue(metadata["prerelease"])
+        self.assertTrue(all(ref.endswith(":v1.20.0-rc.4") for ref in metadata["images"].values()))
+        policies = self.chart_plan("kyverno-policies-chart-4.2.2", "v1.20.1")
+        self.assertEqual(policies["charts"], {"kyverno-policies": "4.2.2"})
+        self.assertFalse(policies["prerelease"])
+
+    def test_chart_plan_rejects_unmapped_or_mismatched_inputs(self):
+        for tag, application, message in (
+            ("kyverno-chart-3.11.0", "v1.20.0", "Expected exactly one application line"),
+            ("kyverno-chart-3.10.0", "v1.21.0", "not in the 1.20 line"),
+            ("kyverno-chart-3.10.0", "kyverno-chart-3.9.0", "not in the 1.20 line"),
+            ("kyverno-chart-v3.10.0", "v1.20.0", "Expected a kyverno-chart"),
+            ("other-chart-3.10.0", "v1.20.0", "Expected a kyverno-chart"),
+            ("kyverno-chart-3.10.0-rc.05", "v1.20.0", "leading zeros"),
+            ("kyverno-chart-3.10.0-rc.4", "v1.20.0-rc.4", "chart version of v1.20.0-rc.4 itself"),
+            ("kyverno-policies-chart-4.2.1", "v1.20.1", "chart version of v1.20.1 itself"),
+        ):
+            with self.subTest(tag=tag, application=application):
+                with self.assertRaisesRegex(ValueError, message):
+                    self.chart_plan(tag, application)
+
+    def test_chart_release_runs_only_from_its_own_tag_push(self):
+        metadata = self.chart_plan()
+        release.validate_chart_event(metadata, "push", f"refs/tags/{self.CHART_TAG}", SHA)
+        for event, ref, sha in (
+            ("workflow_dispatch", "refs/heads/main", SHA),
+            ("push", "refs/tags/kyverno-chart-3.10.0-rc.6", SHA),
+            ("push", "refs/tags/v1.20.0-rc.4", SHA),
+            ("push", f"refs/tags/{self.CHART_TAG}", "b" * 40),
+        ):
+            with self.assertRaises(ValueError):
+                release.validate_chart_event(metadata, event, ref, sha)
+
+    def test_chart_only_requires_published_application_and_a_free_version(self):
+        metadata = self.chart_plan()
+        public = {"isDraft": False, "assets": [], "isPrerelease": True, "tagName": "v1.20.0-rc.4"}
+        with patch.object(release, "existing_release", return_value=public), \
+                patch.object(release, "inspect_digest", return_value="sha256:image"):
+            release.check_chart_only(metadata, self.lookup({}))
+            # An interrupted retry of this same chart release is not a conflict.
+            release.check_chart_only(metadata, self.lookup({("kyverno", "3.10.0-rc.5"): "v1.20.0-rc.4"}))
+            with self.assertRaisesRegex(ValueError, "never overwrite or renumber"):
+                release.check_chart_only(metadata, self.lookup({("kyverno", "3.10.0-rc.5"): "v1.20.0-rc.5"}))
+        for existing, digest, message in (
+            (None, "sha256:image", "published application release"),
+            ({**public, "isDraft": True}, "sha256:image", "published application release"),
+            (public, None, "Application image is not published"),
+        ):
+            with patch.object(release, "existing_release", return_value=existing), \
+                    patch.object(release, "inspect_digest", return_value=digest):
+                with self.assertRaisesRegex(ValueError, message):
+                    release.check_chart_only(metadata, self.lookup({}))
+
+    def test_policies_only_preparation_touches_neither_kyverno_nor_dependencies(self):
+        shutil.copytree(ROOT / "charts", "charts")
+        before = (Path("charts/kyverno/Chart.yaml").read_text(), Path("charts/kyverno/values.yaml").read_text())
+        metadata = self.chart_plan("kyverno-policies-chart-4.2.2", "v1.20.1")
+        with patch.object(release, "run") as run, patch.object(release, "output") as output:
+            release.prepare(metadata)
+        commands = [call.args[:3] for call in run.call_args_list]
+        self.assertNotIn(("helm", "dependency", "build"), commands)
+        self.assertIn(("helm", "package", Path("charts/kyverno-policies")), commands)
+        self.assertNotIn(("helm", "package", Path("charts/kyverno")), commands)
+        output.assert_not_called()
+        chart = release.read("charts/kyverno-policies/Chart.yaml")
+        self.assertEqual((chart["version"], chart["appVersion"]), ("4.2.2", "v1.20.1"))
+        self.assertEqual((Path("charts/kyverno/Chart.yaml").read_text(),
+                          Path("charts/kyverno/values.yaml").read_text()), before)
+        self.assertNotIn("external_dependencies", release.read(".release/plan.json"))
+
+    def test_kyverno_chart_only_packages_application_images_and_app_version(self):
+        metadata = self.chart_plan()
+        directory = Path("packages")
+        directory.mkdir()
+        values = {}
+        for keys, image in release.IMAGE_VALUES.items():
+            parent = values
+            for key in keys.split("."):
+                parent = parent.setdefault(key, {})
+            parent.update(registry="ghcr.io", repository=f"kyverno/{image}", tag="v1.20.0-rc.4")
+        files = {
+            "kyverno/Chart.yaml": {"name": "kyverno", "version": "3.10.0-rc.5", "appVersion": "v1.20.0-rc.4",
+                                   "dependencies": [{"name": name, "version": "3.10.0-rc.5"}
+                                                    for name in ("crds", "grafana")]},
+            "kyverno/values.yaml": values,
+            "kyverno/charts/crds/Chart.yaml": {"name": "crds", "version": "3.10.0-rc.5"},
+            "kyverno/charts/grafana/Chart.yaml": {"name": "grafana", "version": "3.10.0-rc.5"},
+        }
+        with tarfile.open(directory / "kyverno-3.10.0-rc.5.tgz", "w:gz") as archive:
+            for filename, value in files.items():
+                data = yaml.safe_dump(value).encode()
+                info = tarfile.TarInfo(filename)
+                info.size = len(data)
+                archive.addfile(info, io.BytesIO(data))
+        release.verify_packages(metadata, directory)
+        metadata["app_tag"] = "v1.20.0-rc.5"
+        with self.assertRaisesRegex(ValueError, "Stale chart metadata"):
+            release.verify_packages(metadata, directory)
+
+    def test_chart_only_candidate_cannot_create_releases_or_publish_images(self):
+        metadata = self.chart_plan()
+        Path(".release").mkdir()
+        release.write_json(".release/plan.json", metadata)
+        for command in ("draft", "publish-images", "upload-assets"):
+            with patch.object(release.sys, "argv", ["release.py", command]), \
+                    patch.object(release, "check_seal"), patch.object(release, "verify_tag"):
+                with self.assertRaisesRegex(ValueError, "can only publish and verify charts"):
+                    release.main()
+        with patch.object(release.sys, "argv", ["release.py", "publish-charts"]), \
+                patch.object(release, "check_seal"), patch.object(release, "verify_tag"), \
+                patch.object(release, "require_draft") as draft, \
+                patch.object(release, "publish_charts") as publish:
+            release.main()
+        draft.assert_not_called()
+        publish.assert_called_once()
+
+    def test_chart_only_publication_never_uploads_github_release_assets(self):
+        metadata = self.chart_plan()
+        pages = Path(".release-pages")
+
+        def run(*args, **kwargs):
+            if args[:2] == ("git", "clone"):
+                pages.mkdir()
+                (pages / "index.yaml").write_text(yaml.safe_dump({"apiVersion": "v1", "entries": {}}))
+
+        Path(".release/packages").mkdir(parents=True)
+        Path(".release/packages/kyverno-3.10.0-rc.5.tgz").write_bytes(b"chart")
+        with patch.dict(os.environ, GH_REPO="kyverno/kyverno"), \
+                patch.object(release, "verify_packages"), patch.object(release, "run", side_effect=run), \
+                patch.object(release, "inspect_digest", side_effect=[None, "sha256:chart"]), \
+                patch.object(release, "sign"), patch.object(release, "upload_asset") as upload, \
+                patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)):
+            release.publish_charts(metadata)
+        upload.assert_not_called()
+
+    def test_signature_identity_binds_chart_tag_reusable_publication(self):
+        metadata = self.chart_plan()
+        prefix = "https://github.com/kyverno/kyverno/.github/workflows/"
+        with patch.dict(os.environ, GH_REPO="kyverno/kyverno"):
+            identity = release.workflow_identity(metadata)
+        for name in ("helm-release", "chart-release"):
+            self.assertRegex(f"{prefix}{name}.yaml@refs/tags/{self.CHART_TAG}", identity)
+        for url in (f"{prefix}helm-release.yaml@refs/tags/kyverno-chart-3.10.0-rc.6",
+                    f"{prefix}helm-release.yaml@refs/tags/v1.20.0-rc.4",
+                    f"{prefix}arbitrary.yaml@refs/tags/{self.CHART_TAG}"):
+            self.assertIsNone(re.fullmatch(identity, url))
+
+    def test_chart_release_workflow_is_a_pinned_tag_only_failover(self):
+        def workflow(name):
+            return yaml.load((ROOT / ".github/workflows" / name).read_text(), Loader=yaml.BaseLoader)
+
+        chart = workflow("chart-release.yaml")
+        self.assertEqual(list(chart["on"]), ["push"])
+        self.assertEqual(chart["on"]["push"]["tags"], ["kyverno-chart-*", "kyverno-policies-chart-*"])
+        self.assertEqual(chart["permissions"], {})
+        self.assertEqual(chart["concurrency"]["cancel-in-progress"], "false")
+        jobs = chart["jobs"]
+        self.assertEqual(jobs["charts"]["uses"], "./.github/workflows/helm-release.yaml")
+        self.assertEqual(set(jobs["charts"]["needs"]), {"candidate", "lint", "artifacthub"})
+        self.assertEqual(jobs["verify"]["needs"], "charts")
+        self.assertEqual(jobs["candidate"]["steps"][0]["run"], 'test "$RELEASE_SHA" = "$GITHUB_SHA"')
+        self.assertIn("release.py chart-candidate", "".join(
+            step.get("run", "") for step in jobs["candidate"]["steps"]))
+        self.assertNotIn("build.py", (ROOT / ".github/workflows/chart-release.yaml").read_text())
+        for job in jobs.values():
+            for step in job.get("steps", []):
+                if step.get("uses", "").startswith("actions/checkout@"):
+                    self.assertEqual(step["with"]["ref"], "${{ github.sha }}")
+                    self.assertEqual(step["with"]["persist-credentials"], "false")
+        # The application release stays the default and never fires for chart tags.
+        self.assertEqual(workflow("release.yaml")["on"]["push"]["tags"], ["v*"])
+        self.assertEqual(list(workflow("helm-release.yaml")["on"]), ["workflow_call"])
+
+
 if __name__ == "__main__":
     unittest.main()

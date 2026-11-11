@@ -32,10 +32,14 @@ accepted without normalization: `appVersion` and **every Kyverno-owned image
 reference** retain the exact application tag. Build metadata (`+...`), malformed
 SemVer identifiers, and missing mappings fail closed.
 
-Both chart patches and prereleases belong exclusively to the application release
-sequence. Do not allocate chart-only versions in the same sequence or push
-`kyverno-chart-*` / `kyverno-policies-chart-*` tags. The unified Helm workflow is
-called directly, not triggered by those tags. A conflicting existing chart,
+By default, chart patches and prereleases follow the application release
+sequence, and one application tag publishes both charts. The only exception is
+the [chart-only failover](#chart-only-failover). If another release already
+published the mapped chart version, the application release takes the next free
+version in the same sequence (`3.10.0-rc.5` → `3.10.0-rc.6`, `3.10.2` → `3.10.3`)
+and logs a warning. A version already published for the same application tag is
+treated as an interrupted retry and reused. The allocation is made once, when the
+candidate is planned, and retained in `plan.json`. A conflicting existing chart,
 binary, manifest, or image version is an error, never permission to overwrite it.
 
 ## Prerequisites
@@ -234,6 +238,46 @@ Job enumeration uses small, individually retried API pages because GitHub's
 large-page endpoint can time out on full reusable matrices after a rerun.
 Exhausted retries or an incomplete matrix fail the report rather than presenting
 partial diagnostics as successful completion.
+
+## Chart-only failover
+
+Use this only when a chart-only fix (for example a changed `values.yaml` default)
+must ship before the next application release. Otherwise, release a new
+application tag.
+
+Push a chart tag on a reviewed commit of the release branch:
+
+```bash
+git tag -a kyverno-chart-3.10.0-rc.5 <full-reviewed-commit-sha> -m kyverno-chart-3.10.0-rc.5
+git push upstream refs/tags/kyverno-chart-3.10.0-rc.5
+```
+
+`kyverno-policies-chart-<version>` works the same way. The `chart-release`
+workflow:
+
+1. maps the chart `major.minor` back to one application line in
+   `config/releases.yaml`, then resolves the newest application tag of that line
+   in the tagged commit's history (`git describe --match 'v<line>.*'`);
+2. requires that application tag to be a public (non-draft) GitHub release whose
+   images all exist in GHCR;
+3. rejects the application's own mapped chart version and any version another
+   release has already published. Chart tags never overwrite or renumber;
+4. prepares and seals **only that chart** from the tagged commit, with
+   `appVersion` and every image reference pinned to the application tag. It
+   never builds or publishes images, binaries, manifests, or a GitHub release;
+5. lints it (`helm lint --strict`, chart-testing, Artifact Hub), then publishes
+   and signs it through the same `helm-release` workflow and verifies the remote
+   index, package bytes, signatures, and referenced images.
+
+Choose the next unused version after the application's own version, for example
+`3.10.0-rc.5` after `v1.20.0-rc.4`. The next application release then sees that
+version taken and moves to the next free one (`v1.20.0-rc.5` publishes
+`3.10.0-rc.6`). Chart template changes must still work with the pinned
+application images: a chart that needs new application code is not a chart-only
+fix.
+
+Recovery is the same as for application releases: rerun failed jobs of the
+original run, never a new run against a partially published version.
 
 ## Recovery and conflict handling
 

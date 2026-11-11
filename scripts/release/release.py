@@ -43,6 +43,14 @@ TAG = re.compile(
     r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
     r"(?P<pre>-(?:[0-9A-Za-z-]+)(?:\.[0-9A-Za-z-]+)*)?$"
 )
+# Failover only: a chart tag republishes one chart against an already published application.
+CHART_TAG = re.compile(
+    r"^(?P<chart>kyverno|kyverno-policies)-chart-(?P<version>"
+    r"(?P<minor>(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))\.(?:0|[1-9][0-9]*)"
+    r"(?P<pre>-(?:[0-9A-Za-z-]+)(?:\.[0-9A-Za-z-]+)*)?)$"
+)
+# Bounds the search so a misconfigured line fails instead of walking the sequence forever.
+ALLOCATION_LIMIT = 50
 
 
 def run(*args, **kwargs):
@@ -74,14 +82,23 @@ def sha256(path):
     return digest.hexdigest()
 
 
+def app_tag(metadata):
+    """The application tag charts reference. Equal to the git tag except for chart-only releases."""
+    return metadata.get("app_tag", metadata["tag"])
+
+
+def check_prerelease(pre):
+    for part in (pre or "").removeprefix("-").split("."):
+        if part.isdigit() and len(part) > 1 and part.startswith("0"):
+            raise ValueError("Numeric prerelease identifiers must not have leading zeros")
+
+
 def plan(tag, sha, mapping, owner="kyverno"):
     match = TAG.fullmatch(tag)
     if not match or not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise ValueError("Expected a vMAJOR.MINOR.PATCH[-prerelease] tag and full commit SHA")
     pre = match["pre"] or ""
-    for part in pre.removeprefix("-").split("."):
-        if part.isdigit() and len(part) > 1 and part.startswith("0"):
-            raise ValueError("Numeric prerelease identifiers must not have leading zeros")
+    check_prerelease(pre)
     line = ".".join(match.group(1, 2))
     versions = mapping.get("lines", {}).get(line)
     if not versions:
@@ -97,6 +114,7 @@ def plan(tag, sha, mapping, owner="kyverno"):
     return {
         "schema": 1,
         "tag": tag,
+        "app_tag": tag,
         "sha": sha,
         "prerelease": bool(pre),
         "charts": charts,
@@ -104,6 +122,136 @@ def plan(tag, sha, mapping, owner="kyverno"):
         "locked_dependencies": mapping.get("dependencies", {}),
         "images": {name: f"ghcr.io/{owner}/{name}:{tag}" for name in IMAGES},
     }
+
+
+def bump(version):
+    """Next version in the same chart sequence: rc.5 -> rc.6, rc3 -> rc4, 3.10.2 -> 3.10.3."""
+    core, _, pre = version.partition("-")
+    if pre:
+        match = re.fullmatch(r"(.*?)([0-9]+)", pre)
+        if not match:
+            raise ValueError(f"Cannot bump a prerelease without a trailing number: {version}")
+        return f"{core}-{match[1]}{int(match[2]) + 1}"
+    major, minor, patch = core.split(".")
+    return f"{major}.{minor}.{int(patch) + 1}"
+
+
+def load_index():
+    """Read gh-pages directly: the Pages CDN can lag behind a recent chart publication."""
+    return yaml.safe_load(output(
+        "gh", "api", "-H", "Accept: application/vnd.github.raw",
+        f"repos/{os.environ['GH_REPO']}/contents/index.yaml?ref=gh-pages",
+    )) or {}
+
+
+def published_app_version(name, version, owner, index):
+    """appVersion of an already published chart version, "" if it has none, None if unpublished."""
+    entry = next((item for item in (index.get("entries") or {}).get(name, [])
+                  if item.get("version") == version), None)
+    if entry is not None:
+        return entry.get("appVersion") or ""
+    # OCI is checked too: an interrupted publication can push OCI before the index commit.
+    result = subprocess.run(
+        ["helm", "show", "chart", f"oci://ghcr.io/{owner}/charts/{name}", "--version", version],
+        capture_output=True, text=True,
+    )
+    if result.returncode == 0:
+        return (yaml.safe_load(result.stdout) or {}).get("appVersion") or ""
+    if "not found" in result.stderr.lower() or "manifest unknown" in result.stderr.lower():
+        return None
+    raise ValueError(f"Cannot check published chart {name} {version}: {result.stderr}")
+
+
+def index_lookup(owner):
+    index = load_index()
+    return lambda name, version: published_app_version(name, version, owner, index)
+
+
+def allocate_charts(metadata, lookup):
+    """Failover for the application path: never collide with a chart another release published.
+
+    The mapped version is kept unless another release (typically a chart-only failover) already
+    published it; then the next free version in the same sequence is used. A version already
+    published for this same application tag is an interrupted retry and is reused, so identical
+    bytes are still accepted and conflicting bytes are still rejected at publication.
+    """
+    bumped = {}
+    for name, requested in metadata["charts"].items():
+        candidate = requested
+        for _ in range(ALLOCATION_LIMIT):
+            published = lookup(name, candidate)
+            if published is None or published == app_tag(metadata):
+                break
+            candidate = bump(candidate)
+        else:
+            raise ValueError(f"No free {name} chart version within {ALLOCATION_LIMIT} of {requested}")
+        if candidate != requested:
+            print(f"::warning::{name} chart {requested} was already published by another release; "
+                  f"allocating {candidate}", flush=True)
+            bumped[name] = {"requested": requested, "allocated": candidate}
+        metadata["charts"][name] = candidate
+    if bumped:
+        metadata["chart_bumps"] = bumped
+    return bumped
+
+
+def chart_plan(tag, sha, mapping, resolve, owner="kyverno"):
+    """Plan a chart-only failover release of one chart against a published application tag."""
+    match = CHART_TAG.fullmatch(tag)
+    if not match or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise ValueError("Expected a kyverno-chart-X.Y.Z[-pre] or kyverno-policies-chart-X.Y.Z[-pre] "
+                         "tag and full commit SHA")
+    check_prerelease(match["pre"])
+    name, version = match["chart"], match["version"]
+    lines = [line for line, versions in mapping.get("lines", {}).items()
+             if versions.get(name) == match["minor"]]
+    if len(lines) != 1:
+        raise ValueError(f"Expected exactly one application line mapped to {name} {match['minor']}, "
+                         f"found {sorted(lines)}")
+    application = resolve(lines[0])
+    if not TAG.fullmatch(application) or not application.startswith(f"v{lines[0]}."):
+        raise ValueError(f"Application tag {application!r} is not in the {lines[0]} line")
+    metadata = plan(application, sha, mapping, owner)
+    if metadata["charts"][name] == version:
+        # That number belongs to the application release itself; a chart tag must take another.
+        raise ValueError(f"{name} {version} is the chart version of {application} itself; "
+                         "use the next free version for a chart-only release")
+    metadata.update({
+        "tag": tag,
+        "app_tag": application,
+        "chart_only": True,
+        "prerelease": bool(match["pre"]),
+        "charts": {name: version},
+    })
+    return metadata
+
+
+def resolve_app_tag(sha, line):
+    """The newest application tag of the line in the chart commit's history."""
+    return output("git", "describe", "--tags", "--abbrev=0", "--match", f"v{line}.*", sha)
+
+
+def validate_chart_event(metadata, event, ref, sha):
+    if sha != metadata["sha"]:
+        raise ValueError("Release SHA must equal the exact event SHA")
+    if event != "push" or ref != f"refs/tags/{metadata['tag']}":
+        raise ValueError("A chart-only release runs only from a push of its own chart tag")
+
+
+def check_chart_only(metadata, lookup):
+    """Chart-only releases reuse published application images and never take a used version."""
+    application = existing_release(app_tag(metadata))
+    if application is None or application["isDraft"]:
+        raise ValueError(f"Chart-only releases must reference a published application release, "
+                         f"not {app_tag(metadata)}")
+    for reference in metadata["images"].values():
+        if inspect_digest(reference) is None:
+            raise ValueError(f"Application image is not published: {reference}")
+    for name, version in metadata["charts"].items():
+        published = lookup(name, version)
+        if published is not None and published != app_tag(metadata):
+            raise ValueError(f"{name} {version} is already published for {published or 'another release'}; "
+                             "chart tags never overwrite or renumber")
 
 
 def validate_event(metadata, event, ref, sha, rehearsal=False):
@@ -155,44 +303,49 @@ def chart_image_references(values, metadata):
             value = value[key]
         registry = value["registry"] or values.get("global", {}).get("image", {}).get("registry") or value.get("defaultRegistry")
         repository = f"{metadata['owner']}/{name}"
-        references[keys] = f"{registry + '/' if registry else ''}{repository}:{metadata['tag']}"
+        references[keys] = f"{registry + '/' if registry else ''}{repository}:{app_tag(metadata)}"
     return references
 
 
 def prepare(metadata):
     charts = Path("charts")
     parent = charts / "kyverno"
-    original_external = external_dependencies(read(parent / "Chart.lock"))
-    if original_external != external_dependencies(read(parent / "Chart.yaml")):
-        raise ValueError("External chart dependencies differ from Chart.lock")
-    expected_names = {f"{item['name']}-{item['version']}.tgz" for item in original_external}
-    if set(metadata["locked_dependencies"]) != expected_names:
-        raise ValueError("External dependency checksum pins do not match Chart.lock")
-    # Resolve the original lock before changing the bundled chart versions.
-    add_repositories()
-    run("helm", "dependency", "build", parent)
+    # A chart-only failover may prepare kyverno-policies alone; it has no dependencies or images.
+    kyverno = "kyverno" in metadata["charts"]
     retained = Path(".release/dependencies")
     retained.mkdir(parents=True, exist_ok=True)
+    original_external = []
     dependency_checksums = {}
-    for dependency in original_external:
-        name = f"{dependency['name']}-{dependency['version']}.tgz"
-        source = parent / "charts" / name
-        dependency_checksums[name] = sha256(source)
-        if dependency_checksums[name] != metadata["locked_dependencies"][name]:
-            raise ValueError(f"External dependency does not match its committed checksum pin: {name}")
-        shutil.copyfile(source, retained / name)
+    if kyverno:
+        original_external = external_dependencies(read(parent / "Chart.lock"))
+        if original_external != external_dependencies(read(parent / "Chart.yaml")):
+            raise ValueError("External chart dependencies differ from Chart.lock")
+        expected_names = {f"{item['name']}-{item['version']}.tgz" for item in original_external}
+        if set(metadata["locked_dependencies"]) != expected_names:
+            raise ValueError("External dependency checksum pins do not match Chart.lock")
+        # Resolve the original lock before changing the bundled chart versions.
+        add_repositories()
+        run("helm", "dependency", "build", parent)
+        for dependency in original_external:
+            name = f"{dependency['name']}-{dependency['version']}.tgz"
+            source = parent / "charts" / name
+            dependency_checksums[name] = sha256(source)
+            if dependency_checksums[name] != metadata["locked_dependencies"][name]:
+                raise ValueError(f"External dependency does not match its committed checksum pin: {name}")
+            shutil.copyfile(source, retained / name)
     chart_paths = [
         (charts / name, version) for name, version in metadata["charts"].items()
     ]
-    for name in ("crds", "grafana"):
-        chart_paths.append((parent / "charts" / name, metadata["charts"]["kyverno"]))
+    if kyverno:
+        for name in ("crds", "grafana"):
+            chart_paths.append((parent / "charts" / name, metadata["charts"]["kyverno"]))
     compatibility = {}
     for path, version in chart_paths:
         chart = read(path / "Chart.yaml")
         compatibility[str(path)] = chart.get("kubeVersion")
         set_scalar(path / "Chart.yaml", "version", version)
         if "appVersion" in chart:
-            set_scalar(path / "Chart.yaml", "appVersion", metadata["tag"])
+            set_scalar(path / "Chart.yaml", "appVersion", app_tag(metadata))
         if "artifacthub.io/prerelease" in chart.get("annotations", {}):
             # Annotation names contain dots, so use the YAML document here.
             chart = read(path / "Chart.yaml")
@@ -200,22 +353,23 @@ def prepare(metadata):
                 metadata["prerelease"]
             ).lower()
             (path / "Chart.yaml").write_text(yaml.safe_dump(chart, sort_keys=False))
-    chart = read(parent / "Chart.yaml")
-    for dependency in chart["dependencies"]:
-        if not dependency.get("repository"):
-            dependency["version"] = metadata["charts"]["kyverno"]
-    (parent / "Chart.yaml").write_text(yaml.safe_dump(chart, sort_keys=False))
-    for key, image in IMAGE_VALUES.items():
-        set_scalar(parent / "values.yaml", f"{key}.tag", metadata["tag"])
-        set_scalar(parent / "values.yaml", f"{key}.repository", f"{metadata['owner']}/{image}")
-    metadata["chart_images"] = chart_image_references(read(parent / "values.yaml"), metadata)
-    # Only local versions changed. Every external constraint is an exact lock version.
-    run("helm", "dependency", "update", "--skip-refresh", parent)
-    if external_dependencies(read(parent / "Chart.lock")) != original_external:
-        raise ValueError("Release preparation changed locked external dependencies")
-    for name, expected in dependency_checksums.items():
-        if sha256(parent / "charts" / name) != expected:
-            raise ValueError(f"Release preparation changed external dependency bytes: {name}")
+    if kyverno:
+        chart = read(parent / "Chart.yaml")
+        for dependency in chart["dependencies"]:
+            if not dependency.get("repository"):
+                dependency["version"] = metadata["charts"]["kyverno"]
+        (parent / "Chart.yaml").write_text(yaml.safe_dump(chart, sort_keys=False))
+        for key, image in IMAGE_VALUES.items():
+            set_scalar(parent / "values.yaml", f"{key}.tag", app_tag(metadata))
+            set_scalar(parent / "values.yaml", f"{key}.repository", f"{metadata['owner']}/{image}")
+        metadata["chart_images"] = chart_image_references(read(parent / "values.yaml"), metadata)
+        # Only local versions changed. Every external constraint is an exact lock version.
+        run("helm", "dependency", "update", "--skip-refresh", parent)
+        if external_dependencies(read(parent / "Chart.lock")) != original_external:
+            raise ValueError("Release preparation changed locked external dependencies")
+        for name, expected in dependency_checksums.items():
+            if sha256(parent / "charts" / name) != expected:
+                raise ValueError(f"Release preparation changed external dependency bytes: {name}")
     for path, _ in chart_paths:
         if read(path / "Chart.yaml").get("kubeVersion") != compatibility[str(path)]:
             raise ValueError(f"Changed Kubernetes compatibility constraint in {path}")
@@ -225,18 +379,19 @@ def prepare(metadata):
     for name in metadata["charts"]:
         run("helm", "lint", "--strict", charts / name)
         run("helm", "package", charts / name, "--destination", packages)
-    rendered = output(
-        "helm", "template", "kyverno", packages / f"kyverno-{metadata['charts']['kyverno']}.tgz",
-        "--namespace", "kyverno", "--kube-version", "1.36.1", "--skip-tests",
-        "--set", "global.templating.enabled=true",
-        "--set", f"global.templating.version={metadata['tag']}",
-    )
-    verify_images(rendered, metadata)
-    Path(".release/install.yaml").write_text(rendered + "\n")
+    if kyverno:
+        rendered = output(
+            "helm", "template", "kyverno", packages / f"kyverno-{metadata['charts']['kyverno']}.tgz",
+            "--namespace", "kyverno", "--kube-version", "1.36.1", "--skip-tests",
+            "--set", "global.templating.enabled=true",
+            "--set", f"global.templating.version={app_tag(metadata)}",
+        )
+        verify_images(rendered, metadata)
+        Path(".release/install.yaml").write_text(rendered + "\n")
+        metadata["external_dependencies"] = original_external
+        metadata["dependency_checksums"] = dependency_checksums
+        metadata["lock_digest"] = read(parent / "Chart.lock")["digest"]
     metadata["compatibility"] = compatibility
-    metadata["external_dependencies"] = original_external
-    metadata["dependency_checksums"] = dependency_checksums
-    metadata["lock_digest"] = read(parent / "Chart.lock")["digest"]
     write_json(".release/plan.json", metadata)
 
 
@@ -301,7 +456,7 @@ def verify_packages(metadata, directory):
         package = Path(directory) / f"{name}-{version}.tgz"
         with tarfile.open(package) as archive:
             chart = yaml.safe_load(archive.extractfile(f"{name}/Chart.yaml"))
-            if chart["version"] != version or chart["appVersion"] != metadata["tag"]:
+            if chart["version"] != version or chart["appVersion"] != app_tag(metadata):
                 raise ValueError(f"Stale chart metadata in {package}")
             expected = metadata.get("compatibility", {}).get(f"charts/{name}")
             if expected and chart.get("kubeVersion") != expected:
@@ -323,7 +478,7 @@ def verify_packages(metadata, directory):
                     )
                     if bundled["version"] != version:
                         raise ValueError(f"Stale {subchart} version")
-                    if "appVersion" in bundled and bundled["appVersion"] != metadata["tag"]:
+                    if "appVersion" in bundled and bundled["appVersion"] != app_tag(metadata):
                         raise ValueError(f"Stale {subchart} appVersion")
                     key = f"charts/kyverno/charts/{subchart}"
                     if key in metadata.get("compatibility", {}) and bundled.get("kubeVersion") != metadata["compatibility"][key]:
@@ -528,7 +683,8 @@ def sign(subject, kind, metadata):
         env={**os.environ, "COSIGN_REPOSITORY": f"ghcr.io/{metadata['owner']}/signatures"})
 
 
-def workflow_identity(metadata, workflows=("release", "prepare-release", "release-publish", "helm-release")):
+def workflow_identity(metadata, workflows=("release", "prepare-release", "release-publish",
+                                           "helm-release", "chart-release")):
     return (
         rf"^https://github\.com/{re.escape(os.environ['GH_REPO'])}/\.github/workflows/"
         rf"({'|'.join(workflows)})\.yaml@"
@@ -598,7 +754,9 @@ def publish_charts(metadata):
         if not digest:
             raise ValueError(f"Missing chart after publication: {reference}")
         sign(reference.rsplit(":", 1)[0] + "@" + digest, "helm-chart", metadata)
-        upload_asset(metadata["tag"], package)
+        if not metadata.get("chart_only"):
+            # Chart tags have never had GitHub releases; only application releases carry assets.
+            upload_asset(metadata["tag"], package)
     # Do not rewrite the index timestamp on a successful interrupted retry.
     index = read(pages / "index.yaml")
     missing = False
@@ -657,6 +815,36 @@ def verify_remote_charts(metadata):
         raise ValueError(f"Remote chart verification failed: {last_error}")
 
 
+def verify_remote_chart_only(metadata):
+    verify_remote_charts(metadata)
+    if "kyverno" in metadata["charts"]:
+        verify_images(output(
+            "helm", "template", "kyverno",
+            f".release-verification/kyverno-{metadata['charts']['kyverno']}.tgz",
+            "--kube-version", "1.36.1", "--skip-tests",
+        ), metadata)
+    # The application release owns its images; only confirm the chart points at published ones.
+    for reference in metadata["images"].values():
+        if inspect_digest(reference) is None:
+            raise ValueError(f"Chart references an unpublished image: {reference}")
+
+
+def chart_candidate(metadata):
+    """Prepare, verify and seal one chart for a chart-only failover. Never builds images."""
+    if output("git", "rev-parse", "HEAD") != metadata["sha"]:
+        raise ValueError("Checkout does not match the requested release SHA")
+    prepare(metadata)
+    verify_packages(metadata, ".release/packages")
+    # Same retained layout as the application candidate so the publication actions are reused.
+    with tarfile.open(".release/workspace.tar", "w") as archive:
+        archive.add("charts", arcname="charts")
+        archive.add("config/crds", arcname="config/crds")
+        archive.add(".release/plan.json", arcname=".release/plan.json")
+        archive.add(".release/packages", arcname=".release/packages")
+        archive.add(".release/dependencies", arcname=".release/dependencies")
+    seal(".release")
+
+
 def verify_remote(metadata):
     verify_remote_charts(metadata)
     verify_images(output(
@@ -695,12 +883,22 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=(
         "plan", "event", "prepare", "verify-packages", "seal", "check-seal", "draft",
-        "publish-images", "publish-charts", "verify-remote", "upload-assets",
+        "publish-images", "publish-charts", "verify-remote", "upload-assets", "chart-candidate",
     ))
     parser.add_argument("--tag", default=os.environ.get("RELEASE_TAG"))
     parser.add_argument("--sha", default=os.environ.get("RELEASE_SHA"))
     parser.add_argument("--owner", default="kyverno")
     args = parser.parse_args()
+    if args.command == "chart-candidate":
+        metadata = chart_plan(args.tag, args.sha, read("config/releases.yaml"),
+                              lambda line: resolve_app_tag(args.sha, line), args.owner)
+        validate_chart_event(metadata, os.environ["GITHUB_EVENT_NAME"], os.environ["GITHUB_REF"],
+                             os.environ["GITHUB_SHA"])
+        verify_tag(metadata)
+        check_chart_only(metadata, index_lookup(metadata["owner"]))
+        chart_candidate(metadata)
+        print(json.dumps(metadata, indent=2))
+        return
     if args.command in ("plan", "event", "prepare"):
         metadata = plan(args.tag, args.sha, read("config/releases.yaml"), args.owner)
         if args.command == "event":
@@ -708,6 +906,10 @@ def main():
                            os.environ["GITHUB_SHA"], os.environ.get("RELEASE_REHEARSAL") == "true")
             if os.environ["GITHUB_EVENT_NAME"] == "push":
                 verify_tag(metadata)
+        elif args.command == "plan":
+            # The candidate job fixes chart versions here, once; build.py retains them in the seal.
+            # The `prepare` command stays offline for local and PR packaging checks.
+            allocate_charts(metadata, index_lookup(metadata["owner"]))
         write_json(".release/plan.json", metadata)
         if args.command == "prepare":
             prepare(metadata)
@@ -723,9 +925,12 @@ def main():
         raise ValueError("Retained candidate does not match the requested tag/SHA")
     if args.command == "check-seal":
         return
+    chart_only = metadata.get("chart_only", False)
+    if chart_only and args.command in ("draft", "publish-images", "upload-assets"):
+        raise ValueError("A chart-only candidate can only publish and verify charts")
     if args.command in ("draft", "publish-images", "publish-charts", "verify-remote", "upload-assets"):
         verify_tag(metadata)
-    if args.command in ("publish-images", "publish-charts", "upload-assets"):
+    if args.command in ("publish-images", "publish-charts", "upload-assets") and not chart_only:
         require_draft(metadata)
     if args.command == "verify-packages":
         verify_packages(metadata, ".release/packages")
@@ -736,7 +941,7 @@ def main():
     elif args.command == "publish-charts":
         publish_charts(metadata)
     elif args.command == "verify-remote":
-        verify_remote(metadata)
+        (verify_remote_chart_only if chart_only else verify_remote)(metadata)
     elif args.command == "upload-assets":
         for path in sorted(Path(".release/assets").glob("*")):
             upload_asset(metadata["tag"], path)

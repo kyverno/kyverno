@@ -62,6 +62,7 @@ jobs:
             .github/workflows/release-publish.yaml \
             .github/workflows/release-validate.yaml \
             .github/workflows/helm-release.yaml \
+            .github/workflows/chart-release.yaml \
             .github/workflows/tests-conformance.yaml \
             .github/workflows/tests-k6.yaml
 
