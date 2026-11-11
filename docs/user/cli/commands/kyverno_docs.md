@@ -27,38 +27,31 @@ kyverno docs [flags]
 ```
 
 ### Options
-
-```
-      --autogenTag      Determines if the generated docs should contain a timestamp (default true)
-  -h, --help            help for docs
-      --markdownLinks   Determines if the generated docs should contain links to markdown files
-      --noDate          Determines if the generated docs should contain a date
-  -o, --output string   Output path (default ".")
-      --website         Website version
-```
-
+* **<a id="autogenTag"></a>--autogenTag**: Determines if the generated docs should contain a timestamp (default true)
+* **<a id="h"></a>-h,**: --help            help for docs
+* **<a id="markdownLinks"></a>--markdownLinks**: Determines if the generated docs should contain links to markdown files
+* **<a id="noDate"></a>--noDate**: Determines if the generated docs should contain a date
+* **<a id="o"></a>-o,**: --output string   Output path (default ".")
+* **<a id="website"></a>--website**: Website version
 ### Options inherited from parent commands
-
-```
-      --add_dir_header                      If true, adds the file directory to the header of the log messages
-      --alsologtostderr                     log to standard error as well as files (no effect when -logtostderr=true)
-      --alsologtostderrthreshold severity   logs at or above this threshold go to stderr when -alsologtostderr=true (no effect when -logtostderr=true)
-      --kubeconfig string                   Paths to a kubeconfig. Only required if out-of-cluster.
-      --legacy_stderr_threshold_behavior    If true, stderrthreshold is ignored when logtostderr=true (legacy behavior). If false, stderrthreshold is honored even when logtostderr=true (default true)
-      --log_backtrace_at traceLocation      when logging hits line file:N, emit a stack trace (default :0)
-      --log_dir string                      If non-empty, write log files in this directory (no effect when -logtostderr=true)
-      --log_file string                     If non-empty, use this log file (no effect when -logtostderr=true)
-      --log_file_max_size uint              Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
-      --logtostderr                         log to standard error instead of files (default true)
-      --one_output                          If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
-      --skip_headers                        If true, avoid header prefixes in the log messages
-      --skip_log_headers                    If true, avoid headers when opening log files (no effect when -logtostderr=true)
-      --stderrthreshold severity            logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=true unless -legacy_stderr_threshold_behavior=false) (default 2)
-  -v, --v Level                             number for the log level verbosity
-      --vmodule moduleSpec                  comma-separated list of pattern=N settings for file-filtered logging
-```
-
+* **<a id="add_dir_header"></a>--add_dir_header**: If true, adds the file directory to the header of the log messages
+* **<a id="alsologtostderr"></a>--alsologtostderr**: log to standard error as well as files (no effect when -logtostderr=true)
+* **<a id="alsologtostderrthreshold"></a>--alsologtostderrthreshold**: severity   logs at or above this threshold go to stderr when -alsologtostderr=true (no effect when -logtostderr=true)
+* **<a id="kubeconfig"></a>--kubeconfig**: string                   Paths to a kubeconfig. Only required if out-of-cluster.
+* **<a id="legacy_stderr_threshold_behavior"></a>--legacy_stderr_threshold_behavior**: If true, stderrthreshold is ignored when logtostderr=true (legacy behavior). If false, stderrthreshold is honored even when logtostderr=true (default true)
+* **<a id="log_backtrace_at"></a>--log_backtrace_at**: traceLocation      when logging hits line file:N, emit a stack trace (default :0)
+* **<a id="log_dir"></a>--log_dir**: string                      If non-empty, write log files in this directory (no effect when -logtostderr=true)
+* **<a id="log_file"></a>--log_file**: string                     If non-empty, use this log file (no effect when -logtostderr=true)
+* **<a id="log_file_max_size"></a>--log_file_max_size**: uint              Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
+* **<a id="logtostderr"></a>--logtostderr**: log to standard error instead of files (default true)
+* **<a id="one_output"></a>--one_output**: If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
+* **<a id="skip_headers"></a>--skip_headers**: If true, avoid header prefixes in the log messages
+* **<a id="skip_log_headers"></a>--skip_log_headers**: If true, avoid headers when opening log files (no effect when -logtostderr=true)
+* **<a id="stderrthreshold"></a>--stderrthreshold**: severity            logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=true unless -legacy_stderr_threshold_behavior=false) (default 2)
+* **<a id="v"></a>-v,**: --v Level                             number for the log level verbosity
+* **<a id="vmodule"></a>--vmodule**: moduleSpec                  comma-separated list of pattern=N settings for file-filtered logging
 ### SEE ALSO
 
 * [kyverno](kyverno.md)	 - Kubernetes Native Policy Management.
 
+###### Auto generated by spf13/cobra on 11-Nov-2026
