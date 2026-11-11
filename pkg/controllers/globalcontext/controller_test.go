@@ -71,6 +71,8 @@ func (f *fakeMetricsManager) MPOLMetrics() metrics.MutatingMetrics              
 func (f *fakeMetricsManager) GPOLMetrics() metrics.GeneratingMetrics             { return nil }
 func (f *fakeMetricsManager) GlobalContextMetrics() metrics.GlobalContextMetrics { return f.gctx }
 
+func (f *fakeMetricsManager) ImageDataCacheMetrics() metrics.ImageDataCacheMetrics { return nil }
+
 // fakeGCELister is a minimal GlobalContextEntryLister test double backed by a fixed slice,
 // so reportProjectionMetrics can be exercised without an informer.
 type fakeGCELister struct {
