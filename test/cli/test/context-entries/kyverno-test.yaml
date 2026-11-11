@@ -71,6 +71,5 @@ results:
   policy: example
   resources:
   - example
-  # key-side wildcard "A=*" is matched literally, so it no longer matches "A=ATest"; the deny fires.
   result: fail
   rule: wildcard-match
