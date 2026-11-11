@@ -149,6 +149,7 @@ func TestHandle_Tracing(t *testing.T) {
 				assert.Equal(t, untraced.Result.Message(), traced.Result.Message())
 				assert.Equal(t, len(untraced.Result.GeneratedResources()), len(traced.Result.GeneratedResources()))
 				assert.Equal(t, tt.wantSkipReason, untraced.Result.SkipReason())
+				assert.Equal(t, untraced.Result.SkipReason(), traced.Result.SkipReason())
 			}
 			assert.Nil(t, untraced.Trace, "no trace when compiled without tracing")
 
