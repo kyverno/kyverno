@@ -85,6 +85,18 @@ func TestHandle_Tracing(t *testing.T) {
 		wantMessage:    `match condition "never" did not pass`,
 		wantSkipReason: engineapi.SkipReasonMatchConditions,
 	}, {
+		// a match condition that errors at evaluation time (as opposed to one that evaluates
+		// cleanly to false) must report RuleStatusError, not Skip - the engine checks err != nil
+		// before it ever looks at result.Skipped (see engine.go's generate()), so this must never
+		// carry SkipReasonMatchConditions either, since that would trigger the background
+		// controller's synchronized-downstream cleanup for what is actually a broken policy.
+		name:        "match condition errors",
+		policy:      newPolicy("namespaces", admissionregistrationv1.MatchCondition{Name: "broken", Expression: "object.metadata.labels.missing == 'foo'"}),
+		wantRule:    engineapi.RuleStatusError,
+		wantApplied: true,
+		wantStatus:  trace.VerdictError,
+		wantMessage: "no such key: labels",
+	}, {
 		name:        "exception reported as skip",
 		policy:      newPolicy("namespaces"),
 		exceptions:  []*v1beta1.PolicyException{exception("")},
