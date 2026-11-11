@@ -91,6 +91,12 @@ jobs:
         run: |
           set -e
           make verify-policies-sysctls
+      - name: Verify podSecurityVersion rendering
+        # Renders the policies at each PSA version gate and checks the
+        # behavior against PSA for that version.
+        run: |
+          set -e
+          make verify-policies-psa-version
 
   sync-issue:
     if: always() && github.event_name == 'push'

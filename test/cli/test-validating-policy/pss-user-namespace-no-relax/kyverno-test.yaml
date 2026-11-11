@@ -17,8 +17,8 @@ results:
   kind: Pod
   policy: disallow-host-namespaces
   resources:
-  - privileged-host-users-false
   - compliant-host-users-false
+  - privileged-host-users-false
   result: pass
 - isValidatingPolicy: true
   kind: Pod
@@ -30,6 +30,6 @@ results:
   kind: Pod
   policy: disallow-privileged-containers
   resources:
-  - host-network-host-users-false
   - compliant-host-users-false
+  - host-network-host-users-false
   result: pass

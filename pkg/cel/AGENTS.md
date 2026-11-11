@@ -30,6 +30,13 @@ extra care and check both the CEL and legacy image-verification paths.
 
 ## Compilation and evaluation
 
+`mpol/compiler.Compile` dispatches on evaluation mode, like `vpol`. JSON-mode
+mutation uses the existing provider/engine with `EngineRequest.JsonPayload` and
+object-root `unstructured.Unstructured` inputs and outputs. Policies use the
+normal in-cluster lifecycle, including policy validation and resource matching;
+there is no mutation-specific JSON isolation layer.
+See [the JSON mutation proposal](../../docs/designs/json-mutation.md) for the contract.
+
 Four of the five kinds have their own `compiler` package building a dedicated CEL `cel.Env` (`ivpol` is the outlier
 — see above); each is wired to Kyverno's CEL extension
 libraries (`github.com/kyverno/sdk/extensions/cel/libs/*` — globalcontext, gzip, hash, http, image, imagedata, json,
@@ -57,6 +64,18 @@ autogen surface is fixed.
 placeholder occupying an entire scalar value is spliced structurally; one embedded in a larger string is
 interpolated and must evaluate to a scalar; placeholders are not supported in mapping keys. This is why gpol has a
 `template/` package instead of `autogen/` — its generation mechanism is fundamentally different from vpol/mpol's.
+
+## GlobalContextEntry projection expressions get their own small env, not one of the five kinds' envs
+
+`pkg/cel/compiler/globalcontext_projection.go`'s `CompileGlobalContextProjection` builds a once-built, package-level
+`cel.Env` scoped to `DefaultEnvOptions()` plus a single `object` variable — no `http`, `globalContext`, or other
+Kyverno CEL libraries are registered, so a projection expression can read the value `globalContext.Get(name)`
+returned (via `object`) but can't make further API calls or re-enter global context from inside a projection. This
+is additive alongside the pre-existing `jmesPath` field on `GlobalContextEntryProjection`
+(`api/kyverno/v2`/`v2alpha1`/`v2beta1`): a projection accepts exactly one of the two, enforced both by a
+`+kubebuilder:validation:XValidation` marker on the type and by `GlobalContextEntryProjection.Validate()`.
+`pkg/validation/globalcontext/validate.go` is the only webhook-side CEL compile check, since CEL compilation can't
+live in `api/` (it already imports `api/kyverno/v2beta1`).
 
 ## PolicyException CEL match-conditions are grandfathered, not retroactively re-validated
 

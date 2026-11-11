@@ -8,5 +8,4 @@ spec:
     refreshInterval: 1h
   projections:
     - name: app_label
-      jmesPath: "items[?metadata.name=='test-cm'].metadata.labels.app"
-
+      expression: "object.items.filter(i, i.metadata.name == 'test-cm').map(i, i.metadata.labels.app)"

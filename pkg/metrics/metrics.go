@@ -52,6 +52,7 @@ type MetricsConfig struct {
 	ivpolMetrics         *imageValidatingMetrics
 	mpolMetrics          *mutatingMetrics
 	gpolMetrics          *generatingMetrics
+	globalContextMetrics *globalContextMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -75,6 +76,7 @@ type MetricsConfigManager interface {
 	IVPOLMetrics() ImageValidatingMetrics
 	MPOLMetrics() MutatingMetrics
 	GPOLMetrics() GeneratingMetrics
+	GlobalContextMetrics() GlobalContextMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
@@ -137,6 +139,10 @@ func (m *MetricsConfig) GPOLMetrics() GeneratingMetrics {
 	return m.gpolMetrics
 }
 
+func (m *MetricsConfig) GlobalContextMetrics() GlobalContextMetrics {
+	return m.globalContextMetrics
+}
+
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
@@ -171,6 +177,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.ivpolMetrics.init(meter)
 	m.mpolMetrics.init(meter)
 	m.gpolMetrics.init(meter)
+	m.globalContextMetrics.init(meter)
 
 	initKyvernoInfoMetric(m)
 	return nil
@@ -321,6 +328,7 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		ivpolMetrics:         &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
 		mpolMetrics:          &mutatingMetrics{logger: logger.WithName("mutating-policy")},
 		gpolMetrics:          &generatingMetrics{logger: logger.WithName("generating-policy")},
+		globalContextMetrics: &globalContextMetrics{logger: logger.WithName("global-context")},
 	}
 
 	return config

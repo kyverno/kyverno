@@ -6,7 +6,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/google/cel-go/common/types"
@@ -43,6 +46,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -53,6 +57,14 @@ import (
 	"k8s.io/apiserver/pkg/cel/lazy"
 	"k8s.io/client-go/openapi"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
+)
+
+var (
+	HookFallbackVpolCompiled     func()
+	HookFallbackVpolJSONCompiled func()
+	HookFallbackMpolCompiled     func()
+	HookFallbackGpolCompiled     func()
+	HookFallbackContextCreated   func()
 )
 
 type PolicyProcessor struct {
@@ -79,31 +91,34 @@ type PolicyProcessor struct {
 	Variables          *variables.Variables
 	ParameterResources []runtime.Object
 	// TODO
-	ContextFs            billy.Filesystem
-	ContextPath          string
-	GlobalContextEntries map[string]interface{}
-	Cluster              bool
-	UserInfo             *kyvernov2.RequestInfo
-	PolicyReport         bool
-	NamespaceSelectorMap map[string]map[string]string
-	Stdin                bool
-	Rc                   *ResultCounts
-	PrintPatchResource   bool
-	Client               dclient.Interface
-	AuditWarn            bool
-	Subresources         []v1alpha1.Subresource
-	Out                  io.Writer
-	CrdPaths             []string
-	CrdPreloaded         bool
-	ConfigMapResolver    engineapi.ConfigmapResolver
-	RESTMapper           meta.RESTMapper
-	ContextProvider      libs.Context
-	VpolProvider         vpolengine.Provider
-	VpolProviderErr      error
-	VpolJSONProvider     vpolengine.Provider
-	VpolJSONProviderErr  error
-	MpolProvider         mpolengine.Provider
-	MpolProviderErr      error
+	ContextFs               billy.Filesystem
+	ContextPath             string
+	GlobalContextEntries    map[string]interface{}
+	Cluster                 bool
+	UserInfo                *kyvernov2.RequestInfo
+	PolicyReport            bool
+	NamespaceSelectorMap    map[string]map[string]string
+	NamespaceResolver       celengine.NamespaceResolver
+	Stdin                   bool
+	Rc                      *ResultCounts
+	PrintPatchResource      bool
+	Client                  dclient.Interface
+	AuditWarn               bool
+	Subresources            []v1alpha1.Subresource
+	Out                     io.Writer
+	CrdPaths                []string
+	CrdPreloaded            bool
+	ConfigMapResolver       engineapi.ConfigmapResolver
+	RESTMapper              meta.RESTMapper
+	ContextProvider         libs.Context
+	VpolProvider            vpolengine.Provider
+	VpolProviderErr         error
+	VpolJSONProvider        vpolengine.Provider
+	VpolJSONProviderErr     error
+	MpolProvider            mpolengine.Provider
+	MpolProviderErr         error
+	GpolCompiledPolicies    []gpolengine.Policy
+	GpolCompiledPoliciesErr error
 	// Explain compiles validating and mutating policies with tracing on and prints, for each
 	// policy, how it arrived at its result (scope, match conditions, variables, the validations
 	// or mutations it ran, and verdict).
@@ -190,10 +205,22 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	}
 	// MutatingPolicies
-	if len(p.MutatingPolicies) != 0 {
+	mutatingPolicies := p.MutatingPolicies
+	if resource.Object == nil {
+		mutatingPolicies = nil
+		for _, policy := range p.MutatingPolicies {
+			if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+				mutatingPolicies = append(mutatingPolicies, policy)
+			}
+		}
+	}
+	if len(mutatingPolicies) != 0 {
 		compiler := mpolcompiler.NewCompilerWithTrace(p.Explain)
 		contextProvider := p.ContextProvider
 		if contextProvider == nil {
+			if HookFallbackContextCreated != nil {
+				HookFallbackContextCreated()
+			}
 			var err error
 			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 			if err != nil {
@@ -208,10 +235,46 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 		provider := p.MpolProvider
 		if provider == nil {
+			if HookFallbackMpolCompiled != nil {
+				HookFallbackMpolCompiled()
+			}
 			var err error
-			provider, err = mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions, contextProvider)
+			provider, err = mpolengine.NewProvider(compiler, mutatingPolicies, p.CELExceptions, contextProvider)
 			if err != nil {
 				return nil, err
+			}
+		}
+		if p.JsonPayload.Object != nil {
+			eng := mpolengine.NewEngine(provider, nil, nil, nil, contextProvider)
+			reps, evaluationErr := eng.Handle(context.TODO(), celengine.RequestFromJSON(contextProvider, &p.JsonPayload), func(policy policiesv1beta1.MutatingPolicyLike) bool {
+				return policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+			})
+			p.explainMutations(reps.Policies)
+			for _, r := range reps.Policies {
+				response := engineapi.EngineResponse{
+					Resource:       p.JsonPayload,
+					PolicyResponse: engineapi.PolicyResponse{Rules: r.Rules},
+				}.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
+				if r.PatchedResource != nil {
+					response.PatchedResource = *r.PatchedResource
+				}
+				responses = append(responses, response)
+				hasPassingRule := slices.ContainsFunc(r.Rules, func(rule engineapi.RuleResponse) bool {
+					return rule.Status() == engineapi.RuleStatusPass
+				})
+				if evaluationErr == nil && r.PatchedResource != nil && hasPassingRule {
+					if err := p.processMutateEngineResponse(response, "JSON payload"); err != nil {
+						return responses, err
+					}
+				} else {
+					p.Rc.addMutateResponse(response)
+				}
+			}
+			if evaluationErr != nil {
+				return responses, evaluationErr
+			}
+			if reps.PatchedResource != nil {
+				p.JsonPayload = *reps.PatchedResource
 			}
 		}
 		if resource.Object != nil {
@@ -262,7 +325,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// result. The mutate-existing pass needs the trigger as it was admitted, so snapshot it first.
 			admitted := newAdmittedTrigger(contextProvider, resource.DeepCopy(), gvk, gvr, subresource, p.resolveOperation(), user)
 			// Skip inline mutation for policies with active target constraints, as admission does.
-			reps, err := eng.Handle(context.TODO(), request, mpolengine.NoTargetMatchConstraintPolicy())
+			reps, err := eng.Handle(context.TODO(), request, func(policy policiesv1beta1.MutatingPolicyLike) bool {
+				return policy.GetSpec().EvaluationMode() != policieskyvernoio.EvaluationModeJSON &&
+					mpolengine.NoTargetMatchConstraintPolicy()(policy)
+			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
@@ -449,6 +515,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 		contextProvider := p.ContextProvider
 		if contextProvider == nil {
+			if HookFallbackContextCreated != nil {
+				HookFallbackContextCreated()
+			}
 			var err error
 			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 			if err != nil {
@@ -465,6 +534,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				provider := p.VpolProvider
 				if provider == nil {
+					if HookFallbackVpolCompiled != nil {
+						HookFallbackVpolCompiled()
+					}
 					var err error
 					provider, err = vpolengine.NewProvider(compiler, k8sPolicies, p.CELExceptions)
 					if err != nil {
@@ -530,7 +602,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						},
 					}
 					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
+					p.Rc.AddValidatingPolicyResponse(p.AuditWarn, response)
 					responses = append(responses, response)
 				}
 			}
@@ -541,6 +613,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				provider := p.VpolJSONProvider
 				if provider == nil {
+					if HookFallbackVpolJSONCompiled != nil {
+						HookFallbackVpolJSONCompiled()
+					}
 					var err error
 					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
 					if err != nil {
@@ -565,7 +640,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						},
 					}
 					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
+					p.Rc.AddValidatingPolicyResponse(p.AuditWarn, response)
 					responses = append(responses, response)
 				}
 			}
@@ -581,6 +656,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				provider := p.VpolJSONProvider
 				if provider == nil {
+					if HookFallbackVpolJSONCompiled != nil {
+						HookFallbackVpolJSONCompiled()
+					}
 					var err error
 					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
 					if err != nil {
@@ -602,7 +680,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						},
 					}
 					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
+					p.Rc.AddValidatingPolicyResponse(p.AuditWarn, response)
 					responses = append(responses, response)
 				}
 			}
@@ -613,6 +691,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		// initialize the context provider before compiling to make it globally available
 		contextProvider := p.ContextProvider
 		if contextProvider == nil {
+			if HookFallbackContextCreated != nil {
+				HookFallbackContextCreated()
+			}
 			var err error
 			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 			if err != nil {
@@ -622,17 +703,28 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			libs.LibraryContext = contextProvider
 		}
 
-		compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
-		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
-		for _, pol := range p.GeneratingPolicies {
-			compiled, errs := compiler.Compile(pol, p.CELExceptions)
-			if len(errs) > 0 {
-				return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
+		var compiledPolicies []gpolengine.Policy
+		if p.GpolCompiledPoliciesErr != nil {
+			return nil, p.GpolCompiledPoliciesErr
+		}
+		if p.GpolCompiledPolicies != nil {
+			compiledPolicies = p.GpolCompiledPolicies
+		} else {
+			if HookFallbackGpolCompiled != nil {
+				HookFallbackGpolCompiled()
 			}
-			compiledPolicies = append(compiledPolicies, gpolengine.Policy{
-				Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
-				CompiledPolicy: compiled,
-			})
+			compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
+			compiledPolicies = make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
+			for _, pol := range p.GeneratingPolicies {
+				compiled, errs := compiler.Compile(pol, p.CELExceptions)
+				if len(errs) > 0 {
+					return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
+				}
+				compiledPolicies = append(compiledPolicies, gpolengine.Policy{
+					Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
+					CompiledPolicy: compiled,
+				})
+			}
 		}
 		if resource.Object != nil {
 			engine := gpolengine.NewEngine(p.getNamespaceResolver(), matching.NewMatcher())
@@ -807,6 +899,9 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 	var err error
 	mutateLogPath := filepath.Clean(p.MutateLogPath)
 	filename := p.Resource.GetName() + "-mutated"
+	if p.JsonPayload.Object != nil {
+		filename = response.Policy().GetName() + "-mutated"
+	}
 	if isGenerate {
 		filename = response.Policy().GetName() + "-generated"
 	}
@@ -1117,11 +1212,69 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 	return true
 }
 
-func (p *PolicyProcessor) getNamespaceResolver() celengine.NamespaceResolver {
-	if p.Variables != nil {
-		return p.Variables.Namespace
+// GetNamespaceResolver creates a celengine.NamespaceResolver that checks local in-memory
+// variables first and, when cluster mode is active and a client is present, falls back
+// to resolving the namespace from the live cluster with caching.
+func GetNamespaceResolver(vars *variables.Variables, client dclient.Interface, cluster bool) celengine.NamespaceResolver {
+	var localResolver celengine.NamespaceResolver
+	if vars != nil {
+		localResolver = vars.Namespace
+	}
+	if cluster && client != nil {
+		var mu sync.Mutex
+		cache := make(map[string]*corev1.Namespace)
+		return func(name string) *corev1.Namespace {
+			if name == "" {
+				return nil
+			}
+			if localResolver != nil {
+				if ns := localResolver(name); ns != nil {
+					return ns
+				}
+			}
+			mu.Lock()
+			if cached, ok := cache[name]; ok {
+				mu.Unlock()
+				return cached
+			}
+			mu.Unlock()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			var resolved *corev1.Namespace
+			var isNotFound bool
+			if kubeClient := client.GetKubeClient(); kubeClient != nil {
+				ns, err := kubeClient.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+				if err == nil && ns != nil {
+					resolved = ns
+				} else if apierrors.IsNotFound(err) {
+					isNotFound = true
+				}
+			}
+
+			// Cache confirmed results: either a found namespace or confirmed 404 (not found).
+			// Transient API errors are not cached to allow subsequent evaluations to retry.
+			if resolved != nil || isNotFound {
+				mu.Lock()
+				cache[name] = resolved
+				mu.Unlock()
+			}
+			return resolved
+		}
+	}
+	if localResolver != nil {
+		return localResolver
 	}
 	return func(string) *corev1.Namespace { return nil }
+}
+
+func (p *PolicyProcessor) getNamespaceResolver() celengine.NamespaceResolver {
+	if p.NamespaceResolver != nil {
+		return p.NamespaceResolver
+	}
+	p.NamespaceResolver = GetNamespaceResolver(p.Variables, p.Client, p.Cluster)
+	return p.NamespaceResolver
 }
 
 func (p *PolicyProcessor) loadCrds() error {
