@@ -78,6 +78,10 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 				}
 			}
 
+			for i := range spec.Variables {
+				spec.Variables[i].Expression = convertPodToTemplateExpression(spec.Variables[i].Expression, config)
+			}
+
 			for i := range spec.Mutations {
 				if spec.Mutations[i].ApplyConfiguration != nil && spec.Mutations[i].ApplyConfiguration.Expression != "" {
 					convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)

@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -751,4 +752,74 @@ func TestAutogenPodControllersEnabled(t *testing.T) {
 			Kind:     "Deployment",
 		}}, result[autogen.AutogenDefaults].Targets)
 	})
+}
+
+func TestAutogenVariables(t *testing.T) {
+	variables := []admissionregistrationv1.Variable{
+		{
+			Name:       "allContainers",
+			Expression: "object.spec.containers + (has(object.spec.initContainers) ? object.spec.initContainers : [])",
+		},
+		{
+			Name:       "team",
+			Expression: "object.metadata.labels.team",
+		},
+	}
+	templateVariables := []admissionregistrationv1.Variable{
+		{
+			Name:       "allContainers",
+			Expression: "object.spec.template.spec.containers + (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])",
+		},
+		{
+			Name:       "team",
+			Expression: "object.spec.template.metadata.labels.team",
+		},
+	}
+	cronjobVariables := []admissionregistrationv1.Variable{
+		{
+			Name:       "allContainers",
+			Expression: "object.spec.jobTemplate.spec.template.spec.containers + (has(object.spec.jobTemplate.spec.template.spec.initContainers) ? object.spec.jobTemplate.spec.template.spec.initContainers : [])",
+		},
+		{
+			Name:       "team",
+			Expression: "object.spec.jobTemplate.spec.template.metadata.labels.team",
+		},
+	}
+	policy := &policiesv1beta1.MutatingPolicy{
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						},
+					},
+				},
+			},
+			Variables: slices.Clone(variables),
+		},
+	}
+
+	result, err := Autogen(policy)
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+	assert.Equal(t, templateVariables, result[autogen.AutogenDefaults].Spec.Variables)
+	assert.Equal(t, cronjobVariables, result[autogen.AutogenCronjobs].Spec.Variables)
+
+	policy.Spec.AutogenConfiguration = &policiesv1beta1.MutatingPolicyAutogenConfiguration{
+		PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
+			Controllers: []string{"deployments", "jobsets.v1alpha2.jobset.x-k8s.io"},
+		},
+	}
+	result, err = Autogen(policy)
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+	assert.Equal(t, templateVariables, result[autogen.AutogenDefaults].Spec.Variables)
+	assert.Equal(t, variables, result[autogen.ExtractionReplacementsRef].Spec.Variables)
+	assert.Equal(t, variables, policy.Spec.Variables)
 }
