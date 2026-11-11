@@ -1531,11 +1531,11 @@ class ChartOnlyFailover(unittest.TestCase):
         Path(".release").mkdir()
         release.write_json(".release/plan.json", metadata)
         for command in ("draft", "publish-images", "upload-assets"):
-            with patch.object(release.sys, "argv", ["release.py", command]), \
+            with patch.object(release.sys, "argv", ["release.py", command, "--tag", self.CHART_TAG, "--sha", SHA]), \
                     patch.object(release, "check_seal"), patch.object(release, "verify_tag"):
                 with self.assertRaisesRegex(ValueError, "can only publish and verify charts"):
                     release.main()
-        with patch.object(release.sys, "argv", ["release.py", "publish-charts"]), \
+        with patch.object(release.sys, "argv", ["release.py", "publish-charts", "--tag", self.CHART_TAG, "--sha", SHA]), \
                 patch.object(release, "check_seal"), patch.object(release, "verify_tag"), \
                 patch.object(release, "require_draft") as draft, \
                 patch.object(release, "publish_charts") as publish:
