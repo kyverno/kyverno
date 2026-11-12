@@ -93,13 +93,53 @@ func WithTTLDuration(t time.Duration) Option {
 	}
 }
 
+func canonicalDigestRef(imageRef string) string {
+	if d, err := name.NewDigest(imageRef); err == nil {
+		return d.Name()
+	}
+	return imageRef
+}
+
+func canonicalizeAttestor(attestor v1beta1.Attestor) v1beta1.Attestor {
+	material := *attestor.DeepCopy()
+	material.Name = ""
+	if material.Cosign != nil {
+		if material.Cosign.Key != nil {
+			material.Cosign.Key.Expression = ""
+		}
+		if material.Cosign.Certificate != nil {
+			if material.Cosign.Certificate.Certificate != nil {
+				material.Cosign.Certificate.Certificate.Expression = ""
+			}
+			if material.Cosign.Certificate.CertificateChain != nil {
+				material.Cosign.Certificate.CertificateChain.Expression = ""
+			}
+		}
+		if material.Cosign.TrustedRoot != nil {
+			material.Cosign.TrustedRoot.Expression = ""
+		}
+	}
+	if material.Notary != nil {
+		if material.Notary.Certs != nil {
+			material.Notary.Certs.Expression = ""
+		}
+		if material.Notary.TSACerts != nil {
+			material.Notary.TSACerts.Expression = ""
+		}
+	}
+	return material
+}
+
 func generateKey(imageRef string, attestors []v1beta1.Attestor, attestation *v1beta1.Attestation) (string, error) {
+	imageRef = canonicalDigestRef(imageRef)
 	digests := make([]string, 0, len(attestors))
 	for _, attestor := range attestors {
 		// The name is a policy-local label; only the resolved material decides
 		// the verdict, so policies naming the same material differently share it.
-		material := attestor
-		material.Name = ""
+		// Similarly, CEL expression fields used to resolve key or certificate
+		// material dynamically are cleared so identical resolved material produces
+		// identical cache keys across policies.
+		material := canonicalizeAttestor(attestor)
 		digest, err := hashJSON(material)
 		if err != nil {
 			return "", fmt.Errorf("failed to encode attestor %q: %w", attestor.GetKey(), err)
