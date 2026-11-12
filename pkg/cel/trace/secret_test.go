@@ -34,6 +34,7 @@ func secretEnv(t *testing.T, namespace string) *cel.Env {
 		Data:       map[string]string{"mode": "strict"},
 	}))
 	env, err := cel.NewEnv(
+		cel.OptionalTypes(),
 		ext.Encoders(),
 		cel.Variable("object", cel.DynType),
 		cel.Variable("variables", cel.MapType(cel.StringType, cel.DynType)),
@@ -90,6 +91,22 @@ func TestInputsOf(t *testing.T) {
 		name:       "variables, each once",
 		expression: "variables.password != '' && variables['team'] == 'payments' && variables.password.size() > 3",
 		want:       Inputs{Variables: []string{"password", "team"}},
+	}, {
+		name:       "variables read optionally",
+		expression: "variables.?password.orValue('') != '' && variables[?'team'].orValue('') == 'payments' && has(variables.mode)",
+		want:       Inputs{Variables: []string{"password", "team", "mode"}},
+	}, {
+		name:       "a variable read with a key that is not written out",
+		expression: "variables[object.metadata.name]",
+		want:       Inputs{AnyVariable: true},
+	}, {
+		name:       "the whole variables map",
+		expression: "variables",
+		want:       Inputs{AnyVariable: true},
+	}, {
+		name:       "a loop over the variables",
+		expression: "variables.exists(name, name.startsWith('pass'))",
+		want:       Inputs{AnyVariable: true},
 	}, {
 		name:       "the resource itself",
 		expression: "object.metadata.name",
@@ -285,4 +302,52 @@ func TestRender_SecretResourceValuesAreHidden(t *testing.T) {
 	assert.NotContains(t, rendered.String(), password)
 	assert.NotContains(t, rendered.String(), "18")
 	assert.Contains(t, rendered.String(), "variables.password.size() > 32  ->  false")
+}
+
+// TestRedaction_UnnamedVariableReadsAreHidden: an expression that reads variables without naming
+// them, with a key that is not written out or as the whole map, may read the one that holds
+// Secret data, so it is hidden once any variable is; without such a variable it is shown.
+func TestRedaction_UnnamedVariableReadsAreHidden(t *testing.T) {
+	password := evaluated(t, "resource.Get('v1', 'secrets', 'kyverno', 'db-credentials').data.password", nil)
+	variables := map[string]any{"password": password.Result}
+	// the key is worked out, so which variable it reads is not known from the policy
+	byKey := evaluated(t, "variables['pass' + 'word'].size() > 32", variables)
+	whole := evaluated(t, "variables", variables)
+	d := &Decision{
+		PolicyName:   "read-variables",
+		PolicyKind:   "ValidatingPolicy",
+		ResourceKind: "Pod",
+		ResourceName: "web",
+		Variables: []NamedExpressionTrace{
+			{Name: "password", ExpressionTrace: password},
+			{Name: "all", ExpressionTrace: whole},
+		},
+		Verdict: VerdictTrace{Status: VerdictFail, ExpressionTrace: byKey},
+	}
+	require.Contains(t, nodeValues(byKey), "czNjcjN0LXA0c3M=", "the breakdown holds the Secret's data")
+	var rendered bytes.Buffer
+	Render(&rendered, d)
+	entry, _ := logged(t, d)
+	logLine, err := json.Marshal(entry)
+	require.NoError(t, err)
+	assert.NotContains(t, rendered.String(), "czNjcjN0LXA0c3M=")
+	assert.NotContains(t, string(logLine), "czNjcjN0LXA0c3M=")
+	assert.Equal(t, redacted, entry.Variables[1].Result, "the whole map holds the Secret's data")
+	t.Log(rendered.String())
+
+	// with no variable that reads a Secret, the same reads are shown
+	team := evaluated(t, "object.metadata.name", nil)
+	whole = evaluated(t, "variables", map[string]any{"team": team.Result})
+	d.Variables = []NamedExpressionTrace{{Name: "team", ExpressionTrace: team}, {Name: "all", ExpressionTrace: whole}}
+	d.Verdict = VerdictTrace{Status: VerdictPass, ExpressionTrace: whole}
+	entry, _ = logged(t, d)
+	assert.Equal(t, "map[team:web]", entry.Variables[1].Result)
+}
+
+func nodeValues(et ExpressionTrace) []string {
+	var values []string
+	for _, n := range et.Nodes {
+		values = append(values, n.Value)
+	}
+	return values
 }

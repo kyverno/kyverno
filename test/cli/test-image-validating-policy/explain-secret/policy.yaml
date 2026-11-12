@@ -1,0 +1,27 @@
+# Parses a Secret's data as a timestamp, which fails with an error that quotes the data: --explain
+# must not print it. The pod's image does not match matchImageReferences, so nothing is fetched.
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: check-expiry
+spec:
+  validationActions: [Audit]
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  matchImageReferences:
+  - glob: "registry.example.com/*"
+  validationConfigurations:
+    mutateDigest: false
+    verifyDigest: false
+    required: false
+  attestors:
+  - name: unused
+    cosign:
+      key:
+        data: unused
+  validations:
+  - expression: "timestamp(resource.Get('v1', 'secrets', 'kyverno', 'db-credentials').data.password) < timestamp('2026-01-01T00:00:00Z')"
