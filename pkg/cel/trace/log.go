@@ -41,20 +41,21 @@ type LogNode struct {
 // admission handler already carries the request. A nil decision returns nil.
 //
 // A trace holds values read from the resource, and a log is read by more people than the resource
-// is. So every value is cut to maxValueLen, and for a Secret no value is logged at all except
-// true and false: the expressions and which of them did not hold are still there, the data is not.
+// is. So every value is cut to maxValueLen, and a value or error that may be Secret data is not
+// logged at all, the same as Render (see redaction): the expressions and which of them did not
+// hold are still there, the data is not.
 func LogValues(d *Decision) []any {
 	if d == nil {
 		return nil
 	}
-	l := logFormat{secret: d.ResourceKind == "Secret"}
+	l := logFormat{newRedaction(d)}
 	entry := LogEntry{
 		Scope: d.Scope.Reason,
 		Verdict: LogExpression{
 			Status:     d.Verdict.Status,
 			Expression: d.Verdict.Source,
-			Result:     l.value(d.Verdict.Result),
-			Message:    d.Verdict.Message,
+			Result:     l.value(d.Verdict.Inputs, d.Verdict.Result),
+			Message:    l.message(d.Verdict),
 		},
 	}
 	if d.Verdict.Status != VerdictPass {
@@ -72,7 +73,7 @@ func LogValues(d *Decision) []any {
 			entry.Validations = append(entry.Validations, LogExpression{
 				Status:     v.Status,
 				Expression: v.Source,
-				Result:     l.value(v.Result),
+				Result:     l.value(v.Inputs, v.Result),
 			})
 		}
 	}
@@ -80,8 +81,8 @@ func LogValues(d *Decision) []any {
 		mutation := LogExpression{
 			Name:       m.Name,
 			Expression: m.Source,
-			Result:     l.value(m.Result),
-			Error:      m.Error,
+			Result:     l.value(m.Inputs, m.Result),
+			Error:      l.errorText(m.Inputs, m.Error),
 			NotApplied: m.NotApplied,
 		}
 		if m.Error != "" {
@@ -99,23 +100,20 @@ func LogValues(d *Decision) []any {
 
 // logFormat holds what decides how a value is logged.
 type logFormat struct {
-	secret bool
+	redaction
 }
 
-func (l logFormat) value(v string) string {
-	if l.secret && v != "" && v != "true" && v != "false" {
-		return redacted
-	}
-	return clip(v)
+func (l logFormat) value(in Inputs, v string) string {
+	return clip(l.redaction.value(in, v))
 }
 
 func (l logFormat) named(n NamedExpressionTrace) LogExpression {
-	return LogExpression{Name: n.Name, Expression: n.Source, Result: l.value(n.Result)}
+	return LogExpression{Name: n.Name, Expression: n.Source, Result: l.value(n.Inputs, n.Result)}
 }
 
 func (l logFormat) breakdown(e *LogExpression, et ExpressionTrace) {
 	e.LoopValuesOmitted = et.LoopValuesOmitted
 	for _, n := range et.Nodes {
-		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Value), Error: n.Error})
+		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Inputs, n.Value), Error: l.errorText(n.Inputs, n.Error)})
 	}
 }
