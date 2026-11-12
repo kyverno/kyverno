@@ -43,6 +43,20 @@ func (r *recordingEventGen) get() []event.Info {
 	return out
 }
 
+// useReportingConfig installs a disabled process-wide reporting config for the
+// test and restores the previous value when the test ends. audit() reads that
+// config, and unit tests do not start the controller that installs it.
+// NewReportingConfig returns the existing config when one is already set, so
+// the previous value is cleared first. Otherwise this test would keep whatever
+// config it found, and a later test would see the value left behind.
+func useReportingConfig(t *testing.T) {
+	t.Helper()
+	prev := reportutils.ReportingCfg
+	reportutils.ReportingCfg = nil
+	reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+	t.Cleanup(func() { reportutils.ReportingCfg = prev })
+}
+
 // alwaysFailHandler returns a handler whose only policy fails every request.
 func alwaysFailHandler(t *testing.T, action admissionregistrationv1.ValidationAction, eventGen event.Interface) *handler {
 	t.Helper()
@@ -79,9 +93,7 @@ func alwaysFailHandler(t *testing.T, action admissionregistrationv1.ValidationAc
 // the request changes nothing. A real request still records them, and a dry
 // run still returns the decision the real request would get.
 func TestValidate_DryRunEmitsNoEvents(t *testing.T) {
-	// audit() consults the process-wide reporting config before it emits
-	// events. Unit tests do not start the controller that installs it.
-	reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+	useReportingConfig(t)
 
 	tests := []struct {
 		name        string
