@@ -1182,3 +1182,83 @@ spec:
 	_, err = Read(img, dst)
 	assert.NoError(t, err, "a bundle with an expired exception must stay pullable; pull never consults expiresAt")
 }
+
+func TestValidateEnvoyPolicyInBundle(t *testing.T) {
+	t.Run("valid envoy expression succeeds", func(t *testing.T) {
+		dir := writeTree(t, map[string]string{
+			"policy.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: envoy-allow
+spec:
+  evaluation:
+    mode: Envoy
+  validations:
+  - expression: "envoy.Allowed().Response()"
+`,
+		})
+		b, err := Assemble(dir)
+		require.NoError(t, err)
+		require.NoError(t, Validate(b))
+	})
+
+	t.Run("invalid envoy expression fails validation", func(t *testing.T) {
+		dir := writeTree(t, map[string]string{
+			"policy.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: envoy-invalid
+spec:
+  evaluation:
+    mode: Envoy
+  validations:
+  - expression: "envoy.NonExistentFunction()"
+`,
+		})
+		b, err := Assemble(dir)
+		require.NoError(t, err)
+		err = Validate(b)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "validating CEL expression in EnvoyPolicy \"envoy-invalid\"")
+	})
+}
+
+func TestValidateHTTPPolicyInBundle(t *testing.T) {
+	t.Run("valid http expression succeeds", func(t *testing.T) {
+		dir := writeTree(t, map[string]string{
+			"policy.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: http-allow
+spec:
+  evaluation:
+    mode: HTTP
+  validations:
+  - expression: "http.Allowed().Response()"
+`,
+		})
+		b, err := Assemble(dir)
+		require.NoError(t, err)
+		require.NoError(t, Validate(b))
+	})
+
+	t.Run("invalid http expression fails validation", func(t *testing.T) {
+		dir := writeTree(t, map[string]string{
+			"policy.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: http-invalid
+spec:
+  evaluation:
+    mode: HTTP
+  validations:
+  - expression: "http.NonExistentFunction()"
+`,
+		})
+		b, err := Assemble(dir)
+		require.NoError(t, err)
+		err = Validate(b)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "validating CEL expression in HTTPPolicy \"http-invalid\"")
+	})
+}
