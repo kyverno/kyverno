@@ -16,30 +16,57 @@ func Test_postProcessDocs(t *testing.T) {
 		{
 			name: "process flags with type hints and varying spaces",
 			files: map[string]string{
-				"test.md": "### Options\n```\n  -h, --help   help text\n  -v, --v Level   log level\n  --no-desc\n```",
+				"kyverno_test.md": "### Options\n```\n  -h, --help   help text\n  -v, --v Level   log level\n  --no-desc\n```\n",
 			},
 			expectedFiles: map[string]string{
-				"test.md": "### Options\n* **<a id=\"help\"></a>-h, --help**: help text\n* **<a id=\"v\"></a>-v, --v Level**: log level\n* **<a id=\"no-desc\"></a>--no-desc**: \n",
+				"kyverno_test.md": "### Options\n* **<a id=\"help\"></a>-h, --help**: help text\n* **<a id=\"v\"></a>-v, --v Level**: log level\n* **<a id=\"no-desc\"></a>--no-desc**: \n",
 			},
 		},
 		{
 			name: "file without Options section",
 			files: map[string]string{
-				"no_opts.md": "## Title\nJust some text.\n",
+				"kyverno_no_opts.md": "## Title\nJust some text.\n",
 			},
 			expectedFiles: map[string]string{
-				"no_opts.md": "## Title\nJust some text.\n",
+				"kyverno_no_opts.md": "## Title\nJust some text.\n",
 			},
 		},
 		{
 			name: "non-md files stay unchanged",
 			files: map[string]string{
 				"main.go":  "### Options\n```\n  -h, --help  help\n```\n",
-				"test.txt": "some text",
+				"test.txt": "some text\n",
 			},
 			expectedFiles: map[string]string{
 				"main.go":  "### Options\n```\n  -h, --help  help\n```\n",
-				"test.txt": "some text",
+				"test.txt": "some text\n",
+			},
+		},
+		{
+			name: "escaping markdown and html characters with unmatched anchor fallback",
+			files: map[string]string{
+				"kyverno_escape.md": "### Options\n```\n  -t, --type <string>   type description\n  -w, --wildcard *   wildcard desc\n  unmatched plain text line\n```\n",
+			},
+			expectedFiles: map[string]string{
+				"kyverno_escape.md": "### Options\n* **<a id=\"type\"></a>-t, --type &lt;string&gt;**: type description\n* **<a id=\"wildcard\"></a>-w, --wildcard \\***: wildcard desc\n  unmatched plain text line\n",
+			},
+		},
+		{
+			name: "unrelated markdown file with Options stays unchanged",
+			files: map[string]string{
+				"unrelated_doc.md": "### Options\n```\n  -h, --help   help text\n```\n",
+			},
+			expectedFiles: map[string]string{
+				"unrelated_doc.md": "### Options\n```\n  -h, --help   help text\n```\n",
+			},
+		},
+		{
+			name: "ensure blank lines before headings and preserve inner fences",
+			files: map[string]string{
+				"kyverno_regression.md": "### Options\n```\n  -h, --help   help text\n```\nSome text with an inner block:\n```\ncode\n```\n### SEE ALSO\n",
+			},
+			expectedFiles: map[string]string{
+				"kyverno_regression.md": "### Options\n* **<a id=\"help\"></a>-h, --help**: help text\nSome text with an inner block:\n```\ncode\n```\n\n### SEE ALSO\n",
 			},
 		},
 	}
@@ -55,7 +82,7 @@ func Test_postProcessDocs(t *testing.T) {
 				}
 			}
 
-			err := postProcessDocs(tempDir)
+			err := postProcessDocs(tempDir, "kyverno")
 
 			if (err != nil) != tt.expectError {
 				t.Errorf("expected error: %v, got: %v", tt.expectError, err)
@@ -67,7 +94,7 @@ func Test_postProcessDocs(t *testing.T) {
 					t.Fatalf("failed to read file %s: %v", name, err)
 				}
 				if string(content) != expectedContent {
-					t.Errorf("file %s content mismatch.\nExpected:\n%s\nGot:\n%s", name, expectedContent, string(content))
+					t.Errorf("file %s content mismatch.\nExpected:\n%q\nGot:\n%q", name, expectedContent, string(content))
 				}
 			}
 		})
