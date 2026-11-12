@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"path/filepath"
 	"reflect"
 	"strings"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/helper/iofs"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
@@ -190,6 +192,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 
 	var crdPaths []string
+	var crdFS []fs.FS
 	var clusterCRDs []*apiextensionsv1.CustomResourceDefinition
 	var clusterObjects []runtime.Object
 	if len(testCase.Test.ClusterResources) > 0 {
@@ -224,6 +227,25 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		// The processors below must not load them again: for a git-backed test the paths only exist in testCase.Fs.
 		if err := common.RegisterCRDs(clusterCRDs); err != nil {
 			return nil, err
+		}
+		if isGit {
+			// The CRD schemas are read from the same filesystem, not from disk.
+			seen := map[string]bool{}
+			for _, p := range crdPaths {
+				dir := "."
+				if i := strings.LastIndex(p, "/"); i >= 0 {
+					dir = p[:i]
+				}
+				if seen[dir] {
+					continue
+				}
+				seen[dir] = true
+				dirFs, err := testCase.Fs.Chroot(dir)
+				if err != nil {
+					return nil, fmt.Errorf("error: failed to open CRD directory %s: %w", dir, err)
+				}
+				crdFS = append(crdFS, iofs.New(dirFs))
+			}
 		}
 	}
 
@@ -657,6 +679,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			MpolProviderErr:                   mpolProviderErr,
 			GpolCompiledPolicies:              gpolCompiledPolicies,
 			GpolCompiledPoliciesErr:           gpolCompiledPoliciesErr,
+			CrdFS:                             crdFS,
 			CrdPreloaded:                      true,
 		}
 		ers, err := pp.ApplyPoliciesOnResource()
@@ -775,6 +798,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			Subresources:                      vars.Subresources(),
 			Out:                               io.Discard,
 			CrdPaths:                          crdPaths,
+			CrdFS:                             crdFS,
 			CrdPreloaded:                      true,
 			RESTMapper:                        restMapper,
 			ContextProvider:                   jsonContextProvider,

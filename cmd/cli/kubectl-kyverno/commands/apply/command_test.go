@@ -1733,13 +1733,18 @@ func Test_Apply_ClusterScopedCRDResourceHasNoNamespace(t *testing.T) {
 		CrdPaths:      []string{"../../../../../test/cli/test-mutating-policy/mutate-cluster-scoped-crd/crds/gadget-crd.yaml"},
 		PolicyReport:  true,
 	}
-	_, resources, _, responses, err := config.applyCommandHelper(context.TODO(), os.Stdout)
-	assert.NoError(t, err)
+	rc, resources, _, responses, err := config.applyCommandHelper(context.TODO(), io.Discard)
+	require.NoError(t, err)
+	assert.Equal(t, 1, rc.Pass)
+	assert.Zero(t, rc.Fail)
+	assert.Zero(t, rc.Error)
+	assert.Zero(t, rc.Skip)
 	assert.Len(t, resources, 1)
 	assert.Equal(t, "", resources[0].GetNamespace())
 	assert.NotEmpty(t, responses)
 	for _, response := range responses {
 		assert.Equal(t, "", response.Resource.GetNamespace())
+		assert.Equal(t, "true", response.PatchedResource.GetAnnotations()["testing"])
 	}
 }
 

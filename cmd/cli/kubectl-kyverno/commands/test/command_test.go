@@ -2470,43 +2470,69 @@ func TestRunTest_WarningColor(t *testing.T) {
 func TestRunTest_GitBackedClusterScopedCRD(t *testing.T) {
 	// a test read from a git repository: every file lives in the billy filesystem only
 	srcDir := filepath.Join("..", "..", "..", "..", "..", "test", "cli", "test-mutating-policy", "mutate-cluster-scoped-crd")
-	fs := memfs.New()
-	err := filepath.WalkDir(srcDir, func(p string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		rel, err := filepath.Rel(srcDir, p)
-		if err != nil {
-			return err
-		}
-		content, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		f, err := fs.Create(filepath.ToSlash(rel))
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		_, err = f.Write(content)
-		return err
-	})
-	require.NoError(t, err)
-
-	testCases := test.LoadTest(fs, "kyverno-test.yaml")
-	require.Len(t, testCases, 1)
-	require.NoError(t, testCases[0].Err)
-	out := &bytes.Buffer{}
-	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
-	require.NoError(t, err, out.String())
-	var found bool
-	for _, responses := range testResponse.Trigger {
-		for _, r := range responses {
-			if r.Policy().GetName() == "set-annotations-for-gadget" {
-				found = true
-				assert.Empty(t, r.Resource.GetNamespace())
-			}
-		}
+	tests := []struct {
+		name    string
+		skip    string
+		wantErr string
+	}{
+		{name: "crd in the git filesystem"},
+		{name: "crd missing from the git filesystem", skip: "crds/gadget-crd.yaml", wantErr: "failed to load CRDs from path"},
 	}
-	assert.True(t, found, "expected an engine response for set-annotations-for-gadget")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := memfs.New()
+			err := filepath.WalkDir(srcDir, func(p string, d os.DirEntry, err error) error {
+				if err != nil || d.IsDir() {
+					return err
+				}
+				rel, err := filepath.Rel(srcDir, p)
+				if err != nil {
+					return err
+				}
+				if filepath.ToSlash(rel) == tt.skip {
+					return nil
+				}
+				content, err := os.ReadFile(p)
+				if err != nil {
+					return err
+				}
+				f, err := fs.Create(filepath.ToSlash(rel))
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				_, err = f.Write(content)
+				return err
+			})
+			require.NoError(t, err)
+
+			testCases := test.LoadTest(fs, "kyverno-test.yaml")
+			require.Len(t, testCases, 1)
+			require.NoError(t, testCases[0].Err)
+			out := &bytes.Buffer{}
+			testResponse, err := runTest(context.TODO(), out, testCases[0], false)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err, out.String())
+			var found bool
+			for _, responses := range testResponse.Trigger {
+				for _, r := range responses {
+					if r.Policy().GetName() != "set-annotations-for-gadget" {
+						continue
+					}
+					found = true
+					assert.Empty(t, r.Resource.GetNamespace())
+					require.NotEmpty(t, r.PolicyResponse.Rules)
+					for _, rule := range r.PolicyResponse.Rules {
+						assert.Equal(t, engineapi.RuleStatusPass, rule.Status(), rule.Message())
+					}
+					assert.Empty(t, r.PatchedResource.GetNamespace())
+					assert.Equal(t, "true", r.PatchedResource.GetAnnotations()["testing"])
+				}
+			}
+			assert.True(t, found, "expected an engine response for set-annotations-for-gadget")
+		})
+	}
 }
