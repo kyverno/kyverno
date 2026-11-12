@@ -138,7 +138,15 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 		}
 	}
 
-	h.admissionEvent(ctx, allEngineResponses, blocked)
+	// Dry-run requests must not emit events. The webhook is registered with
+	// sideEffects: NoneOnDryRun, and an Event is a side effect: a server-side
+	// dry run changes nothing, so a PolicyViolation event would report a
+	// violation that did not happen. Admission reports are already skipped
+	// above. The admission response is decided separately and still returns
+	// the decision the real request would get.
+	if !admissionutils.IsDryRun(admissionRequest.AdmissionRequest) {
+		h.admissionEvent(ctx, allEngineResponses, blocked)
+	}
 }
 
 func (h *handler) admissionReport(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse, responses []engineapi.EngineResponse) error {
