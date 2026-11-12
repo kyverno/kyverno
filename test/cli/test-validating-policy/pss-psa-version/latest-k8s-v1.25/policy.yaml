@@ -10,7 +10,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     policies.kyverno.io/severity: "medium"
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: latest
+    kyverno.io/kyverno-version: "latest"
     policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: ">=1.25.0-0"
     kyverno.io/pod-security-version: "latest (v1.25)"
@@ -67,7 +67,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     policies.kyverno.io/severity: "medium"
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: latest
+    kyverno.io/kyverno-version: "latest"
     policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: ">=1.25.0-0"
     kyverno.io/pod-security-version: "latest (v1.25)"
@@ -133,7 +133,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     policies.kyverno.io/severity: "medium"
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: latest
+    kyverno.io/kyverno-version: "latest"
     policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: ">=1.25.0-0"
     kyverno.io/pod-security-version: "latest (v1.25)"
@@ -177,7 +177,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Restricted)
     policies.kyverno.io/severity: "medium"
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: latest
+    kyverno.io/kyverno-version: "latest"
     policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: ">=1.25.0-0"
     kyverno.io/pod-security-version: "latest (v1.25)"
@@ -238,7 +238,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Restricted)
     policies.kyverno.io/severity: "medium"
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: latest
+    kyverno.io/kyverno-version: "latest"
     policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: ">=1.25.0-0"
     kyverno.io/pod-security-version: "latest (v1.25)"

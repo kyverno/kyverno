@@ -67,17 +67,19 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 
 {{/* Get deployed Kyverno version from Kubernetes.
      The Kyverno chart names the admission controller Deployment after its release, so it is found by its component label in the release namespace.
-     The version is the image tag. It is empty when the Deployment isn't found or the image has no version tag. */}}
+     The version is the tag of the container named kyverno. It is empty when the Deployment isn't found or the image has no version tag. */}}
 {{- define "kyverno-policies.kyvernoVersion" -}}
 {{- if eq .Values.kyvernoVersion "autodetect" -}}
 {{- $version := "" -}}
 {{- range (lookup "apps/v1" "Deployment" .Release.Namespace "").items -}}
   {{- $component := index (default dict .metadata.labels) "app.kubernetes.io/component" -}}
-  {{- with (first .spec.template.spec.containers) -}}
-    {{- if and (eq $component "admission-controller") (contains "kyverno" .image) (not $version) -}}
-      {{- $tag := last (splitList ":" (first (splitList "@" .image))) -}}
-      {{- if not (contains "/" $tag) -}}
-        {{- $version = trimPrefix "v" $tag -}}
+  {{- if and (eq $component "admission-controller") (not $version) -}}
+    {{- range .spec.template.spec.containers -}}
+      {{- if and (eq .name "kyverno") (not $version) -}}
+        {{- $tag := last (splitList ":" (first (splitList "@" .image))) -}}
+        {{- if not (contains "/" $tag) -}}
+          {{- $version = trimPrefix "v" $tag -}}
+        {{- end -}}
       {{- end -}}
     {{- end -}}
   {{- end -}}
@@ -97,7 +99,7 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
      When the version can't be detected or isn't a version number, it is included. */}}
 {{- define "kyverno-policies.podResources" -}}
 {{- $version := include "kyverno-policies.kyvernoVersion" . | trim -}}
-{{- if and (regexMatch "^v?[0-9]+\\.[0-9]+\\.[0-9]+" $version) (semverCompare "<1.20.0-0" $version) -}}
+{{- if and (regexMatch "^v?[0-9]+\\.[0-9]+" $version) (semverCompare "<1.20.0-0" $version) -}}
 [pods]
 {{- else -}}
 [pods, pods/ephemeralcontainers]

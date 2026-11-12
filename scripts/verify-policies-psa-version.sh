@@ -268,7 +268,12 @@ expect_ephemeral "Kyverno 1.20.0" true --set kyvernoVersion=1.20.0
 expect_ephemeral "Kyverno v1.20.0-rc.3" true --set kyvernoVersion=v1.20.0-rc.3
 expect_ephemeral "Kyverno latest tag" true --set kyvernoVersion=latest
 expect_ephemeral "Kyverno 1.19.2" false --set kyvernoVersion=1.19.2
+expect_ephemeral "Kyverno 1.19" false --set kyvernoVersion=1.19
+expect_ephemeral "Kyverno v1.19" false --set kyvernoVersion=v1.19
+expect_ephemeral "Kyverno 1.20" true --set kyvernoVersion=1.20
 expect_ephemeral "restricted on Kyverno 1.19.2" false --set kyvernoVersion=1.19.2 "${RESTRICTED[@]}"
+# A version like 1.19 must render as a string, or the annotation is rejected.
+expect "Kyverno 1.19 annotations quoted" 0 "$(count_rendered '^    kyverno.io/kyverno-version: [^"]' --set kyvernoVersion=1.19)"
 expect "ephemeralContainersRBAC=false reports controller role" 0 "$(count_rendered '^kind: ClusterRole$' --set ephemeralContainersRBAC=false)"
 expect "privileged profile reports controller role" 0 "$(count_rendered '^kind: ClusterRole$' --set podSecurityStandard=privileged)"
 
