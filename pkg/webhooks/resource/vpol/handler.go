@@ -107,6 +107,11 @@ func logDecisionTraces(logger logr.Logger, response vpolengine.EngineResponse) {
 }
 
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request vpolengine.EngineRequest, response vpolengine.EngineResponse) {
+	// Skip audit reporting and event generation for dry-run requests
+	// to honor the SideEffects: NoneOnDryRun contract.
+	if admissionutils.IsDryRun(admissionRequest.AdmissionRequest) {
+		return
+	}
 	blocked := false
 	for _, p := range response.Policies {
 		if p.Actions.Has(admissionregistrationv1.Deny) {
