@@ -21,6 +21,9 @@ type Inputs struct {
 	Secret bool
 	// Variables are the names of the variables the expression reads.
 	Variables []string
+	// AnyVariable is set when the expression reads variables without naming them, as
+	// variables[object.metadata.name] or the whole variables map does, so it may read any of them.
+	AnyVariable bool
 }
 
 // resourceCallPrefixes are the overload ID prefixes of the resource library functions that
@@ -34,18 +37,23 @@ var resourceCallPrefixes = []string{"resource_get_", "resource_list_", "list_res
 // recognized by their name.
 func inputsOf(e celast.Expr, references map[int64]*celast.ReferenceInfo) Inputs {
 	var in Inputs
+	// named holds the variables identifiers that a read by name uses, such as the one in
+	// variables.password; any other use of the identifier reads variables without naming them.
+	// PreOrderVisit reaches a read before its identifier, so the set is filled first.
+	named := map[int64]struct{}{}
 	celast.PreOrderVisit(e, celast.NewExprVisitor(func(n celast.Expr) {
+		if name, variables, ok := namedVariable(n); ok {
+			in.addVariable(name)
+			named[variables.ID()] = struct{}{}
+		}
 		switch n.Kind() {
 		case celast.CallKind:
-			if name, ok := indexedVariable(n); ok {
-				in.addVariable(name)
-			}
 			if isResourceCall(n, references[n.ID()]) && maybeSecrets(resourceArg(n, references[n.ID()])) {
 				in.Secret = true
 			}
-		case celast.SelectKind:
-			if s := n.AsSelect(); s.Operand().Kind() == celast.IdentKind && s.Operand().AsIdent() == "variables" {
-				in.addVariable(s.FieldName())
+		case celast.IdentKind:
+			if _, ok := named[n.ID()]; !ok && n.AsIdent() == "variables" {
+				in.AnyVariable = true
 			}
 		}
 	}))
@@ -58,16 +66,36 @@ func (in *Inputs) addVariable(name string) {
 	}
 }
 
-// indexedVariable returns the variable a call reads as variables['name'] or variables[?'name'].
-func indexedVariable(e celast.Expr) (string, bool) {
-	call := e.AsCall()
-	if call.FunctionName() != "_[_]" && call.FunctionName() != "_[?_]" || len(call.Args()) != 2 {
-		return "", false
+// namedVariable returns the variable e reads by name, as variables.name, variables.?name,
+// variables['name'] or variables[?'name'], and the variables identifier it reads it from.
+func namedVariable(e celast.Expr) (string, celast.Expr, bool) {
+	var operand celast.Expr
+	var name string
+	switch e.Kind() {
+	case celast.SelectKind:
+		operand, name = e.AsSelect().Operand(), e.AsSelect().FieldName()
+	case celast.CallKind:
+		call := e.AsCall()
+		switch call.FunctionName() {
+		case "_[_]", "_[?_]", "_?._":
+		default:
+			return "", nil, false
+		}
+		if len(call.Args()) != 2 {
+			return "", nil, false
+		}
+		literal, ok := stringLiteral(call.Args()[1])
+		if !ok {
+			return "", nil, false
+		}
+		operand, name = call.Args()[0], literal
+	default:
+		return "", nil, false
 	}
-	if operand := call.Args()[0]; operand.Kind() != celast.IdentKind || operand.AsIdent() != "variables" {
-		return "", false
+	if operand.Kind() != celast.IdentKind || operand.AsIdent() != "variables" {
+		return "", nil, false
 	}
-	return stringLiteral(call.Args()[1])
+	return name, operand, true
 }
 
 // isResourceCall reports whether e calls resource.Get, List or Post.
@@ -169,7 +197,7 @@ func newRedaction(d *Decision) redaction {
 
 // reads reports whether an expression with these inputs may read a Secret.
 func (r redaction) reads(in Inputs) bool {
-	if r.all || in.Secret {
+	if r.all || in.Secret || in.AnyVariable && len(r.variables) > 0 {
 		return true
 	}
 	for _, name := range in.Variables {
@@ -211,7 +239,8 @@ func (r redaction) message(v VerdictTrace) string {
 
 // expressions returns every expression traced in d.
 func expressions(d *Decision) []ExpressionTrace {
-	all := []ExpressionTrace{d.Verdict.ExpressionTrace}
+	all := make([]ExpressionTrace, 0, 1+len(d.Match)+len(d.Variables)+len(d.Validations)+len(d.Mutations)+len(d.Generations))
+	all = append(all, d.Verdict.ExpressionTrace)
 	for _, m := range d.Match {
 		all = append(all, m.ExpressionTrace)
 	}

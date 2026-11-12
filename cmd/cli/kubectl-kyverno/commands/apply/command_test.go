@@ -2331,6 +2331,59 @@ func Test_Apply_ExplainImageValidatingPolicy(t *testing.T) {
 	}
 }
 
+// Test_Apply_ExplainHidesSecretData runs policies that read a Secret, given by a context file,
+// with --explain: the trace prints neither the Secret's data, nor a value worked out from it, nor
+// an error that quotes it, while values that do not come from a Secret are still printed. The
+// results are the ones without --explain.
+func Test_Apply_ExplainHidesSecretData(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	tests := []struct {
+		name string
+		dir  string
+		want []string
+	}{{
+		name: "a validating policy reads a Secret into variables",
+		dir:  base + "test-validating-policy/explain-secret/",
+		want: []string{
+			"VARIABLES           password: resource.Get('v1', 'secrets', 'kyverno', 'db-credentials').data.password  ->  (redacted)",
+			"VARIABLES           decoded: string(base64.decode(variables.password))  ->  (redacted)",
+			"VARIABLES           team: object.metadata.?labels.?team.orValue('')  ->  payments",
+			`message: "the password is too short"`,
+		},
+	}, {
+		name: "an image validating policy fails on a Secret's data",
+		dir:  base + "test-image-validating-policy/explain-secret/",
+		want: []string{
+			"VERDICT    ERROR    timestamp(resource.Get('v1', 'secrets', 'kyverno', 'db-credentials').data.password) < timestamp('2026-01-01T00:00:00Z')  ->  (redacted)",
+			`message: "(redacted)"`,
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := func(explain bool) (*processor.ResultCounts, string) {
+				config := ApplyCommandConfig{
+					PolicyPaths:   []string{tt.dir + "policy.yaml"},
+					ResourcePaths: []string{tt.dir + "resources.yaml"},
+					ContextPath:   tt.dir + "context.yaml",
+					Explain:       explain,
+				}
+				var out bytes.Buffer
+				rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+				require.NoError(t, err)
+				return rc, out.String()
+			}
+			plain, _ := run(false)
+			explained, output := run(true)
+			assert.Equal(t, plain, explained, "--explain must not change the results")
+			assert.NotContains(t, output, "czNjcjN0LXA0c3M=", "the Secret's data")
+			assert.NotContains(t, output, "s3cr3t-p4ss", "the Secret's data, decoded")
+			for _, want := range tt.want {
+				assert.Contains(t, output, want)
+			}
+		})
+	}
+}
+
 // Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition is a JSON payload a JSON-mode
 // policy's match condition excludes. Evaluating it returns a nil result, which the apply command
 // used to read and crash on; it must report nothing, and with --explain print the skip.
