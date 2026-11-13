@@ -79,6 +79,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if errors.IsNotFound(err) {
 			r.lock.Lock()
 			delete(r.policies, key)
+			r.publish()
 			r.lock.Unlock()
 			logger.V(4).Info("removed AuthorizingPolicy from cache", "policy", req.Name)
 			return ctrl.Result{}, nil
