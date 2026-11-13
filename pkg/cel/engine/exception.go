@@ -4,6 +4,7 @@ import (
 	"context"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,7 +72,7 @@ func ListExceptions(lister PolicyExceptionLister, kind, name string) ([]*policie
 	}
 	var out []*policiesv1beta1.PolicyException
 	for _, exception := range exceptions {
-		if exception.IsExpired() {
+		if exception.IsExpired() || !celpolicies.IsKyvernoEvaluationMode(exception.Spec.EvaluationMode) {
 			continue
 		}
 		for _, ref := range exception.Spec.PolicyRefs {

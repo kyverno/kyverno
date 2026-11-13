@@ -631,9 +631,10 @@ func (c *ApplyCommandConfig) applyPolicies(
 					var k8sPolicies []policiesv1beta1.ValidatingPolicyLike
 					for i := range vpols {
 						pol := vpols[i]
-						if pol.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+						switch pol.GetValidatingPolicySpec().EvaluationMode() {
+						case policieskyvernoio.EvaluationModeJSON:
 							jsonPolicies = append(jsonPolicies, pol)
-						} else {
+						case policieskyvernoio.EvaluationModeKubernetes:
 							k8sPolicies = append(k8sPolicies, pol)
 						}
 					}

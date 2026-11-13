@@ -89,6 +89,47 @@ func TestLoadInvalid(t *testing.T) {
 	}
 }
 
+func TestLoad_SkipsForeignEvaluationModes(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "policies.yaml")
+	body := `
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: owned
+spec:
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: envoy-check
+spec:
+  evaluation:
+    mode: Envoy
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: ext-proc
+spec:
+  evaluation:
+    mode: ext_proc
+  validations:
+  - expression: "true"
+`
+	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
+	results, err := Load(nil, "", path)
+	require.NoError(t, err)
+	require.Len(t, results.ValidatingPolicies, 1)
+	assert.Equal(t, "owned", results.ValidatingPolicies[0].GetName())
+	require.Len(t, results.EnvoyPolicies, 1)
+	assert.Equal(t, "envoy-check", results.EnvoyPolicies[0].GetName())
+}
+
 func TestKubectlValidateLoader_ListHandling(t *testing.T) {
 	tests := []struct {
 		name                       string

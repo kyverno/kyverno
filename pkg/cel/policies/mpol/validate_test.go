@@ -371,3 +371,16 @@ func Test_Validate_NamespacedPolicyRejectsGlobalContextInTargetSelection(t *test
 		assert.NoError(t, err)
 	})
 }
+
+func TestValidate_ForeignEvaluationModeIsAllowed(t *testing.T) {
+	t.Parallel()
+	mpol := &v1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+		Spec: v1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{Mode: "Envoy"},
+		},
+	}
+	warnings, err := Validate(mpol)
+	assert.NoError(t, err)
+	assert.Empty(t, warnings)
+}

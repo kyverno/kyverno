@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/template"
 	"github.com/kyverno/sdk/extensions/cel/libs/generator"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
@@ -164,6 +165,7 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 }
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
+	exceptions = celpolicies.SelectKyvernoExceptions(exceptions)
 	var allErrs field.ErrorList
 	env, variablesProvider, err := c.createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {

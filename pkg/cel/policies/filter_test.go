@@ -3,6 +3,7 @@ package policies
 import (
 	"testing"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/ptr"
@@ -59,4 +60,21 @@ func TestRemoveNoneBackgroundPolicies(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestIsKyvernoEvaluationMode(t *testing.T) {
+	assert.True(t, IsKyvernoEvaluationMode(""))
+	assert.True(t, IsKyvernoEvaluationMode(policieskyvernoio.EvaluationModeKubernetes))
+	assert.True(t, IsKyvernoEvaluationMode(policieskyvernoio.EvaluationModeJSON))
+	assert.False(t, IsKyvernoEvaluationMode("Envoy"))
+	assert.False(t, IsKyvernoEvaluationMode("HTTP"))
+	assert.False(t, IsKyvernoEvaluationMode("ext_proc"))
+}
+
+func TestSelectKyvernoExceptions(t *testing.T) {
+	owned := &v1beta1.PolicyException{}
+	envoy := &v1beta1.PolicyException{Spec: v1beta1.PolicyExceptionSpec{EvaluationMode: "Envoy"}}
+	selected := SelectKyvernoExceptions([]*v1beta1.PolicyException{owned, nil, envoy})
+	assert.Equal(t, []*v1beta1.PolicyException{owned}, selected)
+	assert.Nil(t, SelectKyvernoExceptions(nil))
 }

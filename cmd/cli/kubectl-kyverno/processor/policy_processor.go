@@ -212,6 +212,15 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				mutatingPolicies = append(mutatingPolicies, policy)
 			}
 		}
+	} else {
+		owned := make([]policiesv1beta1.MutatingPolicyLike, 0, len(mutatingPolicies))
+		for _, policy := range mutatingPolicies {
+			mode := policy.GetSpec().EvaluationMode()
+			if mode == policieskyvernoio.EvaluationModeKubernetes || mode == policieskyvernoio.EvaluationModeJSON {
+				owned = append(owned, policy)
+			}
+		}
+		mutatingPolicies = owned
 	}
 	if len(mutatingPolicies) != 0 {
 		compiler := mpolcompiler.NewCompilerWithTrace(p.Explain)
@@ -487,9 +496,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		k8sPolicies := make([]policiesv1beta1.ValidatingPolicyLike, 0)
 		for i := range p.ValidatingPolicies {
 			pol := p.ValidatingPolicies[i]
-			if pol.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+			switch pol.GetValidatingPolicySpec().EvaluationMode() {
+			case policieskyvernoio.EvaluationModeJSON:
 				jsonPolicies = append(jsonPolicies, pol)
-			} else {
+			case policieskyvernoio.EvaluationModeKubernetes:
 				k8sPolicies = append(k8sPolicies, pol)
 			}
 		}

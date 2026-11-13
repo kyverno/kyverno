@@ -3,6 +3,7 @@ package mpol
 import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -21,6 +22,12 @@ func Validate(mpol v1beta1.MutatingPolicyLike) ([]string, error) {
 			warnings = append(warnings, e.Error())
 		}
 		return warnings, err.ToAggregate()
+	}
+	// Another controller owns this policy. Admitting it must not depend on the
+	// webhook match condition: this webhook fails closed, and compiling the
+	// policy reports the foreign mode as invalid.
+	if !celpolicies.IsKyvernoEvaluationMode(spec.EvaluationMode()) {
+		return nil, nil
 	}
 
 	c := mpolcompiler.NewCompiler()

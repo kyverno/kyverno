@@ -237,3 +237,15 @@ func Test_Validate_NamespacedPolicyRejectsGlobalContextInAttestors(t *testing.T)
 		assert.NoError(t, err)
 	})
 }
+
+func TestValidate_ForeignEvaluationModeIsAllowed(t *testing.T) {
+	ivpol := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+		},
+	}
+	warnings, err := Validate(ivpol, nil)
+	assert.NoError(t, err)
+	assert.Empty(t, warnings)
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
@@ -66,11 +67,15 @@ func NewCompilerWithTrace(trace bool) Compiler {
 type compilerImpl struct{ trace bool }
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
-	switch policy.GetValidatingPolicySpec().EvaluationMode() {
+	exceptions = celpolicies.SelectKyvernoExceptions(exceptions)
+	mode := policy.GetValidatingPolicySpec().EvaluationMode()
+	switch mode {
 	case policieskyvernoio.EvaluationModeJSON:
 		return c.compileForJSON(policy, exceptions)
-	default:
+	case policieskyvernoio.EvaluationModeKubernetes:
 		return c.compileForKubernetes(policy, exceptions)
+	default:
+		return nil, celpolicies.ForeignEvaluationModeError(mode)
 	}
 }
 

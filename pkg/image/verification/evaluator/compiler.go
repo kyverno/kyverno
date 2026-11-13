@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/config"
 	imagecredentials "github.com/kyverno/kyverno/pkg/image/verification/credentials"
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
@@ -66,6 +67,10 @@ type compilerImpl struct {
 }
 
 func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
+	if mode := ivpolicy.GetSpec().EvaluationMode(); !celpolicies.IsKyvernoEvaluationMode(mode) {
+		return nil, celpolicies.ForeignEvaluationModeError(mode)
+	}
+	exceptions = celpolicies.SelectKyvernoExceptions(exceptions)
 	ivpolicy, allErrs := imagecredentials.ScopePolicy(ivpolicy)
 	if len(allErrs) != 0 {
 		return nil, allErrs

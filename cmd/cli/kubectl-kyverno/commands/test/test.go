@@ -511,9 +511,10 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			var k8sPolicies []policiesv1beta1.ValidatingPolicyLike
 			for i := range results.ValidatingPolicies {
 				pol := results.ValidatingPolicies[i]
-				if pol.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+				switch pol.GetValidatingPolicySpec().EvaluationMode() {
+				case policieskyvernoio.EvaluationModeJSON:
 					jsonPolicies = append(jsonPolicies, pol)
-				} else {
+				case policieskyvernoio.EvaluationModeKubernetes:
 					k8sPolicies = append(k8sPolicies, pol)
 				}
 			}
@@ -533,12 +534,15 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		if len(results.MutatingPolicies) != 0 {
 			var policies []policiesv1beta1.MutatingPolicyLike
 			for _, policy := range results.MutatingPolicies {
-				if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+				switch policy.GetSpec().EvaluationMode() {
+				case policieskyvernoio.EvaluationModeJSON:
 					if len(jsonPayloads) > 0 {
 						policies = append(policies, policy)
 					}
-				} else if len(uniques) > 0 {
-					policies = append(policies, policy)
+				case policieskyvernoio.EvaluationModeKubernetes:
+					if len(uniques) > 0 {
+						policies = append(policies, policy)
+					}
 				}
 			}
 			compiler := mpolcompiler.NewCompiler()

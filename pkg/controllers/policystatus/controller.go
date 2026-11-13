@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
@@ -248,6 +249,9 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			if err != nil {
 				return err
 			}
+			if !celpolicies.IsKyvernoEvaluationMode(vpol.Spec.EvaluationMode()) {
+				return nil
+			}
 			return c.updateVpolStatus(ctx, vpol)
 		})
 	case webhook.NamespacedValidatingPolicyType:
@@ -255,6 +259,9 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			nvpol, err := c.client.PoliciesV1beta1().NamespacedValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				return err
+			}
+			if !celpolicies.IsKyvernoEvaluationMode(nvpol.Spec.EvaluationMode()) {
+				return nil
 			}
 			return c.updateNVpolStatus(ctx, nvpol)
 		})
@@ -264,6 +271,9 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			if err != nil {
 				return err
 			}
+			if !celpolicies.IsKyvernoEvaluationMode(ivpol.Spec.EvaluationMode()) {
+				return nil
+			}
 			return c.updateIvpolStatus(ctx, ivpol)
 		})
 	case webhook.NamespacedImageValidatingPolicyType:
@@ -271,6 +281,9 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			nivpol, err := c.client.PoliciesV1beta1().NamespacedImageValidatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				return err
+			}
+			if !celpolicies.IsKyvernoEvaluationMode(nivpol.Spec.EvaluationMode()) {
+				return nil
 			}
 			return c.updateNivpolStatus(ctx, nivpol)
 		})
@@ -280,6 +293,9 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			if err != nil {
 				return err
 			}
+			if !celpolicies.IsKyvernoEvaluationMode(mpol.Spec.EvaluationMode()) {
+				return nil
+			}
 			return c.updateMpolStatus(ctx, mpol)
 		})
 	case webhook.NamespacedMutatingPolicyType:
@@ -287,6 +303,9 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 			nmpol, err := c.client.PoliciesV1beta1().NamespacedMutatingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				return err
+			}
+			if !celpolicies.IsKyvernoEvaluationMode(nmpol.Spec.EvaluationMode()) {
+				return nil
 			}
 			return c.updateNMpolStatus(ctx, nmpol)
 		})

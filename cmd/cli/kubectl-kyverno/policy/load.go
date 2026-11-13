@@ -23,6 +23,7 @@ import (
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
@@ -307,7 +308,9 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 		if err != nil {
 			return err
 		}
-		results.PolicyCelExceptions = append(results.PolicyCelExceptions, typed)
+		if celpolicies.IsKyvernoEvaluationMode(typed.Spec.EvaluationMode) {
+			results.PolicyCelExceptions = append(results.PolicyCelExceptions, typed)
+		}
 	default:
 		switch gvk {
 		case vapV1:
@@ -333,26 +336,34 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 			case "HTTP":
 				results.HTTPPolicies = append(results.HTTPPolicies, typed)
 			default:
-				results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+				if celpolicies.IsKyvernoEvaluationMode(typed.Spec.EvaluationMode()) {
+					results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+				}
 			}
 		case nvpV1beta1, nvpV1:
 			typed, err := convert.To[policiesv1beta1.NamespacedValidatingPolicy](*untyped)
 			if err != nil {
 				return err
 			}
-			results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+			if celpolicies.IsKyvernoEvaluationMode(typed.Spec.EvaluationMode()) {
+				results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+			}
 		case ivpV1alpha1, ivpV1beta1, ivpV1:
 			typed, err := convert.To[policiesv1beta1.ImageValidatingPolicy](*untyped)
 			if err != nil {
 				return err
 			}
-			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+			if celpolicies.IsKyvernoEvaluationMode(typed.Spec.EvaluationMode()) {
+				results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+			}
 		case nivpV1beta1, nivpV1:
 			typed, err := convert.To[policiesv1beta1.NamespacedImageValidatingPolicy](*untyped)
 			if err != nil {
 				return err
 			}
-			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+			if celpolicies.IsKyvernoEvaluationMode(typed.Spec.EvaluationMode()) {
+				results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+			}
 		case mapV1:
 			typed, err := convert.To[admissionregistrationv1.MutatingAdmissionPolicy](*untyped)
 			if err != nil {
@@ -406,13 +417,17 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 			if err != nil {
 				return err
 			}
-			results.MutatingPolicies = append(results.MutatingPolicies, typed)
+			if celpolicies.IsKyvernoEvaluationMode(typed.Spec.EvaluationMode()) {
+				results.MutatingPolicies = append(results.MutatingPolicies, typed)
+			}
 		case nmpV1beta1, nmpV1:
 			typed, err := convert.To[policiesv1beta1.NamespacedMutatingPolicy](*untyped)
 			if err != nil {
 				return err
 			}
-			results.MutatingPolicies = append(results.MutatingPolicies, typed)
+			if celpolicies.IsKyvernoEvaluationMode(typed.Spec.EvaluationMode()) {
+				results.MutatingPolicies = append(results.MutatingPolicies, typed)
+			}
 		default:
 			return errors.New("policy type not supported")
 		}

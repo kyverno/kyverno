@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
@@ -50,6 +51,7 @@ func NewCompilerWithTrace(trace bool) Compiler {
 type compilerImpl struct{ trace bool }
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
+	exceptions = celpolicies.SelectKyvernoExceptions(exceptions)
 	if policy == nil {
 		return nil, field.ErrorList{field.Required(field.NewPath("policy"), "policy must not be nil")}
 	}

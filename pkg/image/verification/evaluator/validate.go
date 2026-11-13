@@ -3,6 +3,7 @@ package evaluator
 import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -36,6 +37,12 @@ func (r ImageVerifyPolicyResponse) TraceOnly() bool {
 }
 
 func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister) ([]string, error) {
+	// Another controller owns this policy. Admitting it must not depend on the
+	// webhook match condition: this webhook fails closed, and compiling the
+	// policy reports the foreign mode as invalid.
+	if spec := ivpol.GetSpec(); spec != nil && !celpolicies.IsKyvernoEvaluationMode(spec.EvaluationMode()) {
+		return nil, nil
+	}
 	compiler := NewCompiler(lister)
 	_, errList := compiler.Compile(ivpol, nil)
 

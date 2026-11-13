@@ -41,3 +41,16 @@ func TestCompile_PolicyScopedIdentifiersStayDeclared(t *testing.T) {
 		})
 	}
 }
+
+func TestCompile_ForeignEvaluationMode(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+			Validations:             []admissionregistrationv1.Validation{{Expression: "true"}},
+		},
+	}
+	compiled, errs := NewCompiler().Compile(policy, nil)
+	assert.Assert(t, compiled == nil)
+	assert.Assert(t, len(errs) > 0)
+}

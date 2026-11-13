@@ -6,6 +6,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -77,6 +78,12 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		policy = &nvp
 	}
 	if policy.GetStatus().Generated {
+		r.lock.Lock()
+		defer r.lock.Unlock()
+		delete(r.policies, req.NamespacedName.String())
+		return ctrl.Result{}, nil
+	}
+	if !celpolicies.IsKyvernoEvaluationMode(policy.GetValidatingPolicySpec().EvaluationMode()) {
 		r.lock.Lock()
 		defer r.lock.Unlock()
 		delete(r.policies, req.NamespacedName.String())

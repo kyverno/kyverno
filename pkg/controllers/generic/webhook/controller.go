@@ -66,6 +66,7 @@ type controller struct {
 	// exception, global-context, and TTL webhooks this controller also builds. Only the two
 	// legacy denial configurations pass WithoutConfigMatchConditions() to set it.
 	skipConfigMatchConditions bool
+	extraMatchConditions      []admissionregistrationv1.MatchCondition
 }
 
 // Option configures a controller at construction time. The only option today,
@@ -80,6 +81,14 @@ type Option func(*controller)
 func WithoutConfigMatchConditions() Option {
 	return func(c *controller) {
 		c.skipConfigMatchConditions = true
+	}
+}
+
+// WithExtraMatchConditions appends match conditions to the webhook. They are added
+// after any ConfigMap match conditions and are not affected by WithoutConfigMatchConditions.
+func WithExtraMatchConditions(conditions []admissionregistrationv1.MatchCondition) Option {
+	return func(c *controller) {
+		c.extraMatchConditions = conditions
 	}
 }
 
@@ -209,8 +218,9 @@ func objectMeta(name string, annotations map[string]string, labels map[string]st
 func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	var matchConditions []admissionregistrationv1.MatchCondition
 	if !c.skipConfigMatchConditions {
-		matchConditions = cfg.GetMatchConditions()
+		matchConditions = append(matchConditions, cfg.GetMatchConditions()...)
 	}
+	matchConditions = append(matchConditions, c.extraMatchConditions...)
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{

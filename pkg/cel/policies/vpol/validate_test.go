@@ -29,3 +29,15 @@ func Test_Validate_NamespacedPolicyRejectsGlobalContext(t *testing.T) {
 	_, err := Validate(vpol)
 	assert.ErrorContains(t, err, "globalContext.* is not allowed in namespaced policies")
 }
+
+func TestValidate_ForeignEvaluationModeIsAllowed(t *testing.T) {
+	vpol := &v1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+		Spec: v1beta1.ValidatingPolicySpec{
+			EvaluationConfiguration: &v1beta1.EvaluationConfiguration{Mode: "Envoy"},
+		},
+	}
+	warnings, err := Validate(vpol)
+	assert.NoError(t, err)
+	assert.Empty(t, warnings)
+}

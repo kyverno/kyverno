@@ -9,6 +9,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
@@ -112,14 +113,23 @@ func (s *scanner) ScanResource(
 	// split policies per nature
 	for _, policy := range policies {
 		if pol := policy.AsValidatingPolicyLike(); pol != nil {
+			if !celpolicies.IsKyvernoEvaluationMode(pol.GetValidatingPolicySpec().EvaluationMode()) {
+				continue
+			}
 			vpols = append(vpols, policy)
 		} else if pol := policy.AsImageValidatingPolicyLike(); pol != nil {
+			if !celpolicies.IsKyvernoEvaluationMode(pol.GetSpec().EvaluationMode()) {
+				continue
+			}
 			ivpols = append(ivpols, policy)
 		} else if pol := policy.AsValidatingAdmissionPolicy(); pol != nil {
 			vaps = append(vaps, policy)
 		} else if pol := policy.AsMutatingAdmissionPolicy(); pol != nil {
 			maps = append(maps, policy)
 		} else if pol := policy.AsMutatingPolicyLike(); pol != nil {
+			if !celpolicies.IsKyvernoEvaluationMode(pol.GetSpec().EvaluationMode()) {
+				continue
+			}
 			mpols = append(mpols, policy)
 		}
 	}

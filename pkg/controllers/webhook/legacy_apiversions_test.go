@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/stretchr/testify/assert"
@@ -84,12 +85,9 @@ func findStatusRule(rules []admissionregistrationv1.RuleWithOperations) (admissi
 }
 
 // matchConditionsOverride wraps a real config.Configuration and forces GetMatchConditions() to
-// return a non-empty value, so a test built against it can actually observe whether a builder
-// applies the ConfigMap's match conditions. config.NewDefaultConfiguration(false)'s
-// GetMatchConditions() already returns nil, so using it directly would let
-// TestPolicyValidatingWebhookRegistrationInvariants's MatchConditions assertion pass whether or
-// not buildPolicyValidatingWebhookConfiguration ever adds MatchConditions: cfg.GetMatchConditions()
-// -- the assertion would guard nothing.
+// return a non-empty value, so a test built against it can observe whether a builder copies the
+// ConfigMap's match conditions. The policy validating webhook keeps its own evaluation-mode
+// condition and must not include this override.
 type matchConditionsOverride struct {
 	config.Configuration
 	matchConditions []admissionregistrationv1.MatchCondition
@@ -120,7 +118,10 @@ func TestPolicyValidatingWebhookRegistrationInvariants(t *testing.T) {
 	require.Len(t, vwc.Webhooks, 1)
 	webhook := vwc.Webhooks[0]
 
-	assert.Nil(t, webhook.MatchConditions, "the ConfigMap match condition set on cfg must not reach this webhook")
+	require.Len(t, webhook.MatchConditions, 1)
+	assert.Equal(t, celpolicies.EvaluationModeMatchConditionName, webhook.MatchConditions[0].Name)
+	assert.Equal(t, celpolicies.PolicyEvaluationModeExpression, webhook.MatchConditions[0].Expression)
+	assert.NotEqual(t, "exempt-principal", webhook.MatchConditions[0].Name, "the ConfigMap match condition set on cfg must not reach this webhook")
 	assert.Nil(t, webhook.NamespaceSelector)
 	assert.Nil(t, webhook.ObjectSelector)
 	require.NotNil(t, webhook.FailurePolicy)

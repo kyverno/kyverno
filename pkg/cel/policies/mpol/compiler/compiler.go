@@ -15,6 +15,7 @@ import (
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
@@ -73,10 +74,15 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	if spec == nil {
 		return nil, field.ErrorList{field.Required(path, "spec is required")}
 	}
-	if spec.EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+	exceptions = celpolicies.SelectKyvernoExceptions(exceptions)
+	switch spec.EvaluationMode() {
+	case policieskyvernoio.EvaluationModeJSON:
 		return c.compileForJSON(policy, exceptions)
+	case policieskyvernoio.EvaluationModeKubernetes:
+		return c.compileForKubernetes(policy, exceptions)
+	default:
+		return nil, celpolicies.ForeignEvaluationModeError(spec.EvaluationMode())
 	}
-	return c.compileForKubernetes(policy, exceptions)
 }
 
 func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {

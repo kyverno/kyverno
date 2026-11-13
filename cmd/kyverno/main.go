@@ -20,6 +20,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
@@ -221,6 +222,10 @@ func createrLeaderControllers(
 		genericwebhookcontroller.None,
 		configuration,
 		caSecretName,
+		genericwebhookcontroller.WithExtraMatchConditions([]admissionregistrationv1.MatchCondition{{
+			Name:       celpolicies.EvaluationModeMatchConditionName,
+			Expression: celpolicies.ExceptionEvaluationModeExpression,
+		}}),
 	)
 	gctxWebhookController := genericwebhookcontroller.NewController(
 		gctxWebhookControllerName,

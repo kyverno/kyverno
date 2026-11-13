@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/ext/wildcard"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -807,6 +808,13 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 				SideEffects:             &none,
 				AdmissionReviewVersions: []string{"v1"},
 				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
+				// Kyverno Authz shares these kinds. Skip objects whose evaluation
+				// mode belongs to that controller so this webhook cannot block them.
+				// Kinds without spec.evaluation.mode still match.
+				MatchConditions: []admissionregistrationv1.MatchCondition{{
+					Name:       celpolicies.EvaluationModeMatchConditionName,
+					Expression: celpolicies.PolicyEvaluationModeExpression,
+				}},
 			}},
 		},
 		nil
@@ -1100,7 +1108,7 @@ func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) 
 	}
 	vpols := make([]engineapi.GenericPolicy, 0)
 	for _, vpol := range validatingpolicies {
-		if vpol.Spec.AdmissionEnabled() && !vpol.GetStatus().Generated {
+		if vpol.Spec.AdmissionEnabled() && !vpol.GetStatus().Generated && celpolicies.IsKyvernoEvaluationMode(vpol.Spec.EvaluationMode()) {
 			vpols = append(vpols, engineapi.NewValidatingPolicy(vpol))
 		}
 	}
@@ -1114,7 +1122,7 @@ func (c *controller) getNamespacedValidatingPolicies() ([]engineapi.GenericPolic
 	}
 	nvpols := make([]engineapi.GenericPolicy, 0)
 	for _, nvpol := range namespacedvalidatingpolicies {
-		if nvpol.Spec.AdmissionEnabled() && !nvpol.GetStatus().Generated {
+		if nvpol.Spec.AdmissionEnabled() && !nvpol.GetStatus().Generated && celpolicies.IsKyvernoEvaluationMode(nvpol.Spec.EvaluationMode()) {
 			nvpols = append(nvpols, engineapi.NewNamespacedValidatingPolicy(nvpol))
 		}
 	}
@@ -1156,7 +1164,7 @@ func (c *controller) getImageValidatingPolicies() ([]engineapi.GenericPolicy, er
 	}
 	ivpols := make([]engineapi.GenericPolicy, 0)
 	for _, ivpol := range policies {
-		if ivpol.Spec.AdmissionEnabled() {
+		if ivpol.Spec.AdmissionEnabled() && celpolicies.IsKyvernoEvaluationMode(ivpol.Spec.EvaluationMode()) {
 			ivpols = append(ivpols, engineapi.NewImageValidatingPolicy(ivpol))
 		}
 	}
@@ -1170,7 +1178,7 @@ func (c *controller) getNamespacedImageValidatingPolicies() ([]engineapi.Generic
 	}
 	nivpols := make([]engineapi.GenericPolicy, 0)
 	for _, nivpol := range policies {
-		if nivpol.Spec.AdmissionEnabled() {
+		if nivpol.Spec.AdmissionEnabled() && celpolicies.IsKyvernoEvaluationMode(nivpol.Spec.EvaluationMode()) {
 			nivpols = append(nivpols, engineapi.NewNamespacedImageValidatingPolicy(nivpol))
 		}
 	}
@@ -1209,7 +1217,7 @@ func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
 	}
 	mpols := make([]engineapi.GenericPolicy, 0)
 	for _, mpol := range policies {
-		if mpol.Spec.AdmissionEnabled() && !mpol.GetStatus().Generated {
+		if mpol.Spec.AdmissionEnabled() && !mpol.GetStatus().Generated && celpolicies.IsKyvernoEvaluationMode(mpol.Spec.EvaluationMode()) {
 			mpols = append(mpols, engineapi.NewMutatingPolicy(mpol))
 		}
 	}
@@ -1223,7 +1231,7 @@ func (c *controller) getNamespacedMutatingPolicies() ([]engineapi.GenericPolicy,
 	}
 	nmpols := make([]engineapi.GenericPolicy, 0)
 	for _, nmpol := range policies {
-		if nmpol.Spec.AdmissionEnabled() && !nmpol.GetStatus().Generated {
+		if nmpol.Spec.AdmissionEnabled() && !nmpol.GetStatus().Generated && celpolicies.IsKyvernoEvaluationMode(nmpol.Spec.EvaluationMode()) {
 			nmpols = append(nmpols, engineapi.NewNamespacedMutatingPolicy(nmpol))
 		}
 	}
