@@ -10,9 +10,12 @@
 #    the sync-issue job of Tests leaves the tracking issue alone and runs its
 #    "Defer to the automatic re-run" step instead. The rerun job below re-runs
 #    a run only when that step ran, so the two can't disagree.
-# 2. Re-running the failed jobs also re-runs sync-issue, which depends on them.
-#    On that second attempt sync-issue opens, updates, or closes the tracking
-#    issue as usual, so the issue reflects the final attempt.
+# 2. Re-running the failed jobs also re-runs sync-issue, which depends on them,
+#    even though sync-issue itself succeeded. GitHub documents this: "When you
+#    re-run failed jobs or a specific job, GitHub also re-runs the jobs that
+#    depend on them." On that second attempt sync-issue opens, updates, or
+#    closes the tracking issue as usual, so the issue reflects the final
+#    attempt.
 # 3. The rerun job waits for the second attempt. Events caused by GITHUB_TOKEN
 #    may not start other workflows, so it then starts the E2E gate itself, and
 #    if the second attempt passed, the record-flaky job lists the tests that
@@ -49,9 +52,10 @@ jobs:
       github.event.workflow_run.run_attempt == 1 &&
       (github.event.workflow_run.head_branch == 'main' ||
         startsWith(github.event.workflow_run.head_branch, 'release-'))
-    runs-on: ubuntu-slim
-    # Covers the wait for the second attempt, which may queue behind another
-    # Tests run first.
+    # Not ubuntu-slim: GitHub ends ubuntu-slim jobs after 15 minutes, and this
+    # job waits for the second attempt, which may queue behind another Tests
+    # run first.
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     permissions:
       # actions: write lets the job re-run the failed jobs and start the E2E gate
@@ -117,23 +121,28 @@ jobs:
         run: |
           set -euo pipefail
 
-          # The re-run request returns before the run leaves the completed state.
-          for _ in $(seq 30); do
-            [ "$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID" --jq .run_attempt)" -ge 2 ] && break
-            sleep 10
+          # Polls until the second attempt has completed with a conclusion. The
+          # re-run request returns before the run leaves the completed state of
+          # the first attempt, and a failed API read is retried on the next
+          # poll. The job's timeout ends the wait if the attempt never finishes;
+          # the gate is then left to the next Tests run. One read a minute keeps
+          # the job well under the GITHUB_TOKEN API rate limit.
+          while true; do
+            sleep 60
+            state=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID" \
+              --jq '"\(.run_attempt) \(.status) \(.conclusion // "")"' 2>/dev/null) || continue
+            read -r attempt status conclusion <<< "$state"
+            if [ "$attempt" -ge 2 ] && [ "$status" = completed ] && [ -n "$conclusion" ]; then
+              break
+            fi
           done
-          # A long interval keeps the job well under the GITHUB_TOKEN API rate limit.
-          gh run watch "$RUN_ID" --interval 60 > /dev/null || true
 
-          read -r attempt conclusion < <(gh api "repos/$GH_REPO/actions/runs/$RUN_ID" --jq '"\(.run_attempt) \(.conclusion)"')
           echo "Attempt $attempt of $RUN_URL finished: $conclusion."
-          if [ "$attempt" = 2 ]; then
-            echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
-          fi
+          echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
           echo "Second attempt: \`$conclusion\`." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Update the E2E gate
-        if: steps.rerun.outputs.rerun == 'true'
+        if: steps.wait.outputs.conclusion != ''
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: gh workflow run e2e-gate.yaml --ref "$DEFAULT_BRANCH"
@@ -142,7 +151,10 @@ jobs:
     name: Record flaky tests
     needs: rerun
     if: needs.rerun.outputs.conclusion == 'success'
+    # Reads a few job logs and posts one comment, well within the 15-minute
+    # limit of ubuntu-slim.
     runs-on: ubuntu-slim
+    timeout-minutes: 10
     permissions:
       # actions: read lets the job read the first attempt's jobs and logs
       actions: read
@@ -172,13 +184,16 @@ jobs:
           } > "$report"
 
           # chainsaw reports each failed test as "--- FAIL: chainsaw/<test>". A job
-          # whose log has no such line, or can't be read, failed outside a test.
+          # whose log has no such line, or can't be read, failed outside a test,
+          # for example in setup or image loading.
           # curl rather than gh api: gh refuses output with terminal escapes.
+          found=0
           while IFS=$'\t' read -r id name url; do
             tests=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
               "$GITHUB_API_URL/repos/$GH_REPO/actions/jobs/$id/logs" 2>/dev/null \
               | grep -oE -- '--- FAIL: chainsaw/[^ ]+' | sed 's#.*chainsaw/##' | sort -u \
               | sed "s/.*/\`&\`/" | paste -sd ',' - | sed 's/,/, /g' || true)
+            [ -n "$tests" ] && found=$((found + 1))
             echo "| [$name]($url) | ${tests:-no test failure in the log} |" >> "$report"
           done < <(gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/attempts/1/jobs?per_page=100" \
             --jq '.jobs[] | select(.conclusion == "failure") | [.id, .name, .html_url] | @tsv')
@@ -187,10 +202,18 @@ jobs:
             echo "### Flaky tests"
             echo
             cat "$report"
+            if [ "$found" -eq 0 ]; then
+              echo
+              echo "No Chainsaw test failed, so the failures were outside the tests and aren't recorded on the flaky-test issue."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
           echo "report=$report" >> "$GITHUB_OUTPUT"
+          echo "found=$found" >> "$GITHUB_OUTPUT"
 
+      # Only Chainsaw test failures go on the issue. Setup, image, and other
+      # infrastructure failures stay in the job summary above.
       - name: Comment on the flaky-test issue
+        if: steps.find.outputs.found != '0'
         env:
           REPORT: ${{ steps.find.outputs.report }}
           REPO_URL: ${{ github.server_url }}/${{ github.repository }}

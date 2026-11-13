@@ -126,8 +126,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # A failed first attempt is re-run once by tests-rerun.yaml, which looks
-      # for this step by name. The second attempt re-runs this job and updates
-      # the tracking issue, so a flaky test doesn't turn the E2E gate red.
+      # for this step by name. The second attempt re-runs this job even though
+      # it succeeded, because it depends on the failed jobs ("When you re-run
+      # failed jobs or a specific job, GitHub also re-runs the jobs that depend
+      # on them"), and then updates the tracking issue. So a flaky test doesn't
+      # turn the E2E gate red.
       # Runs with a cancelled job aren't re-run, so they update the issue now.
       - name: Defer to the automatic re-run
         id: defer

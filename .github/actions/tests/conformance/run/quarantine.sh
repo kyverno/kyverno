@@ -28,10 +28,34 @@ if [ ! -f "$file" ]; then
   exit 0
 fi
 
-entries=$(yq -r '(.tests // [])[] | [.path // "", .owner // "", .issue // "", .expires // ""] | join("|")' "$file")
+if [ ! -r "$file" ]; then
+  echo "::error file=$file::Can't read the quarantine file $file."
+  exit 1
+fi
+
+# Succeeds only for a real calendar date in YYYY-MM-DD form. Uses GNU date on
+# the runners, and BSD date when you run the tests on macOS.
+valid_date() {
+  [[ "$1" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || return 1
+  local parsed
+  parsed=$(date -u -d "$1" +%F 2>/dev/null || date -u -j -f %Y-%m-%d "$1" +%F 2>/dev/null) || return 1
+  [ "$parsed" = "$1" ]
+}
 
 skipped=()
 problems=()
+
+# A file that isn't valid YAML skips nothing and is reported below, so that it
+# doesn't fail every conformance job.
+errors=$(mktemp)
+trap 'rm -f "$errors"' EXIT
+if ! entries=$(yq -r '(.tests // [])[] | [.path // "", .owner // "", .issue // "", .expires // ""] | join("|")' "$file" 2> "$errors"); then
+  reason=$(tr '\n' ' ' < "$errors")
+  problems+=("\`$file\` can't be parsed, so no test is skipped: $reason")
+  echo "::error file=$file::Can't parse the quarantine file, so no test is skipped: $reason"
+  entries=
+fi
+
 while IFS='|' read -r path owner issue expires; do
   [ -z "$path$owner$issue$expires" ] && continue
   path=${path#./}
@@ -45,7 +69,7 @@ while IFS='|' read -r path owner issue expires; do
     problems+=("\`${path:-<no path>}\` is missing a path, owner, issue, or expires field.")
     echo "::error file=$file::Quarantine entry ${path:-<no path>} is missing a path, owner, issue, or expires field."
   fi
-  if [[ ! "$expires" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+  if ! valid_date "$expires"; then
     problems+=("\`$path\` has an invalid expires date \`$expires\`; use a quoted YYYY-MM-DD string.")
     echo "::error file=$file::Quarantine entry $path has an invalid expires date '$expires'."
   elif [[ "$expires" < "$today" ]]; then
