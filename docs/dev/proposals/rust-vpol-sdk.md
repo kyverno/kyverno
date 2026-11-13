@@ -2,7 +2,7 @@
 
 - Name: Rust SDK for local ValidatingPolicy evaluation
 - Start Date: 2026-11-07
-- Last Updated: 2026-11-08
+- Last Updated: 2026-11-13
 - Status: Draft
 - Author(s): @JimBugwadia, with Copilot-assisted research and drafting
 - Supersedes: N/A
@@ -33,8 +33,7 @@ library, then expand deterministic CEL support through compatibility-tested
 increments. Start with a bounded JSON-mode profile rather than promise full
 VPOL parity. This is a research proposal; no runtime prototype has been validated.
 
-This draft is stored here as requested. The submission venue remains governed
-by the [proposal lifecycle](./README.md); this document does not change that process.
+This draft follows the [in-repository proposal lifecycle](./README.md).
 
 # Definitions
 
@@ -84,6 +83,12 @@ metadata:
 spec:
   evaluation:
     mode: JSON
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["*"]
+        apiVersions: ["*"]
+        operations: ["*"]
+        resources: ["*"]
   validations:
     - expression: "has(object.owner) && object.owner != ''"
       message: An owner is required.
@@ -91,6 +96,13 @@ spec:
 
 The payload `{"owner":"platform"}` passes; `{"owner":""}` fails. These are
 intended examples for implementation fixtures, not evidence of a working SDK.
+
+Kyverno's current policy validation requires a nonempty
+`matchConstraints.resourceRules` even for JSON-mode policies. The wildcard block
+above satisfies that requirement; JSON evaluation does not apply Kubernetes
+matching. The SDK accepts this compatibility metadata without executing
+Kubernetes predicates or performing lookups. Phase 0 must verify both policy
+validation and JSON evaluation against the pinned Go implementation.
 
 An illustrative embedded interface is:
 
