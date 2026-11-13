@@ -95,6 +95,7 @@ require (
 	k8s.io/apiserver v0.38.0-beta.0
 	k8s.io/cli-runtime v0.38.0-beta.0
 	k8s.io/client-go v0.38.0-beta.0
+	k8s.io/component-base v0.38.0-beta.0
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-aggregator v0.38.0-beta.0
 	k8s.io/kube-openapi v0.0.0-20261014044854-ca3452a79603
@@ -371,7 +372,6 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/component-base v0.38.0-beta.0 // indirect
 	k8s.io/streaming v0.38.0-beta.0 // indirect
 	oras.land/oras-go/v2 v2.6.2 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.37.0 // indirect
@@ -381,6 +381,6 @@ require (
 
 replace k8s.io/pod-security-admission => github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f
 
-replace github.com/kyverno/api => github.com/aditip149209/api v0.0.0-20261004022431-748cf374f575
+replace github.com/kyverno/api => github.com/JimBugwadia/kyverno-api v0.0.0-20261113202505-7ee1ce120a9e
 
 replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.25.1-0.20261110104548-fd75b365f4ff
