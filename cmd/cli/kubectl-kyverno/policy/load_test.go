@@ -120,6 +120,16 @@ spec:
     mode: ext_proc
   validations:
   - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: envoy-exception
+spec:
+  evaluationMode: Envoy
+  policyRefs:
+  - name: envoy-check
+    kind: ValidatingPolicy
 `
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 	results, err := Load(nil, "", path)
@@ -128,6 +138,8 @@ spec:
 	assert.Equal(t, "owned", results.ValidatingPolicies[0].GetName())
 	require.Len(t, results.EnvoyPolicies, 1)
 	assert.Equal(t, "envoy-check", results.EnvoyPolicies[0].GetName())
+	require.Len(t, results.PolicyCelExceptions, 1)
+	assert.Equal(t, "envoy-exception", results.PolicyCelExceptions[0].GetName())
 }
 
 func TestKubectlValidateLoader_ListHandling(t *testing.T) {

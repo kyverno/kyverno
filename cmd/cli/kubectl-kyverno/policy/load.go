@@ -308,9 +308,9 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 		if err != nil {
 			return err
 		}
-		if celpolicies.IsKyvernoEvaluationMode(typed.Spec.EvaluationMode) {
-			results.PolicyCelExceptions = append(results.PolicyCelExceptions, typed)
-		}
+		// Keep every evaluation mode. OCI bundles and the Authz processor share this
+		// loader; Kyverno apply and test drop modes they do not own later.
+		results.PolicyCelExceptions = append(results.PolicyCelExceptions, typed)
 	default:
 		switch gvk {
 		case vapV1:

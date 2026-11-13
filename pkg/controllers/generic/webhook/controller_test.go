@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/config"
@@ -15,7 +16,9 @@ import (
 
 // fakeConfiguration implements config.Configuration with a non-empty GetMatchConditions, so the
 // tests below can tell whether build() applied it.
-type fakeConfiguration struct{}
+type fakeConfiguration struct {
+	matchConditions []admissionregistrationv1.MatchCondition
+}
 
 func (fakeConfiguration) GetDefaultRegistry() string             { return "" }
 func (fakeConfiguration) GetEnableDefaultRegistryMutation() bool { return false }
@@ -28,7 +31,10 @@ func (fakeConfiguration) GetSuccessEventActions() sets.Set[string]              
 func (fakeConfiguration) GetWebhook() config.WebhookConfig                              { return config.WebhookConfig{} }
 func (fakeConfiguration) GetWebhookAnnotations() map[string]string                      { return nil }
 func (fakeConfiguration) GetWebhookLabels() map[string]string                           { return nil }
-func (fakeConfiguration) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+func (f fakeConfiguration) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	if f.matchConditions != nil {
+		return f.matchConditions
+	}
 	return []admissionregistrationv1.MatchCondition{{Name: "exempt-principal", Expression: "true"}}
 }
 func (fakeConfiguration) Load(*corev1.ConfigMap)              {}
@@ -99,4 +105,23 @@ func TestBuildWithoutConfigMatchConditionsKeepsExtra(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, vwc.Webhooks, 1)
 	assert.Equal(t, extra, vwc.Webhooks[0].MatchConditions)
+}
+
+func TestBuildRejectsMoreThan64MatchConditions(t *testing.T) {
+	conditions := make([]admissionregistrationv1.MatchCondition, maxValidatingWebhookMatchConditions)
+	for i := range conditions {
+		conditions[i] = admissionregistrationv1.MatchCondition{Name: fmt.Sprintf("c%d", i), Expression: "true"}
+	}
+	extra := []admissionregistrationv1.MatchCondition{{
+		Name:       "kyverno-owned-evaluation-mode",
+		Expression: "true",
+	}}
+	c := newTestController(nil, WithExtraMatchConditions(extra))
+	_, err := c.build(fakeConfiguration{matchConditions: conditions}, nil)
+	require.Error(t, err)
+
+	c = newTestController(nil, WithExtraMatchConditions(extra))
+	vwc, err := c.build(fakeConfiguration{matchConditions: conditions[:maxValidatingWebhookMatchConditions-1]}, nil)
+	require.NoError(t, err)
+	require.Len(t, vwc.Webhooks[0].MatchConditions, maxValidatingWebhookMatchConditions)
 }

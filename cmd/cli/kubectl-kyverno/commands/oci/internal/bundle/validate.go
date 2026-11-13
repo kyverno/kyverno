@@ -5,10 +5,13 @@ import (
 	"strings"
 	"time"
 
+	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	authzcompiler "github.com/kyverno/kyverno-authz/pkg/engine/compiler"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
@@ -18,6 +21,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/dynamic"
 )
 
 // nativeAdmissionKinds are the admissionregistration.k8s.io kinds validateResults rejects with
@@ -248,7 +252,7 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 				return err
 			}
 		}
-		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
+		if errs := compileAuthzPolicy(pol); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in EnvoyPolicy %q: %v", pol.GetName(), errs.ToAggregate())
 		}
 	}
@@ -262,7 +266,7 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 				return err
 			}
 		}
-		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
+		if errs := compileAuthzPolicy(pol); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in HTTPPolicy %q: %v", pol.GetName(), errs.ToAggregate())
 		}
 	}
@@ -355,8 +359,11 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 		if errs := ex.Validate(); len(errs) > 0 {
 			return fmt.Errorf("validating policy exception %q: %v", ex.GetName(), errs.ToAggregate())
 		}
-		if errs := celcompiler.CompilePolicyExceptionMatchConditions(ex.Spec.MatchConditions, nil); len(errs) > 0 {
-			return fmt.Errorf("validating CEL expression in policy exception %q: %v", ex.GetName(), errs.ToAggregate())
+		// Authz exceptions are not Kubernetes CEL. The Kyverno compiler would reject them.
+		if celpolicies.IsKyvernoEvaluationMode(ex.Spec.EvaluationMode) {
+			if errs := celcompiler.CompilePolicyExceptionMatchConditions(ex.Spec.MatchConditions, nil); len(errs) > 0 {
+				return fmt.Errorf("validating CEL expression in policy exception %q: %v", ex.GetName(), errs.ToAggregate())
+			}
 		}
 		if !strict {
 			continue
@@ -365,11 +372,13 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 			opts.warn(fmt.Sprintf("policy exception %q expired at %s (validated at %s); the engine will ignore it",
 				ex.GetName(), ex.Spec.ExpiresAt.Time.UTC().Format(time.RFC3339), now.UTC().Format(time.RFC3339)))
 		}
-		if errs := compileCompensatingControlExpressions(ex); len(errs) > 0 {
-			return fmt.Errorf("validating compensating controls in policy exception %q: %v", ex.GetName(), errs.ToAggregate())
-		}
-		for _, warning := range exceptionvalidation.ValidateCompensatingControls(&ex.Spec) {
-			opts.warn(fmt.Sprintf("policy exception %q: %s", ex.GetName(), warning))
+		if celpolicies.IsKyvernoEvaluationMode(ex.Spec.EvaluationMode) {
+			if errs := compileCompensatingControlExpressions(ex); len(errs) > 0 {
+				return fmt.Errorf("validating compensating controls in policy exception %q: %v", ex.GetName(), errs.ToAggregate())
+			}
+			for _, warning := range exceptionvalidation.ValidateCompensatingControls(&ex.Spec) {
+				opts.warn(fmt.Sprintf("policy exception %q: %s", ex.GetName(), warning))
+			}
 		}
 		for _, ref := range ex.Spec.PolicyRefs {
 			// PolicyRef has no namespace field; check cluster-scoped and same-namespace forms.
@@ -393,6 +402,18 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 // spec.validations the writer must reject if it fails to compile, per bundle-spec.md's
 // unconditional writer rule, even though the warning path (ValidateCompensatingControls) already
 // tells the author the field will be ignored for that kind.
+// compileAuthzPolicy checks an Envoy or HTTP ValidatingPolicy with the Authz compiler.
+// The Kyverno compiler rejects those modes so they are not evaluated as Kubernetes policies.
+func compileAuthzPolicy(pol *policiesv1beta1.ValidatingPolicy) field.ErrorList {
+	compiler := authzcompiler.NewCompiler[dynamic.Interface, struct{}, struct{}](nil)
+	_, errs := compiler.Compile(&policiesv1.ValidatingPolicy{
+		TypeMeta:   pol.TypeMeta,
+		ObjectMeta: pol.ObjectMeta,
+		Spec:       pol.Spec,
+	}, nil)
+	return errs
+}
+
 func compileCompensatingControlExpressions(polex *policiesv1beta1.PolicyException) field.ErrorList {
 	if len(polex.Spec.Validations) == 0 {
 		return nil

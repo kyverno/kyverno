@@ -419,6 +419,63 @@ func TestValidateJSONModeMutatingPolicy(t *testing.T) {
 	require.ErrorContains(t, err, "validating CEL expression in MutatingPolicy")
 }
 
+func TestValidateAuthzPolicyUsesAuthzCompiler(t *testing.T) {
+	envoy := func(expression string) *policiesv1beta1.ValidatingPolicy {
+		return &policiesv1beta1.ValidatingPolicy{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ValidatingPolicy",
+				APIVersion: "policies.kyverno.io/v1beta1",
+			},
+			ObjectMeta: metav1.ObjectMeta{Name: "envoy-check"},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+				Validations: []admissionregistrationv1.Validation{
+					{Expression: expression},
+				},
+			},
+		}
+	}
+	err := validate(&policy.LoaderResults{EnvoyPolicies: []*policiesv1beta1.ValidatingPolicy{envoy("null")}})
+	require.NoError(t, err)
+	err = validate(&policy.LoaderResults{EnvoyPolicies: []*policiesv1beta1.ValidatingPolicy{envoy("true")}})
+	require.ErrorContains(t, err, "validating CEL expression in EnvoyPolicy")
+	assert.NotContains(t, err.Error(), "evaluation mode is not processed by Kyverno")
+}
+
+func TestValidateKeepsAuthzException(t *testing.T) {
+	pol := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ValidatingPolicy",
+			APIVersion: "policies.kyverno.io/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy-check"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+			Validations:             []admissionregistrationv1.Validation{{Expression: "null"}},
+		},
+	}
+	ex := &policiesv1beta1.PolicyException{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PolicyException",
+			APIVersion: "policies.kyverno.io/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy-exception"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			EvaluationMode: "Envoy",
+			PolicyRefs:     []policiesv1beta1.PolicyRef{{Name: "envoy-check", Kind: "ValidatingPolicy"}},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "always",
+				Expression: "true",
+			}},
+		},
+	}
+	err := validate(&policy.LoaderResults{
+		EnvoyPolicies:       []*policiesv1beta1.ValidatingPolicy{pol},
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{ex},
+	})
+	require.NoError(t, err)
+}
+
 func TestValidateRejectsInvalidValidatingPolicyCELExpression(t *testing.T) {
 	vp := &policiesv1beta1.ValidatingPolicy{
 		TypeMeta: metav1.TypeMeta{

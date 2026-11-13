@@ -41,6 +41,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
@@ -419,6 +420,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if c.exceptionsWithinPolicies {
 		celExceptions = append(celExceptions, celpolexs...)
 	}
+	// policy.Load keeps exceptions owned by another controller so OCI bundles stay intact.
+	// Kyverno apply only evaluates the modes it owns.
+	celExceptions = celpolicies.SelectKyvernoExceptions(celExceptions)
 
 	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
 		var policyRulesCount int

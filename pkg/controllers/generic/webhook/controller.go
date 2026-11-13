@@ -26,6 +26,8 @@ import (
 
 const (
 	maxRetries = 10
+	// maxValidatingWebhookMatchConditions is the API limit on ValidatingWebhook.matchConditions.
+	maxValidatingWebhookMatchConditions = 64
 )
 
 var (
@@ -222,6 +224,9 @@ func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissio
 		matchConditions = append(matchConditions, cfg.GetMatchConditions()...)
 	}
 	matchConditions = append(matchConditions, c.extraMatchConditions...)
+	if len(matchConditions) > maxValidatingWebhookMatchConditions {
+		return nil, fmt.Errorf("webhook %q has %d match conditions, which exceeds the Kubernetes limit of %d", c.webhookName, len(matchConditions), maxValidatingWebhookMatchConditions)
+	}
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{

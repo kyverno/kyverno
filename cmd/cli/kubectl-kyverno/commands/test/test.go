@@ -37,6 +37,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
@@ -357,6 +358,12 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	polexLoader, err := exception.Load(exceptionFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load exceptions (%s)", err)
+	}
+	if polexLoader != nil {
+		// Exceptions loaded for an Authz policy stay in the file, but kyverno test
+		// only applies modes Kyverno owns. A foreign exception must not make a
+		// ValidatingAdmissionPolicy test fail as an unsupported exception.
+		polexLoader.CELExceptions = celpolicies.SelectKyvernoExceptions(polexLoader.CELExceptions)
 	}
 	if polexLoader != nil && polexLoader.Warnings != nil {
 		for _, warning := range polexLoader.Warnings {
