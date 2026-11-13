@@ -134,7 +134,10 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 		return nil, nil, nil, err
 	}
 
-	bundles, hash := v.loadBundles(image.NameRef(), cOpts.RegistryClientOpts)
+	bundles, hash, err := v.loadBundles(image.NameRef(), cOpts.RegistryClientOpts)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	cOpts.NewBundleFormat = len(bundles) > 0
 	if cOpts.NewBundleFormat && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
 		cOpts.UseSignedTimestamps = true
@@ -150,22 +153,25 @@ const bundleLayerMediaTypePrefix = "application/vnd.dev.sigstore.bundle"
 // to the image, reproducing cosign.GetBundles's enumeration and acceptance
 // predicate but through a size-bounded reader, so this is the only read any
 // candidate ever gets: verification reuses these parsed bundles instead of
-// asking cosign to fetch them again. A referrer that cannot be read or parsed
-// within the limit is skipped, not fatal, matching cosign's own GetBundles,
-// which continues past any referrer it cannot turn into a bundle.
-func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremote.Option) ([]*sgbundle.Bundle, *v1.Hash) {
+// asking cosign to fetch them again. A failure to fetch or read a referrer is
+// returned, not skipped: the unreadable referrer may be the bundle the policy
+// needs, and dropping it would misreport a transient registry error as a
+// missing attestation. A referrer whose content is not a usable sigstore
+// bundle is still skipped, not fatal, matching cosign's own GetBundles, which
+// continues past any referrer it cannot turn into a bundle.
+func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremote.Option) ([]*sgbundle.Bundle, *v1.Hash, error) {
 	digest, err := ociremote.ResolveDigest(ref, registryClientOpts...)
 	if err != nil {
-		return nil, nil
+		return nil, nil, fmt.Errorf("failed to resolve image digest: %w", err)
 	}
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
-		return nil, nil
+		return nil, nil, err
 	}
 
 	index, err := ociremote.Referrers(digest, "", registryClientOpts...)
 	if err != nil {
-		return nil, nil
+		return nil, nil, fmt.Errorf("failed to list image referrers: %w", err)
 	}
 
 	bundleRepo := digest.Repository
@@ -177,20 +183,17 @@ func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremot
 	for _, result := range index.Manifests {
 		st, err := name.ParseReference(fmt.Sprintf("%s@%s", bundleRepo, result.Digest.String()))
 		if err != nil {
-			v.log.V(2).Info("skipping referrer: cannot parse referrer reference", "digest", result.Digest.String(), "err", err.Error())
-			continue
+			return nil, nil, fmt.Errorf("failed to parse referrer reference %s: %w", result.Digest.String(), err)
 		}
 		// ociremote carries the attestor's source credentials and name options, so
 		// the referrer manifest must be fetched through it and not through remote.
 		img, err := ociremote.SignedImage(st, registryClientOpts...)
 		if err != nil {
-			v.log.V(2).Info("skipping referrer: cannot fetch referrer manifest", "digest", result.Digest.String(), "err", err.Error())
-			continue
+			return nil, nil, fmt.Errorf("failed to fetch referrer manifest %s: %w", result.Digest.String(), err)
 		}
 		manifest, err := img.Manifest()
 		if err != nil {
-			v.log.V(2).Info("skipping referrer: cannot read referrer manifest", "digest", result.Digest.String(), "err", err.Error())
-			continue
+			return nil, nil, fmt.Errorf("failed to read referrer manifest %s: %w", result.Digest.String(), err)
 		}
 		if len(manifest.Layers) != 1 {
 			continue
@@ -200,36 +203,39 @@ func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremot
 			continue
 		}
 		layers, err := img.Layers()
-		if err != nil || len(layers) != 1 {
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to read referrer layers %s: %w", result.Digest.String(), err)
+		}
+		if len(layers) != 1 {
 			continue
 		}
-		bundle, err := parseBundleLayer(layers[0])
+		bundleBytes, err := verifiers.ReadLayerLimited(layers[0], verifiers.PayloadLimit())
 		if err != nil {
 			// A referrer refused for size carries the bundle media type, so it was
 			// meant to be a bundle: say so at a level the operator actually sees,
 			// otherwise verification just reports "no matching signatures".
 			if stderrors.Is(err, verifiers.ErrLayerTooLarge) {
 				v.log.Info("skipping bundle referrer: exceeds the payload limit, raise --imageVerifyPayloadLimit to accept it", "digest", result.Digest.String(), "err", err.Error())
-			} else {
-				v.log.V(2).Info("skipping referrer: not a usable sigstore bundle", "digest", result.Digest.String(), "err", err.Error())
+				continue
 			}
+			return nil, nil, fmt.Errorf("failed to read bundle layer %s: %w", result.Digest.String(), err)
+		}
+		bundle, err := parseBundleBytes(bundleBytes)
+		if err != nil {
+			v.log.V(2).Info("skipping referrer: not a usable sigstore bundle", "digest", result.Digest.String(), "err", err.Error())
 			continue
 		}
 		bundles = append(bundles, bundle)
 	}
 
-	return bundles, &hash
+	return bundles, &hash, nil
 }
 
-// parseBundleLayer applies cosign ociremote.Bundle's acceptance predicate to a
-// bounded read of the layer: protojson into a protobundle, sgbundle.NewBundle,
-// then MinVersion v0.3. Keeping these steps identical keeps the bundle list this
-// loop produces in agreement with what cosign.GetBundles would have returned.
-func parseBundleLayer(layer v1.Layer) (*sgbundle.Bundle, error) {
-	bundleBytes, err := verifiers.ReadLayerLimited(layer, verifiers.PayloadLimit())
-	if err != nil {
-		return nil, err
-	}
+// parseBundleBytes applies cosign ociremote.Bundle's acceptance predicate to the
+// layer bytes: protojson into a protobundle, sgbundle.NewBundle, then MinVersion
+// v0.3. Keeping these steps identical keeps the bundle list this loop produces
+// in agreement with what cosign.GetBundles would have returned.
+func parseBundleBytes(bundleBytes []byte) (*sgbundle.Bundle, error) {
 	pb := &protobundle.Bundle{}
 	if err := protojson.Unmarshal(bundleBytes, pb); err != nil {
 		return nil, err

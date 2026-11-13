@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -373,4 +374,130 @@ func Test_BundleDetection_MatchesCosign_TwoGenuineBundles(t *testing.T) {
 	bundle2, _ := signV3Bundle(t, subject.Digest.Hex, "https://example.com/predicate")
 	pushReferrer(t, repo, subject, bundle2, testBundleMediaType, testBundleMediaType)
 	detectionEquivalence(t, repo, true)
+}
+
+// newFaultyBundleRegistry is newBundleRegistry plus a request filter that, once
+// armed, answers matching requests with status 500. It exists to prove that
+// transient registry failures are returned to the caller instead of being
+// silently skipped and later misreported as "no matching attestation".
+func newFaultyBundleRegistry(t *testing.T, fail func(*http.Request) bool) (name.Repository, *atomic.Bool) {
+	t.Helper()
+	var armed atomic.Bool
+	inner := registry.New(registry.WithReferrersSupport(true))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if armed.Load() && fail(r) {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		inner.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	repo, err := name.NewRepository(strings.TrimPrefix(srv.URL, "http://") + "/test/img")
+	require.NoError(t, err)
+	return repo, &armed
+}
+
+func Test_BundleDetection_ResolveDigestFailure_IsReturned(t *testing.T) {
+	repo, armed := newFaultyBundleRegistry(t, func(r *http.Request) bool {
+		return r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/manifests/subject")
+	})
+	pushSubject(t, repo, "subject")
+	img := fetchTestImage(t, repo.Tag("subject").String())
+
+	v := NewVerifier(nil, logr.Discard())
+	armed.Store(true)
+	_, _, _, err := v.buildCheckOptsWithBundleDetection(context.TODO(), bundleTestAttestor(), img)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to resolve image digest")
+}
+
+func Test_BundleDetection_ReferrersFetchFailure_IsReturned(t *testing.T) {
+	repo, armed := newFaultyBundleRegistry(t, func(r *http.Request) bool {
+		return r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/referrers/")
+	})
+	subject := pushSubject(t, repo, "subject")
+	pushReferrer(t, repo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
+	img := fetchTestImage(t, repo.Tag("subject").String())
+
+	v := NewVerifier(nil, logr.Discard())
+	armed.Store(true)
+	_, _, _, err := v.buildCheckOptsWithBundleDetection(context.TODO(), bundleTestAttestor(), img)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to list image referrers")
+}
+
+// A referrer manifest that cannot be fetched may be the bundle the policy
+// needs, so the failure must be returned rather than skipped.
+func Test_BundleDetection_ReferrerManifestFetchFailure_IsReturned(t *testing.T) {
+	repo, armed := newFaultyBundleRegistry(t, func(r *http.Request) bool {
+		return r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/manifests/sha256:")
+	})
+	subject := pushSubject(t, repo, "subject")
+	pushReferrer(t, repo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
+	img := fetchTestImage(t, repo.Tag("subject").String())
+
+	v := NewVerifier(nil, logr.Discard())
+	armed.Store(true)
+	_, _, _, err := v.buildCheckOptsWithBundleDetection(context.TODO(), bundleTestAttestor(), img)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "referrer")
+}
+
+// A bundle layer whose download dies mid-stream — the reporter's "unexpected
+// EOF" on a 2 MB CycloneDX layer — must surface as the fetch error it is, not
+// be skipped and later misreported as a missing attestation. The fault writes
+// the declared Content-Length but closes the body halfway, so the client read
+// ends in unexpected EOF exactly like the production failure.
+func Test_BundleDetection_BundleLayerTruncatedRead_IsReturned(t *testing.T) {
+	var armed atomic.Bool
+	blobDigest := func() v1.Hash {
+		l := static.NewLayer([]byte(validBundle), types.MediaType(testBundleMediaType))
+		d, err := l.Digest()
+		require.NoError(t, err)
+		return d
+	}()
+	inner := registry.New(registry.WithReferrersSupport(true))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if armed.Load() && r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/blobs/"+blobDigest.String()) {
+			w.Header().Set("Content-Length", strconv.Itoa(len(validBundle)))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(validBundle)[:len(validBundle)/2])
+			return
+		}
+		inner.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	repo, err := name.NewRepository(strings.TrimPrefix(srv.URL, "http://") + "/test/img")
+	require.NoError(t, err)
+
+	subject := pushSubject(t, repo, "subject")
+	pushReferrer(t, repo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
+	img := fetchTestImage(t, repo.Tag("subject").String())
+
+	v := NewVerifier(nil, logr.Discard())
+	armed.Store(true)
+	_, _, _, err = v.buildCheckOptsWithBundleDetection(context.TODO(), bundleTestAttestor(), img)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read bundle layer")
+}
+
+// VerifyAttestationSignature must surface the fetch failure itself where today
+// it falls through to "required predicate type ... not found".
+func Test_VerifyAttestation_FetchFailure_NamesTheFetch(t *testing.T) {
+	repo, armed := newFaultyBundleRegistry(t, func(r *http.Request) bool {
+		return r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/referrers/")
+	})
+	subject := pushSubject(t, repo, "subject")
+	pushReferrer(t, repo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
+	img := fetchTestImage(t, repo.Tag("subject").String())
+
+	v := NewVerifier(nil, logr.Discard())
+	attestor := &v1beta1.Attestor{Name: "test", Cosign: bundleTestAttestor()}
+	attestation := &v1beta1.Attestation{Name: "test", InToto: &v1beta1.InToto{Type: "https://cyclonedx.org/bom"}}
+
+	armed.Store(true)
+	err := v.VerifyAttestationSignature(context.TODO(), img, attestation, attestor)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to list image referrers")
+	assert.NotContains(t, err.Error(), "not found")
 }
