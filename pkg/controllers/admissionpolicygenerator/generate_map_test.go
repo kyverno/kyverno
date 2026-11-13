@@ -374,6 +374,64 @@ func TestHandleMAPGeneration_ExistingMAPDeletedOnOversizedCELException(t *testin
 	assert.Contains(t, condStatus.Message, "exceeding the Kubernetes CEL code point limit (100000)")
 }
 
+func TestHandleMAPGeneration_ExistingMAPDeletedOnKyvernoCELException(t *testing.T) {
+	ctx := context.Background()
+	cfg := mapGenEnabled()
+	cfg.PodControllers = &policiesv1beta1.PodControllersGenerationConfiguration{
+		Controllers: []string{},
+	}
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-mutate-pods",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			AutogenConfiguration: cfg,
+			MatchConstraints:     podsMatchConstraints(),
+		},
+		Status: policiesv1beta1.MutatingPolicyStatus{
+			Generated: true,
+		},
+	}
+	existingMAP := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mpol-test-mutate-pods",
+		},
+	}
+	existingBinding := &admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mpol-test-mutate-pods-binding",
+		},
+	}
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "kyverno",
+			Name:      "infra-team",
+		},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{
+				{Name: "test-mutate-pods", Kind: "MutatingPolicy"},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "infra-namespace",
+				Expression: `resource.Get("v1", "namespaces", "", object.metadata.namespace).metadata.labels["team"] == "infra"`,
+			}},
+		},
+	}
+
+	c, kubeClient, kyvernoClient := newMAPTestController(t, mpol, existingMAP, existingBinding, polex)
+	require.NoError(t, c.handleMAPGeneration(ctx, mpol))
+
+	_, mapErr := kubeClient.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Get(ctx, "mpol-test-mutate-pods", metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(mapErr), "existing MutatingAdmissionPolicy must be deleted: got %v", mapErr)
+	_, bindingErr := kubeClient.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Get(ctx, "mpol-test-mutate-pods-binding", metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(bindingErr), "existing MutatingAdmissionPolicyBinding must be deleted: got %v", bindingErr)
+
+	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, "test-mutate-pods", metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, updated.Status.Generated)
+	assert.Contains(t, updated.Status.GetConditionStatus().Message, "policy exception(s) kyverno/infra-team use matchConditions")
+}
+
 func TestHandleMAPGeneration_CompensatingControlsPreserveMAP(t *testing.T) {
 	ctx := context.Background()
 	cfg := mapGenEnabled()
