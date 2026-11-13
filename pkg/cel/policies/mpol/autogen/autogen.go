@@ -3,19 +3,12 @@ package autogen
 import (
 	"cmp"
 	"maps"
-	"regexp"
 	"slices"
 	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
-)
-
-var (
-	specRe                = regexp.MustCompile(`\b(object|oldObject|Object)\.spec`)
-	metadataLabelsRe      = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.labels`)
-	metadataAnnotationsRe = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.annotations`)
 )
 
 // ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
@@ -71,6 +64,13 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 		// expressions to the built-in flat shape, which is wrong for
 		// whatever custom CRD this config actually targets.
 		if config != autogen.ExtractionReplacementsRef {
+			for i := range spec.Variables {
+				if spec.Variables[i].Expression != "" {
+					convertedExpr := string(autogen.ApplyMutatingCEL([]byte(spec.Variables[i].Expression), config))
+					spec.Variables[i].Expression = convertedExpr
+				}
+			}
+
 			for i := range spec.MatchConditions {
 				if spec.MatchConditions[i].Expression != "" {
 					convertedExpr := convertPodToTemplateExpression(spec.MatchConditions[i].Expression, config)
@@ -112,21 +112,7 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 
 // convertPodToTemplateExpression converts pod mutation expressions to template expressions
 func convertPodToTemplateExpression(expression string, config string) string {
-	var specReplacement string
-	var metadataReplacement string
-
-	switch config {
-	case "cronjobs":
-		specReplacement = "spec.jobTemplate.spec.template.spec"
-		metadataReplacement = "spec.jobTemplate.spec.template.metadata"
-	default:
-		specReplacement = "spec.template.spec"
-		metadataReplacement = "spec.template.metadata"
-	}
-
-	expression = specRe.ReplaceAllString(expression, "${1}."+specReplacement)
-	expression = metadataLabelsRe.ReplaceAllString(expression, "${1}."+metadataReplacement+".labels")
-	expression = metadataAnnotationsRe.ReplaceAllString(expression, "${1}."+metadataReplacement+".annotations")
+	expression = string(autogen.ApplyMutatingCEL([]byte(expression), config))
 
 	// Detect the root "Object{...}" constructor, tolerating optional whitespace
 	// between "Object" and "{" (e.g. "Object {"), which is valid CEL.
