@@ -907,3 +907,47 @@ func TestNegateMatchConditions_CELSourceSizeLimitRegression(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeds CEL code point limit (100000)")
 }
+
+func TestBuildValidatingAdmissionPolicy_DoesNotMutateSourcePolicy(t *testing.T) {
+	t.Parallel()
+	const original = "object.spec.containers.all(c, c.image in exceptions.allowedImages)"
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "check-images", UID: "test-uid"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Validations:      []admissionregistrationv1.Validation{{Expression: original}},
+		},
+	}
+	snapshot := vpol.DeepCopy()
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "vpol-check-images"}}
+
+	require.NoError(t, BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(vpol), nil))
+
+	require.Len(t, vap.Spec.Validations, 1)
+	assert.Equal(t, "object.spec.containers.all(c, c.image in variables.allowedImages)", vap.Spec.Validations[0].Expression)
+	assert.Equal(t, snapshot, vpol, "building a VAP must not mutate the (informer-cached) source policy")
+}
+
+func TestBuildValidatingAdmissionPolicy_DoesNotWriteIntoSourceSliceCapacity(t *testing.T) {
+	t.Parallel()
+	vars := make([]admissionregistrationv1.Variable, 1, 4) // spare capacity, like a decoded slice
+	vars[0] = admissionregistrationv1.Variable{Name: "x", Expression: "1"}
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "p", UID: "u"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Variables:        vars,
+			Validations:      []admissionregistrationv1.Validation{{Expression: "true"}},
+		},
+	}
+	ex := engineapi.NewCELPolicyException(&policiesv1beta1.PolicyException{
+		Spec: policiesv1beta1.PolicyExceptionSpec{Images: []string{"nginx"}},
+	})
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "vpol-p"}}
+
+	require.NoError(t, BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(vpol), []engineapi.GenericException{ex}))
+
+	require.Len(t, vap.Spec.Variables, 2)
+	assert.Equal(t, admissionregistrationv1.Variable{}, vars[:cap(vars)][1],
+		"append must not write into the source policy's backing array")
+}
