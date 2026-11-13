@@ -19,12 +19,13 @@ inputs:
     description: 'Extra markdown shown in the tracking issue body, above the job results'
     required: false
     default: ''
-  latest-commit-only:
+  latest-run-only:
     description: >-
-      When 'true', a run whose commit is no longer the tip of its branch leaves
-      the tracking issue alone. Use it when other automation acts on the issue
-      being open or closed, so that a late or re-run result for an old commit
-      cannot overrule the newest one.
+      When 'true', a run leaves the tracking issue alone if a newer run of the
+      same workflow on the same branch has already finished. Use it when other
+      automation acts on the issue being open or closed, so that a re-run of
+      an old run cannot overrule a newer result. On a private repository the
+      calling job needs `actions: read`.
     required: false
     default: 'false'
 
@@ -35,7 +36,7 @@ runs:
       env:
         EXTRA_LABELS: ${{ inputs.labels }}
         NOTE: ${{ inputs.note }}
-        LATEST_COMMIT_ONLY: ${{ inputs.latest-commit-only }}
+        LATEST_RUN_ONLY: ${{ inputs.latest-run-only }}
       with:
         script: |
           const { owner, repo } = context.repo;
@@ -256,23 +257,30 @@ runs:
           const issueId = `workflow-failure:${workflowName}:${branch}`;
           const marker = `<!-- ${issueId} -->`;
 
-          // Runs do not always finish in commit order: a re-run of an old run
-          // is queued behind newer ones, so its result arrives last. Without
-          // this check it would close the issue while the tip is failing, or
-          // open one while the tip is passing.
-          if (process.env.LATEST_COMMIT_ONLY === 'true' && branch.startsWith('refs/heads/')) {
-            let tip;
+          // Runs do not always finish in the order they were started: a re-run
+          // of an old run finishes after newer ones. Without this check it
+          // would close the issue while the newest result is a failure, or
+          // open one while the newest result is a pass. A run is only ignored
+          // when a newer one has already finished, so the freshest result
+          // available always counts, however often the branch moves.
+          if (process.env.LATEST_RUN_ONLY === 'true' && branch.startsWith('refs/heads/')) {
             try {
-              const { data: ref } = await github.rest.git.getRef({
-                owner, repo, ref: branch.slice('refs/'.length)
+              const file = (/\/\.github\/workflows\/([^@/]+)@/.exec(process.env.GITHUB_WORKFLOW_REF || '') || [])[1];
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner, repo, workflow_id: file, per_page: 100
               });
-              tip = ref.object.sha;
+              const branchName = branch.slice('refs/heads/'.length);
+              // Cancelled runs decided nothing, and runs still in progress
+              // will speak for themselves when they finish.
+              const newer = data.workflow_runs.find(r =>
+                r.head_branch === branchName && r.run_number > context.runNumber &&
+                r.status === 'completed' && (r.conclusion === 'success' || r.conclusion === 'failure'));
+              if (newer) {
+                core.notice(`Run #${newer.run_number} (${newer.head_sha.slice(0, 9)}, ${newer.conclusion}) is newer than this one (#${context.runNumber}, ${headSha.slice(0, 9)}) and has finished, so this result does not change the tracking issue.`);
+                return;
+              }
             } catch (err) {
-              core.warning(`Could not read the tip of ${branch} (${err.message || String(err)}); handling this run as the latest.`);
-            }
-            if (tip && tip !== headSha) {
-              core.notice(`Commit ${headSha.slice(0, 9)} is no longer the tip of ${branch} (${tip.slice(0, 9)}), so this result does not change the tracking issue. The run for the tip decides.`);
-              return;
+              core.warning(`Could not list the runs of this workflow (${err.message || String(err)}); handling this run as the latest.`);
             }
           }
 

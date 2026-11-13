@@ -124,6 +124,8 @@ jobs:
       - k6-tests
       - perf
     permissions:
+      # actions: the action lists this workflow's runs and the failed jobs
+      actions: read
       issues: write
     runs-on: ubuntu-slim
     steps:
@@ -136,13 +138,13 @@ jobs:
           needs: ${{ toJSON(needs) }}
           # Read by the E2E gate (.github/workflows/e2e-gate.yaml).
           labels: e2e-failure
-          # Results for older commits (late runs, re-runs) must not overrule
-          # the newest one: the E2E gate turns every PR green or red on it.
-          latest-commit-only: 'true'
+          # A re-run of an old run must not overrule a newer result: the E2E
+          # gate turns every PR green or red on it.
+          latest-run-only: 'true'
           note: |
             ### Clearing the E2E Gate
 
             While this issue is open, every open pull request to `${{ github.ref_name }}` shows a red **E2E Gate** status, except those with the `e2e-gate-bypass` label ([list the blocked pull requests](${{ github.server_url }}/${{ github.repository }}/pulls?q=is%3Apr+is%3Aopen+base%3A${{ github.ref_name }}+-label%3Ae2e-gate-bypass)). The failure is on `${{ github.ref_name }}`, not in those pull requests. They all turn green, without a push, as soon as one of these happens:
 
-            - The Tests workflow passes on the latest commit of `${{ github.ref_name }}`. That happens on the next push, or right away with [Run workflow](${{ github.server_url }}/${{ github.repository }}/actions/workflows/check-tests.yaml) on `${{ github.ref_name }}`. Re-running the failed jobs of the run above also works, but only while its commit is still the latest on `${{ github.ref_name }}`: results for older commits are ignored.
+            - The Tests workflow passes on `${{ github.ref_name }}`. That happens on the next push, or right away with [Run workflow](${{ github.server_url }}/${{ github.repository }}/actions/workflows/check-tests.yaml) on `${{ github.ref_name }}`. Re-running the failed jobs of the run above also works, unless a newer run has already finished: the result of an older run is then ignored.
             - A maintainer closes this issue. If `${{ github.ref_name }}` is still failing, the next failing run opens a new one.
