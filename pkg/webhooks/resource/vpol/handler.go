@@ -107,6 +107,15 @@ func logDecisionTraces(logger logr.Logger, response vpolengine.EngineResponse) {
 }
 
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request vpolengine.EngineRequest, response vpolengine.EngineResponse) {
+	// A dry run must not record events or reports. The webhook is registered
+	// with sideEffects: NoneOnDryRun, and a server-side dry run changes
+	// nothing. Return before building the engine responses so that work is
+	// skipped too. The admission decision is made separately and still
+	// returns what the real request would get.
+	if admissionutils.IsDryRun(admissionRequest.AdmissionRequest) {
+		return
+	}
+
 	blocked := false
 	for _, p := range response.Policies {
 		if p.Actions.Has(admissionregistrationv1.Deny) {
