@@ -1,0 +1,36 @@
+# kube-apiserver --authorization-config file.
+# Requires kube-apiserver v1.38 (alpha) started with
+#   --feature-gates=ConditionalAuthorization=true
+# Kubernetes v1.38 is tracked against v0.38.0-beta.0 here; that is a pre-release.
+apiVersion: apiserver.config.k8s.io/v1
+kind: AuthorizationConfiguration
+authorizers:
+  - type: Node
+    name: node
+  - type: RBAC
+    name: rbac
+  - type: Webhook
+    name: kyverno
+    webhook:
+      timeout: 3s
+      # Conditional decisions require the v1 SubjectAccessReview.
+      subjectAccessReviewVersion: v1
+      matchConditionSubjectAccessReviewVersion: v1
+      # Kyverno is one authorizer in the chain; NoOpinion defers to the next one.
+      failurePolicy: NoOpinion
+      authorizedTTL: 0s
+      unauthorizedTTL: 0s
+      connectionInfo:
+        type: KubeConfigFile
+        kubeConfigFile: /etc/kubernetes/kyverno-authz-kubeconfig.yaml
+      # Enables conditional decisions. Without this block kube-apiserver does not
+      # send authorizationOptions, and Kyverno answers unconditionally (fail closed).
+      conditionsReview:
+        version: v1alpha1
+        # Optional. When omitted, kube-apiserver sends SubjectAccessReview and
+        # AuthorizationConditionsReview to the current context of the kubeconfig,
+        # so that context must point at Kyverno's combined /authz endpoint.
+        kubeConfigContextName: kyverno-conditions
+      matchConditions:
+        # Never send Kyverno's own requests or system components to the webhook.
+        - expression: "!request.user.startsWith('system:serviceaccount:kyverno:')"

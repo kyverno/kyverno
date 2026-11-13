@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -68,4 +69,17 @@ type ResourceHandlers struct {
 	MutatingPolicies Handler
 	// NamespacedMutatingPolicies evaluates namespaced mutating policies against kube resources
 	NamespacedMutatingPolicies Handler
+	// AuthorizingPolicies serves the authorization webhook endpoints (SubjectAccessReview
+	// and AuthorizationConditionsReview). Nil disables the endpoints.
+	AuthorizingPolicies AuthorizingPolicyHandler
+}
+
+// AuthorizingPolicyHandler serves the Kubernetes authorization webhook protocol for AuthorizingPolicy.
+type AuthorizingPolicyHandler interface {
+	// HandleSubjectAccessReview serves authorization.k8s.io/v1 SubjectAccessReview requests.
+	HandleSubjectAccessReview(w http.ResponseWriter, r *http.Request)
+	// HandleConditionsReview serves authorization.k8s.io/v1alpha1 AuthorizationConditionsReview requests.
+	HandleConditionsReview(w http.ResponseWriter, r *http.Request)
+	// HandleCombined serves both kinds on one endpoint and dispatches on TypeMeta.
+	HandleCombined(w http.ResponseWriter, r *http.Request)
 }
