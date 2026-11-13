@@ -223,7 +223,7 @@ spec:
                   type: object
                   x-kubernetes-validations:
                   - message: exactly one of jmesPath or expression must be set
-                    rule: has(self.jmesPath) != has(self.expression)
+                    rule: 'has(self.jmesPath) ? !has(self.expression) : has(self.expression)'
                 type: array
             type: object
           status:
@@ -500,7 +500,7 @@ spec:
                   type: object
                   x-kubernetes-validations:
                   - message: exactly one of jmesPath or expression must be set
-                    rule: has(self.jmesPath) != has(self.expression)
+                    rule: 'has(self.jmesPath) ? !has(self.expression) : has(self.expression)'
                 type: array
             type: object
           status:
@@ -777,7 +777,7 @@ spec:
                   type: object
                   x-kubernetes-validations:
                   - message: exactly one of jmesPath or expression must be set
-                    rule: has(self.jmesPath) != has(self.expression)
+                    rule: 'has(self.jmesPath) ? !has(self.expression) : has(self.expression)'
                 type: array
             type: object
           status:
