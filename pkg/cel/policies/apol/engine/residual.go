@@ -192,7 +192,7 @@ func (e *engine) program(expr string) (cel.Program, error) {
 	if out := checked.OutputType(); !out.IsExactType(types.BoolType) && !out.IsExactType(types.DynType) {
 		return nil, fmt.Errorf("condition must evaluate to bool, got %v", out)
 	}
-	prog, err := e.conditionsEnv.Program(checked, apolcompiler.ProgramOptions(false)...)
+	prog, err := celcompiler.NewProgram(e.conditionsEnv, checked, apolcompiler.ProgramOptions(false)...)
 	if err != nil {
 		return nil, err
 	}

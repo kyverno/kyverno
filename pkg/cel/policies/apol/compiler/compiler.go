@@ -137,7 +137,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.AuthorizingPolicy) (*Pol
 			continue
 		}
 		variablesProvider.RegisterField(variable.Name, ast.OutputType())
-		prog, err := varEnv.Program(ast, ProgramOptions(true)...)
+		prog, err := celcompiler.NewProgram(varEnv, ast, ProgramOptions(true)...)
 		if err != nil {
 			allErrs = append(allErrs, field.Invalid(vpath, variable.Expression, err.Error()))
 			continue
@@ -166,7 +166,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.AuthorizingPolicy) (*Pol
 			allErrs = append(allErrs, field.Invalid(rpath, rule.Expression, "must evaluate to bool"))
 			continue
 		}
-		prog, err := ruleEnv.Program(ast, ProgramOptions(true)...)
+		prog, err := celcompiler.NewProgram(ruleEnv, ast, ProgramOptions(true)...)
 		if err != nil {
 			allErrs = append(allErrs, field.Invalid(rpath, rule.Expression, err.Error()))
 			continue
