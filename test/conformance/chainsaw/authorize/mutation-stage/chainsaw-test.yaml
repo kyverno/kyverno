@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authorize-mutation-stage
+spec:
+  description: >-
+    The AuthorizationConditionsEnforcer admission plugin runs after mutating
+    admission, so conditions are evaluated against the mutated object. A
+    MutatingAdmissionPolicy adds the owner label, which satisfies an Allow
+    condition the submitted object does not.
+  concurrent: false
+  steps:
+    - name: create resources
+      try:
+        - apply:
+            file: resources.yaml
+    - name: conditions see the mutated object
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              as="--as chainsaw-mutation-user"
+              f=$(configmap unlabeled | tofile)
+              expect_forbidden "without mutation, an unlabeled configmap does not satisfy the condition" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              kubectl label namespace "$NAMESPACE" chainsaw-authz-mutation=true
+              expect_allowed "with mutation, the same configmap is allowed" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              owner=$(kubectl -n "$NAMESPACE" get configmap unlabeled -o jsonpath='{.metadata.labels.owner}')
+              echo "stored owner label: $owner"
+              test "$owner" = chainsaw-mutation-user
+              f=$(configmap other owner=someone-else | tofile)
+              expect_forbidden "mutation keeps an explicit owner, which fails the condition" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              kubectl label namespace "$NAMESPACE" chainsaw-authz-mutation-
+              f=$(configmap unlabeled-2 | tofile)
+              expect_eventually_forbidden "with the policy active and mutation off, an unlabeled configmap is forbidden" \
+                kubectl -n "$NAMESPACE" create --dry-run=server -f "$f" $as

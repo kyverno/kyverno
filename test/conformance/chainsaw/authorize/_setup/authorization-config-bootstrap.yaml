@@ -1,0 +1,12 @@
+# Bootstrap (and recovery) authorization configuration: Node and RBAC only.
+# kube-apiserver starts with this file. setup-cluster.sh replaces it with
+# authorization-config.yaml after Kyverno is ready. To recover a cluster whose
+# Kyverno authorizer misbehaves, write this file back; kube-apiserver reloads
+# it without a restart.
+apiVersion: apiserver.config.k8s.io/v1
+kind: AuthorizationConfiguration
+authorizers:
+  - type: Node
+    name: node
+  - type: RBAC
+    name: rbac

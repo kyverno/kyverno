@@ -1,0 +1,29 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: chainsaw-callback-failure
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: user
+          operator: In
+          values: ["chainsaw-cb-rejected", "chainsaw-cb-down", "chainsaw-cb-error"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["create"]
+  rules:
+    - name: owner-creates
+      effect: Allow
+      expression: "has(object.metadata.labels) && object.metadata.labels['owner'] == request.user"
+    # Errors at callback time when data.limit is not an integer string.
+    # Allow conditions that error are not satisfied.
+    - name: limit-allow
+      effect: Allow
+      expression: "request.user == 'chainsaw-cb-error' && has(object.data) && int(object.data['limit']) < 10"
+    # Deny conditions that error count as true.
+    - name: limit-deny
+      effect: Deny
+      expression: "request.user == 'chainsaw-cb-error' && has(object.data) && 'max' in object.data && int(object.data['max']) > 100"

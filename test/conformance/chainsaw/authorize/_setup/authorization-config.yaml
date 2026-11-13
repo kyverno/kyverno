@@ -1,0 +1,123 @@
+# kube-apiserver authorization configuration for the AuthorizingPolicy e2e
+# tests. Requires kube-apiserver 1.38 (tested with v1.38.0-beta.0, a
+# pre-release) started with --feature-gates=ConditionalAuthorization=true.
+# The AuthorizationConditionsEnforcer admission plugin is on by default.
+#
+# Order: Node, then RBAC, then Kyverno. Kyverno only sees requests that Node
+# and RBAC did not allow, so a broken Kyverno cannot lock out cluster
+# components or cluster-admin. Recovery: write
+# authorization-config-bootstrap.yaml back to this path; kube-apiserver
+# reloads the file without a restart.
+#
+# Every Kyverno webhook sets failurePolicy NoOpinion and excludes system users.
+# The first four webhooks each serve one dedicated test user, so the tests can
+# exercise caching, callback failures, and unconditional callers without
+# changing kube-apiserver configuration while they run.
+apiVersion: apiserver.config.k8s.io/v1
+kind: AuthorizationConfiguration
+authorizers:
+  - type: Node
+    name: node
+  - type: RBAC
+    name: rbac
+  # Caches decisions, including conditional ones, for 120s. Used to show that the
+  # conditions callback evaluates the decision snapshot and not current policies.
+  - type: Webhook
+    name: kyverno-cached
+    webhook:
+      timeout: 3s
+      subjectAccessReviewVersion: v1
+      matchConditionSubjectAccessReviewVersion: v1
+      failurePolicy: NoOpinion
+      authorizedTTL: 120s
+      unauthorizedTTL: 1s
+      cacheUnauthorizedRequests: false
+      connectionInfo:
+        type: KubeConfigFile
+        kubeConfigFile: /etc/kubernetes/authz/kyverno-authz-kubeconfig.yaml
+      conditionsReview:
+        version: v1alpha1
+        kubeConfigContextName: kyverno-conditions
+      matchConditions:
+        - expression: "request.user == 'chainsaw-ttl-user'"
+  # Conditions reviews go to the SubjectAccessReview endpoint, which rejects
+  # them with HTTP 400.
+  - type: Webhook
+    name: kyverno-callback-rejected
+    webhook:
+      timeout: 3s
+      subjectAccessReviewVersion: v1
+      matchConditionSubjectAccessReviewVersion: v1
+      failurePolicy: NoOpinion
+      authorizedTTL: 1s
+      unauthorizedTTL: 1s
+      cacheAuthorizedRequests: false
+      cacheUnauthorizedRequests: false
+      connectionInfo:
+        type: KubeConfigFile
+        kubeConfigFile: /etc/kubernetes/authz/kyverno-authz-kubeconfig.yaml
+      conditionsReview:
+        version: v1alpha1
+        kubeConfigContextName: kyverno-conditions-wrong-endpoint
+      matchConditions:
+        - expression: "request.user == 'chainsaw-cb-rejected'"
+  # Conditions reviews go to a closed port (connection refused).
+  - type: Webhook
+    name: kyverno-callback-down
+    webhook:
+      timeout: 3s
+      subjectAccessReviewVersion: v1
+      matchConditionSubjectAccessReviewVersion: v1
+      failurePolicy: NoOpinion
+      authorizedTTL: 1s
+      unauthorizedTTL: 1s
+      cacheAuthorizedRequests: false
+      cacheUnauthorizedRequests: false
+      connectionInfo:
+        type: KubeConfigFile
+        kubeConfigFile: /etc/kubernetes/authz/kyverno-authz-kubeconfig.yaml
+      conditionsReview:
+        version: v1alpha1
+        kubeConfigContextName: kyverno-conditions-down
+      matchConditions:
+        - expression: "request.user == 'chainsaw-cb-down'"
+  # No conditionsReview: kube-apiserver does not advertise conditional
+  # decisions, so Kyverno must answer unconditionally (fail closed).
+  - type: Webhook
+    name: kyverno-unconditional
+    webhook:
+      timeout: 3s
+      subjectAccessReviewVersion: v1
+      matchConditionSubjectAccessReviewVersion: v1
+      failurePolicy: NoOpinion
+      authorizedTTL: 1s
+      unauthorizedTTL: 1s
+      cacheAuthorizedRequests: false
+      cacheUnauthorizedRequests: false
+      connectionInfo:
+        type: KubeConfigFile
+        kubeConfigFile: /etc/kubernetes/authz/kyverno-authz-kubeconfig.yaml
+      matchConditions:
+        - expression: "request.user == 'chainsaw-legacy-user'"
+  # Everyone else (except system users and the dedicated users above).
+  # Caching is off so policy changes apply to the next request.
+  - type: Webhook
+    name: kyverno
+    webhook:
+      timeout: 3s
+      subjectAccessReviewVersion: v1
+      matchConditionSubjectAccessReviewVersion: v1
+      failurePolicy: NoOpinion
+      authorizedTTL: 1s
+      unauthorizedTTL: 1s
+      cacheAuthorizedRequests: false
+      cacheUnauthorizedRequests: false
+      connectionInfo:
+        type: KubeConfigFile
+        kubeConfigFile: /etc/kubernetes/authz/kyverno-authz-kubeconfig.yaml
+      conditionsReview:
+        version: v1alpha1
+        kubeConfigContextName: kyverno-conditions
+      matchConditions:
+        - expression: "!request.user.startsWith('system:')"
+        - expression: "!(request.user in ['chainsaw-ttl-user', 'chainsaw-cb-rejected', 'chainsaw-cb-down', 'chainsaw-legacy-user'])"

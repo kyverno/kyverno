@@ -1,0 +1,47 @@
+# Two policies select the same subject and resource. Their rules form one
+# unordered set: a satisfied (metadata-only) Allow in one policy must not
+# bypass an unresolved Deny or NoOpinion in another.
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: chainsaw-a-allow
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: user
+          operator: In
+          values: ["chainsaw-mixed-user"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["create"]
+  rules:
+    - name: allow-all-creates
+      effect: Allow
+      expression: "true"
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: chainsaw-z-restrict
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: user
+          operator: In
+          values: ["chainsaw-mixed-user"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["create"]
+  rules:
+    - name: deny-secret-data
+      effect: Deny
+      expression: "has(object.data) && 'password' in object.data"
+    - name: defer-unlabeled
+      effect: NoOpinion
+      expression: "!has(object.metadata.labels) || !('reviewed' in object.metadata.labels)"
