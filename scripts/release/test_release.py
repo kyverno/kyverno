@@ -280,6 +280,42 @@ class LocalArtifacts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Missing SPDX SBOM for kyverno-cli linux-arm-v7"):
             list(release.platform_sboms("kyverno-cli", subject, index))
 
+    def test_remote_verification_checks_each_platform_spdx_attestation_identity(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        metadata["images"] = {"kyverno-cli": "ghcr.io/kyverno/kyverno-cli:v1.20.2"}
+        metadata["chart_images"] = {}
+        sbom = Path(".release/sboms/kyverno-cli-bom.cdx.json")
+        sbom.parent.mkdir(parents=True)
+        sbom.write_bytes(b'{"bomFormat":"CycloneDX"}\n')
+        spdx = Path(".release/spdx/kubectl-kyverno-linux-amd64.spdx.json")
+        spdx.parent.mkdir(parents=True)
+        spdx.write_text("{}")
+        raw_index = json.dumps({"manifests": [
+            {"digest": "sha256:1", "platform": {"os": "linux", "architecture": "amd64"}},
+            {"digest": "sha256:2", "platform": {"os": "unknown", "architecture": "unknown"}},
+        ]}).encode()
+        digest = "sha256:" + hashlib.sha256(raw_index).hexdigest()
+        with patch.dict(os.environ, {"GH_REPO": "kyverno/kyverno"}), \
+                patch.object(release, "IMAGES", {"kyverno-cli": "cmd/cli/kubectl-kyverno"}), \
+                patch.object(release, "verify_remote_charts"), \
+                patch.object(release, "output", return_value="rendered manifest"), \
+                patch.object(release, "verify_images"), \
+                patch.object(release.subprocess, "check_output",
+                             side_effect=[raw_index, sbom.read_bytes()]), \
+                patch.object(release, "inspect_digest", return_value=digest), \
+                patch.object(release, "verify_signature"), \
+                patch.object(release, "verify_provenance"), \
+                patch.object(release, "run") as run:
+            release.verify_remote(metadata)
+            identity = release.workflow_identity(metadata)
+        run.assert_called_once_with(
+            "cosign", "verify-attestation", "--new-bundle-format", "--type", "spdxjson",
+            "--certificate-identity-regexp", identity,
+            "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+            "--certificate-github-workflow-sha", SHA,
+            "ghcr.io/kyverno/kyverno-cli@sha256:1", stdout=subprocess.DEVNULL,
+        )
+
     def stage_dependencies(self, *args, **kwargs):
         if args[:3] == ("helm", "dependency", "build"):
             for dependency in release.external_dependencies(release.read("charts/kyverno/Chart.lock")):

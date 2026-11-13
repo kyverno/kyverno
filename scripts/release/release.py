@@ -490,8 +490,9 @@ def publish_images(metadata):
         sbom = Path(f".release/sboms/{name}-bom.cdx.json")
         publish_sbom(subject, sbom, metadata["owner"])
         for platform_subject, spdx in list(platform_sboms(name, subject, raw)):
-            run("cosign", "attest", "--yes", "--type", "spdxjson", "--predicate", spdx,
-                platform_subject)
+            # The pinned cosign v2 defaults to legacy .att tags; referrers travel with copies and mirrors.
+            run("cosign", "attest", "--yes", "--new-bundle-format", "--type", "spdxjson",
+                "--predicate", spdx, platform_subject)
         digests[name] = digest
         upload_asset(metadata["tag"], sbom)
     write_json(".release-publication/images.json", digests)
@@ -710,7 +711,7 @@ def verify_remote(metadata):
         ).hexdigest():
             raise ValueError(f"Remote SBOM mismatch: {name}")
         for platform_subject, _ in platform_sboms(name, subject, raw):
-            run("cosign", "verify-attestation", "--type", "spdxjson",
+            run("cosign", "verify-attestation", "--new-bundle-format", "--type", "spdxjson",
                 "--certificate-identity-regexp", workflow_identity(metadata),
                 "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
                 "--certificate-github-workflow-sha", metadata["sha"],
