@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -423,4 +424,102 @@ func TestHandleMAPGeneration_CompensatingControlsPreserveMAP(t *testing.T) {
 	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, "test-mutate-pods", metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.True(t, updated.Status.Generated)
+}
+
+func TestReconcile_ForeignModeDeletesGeneratedMAPWithoutStatus(t *testing.T) {
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy-pol", UID: "policy-uid"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "Envoy"},
+		},
+		Status: policiesv1beta1.MutatingPolicyStatus{
+			ConditionStatus: policiesv1beta1.ConditionStatus{Message: "left alone"},
+		},
+	}
+	c, kubeClient, kyvernoClient := newMAPTestController(t, mpol, nil, nil)
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, indexer.Add(mpol))
+	c.mpolLister = policiesv1beta1listers.NewMutatingPolicyLister(indexer)
+
+	mapName := "mpol-" + mpol.Name
+	bindingName := constructBindingName(mapName)
+	owner := policyOwnerRef("MutatingPolicy", mpol.Name, string(mpol.UID))
+	policyMeta := metav1.ObjectMeta{Name: mapName, OwnerReferences: []metav1.OwnerReference{owner}}
+	bindingMeta := metav1.ObjectMeta{Name: bindingName, OwnerReferences: []metav1.OwnerReference{owner}}
+	ctx := context.Background()
+	_, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Create(ctx, &admissionregistrationv1.MutatingAdmissionPolicy{
+		ObjectMeta: policyMeta,
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Create(ctx, &admissionregistrationv1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: bindingMeta,
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Create(ctx, &admissionregistrationv1beta1.MutatingAdmissionPolicy{
+		ObjectMeta: policyMeta,
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Create(ctx, &admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: bindingMeta,
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Create(ctx, &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
+		ObjectMeta: policyMeta,
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Create(ctx, &admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: bindingMeta,
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), "MutatingPolicy/"+mpol.Name, "MutatingPolicy", mpol.Name))
+
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err))
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err))
+	_, err = kubeClient.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err))
+	_, err = kubeClient.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err))
+	_, err = kubeClient.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err))
+	_, err = kubeClient.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err))
+
+	stored, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, "left alone", stored.Status.ConditionStatus.Message)
+}
+
+func TestReconcile_ForeignModeLeavesUnownedMAP(t *testing.T) {
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy-pol", UID: "policy-uid"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "Envoy"},
+		},
+	}
+	c, kubeClient, _ := newMAPTestController(t, mpol, nil, nil)
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, indexer.Add(mpol))
+	c.mpolLister = policiesv1beta1listers.NewMutatingPolicyLister(indexer)
+
+	mapName := "mpol-" + mpol.Name
+	bindingName := constructBindingName(mapName)
+	ctx := context.Background()
+	_, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Create(ctx, &admissionregistrationv1.MutatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: mapName},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Create(ctx, &admissionregistrationv1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), "MutatingPolicy/"+mpol.Name, "MutatingPolicy", mpol.Name))
+
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	require.NoError(t, err)
 }

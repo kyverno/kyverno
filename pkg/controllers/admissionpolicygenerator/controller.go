@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -20,6 +21,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
@@ -227,7 +229,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			// A policy can change mode after Kyverno already generated a
 			// ValidatingAdmissionPolicy. Remove that object, and leave status
 			// to the controller that owns the new mode.
-			return c.deleteGeneratedVAP(ctx, vpol.GetName())
+			return c.deleteGeneratedVAP(ctx, vpol)
 		}
 		policy = engineapi.NewValidatingPolicy(vpol)
 		err = c.handleVAPGeneration(ctx, policy)
@@ -244,7 +246,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 		if !celpolicies.IsKyvernoEvaluationMode(mpol.Spec.EvaluationMode()) {
-			return c.deleteGeneratedMAP(ctx, mpol.GetName())
+			return c.deleteGeneratedMAP(ctx, mpol)
 		}
 		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
 		if !generateMutatingAdmissionPolicy {
@@ -261,46 +263,135 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func (c *controller) deleteGeneratedVAP(ctx context.Context, policyName string) error {
+func (c *controller) deleteGeneratedVAP(ctx context.Context, policy *policiesv1beta1.ValidatingPolicy) error {
 	if c.client == nil {
 		return nil
 	}
-	vapName := "vpol-" + policyName
+	vapName := "vpol-" + policy.GetName()
 	bindingName := constructBindingName(vapName)
-	if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	if err := c.deleteIfOwned("ValidatingPolicy", policy.GetName(), policy.GetUID(),
+		func() (metav1.Object, error) {
+			return c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vapName, metav1.GetOptions{})
+		},
+		func(opts metav1.DeleteOptions) error {
+			return c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, opts)
+		},
+	); err != nil {
 		return err
 	}
-	if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	return c.deleteIfOwned("ValidatingPolicy", policy.GetName(), policy.GetUID(),
+		func() (metav1.Object, error) {
+			return c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+		},
+		func(opts metav1.DeleteOptions) error {
+			return c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, bindingName, opts)
+		},
+	)
+}
+
+func (c *controller) deleteGeneratedMAP(ctx context.Context, policy *policiesv1beta1.MutatingPolicy) error {
+	if c.client == nil {
+		return nil
+	}
+	mapName := "mpol-" + policy.GetName()
+	bindingName := constructBindingName(mapName)
+	kind, name, uid := "MutatingPolicy", policy.GetName(), policy.GetUID()
+	if err := c.deleteIfOwned(kind, name, uid,
+		func() (metav1.Object, error) {
+			return c.client.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+		},
+		func(opts metav1.DeleteOptions) error {
+			return c.client.AdmissionregistrationV1().MutatingAdmissionPolicies().Delete(ctx, mapName, opts)
+		},
+	); err != nil {
+		return err
+	}
+	if err := c.deleteIfOwned(kind, name, uid,
+		func() (metav1.Object, error) {
+			return c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+		},
+		func(opts metav1.DeleteOptions) error {
+			return c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Delete(ctx, bindingName, opts)
+		},
+	); err != nil {
+		return err
+	}
+	if err := c.deleteIfOwned(kind, name, uid,
+		func() (metav1.Object, error) {
+			return c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+		},
+		func(opts metav1.DeleteOptions) error {
+			return c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Delete(ctx, mapName, opts)
+		},
+	); err != nil {
+		return err
+	}
+	if err := c.deleteIfOwned(kind, name, uid,
+		func() (metav1.Object, error) {
+			return c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+		},
+		func(opts metav1.DeleteOptions) error {
+			return c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Delete(ctx, bindingName, opts)
+		},
+	); err != nil {
+		return err
+	}
+	if err := c.deleteIfOwned(kind, name, uid,
+		func() (metav1.Object, error) {
+			return c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+		},
+		func(opts metav1.DeleteOptions) error {
+			return c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Delete(ctx, mapName, opts)
+		},
+	); err != nil {
+		return err
+	}
+	return c.deleteIfOwned(kind, name, uid,
+		func() (metav1.Object, error) {
+			return c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+		},
+		func(opts metav1.DeleteOptions) error {
+			return c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Delete(ctx, bindingName, opts)
+		},
+	)
+}
+
+// deleteIfOwned removes a generated admission object only when an owner
+// reference names this policy. A missing object is already gone. An object
+// that merely shares the generated name is left in place. The delete is
+// pinned to the UID and resourceVersion just read, so a replacement that
+// lands in between is left for the next reconcile.
+func (c *controller) deleteIfOwned(kind, name string, uid types.UID, get func() (metav1.Object, error), del func(metav1.DeleteOptions) error) error {
+	obj, err := get()
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !ownedByPolicy(obj.GetOwnerReferences(), kind, name, uid) {
+		return nil
+	}
+	objUID := obj.GetUID()
+	resourceVersion := obj.GetResourceVersion()
+	if err := del(metav1.DeleteOptions{
+		Preconditions: &metav1.Preconditions{
+			UID:             &objUID,
+			ResourceVersion: &resourceVersion,
+		},
+	}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 	return nil
 }
 
-func (c *controller) deleteGeneratedMAP(ctx context.Context, policyName string) error {
-	if c.client == nil {
-		return nil
+func ownedByPolicy(refs []metav1.OwnerReference, kind, name string, uid types.UID) bool {
+	for _, ref := range refs {
+		if ref.Kind == kind && ref.Name == name && ref.UID == uid {
+			return true
+		}
 	}
-	mapName := "mpol-" + policyName
-	bindingName := constructBindingName(mapName)
-	if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-	if err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-	if err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-	if err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-	if err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Delete(ctx, mapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-	if err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Delete(ctx, bindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-	return nil
+	return false
 }
 
 func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.GenericPolicy, generated bool, msg string) error {

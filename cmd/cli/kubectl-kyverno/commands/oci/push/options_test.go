@@ -420,26 +420,50 @@ func TestValidateJSONModeMutatingPolicy(t *testing.T) {
 }
 
 func TestValidateAuthzPolicyUsesAuthzCompiler(t *testing.T) {
-	envoy := func(expression string) *policiesv1beta1.ValidatingPolicy {
+	policyWith := func(mode policiesv1beta1.EvaluationMode, expression string) *policiesv1beta1.ValidatingPolicy {
 		return &policiesv1beta1.ValidatingPolicy{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "ValidatingPolicy",
 				APIVersion: "policies.kyverno.io/v1beta1",
 			},
-			ObjectMeta: metav1.ObjectMeta{Name: "envoy-check"},
+			ObjectMeta: metav1.ObjectMeta{Name: "authz-check"},
 			Spec: policiesv1beta1.ValidatingPolicySpec{
-				EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+				EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: mode},
 				Validations: []admissionregistrationv1.Validation{
 					{Expression: expression},
 				},
 			},
 		}
 	}
-	err := validate(&policy.LoaderResults{EnvoyPolicies: []*policiesv1beta1.ValidatingPolicy{envoy("null")}})
-	require.NoError(t, err)
-	err = validate(&policy.LoaderResults{EnvoyPolicies: []*policiesv1beta1.ValidatingPolicy{envoy("true")}})
-	require.ErrorContains(t, err, "validating CEL expression in EnvoyPolicy")
-	assert.NotContains(t, err.Error(), "evaluation mode is not processed by Kyverno")
+	tests := []struct {
+		name       string
+		mode       policiesv1beta1.EvaluationMode
+		expression string
+		wantErr    string
+	}{
+		{name: "envoy response", mode: "Envoy", expression: "envoy.Allowed().Response()", wantErr: ""},
+		{name: "envoy bool", mode: "Envoy", expression: "true", wantErr: "validating CEL expression in EnvoyPolicy"},
+		{name: "http response", mode: "HTTP", expression: "http.Allowed().Response()", wantErr: ""},
+		{name: "http bool", mode: "HTTP", expression: "true", wantErr: "validating CEL expression in HTTPPolicy"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pol := policyWith(tt.mode, tt.expression)
+			var results *policy.LoaderResults
+			if tt.mode == "HTTP" {
+				results = &policy.LoaderResults{HTTPPolicies: []*policiesv1beta1.ValidatingPolicy{pol}}
+			} else {
+				results = &policy.LoaderResults{EnvoyPolicies: []*policiesv1beta1.ValidatingPolicy{pol}}
+			}
+			err := validate(results)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+			assert.NotContains(t, err.Error(), "evaluation mode is not processed by Kyverno")
+		})
+	}
 }
 
 func TestValidateKeepsAuthzException(t *testing.T) {
@@ -454,6 +478,8 @@ func TestValidateKeepsAuthzException(t *testing.T) {
 			Validations:             []admissionregistrationv1.Validation{{Expression: "null"}},
 		},
 	}
+	// envoy.Allowed() is an Authz library call. The Kubernetes CEL compiler rejects it.
+	authzExpression := "envoy.Allowed().Response()"
 	ex := &policiesv1beta1.PolicyException{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PolicyException",
@@ -464,9 +490,10 @@ func TestValidateKeepsAuthzException(t *testing.T) {
 			EvaluationMode: "Envoy",
 			PolicyRefs:     []policiesv1beta1.PolicyRef{{Name: "envoy-check", Kind: "ValidatingPolicy"}},
 			MatchConditions: []admissionregistrationv1.MatchCondition{{
-				Name:       "always",
-				Expression: "true",
+				Name:       "authz",
+				Expression: authzExpression,
 			}},
+			Validations: []admissionregistrationv1.Validation{{Expression: authzExpression}},
 		},
 	}
 	err := validate(&policy.LoaderResults{
@@ -474,6 +501,25 @@ func TestValidateKeepsAuthzException(t *testing.T) {
 		PolicyCelExceptions: []*policiesv1beta1.PolicyException{ex},
 	})
 	require.NoError(t, err)
+
+	ownedMatch := ex.DeepCopy()
+	ownedMatch.Name = "owned-match"
+	ownedMatch.Spec.EvaluationMode = ""
+	err = validate(&policy.LoaderResults{
+		EnvoyPolicies:       []*policiesv1beta1.ValidatingPolicy{pol},
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{ownedMatch},
+	})
+	require.ErrorContains(t, err, "validating CEL expression in policy exception")
+
+	ownedControls := ex.DeepCopy()
+	ownedControls.Name = "owned-controls"
+	ownedControls.Spec.EvaluationMode = "Kubernetes"
+	ownedControls.Spec.MatchConditions[0].Expression = "true"
+	err = validate(&policy.LoaderResults{
+		EnvoyPolicies:       []*policiesv1beta1.ValidatingPolicy{pol},
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{ownedControls},
+	})
+	require.ErrorContains(t, err, "validating compensating controls in policy exception")
 }
 
 func TestValidateRejectsInvalidValidatingPolicyCELExpression(t *testing.T) {

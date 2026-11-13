@@ -12,13 +12,15 @@ const (
 	EvaluationModeMatchConditionName = "kyverno-owned-evaluation-mode"
 
 	// PolicyEvaluationModeExpression matches policies Kyverno compiles. An absent
-	// spec.evaluation.mode is the Kubernetes default. Policies that do not have
-	// the field (for example GeneratingPolicy) also match.
-	PolicyEvaluationModeExpression = "!has(object.spec.evaluation.mode) || object.spec.evaluation.mode == '' || object.spec.evaluation.mode == 'Kubernetes' || object.spec.evaluation.mode == 'JSON'"
+	// spec, spec.evaluation, or spec.evaluation.mode is the Kubernetes default.
+	// Each has() guard runs before the next field access, so a missing parent
+	// does not make the nested check fail. Policies that do not have the field
+	// (for example GeneratingPolicy) also match.
+	PolicyEvaluationModeExpression = "!has(object.spec) || !has(object.spec.evaluation) || !has(object.spec.evaluation.mode) || object.spec.evaluation.mode == '' || object.spec.evaluation.mode == 'Kubernetes' || object.spec.evaluation.mode == 'JSON'"
 
 	// ExceptionEvaluationModeExpression matches PolicyExceptions Kyverno applies.
-	// An absent spec.evaluationMode is the Kubernetes default.
-	ExceptionEvaluationModeExpression = "!has(object.spec.evaluationMode) || object.spec.evaluationMode == '' || object.spec.evaluationMode == 'Kubernetes' || object.spec.evaluationMode == 'JSON'"
+	// An absent spec or spec.evaluationMode is the Kubernetes default.
+	ExceptionEvaluationModeExpression = "!has(object.spec) || !has(object.spec.evaluationMode) || object.spec.evaluationMode == '' || object.spec.evaluationMode == 'Kubernetes' || object.spec.evaluationMode == 'JSON'"
 )
 
 // IsKyvernoEvaluationMode reports whether mode is compiled and enforced by Kyverno.

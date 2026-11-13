@@ -238,6 +238,18 @@ func Test_Validate_NamespacedPolicyRejectsGlobalContextInAttestors(t *testing.T)
 	})
 }
 
+func TestCompile_ForeignEvaluationMode(t *testing.T) {
+	ivpol := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+		},
+	}
+	compiled, errs := NewCompiler(nil).Compile(ivpol, nil)
+	assert.Nil(t, compiled)
+	assert.NotEmpty(t, errs)
+}
+
 func TestValidate_ForeignEvaluationModeIsAllowed(t *testing.T) {
 	ivpol := &policiesv1beta1.ImageValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "envoy"},

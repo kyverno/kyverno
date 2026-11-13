@@ -35,11 +35,11 @@ leader-elected = created before/outside that block, so it runs on every replica.
 |---|---|---|
 | `certmanager` | Kyverno's own webhook TLS certificate Secrets | Yes |
 | `deleting` | CEL `DeletingPolicy`/`NamespacedDeletingPolicy` — see [pkg/background/AGENTS.md](../background/AGENTS.md) for why this is not UpdateRequest-driven | Yes |
-| `admissionpolicygenerator` | Generates native `ValidatingAdmissionPolicy`/`MutatingAdmissionPolicy` from Kyverno CEL policies, gated by the `GenerateValidatingAdmissionPolicy`/`GenerateMutatingAdmissionPolicy` toggles | Yes |
+| `admissionpolicygenerator` | Generates native `ValidatingAdmissionPolicy`/`MutatingAdmissionPolicy` from Kyverno CEL policies, gated by the `GenerateValidatingAdmissionPolicy`/`GenerateMutatingAdmissionPolicy` toggles. A foreign evaluation mode deletes a previously generated policy and binding only when that object is owned by the source policy, and does not write status | Yes |
 | `globalcontext` | `GlobalContextEntry`/`ClusterGlobalContextEntry` → in-memory cache store for CEL/JMESPath external lookups | **No** — created/run before/outside the leader-election block in all four binaries that use it (`kyverno`, background, cleanup, reports controllers; in `cmd/kyverno/main.go` it's explicitly under the "start non leader controllers" comment) |
 | `metrics/legacypolicy` | Reports the `kyverno_legacy_policies_total` gauge at scrape time, from counts refreshed every 30s via metadata-only `list` calls for the legacy kinds the admission and cleanup controllers each cover | **No** — created/run before/outside the leader-election block, same as `globalcontext` above |
 | `metrics/updaterequest` | Updates `UpdateRequest` count/status metrics from an informer lister, read at scrape time | No (scrape-time callback, no queue) |
-| `policystatus` | Aggregates and writes `.status` for CEL policy kinds | Yes |
+| `policystatus` | Aggregates and writes `.status` for CEL policy kinds Kyverno evaluates. Policies whose evaluation mode belongs to another controller are skipped | Yes |
 | `report/aggregate` | Aggregates intermediary Admission/BackgroundScan reports into final `PolicyReport`/`ClusterPolicyReport`, dropping results whose policy no longer exists and every legacy `source: kyverno` result; uses two separate queues (front/back) and, while legacy `ClusterPolicy`/`Policy` are still present, runs a one-time startup sweep over every existing report | Yes |
 | `report/background` | Periodic background policy scans producing `BackgroundScanReport`/`ClusterBackgroundScanReport` | Yes |
 | `report/resource` | Tracks which cluster resources participate in reports | Yes |
@@ -65,6 +65,12 @@ Generation and policy-status controllers both update CEL policy status. The admi
 return status-write errors through reconciliation so the workqueue retries resource-version conflicts using a
 fresh informer object. Logging and swallowing a conflict can leave `status.generated` false indefinitely even
 after the native admission policy and binding were created.
+
+A policy whose evaluation mode Kyverno does not own gets no status update from these controllers. If Kyverno
+previously generated a ValidatingAdmissionPolicy or MutatingAdmissionPolicy for it, reconciliation deletes that
+object and its binding only when an owner reference names the source policy. A same-named object owned by
+something else is left in place. `status.generated` and the webhook-configured condition stay as they were
+until the controller that owns the new mode writes status.
 
 ## Two confirmed-stale rows in `docs/dev/controllers/README.md`
 

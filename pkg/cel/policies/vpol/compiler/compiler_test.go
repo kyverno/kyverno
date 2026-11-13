@@ -54,3 +54,32 @@ func TestCompile_ForeignEvaluationMode(t *testing.T) {
 	assert.Assert(t, compiled == nil)
 	assert.Assert(t, len(errs) > 0)
 }
+
+func TestCompile_SelectsKyvernoExceptions(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "owned"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			Validations: []admissionregistrationv1.Validation{{Expression: "true"}},
+		},
+	}
+	invalid := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "owned-exception"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "bad",
+				Expression: "???",
+			}},
+		},
+	}
+	foreign := invalid.DeepCopy()
+	foreign.Name = "envoy-exception"
+	foreign.Spec.EvaluationMode = "Envoy"
+
+	compiled, errs := NewCompiler().Compile(policy, []*policiesv1beta1.PolicyException{foreign})
+	assert.Assert(t, compiled != nil)
+	assert.Assert(t, errs == nil)
+
+	compiled, errs = NewCompiler().Compile(policy, []*policiesv1beta1.PolicyException{foreign, invalid})
+	assert.Assert(t, compiled == nil)
+	assert.Assert(t, len(errs) > 0)
+}

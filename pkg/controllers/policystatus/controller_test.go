@@ -132,6 +132,59 @@ func TestReconcile_ForeignEvaluationModeDoesNotWriteStatus(t *testing.T) {
 	assert.Equal(t, "left alone", stored.Status.ConditionStatus.Message)
 }
 
+func TestReconcile_ForeignEvaluationModeDoesNotWriteStatusForOtherKinds(t *testing.T) {
+	t.Parallel()
+	envoy := policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"}
+	mEnvoy := policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "Envoy"}
+	leftAlone := policiesv1beta1.ConditionStatus{Message: "left alone"}
+	client := versionedfake.NewSimpleClientset(
+		&policiesv1beta1.NamespacedValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "envoy", Namespace: "ns"},
+			Spec:       policiesv1beta1.ValidatingPolicySpec{EvaluationConfiguration: &envoy},
+			Status:     policiesv1beta1.ValidatingPolicyStatus{ConditionStatus: leftAlone},
+		},
+		&policiesv1beta1.ImageValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+			Spec:       policiesv1beta1.ImageValidatingPolicySpec{EvaluationConfiguration: &envoy},
+			Status:     policiesv1beta1.ImageValidatingPolicyStatus{ConditionStatus: leftAlone},
+		},
+		&policiesv1beta1.NamespacedImageValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "envoy", Namespace: "ns"},
+			Spec:       policiesv1beta1.ImageValidatingPolicySpec{EvaluationConfiguration: &envoy},
+			Status:     policiesv1beta1.ImageValidatingPolicyStatus{ConditionStatus: leftAlone},
+		},
+		&policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+			Spec:       policiesv1beta1.MutatingPolicySpec{EvaluationConfiguration: &mEnvoy},
+			Status:     policiesv1beta1.MutatingPolicyStatus{ConditionStatus: leftAlone},
+		},
+		&policiesv1beta1.NamespacedMutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "envoy", Namespace: "ns"},
+			Spec:       policiesv1beta1.MutatingPolicySpec{EvaluationConfiguration: &mEnvoy},
+			Status:     policiesv1beta1.MutatingPolicyStatus{ConditionStatus: leftAlone},
+		},
+	)
+	var updates atomic.Int32
+	client.PrependReactor("update", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		if action.GetSubresource() == "status" {
+			updates.Add(1)
+		}
+		return false, nil, nil
+	})
+	c := controller{client: client}
+	keys := []string{
+		webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, "envoy", "ns"),
+		webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, "envoy", ""),
+		webhook.BuildRecorderKey(webhook.NamespacedImageValidatingPolicyType, "envoy", "ns"),
+		webhook.BuildRecorderKey(webhook.MutatingPolicyType, "envoy", ""),
+		webhook.BuildRecorderKey(webhook.NamespacedMutatingPolicyType, "envoy", "ns"),
+	}
+	for _, key := range keys {
+		require.NoError(t, c.reconcile(context.Background(), logr.Discard(), key, "", ""))
+	}
+	assert.Equal(t, int32(0), updates.Load())
+}
+
 // TestReconcile_AllPolicyTypes verifies that reconcile() correctly routes each
 // policy type to its update function, writes a non-empty status, and that
 // BuildRecorderKey produces a routable key for every type. A missing case in

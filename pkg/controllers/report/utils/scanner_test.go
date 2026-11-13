@@ -10,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,29 +159,91 @@ func TestScanResource_MutatingPolicy_MutateExisting(t *testing.T) {
 }
 
 func TestScanResource_SkipsForeignEvaluationModes(t *testing.T) {
-	envoy := policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"}
-	vpol := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "envoy-vpol"},
-		Spec: policiesv1beta1.ValidatingPolicySpec{
-			EvaluationConfiguration: &envoy,
-		},
-	})
-	ivpol := engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "envoy-ivpol"},
-		Spec: policiesv1beta1.ImageValidatingPolicySpec{
-			EvaluationConfiguration: &envoy,
-		},
-	})
-	mpol := engineapi.NewMutatingPolicy(&policiesv1beta1.MutatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "envoy-mpol"},
-		Spec: policiesv1beta1.MutatingPolicySpec{
-			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "Envoy"},
-		},
-	})
-
 	resource, gvr := newPodResource()
-	results := newTestScanner(t).ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, nil, vpol, ivpol, mpol)
-	assert.Empty(t, results)
+	scanner := newTestScanner(t)
+	scan := func(policies ...engineapi.GenericPolicy) map[*engineapi.GenericPolicy]ScanResult {
+		return scanner.ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, nil, policies...)
+	}
+	ownedModes := []policiesv1beta1.EvaluationMode{"", "Kubernetes", "JSON"}
+
+	t.Run("validating", func(t *testing.T) {
+		for _, mode := range ownedModes {
+			t.Run(string(mode), func(t *testing.T) {
+				var cfg *policiesv1beta1.EvaluationConfiguration
+				if mode != "" {
+					cfg = &policiesv1beta1.EvaluationConfiguration{Mode: mode}
+				}
+				owned := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "owned"},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						EvaluationConfiguration: cfg,
+						Validations:             []admissionregistrationv1.Validation{{Expression: "true"}},
+					},
+				})
+				foreign := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+					},
+				})
+				assertScannedPolicy(t, scan(owned, foreign), "owned")
+			})
+		}
+	})
+	t.Run("image", func(t *testing.T) {
+		for _, mode := range ownedModes {
+			t.Run(string(mode), func(t *testing.T) {
+				var cfg *policiesv1beta1.EvaluationConfiguration
+				if mode != "" {
+					cfg = &policiesv1beta1.EvaluationConfiguration{Mode: mode}
+				}
+				spec := podMatchSpec
+				spec.EvaluationConfiguration = cfg
+				owned := engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "owned"},
+					Spec:       spec,
+				})
+				foreign := engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+					},
+				})
+				assertScannedPolicy(t, scan(owned, foreign), "owned")
+			})
+		}
+	})
+	t.Run("mutating", func(t *testing.T) {
+		for _, mode := range ownedModes {
+			t.Run(string(mode), func(t *testing.T) {
+				var cfg *policiesv1beta1.MutatingPolicyEvaluationConfiguration
+				if mode != "" {
+					cfg = &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: mode}
+				}
+				owned := engineapi.NewMutatingPolicy(&policiesv1beta1.MutatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "owned"},
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						EvaluationConfiguration: cfg,
+					},
+				})
+				foreign := engineapi.NewMutatingPolicy(&policiesv1beta1.MutatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+					Spec: policiesv1beta1.MutatingPolicySpec{
+						EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "Envoy"},
+					},
+				})
+				assertScannedPolicy(t, scan(owned, foreign), "owned")
+			})
+		}
+	})
+}
+
+func assertScannedPolicy(t *testing.T, results map[*engineapi.GenericPolicy]ScanResult, name string) {
+	t.Helper()
+	require.Len(t, results, 1)
+	for policy := range results {
+		assert.Equal(t, name, (*policy).GetName())
+	}
 }
 
 func TestFilterMatchConditionSkips(t *testing.T) {

@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -114,6 +115,148 @@ spec:
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
+  name: http-check
+spec:
+  evaluation:
+    mode: HTTP
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: owned-nvpol
+  namespace: ns
+spec:
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: envoy-nvpol
+  namespace: ns
+spec:
+  evaluation:
+    mode: Envoy
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: owned-ivpol
+spec:
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: dummy
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: envoy-ivpol
+spec:
+  evaluation:
+    mode: Envoy
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: dummy
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedImageValidatingPolicy
+metadata:
+  name: owned-nivpol
+  namespace: ns
+spec:
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: dummy
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedImageValidatingPolicy
+metadata:
+  name: envoy-nivpol
+  namespace: ns
+spec:
+  evaluation:
+    mode: Envoy
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: dummy
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: owned-mpol
+spec:
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: "[]"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: envoy-mpol
+spec:
+  evaluation:
+    mode: Envoy
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: "[]"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedMutatingPolicy
+metadata:
+  name: owned-nmpol
+  namespace: ns
+spec:
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: "[]"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedMutatingPolicy
+metadata:
+  name: envoy-nmpol
+  namespace: ns
+spec:
+  evaluation:
+    mode: Envoy
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: "[]"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
   name: ext-proc
 spec:
   evaluation:
@@ -134,10 +277,20 @@ spec:
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 	results, err := Load(nil, "", path)
 	require.NoError(t, err)
-	require.Len(t, results.ValidatingPolicies, 1)
+	require.Empty(t, results.NonFatalErrors)
+	require.Len(t, results.ValidatingPolicies, 2)
 	assert.Equal(t, "owned", results.ValidatingPolicies[0].GetName())
+	assert.Equal(t, "owned-nvpol", results.ValidatingPolicies[1].GetName())
 	require.Len(t, results.EnvoyPolicies, 1)
 	assert.Equal(t, "envoy-check", results.EnvoyPolicies[0].GetName())
+	require.Len(t, results.HTTPPolicies, 1)
+	assert.Equal(t, "http-check", results.HTTPPolicies[0].GetName())
+	require.Len(t, results.ImageValidatingPolicies, 2)
+	assert.Equal(t, "owned-ivpol", results.ImageValidatingPolicies[0].GetName())
+	assert.Equal(t, "owned-nivpol", results.ImageValidatingPolicies[1].GetName())
+	require.Len(t, results.MutatingPolicies, 2)
+	assert.Equal(t, "owned-mpol", results.MutatingPolicies[0].GetName())
+	assert.Equal(t, "owned-nmpol", results.MutatingPolicies[1].GetName())
 	require.Len(t, results.PolicyCelExceptions, 1)
 	assert.Equal(t, "envoy-exception", results.PolicyCelExceptions[0].GetName())
 }
@@ -584,5 +737,90 @@ spec:
 	assert.Contains(t, err.Error(), "Invalid value: value provided for unknown field")
 	if res != nil {
 		assert.Empty(t, res.PolicyCelExceptions)
+	}
+}
+
+func TestLoad_KeepsOwnedModesAndDropsExtProc(t *testing.T) {
+	validatingSpec := "  validations:\n  - expression: \"true\"\n"
+	imageSpec := `  matchImageReferences:
+  - glob: "ghcr.io/*"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: dummy
+  validations:
+  - expression: "true"
+`
+	mutatingSpec := `  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: "[]"
+`
+	kinds := []struct {
+		kind       string
+		namespaced bool
+		family     string
+		spec       string
+	}{
+		{kind: "ValidatingPolicy", family: "validating", spec: validatingSpec},
+		{kind: "NamespacedValidatingPolicy", namespaced: true, family: "validating", spec: validatingSpec},
+		{kind: "ImageValidatingPolicy", family: "image", spec: imageSpec},
+		{kind: "NamespacedImageValidatingPolicy", namespaced: true, family: "image", spec: imageSpec},
+		{kind: "MutatingPolicy", family: "mutating", spec: mutatingSpec},
+		{kind: "NamespacedMutatingPolicy", namespaced: true, family: "mutating", spec: mutatingSpec},
+	}
+	modes := []struct {
+		mode string
+		keep bool
+	}{
+		{mode: "", keep: true},
+		{mode: "Kubernetes", keep: true},
+		{mode: "JSON", keep: true},
+		{mode: "ext_proc", keep: false},
+	}
+	for _, kind := range kinds {
+		for _, mode := range modes {
+			name := kind.kind + "/"
+			if mode.mode == "" {
+				name += "empty"
+			} else {
+				name += mode.mode
+			}
+			t.Run(name, func(t *testing.T) {
+				ns := ""
+				if kind.namespaced {
+					ns = "  namespace: ns\n"
+				}
+				eval := ""
+				if mode.mode != "" {
+					eval = "  evaluation:\n    mode: " + mode.mode + "\n"
+				}
+				body := fmt.Sprintf("apiVersion: policies.kyverno.io/v1beta1\nkind: %s\nmetadata:\n  name: sample\n%sspec:\n%s%s", kind.kind, ns, eval, kind.spec)
+				dir := t.TempDir()
+				path := filepath.Join(dir, "policy.yaml")
+				require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
+
+				results, err := Load(nil, "", path)
+				require.NoError(t, err)
+				require.Empty(t, results.NonFatalErrors)
+				assert.Empty(t, results.EnvoyPolicies)
+				assert.Empty(t, results.HTTPPolicies)
+				var got int
+				switch kind.family {
+				case "validating":
+					got = len(results.ValidatingPolicies)
+				case "image":
+					got = len(results.ImageValidatingPolicies)
+				case "mutating":
+					got = len(results.MutatingPolicies)
+				}
+				if mode.keep {
+					assert.Equal(t, 1, got)
+					return
+				}
+				assert.Zero(t, got)
+			})
+		}
 	}
 }

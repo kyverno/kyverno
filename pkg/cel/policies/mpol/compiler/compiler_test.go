@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 )
@@ -17,6 +18,19 @@ type policyWithoutSpec struct {
 }
 
 func (policyWithoutSpec) GetSpec() *v1beta1.MutatingPolicySpec { return nil }
+
+func TestCompile_ForeignEvaluationMode(t *testing.T) {
+	t.Parallel()
+	policy := &v1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+		Spec: v1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{Mode: "Envoy"},
+		},
+	}
+	compiled, errs := NewCompiler().Compile(policy, nil)
+	assert.Nil(t, compiled)
+	assert.NotEmpty(t, errs)
+}
 
 func TestCompileMissingPolicy(t *testing.T) {
 	t.Parallel()

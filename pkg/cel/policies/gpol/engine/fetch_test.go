@@ -111,3 +111,36 @@ func TestGet(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+func TestGet_SelectsKyvernoExceptions(t *testing.T) {
+	comp := compiler.NewCompiler()
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: v1.ObjectMeta{Name: "test-policy"},
+	}
+	gpol.TypeMeta.Kind = "GeneratingPolicy"
+	ref := policiesv1beta1.PolicyRef{Name: "test-policy", Kind: "GeneratingPolicy"}
+	owned := &policiesv1beta1.PolicyException{
+		ObjectMeta: v1.ObjectMeta{Name: "owned"},
+		Spec:       policiesv1beta1.PolicyExceptionSpec{PolicyRefs: []policiesv1beta1.PolicyRef{ref}},
+	}
+	foreign := &policiesv1beta1.PolicyException{
+		ObjectMeta: v1.ObjectMeta{Name: "envoy"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			EvaluationMode: "Envoy",
+			PolicyRefs:     []policiesv1beta1.PolicyRef{ref},
+		},
+	}
+
+	fp := NewFetchProvider(
+		comp,
+		&fakeGpolLister{policy: gpol},
+		&fakeNgpolLister{},
+		&fakePolexLister{exceptions: []*policiesv1beta1.PolicyException{owned, foreign, nil}},
+		true,
+	)
+
+	policy, err := fp.Get(context.Background(), "test-policy")
+	assert.NoError(t, err)
+	assert.Len(t, policy.Exceptions, 1)
+	assert.Equal(t, "owned", policy.Exceptions[0].GetName())
+}

@@ -2,6 +2,7 @@ package admissionpolicygenerator
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -17,8 +18,11 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
@@ -151,9 +155,18 @@ func TestHandleVAPGeneration_PodControllerAutogen(t *testing.T) {
 	}
 }
 
-func TestReconcile_ForeignModeDeletesGeneratedVAPWithoutStatus(t *testing.T) {
-	vpol := &policiesv1beta1.ValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "envoy-pol"},
+func policyOwnerRef(kind, name, uid string) metav1.OwnerReference {
+	return metav1.OwnerReference{
+		APIVersion: policiesv1beta1.GroupVersion.String(),
+		Kind:       kind,
+		Name:       name,
+		UID:        types.UID(uid),
+	}
+}
+
+func envoyValidatingPolicy() *policiesv1beta1.ValidatingPolicy {
+	return &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy-pol", UID: "policy-uid"},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
 			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
 		},
@@ -161,7 +174,57 @@ func TestReconcile_ForeignModeDeletesGeneratedVAPWithoutStatus(t *testing.T) {
 			ConditionStatus: policiesv1beta1.ConditionStatus{Message: "left alone"},
 		},
 	}
+}
+
+func TestReconcile_ForeignModeDeletesGeneratedVAPWithoutStatus(t *testing.T) {
+	vpol := envoyValidatingPolicy()
 	c, kubeClient, kyvernoClient := newVAPTestController(t, vpol)
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, indexer.Add(vpol))
+	c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(indexer)
+
+	vapName := "vpol-" + vpol.Name
+	bindingName := constructBindingName(vapName)
+	owner := policyOwnerRef("ValidatingPolicy", vpol.Name, string(vpol.UID))
+	_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(context.Background(), &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: vapName, OwnerReferences: []metav1.OwnerReference{owner}},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Create(context.Background(), &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName, OwnerReferences: []metav1.OwnerReference{owner}},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	storedVAP, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
+	require.NoError(t, err)
+	var preconditions *metav1.Preconditions
+	kubeClient.PrependReactor("delete", "validatingadmissionpolicies", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		del, ok := action.(clienttesting.DeleteAction)
+		if ok {
+			preconditions = del.GetDeleteOptions().Preconditions
+		}
+		return false, nil, nil
+	})
+
+	require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "ValidatingPolicy", vpol.Name))
+	require.NotNil(t, preconditions)
+	require.NotNil(t, preconditions.UID)
+	require.NotNil(t, preconditions.ResourceVersion)
+	assert.Equal(t, storedVAP.UID, *preconditions.UID)
+	assert.Equal(t, storedVAP.ResourceVersion, *preconditions.ResourceVersion)
+
+	_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
+	_, bindingErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.Background(), bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(vapErr))
+	assert.True(t, apierrors.IsNotFound(bindingErr))
+
+	stored, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(context.Background(), vpol.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, "left alone", stored.Status.ConditionStatus.Message)
+}
+
+func TestReconcile_ForeignModeLeavesUnownedVAP(t *testing.T) {
+	vpol := envoyValidatingPolicy()
+	c, kubeClient, _ := newVAPTestController(t, vpol)
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	require.NoError(t, indexer.Add(vpol))
 	c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(indexer)
@@ -179,12 +242,73 @@ func TestReconcile_ForeignModeDeletesGeneratedVAPWithoutStatus(t *testing.T) {
 
 	require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "ValidatingPolicy", vpol.Name))
 
-	_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
-	_, bindingErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.Background(), bindingName, metav1.GetOptions{})
-	assert.True(t, apierrors.IsNotFound(vapErr))
-	assert.True(t, apierrors.IsNotFound(bindingErr))
-
-	stored, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(context.Background(), vpol.Name, metav1.GetOptions{})
+	_, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
 	require.NoError(t, err)
-	assert.Equal(t, "left alone", stored.Status.ConditionStatus.Message)
+	_, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.Background(), bindingName, metav1.GetOptions{})
+	require.NoError(t, err)
+}
+
+func TestReconcile_ForeignModeVAPDeleteErrors(t *testing.T) {
+	vpol := envoyValidatingPolicy()
+	c, kubeClient, _ := newVAPTestController(t, vpol)
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, indexer.Add(vpol))
+	c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(indexer)
+
+	vapName := "vpol-" + vpol.Name
+	bindingName := constructBindingName(vapName)
+	owner := policyOwnerRef("ValidatingPolicy", vpol.Name, string(vpol.UID))
+	ctx := context.Background()
+	_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(ctx, &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: vapName, OwnerReferences: []metav1.OwnerReference{owner}},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Create(ctx, &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName, OwnerReferences: []metav1.OwnerReference{owner}},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	failVAP := true
+	failBinding := false
+	kubeClient.PrependReactor("delete", "validatingadmissionpolicies", func(clienttesting.Action) (bool, runtime.Object, error) {
+		if failVAP {
+			return true, nil, errors.New("vap delete failed")
+		}
+		return false, nil, nil
+	})
+	kubeClient.PrependReactor("delete", "validatingadmissionpolicybindings", func(clienttesting.Action) (bool, runtime.Object, error) {
+		if failBinding {
+			return true, nil, errors.New("binding delete failed")
+		}
+		return false, nil, nil
+	})
+
+	err = c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/"+vpol.Name, "ValidatingPolicy", vpol.Name)
+	require.ErrorContains(t, err, "vap delete failed")
+	_, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vapName, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	failVAP = false
+	failBinding = true
+	err = c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/"+vpol.Name, "ValidatingPolicy", vpol.Name)
+	require.ErrorContains(t, err, "binding delete failed")
+	_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vapName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(vapErr))
+	_, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	failBinding = false
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/"+vpol.Name, "ValidatingPolicy", vpol.Name))
+	_, bindingErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(bindingErr))
+}
+
+func TestReconcile_ForeignModeSucceedsWhenVAPAlreadyMissing(t *testing.T) {
+	vpol := envoyValidatingPolicy()
+	c, _, _ := newVAPTestController(t, vpol)
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, indexer.Add(vpol))
+	c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(indexer)
+
+	require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "ValidatingPolicy", vpol.Name))
 }

@@ -77,4 +77,10 @@ func TestSelectKyvernoExceptions(t *testing.T) {
 	selected := SelectKyvernoExceptions([]*v1beta1.PolicyException{owned, nil, envoy})
 	assert.Equal(t, []*v1beta1.PolicyException{owned}, selected)
 	assert.Nil(t, SelectKyvernoExceptions(nil))
+	assert.Empty(t, SelectKyvernoExceptions([]*v1beta1.PolicyException{}))
+
+	errs := ForeignEvaluationModeError("Envoy")
+	if assert.Len(t, errs, 1) {
+		assert.Equal(t, "Envoy", errs[0].BadValue)
+	}
 }
