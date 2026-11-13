@@ -779,6 +779,42 @@ func TestApplyCELRewritesExpressions(t *testing.T) {
 			config: "deployments",
 			want:   "object.?spec.template.metadata[?  'labels' ]['env'] == 'prod'",
 		},
+		{
+			name:   "spaced field select is skipped (foo . object . spec)",
+			expr:   "foo . object . spec == true",
+			config: "deployments",
+			want:   "foo . object . spec == true",
+		},
+		{
+			name:   "spaced optional field select is skipped (foo .? object . spec)",
+			expr:   "foo .? object . spec == true",
+			config: "deployments",
+			want:   "foo .? object . spec == true",
+		},
+		{
+			name:   "spaced optional field select is skipped (foo . ? object . spec)",
+			expr:   "foo . ? object . spec == true",
+			config: "deployments",
+			want:   "foo . ? object . spec == true",
+		},
+		{
+			name:   "spaced request.object is rewritten (request . object . spec)",
+			expr:   "request . object . spec.replicas > 0",
+			config: "deployments",
+			want:   "request . object.spec.template.spec.replicas > 0",
+		},
+		{
+			name:   "spaced request.?object is rewritten (request .? object .? spec)",
+			expr:   "request .? object .? spec.replicas > 0",
+			config: "deployments",
+			want:   "request .? object.?spec.template.spec.replicas > 0",
+		},
+		{
+			name:   "spaced myrequest.object is skipped (myrequest . object . spec)",
+			expr:   "myrequest . object . spec.replicas > 0",
+			config: "deployments",
+			want:   "myrequest . object . spec.replicas > 0",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

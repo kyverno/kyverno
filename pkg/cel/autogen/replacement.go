@@ -439,23 +439,64 @@ func isAlreadyRewrittenSpec(rest []byte) bool {
 }
 
 // isValidBoundary reports whether data[i:] starts at a valid CEL root boundary.
+// It ensures that `object` or `oldObject` is a standalone root and not a field selection
+// of a preceding expression (e.g. `foo.object` or `foo . object` or `foo .? object`),
+// while preserving sanctioned access via `request.object` and `request.?object`.
 func isValidBoundary(data []byte, i int) bool {
 	if i == 0 {
 		return true
 	}
-	if data[i-1] == '.' {
-		if i >= 8 && bytes.Equal(data[i-8:i], []byte("request.")) {
-			return i == 8 || (!isIdentifierByte(data[i-9]) && data[i-9] != '.')
-		}
+	// Direct prefix cannot be an identifier byte (e.g. `xobject`)
+	if isIdentifierByte(data[i-1]) {
 		return false
 	}
-	if data[i-1] == '?' && i >= 2 && data[i-2] == '.' {
-		if i >= 9 && bytes.Equal(data[i-9:i], []byte("request.?")) {
-			return i == 9 || (!isIdentifierByte(data[i-10]) && data[i-10] != '.')
+
+	// Skip any whitespace backwards to inspect the preceding operator token
+	k := i - 1
+	for k >= 0 && isWhitespaceByte(data[k]) {
+		k--
+	}
+	if k < 0 {
+		return true
+	}
+
+	// Check if preceded by optional traversal operator: "?" or ".?"
+	if data[k] == '?' {
+		m := k - 1
+		for m >= 0 && isWhitespaceByte(data[m]) {
+			m--
 		}
+		if m >= 0 && data[m] == '.' {
+			return isRequestPrefix(data, m)
+		}
+		// Standalone '?' is a ternary operator (e.g. `cond ? object.spec : other`),
+		// where `object` is a valid root operand.
+		return true
+	}
+
+	// Check if preceded by dot operator: "."
+	if data[k] == '.' {
+		return isRequestPrefix(data, k)
+	}
+
+	return true
+}
+
+// isRequestPrefix reports whether the token immediately preceding the dot at dotIdx
+// is `request` at a valid boundary (e.g. `request.` or `foo && request .`).
+func isRequestPrefix(data []byte, dotIdx int) bool {
+	m := dotIdx - 1
+	for m >= 0 && isWhitespaceByte(data[m]) {
+		m--
+	}
+	if m < 6 || !bytes.Equal(data[m-6:m+1], []byte("request")) {
 		return false
 	}
-	return !isIdentifierByte(data[i-1])
+	beforeRequest := m - 7
+	if beforeRequest < 0 {
+		return true
+	}
+	return !isIdentifierByte(data[beforeRequest]) && data[beforeRequest] != '.'
 }
 
 // isWhitespaceByte reports whether b is an ASCII whitespace character permitted in CEL syntax.

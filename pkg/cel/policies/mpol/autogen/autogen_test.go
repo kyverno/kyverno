@@ -413,6 +413,24 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
 			input:    `object.metadata[? 'name'] == 'prod'`,
 			expected: `object.metadata[? 'name'] == 'prod'`,
 		},
+		{
+			name:     "deployment spaced foo . object . spec untouched",
+			config:   "deployments",
+			input:    `foo . object . spec.containers.all(c, true)`,
+			expected: `foo . object . spec.containers.all(c, true)`,
+		},
+		{
+			name:     "deployment spaced foo .? object . spec untouched",
+			config:   "deployments",
+			input:    `foo .? object . spec.containers.all(c, true)`,
+			expected: `foo .? object . spec.containers.all(c, true)`,
+		},
+		{
+			name:     "deployment spaced foo . ? object . spec untouched",
+			config:   "deployments",
+			input:    `foo . ? object . spec.containers.all(c, true)`,
+			expected: `foo . ? object . spec.containers.all(c, true)`,
+		},
 	}
 
 	for _, tt := range tests {
