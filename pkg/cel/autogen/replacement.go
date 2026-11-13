@@ -2,39 +2,7 @@ package autogen
 
 import (
 	"bytes"
-	"fmt"
 )
-
-// protectedSuffixes lists field paths that must remain anchored to the
-// workload object's own metadata and must never be rewritten into a pod
-// template path. For example, `object.metadata.namespace` and
-// `object.metadata.name` must stay as-is because pod templates (e.g. on
-// Deployments) usually do not carry those fields, which would otherwise
-// break match conditions and message expressions.
-var protectedSuffixes = [][]byte{
-	[]byte(".namespace"),
-	[]byte(".name"),
-	[]byte(".?namespace"),
-	[]byte(".?name"),
-	[]byte("['name']"),
-	[]byte("[\"name\"]"),
-	[]byte("[\\\"name\\\"]"),
-	[]byte("[?'name']"),
-	[]byte("[?\"name\"]"),
-	[]byte("[?\\\"name\\\"]"),
-	[]byte("['namespace']"),
-	[]byte("[\"namespace\"]"),
-	[]byte("[\\\"namespace\\\"]"), // Handle JSON-escaped namespace paths
-	[]byte("[?'namespace']"),
-	[]byte("[?\"namespace\"]"),
-	[]byte("[?\\\"namespace\\\"]"),
-	[]byte("[? 'name']"),
-	[]byte("[? \"name\"]"),
-	[]byte("[? \\\"name\\\"]"),
-	[]byte("[? 'namespace']"),
-	[]byte("[? \"namespace\"]"),
-	[]byte("[? \\\"namespace\\\"]"),
-}
 
 type Replacement struct {
 	From string
@@ -45,155 +13,8 @@ type Replacement struct {
 // replacing both the "object." and "oldObject." prefixes (including optional traversal ".?" and bracket selectors),
 // while skipping CEL string literals.
 func (r *Replacement) Apply(data []byte) []byte {
-	// dot syntax
-	data = replaceCEL(data, []byte("object."+r.From), []byte("object."+r.To))
-	data = replaceCEL(data, []byte("object.?"+r.From), []byte("object.?"+r.To))
-	data = replaceCEL(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
-	data = replaceCEL(data, []byte("oldObject.?"+r.From), []byte("oldObject.?"+r.To))
-
-	// equivalent selector forms (bracket syntax)
-	data = replaceCEL(data, []byte("object['"+r.From+"']"), []byte("object."+r.To))
-	data = replaceCEL(data, []byte("oldObject['"+r.From+"']"), []byte("oldObject."+r.To))
-
-	data = replaceCEL(data, []byte("object[\""+r.From+"\"]"), []byte("object."+r.To))
-	data = replaceCEL(data, []byte("oldObject[\""+r.From+"\"]"), []byte("oldObject."+r.To))
-
-	data = replaceCEL(data, []byte("object[\\\""+r.From+"\\\"]"), []byte("object."+r.To))
-	data = replaceCEL(data, []byte("oldObject[\\\""+r.From+"\\\"]"), []byte("oldObject."+r.To))
-
-	// optional indexing (bracket syntax with ?)
-	data = replaceCEL(data, []byte("object[?'"+r.From+"']"), []byte("object.?"+r.To))
-	data = replaceCEL(data, []byte("oldObject[?'"+r.From+"']"), []byte("oldObject.?"+r.To))
-
-	data = replaceCEL(data, []byte("object[?\""+r.From+"\"]"), []byte("object.?"+r.To))
-	data = replaceCEL(data, []byte("oldObject[?\""+r.From+"\"]"), []byte("oldObject.?"+r.To))
-
-	data = replaceCEL(data, []byte("object[?\\\""+r.From+"\\\"]"), []byte("object.?"+r.To))
-	data = replaceCEL(data, []byte("oldObject[?\\\""+r.From+"\\\"]"), []byte("oldObject.?"+r.To))
-
-	// optional indexing with whitespace tolerance: object[? 'spec']
-	data = replaceCEL(data, []byte("object[? '"+r.From+"']"), []byte("object.?"+r.To))
-	data = replaceCEL(data, []byte("oldObject[? '"+r.From+"']"), []byte("oldObject.?"+r.To))
-	data = replaceCEL(data, []byte("object[? \""+r.From+"\" ]"), []byte("object.?"+r.To))
-	data = replaceCEL(data, []byte("oldObject[? \""+r.From+"\" ]"), []byte("oldObject.?"+r.To))
-	data = replaceCEL(data, []byte("object[? \""+r.From+"\"]"), []byte("object.?"+r.To))
-	data = replaceCEL(data, []byte("oldObject[? \""+r.From+"\"]"), []byte("oldObject.?"+r.To))
-	data = replaceCEL(data, []byte("object[? \\\""+r.From+"\\\"]"), []byte("object.?"+r.To))
-	data = replaceCEL(data, []byte("oldObject[? \\\""+r.From+"\\\"]"), []byte("oldObject.?"+r.To))
-
-	return data
-}
-
-// isValidBoundary reports whether data[i:] starts at a valid CEL root boundary.
-func isValidBoundary(data []byte, i int) bool {
-	if i == 0 {
-		return true
-	}
-	if data[i-1] == '.' {
-		if i >= 8 && bytes.Equal(data[i-8:i], []byte("request.")) {
-			return i == 8 || (!isIdentifierByte(data[i-9]) && data[i-9] != '.')
-		}
-		return false
-	}
-	if data[i-1] == '?' && i >= 2 && data[i-2] == '.' {
-		if i >= 9 && bytes.Equal(data[i-9:i], []byte("request.?")) {
-			return i == 9 || (!isIdentifierByte(data[i-10]) && data[i-10] != '.')
-		}
-		return false
-	}
-	return !isIdentifierByte(data[i-1])
-}
-
-// isValidTrailingBoundary reports whether rest starts at a valid identifier boundary
-// when from ends with an identifier byte.
-func isValidTrailingBoundary(from, rest []byte) bool {
-	if len(from) > 0 && isIdentifierByte(from[len(from)-1]) {
-		return len(rest) == 0 || !isIdentifierByte(rest[0])
-	}
-	return true
-}
-
-// isProtected reports whether rest (the bytes immediately following a match)
-// begins with any of the protected suffixes as a complete path segment. The
-// suffix must either end the expression or be followed by a non-identifier
-// character so that fields like `metadata.namespace` are protected while
-// hypothetical fields like `metadata.namespaceFoo` are not.
-func isProtected(from, rest []byte) bool {
-	// The protected suffixes (like .name and .namespace) only apply when rewriting direct metadata paths (e.g. object.metadata),
-	// not subfields like object.metadata.labels or object.metadata.annotations, and not object.spec.
-	if !bytes.HasSuffix(from, []byte("metadata")) &&
-		!bytes.HasSuffix(from, []byte("metadata']")) &&
-		!bytes.HasSuffix(from, []byte("metadata\"]")) &&
-		!bytes.HasSuffix(from, []byte("metadata\\\"]")) {
-		return false
-	}
-	for _, suffix := range protectedSuffixes {
-		if !bytes.HasPrefix(rest, suffix) {
-			continue
-		}
-		next := rest[len(suffix):]
-		if len(next) == 0 || !isIdentifierByte(next[0]) {
-			return true
-		}
-	}
-	return isProtectedBracket(rest)
-}
-
-// isProtectedBracket reports whether rest starts with a bracket selector for a protected field
-// ('name' or 'namespace'), tolerating optional '?' and arbitrary whitespace within the brackets.
-func isProtectedBracket(rest []byte) bool {
-	if len(rest) < 3 || rest[0] != '[' {
-		return false
-	}
-	i := 1
-	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\r' || rest[i] == '\n') {
-		i++
-	}
-	if i < len(rest) && rest[i] == '?' {
-		i++
-	}
-	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\r' || rest[i] == '\n') {
-		i++
-	}
-	if i >= len(rest) {
-		return false
-	}
-	var quote []byte
-	if rest[i] == '\'' {
-		quote = []byte("'")
-		i++
-	} else if rest[i] == '"' {
-		quote = []byte("\"")
-		i++
-	} else if bytes.HasPrefix(rest[i:], []byte(`\"`)) {
-		quote = []byte(`\"`)
-		i += 2
-	} else {
-		return false
-	}
-	if bytes.HasPrefix(rest[i:], []byte("namespace")) {
-		i += 9
-	} else if bytes.HasPrefix(rest[i:], []byte("name")) {
-		i += 4
-	} else {
-		return false
-	}
-	if !bytes.HasPrefix(rest[i:], quote) {
-		return false
-	}
-	i += len(quote)
-	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\r' || rest[i] == '\n') {
-		i++
-	}
-	return i < len(rest) && rest[i] == ']'
-}
-
-// isIdentifierByte reports whether b can be part of a CEL identifier segment.
-func isIdentifierByte(b byte) bool {
-	return b == '_' ||
-		(b >= 'a' && b <= 'z') ||
-		(b >= 'A' && b <= 'Z') ||
-		(b >= '0' && b <= '9')
+	roots := [][]byte{[]byte("object"), []byte("oldObject")}
+	return rewriteField(data, roots, r.From, r.To)
 }
 
 // Apply sequentially applies a list of replacements to the given data.
@@ -213,20 +34,116 @@ func ApplyCEL(data []byte, replacements ...Replacement) []byte {
 	return data
 }
 
-// replaceCEL is a syntax-aware replacer that skips CEL string literals.
-func replaceCEL(data, from, to []byte) []byte {
-	if len(from) == 0 || bytes.Equal(from, to) {
-		return data
+// ApplyMutatingCEL applies pod-to-template expression conversions for MutatingPolicy.
+// It is syntax-aware and skips CEL string literals, rewrites bracket and dot selectors
+// for spec, metadata.labels, and metadata.annotations, and preserves controller metadata fields.
+func ApplyMutatingCEL(data []byte, config string) []byte {
+	specRepl := "spec.template.spec"
+	metaRepl := "spec.template.metadata"
+	if config == "cronjobs" {
+		specRepl = "spec.jobTemplate.spec.template.spec"
+		metaRepl = "spec.jobTemplate.spec.template.metadata"
 	}
-	idx := bytes.Index(data, from)
-	if idx < 0 {
-		return data
-	}
+	roots := [][]byte{[]byte("object"), []byte("oldObject"), []byte("Object")}
+	return rewriteMutatingCEL(data, roots, specRepl, metaRepl)
+}
 
+// rewriteField replaces occurrences of `roots` + `fromField` with `roots` + `toField`.
+// It preserves protected metadata fields (.name, .namespace) and already rewritten spec paths (.template, .jobTemplate).
+func rewriteField(data []byte, roots [][]byte, fromField, toField string) []byte {
+	return transformCEL(data, func(data []byte, i int) (int, []byte, bool) {
+		root, ok := matchRoot(data, i, roots)
+		if !ok {
+			return 0, nil, false
+		}
+		rest := data[i+len(root):]
+		matchLen, isOptional, matched := scanFieldSelector(rest, fromField)
+		if !matched {
+			return 0, nil, false
+		}
+		after := rest[matchLen:]
+		if fromField == "metadata" && isProtectedMetadata(after) {
+			return len(root) + matchLen, data[i : i+len(root)+matchLen], true
+		}
+		if fromField == "spec" && isAlreadyRewrittenSpec(after) {
+			return len(root) + matchLen, data[i : i+len(root)+matchLen], true
+		}
+		var repl bytes.Buffer
+		repl.Write(root)
+		if isOptional {
+			repl.WriteString(".?")
+		} else {
+			repl.WriteString(".")
+		}
+		repl.WriteString(toField)
+		return len(root) + matchLen, repl.Bytes(), true
+	})
+}
+
+// rewriteMutatingCEL performs mutating policy pod-to-template rewrites:
+//  1. metadata.labels and metadata.annotations -> spec.template.metadata.labels/annotations
+//  2. spec -> spec.template.spec
+func rewriteMutatingCEL(data []byte, roots [][]byte, specRepl, metaRepl string) []byte {
+	return transformCEL(data, func(data []byte, i int) (int, []byte, bool) {
+		root, ok := matchRoot(data, i, roots)
+		if !ok {
+			return 0, nil, false
+		}
+		rest := data[i+len(root):]
+
+		// 1. Check for metadata.labels or metadata.annotations
+		if metaLen, optMeta, okMeta := scanFieldSelector(rest, "metadata"); okMeta {
+			afterMeta := rest[metaLen:]
+			subLen, optSub, okSub := scanFieldSelector(afterMeta, "labels")
+			subName := "labels"
+			if !okSub {
+				subLen, optSub, okSub = scanFieldSelector(afterMeta, "annotations")
+				subName = "annotations"
+			}
+			if okSub {
+				var repl bytes.Buffer
+				repl.Write(root)
+				if optMeta {
+					repl.WriteString(".?")
+				} else {
+					repl.WriteString(".")
+				}
+				repl.WriteString(metaRepl)
+				if optSub {
+					repl.WriteString(".?")
+				} else {
+					repl.WriteString(".")
+				}
+				repl.WriteString(subName)
+				return len(root) + metaLen + subLen, repl.Bytes(), true
+			}
+		}
+
+		// 2. Check for spec
+		if specLen, optSpec, okSpec := scanFieldSelector(rest, "spec"); okSpec {
+			afterSpec := rest[specLen:]
+			if isAlreadyRewrittenSpec(afterSpec) {
+				return len(root) + specLen, data[i : i+len(root)+specLen], true
+			}
+			var repl bytes.Buffer
+			repl.Write(root)
+			if optSpec {
+				repl.WriteString(".?")
+			} else {
+				repl.WriteString(".")
+			}
+			repl.WriteString(specRepl)
+			return len(root) + specLen, repl.Bytes(), true
+		}
+
+		return 0, nil, false
+	})
+}
+
+// transformCEL scans through data, skipping CEL comments and string literals,
+// and invokes transform at valid token boundaries.
+func transformCEL(data []byte, transform func(data []byte, i int) (int, []byte, bool)) []byte {
 	size := len(data)
-	if len(to) > len(from) {
-		size += bytes.Count(data, from) * (len(to) - len(from))
-	}
 	var buf bytes.Buffer
 	buf.Grow(size)
 
@@ -236,7 +153,7 @@ func replaceCEL(data, from, to []byte) []byte {
 
 	for i := 0; i < len(data); {
 		if !inString {
-			// Skip CEL single-line comments so apostrophes inside comments do not trigger inString
+			// Skip CEL single-line comments
 			if bytes.HasPrefix(data[i:], []byte("//")) {
 				newlineIdx := bytes.IndexByte(data[i:], '\n')
 				if newlineIdx == -1 {
@@ -260,19 +177,11 @@ func replaceCEL(data, from, to []byte) []byte {
 				continue
 			}
 
-			if bytes.HasPrefix(data[i:], from) {
-				if isValidBoundary(data, i) {
-					rest := data[i+len(from):]
-					if isValidTrailingBoundary(from, rest) {
-						if isProtected(from, rest) || isAlreadyRewritten(from, rest) {
-							buf.Write(from)
-						} else {
-							buf.Write(to)
-						}
-						i += len(from)
-						continue
-					}
-				}
+			// Try transformation at current position
+			if advance, repl, ok := transform(data, i); ok {
+				buf.Write(repl)
+				i += advance
+				continue
 			}
 
 			// Check for string start (check raw triple quotes before raw single quotes)
@@ -315,38 +224,43 @@ func replaceCEL(data, from, to []byte) []byte {
 			} else if data[i] == '\'' {
 				inString = true
 				stringQuote = "'"
+				buf.WriteByte(data[i])
+				i++
+				continue
 			} else if data[i] == '"' {
 				inString = true
 				stringQuote = "\""
+				buf.WriteByte(data[i])
+				i++
+				continue
 			} else if data[i] == '`' {
 				inString = true
 				stringQuote = "`"
+				buf.WriteByte(data[i])
+				i++
+				continue
 			}
 		} else {
-			// Check for string end
-			if (stringQuote == "'''" || stringQuote == "r'''") && bytes.HasPrefix(data[i:], []byte("'''")) {
-				if stringQuote == "r'''" || !escaped {
+			// Inside string literal
+			if !escaped {
+				if (stringQuote == "r'''" || stringQuote == "'''") && bytes.HasPrefix(data[i:], []byte("'''")) {
 					inString = false
 					buf.Write(data[i : i+3])
 					i += 3
 					continue
-				}
-			} else if (stringQuote == "\"\"\"" || stringQuote == "r\"\"\"") && bytes.HasPrefix(data[i:], []byte("\"\"\"")) {
-				if stringQuote == "r\"\"\"" || !escaped {
+				} else if (stringQuote == "r\"\"\"" || stringQuote == "\"\"\"") && bytes.HasPrefix(data[i:], []byte("\"\"\"")) {
 					inString = false
 					buf.Write(data[i : i+3])
 					i += 3
 					continue
+				} else if (stringQuote == "r'" || stringQuote == "'") && data[i] == '\'' {
+					inString = false
+				} else if (stringQuote == "r\"" || stringQuote == "\"") && data[i] == '"' {
+					inString = false
+				} else if stringQuote == "`" && data[i] == '`' {
+					inString = false
 				}
-			} else if (stringQuote == "'" || stringQuote == "r'") && data[i] == '\'' && (stringQuote == "r'" || !escaped) {
-				inString = false
-			} else if (stringQuote == "\"" || stringQuote == "r\"") && data[i] == '"' && (stringQuote == "r\"" || !escaped) {
-				inString = false
-			} else if stringQuote == "`" && data[i] == '`' {
-				inString = false
 			}
-
-			// Manage escapes (raw strings and backtick strings do not process escape sequences)
 			if data[i] == '\\' && stringQuote != "r'" && stringQuote != "r\"" && stringQuote != "r'''" && stringQuote != "r\"\"\"" && stringQuote != "`" {
 				escaped = !escaped
 			} else {
@@ -360,126 +274,199 @@ func replaceCEL(data, from, to []byte) []byte {
 	return buf.Bytes()
 }
 
-// isAlreadyRewritten reports whether rest begins with .template / .jobTemplate,
-// preventing redundant double-rewriting on spec paths.
-// isAlreadyRewritten reports whether rest begins with .template / .jobTemplate as a complete path segment,
-// preventing redundant double-rewriting on spec paths while preserving distinct fields like templateSpec.
-func isAlreadyRewritten(from, rest []byte) bool {
-	if bytes.HasSuffix(from, []byte("spec")) || bytes.HasSuffix(from, []byte("spec']")) || bytes.HasSuffix(from, []byte("spec\"]")) {
-		suffixes := [][]byte{
-			[]byte(".template"),
-			[]byte(".?template"),
-			[]byte(".jobTemplate"),
-			[]byte(".?jobTemplate"),
-		}
-		for _, s := range suffixes {
-			if bytes.HasPrefix(rest, s) {
-				next := rest[len(s):]
-				if len(next) == 0 || !isIdentifierByte(next[0]) {
-					return true
-				}
+// matchRoot checks whether data[i:] begins with one of roots at a valid root boundary.
+func matchRoot(data []byte, i int, roots [][]byte) ([]byte, bool) {
+	if !isValidBoundary(data, i) {
+		return nil, false
+	}
+	for _, root := range roots {
+		if bytes.HasPrefix(data[i:], root) {
+			after := i + len(root)
+			if after == len(data) || !isIdentifierByte(data[after]) {
+				return root, true
 			}
 		}
+	}
+	return nil, false
+}
+
+// scanFieldSelector reports whether data begins with a dot or bracket selector for fieldName.
+// It tolerates optional traversal (.? or [?...]) and arbitrary whitespace.
+func scanFieldSelector(data []byte, field string) (int, bool, bool) {
+	if n, opt, ok := scanDotSelector(data, field); ok {
+		return n, opt, true
+	}
+	if n, opt, ok := scanBracketSelector(data, field); ok {
+		return n, opt, true
+	}
+	return 0, false, false
+}
+
+// scanDotSelector checks if data starts with "." or ".?" followed by fieldName.
+// It ensures fieldName ends on a non-identifier boundary and tolerates optional whitespace around the dot.
+func scanDotSelector(data []byte, field string) (int, bool, bool) {
+	if len(data) == 0 {
+		return 0, false, false
+	}
+	idx := 0
+	for idx < len(data) && isWhitespaceByte(data[idx]) {
+		idx++
+	}
+	if idx >= len(data) || data[idx] != '.' {
+		return 0, false, false
+	}
+	idx++ // consume '.'
+
+	isOptional := false
+	if idx < len(data) && data[idx] == '?' {
+		isOptional = true
+		idx++
+	}
+	for idx < len(data) && isWhitespaceByte(data[idx]) {
+		idx++
+	}
+	if len(data[idx:]) < len(field) || !bytes.Equal(data[idx:idx+len(field)], []byte(field)) {
+		return 0, false, false
+	}
+	idx += len(field)
+	if idx < len(data) && isIdentifierByte(data[idx]) {
+		return 0, false, false
+	}
+	return idx, isOptional, true
+}
+
+// scanBracketSelector checks if data starts with bracket access for fieldName:
+//
+//	[whitespace] [?] [whitespace] quote fieldName quote [whitespace] ]
+//
+// It tolerates arbitrary whitespace and supports single ('...'), double ("..."),
+// JSON-escaped (\"...\"), and raw (r'...', r"...") quotes.
+func scanBracketSelector(data []byte, field string) (int, bool, bool) {
+	if len(data) == 0 {
+		return 0, false, false
+	}
+	idx := 0
+	for idx < len(data) && isWhitespaceByte(data[idx]) {
+		idx++
+	}
+	if idx >= len(data) || data[idx] != '[' {
+		return 0, false, false
+	}
+	idx++ // consume '['
+
+	for idx < len(data) && isWhitespaceByte(data[idx]) {
+		idx++
+	}
+	isOptional := false
+	if idx < len(data) && data[idx] == '?' {
+		isOptional = true
+		idx++
+	}
+	for idx < len(data) && isWhitespaceByte(data[idx]) {
+		idx++
+	}
+	if idx >= len(data) {
+		return 0, false, false
+	}
+
+	var quote []byte
+	if data[idx] == '\'' {
+		quote = []byte("'")
+		idx++
+	} else if data[idx] == '"' {
+		quote = []byte("\"")
+		idx++
+	} else if bytes.HasPrefix(data[idx:], []byte(`\"`)) {
+		quote = []byte(`\"`)
+		idx += 2
+	} else if (data[idx] == 'r' || data[idx] == 'R') && idx+1 < len(data) {
+		if data[idx+1] == '\'' {
+			quote = []byte("'")
+			idx += 2
+		} else if data[idx+1] == '"' {
+			quote = []byte("\"")
+			idx += 2
+		} else {
+			return 0, false, false
+		}
+	} else {
+		return 0, false, false
+	}
+
+	if len(data[idx:]) < len(field) || !bytes.Equal(data[idx:idx+len(field)], []byte(field)) {
+		return 0, false, false
+	}
+	idx += len(field)
+
+	if !bytes.HasPrefix(data[idx:], quote) {
+		return 0, false, false
+	}
+	idx += len(quote)
+
+	for idx < len(data) && isWhitespaceByte(data[idx]) {
+		idx++
+	}
+	if idx >= len(data) || data[idx] != ']' {
+		return 0, false, false
+	}
+	idx++ // consume ']'
+
+	return idx, isOptional, true
+}
+
+// isProtectedMetadata reports whether rest begins with a selector for a protected field
+// ('name' or 'namespace'), tolerating optional '?' and arbitrary whitespace.
+func isProtectedMetadata(rest []byte) bool {
+	if _, _, ok := scanFieldSelector(rest, "name"); ok {
+		return true
+	}
+	if _, _, ok := scanFieldSelector(rest, "namespace"); ok {
+		return true
 	}
 	return false
 }
 
-// ApplyMutatingCEL applies pod-to-template expression conversions for MutatingPolicy.
-// It is syntax-aware and skips CEL string literals, rewrites bracket and dot selectors
-// for spec, metadata.labels, and metadata.annotations, and preserves controller metadata fields.
-func ApplyMutatingCEL(data []byte, config string) []byte {
-	specRepl := "spec.template.spec"
-	metaRepl := "spec.template.metadata"
-	if config == "cronjobs" {
-		specRepl = "spec.jobTemplate.spec.template.spec"
-		metaRepl = "spec.jobTemplate.spec.template.metadata"
+// isAlreadyRewrittenSpec reports whether rest begins with .template or .jobTemplate,
+// preventing redundant double-rewriting on spec paths.
+func isAlreadyRewrittenSpec(rest []byte) bool {
+	if _, _, ok := scanFieldSelector(rest, "template"); ok {
+		return true
 	}
-
-	roots := []string{"object", "oldObject", "Object"}
-
-	// 1. Rewrite metadata.labels and metadata.annotations first
-	for _, root := range roots {
-		// dot and optional dot syntax for labels
-		for _, optMeta := range []string{".", ".?"} {
-			for _, optLabels := range []string{".", ".?"} {
-				from := fmt.Sprintf("%s%smetadata%slabels", root, optMeta, optLabels)
-				to := fmt.Sprintf("%s%s%s%slabels", root, optMeta, metaRepl, optLabels)
-				data = replaceCEL(data, []byte(from), []byte(to))
-			}
-			// bracket labels with dot/optional-dot metadata
-			for _, q := range []string{"'", "\""} {
-				fromOpt := fmt.Sprintf("%s%smetadata[?%slabels%s]", root, optMeta, q, q)
-				fromNoOpt := fmt.Sprintf("%s%smetadata[%slabels%s]", root, optMeta, q, q)
-				data = replaceCEL(data, []byte(fromOpt), []byte(fmt.Sprintf("%s%s%s.?labels", root, optMeta, metaRepl)))
-				data = replaceCEL(data, []byte(fromNoOpt), []byte(fmt.Sprintf("%s%s%s.labels", root, optMeta, metaRepl)))
-			}
-		}
-		// bracket metadata
-		for _, qM := range []string{"'", "\""} {
-			for _, optMeta := range []bool{false, true} {
-				metaPrefix := fmt.Sprintf("%s[%s%smetadata%s]", root, map[bool]string{false: "", true: "?"}[optMeta], qM, qM)
-				metaDelim := map[bool]string{false: ".", true: ".?"}[optMeta]
-
-				for _, optLabels := range []string{".", ".?"} {
-					from := fmt.Sprintf("%s%slabels", metaPrefix, optLabels)
-					to := fmt.Sprintf("%s%s%s%slabels", root, metaDelim, metaRepl, optLabels)
-					data = replaceCEL(data, []byte(from), []byte(to))
-				}
-				for _, qL := range []string{"'", "\""} {
-					fromOpt := fmt.Sprintf("%s[?%slabels%s]", metaPrefix, qL, qL)
-					fromNoOpt := fmt.Sprintf("%s[%slabels%s]", metaPrefix, qL, qL)
-					data = replaceCEL(data, []byte(fromOpt), []byte(fmt.Sprintf("%s%s%s.?labels", root, metaDelim, metaRepl)))
-					data = replaceCEL(data, []byte(fromNoOpt), []byte(fmt.Sprintf("%s%s%s.labels", root, metaDelim, metaRepl)))
-				}
-			}
-		}
-
-		// dot and optional dot syntax for annotations
-		for _, optMeta := range []string{".", ".?"} {
-			for _, optAnn := range []string{".", ".?"} {
-				from := fmt.Sprintf("%s%smetadata%sannotations", root, optMeta, optAnn)
-				to := fmt.Sprintf("%s%s%s%sannotations", root, optMeta, metaRepl, optAnn)
-				data = replaceCEL(data, []byte(from), []byte(to))
-			}
-			for _, q := range []string{"'", "\""} {
-				fromOpt := fmt.Sprintf("%s%smetadata[?%sannotations%s]", root, optMeta, q, q)
-				fromNoOpt := fmt.Sprintf("%s%smetadata[%sannotations%s]", root, optMeta, q, q)
-				data = replaceCEL(data, []byte(fromOpt), []byte(fmt.Sprintf("%s%s%s.?annotations", root, optMeta, metaRepl)))
-				data = replaceCEL(data, []byte(fromNoOpt), []byte(fmt.Sprintf("%s%s%s.annotations", root, optMeta, metaRepl)))
-			}
-		}
-		for _, qM := range []string{"'", "\""} {
-			for _, optMeta := range []bool{false, true} {
-				metaPrefix := fmt.Sprintf("%s[%s%smetadata%s]", root, map[bool]string{false: "", true: "?"}[optMeta], qM, qM)
-				metaDelim := map[bool]string{false: ".", true: ".?"}[optMeta]
-
-				for _, optAnn := range []string{".", ".?"} {
-					from := fmt.Sprintf("%s%sannotations", metaPrefix, optAnn)
-					to := fmt.Sprintf("%s%s%s%sannotations", root, metaDelim, metaRepl, optAnn)
-					data = replaceCEL(data, []byte(from), []byte(to))
-				}
-				for _, qL := range []string{"'", "\""} {
-					fromOpt := fmt.Sprintf("%s[?%sannotations%s]", metaPrefix, qL, qL)
-					fromNoOpt := fmt.Sprintf("%s[%sannotations%s]", metaPrefix, qL, qL)
-					data = replaceCEL(data, []byte(fromOpt), []byte(fmt.Sprintf("%s%s%s.?annotations", root, metaDelim, metaRepl)))
-					data = replaceCEL(data, []byte(fromNoOpt), []byte(fmt.Sprintf("%s%s%s.annotations", root, metaDelim, metaRepl)))
-				}
-			}
-		}
-
-		// 2. Rewrite spec
-		data = replaceCEL(data, []byte(root+".spec"), []byte(root+"."+specRepl))
-		data = replaceCEL(data, []byte(root+".?spec"), []byte(root+".?"+specRepl))
-		for _, q := range []string{"'", "\""} {
-			for _, ws := range []string{"", " "} {
-				data = replaceCEL(data, []byte(fmt.Sprintf("%s[%s%sspec%s]", root, ws, q, q)), []byte(root+"."+specRepl))
-				data = replaceCEL(data, []byte(fmt.Sprintf("%s[?%s%sspec%s]", root, ws, q, q)), []byte(root+".?"+specRepl))
-				data = replaceCEL(data, []byte(fmt.Sprintf("%s[ %s?%sspec%s]", root, ws, q, q)), []byte(root+".?"+specRepl))
-				data = replaceCEL(data, []byte(fmt.Sprintf("%s[%s%sspec%s ]", root, ws, q, q)), []byte(root+"."+specRepl))
-				data = replaceCEL(data, []byte(fmt.Sprintf("%s[?%s%sspec%s ]", root, ws, q, q)), []byte(root+".?"+specRepl))
-			}
-		}
+	if _, _, ok := scanFieldSelector(rest, "jobTemplate"); ok {
+		return true
 	}
+	return false
+}
 
-	return data
+// isValidBoundary reports whether data[i:] starts at a valid CEL root boundary.
+func isValidBoundary(data []byte, i int) bool {
+	if i == 0 {
+		return true
+	}
+	if data[i-1] == '.' {
+		if i >= 8 && bytes.Equal(data[i-8:i], []byte("request.")) {
+			return i == 8 || (!isIdentifierByte(data[i-9]) && data[i-9] != '.')
+		}
+		return false
+	}
+	if data[i-1] == '?' && i >= 2 && data[i-2] == '.' {
+		if i >= 9 && bytes.Equal(data[i-9:i], []byte("request.?")) {
+			return i == 9 || (!isIdentifierByte(data[i-10]) && data[i-10] != '.')
+		}
+		return false
+	}
+	return !isIdentifierByte(data[i-1])
+}
+
+// isWhitespaceByte reports whether b is an ASCII whitespace character permitted in CEL syntax.
+func isWhitespaceByte(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\r' || b == '\n'
+}
+
+// isIdentifierByte reports whether b can be part of a CEL identifier segment.
+func isIdentifierByte(b byte) bool {
+	return b == '_' ||
+		(b >= 'a' && b <= 'z') ||
+		(b >= 'A' && b <= 'Z') ||
+		(b >= '0' && b <= '9')
 }

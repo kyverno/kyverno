@@ -731,6 +731,54 @@ func TestApplyCELRewritesExpressions(t *testing.T) {
 			config: "deployments",
 			want:   "/* don't match */ object.spec.template.spec.replicas > 0",
 		},
+		{
+			name:   "deployments object[?  'spec' ] with multiple internal spaces is rewritten in CEL",
+			expr:   "object[?  'spec' ].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.?spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments object[ ? 'spec' ] with space before ? is rewritten in CEL",
+			expr:   "object[ ? 'spec' ].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.?spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments object[\\n  'spec'\\n] with newlines is rewritten in CEL",
+			expr:   "object[\n  'spec'\n].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments object [? 'spec'] with space before bracket is rewritten in CEL",
+			expr:   "object [? 'spec'].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "object.?spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments oldObject[?  'spec' ] is rewritten in CEL",
+			expr:   "oldObject[?  'spec' ].containers.exists(c, c.name == 'nginx')",
+			config: "deployments",
+			want:   "oldObject.?spec.template.spec.containers.exists(c, c.name == 'nginx')",
+		},
+		{
+			name:   "deployments object[?  'metadata' ][?  'namespace' ] is preserved in CEL",
+			expr:   "object[?  'metadata' ][?  'namespace' ] == 'default'",
+			config: "deployments",
+			want:   "object[?  'metadata' ][?  'namespace' ] == 'default'",
+		},
+		{
+			name:   "deployments object[?  'metadata' ][?  'name' ] is preserved in CEL",
+			expr:   "object[?  'metadata' ][?  'name' ] == 'foo'",
+			config: "deployments",
+			want:   "object[?  'metadata' ][?  'name' ] == 'foo'",
+		},
+		{
+			name:   "deployments object[?  'metadata' ][?  'labels' ] is rewritten in CEL",
+			expr:   "object[?  'metadata' ][?  'labels' ]['env'] == 'prod'",
+			config: "deployments",
+			want:   "object.?spec.template.metadata[?  'labels' ]['env'] == 'prod'",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

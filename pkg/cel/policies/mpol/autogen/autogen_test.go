@@ -323,6 +323,96 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
 			input:    `object.spec.templateSpec == 'foo'`,
 			expected: `object.spec.template.spec.templateSpec == 'foo'`,
 		},
+		{
+			name:     "deployment object.metadata[? 'labels'] whitespace conversion",
+			config:   "deployments",
+			input:    `object.metadata[? 'labels']['env'] == 'prod'`,
+			expected: `object.spec.template.metadata.?labels['env'] == 'prod'`,
+		},
+		{
+			name:     "deployment object.metadata[?  'labels' ] multiple spaces conversion",
+			config:   "deployments",
+			input:    `object.metadata[?  'labels' ]['env'] == 'prod'`,
+			expected: `object.spec.template.metadata.?labels['env'] == 'prod'`,
+		},
+		{
+			name:     "deployment object[? 'metadata'][? 'labels'] whitespace conversion",
+			config:   "deployments",
+			input:    `object[? 'metadata'][? 'labels']['env'] == 'prod'`,
+			expected: `object.?spec.template.metadata.?labels['env'] == 'prod'`,
+		},
+		{
+			name:     "deployment object[?  'metadata' ] [?  'labels' ] spaced bracket conversion",
+			config:   "deployments",
+			input:    `object[?  'metadata' ] [?  'labels' ]['env'] == 'prod'`,
+			expected: `object.?spec.template.metadata.?labels['env'] == 'prod'`,
+		},
+		{
+			name:     "deployment object.metadata[\\n  'labels'\\n] newline conversion",
+			config:   "deployments",
+			input:    "object.metadata[\n  'labels'\n]['env'] == 'prod'",
+			expected: "object.spec.template.metadata.labels['env'] == 'prod'",
+		},
+		{
+			name:     "deployment object.metadata[? 'annotations'] whitespace conversion",
+			config:   "deployments",
+			input:    `object.metadata[? 'annotations']['link'] != ''`,
+			expected: `object.spec.template.metadata.?annotations['link'] != ''`,
+		},
+		{
+			name:     "deployment object[? 'metadata'][? 'annotations'] whitespace conversion",
+			config:   "deployments",
+			input:    `object[? 'metadata'][? 'annotations']['link'] != ''`,
+			expected: `object.?spec.template.metadata.?annotations['link'] != ''`,
+		},
+		{
+			name:     "deployment object[?  'spec' ] multiple spaces conversion",
+			config:   "deployments",
+			input:    `object[?  'spec' ].containers.all(c, true)`,
+			expected: `object.?spec.template.spec.containers.all(c, true)`,
+		},
+		{
+			name:     "deployment object[\\n  'spec'\\n] newline conversion",
+			config:   "deployments",
+			input:    "object[\n  'spec'\n].containers.all(c, true)",
+			expected: "object.spec.template.spec.containers.all(c, true)",
+		},
+		{
+			name:     "deployment oldObject.metadata[? 'labels'] whitespace conversion",
+			config:   "deployments",
+			input:    `oldObject.metadata[? 'labels']['env'] == 'prod'`,
+			expected: `oldObject.spec.template.metadata.?labels['env'] == 'prod'`,
+		},
+		{
+			name:     "deployment oldObject[? 'metadata'][? 'labels'] whitespace conversion",
+			config:   "deployments",
+			input:    `oldObject[? 'metadata'][? 'labels']['env'] == 'prod'`,
+			expected: `oldObject.?spec.template.metadata.?labels['env'] == 'prod'`,
+		},
+		{
+			name:     "deployment Object.metadata[? 'labels'] whitespace conversion",
+			config:   "deployments",
+			input:    `Object.metadata[? 'labels']`,
+			expected: `Object.spec.template.metadata.?labels`,
+		},
+		{
+			name:     "deployment Object[? 'metadata'][? 'labels'] whitespace conversion",
+			config:   "deployments",
+			input:    `Object[? 'metadata'][? 'labels']`,
+			expected: `Object.?spec.template.metadata.?labels`,
+		},
+		{
+			name:     "deployment object[? 'metadata'][? 'name'] preserved",
+			config:   "deployments",
+			input:    `object[? 'metadata'][? 'name'] == 'prod'`,
+			expected: `object[? 'metadata'][? 'name'] == 'prod'`,
+		},
+		{
+			name:     "deployment object.metadata[? 'name'] preserved",
+			config:   "deployments",
+			input:    `object.metadata[? 'name'] == 'prod'`,
+			expected: `object.metadata[? 'name'] == 'prod'`,
+		},
 	}
 
 	for _, tt := range tests {
