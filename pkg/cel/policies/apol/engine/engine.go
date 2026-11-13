@@ -1,25 +1,32 @@
 // Package engine evaluates AuthorizingPolicy resources for the Kubernetes
 // conditional authorization protocol (KEP-5681, Kubernetes v1.38 alpha).
 //
-// STUB NOTICE (kyverno/kyverno#18616): this is a minimal, correct evaluator
-// written by the protocol work so the SubjectAccessReview and
-// AuthorizationConditionsReview handlers can be tested end to end. The
-// evaluator sub-issue (#18621) owns this package and is expected to replace or
-// extend it. Known limitations:
-//   - Variables cannot reference object or oldObject (compile error).
-//   - A residual that cannot be rendered as a self-contained CEL expression
-//     over object and oldObject (for example, because a known value cannot be
-//     inlined as a literal) is treated as an evaluation error of its rule.
-//   - Residual programs are compiled on every conditions review (no cache).
+// The evaluator is order-independent and phase-aware:
+//
+//   - Each request reads one immutable Snapshot of compiled policies.
+//     Policies are compiled and validated at reconcile time; a policy that
+//     failed to compile stays in the snapshot and its rules follow the
+//     effect-specific error semantics (it never silently exempts a request).
+//   - At SubjectAccessReview time, `request` and `variables` are bound and
+//     `object`/`oldObject` are unknown (cel-go partial evaluation with
+//     unknown attribute patterns, state tracking, and residual ASTs).
+//   - Every rule of every applicable policy is collected into one flat set and
+//     folded with the precedence Deny > NoOpinion > Allow. Only concrete
+//     outcomes are folded; residuals stay conditional.
+//   - Residual conditions are self-contained: known values are substituted by
+//     pruning, and any remaining `request`/`variables` reference is captured
+//     with `cel.bind`. The AuthorizationConditionsReview callback evaluates the
+//     residuals carried in the decision and never reads current policies.
+//   - Input size, residual size, CEL cost, value depth, and concurrency are
+//     bounded, and context cancellation stops evaluation (fail closed).
 package engine
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
-	"strings"
 	"sync"
+	"sync/atomic"
 
 	"cel.dev/cel-go/cel"
 	"cel.dev/cel-go/common/types"
@@ -32,20 +39,29 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/sets"
-	apiserverauthorizationv1 "k8s.io/apiserver/pkg/apis/authorization/v1"
+	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/cel/lazy"
+	"k8s.io/utils/lru"
 )
 
 var logger = logging.WithName("apol-engine")
 
 const (
 	// ConditionType marks conditions Kyverno authored and evaluates itself.
-	// The kube-apiserver built-in type `authorizer.kubernetes.io/cel` is not
-	// used because Kyverno residuals are evaluated with Kyverno's own CEL
-	// environment (`object`, `oldObject`), and kube-apiserver v0.38.0-beta.0
-	// has no built-in evaluator for that type yet.
+	// It also versions the conditions environment (ConditionsEnvVersion): a
+	// residual of this type is a CEL expression over `object` and `oldObject`
+	// only, using the pure Kubernetes CEL libraries plus `cel.bind`. An
+	// incompatible change to that environment must use a new condition type,
+	// so a replica never evaluates a cached decision with the wrong semantics;
+	// unknown types evaluate as errors (fail closed).
+	//
+	// The kube-apiserver type `authorizer.kubernetes.io/cel` is not used:
+	// kube-apiserver v0.38.0-beta.0 has no built-in evaluator for it.
 	ConditionType = "policies.kyverno.io/cel"
+	// ConditionsEnvVersion is the version of the residual condition environment
+	// identified by ConditionType. It is recorded for diagnostics.
+	ConditionsEnvVersion = "v1"
 	// MaxConditionsPerMap mirrors the upstream ConditionsMap limit (total over all effects).
 	MaxConditionsPerMap = authorizer.MaxConditionsPerMap
 	// definite effect condition IDs (constant `true` conditions).
@@ -56,15 +72,72 @@ const (
 // conditionalVerbs are the verbs that can carry a conditional decision.
 var conditionalVerbs = sets.New("create", "update", "patch", "delete")
 
-// Provider returns the current compiled policy set. Order of the result is not significant.
-type Provider interface {
-	Fetch(ctx context.Context) ([]CompiledPolicy, error)
+// Limits bound the work the engine does per request.
+type Limits struct {
+	// MaxRequestBytes bounds the JSON size of a SubjectAccessReview spec.
+	MaxRequestBytes int
+	// MaxObjectBytes bounds the combined raw size of object and oldObject in a
+	// conditions review.
+	MaxObjectBytes int
+	// MaxValueDepth bounds the nesting depth of decoded objects and captured values.
+	MaxValueDepth int
+	// TotalCostLimit bounds the CEL cost of all rules (and variables) of one
+	// SubjectAccessReview, and of all conditions of one conditions review.
+	// Each expression is also bounded by celconfig.PerCallLimit.
+	TotalCostLimit uint64
+	// MaxConditionBytes bounds one residual condition (upstream limit).
+	MaxConditionBytes int
+	// MaxConcurrent bounds concurrent evaluations; callers wait for a slot
+	// until their context is done.
+	MaxConcurrent int
+	// ConditionCacheSize bounds the cache of compiled condition programs.
+	ConditionCacheSize int
 }
 
-// ProviderFunc adapts a function to a Provider.
-type ProviderFunc func(context.Context) ([]CompiledPolicy, error)
+// DefaultLimits returns the default limits.
+func DefaultLimits() Limits {
+	return Limits{
+		MaxRequestBytes:    64 * 1024,
+		MaxObjectBytes:     8 * 1024 * 1024,
+		MaxValueDepth:      64,
+		TotalCostLimit:     celconfig.RuntimeCELCostBudget,
+		MaxConditionBytes:  authorizer.MaxConditionBytes,
+		MaxConcurrent:      256,
+		ConditionCacheSize: 4096,
+	}
+}
 
-func (f ProviderFunc) Fetch(ctx context.Context) ([]CompiledPolicy, error) { return f(ctx) }
+// Option configures an engine.
+type Option func(*engine)
+
+// WithLimits overrides the default limits. Zero fields keep their default.
+func WithLimits(l Limits) Option {
+	return func(e *engine) {
+		d := DefaultLimits()
+		if l.MaxRequestBytes > 0 {
+			d.MaxRequestBytes = l.MaxRequestBytes
+		}
+		if l.MaxObjectBytes > 0 {
+			d.MaxObjectBytes = l.MaxObjectBytes
+		}
+		if l.MaxValueDepth > 0 {
+			d.MaxValueDepth = l.MaxValueDepth
+		}
+		if l.TotalCostLimit > 0 {
+			d.TotalCostLimit = l.TotalCostLimit
+		}
+		if l.MaxConditionBytes > 0 && l.MaxConditionBytes < d.MaxConditionBytes {
+			d.MaxConditionBytes = l.MaxConditionBytes
+		}
+		if l.MaxConcurrent > 0 {
+			d.MaxConcurrent = l.MaxConcurrent
+		}
+		if l.ConditionCacheSize > 0 {
+			d.ConditionCacheSize = l.ConditionCacheSize
+		}
+		e.limits = d
+	}
+}
 
 // CompiledPolicy is one AuthorizingPolicy after compilation.
 type CompiledPolicy interface {
@@ -86,7 +159,8 @@ type Engine interface {
 	EvaluateConditions(ctx context.Context, decision *authorizationv1.ConditionsAwareDecision, admission *admissionv1.AdmissionRequest) authorizationv1.ConditionsAwareDecision
 }
 
-// NewCompiledPolicy compiles a policy and wraps the result.
+// NewCompiledPolicy compiles a policy and wraps the result. Call it at
+// reconcile time, never on the request path.
 func NewCompiledPolicy(c apolcompiler.Compiler, policy *policiesv1alpha1.AuthorizingPolicy) CompiledPolicy {
 	compiled, errs := c.Compile(policy)
 	cp := &compiledPolicy{policy: policy, compiled: compiled}
@@ -137,386 +211,196 @@ func (p *compiledPolicy) Applies(spec *authorizationv1.SubjectAccessReviewSpec) 
 type engine struct {
 	provider      Provider
 	conditionsEnv *cel.Env
-	// celMu serializes type-checking and residual computation. cel.dev/cel-go
-	// v0.33.2 has a data race in checker.(*Env).Catalog when a shared env
-	// reports an undeclared reference concurrently (seen with go test -race).
+	limits        Limits
+	sem           chan struct{}
+	programs      *lru.Cache
+	// celMu serializes type-checking and residual computation on shared
+	// environments. cel.dev/cel-go v0.33.2 has a data race in
+	// checker.(*Env).Catalog when a shared env reports an undeclared reference
+	// concurrently (seen with go test -race). Compiled programs are cached, so
+	// the lock is held only on cache misses and residual pruning.
 	celMu sync.Mutex
 }
 
-func (e *engine) compileCondition(expr string) (*cel.Ast, error) {
-	e.celMu.Lock()
-	defer e.celMu.Unlock()
-	ast, iss := e.conditionsEnv.Compile(expr)
-	return ast, iss.Err()
-}
-
 // NewEngine returns an Engine backed by the given provider.
-func NewEngine(provider Provider) (Engine, error) {
+func NewEngine(provider Provider, opts ...Option) (Engine, error) {
 	env, err := apolcompiler.NewConditionsEnv()
 	if err != nil {
 		return nil, err
 	}
-	return &engine{provider: provider, conditionsEnv: env}, nil
-}
-
-// ruleResult accumulates per-effect outcomes across all applicable policies.
-type ruleResult struct {
-	definite  map[policiesv1alpha1.AuthorizingRuleEffect][]string
-	residuals map[policiesv1alpha1.AuthorizingRuleEffect][]authorizationv1.Condition
-	errs      []string
-}
-
-func (r *ruleResult) addError(effect policiesv1alpha1.AuthorizingRuleEffect, id string, err error) {
-	r.errs = append(r.errs, fmt.Sprintf("%s: %v", id, err))
-	// Deny and NoOpinion rules apply on error (true-or-error); Allow rules are dropped.
-	if effect != policiesv1alpha1.AuthorizingRuleEffectAllow {
-		r.definite[effect] = append(r.definite[effect], id)
+	e := &engine{provider: provider, conditionsEnv: env, limits: DefaultLimits()}
+	for _, opt := range opts {
+		opt(e)
 	}
+	e.sem = make(chan struct{}, e.limits.MaxConcurrent)
+	e.programs = lru.New(e.limits.ConditionCacheSize)
+	return e, nil
+}
+
+func (e *engine) acquire(ctx context.Context) (func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	select {
+	case e.sem <- struct{}{}:
+		return func() { <-e.sem }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// evaluation is the per-request evaluation state.
+type evaluation struct {
+	limits  Limits
+	request map[string]any
+	spent   atomic.Uint64
+}
+
+func (ev *evaluation) spend(details *cel.EvalDetails) {
+	if details == nil {
+		return
+	}
+	if cost := details.ActualCost(); cost != nil {
+		ev.spent.Add(*cost)
+	}
+}
+
+// stopped returns why evaluation must stop, if it must.
+func (ev *evaluation) stopped(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("evaluation interrupted: %w", err)
+	}
+	if spent := ev.spent.Load(); spent > ev.limits.TotalCostLimit {
+		return fmt.Errorf("total CEL cost budget exhausted (%d > %d)", spent, ev.limits.TotalCostLimit)
+	}
+	return nil
 }
 
 func (e *engine) Authorize(ctx context.Context, spec *authorizationv1.SubjectAccessReviewSpec, conditionsAware bool) authorizationv1.ConditionsAwareDecision {
-	policies, err := e.provider.Fetch(ctx)
+	if spec == nil {
+		return deny("failed closed: missing SubjectAccessReview spec", "spec is required")
+	}
+	release, err := e.acquire(ctx)
 	if err != nil {
-		// Without policies we cannot know whether a Deny applies; fail closed.
-		return deny("failed closed: cannot fetch authorizing policies", err.Error())
+		return deny("failed closed: no evaluation slot", err.Error())
 	}
-	request := RequestValue(spec)
-	res := &ruleResult{
-		definite:  map[policiesv1alpha1.AuthorizingRuleEffect][]string{},
-		residuals: map[policiesv1alpha1.AuthorizingRuleEffect][]authorizationv1.Condition{},
+	defer release()
+	snapshot, err := e.provider.Snapshot(ctx)
+	if err == nil && snapshot == nil {
+		err = ErrNoSnapshot
 	}
-	for _, p := range policies {
-		if !p.Applies(spec) {
-			continue
-		}
-		pol := p.Policy()
-		if cerr := p.CompileError(); cerr != nil {
-			for _, rule := range pol.Spec.Rules {
-				res.addError(rule.Effect, conditionID(pol.Name, rule.Name), fmt.Errorf("policy failed to compile: %w", cerr))
-			}
-			continue
-		}
-		cp, ok := p.(*compiledPolicy)
-		if !ok || cp.compiled == nil {
-			for _, rule := range pol.Spec.Rules {
-				res.addError(rule.Effect, conditionID(pol.Name, rule.Name), errors.New("policy is not compiled"))
-			}
-			continue
-		}
-		e.evaluatePolicy(ctx, cp.compiled, request, res)
+	if err != nil {
+		// Without a snapshot we cannot know whether a Deny applies; fail closed.
+		return deny("failed closed: no authorizing policy snapshot", err.Error())
 	}
-	return decide(spec, conditionsAware, res)
+	var applicable []CompiledPolicy
+	for _, p := range snapshot.policies {
+		if p.Applies(spec) {
+			applicable = append(applicable, p)
+		}
+	}
+	if len(applicable) == 0 {
+		return noOpinion("no applicable policy", "")
+	}
+	res := newRuleResult()
+	if err := e.checkRequest(spec); err != nil {
+		// The request is too large to evaluate safely: every applicable rule errors.
+		for _, p := range applicable {
+			addPolicyError(res, p.Policy(), err)
+		}
+		return decide(spec, conditionsAware, res)
+	}
+	ev := &evaluation{limits: e.limits, request: RequestValue(spec)}
+	for _, p := range applicable {
+		e.evaluatePolicy(ctx, ev, p, res)
+	}
+	d := decide(spec, conditionsAware, res)
+	logger.V(4).Info("authorized", "snapshot", snapshot.Generation(), "policies", len(applicable), "decision", d.Type, "cost", ev.spent.Load())
+	return d
 }
 
-func (e *engine) evaluatePolicy(ctx context.Context, pol *apolcompiler.Policy, request map[string]any, res *ruleResult) {
-	vars := map[string]any{celcompiler.RequestKey: request}
+func (e *engine) checkRequest(spec *authorizationv1.SubjectAccessReviewSpec) error {
+	raw, err := json.Marshal(spec)
+	if err != nil {
+		return fmt.Errorf("cannot encode request: %w", err)
+	}
+	if len(raw) > e.limits.MaxRequestBytes {
+		return fmt.Errorf("request is %d bytes, more than the %d byte limit", len(raw), e.limits.MaxRequestBytes)
+	}
+	return nil
+}
+
+func addPolicyError(res *ruleResult, pol *policiesv1alpha1.AuthorizingPolicy, err error) {
+	for _, rule := range pol.Spec.Rules {
+		res.addError(rule.Effect, conditionID(pol.Name, rule.Name), err)
+	}
+}
+
+func (e *engine) evaluatePolicy(ctx context.Context, ev *evaluation, p CompiledPolicy, res *ruleResult) {
+	pol := p.Policy()
+	if cerr := p.CompileError(); cerr != nil {
+		addPolicyError(res, pol, fmt.Errorf("policy failed to compile: %w", cerr))
+		return
+	}
+	cp, ok := p.(*compiledPolicy)
+	if !ok || cp.compiled == nil {
+		addPolicyError(res, pol, errors.New("policy is not compiled"))
+		return
+	}
+	compiled := cp.compiled
 	lazyVars := lazy.NewMapValue(celcompiler.VariablesType)
-	vars[celcompiler.VariablesKey] = lazyVars
-	activation, err := cel.PartialVars(vars,
+	activation, err := cel.PartialVars(map[string]any{
+		celcompiler.RequestKey:   ev.request,
+		celcompiler.VariablesKey: lazyVars,
+	},
 		cel.AttributePattern(celcompiler.ObjectKey),
 		cel.AttributePattern(celcompiler.OldObjectKey),
 	)
 	if err != nil {
-		for _, rule := range pol.Rules {
-			res.addError(rule.Effect, conditionID(pol.Policy.Name, rule.Name), err)
-		}
+		addPolicyError(res, pol, err)
 		return
 	}
-	for _, v := range pol.Variables {
+	for _, v := range compiled.Variables {
 		lazyVars.Append(v.Name, func(*lazy.MapValue) ref.Val {
-			out, _, err := v.Program.ContextEval(ctx, activation)
+			if err := ev.stopped(ctx); err != nil {
+				return types.WrapErr(err)
+			}
+			out, details, err := v.Program.ContextEval(ctx, activation)
+			ev.spend(details)
 			if err != nil {
 				return types.WrapErr(err)
 			}
 			return out
 		})
 	}
-	for _, rule := range pol.Rules {
-		id := conditionID(pol.Policy.Name, rule.Name)
+	for _, rule := range compiled.Rules {
+		id := conditionID(pol.Name, rule.Name)
+		if err := ev.stopped(ctx); err != nil {
+			res.addError(rule.Effect, id, err)
+			continue
+		}
 		out, details, err := rule.Program.ContextEval(ctx, activation)
+		ev.spend(details)
 		switch {
 		case err != nil:
 			res.addError(rule.Effect, id, err)
 		case types.IsUnknown(out):
-			e.celMu.Lock()
-			residual, err := pol.Env.ResidualAst(rule.AST, details)
-			e.celMu.Unlock()
+			expr, err := e.residual(ev, compiled, rule, details, lazyVars)
 			if err != nil {
-				res.addError(rule.Effect, id, fmt.Errorf("computing residual: %w", err))
+				res.addError(rule.Effect, id, err)
 				continue
 			}
-			expr, err := cel.AstToString(residual)
-			if err != nil {
-				res.addError(rule.Effect, id, fmt.Errorf("rendering residual: %w", err))
-				continue
-			}
-			// The residual must be self-contained over object and oldObject.
-			if _, err := e.compileCondition(expr); err != nil {
-				res.addError(rule.Effect, id, fmt.Errorf("residual %q is not self-contained: %w", expr, err))
-				continue
-			}
-			res.residuals[rule.Effect] = append(res.residuals[rule.Effect], authorizationv1.Condition{
+			res.addResidual(rule.Effect, authorizationv1.Condition{
 				ID:          id,
 				Condition:   expr,
 				Type:        ConditionType,
-				Description: rule.Description,
+				Description: truncate(rule.Description, authorizer.MaxConditionDescriptionBytes-3),
 			})
 		case out == types.True:
-			res.definite[rule.Effect] = append(res.definite[rule.Effect], id)
+			res.addDefinite(rule.Effect, id)
 		case out == types.False:
 		default:
 			res.addError(rule.Effect, id, fmt.Errorf("expression returned non-boolean %v", out))
-		}
-	}
-}
-
-// decide implements the cross-policy precedence Deny > NoOpinion > Allow from the contract.
-func decide(spec *authorizationv1.SubjectAccessReviewSpec, conditionsAware bool, res *ruleResult) authorizationv1.ConditionsAwareDecision {
-	slices.Sort(res.errs)
-	evalErr := strings.Join(res.errs, "; ")
-	definite := func(effect policiesv1alpha1.AuthorizingRuleEffect) []string {
-		ids := slices.Clone(res.definite[effect])
-		slices.Sort(ids)
-		return ids
-	}
-	residual := func(effect policiesv1alpha1.AuthorizingRuleEffect) []authorizationv1.Condition {
-		conds := slices.Clone(res.residuals[effect])
-		slices.SortFunc(conds, func(a, b authorizationv1.Condition) int { return strings.Compare(a.ID, b.ID) })
-		return conds
-	}
-	dDeny, dNoOp, dAllow := definite(policiesv1alpha1.AuthorizingRuleEffectDeny), definite(policiesv1alpha1.AuthorizingRuleEffectNoOpinion), definite(policiesv1alpha1.AuthorizingRuleEffectAllow)
-	rDeny, rNoOp, rAllow := residual(policiesv1alpha1.AuthorizingRuleEffectDeny), residual(policiesv1alpha1.AuthorizingRuleEffectNoOpinion), residual(policiesv1alpha1.AuthorizingRuleEffectAllow)
-
-	if len(dDeny) > 0 {
-		return deny("denied by "+strings.Join(dDeny, ", "), evalErr)
-	}
-	if len(rDeny)+len(rNoOp)+len(rAllow) == 0 {
-		switch {
-		case len(dNoOp) > 0:
-			return noOpinion("no opinion from "+strings.Join(dNoOp, ", "), evalErr)
-		case len(dAllow) > 0:
-			return allow("allowed by "+strings.Join(dAllow, ", "), evalErr)
-		default:
-			return noOpinion("", evalErr)
-		}
-	}
-	// Residuals are present. Simplifications that do not need conditions:
-	if len(rDeny) == 0 && len(dNoOp) > 0 {
-		return noOpinion("no opinion from "+strings.Join(dNoOp, ", "), evalErr)
-	}
-	if len(rDeny) == 0 && len(rNoOp) == 0 && len(dAllow) > 0 {
-		return allow("allowed by "+strings.Join(dAllow, ", "), evalErr)
-	}
-	if len(rDeny) == 0 && len(rAllow) == 0 && len(dAllow) == 0 {
-		return noOpinion("only NoOpinion conditions remain", evalErr)
-	}
-	failClosed := func(reason string) authorizationv1.ConditionsAwareDecision {
-		if len(rDeny) > 0 {
-			return deny("failed closed: "+reason, evalErr)
-		}
-		return noOpinion("failed closed: "+reason, evalErr)
-	}
-	if !conditionsAware {
-		return failClosed("caller does not handle conditional decisions")
-	}
-	if spec.ResourceAttributes == nil || !conditionalVerbs.Has(spec.ResourceAttributes.Verb) {
-		return failClosed("request cannot carry a conditional decision")
-	}
-	noOp := rNoOp
-	if len(dNoOp) > 0 {
-		noOp = append(noOp, constantCondition(definiteNoOpinionID, dNoOp))
-	}
-	allowConds := rAllow
-	if len(dAllow) > 0 {
-		allowConds = append(allowConds, constantCondition(definiteAllowID, dAllow))
-	}
-	if len(rDeny)+len(noOp)+len(allowConds) > MaxConditionsPerMap {
-		return failClosed(fmt.Sprintf("more than %d conditions", MaxConditionsPerMap))
-	}
-	// Build through the upstream constructor so IDs, sizes, and duplicates are validated exactly as kube-apiserver does.
-	d := apiserverauthorizationv1.ToAuthorizerConditionsAwareDecision(authorizationv1.ConditionsAwareDecision{
-		Type: authorizationv1.ConditionsAwareDecisionTypeConditionsMap,
-		ConditionsMap: &authorizationv1.ConditionsMap{
-			DenyConditions:      rDeny,
-			NoOpinionConditions: noOp,
-			AllowConditions:     allowConds,
-		},
-	}, func(err error) authorizer.ConditionsAwareDecision {
-		return authorizer.ConditionsAwareDecisionDeny("failed closed", err)
-	})
-	out := apiserverauthorizationv1.FromAuthorizerConditionsAwareDecision(d)
-	if out.Type != authorizationv1.ConditionsAwareDecisionTypeConditionsMap && evalErr != "" {
-		setEvaluationError(&out, evalErr)
-	}
-	return out
-}
-
-func constantCondition(id string, rules []string) authorizationv1.Condition {
-	desc := "definite effect of " + strings.Join(rules, ", ")
-	if len(desc) > authorizer.MaxConditionDescriptionBytes {
-		desc = desc[:authorizer.MaxConditionDescriptionBytes]
-	}
-	return authorizationv1.Condition{ID: id, Condition: "true", Type: ConditionType, Description: desc}
-}
-
-// EvaluateConditions evaluates only the decision snapshot it is given.
-func (e *engine) EvaluateConditions(ctx context.Context, decision *authorizationv1.ConditionsAwareDecision, admission *admissionv1.AdmissionRequest) authorizationv1.ConditionsAwareDecision {
-	if decision == nil {
-		return deny("failed closed: missing decision", "request.decision is required")
-	}
-	var parseErr error
-	d := apiserverauthorizationv1.ToAuthorizerConditionsAwareDecision(*decision, func(err error) authorizer.ConditionsAwareDecision {
-		parseErr = err
-		return authorizer.ConditionsAwareDecisionDeny("failed closed", err)
-	})
-	if parseErr != nil {
-		return deny("failed closed: malformed decision", parseErr.Error())
-	}
-	if !d.IsConditionsMap() {
-		// Kyverno only ever authors ConditionsMap decisions; anything else
-		// (unconditional, Union, or a map that failed validation) fails closed.
-		reason := "failed closed: decision is not a ConditionsMap authored by Kyverno"
-		errMsg := fmt.Sprintf("unexpected decision type %q", decision.Type)
-		if err := d.Error(); err != nil {
-			errMsg = err.Error()
-		}
-		return fromParts(d.FailureDecision(), reason, errors.New(errMsg))
-	}
-	if admission == nil {
-		return fromParts(d.FailureDecision(), "failed closed: missing admission request", errors.New("request.admissionRequest is required"))
-	}
-	object, err := decodeRaw(admission.Object.Raw)
-	if err != nil {
-		return fromParts(d.FailureDecision(), "failed closed: cannot decode object", err)
-	}
-	oldObject, err := decodeRaw(admission.OldObject.Raw)
-	if err != nil {
-		return fromParts(d.FailureDecision(), "failed closed: cannot decode oldObject", err)
-	}
-	activation := map[string]any{celcompiler.ObjectKey: object, celcompiler.OldObjectKey: oldObject}
-	decisionOut, reason, err := d.ConditionsMap().Evaluate(ctx, nil, func(ctx context.Context, cond authorizer.Condition, _ authorizer.ConditionsData) (bool, error) {
-		if cond.GetType() != ConditionType {
-			return false, fmt.Errorf("unsupported condition type %q", cond.GetType())
-		}
-		ast, err := e.compileCondition(cond.GetCondition())
-		if err != nil {
-			return false, err
-		}
-		if !ast.OutputType().IsExactType(types.BoolType) && !ast.OutputType().IsExactType(types.DynType) {
-			return false, fmt.Errorf("condition must evaluate to bool, got %v", ast.OutputType())
-		}
-		prog, err := e.conditionsEnv.Program(ast, apolcompiler.ProgramOptions(false)...)
-		if err != nil {
-			return false, err
-		}
-		out, _, err := prog.ContextEval(ctx, activation)
-		if err != nil {
-			return false, err
-		}
-		b, ok := out.(types.Bool)
-		if !ok {
-			return false, fmt.Errorf("condition returned non-boolean %v", out)
-		}
-		return bool(b), nil
-	})
-	logger.V(4).Info("evaluated conditions", "decision", decisionOut, "reason", reason, "error", err)
-	return fromParts(decisionOut, reason, err)
-}
-
-func decodeRaw(raw []byte) (any, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	var out any
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// RequestValue converts a SubjectAccessReviewSpec into the CEL `request`
-// value. All scalar fields are always present so expressions do not fail on
-// omitted (empty) JSON fields.
-func RequestValue(spec *authorizationv1.SubjectAccessReviewSpec) map[string]any {
-	groups := make([]any, 0, len(spec.Groups))
-	for _, g := range spec.Groups {
-		groups = append(groups, g)
-	}
-	extra := map[string]any{}
-	for k, v := range spec.Extra {
-		vals := make([]any, 0, len(v))
-		for _, s := range v {
-			vals = append(vals, s)
-		}
-		extra[k] = vals
-	}
-	out := map[string]any{
-		"user":                  spec.User,
-		"groups":                groups,
-		"uid":                   spec.UID,
-		"extra":                 extra,
-		"resourceAttributes":    nil,
-		"nonResourceAttributes": nil,
-	}
-	if ra := spec.ResourceAttributes; ra != nil {
-		attrs := map[string]any{
-			"namespace":   ra.Namespace,
-			"verb":        ra.Verb,
-			"group":       ra.Group,
-			"version":     ra.Version,
-			"resource":    ra.Resource,
-			"subresource": ra.Subresource,
-			"name":        ra.Name,
-		}
-		for key, sel := range map[string]any{"fieldSelector": ra.FieldSelector, "labelSelector": ra.LabelSelector} {
-			attrs[key] = toJSONValue(sel)
-		}
-		out["resourceAttributes"] = attrs
-	}
-	if nra := spec.NonResourceAttributes; nra != nil {
-		out["nonResourceAttributes"] = map[string]any{"path": nra.Path, "verb": nra.Verb}
-	}
-	return out
-}
-
-func toJSONValue(v any) any {
-	raw, err := json.Marshal(v)
-	if err != nil {
-		return nil
-	}
-	var out any
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil
-	}
-	return out
-}
-
-func conditionID(policy, rule string) string { return policy + "/" + rule }
-
-func fromParts(d authorizer.Decision, reason string, err error) authorizationv1.ConditionsAwareDecision {
-	return apiserverauthorizationv1.FromAuthorizerConditionsAwareDecision(authorizer.ConditionsAwareDecisionFromParts(d, reason, err))
-}
-
-func unconditional(reason, evalErr string) *authorizationv1.UnconditionalDecision {
-	return &authorizationv1.UnconditionalDecision{Reason: reason, EvaluationError: evalErr}
-}
-
-func allow(reason, evalErr string) authorizationv1.ConditionsAwareDecision {
-	return authorizationv1.ConditionsAwareDecision{Type: authorizationv1.ConditionsAwareDecisionTypeAllow, Allow: unconditional(reason, evalErr)}
-}
-
-func deny(reason, evalErr string) authorizationv1.ConditionsAwareDecision {
-	return authorizationv1.ConditionsAwareDecision{Type: authorizationv1.ConditionsAwareDecisionTypeDeny, Deny: unconditional(reason, evalErr)}
-}
-
-func noOpinion(reason, evalErr string) authorizationv1.ConditionsAwareDecision {
-	return authorizationv1.ConditionsAwareDecision{Type: authorizationv1.ConditionsAwareDecisionTypeNoOpinion, NoOpinion: unconditional(reason, evalErr)}
-}
-
-func setEvaluationError(d *authorizationv1.ConditionsAwareDecision, evalErr string) {
-	for _, u := range []*authorizationv1.UnconditionalDecision{d.Allow, d.Deny, d.NoOpinion} {
-		if u != nil && u.EvaluationError == "" {
-			u.EvaluationError = evalErr
 		}
 	}
 }

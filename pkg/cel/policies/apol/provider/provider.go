@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"sync/atomic"
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	apolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/apol/compiler"
@@ -23,8 +24,27 @@ var logger = logging.WithName("apol-provider")
 type reconciler struct {
 	client   client.Client
 	compiler apolcompiler.Compiler
-	lock     sync.RWMutex
+	lock     sync.Mutex
 	policies map[string]apolengine.CompiledPolicy
+	// snapshot is rebuilt under lock after every change and read lock-free.
+	// It is nil until WarmUp completes, so the engine fails closed before the
+	// cache is warm instead of missing Deny policies.
+	snapshot   atomic.Pointer[apolengine.Snapshot]
+	generation uint64
+	warm       bool
+}
+
+// publish rebuilds the immutable snapshot. Callers hold r.lock.
+func (r *reconciler) publish() {
+	if !r.warm {
+		return
+	}
+	r.generation++
+	policies := make([]apolengine.CompiledPolicy, 0, len(r.policies))
+	for _, p := range r.policies {
+		policies = append(policies, p)
+	}
+	r.snapshot.Store(apolengine.NewSnapshot(r.generation, policies...))
 }
 
 // Provider is an engine provider that can be warmed up before serving.
@@ -65,11 +85,13 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 		return ctrl.Result{}, err
 	}
-	compiled := apolengine.NewCompiledPolicy(r.compiler, &policy)
+	// Compile and validate at reconcile time, never on the request path.
+	compiled := apolengine.NewCompiledPolicy(r.compiler, policy.DeepCopy())
 	// A policy that fails to compile stays in the cache: its Deny and NoOpinion
 	// rules then apply as errors (fail closed), see the authorization contract.
 	r.lock.Lock()
 	r.policies[key] = compiled
+	r.publish()
 	r.lock.Unlock()
 	original := policy.Status.DeepCopy()
 	SetStatus(&policy, compiled.CompileError())
@@ -95,17 +117,16 @@ func (r *reconciler) WarmUp(ctx context.Context) error {
 			r.policies[key] = apolengine.NewCompiledPolicy(r.compiler, policy)
 		}
 	}
+	r.warm = true
+	r.publish()
 	return nil
 }
 
-func (r *reconciler) Fetch(context.Context) ([]apolengine.CompiledPolicy, error) {
-	r.lock.RLock()
-	defer r.lock.RUnlock()
-	out := make([]apolengine.CompiledPolicy, 0, len(r.policies))
-	for _, p := range r.policies {
-		out = append(out, p)
+func (r *reconciler) Snapshot(context.Context) (*apolengine.Snapshot, error) {
+	if s := r.snapshot.Load(); s != nil {
+		return s, nil
 	}
-	return out, nil
+	return nil, apolengine.ErrNoSnapshot
 }
 
 // SetStatus records the compile result in the policy status.

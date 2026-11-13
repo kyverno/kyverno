@@ -43,7 +43,7 @@ func newEngine(t *testing.T, pols ...*policiesv1alpha1.AuthorizingPolicy) Engine
 	for _, p := range pols {
 		compiled = append(compiled, NewCompiledPolicy(c, p))
 	}
-	e, err := NewEngine(ProviderFunc(func(context.Context) ([]CompiledPolicy, error) { return compiled, nil }))
+	e, err := NewEngine(StaticProvider(compiled...))
 	require.NoError(t, err)
 	return e
 }

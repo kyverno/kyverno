@@ -74,7 +74,7 @@ func newHandler(t *testing.T, pols ...*policiesv1alpha1.AuthorizingPolicy) *Hand
 		require.NoError(t, cp.CompileError())
 		compiled = append(compiled, cp)
 	}
-	e, err := apolengine.NewEngine(apolengine.ProviderFunc(func(context.Context) ([]apolengine.CompiledPolicy, error) { return compiled, nil }))
+	e, err := apolengine.NewEngine(apolengine.StaticProvider(compiled...))
 	require.NoError(t, err)
 	return New(e)
 }

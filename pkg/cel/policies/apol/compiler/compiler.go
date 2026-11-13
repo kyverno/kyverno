@@ -9,6 +9,7 @@ import (
 
 	"cel.dev/cel-go/cel"
 	"cel.dev/cel-go/common/types"
+	"cel.dev/cel-go/ext"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -19,11 +20,19 @@ import (
 
 var compilerVersion = version.MajorMinor(1, 0)
 
+// InterruptCheckFrequency is how many comprehension iterations run between
+// checks for context cancellation.
+const InterruptCheckFrequency = 100
+
 // CompiledRule is one AuthorizingPolicy rule after compilation.
 type CompiledRule struct {
 	Name        string
 	Effect      policiesv1alpha1.AuthorizingRuleEffect
 	Description string
+	// Expression is the source expression. The evaluator falls back to it when
+	// a residual cannot be pruned (it is then wrapped with bindings of the
+	// known values so it stays self-contained).
+	Expression string
 	// AST is the checked AST, kept to compute residual expressions.
 	AST *cel.Ast
 	// Program is built with partial evaluation and state tracking enabled.
@@ -59,14 +68,23 @@ func NewCompiler() Compiler {
 // baseEnv returns the pure Kubernetes CEL environment (standard library plus
 // Kubernetes libraries). Kyverno libraries that perform I/O are deliberately
 // not registered: residual conditions must be pure functions of the snapshot.
+// `cel.bind` (ext.Bindings) is registered because the evaluator uses it to
+// capture known values in residual conditions.
 func baseEnv() (*cel.Env, error) {
-	return environment.MustBaseEnvSet(compilerVersion).Env(environment.StoredExpressions)
+	env, err := environment.MustBaseEnvSet(compilerVersion).Env(environment.StoredExpressions)
+	if err != nil {
+		return nil, err
+	}
+	return env.Extend(ext.Bindings())
 }
 
 // ProgramOptions are the program options shared by authorization-time and
 // conditions-review-time programs.
 func ProgramOptions(partial bool) []cel.ProgramOption {
-	opts := []cel.ProgramOption{cel.CostLimit(celconfig.PerCallLimit)}
+	opts := []cel.ProgramOption{
+		cel.CostLimit(celconfig.PerCallLimit),
+		cel.InterruptCheckFrequency(InterruptCheckFrequency),
+	}
 	if partial {
 		opts = append(opts, cel.EvalOptions(cel.OptPartialEval, cel.OptTrackState))
 	}
@@ -75,8 +93,9 @@ func ProgramOptions(partial bool) []cel.ProgramOption {
 
 // NewConditionsEnv returns the environment used to compile residual
 // conditions during the AuthorizationConditionsReview callback. Only `object`
-// and `oldObject` are declared, so a residual that still references `request`
-// or `variables` fails to compile and is treated as an evaluation error.
+// and `oldObject` are declared, so a residual must capture any `request` or
+// `variables` value it needs with `cel.bind`; otherwise it fails to compile
+// and is treated as an evaluation error.
 func NewConditionsEnv() (*cel.Env, error) {
 	env, err := baseEnv()
 	if err != nil {
@@ -125,9 +144,12 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.AuthorizingPolicy) (*Pol
 		}
 		variables = append(variables, CompiledVariable{Name: variable.Name, Program: prog})
 	}
+	// Macro call tracking lets ResidualAst render comprehensions (all, exists,
+	// map, filter) over unknown values back to source.
 	ruleEnv, err := varEnv.Extend(
 		cel.Variable(celcompiler.ObjectKey, cel.DynType),
 		cel.Variable(celcompiler.OldObjectKey, cel.DynType),
+		cel.EnableMacroCallTracking(),
 	)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(errFmt, err)))
@@ -153,6 +175,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.AuthorizingPolicy) (*Pol
 			Name:        rule.Name,
 			Effect:      rule.Effect,
 			Description: rule.Description,
+			Expression:  rule.Expression,
 			AST:         ast,
 			Program:     prog,
 		})
