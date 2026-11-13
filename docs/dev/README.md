@@ -26,8 +26,11 @@ A `perf` job in the post-merge `check-tests` workflow
 `release-*`) runs a fast, cluster-free allocation-regression check against
 the CEL admission path. It doesn't run per pull request: if a regression
 lands on `main`, the `perf` job files or updates a workflow-failure issue
-for a maintainer to triage, rather than blocking a PR, which is what lets
-the check use tight headroom (see the ratchet process below).
+for a maintainer to triage, rather than failing a check on the PR that
+introduced it, which is what lets the check use tight headroom (see the
+ratchet process below). While that issue is open, open PRs to the branch
+show a red E2E Gate status (see
+[The E2E Gate status](../../CONTRIBUTING.md#the-e2e-gate-status)).
 
 The check covers four boundaries, all under `pkg/cel/policies/*` and
 `pkg/webhooks/resource/{vpol,mpol}`:

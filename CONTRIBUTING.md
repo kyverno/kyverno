@@ -27,6 +27,18 @@ In the process of submitting your PRs, please read and abide by the template pro
 3. Test your change with the [Kyverno CLI](https://kyverno.io/docs/kyverno-cli/) and provide a test manifest in the proper format. If your feature/fix does not work with the CLI, a separate issue requesting CLI support must be made. For changes that can be tested as an end user, we require conformance/e2e tests by using the `chainsaw` tool. See the [Chainsaw quick-start guide](https://kyverno.github.io/chainsaw/latest/quick-start/) for how and when to write these tests. If your change touches the CEL admission path (`pkg/cel/policies/*` or `pkg/webhooks/resource/{vpol,mpol}`), see [Performance benchmarks](docs/dev/README.md#performance-benchmarks) for how the `make check-perf` gate works (it runs post-merge, not per pull request) and what to do if it fails.
 4. Indicate which release this PR is triaged for (maintainers). This step is important, especially for the documentation maintainers, in order to understand when and where the necessary changes should be made.
 
+### The E2E Gate status
+
+The conformance/e2e suite is too slow to run on every pull request, so it runs after merge, on each push to `main` and the release branches (the `Tests` workflow). When it fails there, a tracking issue labelled `e2e-failure` is opened, and every open pull request to that branch shows a red **E2E Gate** status until the branch passes again.
+
+If your pull request shows a red E2E Gate:
+
+- It is not caused by your pull request, and you don't need to do anything. The status reports the state of the branch you are targeting, not your changes.
+- "Details" links to the tracking issue, which lists the failing jobs and explains how the gate clears.
+- It turns green by itself, without a push, when the `Tests` workflow passes on the branch or the tracking issue is closed.
+
+The pull request that fixes the branch needs to get through while the gate is red. A maintainer adds the `e2e-gate-bypass` label to it, which turns its E2E Gate green.
+
 ## Release Processes
 
 Review the Kyverno release process at: https://kyverno.io/docs/releases/
