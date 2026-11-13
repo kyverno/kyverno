@@ -1,0 +1,41 @@
+# Quarantined conformance tests.
+#
+# The conformance action (.github/actions/tests/conformance/run) skips every
+# test listed here in routine runs: the Tests workflow on main and release
+# branches, and /conformance on pull requests. Release-candidate conformance
+# (release-validate.yaml) ignores this file and still runs every test, so a
+# quarantined test cannot hide a regression from a release.
+#
+# Quarantine a test only while its fix is tracked. Each entry needs:
+#
+#   path:    the test directory, relative to test/conformance/chainsaw. It
+#            must contain a chainsaw-test.yaml.
+#   owner:   the GitHub user responsible for fixing the test and removing it
+#            from this file.
+#   issue:   the issue or pull request that tracks the fix.
+#   expires: the date, as a quoted YYYY-MM-DD string, after which the entry
+#            needs review. An expired entry still skips the test, but every
+#            conformance job that covers it reports an error annotation and a
+#            warning in its job summary until you fix the test, or extend the
+#            date with a reason in the issue.
+#
+# Runs check this file with
+# .github/actions/tests/conformance/run/quarantine.sh.
+
+tests:
+  - path: generate-mutating-admission-policy/applyconfiguration
+    owner: aerosouund
+    issue: https://github.com/kyverno/kyverno/pull/14570
+    expires: '2026-12-31'
+  - path: generate-mutating-admission-policy-v1/applyconfiguration
+    owner: aerosouund
+    issue: https://github.com/kyverno/kyverno/pull/14570
+    expires: '2026-12-31'
+  - path: generating-policies/clone/sync/sync-modify-downstream
+    owner: aerosouund
+    issue: https://github.com/kyverno/kyverno/pull/14570
+    expires: '2026-12-31'
+  - path: generating-policies/data/sync/sync-modify-downstream
+    owner: aerosouund
+    issue: https://github.com/kyverno/kyverno/pull/14570
+    expires: '2026-12-31'
