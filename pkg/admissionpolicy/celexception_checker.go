@@ -50,3 +50,27 @@ func CanGenerateNativePolicy(exceptions []policiesv1beta1.PolicyException) (bool
 	}
 	return false, strings.Join(reasons, "; ")
 }
+
+// CanGenerateNativeMutatingPolicy reports whether a MutatingPolicy still translates to a
+// native MutatingAdmissionPolicy. Generation is ineligible if combining an exception's
+// matchConditions produces a CEL expression exceeding the Kubernetes source-size limit (100,000 code points).
+// Unlike ValidatingAdmissionPolicies, MutatingAdmissionPolicies perform a size-only check and do not
+// reject exceptions with compensating controls (spec.validations), which are validating-only.
+func CanGenerateNativeMutatingPolicy(exceptions []policiesv1beta1.PolicyException) (bool, string) {
+	var sizeOffending []string
+	for _, exception := range exceptions {
+		if mc := negateMatchConditions(exception.GetNamespace(), exception.GetName(), exception.Spec.MatchConditions); mc != nil {
+			if utf8.RuneCountInString(mc.Expression) > MaxCELCodePoints {
+				sizeOffending = append(sizeOffending, cache.MetaObjectToName(&exception).String())
+			}
+		}
+	}
+	if len(sizeOffending) == 0 {
+		return true, ""
+	}
+	return false, fmt.Sprintf(
+		"policy exception(s) %s produce combined matchConditions exceeding the Kubernetes CEL code point limit (%d), which a generated MutatingAdmissionPolicy cannot evaluate",
+		strings.Join(sizeOffending, ", "),
+		MaxCELCodePoints,
+	)
+}

@@ -113,3 +113,52 @@ func Test_CanGenerateNativePolicy(t *testing.T) {
 		})
 	}
 }
+
+func Test_CanGenerateNativeMutatingPolicy(t *testing.T) {
+	hugeCond := `"` + strings.Repeat("a", 55000) + `" != ""`
+	mediumCond := `"` + strings.Repeat("a", 40000) + `" != ""`
+
+	testCases := []struct {
+		name       string
+		exceptions []policiesv1beta1.PolicyException
+		want       bool
+		wantReason string
+	}{{
+		name:       "no exceptions",
+		exceptions: nil,
+		want:       true,
+	}, {
+		name:       "exception with compensating controls is allowed for MAP (size-only check)",
+		exceptions: []policiesv1beta1.PolicyException{exception("default", "polex-1", "object.metadata.name != ''")},
+		want:       true,
+	}, {
+		name: "individually valid matchConditions whose combined expression exceeds CEL limit",
+		exceptions: []policiesv1beta1.PolicyException{
+			exceptionWithMatchConditions("default", "oversized", hugeCond, hugeCond),
+		},
+		want:       false,
+		wantReason: "policy exception(s) default/oversized produce combined matchConditions exceeding the Kubernetes CEL code point limit (100000), which a generated MutatingAdmissionPolicy cannot evaluate",
+	}, {
+		name: "multiple matchConditions within CEL limit",
+		exceptions: []policiesv1beta1.PolicyException{
+			exceptionWithMatchConditions("default", "fits-limit", mediumCond, mediumCond),
+		},
+		want: true,
+	}, {
+		name: "only size-offending exceptions are named",
+		exceptions: []policiesv1beta1.PolicyException{
+			exceptionWithMatchConditions("default", "ok", "true", "false"),
+			exceptionWithMatchConditions("default", "too-big", hugeCond, hugeCond),
+			exceptionWithMatchConditions("prod", "also-ok", mediumCond),
+		},
+		want:       false,
+		wantReason: "policy exception(s) default/too-big produce combined matchConditions exceeding the Kubernetes CEL code point limit (100000), which a generated MutatingAdmissionPolicy cannot evaluate",
+	}}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, reason := CanGenerateNativeMutatingPolicy(tc.exceptions)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantReason, reason)
+		})
+	}
+}
