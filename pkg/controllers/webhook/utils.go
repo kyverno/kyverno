@@ -120,6 +120,10 @@ func scopeString(s *admissionregistrationv1.ScopeType) string {
 func sortedRules(rules []admissionregistrationv1.RuleWithOperations) []admissionregistrationv1.RuleWithOperations {
 	out := make([]admissionregistrationv1.RuleWithOperations, 0, len(rules))
 	for _, rule := range rules {
+		rule.APIGroups = slices.Clone(rule.APIGroups)
+		rule.APIVersions = slices.Clone(rule.APIVersions)
+		rule.Resources = slices.Clone(rule.Resources)
+		rule.Operations = slices.Clone(rule.Operations)
 		out = append(out, rule)
 	}
 
