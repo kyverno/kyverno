@@ -151,10 +151,10 @@ jobs:
     name: Record flaky tests
     needs: rerun
     if: needs.rerun.outputs.conclusion == 'success'
-    # Reads a few job logs and posts one comment, well within the 15-minute
-    # limit of ubuntu-slim.
-    runs-on: ubuntu-slim
-    timeout-minutes: 10
+    # Not ubuntu-slim, which ends jobs after 15 minutes: reading up to 40 job
+    # logs, each capped at about 45 seconds with its retry, takes up to 30.
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
     permissions:
       # actions: read lets the job read the first attempt's jobs and logs
       actions: read
@@ -187,9 +187,20 @@ jobs:
           # whose log has no such line, or can't be read, failed outside a test,
           # for example in setup or image loading.
           # curl rather than gh api: gh refuses output with terminal escapes.
+          # Only the first max_logs failed jobs are read, so that a run with
+          # many failed matrix jobs can't time out or get throttled before it
+          # reports; the others are listed as not inspected.
+          max_logs=40
           found=0
+          inspected=0
           while IFS=$'\t' read -r id name url; do
-            tests=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+            if [ "$inspected" -ge "$max_logs" ]; then
+              echo "| [$name]($url) | not inspected: only the first $max_logs failed jobs are read |" >> "$report"
+              continue
+            fi
+            inspected=$((inspected + 1))
+            tests=$(curl -fsSL --max-time 20 --retry 1 --retry-delay 2 --retry-all-errors \
+              -H "Authorization: Bearer $GH_TOKEN" \
               "$GITHUB_API_URL/repos/$GH_REPO/actions/jobs/$id/logs" 2>/dev/null \
               | grep -oE -- '--- FAIL: chainsaw/[^ ]+' | sed 's#.*chainsaw/##' | sort -u \
               | sed "s/.*/\`&\`/" | paste -sd ',' - | sed 's/,/, /g' || true)
@@ -204,7 +215,7 @@ jobs:
             cat "$report"
             if [ "$found" -eq 0 ]; then
               echo
-              echo "No Chainsaw test failed, so the failures were outside the tests and aren't recorded on the flaky-test issue."
+              echo "The logs read show no Chainsaw test failure, or couldn't be read, so nothing is recorded on the flaky-test issue."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           echo "report=$report" >> "$GITHUB_OUTPUT"
