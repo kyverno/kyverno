@@ -4,7 +4,8 @@ import (
 	"regexp"
 )
 
-var isHTTPRegex = regexp.MustCompile("^(http|https)://")
+// URI schemes are case-insensitive (RFC 3986, section 3.1).
+var isHTTPRegex = regexp.MustCompile("(?i)^(http|https)://")
 
 func IsHttp(in string) bool {
 	return isHTTPRegex.MatchString(in)
