@@ -30,6 +30,7 @@ func BuildValidatingAdmissionPolicy(
 	var validations []admissionregistrationv1.Validation
 	var auditAnnotations []admissionregistrationv1.AuditAnnotation
 	var variables []admissionregistrationv1.Variable
+	var failurePolicy *admissionregistrationv1.FailurePolicyType
 
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		matchResources = *vpol.Spec.MatchConstraints
@@ -37,6 +38,7 @@ func BuildValidatingAdmissionPolicy(
 		validations = vpol.Spec.Validations
 		auditAnnotations = vpol.Spec.AuditAnnotations
 		variables = vpol.Spec.Variables
+		failurePolicy = vpol.Spec.FailurePolicy
 
 		// convert celexceptions if exist
 		for _, exception := range exceptions {
@@ -92,6 +94,7 @@ func BuildValidatingAdmissionPolicy(
 	// set policy spec
 	vap.Spec = admissionregistrationv1.ValidatingAdmissionPolicySpec{
 		MatchConstraints: &matchResources,
+		FailurePolicy:    failurePolicy,
 		ParamKind:        paramKind,
 		Variables:        variables,
 		Validations:      validations,

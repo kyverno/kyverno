@@ -98,6 +98,11 @@ jobs:
           set -e
           make verify-policies-psa-version
 
+      - name: Verify PSS native VAP generation and binding preservation
+        run: |
+          set -e
+          go test ./pkg/controllers/admissionpolicygenerator -run '^TestPSSNativeVAP' -count=1 -v
+
   sync-issue:
     if: always() && github.event_name == 'push'
     needs:

@@ -67,13 +67,13 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	if shouldDelete {
 		// delete the ValidatingAdmissionPolicy if exist
 		if vapErr == nil {
-			if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{}); err != nil {
+			if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
 		// delete the ValidatingAdmissionPolicyBinding if exist
 		if vapBindingErr == nil {
-			if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, metav1.DeleteOptions{}); err != nil {
+			if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
