@@ -123,6 +123,25 @@ func TestValidateMatchConditions(t *testing.T) {
 	}
 }
 
+// TestValidateSkipsExceptionsOwnedByOtherControllers proves Kyverno doesn't validate, or block, an
+// exception whose evaluation mode belongs to another controller, such as Kyverno Authz.
+func TestValidateSkipsExceptionsOwnedByOtherControllers(t *testing.T) {
+	t.Parallel()
+	handler := NewHandlers(validation.ValidationOptions{Enabled: true})
+	for mode, allowed := range map[string]bool{"": false, "Kubernetes": false, "Envoy": true, "HTTP": true} {
+		polex := policyException("totally.unbound.variable == 'x'")
+		polex.Spec.EvaluationMode = mode
+		response := handler.Validate(
+			context.Background(),
+			logr.Discard(),
+			newAdmissionRequest(t, admissionv1.Create, polex, nil),
+			"",
+			time.Now(),
+		)
+		assert.Equal(t, allowed, response.Allowed, "mode %q", mode)
+	}
+}
+
 func TestValidateUpdateRejectsNewInvalidExpression(t *testing.T) {
 	t.Parallel()
 	handler := NewHandlers(validation.ValidationOptions{Enabled: true})

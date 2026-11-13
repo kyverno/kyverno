@@ -8,6 +8,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	celautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -49,6 +50,9 @@ func NewProvider(
 		actions := sets.New(spec.ValidationActions()...)
 		var matchedExceptions []*policiesv1beta1.PolicyException
 		for _, polex := range exceptions {
+			if !celpolicies.IsKyvernoOwnedException(polex) {
+				continue
+			}
 			for _, ref := range polex.Spec.PolicyRefs {
 				if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
 					matchedExceptions = append(matchedExceptions, polex)

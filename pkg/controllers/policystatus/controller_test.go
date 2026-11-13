@@ -103,6 +103,40 @@ func TestReconcile_ValidatingPolicy_retriesOnUpdateStatusConflict(t *testing.T) 
 	assert.NotNil(t, updated.Status.ConditionStatus.Conditions)
 }
 
+// TestReconcile_SkipsPoliciesOwnedByOtherControllers verifies that reconcile() never writes
+// status on a policy whose evaluation mode belongs to another controller, such as Kyverno Authz.
+func TestReconcile_SkipsPoliciesOwnedByOtherControllers(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "authz-vpol"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+		},
+	}
+	client := versionedfake.NewSimpleClientset(vpol)
+	var statusUpdateCalls atomic.Int32
+	client.PrependReactor("update", "validatingpolicies", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		if action.GetSubresource() == "status" {
+			statusUpdateCalls.Add(1)
+		}
+		return false, nil, nil
+	})
+
+	dc := dclient.NewEmptyFakeClient()
+	c := controller{
+		dclient:          dc,
+		client:           client,
+		authChecker:      auth.NewSubjectChecker(dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "", nil),
+		polStateRecorder: webhook.NewStateRecorder(nil),
+	}
+
+	key := webhook.BuildRecorderKey(webhook.ValidatingPolicyType, vpol.Name, "")
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), key, "", ""))
+	assert.Equal(t, int32(0), statusUpdateCalls.Load())
+}
+
 // TestReconcile_AllPolicyTypes verifies that reconcile() correctly routes each
 // policy type to its update function, writes a non-empty status, and that
 // BuildRecorderKey produces a routable key for every type. A missing case in

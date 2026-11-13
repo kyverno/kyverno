@@ -1,0 +1,19 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: authz-policy
+spec:
+  evaluation:
+    mode: Envoy
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [apps]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [deployments]
+  validations:
+    # envoy is only declared in the Kyverno Authz Envoy environment
+    - expression: >-
+        envoy.Denied(403).Response()

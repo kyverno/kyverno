@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: other-controller
+spec:
+  description: |
+    Kyverno ignores policies and exceptions whose evaluation mode belongs to another controller, such as
+    Kyverno Authz: it doesn't validate, enforce, or write status on those policies, and it doesn't apply
+    those exceptions to its own policies.
+  concurrent: false
+  steps:
+  - name: create Kyverno policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: check-deployment-labels
+  - name: create policy and exception owned by another controller
+    try:
+    # this policy fails to compile as a Kubernetes policy, so Kyverno would reject it if it validated it
+    - create:
+        file: authz-policy.yaml
+    - create:
+        file: authz-exception.yaml
+    - sleep:
+        duration: 10s
+  - name: Kyverno doesn't write status on the other controller's policy
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: ValidatingPolicy
+          metadata:
+            name: authz-policy
+          (status.conditionStatus.conditions == null): true
+  - name: Kyverno doesn't apply the other controller's exception
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+        file: skipped-deployment.yaml
+  - name: Kyverno doesn't enforce the other controller's policy
+    try:
+    - apply:
+        file: good-deployment.yaml
