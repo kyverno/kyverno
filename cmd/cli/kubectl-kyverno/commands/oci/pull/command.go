@@ -12,8 +12,8 @@ func Command(keychain authn.Keychain) *cobra.Command {
 	var options options
 	cmd := &cobra.Command{
 		Use:          "pull [dir]",
-		Short:        command.FormatDescription(true, websiteUrl, true, description...),
-		Long:         command.FormatDescription(false, websiteUrl, true, description...),
+		Short:        command.FormatDescription(true, websiteUrl, false, description...),
+		Long:         command.FormatDescription(false, websiteUrl, false, description...),
 		Example:      command.FormatExamples(examples...),
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
