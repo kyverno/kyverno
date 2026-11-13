@@ -2,7 +2,6 @@ package autogen
 
 import (
 	"cmp"
-	"encoding/json"
 	"maps"
 	"slices"
 
@@ -93,13 +92,31 @@ func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, confi
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
-		bytes, err := json.Marshal(spec)
-		if err != nil {
-			return nil, err
-		}
-		bytes = autogen.Apply(bytes, autogen.ReplacementsMap[config]...)
-		if err := json.Unmarshal(bytes, spec); err != nil {
-			return nil, err
+		replacements := autogen.ReplacementsMap[config]
+		if len(replacements) > 0 {
+			for i := range spec.MatchConditions {
+				if spec.MatchConditions[i].Expression != "" {
+					spec.MatchConditions[i].Expression = string(autogen.ApplyCEL([]byte(spec.MatchConditions[i].Expression), replacements...))
+				}
+			}
+			for i := range spec.Variables {
+				if spec.Variables[i].Expression != "" {
+					spec.Variables[i].Expression = string(autogen.ApplyCEL([]byte(spec.Variables[i].Expression), replacements...))
+				}
+			}
+			for i := range spec.Validations {
+				if spec.Validations[i].Expression != "" {
+					spec.Validations[i].Expression = string(autogen.ApplyCEL([]byte(spec.Validations[i].Expression), replacements...))
+				}
+				if spec.Validations[i].MessageExpression != "" {
+					spec.Validations[i].MessageExpression = string(autogen.ApplyCEL([]byte(spec.Validations[i].MessageExpression), replacements...))
+				}
+			}
+			for i := range spec.AuditAnnotations {
+				if spec.AuditAnnotations[i].ValueExpression != "" {
+					spec.AuditAnnotations[i].ValueExpression = string(autogen.ApplyCEL([]byte(spec.AuditAnnotations[i].ValueExpression), replacements...))
+				}
+			}
 		}
 		slices.SortFunc(targets, func(a, b policiesv1beta1.Target) int {
 			if x := cmp.Compare(a.Group, b.Group); x != 0 {

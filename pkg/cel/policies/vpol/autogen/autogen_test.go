@@ -567,6 +567,96 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "string literals containing selector patterns are not rewritten",
+			controllers: sets.New("deployments"),
+			policySpec: []byte(`{
+				"matchConstraints": {
+					"resourceRules": [
+						{
+							"apiGroups": [""],
+							"apiVersions": ["v1"],
+							"operations": ["CREATE","UPDATE"],
+							"resources": ["pods"]
+						}
+					]
+				},
+				"matchConditions": [
+					{
+						"name": "check-env",
+						"expression": "object.metadata.labels['env'] == 'object.spec' && object.metadata.labels['tier'] != \"object[?'spec']\""
+					}
+				],
+				"variables": [
+					{
+						"name": "customVar",
+						"expression": "object.spec.containers.filter(c, c.name != 'object.spec' && c.image != \"object.spec\")"
+					}
+				],
+				"validations": [
+					{
+						"expression": "object.spec.containers.all(c, c.name != 'object.spec' && c.image != \"object[?'spec']\")",
+						"messageExpression": "\"container in \" + object.metadata.name + \" violates rule for 'object.spec'\""
+					}
+				],
+				"auditAnnotations": [
+					{
+						"key": "eval",
+						"valueExpression": "object.metadata.name + ' - evaluated for object.spec'"
+					}
+				]
+			}`),
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
+				autogen.AutogenDefaults: {
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+						MatchConditions: []admissionregistrationv1.MatchCondition{
+							{
+								Name:       "check-env",
+								Expression: "object.spec.template.metadata.labels['env'] == 'object.spec' && object.spec.template.metadata.labels['tier'] != \"object[?'spec']\"",
+							},
+						},
+						Variables: []admissionregistrationv1.Variable{
+							{
+								Name:       "customVar",
+								Expression: "object.spec.template.spec.containers.filter(c, c.name != 'object.spec' && c.image != \"object.spec\")",
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression:        "object.spec.template.spec.containers.all(c, c.name != 'object.spec' && c.image != \"object[?'spec']\")",
+								MessageExpression: "\"container in \" + object.metadata.name + \" violates rule for 'object.spec'\"",
+							},
+						},
+						AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
+							{
+								Key:             "eval",
+								ValueExpression: "object.metadata.name + ' - evaluated for object.spec'",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

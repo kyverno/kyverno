@@ -42,92 +42,46 @@ type Replacement struct {
 }
 
 // Apply rewrites the configured field paths in the given data,
-// replacing both the "object." and "oldObject." prefixes (including optional traversal ".?" and bracket selectors).
+// replacing both the "object." and "oldObject." prefixes (including optional traversal ".?" and bracket selectors),
+// while skipping CEL string literals.
 func (r *Replacement) Apply(data []byte) []byte {
 	// dot syntax
-	data = replace(data, []byte("object."+r.From), []byte("object."+r.To))
-	data = replace(data, []byte("object.?"+r.From), []byte("object.?"+r.To))
-	data = replace(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
-	data = replace(data, []byte("oldObject.?"+r.From), []byte("oldObject.?"+r.To))
+	data = replaceCEL(data, []byte("object."+r.From), []byte("object."+r.To))
+	data = replaceCEL(data, []byte("object.?"+r.From), []byte("object.?"+r.To))
+	data = replaceCEL(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
+	data = replaceCEL(data, []byte("oldObject.?"+r.From), []byte("oldObject.?"+r.To))
 
 	// equivalent selector forms (bracket syntax)
-	data = replace(data, []byte("object['"+r.From+"']"), []byte("object."+r.To))
-	data = replace(data, []byte("oldObject['"+r.From+"']"), []byte("oldObject."+r.To))
+	data = replaceCEL(data, []byte("object['"+r.From+"']"), []byte("object."+r.To))
+	data = replaceCEL(data, []byte("oldObject['"+r.From+"']"), []byte("oldObject."+r.To))
 
-	data = replace(data, []byte("object[\""+r.From+"\"]"), []byte("object."+r.To))
-	data = replace(data, []byte("oldObject[\""+r.From+"\"]"), []byte("oldObject."+r.To))
+	data = replaceCEL(data, []byte("object[\""+r.From+"\"]"), []byte("object."+r.To))
+	data = replaceCEL(data, []byte("oldObject[\""+r.From+"\"]"), []byte("oldObject."+r.To))
 
-	data = replace(data, []byte("object[\\\""+r.From+"\\\"]"), []byte("object."+r.To))
-	data = replace(data, []byte("oldObject[\\\""+r.From+"\\\"]"), []byte("oldObject."+r.To))
+	data = replaceCEL(data, []byte("object[\\\""+r.From+"\\\"]"), []byte("object."+r.To))
+	data = replaceCEL(data, []byte("oldObject[\\\""+r.From+"\\\"]"), []byte("oldObject."+r.To))
 
 	// optional indexing (bracket syntax with ?)
-	data = replace(data, []byte("object[?'"+r.From+"']"), []byte("object.?"+r.To))
-	data = replace(data, []byte("oldObject[?'"+r.From+"']"), []byte("oldObject.?"+r.To))
+	data = replaceCEL(data, []byte("object[?'"+r.From+"']"), []byte("object.?"+r.To))
+	data = replaceCEL(data, []byte("oldObject[?'"+r.From+"']"), []byte("oldObject.?"+r.To))
 
-	data = replace(data, []byte("object[?\""+r.From+"\"]"), []byte("object.?"+r.To))
-	data = replace(data, []byte("oldObject[?\""+r.From+"\"]"), []byte("oldObject.?"+r.To))
+	data = replaceCEL(data, []byte("object[?\""+r.From+"\"]"), []byte("object.?"+r.To))
+	data = replaceCEL(data, []byte("oldObject[?\""+r.From+"\"]"), []byte("oldObject.?"+r.To))
 
-	data = replace(data, []byte("object[?\\\""+r.From+"\\\"]"), []byte("object.?"+r.To))
-	data = replace(data, []byte("oldObject[?\\\""+r.From+"\\\"]"), []byte("oldObject.?"+r.To))
+	data = replaceCEL(data, []byte("object[?\\\""+r.From+"\\\"]"), []byte("object.?"+r.To))
+	data = replaceCEL(data, []byte("oldObject[?\\\""+r.From+"\\\"]"), []byte("oldObject.?"+r.To))
 
 	// optional indexing with whitespace tolerance: object[? 'spec']
-	data = replace(data, []byte("object[? '"+r.From+"']"), []byte("object.?"+r.To))
-	data = replace(data, []byte("oldObject[? '"+r.From+"']"), []byte("oldObject.?"+r.To))
-	data = replace(data, []byte("object[? \""+r.From+"\" ]"), []byte("object.?"+r.To))
-	data = replace(data, []byte("oldObject[? \""+r.From+"\" ]"), []byte("oldObject.?"+r.To))
-	data = replace(data, []byte("object[? \""+r.From+"\"]"), []byte("object.?"+r.To))
-	data = replace(data, []byte("oldObject[? \""+r.From+"\"]"), []byte("oldObject.?"+r.To))
-	data = replace(data, []byte("object[? \\\""+r.From+"\\\"]"), []byte("object.?"+r.To))
-	data = replace(data, []byte("oldObject[? \\\""+r.From+"\\\"]"), []byte("oldObject.?"+r.To))
+	data = replaceCEL(data, []byte("object[? '"+r.From+"']"), []byte("object.?"+r.To))
+	data = replaceCEL(data, []byte("oldObject[? '"+r.From+"']"), []byte("oldObject.?"+r.To))
+	data = replaceCEL(data, []byte("object[? \""+r.From+"\" ]"), []byte("object.?"+r.To))
+	data = replaceCEL(data, []byte("oldObject[? \""+r.From+"\" ]"), []byte("oldObject.?"+r.To))
+	data = replaceCEL(data, []byte("object[? \""+r.From+"\"]"), []byte("object.?"+r.To))
+	data = replaceCEL(data, []byte("oldObject[? \""+r.From+"\"]"), []byte("oldObject.?"+r.To))
+	data = replaceCEL(data, []byte("object[? \\\""+r.From+"\\\"]"), []byte("object.?"+r.To))
+	data = replaceCEL(data, []byte("oldObject[? \\\""+r.From+"\\\"]"), []byte("oldObject.?"+r.To))
 
 	return data
-}
-
-// replace rewrites every occurrence of from with to, except occurrences that
-// are immediately followed by a protected suffix (e.g. `.namespace`). Unlike a
-// sentinel/placeholder swap, this never injects synthetic markers into the
-// data, so it cannot collide with or corrupt user-provided content such as CEL
-// expressions.
-func replace(data, from, to []byte) []byte {
-	if len(from) == 0 || bytes.Equal(from, to) {
-		return data
-	}
-	// Fast path: if from never occurs, return data unchanged without
-	// allocating or copying for the common no-op case.
-	idx := bytes.Index(data, from)
-	if idx < 0 {
-		return data
-	}
-	// Pre-size the buffer. When the replacement expands the input (the common
-	// case, e.g. `object.spec` -> `object.spec.template.spec`), grow by an
-	// upper bound on the final size so the buffer never has to reallocate
-	// mid-loop. Protected occurrences are left unchanged, so the real size is
-	// at most this estimate.
-	size := len(data)
-	if len(to) > len(from) {
-		size += bytes.Count(data, from) * (len(to) - len(from))
-	}
-	var buf bytes.Buffer
-	buf.Grow(size)
-	for i := 0; i < len(data); {
-		if bytes.HasPrefix(data[i:], from) {
-			if isValidBoundary(data, i) {
-				rest := data[i+len(from):]
-				if isValidTrailingBoundary(from, rest) {
-					if isProtected(from, rest) || isAlreadyRewritten(from, rest) {
-						buf.Write(from)
-					} else {
-						buf.Write(to)
-					}
-					i += len(from)
-					continue
-				}
-			}
-		}
-		buf.WriteByte(data[i])
-		i++
-	}
-	return buf.Bytes()
 }
 
 // isValidBoundary reports whether data[i:] starts at a valid CEL root boundary.
@@ -254,41 +208,7 @@ func Apply(data []byte, replacements ...Replacement) []byte {
 // skipping replacements inside string literals.
 func ApplyCEL(data []byte, replacements ...Replacement) []byte {
 	for _, replacement := range replacements {
-		// dot syntax
-		data = replaceCEL(data, []byte("object."+replacement.From), []byte("object."+replacement.To))
-		data = replaceCEL(data, []byte("oldObject."+replacement.From), []byte("oldObject."+replacement.To))
-		data = replaceCEL(data, []byte("object.?"+replacement.From), []byte("object.?"+replacement.To))
-		data = replaceCEL(data, []byte("oldObject.?"+replacement.From), []byte("oldObject.?"+replacement.To))
-
-		// equivalent selector forms (bracket syntax)
-		data = replaceCEL(data, []byte("object['"+replacement.From+"']"), []byte("object."+replacement.To))
-		data = replaceCEL(data, []byte("oldObject['"+replacement.From+"']"), []byte("oldObject."+replacement.To))
-
-		data = replaceCEL(data, []byte("object[\""+replacement.From+"\"]"), []byte("object."+replacement.To))
-		data = replaceCEL(data, []byte("oldObject[\""+replacement.From+"\"]"), []byte("oldObject."+replacement.To))
-
-		data = replaceCEL(data, []byte("object[\\\""+replacement.From+"\\\"]"), []byte("object."+replacement.To))
-		data = replaceCEL(data, []byte("oldObject[\\\""+replacement.From+"\\\"]"), []byte("oldObject."+replacement.To))
-
-		// optional indexing (bracket syntax with ?)
-		data = replaceCEL(data, []byte("object[?'"+replacement.From+"']"), []byte("object.?"+replacement.To))
-		data = replaceCEL(data, []byte("oldObject[?'"+replacement.From+"']"), []byte("oldObject.?"+replacement.To))
-
-		data = replaceCEL(data, []byte("object[?\""+replacement.From+"\"]"), []byte("object.?"+replacement.To))
-		data = replaceCEL(data, []byte("oldObject[?\""+replacement.From+"\"]"), []byte("oldObject.?"+replacement.To))
-
-		data = replaceCEL(data, []byte("object[?\\\""+replacement.From+"\\\"]"), []byte("object.?"+replacement.To))
-		data = replaceCEL(data, []byte("oldObject[?\\\""+replacement.From+"\\\"]"), []byte("oldObject.?"+replacement.To))
-
-		// optional indexing with whitespace tolerance: object[? 'spec']
-		data = replaceCEL(data, []byte("object[? '"+replacement.From+"']"), []byte("object.?"+replacement.To))
-		data = replaceCEL(data, []byte("oldObject[? '"+replacement.From+"']"), []byte("oldObject.?"+replacement.To))
-		data = replaceCEL(data, []byte("object[? \""+replacement.From+"\" ]"), []byte("object.?"+replacement.To))
-		data = replaceCEL(data, []byte("oldObject[? \""+replacement.From+"\" ]"), []byte("oldObject.?"+replacement.To))
-		data = replaceCEL(data, []byte("object[? \""+replacement.From+"\"]"), []byte("object.?"+replacement.To))
-		data = replaceCEL(data, []byte("oldObject[? \""+replacement.From+"\"]"), []byte("oldObject.?"+replacement.To))
-		data = replaceCEL(data, []byte("object[? \\\""+replacement.From+"\\\"]"), []byte("object.?"+replacement.To))
-		data = replaceCEL(data, []byte("oldObject[? \\\""+replacement.From+"\\\"]"), []byte("oldObject.?"+replacement.To))
+		data = replacement.Apply(data)
 	}
 	return data
 }
