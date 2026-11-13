@@ -2,9 +2,9 @@ package cosign
 
 import (
 	"context"
-	stderrors "errors"
 	"encoding/hex"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	"strings"
