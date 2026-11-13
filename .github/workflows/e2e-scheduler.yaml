@@ -18,6 +18,14 @@
 # Supported release branches: set the E2E_RELEASE_BRANCHES repository variable
 # to a space-separated list, for example "release-1.19 release-1.20". When it
 # is unset, the scheduler uses the three newest release-1.x branches.
+#
+# Release branches keep their own copy of the Tests workflow, which still runs
+# on push: the move to a schedule applies to main only and isn't backported.
+# A push run usually covers a release branch's HEAD already, so the nightly
+# run skips it. When a release branch's Tests workflow lacks the
+# workflow_dispatch trigger, the scheduler can't start it there: the run
+# summary names the branch and the reason, and the job stays green because
+# the branch still runs Tests on push. Only a failure on main fails the job.
 
 name: E2E scheduler
 
@@ -124,10 +132,13 @@ jobs:
               echo "$branch: started a $MATRIX run on ${head:0:9}."
               echo "- Started a $MATRIX run on \`$branch\` at \`${head:0:9}\`." >> "$GITHUB_STEP_SUMMARY"
             else
-              # Older release branches lack the workflow_dispatch trigger and
-              # still run the suite on push, so only main fails the job.
               echo "::warning::Could not start a run on $branch. Its Tests workflow may lack the workflow_dispatch trigger."
-              [ "$branch" != main ] || failed=1
+              if [ "$branch" = main ]; then
+                failed=1
+              else
+                # See the header: release branches still run Tests on push.
+                echo "- Skipped \`$branch\`: its Tests workflow couldn't be started, most likely because it lacks the \`workflow_dispatch\` trigger. The branch still runs Tests on push." >> "$GITHUB_STEP_SUMMARY"
+              fi
             fi
           done
           exit "$failed"
