@@ -73,3 +73,30 @@ func TestBuildWithoutConfigMatchConditionsDropsThem(t *testing.T) {
 	assert.Nil(t, webhook.ObjectSelector)
 	assert.Equal(t, []string{"v1"}, webhook.AdmissionReviewVersions)
 }
+
+func TestBuildWithExtraMatchConditionsAppendsThem(t *testing.T) {
+	extra := []admissionregistrationv1.MatchCondition{{
+		Name:       "kyverno-owned-evaluation-mode",
+		Expression: "true",
+	}}
+	c := newTestController(nil, WithExtraMatchConditions(extra))
+	vwc, err := c.build(fakeConfiguration{}, nil)
+	require.NoError(t, err)
+	require.Len(t, vwc.Webhooks, 1)
+	assert.Equal(t, []admissionregistrationv1.MatchCondition{
+		{Name: "exempt-principal", Expression: "true"},
+		{Name: "kyverno-owned-evaluation-mode", Expression: "true"},
+	}, vwc.Webhooks[0].MatchConditions)
+}
+
+func TestBuildWithoutConfigMatchConditionsKeepsExtra(t *testing.T) {
+	extra := []admissionregistrationv1.MatchCondition{{
+		Name:       "kyverno-owned-evaluation-mode",
+		Expression: "true",
+	}}
+	c := newTestController(nil, WithoutConfigMatchConditions(), WithExtraMatchConditions(extra))
+	vwc, err := c.build(fakeConfiguration{}, nil)
+	require.NoError(t, err)
+	require.Len(t, vwc.Webhooks, 1)
+	assert.Equal(t, extra, vwc.Webhooks[0].MatchConditions)
+}

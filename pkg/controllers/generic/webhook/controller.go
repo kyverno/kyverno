@@ -69,9 +69,10 @@ type controller struct {
 	extraMatchConditions      []admissionregistrationv1.MatchCondition
 }
 
-// Option configures a controller at construction time. The only option today,
-// WithoutConfigMatchConditions, exists for the legacy denial webhook configurations; it must not
+// Option configures a controller at construction time.
+// WithoutConfigMatchConditions exists for the legacy denial webhook configurations; it must not
 // be applied to a resource-facing webhook, which would silently lose user match conditions.
+// WithExtraMatchConditions appends match conditions after any ConfigMap match conditions.
 type Option func(*controller)
 
 // WithoutConfigMatchConditions stops build() from stamping the ConfigMap's configured

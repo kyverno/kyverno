@@ -176,6 +176,23 @@ func TestReconcile_JSONModeDoesNotGenerateAutogenPolicies(t *testing.T) {
 	require.Len(t, rec.Fetch(ctx, false), 1)
 }
 
+func TestReconcile_DropsForeignEvaluationMode(t *testing.T) {
+	policy := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "Envoy"},
+		},
+	}
+	rec := newReconciler(&fakeClient{policy: policy}, compiler.NewCompiler(), nil, false)
+	key := types.NamespacedName{Name: policy.Name}
+	rec.policies[key.String()] = []Policy{{Policy: policy}}
+	require.NotEmpty(t, rec.Fetch(context.Background(), false))
+
+	_, err := rec.Reconcile(context.Background(), reconcile.Request{NamespacedName: key})
+	require.NoError(t, err)
+	require.Empty(t, rec.Fetch(context.Background(), false))
+}
+
 func TestFetch(t *testing.T) {
 	trueBool := true
 	falseBool := false

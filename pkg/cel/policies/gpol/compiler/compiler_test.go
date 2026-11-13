@@ -6,6 +6,7 @@ import (
 	v1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCompile(t *testing.T) {
@@ -193,4 +194,28 @@ func TestCompile(t *testing.T) {
 		assert.Nil(t, res)
 		assert.NotNil(t, errs)
 	})
+}
+
+func TestCompile_DropsForeignEvaluationModeExceptions(t *testing.T) {
+	pol := &v1beta1.GeneratingPolicy{}
+	foreign := &v1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+		Spec: v1beta1.PolicyExceptionSpec{
+			EvaluationMode: "Envoy",
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "bad",
+				Expression: "object.metadata.namespace =",
+			}},
+		},
+	}
+	compiled, errs := NewCompiler().Compile(pol, []*v1beta1.PolicyException{foreign})
+	assert.NotNil(t, compiled)
+	assert.Nil(t, errs)
+	assert.Empty(t, compiled.exceptions)
+
+	owned := foreign.DeepCopy()
+	owned.Spec.EvaluationMode = ""
+	compiled, errs = NewCompiler().Compile(pol, []*v1beta1.PolicyException{owned})
+	assert.Nil(t, compiled)
+	assert.NotEmpty(t, errs)
 }

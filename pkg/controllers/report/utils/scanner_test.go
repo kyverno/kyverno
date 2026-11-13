@@ -157,6 +157,32 @@ func TestScanResource_MutatingPolicy_MutateExisting(t *testing.T) {
 	}
 }
 
+func TestScanResource_SkipsForeignEvaluationModes(t *testing.T) {
+	envoy := policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"}
+	vpol := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy-vpol"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			EvaluationConfiguration: &envoy,
+		},
+	})
+	ivpol := engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy-ivpol"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &envoy,
+		},
+	})
+	mpol := engineapi.NewMutatingPolicy(&policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy-mpol"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "Envoy"},
+		},
+	})
+
+	resource, gvr := newPodResource()
+	results := newTestScanner(t).ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, nil, vpol, ivpol, mpol)
+	assert.Empty(t, results)
+}
+
 func TestFilterMatchConditionSkips(t *testing.T) {
 	tests := []struct {
 		name          string

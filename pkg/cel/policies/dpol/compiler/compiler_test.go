@@ -184,3 +184,30 @@ func TestCompile(t *testing.T) {
 		})
 	}
 }
+
+func TestCompile_DropsForeignEvaluationModeExceptions(t *testing.T) {
+	pol := &v1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "cleanup"},
+		Spec:       v1beta1.DeletingPolicySpec{Schedule: "* * * * *"},
+	}
+	foreign := &v1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "envoy"},
+		Spec: v1beta1.PolicyExceptionSpec{
+			EvaluationMode: "Envoy",
+			MatchConditions: []admissionv1.MatchCondition{{
+				Name:       "bad",
+				Expression: "object.metadata.namespace =",
+			}},
+		},
+	}
+	compiled, errs := NewCompiler().Compile(pol, []*v1beta1.PolicyException{foreign})
+	assert.NotNil(t, compiled)
+	assert.Empty(t, errs)
+	assert.Empty(t, compiled.exceptions)
+
+	owned := foreign.DeepCopy()
+	owned.Spec.EvaluationMode = ""
+	compiled, errs = NewCompiler().Compile(pol, []*v1beta1.PolicyException{owned})
+	assert.Nil(t, compiled)
+	assert.NotEmpty(t, errs)
+}

@@ -197,6 +197,29 @@ func TestReconcile_DeleteRemovesAllVariants(t *testing.T) {
 	assert.Empty(t, fetched, "deleting a policy must remove its primary entry and all autogen variants")
 }
 
+func TestReconcile_DropsForeignEvaluationMode(t *testing.T) {
+	ctx := context.Background()
+	policy := autogennablePolicy("envoy")
+	policy.Spec.EvaluationConfiguration = &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"}
+	rec := newReconciler(iveval.NewCompiler(nil), &fakeClient{policies: map[string]*policiesv1beta1.ImageValidatingPolicy{
+		policy.Name: policy,
+	}}, nil, false)
+	key := types.NamespacedName{Name: policy.Name}
+	rec.policies[key.String()] = []Policy{{Policy: policy}}
+	rec.updateSortedLocked()
+
+	before, err := rec.Fetch(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, before)
+
+	_, err = rec.Reconcile(ctx, reconcile.Request{NamespacedName: key})
+	require.NoError(t, err)
+
+	got, err := rec.Fetch(ctx)
+	require.NoError(t, err)
+	require.Empty(t, got)
+}
+
 func TestReconcile_Fetch_DeterministicOrdering(t *testing.T) {
 	ctx := context.Background()
 	policies := map[string]*policiesv1beta1.ImageValidatingPolicy{
