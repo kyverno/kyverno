@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -181,23 +182,31 @@ func LoadCrdsFromPath(path string) error {
 
 // LoadCrdsFromPaths reads the CRDs from all the given files and registers them
 // together, so that a later file does not replace the groups of an earlier one.
+// A file that fails to load does not stop the others: the CRDs that were read
+// are still registered, and the load errors are returned together.
 func LoadCrdsFromPaths(paths []string) error {
 	var crds []*apiv1.CustomResourceDefinition
+	var errs []error
 	for _, path := range paths {
 		if strings.TrimSpace(path) == "" {
 			continue
 		}
 		absPath, err := getCrdFilePath(path)
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		fileCrds, err := readCRDsFromFile(absPath)
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		crds = append(crds, fileCrds...)
 	}
-	return RegisterCRDs(crds)
+	if err := RegisterCRDs(crds); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
 }
 
 // RegisterCRDs makes the kinds and scopes of the given CRDs known to the CLI.

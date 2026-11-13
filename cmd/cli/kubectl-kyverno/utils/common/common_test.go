@@ -92,3 +92,21 @@ func TestLoadCrdsFromPaths_ClusterScopedKindKeepsNoNamespace(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, widget.GetNamespace(), "default")
 }
+
+// A CRD file that fails to load must not drop the CRDs read from the other
+// files: with --continue-on-fail the CLI keeps going and still needs their
+// scopes.
+func TestLoadCrdsFromPaths_RegistersReadableFilesWhenOneFails(t *testing.T) {
+	data.InjectProcessor(data.NewCRDProcessor(nil))
+	dir := t.TempDir()
+	clusterCRD := filepath.Join(dir, "sprocket.yaml")
+	missingCRD := filepath.Join(dir, "missing.yaml")
+	assert.NilError(t, os.WriteFile(clusterCRD, []byte(crdYAML("partial.example.com", "Sprocket", "sprockets", "Cluster")), 0o600))
+
+	err := LoadCrdsFromPaths([]string{clusterCRD, missingCRD})
+	assert.ErrorContains(t, err, "missing.yaml")
+
+	sprocket, err := resource.YamlToUnstructured([]byte("apiVersion: partial.example.com/v1\nkind: Sprocket\nmetadata:\n  name: s\n"))
+	assert.NilError(t, err)
+	assert.Equal(t, sprocket.GetNamespace(), "")
+}
