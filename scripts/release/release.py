@@ -489,12 +489,32 @@ def publish_images(metadata):
         sign(subject, "image", metadata)
         sbom = Path(f".release/sboms/{name}-bom.cdx.json")
         publish_sbom(subject, sbom, metadata["owner"])
+        for platform_subject, spdx in list(platform_sboms(name, subject, raw)):
+            run("cosign", "attest", "--yes", "--type", "spdxjson", "--predicate", spdx,
+                platform_subject)
         digests[name] = digest
         upload_asset(metadata["tag"], sbom)
     write_json(".release-publication/images.json", digests)
     with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
         for name, digest in digests.items():
             stream.write(f"{name}={digest}\n")
+
+
+def platform_sboms(name, subject, index):
+    """Pair each platform image in an index with the SPDX SBOM ko wrote for it at build time."""
+    repository = subject.rsplit("@", 1)[0]
+    app = Path(IMAGES[name]).name
+    for manifest in json.loads(index)["manifests"]:
+        platform = manifest.get("platform", {})
+        if platform.get("os", "unknown") == "unknown":
+            continue
+        # Mirrors ko's path-safe platform suffix: os/arch/variant with "/" replaced by "-".
+        suffix = "-".join(filter(None, (platform["os"], platform["architecture"],
+                                        platform.get("variant"))))
+        spdx = Path(f".release/spdx/{app}-{suffix}.spdx.json")
+        if not spdx.is_file():
+            raise ValueError(f"Missing SPDX SBOM for {name} {suffix}: {spdx}")
+        yield f"{repository}@{manifest['digest']}", spdx
 
 
 def publish_sbom(subject, sbom, owner):
@@ -689,6 +709,12 @@ def verify_remote(metadata):
             Path(f".release/sboms/{name}-bom.cdx.json").read_bytes()
         ).hexdigest():
             raise ValueError(f"Remote SBOM mismatch: {name}")
+        for platform_subject, _ in platform_sboms(name, subject, raw):
+            run("cosign", "verify-attestation", "--type", "spdxjson",
+                "--certificate-identity-regexp", workflow_identity(metadata),
+                "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+                "--certificate-github-workflow-sha", metadata["sha"],
+                platform_subject, stdout=subprocess.DEVNULL)
 
 
 def main():

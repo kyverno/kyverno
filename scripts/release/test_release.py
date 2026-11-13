@@ -261,6 +261,25 @@ class LocalArtifacts(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Remote SBOM mismatch"):
                 release.verify_remote(metadata)
 
+    def test_platform_sboms_pair_each_platform_with_its_ko_spdx_file(self):
+        spdx = Path(".release/spdx")
+        spdx.mkdir(parents=True)
+        (spdx / "kubectl-kyverno-linux-amd64.spdx.json").write_text("{}")
+        (spdx / "kubectl-kyverno-linux-arm-v7.spdx.json").write_text("{}")
+        index = json.dumps({"manifests": [
+            {"digest": "sha256:1", "platform": {"os": "linux", "architecture": "amd64"}},
+            {"digest": "sha256:2", "platform": {"os": "linux", "architecture": "arm", "variant": "v7"}},
+            {"digest": "sha256:3", "platform": {"os": "unknown", "architecture": "unknown"}},
+        ]})
+        subject = "ghcr.io/kyverno/kyverno-cli@sha256:" + "a" * 64
+        self.assertEqual(list(release.platform_sboms("kyverno-cli", subject, index)), [
+            ("ghcr.io/kyverno/kyverno-cli@sha256:1", spdx / "kubectl-kyverno-linux-amd64.spdx.json"),
+            ("ghcr.io/kyverno/kyverno-cli@sha256:2", spdx / "kubectl-kyverno-linux-arm-v7.spdx.json"),
+        ])
+        (spdx / "kubectl-kyverno-linux-arm-v7.spdx.json").unlink()
+        with self.assertRaisesRegex(ValueError, "Missing SPDX SBOM for kyverno-cli linux-arm-v7"):
+            list(release.platform_sboms("kyverno-cli", subject, index))
+
     def stage_dependencies(self, *args, **kwargs):
         if args[:3] == ("helm", "dependency", "build"):
             for dependency in release.external_dependencies(release.read("charts/kyverno/Chart.lock")):

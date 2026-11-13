@@ -148,7 +148,7 @@ Each platform image also carries its SPDX SBOM as a signed attestation, stored n
 
 ```sh
 cosign verify-attestation --type spdxjson \
-  --certificate-identity-regexp '^https://github\.com/kyverno/kyverno/\.github/workflows/images-publish\.yaml@refs/heads/(main|release-[0-9]+\.[0-9]+)$' \
+  --certificate-identity-regexp '^https://github\.com/kyverno/kyverno/\.github/workflows/(images-publish|release-publish)\.yaml@refs/(heads/(main|release-[0-9]+\.[0-9]+)|tags/v[0-9].*)$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   ghcr.io/kyverno/kyverno@<platform digest>
 ```
