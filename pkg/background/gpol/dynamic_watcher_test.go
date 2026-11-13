@@ -2115,7 +2115,7 @@ func usageDownstream() *unstructured.Unstructured {
 }
 
 func managedFieldsEntry(manager string, operation metav1.ManagedFieldsOperationType, fields string) metav1.ManagedFieldsEntry {
-	return metav1.ManagedFieldsEntry{Manager: manager, Operation: operation, FieldsType: "FieldsV1", FieldsV1: &metav1.FieldsV1{Raw: []byte(fields)}}
+	return metav1.ManagedFieldsEntry{Manager: manager, Operation: operation, FieldsType: "FieldsV1", FieldsV1: metav1.NewFieldsV1(fields)}
 }
 
 func newRevertTestWatchManager(cached *unstructured.Unstructured, mc *MockClient, serverSideApply bool) (*WatchManager, schema.GroupVersionResource) {

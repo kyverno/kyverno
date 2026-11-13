@@ -162,6 +162,9 @@ func (e *errorMetaResource) Update(context.Context, *metav1.PartialObjectMetadat
 func (e *errorMetaResource) Delete(ctx context.Context, name string, opts metav1.DeleteOptions, subresources ...string) error {
 	return errors.New("delete failed")
 }
+func (e *errorMetaResource) DeleteWithResult(ctx context.Context, name string, opts metav1.DeleteOptions, subresources ...string) (metav1.APIResult, error) {
+	return nil, errors.New("delete failed")
+}
 func (e *errorMetaResource) DeleteCollection(context.Context, metav1.DeleteOptions, metav1.ListOptions) error {
 	return errors.New("delete collection failed")
 }

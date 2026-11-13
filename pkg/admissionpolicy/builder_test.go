@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernocompiler "github.com/kyverno/kyverno/pkg/cel/compiler"

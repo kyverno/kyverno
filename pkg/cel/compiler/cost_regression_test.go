@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/ext"
+	"cel.dev/cel-go/cel"
+	"cel.dev/cel-go/ext"
 	localgzip "github.com/kyverno/kyverno/pkg/cel/libs/gzip"
 	"github.com/kyverno/sdk/extensions/cel/libs/random"
 	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
@@ -41,7 +41,7 @@ func regressionEnv(t *testing.T) *cel.Env {
 		ext.Lists(ext.ListsVersion(3)),
 		ext.Regex(ext.RegexVersion(1)),
 		ext.Sets(),
-		ext.Encoders(),
+		ext.Encoders(ext.EncodersVersion(1)),
 		ext.Math(),
 		library.Quantity(),
 		random.Lib(random.Latest()),

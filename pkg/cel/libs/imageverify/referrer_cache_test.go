@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"cel.dev/cel-go/common/types"
+	"cel.dev/cel-go/common/types/ref"
 	"github.com/go-logr/logr"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	gcrv1 "github.com/google/go-containerregistry/pkg/v1"
