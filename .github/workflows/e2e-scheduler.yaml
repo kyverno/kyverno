@@ -1,0 +1,133 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Starts the Tests workflow (.github/workflows/check-tests.yaml) on a schedule,
+# so that each run tests a batch of commits instead of a single push:
+#
+# - Every 30 minutes, a reduced run on main: the oldest and the latest
+#   supported Kubernetes versions.
+# - Nightly, a full run on main and on each supported release branch.
+#
+# A target is skipped when a run of the same matrix already covers its HEAD
+# (a full run also covers the reduced matrix), or when a run that would
+# conflict with it is queued or in progress. Cancelled runs don't count.
+#
+# Runs are started with workflow_dispatch, not workflow_call, so that each one
+# is a Tests run on the target branch: the tracking issue and the E2E gate
+# (.github/workflows/e2e-gate.yaml) follow those runs only.
+#
+# Supported release branches: set the E2E_RELEASE_BRANCHES repository variable
+# to a space-separated list, for example "release-1.19 release-1.20". When it
+# is unset, the scheduler uses the three newest release-1.x branches.
+
+name: E2E scheduler
+
+on:
+  schedule:
+    # Off the hour, so the reduced run doesn't race the nightly one.
+    - cron: '15,45 * * * *'
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      matrix:
+        description: 'Which scheduled run to start now: reduced (main only) or full (main and release branches)'
+        type: choice
+        options:
+          - reduced
+          - full
+        default: reduced
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
+
+jobs:
+  schedule:
+    name: Start Tests runs
+    if: github.repository == 'kyverno/kyverno'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      # actions: the job lists and starts runs of the Tests workflow
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      MATRIX: ${{ github.event_name == 'workflow_dispatch' && inputs.matrix || (github.event.schedule == '0 2 * * *' && 'full' || 'reduced') }}
+      RELEASE_BRANCHES: ${{ vars.E2E_RELEASE_BRANCHES }}
+      WORKFLOW: check-tests.yaml
+    steps:
+      - name: Start runs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$MATRIX" = full ]; then
+            if [ -z "$RELEASE_BRANCHES" ]; then
+              RELEASE_BRANCHES="$(gh api --paginate "repos/$GH_REPO/branches?per_page=100" --jq '.[].name' |
+                grep -E '^release-1\.[0-9]+$' | sort -V | tail -n 3 | tr '\n' ' ')"
+            fi
+            read -r -a branches <<< "main $RELEASE_BRANCHES"
+          else
+            branches=(main)
+          fi
+
+          # The matrix of a Tests run, read from the suffix of its name. Runs
+          # from before the matrix input existed have no suffix and always ran
+          # the full matrix.
+          # shellcheck disable=SC2016
+          matrix_of='
+            def matrix_of: (.display_title | capture("\\((?<m>full|reduced)\\)$").m) // "full";
+          '
+
+          failed=0
+          for branch in "${branches[@]}"; do
+            if ! head="$(gh api "repos/$GH_REPO/commits/$branch" --jq .sha)"; then
+              echo "::warning::Could not resolve $branch; skipping it."
+              [ "$branch" != main ] || failed=1
+              continue
+            fi
+            runs="$(gh api "repos/$GH_REPO/actions/workflows/$WORKFLOW/runs?branch=$branch&per_page=50" --jq '.workflow_runs')"
+
+            # A full run covers the reduced matrix, not the other way around.
+            covered="$(jq -r --arg head "$head" --arg matrix "$MATRIX" "$matrix_of"'
+              any(.[];
+                .head_sha == $head and .conclusion != "cancelled" and
+                ($matrix == "reduced" or matrix_of == $matrix))
+            ' <<< "$runs")"
+            if [ "$covered" = true ]; then
+              echo "$branch: a run already covers ${head:0:9} with the $MATRIX matrix; skipping it."
+              continue
+            fi
+
+            # A reduced run waits for any active run on the branch. A full run
+            # only skips an active full run: the Tests concurrency group
+            # queues it behind a reduced one.
+            active="$(jq -r --arg matrix "$MATRIX" "$matrix_of"'
+              any(.[];
+                .status != "completed" and ($matrix == "reduced" or matrix_of == $matrix))
+            ' <<< "$runs")"
+            if [ "$active" = true ]; then
+              echo "$branch: a run that conflicts with a $MATRIX run is queued or in progress; skipping it."
+              continue
+            fi
+
+            # Release branches may predate the matrix input; full is its
+            # default, so leave it out there.
+            args=(--ref "$branch")
+            if [ "$branch" = main ]; then
+              args+=(-f "matrix=$MATRIX")
+            fi
+            if gh workflow run "$WORKFLOW" "${args[@]}"; then
+              echo "$branch: started a $MATRIX run on ${head:0:9}."
+              echo "- Started a $MATRIX run on \`$branch\` at \`${head:0:9}\`." >> "$GITHUB_STEP_SUMMARY"
+            else
+              # Older release branches lack the workflow_dispatch trigger and
+              # still run the suite on push, so only main fails the job.
+              echo "::warning::Could not start a run on $branch. Its Tests workflow may lack the workflow_dispatch trigger."
+              [ "$branch" != main ] || failed=1
+            fi
+          done
+          exit "$failed"
