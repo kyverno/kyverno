@@ -17,7 +17,8 @@ import (
 const MaxCELCodePoints = 100000
 
 // nativeMatchConditionCompiler compiles match conditions the way the API server does for a
-// ValidatingAdmissionPolicy: base CEL environment and admission variables, no Kyverno libraries.
+// ValidatingAdmissionPolicy or MutatingAdmissionPolicy: base CEL environment and admission
+// variables, no Kyverno libraries.
 var nativeMatchConditionCompiler = cel.NewCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
 
 // CanGenerateNativePolicy reports whether a ValidatingPolicy still translates to a
@@ -73,29 +74,45 @@ func CanGenerateNativePolicy(exceptions []policiesv1beta1.PolicyException) (bool
 
 // CanGenerateNativeMutatingPolicy reports whether a MutatingPolicy still translates to a
 // native MutatingAdmissionPolicy. Generation is ineligible if combining an exception's
-// matchConditions produces a CEL expression exceeding the Kubernetes source-size limit (100,000 code points).
-// Unlike ValidatingAdmissionPolicies, MutatingAdmissionPolicies perform a size-only check and do not
-// reject exceptions with compensating controls (spec.validations), which are validating-only.
+// matchConditions produces a CEL expression exceeding the Kubernetes source-size limit (100,000 code points),
+// or if the combined condition does not compile without the Kyverno CEL libraries, since the API server
+// would then reject the MutatingAdmissionPolicy.
+// Unlike ValidatingAdmissionPolicies, MutatingAdmissionPolicies do not reject exceptions with
+// compensating controls (spec.validations), which are validating-only.
 func CanGenerateNativeMutatingPolicy(exceptions []policiesv1beta1.PolicyException) (bool, string) {
 	var sizeOffending []string
+	var kyvernoCELOffending []string
 	for _, exception := range exceptions {
+		name := cache.MetaObjectToName(&exception).String()
 		if mc := negateMatchConditions(exception.GetNamespace(), exception.GetName(), exception.Spec.MatchConditions); mc != nil {
 			if utf8.RuneCountInString(mc.Expression) > MaxCELCodePoints {
-				sizeOffending = append(sizeOffending, cache.MetaObjectToName(&exception).String())
+				sizeOffending = append(sizeOffending, name)
+			} else if !nativeMatchConditionCompiles(*mc) {
+				kyvernoCELOffending = append(kyvernoCELOffending, name)
 			}
 		}
 	}
-	if len(sizeOffending) == 0 {
+	if len(sizeOffending) == 0 && len(kyvernoCELOffending) == 0 {
 		return true, ""
 	}
-	return false, fmt.Sprintf(
-		"policy exception(s) %s produce combined matchConditions exceeding the Kubernetes CEL code point limit (%d), which a generated MutatingAdmissionPolicy cannot evaluate",
-		strings.Join(sizeOffending, ", "),
-		MaxCELCodePoints,
-	)
+	var reasons []string
+	if len(sizeOffending) > 0 {
+		reasons = append(reasons, fmt.Sprintf(
+			"policy exception(s) %s produce combined matchConditions exceeding the Kubernetes CEL code point limit (%d), which a generated MutatingAdmissionPolicy cannot evaluate",
+			strings.Join(sizeOffending, ", "),
+			MaxCELCodePoints,
+		))
+	}
+	if len(kyvernoCELOffending) > 0 {
+		reasons = append(reasons, fmt.Sprintf(
+			"policy exception(s) %s use matchConditions that the API server cannot compile in a generated MutatingAdmissionPolicy, such as calls to the Kyverno CEL libraries",
+			strings.Join(kyvernoCELOffending, ", "),
+		))
+	}
+	return false, strings.Join(reasons, "; ")
 }
 
-// nativeMatchConditionCompiles reports whether a negated match condition the VAP builder
+// nativeMatchConditionCompiles reports whether a negated match condition the VAP or MAP builder
 // generates for an exception compiles in the API server's admission environment.
 func nativeMatchConditionCompiles(condition admissionregistrationv1.MatchCondition) bool {
 	result := nativeMatchConditionCompiler.CompileCELExpression(
