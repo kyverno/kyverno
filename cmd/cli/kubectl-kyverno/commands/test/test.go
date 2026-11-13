@@ -155,7 +155,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	policyFullPath := path.GetFullPaths(regularPolicies, testDir, isGit)
 	results, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
-		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
+		return nil, fmt.Errorf("error: failed to load policies (%w)", err)
 	}
 	if len(ociPolicies) > 0 {
 		ociResults, err := policy.Load(nil, "", ociPolicies...)
