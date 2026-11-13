@@ -433,7 +433,8 @@ func TestReconcile_ForeignModeDeletesGeneratedMAPWithoutStatus(t *testing.T) {
 			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "Envoy"},
 		},
 		Status: policiesv1beta1.MutatingPolicyStatus{
-			ConditionStatus: policiesv1beta1.ConditionStatus{Message: "left alone"},
+			Generated:       true,
+			ConditionStatus: preservedGeneratedStatus(),
 		},
 	}
 	c, kubeClient, kyvernoClient := newMAPTestController(t, mpol, nil, nil)
@@ -489,7 +490,7 @@ func TestReconcile_ForeignModeDeletesGeneratedMAPWithoutStatus(t *testing.T) {
 
 	stored, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.Name, metav1.GetOptions{})
 	require.NoError(t, err)
-	assert.Equal(t, "left alone", stored.Status.ConditionStatus.Message)
+	assert.Equal(t, mpol.Status, stored.Status)
 }
 
 func TestReconcile_ForeignModeLeavesUnownedMAP(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -164,6 +165,19 @@ func policyOwnerRef(kind, name, uid string) metav1.OwnerReference {
 	}
 }
 
+func preservedGeneratedStatus() policiesv1beta1.ConditionStatus {
+	return policiesv1beta1.ConditionStatus{
+		Message: "left alone",
+		Conditions: []metav1.Condition{{
+			Type:               string(policiesv1beta1.PolicyConditionTypeWebhookConfigured),
+			Status:             metav1.ConditionTrue,
+			Reason:             "Succeeded",
+			Message:            "Admission is enforced by the generated ValidatingAdmissionPolicy.",
+			LastTransitionTime: metav1.NewTime(time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)),
+		}},
+	}
+}
+
 func envoyValidatingPolicy() *policiesv1beta1.ValidatingPolicy {
 	return &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "envoy-pol", UID: "policy-uid"},
@@ -171,7 +185,8 @@ func envoyValidatingPolicy() *policiesv1beta1.ValidatingPolicy {
 			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
 		},
 		Status: policiesv1beta1.ValidatingPolicyStatus{
-			ConditionStatus: policiesv1beta1.ConditionStatus{Message: "left alone"},
+			Generated:       true,
+			ConditionStatus: preservedGeneratedStatus(),
 		},
 	}
 }
@@ -187,30 +202,58 @@ func TestReconcile_ForeignModeDeletesGeneratedVAPWithoutStatus(t *testing.T) {
 	bindingName := constructBindingName(vapName)
 	owner := policyOwnerRef("ValidatingPolicy", vpol.Name, string(vpol.UID))
 	_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(context.Background(), &admissionregistrationv1.ValidatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: vapName, OwnerReferences: []metav1.OwnerReference{owner}},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            vapName,
+			UID:             "vap-uid",
+			ResourceVersion: "11",
+			OwnerReferences: []metav1.OwnerReference{owner},
+		},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 	_, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Create(context.Background(), &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: bindingName, OwnerReferences: []metav1.OwnerReference{owner}},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            bindingName,
+			UID:             "binding-uid",
+			ResourceVersion: "22",
+			OwnerReferences: []metav1.OwnerReference{owner},
+		},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 	storedVAP, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
 	require.NoError(t, err)
-	var preconditions *metav1.Preconditions
+	storedBinding, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.Background(), bindingName, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.NotEmpty(t, string(storedVAP.UID))
+	require.NotEmpty(t, storedVAP.ResourceVersion)
+	require.NotEqual(t, storedVAP.UID, storedBinding.UID)
+	require.NotEqual(t, storedVAP.ResourceVersion, storedBinding.ResourceVersion)
+	var vapPreconditions, bindingPreconditions *metav1.Preconditions
 	kubeClient.PrependReactor("delete", "validatingadmissionpolicies", func(action clienttesting.Action) (bool, runtime.Object, error) {
 		del, ok := action.(clienttesting.DeleteAction)
 		if ok {
-			preconditions = del.GetDeleteOptions().Preconditions
+			vapPreconditions = del.GetDeleteOptions().Preconditions
+		}
+		return false, nil, nil
+	})
+	kubeClient.PrependReactor("delete", "validatingadmissionpolicybindings", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		del, ok := action.(clienttesting.DeleteAction)
+		if ok {
+			bindingPreconditions = del.GetDeleteOptions().Preconditions
 		}
 		return false, nil, nil
 	})
 
 	require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "ValidatingPolicy", vpol.Name))
-	require.NotNil(t, preconditions)
-	require.NotNil(t, preconditions.UID)
-	require.NotNil(t, preconditions.ResourceVersion)
-	assert.Equal(t, storedVAP.UID, *preconditions.UID)
-	assert.Equal(t, storedVAP.ResourceVersion, *preconditions.ResourceVersion)
+	require.NotNil(t, vapPreconditions)
+	require.NotNil(t, vapPreconditions.UID)
+	require.NotNil(t, vapPreconditions.ResourceVersion)
+	assert.Equal(t, storedVAP.UID, *vapPreconditions.UID)
+	assert.Equal(t, storedVAP.ResourceVersion, *vapPreconditions.ResourceVersion)
+	require.NotNil(t, bindingPreconditions)
+	require.NotNil(t, bindingPreconditions.UID)
+	require.NotNil(t, bindingPreconditions.ResourceVersion)
+	assert.Equal(t, storedBinding.UID, *bindingPreconditions.UID)
+	assert.Equal(t, storedBinding.ResourceVersion, *bindingPreconditions.ResourceVersion)
 
 	_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
 	_, bindingErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.Background(), bindingName, metav1.GetOptions{})
@@ -219,7 +262,7 @@ func TestReconcile_ForeignModeDeletesGeneratedVAPWithoutStatus(t *testing.T) {
 
 	stored, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(context.Background(), vpol.Name, metav1.GetOptions{})
 	require.NoError(t, err)
-	assert.Equal(t, "left alone", stored.Status.ConditionStatus.Message)
+	assert.Equal(t, vpol.Status, stored.Status)
 }
 
 func TestReconcile_ForeignModeLeavesUnownedVAP(t *testing.T) {
