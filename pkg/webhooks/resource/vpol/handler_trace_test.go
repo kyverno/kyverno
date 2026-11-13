@@ -63,6 +63,10 @@ func (c *capturedLog) decisions() []map[string]any {
 // trace is what --enableDecisionTraces sets: whether the policy is compiled for tracing.
 func teamLabelHandler(t *testing.T, trace bool) *handler {
 	t.Helper()
+	// audit() reads the process-wide reporting config. Install one for this
+	// test and restore the previous value, so the test does not depend on
+	// whichever test ran first.
+	useReportingConfig(t)
 	policy := &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "require-platform-team"},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
