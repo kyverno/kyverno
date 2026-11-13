@@ -241,6 +241,7 @@ spec:
                       format: date-time
                       type: string
                     message:
+                      default: ""
                       description: |-
                         message is a human readable message indicating details about the transition.
                         This may be an empty string.
@@ -279,7 +280,6 @@ spec:
                       type: string
                   required:
                   - lastTransitionTime
-                  - message
                   - reason
                   - status
                   - type
@@ -518,6 +518,7 @@ spec:
                       format: date-time
                       type: string
                     message:
+                      default: ""
                       description: |-
                         message is a human readable message indicating details about the transition.
                         This may be an empty string.
@@ -556,7 +557,6 @@ spec:
                       type: string
                   required:
                   - lastTransitionTime
-                  - message
                   - reason
                   - status
                   - type
@@ -795,6 +795,7 @@ spec:
                       format: date-time
                       type: string
                     message:
+                      default: ""
                       description: |-
                         message is a human readable message indicating details about the transition.
                         This may be an empty string.
@@ -833,7 +834,6 @@ spec:
                       type: string
                   required:
                   - lastTransitionTime
-                  - message
                   - reason
                   - status
                   - type

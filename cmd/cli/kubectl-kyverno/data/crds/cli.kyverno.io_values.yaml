@@ -82,17 +82,17 @@ spec:
                   type: string
                 metadata:
                   description: |-
-                    Standard object's metadata.
+                    metadata is the standard object's metadata.
                     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
                   type: object
                 spec:
                   description: |-
-                    Spec defines the behavior of the Namespace.
+                    spec defines the behavior of the Namespace.
                     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
                   properties:
                     finalizers:
                       description: |-
-                        Finalizers is an opaque list of values that must be empty to permanently remove object from storage.
+                        finalizers is an opaque list of values that must be empty to permanently remove object from storage.
                         More info: https://kubernetes.io/docs/tasks/administer-cluster/namespaces/
                       items:
                         description: FinalizerName is the name identifying a finalizer
@@ -103,7 +103,7 @@ spec:
                   type: object
                 status:
                   description: |-
-                    Status describes the current status of a Namespace.
+                    status describes the current status of a Namespace.
                     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
                   properties:
                     conditions:
@@ -114,24 +114,24 @@ spec:
                           of namespace.
                         properties:
                           lastTransitionTime:
-                            description: Last time the condition transitioned from
-                              one status to another.
+                            description: lastTransitionTime is the last time the condition
+                              transitioned from one status to another.
                             format: date-time
                             type: string
                           message:
-                            description: Human-readable message indicating details
-                              about last transition.
+                            description: message is a human-readable message indicating
+                              details about last transition.
                             type: string
                           reason:
-                            description: Unique, one-word, CamelCase reason for the
-                              condition's last transition.
+                            description: reason is the unique, one-word, CamelCase
+                              reason for the condition's last transition.
                             type: string
                           status:
-                            description: Status of the condition, one of True, False,
+                            description: status of the condition, one of True, False,
                               Unknown.
                             type: string
                           type:
-                            description: Type of namespace controller condition.
+                            description: type of namespace controller condition.
                             type: string
                         required:
                         - status

@@ -5,11 +5,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	k8s_io_apiextensions_api_pkg_client_clientset_clientset "k8s.io/apiextensions-api/pkg/client/clientset/clientset"
 	k8s_io_client_go_rest "k8s.io/client-go/rest"
 )
 
-type UpstreamInterface = k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.Interface
+type UpstreamInterface = k8s_io_apiextensions_api_pkg_client_clientset_clientset.Interface
 
 type Interface interface {
 	UpstreamInterface
@@ -18,7 +18,7 @@ type Interface interface {
 	WithLogging(logr.Logger) Interface
 }
 
-func From(inner k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.Interface, opts ...NewOption) Interface {
+func From(inner k8s_io_apiextensions_api_pkg_client_clientset_clientset.Interface, opts ...NewOption) Interface {
 	i := from(inner)
 	for _, opt := range opts {
 		i = opt(i)
@@ -47,7 +47,7 @@ func WithLogging(logger logr.Logger) NewOption {
 }
 
 func NewForConfig(c *k8s_io_client_go_rest.Config, opts ...NewOption) (Interface, error) {
-	inner, err := k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.NewForConfig(c)
+	inner, err := k8s_io_apiextensions_api_pkg_client_clientset_clientset.NewForConfig(c)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func NewForConfig(c *k8s_io_client_go_rest.Config, opts ...NewOption) (Interface
 }
 
 func NewForConfigAndClient(c *k8s_io_client_go_rest.Config, httpClient *http.Client, opts ...NewOption) (Interface, error) {
-	inner, err := k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.NewForConfigAndClient(c, httpClient)
+	inner, err := k8s_io_apiextensions_api_pkg_client_clientset_clientset.NewForConfigAndClient(c, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -63,14 +63,14 @@ func NewForConfigAndClient(c *k8s_io_client_go_rest.Config, httpClient *http.Cli
 }
 
 func NewForConfigOrDie(c *k8s_io_client_go_rest.Config, opts ...NewOption) Interface {
-	return From(k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.NewForConfigOrDie(c), opts...)
+	return From(k8s_io_apiextensions_api_pkg_client_clientset_clientset.NewForConfigOrDie(c), opts...)
 }
 
 type wrapper struct {
-	k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.Interface
+	k8s_io_apiextensions_api_pkg_client_clientset_clientset.Interface
 }
 
-func from(inner k8s_io_apiextensions_apiserver_pkg_client_clientset_clientset.Interface, opts ...NewOption) Interface {
+func from(inner k8s_io_apiextensions_api_pkg_client_clientset_clientset.Interface, opts ...NewOption) Interface {
 	return &wrapper{inner}
 }
 
