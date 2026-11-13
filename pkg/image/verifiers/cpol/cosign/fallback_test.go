@@ -168,7 +168,7 @@ func TestFetchBundlesFallbackTag(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ref := setupFallbackRegistry(t, []testReferrer{tt.referrer})
-			bundles, desc, err := fetchBundles(ref, attestationlimit, "", nil)
+			bundles, desc, _, err := fetchBundles(ref, attestationlimit, "", nil)
 			assert.NilError(t, err)
 			assert.Assert(t, desc != nil)
 			assert.Equal(t, len(bundles), tt.want)
@@ -176,25 +176,47 @@ func TestFetchBundlesFallbackTag(t *testing.T) {
 	}
 }
 
-// TestFetchBundlesFallbackMissingReferrer checks that a stale untyped entry whose manifest was deleted
-// does not hide the valid bundle next to it.
+// TestFetchBundlesFallbackMissingReferrer checks that a stale entry whose manifest was deleted, typed or not,
+// does not hide the valid bundle next to it, and that the missing referrer is still reported.
 func TestFetchBundlesFallbackMissingReferrer(t *testing.T) {
 	t.Parallel()
 	bundleJSON, err := os.ReadFile("testdata/bundle.json")
 	assert.NilError(t, err)
 	bundleMediaType := "application/vnd.dev.sigstore.bundle.v0.3+json"
-	ref := setupFallbackRegistry(t, []testReferrer{{
-		layerMediaType: "application/json",
-		layerData:      []byte(`{}`),
-		deleteManifest: true,
+	tests := []struct {
+		name  string
+		stale testReferrer
+	}{{
+		name: "untyped",
+		stale: testReferrer{
+			layerMediaType: "application/json",
+			layerData:      []byte(`{}`),
+			deleteManifest: true,
+		},
 	}, {
-		manifestArtifactType: bundleMediaType,
-		layerMediaType:       bundleMediaType,
-		layerData:            bundleJSON,
-	}})
-	bundles, _, err := fetchBundles(ref, attestationlimit, "", nil)
-	assert.NilError(t, err)
-	assert.Equal(t, len(bundles), 1)
+		name: "typed",
+		stale: testReferrer{
+			descriptorArtifactType: bundleMediaType,
+			manifestArtifactType:   bundleMediaType,
+			layerMediaType:         bundleMediaType,
+			layerData:              []byte(`{"stale":true}`),
+			deleteManifest:         true,
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ref := setupFallbackRegistry(t, []testReferrer{tt.stale, {
+				manifestArtifactType: bundleMediaType,
+				layerMediaType:       bundleMediaType,
+				layerData:            bundleJSON,
+			}})
+			bundles, _, missing, err := fetchBundles(ref, attestationlimit, "", nil)
+			assert.NilError(t, err)
+			assert.Equal(t, len(bundles), 1)
+			assert.Equal(t, len(missing), 1)
+		})
+	}
 }
 
 // TestFetchBundlesFallbackLayerFetchError checks that a bundle layer the registry cannot serve is returned as an error.
@@ -206,7 +228,7 @@ func TestFetchBundlesFallbackLayerFetchError(t *testing.T) {
 		layerData:            []byte(`{"hello":"world"}`),
 		skipLayerUpload:      true,
 	}})
-	_, _, err := fetchBundles(ref, attestationlimit, "", nil)
+	_, _, _, err := fetchBundles(ref, attestationlimit, "", nil)
 	assert.ErrorContains(t, err, "referrer layer")
 }
 
@@ -220,7 +242,7 @@ func TestFetchBundlesFallbackIncompleteBundle(t *testing.T) {
 		layerMediaType:       bundleMediaType,
 		layerData:            []byte(`{}`),
 	}})
-	bundles, _, err := fetchBundles(ref, attestationlimit, "", nil)
+	bundles, _, _, err := fetchBundles(ref, attestationlimit, "", nil)
 	assert.ErrorContains(t, err, "failed to unmarshal bundle")
 	assert.Equal(t, len(bundles), 0)
 }
@@ -260,6 +282,6 @@ func TestFetchBundlesFallbackFetchError(t *testing.T) {
 	digest := desc.Digest.String()
 	blocked.Store(&digest)
 
-	_, _, err = fetchBundles(ref, attestationlimit, "", nil)
+	_, _, _, err = fetchBundles(ref, attestationlimit, "", nil)
 	assert.ErrorContains(t, err, "failed to fetch referrer image")
 }
