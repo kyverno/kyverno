@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -48,6 +49,9 @@ func BuildValidatingAdmissionPolicy(
 		for _, exception := range exceptions {
 			if celpolex := exception.AsCELException(); celpolex != nil {
 				if mc := negateMatchConditions(celpolex.GetNamespace(), celpolex.GetName(), celpolex.Spec.MatchConditions); mc != nil {
+					if utf8.RuneCountInString(mc.Expression) > MaxCELCodePoints {
+						return fmt.Errorf("combined matchConditions for exception %s exceeds CEL code point limit (%d)", celpolex.GetName(), MaxCELCodePoints)
+					}
 					mc.Name = allocateConditionName(usedNames, mc.Name)
 					matchConditions = append(matchConditions, *mc)
 				}

@@ -4,10 +4,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/google/cel-go/cel"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernocompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -845,4 +847,63 @@ func TestAllocateConditionName_LongLocalNameWithPrefixTruncatedSafely(t *testing
 	assert.True(t, strings.HasSuffix(second, "-1"))
 	localPart := strings.TrimPrefix(second, prefix+"/")
 	assert.LessOrEqual(t, len(localPart), 63)
+}
+
+func TestNegateMatchConditions_CELSourceSizeLimitRegression(t *testing.T) {
+	// Reproduces maintainer review finding:
+	// Two conditions whose expression is '"' + strings.Repeat("a", 55000) + '"' != "":
+	// both separately negated expressions pass compiler.CompileMatchConditionsWithKubernetesEnv,
+	// but negateMatchConditions produces an expression exceeding the 100,000 code-point limit.
+	expr := `"` + strings.Repeat("a", 55000) + `" != ""`
+	conds := []admissionregistrationv1.MatchCondition{
+		{Name: "c1", Expression: expr},
+		{Name: "c2", Expression: expr},
+	}
+
+	// Verify both individual conditions pass CompileMatchConditionsWithKubernetesEnv
+	errs1 := kyvernocompiler.CompileMatchConditionsWithKubernetesEnv([]admissionregistrationv1.MatchCondition{
+		{Name: "c1", Expression: "!(" + expr + ")"},
+	}, nil)
+	assert.Empty(t, errs1, "individually negated condition should pass CEL compilation")
+
+	errs2 := kyvernocompiler.CompileMatchConditionsWithKubernetesEnv([]admissionregistrationv1.MatchCondition{
+		{Name: "c2", Expression: "!(" + expr + ")"},
+	}, nil)
+	assert.Empty(t, errs2, "individually negated condition should pass CEL compilation")
+
+	// When combined by negateMatchConditions, code point count exceeds 100,000
+	combined := negateMatchConditions("default", "oversized-polex", conds)
+	require.NotNil(t, combined)
+	codePoints := utf8.RuneCountInString(combined.Expression)
+	assert.Greater(t, codePoints, MaxCELCodePoints)
+
+	// CEL compiler rejects the combined expression due to code point size limit
+	compilerErrs := kyvernocompiler.CompileMatchConditionsWithKubernetesEnv([]admissionregistrationv1.MatchCondition{*combined}, nil)
+	require.NotEmpty(t, compilerErrs)
+	assert.Contains(t, compilerErrs.ToAggregate().Error(), "expression code point size exceeds limit")
+
+	// CanGenerateNativePolicy explicitly catches this unrepresentable exception
+	polex := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "oversized-polex"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: conds,
+		},
+	}
+	canGenerate, reason := CanGenerateNativePolicy([]policiesv1beta1.PolicyException{polex})
+	assert.False(t, canGenerate)
+	assert.Contains(t, reason, "exceeding the Kubernetes CEL code point limit (100000)")
+
+	// BuildValidatingAdmissionPolicy defense-in-depth also rejects building the VAP
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "vpol-test"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+		},
+	}
+	err := BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(vpol), []engineapi.GenericException{
+		engineapi.NewCELPolicyException(&polex),
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds CEL code point limit (100000)")
 }
