@@ -22,6 +22,8 @@ jobs:
   check:
     name: Chart-testing (lint)
     runs-on: ubuntu-24.04
+    outputs:
+      ran: ${{ steps.changed-files.outputs.any_modified }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,49 +39,47 @@ jobs:
             scripts/verify-*.sh
             config/crds/**
             test/cli/test-validating-policy/pss-psa-version/**
-            cmd/tools/crd-splice/**
+            hack/crd-splice/**
             Makefile
             .github/workflows/check-ct-lint.yaml
-            .github/actions/tools/helm/**
-            .github/actions/go/**
-            .github/actions/release/restore/**
+            .github/actions/**
       - name: Setup Go
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         uses: ./.github/actions/go/setup
         with:
           gobuild-cache-prefix: gobuild-ct-lint
       - name: Setup python
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
       # Setting up chart-testing downloads cosign and Python packages, which fails now and
       # then on the runners, so wait and try once more.
       - name: Set up chart-testing
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         id: ct-setup
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
         continue-on-error: true
-      - if: steps.changed-files.outputs.any_changed == 'true' && steps.ct-setup.outcome == 'failure'
+      - if: steps.changed-files.outputs.any_modified == 'true' && steps.ct-setup.outcome == 'failure'
         run: sleep 30
       - name: Set up chart-testing (retry)
-        if: steps.changed-files.outputs.any_changed == 'true' && steps.ct-setup.outcome == 'failure'
+        if: steps.changed-files.outputs.any_modified == 'true' && steps.ct-setup.outcome == 'failure'
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
       # Exports HELM=<path>, which the Makefile's `HELM ?=` picks up, so the
       # retention check below reuses this helm instead of building one from
       # source into .tools/.
       - name: Install helm
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         uses: ./.github/actions/tools/helm
       - name: Add Helm repos and build dependencies
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         run: |
           helm repo add openreports https://openreports.github.io/reports-api
           helm repo add reports-server https://kyverno.github.io/reports-server
           helm repo add kyverno-api https://kyverno.github.io/api
           helm repo update
       - name: Run chart-testing (lint)
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         run: ct lint --all --check-version-increment=false --validate-maintainers=false
       - name: Verify legacy CRD retention
         # Asserts the five legacy policy CRDs still carry
@@ -88,7 +88,7 @@ jobs:
         # chart pins it; this renders the chart and checks. It needs no
         # cluster, which is why it lives here rather than in the conformance
         # helm-tests job.
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         run: |
           set -e
           make verify-legacy-crd-retention
@@ -97,7 +97,7 @@ jobs:
         # UpdateRequest v1beta1 block (#17713) stay byte-identical to the
         # 1.20 compatibility snapshot. verify-codegen alone cannot catch a
         # PR that commits an edit to these bytes.
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         run: |
           set -e
           make verify-legacy-crd-snapshot
@@ -106,30 +106,33 @@ jobs:
         # aggregates into admin/edit/view, so generate rules can still bind
         # those roles after a chart RBAC change. PyYAML comes from the
         # chart-testing virtualenv activated above (yamllint depends on it).
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         run: |
           set -e
           make verify-background-controller-rbac
       - name: Verify scale-to-zero release scope
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         run: bash scripts/verify-scale-to-zero-hook.sh
       - name: Verify restrict-sysctls allow-list
         # Renders restrict-sysctls at each Kubernetes version gate and checks
         # the allow-list against the PSA list for that version.
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         run: |
           set -e
           make verify-policies-sysctls
       - name: Verify podSecurityVersion rendering
         # Renders the policies at each PSA version gate and checks the
         # behavior against PSA for that version.
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.changed-files.outputs.any_modified == 'true'
         run: |
           set -e
           make verify-policies-psa-version
 
   sync-issue:
-    if: always() && github.event_name == 'push'
+    if: |
+      always() &&
+      github.event_name == 'push' &&
+      (needs.check.result == 'failure' || needs.check.outputs.ran == 'true')
     needs:
       - check
     permissions:

@@ -22,6 +22,8 @@ jobs:
   check:
     name: Artifact Hub (lint)
     runs-on: ubuntu-latest
+    outputs:
+      ran: ${{ steps.changed-files.outputs.any_modified }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,11 +38,14 @@ jobs:
             charts/**
             .github/workflows/check-ah-lint.yaml
       - name: Run ah lint
-        if: steps.changed-files.outputs.any_changed == 'true'
-        run: docker run --rm --user root -v "$PWD:/work" -w /work/charts artifacthub/ah ah lint
+        if: steps.changed-files.outputs.any_modified == 'true'
+        run: docker run --rm --user root -v "$PWD:/work" -w /work/charts artifacthub/ah lint
 
   sync-issue:
-    if: always() && github.event_name == 'push'
+    if: |
+      always() &&
+      github.event_name == 'push' &&
+      (needs.check.result == 'failure' || needs.check.outputs.ran == 'true')
     needs:
       - check
     permissions:
