@@ -22,6 +22,7 @@ import (
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
@@ -378,6 +379,8 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		} else if ok {
 			status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
 		}
+	} else {
+		meta.RemoveStatusCondition(&status.Conditions, string(policiesv1beta1.PolicyConditionTypeWebhookConfigured))
 	}
 
 	c.reconcileRBACPermissionsCondition(ctx, status, matchConstraints, autogenMatchConstraints, backgroundEnabled)
