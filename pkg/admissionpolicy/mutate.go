@@ -2,7 +2,6 @@ package admissionpolicy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -162,23 +161,26 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 		if binding.Spec.ParamRef != nil {
 			params, err := CollectParams(context.TODO(), adapters.Client(client), convertParamKind(policy.Spec.ParamKind), convertParamRef(binding.Spec.ParamRef), namespaceName)
 			if err != nil {
+				// a parameter failure is scoped to the binding that caused it, so a
+				// malformed or unsatisfied paramRef cannot mask the other bindings'
+				// results
 				mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-				if errors.Is(err, ErrInvalidParamRefSelector) {
-					selectionRules = append(selectionRules, paramSelectionError(policy.GetName(), engineapi.Mutation, err).WithMAPBinding(&bindings[i]))
-					if selectionErr == nil {
-						selectionErr = err
-					}
-					continue
+				selectionRules = append(selectionRules, paramSelectionError(policy.GetName(), engineapi.Mutation, err).WithMAPBinding(&bindings[i]))
+				if selectionErr == nil {
+					selectionErr = err
 				}
-				return er, err
+				continue
 			}
 
 			// a selector being present in the binding is the only case in which params will contain more than 1 entry
 			var matchedParams runtime.Object
 			switch len(params) {
 			case 0:
-				// parameterNotFoundAction Allow: Kubernetes skips the binding when the
-				// paramRef selects no parameters, so no mutation is evaluated
+				// CollectParams returns errNoParamsFound when a selector matches no
+				// parameter under parameterNotFoundAction Deny, so an empty result here
+				// means the action allows it: Kubernetes skips the binding, so no
+				// mutation is evaluated. A ref with neither name nor selector is skipped
+				// the same way, since the API server rejects such a binding up front.
 				continue
 			case 1:
 				matchedParams = params[0]

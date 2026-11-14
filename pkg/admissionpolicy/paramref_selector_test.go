@@ -1,6 +1,7 @@
 package admissionpolicy
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -24,6 +25,35 @@ const (
 	policyKindVAP = "vap"
 	policyKindMAP = "map"
 )
+
+// findVAPRule returns the rule recorded for a validating policy binding, so a
+// test does not depend on where outside the binding loop the rule was appended.
+func findVAPRule(t *testing.T, rules []engineapi.RuleResponse, binding string) *engineapi.RuleResponse {
+	t.Helper()
+
+	for i := range rules {
+		rule := &rules[i]
+		if b := rule.ValidatingAdmissionPolicyBinding(); b != nil && b.GetName() == binding {
+			return rule
+		}
+	}
+	t.Fatalf("no rule for validatingadmissionpolicybinding %q", binding)
+	return nil
+}
+
+// findMAPRule returns the rule recorded for a mutating policy binding.
+func findMAPRule(t *testing.T, rules []engineapi.RuleResponse, binding string) *engineapi.RuleResponse {
+	t.Helper()
+
+	for i := range rules {
+		rule := &rules[i]
+		if b := rule.MutatingAdmissionPolicyBinding(); b != nil && b.GetName() == binding {
+			return rule
+		}
+	}
+	t.Fatalf("no rule for mutatingadmissionpolicybinding %q", binding)
+	return nil
+}
 
 func invalidLabelSelector() *metav1.LabelSelector {
 	return &metav1.LabelSelector{
@@ -97,6 +127,74 @@ func newDeployment() unstructured.Unstructured {
 	}}
 }
 
+func newClientPathVAP() *admissionregistrationv1.ValidatingAdmissionPolicy {
+	return &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "replica-limit"},
+		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+			ParamKind: &admissionregistrationv1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"apps"},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"deployments"},
+						},
+					},
+				}},
+			},
+			Validations: []admissionregistrationv1.Validation{{Expression: "object.spec.replicas > 0"}},
+		},
+	}
+}
+
+func newClientPathMAP() *admissionregistrationv1beta1.MutatingAdmissionPolicy {
+	return &admissionregistrationv1beta1.MutatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "label-deployment"},
+		Spec: admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
+			ParamKind: &admissionregistrationv1beta1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"},
+			MatchConstraints: &admissionregistrationv1beta1.MatchResources{
+				ResourceRules: []admissionregistrationv1beta1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1beta1.RuleWithOperations{
+						Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+						Rule: admissionregistrationv1beta1.Rule{
+							APIGroups:   []string{"apps"},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"deployments"},
+						},
+					},
+				}},
+			},
+			Mutations: []admissionregistrationv1beta1.Mutation{
+				{
+					PatchType: admissionregistrationv1beta1.PatchTypeApplyConfiguration,
+					ApplyConfiguration: &admissionregistrationv1beta1.ApplyConfiguration{
+						Expression: `Object{ metadata: Object.metadata{ labels: {"applied": "yes"} } }`,
+					},
+				},
+			},
+		},
+	}
+}
+
+// bindingOrders places the failing binding first and last, so a rule attributed to
+// bindings[0] instead of bindings[i] cannot pass both cases and continuing past
+// the failing binding is proven where it actually matters.
+func bindingOrders(t *testing.T, failing, matching string) []struct {
+	name        string
+	failedFirst bool
+} {
+	t.Helper()
+	return []struct {
+		name        string
+		failedFirst bool
+	}{
+		{name: failing + " before " + matching, failedFirst: true},
+		{name: failing + " after " + matching, failedFirst: false},
+	}
+}
+
 // TestParamRefSelectorClientPath covers the cluster-backed branch, which takes a
 // different route through CollectParams than the offline one.
 func TestParamRefSelectorClientPath(t *testing.T) {
@@ -104,28 +202,13 @@ func TestParamRefSelectorClientPath(t *testing.T) {
 
 	invalid := paramRefSpec{selector: invalidLabelSelector()}
 
-	t.Run("vap", func(t *testing.T) {
+	// a valid selector that matches none of the seeded parameters
+	unmatched := newParam("default", map[string]string{"env": "testing"})
+
+	t.Run("vap invalid selector", func(t *testing.T) {
 		t.Parallel()
 
-		policy := &admissionregistrationv1.ValidatingAdmissionPolicy{
-			ObjectMeta: metav1.ObjectMeta{Name: "replica-limit"},
-			Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-				ParamKind: &admissionregistrationv1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"},
-				MatchConstraints: &admissionregistrationv1.MatchResources{
-					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
-						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
-							Rule: admissionregistrationv1.Rule{
-								APIGroups:   []string{"apps"},
-								APIVersions: []string{"v1"},
-								Resources:   []string{"deployments"},
-							},
-						},
-					}},
-				},
-				Validations: []admissionregistrationv1.Validation{{Expression: "object.spec.replicas > 0"}},
-			},
-		}
+		policy := newClientPathVAP()
 		bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "bad"},
@@ -158,40 +241,73 @@ func TestParamRefSelectorClientPath(t *testing.T) {
 		assert.Assert(t, err != nil, "expected an error")
 		assert.Assert(t, strings.Contains(err.Error(), invalidSelectorSentinel), "unexpected error: %v", err)
 		assert.Assert(t, len(response.PolicyResponse.Rules) == 2, "expected two rule responses, got %d", len(response.PolicyResponse.Rules))
-		assert.Equal(t, response.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-		assert.Equal(t, response.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusError)
-		assert.Equal(t, response.PolicyResponse.Rules[1].RuleType(), engineapi.Validation)
+		assert.Equal(t, findVAPRule(t, response.PolicyResponse.Rules, "no-params").Status(), engineapi.RuleStatusPass)
+		rule := findVAPRule(t, response.PolicyResponse.Rules, "bad")
+		assert.Equal(t, rule.Status(), engineapi.RuleStatusError)
+		assert.Equal(t, rule.RuleType(), engineapi.Validation)
 	})
 
-	t.Run("map", func(t *testing.T) {
+	t.Run("vap deny when no params match", func(t *testing.T) {
 		t.Parallel()
 
-		policy := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
-			ObjectMeta: metav1.ObjectMeta{Name: "label-deployment"},
-			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
-				ParamKind: &admissionregistrationv1beta1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"},
-				MatchConstraints: &admissionregistrationv1beta1.MatchResources{
-					ResourceRules: []admissionregistrationv1beta1.NamedRuleWithOperations{{
-						RuleWithOperations: admissionregistrationv1beta1.RuleWithOperations{
-							Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
-							Rule: admissionregistrationv1beta1.Rule{
-								APIGroups:   []string{"apps"},
-								APIVersions: []string{"v1"},
-								Resources:   []string{"deployments"},
-							},
-						},
-					}},
-				},
-				Mutations: []admissionregistrationv1beta1.Mutation{
-					{
-						PatchType: admissionregistrationv1beta1.PatchTypeApplyConfiguration,
-						ApplyConfiguration: &admissionregistrationv1beta1.ApplyConfiguration{
-							Expression: `Object{ metadata: Object.metadata{ labels: {"applied": "yes"} } }`,
+		for _, order := range bindingOrders(t, "deny", "matched") {
+			t.Run(order.name, func(t *testing.T) {
+				policy := newClientPathVAP()
+				denyAll := admissionregistrationv1.DenyAction
+				deny := admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+					ObjectMeta: metav1.ObjectMeta{Name: "deny"},
+					Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+						PolicyName: policy.Name,
+						ParamRef: &admissionregistrationv1.ParamRef{
+							Selector:                matchEnvSelector("prod"),
+							ParameterNotFoundAction: &denyAll,
 						},
 					},
-				},
-			},
+				}
+				matched := admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+					ObjectMeta: metav1.ObjectMeta{Name: "matched"},
+					Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+						PolicyName: policy.Name,
+						ParamRef: &admissionregistrationv1.ParamRef{
+							Selector: matchEnvSelector("testing"),
+						},
+					},
+				}
+				bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{matched, deny}
+				if order.failedFirst {
+					bindings = []admissionregistrationv1.ValidatingAdmissionPolicyBinding{deny, matched}
+				}
+				data := engineapi.NewValidatingAdmissionPolicyData(policy, bindings...)
+
+				resource := newDeployment()
+				response, err := Validate(
+					data,
+					resource,
+					resource.GroupVersionKind(),
+					schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+					nil,
+					newParamsDClient(t, unmatched),
+					nil,
+					false,
+				)
+
+				// the deny binding must not abort the loop: the paramRef-bearing
+				// binding is still collected and evaluated, and the deny is reported
+				// alongside that binding's rule
+				assert.Assert(t, errors.Is(err, errNoParamsFound), "unexpected error: %v", err)
+				assert.Assert(t, len(response.PolicyResponse.Rules) == 2, "expected two rule responses, got %d", len(response.PolicyResponse.Rules))
+				denied := findVAPRule(t, response.PolicyResponse.Rules, "deny")
+				assert.Equal(t, denied.Status(), engineapi.RuleStatusError)
+				assert.Equal(t, denied.RuleType(), engineapi.Validation)
+				assert.Equal(t, findVAPRule(t, response.PolicyResponse.Rules, "matched").Status(), engineapi.RuleStatusPass)
+			})
 		}
+	})
+
+	t.Run("map invalid selector", func(t *testing.T) {
+		t.Parallel()
+
+		policy := newClientPathMAP()
 		bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "bad"},
@@ -225,19 +341,94 @@ func TestParamRefSelectorClientPath(t *testing.T) {
 		assert.Assert(t, err != nil, "expected an error")
 		assert.Assert(t, strings.Contains(err.Error(), invalidSelectorSentinel), "unexpected error: %v", err)
 		assert.Assert(t, len(response.PolicyResponse.Rules) == 2, "expected two rule responses, got %d", len(response.PolicyResponse.Rules))
-		assert.Equal(t, response.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-		assert.Equal(t, response.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusError)
-		assert.Equal(t, response.PolicyResponse.Rules[1].RuleType(), engineapi.Mutation)
+		assert.Equal(t, findMAPRule(t, response.PolicyResponse.Rules, "no-params").Status(), engineapi.RuleStatusPass)
+		rule := findMAPRule(t, response.PolicyResponse.Rules, "bad")
+		assert.Equal(t, rule.Status(), engineapi.RuleStatusError)
+		assert.Equal(t, rule.RuleType(), engineapi.Mutation)
 		assert.Equal(t, response.PatchedResource.GetLabels()["applied"], "yes")
 	})
 
+	t.Run("map deny when no params match", func(t *testing.T) {
+		t.Parallel()
+
+		for _, order := range bindingOrders(t, "deny", "matched") {
+			t.Run(order.name, func(t *testing.T) {
+				policy := newClientPathMAP()
+				denyAll := admissionregistrationv1beta1.DenyAction
+				deny := admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+					ObjectMeta: metav1.ObjectMeta{Name: "deny"},
+					Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+						PolicyName: policy.Name,
+						ParamRef: &admissionregistrationv1beta1.ParamRef{
+							Selector:                matchEnvSelector("prod"),
+							ParameterNotFoundAction: &denyAll,
+						},
+					},
+				}
+				matched := admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+					ObjectMeta: metav1.ObjectMeta{Name: "matched"},
+					Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+						PolicyName: policy.Name,
+						ParamRef: &admissionregistrationv1beta1.ParamRef{
+							Selector: matchEnvSelector("testing"),
+						},
+					},
+				}
+				bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{matched, deny}
+				if order.failedFirst {
+					bindings = []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{deny, matched}
+				}
+				data := engineapi.NewMutatingAdmissionPolicyData(policy, bindings...)
+
+				resource := newDeployment()
+				response, err := Mutate(
+					data,
+					resource,
+					resource.GroupVersionKind(),
+					schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+					nil,
+					newParamsDClient(t, unmatched),
+					nil,
+					false,
+					false,
+				)
+
+				// the deny binding must not abort the loop: the paramRef-bearing
+				// binding is still collected and evaluated, and the deny is reported
+				// alongside that binding's rule
+				assert.Assert(t, errors.Is(err, errNoParamsFound), "unexpected error: %v", err)
+				assert.Assert(t, len(response.PolicyResponse.Rules) == 2, "expected two rule responses, got %d", len(response.PolicyResponse.Rules))
+				denied := findMAPRule(t, response.PolicyResponse.Rules, "deny")
+				assert.Equal(t, denied.Status(), engineapi.RuleStatusError)
+				assert.Equal(t, denied.RuleType(), engineapi.Mutation)
+				assert.Equal(t, findMAPRule(t, response.PolicyResponse.Rules, "matched").Status(), engineapi.RuleStatusPass)
+				assert.Equal(t, response.PatchedResource.GetLabels()["applied"], "yes")
+			})
+		}
+	})
 }
 
 func newTestDClient(t *testing.T) dclient.Interface {
 	t.Helper()
 
+	return newParamsDClient(t)
+}
+
+// newParamsDClient returns a fake client whose parameter listing contains params.
+// The list kind has to be registered: the fake dynamic client panics on LIST
+// otherwise, and it filters the entries by label selector the way the API server
+// does, so a selector that matches none of them yields no parameters.
+func newParamsDClient(t *testing.T, params ...runtime.Object) dclient.Interface {
+	t.Helper()
+
+	dyn := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			{Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+		},
+		params...,
+	)
 	kube := kubefake.NewSimpleClientset(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}})
-	dyn := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 	return dclient.NewFakeClientWithDisco(dyn, kube, dclient.NewFakeDiscoveryClient(nil))
 }
 
