@@ -524,6 +524,10 @@ func Test_VerifyAttestation_ReferrersUnsupported_ReportsMissingAttestation(t *te
 	err := v.VerifyAttestationSignature(context.TODO(), img, attestation, attestor)
 	require.Error(t, err)
 	t.Logf("unsupported-referrers attestation error: %v", err)
+	// Positive assertion: the reported failure must be the missing-attestation
+	// condition itself (verifier.go's `no matching attestations`), not just any
+	// error — a referrer fetch failure would also be non-nil.
+	assert.Contains(t, err.Error(), "no matching attestations")
 	assert.NotContains(t, err.Error(), "failed to list image referrers")
 	assert.NotContains(t, err.Error(), "failed to build cosign verification opts")
 }
