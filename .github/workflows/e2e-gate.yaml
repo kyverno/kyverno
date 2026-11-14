@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-# E2E tests run after merge, on push to main and release branches (Tests
-# workflow), not on pull requests. When they fail, the failure-issue action
+# E2E tests run after merge, on a schedule on main and release branches (Tests
+# workflow, started by e2e-scheduler.yaml), not on pull requests. When they fail, the failure-issue action
 # opens a tracking issue labelled e2e-failure. This workflow turns that issue
 # into a merge gate: it reports an "E2E Gate" commit status on every open pull
 # request, red while an e2e-failure issue is open for the PR's base branch.

@@ -22,9 +22,9 @@ For the issues that track the PSS CEL policy updates each Pod Security Admission
 ## Performance benchmarks
 
 A `perf` job in the post-merge `check-tests` workflow
-(`.github/workflows/check-tests.yaml`, triggered on push to `main` and
-`release-*`) runs a fast, cluster-free allocation-regression check against
-the CEL admission path. It doesn't run per pull request: if a regression
+(`.github/workflows/check-tests.yaml`, started on a schedule on `main` and
+`release-*` by `.github/workflows/e2e-scheduler.yaml`) runs a fast,
+cluster-free allocation-regression check against the CEL admission path. It doesn't run per pull request: if a regression
 lands on `main`, the `perf` job files or updates a workflow-failure issue
 for a maintainer to triage, rather than blocking a PR, which is what lets
 the check use tight headroom (see the ratchet process below).
