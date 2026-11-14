@@ -789,6 +789,7 @@ func Test_Truncate(t *testing.T) {
 	testCases := []struct {
 		jmesPath       string
 		expectedResult string
+		expectedError  string
 	}{
 		{
 			jmesPath:       "truncate('Lorem ipsum dolor sit amet', `5`)",
@@ -814,6 +815,35 @@ func Test_Truncate(t *testing.T) {
 			jmesPath:       "truncate('Lorem ipsum', `-1`)",
 			expectedResult: "",
 		},
+		// lengths too large for an int must not overflow into a negative length
+		{
+			jmesPath:       "truncate('Lorem ipsum', `1e300`)",
+			expectedResult: "Lorem ipsum",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', `9223372036854775808`)",
+			expectedResult: "Lorem ipsum",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', multiply(`1e308`, `10`))",
+			expectedResult: "Lorem ipsum",
+		},
+		{
+			jmesPath:       "truncate('é界🙂', `3.6`)",
+			expectedResult: "é界🙂",
+		},
+		{
+			jmesPath:       "truncate('é界🙂', `1e300`)",
+			expectedResult: "é界🙂",
+		},
+		{
+			jmesPath:      "truncate('abc', to_number('NaN'))",
+			expectedError: "JMESPath function 'truncate': length must not be NaN",
+		},
+		{
+			jmesPath:      "truncate('abc', multiply(multiply(`1e308`, `10`), `0`))",
+			expectedError: "JMESPath function 'truncate': length must not be NaN",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
@@ -821,6 +851,10 @@ func Test_Truncate(t *testing.T) {
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
+			if tc.expectedError != "" {
+				assert.ErrorContains(t, err, tc.expectedError)
+				return
+			}
 			assert.NilError(t, err)
 
 			res, ok := result.(string)
