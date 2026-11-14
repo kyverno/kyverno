@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: multiple-attestors
+spec:
+  concurrent: false
+  steps:
+  - name: create policy 1
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-1.yaml
+  - name: wait for policy 1
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: ImageValidatingPolicy
+          metadata:
+            name: ivpol-multiple-attestors-1
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - message: Webhook configured.
+                reason: Succeeded
+                status: "True"
+                type: WebhookConfigured
+              (conditions[?type == 'RBACPermissionsGranted']):
+              - message: Background scanning disabled; reporting permissions not required.
+                reason: Succeeded
+                status: "True"
+                type: RBACPermissionsGranted
+              ready: true
+  - name: create policy 2
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy-2.yaml
+  - name: wait for policy 2
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: ImageValidatingPolicy
+          metadata:
+            name: ivpol-multiple-attestors-2
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - message: Webhook configured.
+                reason: Succeeded
+                status: "True"
+                type: WebhookConfigured
+              (conditions[?type == 'RBACPermissionsGranted']):
+              - message: Background scanning disabled; reporting permissions not required.
+                reason: Succeeded
+                status: "True"
+                type: RBACPermissionsGranted
+              ready: true
+  - name: admit signed image despite unmatched second policy
+    try:
+    - create:
+        file: pod.yaml
+    - assert:
+        file: assert-pod.yaml
