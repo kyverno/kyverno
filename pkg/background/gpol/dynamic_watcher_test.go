@@ -2220,6 +2220,9 @@ func TestHandleUpdate_SourcePropagation_RecoversDownstreamsFromUpdatedCache(t *t
 	// propagated content rather than what was cached before the source changed.
 	drifted := live["ds-uid-c"].DeepCopy()
 	_ = unstructured.SetNestedField(drifted.Object, "tampered", "data", "ca.crt")
+	// Clear the update captured during the source propagation so the assertions below prove this
+	// drift event itself caused the reversion.
+	reverted = nil
 	wm.handleUpdate(drifted, gvr)
 	require.NotNil(t, reverted, "a drifted downstream must be reverted from its cache entry")
 	assert.Equal(t, "c-target", reverted.GetNamespace(),
