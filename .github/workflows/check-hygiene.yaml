@@ -35,19 +35,31 @@ jobs:
       - name: Check formatting
         id: fmt
         continue-on-error: true
-        run: make fmt-check
+        run: |
+          git reset --hard HEAD
+          git clean -fd
+          make fmt-check
       - name: Check imports
         id: imports
         continue-on-error: true
-        run: make imports-check
+        run: |
+          git reset --hard HEAD
+          git clean -fd
+          make imports-check
       - name: Check unused packages
         id: unused
         continue-on-error: true
-        run: make unused-package-check
+        run: |
+          git reset --hard HEAD
+          git clean -fd
+          make unused-package-check
       - name: Check vet
         id: vet
         continue-on-error: true
-        run: make vet
+        run: |
+          git reset --hard HEAD
+          git clean -fd
+          make vet
       - name: Aggregate hygiene results
         run: |
           failed=0
@@ -126,3 +138,43 @@ jobs:
         with:
           conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
           needs: ${{ toJSON(needs) }}
+      - name: Close legacy hygiene tracking issues
+        if: "!contains(needs.*.result, 'failure')"
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const branch = context.ref;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const headSha = context.sha;
+            const legacyWorkflows = ['Go format', 'Go imports', 'Go packages', 'Go vet'];
+            try {
+              const issues = await github.paginate(github.rest.issues.listForRepo, {
+                owner,
+                repo,
+                state: 'open',
+                labels: 'workflow-failure',
+                per_page: 100,
+              });
+              for (const workflow of legacyWorkflows) {
+                const marker = `<!-- workflow-failure:${workflow}:${branch} -->`;
+                const existing = issues.find(i => i.body && i.body.includes(marker));
+                if (existing) {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: existing.number,
+                    body: `Consolidated Go hygiene workflow [succeeded](${runUrl}) (commit \`${headSha}\`). Closing legacy ${workflow} tracking issue.`
+                  });
+                  await github.rest.issues.update({
+                    owner,
+                    repo,
+                    issue_number: existing.number,
+                    state: 'closed'
+                  });
+                  core.info(`Closed legacy tracking issue #${existing.number} for ${workflow}.`);
+                }
+              }
+            } catch (err) {
+              core.warning(`Could not clean up legacy tracking issues: ${err.message || String(err)}`);
+            }
