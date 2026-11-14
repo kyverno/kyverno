@@ -215,10 +215,15 @@ func processVAPNoBindings(policy *admissionregistrationv1.ValidatingAdmissionPol
 }
 
 func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPolicy, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespaceName string, namespace *corev1.Namespace, client dclient.Interface, a admission.Attributes, resPath string) (engineapi.EngineResponse, error) {
+	startTime := time.Now()
 	nsLister := NewCustomNamespaceLister(client)
 	matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	er := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+	var (
+		selectionErr   error
+		selectionRules []*engineapi.RuleResponse
+	)
 
 	// the two nil checks and the addition of an empty selector are needed for policies that specify no namespaceSelector or objectSelector.
 	// during parsing those selectors in the DefinitionMatches function, if they are nil, they skip all resources.
@@ -269,15 +274,29 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 		}
 
 		if binding.Spec.ParamRef != nil {
-			params, err := CollectParams(context.TODO(), adapters.Client(client), policy.Spec.ParamKind, binding.Spec.ParamRef, namespace.Name)
+			params, err := CollectParams(context.TODO(), adapters.Client(client), policy.Spec.ParamKind, binding.Spec.ParamRef, namespaceName)
 			if err != nil {
 				vapLogger.Error(err, "failed to collect params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				if errors.Is(err, ErrInvalidParamRefSelector) {
+					selectionRules = append(selectionRules, paramSelectionError(policy.GetName(), engineapi.Validation, err).WithVAPBinding(&bindings[i]))
+					if selectionErr == nil {
+						selectionErr = err
+					}
+					continue
+				}
 				return er, err
 			}
 
 			// a selector being present in the binding is the only case in which params will contain more than 1 entry
 			var matchedParams runtime.Object
-			if len(params) > 1 {
+			switch len(params) {
+			case 0:
+				// parameterNotFoundAction Allow: Kubernetes skips the binding when the
+				// paramRef selects no parameters, so nothing is validated
+				continue
+			case 1:
+				matchedParams = params[0]
+			default:
 				paramList := &unstructured.UnstructuredList{}
 				for _, p := range params {
 					unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(p)
@@ -285,8 +304,6 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 					paramList.Items = append(paramList.Items, *obj)
 				}
 				matchedParams = paramList
-			} else {
-				matchedParams = params[0]
 			}
 			engineResponse, err := validateResource(policy, &bindings[i], resource, matchedParams, namespace, a)
 			if err != nil {
@@ -303,12 +320,17 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 			er = engineResponse
 		}
 	}
-	return er, nil
+	return appendParamSelectionErrors(er, selectionRules, startTime), selectionErr
 }
 
 func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmissionPolicy, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespace *corev1.Namespace, params []runtime.Object, a admission.Attributes, resPath string) (engineapi.EngineResponse, error) {
+	startTime := time.Now()
 	matcher := celmatching.NewMatcher()
 	er := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+	var (
+		selectionErr   error
+		selectionRules []*engineapi.RuleResponse
+	)
 
 	for i, binding := range bindings {
 		if binding.Spec.MatchResources != nil {
@@ -322,12 +344,29 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 			}
 		}
 		if binding.Spec.ParamRef != nil {
+			if err := validateParamRef(binding.Spec.ParamRef); err != nil {
+				vapLogger.Error(err, "invalid paramRef for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName())
+				selectionRules = append(selectionRules, paramSelectionError(policy.GetName(), engineapi.Validation, err).WithVAPBinding(&bindings[i]))
+				if selectionErr == nil {
+					selectionErr = err
+				}
+				continue
+			}
 			var matchedParams runtime.Object
 			paramList := &unstructured.UnstructuredList{}
 			for _, param := range params {
 				unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
 				obj := &unstructured.Unstructured{Object: unstructuredMap}
-				if matchesSelector(obj, binding.Spec.ParamRef) {
+				matched, err := matchesSelector(obj, binding.Spec.ParamRef)
+				if err != nil {
+					vapLogger.Error(err, "failed to select params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "param", obj.GetName(), "namespace", obj.GetNamespace())
+					selectionRules = append(selectionRules, paramSelectionError(policy.GetName(), engineapi.Validation, err).WithVAPBinding(&bindings[i]))
+					if selectionErr == nil {
+						selectionErr = err
+					}
+					continue
+				}
+				if matched {
 					// if there is no selector, the binding will match the first resource only. match the first resource and exit
 					if binding.Spec.ParamRef.Selector == nil {
 						matchedParams = obj
@@ -339,6 +378,18 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 			// if there were resources in the parameter list, use it as the matched params
 			if len(paramList.Items) != 0 {
 				matchedParams = paramList
+			}
+			if matchedParams == nil {
+				// Kubernetes skips the binding when its paramRef selects no
+				// parameters, unless parameterNotFoundAction requires denying.
+				if binding.Spec.ParamRef.ParameterNotFoundAction != nil && *binding.Spec.ParamRef.ParameterNotFoundAction == admissionregistrationv1.DenyAction {
+					vapLogger.Error(errNoParamsFound, "no params found for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName())
+					selectionRules = append(selectionRules, paramSelectionError(policy.GetName(), engineapi.Validation, errNoParamsFound).WithVAPBinding(&bindings[i]))
+					if selectionErr == nil {
+						selectionErr = errNoParamsFound
+					}
+				}
+				continue
 			}
 
 			engineResponse, err := validateResource(policy, &bindings[i], resource, matchedParams, namespace, a)
@@ -356,7 +407,7 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 			er = engineResponse
 		}
 	}
-	return er, nil
+	return appendParamSelectionErrors(er, selectionRules, startTime), selectionErr
 }
 
 func validateResource(

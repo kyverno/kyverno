@@ -2,6 +2,7 @@ package admissionpolicy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -9,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -151,9 +153,29 @@ func IsValidatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (boo
 	return false, nil
 }
 
+// ErrInvalidParamRefSelector indicates that a binding's paramRef.selector cannot
+// be converted into a label selector.
+var ErrInvalidParamRefSelector = errors.New("invalid paramRef.selector")
+
+// errNoParamsFound reports a binding whose paramRef selected no parameters while
+// parameterNotFoundAction requires denying.
+var errNoParamsFound = errors.New("no params found")
+
 // Collect params collects parameter resources from a live cluster
 func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1.ParamKind, paramRef *admissionregistrationv1.ParamRef, namespace string) ([]runtime.Object, error) {
 	var params []runtime.Object
+
+	if paramKind == nil {
+		return nil, fmt.Errorf("policy does not define a paramKind but its binding sets a paramRef")
+	}
+	// Validate the selector before any lookup: metav1.FormatLabelSelector turns an
+	// invalid selector into the literal "<error>", which the API server rejects and
+	// the fake client panics on.
+	if paramRef.Selector != nil {
+		if _, err := metav1.LabelSelectorAsSelector(paramRef.Selector); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrInvalidParamRefSelector, err)
+		}
+	}
 
 	apiVersion := paramKind.APIVersion
 	kind := paramKind.Kind
@@ -204,7 +226,7 @@ func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 	}
 
 	if len(params) == 0 && paramRef.ParameterNotFoundAction != nil && *paramRef.ParameterNotFoundAction == admissionregistrationv1.DenyAction {
-		return nil, fmt.Errorf("no params found")
+		return nil, errNoParamsFound
 	}
 
 	return params, nil

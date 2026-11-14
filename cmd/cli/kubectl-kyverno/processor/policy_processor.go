@@ -189,6 +189,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster, false)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
+					// only record responses that carry a rule: a rule-less response
+					// would be reported as "excluded" instead of a failure
+					if len(mutateResponse.PolicyResponse.Rules) > 0 {
+						p.Rc.addMutateResponse(mutateResponse)
+						responses = append(responses, mutateResponse)
+						// a later binding may have patched the resource even though
+						// another binding's paramRef is invalid
+						if mutateResponse.PatchedResource.Object != nil {
+							resource = mutateResponse.PatchedResource
+						}
+					}
 					continue
 				}
 				if mutateResponse.IsEmpty() {
@@ -469,7 +480,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			for _, param := range p.ParameterResources {
 				policyData.AddParam(param)
 			}
-			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster)
+			validateResponse, err := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster)
+			if err != nil {
+				log.Log.Error(err, "failed to apply VAP", "policy", policy.Name)
+			}
 			vapResponses = append(vapResponses, validateResponse)
 			p.Rc.addValidatingAdmissionResponse(validateResponse)
 		}
