@@ -39,7 +39,7 @@ jobs:
             .github/workflows/check-ah-lint.yaml
       - name: Run ah lint
         if: steps.changed-files.outputs.any_modified == 'true'
-        run: docker run --rm --user root -v "$PWD:/work" -w /work/charts artifacthub/ah lint
+        run: docker run --rm --user root -v "$PWD:/work" -w /work/charts artifacthub/ah ah lint
 
   sync-issue:
     if: |
