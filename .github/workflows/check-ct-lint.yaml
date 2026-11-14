@@ -41,7 +41,8 @@ jobs:
             Makefile
             .github/workflows/check-ct-lint.yaml
             .github/actions/tools/helm/**
-            .github/actions/go/setup/**
+            .github/actions/go/**
+            .github/actions/release/restore/**
       - name: Setup Go
         if: steps.changed-files.outputs.any_changed == 'true'
         uses: ./.github/actions/go/setup
