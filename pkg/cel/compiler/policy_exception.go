@@ -107,6 +107,14 @@ func getPolicyExceptionEnvSet() (*environment.EnvSet, error) {
 			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions:        envOptions,
 		})
+		if errPolicyExceptionEnvSet == nil {
+			// The env set is shared by concurrent admission requests.
+			for _, envType := range []environment.Type{environment.NewExpressions, environment.StoredExpressions} {
+				if env, err := policyExceptionEnvSet.Env(envType); err == nil {
+					WarmUpChecker(env)
+				}
+			}
+		}
 	})
 	return policyExceptionEnvSet, errPolicyExceptionEnvSet
 }

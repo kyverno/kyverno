@@ -23,6 +23,9 @@ func getGCEProjectionEnv() (*cel.Env, error) {
 	gceProjectionEnvOnce.Do(func() {
 		opts := append(append([]cel.EnvOption{}, DefaultEnvOptions()...), cel.Variable(ObjectKey, cel.DynType))
 		gceProjectionEnv, errGCEProjectionEnv = NewEnv(opts...)
+		if errGCEProjectionEnv == nil {
+			WarmUpChecker(gceProjectionEnv)
+		}
 	})
 	return gceProjectionEnv, errGCEProjectionEnv
 }

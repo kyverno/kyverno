@@ -241,6 +241,7 @@ func newConditionsPool(limits Limits) (*conditionsPool, error) {
 	if err != nil {
 		return nil, err
 	}
+	celcompiler.WarmUpChecker(env)
 	return &conditionsPool{
 		env:      env,
 		sem:      make(chan struct{}, limits.MaxConcurrent),
