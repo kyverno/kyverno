@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -64,6 +65,12 @@ func TestHandle_Tracing(t *testing.T) {
 	}
 	exemptAllAsPass := exemptAll.DeepCopy()
 	exemptAllAsPass.Spec.ReportResult = "pass"
+	lowPriority := exemptAll.DeepCopy()
+	lowPriority.Name = "low"
+	lowPriority.Labels = map[string]string{reportutils.LabelPolicyExceptionPriority: "-10"}
+	highPriority := exemptAllAsPass.DeepCopy()
+	highPriority.Name = "high"
+	highPriority.Labels = map[string]string{reportutils.LabelPolicyExceptionPriority: "-5"}
 	tests := []struct {
 		name         string
 		policy       *policiesv1beta1.MutatingPolicy
@@ -116,6 +123,13 @@ func TestHandle_Tracing(t *testing.T) {
 		wantStatus:  trace.VerdictPass,
 		wantApplied: true,
 		wantMessage: "rule is passed due to policy exception: prod/exempt-all",
+	}, {
+		name:        "the highest negative priority exception decides",
+		policy:      newPolicy("pods", nil, addLabel),
+		exceptions:  []*policiesv1beta1.PolicyException{lowPriority, highPriority},
+		wantStatus:  trace.VerdictPass,
+		wantApplied: true,
+		wantMessage: "rule is passed due to policy exception: prod/low, prod/high",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
