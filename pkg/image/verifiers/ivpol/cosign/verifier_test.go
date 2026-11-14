@@ -2,6 +2,7 @@ package cosign
 
 import (
 	"context"
+	"crypto"
 	"os"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -421,10 +423,14 @@ func TestShouldUseSignedTimestamps(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, trustedMaterial)
 
+	keyVerifier, err := decodePEM([]byte(testPublicKey), crypto.SHA256)
+	require.NoError(t, err)
+
 	tests := []struct {
 		name                string
 		ignoreTlog          bool
 		useSignedTimestamps bool
+		sigVerifier         signature.Verifier
 		trustedMaterial     root.TrustedMaterial
 		wantUseSignedStamps bool
 	}{
@@ -456,11 +462,23 @@ func TestShouldUseSignedTimestamps(t *testing.T) {
 			trustedMaterial:     trustedMaterial,
 			wantUseSignedStamps: false,
 		},
+		{
+			// key and certificate attestors set SigVerifier, and cosign then uses
+			// WithNoObserverTimestamps() rather than WithCurrentTime(), so there is no
+			// certificate validity window to work around. Enabling signed timestamps
+			// here would require an RFC 3161 timestamp the bundle need not carry.
+			name:                "sig verifier set (key/cert attestor) with inline trusted root -> do not enable",
+			ignoreTlog:          true,
+			useSignedTimestamps: false,
+			sigVerifier:         keyVerifier,
+			trustedMaterial:     trustedMaterial,
+			wantUseSignedStamps: false,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := shouldUseSignedTimestamps(tc.ignoreTlog, tc.useSignedTimestamps, tc.trustedMaterial)
+			got := shouldUseSignedTimestamps(tc.ignoreTlog, tc.useSignedTimestamps, tc.sigVerifier, tc.trustedMaterial)
 			assert.Equal(t, tc.wantUseSignedStamps, got)
 		})
 	}
@@ -752,7 +770,13 @@ func TestVerifyImageSignature_ErrorCases(t *testing.T) {
 		v := Verifier{log: logr.Discard()}
 		err = v.VerifyImageSignature(context.TODO(), img, attestor)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to verify cosign signatures")
+		// A key attestor with no verifier material is now rejected while building
+		// the options, like the malformed-key case above, instead of reaching
+		// cosign and failing there. Both fail closed; rejecting it up front gives
+		// a message that names the misconfiguration, and keeps an inline
+		// trustedRoot from being the only trust material left on this path.
+		assert.Contains(t, err.Error(), "failed to build cosign verification opts")
+		assert.Contains(t, err.Error(), "key attestor requires one of data, kms or expression")
 	})
 }
 

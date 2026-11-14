@@ -145,13 +145,21 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 				opts.Offline = true
 			}
 		}
-
-		trustedMaterial, err := resolveTrustedMaterial(att, trust.trustedRoot)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
-		}
-		opts.TrustedMaterial = trustedMaterial
 	}
+
+	// An inline trustedRoot carries its own Sigstore trust material, so it is
+	// resolved on both paths: the fast path skips TUF but still has to honor it,
+	// with no TUF-derived root to fall back to. Resolving before the TSA block
+	// below also lets a timestamping authority wrap an inline root.
+	var tufTrustedRoot *root.TrustedRoot
+	if trust != nil {
+		tufTrustedRoot = trust.trustedRoot
+	}
+	trustedMaterial, err := resolveTrustedMaterial(att, tufTrustedRoot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
+	}
+	opts.TrustedMaterial = trustedMaterial
 
 	if att.CTLog != nil {
 		opts.IgnoreSCT = att.CTLog.InsecureIgnoreSCT
@@ -232,6 +240,23 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			if err != nil {
 				return nil, fmt.Errorf("failed to load public key from %s: %w", att.Key.KMS, err)
 			}
+		} else {
+			// A key attestor with neither data nor kms carries no verifier material.
+			// data, kms and expression are all optional in the CRD with no one-of
+			// rule, and an expression is resolved into Data before checkOptions runs
+			// (variables.CompiledAttestor.Evaluate), so nothing can populate it later.
+			//
+			// This used to fail closed only incidentally: TrustedMaterial stayed nil
+			// on this path, so cosign's "a trusted root is required" guard tripped.
+			// Now that an inline trustedRoot is resolved here, the trusted root alone
+			// would satisfy that guard and cosign would attempt identity-based
+			// verification with no key and no identities configured, since Identities
+			// is only populated for a keyless attestor. Reject it explicitly instead.
+			//
+			// Only the key branch is checked. A certificate attestor legitimately
+			// leaves SigVerifier nil when it supplies certChain without a leaf cert,
+			// which is the identity-based configuration issue #17562 is about.
+			return nil, fmt.Errorf("key attestor requires one of data, kms or expression")
 		}
 		return opts, nil
 	}
@@ -706,6 +731,11 @@ func resolveTrustedMaterial(att *v1beta1.Cosign, defaultTrustedRoot *root.Truste
 			return nil, fmt.Errorf("parsing inline trustedRoot JSON: %w", err)
 		}
 		return tr, nil
+	}
+	if defaultTrustedRoot == nil {
+		// returning the typed nil pointer would yield a non-nil interface,
+		// making callers that check TrustedMaterial != nil take the wrong branch
+		return nil, nil
 	}
 	return defaultTrustedRoot, nil
 }

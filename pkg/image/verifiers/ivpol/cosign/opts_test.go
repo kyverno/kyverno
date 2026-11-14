@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"math/big"
 	"os"
@@ -362,6 +363,241 @@ func TestCheckOptions_RekorOfflineMode(t *testing.T) {
 	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
 	require.NoError(t, err)
 	assert.False(t, opts.Offline)
+}
+
+// TestCheckOptions_InlineTrustedRootWithTlogIgnored is the regression for
+// https://github.com/kyverno/kyverno/issues/17562. A key or certificate attestor
+// combined with insecureIgnoreTlog takes the fast path that skips all Sigstore
+// infrastructure, and the inline trustedRoot used to be resolved only inside that
+// skipped branch. CheckOpts.TrustedMaterial was therefore left nil and bundle
+// verification failed with "a trusted root is required for identity-based
+// verification", leaving no way to verify against a private trust root offline.
+//
+// TUF is deliberately not stubbed here: honoring an inline trustedRoot must not
+// require a reachable TUF repository, which is the whole point of the field.
+func TestCheckOptions_InlineTrustedRootWithTlogIgnored(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	trustedRootJSON, err := os.ReadFile("testdata/github-trusted-root.json")
+	require.NoError(t, err)
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+		},
+		TrustedRoot: &v1beta1.StringOrExpression{
+			Value: string(trustedRootJSON),
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	require.NotNil(t, opts.TrustedMaterial, "inline trustedRoot must be honored when the transparency log is ignored")
+
+	// Assert it is the inline material specifically, not merely some non-nil
+	// root. A TUF-derived root would also satisfy a NotNil check, so that alone
+	// would not distinguish the fix from the bug it replaces.
+	expected, err := root.NewTrustedRootFromJSON(trustedRootJSON)
+	require.NoError(t, err)
+	assert.Equal(t, expected, opts.TrustedMaterial, "TrustedMaterial must be the inline trustedRoot")
+}
+
+// TestCheckOptions_NoInlineTrustedRootWithTlogIgnored pins the other half of the
+// contract: with no inline trustedRoot the fast path has no trust material to
+// resolve, and TrustedMaterial must stay a genuinely nil interface. Returning the
+// typed nil *root.TrustedRoot here would produce a non-nil interface and silently
+// flip callers that branch on TrustedMaterial != nil, including cosign's own
+// "a trusted root is required" guard and the TSA wrapping in checkOptions.
+func TestCheckOptions_NoInlineTrustedRootWithTlogIgnored(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	// compared against nil directly rather than with assert.Nil, which is
+	// reflection-based and reports a typed nil pointer as nil, i.e. it would
+	// pass for exactly the interface this test exists to rule out
+	assert.True(t, opts.TrustedMaterial == nil, "TrustedMaterial must be a nil interface, got %T", opts.TrustedMaterial)
+}
+
+// TestCheckOptions_MalformedInlineTrustedRootWithTlogIgnored pins a deliberate
+// behavior change: the fast path now parses the inline trustedRoot, so a
+// malformed one is reported instead of being silently ignored as it was while
+// the field was never read on this path. Accepting a policy that names trust
+// material and then quietly verifying without it is the failure mode this fix
+// exists to remove, so surfacing the error is the intended behavior.
+func TestCheckOptions_MalformedInlineTrustedRootWithTlogIgnored(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+		},
+		TrustedRoot: &v1beta1.StringOrExpression{
+			Value: "{not valid json",
+		},
+	}
+
+	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parsing inline trustedRoot JSON")
+}
+
+// TestCheckOptions_EmptyKeyAttestorRejected pins that a key attestor carrying no
+// verifier material fails closed.
+//
+// data, kms and expression are all optional in the CRD with no one-of rule, so
+// key: {} is admissible, and an expression is resolved into Data before
+// checkOptions runs. Such an attestor previously failed closed only incidentally:
+// TrustedMaterial stayed nil on this path, so cosign's "a trusted root is
+// required" guard tripped. Once an inline trustedRoot is resolved here, the
+// trusted root alone would satisfy that guard and cosign would attempt
+// identity-based verification with no key and no identities, since Identities is
+// only populated for a keyless attestor.
+func TestCheckOptions_EmptyKeyAttestorRejected(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	trustedRootJSON, err := os.ReadFile("testdata/github-trusted-root.json")
+	require.NoError(t, err)
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{}, // neither data nor kms
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+		},
+		TrustedRoot: &v1beta1.StringOrExpression{
+			Value: string(trustedRootJSON),
+		},
+	}
+
+	_, err = checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.Error(t, err, "a key attestor with no key material must be rejected, not verified against the trusted root alone")
+	assert.Contains(t, err.Error(), "key attestor requires one of data, kms or expression")
+}
+
+// TestCheckOptions_CertChainOnlyAttestorStillAllowed keeps the guard above narrow.
+// A certificate attestor that supplies certChain without a leaf certificate
+// legitimately leaves SigVerifier nil and verifies by identity against the
+// trusted root -- that is the configuration issue #17562 is about, so it must
+// still be accepted.
+func TestCheckOptions_CertChainOnlyAttestorStillAllowed(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	trustedRootJSON, err := os.ReadFile("testdata/github-trusted-root.json")
+	require.NoError(t, err)
+
+	_, caPEM := selfSignedCA(t)
+
+	cosignCfg := &v1beta1.Cosign{
+		Certificate: &v1beta1.Certificate{
+			CertificateChain: &v1beta1.StringOrExpression{Value: string(caPEM)},
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+		},
+		TrustedRoot: &v1beta1.StringOrExpression{
+			Value: string(trustedRootJSON),
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.True(t, opts.SigVerifier == nil, "certChain without a leaf cert verifies by identity, so SigVerifier stays nil")
+	assert.NotNil(t, opts.TrustedMaterial, "inline trustedRoot must still be honored for a certChain-only attestor")
+}
+
+// TestCheckOptions_InlineTrustedRootWrappedByTSAOnFastPath pins that a
+// timestamping authority wraps the inline root rather than replacing it. The TSA
+// block only wraps when TrustedMaterial is already non-nil, which on the fast
+// path is true only because the inline trustedRoot is now resolved before it.
+func TestCheckOptions_InlineTrustedRootWrappedByTSAOnFastPath(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	trustedRootJSON, err := os.ReadFile("testdata/github-trusted-root.json")
+	require.NoError(t, err)
+
+	caCert, caPEM := selfSignedCA(t)
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+			TSACertChain:       string(caPEM),
+		},
+		TrustedRoot: &v1beta1.StringOrExpression{
+			Value: string(trustedRootJSON),
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	require.NotNil(t, opts.TrustedMaterial)
+
+	// the TSA root is picked up
+	require.Len(t, opts.TSARootCertificates, 1)
+	assert.Equal(t, caCert.RawSubject, opts.TSARootCertificates[0].RawSubject)
+	assert.True(t, opts.UseSignedTimestamps, "a configured TSA cert chain turns on signed timestamps")
+
+	// and the inline root is retained alongside it rather than replaced
+	collection, ok := opts.TrustedMaterial.(root.TrustedMaterialCollection)
+	require.True(t, ok, "TrustedMaterial must be a collection wrapping the inline root, got %T", opts.TrustedMaterial)
+	require.Len(t, collection, 2, "collection must hold the inline root plus the TSA")
+
+	expected, err := root.NewTrustedRootFromJSON(trustedRootJSON)
+	require.NoError(t, err)
+	assert.Equal(t, expected, collection[0], "the inline trustedRoot must be the first member")
+	assert.NotEmpty(t, collection[1].TimestampingAuthorities(), "the second member must carry the TSA")
+}
+
+// selfSignedCA returns a self-signed CA certificate and its PEM encoding.
+// splitCertChain classifies a self-signed CA as a root, which is what the TSA
+// wrapping path requires.
+func selfSignedCA(t *testing.T) (*x509.Certificate, []byte) {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test-tsa-root"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping},
+		BasicConstraintsValid: true,
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	require.NoError(t, err)
+
+	cert, err := x509.ParseCertificate(der)
+	require.NoError(t, err)
+
+	return cert, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
 }
 
 func TestInitTUFAndFetch_Default(t *testing.T) {
