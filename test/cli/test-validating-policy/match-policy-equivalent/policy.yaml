@@ -1,0 +1,21 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: validate-test-policy
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    matchPolicy: Equivalent
+    resourceRules:
+      - apiGroups: [policies.kyverno.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [namespacedvalidatingpolicies]
+  validations:
+    - expression: >-
+        has(object.metadata.annotations) &&
+        object.metadata.annotations['test'] == 'true'
+      message: >-
+        namespacedvalidatingpolicies must have the annotation 'test: "true"'
+

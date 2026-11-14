@@ -1,0 +1,25 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: has-test-annotation
+  namespace: default
+  annotations:
+    test: "true"
+spec: {}
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: missing-test-annotation
+  namespace: default
+spec: {}
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: false-test-annotation
+  namespace: default
+  annotations:
+    test: "false"
+spec: {}
+

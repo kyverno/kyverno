@@ -7,6 +7,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/utils/ptr"
 )
 
 func TestMatchCriteria_GetParsedNamespaceSelector(t *testing.T) {
@@ -123,7 +124,7 @@ func TestMatchCriteria_GetMatchResources(t *testing.T) {
 		constraints: nil,
 		want:        admissionregistrationv1.MatchResources{},
 	}, {
-		name: "test",
+		name: "test defaults matchPolicy to Equivalent",
 		constraints: &admissionregistrationv1.MatchResources{
 			NamespaceSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -165,6 +166,7 @@ func TestMatchCriteria_GetMatchResources(t *testing.T) {
 			}},
 		},
 		want: admissionregistrationv1.MatchResources{
+			MatchPolicy: ptr.To(admissionregistrationv1.Equivalent),
 			NamespaceSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"foo": "bar",
@@ -203,6 +205,22 @@ func TestMatchCriteria_GetMatchResources(t *testing.T) {
 					},
 				},
 			}},
+		},
+	}, {
+		name: "explicit exact match policy preserved",
+		constraints: &admissionregistrationv1.MatchResources{
+			MatchPolicy: ptr.To(admissionregistrationv1.Exact),
+		},
+		want: admissionregistrationv1.MatchResources{
+			MatchPolicy: ptr.To(admissionregistrationv1.Exact),
+		},
+	}, {
+		name: "explicit equivalent match policy preserved",
+		constraints: &admissionregistrationv1.MatchResources{
+			MatchPolicy: ptr.To(admissionregistrationv1.Equivalent),
+		},
+		want: admissionregistrationv1.MatchResources{
+			MatchPolicy: ptr.To(admissionregistrationv1.Equivalent),
 		},
 	}}
 	for _, tt := range tests {
