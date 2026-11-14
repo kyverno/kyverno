@@ -329,6 +329,7 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 		name                    string
 		operation               admissionv1.Operation
 		username                string
+		kind                    metav1.GroupVersionKind
 		oldLabels               map[string]string
 		newLabels               map[string]string
 		hasOwnerRef             bool
@@ -356,6 +357,22 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
 			hasOwnerRef: true,
 			wantAllowed: true,
+		},
+		{
+			name:        "allows generate labels on create for endpoints created by endpoints-controller without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    endpointsControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "denies generate labels on create for endpoints created by ordinary user without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    user,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
 		},
 		{
 			name:        "denies modifying generate labels on update even with ownerReferences",
@@ -587,10 +604,14 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 				called = true
 				return admissionv1.AdmissionResponse{Allowed: true}
 			})
+			gvk := test.kind
+			if gvk.Kind == "" {
+				gvk = metav1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}
+			}
 			request := AdmissionRequest{AdmissionRequest: admissionv1.AdmissionRequest{
 				UID:       types.UID("test-uid"),
 				Operation: test.operation,
-				Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+				Kind:      gvk,
 				Namespace: "tenant",
 				Name:      "test",
 				UserInfo:  authenticationv1.UserInfo{Username: test.username},
