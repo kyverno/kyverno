@@ -212,6 +212,86 @@ func TestHandleValidating_ExtractionMode_TemplateNamespaceDoesNotEscapeMatchCond
 	}
 }
 
+// TestHandleValidating_ExtractionMode_ExceptionsListedOnce: exceptions that
+// exempt every pod template of a JobSet are reported once each, not once per
+// template.
+func TestHandleValidating_ExtractionMode_ExceptionsListedOnce(t *testing.T) {
+	policy := buildExtractionModeRequestPolicy()
+	policy.Kind = "ImageValidatingPolicy"
+	exception := func(name string) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs:      []policiesv1beta1.PolicyRef{{Name: policy.Name, Kind: "ImageValidatingPolicy"}},
+				MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "always", Expression: "true"}},
+			},
+		}
+	}
+	raw, err := jobSetWithNTemplates(3).MarshalJSON()
+	require.NoError(t, err)
+	gvr := metav1.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"}
+	req := engine.EngineRequest{Request: v1.AdmissionRequest{
+		Operation:       v1.Create,
+		Kind:            metav1.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+		Resource:        gvr,
+		RequestResource: &gvr,
+		Namespace:       "default",
+		Name:            "multi-template-jobset",
+		Object:          apiruntime.RawExtension{Raw: raw},
+	}}
+
+	policies := handleTraced(t, false, policy, req, exception("first"), exception("second"))
+	require.Len(t, policies, 1)
+	rule := policies[0].Result
+	assert.Equal(t, engineapi.RuleStatusSkip, rule.Status())
+	assert.Equal(t, "rule is skipped due to policy exception: default/first, default/second", rule.Message())
+	require.Len(t, rule.Exceptions(), 2)
+	assert.Equal(t, "first", rule.Exceptions()[0].GetName())
+	assert.Equal(t, "second", rule.Exceptions()[1].GetName())
+}
+
+// TestHandleValidating_ExtractionMode_ExemptedTemplateDoesNotHideLaterFailure:
+// an exception that exempts only the first pod template must not stop the later
+// templates from being evaluated, so a later template that violates the policy
+// still fails the JobSet.
+func TestHandleValidating_ExtractionMode_ExemptedTemplateDoesNotHideLaterFailure(t *testing.T) {
+	policy := buildExtractionModeRequestPolicy()
+	policy.Kind = "ImageValidatingPolicy"
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "first-only", Namespace: "default"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: policy.Name, Kind: "ImageValidatingPolicy"}},
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: "first-template", Expression: "object.spec.containers.exists(c, c.image == 'a:latest')"},
+			},
+		},
+	}
+	obj := jobSetWithNTemplates(2)
+	for i, image := range []string{"a:latest", "b:latest"} {
+		replicatedJob := obj.Object["spec"].(map[string]any)["replicatedJobs"].([]any)[i].(map[string]any)
+		podSpec := replicatedJob["template"].(map[string]any)["spec"].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)
+		podSpec["containers"].([]any)[0].(map[string]any)["image"] = image
+	}
+	raw, err := obj.MarshalJSON()
+	require.NoError(t, err)
+	gvr := metav1.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"}
+	req := engine.EngineRequest{Request: v1.AdmissionRequest{
+		Operation:       v1.Create,
+		Kind:            metav1.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+		Resource:        gvr,
+		RequestResource: &gvr,
+		Namespace:       "default",
+		Name:            "multi-template-jobset",
+		Object:          apiruntime.RawExtension{Raw: raw},
+	}}
+
+	policies := handleTraced(t, false, policy, req, polex)
+	require.Len(t, policies, 1)
+	rule := policies[0].Result
+	assert.Equal(t, engineapi.RuleStatusFail, rule.Status(), "message: %s", rule.Message())
+	assert.Contains(t, rule.Message(), "pod template at spec.replicatedJobs[1].template.spec.template")
+}
+
 // jobSetWithNTemplates builds a JobSet with n independent replicatedJobs
 // entries, each containing exactly one pod template -- so
 // extract.ExtractPodTemplates(obj) finds exactly n templates.
