@@ -79,8 +79,16 @@ func main() {
 		var err error
 		changedFiles, err = GetGitDiffFiles(rootAbs, *baseRef, *headRef)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting git diff files: %v\n", err)
-			os.Exit(1)
+			fmt.Fprintf(os.Stderr, "Warning: base ref %s unavailable: %v\n", *baseRef, err)
+			if *summaryFile != "" {
+				skipMsg := fmt.Sprintf("### 🎯 Affected-Package Test Selection (Shadow Mode Trial)\n\n> [!WARNING]\n> **Skipped:** Base reference `%s` was unavailable (%v). Shadow test selection skipped.\n\n", *baseRef, err)
+				f, fErr := os.OpenFile(*summaryFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+				if fErr == nil {
+					_, _ = f.WriteString(skipMsg)
+					_ = f.Close()
+				}
+			}
+			return
 		}
 	} else {
 		fmt.Fprintln(os.Stderr, "Error: must specify either -base, -files, or -files-from")

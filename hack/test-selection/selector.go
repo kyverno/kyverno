@@ -98,7 +98,13 @@ func IsFallbackFile(relPath string) (bool, string) {
 
 	// Generated code changes.
 	base := filepath.Base(norm)
-	if strings.HasPrefix(base, "zz_generated.") || strings.HasPrefix(norm, "pkg/client/") || strings.HasPrefix(norm, "config/crds/") {
+	if strings.HasPrefix(base, "zz_generated.") ||
+		strings.HasSuffix(norm, ".generated.go") ||
+		strings.HasPrefix(norm, "pkg/client/") ||
+		strings.HasPrefix(norm, "config/crds/") ||
+		strings.HasPrefix(norm, "cmd/cli/kubectl-kyverno/config/crds/") ||
+		strings.HasPrefix(norm, "cmd/cli/kubectl-kyverno/data/crds/") ||
+		strings.HasPrefix(norm, "charts/kyverno/charts/crds/") {
 		return true, fmt.Sprintf("generated file modified: %s", norm)
 	}
 
@@ -220,6 +226,51 @@ func MapFileToPackage(relPath string, pkgs []*PackageInfo, moduleRoot string) (s
 	return "", false
 }
 
+// FindEmbeddedPackage returns the package import path and whether the embed is test-only
+// if relPath matches an embedded file in any package (EmbedFiles, TestEmbedFiles, XTestEmbedFiles).
+func FindEmbeddedPackage(relPath string, pkgs []*PackageInfo, moduleRoot string) (string, bool, bool) {
+	absModuleRoot, err := filepath.Abs(moduleRoot)
+	if err != nil {
+		absModuleRoot = filepath.Clean(moduleRoot)
+	}
+
+	absTarget, err := filepath.Abs(filepath.Join(absModuleRoot, relPath))
+	if err != nil {
+		absTarget = filepath.Clean(filepath.Join(absModuleRoot, relPath))
+	}
+
+	for _, p := range pkgs {
+		absPkgDir := normalizePkgDir(p.Dir, moduleRoot, absModuleRoot)
+
+		relToPkg, err := filepath.Rel(absPkgDir, absTarget)
+		if err != nil || strings.HasPrefix(relToPkg, "..") {
+			continue
+		}
+
+		relSlash := filepath.ToSlash(relToPkg)
+
+		// Production embeds affect package runtime/compilation and reverse dependencies
+		for _, f := range p.EmbedFiles {
+			if f == relSlash {
+				return p.ImportPath, false, true
+			}
+		}
+		// Test embeds only affect package tests
+		for _, f := range p.TestEmbedFiles {
+			if f == relSlash {
+				return p.ImportPath, true, true
+			}
+		}
+		for _, f := range p.XTestEmbedFiles {
+			if f == relSlash {
+				return p.ImportPath, true, true
+			}
+		}
+	}
+
+	return "", false, false
+}
+
 // ComputeSelection calculates affected packages based on changed files and package dependency graph.
 func ComputeSelection(cfg SelectionConfig, pkgs []*PackageInfo) (*SelectionResult, error) {
 	result := &SelectionResult{
@@ -253,7 +304,20 @@ func ComputeSelection(cfg SelectionConfig, pkgs []*PackageInfo) (*SelectionResul
 			return selectAllTestable(result, pkgs), nil
 		}
 
-		// Safe non-code check (docs, images, ignore files)
+		// Check if file is an embedded asset of any package before safe non-code check
+		if pkgImport, isTestOnly, ok := FindEmbeddedPackage(file, pkgs, cfg.ModuleRoot); ok {
+			directPkgMap[pkgImport] = true
+			if isTestOnly {
+				if _, exists := testOnlyDirect[pkgImport]; !exists {
+					testOnlyDirect[pkgImport] = true
+				}
+			} else {
+				testOnlyDirect[pkgImport] = false
+			}
+			continue
+		}
+
+		// Safe non-code check (docs, images, ignore files not embedded in any package)
 		if IsSafeNonCodeFile(file) {
 			continue
 		}
@@ -288,32 +352,40 @@ func ComputeSelection(cfg SelectionConfig, pkgs []*PackageInfo) (*SelectionResul
 		return result, nil
 	}
 
-	// Build reverse dependency graph (A imported by B -> edge A -> B)
-	// We only track dependencies within the module
+	// Build reverse dependency graphs within the module:
+	// - reverseProdGraph: A imported by B in production code (transitive propagation)
+	// - reverseTestGraph: A imported by B in test code only (B's tests affected, no further propagation)
 	pkgByImport := make(map[string]*PackageInfo, len(pkgs))
-	reverseGraph := make(map[string][]string)
+	reverseProdGraph := make(map[string][]string)
+	reverseTestGraph := make(map[string][]string)
 
 	for _, p := range pkgs {
 		pkgByImport[p.ImportPath] = p
 	}
 
 	for _, p := range pkgs {
-		allImports := make(map[string]bool)
+		prodImports := make(map[string]bool)
 		for _, imp := range p.Imports {
-			allImports[imp] = true
-		}
-		for _, imp := range p.TestImports {
-			allImports[imp] = true
-		}
-		for _, imp := range p.XTestImports {
-			allImports[imp] = true
+			if strings.HasPrefix(imp, cfg.ModulePath) {
+				prodImports[imp] = true
+				reverseProdGraph[imp] = append(reverseProdGraph[imp], p.ImportPath)
+			}
 		}
 
-		for imp := range allImports {
-			// Only track internal module imports
-			if strings.HasPrefix(imp, cfg.ModulePath) {
-				reverseGraph[imp] = append(reverseGraph[imp], p.ImportPath)
+		testImports := make(map[string]bool)
+		for _, imp := range p.TestImports {
+			if strings.HasPrefix(imp, cfg.ModulePath) && !prodImports[imp] {
+				testImports[imp] = true
 			}
+		}
+		for _, imp := range p.XTestImports {
+			if strings.HasPrefix(imp, cfg.ModulePath) && !prodImports[imp] {
+				testImports[imp] = true
+			}
+		}
+
+		for imp := range testImports {
+			reverseTestGraph[imp] = append(reverseTestGraph[imp], p.ImportPath)
 		}
 	}
 
@@ -339,10 +411,16 @@ func ComputeSelection(cfg SelectionConfig, pkgs []*PackageInfo) (*SelectionResul
 		}
 		visited[curr] = true
 
-		for _, dependent := range reverseGraph[curr] {
-			affectedMap[dependent] = true
-			if !visited[dependent] {
-				queue = append(queue, dependent)
+		// Packages whose test code depends on curr must run tests
+		for _, testDependent := range reverseTestGraph[curr] {
+			affectedMap[testDependent] = true
+		}
+
+		// Packages whose production code depends on curr must run tests and propagate transitively
+		for _, prodDependent := range reverseProdGraph[curr] {
+			affectedMap[prodDependent] = true
+			if !visited[prodDependent] {
+				queue = append(queue, prodDependent)
 			}
 		}
 	}

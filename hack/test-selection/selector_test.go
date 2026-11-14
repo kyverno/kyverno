@@ -44,7 +44,11 @@ func TestIsFallbackFile(t *testing.T) {
 		{"Scripts dir", "scripts/check-perf-regression.sh", true},
 		{"Generated deepcopy", "pkg/engine/zz_generated.deepcopy.go", true},
 		{"Generated client", "pkg/client/clientset/versioned/clientset.go", true},
+		{"Generated client wrapper", "pkg/clients/kyverno/reportsv1/client.generated.go", true},
 		{"Generated CRD", "config/crds/kyverno.io_clusterpolicies.yaml", true},
+		{"CLI CRDs config", "cmd/cli/kubectl-kyverno/config/crds/cli.kyverno.io_clusterresources.yaml", true},
+		{"CLI CRDs data", "cmd/cli/kubectl-kyverno/data/crds/kyverno.io_clusterpolicies.yaml", true},
+		{"Helm chart CRDs", "charts/kyverno/charts/crds/templates/kyverno.io/kyverno.io_clusterpolicies.yaml", true},
 		{"Self tool edit allowed", "hack/test-selection/selector.go", false},
 		{"Regular pkg file", "pkg/engine/engine.go", false},
 		{"Regular cmd file", "cmd/kyverno/main.go", false},
@@ -87,19 +91,122 @@ func TestIsSafeNonCodeFile(t *testing.T) {
 }
 
 func TestComputeSelection_ReverseDependencies(t *testing.T) {
-	// Simulated module layout:
-	// pkg/a -> no deps
-	// pkg/b -> imports pkg/a
-	// pkg/c -> imports pkg/b (transitive dep on a)
-	// pkg/d -> imports pkg/e (unrelated)
-	// pkg/e -> no deps
+	// Table-driven verification of reverse dependency propagation across:
+	// - Imports (production code dependencies, transitively propagated)
+	// - TestImports (internal test package dependencies)
+	// - XTestImports (external test package dependencies)
+	tests := []struct {
+		name          string
+		bImports      []string
+		bTestImports  []string
+		bXTestImports []string
+		changedFile   string
+		wantAffected  []string
+	}{
+		{
+			name:        "Production Imports (transitive propagation)",
+			bImports:    []string{"github.com/kyverno/kyverno/pkg/a"},
+			changedFile: "pkg/a/a.go",
+			wantAffected: []string{
+				"github.com/kyverno/kyverno/pkg/a",
+				"github.com/kyverno/kyverno/pkg/b",
+				"github.com/kyverno/kyverno/pkg/c",
+			},
+		},
+		{
+			name:         "TestImports (internal test dependency)",
+			bTestImports: []string{"github.com/kyverno/kyverno/pkg/a"},
+			changedFile:  "pkg/a/a.go",
+			wantAffected: []string{
+				"github.com/kyverno/kyverno/pkg/a",
+				"github.com/kyverno/kyverno/pkg/b",
+			},
+		},
+		{
+			name:          "XTestImports (external test dependency)",
+			bXTestImports: []string{"github.com/kyverno/kyverno/pkg/a"},
+			changedFile:   "pkg/a/a.go",
+			wantAffected: []string{
+				"github.com/kyverno/kyverno/pkg/a",
+				"github.com/kyverno/kyverno/pkg/b",
+			},
+		},
+	}
 
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockPkgs := []*PackageInfo{
+				{
+					Dir:         filepath.Join("repo", "pkg", "a"),
+					ImportPath:  "github.com/kyverno/kyverno/pkg/a",
+					GoFiles:     []string{"a.go"},
+					TestGoFiles: []string{"a_test.go"},
+				},
+				{
+					Dir:          filepath.Join("repo", "pkg", "b"),
+					ImportPath:   "github.com/kyverno/kyverno/pkg/b",
+					GoFiles:      []string{"b.go"},
+					TestGoFiles:  []string{"b_test.go"},
+					Imports:      tc.bImports,
+					TestImports:  tc.bTestImports,
+					XTestImports: tc.bXTestImports,
+				},
+				{
+					Dir:         filepath.Join("repo", "pkg", "c"),
+					ImportPath:  "github.com/kyverno/kyverno/pkg/c",
+					GoFiles:     []string{"c.go"},
+					TestGoFiles: []string{"c_test.go"},
+					Imports:     []string{"github.com/kyverno/kyverno/pkg/b"},
+				},
+				{
+					Dir:         filepath.Join("repo", "pkg", "d"),
+					ImportPath:  "github.com/kyverno/kyverno/pkg/d",
+					GoFiles:     []string{"d.go"},
+					TestGoFiles: []string{"d_test.go"},
+					Imports:     []string{"github.com/kyverno/kyverno/pkg/e"},
+				},
+				{
+					Dir:         filepath.Join("repo", "pkg", "e"),
+					ImportPath:  "github.com/kyverno/kyverno/pkg/e",
+					GoFiles:     []string{"e.go"},
+					TestGoFiles: []string{"e_test.go"},
+				},
+			}
+
+			cfg := SelectionConfig{
+				ModuleRoot:   "repo",
+				ModulePath:   "github.com/kyverno/kyverno",
+				ChangedFiles: []string{tc.changedFile},
+			}
+
+			res, err := ComputeSelection(cfg, mockPkgs)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if res.Fallback {
+				t.Fatalf("did not expect fallback, got reason: %s", res.FallbackReason)
+			}
+
+			sort.Strings(res.AffectedPackages)
+			sort.Strings(tc.wantAffected)
+
+			if !reflect.DeepEqual(res.AffectedPackages, tc.wantAffected) {
+				t.Errorf("AffectedPackages = %v, want %v", res.AffectedPackages, tc.wantAffected)
+			}
+		})
+	}
+}
+
+func TestComputeSelection_EmbeddedSafeFiles(t *testing.T) {
 	mockPkgs := []*PackageInfo{
 		{
-			Dir:         filepath.Join("repo", "pkg", "a"),
-			ImportPath:  "github.com/kyverno/kyverno/pkg/a",
-			GoFiles:     []string{"a.go"},
-			TestGoFiles: []string{"a_test.go"},
+			Dir:            filepath.Join("repo", "pkg", "a"),
+			ImportPath:     "github.com/kyverno/kyverno/pkg/a",
+			GoFiles:        []string{"a.go"},
+			TestGoFiles:    []string{"a_test.go"},
+			EmbedFiles:     []string{"doc.md", "logo.png"},
+			TestEmbedFiles: []string{"test_asset.svg"},
 		},
 		{
 			Dir:         filepath.Join("repo", "pkg", "b"),
@@ -108,54 +215,60 @@ func TestComputeSelection_ReverseDependencies(t *testing.T) {
 			TestGoFiles: []string{"b_test.go"},
 			Imports:     []string{"github.com/kyverno/kyverno/pkg/a"},
 		},
+	}
+
+	tests := []struct {
+		name         string
+		file         string
+		wantAffected []string
+	}{
 		{
-			Dir:         filepath.Join("repo", "pkg", "c"),
-			ImportPath:  "github.com/kyverno/kyverno/pkg/c",
-			GoFiles:     []string{"c.go"},
-			TestGoFiles: []string{"c_test.go"},
-			Imports:     []string{"github.com/kyverno/kyverno/pkg/b"},
+			name:         "Embedded markdown in production code affects reverse dependents",
+			file:         "pkg/a/doc.md",
+			wantAffected: []string{"github.com/kyverno/kyverno/pkg/a", "github.com/kyverno/kyverno/pkg/b"},
 		},
 		{
-			Dir:         filepath.Join("repo", "pkg", "d"),
-			ImportPath:  "github.com/kyverno/kyverno/pkg/d",
-			GoFiles:     []string{"d.go"},
-			TestGoFiles: []string{"d_test.go"},
-			Imports:     []string{"github.com/kyverno/kyverno/pkg/e"},
+			name:         "Embedded PNG in production code affects reverse dependents",
+			file:         "pkg/a/logo.png",
+			wantAffected: []string{"github.com/kyverno/kyverno/pkg/a", "github.com/kyverno/kyverno/pkg/b"},
 		},
 		{
-			Dir:         filepath.Join("repo", "pkg", "e"),
-			ImportPath:  "github.com/kyverno/kyverno/pkg/e",
-			GoFiles:     []string{"e.go"},
-			TestGoFiles: []string{"e_test.go"},
+			name:         "Embedded SVG in test code is test-only",
+			file:         "pkg/a/test_asset.svg",
+			wantAffected: []string{"github.com/kyverno/kyverno/pkg/a"},
+		},
+		{
+			name:         "Unembedded docs markdown is safely ignored",
+			file:         "docs/dev/proposals/test.md",
+			wantAffected: nil,
+		},
+		{
+			name:         "Unembedded root readme is safely ignored",
+			file:         "README.md",
+			wantAffected: nil,
 		},
 	}
 
-	cfg := SelectionConfig{
-		ModuleRoot:   "repo",
-		ModulePath:   "github.com/kyverno/kyverno",
-		ChangedFiles: []string{"pkg/a/a.go"},
-	}
-
-	res, err := ComputeSelection(cfg, mockPkgs)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if res.Fallback {
-		t.Fatalf("did not expect fallback, got reason: %s", res.FallbackReason)
-	}
-
-	expected := []string{
-		"github.com/kyverno/kyverno/pkg/a",
-		"github.com/kyverno/kyverno/pkg/b",
-		"github.com/kyverno/kyverno/pkg/c",
-	}
-
-	sort.Strings(res.AffectedPackages)
-	sort.Strings(expected)
-
-	if !reflect.DeepEqual(res.AffectedPackages, expected) {
-		t.Errorf("AffectedPackages = %v, want %v", res.AffectedPackages, expected)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := SelectionConfig{
+				ModuleRoot:   "repo",
+				ModulePath:   "github.com/kyverno/kyverno",
+				ChangedFiles: []string{tc.file},
+			}
+			res, err := ComputeSelection(cfg, mockPkgs)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if res.Fallback {
+				t.Fatalf("unexpected fallback: %s", res.FallbackReason)
+			}
+			sort.Strings(res.AffectedPackages)
+			sort.Strings(tc.wantAffected)
+			if !reflect.DeepEqual(res.AffectedPackages, tc.wantAffected) {
+				t.Errorf("AffectedPackages = %v, want %v", res.AffectedPackages, tc.wantAffected)
+			}
+		})
 	}
 }
 
