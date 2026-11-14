@@ -97,6 +97,48 @@ func TestCommandAggregateFilterErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "Invalid test-case-selector argument (invalid2)")
 }
 
+// invalid selectors must fail the command even when the directory contains tests,
+// otherwise every test runs unfiltered and the command can exit successfully
+func TestCommandFilterErrorsWithTests(t *testing.T) {
+	dir := filepath.Join("..", "..", "..", "..", "..", "test", "cli", "test-validating-policy", "json-check-dockerfile")
+	// without a test file the old no-tests path would also return the errors
+	require.FileExists(t, filepath.Join(dir, "kyverno-test.yaml"))
+
+	tests := []struct {
+		name     string
+		selector string
+		wantErrs []string
+	}{{
+		name:     "all selectors invalid",
+		selector: "invalid-filter-1,invalid-filter-2",
+		wantErrs: []string{
+			"Invalid test-case-selector argument (invalid-filter-1)",
+			"Invalid test-case-selector argument (invalid-filter-2)",
+		},
+	}, {
+		name:     "valid selector mixed with an invalid one",
+		selector: "policy=*,invalid-filter",
+		wantErrs: []string{"Invalid test-case-selector argument (invalid-filter)"},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			assert.NotNil(t, cmd)
+			cmd.SetErr(bytes.NewBufferString(""))
+			outBuffer := bytes.NewBufferString("")
+			cmd.SetOut(outBuffer)
+			cmd.SetArgs([]string{dir, "--test-case-selector", tt.selector})
+			err := cmd.Execute()
+			require.Error(t, err)
+			for _, want := range tt.wantErrs {
+				assert.Contains(t, err.Error(), want)
+			}
+			assert.NotContains(t, outBuffer.String(), "Loading test")
+			assert.NotContains(t, outBuffer.String(), "Test Summary")
+		})
+	}
+}
+
 func TestCommandWithInvalidFlag(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
