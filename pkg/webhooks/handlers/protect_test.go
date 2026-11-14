@@ -331,6 +331,7 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 		username                string
 		oldLabels               map[string]string
 		newLabels               map[string]string
+		hasOwnerRef             bool
 		protectManagedResources bool
 		wantAllowed             bool
 		wantError               string
@@ -347,6 +348,23 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 			operation: admissionv1.Create,
 			username:  user,
 			newLabels: map[string]string{generatePolicy: "sync-secrets"},
+		},
+		{
+			name:        "allows generate labels on create for child resources with ownerReferences",
+			operation:   admissionv1.Create,
+			username:    user,
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef: true,
+			wantAllowed: true,
+		},
+		{
+			name:        "denies modifying generate labels on update even with ownerReferences",
+			operation:   admissionv1.Update,
+			username:    user,
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "tampered"},
+			hasOwnerRef: true,
+			wantAllowed: false,
 		},
 		{
 			name:        "allows standalone Kyverno managed-by on create",
@@ -578,10 +596,18 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 				UserInfo:  authenticationv1.UserInfo{Username: test.username},
 			}}
 			if test.operation != admissionv1.Delete {
-				request.Object.Raw = resourceWithLabels(t, test.newLabels)
+				if test.hasOwnerRef {
+					request.Object.Raw = resourceWithLabelsAndOwnerRef(t, test.newLabels)
+				} else {
+					request.Object.Raw = resourceWithLabels(t, test.newLabels)
+				}
 			}
 			if test.operation != admissionv1.Create {
-				request.OldObject.Raw = resourceWithLabels(t, test.oldLabels)
+				if test.hasOwnerRef {
+					request.OldObject.Raw = resourceWithLabelsAndOwnerRef(t, test.oldLabels)
+				} else {
+					request.OldObject.Raw = resourceWithLabels(t, test.oldLabels)
+				}
 			}
 
 			handler := inner.WithGenerateLabelProtection(kyvernoUser).WithProtection(test.protectManagedResources)
@@ -722,6 +748,30 @@ func resourceWithLabels(t *testing.T, labels map[string]string) []byte {
 			"name":      "test",
 			"namespace": "tenant",
 			"labels":    labels,
+		},
+	}
+	raw, err := json.Marshal(resource)
+	assert.NoError(t, err)
+	return raw
+}
+
+func resourceWithLabelsAndOwnerRef(t *testing.T, labels map[string]string) []byte {
+	t.Helper()
+	resource := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":      "test",
+			"namespace": "tenant",
+			"labels":    labels,
+			"ownerReferences": []map[string]interface{}{
+				{
+					"apiVersion": "v1",
+					"kind":       "Service",
+					"name":       "parent-service",
+					"uid":        "parent-uid",
+				},
+			},
 		},
 	}
 	raw, err := json.Marshal(resource)

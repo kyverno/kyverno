@@ -48,6 +48,12 @@ func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ..
 			logger.Error(err, "failed to extract resources")
 			return admissionutils.Response(request.UID, err)
 		}
+		// On CREATE, allow secondary child objects instantiated by other controllers
+		// (e.g. Endpoints/EndpointSlice for Services, CertificateRequest for Certificates)
+		// that inherit their parent's labels and carry ownerReferences.
+		if request.Operation == admissionv1.Create && len(newResource.GetOwnerReferences()) > 0 {
+			return inner(ctx, logger, request, startTime)
+		}
 		if !maps.Equal(extractKyvernoGenerateLabels(newResource.GetLabels()), extractKyvernoGenerateLabels(oldResource.GetLabels())) {
 			logger.V(2).Info("access to Kyverno generate labels is not authorized")
 			return admissionutils.Response(request.UID, errors.New("Kyverno generate labels can only be set by Kyverno"))
