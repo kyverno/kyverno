@@ -863,15 +863,35 @@ func TestApplyMutatingJSONPatch(t *testing.T) {
 		},
 		{
 			name:   "controller name, namespace and similar prefixes are kept",
-			expr:   `[JSONPatch{op: "test", path: "/metadata/name", value: "x"}, JSONPatch{op: "add", path: "/specs", value: "x"}, JSONPatch{op: "add", path: "/metadata/labelsX", value: "x"}]`,
+			expr:   `[JSONPatch{op: "test", path: "/metadata/name", value: "x"}, JSONPatch{op: "add", path: "/metadata/labelsX", value: "x"}]`,
 			config: "deployments",
-			want:   `[JSONPatch{op: "test", path: "/metadata/name", value: "x"}, JSONPatch{op: "add", path: "/specs", value: "x"}, JSONPatch{op: "add", path: "/metadata/labelsX", value: "x"}]`,
+			want:   `[JSONPatch{op: "test", path: "/metadata/name", value: "x"}, JSONPatch{op: "add", path: "/metadata/labelsX", value: "x"}]`,
 		},
 		{
 			name:   "pointer-like values and non-field strings are kept",
 			expr:   `[JSONPatch{op: "add", path: "/spec/x", value: "/spec/y"}].filter(p, p.path != "/spec/z" && has(p.value) ? true : false)`,
 			config: "deployments",
 			want:   `[JSONPatch{op: "add", path: "/spec/template/spec/x", value: "/spec/y"}].filter(p, p.path != "/spec/z" && has(p.value) ? true : false)`,
+		},
+		{
+			name: "comments around the field are skipped",
+			expr: `[JSONPatch{op: "add", // comment, path: "/spec/y"
+path /* key */ : /* value */ "/spec/x", value: true}]`,
+			config: "deployments",
+			want: `[JSONPatch{op: "add", // comment, path: "/spec/y"
+path /* key */ : /* value */ "/spec/template/spec/x", value: true}]`,
+		},
+		{
+			name:   "raw and triple-quoted paths are rewritten",
+			expr:   `[JSONPatch{op: "add", path: r"/spec/a\b", value: 1}, JSONPatch{op: "add", path: '''/spec/b''', value: 2}, JSONPatch{op: "add", path: R"""/metadata/labels/c""", value: 3}]`,
+			config: "deployments",
+			want:   `[JSONPatch{op: "add", path: r"/spec/template/spec/a\b", value: 1}, JSONPatch{op: "add", path: '''/spec/template/spec/b''', value: 2}, JSONPatch{op: "add", path: R"""/spec/template/metadata/labels/c""", value: 3}]`,
+		},
+		{
+			name:   "field names that only end in path are kept",
+			expr:   `[JSONPatch{op: "add", xpath: "/spec/x", path: "/spec/y"}]`,
+			config: "deployments",
+			want:   `[JSONPatch{op: "add", xpath: "/spec/x", path: "/spec/template/spec/y"}]`,
 		},
 		{
 			name:   "escaped quote inside the path is kept",
@@ -882,7 +902,25 @@ func TestApplyMutatingJSONPatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, string(ApplyMutatingJSONPatch([]byte(tt.expr), tt.config)))
+			got, ok := ApplyMutatingJSONPatch([]byte(tt.expr), tt.config)
+			assert.True(t, ok)
+			assert.Equal(t, tt.want, string(got))
+		})
+	}
+}
+
+func TestApplyMutatingJSONPatchUnsafePointer(t *testing.T) {
+	tests := []string{
+		`[JSONPatch{op: "add", path: variables.target, value: "x"}]`,
+		`[JSONPatch{op: "add", path: "/" + variables.field, value: "x"}]`,
+		`[JSONPatch{op: "add", path: "/specs", value: "x"}]`,
+		`[JSONPatch{op: "move", from: "/status/x", path: "/spec/x"}]`,
+		`[JSONPatch{op: "replace", path: "", value: object}]`,
+	}
+	for _, expr := range tests {
+		t.Run(expr, func(t *testing.T) {
+			_, ok := ApplyMutatingJSONPatch([]byte(expr), "deployments")
+			assert.False(t, ok)
 		})
 	}
 }

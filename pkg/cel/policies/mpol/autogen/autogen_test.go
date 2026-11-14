@@ -1135,3 +1135,33 @@ func TestGenerateRuleForControllersJSONPatch(t *testing.T) {
 		rules[autogen.AutogenCronjobs].Spec.Mutations[0].JSONPatch.Expression,
 	)
 }
+
+func TestGenerateRuleForControllersSkipsUnsafeJSONPatch(t *testing.T) {
+	spec := &policiesv1beta1.MutatingPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+				{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+						},
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					},
+				},
+			},
+		},
+		Mutations: []admissionregistrationv1alpha1.Mutation{
+			{
+				PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+				JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+					Expression: `[JSONPatch{op: "add", path: variables.target, value: "x"}]`,
+				},
+			},
+		},
+	}
+	rules, err := generateRuleForControllers(spec, sets.New("deployments", "cronjobs"))
+	require.NoError(t, err)
+	assert.Empty(t, rules)
+}
