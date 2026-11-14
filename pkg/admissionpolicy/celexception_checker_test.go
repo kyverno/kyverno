@@ -43,6 +43,12 @@ func exceptionWithMatchConditions(namespace, name string, exprs ...string) polic
 	return polex
 }
 
+func exceptionWithCondition(namespace, name, expression string) policiesv1beta1.PolicyException {
+	polex := exception(namespace, name)
+	polex.Spec.MatchConditions[0].Expression = expression
+	return polex
+}
+
 func Test_CanGenerateNativePolicy(t *testing.T) {
 	hugeCond := `"` + strings.Repeat("a", 55000) + `" != ""`
 	mediumCond := `"` + strings.Repeat("a", 40000) + `" != ""`
@@ -104,6 +110,35 @@ func Test_CanGenerateNativePolicy(t *testing.T) {
 		},
 		want:       false,
 		wantReason: "policy exception(s) default/guarded define compensating controls (spec.validations), which a generated ValidatingAdmissionPolicy cannot evaluate; policy exception(s) default/too-big produce combined matchConditions exceeding the Kubernetes CEL code point limit (100000), which a generated native policy cannot evaluate",
+	}, {
+		name: "exception with native match conditions",
+		exceptions: []policiesv1beta1.PolicyException{
+			exceptionWithCondition("default", "native", `namespaceObject.metadata.labels["team"] == "infra" && request.userInfo.username != ""`),
+		},
+		want: true,
+	}, {
+		name: "exception with a match condition using a Kyverno CEL library",
+		exceptions: []policiesv1beta1.PolicyException{
+			exceptionWithCondition("default", "native", "true"),
+			exceptionWithCondition("kyverno", "infra", `resource.Get("v1", "namespaces", "", object.metadata.namespace).metadata.labels["team"] == "infra"`),
+		},
+		want:       false,
+		wantReason: "policy exception(s) kyverno/infra use matchConditions that the API server cannot compile in a generated ValidatingAdmissionPolicy, such as calls to the Kyverno CEL libraries",
+	}, {
+		name: "both reasons are reported",
+		exceptions: []policiesv1beta1.PolicyException{
+			exception("default", "guarded", "true"),
+			exceptionWithCondition("kyverno", "infra", `resource.Get("v1", "namespaces", "", "default").metadata.name == "default"`),
+		},
+		want:       false,
+		wantReason: "policy exception(s) default/guarded define compensating controls (spec.validations), which a generated ValidatingAdmissionPolicy cannot evaluate; policy exception(s) kyverno/infra use matchConditions that the API server cannot compile in a generated ValidatingAdmissionPolicy, such as calls to the Kyverno CEL libraries",
+	}, {
+		name: "multi-condition exception where one condition uses a Kyverno CEL library",
+		exceptions: []policiesv1beta1.PolicyException{
+			exceptionWithMatchConditions("kyverno", "mixed", "request.userInfo.username != \"\"", `resource.Get("v1", "namespaces", "", object.metadata.namespace).metadata.labels["team"] == "infra"`),
+		},
+		want:       false,
+		wantReason: "policy exception(s) kyverno/mixed use matchConditions that the API server cannot compile in a generated ValidatingAdmissionPolicy, such as calls to the Kyverno CEL libraries",
 	}}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -153,6 +188,28 @@ func Test_CanGenerateNativeMutatingPolicy(t *testing.T) {
 		},
 		want:       false,
 		wantReason: "policy exception(s) default/too-big produce combined matchConditions exceeding the Kubernetes CEL code point limit (100000), which a generated MutatingAdmissionPolicy cannot evaluate",
+	}, {
+		name: "exception with native match conditions is allowed for MAP",
+		exceptions: []policiesv1beta1.PolicyException{
+			exceptionWithCondition("default", "native", `namespaceObject.metadata.labels["team"] == "infra" && request.userInfo.username != ""`),
+		},
+		want: true,
+	}, {
+		name: "exception with a match condition using a Kyverno CEL library is reported for MAP",
+		exceptions: []policiesv1beta1.PolicyException{
+			exceptionWithCondition("default", "native", "true"),
+			exceptionWithCondition("kyverno", "infra", `resource.Get("v1", "namespaces", "", object.metadata.namespace).metadata.labels["team"] == "infra"`),
+		},
+		want:       false,
+		wantReason: "policy exception(s) kyverno/infra use matchConditions that the API server cannot compile in a generated MutatingAdmissionPolicy, such as calls to the Kyverno CEL libraries",
+	}, {
+		name: "size and Kyverno CEL violations are both reported for MAP",
+		exceptions: []policiesv1beta1.PolicyException{
+			exceptionWithMatchConditions("default", "too-big", hugeCond, hugeCond),
+			exceptionWithCondition("kyverno", "infra", `resource.Get("v1", "namespaces", "", "default").metadata.name == "default"`),
+		},
+		want:       false,
+		wantReason: "policy exception(s) default/too-big produce combined matchConditions exceeding the Kubernetes CEL code point limit (100000), which a generated MutatingAdmissionPolicy cannot evaluate; policy exception(s) kyverno/infra use matchConditions that the API server cannot compile in a generated MutatingAdmissionPolicy, such as calls to the Kyverno CEL libraries",
 	}}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
