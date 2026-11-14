@@ -996,6 +996,10 @@ verify-policies-psa-version: $(HELM) ## Verify the policies chart renders the PS
 	@echo Verify podSecurityVersion rendering... >&2
 	@HELM=$(HELM) ./scripts/verify-policies-psa-version.sh
 
+.PHONY: verify-policies-validation-actions
+verify-policies-validation-actions: $(HELM) ## Verify validation failure actions
+	@HELM=$(HELM) bash ./scripts/verify-policies-validation-actions.sh
+
 .PHONY: verify-policies-sysctls
 verify-policies-sysctls: $(HELM) ## Verify the restrict-sysctls allow-list matches PSA for each Kubernetes version (no cluster needed)
 	@echo Verify restrict-sysctls allow-list... >&2

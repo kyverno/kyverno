@@ -1,3 +1,4 @@
+
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
 name: Chart-testing
@@ -97,6 +98,11 @@ jobs:
         run: |
           set -e
           make verify-policies-psa-version
+      - name: Verify policy validation actions
+        # Verifies global and per-policy validation failure actions.
+        run: |
+          set -e
+          make verify-policies-validation-actions
 
   sync-issue:
     if: always() && github.event_name == 'push'
