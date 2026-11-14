@@ -1,0 +1,26 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: chainsaw-metadata-only
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: user
+          operator: In
+          values: ["chainsaw-meta-user"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["get", "list", "watch", "create", "delete"]
+  rules:
+    # Decided from request metadata only: no residual, so the API server gets
+    # an unconditional Allow.
+    - name: allow-metadata
+      effect: Allow
+      expression: "request.resourceAttributes.namespace.startsWith('chainsaw-')"
+    # Metadata-only Deny wins over the Allow above.
+    - name: deny-reserved-name
+      effect: Deny
+      expression: "request.resourceAttributes.name == 'reserved'"

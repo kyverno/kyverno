@@ -11,6 +11,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestLoad(t *testing.T) {
@@ -531,5 +532,49 @@ spec:
 	assert.Contains(t, err.Error(), "Invalid value: value provided for unknown field")
 	if res != nil {
 		assert.Empty(t, res.PolicyCelExceptions)
+	}
+}
+
+func TestLoad_RejectsAuthorizingPolicy(t *testing.T) {
+	// AuthorizingPolicy needs the requesting identity and action, which apply and test do not
+	// supply. The loader must fail the load with an explicit error instead of dropping the
+	// document as non-Kubernetes YAML and reporting "0 policy rule(s)".
+	tests := []struct {
+		name string
+		path string
+	}{
+		{name: "standalone", path: "testdata/authorizingpolicy.yaml"},
+		{name: "alongside a supported policy", path: "testdata/validatingpolicy-and-authorizingpolicy.yaml"},
+		{name: "inside a List", path: "testdata/list-authorizingpolicy.yaml"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results, err := Load(nil, "", tt.path)
+			require.Error(t, err)
+			assert.Nil(t, results)
+			assert.ErrorIs(t, err, ErrUnsupportedPolicyKind)
+			assert.Contains(t, err.Error(), "policies.kyverno.io/v1alpha1 AuthorizingPolicy")
+		})
+	}
+}
+
+func TestLoad_LegacyBlockTakesPriorityOverAuthorizingPolicy(t *testing.T) {
+	_, err := Load(nil, "", "testdata/authorizingpolicy-then-legacy-clusterpolicy.yaml")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
+}
+
+func TestBuildUnsupportedKindError(t *testing.T) {
+	for _, version := range []string{"v1alpha1", "v1beta1", "v1"} {
+		err, ok := buildUnsupportedKindError(schema.GroupVersionKind{Group: "policies.kyverno.io", Version: version, Kind: "AuthorizingPolicy"})
+		assert.True(t, ok, version)
+		assert.ErrorIs(t, err, ErrUnsupportedPolicyKind, version)
+	}
+	for _, gvk := range []schema.GroupVersionKind{
+		{Group: "policies.kyverno.io", Version: "v1", Kind: "ValidatingPolicy"},
+		{Group: "example.com", Version: "v1", Kind: "AuthorizingPolicy"},
+	} {
+		_, ok := buildUnsupportedKindError(gvk)
+		assert.False(t, ok, gvk.String())
 	}
 }

@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authorize-conditional-writes
+spec:
+  description: >-
+    Kyverno returns a conditional decision for writes whose outcome depends on
+    the object. kube-apiserver lets the request reach admission, where the
+    AuthorizationConditionsEnforcer asks Kyverno to evaluate the conditions
+    against the submitted object (object) and the stored object (oldObject).
+  concurrent: false
+  steps:
+    - name: create policy
+      try:
+        - apply:
+            file: policy.yaml
+    - name: create
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              as="--as chainsaw-alice --as-group chainsaw-owners"
+              f=$(configmap owned owner=chainsaw-alice | tofile)
+              expect_allowed "create a configmap the user owns" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              kubectl -n "$NAMESPACE" get configmap owned -o jsonpath='created {.metadata.name} owner={.metadata.labels.owner}{"\n"}'
+              f=$(configmap someone-else owner=chainsaw-bob | tofile)
+              expect_forbidden "create a configmap owned by someone else" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              f=$(configmap unlabeled | tofile)
+              expect_forbidden "create a configmap without an owner" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              f=$(configmap owned-protected owner=chainsaw-alice protected=true | tofile)
+              expect_forbidden "create an owned but protected configmap (residual Deny wins over Allow)" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              expect_absent configmap someone-else unlabeled owned-protected
+    - name: update and patch
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              as="--as chainsaw-alice --as-group chainsaw-owners"
+              kubectl -n "$NAMESPACE" create configmap bobs --from-literal=a=b
+              kubectl -n "$NAMESPACE" label configmap bobs owner=chainsaw-bob
+              kubectl -n "$NAMESPACE" create configmap alices-protected --from-literal=a=b
+              kubectl -n "$NAMESPACE" label configmap alices-protected owner=chainsaw-alice protected=true
+              expect_allowed "patch data of an owned configmap" \
+                kubectl -n "$NAMESPACE" patch configmap owned --type=merge -p '{"data":{"key":"patched"}}' $as
+              test "$(kubectl -n "$NAMESPACE" get configmap owned -o jsonpath='{.data.key}')" = patched
+              expect_forbidden "take over someone else's configmap (oldObject owner differs)" \
+                kubectl -n "$NAMESPACE" label configmap bobs owner=chainsaw-alice --overwrite $as
+              test "$(kubectl -n "$NAMESPACE" get configmap bobs -o jsonpath='{.metadata.labels.owner}')" = chainsaw-bob
+              expect_forbidden "give away an owned configmap (new object owner differs)" \
+                kubectl -n "$NAMESPACE" label configmap owned owner=chainsaw-bob --overwrite $as
+              expect_forbidden "mark an owned configmap protected" \
+                kubectl -n "$NAMESPACE" label configmap owned protected=true $as
+              expect_forbidden "remove the protected label (oldObject is protected)" \
+                kubectl -n "$NAMESPACE" label configmap alices-protected protected- $as
+              f=$(kubectl -n "$NAMESPACE" get configmap owned -o yaml | sed 's/patched/replaced/' | tofile)
+              expect_allowed "update (PUT) an owned configmap" \
+                kubectl -n "$NAMESPACE" replace -f "$f" $as
+              test "$(kubectl -n "$NAMESPACE" get configmap owned -o jsonpath='{.data.key}')" = replaced
+    - name: delete
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              as="--as chainsaw-alice --as-group chainsaw-owners"
+              expect_forbidden "delete someone else's configmap" \
+                kubectl -n "$NAMESPACE" delete configmap bobs $as
+              expect_forbidden "delete an owned but protected configmap" \
+                kubectl -n "$NAMESPACE" delete configmap alices-protected $as
+              expect_allowed "delete an owned configmap" \
+                kubectl -n "$NAMESPACE" delete configmap owned $as
+              kubectl -n "$NAMESPACE" get configmap bobs alices-protected
+    - name: dry-run requests are decided the same way
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              as="--as chainsaw-alice --as-group chainsaw-owners"
+              f=$(configmap dry owner=chainsaw-alice | tofile)
+              expect_allowed "server dry-run create of an owned configmap" \
+                kubectl -n "$NAMESPACE" create --dry-run=server -f "$f" $as
+              f=$(configmap dry owner=chainsaw-bob | tofile)
+              expect_forbidden "server dry-run create of someone else's configmap" \
+                kubectl -n "$NAMESPACE" create --dry-run=server -f "$f" $as
+    - name: legacy SubjectAccessReview caller gets an unconditional answer
+      try:
+        - script:
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              # The SubjectAccessReview API does not set handledDecisionTypes.
+              # A Deny residual exists for create, so Kyverno fails closed to Deny.
+              out=$(sar chainsaw-alice create configmaps "$NAMESPACE" chainsaw-owners)
+              echo "create: $out"
+              test "$out" = "allowed=false denied=true"
+              out=$(sar chainsaw-alice get configmaps "$NAMESPACE" chainsaw-owners)
+              echo "get: $out"
+              test "$out" = "allowed=true denied=false"

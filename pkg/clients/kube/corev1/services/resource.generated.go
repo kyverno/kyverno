@@ -80,6 +80,17 @@ func (c *withLogging) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apim
 	}
 	return ret0
 }
+func (c *withLogging) DeleteWithResult(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) (k8s_io_apimachinery_pkg_apis_meta_v1.APIResult, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "DeleteWithResult")
+	ret0, ret1 := c.inner.DeleteWithResult(arg0, arg1, arg2)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "DeleteWithResult failed", "duration", time.Since(start))
+	} else {
+		logger.Info("DeleteWithResult done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
 func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_core_v1.Service, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Get")
@@ -174,6 +185,10 @@ func (c *withMetrics) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Serv
 func (c *withMetrics) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.RecordWithContext(arg0, "delete")
 	return c.inner.Delete(arg0, arg1, arg2)
+}
+func (c *withMetrics) DeleteWithResult(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) (k8s_io_apimachinery_pkg_apis_meta_v1.APIResult, error) {
+	defer c.recorder.RecordWithContext(arg0, "delete_with_result")
+	return c.inner.DeleteWithResult(arg0, arg1, arg2)
 }
 func (c *withMetrics) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_core_v1.Service, error) {
 	defer c.recorder.RecordWithContext(arg0, "get")
@@ -293,6 +308,27 @@ func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apim
 		tracing.SetSpanStatus(span, ret0)
 	}
 	return ret0
+}
+func (c *withTracing) DeleteWithResult(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) (k8s_io_apimachinery_pkg_apis_meta_v1.APIResult, error) {
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartChildSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "DeleteWithResult"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("DeleteWithResult"),
+			),
+		)
+		defer span.End()
+	}
+	ret0, ret1 := c.inner.DeleteWithResult(arg0, arg1, arg2)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
+	return ret0, ret1
 }
 func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_core_v1.Service, error) {
 	var span trace.Span

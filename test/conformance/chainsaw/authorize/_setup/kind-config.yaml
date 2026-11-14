@@ -1,0 +1,32 @@
+# kind cluster for the AuthorizingPolicy e2e tests. setup-cluster.sh replaces
+# AUTHZ_DIR with an absolute host directory that holds the kube-apiserver
+# authorization configuration, the webhook kubeconfig, and Kyverno's CA.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+featureGates:
+  ConditionalAuthorization: true
+kubeadmConfigPatchesJSON6902:
+  - group: kubeadm.k8s.io
+    version: v1beta4
+    kind: ClusterConfiguration
+    patch: |
+      - op: add
+        path: /apiServer/extraArgs/-
+        value:
+          name: authorization-config
+          value: /etc/kubernetes/authz/authorization-config.yaml
+      - op: add
+        path: /apiServer/extraVolumes
+        value:
+          - name: authz
+            hostPath: /etc/kubernetes/authz
+            mountPath: /etc/kubernetes/authz
+            readOnly: true
+            pathType: Directory
+nodes:
+  - role: control-plane
+    extraMounts:
+      - hostPath: AUTHZ_DIR
+        containerPath: /etc/kubernetes/authz
+        readOnly: false
+  - role: worker

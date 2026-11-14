@@ -1,0 +1,53 @@
+# Mutating admission sets the owner label to the requesting user when it is
+# missing, in namespaces labelled chainsaw-authz-mutation=true.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: chainsaw-authz-default-owner
+spec:
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+        chainsaw-authz-mutation: "true"
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["configmaps"]
+  failurePolicy: Fail
+  reinvocationPolicy: Never
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: >-
+          has(object.metadata.labels) ?
+          (('owner' in object.metadata.labels) ? [] : [JSONPatch{op: "add", path: "/metadata/labels/owner", value: request.userInfo.username}]) :
+          [JSONPatch{op: "add", path: "/metadata/labels", value: {"owner": request.userInfo.username}}]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: chainsaw-authz-default-owner
+spec:
+  policyName: chainsaw-authz-default-owner
+---
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: chainsaw-mutation-stage
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: user
+          operator: In
+          values: ["chainsaw-mutation-user"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["create"]
+  rules:
+    - name: owner-creates
+      effect: Allow
+      expression: "has(object.metadata.labels) && object.metadata.labels['owner'] == request.user"

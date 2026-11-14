@@ -41,7 +41,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
-	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiserver "k8s.io/apiextensions-api/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"

@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authorize-pods-containers
+spec:
+  description: >-
+    Conditional decisions over Pod specs: ordinary containers, init containers,
+    and ephemeral containers added through the pods/ephemeralcontainers
+    subresource.
+  concurrent: false
+  steps:
+    - name: create policy
+      try:
+        - apply:
+            file: policy.yaml
+    - name: pod create with containers and init containers
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              as="--as chainsaw-pod-user"
+              pod() { # name container-image init-image privileged
+                cat <<EOF
+              apiVersion: v1
+              kind: Pod
+              metadata:
+                name: $1
+              spec:
+                initContainers:
+                  - name: init
+                    image: $3
+                    securityContext:
+                      privileged: $4
+                containers:
+                  - name: main
+                    image: $2
+              EOF
+              }
+              f=$(pod good registry.k8s.io/pause:3.10 registry.k8s.io/pause:3.10 false | tofile)
+              expect_allowed "create a pod whose images are all trusted" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              f=$(pod bad-main docker.io/library/busybox:1.36 registry.k8s.io/pause:3.10 false | tofile)
+              expect_forbidden "create a pod with an untrusted container image" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              f=$(pod bad-init registry.k8s.io/pause:3.10 docker.io/library/busybox:1.36 false | tofile)
+              expect_forbidden "create a pod with an untrusted init container image" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              f=$(pod privileged-init registry.k8s.io/pause:3.10 registry.k8s.io/pause:3.10 true | tofile)
+              expect_forbidden "create a pod with a privileged init container (Allow satisfied, Deny wins)" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              kubectl -n "$NAMESPACE" get pods -o name
+              test "$(kubectl -n "$NAMESPACE" get pods -o name)" = "pod/good"
+    - name: ephemeral containers
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              as="--as chainsaw-pod-user"
+              expect_forbidden "add an ephemeral container with an untrusted image" \
+                kubectl -n "$NAMESPACE" patch pod good --subresource=ephemeralcontainers --type=merge $as \
+                  -p '{"spec":{"ephemeralContainers":[{"name":"debug-bad","image":"docker.io/library/busybox:1.36"}]}}'
+              expect_allowed "add an ephemeral container with a trusted image" \
+                kubectl -n "$NAMESPACE" patch pod good --subresource=ephemeralcontainers --type=merge $as \
+                  -p '{"spec":{"ephemeralContainers":[{"name":"debug","image":"registry.k8s.io/pause:3.10"}]}}'
+              test "$(kubectl -n "$NAMESPACE" get pod good -o jsonpath='{.spec.ephemeralContainers[*].name}')" = "debug"
+              # Strategic merge patches change only the image, which pod validation allows.
+              expect_forbidden "patch a container to an untrusted image" \
+                kubectl -n "$NAMESPACE" patch pod good --type=strategic $as \
+                  -p '{"spec":{"containers":[{"name":"main","image":"docker.io/library/busybox:1.36"}]}}'
+              expect_forbidden "patch an init container to an untrusted image" \
+                kubectl -n "$NAMESPACE" patch pod good --type=strategic $as \
+                  -p '{"spec":{"initContainers":[{"name":"init","image":"docker.io/library/busybox:1.36"}]}}'
+              expect_allowed "patch a container to another trusted image" \
+                kubectl -n "$NAMESPACE" patch pod good --type=strategic $as \
+                  -p '{"spec":{"containers":[{"name":"main","image":"registry.k8s.io/pause:3.9"}]}}'
+              test "$(kubectl -n "$NAMESPACE" get pod good -o jsonpath='{.spec.containers[0].image}')" = "registry.k8s.io/pause:3.9"

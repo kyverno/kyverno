@@ -1,0 +1,35 @@
+# Members of group "dev" may write ConfigMaps they own, and nobody may write
+# ConfigMaps labelled "protected". Reads are decided from request metadata only.
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: owner-writes
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: groups
+          operator: In
+          values: ["dev"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["*"]
+  rules:
+    - name: owner-writes
+      effect: Allow
+      description: owners may write
+      expression: >-
+        has(object.metadata.labels) && 'owner' in object.metadata.labels &&
+        object.metadata.labels.owner == request.user
+    - name: protected
+      effect: Deny
+      # Scope object-dependent Deny rules to writes. On reads the object is never
+      # known, so an unscoped object-dependent Deny fails closed to Deny.
+      expression: >-
+        request.resourceAttributes.verb in ['create', 'update', 'patch', 'delete'] &&
+        has(object.metadata.labels) && 'protected' in object.metadata.labels
+    - name: reads
+      effect: Allow
+      expression: "request.resourceAttributes.verb in ['get', 'list', 'watch']"

@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authorize-metadata-only
+spec:
+  description: >-
+    An AuthorizingPolicy whose rules depend only on request metadata returns an
+    unconditional decision. Reads, watches, creates, and deletes are allowed by
+    Kyverno (the user has no RBAC), and a metadata-only Deny wins.
+  concurrent: false
+  steps:
+    - name: before the policy, the user has no access
+      try:
+        - script:
+            content: |
+              . ../_lib/authz.sh
+              expect_forbidden "list configmaps without a policy" \
+                kubectl -n "$NAMESPACE" get configmaps --as chainsaw-meta-user
+    - name: create policy
+      try:
+        - apply:
+            file: policy.yaml
+    - name: metadata-only decisions
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              expect_allowed "list configmaps" \
+                kubectl -n "$NAMESPACE" get configmaps --as chainsaw-meta-user
+              expect_allowed "watch configmaps" \
+                kubectl -n "$NAMESPACE" get --raw "/api/v1/namespaces/$NAMESPACE/configmaps?watch=1&timeoutSeconds=1" --as chainsaw-meta-user
+              cm=$(configmap meta-cm | tofile)
+              expect_allowed "create a configmap regardless of its content" \
+                kubectl -n "$NAMESPACE" create -f "$cm" --as chainsaw-meta-user
+              expect_allowed "get the configmap" \
+                kubectl -n "$NAMESPACE" get configmap meta-cm --as chainsaw-meta-user
+              expect_allowed "delete the configmap" \
+                kubectl -n "$NAMESPACE" delete configmap meta-cm --as chainsaw-meta-user
+              expect_forbidden "list configmaps in default (rule does not match)" \
+                kubectl -n default get configmaps --as chainsaw-meta-user
+              expect_forbidden "list secrets (resource not selected)" \
+                kubectl -n "$NAMESPACE" get secrets --as chainsaw-meta-user
+              expect_forbidden "list configmaps as another user (subject not selected)" \
+                kubectl -n "$NAMESPACE" get configmaps --as chainsaw-other-user
+              kubectl -n "$NAMESPACE" create configmap reserved --from-literal=a=b
+              expect_forbidden "get the configmap named reserved (metadata Deny wins)" \
+                kubectl -n "$NAMESPACE" get configmap reserved --as chainsaw-meta-user
+              echo "SubjectAccessReview API (unconditional caller): $(sar chainsaw-meta-user list configmaps "$NAMESPACE")"
+              test "$(sar chainsaw-meta-user list configmaps "$NAMESPACE")" = "allowed=true denied=false"
+              test "$(kubectl auth can-i list configmaps -n "$NAMESPACE" --as chainsaw-meta-user)" = "yes"
+    - name: deleting the policy revokes access
+      try:
+        - delete:
+            ref:
+              apiVersion: policies.kyverno.io/v1alpha1
+              kind: AuthorizingPolicy
+              name: chainsaw-metadata-only
+        - script:
+            timeout: 2m
+            content: |
+              . ../_lib/authz.sh
+              expect_eventually_forbidden "list configmaps after the policy is deleted" \
+                kubectl -n "$NAMESPACE" get configmaps --as chainsaw-meta-user

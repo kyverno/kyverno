@@ -842,7 +842,7 @@ func appliedByGenerate(obj *unstructured.Unstructured) (appliedMetadata, bool) {
 				Finalizers      map[string]json.RawMessage `json:"f:finalizers"`
 			} `json:"f:metadata"`
 		}
-		if err := json.Unmarshal(entry.FieldsV1.Raw, &fields); err != nil {
+		if err := json.Unmarshal(entry.FieldsV1.GetRawBytes(), &fields); err != nil {
 			return appliedMetadata{}, false
 		}
 		applied := appliedMetadata{

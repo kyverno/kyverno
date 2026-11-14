@@ -1,0 +1,55 @@
+# kube-apiserver --authorization-config file.
+# Requires kube-apiserver 1.38 started with
+#   --feature-gates=ConditionalAuthorization=true
+# Tested with Kubernetes v1.38.0-beta.0, which is a pre-release, not a final
+# 1.38 release.
+#
+# Order: Node, then RBAC, then Kyverno. Kyverno only sees requests that Node and
+# RBAC did not allow, so a broken Kyverno cannot lock out cluster components or
+# administrators. To recover, replace this file with
+# authorization-config-bootstrap.yaml; kube-apiserver reloads it without a
+# restart.
+apiVersion: apiserver.config.k8s.io/v1
+kind: AuthorizationConfiguration
+authorizers:
+  - type: Node
+    name: node
+  - type: RBAC
+    name: rbac
+  - type: Webhook
+    name: kyverno
+    webhook:
+      timeout: 3s
+      # Conditional decisions require the v1 SubjectAccessReview.
+      subjectAccessReviewVersion: v1
+      matchConditionSubjectAccessReviewVersion: v1
+      # Kyverno is one authorizer in the chain; NoOpinion defers to the next one.
+      failurePolicy: NoOpinion
+      # Turn off decision caching so that policy updates and deletions take
+      # effect on the next request. Use the cache* fields: a TTL of 0s does not
+      # turn caching off, because kube-apiserver defaults it to 5m (authorized,
+      # which includes conditional decisions) and 30s (unauthorized). The TTLs
+      # below apply only if you turn caching back on.
+      authorizedTTL: 1s
+      unauthorizedTTL: 1s
+      cacheAuthorizedRequests: false
+      cacheUnauthorizedRequests: false
+      connectionInfo:
+        type: KubeConfigFile
+        kubeConfigFile: /etc/kubernetes/authz/kyverno-authz-kubeconfig.yaml
+      # Enables conditional decisions. Without this block kube-apiserver does not
+      # send authorizationOptions, and Kyverno answers unconditionally (fail closed).
+      conditionsReview:
+        version: v1alpha1
+        # Optional. When omitted, kube-apiserver sends SubjectAccessReview and
+        # AuthorizationConditionsReview to the current context of the kubeconfig,
+        # so that context must point at Kyverno's combined /authz endpoint.
+        kubeConfigContextName: kyverno-conditions
+      matchConditions:
+        # Never send control-plane components, nodes, kube-system service
+        # accounts, or Kyverno's own service accounts to the webhook. Other
+        # service accounts (system:serviceaccount:<namespace>:<name>) are sent,
+        # so policies that select the serviceAccount subject key apply to them.
+        - expression: "!request.user.startsWith('system:') || request.user.startsWith('system:serviceaccount:')"
+        - expression: "!request.user.startsWith('system:serviceaccount:kube-system:')"
+        - expression: "!request.user.startsWith('system:serviceaccount:kyverno:')"

@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authorize-callback-failure
+spec:
+  description: >-
+    When the conditions callback fails, kube-apiserver fails closed. The
+    kyverno-callback-rejected webhook sends conditions reviews to an endpoint
+    that rejects them (HTTP 400), and kyverno-callback-down to a closed port.
+    Conditions that error during evaluation fail closed too: an Allow that
+    errors does not grant, and a Deny that errors denies.
+  concurrent: false
+  steps:
+    - name: create policy
+      try:
+        - apply:
+            file: policy.yaml
+    - name: callback errors
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              # Same policy, served by the working webhook: proves the policy is active
+              # and that the request needs only the conditions callback to succeed.
+              f=$(configmap ok owner=chainsaw-cb-error | tofile)
+              expect_allowed "control: conditional create with a working callback" \
+                kubectl -n "$NAMESPACE" create --dry-run=server -f "$f" --as chainsaw-cb-error
+              f=$(configmap rejected owner=chainsaw-cb-rejected | tofile)
+              expect_rejected "conditions review rejected with HTTP 400" 'Internal error occurred' \
+                kubectl -n "$NAMESPACE" create -f "$f" --as chainsaw-cb-rejected
+              f=$(configmap down owner=chainsaw-cb-down | tofile)
+              expect_rejected "conditions review endpoint unreachable" 'Internal error occurred' \
+                kubectl -n "$NAMESPACE" create -f "$f" --as chainsaw-cb-down
+              expect_absent configmap rejected down
+    - name: evaluation errors
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              as="--as chainsaw-cb-error"
+              f=$(kubectl create configmap small --from-literal=limit=5 --dry-run=client -o yaml | tofile)
+              expect_allowed "limit-allow true" kubectl -n "$NAMESPACE" create --dry-run=server -f "$f" $as
+              f=$(kubectl create configmap bad-limit --from-literal=limit=abc --dry-run=client -o yaml | tofile)
+              # kube-apiserver answers a non-Allow conditions result that carries an
+              # evaluation error with InternalError instead of Forbidden.
+              expect_rejected "limit-allow errors (int('abc')): Allow does not grant" \
+                'limit-allow" with effect=Allow evaluated to an error' \
+                kubectl -n "$NAMESPACE" create --dry-run=server -f "$f" $as
+              f=$(kubectl create configmap bad-max --from-literal=limit=5 --from-literal=max=abc --dry-run=client -o yaml | tofile)
+              expect_rejected "limit-deny errors (int('abc')): Deny applies although limit-allow is true" \
+                'forbidden|limit-deny" with effect=Deny evaluated to an error' \
+                kubectl -n "$NAMESPACE" create --dry-run=server -f "$f" $as

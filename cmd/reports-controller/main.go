@@ -32,7 +32,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
-	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiserver "k8s.io/apiextensions-api/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/client-go/discovery/cached/memory"

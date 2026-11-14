@@ -54,7 +54,7 @@ type RequestData struct {
 	Key string `json:"key"`
 
 	// Value is the data value
-	Value *apiextv1.JSON `json:"value"`
+	Value *apiextv1.JSON `json:"value"` //nolint:govet // controller-gen treats JSON as schemaless only from apiextensions-apiserver
 }
 
 type HTTPHeader struct {

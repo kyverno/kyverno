@@ -54,7 +54,7 @@ import (
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1 "k8s.io/apiextensions-api/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -155,7 +155,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	policyFullPath := path.GetFullPaths(regularPolicies, testDir, isGit)
 	results, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
-		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
+		return nil, fmt.Errorf("error: failed to load policies (%w)", err)
 	}
 	if len(ociPolicies) > 0 {
 		ociResults, err := policy.Load(nil, "", ociPolicies...)

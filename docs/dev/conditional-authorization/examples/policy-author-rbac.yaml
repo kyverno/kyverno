@@ -1,0 +1,26 @@
+# Writing an AuthorizingPolicy is equivalent to cluster-admin: an Allow rule can
+# grant any verb on any resource to any subject, and the RBAC escalation check
+# does not apply to custom resources. Grant write access only to the identities
+# that already hold cluster-admin, and never aggregate it into the admin, edit,
+# or view roles.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: authorizingpolicy-author
+rules:
+  - apiGroups: ["policies.kyverno.io"]
+    resources: ["authorizingpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: authorizingpolicy-author
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: authorizingpolicy-author
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: platform-admins

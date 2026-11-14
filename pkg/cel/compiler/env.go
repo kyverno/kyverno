@@ -1,11 +1,11 @@
 package compiler
 
 import (
-	"github.com/google/cel-go/cel"
-	celast "github.com/google/cel-go/common/ast"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/ext"
+	"cel.dev/cel-go/cel"
+	celast "cel.dev/cel-go/common/ast"
+	"cel.dev/cel-go/common/types"
+	"cel.dev/cel-go/common/types/ref"
+	"cel.dev/cel-go/ext"
 	"github.com/kyverno/sdk/extensions/cel/libs/image"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apiserver/pkg/cel/environment"
@@ -61,7 +61,9 @@ func defaultEnvOptionsWithHomogeneousAggregateEnforcement(enforce bool) []cel.En
 		// register common libs
 		cel.OptionalTypes(),
 		ext.Bindings(),
-		ext.Encoders(),
+		// cel-go v0.33 encoders version 2 adds yaml.parse/json.parse (returning optional values),
+		// which shadow the kyverno yaml and json libraries; pin version 1 to keep the pre-v0.33 surface.
+		ext.Encoders(ext.EncodersVersion(1)),
 		// versions below match the kubernetes base env set behavior (k8s.io/apiserver/pkg/cel/environment).
 		// we moved away from using it directly, but we want to preserve the same library versions.
 		ext.Lists(ext.ListsVersion(3)),

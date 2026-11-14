@@ -1,0 +1,41 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: chainsaw-owner-writes
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: groups
+          operator: In
+          values: ["chainsaw-owners"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["*"]
+  variables:
+    - name: write
+      expression: "request.resourceAttributes.verb in ['create', 'update', 'patch', 'delete']"
+  rules:
+    # Depends on the submitted object (create/update/patch) and the stored
+    # object (update/patch/delete): kube-apiserver gets a conditional decision.
+    - name: owner-writes
+      effect: Allow
+      description: owners may write their own configmaps
+      expression: >-
+        variables.write &&
+        (object == null || (has(object.metadata.labels) && 'owner' in object.metadata.labels &&
+          object.metadata.labels['owner'] == request.user)) &&
+        (oldObject == null || (has(oldObject.metadata.labels) && 'owner' in oldObject.metadata.labels &&
+          oldObject.metadata.labels['owner'] == request.user))
+    - name: protected
+      effect: Deny
+      description: protected configmaps cannot be written
+      expression: >-
+        variables.write &&
+        ((object != null && has(object.metadata.labels) && 'protected' in object.metadata.labels) ||
+         (oldObject != null && has(oldObject.metadata.labels) && 'protected' in oldObject.metadata.labels))
+    - name: reads
+      effect: Allow
+      expression: "request.resourceAttributes.verb in ['get', 'list', 'watch']"

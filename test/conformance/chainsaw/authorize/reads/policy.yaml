@@ -1,0 +1,45 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: chainsaw-reads
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: user
+          operator: In
+          values: ["chainsaw-reader", "chainsaw-reader-deny"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps", "secrets"]
+        verbs: ["get", "list", "watch"]
+  rules:
+    # Metadata only: reads of configmaps by name.
+    - name: named-configmaps
+      effect: Allow
+      expression: >-
+        request.resourceAttributes.resource == 'configmaps' &&
+        request.resourceAttributes.name.startsWith('public-')
+    # Metadata only: list/watch of configmaps that the client restricts with
+    # the label selector team=a (sent in the SubjectAccessReview).
+    - name: team-selector
+      effect: Allow
+      expression: >-
+        request.resourceAttributes.resource == 'configmaps' &&
+        has(request.resourceAttributes.labelSelector) &&
+        has(request.resourceAttributes.labelSelector.requirements) &&
+        request.resourceAttributes.labelSelector.requirements.exists(r,
+          r.key == 'team' && r.operator == 'In' && r.values == ['a'])
+    # Object-dependent: cannot be enforced on reads, so it never grants.
+    - name: secrets-by-label
+      effect: Allow
+      expression: >-
+        request.resourceAttributes.resource == 'secrets' &&
+        has(object.metadata.labels) && object.metadata.labels['team'] == 'a'
+    # Object-dependent Deny on reads fails closed to Deny, even with a satisfied Allow.
+    - name: deny-by-label
+      effect: Deny
+      expression: >-
+        request.user == 'chainsaw-reader-deny' &&
+        has(object.metadata.labels) && 'secret' in object.metadata.labels

@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: owner-writes
+spec:
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["*"]
+  rules:
+    - name: owner-writes
+      effect: Allow
+      expression: "object.metadata.labels.owner == request.user"

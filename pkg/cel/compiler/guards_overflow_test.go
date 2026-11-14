@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
+	"cel.dev/cel-go/common/types"
+	"cel.dev/cel-go/common/types/ref"
 )
 
 // saturatingMul must saturate rather than wrap: a product used only in a `bound > limit`

@@ -1,8 +1,8 @@
 package mpol
 
 import (
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
+	"cel.dev/cel-go/cel"
+	"cel.dev/cel-go/common/types"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"

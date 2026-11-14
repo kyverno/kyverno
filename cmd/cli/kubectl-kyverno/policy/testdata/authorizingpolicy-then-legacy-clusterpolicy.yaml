@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: owner-writes
+spec:
+  rules:
+    - name: deny-all
+      effect: Deny
+      expression: "true"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: legacy
+spec:
+  rules: []

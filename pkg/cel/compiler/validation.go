@@ -1,7 +1,7 @@
 package compiler
 
 import (
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 )
 
 type Validation struct {

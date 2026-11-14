@@ -134,6 +134,24 @@ func (l *LoaderResults) addWarning(path, warning string) {
 
 type loader = func(string, []byte) (*LoaderResults, error)
 
+// ErrUnsupportedPolicyKind reports a policy kind that the CLI recognizes but cannot evaluate.
+var ErrUnsupportedPolicyKind = errors.New("policy kind is not supported by the Kyverno CLI")
+
+// authorizingPolicyKind is the policies.kyverno.io kind served by the Kyverno authorization webhook.
+const authorizingPolicyKind = "AuthorizingPolicy"
+
+// buildUnsupportedKindError returns a fatal error for policy kinds that the CLI cannot evaluate.
+// AuthorizingPolicy decides SubjectAccessReview requests from the requesting identity and action,
+// and apply and test only supply resources, so the CLI rejects it rather than silently skipping it.
+func buildUnsupportedKindError(gvk schema.GroupVersionKind) (error, bool) {
+	if gvk.Group != policiesv1alpha1.GroupVersion.Group || gvk.Kind != authorizingPolicyKind {
+		return nil, false
+	}
+	return fmt.Errorf("%s %s: %w: AuthorizingPolicy authorizes requests through the Kubernetes webhook authorizer "+
+		"and needs the requesting user and action, which apply and test do not provide; remove it from the CLI "+
+		"inputs and test it against a cluster instead", gvk.GroupVersion(), gvk.Kind, ErrUnsupportedPolicyKind), true
+}
+
 // Load loads policies from the given paths. Any legacy kyverno.io policy kind (ClusterPolicy, Policy,
 // CleanupPolicy, ClusterCleanupPolicy, PolicyException) is rejected with a migration hint, matching the
 // 1.20 admission-time block.
@@ -207,6 +225,12 @@ func kubectlValidateLoader() loader {
 						if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 							return nil, err
 						}
+						if errors.Is(err, ErrUnsupportedPolicyKind) {
+							if pendingErr == nil {
+								pendingErr = err
+							}
+							continue
+						}
 						results.addError(path, fmt.Errorf("failed to process List: %w", err))
 					}
 					continue
@@ -216,6 +240,14 @@ func kubectlValidateLoader() loader {
 				// than surfacing only a generic validation error.
 				if blockErr, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
 					return nil, blockErr
+				}
+				// The CLI has no schema for kinds it cannot evaluate, so they fail to load here.
+				// Report them as fatal instead of dropping them as non-Kubernetes YAML.
+				if unsupportedErr, ok := buildUnsupportedKindError(gvk); ok {
+					if pendingErr == nil {
+						pendingErr = unsupportedErr
+					}
+					continue
 				}
 				msg := err.Error()
 				if strings.Contains(msg, "Invalid value: value provided for unknown field") {
@@ -283,7 +315,7 @@ func handleListItems(document []byte, path string, results *LoaderResults) error
 		itemGVK := itemUnstructured.GroupVersionKind()
 
 		if err := processDocumentItem(path, itemGVK, itemUnstructured, results); err != nil {
-			if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+			if pkgdeprecations.IsLegacyPolicyBlockError(err) || errors.Is(err, ErrUnsupportedPolicyKind) {
 				return fmt.Errorf("List item %d (%s): %w", i, itemGVK, err)
 			}
 			results.addError(path, fmt.Errorf("failed to process List item %d (%s): %w", i, itemGVK, err))
@@ -299,6 +331,9 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 		results.addWarning(path, warning.Message)
 	}
 	if err, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
+		return err
+	}
+	if err, ok := buildUnsupportedKindError(gvk); ok {
 		return err
 	}
 	switch {

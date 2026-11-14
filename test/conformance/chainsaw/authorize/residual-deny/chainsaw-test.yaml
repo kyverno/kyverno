@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authorize-residual-deny
+spec:
+  description: >-
+    A satisfied Allow combined with a residual Deny or NoOpinion stays
+    conditional, so the Allow does not grant the request until the object is
+    known. Policy names sort the Allow first, which must not matter.
+  concurrent: false
+  steps:
+    - name: create policies
+      try:
+        - apply:
+            file: policies.yaml
+    - name: decisions
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              as="--as chainsaw-mixed-user"
+              f=$(configmap reviewed reviewed=yes | tofile)
+              expect_allowed "create a reviewed configmap (no Deny or NoOpinion condition is true)" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              f=$(kubectl create configmap pw --from-literal=password=x --dry-run=client -o yaml \
+                | kubectl label -f - reviewed=yes --local -o yaml | tofile)
+              expect_forbidden "create a reviewed configmap with a password key (residual Deny is true)" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              f=$(configmap unreviewed | tofile)
+              expect_forbidden "create an unreviewed configmap (residual NoOpinion is true; no other authorizer allows)" \
+                kubectl -n "$NAMESPACE" create -f "$f" $as
+              test "$(kubectl -n "$NAMESPACE" get configmaps -l reviewed -o name)" = "configmap/reviewed"
+    - name: unconditional callers
+      try:
+        - script:
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              out=$(sar chainsaw-mixed-user create configmaps "$NAMESPACE")
+              echo "SubjectAccessReview API: $out"
+              test "$out" = "allowed=false denied=true"
+              out=$(kubectl auth can-i create configmaps -n "$NAMESPACE" --as chainsaw-mixed-user || true)
+              echo "kubectl auth can-i: $out"
+              case "$out" in no*) ;; *) exit 1 ;; esac

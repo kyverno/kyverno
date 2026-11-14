@@ -3,8 +3,8 @@ package webhook
 import (
 	"sync"
 
-	"github.com/google/cel-go/cel"
-	celast "github.com/google/cel-go/common/ast"
+	"cel.dev/cel-go/cel"
+	celast "cel.dev/cel-go/common/ast"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 

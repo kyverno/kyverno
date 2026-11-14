@@ -9,8 +9,8 @@
 package gzip
 
 import (
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
+	"cel.dev/cel-go/cel"
+	"cel.dev/cel-go/common/types"
 	"github.com/kyverno/sdk/extensions/cel/libs/versions"
 	"k8s.io/apimachinery/pkg/util/version"
 )

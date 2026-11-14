@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	cel "github.com/google/cel-go/cel"
-	celtypes "github.com/google/cel-go/common/types"
+	cel "cel.dev/cel-go/cel"
+	celtypes "cel.dev/cel-go/common/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	patch "k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"

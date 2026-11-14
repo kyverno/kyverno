@@ -1,0 +1,20 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: chainsaw-service-accounts
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: serviceAccount
+          operator: In
+          values: ["default/chainsaw-sa-reader", "kube-system/chainsaw-sa-reader"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["list"]
+  rules:
+    - name: list
+      effect: Allow
+      expression: "request.resourceAttributes.verb == 'list'"
