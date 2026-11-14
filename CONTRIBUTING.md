@@ -29,7 +29,7 @@ In the process of submitting your PRs, please read and abide by the template pro
 
 ### The E2E Gate status
 
-The conformance/e2e suite is too slow to run on every pull request, so it runs after merge, on a schedule on `main` and the release branches (the `Tests` workflow). When it fails there, a tracking issue labelled `e2e-failure` is opened, and every open pull request to that branch shows a red **E2E Gate** status until the branch passes again.
+The `Tests` workflow (the conformance/e2e suite, the k6 tests and the performance benchmarks) is too slow to run on every pull request, so it runs after merge, on a schedule on `main` and the release branches. When any part of it fails there, a tracking issue labelled `e2e-failure` is opened, and every open pull request to that branch shows a red **E2E Gate** status until the branch passes again.
 
 If your pull request shows a red E2E Gate:
 
