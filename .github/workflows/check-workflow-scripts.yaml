@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Runs the tests in .github/tests. They execute the inline scripts of
+# workflows and actions, read from the YAML files themselves, against a
+# stubbed GitHub API.
+
+name: Workflow scripts
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+    paths:
+      - .github/tests/**
+      - .github/workflows/check-workflow-scripts.yaml
+      - .github/workflows/e2e-gate.yaml
+      - .github/actions/workflow/failure-issue/**
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Workflow script tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run tests
+        run: |
+          set -euo pipefail
+          for test in .github/tests/*.test.mjs; do
+            echo "::group::${test}"
+            node "${test}"
+            echo "::endgroup::"
+          done

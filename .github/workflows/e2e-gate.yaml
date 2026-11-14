@@ -187,16 +187,19 @@ jobs:
                 if (rechecked.has(number) || blockers.some(b => b.number === number)) {
                   continue;
                 }
-                rechecked.add(number);
                 let issue;
                 try {
                   ({ data: issue } = await github.rest.issues.get({ owner, repo, issue_number: number }));
                 } catch (err) {
                   if (err.status === 404 || err.status === 410) {
-                    continue; // deleted
+                    rechecked.add(number); // deleted
+                    continue;
                   }
+                  // Not remembered as checked: the next PR that names this
+                  // issue asks again instead of going green unchecked.
                   throw err;
                 }
+                rechecked.add(number);
                 const labelled = issue.labels.some(l => (typeof l === 'string' ? l : l.name) === FAILURE_LABEL);
                 if (issue.state === 'open' && labelled && !issue.pull_request) {
                   core.warning(`#${number} is open and labelled ${FAILURE_LABEL} but was missing from the issue list; keeping it as a blocker.`);
@@ -211,7 +214,6 @@ jobs:
               number
               state
               baseRefName
-              headRefName
               headRefOid
               labels(first: 100) { nodes { name } }
               commits(last: 1) { nodes { commit {
@@ -227,7 +229,6 @@ jobs:
                 number: node.number,
                 open: node.state === 'OPEN',
                 base: node.baseRefName,
-                head: node.headRefName,
                 sha: node.headRefOid,
                 labels: node.labels.nodes.map(l => l.name),
                 current: current
@@ -277,18 +278,17 @@ jobs:
               return toPr(res.repository.pullRequest);
             }
 
-            /** Other open PRs whose head is the same commit. */
+            /**
+             * Other open PRs whose head is the same commit, whatever their head
+             * branch is called.
+             */
             async function listSiblings(pr) {
-              const res = await github.graphql(
-                `query($owner: String!, $repo: String!, $head: String!) {
-                  repository(owner: $owner, name: $repo) {
-                    pullRequests(states: OPEN, headRefName: $head, first: 20) { nodes { ${PR_FIELDS} } }
-                  }
-                }`,
-                { owner, repo, head: pr.head }
-              );
-              return res.repository.pullRequests.nodes.map(toPr)
-                .filter(p => p.number !== pr.number && p.sha === pr.sha);
+              const associated = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
+                owner, repo, commit_sha: pr.sha, per_page: 100
+              });
+              return associated
+                .filter(p => p.state === 'open' && p.head.sha === pr.sha && p.number !== pr.number)
+                .map(p => ({ number: p.number, base: p.base.ref, labels: p.labels.map(l => l.name) }));
             }
 
             const sweep = context.eventName !== 'pull_request_target';
@@ -325,7 +325,9 @@ jobs:
             let evaluated = 1;
             if (!sweep) {
               const pr = await getPr(context.payload.pull_request.number);
-              if (pr.sha) {
+              // Label and edit events also arrive for closed PRs. Their commit
+              // may head an open PR too, whose status must not be overwritten.
+              if (pr.open && pr.sha) {
                 await sync(pr, await listSiblings(pr));
               }
             } else {
