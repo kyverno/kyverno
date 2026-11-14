@@ -23,7 +23,7 @@
 {{- end -}}
 
 {{- define "kyverno.test.image" -}}
-{{- template "kyverno.image" (dict "image" .Values.test.image "defaultTag" "latest") -}}
+{{- template "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.test.image "defaultTag" "latest") -}}
 {{- end -}}
 
 {{- define "kyverno.test.imagePullPolicy" -}}
