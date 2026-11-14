@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func TestInvestigationParameterNamespace(t *testing.T) {
+func TestValidateParameterNamespace(t *testing.T) {
 	param := func(namespace, limit string) *unstructured.Unstructured {
 		return &unstructured.Unstructured{Object: map[string]interface{}{
 			"apiVersion": "v1", "kind": "ConfigMap",
@@ -106,7 +106,7 @@ func TestMatchesSelector_ExplicitNamespace(t *testing.T) {
 	}
 }
 
-func TestInvestigationMAPParameterNamespace(t *testing.T) {
+func TestMutateParameterNamespace(t *testing.T) {
 	policy := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "replica-limit"},
 		Spec: admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
