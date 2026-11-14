@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"bytes"
 	"context"
 	gojson "encoding/json"
 	"errors"
@@ -128,14 +129,18 @@ func (e *jsonPatcher) PatchJSON(ctx context.Context, evalData map[string]any, ru
 	if !ok {
 		return nil, MutationEval{}, fmt.Errorf("JSON Patch requires an object root")
 	}
-	objJS, err := gojson.Marshal(object)
+	encodable, _, err := keepDoubleFractions(object)
+	if err != nil {
+		return nil, MutationEval{}, fmt.Errorf("failed to encode JSON object: %w", err)
+	}
+	objJS, err := gojson.Marshal(encodable)
 	if err != nil {
 		return nil, MutationEval{}, fmt.Errorf("failed to encode JSON object: %w", err)
 	}
 	if err := checkJSONDocumentSize(len(objJS)); err != nil {
 		return nil, MutationEval{}, err
 	}
-	patchObj, _, eval, err := e.evaluatePatchExpressionWithLimit(ctx, runtimeCELCostBudget, evalData, maxJSONPatchOperations)
+	patchObj, _, eval, err := e.evaluatePatchExpressionWithLimit(ctx, runtimeCELCostBudget, evalData, maxJSONPatchOperations, true)
 	if err != nil {
 		return nil, eval, err
 	}
@@ -158,10 +163,12 @@ func (e *jsonPatcher) PatchJSON(ctx context.Context, evalData map[string]any, ru
 }
 
 func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudget int64, evalData map[string]any) (jsonpatch.Patch, int64, MutationEval, error) {
-	return e.evaluatePatchExpressionWithLimit(ctx, remainingBudget, evalData, 0)
+	return e.evaluatePatchExpressionWithLimit(ctx, remainingBudget, evalData, 0, false)
 }
 
-func (e *jsonPatcher) evaluatePatchExpressionWithLimit(ctx context.Context, remainingBudget int64, evalData map[string]any, maxOperations int) (jsonpatch.Patch, int64, MutationEval, error) {
+// keepDoubles is set for JSON-mode documents, which are decoded with preserved ints, so an
+// integral double must keep its fraction to come back as a double.
+func (e *jsonPatcher) evaluatePatchExpressionWithLimit(ctx context.Context, remainingBudget int64, evalData map[string]any, maxOperations int, keepDoubles bool) (jsonpatch.Patch, int64, MutationEval, error) {
 	var err error
 
 	refVal, _, err := e.prog.ContextEval(ctx, evalData)
@@ -205,7 +212,7 @@ func (e *jsonPatcher) evaluatePatchExpressionWithLimit(ctx context.Context, rema
 			resultOp["from"] = pointer.To(gojson.RawMessage(strconv.Quote(op.From)))
 		}
 		if op.Val != nil {
-			b, err := patchValueToJSON(op.Val)
+			b, err := patchValueToJSON(op.Val, keepDoubles)
 			if err != nil {
 				return nil, -1, eval, err
 			}
@@ -296,7 +303,7 @@ func checkJSONDocumentSize(size int) error {
 // list, SetMapIndex for a map. Both containers are therefore encoded entry by entry so
 // that neither collection is ever built, which also makes the type-name check reachable
 // for the objects inside them.
-func patchValueToJSON(val ref.Val) (gojson.RawMessage, error) {
+func patchValueToJSON(val ref.Val, keepDoubles bool) (gojson.RawMessage, error) {
 	switch typed := val.(type) {
 	case types.Int:
 		return marshalPatchValue(int64(typed))
@@ -306,6 +313,13 @@ func patchValueToJSON(val ref.Val) (gojson.RawMessage, error) {
 		}
 		return marshalPatchValue(uint64(typed))
 	case types.Double:
+		if keepDoubles {
+			b, err := marshalDouble(float64(typed))
+			if err != nil {
+				return nil, unmarshalableValue(err)
+			}
+			return b, nil
+		}
 		return marshalPatchValue(float64(typed))
 	case *dynamic.ObjectVal:
 		// TODO: Object initializers are insufficiently type checked.
@@ -322,11 +336,16 @@ func patchValueToJSON(val ref.Val) (gojson.RawMessage, error) {
 		if err != nil {
 			return nil, unmarshalableValue(err)
 		}
+		if keepDoubles {
+			if native, _, err = keepDoubleFractions(native); err != nil {
+				return nil, unmarshalableValue(err)
+			}
+		}
 		return marshalPatchValue(native)
 	case traits.Lister:
 		elements := []gojson.RawMessage{}
 		for it := typed.Iterator(); it.HasNext() == types.True; {
-			element, err := patchValueToJSON(it.Next())
+			element, err := patchValueToJSON(it.Next(), keepDoubles)
 			if err != nil {
 				return nil, err
 			}
@@ -341,7 +360,7 @@ func patchValueToJSON(val ref.Val) (gojson.RawMessage, error) {
 			if !ok {
 				return nil, fmt.Errorf("JSONPath valueExpression evaluated to a map with a %T key, only string keys can marshal to JSON", key.Value())
 			}
-			entry, err := patchValueToJSON(typed.Get(key))
+			entry, err := patchValueToJSON(typed.Get(key), keepDoubles)
 			if err != nil {
 				return nil, err
 			}
@@ -356,6 +375,74 @@ func patchValueToJSON(val ref.Val) (gojson.RawMessage, error) {
 			return nil, unmarshalableValue(err)
 		}
 		return marshalPatchValue(v)
+	}
+}
+
+// marshalDouble encodes f like encoding/json, but appends ".0" to an integral value so
+// that a decoder preserving ints reads it back as a double rather than an int64.
+func marshalDouble(f float64) (gojson.RawMessage, error) {
+	b, err := gojson.Marshal(f)
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.ContainsAny(b, ".eE") {
+		b = append(b, '.', '0')
+	}
+	return b, nil
+}
+
+// keepDoubleFractions returns v with every float64 replaced by its marshalDouble
+// encoding. Containers are only copied when they hold a float64, so a document
+// without doubles is returned as is.
+func keepDoubleFractions(v any) (any, bool, error) {
+	switch typed := v.(type) {
+	case float64:
+		b, err := marshalDouble(typed)
+		return b, true, err
+	case map[string]any:
+		var out map[string]any
+		for key, value := range typed {
+			converted, changed, err := keepDoubleFractions(value)
+			if err != nil {
+				return nil, false, err
+			}
+			if !changed {
+				continue
+			}
+			if out == nil {
+				out = make(map[string]any, len(typed))
+				for k, original := range typed {
+					out[k] = original
+				}
+			}
+			out[key] = converted
+		}
+		if out == nil {
+			return v, false, nil
+		}
+		return out, true, nil
+	case []any:
+		var out []any
+		for i, value := range typed {
+			converted, changed, err := keepDoubleFractions(value)
+			if err != nil {
+				return nil, false, err
+			}
+			if !changed {
+				continue
+			}
+			if out == nil {
+				out = make([]any, len(typed))
+				copy(out, typed)
+			}
+			out[i] = converted
+		}
+		if out == nil {
+			return v, false, nil
+		}
+		return out, true, nil
+	default:
+		return v, false, nil
 	}
 }
 
