@@ -236,6 +236,15 @@ func (c *serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.Gro
 		if err == nil {
 			return mapping.Resource, nil
 		}
+		// For unqualified kinds (empty group and version), search registered API groups
+		// via FindResource before triggering an expensive discovery cache invalidation.
+		// RESTMapping only checks the core group ("") for an empty group, whereas
+		// FindResource searches all registered groups (e.g. apps, batch, rbac.authorization.k8s.io).
+		if gvk.Group == "" && gvk.Version == "" {
+			if _, _, gvr, findErr := c.FindResource("", gvk.Kind); findErr == nil {
+				return gvr, nil
+			}
+		}
 		if err = c.refetchOnMiss(func() error {
 			mapping, err = c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			return err
