@@ -546,3 +546,101 @@ func TestReconcileBeta1Conditions_RBACChecksAutogenTargets(t *testing.T) {
 		})
 	}
 }
+
+// TestReconcileConditions_GeneratingPolicy_ReportsRBACCheckSkipped verifies that GeneratingPolicy
+// and NamespacedGeneratingPolicy do not require reports-controller RBAC permissions on matched
+// trigger resources (e.g. sensitive kinds like Secrets). Because GeneratingPolicies do not produce
+// policy reports, the reports-controller RBAC check must be skipped and reported as satisfied,
+// preventing policies from getting stuck not-ready (#18351).
+func TestReconcileConditions_GeneratingPolicy_ReportsRBACCheckSkipped(t *testing.T) {
+	t.Parallel()
+
+	secretsRule := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"secrets"},
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name   string
+		policy engineapi.GenericPolicy
+	}{
+		{
+			name: "GeneratingPolicy with secrets trigger",
+			policy: engineapi.NewGeneratingPolicy(&policiesv1beta1.GeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "secret-gpol"},
+				Spec: policiesv1beta1.GeneratingPolicySpec{
+					MatchConstraints: secretsRule,
+				},
+			}),
+		},
+		{
+			name: "NamespacedGeneratingPolicy with secrets trigger",
+			policy: engineapi.NewNamespacedGeneratingPolicy(&policiesv1beta1.NamespacedGeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "secret-ngpol", Namespace: "test-ns"},
+				Spec: policiesv1beta1.GeneratingPolicySpec{
+					MatchConstraints: secretsRule,
+				},
+			}),
+		},
+		{
+			name: "GeneratingPolicy with admission disabled is not gated on webhook configured",
+			policy: engineapi.NewGeneratingPolicy(&policiesv1beta1.GeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "generate-existing-gpol"},
+				Spec: policiesv1beta1.GeneratingPolicySpec{
+					MatchConstraints: secretsRule,
+					EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+						Admission: &policiesv1beta1.AdmissionConfiguration{
+							Enabled: boolPtr(false),
+						},
+					},
+				},
+			}),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dc := dclient.NewEmptyFakeClient()
+			// Deny every SubjectAccessReview so any reports SA RBAC check would fail if run.
+			kube := dc.GetKubeClient().(*kubefake.Clientset)
+			kube.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, &authorizationv1.SubjectAccessReview{
+					Status: authorizationv1.SubjectAccessReviewStatus{Allowed: false, Reason: "denied by test"},
+				}, nil
+			})
+
+			c := controller{
+				dclient:          dc,
+				client:           versionedfake.NewSimpleClientset(),
+				authChecker:      auth.NewSubjectChecker(dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "system:serviceaccount:kyverno:reports-controller", nil),
+				polStateRecorder: webhook.NewStateRecorder(nil),
+			}
+
+			status := c.reconcileConditions(ctx, tt.policy)
+
+			cond := findCondition(status.Conditions, policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted)
+			require.NotNil(t, cond, "RBACPermissionsGranted condition should always be set")
+			assert.Equal(t, metav1.ConditionTrue, cond.Status, "RBACPermissionsGranted should be True for GeneratingPolicy")
+			assert.Contains(t, cond.Message, "reporting permissions not required", "RBACPermissionsGranted message should indicate reporting permissions are not required")
+
+			// When admission is disabled, WebhookConfigured condition must not be set to False
+			webhookCond := findCondition(status.Conditions, policiesv1beta1.PolicyConditionTypeWebhookConfigured)
+			if tt.name == "GeneratingPolicy with admission disabled is not gated on webhook configured" {
+				assert.Nil(t, webhookCond, "WebhookConfigured condition should not be set when admission is disabled")
+			}
+		})
+	}
+}
