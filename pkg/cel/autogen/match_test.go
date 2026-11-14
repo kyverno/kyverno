@@ -217,7 +217,7 @@ func TestCreateMatchConditions(t *testing.T) {
 		}},
 		want: []admissionregistrationv1.MatchCondition{{
 			Name:       "autogen-foo",
-			Expression: "!((object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
+			Expression: "!((request.kind.group == 'foo' && request.kind.version == 'v1' && request.kind.kind == 'Bar')) || (something)",
 		}},
 	}, {
 		name: "multiple targets",
@@ -238,7 +238,7 @@ func TestCreateMatchConditions(t *testing.T) {
 		}},
 		want: []admissionregistrationv1.MatchCondition{{
 			Name:       "autogen-foo",
-			Expression: "!((object.apiVersion == 'flop/v2' && object.kind =='Foo') || (object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
+			Expression: "!((request.kind.group == 'flop' && request.kind.version == 'v2' && request.kind.kind == 'Foo') || (request.kind.group == 'foo' && request.kind.version == 'v1' && request.kind.kind == 'Bar')) || (something)",
 		}},
 	}, {
 		name:         "with name",
@@ -255,7 +255,7 @@ func TestCreateMatchConditions(t *testing.T) {
 		}},
 		want: []admissionregistrationv1.MatchCondition{{
 			Name:       "autogen-test-foo",
-			Expression: "!((object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
+			Expression: "!((request.kind.group == 'foo' && request.kind.version == 'v1' && request.kind.kind == 'Bar')) || (something)",
 		}},
 	}, {
 		name:         "extraction target omits unrewritten conditions",
