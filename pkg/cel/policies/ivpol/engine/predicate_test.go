@@ -33,4 +33,11 @@ func TestPredicates(t *testing.T) {
 		assert.False(t, predicate(teamB), "a policy from another namespace must not be evaluated")
 		assert.False(t, predicate(clustered), "a cluster scoped policy must not be evaluated on the namespaced route")
 	})
+
+	t.Run("empty namespace never selects any policy", func(t *testing.T) {
+		predicate := NamespacedPolicy("")
+		assert.False(t, predicate(clustered), "a cluster scoped policy must not be matched when namespace is empty")
+		assert.False(t, predicate(teamA))
+		assert.False(t, predicate(teamB))
+	})
 }

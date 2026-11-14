@@ -13,17 +13,29 @@ on:
       release-sha:
         type: string
         default: ""
+      matrix:
+        description: >-
+          Kubernetes versions to test: full runs every supported version,
+          reduced runs only the oldest and the latest one.
+        type: string
+        default: full
 
 env:
   RELEASE_CANDIDATE: ${{ inputs.release-candidate }}
 
+# Every test job sets timeout-minutes: most finish in 5 to 10 minutes and the
+# slowest observed in about 25. Without it, a hung job runs for the 6-hour
+# default and holds the concurrency group of the calling Tests workflow.
 jobs:
   kubernetes-matrix:
     uses: ./.github/workflows/kubernetes-matrix.yaml
+    with:
+      matrix: ${{ inputs.matrix }}
 
   assert:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -45,6 +57,7 @@ jobs:
   cel-http:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -66,6 +79,7 @@ jobs:
   deleting-policies:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -90,6 +104,7 @@ jobs:
   deprecations:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -111,6 +126,7 @@ jobs:
   events:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -132,6 +148,7 @@ jobs:
   force-failure-policy-ignore:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -153,6 +170,7 @@ jobs:
   generate-mutating-admission-policy:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -169,13 +187,13 @@ jobs:
           kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,generate-mutating-admission-policy
-          quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy
 
   generate-mutating-admission-policy-v1:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -191,13 +209,13 @@ jobs:
           node-image: ${{ fromJSON(needs.kubernetes-matrix.outputs.images)[matrix.k8s-version] }}
           kind-version: ${{ needs.kubernetes-matrix.outputs.kind-version }}
           kyverno-configs: standard,generate-mutating-admission-policy
-          quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy-v1
 
   generate-validating-admission-policy:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -219,6 +237,7 @@ jobs:
   generating-policies:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -237,7 +256,6 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generating-policies
-          quarantined-tests: sync-modify-downstream
           shard-index: ${{ matrix.shard-index }}
           shard-count: 6
           install-kubectl-evict: true
@@ -245,6 +263,7 @@ jobs:
   globalcontext:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -266,6 +285,7 @@ jobs:
   image-validating-policies:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -290,6 +310,7 @@ jobs:
   lease:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -311,6 +332,7 @@ jobs:
   mutate:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -335,6 +357,7 @@ jobs:
   mutating-admission-policy-reports:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -357,6 +380,7 @@ jobs:
   mutating-admission-policy-reports-v1:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -378,6 +402,7 @@ jobs:
   mutating-policies:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -402,6 +427,7 @@ jobs:
   namespaced-deleting-policies:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -423,6 +449,7 @@ jobs:
   namespaced-generating-policies:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -441,13 +468,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-generating-policies
-          quarantined-tests: sync-modify-downstream
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   namespaced-image-validating-policies:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -469,6 +496,7 @@ jobs:
   namespaced-mutating-policies:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -490,6 +518,7 @@ jobs:
   namespaced-validating-policies:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -514,6 +543,7 @@ jobs:
   policy-exceptions-disabled:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -535,6 +565,7 @@ jobs:
   rbac:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -557,6 +588,7 @@ jobs:
   reports:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -581,6 +613,7 @@ jobs:
   ttl:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -602,6 +635,7 @@ jobs:
   validating-admission-policy-reports:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -623,6 +657,7 @@ jobs:
   validating-policies:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -647,6 +682,7 @@ jobs:
   webhook-bootstrap-exclusion:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -668,6 +704,7 @@ jobs:
   monitor-helm-secret-size:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -721,6 +758,7 @@ jobs:
   check-tests:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -778,6 +816,7 @@ jobs:
   helm-tests:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -857,6 +896,7 @@ jobs:
   helm-uninstall:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -906,6 +946,7 @@ jobs:
   helm-upgrade:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -961,6 +1002,7 @@ jobs:
   helm-upgrade-legacy-migration:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -1012,6 +1054,7 @@ jobs:
   cert-manager-certificates:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -1043,6 +1086,7 @@ jobs:
   self-signed-certificates:
     needs: kubernetes-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

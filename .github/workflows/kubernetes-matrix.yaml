@@ -6,6 +6,13 @@ permissions: {}
 
 on:
   workflow_call:
+    inputs:
+      matrix:
+        description: >-
+          Which versions to export: full exports every supported version,
+          reduced exports only the oldest and the latest one.
+        type: string
+        default: full
     outputs:
       versions:
         description: Supported Kubernetes versions, as a JSON array
@@ -42,6 +49,7 @@ jobs:
       - name: Export matrix
         id: matrix
         env:
+          MATRIX: ${{ inputs.matrix }}
           KIND_VERSION: v0.33.0
           # Latest published images from kubernetes-sigs/kind v0.33.0.
           # Kubernetes patch releases may precede their kind node images.
@@ -78,6 +86,13 @@ jobs:
               (.image | test("@sha256:[0-9a-f]{64}$")) and
               (.mutatingAdmissionPolicy == "v1beta1" or .mutatingAdmissionPolicy == "v1"))
           ' <<< "$NODES" > /dev/null
+          case "$MATRIX" in
+            full) ;;
+            # The oldest and the latest versions bound the supported range, so
+            # they catch most version-specific failures at half the cost.
+            reduced) NODES="$(jq -c '[first, last] | unique_by(.version)' <<< "$NODES")" ;;
+            *) echo "::error::Unknown matrix '$MATRIX': use full or reduced."; exit 1 ;;
+          esac
           {
             echo "versions=$(jq -c 'map(.version)' <<< "$NODES")"
             echo "beta-versions=$(jq -c 'map(select(.mutatingAdmissionPolicy == "v1beta1") | .version)' <<< "$NODES")"
