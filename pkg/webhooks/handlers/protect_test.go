@@ -329,8 +329,10 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 		name                    string
 		operation               admissionv1.Operation
 		username                string
+		kind                    metav1.GroupVersionKind
 		oldLabels               map[string]string
 		newLabels               map[string]string
+		hasOwnerRef             bool
 		protectManagedResources bool
 		wantAllowed             bool
 		wantError               string
@@ -347,6 +349,215 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 			operation: admissionv1.Create,
 			username:  user,
 			newLabels: map[string]string{generatePolicy: "sync-secrets"},
+		},
+		{
+			name:        "allows generate labels on create for child resources with ownerReferences",
+			operation:   admissionv1.Create,
+			username:    user,
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef: true,
+			wantAllowed: true,
+		},
+		{
+			name:        "allows generate labels on create for endpoints created by endpoints-controller without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    endpointsControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows generate labels on create for endpoints created by endpointslice-controller without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpoints with changing generate labels by endpoints-controller",
+			operation:   admissionv1.Update,
+			username:    endpointsControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpoints with changing generate labels by endpointslice-controller",
+			operation:   admissionv1.Update,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows creating endpointslice with changing generate labels by endpointslice-controller",
+			operation:   admissionv1.Create,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpointslice with changing generate labels by endpointslice-controller",
+			operation:   admissionv1.Update,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows creating endpointslice by endpointslice-mirroring-controller",
+			operation:   admissionv1.Create,
+			username:    endpointSliceMirrorControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpointslice by endpointslice-mirroring-controller",
+			operation:   admissionv1.Update,
+			username:    endpointSliceMirrorControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows creating endpoints by unified kube-controller-manager",
+			operation:   admissionv1.Create,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpoints by unified kube-controller-manager",
+			operation:   admissionv1.Update,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows creating endpointslice by unified kube-controller-manager",
+			operation:   admissionv1.Create,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpointslice by unified kube-controller-manager",
+			operation:   admissionv1.Update,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "denies endpoints-controller modifying non-endpoints kind without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    endpointsControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies endpointslice-controller modifying non-endpoints kind without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies endpointslice-mirroring-controller modifying non-endpoints kind without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    endpointSliceMirrorControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies endpoints-controller modifying endpoints in non-core group",
+			operation:   admissionv1.Create,
+			username:    endpointsControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "custom.io", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies endpointslice-controller modifying endpointslice in non-discovery group",
+			operation:   admissionv1.Create,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "custom.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies unified kube-controller-manager creating configmap with generate labels without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies unified kube-controller-manager updating configmap with changed generate labels",
+			operation:   admissionv1.Update,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "tampered"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies unified kube-controller-manager modifying endpoints in non-core group",
+			operation:   admissionv1.Create,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "custom.io", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies unified kube-controller-manager modifying endpointslice in non-discovery group",
+			operation:   admissionv1.Create,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "custom.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies generate labels on create for endpoints created by ordinary user without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    user,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies endpoints update with changing generate labels by ordinary user",
+			operation:   admissionv1.Update,
+			username:    user,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "tampered"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies modifying generate labels on update even with ownerReferences",
+			operation:   admissionv1.Update,
+			username:    user,
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "tampered"},
+			hasOwnerRef: true,
+			wantAllowed: false,
 		},
 		{
 			name:        "allows standalone Kyverno managed-by on create",
@@ -569,19 +780,31 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 				called = true
 				return admissionv1.AdmissionResponse{Allowed: true}
 			})
+			gvk := test.kind
+			if gvk.Kind == "" {
+				gvk = metav1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}
+			}
 			request := AdmissionRequest{AdmissionRequest: admissionv1.AdmissionRequest{
 				UID:       types.UID("test-uid"),
 				Operation: test.operation,
-				Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+				Kind:      gvk,
 				Namespace: "tenant",
 				Name:      "test",
 				UserInfo:  authenticationv1.UserInfo{Username: test.username},
 			}}
 			if test.operation != admissionv1.Delete {
-				request.Object.Raw = resourceWithLabels(t, test.newLabels)
+				if test.hasOwnerRef {
+					request.Object.Raw = resourceWithLabelsAndOwnerRef(t, test.newLabels)
+				} else {
+					request.Object.Raw = resourceWithLabels(t, test.newLabels)
+				}
 			}
 			if test.operation != admissionv1.Create {
-				request.OldObject.Raw = resourceWithLabels(t, test.oldLabels)
+				if test.hasOwnerRef {
+					request.OldObject.Raw = resourceWithLabelsAndOwnerRef(t, test.oldLabels)
+				} else {
+					request.OldObject.Raw = resourceWithLabels(t, test.oldLabels)
+				}
 			}
 
 			handler := inner.WithGenerateLabelProtection(kyvernoUser).WithProtection(test.protectManagedResources)
@@ -722,6 +945,30 @@ func resourceWithLabels(t *testing.T, labels map[string]string) []byte {
 			"name":      "test",
 			"namespace": "tenant",
 			"labels":    labels,
+		},
+	}
+	raw, err := json.Marshal(resource)
+	assert.NoError(t, err)
+	return raw
+}
+
+func resourceWithLabelsAndOwnerRef(t *testing.T, labels map[string]string) []byte {
+	t.Helper()
+	resource := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":      "test",
+			"namespace": "tenant",
+			"labels":    labels,
+			"ownerReferences": []map[string]interface{}{
+				{
+					"apiVersion": "v1",
+					"kind":       "Service",
+					"name":       "parent-service",
+					"uid":        "parent-uid",
+				},
+			},
 		},
 	}
 	raw, err := json.Marshal(resource)

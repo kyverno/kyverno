@@ -20,6 +20,13 @@ import (
 
 const namespaceControllerUsername = "system:serviceaccount:kube-system:namespace-controller"
 
+const (
+	kubeControllerManagerUsername         = "system:kube-controller-manager"
+	endpointsControllerUsername           = "system:serviceaccount:kube-system:endpoint-controller"
+	endpointSliceControllerUsername       = "system:serviceaccount:kube-system:endpointslice-controller"
+	endpointSliceMirrorControllerUsername = "system:serviceaccount:kube-system:endpointslicemirroring-controller"
+)
+
 const generateLabelPrefix = "generate.kyverno.io/"
 
 var kyvernoUsernamePrefix = fmt.Sprintf("system:serviceaccount:%s:", config.KyvernoNamespace())
@@ -47,6 +54,18 @@ func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ..
 		if err != nil {
 			logger.Error(err, "failed to extract resources")
 			return admissionutils.Response(request.UID, err)
+		}
+		// Allow secondary child objects instantiated by controllers:
+		// 1. On CREATE: objects carrying ownerReferences (e.g. CertificateRequest for Certificate, EndpointSlice for Service).
+		// 2. On CREATE & UPDATE: core Endpoints and EndpointSlices managed by kube-controller-manager
+		//    (endpoints-controller and endpointslice-controller reconcile Service labels along with endpoint subsets).
+		if request.Operation == admissionv1.Create && len(newResource.GetOwnerReferences()) > 0 {
+			return inner(ctx, logger, request, startTime)
+		}
+		if isEndpointsController(request.UserInfo.Username) &&
+			((request.Kind.Group == "" && request.Kind.Kind == "Endpoints") ||
+				(request.Kind.Group == "discovery.k8s.io" && request.Kind.Kind == "EndpointSlice")) {
+			return inner(ctx, logger, request, startTime)
 		}
 		if !maps.Equal(extractKyvernoGenerateLabels(newResource.GetLabels()), extractKyvernoGenerateLabels(oldResource.GetLabels())) {
 			logger.V(2).Info("access to Kyverno generate labels is not authorized")
@@ -77,6 +96,15 @@ func extractKyvernoGenerateLabels(labels map[string]string) map[string]string {
 
 func isControllerUsername(username string, controllerUsernames []string) bool {
 	return username != "" && slices.Contains(controllerUsernames, username)
+}
+
+func isEndpointsController(username string) bool {
+	switch username {
+	case kubeControllerManagerUsername, endpointsControllerUsername, endpointSliceControllerUsername, endpointSliceMirrorControllerUsername:
+		return true
+	default:
+		return false
+	}
 }
 
 func (inner AdmissionHandler) withProtection() AdmissionHandler {
