@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -846,6 +847,7 @@ func TestHandle(t *testing.T) {
 		expectPatched  bool
 		expectLabel    string
 		expectLabels   map[string]string // for multiple label checks
+		wantPolicies   []policyResult
 	}{
 		{
 			name: "Successful match and mutation",
@@ -1028,6 +1030,34 @@ func TestHandle(t *testing.T) {
 				"team":    "platform",
 				"version": "v1",
 			},
+			wantPolicies: []policyResult{
+				{status: engineapi.RuleStatusPass, labels: map[string]string{"env": "production"}},
+				{status: engineapi.RuleStatusPass, labels: map[string]string{"env": "production", "team": "platform"}},
+				{status: engineapi.RuleStatusPass, labels: map[string]string{"env": "production", "team": "platform", "version": "v1"}},
+			},
+		},
+		{
+			name: "skipped and failed policies between mutations return no patched resource",
+			policies: []policiesv1beta1.MutatingPolicyLike{
+				deploymentPolicy("add-env", `Object{metadata: Object.metadata{labels: {"env": "production"}}}`),
+				deploymentPolicy("never-matches", `Object{metadata: Object.metadata{labels: {"skipped": "true"}}}`,
+					admissionregistrationv1.MatchCondition{Name: "never", Expression: "false"}),
+				deploymentPolicy("reads-missing-label", `Object{metadata: Object.metadata{labels: {"owner": object.metadata.labels.owner}}}`),
+				deploymentPolicy("add-team", `Object{metadata: Object.metadata{labels: {"team": "platform"}}}`),
+			},
+			requestObject:  `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"default"}}`,
+			kind:           "Deployment",
+			matchNamespace: "default",
+			predicate:      func(p policiesv1beta1.MutatingPolicyLike) bool { return true },
+			expectPolicies: 4,
+			expectPatched:  true,
+			expectLabels:   map[string]string{"env": "production", "team": "platform"},
+			wantPolicies: []policyResult{
+				{status: engineapi.RuleStatusPass, labels: map[string]string{"env": "production"}},
+				{status: engineapi.RuleStatusSkip},
+				{status: engineapi.RuleStatusError},
+				{status: engineapi.RuleStatusPass, labels: map[string]string{"env": "production", "team": "platform"}},
+			},
 		},
 	}
 
@@ -1098,7 +1128,50 @@ func TestHandle(t *testing.T) {
 			} else {
 				assert.Nil(t, resp.PatchedResource)
 			}
+			for i, want := range tc.wantPolicies {
+				got := resp.Policies[i]
+				require.Len(t, got.Rules, 1, "policy %d", i)
+				assert.Equal(t, want.status, got.Rules[0].Status(), "policy %d", i)
+				if want.labels == nil {
+					assert.Nil(t, got.PatchedResource, "policy %d", i)
+					continue
+				}
+				require.NotNil(t, got.PatchedResource, "policy %d", i)
+				// a later policy must not change the result of an earlier one
+				assert.Equal(t, want.labels, got.PatchedResource.GetLabels(), "policy %d", i)
+			}
 		})
+	}
+}
+
+// policyResult is what one policy in TestHandle returns. nil labels means no PatchedResource.
+type policyResult struct {
+	status engineapi.RuleStatus
+	labels map[string]string
+}
+
+func deploymentPolicy(name, expression string, conditions ...admissionregistrationv1.MatchCondition) *policiesv1beta1.MutatingPolicy {
+	return &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"apps"},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"deployments"},
+						},
+					},
+				}},
+			},
+			MatchConditions: conditions,
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType:          admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{Expression: expression},
+			}},
+		},
 	}
 }
 
