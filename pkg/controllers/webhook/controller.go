@@ -500,6 +500,8 @@ func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Con
 	return c.reconcileMutatingWebhookConfiguration(ctx, true, c.buildVerifyMutatingWebhookConfiguration)
 }
 
+// reconcileValidatingWebhookConfiguration creates or updates a validating
+// configuration only when its desired content differs from the stored copy.
 func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func(context.Context, config.Configuration, []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error)) error {
 	caData, err := tls.ReadRootCASecret(c.caSecretName, config.KyvernoNamespace(), c.secretLister.Secrets(config.KyvernoNamespace()))
 	if err != nil {
@@ -508,6 +510,11 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	desired, err := build(ctx, c.configuration, caData)
 	if err != nil {
 		return err
+	}
+	defaultValidatingWebhooks(desired.Webhooks)
+	if len(desired.Webhooks) == 0 {
+		// the API server omits an empty list, so the stored configuration holds nil
+		desired.Webhooks = nil
 	}
 	observed, err := c.vwcLister.Get(desired.Name)
 	if err != nil {
@@ -519,10 +526,12 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	}
 	if !autoUpdateWebhooks {
 		if desired.Name == config.ValidatingWebhookConfigurationName {
+			protection := []admissionregistrationv1.ValidatingWebhook{c.buildGenerationLabelProtectionWebhook(ctx, caData)}
+			defaultValidatingWebhooks(protection)
 			_, err := controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 				w.Webhooks = pruneLegacyWebhooks(w.Webhooks, config.ValidatingWebhookServicePath)
 				if toggle.FromContext(ctx).ProtectGenerationLabels() {
-					setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(ctx, caData))
+					setGenerationLabelProtectionWebhook(w, protection[0])
 				} else {
 					w.Webhooks = removeGenerationLabelProtectionWebhook(w.Webhooks)
 				}
@@ -542,6 +551,8 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	return err
 }
 
+// reconcileMutatingWebhookConfiguration creates or updates a mutating
+// configuration only when its desired content differs from the stored copy.
 func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func(context.Context, config.Configuration, []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error)) error {
 	caData, err := tls.ReadRootCASecret(c.caSecretName, config.KyvernoNamespace(), c.secretLister.Secrets(config.KyvernoNamespace()))
 	if err != nil {
@@ -550,6 +561,11 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	desired, err := build(ctx, c.configuration, caData)
 	if err != nil {
 		return err
+	}
+	defaultMutatingWebhooks(desired.Webhooks)
+	if len(desired.Webhooks) == 0 {
+		// the API server omits an empty list, so the stored configuration holds nil
+		desired.Webhooks = nil
 	}
 	observed, err := c.mwcLister.Get(desired.Name)
 	if err != nil {
