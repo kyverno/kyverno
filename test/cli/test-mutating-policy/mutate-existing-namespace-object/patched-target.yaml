@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    team: payments
+  name: test-configmap
+  namespace: payments
+data:
+  key: value
