@@ -83,6 +83,14 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 					convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
 					spec.Mutations[i].ApplyConfiguration.Expression = convertedExpr
 				}
+				if spec.Mutations[i].JSONPatch != nil && spec.Mutations[i].JSONPatch.Expression != "" {
+					convertedExpr, ok := autogen.ApplyMutatingJSONPatch([]byte(spec.Mutations[i].JSONPatch.Expression), config)
+					// A patch that cannot be moved to the pod template would mutate the controller, so the pod rule is left to cover these pods.
+					if !ok {
+						return nil, nil
+					}
+					spec.Mutations[i].JSONPatch.Expression = string(convertedExpr)
+				}
 			}
 		}
 

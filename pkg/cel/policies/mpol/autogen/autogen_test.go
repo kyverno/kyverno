@@ -1098,3 +1098,70 @@ func TestAutogenPodControllersEnabled(t *testing.T) {
 		}}, result[autogen.AutogenDefaults].Targets)
 	})
 }
+
+func TestGenerateRuleForControllersJSONPatch(t *testing.T) {
+	spec := &policiesv1beta1.MutatingPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+				{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+						},
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					},
+				},
+			},
+		},
+		Mutations: []admissionregistrationv1alpha1.Mutation{
+			{
+				PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+				JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+					Expression: `object.spec.containers.map(c, JSONPatch{op: "add", path: "/metadata/annotations/" + jsonpatch.escapeKey("container.apparmor.security.beta.kubernetes.io/" + c.name), value: "runtime/default"})`,
+				},
+			},
+		},
+	}
+	rules, err := generateRuleForControllers(spec, sets.New("deployments", "cronjobs"))
+	require.NoError(t, err)
+	assert.Equal(t,
+		`object.spec.template.spec.containers.map(c, JSONPatch{op: "add", path: "/spec/template/metadata/annotations/" + jsonpatch.escapeKey("container.apparmor.security.beta.kubernetes.io/" + c.name), value: "runtime/default"})`,
+		rules[autogen.AutogenDefaults].Spec.Mutations[0].JSONPatch.Expression,
+	)
+	assert.Equal(t,
+		`object.spec.jobTemplate.spec.template.spec.containers.map(c, JSONPatch{op: "add", path: "/spec/jobTemplate/spec/template/metadata/annotations/" + jsonpatch.escapeKey("container.apparmor.security.beta.kubernetes.io/" + c.name), value: "runtime/default"})`,
+		rules[autogen.AutogenCronjobs].Spec.Mutations[0].JSONPatch.Expression,
+	)
+}
+
+func TestGenerateRuleForControllersSkipsUnsafeJSONPatch(t *testing.T) {
+	spec := &policiesv1beta1.MutatingPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+				{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+						},
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					},
+				},
+			},
+		},
+		Mutations: []admissionregistrationv1alpha1.Mutation{
+			{
+				PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+				JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+					Expression: `[JSONPatch{op: "add", path: variables.target, value: "x"}]`,
+				},
+			},
+		},
+	}
+	rules, err := generateRuleForControllers(spec, sets.New("deployments", "cronjobs"))
+	require.NoError(t, err)
+	assert.Empty(t, rules)
+}

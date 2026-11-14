@@ -2,6 +2,7 @@ package autogen
 
 import (
 	"bytes"
+	"strings"
 )
 
 type Replacement struct {
@@ -46,6 +47,145 @@ func ApplyMutatingCEL(data []byte, config string) []byte {
 	}
 	roots := [][]byte{[]byte("object"), []byte("oldObject"), []byte("Object")}
 	return rewriteMutatingCEL(data, roots, specRepl, metaRepl)
+}
+
+// ApplyMutatingJSONPatch applies the ApplyMutatingCEL conversions to a JSONPatch expression and
+// moves the JSON Pointer in each patch "path" and "from" field from the pod to its template.
+// It reports false when a pointer is not a string literal under /spec or /metadata, since it cannot be moved safely.
+func ApplyMutatingJSONPatch(data []byte, config string) ([]byte, bool) {
+	specRepl := "/spec/template/spec"
+	metaRepl := "/spec/template/metadata"
+	if config == "cronjobs" {
+		specRepl = "/spec/jobTemplate/spec/template/spec"
+		metaRepl = "/spec/jobTemplate/spec/template/metadata"
+	}
+	// prev is the last significant byte outside comments and strings, which transformCEL skips for us.
+	var prev byte
+	safe := true
+	data = transformCEL(data, func(data []byte, i int) (int, []byte, bool) {
+		if prev == '{' || prev == ',' {
+			n, repl, field, ok := rewritePointerField(data, i, specRepl, metaRepl)
+			if ok {
+				prev = '"'
+				return n, repl, true
+			}
+			if field {
+				safe = false
+			}
+		}
+		if !isWhitespaceByte(data[i]) {
+			prev = data[i]
+		}
+		return 0, nil, false
+	})
+	return ApplyMutatingCEL(data, config), safe
+}
+
+// rewritePointerField rewrites a quoted JSON Pointer assigned to a "path" or "from" struct field at data[i:].
+// It reports whether data[i:] is such a field, and whether its pointer was rewritten.
+func rewritePointerField(data []byte, i int, specRepl, metaRepl string) (int, []byte, bool, bool) {
+	idx := i
+	switch {
+	case bytes.HasPrefix(data[idx:], []byte("path")):
+		idx += len("path")
+	case bytes.HasPrefix(data[idx:], []byte("from")):
+		idx += len("from")
+	default:
+		return 0, nil, false, false
+	}
+	idx = skipSpaceAndComments(data, idx)
+	if idx >= len(data) || data[idx] != ':' {
+		return 0, nil, false, false
+	}
+	idx = skipSpaceAndComments(data, idx+1)
+	open, closing, raw, ok := scanStringOpening(data[idx:])
+	if !ok {
+		return 0, nil, true, false
+	}
+	start := idx + open
+	end := start
+	for end < len(data) && !bytes.HasPrefix(data[end:], closing) {
+		if !raw && data[end] == '\\' {
+			end++
+		}
+		end++
+	}
+	if end >= len(data) {
+		return 0, nil, true, false
+	}
+	pointer, ok := rewritePointer(string(data[start:end]), specRepl, metaRepl)
+	if !ok {
+		return 0, nil, true, false
+	}
+	var repl bytes.Buffer
+	repl.Write(data[i:start])
+	repl.WriteString(pointer)
+	repl.Write(closing)
+	return end + len(closing) - i, repl.Bytes(), true, true
+}
+
+// scanStringOpening reports the length of the CEL string opening at data, its closing quote and whether it is raw.
+func scanStringOpening(data []byte) (int, []byte, bool, bool) {
+	n := 0
+	raw := false
+	if len(data) > 0 && (data[0] == 'r' || data[0] == 'R') {
+		raw = true
+		n = 1
+	}
+	for _, quote := range []string{`"""`, "'''", `"`, "'"} {
+		if bytes.HasPrefix(data[n:], []byte(quote)) {
+			return n + len(quote), []byte(quote), raw, true
+		}
+	}
+	return 0, nil, false, false
+}
+
+// skipSpaceAndComments returns the index of the first byte at or after idx that is not whitespace or a CEL comment.
+func skipSpaceAndComments(data []byte, idx int) int {
+	for idx < len(data) {
+		switch {
+		case isWhitespaceByte(data[idx]):
+			idx++
+		case bytes.HasPrefix(data[idx:], []byte("//")):
+			end := bytes.IndexByte(data[idx:], '\n')
+			if end == -1 {
+				return len(data)
+			}
+			idx += end + 1
+		case bytes.HasPrefix(data[idx:], []byte("/*")):
+			end := bytes.Index(data[idx+2:], []byte("*/"))
+			if end == -1 {
+				return len(data)
+			}
+			idx += 2 + end + 2
+		default:
+			return idx
+		}
+	}
+	return idx
+}
+
+// rewritePointer moves a pod JSON Pointer under the template, leaving the controller name and namespace alone.
+// It reports false for a pointer outside /spec and /metadata, which has no pod template counterpart.
+func rewritePointer(pointer, specRepl, metaRepl string) (string, bool) {
+	if hasPointerPrefix(pointer, "/spec") {
+		if hasPointerPrefix(pointer, "/spec/template") || hasPointerPrefix(pointer, "/spec/jobTemplate") {
+			return pointer, true
+		}
+		return specRepl + pointer[len("/spec"):], true
+	}
+	for _, field := range []string{"/metadata/labels", "/metadata/annotations"} {
+		if hasPointerPrefix(pointer, field) {
+			return metaRepl + pointer[len("/metadata"):], true
+		}
+	}
+	return pointer, hasPointerPrefix(pointer, "/metadata")
+}
+
+// hasPointerPrefix reports whether pointer is prefix or starts with prefix followed by a token separator.
+func hasPointerPrefix(pointer, prefix string) bool {
+	rest, ok := strings.CutPrefix(pointer, prefix)
+	return ok && (rest == "" || rest[0] == '/')
 }
 
 // rewriteField replaces occurrences of `roots` + `fromField` with `roots` + `toField`.
