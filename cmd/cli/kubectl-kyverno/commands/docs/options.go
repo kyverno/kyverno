@@ -103,7 +103,6 @@ func processCommandDoc(path string, cmd *cobra.Command) error {
 	hasOptions := false
 	alreadyProcessed := false
 
-	// PRE-SCAN FIX: Require exact "### Options" heading to prevent loose processing
 	for _, line := range lines {
 		trimmedLine := strings.TrimSpace(line)
 		if trimmedLine == "### Options" {
@@ -222,7 +221,10 @@ func processCommandDoc(path string, cmd *cobra.Command) error {
 			var matchedFlag *pflag.Flag
 			if cmd != nil {
 				parts := strings.Fields(trimmedLine)
-				for _, part := range parts {
+				for i, part := range parts {
+					if i > 1 {
+						break
+					}
 					if strings.HasPrefix(part, "--") {
 						flagName := strings.TrimPrefix(part, "--")
 						flagName = strings.Split(flagName, "=")[0]
