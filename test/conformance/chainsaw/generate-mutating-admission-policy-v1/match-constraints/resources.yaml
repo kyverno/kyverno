@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: selected
+  namespace: map-scope-dev
+  labels:
+    mutate: "yes"
+data:
+  original: value
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: excluded-by-namespace
+  namespace: map-scope-prod
+  labels:
+    mutate: "yes"
+data:
+  original: value
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: excluded-by-label
+  namespace: map-scope-dev
+  labels:
+    mutate: "no"
+data:
+  original: value
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: do-not-touch
+  namespace: map-scope-dev
+  labels:
+    mutate: "yes"
+data:
+  original: value
