@@ -83,6 +83,10 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 					convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
 					spec.Mutations[i].ApplyConfiguration.Expression = convertedExpr
 				}
+				if spec.Mutations[i].JSONPatch != nil && spec.Mutations[i].JSONPatch.Expression != "" {
+					convertedExpr := string(autogen.ApplyMutatingJSONPatch([]byte(spec.Mutations[i].JSONPatch.Expression), config))
+					spec.Mutations[i].JSONPatch.Expression = convertedExpr
+				}
 			}
 		}
 

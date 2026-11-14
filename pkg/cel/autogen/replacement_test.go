@@ -823,3 +823,66 @@ func TestApplyCELRewritesExpressions(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyMutatingJSONPatch(t *testing.T) {
+	tests := []struct {
+		name   string
+		expr   string
+		config string
+		want   string
+	}{
+		{
+			name:   "spec path and expression are moved to the pod template",
+			expr:   `[JSONPatch{op: "add", path: "/spec/tolerations", value: object.spec.tolerations}]`,
+			config: "deployments",
+			want:   `[JSONPatch{op: "add", path: "/spec/template/spec/tolerations", value: object.spec.template.spec.tolerations}]`,
+		},
+		{
+			name:   "cronjob spec path is moved to the job template",
+			expr:   `[JSONPatch{op: "add", path: "/spec/containers/0/imagePullPolicy", value: "Always"}]`,
+			config: "cronjobs",
+			want:   `[JSONPatch{op: "add", path: "/spec/jobTemplate/spec/template/spec/containers/0/imagePullPolicy", value: "Always"}]`,
+		},
+		{
+			name:   "concatenated path keeps its dynamic suffix",
+			expr:   `object.spec.containers.map(c, JSONPatch{op: "replace", path: "/spec/containers/" + string(object.spec.containers.indexOf(c)) + "/image", value: c.image})`,
+			config: "deployments",
+			want:   `object.spec.template.spec.containers.map(c, JSONPatch{op: "replace", path: "/spec/template/spec/containers/" + string(object.spec.template.spec.containers.indexOf(c)) + "/image", value: c.image})`,
+		},
+		{
+			name:   "annotations and labels paths are moved to the template metadata",
+			expr:   `[JSONPatch{op: "add", path: '/metadata/annotations', value: {}}, JSONPatch{op: "add", path: "/metadata/labels/app", value: "x"}]`,
+			config: "deployments",
+			want:   `[JSONPatch{op: "add", path: '/spec/template/metadata/annotations', value: {}}, JSONPatch{op: "add", path: "/spec/template/metadata/labels/app", value: "x"}]`,
+		},
+		{
+			name:   "move from and path are both rewritten",
+			expr:   `[JSONPatch{op: "move", from: "/spec/hostname", path: "/spec/subdomain"}]`,
+			config: "deployments",
+			want:   `[JSONPatch{op: "move", from: "/spec/template/spec/hostname", path: "/spec/template/spec/subdomain"}]`,
+		},
+		{
+			name:   "controller name, namespace and similar prefixes are kept",
+			expr:   `[JSONPatch{op: "test", path: "/metadata/name", value: "x"}, JSONPatch{op: "add", path: "/specs", value: "x"}, JSONPatch{op: "add", path: "/metadata/labelsX", value: "x"}]`,
+			config: "deployments",
+			want:   `[JSONPatch{op: "test", path: "/metadata/name", value: "x"}, JSONPatch{op: "add", path: "/specs", value: "x"}, JSONPatch{op: "add", path: "/metadata/labelsX", value: "x"}]`,
+		},
+		{
+			name:   "pointer-like values and non-field strings are kept",
+			expr:   `[JSONPatch{op: "add", path: "/spec/x", value: "/spec/y"}].filter(p, p.path != "/spec/z" && has(p.value) ? true : false)`,
+			config: "deployments",
+			want:   `[JSONPatch{op: "add", path: "/spec/template/spec/x", value: "/spec/y"}].filter(p, p.path != "/spec/z" && has(p.value) ? true : false)`,
+		},
+		{
+			name:   "escaped quote inside the path is kept",
+			expr:   `[JSONPatch{op: "add", path: "/metadata/annotations/a\"b", value: "x"}]`,
+			config: "deployments",
+			want:   `[JSONPatch{op: "add", path: "/spec/template/metadata/annotations/a\"b", value: "x"}]`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, string(ApplyMutatingJSONPatch([]byte(tt.expr), tt.config)))
+		})
+	}
+}
