@@ -481,6 +481,53 @@ func Test_BundleDetection_BundleLayerTruncatedRead_IsReturned(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to read bundle layer")
 }
 
+// newUnsupportedReferrersRegistry is a plain in-process registry with referrers
+// API support disabled: the /referrers/ endpoint answers 404, the shape of a
+// registry that does not implement OCI referrers (as opposed to the 500s the
+// fault-injection tests inject). go-containerregistry treats a 404 there as a
+// tag-fallback situation and an empty referrer list, so bundle detection must
+// still come back empty without an error and the v2 signature path must
+// proceed — an unsupported referrers API is not a registry failure.
+func newUnsupportedReferrersRegistry(t *testing.T) name.Repository {
+	t.Helper()
+	srv := httptest.NewServer(registry.New())
+	t.Cleanup(srv.Close)
+	repo, err := name.NewRepository(strings.TrimPrefix(srv.URL, "http://") + "/test/img")
+	require.NoError(t, err)
+	return repo
+}
+
+func Test_BundleDetection_ReferrersUnsupported_TreatedAsNoBundles(t *testing.T) {
+	repo := newUnsupportedReferrersRegistry(t)
+	pushSubject(t, repo, "subject")
+	img := fetchTestImage(t, repo.Tag("subject").String())
+
+	v := NewVerifier(nil, logr.Discard())
+	cOpts, bundles, _, err := v.buildCheckOptsWithBundleDetection(context.TODO(), bundleTestAttestor(), img)
+	require.NoError(t, err)
+	assert.False(t, cOpts.NewBundleFormat, "a registry without referrers support must keep the v2 signature path")
+	assert.Empty(t, bundles)
+}
+
+// On the same unsupported registry, attestation verification must still report
+// the missing attestation itself — the pre-existing behavior — and not a
+// referrer fetch failure.
+func Test_VerifyAttestation_ReferrersUnsupported_ReportsMissingAttestation(t *testing.T) {
+	repo := newUnsupportedReferrersRegistry(t)
+	pushSubject(t, repo, "subject")
+	img := fetchTestImage(t, repo.Tag("subject").String())
+
+	v := NewVerifier(nil, logr.Discard())
+	attestor := &v1beta1.Attestor{Name: "test", Cosign: bundleTestAttestor()}
+	attestation := &v1beta1.Attestation{Name: "test", InToto: &v1beta1.InToto{Type: "https://cyclonedx.org/bom"}}
+
+	err := v.VerifyAttestationSignature(context.TODO(), img, attestation, attestor)
+	require.Error(t, err)
+	t.Logf("unsupported-referrers attestation error: %v", err)
+	assert.NotContains(t, err.Error(), "failed to list image referrers")
+	assert.NotContains(t, err.Error(), "failed to build cosign verification opts")
+}
+
 // VerifyAttestationSignature must surface the fetch failure itself where today
 // it falls through to "required predicate type ... not found".
 func Test_VerifyAttestation_FetchFailure_NamesTheFetch(t *testing.T) {
