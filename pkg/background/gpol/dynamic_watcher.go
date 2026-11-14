@@ -31,6 +31,8 @@ type Resource struct {
 	Hash      string
 	Labels    map[string]string
 	Data      *unstructured.Unstructured
+	// PolicyKey is the verified canonical owner used by restored legacy resources.
+	PolicyKey string
 	// ServerSideApply records that the generating policy uses server-side apply, so sync
 	// writes to this downstream apply what the policy generated instead of replacing it.
 	ServerSideApply bool
@@ -49,6 +51,9 @@ type WatchManager struct {
 	policyRefs map[string][]schema.GroupVersionResource
 	// refCount tracks the number of policies that generates the same resource.
 	refCount map[schema.GroupVersionResource]int
+	// unmappedAcknowledged keeps UID-qualified acknowledged writes independently
+	// of GVR discovery and watch registration until they are cached.
+	unmappedAcknowledged map[string]map[types.UID]Resource
 	// pendingGenerates tracks, per policy/trigger, generate writes that are being
 	// applied but are not yet reflected in the metadata cache. See BeginGenerate.
 	pendingGenerates map[string]*pendingGenerate
@@ -69,13 +74,14 @@ func NewWatchManager(log logr.Logger, client dclient.Interface) *WatchManager {
 		restMapper = meta.NewDefaultRESTMapper(nil)
 	}
 	return &WatchManager{
-		log:              log,
-		client:           client,
-		restMapper:       restMapper,
-		dynamicWatchers:  map[schema.GroupVersionResource]*watcher{},
-		policyRefs:       map[string][]schema.GroupVersionResource{},
-		refCount:         map[schema.GroupVersionResource]int{},
-		pendingGenerates: map[string]*pendingGenerate{},
+		log:                  log,
+		client:               client,
+		restMapper:           restMapper,
+		dynamicWatchers:      map[schema.GroupVersionResource]*watcher{},
+		policyRefs:           map[string][]schema.GroupVersionResource{},
+		refCount:             map[schema.GroupVersionResource]int{},
+		pendingGenerates:     map[string]*pendingGenerate{},
+		unmappedAcknowledged: map[string]map[types.UID]Resource{},
 	}
 }
 
@@ -92,9 +98,8 @@ type skippedUpdate struct {
 	obj *unstructured.Unstructured
 }
 
-// generateKey identifies a policy/trigger pair. It uses the bare policy name and
-// trigger UID, the values the engine stamps on the downstream's
-// GeneratePolicyLabel and GenerateTriggerUIDLabel.
+// generateKey identifies a canonical policy/trigger pair. Namespace/name
+// disambiguates a namespaced policy from a same-name cluster policy.
 func generateKey(policyName string, triggerUID types.UID) string {
 	return policyName + "/" + string(triggerUID)
 }
@@ -149,11 +154,70 @@ func (wm *WatchManager) BeginGenerate(policyName string, triggerUID types.UID) f
 // A nil trigger matches all resources of the policy. useServerSideApply is the policy's
 // setting, recorded on each downstream for the writes sync makes to it later.
 func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.ResourceSpec, generatedResources []*unstructured.Unstructured, useServerSideApply bool) error {
+	return wm.registerWatchers(policyName, trigger, generatedResources, useServerSideApply, true)
+}
+
+// AddWatchers tracks acknowledged partial writes without pruning resources
+// which may still be desired by later, unevaluated generation expressions.
+func (wm *WatchManager) AddWatchers(policyName string, trigger *kyverno.ResourceSpec, generatedResources []*unstructured.Unstructured, useServerSideApply bool) error {
+	return wm.registerWatchers(policyName, trigger, generatedResources, useServerSideApply, false)
+}
+
+func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.ResourceSpec, generatedResources []*unstructured.Unstructured, useServerSideApply bool, reconcile bool) error {
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
 
 	logger := wm.log
+	// Keep the original references separate from newly registered ones: only
+	// a full successful reconciliation may prune GVRs that are no longer desired.
+	// rememberGVR below persists new references immediately, including when a
+	// later resource mapping or watch setup fails.
+	oldGVRs := append([]schema.GroupVersionResource(nil), wm.policyRefs[policyName]...)
+	// Retain every acknowledged UID first: RESTMapping can fail at any
+	// position, so later objects must not disappear when iteration aborts.
+	if wm.unmappedAcknowledged == nil {
+		wm.unmappedAcknowledged = make(map[string]map[types.UID]Resource)
+	}
+	if wm.unmappedAcknowledged[policyName] == nil {
+		wm.unmappedAcknowledged[policyName] = make(map[types.UID]Resource)
+	}
+	for _, res := range generatedResources {
+		if res == nil || res.GetUID() == "" {
+			continue
+		}
+		wm.unmappedAcknowledged[policyName][res.GetUID()] = Resource{
+			Name: res.GetName(), Namespace: res.GetNamespace(),
+			Labels: res.GetLabels(), Data: res, PolicyKey: policyName,
+		}
+	}
+	// Persist the GVR reference as soon as an acknowledged downstream is
+	// cached. A later RESTMapping/watch error must not make that first
+	// registration invisible to policy-deletion cleanup.
+	rememberGVR := func(gvr schema.GroupVersionResource) {
+		for _, existing := range wm.policyRefs[policyName] {
+			if existing == gvr {
+				return
+			}
+		}
+		wm.policyRefs[policyName] = append(wm.policyRefs[policyName], gvr)
+		wm.refCount[gvr]++
+	}
 	newGVRs := make(map[schema.GroupVersionResource]bool)
+	// A served-version change may use a different GVR for the same
+	// Kubernetes object. Never delete a UID that is still desired.
+	desiredUIDs := make(map[types.UID]struct{}, len(generatedResources))
+	for _, resource := range generatedResources {
+		if resource.GetUID() != "" {
+			desiredUIDs[resource.GetUID()] = struct{}{}
+		}
+	}
+	if !reconcile {
+		// Retain existing GVR ownership and watcher caches for an incomplete
+		// evaluation. Repeated partial retries must not double-count refs.
+		for _, gvr := range wm.policyRefs[policyName] {
+			newGVRs[gvr] = true
+		}
+	}
 	// start a new watcher for each generated resource
 	for _, resource := range generatedResources {
 		gvk := resource.GroupVersionKind()
@@ -175,7 +239,10 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.Resourc
 				Hash:            reportutils.CalculateResourceHash(*resource),
 				Data:            resource,
 				ServerSideApply: useServerSideApply,
+				PolicyKey:       policyName,
 			}
+			rememberGVR(gvr)
+			delete(wm.unmappedAcknowledged[policyName], resource.GetUID())
 			if existing.watcher != nil {
 				logger.V(2).Info("watcher already exists for GVR", "gvr", gvr)
 				continue
@@ -189,37 +256,32 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.Resourc
 			continue
 		}
 
-		// start a new watcher for this GVR
-		w, err := wm.startWatcher(resource, gvr)
+		// Cache an acknowledged write *before* starting the watch. A watch
+		// setup error must not make it invisible to same-process cleanup.
+		metadataCache := map[types.UID]Resource{
+			resource.GetUID(): {
+				Name:            resource.GetName(),
+				Namespace:       resource.GetNamespace(),
+				Labels:          resource.GetLabels(),
+				Hash:            reportutils.CalculateResourceHash(*resource),
+				Data:            resource,
+				ServerSideApply: useServerSideApply,
+				PolicyKey:       policyName,
+			},
+		}
+		wm.dynamicWatchers[gvr] = &watcher{metadataCache: metadataCache}
+		rememberGVR(gvr)
+		delete(wm.unmappedAcknowledged[policyName], resource.GetUID())
+		w, err := wm.startWatcherWithCache(resource, gvr, metadataCache)
 		if err != nil {
 			return err
 		}
 		wm.dynamicWatchers[gvr] = w
-		// add the resource to the metadata cache
-		wm.dynamicWatchers[gvr].metadataCache[resource.GetUID()] = Resource{
-			Name:            resource.GetName(),
-			Namespace:       resource.GetNamespace(),
-			Labels:          resource.GetLabels(),
-			Hash:            reportutils.CalculateResourceHash(*resource),
-			Data:            resource,
-			ServerSideApply: useServerSideApply,
-		}
 	}
 
-	oldGVRs := wm.policyRefs[policyName]
-	// update the ref count for the new GVRs
-	for gvr := range newGVRs {
-		found := false
-		for _, oldGVR := range oldGVRs {
-			if gvr == oldGVR {
-				found = true
-				break
-			}
-		}
-		if !found {
-			wm.refCount[gvr]++
-		}
-	}
+	// New GVRs were already counted when their cache entries were registered.
+	// Re-counting here would double-count the same policy's ownership.
+
 	// process old watchers that are not in the new gvr list.
 	// it means that this trigger's evaluation no longer generates those resources.
 	for _, oldGVR := range oldGVRs {
@@ -229,10 +291,16 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.Resourc
 				var uidsToDelete []types.UID
 				for uid, resource := range oldWatcher.metadataCache {
 					// identify resources managed by this specific policy and trigger via labels
-					if resource.Labels[common.GeneratePolicyLabel] != policyName {
+					if !matchesResourcePolicy(resource, policyName) {
 						continue
 					}
 					if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
+						continue
+					}
+					if _, desired := desiredUIDs[uid]; desired {
+						// Same object, now served via another API version.
+						// Drop only the obsolete cache entry, not the object.
+						delete(oldWatcher.metadataCache, uid)
 						continue
 					}
 					uidsToDelete = append(uidsToDelete, uid)
@@ -246,7 +314,7 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.Resourc
 				// keep the watcher, the ref count and the policy reference in that case
 				stillReferenced := false
 				for _, resource := range oldWatcher.metadataCache {
-					if resource.Labels[common.GeneratePolicyLabel] == policyName {
+					if matchesResourcePolicy(resource, policyName) {
 						stillReferenced = true
 						break
 					}
@@ -297,7 +365,7 @@ func (wm *WatchManager) GetDownstreams(policyName string) []*unstructured.Unstru
 
 			for _, resource := range watcher.metadataCache {
 				// identify resources managed by this specific policy via a label
-				if resource.Labels[common.GeneratePolicyLabel] == policyName {
+				if matchesResourcePolicy(resource, policyName) {
 					// InvalidateDownstreams blanks the hash and leaves the entry so a
 					// later delete can still find it. It is not a live trigger.
 					if resource.Hash == "" {
@@ -328,6 +396,30 @@ func (wm *WatchManager) DeleteDownstreams(policyName string, trigger *kyverno.Re
 	wm.walkDownstreams(policyName, trigger, func(watcher *watcher, uid types.UID, res Resource) {
 		wm.deleteCachedDownstream(logger, watcher, uid, res)
 	})
+
+	// REST discovery may fail after a successful downstream write. Such
+	// acknowledged resources have no watcher GVR, so trigger deletion must
+	// clean them up from the independent UID-qualified tracking map.
+	if pending := wm.unmappedAcknowledged[policyName]; pending != nil {
+		for uid, res := range pending {
+			if !matchesResourcePolicy(res, policyName) {
+				continue
+			}
+			if trigger != nil && res.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
+				continue
+			}
+			// Mirror mapped trigger deletion: use the recorded UID to guard
+			// against deleting a same-name replacement in the API server.
+			if err := wm.deleteResourceWithUID(res, uid); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to delete unmapped downstream", "name", res.Name, "namespace", res.Namespace)
+				continue // keep this acknowledgement for a later retry
+			}
+			delete(pending, uid)
+		}
+		if len(pending) == 0 {
+			delete(wm.unmappedAcknowledged, policyName)
+		}
+	}
 }
 
 // InvalidateDownstreams invalidates all downstream resources generated by a policy from the metadata cache without
@@ -350,6 +442,75 @@ func (wm *WatchManager) InvalidateDownstreams(policyName string, trigger *kyvern
 	})
 }
 
+// SuppressDownstreamRecreation prevents a stale acknowledged downstream from
+// being recreated by a watch delete event while UID-preconditioned cleanup runs.
+// Failed deletes retain an invalidated cache record for a later retry.
+func (wm *WatchManager) SuppressDownstreamRecreation(policyKey string, uid types.UID) {
+	wm.lock.Lock()
+	defer wm.lock.Unlock()
+	for _, gvr := range wm.policyRefs[policyKey] {
+		if w := wm.dynamicWatchers[gvr]; w != nil {
+			if res, found := w.metadataCache[uid]; found && matchesResourcePolicy(res, policyKey) {
+				res.Hash = ""
+				w.metadataCache[uid] = res
+			}
+		}
+	}
+}
+
+// ForgetDownstreamUID removes only a verified, obsolete cached identity after
+// its server-side deletion succeeds (or the API confirms it is already gone).
+func (wm *WatchManager) ForgetDownstreamUID(policyKey string, uid types.UID) {
+	wm.lock.Lock()
+	defer wm.lock.Unlock()
+	if pending := wm.unmappedAcknowledged[policyKey]; pending != nil {
+		delete(pending, uid)
+		if len(pending) == 0 {
+			delete(wm.unmappedAcknowledged, policyKey)
+		}
+	}
+	refs := wm.policyRefs[policyKey]
+	keptRefs := make([]schema.GroupVersionResource, 0, len(refs))
+	for _, gvr := range refs {
+		w := wm.dynamicWatchers[gvr]
+		if w == nil {
+			keptRefs = append(keptRefs, gvr)
+			continue
+		}
+		if res, found := w.metadataCache[uid]; found && matchesResourcePolicy(res, policyKey) {
+			delete(w.metadataCache, uid)
+		}
+		// Other triggers and siblings of this policy can still require
+		// this GVR. Keep the watch until its final policy reference ends.
+		stillOwned := false
+		for _, res := range w.metadataCache {
+			if matchesResourcePolicy(res, policyKey) {
+				stillOwned = true
+				break
+			}
+		}
+		if stillOwned {
+			keptRefs = append(keptRefs, gvr)
+			continue
+		}
+		if wm.refCount[gvr] > 0 {
+			wm.refCount[gvr]--
+		}
+		if wm.refCount[gvr] == 0 {
+			if w.watcher != nil {
+				w.watcher.Stop()
+			}
+			delete(wm.dynamicWatchers, gvr)
+			delete(wm.refCount, gvr)
+		}
+	}
+	if len(keptRefs) == 0 {
+		delete(wm.policyRefs, policyKey)
+	} else {
+		wm.policyRefs[policyKey] = keptRefs
+	}
+}
+
 func (wm *WatchManager) walkDownstreams(policyName string, trigger *kyverno.ResourceSpec, walkFunc func(watcher *watcher, uid types.UID, res Resource)) {
 	if gvrList, exists := wm.policyRefs[policyName]; exists {
 		for _, gvr := range gvrList {
@@ -361,7 +522,7 @@ func (wm *WatchManager) walkDownstreams(policyName string, trigger *kyverno.Reso
 			var uids []types.UID
 			for uid, resource := range watcher.metadataCache {
 				// identify resources managed by this specific policy via a label
-				if resource.Labels[common.GeneratePolicyLabel] == policyName {
+				if matchesResourcePolicy(resource, policyName) {
 					if trigger == nil || resource.Labels[common.GenerateTriggerUIDLabel] == string(trigger.UID) {
 						uids = append(uids, uid)
 					}
@@ -397,7 +558,7 @@ func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyve
 		var uidsToDelete []types.UID
 		for uid, resource := range watcher.metadataCache {
 			// identify resources managed by this specific policy and trigger via labels
-			if resource.Labels[common.GeneratePolicyLabel] != policyName {
+			if !matchesResourcePolicy(resource, policyName) {
 				continue
 			}
 			if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
@@ -413,8 +574,53 @@ func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyve
 	}
 }
 
+// matchesResourcePolicy prefers the verified owner from watcher registration,
+// which also makes restored pre-scope-label downstreams safe to track.
+func matchesResourcePolicy(resource Resource, policyKey string) bool {
+	if resource.PolicyKey != "" {
+		return resource.PolicyKey == policyKey
+	}
+	return matchesPolicyKey(resource.Labels, policyKey)
+}
+
+// matchesPolicyKey requires explicit scope from CEL labels; an unmarked
+// namespaced-trigger resource remains ambiguous until verified by the
+// controller and registered with its canonical policy key.
+func matchesPolicyKey(resourceLabels map[string]string, policyKey string) bool {
+	policyNamespace, policyName, err := cache.SplitMetaNamespaceKey(policyKey)
+	if err != nil || resourceLabels[common.GeneratePolicyLabel] != policyName {
+		return false
+	}
+	if scope, marked := resourceLabels[common.GeneratePolicyScopeLabel]; marked {
+		if policyNamespace == "" {
+			return scope == common.GeneratePolicyScopeCluster
+		}
+		return scope == common.GeneratePolicyScopeNamespaced &&
+			common.MatchesPolicyTriggerNamespace(resourceLabels, policyNamespace)
+	}
+	// Historical objects without an explicit scope cannot safely be
+	// attributed to either policy when a namespaced trigger is involved.
+	// Fail closed rather than risk deleting another policy's downstream.
+	if resourceLabels[common.GenerateTriggerNSLabel] != "" {
+		return false
+	}
+	// An unmarked Namespace-triggered downstream could also belong to a
+	// namespaced policy. Do not infer ownership without verification.
+	return policyNamespace == "" && resourceLabels[common.GenerateTriggerKindLabel] != "Namespace"
+}
+
 func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
-	return gvk.String() + "/" + namespace + "/" + name
+	return gvk.GroupKind().String() + "/" + namespace + "/" + name
+}
+
+// deleteResourceWithUID prevents a stale cache from deleting a replacement
+// with the same name. Kubernetes enforces the UID precondition atomically.
+func (wm *WatchManager) deleteResourceWithUID(res Resource, uid types.UID) error {
+	options := metav1.DeleteOptions{}
+	if uid != "" {
+		options.Preconditions = &metav1.Preconditions{UID: &uid}
+	}
+	return wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, options)
 }
 
 // deleteCachedDownstream deletes one generated object and drops its cache entry
@@ -422,7 +628,7 @@ func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
 // the entry so a later pass can retry.
 func (wm *WatchManager) deleteCachedDownstream(logger logr.Logger, watcher *watcher, uid types.UID, res Resource) {
 	logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-	err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
+	err := wm.deleteResourceWithUID(res, uid)
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
 		return
@@ -453,6 +659,26 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 	logger := wm.log.WithValues("policyName", policyName)
 	logger.V(2).Info("removing policy resources and watchers")
 
+	// An acknowledged resource can lack a GVR when REST discovery failed.
+	// Policy deletion still has enough API version, kind, name and UID to
+	// attempt a safe delete without relying on an active watcher.
+	if pending := wm.unmappedAcknowledged[policyName]; pending != nil {
+		for uid, res := range pending {
+			if deleteDownstream {
+				if _, cloned := res.Labels[common.GenerateSourceUIDLabel]; !cloned {
+					err := wm.deleteResourceWithUID(res, uid)
+					if err != nil && !apierrors.IsNotFound(err) {
+						logger.Error(err, "failed to delete unmapped acknowledged downstream", "name", res.Name)
+						continue
+					}
+				}
+			}
+			delete(pending, uid)
+		}
+		if len(pending) == 0 {
+			delete(wm.unmappedAcknowledged, policyName)
+		}
+	}
 	if gvrList, exists := wm.policyRefs[policyName]; exists {
 		for _, gvr := range gvrList {
 			logger := logger.WithValues("gvr", gvr)
@@ -461,7 +687,7 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 				var uidsToDelete []types.UID
 				for uid, resource := range watcher.metadataCache {
 					// identify resources managed by this specific policy via a label
-					if resource.Labels[common.GeneratePolicyLabel] == policyName {
+					if matchesResourcePolicy(resource, policyName) {
 						uidsToDelete = append(uidsToDelete, uid)
 					}
 				}
@@ -472,7 +698,7 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 					if deleteDownstream {
 						if _, exists := res.Labels[common.GenerateSourceUIDLabel]; !exists {
 							logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-							err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
+							err := wm.deleteResourceWithUID(res, uid)
 							if err != nil {
 								logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
 							} else {
@@ -519,14 +745,7 @@ func (wm *WatchManager) StopWatchers() {
 	wm.dynamicWatchers = map[schema.GroupVersionResource]*watcher{}
 	wm.policyRefs = map[string][]schema.GroupVersionResource{}
 	wm.refCount = map[schema.GroupVersionResource]int{}
-}
-
-// startWatcher starts a new watcher for the given resource and GVR.
-// It initializes the metadata cache and sets up the watch interface.
-// The watcher will handle events for the resource and update the metadata cache accordingly.
-// It returns a pointer to the watcher or an error if the watcher could not be created.
-func (wm *WatchManager) startWatcher(resource *unstructured.Unstructured, gvr schema.GroupVersionResource) (*watcher, error) {
-	return wm.startWatcherWithCache(resource, gvr, nil)
+	wm.unmappedAcknowledged = map[string]map[types.UID]Resource{}
 }
 
 func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructured, gvr schema.GroupVersionResource, metadataCache map[types.UID]Resource) (*watcher, error) {
@@ -541,6 +760,7 @@ func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructure
 		Data:      resource,
 		// keep the setting SyncWatchers recorded when it restarts a watcher with this cache
 		ServerSideApply: metadataCache[resource.GetUID()].ServerSideApply,
+		PolicyKey:       metadataCache[resource.GetUID()].PolicyKey,
 	}
 	resourceVersion := resource.GetResourceVersion()
 	logger := wm.log.WithValues("resourceVersion", resourceVersion)
@@ -659,6 +879,7 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 						Hash:            hash,
 						Data:            newResource,
 						ServerSideApply: cached.ServerSideApply,
+						PolicyKey:       cached.PolicyKey,
 					}
 					wm.log.V(4).Info("resource metadata updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace(), "hash", hash)
 				}
@@ -669,8 +890,13 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			// if the cached resource has not been invalidated and is different from the hash of the resource,
 			// then we need to revert the downstream resource as it means that it has been updated by the user.
 			if hash != "" && hash != reportutils.CalculateResourceHash(*obj) {
-				cachedLabels := watcher.metadataCache[uid].Labels
-				key := generateKey(cachedLabels[common.GeneratePolicyLabel], types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
+				cached := watcher.metadataCache[uid]
+				cachedLabels := cached.Labels
+				policyKey := cached.PolicyKey
+				if policyKey == "" {
+					policyKey = cachedLabels[common.GeneratePolicyLabel]
+				}
+				key := generateKey(policyKey, types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
 				if pending := wm.pendingGenerates[key]; pending != nil {
 					// Likely Kyverno's own write racing the cache refresh (see
 					// BeginGenerate); re-checked when the window closes.

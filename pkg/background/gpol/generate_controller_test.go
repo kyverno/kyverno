@@ -762,10 +762,16 @@ func newMirrorFixture(t *testing.T, policy policiesv1beta1.GeneratingPolicyLike,
 
 	trigger := makeUnstructured("", "", "v1", "ConfigMap", "tenant-settings", mirrorNamespace, mirrorTriggerUID, nil)
 	require.NoError(t, unstructured.SetNestedField(trigger.Object, "50", "data", "quota"))
+	scope := common.GeneratePolicyScopeCluster
+	if policyKey != mirrorPolicyName {
+		scope = common.GeneratePolicyScopeNamespaced
+	}
 	downstream := makeUnstructured("", "", "v1", "ConfigMap", "tenant-settings-mirror", mirrorNamespace, mirrorDownstreamU, map[string]string{
-		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-		common.GeneratePolicyLabel:     mirrorPolicyName,
-		common.GenerateTriggerUIDLabel: mirrorTriggerUID,
+		kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:      mirrorPolicyName,
+		common.GeneratePolicyScopeLabel: scope,
+		common.GenerateTriggerNSLabel:   mirrorNamespace,
+		common.GenerateTriggerUIDLabel:  mirrorTriggerUID,
 	})
 	require.NoError(t, unstructured.SetNestedField(downstream.Object, "10", "data", "QUOTA"))
 
@@ -793,6 +799,7 @@ func newMirrorFixture(t *testing.T, policy policiesv1beta1.GeneratingPolicyLike,
 						Labels:    downstream.GetLabels(),
 						Hash:      reportutils.CalculateResourceHash(*downstream),
 						Data:      downstream,
+						PolicyKey: policyKey,
 					},
 				},
 			},
