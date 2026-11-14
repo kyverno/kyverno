@@ -1,7 +1,7 @@
 package kyverno
 
 import (
-	apiextv1 "k8s.io/apiextensions-api/pkg/apis/apiextensions/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 type APICall struct {
@@ -54,7 +54,7 @@ type RequestData struct {
 	Key string `json:"key"`
 
 	// Value is the data value
-	Value *apiextv1.JSON `json:"value"`
+	Value *apiextv1.JSON `json:"value"` //nolint:govet // controller-gen treats JSON as schemaless only from apiextensions-apiserver
 }
 
 type HTTPHeader struct {
