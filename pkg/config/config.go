@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/kube-openapi/pkg/validation/strfmt"
 )
 
@@ -643,6 +644,18 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			_, err = time.Parse(kyverno.ValueTtlDateTimeLayout, ttl)
 			if err != nil {
 				_, err = time.Parse(kyverno.ValueTtlDateLayout, ttl)
+			}
+		}
+
+		// The value is applied verbatim as the cleanup.kyverno.io/ttl label on
+		// every UpdateRequest, so it has to be a valid label value as well as a
+		// valid duration. strfmt.ParseDuration accepts spelled-out forms such as
+		// "7 days", which contain a space and would make the API server reject
+		// every UpdateRequest create, silently stopping generate and
+		// mutate-existing rules.
+		if err == nil {
+			if errs := validation.IsValidLabelValue(ttl); len(errs) != 0 {
+				err = errors.New(strings.Join(errs, "; "))
 			}
 		}
 
