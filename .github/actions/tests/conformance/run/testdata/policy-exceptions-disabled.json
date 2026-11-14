@@ -1,0 +1,143 @@
+{
+  "name": "chainsaw-report",
+  "startTime": "2026-10-27T01:36:33.188206897Z",
+  "endTime": "2026-10-27T01:36:54.377169349Z",
+  "tests": [
+    {
+      "basePath": "image-validating-policies",
+      "name": "exception-test",
+      "concurrent": false,
+      "startTime": "2026-10-27T01:36:33.188643714Z",
+      "endTime": "2026-10-27T01:36:54.363854665Z",
+      "steps": [
+        {
+          "name": "create exception",
+          "startTime": "2026-10-27T01:36:33.198224427Z",
+          "endTime": "2026-10-27T01:36:43.331108443Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "create",
+              "startTime": "2026-10-27T01:36:33.198360422Z",
+              "endTime": "2026-10-27T01:36:33.276034244Z"
+            },
+            {
+              "name": "operation 2",
+              "type": "sleep",
+              "startTime": "2026-10-27T01:36:33.276040414Z",
+              "endTime": "2026-10-27T01:36:43.276992193Z"
+            },
+            {
+              "name": "operation 3",
+              "type": "assert",
+              "startTime": "2026-10-27T01:36:43.277159816Z",
+              "endTime": "2026-10-27T01:36:43.331094783Z"
+            }
+          ]
+        },
+        {
+          "name": "create policy",
+          "startTime": "2026-10-27T01:36:43.331113671Z",
+          "endTime": "2026-10-27T01:36:43.399695486Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "create",
+              "startTime": "2026-10-27T01:36:43.331419421Z",
+              "endTime": "2026-10-27T01:36:43.399683438Z"
+            }
+          ]
+        },
+        {
+          "name": "wait-image-validating-policy-ready",
+          "startTime": "2026-10-27T01:36:43.399700924Z",
+          "endTime": "2026-10-27T01:36:43.461378659Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "assert",
+              "startTime": "2026-10-27T01:36:43.3997317Z",
+              "endTime": "2026-10-27T01:36:43.461360972Z"
+            }
+          ]
+        },
+        {
+          "name": "create bad pod",
+          "startTime": "2026-10-27T01:36:43.461384548Z",
+          "endTime": "2026-10-27T01:36:44.358019245Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "create",
+              "startTime": "2026-10-27T01:36:43.461576036Z",
+              "endTime": "2026-10-27T01:36:44.358006626Z"
+            }
+          ]
+        },
+        {
+          "name": "create good pod",
+          "startTime": "2026-10-27T01:36:44.358023561Z",
+          "endTime": "2026-10-27T01:36:54.363853183Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "create",
+              "startTime": "2026-10-27T01:36:44.35818889Z",
+              "endTime": "2026-10-27T01:36:54.363838701Z",
+              "failure": {
+                "error": "Post \"https://127.0.0.1:41435/api/v1/namespaces/default/pods?fieldValidation=Strict\": context deadline exceeded"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cleanup (create policy)",
+          "startTime": "2026-10-27T01:36:54.363866483Z",
+          "endTime": "2026-10-27T01:36:54.369524634Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "delete",
+              "startTime": "2026-10-27T01:36:54.36387766Z",
+              "endTime": "2026-10-27T01:36:54.369498295Z"
+            }
+          ]
+        },
+        {
+          "name": "cleanup (create exception)",
+          "startTime": "2026-10-27T01:36:54.3695288Z",
+          "endTime": "2026-10-27T01:36:54.374762943Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "delete",
+              "startTime": "2026-10-27T01:36:54.370506972Z",
+              "endTime": "2026-10-27T01:36:54.37472082Z"
+            }
+          ]
+        },
+        {
+          "name": "@cleanup",
+          "startTime": "2026-10-27T01:36:54.374778867Z",
+          "endTime": "2026-10-27T01:36:54.376848196Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "delete",
+              "startTime": "2026-10-27T01:36:54.374779448Z",
+              "endTime": "2026-10-27T01:36:54.376846543Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "basePath": "validating-policies",
+      "name": "exception-test",
+      "concurrent": false,
+      "startTime": "2026-10-27T01:36:54.377094276Z",
+      "endTime": "2026-10-27T01:36:54.377112333Z",
+      "skipped": true
+    }
+  ]
+}

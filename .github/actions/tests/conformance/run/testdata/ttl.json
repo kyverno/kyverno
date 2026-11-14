@@ -1,0 +1,221 @@
+{
+  "name": "chainsaw-report",
+  "startTime": "2026-10-18T00:34:58.146169916Z",
+  "endTime": "2026-10-18T00:37:18.69460592Z",
+  "tests": [
+    {
+      "basePath": "delete-twice",
+      "name": "delete-twice",
+      "startTime": "2026-10-18T00:34:58.146835076Z",
+      "endTime": "2026-10-18T00:36:28.391582853Z",
+      "steps": [
+        {
+          "name": "step-01",
+          "startTime": "2026-10-18T00:34:58.164591185Z",
+          "endTime": "2026-10-18T00:34:58.391247659Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "apply",
+              "startTime": "2026-10-18T00:34:58.164686036Z",
+              "endTime": "2026-10-18T00:34:58.331897652Z"
+            },
+            {
+              "name": "operation 2",
+              "type": "assert",
+              "startTime": "2026-10-18T00:34:58.331982168Z",
+              "endTime": "2026-10-18T00:34:58.391227449Z"
+            }
+          ]
+        },
+        {
+          "name": "step-02",
+          "startTime": "2026-10-18T00:34:58.391253878Z",
+          "endTime": "2026-10-18T00:36:28.391582112Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "error",
+              "startTime": "2026-10-18T00:34:58.391371824Z",
+              "endTime": "2026-10-18T00:36:28.391564966Z",
+              "failure": {
+                "error": "v1/Pod/chainsaw-bright-loon/test-pod - resource matches expectation"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cleanup (step-01)",
+          "startTime": "2026-10-18T00:36:28.391590114Z",
+          "endTime": "2026-10-18T00:36:58.392284972Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "delete",
+              "startTime": "2026-10-18T00:36:28.39160134Z",
+              "endTime": "2026-10-18T00:36:58.392193606Z",
+              "failure": {
+                "error": "context deadline exceeded"
+              }
+            }
+          ]
+        },
+        {
+          "name": "@cleanup",
+          "startTime": "2026-10-18T00:36:58.392299875Z",
+          "endTime": "2026-10-18T00:36:58.394456367Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "delete",
+              "startTime": "2026-10-18T00:36:58.392300455Z",
+              "endTime": "2026-10-18T00:36:58.394454925Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "basePath": "valid-label",
+      "name": "valid-label",
+      "startTime": "2026-10-18T00:34:58.147044852Z",
+      "endTime": "2026-10-18T00:36:32.650320027Z",
+      "steps": [
+        {
+          "name": "step-01",
+          "startTime": "2026-10-18T00:34:58.16403666Z",
+          "endTime": "2026-10-18T00:34:58.396041589Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "apply",
+              "startTime": "2026-10-18T00:34:58.164121286Z",
+              "endTime": "2026-10-18T00:34:58.331851464Z"
+            },
+            {
+              "name": "operation 2",
+              "type": "assert",
+              "startTime": "2026-10-18T00:34:58.332001517Z",
+              "endTime": "2026-10-18T00:34:58.396032926Z"
+            }
+          ]
+        },
+        {
+          "name": "step-02",
+          "startTime": "2026-10-18T00:34:58.396044573Z",
+          "endTime": "2026-10-18T00:35:13.396735722Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "sleep",
+              "startTime": "2026-10-18T00:34:58.396058925Z",
+              "endTime": "2026-10-18T00:35:13.396722432Z"
+            }
+          ]
+        },
+        {
+          "name": "step-03",
+          "startTime": "2026-10-18T00:35:13.396742572Z",
+          "endTime": "2026-10-18T00:36:32.650319216Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "error",
+              "startTime": "2026-10-18T00:35:13.396863653Z",
+              "endTime": "2026-10-18T00:36:32.65030797Z"
+            }
+          ]
+        },
+        {
+          "name": "cleanup (step-01)",
+          "startTime": "2026-10-18T00:36:32.650326838Z",
+          "endTime": "2026-10-18T00:36:32.651347867Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "delete",
+              "startTime": "2026-10-18T00:36:32.650336672Z",
+              "endTime": "2026-10-18T00:36:32.651340547Z"
+            }
+          ]
+        },
+        {
+          "name": "@cleanup",
+          "startTime": "2026-10-18T00:36:32.651360256Z",
+          "endTime": "2026-10-18T00:36:32.653094964Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "delete",
+              "startTime": "2026-10-18T00:36:32.651360707Z",
+              "endTime": "2026-10-18T00:36:32.653093972Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "basePath": "past-timestamp",
+      "name": "past-timestamp",
+      "startTime": "2026-10-18T00:35:32.623618941Z",
+      "endTime": "2026-10-18T00:37:02.690245596Z",
+      "steps": [
+        {
+          "name": "step-01",
+          "startTime": "2026-10-18T00:35:32.628196595Z",
+          "endTime": "2026-10-18T00:35:32.689054793Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "apply",
+              "startTime": "2026-10-18T00:35:32.628339738Z",
+              "endTime": "2026-10-18T00:35:32.689044668Z"
+            }
+          ]
+        },
+        {
+          "name": "step-02",
+          "startTime": "2026-10-18T00:35:32.689058148Z",
+          "endTime": "2026-10-18T00:37:02.690244785Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "error",
+              "startTime": "2026-10-18T00:35:32.689469541Z",
+              "endTime": "2026-10-18T00:37:02.690232066Z",
+              "failure": {
+                "error": "v1/Pod/chainsaw-valid-rattler/test-pod - resource matches expectation"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cleanup (step-01)",
+          "startTime": "2026-10-18T00:37:02.690254038Z",
+          "endTime": "2026-10-18T00:37:18.692398269Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "delete",
+              "startTime": "2026-10-18T00:37:02.690264654Z",
+              "endTime": "2026-10-18T00:37:18.692353362Z"
+            }
+          ]
+        },
+        {
+          "name": "@cleanup",
+          "startTime": "2026-10-18T00:37:18.692409716Z",
+          "endTime": "2026-10-18T00:37:18.694357601Z",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "delete",
+              "startTime": "2026-10-18T00:37:18.692410157Z",
+              "endTime": "2026-10-18T00:37:18.694356499Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
