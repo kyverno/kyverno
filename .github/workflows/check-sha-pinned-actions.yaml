@@ -25,7 +25,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Required for tj-actions/changed-files on push (compare to preceding commit); OK for pull_request too.
+          fetch-depth: 0
+      - name: Check for workflow or action changes
+        id: changed-files
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
+        with:
+          files: |
+            .github/workflows/**
+            .github/actions/**
       - name: Ensure SHA pinned actions
+        if: steps.changed-files.outputs.any_changed == 'true'
         uses: zgosalvez/github-actions-ensure-sha-pinned-actions@62574f011e0d1967d555a862bd28a7abba8684fe # v5.0.9
         with:
           # slsa-github-generator requires using a semver tag for reusable workflows.
