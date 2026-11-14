@@ -21,8 +21,8 @@ import (
 const namespaceControllerUsername = "system:serviceaccount:kube-system:namespace-controller"
 
 const (
-	endpointsControllerUsername          = "system:serviceaccount:kube-system:endpoint-controller"
-	endpointSliceControllerUsername      = "system:serviceaccount:kube-system:endpointslice-controller"
+	endpointsControllerUsername           = "system:serviceaccount:kube-system:endpoint-controller"
+	endpointSliceControllerUsername       = "system:serviceaccount:kube-system:endpointslice-controller"
 	endpointSliceMirrorControllerUsername = "system:serviceaccount:kube-system:endpointslice-mirroring-controller"
 )
 
