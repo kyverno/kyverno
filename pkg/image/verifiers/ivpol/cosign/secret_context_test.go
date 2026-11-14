@@ -106,7 +106,7 @@ func TestCheckOptionsPreservesSharedRemoteOptions(t *testing.T) {
 			<-start
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			_, err := checkOptions(ctx, attestor, baseOpts, nil, nil)
+			_, err := checkOptions(ctx, attestor, "", baseOpts, nil, nil)
 			finished <- err
 		}()
 	}
