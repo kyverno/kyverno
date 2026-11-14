@@ -574,3 +574,27 @@ func TestIvpolsNeedingMutation(t *testing.T) {
 		})
 	}
 }
+
+func TestSortedRules_DoesNotMutateInput(t *testing.T) {
+	t.Parallel()
+	rules := []admissionregistrationv1.RuleWithOperations{{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"b", "a"},
+			APIVersions: []string{"v2", "v1"},
+			Resources:   []string{"pods", "configmaps"},
+		},
+		Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update, admissionregistrationv1.Create},
+	}}
+
+	got := sortedRules(rules)
+
+	assert.Equal(t, []string{"a", "b"}, got[0].APIGroups)
+	assert.Equal(t, []string{"v1", "v2"}, got[0].APIVersions)
+	assert.Equal(t, []string{"configmaps", "pods"}, got[0].Resources)
+	assert.Equal(t, []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}, got[0].Operations)
+	// the input (shared with the cached policy) must be untouched
+	assert.Equal(t, []string{"b", "a"}, rules[0].APIGroups)
+	assert.Equal(t, []string{"v2", "v1"}, rules[0].APIVersions)
+	assert.Equal(t, []string{"pods", "configmaps"}, rules[0].Resources)
+	assert.Equal(t, []admissionregistrationv1.OperationType{admissionregistrationv1.Update, admissionregistrationv1.Create}, rules[0].Operations)
+}
