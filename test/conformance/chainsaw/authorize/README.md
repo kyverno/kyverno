@@ -74,7 +74,7 @@ configuration:
 | `kyverno-callback-rejected` | `chainsaw-cb-rejected` | Conditions reviews get HTTP 400 |
 | `kyverno-callback-down` | `chainsaw-cb-down` | Conditions reviews get connection refused |
 | `kyverno-unconditional` | `chainsaw-legacy-user` | No `conditionsReview`, so no conditional decisions |
-| `kyverno` | all other non-system users | Default, no caching |
+| `kyverno` | all other users, including service accounts outside kube-system and kyverno | Default, no caching |
 
 A webhook `authorizedTTL` or `unauthorizedTTL` of `0s` is defaulted to 5m and
 30s. Use `cacheAuthorizedRequests: false` and `cacheUnauthorizedRequests: false`
@@ -94,6 +94,7 @@ Run the tests one at a time: AuthorizingPolicy objects are cluster-scoped.
 | `conditional-writes` | Create, update, patch, and delete decided from `object` and `oldObject`; dry-run; SubjectAccessReview API callers |
 | `pods-containers` | Containers, init containers, and ephemeral containers (`pods/ephemeralcontainers`) |
 | `residual-deny` | A satisfied Allow does not grant while a Deny or NoOpinion condition is unresolved |
+| `service-accounts` | `serviceAccount` subject selectors apply to service accounts; kube-system service accounts are excluded |
 | `unconditional-caller` | A webhook without `conditionsReview` gets unconditional, fail-closed answers |
 | `reads` | Metadata-only reads, label-selector reads, and no grant from object-dependent read rules |
 | `callback-failure` | Rejected and unreachable conditions reviews, and conditions that error |

@@ -32,5 +32,10 @@ authorizers:
         # so that context must point at Kyverno's combined /authz endpoint.
         kubeConfigContextName: kyverno-conditions
       matchConditions:
-        # Never send Kyverno's own requests or system components to the webhook.
+        # Never send control-plane components, nodes, kube-system service
+        # accounts, or Kyverno's own service accounts to the webhook. Other
+        # service accounts (system:serviceaccount:<namespace>:<name>) are sent,
+        # so policies that select the serviceAccount subject key apply to them.
+        - expression: "!request.user.startsWith('system:') || request.user.startsWith('system:serviceaccount:')"
+        - expression: "!request.user.startsWith('system:serviceaccount:kube-system:')"
         - expression: "!request.user.startsWith('system:serviceaccount:kyverno:')"

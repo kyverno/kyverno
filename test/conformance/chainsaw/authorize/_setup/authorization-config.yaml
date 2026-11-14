@@ -9,7 +9,8 @@
 # authorization-config-bootstrap.yaml back to this path; kube-apiserver
 # reloads the file without a restart.
 #
-# Every Kyverno webhook sets failurePolicy NoOpinion and excludes system users.
+# Every Kyverno webhook sets failurePolicy NoOpinion and excludes control-plane users and the
+# kube-system and Kyverno service accounts; other service accounts are sent.
 # The first four webhooks each serve one dedicated test user, so the tests can
 # exercise caching, callback failures, and unconditional callers without
 # changing kube-apiserver configuration while they run.
@@ -99,7 +100,8 @@ authorizers:
         kubeConfigFile: /etc/kubernetes/authz/kyverno-authz-kubeconfig.yaml
       matchConditions:
         - expression: "request.user == 'chainsaw-legacy-user'"
-  # Everyone else (except system users and the dedicated users above).
+  # Everyone else (except control-plane users, kube-system and Kyverno service
+  # accounts, and the dedicated users above).
   # Caching is off so policy changes apply to the next request.
   - type: Webhook
     name: kyverno
@@ -119,5 +121,9 @@ authorizers:
         version: v1alpha1
         kubeConfigContextName: kyverno-conditions
       matchConditions:
-        - expression: "!request.user.startsWith('system:')"
+        # Service accounts other than kube-system and Kyverno's own are sent, so
+        # serviceAccount subject selectors apply.
+        - expression: "!request.user.startsWith('system:') || request.user.startsWith('system:serviceaccount:')"
+        - expression: "!request.user.startsWith('system:serviceaccount:kube-system:')"
+        - expression: "!request.user.startsWith('system:serviceaccount:kyverno:')"
         - expression: "!(request.user in ['chainsaw-ttl-user', 'chainsaw-cb-rejected', 'chainsaw-cb-down', 'chainsaw-legacy-user'])"
