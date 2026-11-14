@@ -393,6 +393,23 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 			wantAllowed: true,
 		},
 		{
+			name:        "allows creating endpointslice with changing generate labels by endpointslice-controller",
+			operation:   admissionv1.Create,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpointslice with changing generate labels by endpointslice-controller",
+			operation:   admissionv1.Update,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
 			name:        "denies endpoints-controller modifying non-endpoints kind without ownerReferences",
 			operation:   admissionv1.Create,
 			username:    endpointsControllerUsername,

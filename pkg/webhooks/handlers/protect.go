@@ -55,13 +55,14 @@ func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ..
 		}
 		// Allow secondary child objects instantiated by controllers:
 		// 1. On CREATE: objects carrying ownerReferences (e.g. CertificateRequest for Certificate, EndpointSlice for Service).
-		// 2. On CREATE & UPDATE: core Endpoints managed by kube-controller-manager (endpoints-controller reconciles Endpoints
-		//    without ownerReferences, copying Service labels along with endpoint subsets).
+		// 2. On CREATE & UPDATE: core Endpoints and EndpointSlices managed by kube-controller-manager
+		//    (endpoints-controller and endpointslice-controller reconcile Service labels along with endpoint subsets).
 		if request.Operation == admissionv1.Create && len(newResource.GetOwnerReferences()) > 0 {
 			return inner(ctx, logger, request, startTime)
 		}
-		if request.Kind.Group == "" && request.Kind.Kind == "Endpoints" &&
-			(request.UserInfo.Username == endpointsControllerUsername || request.UserInfo.Username == endpointSliceControllerUsername) {
+		if (request.UserInfo.Username == endpointsControllerUsername || request.UserInfo.Username == endpointSliceControllerUsername) &&
+			((request.Kind.Group == "" && request.Kind.Kind == "Endpoints") ||
+				(request.Kind.Group == "discovery.k8s.io" && request.Kind.Kind == "EndpointSlice")) {
 			return inner(ctx, logger, request, startTime)
 		}
 		if !maps.Equal(extractKyvernoGenerateLabels(newResource.GetLabels()), extractKyvernoGenerateLabels(oldResource.GetLabels())) {
