@@ -410,6 +410,23 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 			wantAllowed: true,
 		},
 		{
+			name:        "allows creating endpointslice by endpointslice-mirroring-controller",
+			operation:   admissionv1.Create,
+			username:    endpointSliceMirrorControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpointslice by endpointslice-mirroring-controller",
+			operation:   admissionv1.Update,
+			username:    endpointSliceMirrorControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
 			name:        "denies endpoints-controller modifying non-endpoints kind without ownerReferences",
 			operation:   admissionv1.Create,
 			username:    endpointsControllerUsername,

@@ -21,8 +21,9 @@ import (
 const namespaceControllerUsername = "system:serviceaccount:kube-system:namespace-controller"
 
 const (
-	endpointsControllerUsername     = "system:serviceaccount:kube-system:endpoint-controller"
-	endpointSliceControllerUsername = "system:serviceaccount:kube-system:endpointslice-controller"
+	endpointsControllerUsername          = "system:serviceaccount:kube-system:endpoint-controller"
+	endpointSliceControllerUsername      = "system:serviceaccount:kube-system:endpointslice-controller"
+	endpointSliceMirrorControllerUsername = "system:serviceaccount:kube-system:endpointslice-mirroring-controller"
 )
 
 const generateLabelPrefix = "generate.kyverno.io/"
@@ -60,7 +61,7 @@ func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ..
 		if request.Operation == admissionv1.Create && len(newResource.GetOwnerReferences()) > 0 {
 			return inner(ctx, logger, request, startTime)
 		}
-		if (request.UserInfo.Username == endpointsControllerUsername || request.UserInfo.Username == endpointSliceControllerUsername) &&
+		if isEndpointsController(request.UserInfo.Username) &&
 			((request.Kind.Group == "" && request.Kind.Kind == "Endpoints") ||
 				(request.Kind.Group == "discovery.k8s.io" && request.Kind.Kind == "EndpointSlice")) {
 			return inner(ctx, logger, request, startTime)
@@ -94,6 +95,15 @@ func extractKyvernoGenerateLabels(labels map[string]string) map[string]string {
 
 func isControllerUsername(username string, controllerUsernames []string) bool {
 	return username != "" && slices.Contains(controllerUsernames, username)
+}
+
+func isEndpointsController(username string) bool {
+	switch username {
+	case endpointsControllerUsername, endpointSliceControllerUsername, endpointSliceMirrorControllerUsername:
+		return true
+	default:
+		return false
+	}
 }
 
 func (inner AdmissionHandler) withProtection() AdmissionHandler {
