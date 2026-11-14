@@ -120,7 +120,7 @@ jobs:
         run: test "${{ needs.hygiene.outputs.vet-result }}" = "success"
 
   sync-issue:
-if: "always() && (contains(needs.*.result, 'failure') || !contains(needs.*.result, 'cancelled')) && github.event_name == 'push'"
+    if: "always() && (contains(needs.*.result, 'failure') || !contains(needs.*.result, 'cancelled')) && github.event_name == 'push'"
     needs:
       - hygiene
       - fmt
