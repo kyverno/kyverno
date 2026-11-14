@@ -100,10 +100,15 @@ func processMAPNoBindings(policy *admissionregistrationv1beta1.MutatingAdmission
 }
 
 func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmissionPolicy, bindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespaceName string, namespace *corev1.Namespace, client dclient.Interface, gvr schema.GroupVersionResource, a admission.Attributes, resPath string, backgroundScan bool) (engineapi.EngineResponse, error) {
+	startTime := time.Now()
 	nsLister := NewCustomNamespaceLister(client)
 	matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	er := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil)
+	var (
+		selectionErr   error
+		selectionRules []*engineapi.RuleResponse
+	)
 
 	// the two nil checks and the addition of an empty selector are needed for policies that specify no namespaceSelector or objectSelector.
 	// during parsing those selectors in the DefinitionMatches function, if they are nil, they skip all resources
@@ -154,15 +159,32 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 		}
 
 		if binding.Spec.ParamRef != nil {
-			params, err := CollectParams(context.TODO(), adapters.Client(client), convertParamKind(policy.Spec.ParamKind), convertParamRef(binding.Spec.ParamRef), namespace.Name)
+			params, err := CollectParams(context.TODO(), adapters.Client(client), convertParamKind(policy.Spec.ParamKind), convertParamRef(binding.Spec.ParamRef), namespaceName)
 			if err != nil {
+				// a parameter failure is scoped to the binding that caused it, so a
+				// malformed or unsatisfied paramRef cannot mask the other bindings'
+				// results
 				mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-				return er, err
+				selectionRules = append(selectionRules, paramSelectionError(policy.GetName(), engineapi.Mutation, err).WithMAPBinding(&bindings[i]))
+				if selectionErr == nil {
+					selectionErr = err
+				}
+				continue
 			}
 
 			// a selector being present in the binding is the only case in which params will contain more than 1 entry
 			var matchedParams runtime.Object
-			if len(params) > 1 {
+			switch len(params) {
+			case 0:
+				// CollectParams returns errNoParamsFound when a selector matches no
+				// parameter under parameterNotFoundAction Deny, so an empty result here
+				// means the action allows it: Kubernetes skips the binding, so no
+				// mutation is evaluated. A ref with neither name nor selector is skipped
+				// the same way, since the API server rejects such a binding up front.
+				continue
+			case 1:
+				matchedParams = params[0]
+			default:
 				paramList := &unstructured.UnstructuredList{}
 				for _, p := range params {
 					unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(p)
@@ -170,8 +192,6 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 					paramList.Items = append(paramList.Items, *obj)
 				}
 				matchedParams = paramList
-			} else {
-				matchedParams = params[0]
 			}
 
 			newEr, err := mutateResource(policy, &bindings[i], resource, matchedParams, gvr, namespace, a, backgroundScan)
@@ -193,12 +213,17 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 			er = newEr
 		}
 	}
-	return er, nil
+	return appendParamSelectionErrors(er, selectionRules, startTime), selectionErr
 }
 
 func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmissionPolicy, bindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespace *corev1.Namespace, params []runtime.Object, gvr schema.GroupVersionResource, a admission.Attributes, resPath string, backgroundScan bool) (engineapi.EngineResponse, error) {
+	startTime := time.Now()
 	matcher := celmatching.NewMatcher()
 	er := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil)
+	var (
+		selectionErr   error
+		selectionRules []*engineapi.RuleResponse
+	)
 
 	for i, binding := range bindings {
 		if binding.Spec.MatchResources != nil {
@@ -213,12 +238,30 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 			}
 		}
 		if binding.Spec.ParamRef != nil {
+			ref := convertParamRef(binding.Spec.ParamRef)
+			if err := validateParamRef(ref); err != nil {
+				mapLogger.Error(err, "invalid paramRef for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName())
+				selectionRules = append(selectionRules, paramSelectionError(policy.GetName(), engineapi.Mutation, err).WithMAPBinding(&bindings[i]))
+				if selectionErr == nil {
+					selectionErr = err
+				}
+				continue
+			}
 			var matchedParams runtime.Object
 			paramList := &unstructured.UnstructuredList{}
 			for _, param := range params {
 				unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
 				obj := &unstructured.Unstructured{Object: unstructuredMap}
-				if matchesSelector(obj, convertParamRef(binding.Spec.ParamRef)) {
+				matched, err := matchesSelector(obj, ref)
+				if err != nil {
+					mapLogger.Error(err, "failed to select params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "param", obj.GetName(), "namespace", obj.GetNamespace())
+					selectionRules = append(selectionRules, paramSelectionError(policy.GetName(), engineapi.Mutation, err).WithMAPBinding(&bindings[i]))
+					if selectionErr == nil {
+						selectionErr = err
+					}
+					continue
+				}
+				if matched {
 					// if there is no selector, the binding will match the first resource only. match the first resource and exit
 					if binding.Spec.ParamRef.Selector == nil {
 						matchedParams = obj
@@ -230,6 +273,18 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 			// if there were resources in the parameter list, use it as the matched params
 			if len(paramList.Items) != 0 {
 				matchedParams = paramList
+			}
+			if matchedParams == nil {
+				// Kubernetes skips the binding when its paramRef selects no
+				// parameters, unless parameterNotFoundAction requires denying.
+				if ref.ParameterNotFoundAction != nil && *ref.ParameterNotFoundAction == admissionregistrationv1.DenyAction {
+					mapLogger.Error(errNoParamsFound, "no params found for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName())
+					selectionRules = append(selectionRules, paramSelectionError(policy.GetName(), engineapi.Mutation, errNoParamsFound).WithMAPBinding(&bindings[i]))
+					if selectionErr == nil {
+						selectionErr = errNoParamsFound
+					}
+				}
+				continue
 			}
 
 			newEr, err := mutateResource(policy, &bindings[i], resource, matchedParams, gvr, namespace, a, backgroundScan)
@@ -249,13 +304,20 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 			er = newEr
 		}
 	}
-	return er, nil
+	return appendParamSelectionErrors(er, selectionRules, startTime), selectionErr
 }
 
-func matchesSelector(obj *unstructured.Unstructured, ref *admissionregistrationv1.ParamRef) bool {
+// matchesSelector reports whether obj is the parameter object selected by a
+// binding's paramRef. The label selector conversion error is returned rather
+// than discarded: a discarded error yields a nil selector, and matching against
+// it panics.
+func matchesSelector(obj *unstructured.Unstructured, ref *admissionregistrationv1.ParamRef) (bool, error) {
 	if ref.Selector != nil {
-		selector, _ := metav1.LabelSelectorAsSelector(ref.Selector)
-		return selector.Matches(labels.Set(obj.GetLabels()))
+		selector, err := metav1.LabelSelectorAsSelector(ref.Selector)
+		if err != nil {
+			return false, fmt.Errorf("%w: %v", ErrInvalidParamRefSelector, err)
+		}
+		return selector.Matches(labels.Set(obj.GetLabels())), nil
 	}
 	matches := false
 	if ref.Namespace != "" {
@@ -264,7 +326,35 @@ func matchesSelector(obj *unstructured.Unstructured, ref *admissionregistrationv
 	if ref.Name != "" {
 		matches = obj.GetName() == ref.Name
 	}
-	return matches
+	return matches, nil
+}
+
+// validateParamRef validates a binding's paramRef before any parameter is
+// matched, so an invalid selector is reported even when there are no
+// parameters to match against.
+func validateParamRef(ref *admissionregistrationv1.ParamRef) error {
+	if ref.Selector == nil {
+		return nil
+	}
+	if _, err := metav1.LabelSelectorAsSelector(ref.Selector); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidParamRefSelector, err)
+	}
+	return nil
+}
+
+// paramSelectionError builds the error rule reported for a binding whose
+// paramRef cannot be resolved.
+func paramSelectionError(policyName string, ruleType engineapi.RuleType, err error) *engineapi.RuleResponse {
+	return engineapi.RuleError(policyName, ruleType, err.Error(), nil, nil)
+}
+
+// appendParamSelectionErrors records the collected per-binding paramRef errors on
+// the final response, so continuing past a malformed binding does not lose them.
+func appendParamSelectionErrors(er engineapi.EngineResponse, rules []*engineapi.RuleResponse, startTime time.Time) engineapi.EngineResponse {
+	for _, rule := range rules {
+		er.PolicyResponse.Add(engineapi.NewExecutionStats(startTime, time.Now()), *rule)
+	}
+	return er
 }
 
 func mutateResource(

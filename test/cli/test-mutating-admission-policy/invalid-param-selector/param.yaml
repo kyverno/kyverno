@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: label-params
+  namespace: default
+  labels:
+    env: prod
+data:
+  replicas: 10
