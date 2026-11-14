@@ -84,10 +84,22 @@ These policies change between PSA versions. The other policies are the same for 
 | `disallow-proc-mount-strict` | `v1.35` | Installed from `v1.35` with the Restricted profile, when `podSecurityUserNamespaces` is `true`. |
 
 ## Deploy custom policies
-If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`:
+If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`.
+
+List form:
 ````yaml
 customPolicies:
   - apiVersion: policies.kyverno.io/v1beta1
+    kind: ValidatingPolicy
+    metadata: # metadata
+    spec: # spec
+````
+
+Map form (useful for merging multiple Helm values files):
+````yaml
+customPolicies:
+  myPolicy:
+    apiVersion: policies.kyverno.io/v1beta1
     kind: ValidatingPolicy
     metadata: # metadata
     spec: # spec
@@ -127,7 +139,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | podSecurityVersion | string | `"latest"` | Kubernetes Pod Security Admission version that the Pod Security Standards policies match, the same as the `pod-security.kubernetes.io/enforce-version` namespace label. Use `latest` or a version from `v1.25` to `v1.37`, for example `v1.34`. A version newer than `v1.37` uses `v1.37`. `latest` uses the cluster's Kubernetes minor version when you install or upgrade the chart, and keeps the allow-lists of earlier chart releases, so Pods that pass today keep passing. Because of that, `latest` can allow more than Pod Security Admission does for that version. Each version-aware policy shows the version in its `kyverno.io/pod-security-version` annotation, for example `v1.34` for a pinned version or `latest (v1.30)` for `latest` on Kubernetes 1.30. |
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
-| customPolicies | list | `[]` | Additional custom policies to include. |
+| customPolicies | list | `[]` | Additional custom policies to include. Can be a list or a map (useful for merging multiple Helm values files). |
 | failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/ |
 | validationFailureAction | string | `"Audit"` | Validation failure action (`Audit`, `Enforce`). For more info https://kyverno.io/docs/policy-types/cluster-policy/validate. |
 | validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |
