@@ -20,6 +20,7 @@ metadata:
     {{- include "kyverno-policies.customAnnotations" (dict "name" $name "values" .Values) | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
+  {{- include "kyverno-policies.vpolAutogen" . | nindent 2 }}
   failurePolicy: {{ .Values.failurePolicy }}
   matchConstraints:
     resourceRules:
