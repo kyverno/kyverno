@@ -564,7 +564,7 @@ func TestConcurrencyLimit(t *testing.T) {
 	t.Parallel()
 	e := engineWith(t, StaticProvider(compileAll(t, policy("p", nil, rule("a", allowE, "true")))...), WithLimits(Limits{MaxConcurrent: 1}))
 	eng := e.(*engine)
-	release, err := eng.acquire(context.Background())
+	release, err := eng.authorize.acquire(context.Background())
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()

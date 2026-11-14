@@ -64,9 +64,11 @@ const (
 	ConditionsEnvVersion = "v1"
 	// MaxConditionsPerMap mirrors the upstream ConditionsMap limit (total over all effects).
 	MaxConditionsPerMap = authorizer.MaxConditionsPerMap
-	// definite effect condition IDs (constant `true` conditions).
-	definiteNoOpinionID = "policies.kyverno.io/definite-noopinion"
-	definiteAllowID     = "policies.kyverno.io/definite-allow"
+	// definite effect condition IDs (constant `true` conditions). Rule names
+	// are DNS labels, which cannot contain `_`, so these IDs never collide
+	// with a `<policy>/<rule>` ID, even for a policy named policies.kyverno.io.
+	definiteNoOpinionID = "policies.kyverno.io/definite_noopinion"
+	definiteAllowID     = "policies.kyverno.io/definite_allow"
 )
 
 // conditionalVerbs are the verbs that can carry a conditional decision.
@@ -87,8 +89,9 @@ type Limits struct {
 	TotalCostLimit uint64
 	// MaxConditionBytes bounds one residual condition (upstream limit).
 	MaxConditionBytes int
-	// MaxConcurrent bounds concurrent evaluations; callers wait for a slot
-	// until their context is done.
+	// MaxConcurrent bounds concurrent evaluations of each kind: SubjectAccessReviews
+	// and conditions reviews have separate pools of this size, so one kind
+	// cannot starve the other. Callers wait for a slot until their context is done.
 	MaxConcurrent int
 	// ConditionCacheSize bounds the cache of compiled condition programs.
 	ConditionCacheSize int
@@ -209,41 +212,65 @@ func (p *compiledPolicy) Applies(spec *authorizationv1.SubjectAccessReviewSpec) 
 }
 
 type engine struct {
-	provider      Provider
-	conditionsEnv *cel.Env
-	limits        Limits
-	sem           chan struct{}
-	programs      *lru.Cache
-	// celMu serializes type-checking and residual computation on shared
-	// environments. cel.dev/cel-go v0.33.2 has a data race in
-	// checker.(*Env).Catalog when a shared env reports an undeclared reference
-	// concurrently (seen with go test -race). Compiled programs are cached, so
-	// the lock is held only on cache misses and residual pruning.
-	celMu sync.Mutex
+	provider Provider
+	limits   Limits
+	// authorize serves the SubjectAccessReview path (residual self-checks);
+	// review serves the AuthorizationConditionsReview path, whose conditions
+	// come from the caller. Each has its own environment, compile lock,
+	// program cache, and concurrency slots, so conditions reviews cannot block
+	// or evict the SubjectAccessReview path.
+	authorize *conditionsPool
+	review    *conditionsPool
 }
 
-// NewEngine returns an Engine backed by the given provider.
-func NewEngine(provider Provider, opts ...Option) (Engine, error) {
+// conditionsPool compiles and caches condition programs in one conditions
+// environment and bounds concurrent evaluations.
+type conditionsPool struct {
+	env      *cel.Env
+	sem      chan struct{}
+	programs *lru.Cache
+	// mu serializes type-checking on the shared environment. cel.dev/cel-go
+	// v0.33.2 has a data race in checker.(*Env).Catalog when a shared env
+	// reports an undeclared reference concurrently (seen with go test -race).
+	// Compiled programs are cached, so the lock is held only on cache misses.
+	mu sync.Mutex
+}
+
+func newConditionsPool(limits Limits) (*conditionsPool, error) {
 	env, err := apolcompiler.NewConditionsEnv()
 	if err != nil {
 		return nil, err
 	}
-	e := &engine{provider: provider, conditionsEnv: env, limits: DefaultLimits()}
+	return &conditionsPool{
+		env:      env,
+		sem:      make(chan struct{}, limits.MaxConcurrent),
+		programs: lru.New(limits.ConditionCacheSize),
+	}, nil
+}
+
+// NewEngine returns an Engine backed by the given provider.
+func NewEngine(provider Provider, opts ...Option) (Engine, error) {
+	e := &engine{provider: provider, limits: DefaultLimits()}
 	for _, opt := range opts {
 		opt(e)
 	}
-	e.sem = make(chan struct{}, e.limits.MaxConcurrent)
-	e.programs = lru.New(e.limits.ConditionCacheSize)
+	var err error
+	if e.authorize, err = newConditionsPool(e.limits); err != nil {
+		return nil, err
+	}
+	if e.review, err = newConditionsPool(e.limits); err != nil {
+		return nil, err
+	}
 	return e, nil
 }
 
-func (e *engine) acquire(ctx context.Context) (func(), error) {
+func (p *conditionsPool) acquire(ctx context.Context) (func(), error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	select {
-	case e.sem <- struct{}{}:
-		return func() { <-e.sem }, nil
+	case p.sem <- struct{}{}:
+		return func() { <-p.sem }, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -280,7 +307,7 @@ func (e *engine) Authorize(ctx context.Context, spec *authorizationv1.SubjectAcc
 	if spec == nil {
 		return deny("failed closed: missing SubjectAccessReview spec", "spec is required")
 	}
-	release, err := e.acquire(ctx)
+	release, err := e.authorize.acquire(ctx)
 	if err != nil {
 		return deny("failed closed: no evaluation slot", err.Error())
 	}
@@ -313,6 +340,17 @@ func (e *engine) Authorize(ctx context.Context, spec *authorizationv1.SubjectAcc
 	ev := &evaluation{limits: e.limits, request: RequestValue(spec)}
 	for _, p := range applicable {
 		e.evaluatePolicy(ctx, ev, p, res)
+	}
+	if err := ev.stopped(ctx); err != nil {
+		// The cost budget or the context ran out part way. Which rules were
+		// evaluated before that depends on policy names and rule order, so
+		// discard the partial results and treat every applicable rule as an
+		// error: the outcome is Deny if any applicable Deny or NoOpinion rule
+		// exists, and otherwise NoOpinion, regardless of order.
+		res = newRuleResult()
+		for _, p := range applicable {
+			addPolicyError(res, p.Policy(), err)
+		}
 	}
 	d := decide(spec, conditionsAware, res)
 	logger.V(4).Info("authorized", "snapshot", snapshot.Generation(), "policies", len(applicable), "decision", d.Type, "cost", ev.spent.Load())

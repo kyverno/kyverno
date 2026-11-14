@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -136,11 +137,30 @@ func decide(spec *authorizationv1.SubjectAccessReviewSpec, conditionsAware bool,
 
 const maxEvaluationErrorBytes = 4096
 
+// truncate shortens s to at most n bytes plus a "..." marker. It cuts on a
+// rune boundary and drops invalid UTF-8 first: JSON encoding replaces a stray
+// byte with U+FFFD (3 bytes), which would make the value on the wire longer
+// than the byte limits kube-apiserver enforces.
 func truncate(s string, n int) string {
+	s = strings.ToValidUTF8(s, "")
 	if len(s) <= n {
 		return s
 	}
-	return s[:n] + "..."
+	return s[:runeBoundary(s, n)] + "..."
+}
+
+// runeBoundary returns the largest k <= n such that s[:k] ends on a rune boundary.
+func runeBoundary(s string, n int) int {
+	if n <= 0 {
+		return 0
+	}
+	if n >= len(s) {
+		return len(s)
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return n
 }
 
 func joinIDs(ids []string) string {
@@ -148,16 +168,16 @@ func joinIDs(ids []string) string {
 }
 
 func constantCondition(id string, rules []string) authorizationv1.Condition {
-	desc := "definite effect of " + strings.Join(rules, ", ")
-	if len(desc) > authorizer.MaxConditionDescriptionBytes {
-		desc = desc[:authorizer.MaxConditionDescriptionBytes]
-	}
+	desc := truncate("definite effect of "+strings.Join(rules, ", "), authorizer.MaxConditionDescriptionBytes-3)
 	return authorizationv1.Condition{ID: id, Condition: "true", Type: ConditionType, Description: desc}
 }
 
 // RequestValue converts a SubjectAccessReviewSpec into the CEL `request`
 // value. All scalar fields are always present so expressions do not fail on
-// omitted (empty) JSON fields.
+// omitted (empty) JSON fields. Optional object fields (resourceAttributes,
+// nonResourceAttributes, and the label and field selectors) are omitted when
+// the SubjectAccessReview omits them, so `has()` reports their absence as it
+// does in kube-apiserver matchConditions.
 func RequestValue(spec *authorizationv1.SubjectAccessReviewSpec) map[string]any {
 	groups := make([]any, 0, len(spec.Groups))
 	for _, g := range spec.Groups {
@@ -172,12 +192,10 @@ func RequestValue(spec *authorizationv1.SubjectAccessReviewSpec) map[string]any 
 		extra[k] = vals
 	}
 	out := map[string]any{
-		"user":                  spec.User,
-		"groups":                groups,
-		"uid":                   spec.UID,
-		"extra":                 extra,
-		"resourceAttributes":    nil,
-		"nonResourceAttributes": nil,
+		"user":   spec.User,
+		"groups": groups,
+		"uid":    spec.UID,
+		"extra":  extra,
 	}
 	if ra := spec.ResourceAttributes; ra != nil {
 		attrs := map[string]any{
@@ -189,8 +207,11 @@ func RequestValue(spec *authorizationv1.SubjectAccessReviewSpec) map[string]any 
 			"subresource": ra.Subresource,
 			"name":        ra.Name,
 		}
-		for key, sel := range map[string]any{"fieldSelector": ra.FieldSelector, "labelSelector": ra.LabelSelector} {
-			attrs[key] = toJSONValue(sel)
+		if ra.FieldSelector != nil {
+			attrs["fieldSelector"] = toJSONValue(ra.FieldSelector)
+		}
+		if ra.LabelSelector != nil {
+			attrs["labelSelector"] = toJSONValue(ra.LabelSelector)
 		}
 		out["resourceAttributes"] = attrs
 	}

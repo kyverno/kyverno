@@ -29,10 +29,24 @@ import (
 // the full expression would.
 func (e *engine) residual(ev *evaluation, pol *apolcompiler.Policy, rule apolcompiler.CompiledRule, details *cel.EvalDetails, vars *lazy.MapValue) (string, error) {
 	expr, src, err := pruned(rule.AST, details)
-	if err != nil {
-		logger.V(4).Info("residual pruning failed, capturing the source expression", "policy", pol.Policy.Name, "rule", rule.Name, "error", err)
-		expr, src = rule.AST.NativeRep().Expr(), rule.Expression
+	if err == nil {
+		out, perr := e.selfContained(ev, pol, expr, src, vars)
+		if perr == nil {
+			return out, nil
+		}
+		err = perr
 	}
+	// Pruning can fail, or fold a known sub-expression into one that no longer
+	// compiles (for example `int("")`), although full evaluation would have
+	// short-circuited it. Capture the unpruned source expression instead,
+	// which evaluates exactly as the full expression would.
+	logger.V(4).Info("pruned residual unusable, capturing the source expression", "policy", pol.Policy.Name, "rule", rule.Name, "error", err)
+	return e.selfContained(ev, pol, rule.AST.NativeRep().Expr(), rule.Expression, vars)
+}
+
+// selfContained binds the `request` and `variables` values an expression uses
+// and checks that the result compiles in the conditions environment.
+func (e *engine) selfContained(ev *evaluation, pol *apolcompiler.Policy, expr ast.Expr, src string, vars *lazy.MapValue) (string, error) {
 	refs := freeReferences(expr)
 	builder := newLiteralBuilder(ev.limits.MaxValueDepth)
 	if r, ok := refs[celcompiler.VariablesKey]; ok {
@@ -60,7 +74,7 @@ func (e *engine) residual(ev *evaluation, pol *apolcompiler.Policy, rule apolcom
 	// The residual must compile in the conditions environment, which declares
 	// only object and oldObject: it is self-contained. Compiled programs are
 	// cached, so a repeated residual is not parsed again on the request path.
-	if _, err := e.program(src); err != nil {
+	if _, err := e.authorize.program(src); err != nil {
 		return "", fmt.Errorf("residual %q is not self-contained: %w", truncate(src, 256), err)
 	}
 	return src, nil
@@ -177,25 +191,25 @@ func toInterfaceMap(in map[string]ref.Val) map[string]any {
 
 // program returns the cached program of a condition, compiling it in the
 // conditions environment on a cache miss.
-func (e *engine) program(expr string) (cel.Program, error) {
-	if cached, ok := e.programs.Get(expr); ok {
+func (p *conditionsPool) program(expr string) (cel.Program, error) {
+	if cached, ok := p.programs.Get(expr); ok {
 		if prog, ok := cached.(cel.Program); ok {
 			return prog, nil
 		}
 	}
-	e.celMu.Lock()
-	checked, iss := e.conditionsEnv.Compile(expr)
-	e.celMu.Unlock()
+	p.mu.Lock()
+	checked, iss := p.env.Compile(expr)
+	p.mu.Unlock()
 	if iss.Err() != nil {
 		return nil, iss.Err()
 	}
 	if out := checked.OutputType(); !out.IsExactType(types.BoolType) && !out.IsExactType(types.DynType) {
 		return nil, fmt.Errorf("condition must evaluate to bool, got %v", out)
 	}
-	prog, err := celcompiler.NewProgram(e.conditionsEnv, checked, apolcompiler.ProgramOptions(false)...)
+	prog, err := celcompiler.NewProgram(p.env, checked, apolcompiler.ProgramOptions(false)...)
 	if err != nil {
 		return nil, err
 	}
-	e.programs.Add(expr, prog)
+	p.programs.Add(expr, prog)
 	return prog, nil
 }

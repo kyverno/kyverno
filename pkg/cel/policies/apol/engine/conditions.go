@@ -50,7 +50,7 @@ func (e *engine) EvaluateConditions(ctx context.Context, decision *authorization
 	if size := len(admission.Object.Raw) + len(admission.OldObject.Raw); size > e.limits.MaxObjectBytes {
 		return failure("admission objects too large", fmt.Errorf("object and oldObject are %d bytes, more than the %d byte limit", size, e.limits.MaxObjectBytes))
 	}
-	release, err := e.acquire(ctx)
+	release, err := e.review.acquire(ctx)
 	if err != nil {
 		return failure("no evaluation slot", err)
 	}
@@ -72,7 +72,7 @@ func (e *engine) EvaluateConditions(ctx context.Context, decision *authorization
 		if err := ev.stopped(ctx); err != nil {
 			return false, err
 		}
-		prog, err := e.program(cond.GetCondition())
+		prog, err := e.review.program(cond.GetCondition())
 		if err != nil {
 			return false, err
 		}
