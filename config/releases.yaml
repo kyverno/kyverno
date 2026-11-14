@@ -1,5 +1,7 @@
 # Read from the release commit, not from the default branch.
-# Chart patches and prereleases belong exclusively to the application sequence.
+# Chart patches and prereleases follow the application sequence by default; a chart-only
+# failover tag (docs/dev/releases/create-a-release.md) can take a version, and the
+# application release then moves to the next free one.
 dependencies:
   kyverno-api-0.0.1-alpha.5.tgz: 83b6db6576b0365dcb53aaf73300b666bae910099e1499267fce44fc3fd02901
   openreports-0.1.0.tgz: 3ad112726e16cb29253c9e2fabcd8f3e7113580d98e0b712a1e67f25d03ba2dd
