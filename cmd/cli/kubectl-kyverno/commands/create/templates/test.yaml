@@ -21,8 +21,15 @@ results:
 {{- range .Results }}
   - policy: {{ .Policy }}
     rule: {{ .Rule }}
-    resource: {{ .Resource }}
-    namespace: {{ .Namespace }}
+    resources:
+      {{- if .Namespace }}
+      - {{ printf "%s/%s" .Namespace .Resource | printf "%q" }}
+      {{- else }}
+      - {{ printf "%q" .Resource }}
+      {{- end }}
     kind: {{ .Kind }}
+    {{- if .PatchedResource }}
+    patchedResources: {{ printf "%q" .PatchedResource }}
+    {{- end }}
     result: {{ .Result }}
 {{- end }}
