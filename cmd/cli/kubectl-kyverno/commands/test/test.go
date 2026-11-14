@@ -696,6 +696,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				gceMap,
 				contextProvider,
 				dpolProvider,
+				true,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -831,6 +832,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				gceMap,
 				jsonContextProvider,
 				dpolJSONProvider,
+				false,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.name, err)
@@ -1016,7 +1018,7 @@ func applyImageValidatingPolicies(
 			false,
 			nil,
 		)
-		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
+		engineResponse, err := engine.HandleValidating(context.TODO(), request, processor.InNamespaceScope[policiesv1beta1.ImageValidatingPolicyLike](resource.GetNamespace()))
 		if err != nil {
 			if continueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -1125,6 +1127,7 @@ func applyDeletingPolicies(
 	gceMap map[string]interface{},
 	cachedContext libs.Context,
 	cachedDpolProvider dpolengine.ProviderFunc,
+	scopeToNamespace bool,
 ) ([]engineapi.EngineResponse, error) {
 	if restMapper == nil {
 		var mapErr error
@@ -1168,6 +1171,11 @@ func applyDeletingPolicies(
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		for _, dpol := range policies {
+			// Only the resource pass is scoped to a namespaced policy's namespace;
+			// JSON payloads are evaluated as before.
+			if scopeToNamespace && !processor.InNamespaceScope[policiesv1beta1.DeletingPolicyLike](resource.GetNamespace())(dpol.Policy) {
+				continue
+			}
 			genericPolicy := engineapi.NewDeletingPolicyFromLike(dpol.Policy)
 			if genericPolicy == nil {
 				return nil, fmt.Errorf("unsupported deleting policy type %T", dpol.Policy)
