@@ -200,6 +200,18 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 	matcher := celmatching.NewMatcher()
 	er := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil)
 
+	if policy.Spec.MatchConstraints != nil {
+		matchResources := ConvertMatchResources(policy.Spec.MatchConstraints)
+		isMatch, err := matcher.Match(&celmatching.MatchCriteria{Constraints: matchResources}, a, namespace)
+		if err != nil {
+			mapLogger.Error(err, "failed to match resource against mutatingadmissionpolicy constraints", "policy", policy.GetName(), "resource", resPath)
+			return er, err
+		}
+		if !isMatch {
+			return er, nil
+		}
+	}
+
 	for i, binding := range bindings {
 		if binding.Spec.MatchResources != nil {
 			matchResources := ConvertMatchResources(binding.Spec.MatchResources)
