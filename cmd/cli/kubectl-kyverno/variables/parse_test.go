@@ -5,6 +5,9 @@ import (
 	"testing"
 )
 
+// Test_parse covers the --set entry parser: accepted "key=value" entries,
+// values that themselves contain "=", and the entries parse ignores (missing
+// "=", empty key or value, "request.object." keys, duplicates).
 func Test_parse(t *testing.T) {
 	tests := []struct {
 		name string
@@ -57,6 +60,24 @@ func Test_parse(t *testing.T) {
 			"object.data": "123",
 			"object.spec": "abc",
 		},
+	}, {
+		name: "value containing equals",
+		vars: []string{
+			"url=https://example.com/api?a=1&b=2",
+			"token=aGVsbG8=",
+			"expr=a==b",
+		},
+		want: map[string]string{
+			"url":   "https://example.com/api?a=1&b=2",
+			"token": "aGVsbG8=",
+			"expr":  "a==b",
+		},
+	}, {
+		name: "empty key with equals in value",
+		vars: []string{
+			"=a=b",
+		},
+		want: nil,
 	}, {
 		name: "mixed",
 		vars: []string{

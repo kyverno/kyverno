@@ -6,17 +6,26 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 )
 
+// parse turns "key=value" entries (as given to --set) into a map.
+//
+// Each entry is split on its first "=" so values may themselves contain "="
+// (URLs with query strings, base64 padding, connection strings). Entries are
+// ignored, with a V(3) log line, when they have no "=", an empty key or value,
+// a key containing "request.object.", or a key already seen (first one wins).
+// It returns nil when no entry was kept.
 func parse(vars ...string) map[string]string {
 	result := map[string]string{}
 	for _, variable := range vars {
 		variable = strings.TrimSpace(variable)
-		kvs := strings.Split(variable, "=")
-		if len(kvs) != 2 {
+		// split on the first "=" only so that values containing "=" (URLs with
+		// query strings, base64 padding, connection strings, ...) are preserved
+		rawKey, rawValue, found := strings.Cut(variable, "=")
+		if !found {
 			log.Log.V(3).Info("ignored variable", "variable", variable)
 			continue
 		}
-		key := strings.TrimSpace(kvs[0])
-		value := strings.TrimSpace(kvs[1])
+		key := strings.TrimSpace(rawKey)
+		value := strings.TrimSpace(rawValue)
 		if len(value) == 0 || len(key) == 0 {
 			log.Log.V(3).Info("ignored variable", "variable", variable)
 			continue
