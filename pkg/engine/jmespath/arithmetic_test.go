@@ -773,6 +773,7 @@ func Test_Round(t *testing.T) {
 		name           string
 		test           string
 		expectedResult interface{}
+		expectedError  string
 		err            bool
 		retFloat       bool
 	}{
@@ -810,6 +811,48 @@ func Test_Round(t *testing.T) {
 			test: "round(`14`, `-2`)",
 			err:  true,
 		},
+		{
+			name:          "Precision overflows scale factor",
+			test:          "round(`1.25`, `309`)",
+			expectedError: "JMESPath function 'round': precision exceeds the supported numeric range",
+			err:           true,
+		},
+		{
+			name:          "Positive input overflows during scaling",
+			test:          "round(`1e308`, `2`)",
+			expectedError: "JMESPath function 'round': rounding produced a non-finite result",
+			err:           true,
+		},
+		{
+			name:          "Negative input overflows during scaling",
+			test:          "round(`-1e308`, `2`)",
+			expectedError: "JMESPath function 'round': rounding produced a non-finite result",
+			err:           true,
+		},
+		{
+			name:          "Zero with overflowing precision",
+			test:          "round(`0`, `309`)",
+			expectedError: "JMESPath function 'round': precision exceeds the supported numeric range",
+			err:           true,
+		},
+		{
+			name:           "Large finite input without scaling",
+			test:           "round(`1e308`, `0`)",
+			expectedResult: float64(1e308),
+			retFloat:       true,
+		},
+		{
+			name:           "Negative halfway value",
+			test:           "round(`-1.25`, `1`)",
+			expectedResult: -1.3,
+			retFloat:       true,
+		},
+		{
+			name:           "Zero with ordinary precision",
+			test:           "round(`0`, `2`)",
+			expectedResult: float64(0),
+			retFloat:       true,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -821,6 +864,9 @@ func Test_Round(t *testing.T) {
 				assert.NilError(t, err)
 			} else {
 				assert.Assert(t, err != nil)
+				if tc.expectedError != "" {
+					assert.ErrorContains(t, err, tc.expectedError)
+				}
 				return
 			}
 
