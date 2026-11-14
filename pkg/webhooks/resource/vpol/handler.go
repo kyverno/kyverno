@@ -63,6 +63,9 @@ func (h *handler) ValidateClustered(ctx context.Context, logger logr.Logger, adm
 }
 
 func (h *handler) ValidateNamespaced(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	if admissionRequest.Namespace == "" {
+		return admissionutils.ResponseSuccess(admissionRequest.UID)
+	}
 	var policies []string
 	if params := httprouter.ParamsFromContext(ctx); params != nil {
 		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
