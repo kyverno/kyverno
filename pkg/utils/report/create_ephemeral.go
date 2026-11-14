@@ -3,6 +3,7 @@ package report
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -13,7 +14,7 @@ import (
 )
 
 func IsPolicyReportable(pol metav1.Object) bool {
-	if pol == nil { // invalid behavior
+	if pol == nil || (reflect.ValueOf(pol).Kind() == reflect.Ptr && reflect.ValueOf(pol).IsNil()) {
 		return false
 	}
 	labels := pol.GetLabels()
