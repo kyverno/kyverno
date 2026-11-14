@@ -31,10 +31,6 @@ tests:
     owner: aerosouund
     issue: https://github.com/kyverno/kyverno/issues/18640
     expires: '2026-12-31'
-  - path: generating-policies/clone/sync/sync-modify-downstream
-    owner: aerosouund
-    issue: https://github.com/kyverno/kyverno/issues/18641
-    expires: '2026-12-31'
   - path: generating-policies/data/sync/sync-modify-downstream
     owner: aerosouund
     issue: https://github.com/kyverno/kyverno/issues/18642
