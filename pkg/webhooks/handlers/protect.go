@@ -24,7 +24,7 @@ const (
 	kubeControllerManagerUsername         = "system:kube-controller-manager"
 	endpointsControllerUsername           = "system:serviceaccount:kube-system:endpoint-controller"
 	endpointSliceControllerUsername       = "system:serviceaccount:kube-system:endpointslice-controller"
-	endpointSliceMirrorControllerUsername = "system:serviceaccount:kube-system:endpointslice-mirroring-controller"
+	endpointSliceMirrorControllerUsername = "system:serviceaccount:kube-system:endpointslicemirroring-controller"
 )
 
 const generateLabelPrefix = "generate.kyverno.io/"
