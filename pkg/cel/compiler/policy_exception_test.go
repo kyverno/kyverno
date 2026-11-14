@@ -1,11 +1,15 @@
-package compiler
+package compiler_test
 
 import (
 	"fmt"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func TestCompilePolicyExceptionMatchConditions(t *testing.T) {
@@ -65,10 +69,10 @@ func TestCompilePolicyExceptionMatchConditions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			errs := CompilePolicyExceptionMatchConditions([]admissionregistrationv1.MatchCondition{{
+			errs := compileConditions(t, []admissionregistrationv1.MatchCondition{{
 				Name:       "test-condition",
 				Expression: tt.expression,
-			}}, nil)
+			}})
 			if tt.wantErrors {
 				assert.NotEmpty(t, errs)
 				assert.Equal(t, "spec.matchConditions[0].expression", errs[0].Field)
@@ -79,45 +83,31 @@ func TestCompilePolicyExceptionMatchConditions(t *testing.T) {
 	}
 }
 
-func TestCompilePolicyExceptionMatchConditionsStoredResourceGet(t *testing.T) {
-	expression := `resource.Get("v1", "namespaces", "", object.metadata.namespace).metadata.labels["team"] == "infra"`
-
-	errs := CompilePolicyExceptionMatchConditions(
-		[]admissionregistrationv1.MatchCondition{{
-			Name:       "resource-get",
-			Expression: expression,
-		}},
-		map[string]bool{expression: true},
-	)
-
-	assert.Empty(t, errs)
-}
-
 func TestCompilePolicyExceptionMatchConditionsStructure(t *testing.T) {
 	t.Parallel()
 	t.Run("duplicate names", func(t *testing.T) {
 		t.Parallel()
-		errs := CompilePolicyExceptionMatchConditions([]admissionregistrationv1.MatchCondition{
+		errs := compileConditions(t, []admissionregistrationv1.MatchCondition{
 			{Name: "duplicate", Expression: "true"},
 			{Name: "duplicate", Expression: "true"},
-		}, nil)
+		})
 		assert.NotEmpty(t, errs)
 		assert.Equal(t, "spec.matchConditions[1].name", errs[0].Field)
 	})
 	t.Run("empty expression", func(t *testing.T) {
 		t.Parallel()
-		errs := CompilePolicyExceptionMatchConditions([]admissionregistrationv1.MatchCondition{{
+		errs := compileConditions(t, []admissionregistrationv1.MatchCondition{{
 			Name: "empty",
-		}}, nil)
+		}})
 		assert.NotEmpty(t, errs)
 		assert.Equal(t, "spec.matchConditions[0].expression", errs[0].Field)
 	})
 	t.Run("invalid name", func(t *testing.T) {
 		t.Parallel()
-		errs := CompilePolicyExceptionMatchConditions([]admissionregistrationv1.MatchCondition{{
+		errs := compileConditions(t, []admissionregistrationv1.MatchCondition{{
 			Name:       "not a qualified name",
 			Expression: "true",
-		}}, nil)
+		}})
 		assert.NotEmpty(t, errs)
 		assert.Equal(t, "spec.matchConditions[0].name", errs[0].Field)
 	})
@@ -130,8 +120,15 @@ func TestCompilePolicyExceptionMatchConditionsStructure(t *testing.T) {
 				Expression: "true",
 			}
 		}
-		errs := CompilePolicyExceptionMatchConditions(conditions, nil)
+		errs := compileConditions(t, conditions)
 		assert.NotEmpty(t, errs)
 		assert.Equal(t, "spec.matchConditions", errs[0].Field)
 	})
+}
+
+func compileConditions(t *testing.T, conditions []admissionregistrationv1.MatchCondition) field.ErrorList {
+	t.Helper()
+	env, err := vpolcompiler.NewExceptionEnv("")
+	require.NoError(t, err)
+	return compiler.CompilePolicyExceptionMatchConditions(env, conditions)
 }

@@ -6,6 +6,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	kyvernoreports "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
@@ -38,9 +39,11 @@ func Test_policyKindForSource(t *testing.T) {
 
 func compileMatchExpression(t *testing.T, expression string) {
 	t.Helper()
-	errs := compiler.CompilePolicyExceptionMatchConditions([]admissionregistrationv1.MatchCondition{
+	env, err := vpolcompiler.NewExceptionEnv("")
+	require.NoError(t, err)
+	errs := compiler.CompilePolicyExceptionMatchConditions(env, []admissionregistrationv1.MatchCondition{
 		{Name: "match-resource", Expression: expression},
-	}, nil)
+	})
 	assert.Empty(t, errs, "expression %q failed to compile: %v", expression, errs)
 }
 

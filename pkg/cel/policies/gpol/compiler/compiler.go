@@ -107,6 +107,7 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 					resource.Context{ContextInterface: libsctx},
 					namespace,
 					resource.Latest(),
+					false,
 				),
 				image.Lib(
 					image.Latest(),
@@ -148,6 +149,7 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 				http.Lib(
 					http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
 					http.Latest(),
+					false,
 				),
 			},
 		},

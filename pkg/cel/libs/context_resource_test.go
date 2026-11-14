@@ -244,7 +244,7 @@ func Test_NamespacedPolicyReadsItsOwnNamespace(t *testing.T) {
 // take no namespace argument.
 func evalNamespacedResourceExpr(t *testing.T, cp *contextProvider, policyNamespace, expr string) (any, error) {
 	t.Helper()
-	env, err := cel.NewEnv(resource.Lib(resource.Context{ContextInterface: cp}, policyNamespace, resource.Latest()))
+	env, err := cel.NewEnv(resource.Lib(resource.Context{ContextInterface: cp}, policyNamespace, resource.Latest(), false))
 	require.NoError(t, err)
 	ast, iss := env.Compile(expr)
 	require.NoError(t, iss.Err())
