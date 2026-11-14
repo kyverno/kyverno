@@ -1335,7 +1335,7 @@ admissionController:
     enabled: false
     # -- Configures the minimum available pods for disruptions.
     # Cannot be used if `maxUnavailable` is set.
-    minAvailable: 1
+    minAvailable:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
@@ -1847,7 +1847,7 @@ backgroundController:
     enabled: false
     # -- Configures the minimum available pods for disruptions.
     # Cannot be used if `maxUnavailable` is set.
-    minAvailable: 1
+    minAvailable:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
@@ -2268,7 +2268,7 @@ cleanupController:
     enabled: false
     # -- Configures the minimum available pods for disruptions.
     # Cannot be used if `maxUnavailable` is set.
-    minAvailable: 1
+    minAvailable:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
@@ -2618,7 +2618,7 @@ reportsController:
     enabled: false
     # -- Configures the minimum available pods for disruptions.
     # Cannot be used if `maxUnavailable` is set.
-    minAvailable: 1
+    minAvailable:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
