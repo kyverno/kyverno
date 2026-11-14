@@ -12,13 +12,21 @@ import (
 // break match conditions and message expressions.
 var protectedSuffixes = [][]byte{
 	[]byte(".namespace"),
+	[]byte(".?namespace"),
 	[]byte(".name"),
+	[]byte(".?name"),
 	[]byte("['name']"),
+	[]byte("[?'name']"),
 	[]byte("[\"name\"]"),
+	[]byte("[?\"name\"]"),
 	[]byte("[\\\"name\\\"]"),
+	[]byte("[?\\\"name\\\"]"),
 	[]byte("['namespace']"),
+	[]byte("[?'namespace']"),
 	[]byte("[\"namespace\"]"),
+	[]byte("[?\"namespace\"]"),
 	[]byte("[\\\"namespace\\\"]"), // Handle JSON-escaped namespace paths
+	[]byte("[?\\\"namespace\\\"]"),
 }
 
 type Replacement struct {

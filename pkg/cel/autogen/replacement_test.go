@@ -140,6 +140,48 @@ func TestApplyRewritesExpressions(t *testing.T) {
 			want:   "object.metadata[\\\"name\\\"]",
 		},
 		{
+			name:   "optional dot field metadata.?name is preserved",
+			expr:   "object.metadata.?name",
+			config: "deployments",
+			want:   "object.metadata.?name",
+		},
+		{
+			name:   "optional dot field oldObject metadata.?name is preserved",
+			expr:   "oldObject.metadata.?name",
+			config: "deployments",
+			want:   "oldObject.metadata.?name",
+		},
+		{
+			name:   "optional dot field metadata.?name with orValue is preserved",
+			expr:   "object.metadata.?name.orValue('')",
+			config: "deployments",
+			want:   "object.metadata.?name.orValue('')",
+		},
+		{
+			name:   "optional single-quoted index metadata[?'name'] is preserved",
+			expr:   "object.metadata[?'name']",
+			config: "deployments",
+			want:   "object.metadata[?'name']",
+		},
+		{
+			name:   "optional double-quoted index metadata[?\"name\"] is preserved",
+			expr:   "object.metadata[?\"name\"]",
+			config: "deployments",
+			want:   "object.metadata[?\"name\"]",
+		},
+		{
+			name:   "optional dot field metadata.?namespace is preserved",
+			expr:   "object.metadata.?namespace",
+			config: "deployments",
+			want:   "object.metadata.?namespace",
+		},
+		{
+			name:   "optional index metadata[?'namespace'] is preserved",
+			expr:   "object.metadata[?'namespace']",
+			config: "deployments",
+			want:   "object.metadata[?'namespace']",
+		},
+		{
 			name:   "user content containing protected sentinel-like text is not corrupted",
 			expr:   "object.metadata.labels['__KYVERNO_PROTECTED_OBJECT_METADATA_NAMESPACE__'] == 'x'",
 			config: "deployments",
