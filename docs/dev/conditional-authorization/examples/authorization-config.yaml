@@ -1,7 +1,14 @@
 # kube-apiserver --authorization-config file.
-# Requires kube-apiserver v1.38 (alpha) started with
+# Requires kube-apiserver 1.38 started with
 #   --feature-gates=ConditionalAuthorization=true
-# Kubernetes v1.38 is tracked against v0.38.0-beta.0 here; that is a pre-release.
+# Tested with Kubernetes v1.38.0-beta.0, which is a pre-release, not a final
+# 1.38 release.
+#
+# Order: Node, then RBAC, then Kyverno. Kyverno only sees requests that Node and
+# RBAC did not allow, so a broken Kyverno cannot lock out cluster components or
+# administrators. To recover, replace this file with
+# authorization-config-bootstrap.yaml; kube-apiserver reloads it without a
+# restart.
 apiVersion: apiserver.config.k8s.io/v1
 kind: AuthorizationConfiguration
 authorizers:
@@ -18,11 +25,18 @@ authorizers:
       matchConditionSubjectAccessReviewVersion: v1
       # Kyverno is one authorizer in the chain; NoOpinion defers to the next one.
       failurePolicy: NoOpinion
-      authorizedTTL: 0s
-      unauthorizedTTL: 0s
+      # Turn off decision caching so that policy updates and deletions take
+      # effect on the next request. Use the cache* fields: a TTL of 0s does not
+      # turn caching off, because kube-apiserver defaults it to 5m (authorized,
+      # which includes conditional decisions) and 30s (unauthorized). The TTLs
+      # below apply only if you turn caching back on.
+      authorizedTTL: 1s
+      unauthorizedTTL: 1s
+      cacheAuthorizedRequests: false
+      cacheUnauthorizedRequests: false
       connectionInfo:
         type: KubeConfigFile
-        kubeConfigFile: /etc/kubernetes/kyverno-authz-kubeconfig.yaml
+        kubeConfigFile: /etc/kubernetes/authz/kyverno-authz-kubeconfig.yaml
       # Enables conditional decisions. Without this block kube-apiserver does not
       # send authorizationOptions, and Kyverno answers unconditionally (fail closed).
       conditionsReview:

@@ -1,0 +1,11 @@
+# Break-glass kube-apiserver --authorization-config file: Node and RBAC only.
+# Copy this file over the active authorization configuration to take Kyverno
+# out of the authorizer chain. kube-apiserver reloads the file without a
+# restart; the same file also works at kube-apiserver startup.
+apiVersion: apiserver.config.k8s.io/v1
+kind: AuthorizationConfiguration
+authorizers:
+  - type: Node
+    name: node
+  - type: RBAC
+    name: rbac

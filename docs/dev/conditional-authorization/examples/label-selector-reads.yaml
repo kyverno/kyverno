@@ -1,0 +1,28 @@
+# Members of group "team-a" may list and watch ConfigMaps only when the request
+# carries the label selector team=a. Kyverno does not infer selectors: a list
+# without this selector gets NoOpinion from this policy.
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: team-a-selector-reads
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: groups
+          operator: In
+          values: ["team-a"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["list", "watch"]
+  rules:
+    - name: team-a-selector
+      effect: Allow
+      description: list and watch with the team=a label selector
+      expression: >-
+        has(request.resourceAttributes.labelSelector) &&
+        has(request.resourceAttributes.labelSelector.requirements) &&
+        request.resourceAttributes.labelSelector.requirements.exists(r,
+          r.key == 'team' && r.operator == 'In' && r.values == ['a'])
