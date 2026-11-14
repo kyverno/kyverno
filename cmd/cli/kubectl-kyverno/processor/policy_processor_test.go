@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -18,6 +20,7 @@ import (
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"gotest.tools/v3/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -797,4 +800,77 @@ func Test_GetNamespaceResolver(t *testing.T) {
 		// Memoized resolver shares the exact same cache instance, issuing no additional GET
 		assert.Equal(t, len(kclientMemo.Actions()), actionsBefore+1)
 	})
+
+}
+
+func Test_printOutput_writeToFile(t *testing.T) {
+	tests := []struct {
+		name          string
+		isGenerate    bool
+		resource      map[string]interface{}
+		response      engineapi.EngineResponse
+		wantInContent []string
+	}{
+		{
+			name:       "non-generate write, no patched targets",
+			isGenerate: false,
+			resource: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+				"metadata":   map[string]interface{}{"name": "nginx"},
+			},
+			response:      engineapi.EngineResponse{},
+			wantInContent: []string{"kind: Pod"},
+		},
+		{
+			name:       "generate write with patched target",
+			isGenerate: true,
+			resource: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+				"metadata":   map[string]interface{}{"name": "nginx"},
+			},
+			response: func() engineapi.EngineResponse {
+				vpol := &policiesv1beta1.ValidatingPolicy{}
+				vpol.SetName("test-generate-policy")
+
+				patchedTarget := &unstructured.Unstructured{Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata":   map[string]interface{}{"name": "patched-target"},
+				}}
+
+				rule := engineapi.NewRuleResponse("generate-rule", engineapi.Generation, "generated", engineapi.RuleStatusPass, nil).
+					WithPatchedTarget(patchedTarget, metav1.GroupVersionResource{Version: "v1", Resource: "configmaps"}, "")
+
+				resp := engineapi.NewEngineResponse(unstructured.Unstructured{}, engineapi.NewValidatingPolicy(vpol), nil)
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{*rule}
+				return resp
+			}(),
+			wantInContent: []string{"kind: Pod", "kind: ConfigMap", "patched-target"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			logPath := filepath.Join(tmpDir, "mutate.yaml")
+			assert.NilError(t, os.WriteFile(logPath, nil, 0o600))
+
+			p := &PolicyProcessor{
+				MutateLogPath:      logPath,
+				MutateLogPathIsDir: false,
+			}
+
+			err := p.printOutput(tt.resource, tt.response, "resource-path", tt.isGenerate)
+			assert.NilError(t, err)
+
+			got, readErr := os.ReadFile(logPath)
+			assert.NilError(t, readErr)
+			for _, want := range tt.wantInContent {
+				assert.Assert(t, strings.Contains(string(got), want),
+					"expected %q in log file; got: %s", want, string(got))
+			}
+		})
+	}
 }
