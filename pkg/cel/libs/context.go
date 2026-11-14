@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	"github.com/kyverno/kyverno/pkg/image/datacache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/cel/libs/generator"
@@ -151,12 +152,27 @@ func (cp *contextProvider) GetImageDataContext(ctx context.Context, image string
 	// the current state means we are using the flags of the registry client to denote whether we use the name insecure option here
 	// so we aren't honoring it per policy. but if we did per policy, then a policy without anything wouldn't pass this opt
 	// but the if the flag is set, the registry client opts will come with the name insecure option
-	data, err := cp.imagedata.FetchImageData(ctx, image, remoteOpts, nil)
-	if err != nil {
-		return nil, err
+	fetch := func(ctx context.Context) (map[string]any, error) {
+		data, err := cp.imagedata.FetchImageData(ctx, image, remoteOpts, nil)
+		if err != nil {
+			return nil, err
+		}
+		return utils.GetValue(data.Data())
 	}
-	return utils.GetValue(data.Data())
+	// remoteOpts are opaque functions that cannot be part of a cache key, so
+	// lookups that pass them bypass the cache. ImageValidatingPolicy always passes
+	// them, even without credentials, so it is never cached.
+	if imageDataCache != nil && len(remoteOpts) == 0 {
+		return imageDataCache.Get(ctx, image, fetch)
+	}
+	return fetch(ctx)
 }
+
+var imageDataCache datacache.Client
+
+// SetImageDataCache enables cross-request caching of image.GetMetadata results.
+// Call it once at startup, before any evaluation; nil disables the cache.
+func SetImageDataCache(c datacache.Client) { imageDataCache = c }
 
 func (cp *contextProvider) ListResources(apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
 	return cp.ListResourcesContext(context.TODO(), apiVersion, resource, namespace, l)

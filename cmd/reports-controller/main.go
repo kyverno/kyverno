@@ -324,6 +324,7 @@ func main() {
 		internal.WithCosign(),
 		internal.WithRegistryClient(),
 		internal.WithImageVerifyCache(),
+		internal.WithImageDataCache(),
 		internal.WithLeaderElection(),
 		internal.WithKyvernoClient(),
 		internal.WithDynamicClient(),
