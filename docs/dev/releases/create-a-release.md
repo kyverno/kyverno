@@ -161,7 +161,8 @@ members, not an emulated test of every architecture.
 - installation of the exact staged install manifest across supported Kubernetes
   versions, using the same locally loaded staged image tags.
 
-Release conformance does not apply the routine workflow's quarantine list.
+Release conformance ignores the quarantine list in
+`test/conformance/quarantine.yaml` and runs every test.
 Failures, cancellations, and skipped mandatory jobs cannot qualify a release.
 No reduced/scheduled test run is substituted for release validation.
 
