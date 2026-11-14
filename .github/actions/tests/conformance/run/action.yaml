@@ -154,6 +154,7 @@ runs:
         "$GITHUB_ACTION_PATH/quarantine.sh" "$QUARANTINE_FILE" ./test/conformance/chainsaw "$TESTS_PATH"
     # run tests
     - name: Test with Chainsaw
+      id: chainsaw
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
@@ -174,7 +175,38 @@ runs:
         name: release-conformance-${{ github.job }}-${{ inputs.k8s-version }}-${{ strategy.job-index }}-${{ github.run_attempt }}
         path: conformance-results
         retention-days: 90
+    # Every job uploads its reports, also when it failed before chainsaw ran,
+    # so the summarize job of the Tests workflow can list it.
+    - name: Prepare reports
+      id: reports
+      if: always()
+      shell: bash
+      env:
+        SUITE: ${{ inputs.tests-path }}
+        K8S_VERSION: ${{ inputs.k8s-version }}
+        SHARD: ${{ inputs.shard-index }}
+        OUTCOME: ${{ job.status }}
+        JOB_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}
+      run: |
+        set -e
+        name="$(python3 ./scripts/e2e/report.py prepare --dir "$GITHUB_WORKSPACE/conformance-results" \
+          --suite "$SUITE" --k8s "$K8S_VERSION" --shard "$SHARD" --outcome "$OUTCOME" --job-url "$JOB_URL")"
+        echo "artifact=$name" >> "$GITHUB_OUTPUT"
+        echo "diagnostics=${name/#e2e-reports-/diagnostics-}" >> "$GITHUB_OUTPUT"
+    - name: Upload reports
+      if: always() && steps.reports.outputs.artifact != ''
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ steps.reports.outputs.artifact }}
+        path: conformance-results
+        # A re-run attempt replaces the reports of the failed attempt, so the
+        # summary shows the latest result of each job.
+        overwrite: true
+        retention-days: 14
+        if-no-files-found: ignore
     # debug
     - name: Debug failure
       if: failure()
       uses: ./.github/actions/kyverno/logs
+      with:
+        artifact-name: ${{ steps.reports.outputs.diagnostics }}

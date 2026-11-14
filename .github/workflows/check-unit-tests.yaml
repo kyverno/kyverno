@@ -25,6 +25,11 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    # Tests the script that the Tests workflow uses to prepare and summarize
+    # E2E reports. It takes about a second and needs no setup, so it runs here
+    # instead of in a workflow that also runs the E2E suite.
+    - name: E2E report script tests
+      run: python3 scripts/e2e/test_report.py
     - name: Record initial disk headroom
       run: |
         echo '### Disk before Go setup' >> "$GITHUB_STEP_SUMMARY"

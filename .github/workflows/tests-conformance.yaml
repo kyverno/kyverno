@@ -812,6 +812,32 @@ jobs:
           name: release-conformance-cli-${{ matrix.k8s-version }}-${{ github.run_attempt }}
           path: release-reports
           retention-days: 90
+      # Same reports as the jobs that use the conformance action, for the
+      # summarize job of the Tests workflow.
+      - name: Prepare reports
+        id: reports
+        if: always()
+        shell: bash
+        env:
+          K8S_VERSION: ${{ matrix.k8s-version }}
+          OUTCOME: ${{ job.status }}
+          JOB_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}
+        run: |
+          set -e
+          mkdir -p e2e-reports
+          if [ -f release-reports/cli.json ]; then cp release-reports/cli.json e2e-reports/results.json; fi
+          name="$(python3 ./scripts/e2e/report.py prepare --dir e2e-reports \
+            --suite cli --k8s "$K8S_VERSION" --shard 0 --outcome "$OUTCOME" --job-url "$JOB_URL")"
+          echo "artifact=$name" >> "$GITHUB_OUTPUT"
+      - name: Upload reports
+        if: always() && steps.reports.outputs.artifact != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.reports.outputs.artifact }}
+          path: e2e-reports
+          overwrite: true
+          retention-days: 14
+          if-no-files-found: ignore
 
   helm-tests:
     needs: kubernetes-matrix
