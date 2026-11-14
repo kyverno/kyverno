@@ -15,6 +15,9 @@ type NodeTrace struct {
 	Expression string
 	Value      string
 	Error      string
+	// Inputs is what this sub-expression reads, so its value can be hidden when it may be Secret
+	// data.
+	Inputs Inputs
 }
 
 type ExpressionTrace struct {
@@ -27,6 +30,9 @@ type ExpressionTrace struct {
 	// NoBreakdown is set, by the caller, when Nodes were deliberately not collected for this
 	// expression, and says why, so the missing breakdown is not mistaken for an empty one.
 	NoBreakdown string
+	// Inputs is what the expression reads, so its result can be hidden when it may be Secret
+	// data. It is filled in even when Nodes are not.
+	Inputs Inputs
 }
 
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
@@ -34,14 +40,19 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 		Source: source,
 		Result: stringify(result),
 	}
-	if details == nil || ast == nil {
+	if ast == nil {
+		return et
+	}
+	native := ast.NativeRep()
+	references := native.ReferenceMap()
+	et.Inputs = inputsOf(native.Expr(), references)
+	if details == nil {
 		return et
 	}
 	state := details.State()
 	if state == nil {
 		return et
 	}
-	native := ast.NativeRep()
 	sourceInfo := native.SourceInfo()
 
 	// loopBody holds the nodes of every loop condition and loop step, which run once per item.
@@ -114,7 +125,7 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 			// noise to a reader. The macro call itself renders without them and is kept.
 			return
 		}
-		nt := NodeTrace{Expression: text}
+		nt := NodeTrace{Expression: text, Inputs: inputsOf(e, references)}
 		if types.IsError(val) {
 			nt.Error = stringify(val)
 		} else {
