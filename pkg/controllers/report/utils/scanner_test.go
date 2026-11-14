@@ -4,10 +4,13 @@ import (
 	"context"
 	"testing"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -212,5 +215,88 @@ func TestFilterMatchConditionSkips(t *testing.T) {
 			got := filterMatchConditionSkips(tt.rules)
 			assert.Equal(t, tt.expectedCount, len(got))
 		})
+	}
+}
+
+
+var _ imageverifycache.Client = (*recordingImageVerifyCache)(nil)
+
+type recordingImageVerifyCache struct {
+	getCalls int
+	lastRef  string
+	hit      bool
+}
+
+func (c *recordingImageVerifyCache) Set(string, []policiesv1beta1.Attestor, *policiesv1beta1.Attestation, map[string][]byte) (bool, error) {
+	return true, nil
+}
+
+func (c *recordingImageVerifyCache) Get(imageRef string, _ []policiesv1beta1.Attestor, _ *policiesv1beta1.Attestation) (bool, map[string][]byte, error) {
+	c.getCalls++
+	c.lastRef = imageRef
+	return c.hit, nil, nil
+}
+
+func TestScanResource_ImageValidatingPolicy_UsesSuppliedImageVerifyCache(t *testing.T) {
+	const testImage = "registry.invalid/kyverno/test@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+	verifyDigest := false
+	required := false
+	ivp := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "test-ivp-cache",
+			UID:             "test-uid",
+			ResourceVersion: "1",
+		},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints:        podMatchSpec.MatchConstraints,
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeKubernetes},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				VerifyDigest: &verifyDigest,
+				Required:     &required,
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "registry.invalid/*"}},
+			ImageExtractors:      []policiesv1beta1.ImageExtractor{{Name: "containers", Expression: "object.spec.containers.map(e, e.image)"}},
+			Attestors: []policiesv1beta1.Attestor{{
+				Name: "notary",
+				Notary: &policiesv1beta1.Notary{
+					Certs: &policiesv1beta1.StringOrExpression{Value: "test-cert"},
+				},
+			}},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)",
+				Message:    "signature verification failed",
+			}},
+		},
+	}
+	policy := engineapi.NewImageValidatingPolicy(ivp)
+
+	resource, gvr := newPodResource()
+	resource.Object["spec"] = map[string]any{
+		"containers": []any{
+			map[string]any{
+				"name":  "app",
+				"image": testImage,
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	assert.NoError(t, kubescheme.AddToScheme(scheme))
+	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
+	assert.NoError(t, err)
+	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	recCache := &recordingImageVerifyCache{hit: true}
+	s := NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nil, recCache)
+	results := s.ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, nil, policy)
+
+	assert.Equal(t, 1, recCache.getCalls, "ScanResource must query the supplied ImageVerifyCacheClient")
+	assert.Equal(t, testImage, recCache.lastRef)
+	assert.Len(t, results, 1)
+	for _, sr := range results {
+		assert.NoError(t, sr.Error)
+		if assert.NotNil(t, sr.EngineResponse) && assert.Len(t, sr.EngineResponse.PolicyResponse.Rules, 1) {
+			assert.Equal(t, engineapi.RuleStatusPass, sr.EngineResponse.PolicyResponse.Rules[0].Status())
+		}
 	}
 }
