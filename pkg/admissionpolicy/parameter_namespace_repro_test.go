@@ -70,6 +70,42 @@ func TestInvestigationParameterNamespace(t *testing.T) {
 	}
 }
 
+func TestMatchesSelector_ExplicitNamespace(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		namespace string
+		label     string
+		want      bool
+	}{
+		{"matching namespace and label", "trusted", "limits", true},
+		{"wrong namespace matching label", "foreign", "limits", false},
+		{"matching namespace wrong label", "trusted", "other", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			obj := &unstructured.Unstructured{}
+			obj.SetNamespace(tc.namespace)
+			obj.SetLabels(map[string]string{"purpose": tc.label})
+
+			ref := &admissionregistrationv1.ParamRef{
+				Namespace: "trusted",
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"purpose": "limits"},
+				},
+			}
+
+			if got := matchesSelector(obj, ref); got != tc.want {
+				t.Errorf("matchesSelector() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestInvestigationMAPParameterNamespace(t *testing.T) {
 	policy := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "replica-limit"},
