@@ -24,9 +24,11 @@ import (
 	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/events"
@@ -140,8 +142,7 @@ func NewPolicyController(
 		gpolEngine:      gpolEngine,
 		gpolProvider:    gpolProvider,
 	}
-	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
-	pc.restMapper = restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	pc.restMapper = newRESTMapper(client.GetKubeClient().Discovery(), log)
 
 	pc.gpolLister = gpolInformer.Lister()
 	pc.ngpolLister = ngpolInformer.Lister()
@@ -153,6 +154,25 @@ func NewPolicyController(
 	return &pc, nil
 }
 
+type discoveryErrorCapture struct {
+	discovery.DiscoveryInterface
+	err error
+}
+
+func (d *discoveryErrorCapture) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+	groups, resources, err := d.DiscoveryInterface.ServerGroupsAndResources()
+	d.err = err
+	return groups, resources, nil
+}
+
+func newRESTMapper(discoveryClient discovery.DiscoveryInterface, log logr.Logger) meta.RESTMapper {
+	discoveryClientWithError := &discoveryErrorCapture{DiscoveryInterface: discoveryClient}
+	apiGroupResources, _ := restmapper.GetAPIGroupResources(discoveryClientWithError)
+	if discoveryClientWithError.err != nil {
+		log.Error(discoveryClientWithError.err, "REST mapper was built from partial discovery results")
+	}
+	return restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+}
 func (pc *policyController) addPolicy(obj interface{}) {
 	logger := pc.log
 	policy := castPolicy(obj)
