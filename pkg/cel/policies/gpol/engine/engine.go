@@ -65,12 +65,16 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	if request.Request.DryRun != nil {
 		dryRun = *request.Request.DryRun
 	}
+	ns := request.Request.Namespace
+	if ns == "" && response.Trigger != nil {
+		ns = response.Trigger.GetNamespace()
+	}
 	// create admission attributes
 	attr := admission.NewAttributesRecord(
 		&object,
 		&oldObject,
 		schema.GroupVersionKind(request.Request.Kind),
-		object.GetNamespace(),
+		ns,
 		request.Request.Name,
 		schema.GroupVersionResource(request.Request.Resource),
 		request.Request.SubResource,
@@ -81,7 +85,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	)
 	// resolve namespace
 	var namespace runtime.Object
-	if ns := request.Request.Namespace; ns != "" {
+	if ns != "" {
 		namespace = e.nsResolver(ns)
 	}
 
@@ -92,7 +96,11 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	// policy is bounded per expression but its expressions never total against a ceiling.
 	genCtx, releaseBudget := requestbudget.EnsureBackground(ctx)
 	defer releaseBudget()
-	genReresponse := e.generate(genCtx, policy, attr, &request.Request, namespace, request.Context, string(object.GetUID()), cacheRestore)
+	var triggerUID string
+	if response.Trigger != nil {
+		triggerUID = string(response.Trigger.GetUID())
+	}
+	genReresponse := e.generate(genCtx, policy, attr, &request.Request, namespace, request.Context, triggerUID, cacheRestore)
 	if genReresponse.Result != nil {
 		genReresponse.Result = ptr.To(genReresponse.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}
