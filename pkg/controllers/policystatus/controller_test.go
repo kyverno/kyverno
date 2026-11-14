@@ -546,3 +546,270 @@ func TestReconcileBeta1Conditions_RBACChecksAutogenTargets(t *testing.T) {
 		})
 	}
 }
+
+// TestReconcileConditions_GeneratingPolicy_ReportsRBACCheckSkipped verifies that GeneratingPolicy
+// and NamespacedGeneratingPolicy do not require reports-controller RBAC permissions on matched
+// trigger resources (e.g. sensitive kinds like Secrets). Because GeneratingPolicies do not produce
+// policy reports, the reports-controller RBAC check must be skipped and reported as satisfied,
+// preventing policies from getting stuck not-ready (#18351).
+// It also verifies that when admission is disabled, WebhookConfigured does not gate policy readiness,
+// and any previously persisted WebhookConfigured condition is cleared.
+func TestReconcileConditions_GeneratingPolicy_ReportsRBACCheckSkipped(t *testing.T) {
+	t.Parallel()
+
+	secretsRule := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"secrets"},
+					},
+				},
+			},
+		},
+	}
+
+	staleWebhookCond := metav1.Condition{
+		Type:               string(policiesv1beta1.PolicyConditionTypeWebhookConfigured),
+		Status:             metav1.ConditionFalse,
+		Reason:             "Failed",
+		Message:            "Policy is not configured in the webhook.",
+		LastTransitionTime: metav1.Now(),
+	}
+
+	tests := []struct {
+		name               string
+		policy             engineapi.GenericPolicy
+		expectWebhookFalse bool
+	}{
+		{
+			name: "GeneratingPolicy with secrets trigger and admission enabled",
+			policy: engineapi.NewGeneratingPolicy(&policiesv1beta1.GeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "secret-gpol"},
+				Spec: policiesv1beta1.GeneratingPolicySpec{
+					MatchConstraints: secretsRule,
+				},
+			}),
+			expectWebhookFalse: true,
+		},
+		{
+			name: "NamespacedGeneratingPolicy with secrets trigger and admission enabled",
+			policy: engineapi.NewNamespacedGeneratingPolicy(&policiesv1beta1.NamespacedGeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "secret-ngpol", Namespace: "test-ns"},
+				Spec: policiesv1beta1.GeneratingPolicySpec{
+					MatchConstraints: secretsRule,
+				},
+			}),
+			expectWebhookFalse: true,
+		},
+		{
+			name: "GeneratingPolicy with admission disabled is not gated on webhook configured",
+			policy: engineapi.NewGeneratingPolicy(&policiesv1beta1.GeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "generate-existing-gpol"},
+				Spec: policiesv1beta1.GeneratingPolicySpec{
+					MatchConstraints: secretsRule,
+					EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+						Admission: &policiesv1beta1.AdmissionConfiguration{
+							Enabled: boolPtr(false),
+						},
+					},
+				},
+			}),
+			expectWebhookFalse: false,
+		},
+		{
+			name: "NamespacedGeneratingPolicy with admission disabled is not gated on webhook configured",
+			policy: engineapi.NewNamespacedGeneratingPolicy(&policiesv1beta1.NamespacedGeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "generate-existing-ngpol", Namespace: "test-ns"},
+				Spec: policiesv1beta1.GeneratingPolicySpec{
+					MatchConstraints: secretsRule,
+					EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+						Admission: &policiesv1beta1.AdmissionConfiguration{
+							Enabled: boolPtr(false),
+						},
+					},
+				},
+			}),
+			expectWebhookFalse: false,
+		},
+		{
+			name: "GeneratingPolicy transitioning to admission disabled clears stale WebhookConfigured condition",
+			policy: engineapi.NewGeneratingPolicy(&policiesv1beta1.GeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "stale-gpol"},
+				Spec: policiesv1beta1.GeneratingPolicySpec{
+					MatchConstraints: secretsRule,
+					EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+						Admission: &policiesv1beta1.AdmissionConfiguration{
+							Enabled: boolPtr(false),
+						},
+					},
+				},
+				Status: policiesv1beta1.GeneratingPolicyStatus{
+					ConditionStatus: policiesv1beta1.ConditionStatus{
+						Conditions: []metav1.Condition{staleWebhookCond},
+					},
+				},
+			}),
+			expectWebhookFalse: false,
+		},
+		{
+			name: "NamespacedGeneratingPolicy transitioning to admission disabled clears stale WebhookConfigured condition",
+			policy: engineapi.NewNamespacedGeneratingPolicy(&policiesv1beta1.NamespacedGeneratingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "stale-ngpol", Namespace: "test-ns"},
+				Spec: policiesv1beta1.GeneratingPolicySpec{
+					MatchConstraints: secretsRule,
+					EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+						Admission: &policiesv1beta1.AdmissionConfiguration{
+							Enabled: boolPtr(false),
+						},
+					},
+				},
+				Status: policiesv1beta1.GeneratingPolicyStatus{
+					ConditionStatus: policiesv1beta1.ConditionStatus{
+						Conditions: []metav1.Condition{staleWebhookCond},
+					},
+				},
+			}),
+			expectWebhookFalse: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dc := dclient.NewEmptyFakeClient()
+			// Deny every SubjectAccessReview so any reports SA RBAC check would fail if run.
+			kube := dc.GetKubeClient().(*kubefake.Clientset)
+			kube.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, &authorizationv1.SubjectAccessReview{
+					Status: authorizationv1.SubjectAccessReviewStatus{Allowed: false, Reason: "denied by test"},
+				}, nil
+			})
+
+			key := webhook.BuildRecorderKey(tt.policy.GetKind(), tt.policy.GetName(), tt.policy.GetNamespace())
+			rec := webhook.NewStateRecorder(nil)
+			// Simulate a recorded webhook failure by recording and resetting the key.
+			rec.Record(key)
+			rec.Reset()
+
+			c := controller{
+				dclient:          dc,
+				client:           versionedfake.NewSimpleClientset(),
+				authChecker:      auth.NewSubjectChecker(dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "system:serviceaccount:kyverno:reports-controller", nil),
+				polStateRecorder: rec,
+			}
+
+			status := c.reconcileConditions(ctx, tt.policy)
+
+			cond := findCondition(status.Conditions, policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted)
+			require.NotNil(t, cond, "RBACPermissionsGranted condition should always be set")
+			assert.Equal(t, metav1.ConditionTrue, cond.Status, "RBACPermissionsGranted should be True for GeneratingPolicy")
+			assert.Contains(t, cond.Message, "reporting permissions not required", "RBACPermissionsGranted message should indicate reporting permissions are not required")
+
+			webhookCond := findCondition(status.Conditions, policiesv1beta1.PolicyConditionTypeWebhookConfigured)
+			if tt.expectWebhookFalse {
+				require.NotNil(t, webhookCond, "WebhookConfigured condition should be set when admission is enabled")
+				assert.Equal(t, metav1.ConditionFalse, webhookCond.Status, "WebhookConfigured condition should be False when webhook configuration fails")
+			} else {
+				assert.Nil(t, webhookCond, "WebhookConfigured condition should not be set or retained when admission is disabled")
+			}
+		})
+	}
+}
+
+// TestReconcile_GeneratingPolicy_AdmissionDisabled_TransitionClearsStaleWebhookConditionAndMarksReady verifies
+// that when an existing GeneratingPolicy or NamespacedGeneratingPolicy transitions from admission-enabled
+// (with a persisted WebhookConfigured=False condition) to admission-disabled, reconcile clears the stale
+// condition and marks the policy ready (#18351, #18662).
+func TestReconcile_GeneratingPolicy_AdmissionDisabled_TransitionClearsStaleWebhookConditionAndMarksReady(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	staleWebhookCond := metav1.Condition{
+		Type:               string(policiesv1beta1.PolicyConditionTypeWebhookConfigured),
+		Status:             metav1.ConditionFalse,
+		Reason:             "Failed",
+		Message:            "Policy is not configured in the webhook.",
+		LastTransitionTime: metav1.Now(),
+	}
+
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-gpol-transition"},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: emptyMatchResources,
+			EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+				Admission: &policiesv1beta1.AdmissionConfiguration{
+					Enabled: boolPtr(false),
+				},
+			},
+		},
+		Status: policiesv1beta1.GeneratingPolicyStatus{
+			ConditionStatus: policiesv1beta1.ConditionStatus{
+				Ready:      boolPtr(false),
+				Conditions: []metav1.Condition{staleWebhookCond},
+			},
+		},
+	}
+
+	ngpol := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ngpol-transition", Namespace: "test-ns"},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: emptyMatchResources,
+			EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+				Admission: &policiesv1beta1.AdmissionConfiguration{
+					Enabled: boolPtr(false),
+				},
+			},
+		},
+		Status: policiesv1beta1.GeneratingPolicyStatus{
+			ConditionStatus: policiesv1beta1.ConditionStatus{
+				Ready:      boolPtr(false),
+				Conditions: []metav1.Condition{staleWebhookCond},
+			},
+		},
+	}
+
+	gpolKey := webhook.BuildRecorderKey(webhook.GeneratingPolicyType, gpol.Name, "")
+	ngpolKey := webhook.BuildRecorderKey(webhook.NamespacedGeneratingPolicyType, ngpol.Name, ngpol.Namespace)
+
+	rec := webhook.NewStateRecorder(nil)
+	rec.Record(gpolKey)
+	rec.Record(ngpolKey)
+	rec.Reset()
+
+	client := versionedfake.NewSimpleClientset(gpol, ngpol)
+	dc := dclient.NewEmptyFakeClient()
+	c := controller{
+		dclient:          dc,
+		client:           client,
+		authChecker:      auth.NewSubjectChecker(dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "", nil),
+		polStateRecorder: rec,
+	}
+
+	err := c.reconcile(ctx, logr.Discard(), gpolKey, "", "")
+	require.NoError(t, err)
+
+	updatedGpol, err := client.PoliciesV1beta1().GeneratingPolicies().Get(ctx, gpol.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, updatedGpol.Status.ConditionStatus.IsReady(), "GeneratingPolicy should be ready when admission is disabled")
+	assert.Nil(t, findCondition(updatedGpol.Status.ConditionStatus.Conditions, policiesv1beta1.PolicyConditionTypeWebhookConfigured), "stale WebhookConfigured condition should be removed from GeneratingPolicy")
+	gpolRbac := findCondition(updatedGpol.Status.ConditionStatus.Conditions, policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted)
+	require.NotNil(t, gpolRbac)
+	assert.Equal(t, metav1.ConditionTrue, gpolRbac.Status)
+
+	err = c.reconcile(ctx, logr.Discard(), ngpolKey, "", "")
+	require.NoError(t, err)
+
+	updatedNgpol, err := client.PoliciesV1beta1().NamespacedGeneratingPolicies(ngpol.Namespace).Get(ctx, ngpol.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, updatedNgpol.Status.ConditionStatus.IsReady(), "NamespacedGeneratingPolicy should be ready when admission is disabled")
+	assert.Nil(t, findCondition(updatedNgpol.Status.ConditionStatus.Conditions, policiesv1beta1.PolicyConditionTypeWebhookConfigured), "stale WebhookConfigured condition should be removed from NamespacedGeneratingPolicy")
+	ngpolRbac := findCondition(updatedNgpol.Status.ConditionStatus.Conditions, policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted)
+	require.NotNil(t, ngpolRbac)
+	assert.Equal(t, metav1.ConditionTrue, ngpolRbac.Status)
+}
