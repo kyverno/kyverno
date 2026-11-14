@@ -37,30 +37,33 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          docker-images: false
-          dotnet: false
-          haskell: false
-          large-packages: false
-          swap-storage: false
-          tool-cache: false
+      - name: Record initial disk headroom
+        run: |
+          echo '### Disk before Go setup' >> "$GITHUB_STEP_SUMMARY"
+          df -h . /tmp | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Setup Go
         id: setup-go
         uses: ./.github/actions/go/setup
         with:
-          gobuild-cache-prefix: ''
+          gobuild-cache-prefix: gobuild-framework-registry
+          gobuild-cache-include-run-id: 'true'
 
       - name: Cache envtest binaries
+        id: cache-envtest
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.local/share/kubebuilder-envtest
-          key: envtest-${{ env.ENVTEST_VERSION }}-${{ env.K8S_VERSION }}
+          path: |
+            ~/.local/share/kubebuilder-envtest
+            ~/go/bin/setup-envtest
+          key: envtest-tools-${{ env.ENVTEST_VERSION }}-${{ env.K8S_VERSION }}
+          restore-keys: |
+            envtest-${{ env.ENVTEST_VERSION }}-${{ env.K8S_VERSION }}
 
       - name: Install envtest
         run: |
-          go install "sigs.k8s.io/controller-runtime/tools/setup-envtest@${ENVTEST_VERSION}"
+          if ! command -v setup-envtest >/dev/null 2>&1; then
+            go install "sigs.k8s.io/controller-runtime/tools/setup-envtest@${ENVTEST_VERSION}"
+          fi
 
       - name: Setup envtest binaries
         run: |
@@ -108,6 +111,20 @@ jobs:
             echo "::error::no registry test passed (${skipped} skipped), so nothing was verified against a real registry"
             exit 1
           fi
+      - name: Record final disk headroom
+        if: always()
+        run: |
+          echo '### Disk after tests' >> "$GITHUB_STEP_SUMMARY"
+          df -h . /tmp | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Save gobuild cache
+        if: |
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main'
+        uses: ./.github/actions/go/save-cache
+        with:
+          path: ${{ steps.setup-go.outputs.gobuild-cache }}
+          cache-prefix: gobuild-framework-registry
+          include-run-id: 'true'
 
   sync-issue:
     if: always() && github.event_name == 'schedule'
