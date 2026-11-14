@@ -208,6 +208,212 @@ func Test_Cache_shares_entries_across_callers(t *testing.T) {
 	assert.False(t, found, "an attestation entry must not satisfy a signature lookup")
 }
 
+// Test_Cache_shares_entries_for_equivalent_digest_references verifies that
+// references pinned to the same immutable digest (with or without tag components)
+// canonicalize to the same cache key and share cache hits.
+func Test_Cache_shares_entries_for_equivalent_digest_references(t *testing.T) {
+	c := newTestCache(t)
+	payload := map[string][]byte{"https://slsa.dev/provenance/v1": []byte("{}")}
+
+	refWithTag := "ghcr.io/example/app:v1@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+	refWithoutTag := "ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
+	stored, err := c.Set(refWithTag, testAttestors, testAttestation, payload)
+	require.NoError(t, err)
+	require.True(t, stored)
+
+	found, got, err := c.Get(refWithoutTag, testAttestors, testAttestation)
+	require.NoError(t, err)
+	assert.True(t, found, "references to the same digest (with and without tag) must share cache entries")
+	assert.Equal(t, payload, got)
+
+	// In reverse: store without tag, read with tag
+	stored, err = c.Set(testDigestA, testAttestors, nil, nil)
+	require.NoError(t, err)
+	require.True(t, stored)
+
+	found, got, err = c.Get(testTagPlusDigest, testAttestors, nil)
+	require.NoError(t, err)
+	assert.True(t, found, "storing under untagged digest must hit when querying with tag+digest")
+	assert.Nil(t, got)
+}
+
+// Test_generateKey_binds_resolved_material_not_expressions verifies that
+// attestors with identical resolved key material produce identical cache keys,
+// even when one or both were resolved dynamically via CEL expressions.
+// It also verifies that differing resolved trust materials produce differing
+// cache keys and cache misses even when dynamic expressions are unchanged.
+func Test_generateKey_binds_resolved_material_not_expressions(t *testing.T) {
+	t.Run("cosign key expressions", func(t *testing.T) {
+		inline := keyAttestor("signer", "KEY-MATERIAL")
+		withExpr1 := keyAttestor("signer", "KEY-MATERIAL")
+		withExpr1.Cosign.Key.Expression = "variables.trustedKey"
+		withExpr2 := keyAttestor("signer", "KEY-MATERIAL")
+		withExpr2.Cosign.Key.Expression = "variables.otherKey"
+
+		k1, err := generateKey(testDigestA, []v1beta1.Attestor{inline}, nil)
+		require.NoError(t, err)
+		k2, err := generateKey(testDigestA, []v1beta1.Attestor{withExpr1}, nil)
+		require.NoError(t, err)
+		k3, err := generateKey(testDigestA, []v1beta1.Attestor{withExpr2}, nil)
+		require.NoError(t, err)
+
+		assert.Equal(t, k1, k2, "static and CEL-resolved key material must produce identical cache keys")
+		assert.Equal(t, k2, k3, "differing CEL expressions resolving to the same key material must produce identical cache keys")
+
+		// Negative check: changing resolved key material with expression unchanged produces different key and misses cache
+		withDiffKey := keyAttestor("signer", "DIFFERENT-KEY-MATERIAL")
+		withDiffKey.Cosign.Key.Expression = "variables.trustedKey"
+		kDiff, err := generateKey(testDigestA, []v1beta1.Attestor{withDiffKey}, nil)
+		require.NoError(t, err)
+		assert.NotEqual(t, k1, kDiff, "differing key material must produce differing cache keys")
+
+		c := newTestCache(t)
+		stored, err := c.Set(testDigestA, []v1beta1.Attestor{withExpr1}, nil, nil)
+		require.NoError(t, err)
+		require.True(t, stored)
+		found, _, err := c.Get(testDigestA, []v1beta1.Attestor{withDiffKey}, nil)
+		require.NoError(t, err)
+		assert.False(t, found, "differing key material must miss cache")
+	})
+
+	t.Run("cosign certificate and chain expressions", func(t *testing.T) {
+		certStatic := v1beta1.Attestor{
+			Cosign: &v1beta1.Cosign{
+				Certificate: &v1beta1.Certificate{
+					Certificate:      &v1beta1.StringOrExpression{Value: "CERT-PEM"},
+					CertificateChain: &v1beta1.StringOrExpression{Value: "CHAIN-PEM"},
+				},
+			},
+		}
+		certWithExpr := v1beta1.Attestor{
+			Cosign: &v1beta1.Cosign{
+				Certificate: &v1beta1.Certificate{
+					Certificate:      &v1beta1.StringOrExpression{Value: "CERT-PEM", Expression: "variables.cert"},
+					CertificateChain: &v1beta1.StringOrExpression{Value: "CHAIN-PEM", Expression: "variables.chain"},
+				},
+			},
+		}
+
+		k1, err := generateKey(testDigestA, []v1beta1.Attestor{certStatic}, nil)
+		require.NoError(t, err)
+		k2, err := generateKey(testDigestA, []v1beta1.Attestor{certWithExpr}, nil)
+		require.NoError(t, err)
+
+		assert.Equal(t, k1, k2, "certificate and chain expressions must be cleared so identical material matches")
+
+		// Negative checks: changing certificate or chain material independently while keeping expressions unchanged
+		certDiffCert := *certWithExpr.DeepCopy()
+		certDiffCert.Cosign.Certificate.Certificate.Value = "DIFFERENT-CERT-PEM"
+		kDiffCert, err := generateKey(testDigestA, []v1beta1.Attestor{certDiffCert}, nil)
+		require.NoError(t, err)
+		assert.NotEqual(t, k1, kDiffCert, "differing certificate value must produce differing cache keys")
+
+		certDiffChain := *certWithExpr.DeepCopy()
+		certDiffChain.Cosign.Certificate.CertificateChain.Value = "DIFFERENT-CHAIN-PEM"
+		kDiffChain, err := generateKey(testDigestA, []v1beta1.Attestor{certDiffChain}, nil)
+		require.NoError(t, err)
+		assert.NotEqual(t, k1, kDiffChain, "differing certificate chain value must produce differing cache keys")
+
+		c := newTestCache(t)
+		stored, err := c.Set(testDigestA, []v1beta1.Attestor{certWithExpr}, nil, nil)
+		require.NoError(t, err)
+		require.True(t, stored)
+
+		found, _, err := c.Get(testDigestA, []v1beta1.Attestor{certDiffCert}, nil)
+		require.NoError(t, err)
+		assert.False(t, found, "differing certificate value must miss cache")
+
+		found, _, err = c.Get(testDigestA, []v1beta1.Attestor{certDiffChain}, nil)
+		require.NoError(t, err)
+		assert.False(t, found, "differing certificate chain value must miss cache")
+	})
+
+	t.Run("cosign trusted root expressions", func(t *testing.T) {
+		rootStatic := v1beta1.Attestor{
+			Cosign: &v1beta1.Cosign{
+				TrustedRoot: &v1beta1.StringOrExpression{Value: "ROOT-PEM"},
+			},
+		}
+		rootWithExpr := v1beta1.Attestor{
+			Cosign: &v1beta1.Cosign{
+				TrustedRoot: &v1beta1.StringOrExpression{Value: "ROOT-PEM", Expression: "variables.root"},
+			},
+		}
+
+		k1, err := generateKey(testDigestA, []v1beta1.Attestor{rootStatic}, nil)
+		require.NoError(t, err)
+		k2, err := generateKey(testDigestA, []v1beta1.Attestor{rootWithExpr}, nil)
+		require.NoError(t, err)
+
+		assert.Equal(t, k1, k2, "trusted root expressions must be cleared")
+
+		// Negative check: changing trusted root material while keeping expression unchanged
+		rootDiff := *rootWithExpr.DeepCopy()
+		rootDiff.Cosign.TrustedRoot.Value = "DIFFERENT-ROOT-PEM"
+		kDiffRoot, err := generateKey(testDigestA, []v1beta1.Attestor{rootDiff}, nil)
+		require.NoError(t, err)
+		assert.NotEqual(t, k1, kDiffRoot, "differing trusted root value must produce differing cache keys")
+
+		c := newTestCache(t)
+		stored, err := c.Set(testDigestA, []v1beta1.Attestor{rootWithExpr}, nil, nil)
+		require.NoError(t, err)
+		require.True(t, stored)
+
+		found, _, err := c.Get(testDigestA, []v1beta1.Attestor{rootDiff}, nil)
+		require.NoError(t, err)
+		assert.False(t, found, "differing trusted root value must miss cache")
+	})
+
+	t.Run("notary certs and TSA cert expressions", func(t *testing.T) {
+		notaryStatic := v1beta1.Attestor{
+			Notary: &v1beta1.Notary{
+				Certs:    &v1beta1.StringOrExpression{Value: "NOTARY-CERT"},
+				TSACerts: &v1beta1.StringOrExpression{Value: "TSA-CERT"},
+			},
+		}
+		notaryWithExpr := v1beta1.Attestor{
+			Notary: &v1beta1.Notary{
+				Certs:    &v1beta1.StringOrExpression{Value: "NOTARY-CERT", Expression: "variables.nc"},
+				TSACerts: &v1beta1.StringOrExpression{Value: "TSA-CERT", Expression: "variables.tsa"},
+			},
+		}
+
+		k1, err := generateKey(testDigestA, []v1beta1.Attestor{notaryStatic}, nil)
+		require.NoError(t, err)
+		k2, err := generateKey(testDigestA, []v1beta1.Attestor{notaryWithExpr}, nil)
+		require.NoError(t, err)
+
+		assert.Equal(t, k1, k2, "notary cert expressions must be cleared")
+
+		// Negative checks: changing Notary certs or TSA certs independently while keeping expressions unchanged
+		notaryDiffCerts := *notaryWithExpr.DeepCopy()
+		notaryDiffCerts.Notary.Certs.Value = "DIFFERENT-NOTARY-CERT"
+		kDiffCerts, err := generateKey(testDigestA, []v1beta1.Attestor{notaryDiffCerts}, nil)
+		require.NoError(t, err)
+		assert.NotEqual(t, k1, kDiffCerts, "differing notary certs value must produce differing cache keys")
+
+		notaryDiffTSA := *notaryWithExpr.DeepCopy()
+		notaryDiffTSA.Notary.TSACerts.Value = "DIFFERENT-TSA-CERT"
+		kDiffTSA, err := generateKey(testDigestA, []v1beta1.Attestor{notaryDiffTSA}, nil)
+		require.NoError(t, err)
+		assert.NotEqual(t, k1, kDiffTSA, "differing TSA certs value must produce differing cache keys")
+
+		c := newTestCache(t)
+		stored, err := c.Set(testDigestA, []v1beta1.Attestor{notaryWithExpr}, nil, nil)
+		require.NoError(t, err)
+		require.True(t, stored)
+
+		found, _, err := c.Get(testDigestA, []v1beta1.Attestor{notaryDiffCerts}, nil)
+		require.NoError(t, err)
+		assert.False(t, found, "differing notary certs value must miss cache")
+
+		found, _, err = c.Get(testDigestA, []v1beta1.Attestor{notaryDiffTSA}, nil)
+		require.NoError(t, err)
+		assert.False(t, found, "differing TSA certs value must miss cache")
+	})
+}
+
 // Test_Cache_skips_uncacheable_attestors pins the attestor groups the cache
 // refuses: none at all, and KMS keys whose material the key cannot bind.
 func Test_Cache_skips_uncacheable_attestors(t *testing.T) {
