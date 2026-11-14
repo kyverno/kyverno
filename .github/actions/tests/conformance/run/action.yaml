@@ -178,3 +178,6 @@ runs:
     - name: Debug failure
       if: failure()
       uses: ./.github/actions/kyverno/logs
+      with:
+        suite: ${{ inputs.tests-path }}
+        k8s-version: ${{ inputs.k8s-version }}
