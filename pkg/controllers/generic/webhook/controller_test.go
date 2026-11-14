@@ -37,6 +37,12 @@ func (fakeConfiguration) GetUpdateRequestThreshold() int64    { return 0 }
 func (fakeConfiguration) GetMaxContextSize() int64            { return config.DefaultMaxContextSize }
 func (fakeConfiguration) GetEnableUpdateRequestCleanup() bool { return false }
 func (fakeConfiguration) GetUpdateRequestCleanupTTL() string  { return "" }
+func (fakeConfiguration) GetRegistryEgressDeniedHosts() []string {
+	return nil
+}
+func (fakeConfiguration) GetRegistryEgressDeniedIPs() []string {
+	return nil
+}
 
 func newTestController(labelSelector *metav1.LabelSelector, opts ...Option) *controller {
 	c := &controller{

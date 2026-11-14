@@ -15,6 +15,30 @@
 {{- end -}}
 {{- end -}}
 
+{{/*
+Merge a controller's featuresOverride onto .Values.features.
+
+mergeOverwrite ignores empty values, so a controller override cannot clear a value that is
+already set globally: credentialHelpers: [] and allowInsecure: false are silently dropped and
+the global value survives. That is long-standing behaviour and is left alone here on purpose.
+
+Usage: include "kyverno.features.merged" (dict "features" .Values.features "override" .Values.xController.featuresOverride) | fromYaml
+*/}}
+{{- define "kyverno.features.merged" -}}
+{{- $override := .override | default dict -}}
+{{- mergeOverwrite (deepCopy .features) (deepCopy $override) | toYaml -}}
+{{- end -}}
+
+{{/*
+Egress flags are rendered separately from kyverno.features.flags because the cleanup and
+background controllers must receive them without "registryClient" in their pick list: the
+cleanup controller never registers --allowInsecureRegistry, so picking that key would make
+it exit on an unknown flag.
+*/}}
+{{- define "kyverno.registryClient.egressFlags" -}}
+{{- list (print "--privateRegistryEgressMode=" .privateRegistryEgressMode) | toYaml -}}
+{{- end -}}
+
 {{- define "kyverno.features.flags" -}}
 {{- $flags := list -}}
 {{- with .admissionReports -}}

@@ -115,6 +115,15 @@ func WithRequestContext(ctx context.Context, opts []remote.Option) []remote.Opti
 	return append(slices.Clip(opts), remote.WithContext(ctx))
 }
 
+// CredentialHelpers converts the policy's providers to the names the registry client takes.
+func CredentialHelpers(creds v1beta1.Credentials) []string {
+	providers := make([]string, len(creds.Providers))
+	for i, provider := range creds.Providers {
+		providers[i] = string(provider)
+	}
+	return providers
+}
+
 func NewIvFuncs(
 	logger logr.Logger,
 	ivpol v1beta1.ImageValidatingPolicyLike,
