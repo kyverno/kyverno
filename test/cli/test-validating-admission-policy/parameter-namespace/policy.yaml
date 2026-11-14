@@ -1,0 +1,30 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: replica-limit
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [deployments]
+  validations:
+    - expression: object.spec.replicas <= int(params.data.maxReplicas)
+      message: replicas exceed the selected namespace's limit
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: replica-limit
+spec:
+  policyName: replica-limit
+  validationActions: [Deny]
+  paramRef:
+    name: replica-limits
+    namespace: trusted
+    parameterNotFoundAction: Deny
