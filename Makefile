@@ -64,6 +64,10 @@ GOLANGCI_LINT_VERSION              ?= v2.14.0
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 CRD_SPLICE                         ?= $(TOOLS_DIR)/crd-splice
+YQ                                 ?= $(TOOLS_DIR)/yq
+YQ_VERSION                         ?= v4.52.4
+CHAINSAW                           ?= $(TOOLS_DIR)/chainsaw
+CHAINSAW_VERSION                   ?= v0.2.15-beta.3
 KUBE_VERSION                       ?= v1.25.0
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(GOLANGCI_LINT) $(CLIENT_WRAPPER) $(CRD_SPLICE)
 ifeq ($(GOOS), darwin)
@@ -140,6 +144,18 @@ $(CLIENT_WRAPPER):
 $(CRD_SPLICE): $(wildcard hack/crd-splice/*.go)
 	@echo Install crd-splice... >&2
 	@cd ./hack/crd-splice && GOBIN=$(TOOLS_DIR) go install
+
+$(YQ):
+	@echo Install yq... >&2
+	@GOBIN=$(TOOLS_DIR) go install github.com/mikefarah/yq/v4@$(YQ_VERSION)
+
+# The release binary, as in CI: this chainsaw version doesn't build with the Go version in go.mod.
+$(CHAINSAW):
+	@echo Install chainsaw... >&2
+	@mkdir -p $(TOOLS_DIR)
+	@curl -fsSL -o $(CHAINSAW).tar.gz https://github.com/kyverno/chainsaw/releases/download/$(CHAINSAW_VERSION)/chainsaw_$(GOOS)_$(GOARCH).tar.gz
+	@tar -xzf $(CHAINSAW).tar.gz -C $(TOOLS_DIR) chainsaw
+	@rm $(CHAINSAW).tar.gz
 
 .PHONY: install-tools
 install-tools: ## Install tools
@@ -965,6 +981,38 @@ test-cli-local-maps: $(CLI_BIN) ## Run local CLI MAP tests
 	@$(CLI_BIN) test ./test/cli/test-mutating-admission-policy
 
 #############
+# E2E TESTS #
+#############
+
+E2E_KIND_NAME    ?= kyverno-e2e
+# The kind version of CI. Its node images are built for that version: an older kind creates the cluster but can't load images in it.
+E2E_KIND_VERSION ?= $(shell sed -n 's/^ *KIND_VERSION: *//p' .github/workflows/kubernetes-matrix.yaml | head -n 1)
+E2E_KIND         ?= $(TOOLS_DIR)/kind-$(E2E_KIND_VERSION)
+# Not empty under `make -n`. The MFLAGS half is for make 3.81, where MAKEFLAGS starts with a variable when no flag is set.
+E2E_DRY_RUN       = $(and $(findstring n,$(firstword -$(MAKEFLAGS))),$(findstring n,$(firstword $(MFLAGS))))
+
+$(E2E_KIND):
+	@echo Install kind $(E2E_KIND_VERSION)... >&2
+	@GOBIN=$(TOOLS_DIR)/kind-install go install sigs.k8s.io/kind@$(E2E_KIND_VERSION)
+	@mv $(TOOLS_DIR)/kind-install/kind $(E2E_KIND)
+	@rmdir $(TOOLS_DIR)/kind-install
+
+# The script reads the setup of the suite from the CI workflows. It also runs under `make -n`, to print the commands of that setup.
+.PHONY: test-e2e-local
+test-e2e-local: $(E2E_KIND) $(HELM) $(YQ) $(CHAINSAW) ## Run a conformance suite on a local kind cluster the way CI does (SUITE=<dir under test/conformance/chainsaw> [TEST=<regex>] [K8S=<version>])
+	@+SUITE='$(value SUITE)' TEST='$(value TEST)' K8S='$(value K8S)' \
+		USE_CONFIG='$(if $(filter-out file,$(origin USE_CONFIG)),$(USE_CONFIG))' RUN_QUARANTINED='$(RUN_QUARANTINED)' \
+		DRY_RUN='$(E2E_DRY_RUN)' E2E_KIND_NAME='$(E2E_KIND_NAME)' TOOLS_DIR='$(TOOLS_DIR)' \
+		KIND='$(E2E_KIND)' HELM='$(HELM)' YQ='$(YQ)' CHAINSAW='$(CHAINSAW)' MAKE='$(MAKE)' \
+		./scripts/test-e2e-local.sh
+
+.PHONY: test-e2e-local-clean
+test-e2e-local-clean: $(E2E_KIND) ## Delete the kind cluster created by test-e2e-local
+	@echo Delete kind cluster $(E2E_KIND_NAME)... >&2
+	@$(E2E_KIND) delete cluster --name $(E2E_KIND_NAME)
+	@rm -rf $(TOOLS_DIR)/e2e-local
+
+#############
 # HELM TEST #
 #############
 
@@ -1276,4 +1324,4 @@ dev-lab-kwok: ## Deploy kwok
 
 .PHONY: help
 help: ## Shows the available commands
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'

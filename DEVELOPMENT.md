@@ -20,6 +20,7 @@ It contains instructions to build, run, and test Kyverno.
   - [Create a local cluster](#create-a-local-cluster)
   - [Build and load local images](#build-and-load-local-images)
   - [Deploy with helm](#deploy-with-helm)
+- [Running conformance tests locally](#running-conformance-tests-locally)
 - [Code generation](#code-generation)
   - [Generating kubernetes API client](#generating-kubernetes-api-client)
   - [Generating API deep copy functions](#generating-api-deep-copy-functions)
@@ -357,6 +358,47 @@ make kind-deploy-all
 This will build local images, load built images in every node of the KinD cluster, and deploy `kyverno` and/or `kyverno-policies` helm charts in the cluster (overriding image repositories and tags).
 
 You can override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
+
+## Running conformance tests locally
+
+CI runs each conformance (chainsaw) suite in `test/conformance/chainsaw` on its own KinD cluster.
+To run a suite the same way on your machine, for example to reproduce a CI failure, run:
+
+```console
+# run the ttl/past-timestamp test on Kubernetes 1.35
+make test-e2e-local SUITE=ttl TEST=past-timestamp K8S=v1.35.8
+```
+
+- `SUITE` is a directory under `test/conformance/chainsaw` that has a `.chainsaw.yaml` file. Run the target without `SUITE` to list them.
+- `TEST` is optional. Without it, the whole suite runs. It is a regex matched against the directory of each test relative to the suite, one path element at a time: `clone/sync/sync-delete-source` for the test in `generating-policies/clone/sync/sync-delete-source`. A CI log names that test `chainsaw/clone/sync/sync-delete-source[<name>]`. An element matches any directory that contains it (`sync` also matches `nosync`), unless you anchor it (`^sync$`).
+- `K8S` is optional. It is a version from the [Kubernetes CI matrix](#kubernetes-ci-matrix). The default is the newest version that CI runs the suite on.
+
+The target needs Docker and `kubectl`. It does the following:
+
+1. Reads the setup that CI uses for the suite from `.github/workflows/tests-conformance.yaml` (Kyverno configs, helm settings, KinD config, cert-manager), and the node image from `.github/workflows/kubernetes-matrix.yaml`.
+2. Creates a KinD cluster named `kyverno-e2e`. Its kubeconfig is `.tools/e2e-local/kubeconfig`, so your current kube context doesn't change.
+3. Builds the images from your working tree, loads them in the cluster, and installs Kyverno.
+4. Runs the tests with chainsaw.
+
+To print the setup and the commands without running them, add `-n`: `make -n test-e2e-local SUITE=...`.
+
+The cluster keeps running after the tests. The next run reuses it when it needs the same Kubernetes version and Kyverno setup, and recreates it otherwise. To delete it, run:
+
+```console
+make test-e2e-local-clean
+```
+
+You can also set:
+
+- `USE_CONFIG=<configs>` to install Kyverno with other configs from `scripts/config` than the ones CI uses for the suite. CI runs the `rbac` suite once for each of three configs: the target uses the first one and lists the others.
+- `RUN_QUARANTINED=true` to also run the tests listed in `test/conformance/quarantine.yaml`. The target skips them by default, as CI does.
+
+A local run differs from CI in these ways:
+
+- CI loads images that another job built for `linux/amd64`. The target builds them from your working tree, for the architecture of your machine.
+- The cluster doesn't map the host ports 80 and 443, so that it can run next to another KinD cluster.
+- CI splits large suites in shards that run in separate jobs. The target runs every matching test in one run.
+- On a reused cluster, the target upgrades and restarts Kyverno. CI always installs it on a new cluster.
 
 ## Code generation
 
