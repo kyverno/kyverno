@@ -342,3 +342,167 @@ func TestBoldHelpers(t *testing.T) {
 		assert(BoldRed("failed:"), "\x1b[31;1mfailed:\x1b[0;22m")
 	})
 }
+
+func TestWarning(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
+	tests := []struct {
+		name    string
+		in      string
+		noColor bool
+		want    string
+	}{{
+		name:    "color disabled",
+		in:      "WARNING:",
+		noColor: true,
+		want:    "WARNING:",
+	}, {
+		name:    "color enabled",
+		in:      "WARNING:",
+		noColor: false,
+		want:    "\x1b[33;1mWARNING:\x1b[0;22m",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.noColor
+			Init(tt.noColor)
+			if got := Warning(tt.in); got != tt.want {
+				t.Errorf("Warning() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestError(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
+	tests := []struct {
+		name    string
+		in      string
+		noColor bool
+		want    string
+	}{{
+		name:    "color disabled",
+		in:      "ERROR:",
+		noColor: true,
+		want:    "ERROR:",
+	}, {
+		name:    "color enabled",
+		in:      "ERROR:",
+		noColor: false,
+		want:    "\x1b[31;1mERROR:\x1b[0;22m",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.noColor
+			Init(tt.noColor)
+			if got := Error(tt.in); got != tt.want {
+				t.Errorf("Error() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFilePath(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
+	tests := []struct {
+		name    string
+		in      string
+		noColor bool
+		want    string
+	}{{
+		name:    "color disabled",
+		in:      "/path/to/file.yaml",
+		noColor: true,
+		want:    "/path/to/file.yaml",
+	}, {
+		name:    "color enabled",
+		in:      "/path/to/file.yaml",
+		noColor: false,
+		want:    "\x1b[36;1m/path/to/file.yaml\x1b[0;22m",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.noColor
+			Init(tt.noColor)
+			if got := FilePath(tt.in); got != tt.want {
+				t.Errorf("FilePath() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDone(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
+	tests := []struct {
+		name    string
+		noColor bool
+		want    string
+	}{{
+		name:    "color disabled",
+		noColor: true,
+		want:    "Done.",
+	}, {
+		name:    "color enabled",
+		noColor: false,
+		want:    "\x1b[32;1mDone.\x1b[0;22m",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.noColor
+			Init(tt.noColor)
+			if got := Done(); got != tt.want {
+				t.Errorf("Done() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOK(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		Init(origNoColor)
+	})
+
+	tests := []struct {
+		name    string
+		noColor bool
+		want    string
+	}{{
+		name:    "color disabled",
+		noColor: true,
+		want:    "OK",
+	}, {
+		name:    "color enabled",
+		noColor: false,
+		want:    "\x1b[32;1mOK\x1b[0;22m",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fatihcolor.NoColor = tt.noColor
+			Init(tt.noColor)
+			if got := OK(); got != tt.want {
+				t.Errorf("OK() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

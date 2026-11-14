@@ -24,6 +24,26 @@ func Init(noColor bool) {
 	}
 }
 
+func Warning(msg string) string {
+	return BoldYellow(msg)
+}
+
+func Error(msg string) string {
+	return BoldRed(msg)
+}
+
+func FilePath(path string) string {
+	return BoldCyan(path)
+}
+
+func Done() string {
+	return BoldGreen("Done.")
+}
+
+func OK() string {
+	return BoldGreen("OK")
+}
+
 func Policy(namespace, name string) string {
 	if strings.Contains(name, "/") {
 		parts := strings.Split(name, "/")
