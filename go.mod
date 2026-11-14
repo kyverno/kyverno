@@ -239,7 +239,6 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
-	github.com/google/cel-go v0.29.2 // indirect
 	github.com/google/certificate-transparency-go v1.3.3 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-github/v88 v88.0.0 // indirect
@@ -376,11 +375,16 @@ require (
 	oras.land/oras-go/v2 v2.6.2 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.37.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
 )
 
 replace k8s.io/pod-security-admission => github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f
 
-replace github.com/kyverno/api => github.com/JimBugwadia/kyverno-api v0.0.0-20261113202505-7ee1ce120a9e
+replace github.com/kyverno/api => github.com/JimBugwadia/kyverno-api v0.0.0-20261113233427-16867b142281
 
 replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.25.1-0.20261110104548-fd75b365f4ff
+
+replace github.com/kyverno/sdk => github.com/JimBugwadia/kyverno-sdk v0.0.0-20261113233747-e156495a4e04
+
+replace github.com/kyverno/kyverno-authz => github.com/JimBugwadia/kyverno-authz v0.0.0-20261113234047-ffe25ad28c80
+
+replace github.com/openreports/reports-api => github.com/JimBugwadia/reports-api v0.0.0-20261113233538-db5e8e4d0bb3
