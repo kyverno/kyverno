@@ -2,17 +2,36 @@
 
 name: Tests
 
+# The E2E scheduler (.github/workflows/e2e-scheduler.yaml) and the batch job
+# below find the matrix of a run by the suffix of this name. Keep the suffix
+# when you change it.
+run-name: Tests on ${{ github.ref_name }} (${{ inputs.matrix || 'full' }})
+
 permissions: {}
 
+# The suite doesn't run on push. The E2E scheduler starts it with
+# workflow_dispatch on main and the supported release branches, so each run
+# tests a batch of commits. You can also start it by hand, for example after a
+# fix landed in kyverno/policies or kyverno/sdk. On main and release branches a
+# dispatched run updates the tracking issue, which clears the E2E gate.
 on:
-  push:
-    branches:
-      - main
-      - release-*
-  # Re-runs the suite on the latest commit without a push, e.g. after a fix
-  # landed in kyverno/policies or kyverno/sdk. On main and release branches it
-  # updates the tracking issue like a push run, which clears the E2E gate.
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      matrix:
+        description: 'Kubernetes versions to test: full runs every supported version, reduced runs only the oldest and the latest one'
+        type: choice
+        options:
+          - full
+          - reduced
+        default: full
+  # A called run belongs to the calling workflow, so it doesn't update the
+  # tracking issue or the E2E gate: both follow runs of this workflow only.
+  workflow_call:
+    inputs:
+      matrix:
+        description: 'Kubernetes versions to test: full or reduced'
+        type: string
+        default: full
 
 concurrency:
   group: ${{ github.workflow_ref }}
@@ -69,6 +88,8 @@ jobs:
     permissions:
       packages: read
     uses: ./.github/workflows/tests-conformance.yaml
+    with:
+      matrix: ${{ inputs.matrix || 'full' }}
 
   conformance-policy-library-tests:
     name: Conformance tests (policy library)
@@ -101,6 +122,109 @@ jobs:
       - name: Check performance regression
         run: make check-perf
 
+  # Lists the commits this run tests for the first time: those since the last
+  # green run on this branch that covers this matrix. When the run fails, the
+  # suspects are in this range. Informational only, so sync-issue doesn't
+  # wait for it.
+  batch:
+    name: Batch summary
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-')
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      # actions: the job lists the runs of this workflow
+      actions: read
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Summarize batch
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          MATRIX: ${{ inputs.matrix || 'full' }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const branch = context.ref.replace(/^refs\/heads\//, '');
+            const head = context.sha;
+            const matrix = process.env.MATRIX;
+            const MAX_COMMITS = 100;
+
+            // Runs from before the matrix input existed have no suffix; they
+            // always ran the full matrix.
+            const matrixOf = r =>
+              (/\((full|reduced)\)$/.exec(r.display_title || '') || [])[1] || 'full';
+            // A green full run also covers the reduced matrix.
+            const covers = r => matrix === 'reduced' || matrixOf(r) === matrix;
+
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner, repo, workflow_id: 'check-tests.yaml', branch, status: 'success', per_page: 100
+            }, (response, done) => {
+              const found = response.data.filter(r => r.id !== context.runId && covers(r));
+              if (found.length > 0) done();
+              return found;
+            });
+            const lastGreen = runs[0];
+
+            const summary = core.summary.addHeading(`Batch on ${branch} (${matrix} matrix)`, 2);
+            if (!lastGreen) {
+              await summary.addRaw(`No earlier green ${matrix} run on \`${branch}\`, so the batch range is unknown.`).write();
+              return;
+            }
+            const base = lastGreen.head_sha;
+            if (base === head) {
+              await summary.addRaw(`The [last green run](${lastGreen.html_url}) tested the same commit \`${head.slice(0, 9)}\`.`).write();
+              return;
+            }
+
+            const commits = await github.paginate(github.rest.repos.compareCommitsWithBasehead, {
+              owner, repo, basehead: `${base}...${head}`, per_page: 100
+            }, response => response.data.commits);
+            const compareUrl = `${context.serverUrl}/${owner}/${repo}/compare/${base}...${head}`;
+            const shown = commits.slice(-MAX_COMMITS).reverse();
+
+            const rows = [];
+            const authors = new Set();
+            for (const c of shown) {
+              let prs = [];
+              try {
+                ({ data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                  owner, repo, commit_sha: c.sha
+                }));
+              } catch (err) {
+                core.warning(`Could not list pull requests for ${c.sha} (${err.message || String(err)}).`);
+              }
+              const merged = prs.filter(p => p.merged_at && p.base.ref === branch);
+              const login = merged[0]?.user?.login || c.author?.login;
+              if (login) authors.add(login);
+              rows.push([
+                `<a href="${c.html_url}"><code>${c.sha.slice(0, 9)}</code></a>`,
+                merged.map(p => `<a href="${p.html_url}">#${p.number}</a>`).join(', ') || '—',
+                login || c.commit.author?.name || '—',
+                (c.commit.message.split('\n')[0] || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'),
+              ]);
+            }
+
+            const range = `${base.slice(0, 9)}..${head.slice(0, 9)}`;
+            summary
+              .addRaw(`Commits since the [last green run](${lastGreen.html_url}): `)
+              .addLink(range, compareUrl)
+              .addRaw(` (${commits.length} commits).`, true);
+            if (commits.length > shown.length) {
+              summary.addRaw(`<p>Only the latest ${shown.length} are listed.</p>`, true);
+            }
+            await summary
+              .addRaw(`<p>Authors: ${[...authors].sort().join(', ') || '—'}</p>`, true)
+              .addTable([
+                [
+                  { data: 'Commit', header: true },
+                  { data: 'Pull request', header: true },
+                  { data: 'Author', header: true },
+                  { data: 'Title', header: true },
+                ],
+                ...rows,
+              ])
+              .write();
+
   # A run that was cancelled without a failure says nothing about the tests:
   # it must neither close the tracking issue nor open one, so the issue is
   # left as it is. A failure is still recorded even if other jobs were then
@@ -109,9 +233,8 @@ jobs:
     if: >-
       always() &&
       (contains(needs.*.result, 'failure') || !contains(needs.*.result, 'cancelled')) &&
-      (github.event_name == 'push' ||
-        (github.event_name == 'workflow_dispatch' &&
-          (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))))
+      github.workflow == 'Tests' && github.event_name == 'workflow_dispatch' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
     needs:
       - images
       - cli
@@ -137,5 +260,5 @@ jobs:
 
             While this issue is open, every open pull request to `${{ github.ref_name }}` shows a red **E2E Gate** status, except those with the `e2e-gate-bypass` label. It turns green on all of them, without a push, as soon as one of these happens:
 
-            - The Tests workflow passes on `${{ github.ref_name }}`. That happens on the next push, or right away by re-running the failed jobs of the run above, or with [Run workflow](${{ github.server_url }}/${{ github.repository }}/actions/workflows/check-tests.yaml) on `${{ github.ref_name }}` when the fix landed in another repository.
+            - The Tests workflow passes on `${{ github.ref_name }}`. That happens on the next scheduled run after a new commit lands, or right away by re-running the failed jobs of the run above, or with [Run workflow](${{ github.server_url }}/${{ github.repository }}/actions/workflows/check-tests.yaml) on `${{ github.ref_name }}` when the fix landed in another repository.
             - A maintainer closes this issue.
