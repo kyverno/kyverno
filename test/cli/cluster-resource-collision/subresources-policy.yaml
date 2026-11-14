@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-allowed
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [alpha.example.com]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [widgets, widgets/status, widgets/resize]
+  validations:
+  - expression: object.spec.allowed == true
+    message: widget must be allowed
