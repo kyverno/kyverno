@@ -21,6 +21,7 @@ import (
 const namespaceControllerUsername = "system:serviceaccount:kube-system:namespace-controller"
 
 const (
+	kubeControllerManagerUsername         = "system:kube-controller-manager"
 	endpointsControllerUsername           = "system:serviceaccount:kube-system:endpoint-controller"
 	endpointSliceControllerUsername       = "system:serviceaccount:kube-system:endpointslice-controller"
 	endpointSliceMirrorControllerUsername = "system:serviceaccount:kube-system:endpointslice-mirroring-controller"
@@ -99,7 +100,7 @@ func isControllerUsername(username string, controllerUsernames []string) bool {
 
 func isEndpointsController(username string) bool {
 	switch username {
-	case endpointsControllerUsername, endpointSliceControllerUsername, endpointSliceMirrorControllerUsername:
+	case kubeControllerManagerUsername, endpointsControllerUsername, endpointSliceControllerUsername, endpointSliceMirrorControllerUsername:
 		return true
 	default:
 		return false
