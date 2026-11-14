@@ -53,17 +53,16 @@ func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ..
 			logger.Error(err, "failed to extract resources")
 			return admissionutils.Response(request.UID, err)
 		}
-		// On CREATE, allow secondary child objects instantiated by controllers:
-		// 1. Objects carrying ownerReferences (e.g. CertificateRequest for Certificate, EndpointSlice for Service).
-		// 2. Core Endpoints created by kube-controller-manager (endpoints-controller copies Service labels without ownerReferences).
-		if request.Operation == admissionv1.Create {
-			if len(newResource.GetOwnerReferences()) > 0 {
-				return inner(ctx, logger, request, startTime)
-			}
-			if request.Kind.Group == "" && request.Kind.Kind == "Endpoints" &&
-				(request.UserInfo.Username == endpointsControllerUsername || request.UserInfo.Username == endpointSliceControllerUsername) {
-				return inner(ctx, logger, request, startTime)
-			}
+		// Allow secondary child objects instantiated by controllers:
+		// 1. On CREATE: objects carrying ownerReferences (e.g. CertificateRequest for Certificate, EndpointSlice for Service).
+		// 2. On CREATE & UPDATE: core Endpoints managed by kube-controller-manager (endpoints-controller reconciles Endpoints
+		//    without ownerReferences, copying Service labels along with endpoint subsets).
+		if request.Operation == admissionv1.Create && len(newResource.GetOwnerReferences()) > 0 {
+			return inner(ctx, logger, request, startTime)
+		}
+		if request.Kind.Group == "" && request.Kind.Kind == "Endpoints" &&
+			(request.UserInfo.Username == endpointsControllerUsername || request.UserInfo.Username == endpointSliceControllerUsername) {
+			return inner(ctx, logger, request, startTime)
 		}
 		if !maps.Equal(extractKyvernoGenerateLabels(newResource.GetLabels()), extractKyvernoGenerateLabels(oldResource.GetLabels())) {
 			logger.V(2).Info("access to Kyverno generate labels is not authorized")
