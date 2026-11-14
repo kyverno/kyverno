@@ -26,13 +26,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Go
+        id: setup-go
         uses: ./.github/actions/go/setup
+        with:
+          gobuild-cache-prefix: gobuild-lint
+          gobuild-cache-include-run-id: 'true'
       - name: golangci-lint
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
         with:
           version: v2.14.0
-          skip-cache: true
           verify: false
+      - name: Save gobuild cache
+        if: |
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main'
+        uses: ./.github/actions/go/save-cache
+        with:
+          path: ${{ steps.setup-go.outputs.gobuild-cache }}
+          cache-prefix: gobuild-lint
+          include-run-id: 'true'
 
   sync-issue:
     if: always() && github.event_name == 'push'
