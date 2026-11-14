@@ -1,7 +1,7 @@
 package kyverno
 
 import (
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextv1 "k8s.io/apiextensions-api/pkg/apis/apiextensions/v1"
 )
 
 type APICall struct {

@@ -10,7 +10,7 @@ import (
 	"text/template"
 
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiserver "k8s.io/apiextensions-api/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"

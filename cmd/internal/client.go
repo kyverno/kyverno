@@ -19,7 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiserver "k8s.io/apiextensions-api/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
