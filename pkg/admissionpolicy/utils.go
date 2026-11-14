@@ -211,10 +211,16 @@ func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 
 	if paramRef.Name != "" {
 		param, err := client.GetResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Name, "")
-		if err != nil {
+		switch {
+		case err == nil:
+			params = []runtime.Object{param}
+		case apierrors.IsNotFound(err):
+			// a parameter that does not exist yet counts as no parameters: the
+			// parameterNotFoundAction check below decides what happens next, as in
+			// the API server
+		default:
 			return nil, err
 		}
-		return []runtime.Object{param}, nil
 	} else if paramRef.Selector != nil {
 		paramList, err := client.ListResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Selector)
 		if err != nil {

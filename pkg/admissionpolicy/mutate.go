@@ -176,11 +176,10 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 			var matchedParams runtime.Object
 			switch len(params) {
 			case 0:
-				// CollectParams returns errNoParamsFound when a selector matches no
-				// parameter under parameterNotFoundAction Deny, so an empty result here
-				// means the action allows it: Kubernetes skips the binding, so no
-				// mutation is evaluated. A ref with neither name nor selector is skipped
-				// the same way, since the API server rejects such a binding up front.
+				// CollectParams applies parameterNotFoundAction: a no-match selector or
+				// a missing named parameter yields errNoParamsFound under Deny, so an
+				// empty result here means the action allows it and Kubernetes skips the
+				// binding
 				continue
 			case 1:
 				matchedParams = params[0]

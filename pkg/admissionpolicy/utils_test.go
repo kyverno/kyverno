@@ -567,6 +567,39 @@ func TestCollectParams(t *testing.T) {
 			expectedErrMsg: "not found",
 		},
 		{
+			name: "get by name not found with allow",
+			paramKind: &admissionregistrationv1.ParamKind{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name: "my-config",
+			},
+			namespace: "default",
+			mockClient: &mockEngineClient{
+				isNamespacedResp: true,
+				getResourceErr:   apierrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "my-config"),
+			},
+			expectedLen: 0,
+		},
+		{
+			name: "get by name not found with deny",
+			paramKind: &admissionregistrationv1.ParamKind{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name:                    "my-config",
+				ParameterNotFoundAction: &denyAction,
+			},
+			namespace: "default",
+			mockClient: &mockEngineClient{
+				isNamespacedResp: true,
+				getResourceErr:   apierrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "my-config"),
+			},
+			expectedErrMsg: "no params found",
+		},
+		{
 			name: "list by selector success",
 			paramKind: &admissionregistrationv1.ParamKind{
 				APIVersion: "v1",

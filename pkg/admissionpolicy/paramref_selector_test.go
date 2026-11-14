@@ -304,6 +304,70 @@ func TestParamRefSelectorClientPath(t *testing.T) {
 		}
 	})
 
+	t.Run("vap missing named parameter follows the action", func(t *testing.T) {
+		t.Parallel()
+
+		for _, tt := range []struct {
+			name    string
+			deny    bool
+			wantErr bool
+		}{
+			{name: "allow skips the binding"},
+			{name: "deny records an error", deny: true, wantErr: true},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				policy := newClientPathVAP()
+				var action *admissionregistrationv1.ParameterNotFoundActionType
+				if tt.deny {
+					denyAll := admissionregistrationv1.DenyAction
+					action = &denyAll
+				}
+				bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "missing"},
+						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+							PolicyName: policy.Name,
+							ParamRef: &admissionregistrationv1.ParamRef{
+								Name:                    "not-created-yet",
+								ParameterNotFoundAction: action,
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "sibling"},
+						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+							PolicyName: policy.Name,
+						},
+					},
+				}
+				data := engineapi.NewValidatingAdmissionPolicyData(policy, bindings...)
+
+				resource := newDeployment()
+				response, err := Validate(
+					data,
+					resource,
+					resource.GroupVersionKind(),
+					schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+					nil,
+					newTestDClient(t),
+					nil,
+					false,
+				)
+
+				wantRules := 1
+				if tt.wantErr {
+					wantRules = 2
+					assert.Assert(t, errors.Is(err, errNoParamsFound), "unexpected error: %v", err)
+					assert.Equal(t, findVAPRule(t, response.PolicyResponse.Rules, "missing").Status(), engineapi.RuleStatusError)
+				} else {
+					assert.NilError(t, err)
+				}
+				assert.Assert(t, len(response.PolicyResponse.Rules) == wantRules, "expected %d rule responses, got %d", wantRules, len(response.PolicyResponse.Rules))
+				assert.Equal(t, findVAPRule(t, response.PolicyResponse.Rules, "sibling").Status(), engineapi.RuleStatusPass)
+			})
+		}
+	})
+
 	t.Run("map invalid selector", func(t *testing.T) {
 		t.Parallel()
 
@@ -402,6 +466,72 @@ func TestParamRefSelectorClientPath(t *testing.T) {
 				assert.Equal(t, denied.Status(), engineapi.RuleStatusError)
 				assert.Equal(t, denied.RuleType(), engineapi.Mutation)
 				assert.Equal(t, findMAPRule(t, response.PolicyResponse.Rules, "matched").Status(), engineapi.RuleStatusPass)
+				assert.Equal(t, response.PatchedResource.GetLabels()["applied"], "yes")
+			})
+		}
+	})
+
+	t.Run("map missing named parameter follows the action", func(t *testing.T) {
+		t.Parallel()
+
+		for _, tt := range []struct {
+			name    string
+			deny    bool
+			wantErr bool
+		}{
+			{name: "allow skips the binding"},
+			{name: "deny records an error", deny: true, wantErr: true},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				policy := newClientPathMAP()
+				var action *admissionregistrationv1beta1.ParameterNotFoundActionType
+				if tt.deny {
+					denyAll := admissionregistrationv1beta1.DenyAction
+					action = &denyAll
+				}
+				bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "missing"},
+						Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+							PolicyName: policy.Name,
+							ParamRef: &admissionregistrationv1beta1.ParamRef{
+								Name:                    "not-created-yet",
+								ParameterNotFoundAction: action,
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "sibling"},
+						Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+							PolicyName: policy.Name,
+						},
+					},
+				}
+				data := engineapi.NewMutatingAdmissionPolicyData(policy, bindings...)
+
+				resource := newDeployment()
+				response, err := Mutate(
+					data,
+					resource,
+					resource.GroupVersionKind(),
+					schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+					nil,
+					newTestDClient(t),
+					nil,
+					false,
+					false,
+				)
+
+				wantRules := 1
+				if tt.wantErr {
+					wantRules = 2
+					assert.Assert(t, errors.Is(err, errNoParamsFound), "unexpected error: %v", err)
+					assert.Equal(t, findMAPRule(t, response.PolicyResponse.Rules, "missing").Status(), engineapi.RuleStatusError)
+				} else {
+					assert.NilError(t, err)
+				}
+				assert.Assert(t, len(response.PolicyResponse.Rules) == wantRules, "expected %d rule responses, got %d", wantRules, len(response.PolicyResponse.Rules))
+				assert.Equal(t, findMAPRule(t, response.PolicyResponse.Rules, "sibling").Status(), engineapi.RuleStatusPass)
 				assert.Equal(t, response.PatchedResource.GetLabels()["applied"], "yes")
 			})
 		}
