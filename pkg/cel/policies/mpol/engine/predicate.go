@@ -33,7 +33,9 @@ func ClusteredPolicy() Predicate {
 }
 
 func NamespacedPolicy(namespace string) Predicate {
-	return func(policy policiesv1beta1.MutatingPolicyLike) bool { return policy.GetNamespace() == namespace }
+	return func(policy policiesv1beta1.MutatingPolicyLike) bool {
+		return namespace != "" && policy.GetNamespace() == namespace
+	}
 }
 
 func NoTargetMatchConstraintPolicy() Predicate {
