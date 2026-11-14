@@ -21,6 +21,8 @@ env:
 jobs:
   k6:
     runs-on: ubuntu-latest
+    # A scenario takes about 5 minutes, and the Helm install alone may wait 15.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -122,6 +124,7 @@ jobs:
 
   summary:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs:
       - k6
     steps:
