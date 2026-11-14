@@ -8,50 +8,41 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"sigs.k8s.io/yaml"
 )
 
 func TestCommand(t *testing.T) {
 	tempDir := t.TempDir()
-	templateFile := filepath.Join(tempDir, "templates", "aggregated-role.yaml")
-
-	// Sample template content for testing
-	templateContent := `
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno-{{.Name}}-permission
-  labels:
-      {{- range .Controllers }}
-      rbac.kyverno.io/aggregate-to-{{ . }}: "true"
-      {{- end }}
-rules:
-  - apiGroups: ["{{.ApiGroup}}"]
-    resources: ["{{.ResourceTypes | join \",\"}}"]
-    verbs: [{{range .Verbs}}"{{.}}",{{end}}]
-`
-
-	// Write the template file to the temporary directory
-	err := os.MkdirAll(filepath.Dir(templateFile), os.ModePerm)
-	assert.NoError(t, err)
-	err = os.WriteFile(templateFile, []byte(templateContent), 0644)
-	assert.NoError(t, err)
 
 	// Define test cases
 	tests := []struct {
-		name         string
-		args         []string
-		expectedFile string
-		errorMsg     string
+		name             string
+		args             []string
+		expectedFile     string
+		expectedContains []string
+		errorMsg         string
 	}{
 		{
 			name:         "ValidCommandWithMultipleControllers",
 			args:         []string{"name1", "--resources=crontabs", "--api-groups=stable.example.com", "--verbs=get,list", "--controllers=controller1", "--controllers=controller2"},
 			expectedFile: "stdout",
+			expectedContains: []string{
+				`rbac.kyverno.io/aggregate-to-controller1: "true"`,
+				`rbac.kyverno.io/aggregate-to-controller2: "true"`,
+				`resources: ["crontabs"]`,
+				`verbs: ["get", "list"]`,
+			},
 		},
 		{
 			name:         "ValidCommandWithDefaultController",
 			args:         []string{"name2", "--resources=pods", "--api-groups=core", "--verbs=get,list"},
 			expectedFile: "stdout",
+			expectedContains: []string{
+				`rbac.kyverno.io/aggregate-to-background-controller: "true"`,
+				`resources: ["pods"]`,
+				`verbs: ["get", "list"]`,
+			},
 		},
 		{
 			name:     "MissingResources",
@@ -72,6 +63,26 @@ rules:
 			name:         "AllVerbExpands",
 			args:         []string{"name6", "--resources=pods", "--api-groups=core", "--verbs=all"},
 			expectedFile: "stdout",
+			expectedContains: []string{
+				`resources: ["pods"]`,
+				`verbs: ["create", "get", "update", "delete", "list", "watch"]`,
+			},
+		},
+		{
+			name:         "AllVerbExpandsAfterAnotherVerb",
+			args:         []string{"name6", "--resources=pods", "--api-groups=core", "--verbs=get,all"},
+			expectedFile: "stdout",
+			expectedContains: []string{
+				`verbs: ["create", "get", "update", "delete", "list", "watch"]`,
+			},
+		},
+		{
+			name:         "AllVerbPreservesExplicitVerbs",
+			args:         []string{"namePatch", "--resources=pods", "--api-groups=core", "--verbs=patch,all"},
+			expectedFile: "stdout",
+			expectedContains: []string{
+				`verbs: ["create", "get", "update", "delete", "list", "watch", "patch"]`,
+			},
 		},
 		{
 			name:         "OutputToFile",
@@ -89,14 +100,45 @@ rules:
 			errorMsg: "invalid controller provided",
 		},
 		{
+			name:     "TrailingCommaController",
+			args:     []string{"nameTrailing", "--resources=pods", "--api-groups=core", "--verbs=get", "--controllers=background-controller,"},
+			errorMsg: "invalid controller provided",
+		},
+		{
+			name:     "EmptyResourceEntry",
+			args:     []string{"nameEmptyRes", "--resources=pods,", "--api-groups=core", "--verbs=get"},
+			errorMsg: "invalid resource provided",
+		},
+		{
+			name:     "EmptyVerbEntry",
+			args:     []string{"nameEmptyVerb", "--resources=pods", "--api-groups=core", "--verbs=get,"},
+			errorMsg: "invalid verb provided",
+		},
+		{
 			name:         "MultipleResources",
 			args:         []string{"name11", "--resources=pods,services", "--api-groups=core", "--verbs=get,list"},
 			expectedFile: "stdout",
+			expectedContains: []string{
+				`resources: ["pods", "services"]`,
+				`verbs: ["get", "list"]`,
+			},
+		},
+		{
+			name:         "ResourcesWithWhitespaceAfterComma",
+			args:         []string{"nameSpaces", "--resources=deployments, statefulsets", "--api-groups=apps", "--verbs=get, list"},
+			expectedFile: "stdout",
+			expectedContains: []string{
+				`resources: ["deployments", "statefulsets"]`,
+				`verbs: ["get", "list"]`,
+			},
 		},
 		{
 			name:         "SingleVerb",
 			args:         []string{"name12", "--resources=pods", "--api-groups=core", "--verbs=get"},
 			expectedFile: "stdout",
+			expectedContains: []string{
+				`verbs: ["get"]`,
+			},
 		},
 		{
 			name:     "NoApiGroup",
@@ -112,17 +154,27 @@ rules:
 			name:         "DifferentVerbCombinations",
 			args:         []string{"name14", "--resources=pods", "--api-groups=core", "--verbs=create,delete"},
 			expectedFile: "stdout",
+			expectedContains: []string{
+				`verbs: ["create", "delete"]`,
+			},
 		},
 		{
 			name:         "ValidCommandWithMixedControllers",
 			args:         []string{"name15", "--resources=pods", "--api-groups=core", "--verbs=get,list", "--controllers=controller1,controller2"},
 			expectedFile: "stdout",
+			expectedContains: []string{
+				`rbac.kyverno.io/aggregate-to-controller1: "true"`,
+				`rbac.kyverno.io/aggregate-to-controller2: "true"`,
+			},
 		},
-
 		{
 			name:         "AllFlagsWithComplexInput",
 			args:         []string{"nameComplex", "--resources=pods,services", "--api-groups=core", "--verbs=get,list"},
 			expectedFile: "stdout",
+			expectedContains: []string{
+				`resources: ["pods", "services"]`,
+				`verbs: ["get", "list"]`,
+			},
 		},
 		{
 			name:     "OutputFileCreationFailure",
@@ -147,7 +199,7 @@ rules:
 			cmd.SetOut(&stdoutBuffer)
 
 			// Execute the command and handle errors
-			err = cmd.Execute()
+			err := cmd.Execute()
 			if tc.errorMsg != "" {
 				assert.ErrorContains(t, err, tc.errorMsg)
 				return
@@ -158,6 +210,9 @@ rules:
 			if tc.expectedFile == "stdout" {
 				output := stdoutBuffer.String()
 				assert.Contains(t, output, fmt.Sprintf("name: kyverno-%s-permission", tc.args[0]))
+				for _, expected := range tc.expectedContains {
+					assert.Contains(t, output, expected)
+				}
 			} else {
 				expectedFilePath := filepath.Join(tempDir, tc.expectedFile)
 				_, err := os.Stat(expectedFilePath)
@@ -168,4 +223,32 @@ rules:
 			}
 		})
 	}
+}
+
+func TestClusterRoleValidYAML(t *testing.T) {
+	cmd := Command()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{
+		"test-role",
+		"--api-groups=apps",
+		"--resources=deployments, statefulsets",
+		"--verbs=get, list, watch, patch, all",
+		"--controllers=background-controller, reports-controller",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+
+	var role rbacv1.ClusterRole
+	err = yaml.Unmarshal(buf.Bytes(), &role)
+	assert.NoError(t, err)
+	assert.Equal(t, "kyverno-test-role-permission", role.Name)
+	assert.Equal(t, "ClusterRole", role.Kind)
+	assert.Equal(t, "rbac.authorization.k8s.io/v1", role.APIVersion)
+	assert.Equal(t, "true", role.Labels["rbac.kyverno.io/aggregate-to-background-controller"])
+	assert.Equal(t, "true", role.Labels["rbac.kyverno.io/aggregate-to-reports-controller"])
+	assert.Len(t, role.Rules, 1)
+	assert.Equal(t, []string{"apps"}, role.Rules[0].APIGroups)
+	assert.Equal(t, []string{"deployments", "statefulsets"}, role.Rules[0].Resources)
+	assert.Equal(t, []string{"create", "get", "update", "delete", "list", "watch", "patch"}, role.Rules[0].Verbs)
 }

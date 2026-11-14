@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
@@ -19,6 +20,7 @@ type options struct {
 	Name          string
 }
 
+// Command returns a cobra.Command for creating an aggregated ClusterRole.
 func Command() *cobra.Command {
 	var verbs []string
 	var path string
@@ -48,15 +50,67 @@ Required flags include 'api-groups', 'verbs', and 'resources'.`,
 				return fmt.Errorf("required flag(s) \"verbs\" not set")
 			}
 
-			if len(opts.Controllers) == 0 || (len(opts.Controllers) == 1 && opts.Controllers[0] == "") {
+			// Validate and trim controllers
+			if len(opts.Controllers) == 0 {
 				return fmt.Errorf("invalid controller provided")
 			}
-
-			// Handle 'all' verb
-			if verbs[0] == "all" {
-				verbs = []string{"create", "get", "update", "delete", "list", "watch"}
+			var controllers []string
+			for _, c := range opts.Controllers {
+				trimmed := strings.TrimSpace(c)
+				if trimmed == "" {
+					return fmt.Errorf("invalid controller provided")
+				}
+				controllers = append(controllers, trimmed)
 			}
-			opts.Verbs = verbs
+			opts.Controllers = controllers
+
+			// Validate and trim resources
+			var resources []string
+			for _, r := range opts.ResourceTypes {
+				trimmed := strings.TrimSpace(r)
+				if trimmed == "" {
+					return fmt.Errorf("invalid resource provided")
+				}
+				resources = append(resources, trimmed)
+			}
+			opts.ResourceTypes = resources
+
+			// Validate and trim verbs
+			var trimmedVerbs []string
+			for _, v := range verbs {
+				trimmed := strings.TrimSpace(v)
+				if trimmed == "" {
+					return fmt.Errorf("invalid verb provided")
+				}
+				trimmedVerbs = append(trimmedVerbs, trimmed)
+			}
+
+			// Handle 'all' verb while preserving explicit verbs
+			hasAll := false
+			for _, v := range trimmedVerbs {
+				if v == "all" {
+					hasAll = true
+					break
+				}
+			}
+			if hasAll {
+				standardVerbs := []string{"create", "get", "update", "delete", "list", "watch"}
+				seen := make(map[string]bool)
+				var expanded []string
+				for _, sv := range standardVerbs {
+					seen[sv] = true
+					expanded = append(expanded, sv)
+				}
+				for _, v := range trimmedVerbs {
+					if v != "all" && !seen[v] {
+						seen[v] = true
+						expanded = append(expanded, v)
+					}
+				}
+				opts.Verbs = expanded
+			} else {
+				opts.Verbs = trimmedVerbs
+			}
 
 			// Parse the role template
 			tmpl, err := template.New("aggregatedRole").Funcs(sprig.HermeticTxtFuncMap()).Parse(templates.AggregatedRoleTemplate)
@@ -81,11 +135,11 @@ Required flags include 'api-groups', 'verbs', and 'resources'.`,
 	}
 
 	// Define flags
-	cmd.Flags().StringArrayVar(&opts.Controllers, "controllers", []string{"background-controller"}, "List of controllers for the ClusterRole (default = background-controller)")
+	cmd.Flags().StringSliceVar(&opts.Controllers, "controllers", []string{"background-controller"}, "List of controllers for the ClusterRole (default = background-controller)")
 	cmd.Flags().StringVarP(&path, "output", "o", "", "Output file path (prints to console if not set)")
 	cmd.Flags().StringVarP(&opts.ApiGroup, "api-groups", "g", "", "API group for the resource (required)")
-	cmd.Flags().StringArrayVar(&verbs, "verbs", nil, "A comma separated list of verbs or 'all' for all verbs")
-	cmd.Flags().StringArrayVar(&opts.ResourceTypes, "resources", nil, "A comma separated list of resources (required)")
+	cmd.Flags().StringSliceVar(&verbs, "verbs", nil, "A comma separated list of verbs or 'all' for all verbs")
+	cmd.Flags().StringSliceVar(&opts.ResourceTypes, "resources", nil, "A comma separated list of resources (required)")
 
 	// Mark required flags
 	if err := cmd.MarkFlagRequired("api-groups"); err != nil {
