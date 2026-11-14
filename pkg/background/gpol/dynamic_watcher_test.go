@@ -2152,6 +2152,83 @@ func TestHandleUpdate_SourcePropagation_CachesEachDownstreamsOwnContent(t *testi
 		"mutating one cache entry's content must not leak into another downstream's entry")
 }
 
+// TestHandleUpdate_SourcePropagation_RecoversDownstreamsFromUpdatedCache covers what the refreshed
+// cache entries are for: handleDelete and revertDownstream restore a downstream from its own entry
+// after the source changed. If propagation left every entry holding another downstream's copy, the
+// deleted clone comes back under the wrong namespace, and a drifted clone is reverted to the wrong
+// identity or to the pre-change content.
+func TestHandleUpdate_SourcePropagation_RecoversDownstreamsFromUpdatedCache(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	src := makeUnstructured("500", "", "v1", "ConfigMap", "ca", "repro-src", "src-uid", nil)
+	_ = unstructured.SetNestedField(src.Object, "v2", "data", "ca.crt")
+
+	// The managed-by label is what routes a downstream's deletion to the recreate path instead of
+	// the source-deletion clean-up.
+	downstreams := map[types.UID]struct {
+		namespace string
+		rv        string
+	}{
+		"ds-uid-a": {namespace: "a-target", rv: "301"},
+		"ds-uid-b": {namespace: "b-target", rv: "302"},
+		"ds-uid-c": {namespace: "c-target", rv: "303"},
+	}
+	cache := map[types.UID]Resource{}
+	list := make([]unstructured.Unstructured, 0, len(downstreams))
+	live := map[types.UID]*unstructured.Unstructured{}
+	for uid, ds := range downstreams {
+		obj := makeUnstructured(ds.rv, "", "v1", "ConfigMap", "ca", ds.namespace, uid, map[string]string{
+			common.GenerateSourceUIDLabel: "src-uid",
+			kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
+		})
+		cache[uid] = Resource{Name: "ca", Namespace: ds.namespace, Labels: obj.GetLabels(), Hash: "stale", Data: obj}
+		list = append(list, *obj)
+		live[uid] = obj
+	}
+
+	var created, reverted *unstructured.Unstructured
+	mc := &MockClient{
+		listItems: list,
+		createFn: func(_ context.Context, _, _, _ string, obj interface{}, _ bool) (*unstructured.Unstructured, error) {
+			created, _ = obj.(*unstructured.Unstructured)
+			return nil, nil
+		},
+		updateFn: func(obj interface{}) { reverted, _ = obj.(*unstructured.Unstructured) },
+	}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: mc,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {metadataCache: cache},
+		},
+	}
+
+	wm.handleUpdate(src, gvr)
+	assert.Len(t, mc.updated, len(downstreams), "the source change propagates to every downstream")
+
+	// A deleted downstream is recreated from its cache entry: same name and namespace it had, with
+	// the content the source change propagated.
+	wm.handleDelete(live["ds-uid-b"].DeepCopy(), gvr)
+	require.NotNil(t, created, "a deleted downstream must be recreated from its cache entry")
+	assert.Equal(t, "b-target", created.GetNamespace(),
+		"the recreated downstream must keep its own namespace, not another downstream's")
+	assert.Equal(t, "ca", created.GetName(), "the recreated downstream must keep its own name")
+	assert.Empty(t, created.GetUID(), "the recreated downstream is a new object, not the deleted one")
+	content, _, _ := unstructured.NestedString(created.Object, "data", "ca.crt")
+	assert.Equal(t, "v2", content, "the recreated downstream must carry the updated source content")
+
+	// A drifted downstream is reverted from its cache entry, again with its own identity and the
+	// propagated content rather than what was cached before the source changed.
+	drifted := live["ds-uid-c"].DeepCopy()
+	_ = unstructured.SetNestedField(drifted.Object, "tampered", "data", "ca.crt")
+	wm.handleUpdate(drifted, gvr)
+	require.NotNil(t, reverted, "a drifted downstream must be reverted from its cache entry")
+	assert.Equal(t, "c-target", reverted.GetNamespace(),
+		"the reverted downstream must keep its own namespace, not another downstream's")
+	assert.Equal(t, "ca", reverted.GetName(), "the reverted downstream must keep its own name")
+	revertedContent, _, _ := unstructured.NestedString(reverted.Object, "data", "ca.crt")
+	assert.Equal(t, "v2", revertedContent, "the reverted downstream must carry the updated source content")
+}
+
 // usageDownstream returns a generated Crossplane Usage the way Kyverno caches it: its own labels and
 // spec, plus server-set metadata. A cache refreshed from the live object after a restart can also
 // hold what another controller added, so it carries Crossplane's finalizer too.
