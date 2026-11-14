@@ -94,6 +94,16 @@ func NewRuntimeForPolicy(ctx context.Context, f *IvFuncs, imgCtx imagedataloader
 	newFuncs.pendingReferrerRestores = map[string][]gcrv1.Descriptor{}
 	newFuncs.diagnostics = &verificationDiagnostics{}
 
+	// A puller makes every registry call of this evaluation share a single auth
+	// handshake per repository. It is added here and not in NewIvFuncs because
+	// IvFuncs outlives an admission request, and the puller must not.
+	if puller, err := remote.NewPuller(f.authOpts...); err != nil {
+		f.logger.V(4).Info("failed to build registry puller, continuing without auth reuse", "error", err)
+	} else {
+		// clipped so the append copies: f.authOpts is shared by every runtime
+		newFuncs.authOpts = append(slices.Clip(f.authOpts), remote.Reuse(puller))
+	}
+
 	return Runtime{functions: &newFuncs}
 }
 
@@ -113,6 +123,18 @@ func (f *IvFuncs) requestContext() context.Context {
 // options across admission requests.
 func WithRequestContext(ctx context.Context, opts []remote.Option) []remote.Option {
 	return append(slices.Clip(opts), remote.WithContext(ctx))
+}
+
+// AuthOpts returns the registry options bound to this evaluation, including the
+// puller added by NewRuntimeForPolicy. Callers that fetch image data for the same
+// policy and request should use these rather than the options the policy was
+// compiled with, so the whole evaluation goes through one puller. It returns nil
+// for a zero Runtime.
+func (r Runtime) AuthOpts() []remote.Option {
+	if r.functions == nil {
+		return nil
+	}
+	return r.functions.authOpts
 }
 
 func NewIvFuncs(
