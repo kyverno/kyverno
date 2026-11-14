@@ -7,8 +7,8 @@ Roadmap changes are discussed in weekly maintainer meetings and tracked via GitH
 
 Major features and changes follow the Kyverno Design Proposal process:
 
-- Until the KDP handoff, submit proposals to [kyverno/KDP](https://github.com/kyverno/KDP).
-  After the handoff, use the [in-repo Kyverno Design Proposals](docs/dev/proposals/README.md).
+- Submit all new proposals to the [in-repo Kyverno Design Proposals](docs/dev/proposals/README.md).
+  The separate KDP process is being deprecated.
 
 Kyverno releases progress is tracked via a project board: 
 - [Release Tracker board](https://github.com/orgs/kyverno/projects/9/views/1)
