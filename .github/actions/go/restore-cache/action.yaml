@@ -38,3 +38,5 @@ runs:
         restore-keys: |
           ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ steps.variables.outputs.ARCH }}-${{ steps.variables.outputs.OS }}-${{ steps.variables.outputs.GOVERSION }}-${{ steps.variables.outputs.CACHEDATE }}-
           ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ steps.variables.outputs.ARCH }}-${{ steps.variables.outputs.OS }}-${{ steps.variables.outputs.GOVERSION }}-
+          gobuild-${{ runner.os }}-${{ steps.variables.outputs.ARCH }}-${{ steps.variables.outputs.OS }}-${{ steps.variables.outputs.GOVERSION }}-${{ steps.variables.outputs.CACHEDATE }}-
+          gobuild-${{ runner.os }}-${{ steps.variables.outputs.ARCH }}-${{ steps.variables.outputs.OS }}-${{ steps.variables.outputs.GOVERSION }}-
