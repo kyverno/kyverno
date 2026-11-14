@@ -253,6 +253,9 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 }
 
 func matchesSelector(obj *unstructured.Unstructured, ref *admissionregistrationv1.ParamRef) bool {
+	if ref.Namespace != "" && obj.GetNamespace() != ref.Namespace {
+		return false
+	}
 	if ref.Selector != nil {
 		selector, _ := metav1.LabelSelectorAsSelector(ref.Selector)
 		return selector.Matches(labels.Set(obj.GetLabels()))
