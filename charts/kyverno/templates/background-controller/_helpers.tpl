@@ -33,10 +33,10 @@
 {{- end -}}
 
 {{- define "kyverno.background-controller.serviceAccountName" -}}
-{{- if .Values.backgroundController.rbac.create -}}
+{{- if and .Values.backgroundController.rbac.create .Values.backgroundController.rbac.serviceAccount.create -}}
     {{ default (include "kyverno.background-controller.name" .) .Values.backgroundController.rbac.serviceAccount.name }}
 {{- else -}}
-    {{ required "A service account name is required when `rbac.create` is set to `false`" .Values.backgroundController.rbac.serviceAccount.name }}
+    {{ required "A service account name is required when `rbac.create` or `rbac.serviceAccount.create` is set to `false`" .Values.backgroundController.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
 
