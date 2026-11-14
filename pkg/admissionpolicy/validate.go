@@ -57,9 +57,12 @@ func GetKinds(matchResources *admissionregistrationv1.MatchResources, mapper met
 	return kindList
 }
 
-func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) []schema.GroupVersionResource {
+// GetGVRs returns the GVRs a MatchResources selects. Unsafe rules and wildcards
+// that match no served resource are skipped; any other error from resolving a
+// wildcard (e.g. discovery being unavailable) is returned so the caller can retry.
+func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta.RESTMapper) ([]schema.GroupVersionResource, error) {
 	if matchResources == nil {
-		return nil
+		return nil, nil
 	}
 
 	var gvrList []schema.GroupVersionResource
@@ -78,12 +81,77 @@ func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta
 						vapLogger.Error(errors.New("unsafe api path segment"), fmt.Sprintf("skipping resource for group %s, version %s, resource %s", group, version, resource))
 						continue
 					}
-					gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
+					gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
+					// RESTMapper cannot expand a "*" resource, so it passes through as before
+					if mapper == nil || resource == "*" || (group != "*" && version != "*") {
+						gvrList = append(gvrList, gvr)
+						continue
+					}
+					// "*" is not a servable group or version: listing it always returns
+					// 404, so resolve it against discovery to the served resources
+					resolved, err := resolveWildcardGVRs(gvr, mapper)
+					if err != nil {
+						if !meta.IsNoMatchError(err) {
+							return nil, fmt.Errorf("failed to resolve resources for group %s, version %s, resource %s: %w", group, version, resource, err)
+						}
+						vapLogger.Error(err, fmt.Sprintf("no served resources for group %s, version %s, resource %s", group, version, resource))
+						continue
+					}
+					gvrList = append(gvrList, resolved...)
 				}
 			}
 		}
 	}
-	return gvrList
+	return gvrList, nil
+}
+
+// resolveWildcardGVRs resolves a GVR whose group or version is "*" into the
+// served resources it matches. Only the preferred version of each group and
+// resource is kept, so the same objects are not listed once per version.
+func resolveWildcardGVRs(gvr schema.GroupVersionResource, mapper meta.RESTMapper) ([]schema.GroupVersionResource, error) {
+	// RESTMapper treats an empty group or version as "any"
+	query := gvr
+	if query.Group == "*" {
+		query.Group = ""
+	}
+	if query.Version == "*" {
+		query.Version = ""
+	}
+	resources, err := mapper.ResourcesFor(query)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[schema.GroupResource]int, len(resources))
+	result := make([]schema.GroupVersionResource, 0, len(resources))
+	multiVersion := make(map[int]struct{})
+	for _, resource := range resources {
+		// an empty group in the query also matches every named group, so
+		// filter back to the requested core group
+		if gvr.Group != "*" && resource.Group != gvr.Group {
+			continue
+		}
+		if gvr.Version != "*" && resource.Version != gvr.Version {
+			continue
+		}
+		if i, ok := seen[resource.GroupResource()]; ok {
+			multiVersion[i] = struct{}{}
+			continue
+		}
+		seen[resource.GroupResource()] = len(result)
+		result = append(result, resource)
+	}
+	if len(result) == 0 {
+		return nil, &meta.NoResourceMatchError{PartialResource: gvr}
+	}
+	// ResourcesFor does not apply version priority, so ask the mapper for the
+	// preferred version of every group/resource served in more than one version
+	for i := range multiVersion {
+		preferred, err := mapper.ResourceFor(result[i].GroupResource().WithVersion(""))
+		if err == nil && preferred.GroupResource() == result[i].GroupResource() {
+			result[i] = preferred
+		}
+	}
+	return result, nil
 }
 
 // isUnsafeGVRSegment reports whether a policy-supplied GVR component cannot be

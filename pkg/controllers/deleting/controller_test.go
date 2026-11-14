@@ -312,6 +312,7 @@ type mockDClient struct {
 	dclient.Interface
 	dyn              dynamic.Interface
 	kube             kubernetes.Interface
+	restMapper       meta.RESTMapper
 	deletedResources []string
 }
 
@@ -333,6 +334,9 @@ func (m *mockDClient) GetKubeClient() kubernetes.Interface {
 }
 
 func (m *mockDClient) Discovery() dclient.IDiscovery {
+	if m.restMapper != nil {
+		return &mockDiscovery{restMapper: m.restMapper}
+	}
 	apiGroupResources, err := restmapper.GetAPIGroupResources(m.kube.Discovery())
 	if err != nil {
 		return &mockDiscovery{restMapper: meta.NewDefaultRESTMapper(nil)}
@@ -949,4 +953,138 @@ func (p providerAdapter) Get(ctx context.Context, namespace, name string) (dpole
 		}
 	}
 	return dpolengine.Policy{}, fmt.Errorf("not found")
+}
+
+func wildcardVersionPodRule() *admissionregistrationv1.MatchResources {
+	return &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"*"},
+						Resources:   []string{"pods"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestDeleting_WildcardVersionListsResolvedGVRAndDeletes(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockConfig := mocks.NewMockConfiguration(ctrl)
+	mockConfig.EXPECT().
+		ToFilter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(false).
+		AnyTimes()
+
+	podsV1 := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	dynClient := fakedynamic.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{podsV1: "PodList"})
+
+	var listed []schema.GroupVersionResource
+	dynClient.PrependReactor("list", "*", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		listed = append(listed, action.GetResource())
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "PodList"})
+		list.Items = []unstructured.Unstructured{{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+				"metadata":   map[string]interface{}{"name": "stale-pod", "namespace": "ns1"},
+			},
+		}}
+		return true, list, nil
+	})
+
+	kubeClient := kubeclientfake.NewSimpleClientset()
+	if fakeDiscovery, ok := kubeClient.Discovery().(*fakediscovery.FakeDiscovery); ok {
+		fakeDiscovery.Resources = []*metav1.APIResourceList{{
+			GroupVersion: "v1",
+			APIResources: []metav1.APIResource{{Name: "pods", Kind: "Pod", Namespaced: true}},
+		}}
+	}
+
+	pol := policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-wildcard-version"},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			MatchConstraints: wildcardVersionPodRule(),
+			Conditions:       []admissionregistrationv1.MatchCondition{{Name: "always-true", Expression: "true"}},
+		},
+	}
+	compiledPolicy, errs := enginecompiler.NewCompiler().Compile(&pol, nil)
+	assert.Empty(t, errs)
+
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Pod"}, meta.RESTScopeNamespace)
+
+	mockClient := &mockDClient{dyn: dynClient, kube: kubeClient}
+	c := &controller{
+		client:        mockClient,
+		nsLister:      &mockNamespaceLister{},
+		engine:        dpolengine.NewEngine(func(string) *corev1.Namespace { return nil }, mapper, &libs.FakeContextProvider{}, matching.NewMatcher()),
+		configuration: mockConfig,
+		eventGen:      &mockEventGenerator{},
+	}
+
+	err := c.deleting(context.Background(), logr.Discard(), dpolengine.Policy{Policy: &pol, CompiledPolicy: compiledPolicy})
+	assert.NoError(t, err)
+	assert.Equal(t, []schema.GroupVersionResource{podsV1}, listed, "the wildcard version must be listed as the served v1 pods")
+	assert.Equal(t, []string{"ns1/stale-pod"}, mockClient.deletedResources)
+}
+
+// discoveryFailingMapper stands in for a DeferredDiscoveryRESTMapper whose
+// discovery call fails, e.g. while the API server is unavailable.
+type discoveryFailingMapper struct {
+	meta.RESTMapper
+}
+
+func (discoveryFailingMapper) ResourcesFor(schema.GroupVersionResource) ([]schema.GroupVersionResource, error) {
+	return nil, apierrors.NewServiceUnavailable("discovery unavailable")
+}
+
+func TestReconcile_WildcardDiscoveryErrorDoesNotRecordRun(t *testing.T) {
+	lastRun := metav1.NewTime(time.Date(1901, 1, 1, 0, 0, 0, 0, time.UTC))
+	pol := policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "dpol"},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			Schedule:         "* * * * *",
+			MatchConstraints: wildcardVersionPodRule(),
+		},
+		Status: policiesv1beta1.DeletingPolicyStatus{LastExecutionTime: lastRun},
+	}
+	fakeClient := versionedfake.NewSimpleClientset(&pol)
+
+	cq := &captureQueue{TypedRateLimitingInterface: workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: "test-deleting-discovery-error"},
+	)}
+
+	provFunc, err := dpolengine.NewProvider(enginecompiler.NewCompiler(), []policiesv1beta1.DeletingPolicyLike{&pol}, nil)
+	assert.NoError(t, err)
+
+	var listed int
+	dynClient := fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+	dynClient.PrependReactor("list", "*", func(clienttesting.Action) (bool, runtime.Object, error) {
+		listed++
+		return true, &unstructured.UnstructuredList{}, nil
+	})
+
+	c := &controller{
+		client:        &mockDClient{dyn: dynClient, kube: kubeclientfake.NewSimpleClientset(), restMapper: discoveryFailingMapper{}},
+		kyvernoClient: fakeClient,
+		queue:         cq,
+		provider:      providerAdapter{fetch: provFunc, name: pol.Name},
+	}
+
+	err = c.reconcile(context.Background(), logr.Discard(), "dpol", "", "dpol")
+	assert.True(t, apierrors.IsServiceUnavailable(err), "a discovery failure must be returned so the key is requeued, got %v", err)
+	assert.Zero(t, listed, "nothing should be listed when the wildcard cannot be resolved")
+	assert.Zero(t, cq.lastDelay, "a failed run must not schedule the next execution")
+
+	got, err := fakeClient.PoliciesV1beta1().DeletingPolicies().Get(context.Background(), "dpol", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.True(t, got.Status.LastExecutionTime.Equal(&lastRun), "a failed run must not update lastExecutionTime")
 }
