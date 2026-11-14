@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -497,12 +498,15 @@ func CompareWithFullSuite(res *SelectionResult, failingPkgs []string) []string {
 
 // GetGitDiffFiles returns modified files between baseRef and headRef using git diff.
 func GetGitDiffFiles(moduleRoot, baseRef, headRef string) ([]string, error) {
-	cmd := exec.Command("git", "diff", "--name-only", fmt.Sprintf("%s...%s", baseRef, headRef))
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "diff", "--name-only", fmt.Sprintf("%s...%s", baseRef, headRef)) //nolint:gosec
 	cmd.Dir = moduleRoot
 	out, err := cmd.Output()
 	if err != nil {
 		// Try two-dot diff as fallback
-		cmdFallback := exec.Command("git", "diff", "--name-only", baseRef, headRef)
+		cmdFallback := exec.CommandContext(ctx, "git", "diff", "--name-only", baseRef, headRef)
 		cmdFallback.Dir = moduleRoot
 		outFallback, errFallback := cmdFallback.Output()
 		if errFallback != nil {

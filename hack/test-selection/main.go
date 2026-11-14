@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -96,7 +97,7 @@ func main() {
 	}
 
 	// 2. Fetch package metadata via `go list -json ./...`
-	listCmd := exec.Command(*goBinary, "list", "-json", "./...")
+	listCmd := exec.CommandContext(context.Background(), *goBinary, "list", "-json", "./...") //nolint:gosec
 	listCmd.Dir = rootAbs
 	listOut, err := listCmd.Output()
 	if err != nil {
@@ -133,10 +134,11 @@ func main() {
 	var testOutput string
 	if *runTests && len(result.AffectedPackages) > 0 {
 		testStart := time.Now()
-		testArgs := []string{"test", "-v", "-race", "-covermode", "atomic", fmt.Sprintf("-timeout=%s", *testTimeout)}
+		testArgs := make([]string, 0, 6+len(result.AffectedPackages))
+		testArgs = append(testArgs, "test", "-v", "-race", "-covermode", "atomic", fmt.Sprintf("-timeout=%s", *testTimeout))
 		testArgs = append(testArgs, result.AffectedPackages...)
 
-		cmd := exec.Command(*goBinary, testArgs...)
+		cmd := exec.CommandContext(context.Background(), *goBinary, testArgs...) //nolint:gosec
 		cmd.Dir = rootAbs
 		out, err := cmd.CombinedOutput()
 		testDuration = time.Since(testStart)
@@ -217,7 +219,7 @@ func main() {
 	}
 
 	if *outFile != "" {
-		if err := os.WriteFile(*outFile, []byte(outputText), 0o644); err != nil {
+		if err := os.WriteFile(*outFile, []byte(outputText), 0o600); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing output file: %v\n", err)
 			os.Exit(1)
 		}
