@@ -26,7 +26,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Go
+        id: setup-go
         uses: ./.github/actions/go/setup
+        with:
+          gobuild-cache-prefix: gobuild-cli-tests
+          gobuild-cache-include-run-id: 'true'
       - name: Setup TEST_GIT_BRANCH
         shell: bash
         env:
@@ -48,6 +52,15 @@ jobs:
           $CLI_PATH test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
           $CLI_PATH test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
           $CLI_PATH test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
+      - name: Save gobuild cache
+        if: |
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main'
+        uses: ./.github/actions/go/save-cache
+        with:
+          path: ${{ steps.setup-go.outputs.gobuild-cache }}
+          cache-prefix: gobuild-cli-tests
+          include-run-id: 'true'
 
   sync-issue:
     if: always() && github.event_name == 'push'

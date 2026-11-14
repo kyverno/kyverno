@@ -10,6 +10,10 @@ inputs:
   cache-prefix:
     description: Prefix for cache key
     required: true
+  fallback-cache-prefix:
+    description: Fallback prefix for cache key (used if primary prefix misses)
+    required: false
+    default: ''
   include-run-id:
     description: Append the workflow run ID to the cache key
     required: false
@@ -31,6 +35,17 @@ runs:
         else
           echo "RUNID=" >> $GITHUB_OUTPUT
         fi
+        if [ -n "${{ inputs.fallback-cache-prefix }}" ]; then
+          ARCH_VAL=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')
+          OS_VAL=${ImageOS:-Unknown}
+          GOVER=$(go env GOVERSION)
+          DATE_VAL=$(date +%Y-%m-%d)
+          echo "FALLBACK1=${{ inputs.fallback-cache-prefix }}-${{ runner.os }}-$ARCH_VAL-$OS_VAL-$GOVER-$DATE_VAL-" >> $GITHUB_OUTPUT
+          echo "FALLBACK2=${{ inputs.fallback-cache-prefix }}-${{ runner.os }}-$ARCH_VAL-$OS_VAL-$GOVER-" >> $GITHUB_OUTPUT
+        else
+          echo "FALLBACK1=" >> $GITHUB_OUTPUT
+          echo "FALLBACK2=" >> $GITHUB_OUTPUT
+        fi
     - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
       with:
         path: ${{ inputs.path }}
@@ -38,3 +53,5 @@ runs:
         restore-keys: |
           ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ steps.variables.outputs.ARCH }}-${{ steps.variables.outputs.OS }}-${{ steps.variables.outputs.GOVERSION }}-${{ steps.variables.outputs.CACHEDATE }}-
           ${{ inputs.cache-prefix }}-${{ runner.os }}-${{ steps.variables.outputs.ARCH }}-${{ steps.variables.outputs.OS }}-${{ steps.variables.outputs.GOVERSION }}-
+          ${{ steps.variables.outputs.FALLBACK1 }}
+          ${{ steps.variables.outputs.FALLBACK2 }}
