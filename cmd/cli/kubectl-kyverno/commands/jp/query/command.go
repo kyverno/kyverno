@@ -166,7 +166,7 @@ func evaluate(input interface{}, query string) (interface{}, error) {
 
 func printResult(cmd *cobra.Command, query string, result interface{}, unquoted bool, compact bool) error {
 	converted, isString := result.(string)
-	fmt.Fprintln(cmd.OutOrStdout(), "#", query)
+	fmt.Fprintln(cmd.ErrOrStderr(), "#", query)
 	if unquoted && isString {
 		fmt.Fprintln(cmd.OutOrStdout(), converted)
 	} else {
