@@ -909,6 +909,28 @@ bench-baseline: ## Regenerate scripts/bench/thresholds.txt ceilings from a fresh
 	@./scripts/bench-baseline.sh bench-baseline-results.txt scripts/bench/thresholds.txt
 
 #############
+# E2E TESTS #
+#############
+
+# The settings CI uses for the conformance suite SUITE on Kubernetes version
+# K8S, read from the workflows by scripts/e2e/settings.sh.
+E2E_SETTING = $(shell ./scripts/e2e/settings.sh '$(SUITE)' '$(K8S)' $(1) 2> /dev/null)
+E2E_OPENREPORTS_URL := https://raw.githubusercontent.com/openreports/reports-api/refs/heads/main/config/install.yaml
+
+.PHONY: test-e2e-local
+test-e2e-local: $(HELM) ## Create a kind cluster, deploy Kyverno, and run a conformance suite like CI (SUITE=<suite> [TEST=<regex>] [K8S=<version>])
+	@./scripts/e2e/settings.sh '$(SUITE)' '$(K8S)'
+	@command -v chainsaw > /dev/null || { echo 'Install chainsaw first: https://kyverno.github.io/chainsaw/latest/quick-start/install/' >&2; exit 1; }
+	@$(MAKE) kind-create-cluster KIND_VERSION='$(call E2E_SETTING,kind-version)' KIND_IMAGE='$(call E2E_SETTING,kind-image)' KIND_CONFIG='$(call E2E_SETTING,kind-config)'
+	$(if $(filter true,$(call E2E_SETTING,install-openreports)),kubectl apply -f $(E2E_OPENREPORTS_URL))
+	$(if $(filter true,$(call E2E_SETTING,install-cert-manager)),$(HELM) upgrade --install cert-manager cert-manager --repo https://charts.jetstack.io --namespace cert-manager --create-namespace --set crds.enabled=true --wait --timeout 300s)
+	@$(MAKE) kind-deploy-kyverno KIND_VERSION='$(call E2E_SETTING,kind-version)' USE_CONFIG='$(call E2E_SETTING,kyverno-configs)' EXPLICIT_INSTALL_SETTINGS='$(call E2E_SETTING,explicit-install-settings)'
+	kubectl apply --server-side --force-conflicts -R -f ./config/crds
+	kubectl wait --namespace kyverno --for=condition=ready pod --selector '!job-name' --timeout=60s
+	$(if $(filter true,$(call E2E_SETTING,install-kubectl-evict)),@command -v kubectl-evict > /dev/null || echo 'Some tests need kubectl-evict: go install github.com/ueokande/kubectl-evict@latest' >&2)
+	cd ./test/conformance/chainsaw/$(SUITE) && chainsaw test --config .chainsaw.yaml --include-test-regex '^chainsaw$$/$(TEST)'
+
+#############
 # CLI TESTS #
 #############
 

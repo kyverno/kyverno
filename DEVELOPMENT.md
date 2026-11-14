@@ -20,6 +20,9 @@ It contains instructions to build, run, and test Kyverno.
   - [Create a local cluster](#create-a-local-cluster)
   - [Build and load local images](#build-and-load-local-images)
   - [Deploy with helm](#deploy-with-helm)
+- [Running conformance tests](#running-conformance-tests)
+  - [Run a suite locally](#run-a-suite-locally)
+  - [Troubleshoot a failed run](#troubleshoot-a-failed-run)
 - [Code generation](#code-generation)
   - [Generating kubernetes API client](#generating-kubernetes-api-client)
   - [Generating API deep copy functions](#generating-api-deep-copy-functions)
@@ -357,6 +360,75 @@ make kind-deploy-all
 This will build local images, load built images in every node of the KinD cluster, and deploy `kyverno` and/or `kyverno-policies` helm charts in the cluster (overriding image repositories and tags).
 
 You can override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
+
+## Running conformance tests
+
+The conformance (E2E) tests are [chainsaw](https://kyverno.github.io/chainsaw/latest/quick-start/) tests in
+`test/conformance/chainsaw`. The Tests workflow (`.github/workflows/check-tests.yaml`) runs each suite, a
+directory under `test/conformance/chainsaw`, on the Kubernetes versions of the
+[Kubernetes CI matrix](#kubernetes-ci-matrix).
+
+### Run a suite locally
+
+To run a suite the way CI does, run:
+
+```console
+make test-e2e-local SUITE=<suite> [TEST=<regex>] [K8S=<version>]
+```
+
+- `SUITE` is the `tests-path` of a job in `.github/workflows/tests-conformance.yaml`, such as
+  `validating-policies` or `tls-certificates/rsa-cert-manager`.
+- `TEST` is a regular expression for the names of the tests to run (`metadata.name` in `chainsaw-test.yaml`).
+  By default, every test of the suite runs.
+- `K8S` is a Kubernetes version from the matrix, such as `1.36` or `v1.36.4`. By default, the latest version
+  that CI tests the suite on is used.
+
+For example:
+
+```console
+make test-e2e-local SUITE=validating-policies TEST='^should-autogen' K8S=1.34
+```
+
+The target reads the suite settings from the workflows with `scripts/e2e/settings.sh`: the digest-pinned kind
+node image, the kind config, the Kyverno Helm values, the extra Helm settings, and whether to install
+cert-manager. Then it does what a CI job does:
+
+1. Creates a kind cluster with `make kind-create-cluster`.
+1. Installs cert-manager, if the suite needs it.
+1. Builds the images and deploys Kyverno with `make kind-deploy-kyverno`.
+1. Applies the CRDs from `config/crds` and waits for the Kyverno pods.
+1. Runs chainsaw for the suite.
+
+Unlike CI, the target doesn't skip the tests in `test/conformance/quarantine.yaml`.
+
+Before you start, install [chainsaw](https://kyverno.github.io/chainsaw/latest/quick-start/install/),
+[yq](https://github.com/mikefarah/yq), `jq`, `kubectl`, and Docker. To print the settings without creating a
+cluster, run `./scripts/e2e/settings.sh <suite> [<version>]`.
+
+The cluster stays up after the tests, so you can inspect it. To run the tests again on it, run the chainsaw
+command that the target printed. Delete the cluster with `make kind-delete-cluster` before you run
+`make test-e2e-local` again. If `.tools/kind` is older than the kind version of the matrix, run
+`make clean-tools` first, so the target installs the matching version.
+
+### Troubleshoot a failed run
+
+Each conformance job uploads these artifacts:
+
+- `e2e-reports-<suite>-<k8s>-<shard>`: the chainsaw reports as JSON (`results.json`) and JUnit
+  (`results.xml`), and the job details (`meta.json`). Jobs upload it even when they fail.
+- `diagnostics-<suite>-<k8s>-<shard>`, only when the job fails: logs from every Kyverno pod, events, webhook
+  configurations, the policies and policy reports with their status, and the Kyverno config maps. Each file is
+  cut at 10 MiB.
+
+The `summarize` job of the Tests workflow writes one table to the run summary. It lists each failing test once,
+with the Kubernetes versions it failed on, a link to each failing job, and the first error line:
+
+- **All versions**: the test failed on every version it ran on, so the cause is likely deterministic.
+- **Some versions**: the test failed on only some versions, so the cause is version-specific or the test is
+  flaky.
+
+It also lists the jobs that failed without a test report, for example while creating the cluster. The table
+comes from `scripts/e2e/report.py`, which has tests in `scripts/e2e/test_report.py`.
 
 ## Code generation
 
