@@ -13,6 +13,7 @@ import (
 	fatihcolor "github.com/fatih/color"
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
@@ -2636,5 +2637,251 @@ spec:
 		assert.Contains(t, output, "failed:")
 		assert.Contains(t, output, "fail: 1")
 		assert.Contains(t, output, "warn: 0")
+	})
+}
+
+func Test_Apply_PolicyValidationWarnings(t *testing.T) {
+	t.Run("surfaces validation warning without error", func(t *testing.T) {
+		config := &ApplyCommandConfig{}
+		var out bytes.Buffer
+		warnings := []policy.LoaderWarning{
+			{Path: "test-policy.yaml", Warning: "deprecated policy schema"},
+		}
+		config.recordPolicyWarnings(&out, warnings)
+		assert.Contains(t, out.String(), "Warning: test-policy.yaml: deprecated policy schema")
+		assert.Len(t, config.deprecationWarnings, 1)
+		require.NoError(t, config.failOnDeprecationWarnings())
+	})
+
+	t.Run("fails when warnings-as-errors is set", func(t *testing.T) {
+		config := &ApplyCommandConfig{
+			warningsAsErrors: true,
+		}
+		var out bytes.Buffer
+		warnings := []policy.LoaderWarning{
+			{Path: "test-policy.yaml", Warning: "deprecated policy schema"},
+		}
+		config.recordPolicyWarnings(&out, warnings)
+		assert.Contains(t, out.String(), "Warning: test-policy.yaml: deprecated policy schema")
+		assert.Len(t, config.deprecationWarnings, 1)
+		err := config.failOnDeprecationWarnings()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "found 1 deprecation warning(s) and --warnings-as-errors is set")
+	})
+
+	t.Run("accumulates multiple warnings correctly", func(t *testing.T) {
+		config := &ApplyCommandConfig{
+			warningsAsErrors: true,
+		}
+		var out bytes.Buffer
+		warnings := []policy.LoaderWarning{
+			{Path: "custom-ns/policy-1.yaml", Warning: "warning 1"},
+			{Path: "custom-ns/policy-2.yaml", Warning: "warning 2"},
+		}
+		config.recordPolicyWarnings(&out, warnings)
+		assert.Contains(t, out.String(), "Warning: custom-ns/policy-1.yaml: warning 1")
+		assert.Contains(t, out.String(), "Warning: custom-ns/policy-2.yaml: warning 2")
+		assert.Len(t, config.deprecationWarnings, 2)
+		err := config.failOnDeprecationWarnings()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "found 2 deprecation warning(s) and --warnings-as-errors is set")
+	})
+
+	writeFixtures := func(t *testing.T) (string, string, string) {
+		t.Helper()
+		tmpDir := t.TempDir()
+		policyPath := filepath.Join(tmpDir, "policy.yaml")
+		warningResourcePath := filepath.Join(tmpDir, "warning-resources.yaml")
+		cleanResourcePath := filepath.Join(tmpDir, "clean-resources.yaml")
+
+		policyYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-host-path
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validations:
+    - expression: "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"
+      message: "HostPath volumes are forbidden."
+`
+		warningResourcesYAML := `apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: legacy-gce
+spec:
+  kubernetesResource:
+    group: ""
+    version: v1
+    resource: configmaps
+    namespace: default
+  projections:
+    - name: cm-count
+      jmesPath: "length(@)"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-cm
+  namespace: default
+data:
+  key: value
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: clean-pod
+  namespace: default
+spec:
+  containers:
+    - name: app
+      image: nginx:1.27
+`
+		cleanResourcesYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-cm
+  namespace: default
+data:
+  key: value
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: clean-pod
+  namespace: default
+spec:
+  containers:
+    - name: app
+      image: nginx:1.27
+`
+		require.NoError(t, os.WriteFile(policyPath, []byte(policyYAML), 0o600))
+		require.NoError(t, os.WriteFile(warningResourcePath, []byte(warningResourcesYAML), 0o600))
+		require.NoError(t, os.WriteFile(cleanResourcePath, []byte(cleanResourcesYAML), 0o600))
+		return policyPath, warningResourcePath, cleanResourcePath
+	}
+
+	t.Run("evaluates all policies before failing on deprecation warnings in applyCommandHelper", func(t *testing.T) {
+		policyPath, warningResourcePath, cleanResourcePath := writeFixtures(t)
+
+		tests := []struct {
+			name             string
+			resourcePath     string
+			warningsAsErrors bool
+			expectWarning    bool
+			expectedErrMsg   string
+		}{
+			{
+				name:             "with warnings-as-errors and deprecation warning",
+				resourcePath:     warningResourcePath,
+				warningsAsErrors: true,
+				expectWarning:    true,
+				expectedErrMsg:   "found 1 deprecation warning(s) and --warnings-as-errors is set",
+			},
+			{
+				name:             "without warnings-as-errors and deprecation warning",
+				resourcePath:     warningResourcePath,
+				warningsAsErrors: false,
+				expectWarning:    true,
+				expectedErrMsg:   "",
+			},
+			{
+				name:             "with warnings-as-errors and clean resources (no warnings)",
+				resourcePath:     cleanResourcePath,
+				warningsAsErrors: true,
+				expectWarning:    false,
+				expectedErrMsg:   "",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				config := &ApplyCommandConfig{
+					PolicyPaths:      []string{policyPath},
+					ResourcePaths:    []string{tc.resourcePath},
+					warningsAsErrors: tc.warningsAsErrors,
+				}
+				var out bytes.Buffer
+				rc, _, _, responses, err := config.applyCommandHelper(context.Background(), &out)
+				if tc.expectedErrMsg != "" {
+					require.Error(t, err)
+					assert.Contains(t, err.Error(), tc.expectedErrMsg)
+				} else {
+					require.NoError(t, err)
+				}
+				if tc.expectWarning {
+					assert.Contains(t, out.String(), `Warning: GlobalContextEntry "legacy-gce"`)
+					assert.Contains(t, out.String(), "spec.projections[0].jmesPath")
+				} else {
+					assert.NotContains(t, out.String(), "Warning:")
+				}
+				require.NotNil(t, rc)
+				assert.Equal(t, 1, rc.Pass)
+				assert.NotEmpty(t, responses)
+			})
+		}
+	})
+
+	t.Run("respects --warnings-as-errors flag via Command.Execute", func(t *testing.T) {
+		policyPath, warningResourcePath, cleanResourcePath := writeFixtures(t)
+
+		tests := []struct {
+			name           string
+			args           []string
+			expectWarning  bool
+			expectedErrMsg string
+			expectedOutput string
+		}{
+			{
+				name:           "with --warnings-as-errors and deprecation warning",
+				args:           []string{policyPath, "--resource", warningResourcePath, "--warnings-as-errors", "--remove-color"},
+				expectWarning:  true,
+				expectedErrMsg: "found 1 deprecation warning(s) and --warnings-as-errors is set",
+			},
+			{
+				name:           "without --warnings-as-errors and deprecation warning",
+				args:           []string{policyPath, "--resource", warningResourcePath, "--remove-color"},
+				expectWarning:  true,
+				expectedErrMsg: "",
+				expectedOutput: "pass: 1",
+			},
+			{
+				name:           "with --warnings-as-errors and clean resources (no warnings)",
+				args:           []string{policyPath, "--resource", cleanResourcePath, "--warnings-as-errors", "--remove-color"},
+				expectWarning:  false,
+				expectedErrMsg: "",
+				expectedOutput: "pass: 1",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				cmd := Command()
+				var out bytes.Buffer
+				cmd.SetOut(&out)
+				cmd.SetErr(&out)
+				cmd.SetArgs(tc.args)
+				err := cmd.Execute()
+				if tc.expectedErrMsg != "" {
+					require.Error(t, err)
+					assert.Contains(t, err.Error(), tc.expectedErrMsg)
+				} else {
+					require.NoError(t, err)
+				}
+				if tc.expectWarning {
+					assert.Contains(t, out.String(), `Warning: GlobalContextEntry "legacy-gce"`)
+					assert.Contains(t, out.String(), "spec.projections[0].jmesPath")
+				} else {
+					assert.NotContains(t, out.String(), "Warning:")
+				}
+				if tc.expectedOutput != "" {
+					assert.Contains(t, out.String(), tc.expectedOutput)
+				}
+			})
+		}
 	})
 }
