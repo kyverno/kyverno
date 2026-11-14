@@ -1,0 +1,15 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedDeletingPolicy
+metadata:
+  name: deleting-status-ready
+  namespace: ndpol-status-test
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      resources:
+      - pods
+  schedule: '*/1 * * * *'
