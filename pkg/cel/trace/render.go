@@ -17,10 +17,14 @@ const maxValueLen = 100
 // The default view is one line per expression: its source, an arrow, and what it resolved to.
 // For a verdict that is not PASS, the per-node breakdown of the deciding expression is printed
 // beneath it, since that is what shows which sub-expression produced which value.
+//
+// When the resource is a Secret, all non-boolean resolved values are replaced with "(redacted)"
+// so that Secret data is not printed to the terminal.
 func Render(w io.Writer, d *Decision) {
 	if d == nil {
 		return
 	}
+	rf := renderFormat{secret: d.ResourceKind == "Secret"}
 	if d.PolicyName != "" {
 		fmt.Fprintf(w, "Policy:   %s (%s)\n", d.PolicyName, d.PolicyKind)
 	}
@@ -28,6 +32,10 @@ func Render(w io.Writer, d *Decision) {
 		fmt.Fprintf(w, "Resource: %s\n", resourceLabel(d))
 	}
 	fmt.Fprintln(w)
+
+	if rf.secret {
+		fmt.Fprintf(w, "NOTE: values are redacted because this resource is a Secret.\n\n")
+	}
 
 	scope := "skipped"
 	if d.Scope.Applied {
@@ -38,10 +46,10 @@ func Render(w io.Writer, d *Decision) {
 	}
 
 	for _, m := range d.Match {
-		row(w, "MATCH", "", named(m))
+		row(w, "MATCH", "", rf.namedLine(m))
 	}
 	for _, v := range d.Variables {
-		row(w, "VARIABLES", "", named(v))
+		row(w, "VARIABLES", "", rf.namedLine(v))
 	}
 	if d.Images != nil {
 		if len(d.Images.Found) == 0 {
@@ -49,10 +57,10 @@ func Render(w io.Writer, d *Decision) {
 		}
 		for _, img := range d.Images.Found {
 			if img.Checked {
-				row(w, "IMAGES", "checked", img.Category+": "+img.Image)
+				row(w, "IMAGES", "checked", img.Category+": "+rf.value(img.Image, false))
 				continue
 			}
-			row(w, "IMAGES", "skipped", img.Category+": "+img.Image+"  (not matched by matchImageReferences)")
+			row(w, "IMAGES", "skipped", img.Category+": "+rf.value(img.Image, false)+"  (not matched by matchImageReferences)")
 		}
 	}
 	// with a single validation the list would only repeat the verdict line
@@ -63,28 +71,28 @@ func Render(w io.Writer, d *Decision) {
 				row(w, "VALIDATION", val.Status, fmt.Sprintf("[%d] %s  (an earlier validation did not pass)", val.Index, val.Source))
 				continue
 			}
-			row(w, "VALIDATION", val.Status, fmt.Sprintf("[%d] %s", val.Index, expressionLine(val.ExpressionTrace)))
+			row(w, "VALIDATION", val.Status, fmt.Sprintf("[%d] %s", val.Index, rf.expressionLine(val.ExpressionTrace)))
 		}
 	}
 	for _, m := range d.Mutations {
 		if m.Error == "" {
-			row(w, "MUTATIONS", "", named(NamedExpressionTrace{Name: m.Name, ExpressionTrace: m.ExpressionTrace}))
+			row(w, "MUTATIONS", "", rf.namedLine(NamedExpressionTrace{Name: m.Name, ExpressionTrace: m.ExpressionTrace}))
 			if m.NotApplied != "" {
-				fmt.Fprintf(w, "%-10s %-8s (not applied: %s)\n", "", "", m.NotApplied)
+				fmt.Fprintf(w, "%-10s %-8s (not applied: %s)\n", "", "", rf.text(m.NotApplied))
 			}
 			continue
 		}
-		row(w, "MUTATIONS", VerdictError, m.Name+": "+m.Error)
-		printNodes(w, m.ExpressionTrace)
+		row(w, "MUTATIONS", VerdictError, m.Name+": "+rf.text(m.Error))
+		rf.printNodes(w, m.ExpressionTrace)
 	}
 	for _, g := range d.Generations {
 		if g.Error != "" {
-			row(w, "GENERATE", VerdictError, g.Name+": "+g.Error)
-			printNodes(w, g.ExpressionTrace)
+			row(w, "GENERATE", VerdictError, g.Name+": "+rf.text(g.Error))
+			rf.printNodes(w, g.ExpressionTrace)
 			continue
 		}
 		if g.Source != "" {
-			row(w, "GENERATE", "", named(NamedExpressionTrace{Name: g.Name, ExpressionTrace: g.ExpressionTrace}))
+			row(w, "GENERATE", "", rf.namedLine(NamedExpressionTrace{Name: g.Name, ExpressionTrace: g.ExpressionTrace}))
 		} else {
 			row(w, "GENERATE", "", g.Name)
 		}
@@ -92,7 +100,7 @@ func Render(w io.Writer, d *Decision) {
 			fmt.Fprintf(w, "%-10s %-8s generated nothing\n", "", "")
 		}
 		for _, r := range g.Generated {
-			fmt.Fprintf(w, "%-10s %-8s generated %s\n", "", "", r)
+			fmt.Fprintf(w, "%-10s %-8s generated %s\n", "", "", rf.value(r, false))
 		}
 	}
 
@@ -106,9 +114,9 @@ func Render(w io.Writer, d *Decision) {
 		return
 	}
 	if v.Source != "" {
-		row(w, "VERDICT", v.Status, expressionLine(v.ExpressionTrace))
+		row(w, "VERDICT", v.Status, rf.expressionLine(v.ExpressionTrace))
 	} else {
-		message := v.Message
+		message := rf.text(v.Message)
 		if message == "" && v.Status == VerdictPass {
 			switch {
 			case len(d.Mutations) > 0:
@@ -126,25 +134,68 @@ func Render(w io.Writer, d *Decision) {
 		return
 	}
 	if v.Message != "" && v.Status != VerdictPass {
-		fmt.Fprintf(w, "%-10s %-8s message: %q\n", "", "", v.Message)
+		fmt.Fprintf(w, "%-10s %-8s message: %q\n", "", "", rf.text(v.Message))
 	}
 	if v.Status != VerdictPass {
-		printNodes(w, v.ExpressionTrace)
+		rf.printNodes(w, v.ExpressionTrace)
 	}
+}
+
+// renderFormat carries the secret flag so every value written through Render applies the same
+// redaction policy as LogValues does.
+type renderFormat struct {
+	secret bool
+}
+
+// value formats an evaluated CEL value for rendering. In a secret trace, only genuine CEL boolean
+// results (flagged by isBoolean) are kept; all other non-empty values are replaced with
+// "(redacted)". This prevents a Secret field whose decoded value is literally "true" or "false"
+// from bypassing redaction. Values are clipped to maxValueLen.
+func (rf renderFormat) value(v string, isBoolean bool) string {
+	if rf.secret && v != "" && !isBoolean {
+		return redacted
+	}
+	return clip(v)
+}
+
+// text formats free-form text (errors, messages, notApplied) for rendering: redacted in secret
+// traces, printed in full otherwise. Unlike value, non-secret text is not clipped so that long
+// error messages and rejection reasons are not silently truncated.
+func (rf renderFormat) text(v string) string {
+	if rf.secret && v != "" {
+		return redacted
+	}
+	return v
+}
+
+// expressionLine formats "source  ->  result", redacting the result when secret.
+func (rf renderFormat) expressionLine(et ExpressionTrace) string {
+	return fmt.Sprintf("%s  ->  %s", et.Source, rf.value(et.Result, et.ResultIsBoolean))
+}
+
+// namedLine prefixes the expression line with its declared name, when it has one.
+func (rf renderFormat) namedLine(n NamedExpressionTrace) string {
+	if n.Name == "" {
+		return rf.expressionLine(n.ExpressionTrace)
+	}
+	return n.Name + ": " + rf.expressionLine(n.ExpressionTrace)
 }
 
 // printNodes prints the per-node breakdown shared by VERDICT, MUTATIONS and GENERATE: one
 // indented line per traced sub-expression, showing its resolved value or, if it failed, its
 // error, then a note when values inside loops were left out.
-func printNodes(w io.Writer, et ExpressionTrace) {
+func (rf renderFormat) printNodes(w io.Writer, et ExpressionTrace) {
 	if len(et.Nodes) > 0 {
 		fmt.Fprintf(w, "%-10s %-8s evaluated:\n", "", "")
 		for _, n := range et.Nodes {
 			if n.Error != "" {
-				fmt.Fprintf(w, "%-10s %-8s   %s  ->  ERROR: %s\n", "", "", n.Expression, clip(n.Error))
+				fmt.Fprintf(w, "%-10s %-8s   %s  ->  ERROR: %s\n", "", "", n.Expression, rf.text(n.Error))
 				continue
 			}
-			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, clip(n.Value))
+			// Node values are always redacted in secret traces, even booleans: an intermediate
+			// boolean result such as "object.data.token.startsWith('YQ') -> true" reveals structural
+			// information about the secret and can be used for character-by-character probing.
+			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, rf.value(n.Value, false))
 		}
 	}
 	if et.LoopValuesOmitted {
@@ -157,18 +208,6 @@ func printNodes(w io.Writer, et ExpressionTrace) {
 
 func row(w io.Writer, layer, status, rest string) {
 	fmt.Fprintf(w, "%-10s %-8s %s\n", layer, status, rest)
-}
-
-// named prefixes the expression with its declared name, when it has one.
-func named(n NamedExpressionTrace) string {
-	if n.Name == "" {
-		return expressionLine(n.ExpressionTrace)
-	}
-	return n.Name + ": " + expressionLine(n.ExpressionTrace)
-}
-
-func expressionLine(et ExpressionTrace) string {
-	return fmt.Sprintf("%s  ->  %s", et.Source, clip(et.Result))
 }
 
 func resourceLabel(d *Decision) string {

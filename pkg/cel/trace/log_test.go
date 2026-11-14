@@ -32,7 +32,7 @@ func failedPodDecision() *Decision {
 		ResourceKind: "Pod",
 		ResourceName: "web",
 		Scope:        ScopeTrace{Applied: true, Reason: "matched resourceRules[0]"},
-		Match:        []NamedExpressionTrace{{Name: "not-system", ExpressionTrace: ExpressionTrace{Source: "object.metadata.namespace != 'kube-system'", Result: "true"}}},
+		Match:        []NamedExpressionTrace{{Name: "not-system", ExpressionTrace: ExpressionTrace{Source: "object.metadata.namespace != 'kube-system'", Result: "true", ResultIsBoolean: true}}},
 		Variables:    []NamedExpressionTrace{{Name: "team", ExpressionTrace: ExpressionTrace{Source: "object.metadata.labels.team", Result: "payments"}}},
 		Verdict: VerdictTrace{
 			Status:  VerdictFail,
@@ -87,8 +87,8 @@ func TestLogValues(t *testing.T) {
 	t.Run("several validations are listed with their own status", func(t *testing.T) {
 		d := failedPodDecision()
 		d.Validations = []ValidationTrace{
-			{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "has(object.metadata.labels)", Result: "true"}},
-			{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "variables.team == 'platform'", Result: "false"}},
+			{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "has(object.metadata.labels)", Result: "true", ResultIsBoolean: true}},
+			{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "variables.team == 'platform'", Result: "false", ResultIsBoolean: true}},
 			{Index: 2, Status: VerdictNotRun, ExpressionTrace: ExpressionTrace{Source: "object.spec.replicas > 1"}},
 		}
 		entry, _ := logged(t, d)
@@ -136,11 +136,11 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 		PolicyKind:   "ValidatingPolicy",
 		ResourceKind: "Secret",
 		ResourceName: "db-credentials",
-		Match:        []NamedExpressionTrace{{Name: "has-data", ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true"}}},
+		Match:        []NamedExpressionTrace{{Name: "has-data", ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true", ResultIsBoolean: true}}},
 		Variables:    []NamedExpressionTrace{{Name: "password", ExpressionTrace: ExpressionTrace{Source: "object.data.password", Result: password}}},
 		Validations: []ValidationTrace{
 			{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "object.type", Result: password}},
-			{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "variables.password.size() > 32", Result: "false"}},
+			{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "variables.password.size() > 32", Result: "false", ResultIsBoolean: true}},
 		},
 		Mutations: []MutationTrace{{Name: "mutations[0] (jsonPatch)", Error: "failed", ExpressionTrace: ExpressionTrace{
 			Source: "[JSONPatch{op: 'add', path: '/data/copy', value: object.data.password}]",
@@ -150,10 +150,11 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 		Verdict: VerdictTrace{
 			Status: VerdictFail,
 			ExpressionTrace: ExpressionTrace{
-				Source: "variables.password.size() > 32",
-				Result: "false",
+				Source:          "variables.password.size() > 32",
+				Result:          "false",
+				ResultIsBoolean: true,
 				Nodes: []NodeTrace{
-					{Expression: "variables.password.size() > 32", Value: "false"},
+					{Expression: "variables.password.size() > 32", Value: "false", ValueIsBoolean: true},
 					{Expression: "variables.password.size()", Value: "18"},
 					{Expression: "variables.password", Value: password},
 				},
@@ -172,8 +173,9 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 	assert.Equal(t, redacted, entry.Mutations[0].Result)
 	assert.Equal(t, redacted, entry.Mutations[0].Evaluated[0].Value)
 	assert.Equal(t, "variables.password.size() > 32", entry.Verdict.Expression, "expressions are policy text, and are kept")
+	// ALL node values are redacted, even booleans (boolean nodes can probe secret content)
 	assert.Equal(t, []LogNode{
-		{Expression: "variables.password.size() > 32", Value: "false"},
+		{Expression: "variables.password.size() > 32", Value: redacted},
 		{Expression: "variables.password.size()", Value: redacted},
 		{Expression: "variables.password", Value: redacted},
 	}, entry.Verdict.Evaluated)
@@ -204,4 +206,41 @@ func TestLogValues_JSON(t *testing.T) {
 			]
 		}
 	}`, string(raw))
+}
+
+// TestLogValues_SecretMutationErrorAndMessageAreRedacted checks that mutation Error, NotApplied,
+// breakdown node errors, and the verdict Message are all redacted in a Secret trace.
+func TestLogValues_SecretMutationErrorAndMessageAreRedacted(t *testing.T) {
+	const password = "hunter2-do-not-log"
+	d := &Decision{
+		ResourceKind: "Secret",
+		Mutations: []MutationTrace{{
+			Name:       "mutations[0] (jsonPatch)",
+			Error:      "failed: " + password,
+			NotApplied: "skipped: " + password,
+			ExpressionTrace: ExpressionTrace{
+				Source: "[...]",
+				Result: password,
+				Nodes:  []NodeTrace{{Expression: "object.data.pw", Value: password, Error: "err: " + password}},
+			},
+		}},
+		Verdict: VerdictTrace{
+			Status:  VerdictFail,
+			Message: password,
+			ExpressionTrace: ExpressionTrace{
+				Source: "variables.x",
+				Result: "false",
+			},
+		},
+	}
+	entry, _ := logged(t, d)
+	raw, err := json.Marshal(entry)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), password, "password must not appear anywhere in the log JSON")
+
+	assert.Equal(t, redacted, entry.Mutations[0].Error)
+	assert.Equal(t, redacted, entry.Mutations[0].NotApplied)
+	assert.Equal(t, redacted, entry.Mutations[0].Evaluated[0].Value)
+	assert.Equal(t, redacted, entry.Mutations[0].Evaluated[0].Error)
+	assert.Equal(t, redacted, entry.Verdict.Message)
 }

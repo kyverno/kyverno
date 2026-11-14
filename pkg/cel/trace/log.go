@@ -53,8 +53,8 @@ func LogValues(d *Decision) []any {
 		Verdict: LogExpression{
 			Status:     d.Verdict.Status,
 			Expression: d.Verdict.Source,
-			Result:     l.value(d.Verdict.Result),
-			Message:    d.Verdict.Message,
+			Result:     l.value(d.Verdict.Result, d.Verdict.ResultIsBoolean),
+			Message:    l.value(d.Verdict.Message, false),
 		},
 	}
 	if d.Verdict.Status != VerdictPass {
@@ -72,7 +72,7 @@ func LogValues(d *Decision) []any {
 			entry.Validations = append(entry.Validations, LogExpression{
 				Status:     v.Status,
 				Expression: v.Source,
-				Result:     l.value(v.Result),
+				Result:     l.value(v.Result, v.ResultIsBoolean),
 			})
 		}
 	}
@@ -80,9 +80,9 @@ func LogValues(d *Decision) []any {
 		mutation := LogExpression{
 			Name:       m.Name,
 			Expression: m.Source,
-			Result:     l.value(m.Result),
-			Error:      m.Error,
-			NotApplied: m.NotApplied,
+			Result:     l.value(m.Result, m.ResultIsBoolean),
+			Error:      l.value(m.Error, false),
+			NotApplied: l.value(m.NotApplied, false),
 		}
 		if m.Error != "" {
 			l.breakdown(&mutation, m.ExpressionTrace)
@@ -102,20 +102,27 @@ type logFormat struct {
 	secret bool
 }
 
-func (l logFormat) value(v string) string {
-	if l.secret && v != "" && v != "true" && v != "false" {
+// value formats a CEL evaluation result for logging. In a secret trace, only genuine CEL boolean
+// results (flagged by isBoolean) are kept; all other non-empty values are replaced with
+// "(redacted)". This prevents a Secret field whose decoded value is literally "true" or "false"
+// from bypassing redaction.
+func (l logFormat) value(v string, isBoolean bool) string {
+	if l.secret && v != "" && !isBoolean {
 		return redacted
 	}
 	return clip(v)
 }
 
 func (l logFormat) named(n NamedExpressionTrace) LogExpression {
-	return LogExpression{Name: n.Name, Expression: n.Source, Result: l.value(n.Result)}
+	return LogExpression{Name: n.Name, Expression: n.Source, Result: l.value(n.Result, n.ResultIsBoolean)}
 }
 
 func (l logFormat) breakdown(e *LogExpression, et ExpressionTrace) {
 	e.LoopValuesOmitted = et.LoopValuesOmitted
 	for _, n := range et.Nodes {
-		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Value), Error: n.Error})
+		// Node values are always redacted in secret traces, even booleans: an intermediate boolean
+		// such as "object.data.token.startsWith('YQ') -> true" leaks structural information about
+		// the secret and can be used for character-by-character probing.
+		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Value, false), Error: l.value(n.Error, false)})
 	}
 }
