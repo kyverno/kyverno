@@ -1146,6 +1146,14 @@ func Test_ObjectFromLists(t *testing.T) {
 				"key2": nil,
 			},
 		},
+		{
+			keys:   `[123456789.987654, 8080]`,
+			values: `["high_precision_float", "int_port"]`,
+			expectedResult: map[string]any{
+				"123456789.987654": "high_precision_float",
+				"8080":             "int_port",
+			},
+		},
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
@@ -1156,6 +1164,71 @@ func Test_ObjectFromLists(t *testing.T) {
 			result, ok := res.(map[string]any)
 			assert.Assert(t, ok)
 			assert.DeepEqual(t, result, tc.expectedResult)
+		})
+	}
+}
+
+func Test_ObjectFromLists_TypedNumericKeys(t *testing.T) {
+	args := []any{
+		[]any{
+			int64(8080),
+			int32(443),
+			uint16(22),
+			uint64(9090),
+			float64(123456789.987654),
+		},
+		[]any{"http-alt", "https", "ssh", "prometheus", "metric"},
+	}
+	res, err := jpObjectFromLists(args)
+	assert.NilError(t, err)
+	result, ok := res.(map[string]any)
+	assert.Assert(t, ok)
+	expected := map[string]any{
+		"8080":             "http-alt",
+		"443":              "https",
+		"22":               "ssh",
+		"9090":             "prometheus",
+		"123456789.987654": "metric",
+	}
+	assert.DeepEqual(t, result, expected)
+}
+
+func Test_ifaceToString(t *testing.T) {
+	testCases := []struct {
+		name        string
+		input       any
+		expected    string
+		expectError bool
+	}{
+		{"int", int(42), "42", false},
+		{"int8", int8(-8), "-8", false},
+		{"int16", int16(-16), "-16", false},
+		{"int32", int32(-32), "-32", false},
+		{"int64", int64(-64), "-64", false},
+		{"uint", uint(42), "42", false},
+		{"uint8", uint8(8), "8", false},
+		{"uint16", uint16(16), "16", false},
+		{"uint32", uint32(32), "32", false},
+		{"uint64", uint64(64), "64", false},
+		{"uintptr", uintptr(1024), "1024", false},
+		{"float64_precision", float64(123456789.987654), "123456789.987654", false},
+		{"float32", float32(12.5), "12.5", false},
+		{"string", "sample", "sample", false},
+		{"bool_true", true, "true", false},
+		{"bool_false", false, "false", false},
+		{"unsupported_struct", struct{}{}, "", true},
+		{"unsupported_slice", []string{"a"}, "", true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual, err := ifaceToString(tc.input)
+			if tc.expectError {
+				assert.Assert(t, err != nil)
+			} else {
+				assert.NilError(t, err)
+				assert.Equal(t, actual, tc.expected)
+			}
 		})
 	}
 }
