@@ -85,6 +85,8 @@ jobs:
           make verify-background-controller-rbac
       - name: Verify scale-to-zero release scope
         run: bash scripts/verify-scale-to-zero-hook.sh
+      - name: Verify NetworkPolicy metrics ports
+        run: bash scripts/verify-networkpolicy-metrics-port.sh
       - name: Verify restrict-sysctls allow-list
         # Renders restrict-sysctls at each Kubernetes version gate and checks
         # the allow-list against the PSA list for that version.
