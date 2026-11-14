@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 )
 
@@ -31,6 +32,9 @@ func NewProvider(
 		policyKind := policy.GetKind()
 		var matchedExceptions []*policiesv1beta1.PolicyException
 		for _, polex := range exceptions {
+			if !celpolicies.IsKyvernoOwnedException(polex) {
+				continue
+			}
 			for _, ref := range polex.Spec.PolicyRefs {
 				if ref.Name == policy.GetName() && ref.Kind == policyKind {
 					matchedExceptions = append(matchedExceptions, polex)

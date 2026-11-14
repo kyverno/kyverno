@@ -41,3 +41,22 @@ func TestCompile_PolicyScopedIdentifiersStayDeclared(t *testing.T) {
 		})
 	}
 }
+
+// modes owned by other controllers, such as Kyverno Authz, must not be compiled as Kubernetes policies.
+func TestCompile_RejectsModesNotOwnedByKyverno(t *testing.T) {
+	for _, mode := range []string{"Envoy", "HTTP"} {
+		t.Run(mode, func(t *testing.T) {
+			policy := &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "test"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: mode},
+					Validations:             []admissionregistrationv1.Validation{{Expression: "true"}},
+				},
+			}
+			compiled, errs := NewCompiler().Compile(policy, nil)
+			assert.Assert(t, compiled == nil)
+			assert.Equal(t, len(errs), 1)
+			assert.Equal(t, errs[0].Field, "spec.evaluation.mode")
+		})
+	}
+}

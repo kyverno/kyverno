@@ -61,6 +61,21 @@ func TestBuildDefaultKeepsConfigMatchConditions(t *testing.T) {
 	assert.NotEmpty(t, vwc.Webhooks[0].MatchConditions, "default behaviour must keep applying ConfigMap match conditions")
 }
 
+func TestBuildWithMatchConditionsAddsThem(t *testing.T) {
+	extra := admissionregistrationv1.MatchCondition{Name: "extra", Expression: "true"}
+	c := newTestController(nil, WithMatchConditions(extra))
+	vwc, err := c.build(fakeConfiguration{}, nil)
+	require.NoError(t, err)
+	require.Len(t, vwc.Webhooks, 1)
+	assert.Equal(t, append(fakeConfiguration{}.GetMatchConditions(), extra), vwc.Webhooks[0].MatchConditions)
+
+	c = newTestController(nil, WithoutConfigMatchConditions(), WithMatchConditions(extra))
+	vwc, err = c.build(fakeConfiguration{}, nil)
+	require.NoError(t, err)
+	require.Len(t, vwc.Webhooks, 1)
+	assert.Equal(t, []admissionregistrationv1.MatchCondition{extra}, vwc.Webhooks[0].MatchConditions)
+}
+
 func TestBuildWithoutConfigMatchConditionsDropsThem(t *testing.T) {
 	c := newTestController(nil, WithoutConfigMatchConditions())
 	vwc, err := c.build(fakeConfiguration{}, nil)

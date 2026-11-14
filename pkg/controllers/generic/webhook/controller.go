@@ -66,12 +66,22 @@ type controller struct {
 	// exception, global-context, and TTL webhooks this controller also builds. Only the two
 	// legacy denial configurations pass WithoutConfigMatchConditions() to set it.
 	skipConfigMatchConditions bool
+	// matchConditions are added to the webhook configuration in addition to the ConfigMap's.
+	matchConditions []admissionregistrationv1.MatchCondition
 }
 
-// Option configures a controller at construction time. The only option today,
-// WithoutConfigMatchConditions, exists for the legacy denial webhook configurations; it must not
-// be applied to a resource-facing webhook, which would silently lose user match conditions.
+// Option configures a controller at construction time. WithoutConfigMatchConditions exists for
+// the legacy denial webhook configurations; it must not be applied to a resource-facing webhook,
+// which would silently lose user match conditions.
 type Option func(*controller)
+
+// WithMatchConditions adds match conditions to the webhook configuration, in addition to the
+// ConfigMap's configured matchConditions.
+func WithMatchConditions(matchConditions ...admissionregistrationv1.MatchCondition) Option {
+	return func(c *controller) {
+		c.matchConditions = append(c.matchConditions, matchConditions...)
+	}
+}
 
 // WithoutConfigMatchConditions stops build() from stamping the ConfigMap's configured
 // matchConditions onto the webhook configuration. The legacy PolicyException and CleanupPolicy
@@ -209,8 +219,9 @@ func objectMeta(name string, annotations map[string]string, labels map[string]st
 func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	var matchConditions []admissionregistrationv1.MatchCondition
 	if !c.skipConfigMatchConditions {
-		matchConditions = cfg.GetMatchConditions()
+		matchConditions = append(matchConditions, cfg.GetMatchConditions()...)
 	}
+	matchConditions = append(matchConditions, c.matchConditions...)
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{

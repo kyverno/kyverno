@@ -78,3 +78,38 @@ func TestValidateCELPoliciesUnaffected(t *testing.T) {
 	resp := h.Validate(context.Background(), logr.Discard(), request, "", time.Now())
 	assert.True(t, resp.Allowed, "message: %v", resp.Result)
 }
+
+// TestValidateSkipsPoliciesOwnedByOtherControllers proves Kyverno doesn't validate, or block, a
+// policy whose evaluation mode belongs to another controller, such as Kyverno Authz.
+func TestValidateSkipsPoliciesOwnedByOtherControllers(t *testing.T) {
+	newRequest := func(mode string) handlers.AdmissionRequest {
+		// envoy.allowed() is only declared in the Kyverno Authz Envoy environment, so this policy
+		// fails to compile as a Kubernetes policy
+		raw := []byte(`{
+			"apiVersion": "policies.kyverno.io/v1beta1",
+			"kind": "ValidatingPolicy",
+			"metadata": {"name": "vpol"},
+			"spec": {
+				"evaluation": {"mode": "` + mode + `"},
+				"validations": [{"expression": "envoy.allowed()"}]
+			}
+		}`)
+		return handlers.AdmissionRequest{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("test-uid"),
+				Kind:      metav1.GroupVersionKind{Group: "policies.kyverno.io", Version: "v1beta1", Kind: "ValidatingPolicy"},
+				Operation: admissionv1.Create,
+				Object:    runtime.RawExtension{Raw: raw},
+			},
+		}
+	}
+	h := NewHandlers(newFakeClient(), nil, "", "")
+
+	resp := h.Validate(context.Background(), logr.Discard(), newRequest("Kubernetes"), "", time.Now())
+	assert.False(t, resp.Allowed, "a Kubernetes policy with an invalid expression must be rejected")
+
+	for _, mode := range []string{"Envoy", "HTTP"} {
+		resp := h.Validate(context.Background(), logr.Discard(), newRequest(mode), "", time.Now())
+		assert.True(t, resp.Allowed, "mode %s: %v", mode, resp.Result)
+	}
+}

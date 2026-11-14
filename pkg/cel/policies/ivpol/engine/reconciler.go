@@ -8,6 +8,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	imagecredentials "github.com/kyverno/kyverno/pkg/image/verification/credentials"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
@@ -91,6 +92,14 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, err
 		}
 		policy = &nivp
+	}
+	// skip policies owned by another controller, such as Kyverno Authz
+	if !celpolicies.IsKyvernoOwned(policy.GetSpec()) {
+		r.lock.Lock()
+		defer r.lock.Unlock()
+		delete(r.policies, req.NamespacedName.String())
+		r.updateSortedLocked()
+		return ctrl.Result{}, nil
 	}
 	var exceptions []*policiesv1beta1.PolicyException
 	var err error

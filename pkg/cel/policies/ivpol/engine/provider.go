@@ -10,6 +10,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -46,6 +47,9 @@ func NewProvider(compiler eval.Compiler, policies []policiesv1beta1.ImageValidat
 		p := policy
 		var matchedExceptions []*policiesv1beta1.PolicyException
 		for _, polex := range exceptions {
+			if !celpolicies.IsKyvernoOwnedException(polex) {
+				continue
+			}
 			for _, ref := range polex.Spec.PolicyRefs {
 				if ref.Name == p.GetName() && ref.Kind == p.GetKind() {
 					matchedExceptions = append(matchedExceptions, polex)

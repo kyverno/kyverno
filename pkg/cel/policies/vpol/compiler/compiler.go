@@ -69,8 +69,12 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exce
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
 	case policieskyvernoio.EvaluationModeJSON:
 		return c.compileForJSON(policy, exceptions)
-	default:
+	case policieskyvernoio.EvaluationModeKubernetes:
 		return c.compileForKubernetes(policy, exceptions)
+	default:
+		// other modes, such as Envoy or HTTP, belong to other controllers and must never reach this compiler
+		path := field.NewPath("spec", "evaluation", "mode")
+		return nil, field.ErrorList{field.NotSupported(path, policy.GetValidatingPolicySpec().EvaluationMode(), []string{policieskyvernoio.EvaluationModeKubernetes, policieskyvernoio.EvaluationModeJSON})}
 	}
 }
 

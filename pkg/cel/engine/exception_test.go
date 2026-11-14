@@ -104,6 +104,45 @@ func TestListExceptions(t *testing.T) {
 		},
 		policyKind: "foo",
 		policyName: "bar",
+	}, {
+		name: "exception with a Kyverno evaluation mode matches",
+		lister: &fakePolicyExceptionLister{
+			exceptions: []*policiesv1beta1.PolicyException{{
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					PolicyRefs: []policiesv1beta1.PolicyRef{{
+						Kind: "foo",
+						Name: "bar",
+					}},
+					EvaluationMode: "JSON",
+				},
+			}},
+		},
+		policyKind: "foo",
+		policyName: "bar",
+		want: []*policiesv1beta1.PolicyException{{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{{
+					Kind: "foo",
+					Name: "bar",
+				}},
+				EvaluationMode: "JSON",
+			},
+		}},
+	}, {
+		name: "exception owned by another controller is ignored",
+		lister: &fakePolicyExceptionLister{
+			exceptions: []*policiesv1beta1.PolicyException{{
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					PolicyRefs: []policiesv1beta1.PolicyRef{{
+						Kind: "foo",
+						Name: "bar",
+					}},
+					EvaluationMode: "Envoy",
+				},
+			}},
+		},
+		policyKind: "foo",
+		policyName: "bar",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

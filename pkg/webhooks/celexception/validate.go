@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	validation "github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
@@ -27,6 +28,10 @@ func (h *celExceptionHandlers) Validate(ctx context.Context, logger logr.Logger,
 	if err != nil {
 		logger.Error(err, "failed to unmarshal CEL PolicyExceptions from admission request")
 		return admissionutils.Response(request.UID, err)
+	}
+	// exceptions owned by another controller, such as Kyverno Authz, are validated by that controller
+	if !celpolicies.IsKyvernoOwnedException(polex) {
+		return admissionutils.ResponseSuccess(request.UID)
 	}
 	warnings := validation.ValidateNamespace(ctx, logger, polex.GetNamespace(), h.validationOptions)
 	warnings = append(warnings, validation.ValidateCompensatingControls(&polex.Spec)...)

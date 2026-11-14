@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -222,6 +223,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
 		}
+		// policies owned by another controller, such as Kyverno Authz, are never generated
+		if !celpolicies.IsKyvernoOwned(vpol.Spec) {
+			return nil
+		}
 		policy = engineapi.NewValidatingPolicy(vpol)
 		err = c.handleVAPGeneration(ctx, policy)
 		if err != nil {
@@ -235,6 +240,9 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			}
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
+		}
+		if !celpolicies.IsKyvernoOwned(mpol.Spec) {
+			return nil
 		}
 		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
 		if !generateMutatingAdmissionPolicy {
