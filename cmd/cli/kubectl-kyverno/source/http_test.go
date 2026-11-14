@@ -20,6 +20,14 @@ func TestIsHttp(t *testing.T) {
 		in:   "https://github.com/kyverno/policies",
 		want: true,
 	}, {
+		name: "uppercase HTTPS",
+		in:   "HTTPS://github.com/kyverno/policies",
+		want: true,
+	}, {
+		name: "mixed case HTTP",
+		in:   "HtTp://github.com/kyverno/policies",
+		want: true,
+	}, {
 		name: "local path",
 		in:   "/github.com/kyverno/policies",
 		want: false,
@@ -28,6 +36,7 @@ func TestIsHttp(t *testing.T) {
 		in:   "/https/kyverno/policies",
 		want: false,
 	}}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsHttp(tt.in); got != tt.want {
