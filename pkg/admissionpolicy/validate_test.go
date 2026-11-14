@@ -4,12 +4,15 @@ import (
 	"reflect"
 	"testing"
 
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"sigs.k8s.io/yaml"
 )
@@ -336,4 +339,152 @@ func TestGetGVRs_SkipsUnsafeResourceSegments(t *testing.T) {
 	wild := GetGVRs(rules("", "v1", "*"), nil)
 	assert.Equal(t, len(wild), 1)
 	assert.Equal(t, wild[0].Resource, "*")
+}
+
+func TestValidate_ProcessVAPWithoutClient_MatchConstraints(t *testing.T) {
+	cmResource, err := kubeutils.BytesToUnstructured([]byte(`{
+		"apiVersion": "v1",
+		"kind": "ConfigMap",
+		"metadata": {
+			"name": "my-config",
+			"namespace": "default"
+		},
+		"data": {
+			"key": "value"
+		}
+	}`))
+	assert.NilError(t, err)
+
+	deployResource, err := kubeutils.BytesToUnstructured([]byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+			"name": "my-deploy",
+			"namespace": "default"
+		},
+		"spec": {
+			"replicas": 3
+		}
+	}`))
+	assert.NilError(t, err)
+
+	validPolicy := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "check-deployment-replicas"},
+		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.spec.replicas <= 5"},
+			},
+		},
+	}
+
+	invalidSelectorPolicy := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "invalid-selector-policy"},
+		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+						},
+					},
+				},
+				ObjectSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      "tier",
+							Operator: "InvalidOperator",
+							Values:   []string{"frontend"},
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name           string
+		policy         *admissionregistrationv1.ValidatingAdmissionPolicy
+		bindingName    string
+		resource       *unstructured.Unstructured
+		gvr            schema.GroupVersionResource
+		wantErr        bool
+		expectedRules  int
+		expectedStatus engineapi.RuleStatus
+	}{
+		{
+			name:          "non-matching resource kind is ignored",
+			policy:        validPolicy,
+			bindingName:   "check-deployment-replicas-binding",
+			resource:      cmResource,
+			gvr:           schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+			wantErr:       false,
+			expectedRules: 0,
+		},
+		{
+			name:           "matching resource kind is evaluated",
+			policy:         validPolicy,
+			bindingName:    "check-deployment-replicas-binding",
+			resource:       deployResource,
+			gvr:            schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			wantErr:        false,
+			expectedRules:  1,
+			expectedStatus: engineapi.RuleStatusPass,
+		},
+		{
+			name:          "invalid label selector in matchConstraints returns matcher error",
+			policy:        invalidSelectorPolicy,
+			bindingName:   "invalid-selector-binding",
+			resource:      deployResource,
+			gvr:           schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			wantErr:       true,
+			expectedRules: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			binding := admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: tt.bindingName},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName: tt.policy.Name,
+				},
+			}
+			policyData := engineapi.NewValidatingAdmissionPolicyData(tt.policy)
+			policyData.AddBinding(binding)
+
+			resp, err := Validate(policyData, *tt.resource, tt.resource.GroupVersionKind(), tt.gvr, map[string]map[string]string{}, nil, nil, true)
+			if tt.wantErr {
+				assert.Assert(t, err != nil, "expected non-nil error from matcher failure")
+				assert.Equal(t, len(resp.PolicyResponse.Rules), 0, "expected 0 evaluated rules on matcher error")
+			} else {
+				assert.NilError(t, err)
+				assert.Equal(t, len(resp.PolicyResponse.Rules), tt.expectedRules)
+				if tt.expectedRules > 0 {
+					assert.Equal(t, resp.PolicyResponse.Rules[0].Status(), tt.expectedStatus)
+				}
+			}
+		})
+	}
 }
