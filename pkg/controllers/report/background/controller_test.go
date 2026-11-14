@@ -3,6 +3,10 @@ package background
 import (
 	"context"
 	"errors"
+	"github.com/kyverno/kyverno/pkg/breaker"
+	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	"github.com/kyverno/kyverno/pkg/openreports"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"testing"
 	"time"
 
@@ -172,5 +176,148 @@ func TestReconcile_ListerError_StillRearmed(t *testing.T) {
 	}
 	if cq.lastDelay != forceDelay {
 		t.Fatalf("expected delay %v, got %v", forceDelay, cq.lastDelay)
+	}
+}
+
+func TestStoreReport_AllowedResultsSuppression(t *testing.T) {
+	// Configure allowedResults to exclude "pass"
+	reportutils.ResetReportingConfig([]string{"fail", "error", "warn"}, "validate")
+	t.Cleanup(func() {
+		reportutils.ResetReportingConfig([]string{"pass", "fail", "error", "warn", "skip"}, "validate")
+	})
+
+	breaker.SetReportsBreaker(breaker.NewBreaker("test", func(context.Context) bool { return false }))
+
+	const (
+		namespace = "default"
+		uid       = "test-uid-123"
+	)
+
+	// Create lister with existing policyreport for test-uid-123
+	polrIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+	})
+	polrLister := cache.NewGenericLister(
+		polrIndexer,
+		schema.GroupVersionResource{Group: "wgpolicyk8s.io", Version: "v1alpha2", Resource: "policyreports"}.GroupResource(),
+	)
+
+	// Test 1: desired has only "pass", no existing policyreport -> suppressed (no ephemeral report created)
+	{
+		client := versionedfake.NewSimpleClientset()
+		ctrl := &controller{
+			kyvernoClient: client,
+			polrLister:    polrLister,
+		}
+
+		observed := &reportsv1.EphemeralReport{} // hasReport = false
+		desired := &reportsv1.EphemeralReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Labels: map[string]string{
+					reportutils.LabelResourceUid: "other-uid-without-report",
+				},
+			},
+			Spec: reportsv1.EphemeralReportSpec{
+				Results: []openreportsv1alpha1.ReportResult{
+					{Result: openreports.StatusPass},
+				},
+			},
+		}
+
+		err := ctrl.storeReport(context.Background(), observed, desired)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, a := range client.Fake.Actions() {
+			if a.GetVerb() == "create" && a.GetResource().Resource == "ephemeralreports" {
+				t.Fatalf("expected no ephemeral report created when pass is not allowed and resource has no policy report")
+			}
+		}
+	}
+
+	// Test 2: desired has only "pass", but existing policyreport exists -> created so aggregate-controller can clear it
+	{
+		// Add report for test-uid-123 to polrIndexer
+		existingReportMeta := &metav1.PartialObjectMetadata{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      uid,
+			},
+		}
+		_ = polrIndexer.Add(existingReportMeta)
+
+		client := versionedfake.NewSimpleClientset()
+		ctrl := &controller{
+			kyvernoClient: client,
+			polrLister:    polrLister,
+		}
+
+		observed := &reportsv1.EphemeralReport{} // hasReport = false
+		desired := &reportsv1.EphemeralReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Labels: map[string]string{
+					reportutils.LabelResourceUid: uid,
+				},
+			},
+			Spec: reportsv1.EphemeralReportSpec{
+				Results: []openreportsv1alpha1.ReportResult{
+					{Result: openreports.StatusPass},
+				},
+			},
+		}
+
+		err := ctrl.storeReport(context.Background(), observed, desired)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		var sawCreate bool
+		for _, a := range client.Fake.Actions() {
+			if a.GetVerb() == "create" && a.GetResource().Resource == "ephemeralreports" {
+				sawCreate = true
+			}
+		}
+		if !sawCreate {
+			t.Fatalf("expected ephemeral report created to clear existing policy report")
+		}
+	}
+
+	// Test 3: desired has "fail" -> created
+	{
+		client := versionedfake.NewSimpleClientset()
+		ctrl := &controller{
+			kyvernoClient: client,
+			polrLister:    polrLister,
+		}
+
+		observed := &reportsv1.EphemeralReport{} // hasReport = false
+		desired := &reportsv1.EphemeralReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Labels: map[string]string{
+					reportutils.LabelResourceUid: "failing-uid",
+				},
+			},
+			Spec: reportsv1.EphemeralReportSpec{
+				Results: []openreportsv1alpha1.ReportResult{
+					{Result: openreports.StatusFail},
+				},
+			},
+		}
+
+		err := ctrl.storeReport(context.Background(), observed, desired)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		var sawCreate bool
+		for _, a := range client.Fake.Actions() {
+			if a.GetVerb() == "create" && a.GetResource().Resource == "ephemeralreports" {
+				sawCreate = true
+			}
+		}
+		if !sawCreate {
+			t.Fatalf("expected ephemeral report created for fail result")
+		}
 	}
 }
