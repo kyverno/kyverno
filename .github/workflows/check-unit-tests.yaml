@@ -35,8 +35,20 @@ jobs:
       with:
         gobuild-cache-prefix: gobuild-unit-tests
         gobuild-cache-include-run-id: 'true'
+    - name: Fetch PR base branch for shadow test selection
+      if: github.event_name == 'pull_request'
+      run: git fetch origin ${{ github.base_ref }} --depth=1
     - name: Unit test
-      run: make test-unit
+      run: make test-unit 2>&1 | tee unit-test.log
+    - name: Affected-package test selection trial (shadow mode)
+      if: always() && github.event_name == 'pull_request'
+      continue-on-error: true
+      run: |
+        go run ./hack/test-selection \
+          -base "origin/${{ github.base_ref }}" \
+          -head HEAD \
+          -check-full-suite-log unit-test.log \
+          -summary-file "$GITHUB_STEP_SUMMARY"
     - name: Record final disk headroom
       if: always()
       run: |
