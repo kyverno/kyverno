@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: template-preserve-int64
+spec:
+  concurrent: false
+  steps:
+  - name: grant the background controller access to ControllerRevisions
+    try:
+    - apply:
+        resource:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: kyverno:template-preserve-int64
+            labels:
+              rbac.kyverno.io/aggregate-to-background-controller: "true"
+          rules:
+          - apiGroups: [apps]
+            resources: [controllerrevisions]
+            verbs: [get, list, watch, create, update, patch, delete]
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait for policy
+    use:
+      template: ../../../_step-templates/generating-policy-v1-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: template-preserve-int64
+  - name: generate the revision
+    try:
+    - create:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: template-preserve-int64
+    - assert:
+        resource:
+          apiVersion: apps/v1
+          kind: ControllerRevision
+          metadata:
+            name: sample
+            namespace: template-preserve-int64
+    - script:
+        content: |
+          kubectl get controllerrevision sample -n template-preserve-int64 -o json | python3 -c '
+          import json, sys
+          obj = json.load(sys.stdin)
+          assert type(obj["revision"]) is int and obj["revision"] == 9007199254740993, obj
+          assert obj["data"]["previous"] == [9007199254740992], obj
+          assert obj["data"]["label"] == "9007199254740993", obj'
