@@ -1325,3 +1325,62 @@ func Test_ConditionError_Unwrap(t *testing.T) {
 	gce := NewGlobalConditionError(inner).(GlobalConditionError)
 	assert.Equal(t, gce.Unwrap(), inner)
 }
+
+func Test_processListOfMaps_NilResource(t *testing.T) {
+	rawPattern := []byte(`[
+		{
+			"(name)": "istio-init",
+			"image": "istio/proxyv2:1.10.0"
+		}
+	]`)
+	pattern := yaml.MustParse(string(rawPattern))
+
+	err := processListOfMaps(logr.Discard(), pattern, nil)
+	assert.NilError(t, err)
+}
+
+func Test_PreProcessPattern_NilResourceListField(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec": {
+			"initContainers": [
+				{
+					"(name)": "vault-init",
+					"image": "vault:1.8.0"
+				}
+			]
+		}
+	}`)
+	rawResource := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod"
+		},
+		"spec": {
+			"containers": [
+				{
+					"name": "app",
+					"image": "nginx"
+				}
+			]
+		}
+	}`)
+
+	pattern := yaml.MustParse(string(rawPattern))
+	resource := yaml.MustParse(string(rawResource))
+
+	err := PreProcessPattern(logr.Discard(), pattern, resource)
+	assert.NilError(t, err)
+}
+
+func Test_PreProcessPattern_NilInputs(t *testing.T) {
+	err := PreProcessPattern(logr.Discard(), nil, nil)
+	assert.NilError(t, err)
+
+	pattern := yaml.MustParse(`{"spec": {"containers": []}}`)
+	err = PreProcessPattern(logr.Discard(), pattern, nil)
+	assert.NilError(t, err)
+
+	err = PreProcessPattern(logr.Discard(), nil, pattern)
+	assert.NilError(t, err)
+}
