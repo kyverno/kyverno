@@ -404,12 +404,11 @@ func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyve
 				continue
 			}
 			if resource.Data == nil {
-				// Verify the live UID before using incomplete cached data.
-				var recovered bool
-				resource, recovered = wm.recoverCachedDownstream(logger, watcher, gvr, uid, resource)
-				if !recovered {
-					continue
-				}
+				// A generated resource's GVK is needed to match the desired set.
+				// Leave incomplete entries retryable rather than guessing or
+				// calling the API server while holding the watch manager lock.
+				logger.Error(errors.New("missing cached resource data"), "skipping stale downstream with incomplete cache entry", "uid", uid, "name", resource.Name, "namespace", resource.Namespace)
+				continue
 			}
 			if _, ok := desiredKeys[downstreamKey(resource.Data.GroupVersionKind(), resource.Namespace, resource.Name)]; !ok {
 				uidsToDelete = append(uidsToDelete, uid)
@@ -421,56 +420,13 @@ func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyve
 	}
 }
 
-// recoverCachedDownstream uses the observed UID to repair a nil-Data entry.
-// Missing or replaced objects are retired from cache, but an API or mapper
-// failure leaves the entry retryable. Never delete an unverified live object.
-func (wm *WatchManager) recoverCachedDownstream(logger logr.Logger, watcher *watcher, gvr schema.GroupVersionResource, uid types.UID, res Resource) (Resource, bool) {
-	if uid == "" || res.Name == "" {
-		logger.Error(errors.New("missing cached UID or name"), "retiring unrecoverable downstream cache entry", "name", res.Name, "namespace", res.Namespace)
-		delete(watcher.metadataCache, uid)
-		return res, false
-	}
-	if wm.restMapper == nil {
-		logger.Error(errors.New("missing REST mapper"), "cannot recover downstream cache entry; keeping for retry", "name", res.Name, "namespace", res.Namespace)
-		return res, false
-	}
-	gvk, err := wm.restMapper.KindFor(gvr)
-	if err != nil {
-		logger.Error(err, "cannot resolve downstream GVR; keeping cache entry for retry", "gvr", gvr)
-		return res, false
-	}
-	live, err := wm.client.GetResource(context.TODO(), gvk.GroupVersion().String(), gvk.Kind, res.Namespace, res.Name)
-	switch {
-	case apierrors.IsNotFound(err):
-		logger.V(4).Info("retiring missing downstream cache entry", "uid", uid, "name", res.Name)
-		delete(watcher.metadataCache, uid)
-		return res, false
-	case err != nil:
-		logger.Error(err, "cannot verify downstream UID; keeping cache entry for retry", "uid", uid, "name", res.Name)
-		return res, false
-	case live == nil || live.GetUID() == "":
-		logger.Error(errors.New("missing live resource UID"), "cannot verify downstream identity; keeping cache entry for retry", "uid", uid, "name", res.Name)
-		return res, false
-	case live.GetUID() != uid:
-		logger.V(4).Info("retiring replaced downstream cache entry", "cachedUID", uid, "liveUID", live.GetUID(), "name", res.Name)
-		delete(watcher.metadataCache, uid)
-		return res, false
-	}
-	// This live copy establishes identity, not the policy's desired state.
-	// Disable drift restoration until SyncWatchers supplies a new snapshot.
-	res.Data = live
-	res.Hash = ""
-	watcher.metadataCache[uid] = res
-	return res, true
-}
-
 func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
 	return gvk.String() + "/" + namespace + "/" + name
 }
 
 // deleteCachedDownstream deletes only the cached Kubernetes object identity.
-// A same-named replacement must never be removed by cleanup. NotFound and a
-// confirmed replacement retire the stale entry; uncertain failures keep it.
+// A same-named replacement must never be removed by cleanup. NotFound and
+// UID-precondition conflicts retire the stale entry; other failures keep it.
 func (wm *WatchManager) deleteCachedDownstream(logger logr.Logger, watcher *watcher, uid types.UID, res Resource) {
 	// The map key is the observed UID. Data may contain a desired-state copy
 	// with a cleared or stale UID following propagation/recreation.
@@ -487,21 +443,11 @@ func (wm *WatchManager) deleteCachedDownstream(logger logr.Logger, watcher *watc
 	options := metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &uid}}
 	err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, options)
 	if apierrors.IsConflict(err) {
-		// Read only to decide whether the old cache entry is obsolete.
-		// The DELETE itself is protected atomically by the API server.
-		live, getErr := wm.client.GetResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name)
-		switch {
-		case apierrors.IsNotFound(getErr):
-			logger.V(4).Info("downstream disappeared after guarded delete conflict", "name", res.Name, "namespace", res.Namespace)
-			delete(watcher.metadataCache, uid)
-		case getErr != nil:
-			logger.Error(getErr, "failed to verify downstream after guarded delete conflict", "name", res.Name, "namespace", res.Namespace)
-		case live != nil && live.GetUID() != "" && live.GetUID() != uid:
-			logger.V(4).Info("downstream name reused; retiring old cached UID", "name", res.Name, "namespace", res.Namespace, "cachedUID", uid, "liveUID", live.GetUID())
-			delete(watcher.metadataCache, uid)
-		default:
-			logger.Error(err, "downstream delete conflicted without confirmed replacement; keeping cached UID", "name", res.Name, "namespace", res.Namespace)
-		}
+		// The API server rejected the UID precondition. The original
+		// downstream identity is no longer deletable at this name; do not
+		// touch a same-named replacement or make a follow-up GET.
+		logger.V(4).Info("cached downstream UID no longer matches; retiring stale entry", "uid", uid, "name", res.Name, "namespace", res.Namespace)
+		delete(watcher.metadataCache, uid)
 		return
 	}
 	if err != nil && !apierrors.IsNotFound(err) {
