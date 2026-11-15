@@ -178,6 +178,33 @@ func TestCommandNameYAMLValues(t *testing.T) {
 	}
 }
 
+func TestCommandAllFieldsYAMLTypeCoercion(t *testing.T) {
+	cmd := Command()
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{
+		"--name", "no",
+		"--username", "null",
+		"--role", "true",
+		"--cluster-role", "12345",
+		"--group", "off",
+	})
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	out, err := io.ReadAll(b)
+	require.NoError(t, err)
+
+	var userInfo v1alpha1.UserInfo
+	err = yaml.UnmarshalStrict(out, &userInfo)
+	require.NoError(t, err)
+	assert.Equal(t, "no", userInfo.Name)
+	assert.Equal(t, "null", userInfo.AdmissionUserInfo.Username)
+	assert.Equal(t, []string{"true"}, userInfo.Roles)
+	assert.Equal(t, []string{"12345"}, userInfo.ClusterRoles)
+	assert.Equal(t, []string{"off"}, userInfo.AdmissionUserInfo.Groups)
+}
+
 type failingWriter struct{}
 
 func (f *failingWriter) Write([]byte) (int, error) {
