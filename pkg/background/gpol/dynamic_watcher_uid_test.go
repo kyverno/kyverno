@@ -390,6 +390,58 @@ func TestSyncWatchersOldGVRConflictPreservesSharedWatcher(t *testing.T) {
 	assert.Same(t, w, wm.dynamicWatchers[gvr])
 }
 
+// Source deletion is also a cleanup entry point. An ambiguous 409 must be
+// checked outside the global lock so stale UID entries are not stranded.
+func TestHandleDeleteVerifiesDownstreamConflictsOutsideLock(t *testing.T) {
+	const sourceUID types.UID = "source-uid"
+	const oldUID types.UID = "old-uid"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	for _, tt := range []struct {
+		name       string
+		liveUID    types.UID
+		wantCached bool
+	}{
+		{name: "source deletion with replacement", liveUID: "replacement-uid"},
+		{name: "webhook conflict with original resource", liveUID: oldUID, wantCached: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			downstream := makeUnstructured("", "", "v1", "ConfigMap", "settings", "app", oldUID, nil)
+			cached := Resource{Name: "settings", Namespace: "app", Data: downstream}
+			w := &watcher{metadataCache: map[types.UID]Resource{oldUID: cached}}
+			var wm *WatchManager
+			gets := 0
+			client := &MockClient{
+				listItems: []unstructured.Unstructured{*downstream},
+				deleteFn: func(_ context.Context, _, _, _, _ string, _ bool, opts metav1.DeleteOptions) error {
+					require.NotNil(t, opts.Preconditions)
+					require.NotNil(t, opts.Preconditions.UID)
+					assert.Equal(t, oldUID, *opts.Preconditions.UID)
+					return apierrors.NewConflict(schema.GroupResource{Resource: "configmaps"}, "settings", errors.New("conflict"))
+				},
+				getFn: func(_ context.Context, _, _, _, _ string) (*unstructured.Unstructured, error) {
+					gets++
+					if wm.lock.TryLock() {
+						wm.lock.Unlock()
+					} else {
+						t.Error("source-deletion verification must run outside wm.lock")
+					}
+					return makeUnstructured("", "", "v1", "ConfigMap", "settings", "app", tt.liveUID, nil), nil
+				},
+			}
+			wm = &WatchManager{
+				log:             logging.WithName("test"),
+				client:          client,
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{gvr: w},
+			}
+			source := makeUnstructured("", "", "v1", "ConfigMap", "source", "app", sourceUID, nil)
+			wm.handleDelete(source, gvr)
+			assert.Equal(t, 1, gets)
+			_, exists := w.metadataCache[oldUID]
+			assert.Equal(t, tt.wantCached, exists)
+		})
+	}
+}
+
 // An incomplete cache entry cannot be classified safely without its GVK.
 // Skip it without network reads, while still removing other stale resources.
 // This also guards against mutating the cache during map iteration.

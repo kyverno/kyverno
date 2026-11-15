@@ -1070,8 +1070,12 @@ func onlyKeys(m map[string]string, keep map[string]bool) map[string]string {
 }
 
 func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
+	var conflicts []downstreamDeleteConflict
 	wm.lock.Lock()
-	defer wm.lock.Unlock()
+	defer func() {
+		wm.lock.Unlock()
+		wm.verifyDownstreamDeleteConflicts(conflicts)
+	}()
 
 	wm.log.V(4).Info("Resource deleted", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	watcher, exists := wm.dynamicWatchers[gvr]
@@ -1096,7 +1100,10 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 					if _, exists := watcher.metadataCache[downstream.GetUID()]; !exists {
 						continue
 					}
-					wm.deleteCachedDownstream(wm.log, watcher, downstream.GetUID(), watcher.metadataCache[downstream.GetUID()])
+					cached := watcher.metadataCache[downstream.GetUID()]
+					if wm.deleteCachedDownstream(wm.log, watcher, downstream.GetUID(), cached) {
+						conflicts = append(conflicts, downstreamDeleteConflict{watcher: watcher, uid: downstream.GetUID(), resource: cached})
+					}
 				}
 			}
 		} else {
