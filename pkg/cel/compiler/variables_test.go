@@ -97,3 +97,52 @@ func TestCompileVariablesDeduplicatesFieldNames(t *testing.T) {
 		})
 	}
 }
+
+func TestCompileVariablesFailedDuplicatePreservesRegistration(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		trace bool
+	}{
+		{"untraced", false},
+		{"traced", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env, err := NewBaseEnv()
+			require.NoError(t, err)
+
+			provider := NewVariablesProvider(env.CELTypeProvider())
+			env, err = env.Extend(
+				cel.Variable(VariablesKey, VariablesType),
+				cel.CustomTypeProvider(provider),
+			)
+			require.NoError(t, err)
+
+			programs, traced, errs := CompileVariablesWithTrace(nil, env, provider, tc.trace,
+				admissionregistrationv1.Variable{Name: "count", Expression: "1"},
+				admissionregistrationv1.Variable{Name: "count", Expression: "1 +"},
+			)
+			require.Len(t, errs, 1)
+			require.Equal(t, "[1].expression", errs[0].Field)
+			require.Len(t, programs, 1)
+
+			names, found := provider.FindStructFieldNames(VariablesType.DeclaredTypeName())
+			require.True(t, found)
+			require.Equal(t, []string{"count"}, names)
+
+			fieldType, found := provider.FindStructFieldType(VariablesType.DeclaredTypeName(), "count")
+			require.True(t, found)
+			require.True(t, fieldType.Type.IsExactType(cel.IntType))
+
+			output, _, err := programs["count"].Eval(map[string]any{})
+			require.NoError(t, err)
+			require.Equal(t, int64(1), output.Value())
+
+			if tc.trace {
+				require.Len(t, traced, 1)
+				require.NotNil(t, traced["count"].Traced)
+			} else {
+				require.Nil(t, traced)
+			}
+		})
+	}
+}
