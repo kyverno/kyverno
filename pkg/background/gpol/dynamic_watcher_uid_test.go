@@ -215,6 +215,11 @@ func TestDownstreamCleanupPathsPreserveSameNamedReplacement(t *testing.T) {
 			}
 			assert.Equal(t, newUID, liveUID, "replacement must survive cleanup")
 			assert.NotContains(t, w.metadataCache, oldUID, "confirmed replacement must retire the stale cache identity")
+			if path == "old GVR" {
+				assert.NotContains(t, wm.dynamicWatchers, gvr, "last stale entry must release its old watcher")
+				assert.NotContains(t, wm.refCount, gvr, "last stale entry must release its old ref count")
+				assert.Empty(t, wm.policyRefs["policy"], "old GVR must no longer be referenced")
+			}
 		})
 	}
 }
@@ -332,6 +337,57 @@ func TestCleanupStaleDownstreamsConflictVerificationRechecksCache(t *testing.T) 
 	wm.CleanupStaleDownstreams("policy", &kyverno.ResourceSpec{UID: "trigger"}, nil)
 	require.Contains(t, w.metadataCache, uid)
 	assert.Equal(t, "new-settings", w.metadataCache[uid].Name)
+}
+
+// An old-GVR conflict must release only this policy's reference after UID
+// verification, without stopping a watcher used by another policy.
+func TestSyncWatchersOldGVRConflictPreservesSharedWatcher(t *testing.T) {
+	const oldUID types.UID = "old-uid"
+	const otherUID types.UID = "other-uid"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	labels := map[string]string{
+		common.GeneratePolicyLabel:     "policy",
+		common.GenerateTriggerUIDLabel: "trigger",
+	}
+	otherLabels := map[string]string{
+		common.GeneratePolicyLabel:     "other-policy",
+		common.GenerateTriggerUIDLabel: "other-trigger",
+	}
+	w := &watcher{metadataCache: map[types.UID]Resource{
+		oldUID: {
+			Name: "settings", Namespace: "app", Labels: labels,
+			Data: makeUnstructured("", "", "v1", "ConfigMap", "settings", "app", oldUID, labels),
+		},
+		otherUID: {
+			Name: "other-settings", Namespace: "app", Labels: otherLabels,
+			Data: makeUnstructured("", "", "v1", "ConfigMap", "other-settings", "app", otherUID, otherLabels),
+		},
+	}}
+	client := &MockClient{
+		deleteFn: func(_ context.Context, _, _, _, _ string, _ bool, opts metav1.DeleteOptions) error {
+			require.NotNil(t, opts.Preconditions)
+			require.NotNil(t, opts.Preconditions.UID)
+			assert.Equal(t, oldUID, *opts.Preconditions.UID)
+			return apierrors.NewConflict(schema.GroupResource{Resource: "configmaps"}, "settings", errors.New("UID mismatch"))
+		},
+		getFn: func(_ context.Context, _, _, _, _ string) (*unstructured.Unstructured, error) {
+			return makeUnstructured("", "", "v1", "ConfigMap", "settings", "app", "replacement-uid", nil), nil
+		},
+	}
+	wm := &WatchManager{
+		client:          client,
+		log:             logging.WithName("test"),
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{gvr: w},
+		policyRefs:      map[string][]schema.GroupVersionResource{"policy": {gvr}, "other-policy": {gvr}},
+		refCount:        map[schema.GroupVersionResource]int{gvr: 2},
+	}
+	require.NoError(t, wm.SyncWatchers("policy", &kyverno.ResourceSpec{UID: "trigger"}, nil, false))
+	assert.NotContains(t, w.metadataCache, oldUID)
+	assert.Contains(t, w.metadataCache, otherUID)
+	assert.Empty(t, wm.policyRefs["policy"])
+	assert.Equal(t, []schema.GroupVersionResource{gvr}, wm.policyRefs["other-policy"])
+	assert.Equal(t, 1, wm.refCount[gvr], "shared watcher must retain the other policy's reference")
+	assert.Same(t, w, wm.dynamicWatchers[gvr])
 }
 
 // An incomplete cache entry cannot be classified safely without its GVK.

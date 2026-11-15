@@ -245,7 +245,10 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.Resourc
 				for _, uid := range uidsToDelete {
 					res := oldWatcher.metadataCache[uid]
 					if wm.deleteCachedDownstream(logger, oldWatcher, uid, res) {
-						conflicts = append(conflicts, downstreamDeleteConflict{watcher: oldWatcher, uid: uid, resource: res})
+						conflicts = append(conflicts, downstreamDeleteConflict{
+							watcher: oldWatcher, uid: uid, resource: res,
+							policyName: policyName, oldGVR: oldGVR,
+						})
 					}
 				}
 
@@ -486,9 +489,11 @@ func (wm *WatchManager) deleteCachedDownstream(logger logr.Logger, watcher *watc
 // downstreamDeleteConflict captures an ambiguous DELETE outcome while wm.lock is
 // held. Its live-object check must happen only after releasing that lock.
 type downstreamDeleteConflict struct {
-	watcher  *watcher
-	uid      types.UID
-	resource Resource
+	watcher    *watcher
+	uid        types.UID
+	resource   Resource
+	policyName string
+	oldGVR     schema.GroupVersionResource
 }
 
 // verifyDownstreamDeleteConflicts only retires a conflicting cache entry when a
@@ -530,9 +535,60 @@ func (wm *WatchManager) verifyDownstreamDeleteConflicts(conflicts []downstreamDe
 				cached.Data.GetAPIVersion() == res.Data.GetAPIVersion() &&
 				cached.Data.GetKind() == res.Data.GetKind() {
 				delete(conflict.watcher.metadataCache, conflict.uid)
+				if conflict.policyName != "" {
+					// SyncWatchers kept this old GVR referenced until the
+					// conflict could be verified. Finish its teardown now.
+					wm.pruneOldGVRReference(conflict.policyName, conflict.oldGVR, conflict.watcher)
+				}
 			}
 		}
 		wm.lock.Unlock()
+	}
+}
+
+// pruneOldGVRReference runs with wm.lock held. A confirmed stale UID was
+// removed after SyncWatchers calculated its references: detach the old GVR
+// only when no cached downstream of this policy still needs it. Check the
+// active watcher and policy ref again, since another sync may have run.
+func (wm *WatchManager) pruneOldGVRReference(policyName string, gvr schema.GroupVersionResource, tracked *watcher) {
+	if wm.dynamicWatchers[gvr] != tracked {
+		return
+	}
+	refs, exists := wm.policyRefs[policyName]
+	if !exists {
+		return
+	}
+	referenced := false
+	for _, ref := range refs {
+		if ref == gvr {
+			referenced = true
+			break
+		}
+	}
+	if !referenced {
+		return
+	}
+	for _, res := range tracked.metadataCache {
+		if res.Labels[common.GeneratePolicyLabel] == policyName {
+			return
+		}
+	}
+	remaining := make([]schema.GroupVersionResource, 0, len(refs)-1)
+	for _, ref := range refs {
+		if ref != gvr {
+			remaining = append(remaining, ref)
+		}
+	}
+	wm.policyRefs[policyName] = remaining
+	if _, counted := wm.refCount[gvr]; counted {
+		wm.refCount[gvr]--
+	}
+	if wm.refCount[gvr] <= 0 {
+		if tracked.watcher != nil {
+			tracked.watcher.Stop()
+		}
+		delete(wm.dynamicWatchers, gvr)
+		delete(wm.refCount, gvr)
 	}
 }
 
