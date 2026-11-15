@@ -42,9 +42,10 @@ func TestDeleteCachedDownstreamUIDPreconditions(t *testing.T) {
 	}{
 		{name: "deletes original UID", cacheUID: oldUID, dataUID: oldUID, liveUID: oldUID, wantDeletes: 1},
 		{name: "NotFound retires entry", cacheUID: oldUID, dataUID: oldUID, deleteErr: notFound, wantDeletes: 1},
-		{name: "same-named replacement survives", cacheUID: oldUID, dataUID: oldUID, liveUID: replacementUID, wantDeletes: 1, wantLiveUID: replacementUID},
-		{name: "UID conflict retires stale cache without GET", cacheUID: oldUID, dataUID: oldUID, deleteErr: conflict, wantDeletes: 1},
-		{name: "UID conflict does not require live verification", cacheUID: oldUID, dataUID: oldUID, liveUID: replacementUID, deleteErr: conflict, getErr: unavailable, wantDeletes: 1, wantLiveUID: replacementUID},
+		{name: "same-named replacement survives", cacheUID: oldUID, dataUID: oldUID, liveUID: replacementUID, wantDeletes: 1, wantCached: true, wantLiveUID: replacementUID},
+		{name: "UID conflict retains retryable cache without GET", cacheUID: oldUID, dataUID: oldUID, deleteErr: conflict, wantDeletes: 1, wantCached: true},
+		{name: "UID conflict does not require live verification", cacheUID: oldUID, dataUID: oldUID, liveUID: replacementUID, deleteErr: conflict, getErr: unavailable, wantDeletes: 1, wantCached: true, wantLiveUID: replacementUID},
+		{name: "webhook conflict with original UID keeps retry state", cacheUID: oldUID, dataUID: oldUID, liveUID: oldUID, deleteErr: conflict, wantDeletes: 1, wantCached: true, wantLiveUID: oldUID},
 		{name: "transient delete failure retains entry", cacheUID: oldUID, dataUID: oldUID, liveUID: oldUID, deleteErr: unavailable, wantDeletes: 1, wantCached: true, wantLiveUID: oldUID},
 		{name: "empty cached UID cannot delete", cacheUID: "", dataUID: oldUID, liveUID: replacementUID, wantCached: true, wantLiveUID: replacementUID},
 		{name: "nil cached resource cannot delete", cacheUID: oldUID, nilData: true, liveUID: replacementUID, wantCached: true, wantLiveUID: replacementUID},
@@ -113,6 +114,44 @@ func TestDeleteCachedDownstreamUIDPreconditions(t *testing.T) {
 	}
 }
 
+// A webhook can return Conflict despite the original UID still being live.
+// Keep the cache entry and retry the same UID-protected deletion later.
+func TestDeleteCachedDownstreamRetryAfterWebhookConflict(t *testing.T) {
+	const uid types.UID = "original-uid"
+	res := Resource{
+		Name:      "settings",
+		Namespace: "app",
+		Data:      makeUnstructured("", "", "v1", "ConfigMap", "settings", "app", uid, nil),
+	}
+	w := &watcher{metadataCache: map[types.UID]Resource{uid: res}}
+	attempts := 0
+	client := &MockClient{
+		deleteFn: func(_ context.Context, _, _, _, _ string, _ bool, opts metav1.DeleteOptions) error {
+			attempts++
+			require.NotNil(t, opts.Preconditions)
+			require.NotNil(t, opts.Preconditions.UID)
+			assert.Equal(t, uid, *opts.Preconditions.UID)
+			if attempts == 1 {
+				return apierrors.NewConflict(schema.GroupResource{Resource: "configmaps"}, res.Name, errors.New("admission webhook denied delete"))
+			}
+			return nil
+		},
+		getFn: func(_ context.Context, _, _, _, _ string) (*unstructured.Unstructured, error) {
+			t.Error("no live GET is needed to retry a protected deletion")
+			return nil, nil
+		},
+	}
+	wm := &WatchManager{log: logging.WithName("test"), client: client}
+
+	wm.deleteCachedDownstream(wm.log, w, uid, res)
+	require.Equal(t, 1, attempts)
+	require.Contains(t, w.metadataCache, uid, "Conflict must not lose the original cleanup target")
+
+	wm.deleteCachedDownstream(wm.log, w, uid, w.metadataCache[uid])
+	require.Equal(t, 2, attempts)
+	assert.NotContains(t, w.metadataCache, uid, "successful protected delete must retire the entry")
+}
+
 // Verify all cleanup entry points use the same guarded DELETE, including a
 // removed GVR and the optional policy-removal path.
 func TestDownstreamCleanupPathsPreserveSameNamedReplacement(t *testing.T) {
@@ -170,7 +209,12 @@ func TestDownstreamCleanupPathsPreserveSameNamedReplacement(t *testing.T) {
 			assert.Equal(t, 1, deletes)
 			assert.Equal(t, 0, gets, "UID-precondition conflicts must not trigger GET")
 			assert.Equal(t, newUID, liveUID, "replacement must survive cleanup")
-			assert.NotContains(t, w.metadataCache, oldUID)
+			if path == "policy removal" {
+				// Policy teardown intentionally discards watcher state.
+				assert.NotContains(t, w.metadataCache, oldUID)
+			} else {
+				assert.Contains(t, w.metadataCache, oldUID, "a conflicting delete must stay retryable")
+			}
 		})
 	}
 }

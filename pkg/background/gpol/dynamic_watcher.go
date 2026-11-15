@@ -425,8 +425,8 @@ func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
 }
 
 // deleteCachedDownstream deletes only the cached Kubernetes object identity.
-// A same-named replacement must never be removed by cleanup. NotFound and
-// UID-precondition conflicts retire the stale entry; other failures keep it.
+// A same-named replacement must never be removed by cleanup. A successful
+// delete or NotFound retires the entry; all other failures remain retryable.
 func (wm *WatchManager) deleteCachedDownstream(logger logr.Logger, watcher *watcher, uid types.UID, res Resource) {
 	// The map key is the observed UID. Data may contain a desired-state copy
 	// with a cleared or stale UID following propagation/recreation.
@@ -443,11 +443,10 @@ func (wm *WatchManager) deleteCachedDownstream(logger logr.Logger, watcher *watc
 	options := metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &uid}}
 	err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, options)
 	if apierrors.IsConflict(err) {
-		// The API server rejected the UID precondition. The original
-		// downstream identity is no longer deletable at this name; do not
-		// touch a same-named replacement or make a follow-up GET.
-		logger.V(4).Info("cached downstream UID no longer matches; retiring stale entry", "uid", uid, "name", res.Name, "namespace", res.Namespace)
-		delete(watcher.metadataCache, uid)
+		// A Conflict does not prove a UID mismatch: an admission webhook may
+		// reject the DELETE while the original object still exists. Keep the
+		// entry for a later UID-protected retry, without an additional GET.
+		logger.V(4).Info("downstream delete conflicted; keeping entry for protected retry", "uid", uid, "name", res.Name, "namespace", res.Namespace)
 		return
 	}
 	if err != nil && !apierrors.IsNotFound(err) {
