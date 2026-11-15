@@ -1,7 +1,7 @@
 apiVersion: cli.kyverno.io/v1alpha1
 kind: UserInfo
 metadata:
-  name: {{ .Name }}
+  name: {{ printf "%q" .Name }}
 
 # list of roles
 roles:
