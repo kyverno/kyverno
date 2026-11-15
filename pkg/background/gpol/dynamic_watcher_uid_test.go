@@ -207,16 +207,131 @@ func TestDownstreamCleanupPathsPreserveSameNamedReplacement(t *testing.T) {
 				wm.RemoveWatchersForPolicy("policy", true)
 			}
 			assert.Equal(t, 1, deletes)
-			assert.Equal(t, 0, gets, "UID-precondition conflicts must not trigger GET")
-			assert.Equal(t, newUID, liveUID, "replacement must survive cleanup")
 			if path == "policy removal" {
 				// Policy teardown intentionally discards watcher state.
-				assert.NotContains(t, w.metadataCache, oldUID)
+				assert.Equal(t, 0, gets)
 			} else {
-				assert.Contains(t, w.metadataCache, oldUID, "a conflicting delete must stay retryable")
+				assert.Equal(t, 1, gets, "conflict verification must occur after the DELETE")
 			}
+			assert.Equal(t, newUID, liveUID, "replacement must survive cleanup")
+			assert.NotContains(t, w.metadataCache, oldUID, "confirmed replacement must retire the stale cache identity")
 		})
 	}
+}
+
+// A conflict may mean a replaced UID, a webhook denial, or a transient failure.
+// Verify only outside the global lock and retire state only when identity changed.
+func TestCleanupStaleDownstreamsVerifyConflictOutsideLock(t *testing.T) {
+	const cachedUID types.UID = "original-uid"
+	const replacementUID types.UID = "new-uid"
+	gr := schema.GroupResource{Resource: "configmaps"}
+	for _, tt := range []struct {
+		name       string
+		liveUID    types.UID
+		getErr     error
+		nilLive    bool
+		wantCached bool
+	}{
+		{name: "replacement confirmed", liveUID: replacementUID},
+		{name: "original no longer exists", getErr: apierrors.NewNotFound(gr, "settings")},
+		{name: "webhook conflict with original live", liveUID: cachedUID, wantCached: true},
+		{name: "GET service unavailable", getErr: apierrors.NewServiceUnavailable("temporary"), wantCached: true},
+		{name: "GET returned no object", nilLive: true, wantCached: true},
+		{name: "GET returned unknown UID", wantCached: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+			labels := map[string]string{
+				common.GeneratePolicyLabel:     "policy",
+				common.GenerateTriggerUIDLabel: "trigger",
+			}
+			res := Resource{
+				Name:      "settings",
+				Namespace: "app",
+				Labels:    labels,
+				Data:      makeUnstructured("", "", "v1", "ConfigMap", "settings", "app", cachedUID, labels),
+			}
+			w := &watcher{metadataCache: map[types.UID]Resource{cachedUID: res}}
+			var wm *WatchManager
+			gets := 0
+			client := &MockClient{
+				deleteFn: func(_ context.Context, _, _, _, _ string, _ bool, opts metav1.DeleteOptions) error {
+					require.NotNil(t, opts.Preconditions)
+					require.NotNil(t, opts.Preconditions.UID)
+					assert.Equal(t, cachedUID, *opts.Preconditions.UID)
+					return apierrors.NewConflict(gr, "settings", errors.New("conflicting delete"))
+				},
+				getFn: func(_ context.Context, apiVersion, kind, namespace, name string) (*unstructured.Unstructured, error) {
+					gets++
+					if wm.lock.TryLock() {
+						wm.lock.Unlock()
+					} else {
+						t.Error("live GET must execute outside the global watch manager lock")
+					}
+					assert.Equal(t, "v1", apiVersion)
+					assert.Equal(t, "ConfigMap", kind)
+					assert.Equal(t, "app", namespace)
+					assert.Equal(t, "settings", name)
+					if tt.getErr != nil {
+						return nil, tt.getErr
+					}
+					if tt.nilLive {
+						return nil, nil
+					}
+					return makeUnstructured("", "", "v1", "ConfigMap", "settings", "app", tt.liveUID, nil), nil
+				},
+			}
+			wm = &WatchManager{
+				log:             logging.WithName("test"),
+				client:          client,
+				policyRefs:      map[string][]schema.GroupVersionResource{"policy": {gvr}},
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{gvr: w},
+			}
+			wm.CleanupStaleDownstreams("policy", &kyverno.ResourceSpec{UID: "trigger"}, nil)
+			assert.Equal(t, 1, gets)
+			_, exists := w.metadataCache[cachedUID]
+			assert.Equal(t, tt.wantCached, exists, "only verified stale UIDs should be evicted")
+		})
+	}
+}
+
+// If a watcher event updates the cached identity during an unlocked GET, a
+// delayed conflict verification must not erase the newer cache entry.
+func TestCleanupStaleDownstreamsConflictVerificationRechecksCache(t *testing.T) {
+	const uid types.UID = "original-uid"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	labels := map[string]string{
+		common.GeneratePolicyLabel:     "policy",
+		common.GenerateTriggerUIDLabel: "trigger",
+	}
+	res := Resource{
+		Name: "settings", Namespace: "app", Labels: labels,
+		Data: makeUnstructured("", "", "v1", "ConfigMap", "settings", "app", uid, labels),
+	}
+	w := &watcher{metadataCache: map[types.UID]Resource{uid: res}}
+	var wm *WatchManager
+	client := &MockClient{
+		deleteFn: func(_ context.Context, _, _, _, _ string, _ bool, _ metav1.DeleteOptions) error {
+			return apierrors.NewConflict(schema.GroupResource{Resource: "configmaps"}, "settings", errors.New("UID mismatch"))
+		},
+		getFn: func(_ context.Context, _, _, _, _ string) (*unstructured.Unstructured, error) {
+			wm.lock.Lock()
+			w.metadataCache[uid] = Resource{
+				Name: "new-settings", Namespace: "app", Labels: labels,
+				Data: makeUnstructured("", "", "v1", "ConfigMap", "new-settings", "app", uid, labels),
+			}
+			wm.lock.Unlock()
+			return makeUnstructured("", "", "v1", "ConfigMap", "settings", "app", "replacement-uid", nil), nil
+		},
+	}
+	wm = &WatchManager{
+		log: logging.WithName("test"), client: client,
+		policyRefs:      map[string][]schema.GroupVersionResource{"policy": {gvr}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{gvr: w},
+	}
+	wm.CleanupStaleDownstreams("policy", &kyverno.ResourceSpec{UID: "trigger"}, nil)
+	require.Contains(t, w.metadataCache, uid)
+	assert.Equal(t, "new-settings", w.metadataCache[uid].Name)
 }
 
 // An incomplete cache entry cannot be classified safely without its GVK.
