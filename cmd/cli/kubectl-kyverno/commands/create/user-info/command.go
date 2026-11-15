@@ -18,6 +18,10 @@ type options struct {
 }
 
 func Command() *cobra.Command {
+	return commandWithTemplate(templates.UserInfoTemplate)
+}
+
+func commandWithTemplate(userinfoTemplate string) *cobra.Command {
 	var path string
 	var name string
 	var username string
@@ -30,7 +34,7 @@ func Command() *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			tmpl, err := template.New("userinfo").Parse(templates.UserInfoTemplate)
+			tmpl, err := template.New("userinfo").Parse(userinfoTemplate)
 			if err != nil {
 				return err
 			}
@@ -50,7 +54,7 @@ func Command() *cobra.Command {
 				return err
 			}
 			if path != "" {
-				return os.WriteFile(path, buf.Bytes(), 0o600)
+				return os.WriteFile(path, buf.Bytes(), 0o644)
 			}
 			_, err = cmd.OutOrStdout().Write(buf.Bytes())
 			return err

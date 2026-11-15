@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/fix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -84,6 +83,10 @@ func TestCommandOutputFile(t *testing.T) {
 	})
 	err := cmd.Execute()
 	require.NoError(t, err)
+
+	info, err := os.Stat(outPath)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o644), info.Mode().Perm())
 
 	data, err := os.ReadFile(outPath)
 	require.NoError(t, err)
@@ -235,16 +238,10 @@ func TestCommandTemplateExecutionFailure(t *testing.T) {
 	tmpDir := t.TempDir()
 	outPath := filepath.Join(tmpDir, "userinfo.yaml")
 	initialContent := []byte("existing content")
-	err := os.WriteFile(outPath, initialContent, 0o600)
+	err := os.WriteFile(outPath, initialContent, 0o644)
 	require.NoError(t, err)
 
-	origTemplate := templates.UserInfoTemplate
-	templates.UserInfoTemplate = "{{ .Name.InvalidField }}"
-	t.Cleanup(func() {
-		templates.UserInfoTemplate = origTemplate
-	})
-
-	cmd := Command()
+	cmd := commandWithTemplate("{{ .Name.InvalidField }}")
 	cmd.SetErr(io.Discard)
 	cmd.SetArgs([]string{"--output", outPath})
 	err = cmd.Execute()
@@ -257,14 +254,31 @@ func TestCommandTemplateExecutionFailure(t *testing.T) {
 }
 
 func TestCommandTemplateParseFailure(t *testing.T) {
-	origTemplate := templates.UserInfoTemplate
-	templates.UserInfoTemplate = "{{ unclosed"
-	t.Cleanup(func() {
-		templates.UserInfoTemplate = origTemplate
-	})
-
-	cmd := Command()
+	cmd := commandWithTemplate("{{ unclosed")
 	cmd.SetErr(io.Discard)
 	err := cmd.Execute()
 	require.Error(t, err)
+}
+
+func TestCommandEmptyListsOmitted(t *testing.T) {
+	cmd := Command()
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	out, err := io.ReadAll(b)
+	require.NoError(t, err)
+
+	outStr := string(out)
+	assert.NotContains(t, outStr, "roles:")
+	assert.NotContains(t, outStr, "clusterRoles:")
+	assert.NotContains(t, outStr, "groups:")
+
+	var userInfo v1alpha1.UserInfo
+	err = yaml.UnmarshalStrict(out, &userInfo)
+	require.NoError(t, err)
+	assert.Empty(t, userInfo.Roles)
+	assert.Empty(t, userInfo.ClusterRoles)
+	assert.Empty(t, userInfo.AdmissionUserInfo.Groups)
 }

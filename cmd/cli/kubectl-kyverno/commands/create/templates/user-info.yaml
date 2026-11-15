@@ -2,25 +2,31 @@ apiVersion: cli.kyverno.io/v1alpha1
 kind: UserInfo
 metadata:
   name: {{ printf "%q" .Name }}
+{{- if .Roles }}
 
 # list of roles
 roles:
 {{- range .Roles }}
   - {{ printf "%q" . }}
 {{- end }}
+{{- end }}
+{{- if .ClusterRoles }}
 
 # list of cluster roles
 clusterRoles:
 {{- range .ClusterRoles }}
   - {{ printf "%q" . }}
 {{- end }}
+{{- end }}
 
 userInfo:
   # user name
   username: {{ printf "%q" .AdmissionUserInfo.Username }}
+{{- if .AdmissionUserInfo.Groups }}
 
   # list of groups
   groups:
 {{- range .AdmissionUserInfo.Groups }}
     - {{ printf "%q" . }}
+{{- end }}
 {{- end }}
