@@ -85,9 +85,14 @@ func TestCommandOutputFile(t *testing.T) {
 	err := cmd.Execute()
 	require.NoError(t, err)
 
+	refPath := filepath.Join(tmpDir, "reference")
+	require.NoError(t, os.WriteFile(refPath, []byte(""), 0o644))
+	refInfo, err := os.Stat(refPath)
+	require.NoError(t, err)
+
 	info, err := os.Stat(outPath)
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0o644), info.Mode().Perm())
+	assert.Equal(t, refInfo.Mode().Perm(), info.Mode().Perm())
 
 	data, err := os.ReadFile(outPath)
 	require.NoError(t, err)
