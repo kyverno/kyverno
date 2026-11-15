@@ -118,7 +118,9 @@ jobs:
           df -h . /tmp | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Save gobuild cache
         if: |
-          github.event_name == 'push' &&
+          (github.event_name == 'push' ||
+           github.event_name == 'schedule' ||
+           github.event_name == 'workflow_dispatch') &&
           github.ref == 'refs/heads/main'
         uses: ./.github/actions/go/save-cache
         with:
