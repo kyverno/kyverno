@@ -2,6 +2,7 @@ package userinfo
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/fix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -143,4 +145,99 @@ func TestCommandHelp(t *testing.T) {
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
+}
+
+func TestCommandNameYAMLValues(t *testing.T) {
+	testCases := []string{
+		"no",
+		"off",
+		"yes",
+		"on",
+		"true",
+		"false",
+		"null",
+		"user:with:colons",
+	}
+	for _, tc := range testCases {
+		t.Run(tc, func(t *testing.T) {
+			cmd := Command()
+			b := bytes.NewBufferString("")
+			cmd.SetOut(b)
+			cmd.SetArgs([]string{"--name", tc})
+			err := cmd.Execute()
+			require.NoError(t, err)
+
+			out, err := io.ReadAll(b)
+			require.NoError(t, err)
+
+			var userInfo v1alpha1.UserInfo
+			err = yaml.UnmarshalStrict(out, &userInfo)
+			require.NoError(t, err)
+			assert.Equal(t, tc, userInfo.Name)
+		})
+	}
+}
+
+type failingWriter struct{}
+
+func (f *failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failure")
+}
+
+func TestCommandFailingStdoutWriter(t *testing.T) {
+	cmd := Command()
+	cmd.SetOut(&failingWriter{})
+	cmd.SetErr(io.Discard)
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "write failure")
+}
+
+func TestCommandInvalidOutputDestination(t *testing.T) {
+	tmpDir := t.TempDir()
+	invalidPath := filepath.Join(tmpDir, "non-existent-directory", "sub-dir", "userinfo.yaml")
+
+	cmd := Command()
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--output", invalidPath})
+	err := cmd.Execute()
+	require.Error(t, err)
+}
+
+func TestCommandTemplateExecutionFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+	outPath := filepath.Join(tmpDir, "userinfo.yaml")
+	initialContent := []byte("existing content")
+	err := os.WriteFile(outPath, initialContent, 0o600)
+	require.NoError(t, err)
+
+	origTemplate := templates.UserInfoTemplate
+	templates.UserInfoTemplate = "{{ .Name.InvalidField }}"
+	t.Cleanup(func() {
+		templates.UserInfoTemplate = origTemplate
+	})
+
+	cmd := Command()
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--output", outPath})
+	err = cmd.Execute()
+	require.Error(t, err)
+
+	// Verify the existing output file retains its contents (render-before-write guarantee)
+	data, err := os.ReadFile(outPath)
+	require.NoError(t, err)
+	assert.Equal(t, initialContent, data)
+}
+
+func TestCommandTemplateParseFailure(t *testing.T) {
+	origTemplate := templates.UserInfoTemplate
+	templates.UserInfoTemplate = "{{ unclosed"
+	t.Cleanup(func() {
+		templates.UserInfoTemplate = origTemplate
+	})
+
+	cmd := Command()
+	cmd.SetErr(io.Discard)
+	err := cmd.Execute()
+	require.Error(t, err)
 }
