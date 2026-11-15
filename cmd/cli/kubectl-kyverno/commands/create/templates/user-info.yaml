@@ -6,21 +6,21 @@ metadata:
 # list of roles
 roles:
 {{- range .Roles }}
-  - {{ . }}
+  - {{ printf "%q" . }}
 {{- end }}
 
 # list of cluster roles
 clusterRoles:
 {{- range .ClusterRoles }}
-  - {{ . }}
+  - {{ printf "%q" . }}
 {{- end }}
 
 userInfo:
   # user name
-  username: {{ .AdmissionUserInfo.Username }}
+  username: {{ printf "%q" .AdmissionUserInfo.Username }}
 
   # list of groups
   groups:
 {{- range .AdmissionUserInfo.Groups }}
-    - {{ . }}
+    - {{ printf "%q" . }}
 {{- end }}
