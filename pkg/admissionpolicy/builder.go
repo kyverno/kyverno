@@ -1,9 +1,12 @@
 package admissionpolicy
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -38,16 +41,19 @@ func BuildValidatingAdmissionPolicy(
 		auditAnnotations = vpol.Spec.AuditAnnotations
 		variables = vpol.Spec.Variables
 
+		usedNames := make(map[string]bool)
+		for _, mc := range matchConditions {
+			usedNames[mc.Name] = true
+		}
 		// convert celexceptions if exist
 		for _, exception := range exceptions {
 			if celpolex := exception.AsCELException(); celpolex != nil {
-				for _, matchCondition := range celpolex.Spec.MatchConditions {
-					// negate the match condition
-					expression := "!(" + matchCondition.Expression + ")"
-					matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{
-						Name:       matchCondition.Name,
-						Expression: expression,
-					})
+				if mc := negateMatchConditions(celpolex.GetNamespace(), celpolex.GetName(), celpolex.Spec.MatchConditions); mc != nil {
+					if utf8.RuneCountInString(mc.Expression) > MaxCELCodePoints {
+						return fmt.Errorf("combined matchConditions for exception %s exceeds CEL code point limit (%d)", celpolex.GetName(), MaxCELCodePoints)
+					}
+					mc.Name = allocateConditionName(usedNames, mc.Name)
+					matchConditions = append(matchConditions, *mc)
 				}
 				if len(celpolex.Spec.Images) > 0 {
 					expression, err := celStringListLiteral(celpolex.Spec.Images)
@@ -160,16 +166,99 @@ func mutatingPolicyOwnerRef(mp *policiesv1beta1.MutatingPolicy) []metav1.OwnerRe
 	}
 }
 
+// negateMatchConditions combines and negates match conditions for a PolicyException.
+// In Kyverno, an exception exempts a resource only when all of its match conditions are satisfied (conjunction).
+// In Kubernetes native admission policies, matchConditions are evaluated conjunctively (AND) and the policy is
+// skipped if any condition is false. To preserve conjunction semantics and prevent disjunctive policy bypasses,
+// multiple conditions are negated as a single combined conjunction: !((c1) && (c2) && ...).
+func safeCELExpression(expr string) string {
+	if strings.Contains(expr, "//") && !strings.HasSuffix(strings.TrimRight(expr, " \t"), "\n") {
+		return expr + "\n"
+	}
+	return expr
+}
+
+func negateMatchConditions(exceptionNamespace, exceptionName string, mcs []admissionregistrationv1.MatchCondition) *admissionregistrationv1.MatchCondition {
+	if len(mcs) == 0 {
+		return nil
+	}
+	if len(mcs) == 1 {
+		return &admissionregistrationv1.MatchCondition{
+			Name:       mcs[0].Name,
+			Expression: "!(" + safeCELExpression(mcs[0].Expression) + ")",
+		}
+	}
+	exprs := make([]string, len(mcs))
+	for i, mc := range mcs {
+		exprs[i] = "(" + safeCELExpression(mc.Expression) + ")"
+	}
+	key := exceptionName
+	if exceptionNamespace != "" {
+		key = exceptionNamespace + "/" + exceptionName
+	}
+	sum := sha256.Sum256([]byte(key))
+	suffix := hex.EncodeToString(sum[:])[:8]
+
+	base := "polex-" + exceptionName
+	if exceptionNamespace != "" {
+		base = "polex-" + exceptionNamespace + "-" + exceptionName
+	}
+	if len(base) > 54 {
+		base = base[:54]
+	}
+	condName := fmt.Sprintf("%s-%s", strings.TrimRight(base, "-."), suffix)
+
+	return &admissionregistrationv1.MatchCondition{
+		Name:       condName,
+		Expression: "!(" + strings.Join(exprs, " && ") + ")",
+	}
+}
+
+func allocateConditionName(used map[string]bool, name string) string {
+	if used == nil || !used[name] {
+		if used != nil {
+			used[name] = true
+		}
+		return name
+	}
+	prefix, local, hasPrefix := "", name, false
+	if idx := strings.Index(name, "/"); idx != -1 {
+		prefix = name[:idx]
+		local = name[idx+1:]
+		hasPrefix = true
+	}
+	for i := 1; ; i++ {
+		suffix := fmt.Sprintf("-%d", i)
+		base := local
+		if len(base)+len(suffix) > 63 {
+			base = strings.TrimRight(base[:63-len(suffix)], "-._")
+		}
+		if base == "" {
+			base = "c"
+		}
+		candidate := base + suffix
+		if hasPrefix {
+			candidate = prefix + "/" + candidate
+		}
+		if !used[candidate] {
+			used[candidate] = true
+			return candidate
+		}
+	}
+}
+
 // negateExceptionMatchConditions returns negated match conditions for each exception,
 // using the v1 MatchCondition type which is structurally identical to the alpha/beta variants.
-func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException) []admissionregistrationv1.MatchCondition {
+func negateExceptionMatchConditions(existingNames []string, exceptions []policiesv1beta1.PolicyException) []admissionregistrationv1.MatchCondition {
 	var result []admissionregistrationv1.MatchCondition
+	usedNames := make(map[string]bool)
+	for _, name := range existingNames {
+		usedNames[name] = true
+	}
 	for _, exception := range exceptions {
-		for _, mc := range exception.Spec.MatchConditions {
-			result = append(result, admissionregistrationv1.MatchCondition{
-				Name:       mc.Name,
-				Expression: "!(" + mc.Expression + ")",
-			})
+		if mc := negateMatchConditions(exception.GetNamespace(), exception.GetName(), exception.Spec.MatchConditions); mc != nil {
+			mc.Name = allocateConditionName(usedNames, mc.Name)
+			result = append(result, *mc)
 		}
 	}
 	return result
@@ -181,7 +270,11 @@ func BuildMutatingAdmissionPolicy(
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1beta1.PolicyException,
 ) {
-	matchConditions := slicesutils.Map(negateExceptionMatchConditions(exceptions), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1alpha1.MatchCondition {
+	existingNames := make([]string, 0, len(mp.Spec.MatchConditions))
+	for _, mc := range mp.Spec.MatchConditions {
+		existingNames = append(existingNames, mc.Name)
+	}
+	matchConditions := slicesutils.Map(negateExceptionMatchConditions(existingNames, exceptions), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1alpha1.MatchCondition {
 		return admissionregistrationv1alpha1.MatchCondition(mc)
 	})
 	for _, mc := range mp.Spec.MatchConditions {
@@ -240,7 +333,11 @@ func BuildMutatingAdmissionPolicyV1(
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1beta1.PolicyException,
 ) {
-	matchConditions := negateExceptionMatchConditions(exceptions)
+	existingNames := make([]string, 0, len(mp.Spec.MatchConditions))
+	for _, mc := range mp.Spec.MatchConditions {
+		existingNames = append(existingNames, mc.Name)
+	}
+	matchConditions := negateExceptionMatchConditions(existingNames, exceptions)
 	for _, mc := range mp.Spec.MatchConditions {
 		matchConditions = append(matchConditions, mc)
 	}
@@ -303,7 +400,11 @@ func BuildMutatingAdmissionPolicyBeta(
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1beta1.PolicyException,
 ) {
-	matchConditions := slicesutils.Map(negateExceptionMatchConditions(exceptions), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1beta1.MatchCondition {
+	existingNames := make([]string, 0, len(mp.Spec.MatchConditions))
+	for _, mc := range mp.Spec.MatchConditions {
+		existingNames = append(existingNames, mc.Name)
+	}
+	matchConditions := slicesutils.Map(negateExceptionMatchConditions(existingNames, exceptions), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1beta1.MatchCondition {
 		return admissionregistrationv1beta1.MatchCondition(mc)
 	})
 	for _, mc := range mp.Spec.MatchConditions {

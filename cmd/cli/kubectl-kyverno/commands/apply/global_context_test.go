@@ -56,6 +56,64 @@ func TestExtractGlobalContextEntries_Empty(t *testing.T) {
 	assert.Len(t, regular, 0)
 }
 
+func TestExtractGlobalContextEntries_Versions(t *testing.T) {
+	testCases := []struct {
+		name       string
+		apiVersion string
+		kind       string
+		isGCE      bool
+	}{
+		{name: "v2", apiVersion: "kyverno.io/v2", kind: "GlobalContextEntry", isGCE: true},
+		{name: "v2beta1", apiVersion: "kyverno.io/v2beta1", kind: "GlobalContextEntry", isGCE: true},
+		{name: "v2alpha1", apiVersion: "kyverno.io/v2alpha1", kind: "GlobalContextEntry", isGCE: true},
+		{name: "unsupported-version", apiVersion: "kyverno.io/v1", kind: "GlobalContextEntry", isGCE: false},
+		{name: "different-group", apiVersion: "example.com/v2", kind: "GlobalContextEntry", isGCE: false},
+		{name: "different-kind", apiVersion: "kyverno.io/v2", kind: "ClusterPolicy", isGCE: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := &unstructured.Unstructured{}
+			res.SetAPIVersion(tc.apiVersion)
+			res.SetKind(tc.kind)
+			res.SetName("test-entry")
+			if tc.isGCE {
+				res.Object["spec"] = map[string]interface{}{
+					"kubernetesResource": map[string]interface{}{
+						"version":  "v1",
+						"resource": "configmaps",
+					},
+					"projections": []interface{}{
+						map[string]interface{}{
+							"name":       "count",
+							"expression": "object.size()",
+						},
+					},
+				}
+			}
+
+			regular, entries, err := extractGlobalContextEntries([]*unstructured.Unstructured{res})
+			require.NoError(t, err)
+
+			if tc.isGCE {
+				require.Len(t, entries, 1)
+				assert.Equal(t, "test-entry", entries[0].Name)
+				require.NotNil(t, entries[0].Spec.KubernetesResource)
+				assert.Equal(t, "v1", entries[0].Spec.KubernetesResource.Version)
+				assert.Equal(t, "configmaps", entries[0].Spec.KubernetesResource.Resource)
+				require.Len(t, entries[0].Spec.Projections, 1)
+				assert.Equal(t, "count", entries[0].Spec.Projections[0].Name)
+				assert.Equal(t, "object.size()", entries[0].Spec.Projections[0].Expression)
+				assert.Empty(t, regular)
+			} else {
+				assert.Empty(t, entries)
+				require.Len(t, regular, 1)
+				assert.Equal(t, "test-entry", regular[0].GetName())
+			}
+		})
+	}
+}
+
 func TestStaticEntry_GetDefault(t *testing.T) {
 	objects := []interface{}{
 		map[string]interface{}{"metadata": map[string]interface{}{"name": "item1"}},
@@ -130,6 +188,43 @@ func TestBuildGlobalContextStore_ExpressionOnly_NoJMESPathEngineRequired(t *test
 	result, err := entry.Get("count")
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), result)
+}
+
+func TestBuildGlobalContextStore_ExtractedVersionCompatibility(t *testing.T) {
+	for _, version := range []string{"v2beta1", "v2alpha1"} {
+		t.Run(version, func(t *testing.T) {
+			res := &unstructured.Unstructured{}
+			res.SetAPIVersion("kyverno.io/" + version)
+			res.SetKind("GlobalContextEntry")
+			res.SetName("extracted-cache")
+			res.Object["spec"] = map[string]interface{}{
+				"kubernetesResource": map[string]interface{}{
+					"version":  "v1",
+					"resource": "configmaps",
+				},
+				"projections": []interface{}{
+					map[string]interface{}{
+						"name":       "count",
+						"expression": "object.size()",
+					},
+				},
+			}
+
+			regular, entries, err := extractGlobalContextEntries([]*unstructured.Unstructured{res})
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Empty(t, regular)
+
+			s, err := buildGlobalContextStore(context.Background(), entries, fakeConfigMapClient(t), nil)
+			require.NoError(t, err)
+
+			entry, ok := s.Get("extracted-cache")
+			require.True(t, ok)
+			result, err := entry.Get("count")
+			require.NoError(t, err)
+			assert.Equal(t, int64(1), result)
+		})
+	}
 }
 
 func TestBuildGlobalContextStore_JMESPathProjectionRequiresEngine(t *testing.T) {

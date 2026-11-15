@@ -2,6 +2,7 @@ package test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
@@ -88,4 +89,17 @@ func TestLoadTestGitSourceSchemeCaseCloneError(t *testing.T) {
 	require.ErrorContains(t, err, "clone failed")
 	assert.Equal(t, "https://github.com/kyverno/policies", gotURL)
 	assert.Empty(t, tests)
+}
+
+// A git URL with a host but no path (e.g. "http://github.com") must not panic
+// loadTest with a slice-bounds error on gitURL.Path[1:]; it should return an
+// "invalid URL path" error instead.
+func Test_loadTest_URLWithoutPath(t *testing.T) {
+	_, err := loadTest("http://github.com", "kyverno-test.yaml", "")
+	if err == nil {
+		t.Fatal("expected an error for a URL without a path, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid URL path") {
+		t.Fatalf("expected an \"invalid URL path\" error, got: %v", err)
+	}
 }
