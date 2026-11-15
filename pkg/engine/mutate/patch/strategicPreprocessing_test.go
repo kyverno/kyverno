@@ -1327,20 +1327,48 @@ func Test_ConditionError_Unwrap(t *testing.T) {
 }
 
 func Test_processListOfMaps_NilResource(t *testing.T) {
-	rawPattern := []byte(`[
+	rawPattern := `[
 		{
 			"(name)": "istio-init",
 			"image": "istio/proxyv2:1.10.0"
 		}
-	]`)
-	pattern := yaml.MustParse(string(rawPattern))
-
-	err := processListOfMaps(logr.Discard(), pattern, nil)
-	assert.NilError(t, err)
+	]`
+	testCases := []struct {
+		name     string
+		resource *yaml.RNode
+		wantErr  bool
+	}{
+		{
+			name:     "nil resource",
+			resource: nil,
+			wantErr:  false,
+		},
+		{
+			name:     "explicit null resource",
+			resource: yaml.MustParse("null"),
+			wantErr:  false,
+		},
+		{
+			name:     "invalid non-list scalar resource",
+			resource: yaml.MustParse(`"not-a-list"`),
+			wantErr:  true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pattern := yaml.MustParse(rawPattern)
+			err := processListOfMaps(logr.Discard(), pattern, tc.resource)
+			if tc.wantErr {
+				assert.Assert(t, err != nil)
+			} else {
+				assert.NilError(t, err)
+			}
+		})
+	}
 }
 
 func Test_PreProcessPattern_NilResourceListField(t *testing.T) {
-	rawPattern := []byte(`{
+	localConditionPattern := `{
 		"spec": {
 			"initContainers": [
 				{
@@ -1349,8 +1377,18 @@ func Test_PreProcessPattern_NilResourceListField(t *testing.T) {
 				}
 			]
 		}
-	}`)
-	rawResource := []byte(`{
+	}`
+	globalConditionPattern := `{
+		"spec": {
+			"initContainers": [
+				{
+					"<(name)": "vault-init",
+					"image": "vault:1.8.0"
+				}
+			]
+		}
+	}`
+	absentListResource := `{
 		"apiVersion": "v1",
 		"kind": "Pod",
 		"metadata": {
@@ -1364,13 +1402,143 @@ func Test_PreProcessPattern_NilResourceListField(t *testing.T) {
 				}
 			]
 		}
-	}`)
+	}`
+	nullListResource := `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod"
+		},
+		"spec": {
+			"initContainers": null,
+			"containers": [
+				{
+					"name": "app",
+					"image": "nginx"
+				}
+			]
+		}
+	}`
+	invalidListResource := `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod"
+		},
+		"spec": {
+			"initContainers": "invalid-string",
+			"containers": [
+				{
+					"name": "app",
+					"image": "nginx"
+				}
+			]
+		}
+	}`
 
-	pattern := yaml.MustParse(string(rawPattern))
-	resource := yaml.MustParse(string(rawResource))
+	testCases := []struct {
+		name          string
+		rawPattern    string
+		rawResource   string
+		nilPattern    bool
+		nilResource   bool
+		wantErr       bool
+		assertErr     func(t *testing.T, err error)
+		expectedPatch string
+	}{
+		{
+			name:          "absent initContainers field with local condition anchor",
+			rawPattern:    localConditionPattern,
+			rawResource:   absentListResource,
+			wantErr:       false,
+			expectedPatch: `{}`,
+		},
+		{
+			name:          "explicit null initContainers field with local condition anchor",
+			rawPattern:    localConditionPattern,
+			rawResource:   nullListResource,
+			wantErr:       false,
+			expectedPatch: `{}`,
+		},
+		{
+			name:        "absent initContainers field with global condition anchor",
+			rawPattern:  globalConditionPattern,
+			rawResource: absentListResource,
+			wantErr:     true,
+			assertErr: func(t *testing.T, err error) {
+				assert.Assert(t, err != nil)
+				assert.Assert(t, isGlobalConditionError(err), "expected GlobalConditionError, got %T: %v", err, err)
+			},
+		},
+		{
+			name:        "explicit null initContainers field with global condition anchor",
+			rawPattern:  globalConditionPattern,
+			rawResource: nullListResource,
+			wantErr:     true,
+			assertErr: func(t *testing.T, err error) {
+				assert.Assert(t, err != nil)
+				assert.Assert(t, isGlobalConditionError(err), "expected GlobalConditionError, got %T: %v", err, err)
+			},
+		},
+		{
+			name:        "invalid non-list initContainers field returns error",
+			rawPattern:  localConditionPattern,
+			rawResource: invalidListResource,
+			wantErr:     true,
+			assertErr: func(t *testing.T, err error) {
+				assert.Assert(t, err != nil)
+				assert.Assert(t, !isGlobalConditionError(err))
+				assert.Assert(t, !isConditionError(err))
+			},
+		},
+		{
+			name:        "nil pattern and nil resource",
+			nilPattern:  true,
+			nilResource: true,
+			wantErr:     false,
+		},
+		{
+			name:        "nil pattern with valid resource",
+			nilPattern:  true,
+			rawResource: absentListResource,
+			wantErr:     false,
+		},
+		{
+			name:          "valid pattern with nil resource",
+			rawPattern:    localConditionPattern,
+			nilResource:   true,
+			wantErr:       false,
+			expectedPatch: `{}`,
+		},
+	}
 
-	err := PreProcessPattern(logr.Discard(), pattern, resource)
-	assert.NilError(t, err)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var pattern *yaml.RNode
+			if !tc.nilPattern {
+				pattern = yaml.MustParse(tc.rawPattern)
+			}
+			var resource *yaml.RNode
+			if !tc.nilResource {
+				resource = yaml.MustParse(tc.rawResource)
+			}
+
+			err := PreProcessPattern(logr.Discard(), pattern, resource)
+			if tc.wantErr {
+				assert.Assert(t, err != nil, "expected error but got nil")
+				if tc.assertErr != nil {
+					tc.assertErr(t, err)
+				}
+			} else {
+				assert.NilError(t, err)
+				if tc.expectedPatch != "" && pattern != nil {
+					output, err := pattern.MarshalJSON()
+					assert.NilError(t, err)
+					assert.DeepEqual(t, toJSON(t, []byte(tc.expectedPatch)), toJSON(t, output))
+				}
+			}
+		})
+	}
 }
 
 func Test_PreProcessPattern_NilInputs(t *testing.T) {

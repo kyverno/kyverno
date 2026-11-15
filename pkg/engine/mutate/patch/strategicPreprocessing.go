@@ -126,6 +126,21 @@ func walkList(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	return nil
 }
 
+// isMissingOrNull checks if a node is nil, has a nil YNode, is explicitly tagged null,
+// or is a scalar node representing null.
+func isMissingOrNull(node *yaml.RNode) bool {
+	if node == nil || node.YNode() == nil {
+		return true
+	}
+	if yaml.IsMissingOrNull(node) {
+		return true
+	}
+	if node.YNode().Kind == yaml.ScalarNode && (node.YNode().Tag == yaml.NodeTagNull || node.YNode().Value == "null" || node.YNode().Value == "~") {
+		return true
+	}
+	return false
+}
+
 // processListOfMaps - process arrays
 // in many cases like containers, volumes kustomize uses name field to match resource for processing
 // If any conditional anchor match resource field and if the pattern doesn't contain "name" field and
@@ -134,6 +149,10 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 	patternElements, err := pattern.Elements()
 	if err != nil {
 		return err
+	}
+
+	if isMissingOrNull(resource) {
+		resource = nil
 	}
 
 	var resourceElements []*yaml.RNode
