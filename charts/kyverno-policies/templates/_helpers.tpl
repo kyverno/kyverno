@@ -67,25 +67,28 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 
 {{/* Get deployed Kyverno version from Kubernetes.
      The Kyverno chart names the admission controller Deployment after its release, so it is found by its component label in the release namespace.
-     The version is the tag of the container named kyverno. It is empty when the Deployment isn't found or the image has no version tag. */}}
+     This needs permission to list Deployments there. Set kyvernoVersion to skip the lookup.
+     The version is the tag of the container named kyverno. It is empty when no Deployment is found, the image has no version tag,
+     or the Deployments found disagree on the version. */}}
 {{- define "kyverno-policies.kyvernoVersion" -}}
 {{- if eq .Values.kyvernoVersion "autodetect" -}}
-{{- $version := "" -}}
+{{- $versions := list -}}
 {{- range (lookup "apps/v1" "Deployment" .Release.Namespace "").items -}}
   {{- $component := index (default dict .metadata.labels) "app.kubernetes.io/component" -}}
-  {{- if and (eq $component "admission-controller") (not $version) -}}
+  {{- if eq $component "admission-controller" -}}
     {{- range .spec.template.spec.containers -}}
-      {{- if and (eq .name "kyverno") (not $version) -}}
+      {{- if eq .name "kyverno" -}}
         {{- $tag := last (splitList ":" (first (splitList "@" .image))) -}}
         {{- if not (contains "/" $tag) -}}
-          {{- $version = trimPrefix "v" $tag -}}
+          {{- $versions = append $versions (trimPrefix "v" $tag) -}}
         {{- end -}}
       {{- end -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- if regexMatch "^[0-9]+\\.[0-9]+" $version -}}
-{{ $version }}
+{{- $versions = uniq $versions -}}
+{{- if and (eq (len $versions) 1) (regexMatch "^[0-9]+\\.[0-9]+" (first $versions)) -}}
+{{ first $versions }}
 {{- end -}}
 {{- else -}}
 {{ .Values.kyvernoVersion }}

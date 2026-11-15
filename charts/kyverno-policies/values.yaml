@@ -146,7 +146,10 @@ customLabels: {}
 
 # -- Kyverno version
 # The default of "autodetect" will try to determine the currently installed version from the deployment
-# The policies match `pods/ephemeralcontainers` from Kyverno 1.20. Autodetect reads the admission controller in the release namespace. Set this when Kyverno runs elsewhere, or when you render with `helm template`, and you use an older Kyverno.
+# The policies match `pods/ephemeralcontainers` from Kyverno 1.20.
+# Autodetect lists the Deployments in the release namespace, so it needs permission to do that.
+# It finds no version if Kyverno runs elsewhere, if there are several Kyverno versions there, or when you render with `helm template`.
+# Set this to skip the lookup, and set it when you use a Kyverno older than 1.20 in those cases.
 kyvernoVersion: autodetect
 
 # -- Create a ClusterRole that lets the reports controller read `pods/ephemeralcontainers`.
