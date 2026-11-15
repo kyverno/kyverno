@@ -3,6 +3,7 @@ package userinfo
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -159,7 +160,6 @@ func TestCommandNameYAMLValues(t *testing.T) {
 		"true",
 		"false",
 		"null",
-		"user:with:colons",
 	}
 	for _, tc := range testCases {
 		t.Run(tc, func(t *testing.T) {
@@ -177,6 +177,36 @@ func TestCommandNameYAMLValues(t *testing.T) {
 			err = yaml.UnmarshalStrict(out, &userInfo)
 			require.NoError(t, err)
 			assert.Equal(t, tc, userInfo.Name)
+		})
+	}
+}
+
+func TestCommandInvalidName(t *testing.T) {
+	invalidNames := []string{
+		"Alice_1",
+		"my user",
+		"user:with:colons",
+		"",
+		"-starts-with-dash",
+		"ends-with-dash-",
+		"contains_underscore",
+		"UPPERCASE",
+		strings.Repeat("a", 254),
+	}
+	for _, name := range invalidNames {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			outPath := filepath.Join(tmpDir, "userinfo.yaml")
+			cmd := Command()
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{"--name", name, "--output", outPath})
+			err := cmd.Execute()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), fmt.Sprintf("invalid name %q", name))
+
+			// Verify file was never created because validation failed before rendering
+			_, err = os.Stat(outPath)
+			assert.True(t, os.IsNotExist(err))
 		})
 	}
 }

@@ -2,7 +2,9 @@ package userinfo
 
 import (
 	"bytes"
+	"fmt"
 	"os"
+	"strings"
 	"text/template"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -10,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/spf13/cobra"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 type options struct {
@@ -34,6 +37,9 @@ func commandWithTemplate(userinfoTemplate string) *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if errs := validation.IsDNS1123Subdomain(name); len(errs) > 0 {
+				return fmt.Errorf("invalid name %q: %s", name, strings.Join(errs, "; "))
+			}
 			tmpl, err := template.New("userinfo").Parse(userinfoTemplate)
 			if err != nil {
 				return err
