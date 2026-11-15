@@ -100,6 +100,7 @@ type controller struct {
 	config             config.Configuration
 	eventGen           event.Interface
 	policyReports      bool
+	policyReportGV     schema.GroupVersion
 	gctxStore          gctxstore.Store
 	exceptionNamespace string
 
@@ -173,6 +174,13 @@ func NewController(
 		mapper:             mapper,
 		secretLister:       secretLister,
 		typeConverter:      typeConverter,
+	}
+	if policyReports {
+		if orClient != nil {
+			c.policyReportGV = openreportsv1alpha1.SchemeGroupVersion
+		} else {
+			c.policyReportGV = policyreportv1alpha2.SchemeGroupVersion
+		}
 	}
 	if polrInformer != nil {
 		c.polrLister = polrInformer.Lister()
@@ -711,22 +719,47 @@ func (c *controller) reconcileReport(
 	return nil
 }
 
-func (c *controller) hasPolicyReport(namespace, name string) bool {
+func (c *controller) hasPolicyReport(ctx context.Context, namespace, name string) bool {
 	if c.polrLister == nil && c.cpolrLister == nil {
 		return true
 	}
+	kind := "Report"
 	if namespace == "" {
+		kind = "ClusterReport"
 		if c.cpolrLister != nil {
-			_, err := c.cpolrLister.Get(name)
-			return err == nil
+			if _, err := c.cpolrLister.Get(name); err == nil {
+				return true
+			} else if !apierrors.IsNotFound(err) {
+				return true
+			}
 		}
 	} else {
 		if c.polrLister != nil {
-			_, err := c.polrLister.ByNamespace(namespace).Get(name)
-			return err == nil
+			if _, err := c.polrLister.ByNamespace(namespace).Get(name); err == nil {
+				return true
+			} else if !apierrors.IsNotFound(err) {
+				return true
+			}
 		}
 	}
-	return false
+	if c.client == nil || c.policyReportGV.Empty() {
+		return false
+	}
+	if c.policyReportGV == openreportsv1alpha1.SchemeGroupVersion {
+		if namespace == "" {
+			kind = "ClusterReport"
+		} else {
+			kind = "Report"
+		}
+	} else {
+		if namespace == "" {
+			kind = "ClusterPolicyReport"
+		} else {
+			kind = "PolicyReport"
+		}
+	}
+	_, err := c.client.GetResource(ctx, c.policyReportGV.String(), kind, namespace, name)
+	return err == nil || !apierrors.IsNotFound(err)
 }
 
 func (c *controller) storeReport(ctx context.Context, observed, desired reportsv1.ReportInterface) error {
@@ -742,7 +775,7 @@ func (c *controller) storeReport(ctx context.Context, observed, desired reportsv
 			}
 		}
 		uid := string(reportutils.GetResourceUid(desired))
-		if hasAllowedResults || c.hasPolicyReport(desired.GetNamespace(), uid) {
+		if hasAllowedResults || c.hasPolicyReport(ctx, desired.GetNamespace(), uid) {
 			wantsReport = true
 		}
 	}

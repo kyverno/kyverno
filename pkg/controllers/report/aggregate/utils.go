@@ -62,32 +62,56 @@ func MergeReports(maps Maps, accumulator map[string]openreportsv1alpha1.ReportRe
 			switch result.Source {
 			case reportutils.SourceValidatingPolicy:
 				if maps.Vpol != nil && maps.Vpol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					key := result.Source + "/" + result.Policy + "/"
+					if result.Rule != "" {
+						key += result.Rule + "/"
+					}
+					key += string(uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceImageValidatingPolicy:
 				if maps.Ivpol != nil && maps.Ivpol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					key := result.Source + "/" + result.Policy + "/"
+					if result.Rule != "" {
+						key += result.Rule + "/"
+					}
+					key += string(uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceGeneratingPolicy:
 				if maps.Gpol != nil && maps.Gpol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					key := result.Source + "/" + result.Policy + "/"
+					if result.Rule != "" {
+						key += result.Rule + "/"
+					}
+					key += string(uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceValidatingAdmissionPolicy:
 				if maps.Vap != nil && maps.Vap.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					key := result.Source + "/" + result.Policy + "/"
+					if result.Rule != "" {
+						key += result.Rule + "/"
+					}
+					key += string(uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceMutatingAdmissionPolicy:
 				if maps.Mappol != nil && maps.Mappol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					key := result.Source + "/" + result.Policy + "/"
+					if result.Rule != "" {
+						key += result.Rule + "/"
+					}
+					key += string(uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceMutatingPolicy:
 				if maps.Mpol != nil && maps.Mpol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/" + string(uid)
+					key := result.Source + "/" + result.Policy + "/"
+					if result.Rule != "" {
+						key += result.Rule + "/"
+					}
+					key += string(uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			default:

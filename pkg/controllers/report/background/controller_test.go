@@ -3,23 +3,32 @@ package background
 import (
 	"context"
 	"errors"
-	"github.com/kyverno/kyverno/pkg/breaker"
-	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
-	"github.com/kyverno/kyverno/pkg/openreports"
-	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	"github.com/kyverno/kyverno/pkg/breaker"
+	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	reportresource "github.com/kyverno/kyverno/pkg/controllers/report/resource"
+	"github.com/kyverno/kyverno/pkg/openreports"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
+	orfake "github.com/openreports/reports-api/pkg/client/clientset/versioned/fake"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	informers "k8s.io/client-go/informers"
+	kubeinformers "k8s.io/client-go/informers"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	kubefake "k8s.io/client-go/kubernetes/fake"
+	metafake "k8s.io/client-go/metadata/fake"
+	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -319,5 +328,103 @@ func TestStoreReport_AllowedResultsSuppression(t *testing.T) {
 		if !sawCreate {
 			t.Fatalf("expected ephemeral report created for fail result")
 		}
+	}
+}
+
+type trackingMetadataFactory struct {
+	metadatainformers.SharedInformerFactory
+	requestedResources []schema.GroupVersionResource
+}
+
+func (f *trackingMetadataFactory) ForResource(gvr schema.GroupVersionResource) informers.GenericInformer {
+	f.requestedResources = append(f.requestedResources, gvr)
+	return f.SharedInformerFactory.ForResource(gvr)
+}
+
+func TestNewController_InformerSelection(t *testing.T) {
+	newSetup := func() (*trackingMetadataFactory, corev1informers.NamespaceInformer) {
+		s := metafake.NewTestScheme()
+		metav1.AddMetaToScheme(s)
+		metaClient := metafake.NewSimpleMetadataClient(s)
+		baseFactory := metadatainformers.NewSharedInformerFactory(metaClient, 0)
+		trackingFactory := &trackingMetadataFactory{SharedInformerFactory: baseFactory}
+
+		kubeClient := kubefake.NewSimpleClientset()
+		kubeFactory := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+		nsInformer := kubeFactory.Core().V1().Namespaces()
+
+		return trackingFactory, nsInformer
+	}
+
+	containsGVR := func(list []schema.GroupVersionResource, target schema.GroupVersionResource) bool {
+		for _, gvr := range list {
+			if gvr == target {
+				return true
+			}
+		}
+		return false
+	}
+
+	openreportsResource := openreportsv1alpha1.SchemeGroupVersion.WithResource("reports")
+	openclusterResource := openreportsv1alpha1.SchemeGroupVersion.WithResource("clusterreports")
+	legacyResource := policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports")
+	legacyClusterResource := policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports")
+
+	// 1. policyReports = false: neither permanent-report informer is created, listers are nil
+	{
+		tf, nsInformer := newSetup()
+		ctrl := NewController(
+			nil, nil, nil, tf,
+			nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil, nil, nil, nil,
+			nsInformer, &fakeMetadataCache{}, 0, nil, nil,
+			false, "", nil, nil, nil, nil,
+		)
+		c := ctrl.(*controller)
+		assert.Nil(t, c.polrLister, "expected nil polrLister when policyReports is false")
+		assert.Nil(t, c.cpolrLister, "expected nil cpolrLister when policyReports is false")
+		assert.False(t, containsGVR(tf.requestedResources, openreportsResource), "did not expect openreports informer")
+		assert.False(t, containsGVR(tf.requestedResources, openclusterResource), "did not expect cluster openreports informer")
+		assert.False(t, containsGVR(tf.requestedResources, legacyResource), "did not expect legacy policyreports informer")
+		assert.False(t, containsGVR(tf.requestedResources, legacyClusterResource), "did not expect legacy clusterpolicyreports informer")
+	}
+
+	// 2. policyReports = true and non-nil orClient: selects OpenReports resources
+	{
+		tf, nsInformer := newSetup()
+		orClient := orfake.NewSimpleClientset().OpenreportsV1alpha1()
+		ctrl := NewController(
+			nil, nil, orClient, tf,
+			nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil, nil, nil, nil,
+			nsInformer, &fakeMetadataCache{}, 0, nil, nil,
+			true, "", nil, nil, nil, nil,
+		)
+		c := ctrl.(*controller)
+		assert.NotNil(t, c.polrLister, "expected non-nil polrLister when policyReports is true and orClient != nil")
+		assert.NotNil(t, c.cpolrLister, "expected non-nil cpolrLister when policyReports is true and orClient != nil")
+		assert.True(t, containsGVR(tf.requestedResources, openreportsResource), "expected openreports informer")
+		assert.True(t, containsGVR(tf.requestedResources, openclusterResource), "expected cluster openreports informer")
+		assert.False(t, containsGVR(tf.requestedResources, legacyResource), "did not expect legacy policyreports informer")
+		assert.False(t, containsGVR(tf.requestedResources, legacyClusterResource), "did not expect legacy clusterpolicyreports informer")
+	}
+
+	// 3. policyReports = true and nil orClient: selects legacy PolicyReports resources
+	{
+		tf, nsInformer := newSetup()
+		ctrl := NewController(
+			nil, nil, nil, tf,
+			nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil, nil, nil, nil,
+			nsInformer, &fakeMetadataCache{}, 0, nil, nil,
+			true, "", nil, nil, nil, nil,
+		)
+		c := ctrl.(*controller)
+		assert.NotNil(t, c.polrLister, "expected non-nil polrLister when policyReports is true and orClient == nil")
+		assert.NotNil(t, c.cpolrLister, "expected non-nil cpolrLister when policyReports is true and orClient == nil")
+		assert.False(t, containsGVR(tf.requestedResources, openreportsResource), "did not expect openreports informer")
+		assert.False(t, containsGVR(tf.requestedResources, openclusterResource), "did not expect cluster openreports informer")
+		assert.True(t, containsGVR(tf.requestedResources, legacyResource), "expected legacy policyreports informer")
+		assert.True(t, containsGVR(tf.requestedResources, legacyClusterResource), "expected legacy clusterpolicyreports informer")
 	}
 }

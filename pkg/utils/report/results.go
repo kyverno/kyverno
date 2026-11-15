@@ -354,38 +354,61 @@ func SplitResultsByPolicy(logger logr.Logger, results []openreportsv1alpha1.Repo
 	return resultsMap
 }
 
+// SetResults sorts and sets the given report results and computes their summary on the report.
 func SetResults(report reportsv1.ReportInterface, results ...openreportsv1alpha1.ReportResult) {
+	allowed := make([]openreportsv1alpha1.ReportResult, 0, len(results))
+	for _, result := range results {
+		if IsResultAllowed(result.Result) {
+			allowed = append(allowed, result)
+		}
+	}
+	results = allowed
 	SortReportResults(results)
 	report.SetResults(results)
 	report.SetSummary(CalculateSummary(results))
 }
 
+// SetResponses sets validating engine responses on the report, filtering out results not allowed by reporting configuration.
 func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
 	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
-		ruleResults = append(ruleResults, EngineResponseToReportResults(result)...)
+		for _, r := range EngineResponseToReportResults(result) {
+			if IsResultAllowed(r.Result) {
+				ruleResults = append(ruleResults, r)
+			}
+		}
 	}
 	SetResults(report, ruleResults...)
 }
 
+// SetMutationResponses sets mutating engine responses on the report, filtering out results not allowed by reporting configuration.
 func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
 	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
-		ruleResults = append(ruleResults, MutationEngineResponseToReportResults(result)...)
+		for _, r := range MutationEngineResponseToReportResults(result) {
+			if IsResultAllowed(r.Result) {
+				ruleResults = append(ruleResults, r)
+			}
+		}
 	}
 	SetResults(report, ruleResults...)
 }
 
+// SetGenerationResponses sets generation engine responses on the report, filtering out results not allowed by reporting configuration.
 func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
 	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
-		ruleResults = append(ruleResults, GenerationEngineResponseToReportResults(result)...)
+		for _, r := range GenerationEngineResponseToReportResults(result) {
+			if IsResultAllowed(r.Result) {
+				ruleResults = append(ruleResults, r)
+			}
+		}
 	}
 	SetResults(report, ruleResults...)
 }

@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// ReportingCfg holds the package-level reporting configuration.
 var ReportingCfg ReportingConfiguration
 
 type reportingConfig struct {
@@ -62,6 +63,7 @@ func (r *reportingConfig) IsResultAllowed(res openreportsv1alpha1.Result) bool {
 	}
 }
 
+// IsStatusAllowed reports whether the engine rule status is permitted by the active reporting configuration.
 func IsStatusAllowed(s engineapi.RuleStatus) bool {
 	if ReportingCfg == nil {
 		return true
@@ -69,6 +71,7 @@ func IsStatusAllowed(s engineapi.RuleStatus) bool {
 	return ReportingCfg.IsStatusAllowed(s)
 }
 
+// IsResultAllowed reports whether the OpenReports result is permitted by the active reporting configuration.
 func IsResultAllowed(res openreportsv1alpha1.Result) bool {
 	if ReportingCfg == nil {
 		return true
@@ -98,6 +101,7 @@ func newReportingConfig(allowedRuleStatus []string, items ...string) ReportingCo
 	}
 }
 
+// NewReportingConfig initializes and returns the global reporting configuration if not already configured.
 func NewReportingConfig(allowedRuleStatus []string, items ...string) ReportingConfiguration {
 	if ReportingCfg != nil {
 		return ReportingCfg
@@ -106,11 +110,13 @@ func NewReportingConfig(allowedRuleStatus []string, items ...string) ReportingCo
 	return ReportingCfg
 }
 
+// ResetReportingConfig overrides and returns the global reporting configuration, primarily for testing.
 func ResetReportingConfig(allowedRuleStatus []string, items ...string) ReportingConfiguration {
 	ReportingCfg = newReportingConfig(allowedRuleStatus, items...)
 	return ReportingCfg
 }
 
+// ReportingConfiguration defines methods to inspect enabled report types and allowed rule results.
 type ReportingConfiguration interface {
 	ValidateReportsEnabled() bool
 	MutateReportsEnabled() bool

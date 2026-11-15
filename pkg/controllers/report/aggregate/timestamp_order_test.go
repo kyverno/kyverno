@@ -80,6 +80,24 @@ func TestAggregateResultsOrdersNanosecondsAcrossPolicySources(t *testing.T) {
 	}
 }
 
+func TestAggregateResultsKeepsFailingCELRuleWhenPassIsExcluded(t *testing.T) {
+	previous := reportutils.ReportingCfg
+	reportutils.ResetReportingConfig([]string{"fail"})
+	t.Cleanup(func() { reportutils.ReportingCfg = previous })
+
+	const uid = "uid"
+	results := []openreportsv1alpha1.ReportResult{
+		{Source: reportutils.SourceValidatingPolicy, Policy: "require-label", Rule: "failing-rule", Result: openreports.StatusFail},
+		{Source: reportutils.SourceValidatingPolicy, Policy: "require-label", Rule: "passing-rule", Result: openreports.StatusPass},
+	}
+	report := &reportsv1.EphemeralReport{Spec: reportsv1.EphemeralReportSpec{Results: results}}
+
+	merged := aggregate.AggregateResults(timestampTestMaps(), types.UID(uid), report)
+	require.Len(t, merged, 1)
+	require.Equal(t, "failing-rule", merged[0].Rule)
+	require.Equal(t, openreportsv1alpha1.Result(openreports.StatusFail), merged[0].Result)
+}
+
 func TestAggregateResultsTimestampCompatibility(t *testing.T) {
 	const second int64 = 1700000000
 	tests := []struct {
