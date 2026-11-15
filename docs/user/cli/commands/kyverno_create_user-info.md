@@ -25,6 +25,7 @@ kyverno create user-info [flags]
   -c, --cluster-role strings   Cluster role
   -g, --group strings          Group
   -h, --help                   help for user-info
+  -n, --name string            User info name (default "user-info")
   -o, --output string          Output path (uses standard console output if not set)
   -r, --role strings           Role
   -u, --username string        User name
