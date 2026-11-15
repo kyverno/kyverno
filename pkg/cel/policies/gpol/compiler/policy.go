@@ -150,6 +150,10 @@ func (p *Policy) Evaluate(
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
 		for _, polex := range p.exceptions {
+			// Compiled exceptions can expire without a policy or exception update.
+			if polex.IsExpired() {
+				continue
+			}
 			match, err := p.match(ctx, dataNew, polex.MatchConditions, nil)
 			if err != nil {
 				if fullExemptionFound {
@@ -211,7 +215,7 @@ func (p *Policy) Evaluate(
 	}
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew[compiler.VariablesKey] = vars
-	dataNew[compiler.GeneratorKey] = generator.Context{ContextInterface: data.Context}
+	dataNew[compiler.GeneratorKey] = generator.Context{ContextInterface: libs.WithRequestContext(ctx, data.Context)}
 	// explainData is what every tracking twin below is re-run against: the same data, the same
 	// lazy variables, but a generator that generates nothing, so explaining a variable or a
 	// generate expression can never generate its resources a second time
@@ -382,8 +386,9 @@ func (p *Policy) applyTemplate(ctx context.Context, tpl *template.Template, acti
 		}
 		grouped[namespace] = append(grouped[namespace], resource)
 	}
+	reqCtx := libs.WithRequestContext(ctx, libsCtx)
 	for _, namespace := range namespaces {
-		if err := libsCtx.GenerateResources(namespace, grouped[namespace]); err != nil {
+		if err := reqCtx.GenerateResources(namespace, grouped[namespace]); err != nil {
 			return fmt.Errorf("failed to generate resources: %w", err)
 		}
 	}

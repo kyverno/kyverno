@@ -11,8 +11,8 @@ results:
   patchedResources: mutated-resources.yaml
   policy: mutate-existing-secret
   resources:
-  - staging/secret-1
   - prod/secret-1
+  - staging/secret-1
   result: pass
   rule: mutate-secret-on-configmap-create
 targetResources:

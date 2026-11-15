@@ -19,7 +19,7 @@ results:
   kind: Pod
   policy: disallow-proc-mount
   resources:
-  - unmasked-host-users-false
   - default-proc-mount
+  - unmasked-host-users-false
   - unset-proc-mount
   result: pass

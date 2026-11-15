@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -253,5 +254,90 @@ func TestPolicyEvaluate(t *testing.T) {
 		assert.NotNil(t, result)
 		assert.Nil(t, result.GeneratedResources)
 		assert.NotEmpty(t, result.Exceptions)
+	})
+}
+
+type recordingGenerateContext struct {
+	*libs.FakeContextProvider
+	generateCtx context.Context
+}
+
+func (c *recordingGenerateContext) GenerateResourcesContext(ctx context.Context, namespace string, dataList []map[string]any) error {
+	c.generateCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return c.FakeContextProvider.GenerateResources(namespace, dataList)
+}
+
+func TestPolicyEvaluate_GeneratorBindingUsesRequestContext(t *testing.T) {
+	pol := &v1beta1.GeneratingPolicy{
+		Spec: v1beta1.GeneratingPolicySpec{
+			Generation: []v1beta1.Generation{{
+				Expression: `generator.Apply("test-ns", [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap"), "metadata": dyn({"name": "gen-cm"})}])`,
+			}},
+		},
+	}
+	compiled, errs := NewCompiler().Compile(pol, nil)
+	require.Empty(t, errs)
+
+	type testCtxKey struct{}
+
+	t.Run("propagates request context to generator expression", func(t *testing.T) {
+		provider := &recordingGenerateContext{FakeContextProvider: libs.NewFakeContextProvider()}
+		ctx := context.WithValue(context.Background(), testCtxKey{}, "request-val")
+
+		result, err := compiled.Evaluate(ctx, attr, &request.Request, &ns, provider)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Len(t, result.GeneratedResources, 1)
+		require.NotNil(t, provider.generateCtx)
+		assert.Equal(t, "request-val", provider.generateCtx.Value(testCtxKey{}))
+	})
+
+	t.Run("cancelled request context fails generator evaluation", func(t *testing.T) {
+		provider := &recordingGenerateContext{FakeContextProvider: libs.NewFakeContextProvider()}
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		result, err := compiled.Evaluate(ctx, attr, &request.Request, &ns, provider)
+		assert.Error(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("template generation propagates request context and honors cancellation", func(t *testing.T) {
+		tmplPol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				Generation: []v1beta1.Generation{{
+					Template: &v1beta1.GenerationTemplate{
+						Value: `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tmpl-cm
+  namespace: test-ns
+`,
+					},
+				}},
+			},
+		}
+		compiledTmpl, errs := NewCompiler().Compile(tmplPol, nil)
+		require.Empty(t, errs)
+
+		provider := &recordingGenerateContext{FakeContextProvider: libs.NewFakeContextProvider()}
+		ctx := context.WithValue(context.Background(), testCtxKey{}, "template-val")
+
+		result, err := compiledTmpl.Evaluate(ctx, attr, &request.Request, &ns, provider)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Len(t, result.GeneratedResources, 1)
+		require.NotNil(t, provider.generateCtx)
+		assert.Equal(t, "template-val", provider.generateCtx.Value(testCtxKey{}))
+
+		cancelledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+		result, err = compiledTmpl.Evaluate(cancelledCtx, attr, &request.Request, &ns, provider)
+		assert.Error(t, err)
+		assert.Nil(t, result)
 	})
 }

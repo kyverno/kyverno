@@ -16,7 +16,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // NewGpolListers creates real informer-backed listers from a Kyverno clientset,
@@ -36,14 +36,18 @@ func NewGpolListers(ctx context.Context, kyvernoClient kyvernoclient.Interface) 
 
 // NewGpolEngine creates a gpol engine and provider using informer-backed listers.
 // Mirrors the production wiring in cmd/background-controller/main.go:
-// compiler → NewFetchProvider(listers) → NewEngine(nsResolver, matcher).
+// compiler → NewFetchProvider(listers) → NewEngine(nsResolver, matcher), where the namespace
+// resolver (NewNamespaceResolver, running until ctx is cancelled) backs namespaceSelector matching
+// and namespaceObject.
 func NewGpolEngine(
+	ctx context.Context,
+	kubeClient kubernetes.Interface,
 	gpolLister policiesv1beta1listers.GeneratingPolicyLister,
 	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister,
 ) (gpolengine.Engine, gpolengine.Provider) {
 	compiler := gpolcompiler.NewCompiler()
 	provider := gpolengine.NewFetchProvider(compiler, gpolLister, ngpolLister, nil, false)
-	nsResolver := func(ns string) *corev1.Namespace { return nil }
+	nsResolver := NewNamespaceResolver(ctx, kubeClient)
 	matcher := matching.NewMatcher()
 	engine := gpolengine.NewEngine(nsResolver, matcher)
 	return engine, provider
@@ -63,13 +67,15 @@ func NewGpolPolexLister(ctx context.Context, kyvernoClient kyvernoclient.Interfa
 // NewGpolEngineWithExceptions creates a gpol engine and provider with PolicyException support.
 // When no exceptions exist, behavior is identical to NewGpolEngine.
 func NewGpolEngineWithExceptions(
+	ctx context.Context,
+	kubeClient kubernetes.Interface,
 	gpolLister policiesv1beta1listers.GeneratingPolicyLister,
 	ngpolLister policiesv1beta1listers.NamespacedGeneratingPolicyLister,
 	polexLister celengine.PolicyExceptionLister,
 ) (gpolengine.Engine, gpolengine.Provider) {
 	compiler := gpolcompiler.NewCompiler()
 	provider := gpolengine.NewFetchProvider(compiler, gpolLister, ngpolLister, polexLister, true)
-	nsResolver := func(ns string) *corev1.Namespace { return nil }
+	nsResolver := NewNamespaceResolver(ctx, kubeClient)
 	matcher := matching.NewMatcher()
 	engine := gpolengine.NewEngine(nsResolver, matcher)
 	return engine, provider

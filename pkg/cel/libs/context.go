@@ -217,6 +217,13 @@ func (cp *contextProvider) GetResourceContext(ctx context.Context, apiVersion, r
 }
 
 func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
+	return cp.PostResourceContext(context.TODO(), apiVersion, resource, namespace, data)
+}
+
+func (cp *contextProvider) PostResourceContext(ctx context.Context, apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
@@ -233,10 +240,17 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 	}
 
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{}, subresources...)
+	return resourceInteface.Create(ctx, &unstructured.Unstructured{Object: data}, metav1.CreateOptions{}, subresources...)
 }
 
 func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
+	return cp.GenerateResourcesContext(context.TODO(), namespace, dataList)
+}
+
+func (cp *contextProvider) GenerateResourcesContext(ctx context.Context, namespace string, dataList []map[string]any) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	for _, data := range dataList {
 		resource := &unstructured.Unstructured{Object: data}
 
@@ -305,7 +319,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			item.SetNamespace(targetNamespace)
 			// check if the resource already exists
 			existing, err := cp.client.GetResource(
-				context.TODO(),
+				ctx,
 				item.GetAPIVersion(),
 				item.GetKind(),
 				targetNamespace,
@@ -318,7 +332,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 						var generatedRes *unstructured.Unstructured
 						if cp.genCtx.useServerSideApply {
 							generatedRes, err = cp.client.ApplyResource(
-								context.TODO(),
+								ctx,
 								item.GetAPIVersion(),
 								item.GetKind(),
 								targetNamespace,
@@ -329,7 +343,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 							)
 						} else {
 							generatedRes, err = cp.client.CreateResource(
-								context.TODO(),
+								ctx,
 								item.GetAPIVersion(),
 								item.GetKind(),
 								targetNamespace,
@@ -364,7 +378,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			}
 			if cp.genCtx.useServerSideApply {
 				generatedRes, err := cp.client.ApplyResource(
-					context.TODO(),
+					ctx,
 					item.GetAPIVersion(),
 					item.GetKind(),
 					targetNamespace,
@@ -386,7 +400,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			item.SetUID(existing.GetUID())
 			item.SetResourceVersion(existing.GetResourceVersion())
 			generatedRes, err := cp.client.UpdateResource(
-				context.TODO(),
+				ctx,
 				item.GetAPIVersion(),
 				item.GetKind(),
 				targetNamespace,

@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -94,7 +93,7 @@ func evaluateWith(ctx context.Context, ictx imagedataloader.ImageContext, ivpols
 			return nil, fmt.Errorf("failed to compile policy %v", errList)
 		}
 
-		result, err := p.Evaluate(ctx, ictx, imageverifycache.DisabledImageVerifyCache(), verifications, admissionAttr, request, namespace, isAdmissionRequest, requestMapFn, nil)
+		result, err := p.Evaluate(ctx, ictx, nil, verifications, admissionAttr, request, namespace, isAdmissionRequest, requestMapFn, nil)
 		if err != nil {
 			if !tracing {
 				return nil, err

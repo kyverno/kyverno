@@ -19,11 +19,21 @@ func NewRepository(image *imagedataloader.ImageData) notationregistry.Repository
 	}
 }
 
-func (c *repositoryClient) Resolve(_ context.Context, img string) (ocispec.Descriptor, error) {
+// The ImageData calls below don't take a context, so each method checks ctx
+// first to stop a verification that was cancelled because an earlier-listed
+// referrer verified.
+
+func (c *repositoryClient) Resolve(ctx context.Context, img string) (ocispec.Descriptor, error) {
+	if err := ctx.Err(); err != nil {
+		return ocispec.Descriptor{}, err
+	}
 	return c.image.FetchReference(img)
 }
 
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	gcrDesc, err := c.image.FetchReferrersForDigest(desc.Digest.String(), notationregistry.ArtifactTypeNotation)
 	if err != nil {
 		return err
@@ -38,6 +48,9 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 }
 
 func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, ocispec.Descriptor{}, err
+	}
 	gcrDesc, err := imagedataloader.OCISpectoGCRDesc(desc)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err

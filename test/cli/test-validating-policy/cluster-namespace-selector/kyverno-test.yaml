@@ -1,0 +1,29 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: test-cluster-namespace-selector
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: enforce-prod-pod-labels
+  resources:
+  - bad-prod-pod
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: enforce-prod-pod-labels
+  resources:
+  - good-prod-pod
+  result: pass
+- isValidatingPolicy: true
+  kind: Pod
+  policy: enforce-prod-pod-labels
+  resources:
+  - dev-pod
+  result: skip

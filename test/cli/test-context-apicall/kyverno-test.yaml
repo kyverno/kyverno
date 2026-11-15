@@ -35,8 +35,8 @@ results:
 - kind: Pod
   policy: computeclasses-enforce-non-spot-usage-crd
   resources:
-  - pod-with-spot-computeclass
-  - pod-with-mixed-computeclass
   - pod-with-default-computeclass
+  - pod-with-mixed-computeclass
+  - pod-with-spot-computeclass
   result: pass
   rule: deny-non-spot-in-unapproved-namespace

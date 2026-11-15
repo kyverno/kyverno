@@ -31,9 +31,11 @@ inputs:
   shard-count:
     description: Shard count
     default: '0'
-  quarantined-tests:
-    description: tests to exclude from the run, comma separated
-    default: ''
+  quarantine-file:
+    description: >-
+      Quarantine file listing the tests to skip, with an owner, issue, and
+      expiry date for each. Release-candidate runs ignore it and run every test.
+    default: ./test/conformance/quarantine.yaml
   install-cert-manager:
     description: Install cert-manager before running tests
     default: 'false'
@@ -141,40 +143,15 @@ runs:
         echo "${GOBIN}" >> "${GITHUB_PATH}"
     - name: Wait for kyverno ready
       uses: ./.github/actions/kyverno/wait-ready
-    - name: Add excluded tests
+    # Release-candidate runs ignore the quarantine file, so they still run every test.
+    - name: Skip quarantined tests
       if: env.RELEASE_CANDIDATE != 'true'
       shell: bash
+      env:
+        QUARANTINE_FILE: ${{ inputs.quarantine-file }}
+        TESTS_PATH: ${{ inputs.tests-path }}
       run: |
-        TESTS_ROOT="$(cd "./test/conformance/chainsaw/${{ inputs.tests-path }}" && pwd)"
-        if [ -z "${{ inputs.quarantined-tests }}" ]; then
-          echo "no quarantined tests, skipping"
-          exit 0
-        fi
-
-        IFS=',' read -ra TEST_DIRS <<< "${{ inputs.quarantined-tests }}"
-
-        for DIR_NAME in "${TEST_DIRS[@]}"; do
-          # Find ALL matching directories
-          mapfile -t FOUND_DIRS < <(find "$TESTS_ROOT" -type d -name "$DIR_NAME")
-
-          if [ ${#FOUND_DIRS[@]} -eq 0 ]; then
-            echo "Error: No directories found matching '$DIR_NAME'"
-            continue
-          fi
-
-          for FOUND_TEST_DIR in "${FOUND_DIRS[@]}"; do
-            echo "Found directory: $FOUND_TEST_DIR"
-
-            TEST_FILE="$FOUND_TEST_DIR/chainsaw-test.yaml"
-            if [ ! -f "$TEST_FILE" ]; then
-              echo "Error: chainsaw-test.yaml not found in $FOUND_TEST_DIR"
-              continue
-            fi
-
-            yq eval '.spec.skip = true' -i "$TEST_FILE"
-            echo "Set skip: true in $TEST_FILE"
-          done
-        done
+        "$GITHUB_ACTION_PATH/quarantine.sh" "$QUARANTINE_FILE" ./test/conformance/chainsaw "$TESTS_PATH"
     # run tests
     - name: Test with Chainsaw
       shell: bash

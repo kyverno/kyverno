@@ -10,7 +10,7 @@ results:
 - kind: Pod
   policy: require-requests-limits
   resources:
-  - require-requests-limits-skip
   - ceph-csi/require-requests-limits-failed
+  - require-requests-limits-skip
   result: skip
   rule: validate-resources

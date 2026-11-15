@@ -86,7 +86,7 @@ func TestPanicInPolicyDeniesAdmissionWithoutCrashing(t *testing.T) {
 	namespaceResolver := func(s string) *corev1.Namespace {
 		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: s}}
 	}
-	engine := ivpolengine.NewEngine(provider, namespaceResolver, matching.NewMatcher(), nil, imageverifycache.DisabledImageVerifyCache(), config.NewDefaultConfiguration(false))
+	engine := ivpolengine.NewEngine(provider, namespaceResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
 	h := New(engine, libs.NewFakeContextProvider(), nil, false, event.NewFake())
 	request := admissionv1.AdmissionRequest{
 		UID: "panic-test", Name: "web", Namespace: "default", Operation: admissionv1.Create,
