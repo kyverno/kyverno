@@ -24,8 +24,10 @@ func NewVariablesProvider(inner types.Provider) *VariablesProvider {
 }
 
 func (p *VariablesProvider) RegisterField(name string, t *types.Type) {
+	if _, exists := p.fields[name]; !exists {
+		p.names = append(p.names, name)
+	}
 	p.fields[name] = t
-	p.names = append(p.names, name)
 }
 
 func (p *VariablesProvider) EnumValue(enumName string) ref.Val {
