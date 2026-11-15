@@ -22,48 +22,19 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// collectUniqueCheckResponses collects default and target evaluations once.
-// Checks have no operation selector, so dedicated operation evaluations are
-// excluded, including their projections in Target. Copies of an
-// EngineResponse share their rule slice, so its first element identifies the
-// originating evaluation without merging separate evaluations with equal data.
+// collectUniqueCheckResponses collects default engine evaluations in a stable order.
+// runTest stores each default evaluation once in Trigger. Target is only a
+// secondary index of those evaluations and TriggerByOperation, not a separate
+// evaluation source. Iterating Target would duplicate checks and could include
+// explicit-operation evaluations. Collecting from Trigger also avoids relying
+// on the backing-array addresses of copied rule slices.
 func collectUniqueCheckResponses(responses TestResponse) []engineapi.EngineResponse {
 	var collected []engineapi.EngineResponse
-	seen := make(map[*engineapi.RuleResponse]struct{})
-	add := func(response engineapi.EngineResponse) {
-		if len(response.PolicyResponse.Rules) == 0 {
-			return
-		}
-		key := &response.PolicyResponse.Rules[0]
-		if _, exists := seen[key]; exists {
-			return
-		}
-		seen[key] = struct{}{}
-		collected = append(collected, response)
-	}
 	for _, key := range slices.Sorted(maps.Keys(responses.Trigger)) {
 		for _, response := range responses.Trigger[key] {
-			add(response)
-		}
-	}
-	operationResponses := make(map[*engineapi.RuleResponse]struct{})
-	for _, byResource := range responses.TriggerByOperation {
-		for _, responseList := range byResource {
-			for _, response := range responseList {
-				if len(response.PolicyResponse.Rules) > 0 {
-					operationResponses[&response.PolicyResponse.Rules[0]] = struct{}{}
-				}
-			}
-		}
-	}
-	for _, key := range slices.Sorted(maps.Keys(responses.Target)) {
-		for _, response := range responses.Target[key] {
 			if len(response.PolicyResponse.Rules) > 0 {
-				if _, explicit := operationResponses[&response.PolicyResponse.Rules[0]]; explicit {
-					continue
-				}
+				collected = append(collected, response)
 			}
-			add(response)
 		}
 	}
 	return collected

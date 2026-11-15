@@ -152,7 +152,7 @@ func TestPrintCheckResultIncludesGeneratedAndPatchedFields(t *testing.T) {
 		nil,
 	)
 	response.PolicyResponse.Rules = []engineapi.RuleResponse{*rule}
-	responses := TestResponse{Target: map[string][]engineapi.EngineResponse{
+	responses := TestResponse{Trigger: map[string][]engineapi.EngineResponse{
 		"v1,Pod,default,target": {response},
 	}}
 
@@ -216,7 +216,7 @@ func TestCollectUniqueCheckResponses(t *testing.T) {
 		},
 	}
 	collected := collectUniqueCheckResponses(responses)
-	require.Len(t, collected, 2)
+	require.Len(t, collected, 1)
 	names := make(map[string]bool)
 	for _, response := range collected {
 		name := response.Resource.GetName()
@@ -225,15 +225,15 @@ func TestCollectUniqueCheckResponses(t *testing.T) {
 	}
 	assert.True(t, names["trigger"])
 	assert.False(t, names["distinct"], "explicit operation responses must not reach checks via targets")
-	assert.True(t, names["target-only"])
+	assert.False(t, names["target-only"], "target entries are projections, not independent evaluations")
 
 	check := v1alpha1.CheckResult{Assert: kyverno.Any{Value: map[string]any{"status": "pass"}}}
 	rc := &resultCounts{}
 	var resultsTable table.Table
 	require.NoError(t, printCheckResult([]v1alpha1.CheckResult{check}, responses, rc, &resultsTable))
-	assert.Equal(t, 2, rc.Pass)
+	assert.Equal(t, 1, rc.Pass)
 	assert.Equal(t, 0, rc.Fail)
-	require.Len(t, resultsTable.RawRows, 2)
+	require.Len(t, resultsTable.RawRows, 1)
 }
 
 func TestCollectUniqueCheckResponsesKeepsSeparateEqualEvaluations(t *testing.T) {
@@ -255,6 +255,54 @@ func TestCollectUniqueCheckResponsesKeepsSeparateEqualEvaluations(t *testing.T) 
 		},
 	}
 	assert.Len(t, collectUniqueCheckResponses(responses), 2)
+}
+
+func TestCollectUniqueCheckResponsesIgnoresReallocatedMultiRuleTarget(t *testing.T) {
+	color.Init(true)
+	defaultResponse := engineapi.NewEngineResponse(
+		unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata":   map[string]any{"name": "pod"},
+		}},
+		nil,
+		nil,
+	)
+	defaultResponse.PolicyResponse.Rules = []engineapi.RuleResponse{
+		*engineapi.RulePass("first", engineapi.Validation, "", nil),
+		*engineapi.RulePass("second", engineapi.Validation, "", nil),
+	}
+	// The target projection can hold a rebuilt rule slice with a different
+	// backing array. It must not become another assertion evaluation.
+	projected := defaultResponse
+	projected.PolicyResponse.Rules = append([]engineapi.RuleResponse(nil), defaultResponse.PolicyResponse.Rules...)
+	explicit := defaultResponse
+	explicit.PolicyResponse.Rules = []engineapi.RuleResponse{
+		*engineapi.RuleFail("explicit", engineapi.Validation, "", nil),
+	}
+	responses := TestResponse{
+		Trigger: map[string][]engineapi.EngineResponse{
+			"pod": {defaultResponse},
+		},
+		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{
+			"UPDATE": {"pod": {explicit}},
+		},
+		Target: map[string][]engineapi.EngineResponse{
+			"target-a": {projected, explicit},
+			"target-b": {defaultResponse},
+		},
+	}
+	collected := collectUniqueCheckResponses(responses)
+	require.Len(t, collected, 1)
+	require.Len(t, collected[0].PolicyResponse.Rules, 2)
+
+	check := v1alpha1.CheckResult{Assert: kyverno.Any{Value: map[string]any{"status": "pass"}}}
+	rc := &resultCounts{}
+	var resultsTable table.Table
+	require.NoError(t, printCheckResult([]v1alpha1.CheckResult{check}, responses, rc, &resultsTable))
+	assert.Equal(t, 2, rc.Pass)
+	assert.Zero(t, rc.Fail)
+	require.Len(t, resultsTable.RawRows, 2)
 }
 
 func TestPrintCheckResultExcludesExplicitOperations(t *testing.T) {
@@ -325,7 +373,6 @@ func TestCollectUniqueCheckResponsesDeterministicOrder(t *testing.T) {
 	}
 	want := []string{
 		"trigger-a", "trigger-m", "trigger-z1", "trigger-z2",
-		"target-a", "target-m", "target-z",
 	}
 	for range 20 {
 		collected := collectUniqueCheckResponses(responses)
