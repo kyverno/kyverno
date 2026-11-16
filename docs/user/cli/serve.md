@@ -22,7 +22,7 @@ kyverno serve --allow-request-policies                   # policies arrive with 
 | `--mode` | all | The modes to serve: `Kubernetes`, `JSON`, `HTTP`, `Envoy`. Can be repeated or comma-separated. |
 | `--address` | `127.0.0.1:8080` | Listen address. A non-loopback address prints a warning. |
 | `--allow-request-policies` | `false` | Accept policies inside `POST /v1alpha1/evaluate` requests. They are evaluated instead of `--policies`. |
-| `--http-timeout` | `30s` | How long a policy HTTP call (CEL `http.Get`/`http.Post`) may wait for a response. Requests are serialized, so an unbounded call would stall every later request. |
+| `--http-timeout` | `30s` | How long a policy HTTP call (CEL `http.Get`/`http.Post`) may take, response body included. A call that runs over fails with an error. Requests are serialized, so an unbounded call would stall every later request. |
 
 **Startup is strict.** Policies are loaded once. The server refuses to start if:
 

@@ -152,7 +152,7 @@ func requireLoopbackHost(next http.Handler) http.Handler {
 		if h, _, err := net.SplitHostPort(host); err == nil {
 			host = h
 		}
-		if !isLoopback(strings.ToLower(strings.Trim(host, "[]"))) {
+		if !isLoopback(host) {
 			writeStatus(w, http.StatusForbidden, fmt.Sprintf("host %q is not allowed; kyverno serve on a loopback address only accepts loopback hosts", r.Host))
 			return
 		}

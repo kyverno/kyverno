@@ -49,7 +49,7 @@ kyverno serve [flags]
       --address string           Address to listen on; defaults to loopback only (default "127.0.0.1:8080")
       --allow-request-policies   Accept policies inside POST /v1alpha1/evaluate requests (evaluated instead of --policies); --policies is optional when set
   -h, --help                     help for serve
-      --http-timeout duration    Maximum time a policy HTTP call (CEL http.Get or http.Post) may wait for a response (default 30s)
+      --http-timeout duration    Maximum time a policy HTTP call (CEL http.Get or http.Post) may take, response body included (default 30s)
       --mode strings             Payload modes to serve: Kubernetes, JSON, HTTP, Envoy (repeatable or comma-separated; default all)
       --policies strings         Path to policy files or directories to load at startup; required unless --allow-request-policies is set
 ```

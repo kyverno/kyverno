@@ -371,12 +371,20 @@ func TestListenAndServe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	addrCh := make(chan string, 1)
 	done := make(chan error, 1)
-	go func() { done <- s.ListenAndServe(ctx, "127.0.0.1:0", func(a string) { addrCh <- a }) }()
+	// an upper-case loopback name still turns on the Host check
+	go func() { done <- s.ListenAndServe(ctx, "LOCALHOST:0", func(a string) { addrCh <- a }) }()
 	addr := <-addrCh
 	res, err := http.Get("http://" + addr + "/healthz")
 	require.NoError(t, err)
 	res.Body.Close()
 	assert.Equal(t, http.StatusOK, res.StatusCode)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://"+addr+"/healthz", nil)
+	require.NoError(t, err)
+	req.Host = "rebind.example.com"
+	res, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	res.Body.Close()
+	assert.Equal(t, http.StatusForbidden, res.StatusCode)
 	cancel()
 	assert.NoError(t, <-done)
 
@@ -384,5 +392,9 @@ func TestListenAndServe(t *testing.T) {
 	assert.Error(t, err)
 	assert.True(t, isLoopback("localhost"))
 	assert.True(t, isLoopback("::1"))
+	assert.True(t, isLoopback("[::1]"))
+	assert.True(t, isLoopback("LOCALHOST"), "host names are case-insensitive")
+	assert.True(t, isLoopback("localhost."), "fully qualified form")
+	assert.False(t, isLoopback("localhost.example.com"))
 	assert.False(t, isLoopback("0.0.0.0"))
 }
