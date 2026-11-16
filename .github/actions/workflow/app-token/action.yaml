@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: GitHub App token
+description: >-
+  Creates a token for the PR updater GitHub App. Unlike GITHUB_TOKEN, events
+  caused by this token, such as a workflow_dispatch run finishing, start other
+  workflows. The private key may be saved as PEM, as PEM with escaped newlines,
+  or as base64-encoded PEM.
+
+inputs:
+  client-id:
+    description: The client ID of the GitHub App.
+    required: true
+  private-key:
+    description: The private key of the GitHub App.
+    required: true
+  permission-actions:
+    description: The actions permission of the token.
+    required: false
+    default: ''
+  permission-contents:
+    description: The contents permission of the token.
+    required: false
+    default: ''
+
+outputs:
+  token:
+    description: The GitHub App token.
+    value: ${{ steps.app-token.outputs.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Normalize the private key
+      id: normalize-key
+      shell: bash
+      env:
+        RAW_APP_PRIVATE_KEY: ${{ inputs.private-key }}
+      run: |
+        set -euo pipefail
+
+        key="$RAW_APP_PRIVATE_KEY"
+        # Support secrets saved with escaped newlines.
+        key="${key//\\n/$'\n'}"
+
+        if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+          # Support secrets saved as base64-encoded PEM.
+          decoded="$(printf '%s' "$RAW_APP_PRIVATE_KEY" | tr -d '[:space:]' | base64 --decode 2>/dev/null || true)"
+          decoded="${decoded//\\n/$'\n'}"
+          if printf '%s' "$decoded" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+            key="$decoded"
+          fi
+        fi
+
+        if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+          echo "The GitHub App private key does not look like a valid PEM private key." >&2
+          exit 1
+        fi
+
+        # ::add-mask:: is line-based, mask each line of the key individually.
+        while IFS= read -r line; do
+          [ -n "$line" ] && echo "::add-mask::$line"
+        done <<< "$key"
+        {
+          echo "private_key<<EOF"
+          printf '%s\n' "$key"
+          echo "EOF"
+          # github.event.repository is missing from schedule events.
+          echo "repository=${GITHUB_REPOSITORY#*/}"
+        } >> "$GITHUB_OUTPUT"
+    - name: Create the token
+      id: app-token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        client-id: ${{ inputs.client-id }}
+        private-key: ${{ steps.normalize-key.outputs.private_key }}
+        owner: ${{ github.repository_owner }}
+        repositories: ${{ steps.normalize-key.outputs.repository }}
+        permission-actions: ${{ inputs.permission-actions }}
+        permission-contents: ${{ inputs.permission-contents }}
