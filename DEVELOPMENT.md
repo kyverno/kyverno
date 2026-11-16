@@ -422,7 +422,8 @@ Each conformance job uploads these artifacts:
   (`results.xml`), and the job details (`meta.json`). Jobs upload it even when they fail.
 - `diagnostics-<suite>[-<variant>]-<k8s>-<shard>`, only when the job fails: logs from every Kyverno pod,
   events, webhook configurations, the policies and policy reports with their status, and the Kyverno config
-  maps. Each file is cut at 10 MiB.
+  maps. Each file is cut at 10 MiB. The `cli` suite runs the Kyverno CLI against a cluster without Kyverno,
+  so it uploads no diagnostics.
 
 The variant is the `variant` input of the conformance action. Set it on a job whose matrix has a dimension,
 other than `k8s-version` and `shard-index`, that doesn't change `tests-path`, so its jobs don't overwrite each

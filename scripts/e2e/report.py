@@ -287,8 +287,9 @@ def markdown(rows, missing, results, run_url=""):
         lines.append("")
     if run_url:
         lines.append(
-            f"Each failing job uploads a `diagnostics-*` artifact with controller logs, "
-            f"events, webhooks, policies, and reports. Find it in the [run]({run_url}).")
+            f"A failing job that deploys Kyverno also uploads a `diagnostics-*` artifact with "
+            f"controller logs, events, webhooks, policies, and reports. Find it in the [run]({run_url}). "
+            "The `cli` suite runs the Kyverno CLI without deploying Kyverno, so it has no diagnostics.")
     return "\n".join(lines) + "\n"
 
 

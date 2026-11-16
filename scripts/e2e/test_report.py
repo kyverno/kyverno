@@ -123,6 +123,11 @@ class SummarizeTest(unittest.TestCase):
         self.assertIn("- skipped-test (validating-policies): v1.34.11, v1.37.0", out)
         self.assertNotIn("ok-test", out)
         self.assertIn("[run](https://example.com/run)", out)
+        # The CLI job doesn't deploy Kyverno, so the summary must not promise
+        # diagnostics for every failing job.
+        self.assertIn("A failing job that deploys Kyverno also uploads a `diagnostics-*` artifact", out)
+        self.assertIn("The `cli` suite runs the Kyverno CLI without deploying Kyverno", out)
+        self.assertNotIn("Each failing job uploads", out)
 
     def test_reports_a_green_run(self):
         with tempfile.TemporaryDirectory() as directory:
