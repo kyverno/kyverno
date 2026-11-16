@@ -354,16 +354,18 @@ func lastExecutionTime(t *testing.T, client *versionedfake.Clientset) time.Time 
 
 // A run that fails keeps the policy's schedule (#18248): reconcile returns the error, so the workqueue still
 // retries and counts it, and arms the next scheduled run. LastExecutionTime stays where it was, as the record
-// of the last run that succeeded.
+// of the last run that succeeded. The next run is computed from now, not from the stale LastExecutionTime:
+// with a yearly schedule it is far away, not a requeue after minRequeueDelay.
 func TestReconcile_FailedRunKeepsSchedule(t *testing.T) {
+	pol := dueConfigMapPolicy()
+	pol.Spec.Schedule = "0 0 1 1 *"
 	cq := &captureQueue{TypedRateLimitingInterface: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())}
-	c, kyvernoClient := reconcileController(t, dueConfigMapPolicy(), configMapClient(func() error { return errConnectionRefused }), cq)
+	c, kyvernoClient := reconcileController(t, pol, configMapClient(func() error { return errConnectionRefused }), cq)
 
 	err := c.reconcile(context.Background(), logr.Discard(), "dpol", "", "dpol")
 
 	assert.ErrorContains(t, err, "connection refused")
-	assert.Greater(t, cq.lastDelay, time.Duration(0), "the next scheduled run must be armed")
-	assert.LessOrEqual(t, cq.lastDelay, minRequeueDelay+60*time.Second)
+	assert.Greater(t, cq.lastDelay, time.Minute, "a failed run must arm the next yearly run, not requeue at once")
 	assert.Equal(t, lastRun, lastExecutionTime(t, kyvernoClient).UTC(), "a failed run must not advance lastExecutionTime")
 }
 
