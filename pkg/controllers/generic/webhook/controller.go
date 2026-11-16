@@ -26,6 +26,8 @@ import (
 
 const (
 	maxRetries = 10
+	// maxMatchConditions is the API server's limit on match conditions per webhook.
+	maxMatchConditions = 64
 )
 
 var (
@@ -216,12 +218,35 @@ func objectMeta(name string, annotations map[string]string, labels map[string]st
 	}
 }
 
+// appendMatchConditions appends the conditions from WithMatchConditions to the configured ones. The
+// API server rejects a webhook with duplicate condition names or more than maxMatchConditions
+// conditions, so a condition that would cause either is skipped. Skipping one only sends more
+// requests to Kyverno, and the handlers apply the same checks.
+func (c *controller) appendMatchConditions(conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	names := make(map[string]bool, len(conditions))
+	for _, condition := range conditions {
+		names[condition.Name] = true
+	}
+	for _, condition := range c.matchConditions {
+		switch {
+		case names[condition.Name]:
+			c.logger.V(2).Info("skipping match condition, a configured match condition has the same name", "name", condition.Name)
+		case len(conditions) >= maxMatchConditions:
+			c.logger.V(2).Info("skipping match condition, the webhook already has the maximum number of match conditions", "name", condition.Name, "max", maxMatchConditions)
+		default:
+			names[condition.Name] = true
+			conditions = append(conditions, condition)
+		}
+	}
+	return conditions
+}
+
 func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	var matchConditions []admissionregistrationv1.MatchCondition
 	if !c.skipConfigMatchConditions {
 		matchConditions = append(matchConditions, cfg.GetMatchConditions()...)
 	}
-	matchConditions = append(matchConditions, c.matchConditions...)
+	matchConditions = c.appendMatchConditions(matchConditions)
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{

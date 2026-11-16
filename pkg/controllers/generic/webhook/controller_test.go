@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/config"
@@ -74,6 +75,28 @@ func TestBuildWithMatchConditionsAddsThem(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, vwc.Webhooks, 1)
 	assert.Equal(t, []admissionregistrationv1.MatchCondition{extra}, vwc.Webhooks[0].MatchConditions)
+}
+
+// TestAppendMatchConditionsKeepsWebhookValid verifies that a condition from WithMatchConditions is
+// skipped when it would give the webhook a duplicate condition name or too many conditions, either of
+// which makes the API server reject the whole configuration.
+func TestAppendMatchConditionsKeepsWebhookValid(t *testing.T) {
+	extra := admissionregistrationv1.MatchCondition{Name: "extra", Expression: "true"}
+	c := newTestController(nil, WithMatchConditions(extra))
+
+	configured := []admissionregistrationv1.MatchCondition{{Name: "extra", Expression: "false"}}
+	assert.Equal(t, configured, c.appendMatchConditions(configured), "a configured condition with the same name must be kept")
+
+	full := make([]admissionregistrationv1.MatchCondition, maxMatchConditions)
+	for i := range full {
+		full[i] = admissionregistrationv1.MatchCondition{Name: fmt.Sprintf("configured-%d", i), Expression: "true"}
+	}
+	assert.Len(t, c.appendMatchConditions(full), maxMatchConditions)
+
+	almostFull := full[:maxMatchConditions-1]
+	got := c.appendMatchConditions(almostFull)
+	assert.Len(t, got, maxMatchConditions)
+	assert.Equal(t, extra, got[maxMatchConditions-1])
 }
 
 func TestBuildWithoutConfigMatchConditionsDropsThem(t *testing.T) {

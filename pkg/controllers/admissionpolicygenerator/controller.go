@@ -223,9 +223,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
 		}
-		// policies owned by another controller, such as Kyverno Authz, are never generated
+		// policies owned by another controller, such as Kyverno Authz, are never generated, and
+		// resources generated before the policy changed owners are removed
 		if !celpolicies.IsKyvernoOwned(vpol.Spec) {
-			return nil
+			return c.deleteGeneratedVAP(ctx, vpol.GetName())
 		}
 		policy = engineapi.NewValidatingPolicy(vpol)
 		err = c.handleVAPGeneration(ctx, policy)
@@ -242,7 +243,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 		if !celpolicies.IsKyvernoOwned(mpol.Spec) {
-			return nil
+			return c.deleteGeneratedMAP(ctx, mpol.GetName())
 		}
 		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
 		if !generateMutatingAdmissionPolicy {
