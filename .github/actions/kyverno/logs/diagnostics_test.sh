@@ -176,6 +176,23 @@ expect_rc 0
 [ -z "$calls" ] || fail "$name: kubectl was called: $calls"
 expect_readme "- cluster/version.txt: kubectl version: skipped, the 0s budget was used up"
 
+# Every command hangs. The first ones use up the budget one timeout at a time,
+# and what comes after isn't started.
+name="time budget used up by hanging commands"
+start=$SECONDS
+run DIAGNOSTICS_BUDGET=3 DIAGNOSTICS_TIMEOUT=2 FAKE_HANG='.'
+expect_rc 0
+[ $((SECONDS - start)) -lt 20 ] || fail "$name: took $((SECONDS - start))s"
+started=$(grep -c . <<< "$calls" || true)
+[ "$started" -ge 1 ] && [ "$started" -le 2 ] || fail "$name: $started commands started, want 1 or 2: $calls"
+expect_called '^version'
+expect_not_called '^get events'
+expect_not_called 'api-resources'
+expect_readme "- cluster/version.txt: kubectl version: timed out after 2s"
+expect_readme "skipped, the 3s budget was used up"
+expect_readme "- webhooks/mutatingwebhookconfigurations.yaml: kubectl get mutatingwebhookconfigurations -o yaml: skipped, the 3s budget was used up"
+[ "$(find "$bundle" -type f | wc -l | tr -d ' ')" = 1 ] || fail "$name: files other than README.md: $(find "$bundle" -type f)"
+
 name="output directory that can't be created"
 : > "$work/file"
 rc=0
