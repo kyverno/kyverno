@@ -8,7 +8,13 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/v3/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 )
 
@@ -801,4 +807,237 @@ func Test_MutateResourceNilMatchConstraints(t *testing.T) {
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
 	_, err = mutateResource(&policy, nil, *resource, nil, gvr, nil, a, false)
 	assert.NilError(t, err)
+}
+
+func Test_MatchesSelector_ConjunctionScoping(t *testing.T) {
+	tests := []struct {
+		name     string
+		obj      *unstructured.Unstructured
+		paramRef *admissionregistrationv1.ParamRef
+		expected bool
+	}{
+		{
+			name: "exact namespace and name match",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"name":      "config-a",
+						"namespace": "tenant-1",
+					},
+				},
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name:      "config-a",
+				Namespace: "tenant-1",
+			},
+			expected: true,
+		},
+		{
+			name: "cross-namespace name match rejected",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"name":      "config-a",
+						"namespace": "tenant-2",
+					},
+				},
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name:      "config-a",
+				Namespace: "tenant-1",
+			},
+			expected: false,
+		},
+		{
+			name: "cross-namespace selector match rejected",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"name":      "config-b",
+						"namespace": "tenant-2",
+						"labels": map[string]interface{}{
+							"tier": "gold",
+						},
+					},
+				},
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Namespace: "tenant-1",
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"tier": "gold",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "same namespace selector match accepted",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"name":      "config-b",
+						"namespace": "tenant-1",
+						"labels": map[string]interface{}{
+							"tier": "gold",
+						},
+					},
+				},
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Namespace: "tenant-1",
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"tier": "gold",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name:     "nil ref rejected",
+			obj:      &unstructured.Unstructured{},
+			paramRef: nil,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchesSelector(tt.obj, tt.paramRef)
+			assert.Equal(t, got, tt.expected)
+		})
+	}
+}
+
+func Test_MutateClusterScopedResource_NilNamespace(t *testing.T) {
+	rawPolicy := []byte(`{
+    "apiVersion": "admissionregistration.k8s.io/v1alpha1",
+    "kind": "MutatingAdmissionPolicy",
+    "metadata": {
+        "name": "mutate-ns"
+    },
+    "spec": {
+        "failurePolicy": "Fail",
+        "matchConstraints": {
+            "resourceRules": [
+                {
+                    "apiGroups": [""],
+                    "apiVersions": ["v1"],
+                    "operations": ["CREATE"],
+                    "resources": ["namespaces"]
+                }
+            ]
+        },
+        "mutations": [
+            {
+                "patchType": "ApplyConfiguration",
+                "applyConfiguration": {
+                    "expression": "object"
+                }
+            }
+        ]
+    }
+}`)
+	rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+        "name": "prod"
+    }
+}`)
+
+	var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	data := engineapi.NewMutatingAdmissionPolicyData(&policy)
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+
+	res, err := Mutate(data, *resource, gvk, gvr, nil, nil, nil, true, false)
+	assert.NilError(t, err)
+	assert.Equal(t, res.Resource.GetName(), "prod")
+}
+
+func Test_ProcessMAPWithoutClient_MultipleParams_Rejects(t *testing.T) {
+	rawPolicy := []byte(`{
+    "apiVersion": "admissionregistration.k8s.io/v1alpha1",
+    "kind": "MutatingAdmissionPolicy",
+    "metadata": {
+        "name": "mutate-with-params"
+    },
+    "spec": {
+        "failurePolicy": "Fail",
+        "paramKind": {
+            "apiVersion": "v1",
+            "kind": "ConfigMap"
+        },
+        "matchConstraints": {
+            "resourceRules": [
+                {
+                    "apiGroups": [""],
+                    "apiVersions": ["v1"],
+                    "operations": ["CREATE"],
+                    "resources": ["configmaps"]
+                }
+            ]
+        },
+        "mutations": [
+            {
+                "patchType": "ApplyConfiguration",
+                "applyConfiguration": {
+                    "expression": "object"
+                }
+            }
+        ]
+    }
+}`)
+	rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "ConfigMap",
+    "metadata": {
+        "name": "target-cm",
+        "namespace": "default"
+    }
+}`)
+
+	var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
+
+	bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-selector"},
+			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+				PolicyName: "mutate-with-params",
+				ParamRef: &admissionregistrationv1beta1.ParamRef{
+					Namespace: "default",
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"tier": "gold"},
+					},
+				},
+			},
+		},
+	}
+
+	cm1, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm-1","namespace":"default","labels":{"tier":"gold"}}}`))
+	assert.NilError(t, err)
+	cm2, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm-2","namespace":"default","labels":{"tier":"gold"}}}`))
+	assert.NilError(t, err)
+
+	// MAP evaluations reject multiple parameter matches per upstream specifications
+	_, err = processMAPWithoutClient(&policy, bindings, *resource, ns, []runtime.Object{cm1, cm2}, gvr, a, "default/ConfigMap/target-cm", false)
+	assert.ErrorContains(t, err, "multiple parameter resources match paramRef")
 }

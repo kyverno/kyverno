@@ -633,6 +633,57 @@ func TestCollectParams(t *testing.T) {
 			},
 			expectedLen: 0,
 		},
+		{
+			name:           "nil paramKind guard",
+			paramKind:      nil,
+			paramRef:       &admissionregistrationv1.ParamRef{},
+			mockClient:     &mockEngineClient{},
+			expectedErrMsg: "paramKind cannot be nil",
+		},
+		{
+			name: "nil paramRef guard",
+			paramKind: &admissionregistrationv1.ParamKind{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+			paramRef:    nil,
+			mockClient:  &mockEngineClient{},
+			expectedLen: 0,
+		},
+		{
+			name: "named param not found with allow action",
+			paramKind: &admissionregistrationv1.ParamKind{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name:                    "missing-config",
+				Namespace:               "default",
+				ParameterNotFoundAction: func() *admissionregistrationv1.ParameterNotFoundActionType { a := admissionregistrationv1.AllowAction; return &a }(),
+			},
+			mockClient: &mockEngineClient{
+				isNamespacedResp: true,
+				getResourceErr:   apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: "configmaps"}, "missing-config"),
+			},
+			expectedLen: 0,
+		},
+		{
+			name: "named param not found with deny action",
+			paramKind: &admissionregistrationv1.ParamKind{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name:                    "missing-config",
+				Namespace:               "default",
+				ParameterNotFoundAction: func() *admissionregistrationv1.ParameterNotFoundActionType { a := admissionregistrationv1.DenyAction; return &a }(),
+			},
+			mockClient: &mockEngineClient{
+				isNamespacedResp: true,
+				getResourceErr:   apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: "configmaps"}, "missing-config"),
+			},
+			expectedErrMsg: "parameter resource default/missing-config not found",
+		},
 	}
 
 	for _, tt := range tests {

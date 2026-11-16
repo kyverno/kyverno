@@ -4,12 +4,15 @@ import (
 	"reflect"
 	"testing"
 
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"sigs.k8s.io/yaml"
 )
@@ -336,4 +339,180 @@ func TestGetGVRs_SkipsUnsafeResourceSegments(t *testing.T) {
 	wild := GetGVRs(rules("", "v1", "*"), nil)
 	assert.Equal(t, len(wild), 1)
 	assert.Equal(t, wild[0].Resource, "*")
+}
+
+func Test_ProcessVAPWithoutClient_MatchConstraintsEvaluation(t *testing.T) {
+	rawPolicy := []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: match-only-services
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   [""]
+        apiVersions: ["v1"]
+        operations:  ["CREATE"]
+        resources:   ["services"]
+  validations:
+    - expression: "object.spec.type == 'ClusterIP'"
+`)
+	policy := decodeVAP(t, rawPolicy)
+
+	rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "ConfigMap",
+    "metadata": {
+        "name": "my-config",
+        "namespace": "default"
+    }
+}`)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
+
+	bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-1"},
+			Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+				PolicyName: "match-only-services",
+			},
+		},
+	}
+
+	er, err := processVAPWithoutClient(policy, bindings, *resource, ns, nil, a, "default/ConfigMap/my-config")
+	assert.NilError(t, err)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 0)
+}
+
+func Test_ProcessVAP_MultiBindingAggregation(t *testing.T) {
+	rawPolicy := []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: multi-binding-policy
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   [""]
+        apiVersions: ["v1"]
+        operations:  ["CREATE"]
+        resources:   ["configmaps"]
+  validations:
+    - expression: "object.metadata.name == 'allowed-cm'"
+`)
+	policy := decodeVAP(t, rawPolicy)
+
+	rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "ConfigMap",
+    "metadata": {
+        "name": "disallowed-cm",
+        "namespace": "default"
+    }
+}`)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
+
+	bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-1"},
+			Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+				PolicyName: "multi-binding-policy",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-2"},
+			Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+				PolicyName: "multi-binding-policy",
+			},
+		},
+	}
+
+	er, err := processVAPWithoutClient(policy, bindings, *resource, ns, nil, a, "default/ConfigMap/disallowed-cm")
+	assert.NilError(t, err)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 2)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Name(), "multi-binding-policy")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
+	assert.Assert(t, er.PolicyResponse.Rules[0].ValidatingAdmissionPolicyBinding() != nil)
+	assert.Equal(t, er.PolicyResponse.Rules[0].ValidatingAdmissionPolicyBinding().GetName(), "binding-1")
+
+	assert.Equal(t, er.PolicyResponse.Rules[1].Name(), "multi-binding-policy")
+	assert.Equal(t, er.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusFail)
+	assert.Assert(t, er.PolicyResponse.Rules[1].ValidatingAdmissionPolicyBinding() != nil)
+	assert.Equal(t, er.PolicyResponse.Rules[1].ValidatingAdmissionPolicyBinding().GetName(), "binding-2")
+	assert.Equal(t, er.IsSuccessful(), false)
+	assert.Equal(t, er.IsFailed(), true)
+}
+
+func Test_ProcessVAPWithoutClient_MultipleParamsWithoutSelector_FailsAdmission(t *testing.T) {
+	rawPolicy := []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: param-policy
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   [""]
+        apiVersions: ["v1"]
+        operations:  ["CREATE"]
+        resources:   ["configmaps"]
+  validations:
+    - expression: "params != null"
+`)
+	policy := decodeVAP(t, rawPolicy)
+
+	rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "ConfigMap",
+    "metadata": {
+        "name": "target-cm",
+        "namespace": "default"
+    }
+}`)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
+
+	bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-named"},
+			Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+				PolicyName: "param-policy",
+				ParamRef: &admissionregistrationv1.ParamRef{
+					Name:      "named-cm",
+					Namespace: "default",
+				},
+			},
+		},
+	}
+
+	cm1, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"named-cm","namespace":"default"}}`))
+	assert.NilError(t, err)
+	cm2, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"named-cm","namespace":"default"}}`))
+	assert.NilError(t, err)
+
+	// In offline evaluation, when multiple parameter objects match a single-param binding, an admission error must be returned.
+	_, err = processVAPWithoutClient(policy, bindings, *resource, ns, []runtime.Object{cm1, cm2}, a, "default/ConfigMap/target-cm")
+	assert.ErrorContains(t, err, "multiple parameter resources match paramRef without selector")
 }

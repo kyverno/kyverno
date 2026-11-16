@@ -153,13 +153,20 @@ func IsValidatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (boo
 
 // Collect params collects parameter resources from a live cluster
 func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1.ParamKind, paramRef *admissionregistrationv1.ParamRef, namespace string) ([]runtime.Object, error) {
+	if paramKind == nil {
+		return nil, fmt.Errorf("paramKind cannot be nil")
+	}
+	if paramRef == nil {
+		return nil, nil
+	}
+
 	var params []runtime.Object
 
 	apiVersion := paramKind.APIVersion
 	kind := paramKind.Kind
 	gv, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
-		return nil, fmt.Errorf("can't parse the parameter resource group version")
+		return nil, fmt.Errorf("can't parse the parameter resource group version: %w", err)
 	}
 
 	// If `paramKind` is cluster-scoped, then paramRef.namespace MUST be unset.
@@ -190,13 +197,23 @@ func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admi
 	if paramRef.Name != "" {
 		param, err := client.GetResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Name, "")
 		if err != nil {
-			return nil, err
+			if apierrors.IsNotFound(err) {
+				notFoundAction := admissionregistrationv1.DenyAction
+				if paramRef.ParameterNotFoundAction != nil {
+					notFoundAction = *paramRef.ParameterNotFoundAction
+				}
+				if notFoundAction == admissionregistrationv1.AllowAction {
+					return nil, nil
+				}
+				return nil, fmt.Errorf("parameter resource %s/%s not found: %w", paramsNamespace, paramRef.Name, err)
+			}
+			return nil, fmt.Errorf("failed to get parameter resource %s/%s: %w", paramsNamespace, paramRef.Name, err)
 		}
 		return []runtime.Object{param}, nil
 	} else if paramRef.Selector != nil {
 		paramList, err := client.ListResource(ctx, apiVersion, kind, paramsNamespace, paramRef.Selector)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to list parameter resources: %w", err)
 		}
 		for i := range paramList.Items {
 			params = append(params, &paramList.Items[i])
