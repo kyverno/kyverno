@@ -54,7 +54,7 @@ func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 	switch valuesAvailable := value.(type) {
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			if wildcardElements(toElement(val), keyElement) {
+			if wildcardElementDirectional(toElement(val), keyElement) {
 				return false, true
 			}
 		}
@@ -197,7 +197,7 @@ func isAllIn(key []element, value []element) bool {
 	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcardElements(valKey, valValue) {
+			if wildcardElementDirectional(valValue, valKey) {
 				found++
 				break
 			}
@@ -210,7 +210,7 @@ func isAllIn(key []element, value []element) bool {
 func isAllNotIn(key []element, value []element) bool {
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcardElements(valKey, valValue) {
+			if wildcardElementDirectional(valValue, valKey) {
 				return false
 			}
 		}

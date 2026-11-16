@@ -16,8 +16,8 @@ import (
 // this package) stringify into str and are comparable. Everything else --
 // map, slice, nil -- is opaque: it never equals anything under exact
 // equality, but it can still satisfy a universal "*" pattern under
-// wildcard matching (see wildcardElements), so a values: ["*"] catch-all
-// over a composite array keeps working.
+// wildcard matching (see wildcardElementDirectional), so a values: ["*"]
+// catch-all over a composite array keeps working.
 type element struct {
 	str        string
 	comparable bool
@@ -68,36 +68,15 @@ func equalElements(a, b element) bool {
 	return a.comparable && b.comparable && a.str == b.str
 }
 
-// wildcardElements is the symmetric-wildcard pair predicate. Two
-// comparable elements match if either's coerced string is a wildcard
-// pattern the other satisfies. An opaque element matches only a universal
-// "*"/"**" pattern on the comparable side; two opaque elements never
-// match.
-//
-// This is for the array-set paths (the []interface{} value branch and the
-// Any/All set helpers), which already matched symmetrically at base.
-func wildcardElements(a, b element) bool {
-	switch {
-	case a.comparable && b.comparable:
-		return wildcard.Match(a.str, b.str) || wildcard.Match(b.str, a.str)
-	case a.comparable:
-		return isUniversalPattern(a.str)
-	case b.comparable:
-		return isUniversalPattern(b.str)
-	default:
-		return false
-	}
-}
-
-// wildcardElementDirectional is the directional wildcard predicate for the
-// scalar-value paths (a bare string or bare scalar "value" operand): only
-// pattern -> key matching is checked, never the reverse. At base, the
-// scalar-value branches of keyExistsInArray/anyKeyExistsInArray/
-// allKeyExistsInArray did wildcard.Match(value, key) -- value is the glob
-// pattern, key is the concrete string being tested against it. Using the
-// symmetric predicate here would let a resource-controlled key itself act
-// as a pattern (e.g. a key of "*" would then "match" any policy-declared
-// value), which base never allowed.
+// wildcardElementDirectional is the directional wildcard predicate shared
+// by every wildcard-matching path in this package (the scalar-value
+// branches and the array-set branches alike): only pattern -> key matching
+// is checked, never the reverse. Only the policy-authored "value" acts as
+// the glob pattern; the resolved "key" is always matched literally against
+// it, never treated as a pattern itself (see evaluate.go). This is the
+// intended matching direction: a key that happens to contain wildcard
+// characters (for example "*") must never "match" a policy-declared value
+// by acting as a pattern in the other direction.
 func wildcardElementDirectional(pattern, key element) bool {
 	switch {
 	case pattern.comparable && key.comparable:
