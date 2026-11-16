@@ -297,8 +297,18 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 			}
 
 			if len(params) == 0 {
-				// ParameterNotFoundAction: Allow -> skip this binding
-				continue
+				notFoundAction := admissionregistrationv1.DenyAction
+				if binding.Spec.ParamRef.ParameterNotFoundAction != nil {
+					notFoundAction = *binding.Spec.ParamRef.ParameterNotFoundAction
+				}
+				if notFoundAction == admissionregistrationv1.AllowAction {
+					continue
+				}
+				err := fmt.Errorf("no params found for policy %s, binding %s", policy.GetName(), binding.GetName())
+				vapLogger.Error(err, "failed to collect params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Validation, err.Error(), nil, nil).WithVAPBinding(&bindings[i])
+				er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+				return er, err
 			}
 
 			// a selector being present in the binding is the only case in which params will contain more than 1 entry
@@ -352,7 +362,14 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 	er := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
 
 	if policy.Spec.MatchConstraints != nil {
-		policyMatches, err := matcher.Match(&celmatching.MatchCriteria{Constraints: policy.Spec.MatchConstraints}, a, namespace)
+		matchResources := policy.Spec.MatchConstraints.DeepCopy()
+		if matchResources.NamespaceSelector == nil {
+			matchResources.NamespaceSelector = &metav1.LabelSelector{}
+		}
+		if matchResources.ObjectSelector == nil {
+			matchResources.ObjectSelector = &metav1.LabelSelector{}
+		}
+		policyMatches, err := matcher.Match(&celmatching.MatchCriteria{Constraints: matchResources}, a, namespace)
 		if err != nil {
 			vapLogger.Error(err, "failed to match policy match constraints for validatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
 			return er, fmt.Errorf("failed to match policy match constraints: %w", err)
@@ -364,7 +381,14 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 
 	for i, binding := range bindings {
 		if binding.Spec.MatchResources != nil {
-			bindingMatches, err := matcher.Match(&celmatching.MatchCriteria{Constraints: binding.Spec.MatchResources}, a, namespace)
+			matchResources := binding.Spec.MatchResources.DeepCopy()
+			if matchResources.NamespaceSelector == nil {
+				matchResources.NamespaceSelector = &metav1.LabelSelector{}
+			}
+			if matchResources.ObjectSelector == nil {
+				matchResources.ObjectSelector = &metav1.LabelSelector{}
+			}
+			bindingMatches, err := matcher.Match(&celmatching.MatchCriteria{Constraints: matchResources}, a, namespace)
 			if err != nil {
 				vapLogger.Error(err, "failed to match binding resources for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue

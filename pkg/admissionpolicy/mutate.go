@@ -201,8 +201,18 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 			}
 
 			if len(params) == 0 {
-				// ParameterNotFoundAction: Allow -> skip this binding
-				continue
+				notFoundAction := admissionregistrationv1beta1.DenyAction
+				if binding.Spec.ParamRef.ParameterNotFoundAction != nil {
+					notFoundAction = *binding.Spec.ParamRef.ParameterNotFoundAction
+				}
+				if notFoundAction == admissionregistrationv1beta1.AllowAction {
+					continue
+				}
+				err := fmt.Errorf("no params found for policy %s, binding %s", policy.GetName(), binding.GetName())
+				mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindings[i])
+				er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+				return er, err
 			}
 
 			var matchedParams runtime.Object
@@ -291,6 +301,12 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 
 	if policy.Spec.MatchConstraints != nil {
 		matchResources := ConvertMatchResources(policy.Spec.MatchConstraints)
+		if matchResources.NamespaceSelector == nil {
+			matchResources.NamespaceSelector = &metav1.LabelSelector{}
+		}
+		if matchResources.ObjectSelector == nil {
+			matchResources.ObjectSelector = &metav1.LabelSelector{}
+		}
 		policyMatches, err := matcher.Match(&celmatching.MatchCriteria{Constraints: matchResources}, a, namespace)
 		if err != nil {
 			mapLogger.Error(err, "failed to match policy match constraints for mutatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
@@ -304,6 +320,12 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 	for i, binding := range bindings {
 		if binding.Spec.MatchResources != nil {
 			matchResources := ConvertMatchResources(binding.Spec.MatchResources)
+			if matchResources.NamespaceSelector == nil {
+				matchResources.NamespaceSelector = &metav1.LabelSelector{}
+			}
+			if matchResources.ObjectSelector == nil {
+				matchResources.ObjectSelector = &metav1.LabelSelector{}
+			}
 			bindingMatches, err := matcher.Match(&celmatching.MatchCriteria{Constraints: matchResources}, a, namespace)
 			if err != nil {
 				mapLogger.Error(err, "failed to match binding resources for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
@@ -469,6 +491,9 @@ func matchesSelector(obj *unstructured.Unstructured, ref *admissionregistrationv
 	}
 	expectedNs := ref.Namespace
 	if expectedNs == "" && obj.GetNamespace() != "" {
+		if targetNamespace == "" {
+			return false
+		}
 		expectedNs = targetNamespace
 	}
 	if expectedNs != "" && obj.GetNamespace() != expectedNs {

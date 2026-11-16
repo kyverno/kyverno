@@ -812,10 +812,11 @@ func Test_MutateResourceNilMatchConstraints(t *testing.T) {
 
 func Test_MatchesSelector_ConjunctionScoping(t *testing.T) {
 	tests := []struct {
-		name     string
-		obj      *unstructured.Unstructured
-		paramRef *admissionregistrationv1.ParamRef
-		expected bool
+		name            string
+		obj             *unstructured.Unstructured
+		paramRef        *admissionregistrationv1.ParamRef
+		targetNamespace string
+		expected        bool
 	}{
 		{
 			name: "exact namespace and name match",
@@ -901,11 +902,43 @@ func Test_MatchesSelector_ConjunctionScoping(t *testing.T) {
 			paramRef: nil,
 			expected: false,
 		},
+		{
+			name: "cluster-scoped target rejects namespaced candidate with empty ref namespace",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"name":      "config-a",
+						"namespace": "tenant-1",
+					},
+				},
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name: "config-a",
+			},
+			targetNamespace: "",
+			expected:        false,
+		},
+		{
+			name: "namespaced target accepts namespaced candidate with empty ref namespace",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"name":      "config-a",
+						"namespace": "tenant-1",
+					},
+				},
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name: "config-a",
+			},
+			targetNamespace: "tenant-1",
+			expected:        true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := matchesSelector(tt.obj, tt.paramRef, "")
+			got := matchesSelector(tt.obj, tt.paramRef, tt.targetNamespace)
 			assert.Equal(t, got, tt.expected)
 		})
 	}
@@ -1064,7 +1097,7 @@ func Test_ProcessMAPWithoutClient_ChainedMutation(t *testing.T) {
             {
                 "patchType": "ApplyConfiguration",
                 "applyConfiguration": {
-                    "expression": "Object{metadata: Object.metadata{labels: {'step1': 'applied'}}}"
+                    "expression": "has(object.metadata.labels) && 'step1' in object.metadata.labels ? Object{metadata: Object.metadata{labels: {'step2': 'applied'}}} : Object{metadata: Object.metadata{labels: {'step1': 'applied'}}}"
                 }
             }
         ]
@@ -1112,6 +1145,7 @@ func Test_ProcessMAPWithoutClient_ChainedMutation(t *testing.T) {
 	assert.Equal(t, er.PolicyResponse.Rules[1].MutatingAdmissionPolicyBinding().GetName(), "binding-2")
 	assert.Assert(t, er.PatchedResource.Object != nil)
 	assert.Equal(t, er.PatchedResource.GetLabels()["step1"], "applied")
+	assert.Equal(t, er.PatchedResource.GetLabels()["step2"], "applied")
 	patches := er.GetPatches()
 	assert.Assert(t, len(patches) > 0)
 }
