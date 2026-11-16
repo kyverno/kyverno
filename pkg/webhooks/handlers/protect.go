@@ -26,6 +26,8 @@ const (
 	endpointsControllerUsername           = "system:serviceaccount:kube-system:endpoint-controller"
 	endpointSliceControllerUsername       = "system:serviceaccount:kube-system:endpointslice-controller"
 	endpointSliceMirrorControllerUsername = "system:serviceaccount:kube-system:endpointslicemirroring-controller"
+	certManagerControllerUsername         = "system:serviceaccount:cert-manager:cert-manager-controller"
+	certManagerServiceAccountUsername     = "system:serviceaccount:cert-manager:cert-manager"
 )
 
 const generateLabelPrefix = "generate.kyverno.io/"
@@ -130,7 +132,12 @@ func isAllowedChildResource(kind metav1.GroupVersionKind, username string, owner
 }
 
 func isCertManagerController(username string) bool {
-	return strings.HasPrefix(username, "system:serviceaccount:") && strings.Contains(username, "cert-manager")
+	switch username {
+	case certManagerControllerUsername, certManagerServiceAccountUsername:
+		return true
+	default:
+		return false
+	}
 }
 
 func (inner AdmissionHandler) withProtection() AdmissionHandler {
