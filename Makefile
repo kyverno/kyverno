@@ -1146,18 +1146,11 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 	@echo Load image archive in kind cluster... >&2
 	@$(KIND) load image-archive kyverno.tar --name $(KIND_NAME)
 
-.PHONY: kind-install-crds
-kind-install-crds: ## Install CRDs from config manifests
-	@echo Apply CRDs from config/crds... >&2
-	@kubectl apply --server-side -R -f ./config/crds
-
 .PHONY: kind-install-kyverno
 KYVERNO_TEST_CHART ?= ./charts/kyverno
-kind-install-kyverno: helm-setup-dependency-charts kind-install-crds ## Install kyverno helm chart
+kind-install-kyverno: helm-setup-dependency-charts ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait $(KYVERNO_TEST_CHART) \
-		--set crds.install=false \
-		--set crds.migration.enabled=false \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
 		--set admissionController.container.image.tag=$(GIT_SHA) \
@@ -1187,13 +1180,11 @@ kind-install-kyverno: helm-setup-dependency-charts kind-install-crds ## Install 
 		$(EXPLICIT_INSTALL_SETTINGS)
 
 .PHONY: kind-install-kyverno-from-repo
-kind-install-kyverno-from-repo: $(HELM) kind-install-crds ## Install Kyverno Helm Chart from the Kyverno repo
+kind-install-kyverno-from-repo: $(HELM) ## Install Kyverno Helm Chart from the Kyverno repo
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait \
 		--repo https://kyverno.github.io/kyverno/ kyverno \
 		--version $(INSTALL_VERSION) \
-		--set crds.install=false \
-		--set crds.migration.enabled=false \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml) \
 		$(EXPLICIT_INSTALL_SETTINGS)
 
@@ -1211,13 +1202,13 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 	@$(MAKE) kind-install-kyverno
 
 .PHONY: kind-deploy-kyverno-policies
-kind-deploy-kyverno-policies: $(HELM) kind-deploy-kyverno ## Deploy kyverno-policies helm chart
+kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
 	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace --wait ./charts/kyverno-policies \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno-policies.yaml)
 
 .PHONY: kind-deploy-all
-kind-deploy-all: kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
+kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
 
 .PHONY: kind-deploy-reporter
 kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
