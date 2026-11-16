@@ -3,7 +3,9 @@ package evaluator
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
@@ -92,9 +94,14 @@ func DecodeInput(mode Mode, body []byte) (Input, error) {
 		}
 		in.JSONPayloads = []*unstructured.Unstructured{{Object: object}}
 	case ModeHTTP:
-		data, err := yaml.YAMLToJSON(body)
-		if err != nil {
-			return in, fmt.Errorf("failed to decode HTTP check request: %w", err)
+		// a JSON body is decoded as is: converting it through YAML would silently keep only the
+		// first of several values
+		data := bytes.TrimSpace(body)
+		if data[0] != '{' {
+			var err error
+			if data, err = yaml.YAMLToJSON(body); err != nil {
+				return in, fmt.Errorf("failed to decode HTTP check request: %w", err)
+			}
 		}
 		// reject unknown fields: a misspelled one (say "attribute") would otherwise be dropped and the
 		// verdict given for a different request
@@ -103,6 +110,9 @@ func DecodeInput(mode Mode, body []byte) (Input, error) {
 		dec.DisallowUnknownFields()
 		if err := dec.Decode(&request); err != nil {
 			return in, fmt.Errorf("failed to decode HTTP check request: %w", err)
+		}
+		if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+			return in, fmt.Errorf("failed to decode HTTP check request: unexpected data after the request object")
 		}
 		in.HTTPRequests = []*authzhttp.CheckRequest{&request}
 	case ModeEnvoy:

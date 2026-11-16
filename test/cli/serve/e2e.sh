@@ -148,25 +148,27 @@ expect_status "request without content type is a 415" 415 -X POST --data-binary 
 expect_status "non-loopback Host is a 403" 403 -H 'Host: rebind.example.com' "http://127.0.0.1:$K/healthz"
 expect_status "wrong method is a JSON 405" 405 "http://127.0.0.1:$K/v1alpha1/evaluate/Kubernetes"
 
-# invalid policies must fail startup; bounded so a regression that starts the server fails instead
-# of hanging the script
-KYVERNO_EXPERIMENTAL=true "$CLI" serve --policies "$DIR/policies/invalid" --address "127.0.0.1:$((PORT_BASE + 9))" >/dev/null 2>&1 &
-INVALID_PID=$!
-PIDS+=("$INVALID_PID")
-for _ in $(seq 1 100); do
-  kill -0 "$INVALID_PID" 2>/dev/null || break
-  sleep 0.1
+# invalid policies (a bad schema, or a CEL expression that does not compile) must fail startup;
+# bounded so a regression that starts the server fails instead of hanging the script
+for invalid in invalid invalid-cel; do
+  KYVERNO_EXPERIMENTAL=true "$CLI" serve --policies "$DIR/policies/$invalid" --address "127.0.0.1:$((PORT_BASE + 9))" >/dev/null 2>&1 &
+  INVALID_PID=$!
+  PIDS+=("$INVALID_PID")
+  for _ in $(seq 1 100); do
+    kill -0 "$INVALID_PID" 2>/dev/null || break
+    sleep 0.1
+  done
+  if kill -0 "$INVALID_PID" 2>/dev/null; then
+    kill "$INVALID_PID" 2>/dev/null || true
+    echo "FAIL  $invalid policies did not fail startup (server still running after 10s)"
+    FAILURES=$((FAILURES + 1))
+  elif wait "$INVALID_PID"; then
+    echo "FAIL  $invalid policies did not fail startup (exit 0)"
+    FAILURES=$((FAILURES + 1))
+  else
+    echo "PASS  $invalid policies fail startup"
+  fi
 done
-if kill -0 "$INVALID_PID" 2>/dev/null; then
-  kill "$INVALID_PID" 2>/dev/null || true
-  echo "FAIL  invalid policies did not fail startup (server still running after 10s)"
-  FAILURES=$((FAILURES + 1))
-elif wait "$INVALID_PID"; then
-  echo "FAIL  invalid policies did not fail startup (exit 0)"
-  FAILURES=$((FAILURES + 1))
-else
-  echo "PASS  invalid policies fail startup"
-fi
 
 if [ "$FAILURES" -gt 0 ]; then
   echo "$FAILURES check(s) failed" >&2

@@ -141,6 +141,21 @@ func TestEvaluateRequest(t *testing.T) {
 }
 
 //nolint:paralleltest // newServerFromPaths sets the process-global CRD processor
+func TestRequestExceptionsChangeDigest(t *testing.T) {
+	s, err := newServerFromPaths([]string{fixture("policies", "kubernetes")}, Config{})
+	require.NoError(t, err)
+	h := s.Handler()
+	payload := read(t, fixture("payloads", "kubernetes", "deployment-fail.yaml"))
+	code, plain, _ := postRequest(t, h, EvaluationRequest{Mode: evaluator.ModeKubernetes, Payload: payload})
+	require.Equal(t, http.StatusOK, code)
+	code, exempt, _ := postRequest(t, h, EvaluationRequest{Mode: evaluator.ModeKubernetes, Payload: payload, Exceptions: read(t, fixture("requests", "exempt-bad-deployment.yaml"))})
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, s.digest, plain.PolicySetDigest)
+	assert.NotEqual(t, plain.Decision, exempt.Decision, "the exception changes the decision")
+	assert.NotEqual(t, plain.PolicySetDigest, exempt.PolicySetDigest, "so it must change the digest")
+}
+
+//nolint:paralleltest // newServerFromPaths sets the process-global CRD processor
 func TestEvaluateRequestErrors(t *testing.T) {
 	locked, err := newServerFromPaths([]string{fixture("policies", "kubernetes")}, Config{Modes: []evaluator.Mode{evaluator.ModeKubernetes}})
 	require.NoError(t, err)
@@ -166,6 +181,7 @@ func TestEvaluateRequestErrors(t *testing.T) {
 		{"request policies disabled", locked, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels}), http.StatusForbidden, "--allow-request-policies"},
 		{"no policies anywhere", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod}), http.StatusBadRequest, "has none"},
 		{"invalid request policies", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: read(t, fixture("policies", "invalid", "broken.yaml"))}), http.StatusBadRequest, "policies: failed to load"},
+		{"uncompilable request policy", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: read(t, fixture("policies", "invalid-cel", "bad-expression.yaml"))}), http.StatusBadRequest, "failed to compile ValidatingPolicy bad-expression"},
 		{"legacy request policy", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: "apiVersion: kyverno.io/v1\nkind: ClusterPolicy\nmetadata:\n  name: x\nspec:\n  rules: []\n"}), http.StatusBadRequest, "policies:"},
 		{"non-exception in exceptions", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, Exceptions: pod}), http.StatusBadRequest, "CEL PolicyException"},
 		{"bad context", open, mustJSON(t, EvaluationRequest{Mode: "Kubernetes", Payload: pod, Policies: labels, Context: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: x\n"}), http.StatusBadRequest, "context:"},

@@ -118,6 +118,11 @@ func TestDecodeInput(t *testing.T) {
 		body:    []byte(`{"attribute":{"method":"GET"}}`),
 		wantErr: `unknown field "attribute"`,
 	}, {
+		name:    "http trailing data",
+		mode:    ModeHTTP,
+		body:    append(readFixture(t, "payloads", "http", "get.json"), []byte(`{"unexpected":true}`)...),
+		wantErr: "unexpected data after the request object",
+	}, {
 		name:    "http malformed",
 		mode:    ModeHTTP,
 		body:    []byte(`{"attributes":`),
@@ -169,6 +174,27 @@ func TestLoadStrict(t *testing.T) {
 
 	_, err = LoadStrict(fixture("policies", "invalid"))
 	assert.ErrorContains(t, err, "failed to load policies")
+
+	_, err = LoadStrict(fixture("policies", "invalid-cel"))
+	assert.ErrorContains(t, err, "failed to compile ValidatingPolicy bad-expression")
+
+	_, err = LoadStrictBytes([]byte(`apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: bad-mutation
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [pods]
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: "[JSONPatch{op: "
+`))
+	assert.ErrorContains(t, err, "failed to compile MutatingPolicy bad-mutation")
 
 	_, err = LoadStrict(fixture("policies", "does-not-exist"))
 	assert.Error(t, err)

@@ -22,14 +22,17 @@ kyverno serve --allow-request-policies                   # policies arrive with 
 | `--mode` | all | The modes to serve: `Kubernetes`, `JSON`, `HTTP`, `Envoy`. Can be repeated or comma-separated. |
 | `--address` | `127.0.0.1:8080` | Listen address. A non-loopback address prints a warning. |
 | `--allow-request-policies` | `false` | Accept policies inside `POST /v1alpha1/evaluate` requests. They are evaluated instead of `--policies`. |
-| `--http-timeout` | `30s` | How long a policy HTTP call (CEL `http.Get`/`http.Post`) may take, response body included. A call that runs over fails with an error. Requests are serialized, so an unbounded call would stall every later request. |
+| `--http-timeout` | `30s` | How long a policy HTTP call (CEL `http.Get`/`http.Post`) may take, response body included. A call that runs over fails with an error. Requests are serialized, so an unbounded call would stall every later request. A timed-out call cannot be cancelled and stays open until its endpoint answers or closes the connection; while 32 are open, further policy HTTP calls fail at once. |
 
 **Startup is strict.** Policies are loaded once. The server refuses to start if:
 
 - a path is unreadable;
 - a document is not a supported policy;
 - a legacy `kyverno.io` policy kind is present;
+- a CEL policy does not compile, for example because of an invalid expression;
 - or no policies are found.
+
+Request `policies` are checked the same way, and a failure is a 400.
 
 This is unlike `apply`, which skips invalid files. A server that silently skipped a policy would
 allow every later request that policy should have checked.
@@ -95,7 +98,8 @@ jq -n --rawfile p policy.yaml --rawfile r pod.yaml \
 ```
 
 When the request carries `policies`, `policySetDigest` in the response is the digest of those
-policies.
+policies. When it carries `exceptions`, the digest also covers them, so two responses with the same
+digest were decided by the same policies and exceptions.
 
 ### Response
 
