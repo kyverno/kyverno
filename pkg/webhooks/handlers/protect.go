@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -56,10 +57,13 @@ func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ..
 			return admissionutils.Response(request.UID, err)
 		}
 		// Allow secondary child objects instantiated by controllers:
-		// 1. On CREATE: objects carrying ownerReferences (e.g. CertificateRequest for Certificate, EndpointSlice for Service).
+		// 1. On CREATE: secondary objects with controller ownerReferences (e.g. CertificateRequest for Certificate,
+		//    Order for CertificateRequest).
+		//    Arbitrary caller-controlled ownerReferences on generate targets (e.g. Secret, ConfigMap) remain denied
+		//    to prevent cache-restore recognition through forged generation labels before UID registration.
 		// 2. On CREATE & UPDATE: core Endpoints and EndpointSlices managed by kube-controller-manager
 		//    (endpoints-controller and endpointslice-controller reconcile Service labels along with endpoint subsets).
-		if request.Operation == admissionv1.Create && len(newResource.GetOwnerReferences()) > 0 {
+		if request.Operation == admissionv1.Create && isAllowedChildResource(request.Kind, newResource.GetOwnerReferences()) {
 			return inner(ctx, logger, request, startTime)
 		}
 		if isEndpointsController(request.UserInfo.Username) &&
@@ -105,6 +109,20 @@ func isEndpointsController(username string) bool {
 	default:
 		return false
 	}
+}
+
+func isAllowedChildResource(kind metav1.GroupVersionKind, ownerRefs []metav1.OwnerReference) bool {
+	for _, ref := range ownerRefs {
+		if ref.Controller != nil && *ref.Controller {
+			// cert-manager CertificateRequest inheriting labels from Certificate
+			// or cert-manager ACME Order inheriting labels from CertificateRequest
+			if (kind.Group == "cert-manager.io" && kind.Kind == "CertificateRequest" && ref.Kind == "Certificate") ||
+				(kind.Group == "acme.cert-manager.io" && kind.Kind == "Order" && ref.Kind == "CertificateRequest") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (inner AdmissionHandler) withProtection() AdmissionHandler {

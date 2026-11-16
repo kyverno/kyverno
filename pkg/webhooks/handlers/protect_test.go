@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -333,6 +334,8 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 		oldLabels               map[string]string
 		newLabels               map[string]string
 		hasOwnerRef             bool
+		ownerKind               string
+		isControllerOwner       bool
 		protectManagedResources bool
 		wantAllowed             bool
 		wantError               string
@@ -351,12 +354,114 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 			newLabels: map[string]string{generatePolicy: "sync-secrets"},
 		},
 		{
-			name:        "allows generate labels on create for child resources with ownerReferences",
-			operation:   admissionv1.Create,
-			username:    user,
-			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
-			hasOwnerRef: true,
-			wantAllowed: true,
+			name:              "allows generate labels on create for CertificateRequest child resources with controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       true,
+		},
+		{
+			name:              "denies modifying generate labels on update for CertificateRequest with controller ownerReferences",
+			operation:         admissionv1.Update,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			oldLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:         map[string]string{generatePolicy: "tampered"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies removing generate labels on update for CertificateRequest with controller ownerReferences",
+			operation:         admissionv1.Update,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			oldLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:         map[string]string{},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for CertificateRequest without controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: false,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "allows generate labels on create for Order child resources with controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: true,
+			wantAllowed:       true,
+		},
+		{
+			name:              "denies modifying generate labels on update for Order with controller ownerReferences",
+			operation:         admissionv1.Update,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			oldLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:         map[string]string{generatePolicy: "tampered"},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies removing generate labels on update for Order with controller ownerReferences",
+			operation:         admissionv1.Update,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			oldLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:         map[string]string{},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for Order without controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: false,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for standalone generate targets with ownerReferences (cache-restore forgery protection)",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Service",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
 		},
 		{
 			name:        "allows generate labels on create for endpoints created by endpoints-controller without ownerReferences",
@@ -794,14 +899,30 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 			}}
 			if test.operation != admissionv1.Delete {
 				if test.hasOwnerRef {
-					request.Object.Raw = resourceWithLabelsAndOwnerRef(t, test.newLabels)
+					targetKind := gvk.Kind
+					if targetKind == "" {
+						targetKind = "ConfigMap"
+					}
+					ownerKind := test.ownerKind
+					if ownerKind == "" {
+						ownerKind = "Service"
+					}
+					request.Object.Raw = resourceWithLabelsAndOwnerRef(t, targetKind, test.newLabels, ownerKind, test.isControllerOwner)
 				} else {
 					request.Object.Raw = resourceWithLabels(t, test.newLabels)
 				}
 			}
 			if test.operation != admissionv1.Create {
 				if test.hasOwnerRef {
-					request.OldObject.Raw = resourceWithLabelsAndOwnerRef(t, test.oldLabels)
+					targetKind := gvk.Kind
+					if targetKind == "" {
+						targetKind = "ConfigMap"
+					}
+					ownerKind := test.ownerKind
+					if ownerKind == "" {
+						ownerKind = "Service"
+					}
+					request.OldObject.Raw = resourceWithLabelsAndOwnerRef(t, targetKind, test.oldLabels, ownerKind, test.isControllerOwner)
 				} else {
 					request.OldObject.Raw = resourceWithLabels(t, test.oldLabels)
 				}
@@ -952,23 +1073,35 @@ func resourceWithLabels(t *testing.T, labels map[string]string) []byte {
 	return raw
 }
 
-func resourceWithLabelsAndOwnerRef(t *testing.T, labels map[string]string) []byte {
+func resourceWithLabelsAndOwnerRef(t *testing.T, targetKind string, labels map[string]string, ownerKind string, isController bool) []byte {
 	t.Helper()
+	apiVersion := "v1"
+	if targetKind == "CertificateRequest" {
+		apiVersion = "cert-manager.io/v1"
+	} else if targetKind == "Order" {
+		apiVersion = "acme.cert-manager.io/v1"
+	}
+	ownerAPIVersion := "v1"
+	if ownerKind == "Certificate" || ownerKind == "CertificateRequest" {
+		ownerAPIVersion = "cert-manager.io/v1"
+	}
+	ownerRef := map[string]interface{}{
+		"apiVersion": ownerAPIVersion,
+		"kind":       ownerKind,
+		"name":       "parent-" + strings.ToLower(ownerKind),
+		"uid":        "parent-uid",
+	}
+	if isController {
+		ownerRef["controller"] = true
+	}
 	resource := map[string]interface{}{
-		"apiVersion": "v1",
-		"kind":       "ConfigMap",
+		"apiVersion": apiVersion,
+		"kind":       targetKind,
 		"metadata": map[string]interface{}{
-			"name":      "test",
-			"namespace": "tenant",
-			"labels":    labels,
-			"ownerReferences": []map[string]interface{}{
-				{
-					"apiVersion": "v1",
-					"kind":       "Service",
-					"name":       "parent-service",
-					"uid":        "parent-uid",
-				},
-			},
+			"name":            "test",
+			"namespace":       "tenant",
+			"labels":          labels,
+			"ownerReferences": []map[string]interface{}{ownerRef},
 		},
 	}
 	raw, err := json.Marshal(resource)
