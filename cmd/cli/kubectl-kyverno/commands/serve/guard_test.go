@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/evaluator"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	celhttp "github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -121,6 +122,7 @@ func TestBoundPolicyHTTP(t *testing.T) {
 	t.Cleanup(func() {
 		http.DefaultClient.Timeout = clientTimeout
 		transport.ResponseHeaderTimeout = headerTimeout
+		compiler.SetHTTPCallTimeout(0)
 	})
 	// accepts the connection and never answers until the test ends
 	done := make(chan struct{})

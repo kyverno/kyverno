@@ -33,6 +33,10 @@ the `v1alpha1` API. It is registered only when `KYVERNO_EXPERIMENTAL=true` is se
   rebinding. Routes are registered without methods and wrapped in `only`, so a wrong method still
   gets a JSON `Status`. Keep new routes behind the same wrappers.
 - **Policy HTTP calls are bounded process-wide.** The CEL HTTP library sends requests without a
-  deadline, so `boundPolicyHTTP` (run once in `options.run`, `--http-timeout`) sets
-  `http.DefaultClient.Timeout` and `http.DefaultTransport`'s `ResponseHeaderTimeout`. It must run
-  before the first evaluation, because the library clones the default transport lazily.
+  deadline and its guarded clients have no overall timeout, so `boundPolicyHTTP` (run once in
+  `options.run`, `--http-timeout`) calls `compiler.SetHTTPCallTimeout`, which bounds each whole
+  `http.Get`/`http.Post` call, body included, in `pkg/cel/compiler`'s wrapper around the SDK
+  context. It also sets `http.DefaultClient.Timeout` and `http.DefaultTransport`'s
+  `ResponseHeaderTimeout`, so header stalls close their connections. That has to happen before the
+  first evaluation, because the library clones the default transport lazily. The call bound is off
+  (zero) in every other binary.

@@ -31,8 +31,8 @@ func (c *cachedHTTPContext) getOrBuild() (http.ContextInterface, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.cached = ctx
-	return ctx, nil
+	c.cached = boundedHTTPContext{inner: ctx}
+	return c.cached, nil
 }
 
 func (c *cachedHTTPContext) Get(url string, headers map[string]string) (any, error) {

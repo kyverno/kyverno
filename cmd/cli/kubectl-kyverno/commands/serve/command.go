@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -45,7 +46,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVar(&opts.modes, "mode", nil, "Payload modes to serve: Kubernetes, JSON, HTTP, Envoy (repeatable or comma-separated; default all)")
 	cmd.Flags().StringVar(&opts.address, "address", DefaultAddress, "Address to listen on; defaults to loopback only")
 	cmd.Flags().BoolVar(&opts.allowRequestPolicies, "allow-request-policies", false, "Accept policies inside POST /v1alpha1/evaluate requests (evaluated instead of --policies); --policies is optional when set")
-	cmd.Flags().DurationVar(&opts.httpTimeout, "http-timeout", DefaultHTTPTimeout, "Maximum time a policy HTTP call (CEL http.Get or http.Post) may wait for a response")
+	cmd.Flags().DurationVar(&opts.httpTimeout, "http-timeout", DefaultHTTPTimeout, "Maximum time a policy HTTP call (CEL http.Get or http.Post) may take, response body included")
 	return cmd
 }
 
@@ -118,6 +119,8 @@ func listen(ctx context.Context, address string) (net.Listener, error) {
 }
 
 func isLoopback(host string) bool {
+	// host names are case-insensitive and may be written fully qualified ("localhost.")
+	host = strings.TrimSuffix(strings.ToLower(strings.Trim(host, "[]")), ".")
 	if host == "localhost" {
 		return true
 	}
