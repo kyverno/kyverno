@@ -816,10 +816,10 @@ codegen-fix-all: codegen-fix-tests
 
 .PHONY: codegen-crds-manifests
 codegen-crds-manifests: ## Generate CRDs, CLI embedded CRDs, Helm CRDs, and install manifests
-codegen-crds-manifests: codegen-crds-all
-codegen-crds-manifests: codegen-cli-crds
-codegen-crds-manifests: codegen-helm-crds
-codegen-crds-manifests: codegen-manifest-all
+	+$(MAKE) codegen-crds-all
+	+$(MAKE) codegen-cli-crds
+	+$(MAKE) codegen-helm-crds
+	+$(MAKE) codegen-manifest-all
 
 .PHONY: codegen-all-code
 codegen-all-code: ## Generate all generated code
