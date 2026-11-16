@@ -17,6 +17,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
@@ -54,30 +55,55 @@ func TestCheckOptions_SignaturePullSecretsApplyOverReusedPuller(t *testing.T) {
 	require.NoError(t, remote.Write(ref, img))
 	requireAuth.Store(true)
 
+	for _, tc := range signaturePullSecretCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// the image's options as imageverify binds them: a puller built from the
+			// policy's own credentials, which have no access to the signature repository
+			puller, err := remote.NewPuller()
+			require.NoError(t, err)
+			baseROpts := []remote.Option{remote.Reuse(puller)}
+
+			cosignCfg := &v1beta1.Cosign{
+				Key:    &v1beta1.Key{Data: testPublicKey},
+				CTLog:  &v1beta1.CTLog{InsecureIgnoreTlog: true},
+				Source: &v1beta1.Source{SignaturePullSecrets: []corev1.LocalObjectReference{{Name: "signatures"}}},
+			}
+			opts, err := checkOptions(context.Background(), cosignCfg, baseROpts, []name.Option{name.Insecure}, signaturePullSecretLister(t, host, tc.password))
+			require.NoError(t, err)
+
+			_, err = ociremote.SignedEntity(ref, opts.RegistryClientOpts...)
+			if tc.authenticates {
+				require.NoError(t, err, "the signature pull secret must authenticate despite the reused puller")
+				return
+			}
+			var rejected *transport.Error
+			require.ErrorAs(t, err, &rejected, "a rejected signature pull secret must fail the fetch")
+			require.Equal(t, http.StatusUnauthorized, rejected.StatusCode)
+		})
+	}
+}
+
+var signaturePullSecretCases = []struct {
+	name          string
+	password      string
+	authenticates bool
+}{
+	{name: "correct password", password: "pw", authenticates: true},
+	{name: "incorrect password", password: "wrong", authenticates: false},
+}
+
+// signaturePullSecretLister serves a "signatures" pull secret that logs in to
+// host as user "sig" with the given password.
+func signaturePullSecretLister(t *testing.T, host, password string) corev1listers.SecretLister {
+	t.Helper()
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	require.NoError(t, indexer.Add(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "signatures", Namespace: config.KyvernoNamespace()},
 		Type:       corev1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{corev1.DockerConfigJsonKey: []byte(fmt.Sprintf(`{"auths":{%q:{"auth":%q}}}`,
-			host, base64.StdEncoding.EncodeToString([]byte("sig:pw"))))},
+			host, base64.StdEncoding.EncodeToString([]byte("sig:"+password))))},
 	}))
-
-	// the image's options as imageverify binds them: a puller built from the
-	// policy's own credentials, which have no access to the signature repository
-	puller, err := remote.NewPuller()
-	require.NoError(t, err)
-	baseROpts := []remote.Option{remote.Reuse(puller)}
-
-	cosignCfg := &v1beta1.Cosign{
-		Key:    &v1beta1.Key{Data: testPublicKey},
-		CTLog:  &v1beta1.CTLog{InsecureIgnoreTlog: true},
-		Source: &v1beta1.Source{SignaturePullSecrets: []corev1.LocalObjectReference{{Name: "signatures"}}},
-	}
-	opts, err := checkOptions(context.Background(), cosignCfg, baseROpts, []name.Option{name.Insecure}, corev1listers.NewSecretLister(indexer))
-	require.NoError(t, err)
-
-	_, err = ociremote.SignedEntity(ref, opts.RegistryClientOpts...)
-	require.NoError(t, err, "the signature pull secret must authenticate despite the reused puller")
+	return corev1listers.NewSecretLister(indexer)
 }
 
 // TestBundleDetection_SignaturePullSecretsApplyOverReusedPuller is the bundle
@@ -107,27 +133,27 @@ func TestBundleDetection_SignaturePullSecretsApplyOverReusedPuller(t *testing.T)
 	pushReferrer(t, sigRepo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
 	requireAuth.Store(true)
 
-	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	require.NoError(t, indexer.Add(&corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "signatures", Namespace: config.KyvernoNamespace()},
-		Type:       corev1.SecretTypeDockerConfigJson,
-		Data: map[string][]byte{corev1.DockerConfigJsonKey: []byte(fmt.Sprintf(`{"auths":{%q:{"auth":%q}}}`,
-			host, base64.StdEncoding.EncodeToString([]byte("sig:pw"))))},
-	}))
+	for _, tc := range signaturePullSecretCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// the image's options as imageverify binds them: a puller built from the
+			// policy's own credentials, which have no access to the registry
+			puller, err := remote.NewPuller()
+			require.NoError(t, err)
 
-	// the image's options as imageverify binds them: a puller built from the
-	// policy's own credentials, which have no access to the registry
-	puller, err := remote.NewPuller()
-	require.NoError(t, err)
+			cosignCfg := bundleTestAttestor()
+			cosignCfg.Source = &v1beta1.Source{
+				Repository:           sigRepo.String(),
+				SignaturePullSecrets: []corev1.LocalObjectReference{{Name: "signatures"}},
+			}
+			opts, err := checkOptions(context.Background(), cosignCfg, []remote.Option{remote.Reuse(puller)}, []name.Option{name.Insecure}, signaturePullSecretLister(t, host, tc.password))
+			require.NoError(t, err)
 
-	cosignCfg := bundleTestAttestor()
-	cosignCfg.Source = &v1beta1.Source{
-		Repository:           sigRepo.String(),
-		SignaturePullSecrets: []corev1.LocalObjectReference{{Name: "signatures"}},
+			bundles, _ := NewVerifier(nil, logr.Discard()).loadBundles(imageRepo.Tag("subject"), opts.RegistryClientOpts)
+			if tc.authenticates {
+				require.Len(t, bundles, 1, "the signature pull secret must reach the bundle despite the reused puller")
+				return
+			}
+			require.Empty(t, bundles, "a rejected signature pull secret must find no bundles")
+		})
 	}
-	opts, err := checkOptions(context.Background(), cosignCfg, []remote.Option{remote.Reuse(puller)}, []name.Option{name.Insecure}, corev1listers.NewSecretLister(indexer))
-	require.NoError(t, err)
-
-	bundles, _ := NewVerifier(nil, logr.Discard()).loadBundles(imageRepo.Tag("subject"), opts.RegistryClientOpts)
-	require.Len(t, bundles, 1, "the signature pull secret must reach the bundle despite the reused puller")
 }
