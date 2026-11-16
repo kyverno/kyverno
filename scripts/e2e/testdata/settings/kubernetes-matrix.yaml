@@ -1,0 +1,15 @@
+# A small copy of .github/workflows/kubernetes-matrix.yaml for settings_test.sh.
+jobs:
+  matrix:
+    steps:
+      - name: Export matrix
+        id: matrix
+        env:
+          KIND_VERSION: v0.99.0
+          NODES: |
+            [
+              {"version": "v1.34.1", "image": "kindest/node:v1.34.1@sha256:aaaa", "mutatingAdmissionPolicy": "v1beta1"},
+              {"version": "v1.35.2", "image": "kindest/node:v1.35.2@sha256:bbbb", "mutatingAdmissionPolicy": "v1beta1"},
+              {"version": "v1.36.3", "image": "kindest/node:v1.36.3@sha256:cccc", "mutatingAdmissionPolicy": "v1"}
+            ]
+        run: echo

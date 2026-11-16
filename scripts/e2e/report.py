@@ -151,7 +151,10 @@ def version_key(version):
 def collect(root):
     """Reads the downloaded artifacts. Returns (results, jobs without a report)."""
     results, missing = [], []
-    for meta_path in sorted(Path(root).glob(f"*/{META}")):
+    # download-artifact puts each artifact in its own subdirectory, but may
+    # extract a single matching artifact straight into root, so read both.
+    root = Path(root)
+    for meta_path in sorted({*root.glob(META), *root.glob(f"*/{META}")}):
         meta = json.loads(meta_path.read_text())
         report = meta_path.parent / REPORT
         if not report.is_file():

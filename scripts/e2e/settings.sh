@@ -26,9 +26,10 @@ suite="${1:-}"
 k8s="${2:-}"
 key="${3:-}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-workflow="$root/.github/workflows/tests-conformance.yaml"
-action="$root/.github/actions/tests/conformance/run/action.yaml"
-matrix="$root/.github/workflows/kubernetes-matrix.yaml"
+# The tests in settings_test.sh point these at fixtures.
+workflow="${E2E_WORKFLOW:-$root/.github/workflows/tests-conformance.yaml}"
+action="${E2E_ACTION:-$root/.github/actions/tests/conformance/run/action.yaml}"
+matrix="${E2E_MATRIX:-$root/.github/workflows/kubernetes-matrix.yaml}"
 
 fail() {
   echo "settings.sh: $*" >&2

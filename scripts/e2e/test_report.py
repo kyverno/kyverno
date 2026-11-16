@@ -12,6 +12,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 import shutil
 import tempfile
 import unittest
@@ -131,6 +132,19 @@ class SummarizeTest(unittest.TestCase):
             self.assertIn("All test results passed.", out)
             self.assertIn("No chainsaw reports", run("summarize", str(Path(directory) / "none")))
 
+    def test_reads_a_single_artifact_extracted_into_the_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = TESTDATA / "e2e-reports-rbac-default-v1.37.0-0"
+            for name in ("meta.json", "results.json"):
+                shutil.copy(source / name, directory)
+            results, missing = report.collect(directory)
+            self.assertEqual([(r["suite"], r["variant"], r["status"]) for r in results],
+                             [("rbac", "default", "failed")])
+            self.assertIn("| background-controller-permissions | rbac (default) |", run("summarize", directory))
+            # A mix of both layouts is read once each.
+            shutil.copytree(TESTDATA / "e2e-reports-rbac-standard-v1.37.0-0", Path(directory) / "standard")
+            self.assertEqual(len(report.collect(directory)[0]), 2)
+
     def test_never_reports_skipped_tests_as_passed(self):
         with tempfile.TemporaryDirectory() as directory:
             for name in ("e2e-reports-assert-v1.34.11-0", "e2e-reports-validating-policies-v1.34.11-0"):
@@ -167,8 +181,12 @@ except ImportError:
     yaml = None
 
 
-@unittest.skipUnless(yaml, "PyYAML isn't installed")
+# CI installs PyYAML for this test, so there it fails instead of skipping.
+@unittest.skipUnless(yaml or os.environ.get("CI"), "PyYAML isn't installed")
 class WorkflowTest(unittest.TestCase):
+    def setUp(self):
+        self.assertIsNotNone(yaml, "PyYAML is required in CI: pip install PyYAML")
+
     def test_every_matrix_dimension_is_part_of_the_artifact_names(self):
         """Jobs of one suite must not overwrite each other's reports.
 
