@@ -1353,6 +1353,11 @@ func Test_processListOfMaps_NilResource(t *testing.T) {
 			resource: yaml.MustParse(`"not-a-list"`),
 			wantErr:  true,
 		},
+		{
+			name:     "quoted null scalar resource",
+			resource: yaml.MustParse(`"null"`),
+			wantErr:  true,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1485,6 +1490,32 @@ func Test_PreProcessPattern_NilResourceListField(t *testing.T) {
 			rawPattern:  localConditionPattern,
 			rawResource: invalidListResource,
 			wantErr:     true,
+			assertErr: func(t *testing.T, err error) {
+				assert.Assert(t, err != nil)
+				assert.Assert(t, !isGlobalConditionError(err))
+				assert.Assert(t, !isConditionError(err))
+			},
+		},
+		{
+			name:       "quoted string null initContainers field returns error",
+			rawPattern: localConditionPattern,
+			rawResource: `{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+					"name": "test-pod"
+				},
+				"spec": {
+					"initContainers": "null",
+					"containers": [
+						{
+							"name": "app",
+							"image": "nginx"
+						}
+					]
+				}
+			}`,
+			wantErr: true,
 			assertErr: func(t *testing.T, err error) {
 				assert.Assert(t, err != nil)
 				assert.Assert(t, !isGlobalConditionError(err))
