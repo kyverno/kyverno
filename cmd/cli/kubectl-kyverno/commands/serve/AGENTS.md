@@ -21,7 +21,8 @@ the `v1alpha1` API. It is registered only when `KYVERNO_EXPERIMENTAL=true` is se
 - **Consumers.** The Kyverno Playground backend (`kyverno/playground`, `backend/pkg/serve` and
   `backend/pkg/playground`) talks to this API over HTTP. Its `scripts/e2e-kyverno-serve.sh` checks
   that `apply`, serve and the Playground agree on `test/cli/serve` fixtures.
-- **Never fail open.** Startup uses `evaluator.LoadStrict`, which errors on any load problem.
+- **Never fail open.** Startup uses `evaluator.LoadStrict`, which errors on any load problem and
+  compiles every CEL policy (`PolicySet.Compile`), so a broken expression fails startup, not the first request.
   `decide` maps no results, or only skips, to `NoMatch` and never to `Allow`. Decode errors are 4xx
   and evaluation errors or panics are 5xx, all with a `Status` body.
 - **The response schema in `api.go` is the integration contract** for curl users and the Kyverno
@@ -39,4 +40,6 @@ the `v1alpha1` API. It is registered only when `KYVERNO_EXPERIMENTAL=true` is se
   context. It also sets `http.DefaultClient.Timeout` and `http.DefaultTransport`'s
   `ResponseHeaderTimeout`, so header stalls close their connections. That has to happen before the
   first evaluation, because the library clones the default transport lazily. The call bound is off
-  (zero) in every other binary.
+  (zero) in every other binary. A timed-out call can't be cancelled (the SDK's `Get`/`Post` take no
+  context), so `pkg/cel/compiler` caps the abandoned calls still running (`maxAbandonedHTTPCalls`)
+  and fails new calls at once past the cap. The real fix is a context or timeout in kyverno/sdk.

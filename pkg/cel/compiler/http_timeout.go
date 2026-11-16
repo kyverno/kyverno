@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -10,6 +11,15 @@ import (
 
 // httpCallTimeout bounds each CEL http.Get/http.Post call, in nanoseconds; zero disables the bound.
 var httpCallTimeout atomic.Int64
+
+// maxAbandonedHTTPCalls caps the calls that timed out but are still waiting on their endpoint.
+// The SDK's Get and Post take no context, so a timed-out call cannot be cancelled: its goroutine
+// and connection stay open until the endpoint answers or closes the connection. Past the cap, new
+// calls fail at once instead of piling up more open connections. A variable so tests can lower it.
+var maxAbandonedHTTPCalls int64 = 32
+
+// abandonedHTTPCalls counts the timed-out calls that are still running.
+var abandonedHTTPCalls atomic.Int64
 
 // SetHTTPCallTimeout bounds every CEL http.Get and http.Post call made by policies compiled in
 // this process, including calls through http.Client(caBundle). Zero, the default, leaves calls
@@ -50,14 +60,28 @@ func withHTTPCallTimeout(call func() (any, error)) (any, error) {
 	if timeout <= 0 {
 		return call()
 	}
+	if n := abandonedHTTPCalls.Load(); n >= maxAbandonedHTTPCalls {
+		return nil, fmt.Errorf("http call refused: %d earlier calls timed out and are still waiting on their endpoints", n)
+	}
 	type result struct {
 		value any
 		err   error
 	}
+	var (
+		mu        sync.Mutex
+		finished  bool
+		abandoned bool
+	)
 	done := make(chan result, 1)
 	go func() {
 		value, err := call()
 		done <- result{value, err}
+		mu.Lock()
+		defer mu.Unlock()
+		finished = true
+		if abandoned {
+			abandonedHTTPCalls.Add(-1)
+		}
 	}()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
@@ -65,6 +89,12 @@ func withHTTPCallTimeout(call func() (any, error)) (any, error) {
 	case r := <-done:
 		return r.value, r.err
 	case <-timer.C:
+		mu.Lock()
+		defer mu.Unlock()
+		if !finished {
+			abandoned = true
+			abandonedHTTPCalls.Add(1)
+		}
 		return nil, fmt.Errorf("http call did not complete within %s", timeout)
 	}
 }

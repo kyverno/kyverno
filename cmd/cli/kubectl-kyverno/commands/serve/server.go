@@ -309,6 +309,13 @@ func (s *Server) handleEvaluateRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		in.Exceptions = results.CELExceptions
+		// the digest identifies everything that decided the result, so it covers these exceptions too
+		withExceptions := *set
+		withExceptions.PolicyCelExceptions = append(slices.Clone(set.PolicyCelExceptions), in.Exceptions...)
+		if digest, err = withExceptions.Digest(); err != nil {
+			writeStatus(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 	}
 	var crdPaths []string
 	if strings.TrimSpace(req.CustomResourceDefinitions) != "" {

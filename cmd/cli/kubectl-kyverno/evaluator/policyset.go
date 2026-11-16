@@ -215,8 +215,8 @@ func (s *PolicySet) Digest() (string, error) {
 }
 
 // LoadStrict loads policies from local files or directories and fails on anything it cannot
-// load: an unreadable path, a document that is not a supported policy, or a legacy kyverno.io
-// kind. It is the loader for long-running callers (kyverno serve), where silently skipping a
+// load: an unreadable path, a document that is not a supported policy, a legacy kyverno.io
+// kind, or a CEL policy that does not compile. It is the loader for long-running callers (kyverno serve), where silently skipping a
 // broken policy would turn into a silent allow for every later request.
 func LoadStrict(paths ...string) (*PolicySet, error) {
 	if len(paths) == 0 {
@@ -233,6 +233,9 @@ func LoadStrict(paths ...string) (*PolicySet, error) {
 	if set.PolicyCount() == 0 {
 		return nil, fmt.Errorf("no policies found in %v", paths)
 	}
+	if err := set.Compile(); err != nil {
+		return nil, err
+	}
 	return set, nil
 }
 
@@ -247,6 +250,9 @@ func LoadStrictBytes(content []byte) (*PolicySet, error) {
 	set.Add(results)
 	if set.PolicyCount() == 0 {
 		return nil, fmt.Errorf("no policies found in request")
+	}
+	if err := set.Compile(); err != nil {
+		return nil, err
 	}
 	return set, nil
 }
