@@ -33,7 +33,7 @@ func NewVpolEngine(mgr ctrl.Manager) (vpolengine.Engine, vpolengine.Provider, er
 // the same helper production wiring uses) so the controller watches and lister share
 // one cache — no dual-cache race conditions.
 func NewVpolEngineWithExceptions(mgr ctrl.Manager) (vpolengine.Engine, vpolengine.Provider, error) {
-	polexLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), "")
+	polexLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), "*")
 
 	compiler := vpolcompiler.NewCompiler()
 	provider, err := vpolengine.NewKubeProvider(compiler, mgr, polexLister, true)

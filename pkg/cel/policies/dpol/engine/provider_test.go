@@ -5,8 +5,13 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -69,7 +74,7 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			providerFunc, err := NewProvider(tt.compiler, tt.policies, tt.exceptions)
+			providerFunc, err := NewProvider(tt.compiler, tt.policies, tt.exceptions, engine.ExceptionScopeAll)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("expected error=%v, got error=%v", tt.wantErr, err)
 			}
@@ -86,4 +91,43 @@ func TestNewProvider(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestNewProvider_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions pins the namespace argument
+// NewProvider passes to scope.Select: under scope "*" a namespaced policy must only accept
+// exceptions filed in its own namespace, never a foreign one. It fails if NewProvider ever stops
+// passing policy.GetNamespace() through to the exception match.
+func TestNewProvider_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testing.T) {
+	ndpol := &policiesv1beta1.NamespacedDeletingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "guard", Namespace: "tenant-a"}}
+	ndpol.TypeMeta.Kind = "NamespacedDeletingPolicy"
+	ownException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedDeletingPolicy"}},
+		},
+	}
+	foreignException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "foreign", Namespace: "tenant-b"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedDeletingPolicy"}},
+		},
+	}
+
+	providerFunc, err := NewProvider(
+		compiler.NewCompiler(),
+		[]policiesv1beta1.DeletingPolicyLike{ndpol},
+		[]*policiesv1beta1.PolicyException{ownException, foreignException},
+		engine.ExceptionScopeAll,
+	)
+	require.NoError(t, err)
+
+	policies, err := providerFunc.Fetch(context.Background())
+	require.NoError(t, err)
+	require.Len(t, policies, 1)
+
+	result, err := policies[0].CompiledPolicy.Evaluate(context.Background(), unstructured.Unstructured{}, nil, &libs.FakeContextProvider{})
+	require.NoError(t, err)
+	require.Len(t, result.Exceptions, 1, "tenant-a's policy must only see its own namespace's exception")
+	assert.Equal(t, "tenant-a", result.Exceptions[0].GetNamespace())
+	assert.Equal(t, "own", result.Exceptions[0].GetName())
 }

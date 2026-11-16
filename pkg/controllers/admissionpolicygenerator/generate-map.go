@@ -65,7 +65,7 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	}
 	shouldDelete := reason != ""
 	if !shouldDelete {
-		celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
+		celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind(), mpol.GetNamespace())
 		if err != nil {
 			return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 		}
@@ -105,7 +105,7 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 		return c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 	}
 
-	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
+	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind(), mpol.GetNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
@@ -200,7 +200,7 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 		return c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 	}
 
-	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
+	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind(), mpol.GetNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
@@ -273,7 +273,7 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 		return c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 	}
 
-	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
+	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind(), mpol.GetNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}

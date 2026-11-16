@@ -1015,8 +1015,11 @@ features:
   policyExceptions:
     # -- Enables the feature
     enabled: false
-    # -- Restrict policy exceptions to a single namespace
-    # Set to "*" to allow exceptions in all namespaces
+    # -- The namespace that owns exceptions. A concrete namespace (recommended) accepts
+    # exceptions from that namespace only, and is also the central namespace that may except
+    # any cluster-scoped or namespaced policy. "*" lets every namespace except cluster-scoped
+    # policies; namespaced policies still take exceptions only from their own namespace. Leaving
+    # this empty accepts no exceptions, so rendering fails if enabled is true and namespace is empty.
     namespace: ''
   protectManagedResources:
     # -- Enables the feature

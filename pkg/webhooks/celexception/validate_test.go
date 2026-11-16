@@ -224,7 +224,7 @@ func TestValidateNamespace(t *testing.T) {
 			request:     newAdmissionRequest(t, admissionv1.Create, validException, nil),
 			allowed:     true,
 			hasWarnings: true,
-			warningMsg:  "PolicyException resource namespace must match the defined namespace.",
+			warningMsg:  "PolicyException resource namespace must match the defined namespace; this exception is ignored.",
 		},
 		{
 			name: "wildcard namespace allows all namespaces without warning",

@@ -1,0 +1,25 @@
+apiVersion: cli.kyverno.io/v1alpha1
+exceptions:
+- exception-tenant-a.yaml
+- exception-tenant-b.yaml
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- skipped-by-own-namespace.yaml
+- not-skipped-by-foreign-namespace.yaml
+results:
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: tenant-a/check-deployment-labels
+  resources:
+  - skipped-by-own-namespace
+  result: skip
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: tenant-a/check-deployment-labels
+  resources:
+  - not-skipped-by-foreign-namespace
+  result: fail
