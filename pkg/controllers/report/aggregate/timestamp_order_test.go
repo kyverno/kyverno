@@ -91,14 +91,29 @@ func TestAggregateResultsClearsFixedCELFailureWhenPassIsExcluded(t *testing.T) {
 		Result: openreports.StatusFail, Timestamp: metav1.Timestamp{Seconds: 1700000000, Nanos: 100_000_000},
 		Properties: map[string]string{"cel.validationIndex": "0"},
 	}
+	otherFailure := openreportsv1alpha1.ReportResult{
+		Source: reportutils.SourceValidatingPolicy, Policy: "other-policy", Rule: "validation",
+		Result: openreports.StatusFail, Timestamp: metav1.Timestamp{Seconds: 1700000000, Nanos: 200_000_000},
+	}
 	passing := openreportsv1alpha1.ReportResult{
 		Source: reportutils.SourceValidatingPolicy, Policy: "require-label", Rule: "validation",
 		Result: openreports.StatusPass, Timestamp: metav1.Timestamp{Seconds: 1700000000, Nanos: 500_000_000},
 	}
+	maps := timestampTestMaps()
+	maps.Vpol = sets.New[string]("require-label", "other-policy")
+
+	failOnly := aggregate.AggregateResults(maps, types.UID(uid), ephemeralTimestampResult(failing))
+	require.Len(t, failOnly, 1)
+	require.Equal(t, openreportsv1alpha1.Result(openreports.StatusFail), failOnly[0].Result)
+	require.Equal(t, "require-label", failOnly[0].Policy)
+
 	for _, order := range [][]openreportsv1alpha1.ReportResult{{failing, passing}, {passing, failing}} {
-		report := &reportsv1.EphemeralReport{Spec: reportsv1.EphemeralReportSpec{Results: order}}
-		merged := aggregate.AggregateResults(timestampTestMaps(), types.UID(uid), report)
-		require.Empty(t, merged, "the newer pass for the same CEL policy must replace the stale failure before pass results are filtered")
+		results := append([]openreportsv1alpha1.ReportResult{otherFailure}, order...)
+		report := &reportsv1.EphemeralReport{Spec: reportsv1.EphemeralReportSpec{Results: results}}
+		merged := aggregate.AggregateResults(maps, types.UID(uid), report)
+		require.Len(t, merged, 1, "the newer pass should clear only the fixed CEL policy")
+		require.Equal(t, "other-policy", merged[0].Policy)
+		require.Equal(t, openreportsv1alpha1.Result(openreports.StatusFail), merged[0].Result)
 	}
 }
 
