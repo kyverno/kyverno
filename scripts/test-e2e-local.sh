@@ -21,6 +21,11 @@
 # - DRY_RUN:         when not empty, prints the commands and runs nothing.
 # - E2E_KIND_NAME:   name of the kind cluster (default kyverno-e2e).
 #
+# With the argument "clean", it deletes that cluster instead.
+#
+# The script owns a cluster when it has written .tools/e2e-local/<name>/cluster
+# for it. It never deletes or reuses a cluster it doesn't own.
+#
 # The setup comes from the CI files, so that it follows them when they change:
 #
 # - .github/workflows/tests-conformance.yaml: the job that runs the suite gives
@@ -48,7 +53,7 @@ MAKE=${MAKE:-make}
 TOOLS_DIR=${TOOLS_DIR:-$PWD/.tools}
 name=${E2E_KIND_NAME:-kyverno-e2e}
 dry_run=${DRY_RUN:-}
-state=$TOOLS_DIR/e2e-local
+state=$TOOLS_DIR/e2e-local/$name
 sep=$(printf '\037')
 
 die() {
@@ -80,6 +85,26 @@ suites() {
   find "$root" -name .chainsaw.yaml | sed -e "s|^$root/||" -e 's|/\.chainsaw\.yaml$||' | sort
 }
 
+if [ "${1:-}" = clean ]; then
+  if [ ! -f "$state/cluster" ]; then
+    echo "test-e2e-local didn't create a kind cluster named $name: nothing to delete."
+    exit 0
+  fi
+  run "$KIND" delete cluster --name "$name"
+  run rm -rf "$state"
+  exit 0
+fi
+
+# Reading the CI workflows needs yq, in a dry run too. `make -n` doesn't run the
+# rule that installs it, so run that rule here, without the flags of that make.
+case "$YQ" in
+  */*)
+    if [ ! -x "$YQ" ]; then
+      echo "Installing yq at $YQ: reading the CI workflows needs it." >&2
+      MAKEFLAGS='' MFLAGS='' "$MAKE" YQ="$YQ" TOOLS_DIR="$TOOLS_DIR" "$YQ" >&2
+    fi
+    ;;
+esac
 command -v "$YQ" > /dev/null 2>&1 || die "yq is not installed at $YQ. Install it with: make $YQ"
 
 # The suite.
@@ -282,13 +307,21 @@ fi
 export KUBECONFIG="$state/kubeconfig"
 export PATH="$TOOLS_DIR:$PATH"
 
+# The kind config: the one of CI without the host ports 80 and 443, which no test
+# uses. They would clash with another kind cluster created from the same config.
+kind_yaml=$("$YQ" 'del(.nodes[].extraPortMappings)' "$kind_config")
+
 # The cluster. Reuse it when it was created for the same setup, else recreate it:
-# CI installs every suite on a new cluster.
-wanted="name=$name image=$image kind-config=$kind_config use-config=$configs settings=$settings cert-manager=$cert_manager openreports=$openreports"
+# CI installs every suite on a new cluster. The checksum makes a changed kind
+# config a new setup.
+wanted="image=$image kind-config=$kind_config:$(echo "$kind_yaml" | cksum | awk '{ print $1 }') use-config=$configs settings=$settings cert-manager=$cert_manager openreports=$openreports"
 reuse=
 clusters=$("$KIND" get clusters 2> /dev/null || true)
 if echo "$clusters" | grep -x "$name" > /dev/null; then
-  if [ "$(cat "$state/cluster" 2> /dev/null)" = "$wanted" ]; then
+  if [ ! -f "$state/cluster" ]; then
+    die "A kind cluster named $name exists, and test-e2e-local didn't create it: there is no $state/cluster.
+Delete it yourself (kind delete cluster --name $name), or use another name (E2E_KIND_NAME=<name>)."
+  elif [ "$(cat "$state/cluster")" = "$wanted" ]; then
     echo "Reusing the kind cluster $name. For a new one, run make test-e2e-local-clean first."
     reuse=true
     run "$KIND" export kubeconfig --name "$name" --kubeconfig "$KUBECONFIG"
@@ -298,10 +331,10 @@ if echo "$clusters" | grep -x "$name" > /dev/null; then
   fi
 fi
 if [ -z "$reuse" ]; then
-  # Without the host ports 80 and 443 of the CI config, which no test uses: they
-  # would clash with another kind cluster created from the same config.
-  run cp "$kind_config" "$state/kind.yaml"
-  run "$YQ" -i 'del(.nodes[].extraPortMappings)' "$state/kind.yaml"
+  echo "+ $YQ 'del(.nodes[].extraPortMappings)' $kind_config > $state/kind.yaml" >&2
+  [ -n "$dry_run" ] || echo "$kind_yaml" > "$state/kind.yaml"
+  # Own the cluster from here on, so that a failed creation can be retried.
+  [ -n "$dry_run" ] || echo creating > "$state/cluster"
   run "$KIND" create cluster --name "$name" --image "$image" --config "$state/kind.yaml" --kubeconfig "$KUBECONFIG"
   [ -n "$dry_run" ] || echo "$wanted" > "$state/cluster"
 fi

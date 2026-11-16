@@ -376,17 +376,19 @@ make test-e2e-local SUITE=ttl TEST=past-timestamp K8S=v1.35.8
 The target needs Docker and `kubectl`. It does the following:
 
 1. Reads the setup that CI uses for the suite from `.github/workflows/tests-conformance.yaml` (Kyverno configs, helm settings, KinD config, cert-manager), and the node image from `.github/workflows/kubernetes-matrix.yaml`.
-2. Creates a KinD cluster named `kyverno-e2e`. Its kubeconfig is `.tools/e2e-local/kubeconfig`, so your current kube context doesn't change.
+2. Creates a KinD cluster named `kyverno-e2e`. Its kubeconfig is `.tools/e2e-local/kyverno-e2e/kubeconfig`, so your current kube context doesn't change.
 3. Builds the images from your working tree, loads them in the cluster, and installs Kyverno.
 4. Runs the tests with chainsaw.
 
-To print the setup and the commands without running them, add `-n`: `make -n test-e2e-local SUITE=...`.
+To print the setup and the commands without running them, add `-n`: `make -n test-e2e-local SUITE=...`. The dry run reads the CI workflows with `yq`, and installs it in `.tools` when it is missing.
 
-The cluster keeps running after the tests. The next run reuses it when it needs the same Kubernetes version and Kyverno setup, and recreates it otherwise. To delete it, run:
+The cluster keeps running after the tests. The next run reuses it when it needs the same Kubernetes version, KinD config and Kyverno setup, and recreates it otherwise. To delete it, run:
 
 ```console
 make test-e2e-local-clean
 ```
+
+The target only reuses or deletes a cluster that it created. If another KinD cluster is named `kyverno-e2e`, it stops: delete that cluster yourself, or set `E2E_KIND_NAME` to use another name.
 
 You can also set:
 
@@ -399,6 +401,8 @@ A local run differs from CI in these ways:
 - The cluster doesn't map the host ports 80 and 443, so that it can run next to another KinD cluster.
 - CI splits large suites in shards that run in separate jobs. The target runs every matching test in one run.
 - On a reused cluster, the target upgrades and restarts Kyverno. CI always installs it on a new cluster.
+
+The script behind the target, `scripts/test-e2e-local.sh`, has tests that need no cluster. Run them with `make test-e2e-local-unit`.
 
 ## Code generation
 

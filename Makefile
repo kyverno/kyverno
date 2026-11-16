@@ -68,6 +68,11 @@ YQ                                 ?= $(TOOLS_DIR)/yq
 YQ_VERSION                         ?= v4.52.4
 CHAINSAW                           ?= $(TOOLS_DIR)/chainsaw
 CHAINSAW_VERSION                   ?= v0.2.15-beta.3
+# sha256 of the release archives, from the checksums.txt of the release. Update them with CHAINSAW_VERSION.
+CHAINSAW_SHA256_darwin_amd64       ?= b0524b4c1f5c718ac0fa4c8eeab21ab3dcc1f58de8898c1bcffbb8462957676e
+CHAINSAW_SHA256_darwin_arm64       ?= 9a7ef804edf10af2550169dd105417025b13ecfcb09ac198db3316286f7f5494
+CHAINSAW_SHA256_linux_amd64        ?= dd5fe32ffc67dffa0c48091965f2f34ddb19445246ce77c0bca10d175c745602
+CHAINSAW_SHA256_linux_arm64        ?= 8b4ec7938f934508fded7f5405bcf7926197427faa8167ac8f0c92aef4f957a6
 KUBE_VERSION                       ?= v1.25.0
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(GOLANGCI_LINT) $(CLIENT_WRAPPER) $(CRD_SPLICE)
 ifeq ($(GOOS), darwin)
@@ -150,10 +155,18 @@ $(YQ):
 	@GOBIN=$(TOOLS_DIR) go install github.com/mikefarah/yq/v4@$(YQ_VERSION)
 
 # The release binary, as in CI: this chainsaw version doesn't build with the Go version in go.mod.
+# CI verifies its signature; check the archive against the pinned checksum before using it.
 $(CHAINSAW):
 	@echo Install chainsaw... >&2
 	@mkdir -p $(TOOLS_DIR)
 	@curl -fsSL -o $(CHAINSAW).tar.gz https://github.com/kyverno/chainsaw/releases/download/$(CHAINSAW_VERSION)/chainsaw_$(GOOS)_$(GOARCH).tar.gz
+	@want='$(CHAINSAW_SHA256_$(GOOS)_$(GOARCH))'; \
+		if command -v sha256sum > /dev/null 2>&1; then got=$$(sha256sum $(CHAINSAW).tar.gz); else got=$$(shasum -a 256 $(CHAINSAW).tar.gz); fi; \
+		if [ -z "$$want" ] || [ "$${got%% *}" != "$$want" ]; then \
+			echo "chainsaw $(CHAINSAW_VERSION) for $(GOOS)/$(GOARCH) has sha256 $${got%% *}, but the Makefile pins $${want:-no checksum for this platform}: not installing it." >&2; \
+			rm -f $(CHAINSAW).tar.gz; \
+			exit 1; \
+		fi
 	@tar -xzf $(CHAINSAW).tar.gz -C $(TOOLS_DIR) chainsaw
 	@rm $(CHAINSAW).tar.gz
 
@@ -991,11 +1004,14 @@ E2E_KIND         ?= $(TOOLS_DIR)/kind-$(E2E_KIND_VERSION)
 # Not empty under `make -n`. The MFLAGS half is for make 3.81, where MAKEFLAGS starts with a variable when no flag is set.
 E2E_DRY_RUN       = $(and $(findstring n,$(firstword -$(MAKEFLAGS))),$(findstring n,$(firstword $(MFLAGS))))
 
+# The script runs other targets with KIND set to this kind: don't define its rule twice then.
+ifneq ($(E2E_KIND),$(KIND))
 $(E2E_KIND):
 	@echo Install kind $(E2E_KIND_VERSION)... >&2
 	@GOBIN=$(TOOLS_DIR)/kind-install go install sigs.k8s.io/kind@$(E2E_KIND_VERSION)
 	@mv $(TOOLS_DIR)/kind-install/kind $(E2E_KIND)
 	@rmdir $(TOOLS_DIR)/kind-install
+endif
 
 # The script reads the setup of the suite from the CI workflows. It also runs under `make -n`, to print the commands of that setup.
 .PHONY: test-e2e-local
@@ -1006,11 +1022,14 @@ test-e2e-local: $(E2E_KIND) $(HELM) $(YQ) $(CHAINSAW) ## Run a conformance suite
 		KIND='$(E2E_KIND)' HELM='$(HELM)' YQ='$(YQ)' CHAINSAW='$(CHAINSAW)' MAKE='$(MAKE)' \
 		./scripts/test-e2e-local.sh
 
+# Deletes the cluster only if test-e2e-local created it.
 .PHONY: test-e2e-local-clean
 test-e2e-local-clean: $(E2E_KIND) ## Delete the kind cluster created by test-e2e-local
-	@echo Delete kind cluster $(E2E_KIND_NAME)... >&2
-	@$(E2E_KIND) delete cluster --name $(E2E_KIND_NAME)
-	@rm -rf $(TOOLS_DIR)/e2e-local
+	@KIND='$(E2E_KIND)' E2E_KIND_NAME='$(E2E_KIND_NAME)' TOOLS_DIR='$(TOOLS_DIR)' ./scripts/test-e2e-local.sh clean
+
+.PHONY: test-e2e-local-unit
+test-e2e-local-unit: $(YQ) ## Run the unit tests of scripts/test-e2e-local.sh (no cluster needed)
+	@YQ='$(YQ)' ./scripts/test-e2e-local_test.sh
 
 #############
 # HELM TEST #

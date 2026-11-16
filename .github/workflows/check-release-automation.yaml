@@ -56,6 +56,8 @@ jobs:
       - name: Conformance quarantine script
         run: .github/actions/tests/conformance/run/quarantine_test.sh
       - uses: ./.github/actions/go/setup
+      - name: Local conformance runner script
+        run: scripts/test-e2e-local_test.sh
       - name: Validate workflow syntax and cross-workflow contracts
         run: |
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck= -pyflakes= \
