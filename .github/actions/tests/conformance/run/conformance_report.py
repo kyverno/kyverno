@@ -54,6 +54,8 @@ RAN = "all versions that ran it"
 MAX_ROWS = 100
 MAX_JOBS = 30
 MAX_ERROR = 200
+# Reading a job by its id takes one API call per job.
+MAX_LOOKUPS = 20
 
 
 def failures(test):
@@ -260,7 +262,31 @@ def flaky(newest, earlier):
     return sorted(found, key=lambda item: (item[0], version_key(item[1])))
 
 
-def fetch_jobs(env, deadline=240, opener=urllib.request.urlopen):
+def api_url(env):
+    return f"{env.get('GITHUB_API_URL', 'https://api.github.com')}/repos/{env['GITHUB_REPOSITORY']}/actions"
+
+
+def api_get(url, env, end, opener=None):
+    """Reads a GitHub API URL as JSON. Returns None after three failed tries,
+    or once the time is past end."""
+    headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    if env.get("GITHUB_TOKEN"):
+        headers["Authorization"] = f"Bearer {env['GITHUB_TOKEN']}"
+    request = urllib.request.Request(url, headers=headers)
+    for retry in range(3):
+        if time.monotonic() > end:
+            return None
+        try:
+            with (opener or urllib.request.urlopen)(request, timeout=30) as response:
+                return json.load(response)
+        except (OSError, ValueError) as error:
+            print(f"Reading {url} failed: {error}")
+            if retry < 2:
+                time.sleep(2 ** (retry + 1))
+    return None
+
+
+def fetch_jobs(env, deadline=240, opener=None):
     """Lists the jobs of this attempt, or returns None when the API can't be read.
 
     Small pages: a page of 100 jobs times out at GitHub's gateway on runs with
@@ -268,26 +294,12 @@ def fetch_jobs(env, deadline=240, opener=urllib.request.urlopen):
     keeps a slow API from using up the job's timeout.
     """
     end = time.monotonic() + deadline
-    base = (f"{env.get('GITHUB_API_URL', 'https://api.github.com')}/repos/{env['GITHUB_REPOSITORY']}"
-            f"/actions/runs/{env['GITHUB_RUN_ID']}/attempts/{env.get('GITHUB_RUN_ATTEMPT', '1')}/jobs")
-    headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
-    if env.get("GITHUB_TOKEN"):
-        headers["Authorization"] = f"Bearer {env['GITHUB_TOKEN']}"
+    base = f"{api_url(env)}/runs/{env['GITHUB_RUN_ID']}/attempts/{env.get('GITHUB_RUN_ATTEMPT', '1')}/jobs"
     jobs, page = [], 1
     while True:
-        request = urllib.request.Request(f"{base}?per_page=25&page={page}", headers=headers)
-        for retry in range(3):
-            if time.monotonic() > end:
-                return None
-            try:
-                with opener(request, timeout=30) as response:
-                    data = json.load(response)
-                break
-            except (OSError, ValueError) as error:
-                print(f"Reading page {page} of the job list failed: {error}")
-                if retry == 2:
-                    return None
-                time.sleep(2 ** (retry + 1))
+        data = api_get(f"{base}?per_page=25&page={page}", env, end, opener)
+        if data is None:
+            return None
         jobs += data.get("jobs") or []
         if not data.get("jobs") or len(jobs) >= data.get("total_count", 0):
             return jobs
@@ -297,8 +309,9 @@ def fetch_jobs(env, deadline=240, opener=urllib.request.urlopen):
 def find_job(report, jobs):
     """The job that wrote a report: by the id it recorded, else by its name.
 
-    Only names that GitHub derives from the matrix can be rebuilt: a job with
-    its own name, such as "v1.36.4 - cert-manager rsa", is found by id only.
+    Only names that GitHub derives from the matrix can be rebuilt. A job with
+    its own name, such as "v1.36.4 - cert-manager rsa", is found by id, or by
+    the name that find_names read for it.
     """
     for job in jobs or []:
         if report["job-id"] and str(job.get("id")) == report["job-id"]:
@@ -308,9 +321,34 @@ def find_job(report, jobs):
         name = f"{report['job']} ({report['k8s']}, {report['shard-index']})"
     for job in jobs or []:
         # The jobs of a called workflow are named "<calling job> / <job>".
-        if str(job.get("name", "")).split(" / ")[-1] == name:
+        full = str(job.get("name", ""))
+        if full.split(" / ")[-1] == name or (report.get("job-name") and full == report["job-name"]):
             return job
     return None
+
+
+def has_failures(report):
+    return any(result == FAILED for _, result, _ in results(report))
+
+
+def find_names(reports, jobs, env, deadline=60, opener=None):
+    """Reads the name of the job behind a failed report of an earlier attempt.
+
+    A re-run lists every job under a new id, so such a report is matched to
+    its job by name. The name of a job that sets its own can't be rebuilt, so
+    it is read from the job the report recorded: one call per report, up to
+    MAX_LOOKUPS. When a call fails, the reports are left as they are.
+    """
+    attempt = int(env.get("GITHUB_RUN_ATTEMPT") or 1)
+    end = time.monotonic() + deadline
+    unnamed = [report for report in reports
+               if report["attempt"] < attempt and has_failures(report)
+               and re.fullmatch(r"\d+", report["job-id"]) and not find_job({**report, "job-id": ""}, jobs)]
+    for report in unnamed[:MAX_LOOKUPS]:
+        job = api_get(f"{api_url(env)}/jobs/{report['job-id']}", env, end, opener)
+        if not isinstance(job, dict):
+            return
+        report["job-name"] = str(job.get("name", ""))
 
 
 def log_url(report, jobs, run_url):
@@ -325,10 +363,11 @@ def superseded(reports, jobs, attempt):
     """Reports with failures from an earlier attempt whose job has passed since.
 
     That happens when the re-run of a job passes without uploading a report.
+    The job has a new id in the re-run, so it is found by name.
     """
     stale = []
     for report in reports:
-        if report["attempt"] >= attempt or not any(result == FAILED for _, result, _ in results(report)):
+        if report["attempt"] >= attempt or not has_failures(report):
             continue
         job = find_job({**report, "job-id": ""}, jobs)
         if job and job.get("conclusion") == "success":
@@ -349,7 +388,7 @@ def other_failures(jobs, reports):
         if job.get("conclusion") not in ("failure", "timed_out"):
             continue
         report = by_job.get(job.get("id"))
-        if report and any(result == FAILED for _, result, _ in results(report)):
+        if report and has_failures(report):
             continue
         step = next((step.get("name", "") for step in job.get("steps") or []
                      if step.get("conclusion") == "failure"), "")
@@ -423,7 +462,7 @@ def render(reports, jobs, env):
         lines += [
             "### Failed jobs without a failed test", "",
             "These jobs failed outside a chainsaw test, for example in setup or on a timeout, "
-            "or they aren't conformance jobs. Jobs that are still running aren't listed.", "",
+            "or they aren't conformance jobs.", "",
             "| Job | Result | Failed step | Test report |", "| --- | --- | --- | --- |",
         ]
         lines += [f"| [{text(job['name'])}]({job['url']}) | {job['conclusion']} | "
@@ -457,6 +496,8 @@ def summarize(directory, env):
     try:
         reports = load(directory)
         jobs = fetch_jobs(env) if env.get("GITHUB_RUN_ID") and env.get("GITHUB_REPOSITORY") else None
+        if jobs:
+            find_names(latest(reports)[0], jobs, env)
         summary = render(reports, jobs, env)
     except Exception as error:
         # The summary is an aid, so a bug here must not show up as a failed job

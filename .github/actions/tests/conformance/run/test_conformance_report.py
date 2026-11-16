@@ -322,6 +322,107 @@ class Attempts(unittest.TestCase):
         self.assertIn("| <code>suite/a</code> | v1.35.8 |", run.render(None, attempt=2))
 
 
+class Names(unittest.TestCase):
+    """A job that sets its own name: its name can't be rebuilt from the matrix,
+    so after a re-run it is read from the job that the report recorded."""
+
+    NAME = "Conformance tests / v1.36.4 - cert-manager rsa"
+    ENV = {**ENV, "GITHUB_RUN_ATTEMPT": "2"}
+    ROW = "| <code>tls-certificates/rsa-cert-manager</code> | v1.36.4 |"
+
+    def run_with_old_failures(self):
+        run = Run(self)
+        run.add("cert-manager-certificates", "v1.36.4", {"tests": [result("rsa", ".", "boom")]}, job_id=5,
+                tests_path="tls-certificates/rsa-cert-manager")
+        run.add("suite", "v1.36.4", {"tests": [result("a", "a", "boom")]}, index=1, job_id=6)
+        return run
+
+    def opener(self, urls):
+        def opener(request, timeout):
+            urls.append(request.full_url)
+            return io.BytesIO(json.dumps({"id": 5, "name": self.NAME}).encode())
+        return opener
+
+    def test_a_stale_failure_of_a_job_with_its_own_name_is_dropped(self):
+        reports, urls = cr.load(self.run_with_old_failures().root), []
+        jobs = [api_job(9, self.NAME, "success"), api_job(10, "Conformance tests / suite (v1.36.4)")]
+        # Without the name the job isn't found, so its old failure stays.
+        self.assertIn(self.ROW, cr.render(reports, jobs, self.ENV))
+        cr.find_names(reports, jobs, self.ENV, opener=self.opener(urls))
+        # The other job is found by its rebuilt name, so only one job is read.
+        self.assertEqual(urls, ["https://api.github.com/repos/kyverno/kyverno/actions/jobs/5"])
+        summary = cr.render(reports, jobs, self.ENV)
+        self.assertNotIn(self.ROW, summary)
+        self.assertIn("| <code>suite/a</code> | v1.36.4 |", summary)
+
+    def test_a_job_with_its_own_name_that_still_fails_keeps_its_failure(self):
+        reports = cr.load(self.run_with_old_failures().root)
+        jobs = [api_job(9, self.NAME), api_job(10, "Conformance tests / suite (v1.36.4)")]
+        cr.find_names(reports, jobs, self.ENV, opener=self.opener([]))
+        summary = cr.render(reports, jobs, self.ENV)
+        self.assertIn(self.ROW, summary)
+        # Its failed test explains the job, so it isn't listed as unexplained.
+        self.assertNotIn("### Failed jobs without a failed test", summary)
+
+    def test_a_failed_lookup_leaves_the_reports_as_they_are(self):
+        run = self.run_with_old_failures()
+        run.add("self-signed-certificates", "v1.36.4", {"tests": [result("ecdsa", ".", "boom")]}, index=2, job_id=7,
+                tests_path="tls-certificates/ecdsa-self-signed")
+        reports, calls = cr.load(run.root), []
+
+        def down(request, timeout):
+            calls.append(request.full_url)
+            raise OSError("down")
+
+        jobs = [api_job(9, self.NAME, "success")]
+        with patch("time.sleep"), patch("sys.stdout", io.StringIO()):
+            cr.find_names(reports, jobs, self.ENV, opener=down)
+        # Three tries for the first job, and none for the jobs after it.
+        self.assertEqual(len(calls), 3)
+        self.assertFalse(any("job-name" in report for report in reports))
+        self.assertIn(self.ROW, cr.render(reports, jobs, self.ENV))
+        calls.clear()
+        cr.find_names(reports, jobs, self.ENV, deadline=-1, opener=down)
+        self.assertEqual(calls, [])
+
+    def test_only_old_failed_reports_with_a_job_id_are_looked_up(self):
+        run, urls = Run(self), []
+        path = "tls-certificates/rsa-cert-manager"
+        # No job id, no failure, and a report of this attempt.
+        run.add("cert-manager-certificates", "v1.34.11", {"tests": [result("rsa", ".", "boom")]}, tests_path=path)
+        run.add("cert-manager-certificates", "v1.35.8", {"tests": [result("rsa", ".")]}, index=1, job_id=5,
+                tests_path=path)
+        run.add("cert-manager-certificates", "v1.36.4", {"tests": [result("rsa", ".", "boom")]}, index=2, attempt=2,
+                job_id=6, tests_path=path)
+        cr.find_names(cr.load(run.root), [], self.ENV, opener=self.opener(urls))
+        self.assertEqual(urls, [])
+
+    def test_the_number_of_lookups_is_capped(self):
+        run, urls = Run(self), []
+        for index in range(cr.MAX_LOOKUPS + 3):
+            run.add("cert-manager-certificates", f"v1.{index}.0", {"tests": [result("rsa", ".", "boom")]},
+                    index=index, job_id=100 + index, tests_path="tls-certificates/rsa-cert-manager")
+        cr.find_names(cr.load(run.root), [], self.ENV, opener=self.opener(urls))
+        self.assertEqual(len(urls), cr.MAX_LOOKUPS)
+
+    def test_summarize_reads_the_job_list_and_then_the_names(self):
+        run = self.run_with_old_failures()
+        target = run.root / "summary.md"
+        jobs = [api_job(9, self.NAME, "success"), api_job(10, "Conformance tests / suite (v1.36.4)")]
+
+        def urlopen(request, timeout):
+            if "/attempts/2/jobs?" in request.full_url:
+                return io.BytesIO(json.dumps({"total_count": len(jobs), "jobs": jobs}).encode())
+            return self.opener([])(request, timeout)
+
+        env = {**self.ENV, "GITHUB_STEP_SUMMARY": str(target)}
+        with patch.object(cr.urllib.request, "urlopen", urlopen), patch.dict(os.environ, env, clear=True):
+            self.assertEqual(cr.main(["summarize", str(run.root)]), 0)
+        summary = target.read_text()
+        self.assertNotIn(self.ROW, summary)
+        self.assertIn("| <code>suite/a</code> | v1.36.4 |", summary)
+
+
 class Jobs(unittest.TestCase):
     def report(self, **fields):
         return {"job": "deleting-policies", "k8s": "v1.36.4", "index": "17", "attempt": 1, "job-id": "",

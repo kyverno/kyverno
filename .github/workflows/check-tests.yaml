@@ -126,11 +126,20 @@ jobs:
   # test fails on every Kubernetes version, so it is one row here instead of
   # one red job per version. Informational only: sync-issue doesn't wait for
   # it, and continue-on-error keeps a failure here from failing the run.
+  # It waits for every job it reports, not only the conformance jobs: a job
+  # that is still running has no result yet and would be missing from the
+  # list of failed jobs. always() runs it when one of them failed or was
+  # skipped, for example the conformance jobs after a failed build.
   summarize:
     name: Conformance summary
     if: always()
     needs:
+      - images
+      - cli
       - conformance-tests
+      - conformance-policy-library-tests
+      - k6-tests
+      - perf
     continue-on-error: true
     runs-on: ubuntu-slim
     timeout-minutes: 10

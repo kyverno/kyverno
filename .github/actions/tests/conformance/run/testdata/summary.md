@@ -12,7 +12,7 @@ The first error is the one from the lowest failing version.
 
 ### Failed jobs without a failed test
 
-These jobs failed outside a chainsaw test, for example in setup or on a timeout, or they aren't conformance jobs. Jobs that are still running aren't listed.
+These jobs failed outside a chainsaw test, for example in setup or on a timeout, or they aren't conformance jobs.
 
 | Job | Result | Failed step | Test report |
 | --- | --- | --- | --- |
