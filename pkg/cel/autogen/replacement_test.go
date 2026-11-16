@@ -350,6 +350,36 @@ func TestApplyRewritesExpressions(t *testing.T) {
 			want:   "object.spec.template.spec.jobTemplateX == 'foo'",
 		},
 		{
+			name:   "deployments already controller-shaped spec path is preserved",
+			expr:   "object.spec.template.spec.containers.all(c, c.image.startsWith('example/'))",
+			config: "deployments",
+			want:   "object.spec.template.spec.containers.all(c, c.image.startsWith('example/'))",
+		},
+		{
+			name:   "deployments already controller-shaped optional spec path is preserved",
+			expr:   "object.?spec.template.spec.containers.orValue([]).size() > 0",
+			config: "deployments",
+			want:   "object.?spec.template.spec.containers.orValue([]).size() > 0",
+		},
+		{
+			name:   "deployments already controller-shaped oldObject spec path is preserved",
+			expr:   "oldObject.spec.template.spec.containers.size() > 0",
+			config: "deployments",
+			want:   "oldObject.spec.template.spec.containers.size() > 0",
+		},
+		{
+			name:   "cronjobs already controller-shaped spec path is preserved",
+			expr:   "object.spec.jobTemplate.spec.template.spec.containers.all(c, c.image.startsWith('example/'))",
+			config: "cronjobs",
+			want:   "object.spec.jobTemplate.spec.template.spec.containers.all(c, c.image.startsWith('example/'))",
+		},
+		{
+			name:   "cronjobs already controller-shaped path with has() ternary is preserved",
+			expr:   "!(object.kind == 'CronJob') || (object.spec.jobTemplate.spec.template.spec.containers + (has(object.spec.jobTemplate.spec.template.spec.initContainers) ? object.spec.jobTemplate.spec.template.spec.initContainers : [])).all(c, c.image.startsWith('example/'))",
+			config: "cronjobs",
+			want:   "!(object.kind == 'CronJob') || (object.spec.jobTemplate.spec.template.spec.containers + (has(object.spec.jobTemplate.spec.template.spec.initContainers) ? object.spec.jobTemplate.spec.template.spec.initContainers : [])).all(c, c.image.startsWith('example/'))",
+		},
+		{
 			name:   "deployments object[? 'spec'] with whitespace is rewritten",
 			expr:   "object[? 'spec'].containers.exists(c, c.name == 'nginx')",
 			config: "deployments",
