@@ -4,12 +4,14 @@
 Uses the Python 3 standard library only, so it runs on any runner without
 setup.
 
-  report.py prepare --dir DIR --suite SUITE --k8s VERSION --shard N
-                    [--outcome OUTCOME] [--job-url URL]
+  report.py prepare --dir DIR --suite SUITE [--variant VARIANT] --k8s VERSION
+                    --shard N [--outcome OUTCOME] [--job-url URL]
       Run at the end of each conformance job. Converts DIR/results.json, the
       chainsaw JSON report, to DIR/results.xml in JUnit format, writes
       DIR/meta.json with the job details, and prints the artifact name
-      e2e-reports-<suite>-<k8s>-<shard>.
+      e2e-reports-<suite>[-<variant>]-<k8s>-<shard>. The variant holds the
+      matrix values, other than the version and the shard, that change what a
+      job of the suite tests, such as the kyverno-configs of the rbac jobs.
 
   report.py summarize DIR [--run-url URL]
       Run once after all conformance jobs. Reads every DIR/*/meta.json and
@@ -35,12 +37,19 @@ REPORT = "results.json"
 JUNIT = "results.xml"
 META = "meta.json"
 MAX_ERROR = 200
+MAX_SKIPPED_NAMES = 10
 
 
-def artifact_name(suite, k8s, shard):
+def artifact_name(suite, k8s, shard, variant=""):
     """Returns the artifact name, with characters artifacts reject replaced."""
-    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", f"{suite}-{k8s}-{shard}").strip("-")
+    parts = [suite, variant, k8s, shard] if variant else [suite, k8s, shard]
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", "-".join(parts)).strip("-")
     return ARTIFACT_PREFIX + safe
+
+
+def suite_label(suite, variant):
+    """Returns the suite name, followed by the variant when there's one."""
+    return f"{suite} ({variant})" if variant else suite
 
 
 def failures(test):
@@ -124,15 +133,15 @@ def prepare(args):
     report = directory / REPORT
     has_report = report.is_file()
     if has_report:
-        tree = to_junit(json.loads(report.read_text()), args.suite)
+        tree = to_junit(json.loads(report.read_text()), suite_label(args.suite, args.variant))
         ElementTree.indent(tree)
         tree.write(directory / JUNIT, encoding="unicode", xml_declaration=True)
     meta = {
-        "suite": args.suite, "k8s": args.k8s, "shard": args.shard,
+        "suite": args.suite, "variant": args.variant, "k8s": args.k8s, "shard": args.shard,
         "outcome": args.outcome, "jobUrl": args.job_url, "report": has_report,
     }
     (directory / META).write_text(json.dumps(meta, indent=2) + "\n")
-    print(artifact_name(args.suite, args.k8s, args.shard))
+    print(artifact_name(args.suite, args.k8s, args.shard, args.variant))
 
 
 def version_key(version):
@@ -152,7 +161,8 @@ def collect(root):
         for test in json.loads(report.read_text()).get("tests") or []:
             found = failures(test)
             results.append({
-                "suite": meta.get("suite", ""), "k8s": meta.get("k8s", ""),
+                "suite": meta.get("suite", ""), "variant": meta.get("variant", ""),
+                "k8s": meta.get("k8s", ""),
                 "jobUrl": meta.get("jobUrl", ""),
                 "test": test.get("name", ""), "path": test.get("basePath", ""),
                 "status": status(test),
@@ -163,14 +173,19 @@ def collect(root):
 
 
 def group(results):
-    """Groups the results per test. Returns one entry per failing test."""
+    """Groups the results per test and variant. Returns one entry per failing test.
+
+    Jobs of the same suite with different variants test different settings,
+    so their results are grouped separately.
+    """
     tests = {}
     for result in results:
         if result["status"] == "skipped":
             continue
-        key = (result["suite"], result["path"] or result["test"])
+        key = (result["suite"], result["variant"], result["path"] or result["test"])
         entry = tests.setdefault(key, {
-            "suite": result["suite"], "test": result["test"], "path": result["path"],
+            "suite": suite_label(result["suite"], result["variant"]),
+            "test": result["test"], "path": result["path"],
             "ran": set(), "failed": {},
         })
         entry["ran"].add(result["k8s"])
@@ -204,13 +219,30 @@ def link(text, url):
     return f"[{text}]({url})" if url else text
 
 
-def markdown(rows, missing, total, run_url=""):
+def skipped_tests(results):
+    """Returns the skipped tests, each once, with the versions it was skipped on."""
+    tests = {}
+    for result in results:
+        if result["status"] == "skipped":
+            label = f"{result['test']} ({suite_label(result['suite'], result['variant'])})"
+            tests.setdefault(label, set()).add(result["k8s"])
+    return {label: sorted(versions, key=version_key) for label, versions in sorted(tests.items())}
+
+
+def markdown(rows, missing, results, run_url=""):
     lines = ["## E2E failures", ""]
-    if not total and not missing:
+    if not results and not missing:
         lines.append("No chainsaw reports were found, so there's nothing to summarize.")
         return "\n".join(lines) + "\n"
-    if not rows and not missing:
-        lines.append(f"All {total} test results passed.")
+    skipped = skipped_tests(results)
+    counts = {state: sum(r["status"] == state for r in results) for state in ("passed", "failed", "skipped")}
+    lines += [
+        f"{len(results)} test results: {counts['passed']} passed, {counts['failed']} failed, "
+        f"{counts['skipped']} skipped.",
+        "",
+    ]
+    if not rows and not missing and not skipped:
+        lines.append("All test results passed.")
         return "\n".join(lines) + "\n"
     if rows:
         deterministic = sum(row["scope"] == "all versions" for row in rows)
@@ -237,9 +269,18 @@ def markdown(rows, missing, total, run_url=""):
             "cluster or installing Kyverno. Check their logs:",
             "",
         ]
-        for meta in sorted(missing, key=lambda m: (m.get("suite", ""), version_key(m.get("k8s", "")))):
-            label = f"{meta.get('suite')} on {meta.get('k8s')}, shard {meta.get('shard')}"
+        for meta in sorted(missing, key=lambda m: (m.get("suite", ""), m.get("variant", ""),
+                                                   version_key(m.get("k8s", "")))):
+            label = (f"{suite_label(meta.get('suite', ''), meta.get('variant', ''))} "
+                     f"on {meta.get('k8s')}, shard {meta.get('shard')}")
             lines.append(f"- {link(cell(label), meta.get('jobUrl', ''))}")
+        lines.append("")
+    if skipped:
+        lines.append(f"Tests skipped on at least one version: {len(skipped)}.")
+        if len(skipped) <= MAX_SKIPPED_NAMES:
+            lines += [""] + [f"- {cell(label)}: {', '.join(versions)}" for label, versions in skipped.items()]
+        else:
+            lines.append("Find them in the `results.xml` and `results.json` files of the `e2e-reports-*` artifacts.")
         lines.append("")
     if run_url:
         lines.append(
@@ -250,7 +291,7 @@ def markdown(rows, missing, total, run_url=""):
 
 def summarize(args):
     results, missing = collect(args.dir)
-    sys.stdout.write(markdown(group(results), missing, len(results), args.run_url))
+    sys.stdout.write(markdown(group(results), missing, results, args.run_url))
 
 
 def main(argv=None):
@@ -259,6 +300,7 @@ def main(argv=None):
     command = commands.add_parser("prepare")
     command.add_argument("--dir", required=True)
     command.add_argument("--suite", required=True)
+    command.add_argument("--variant", default="")
     command.add_argument("--k8s", required=True)
     command.add_argument("--shard", default="0")
     command.add_argument("--outcome", default="")

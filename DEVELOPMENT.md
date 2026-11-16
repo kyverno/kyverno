@@ -373,7 +373,7 @@ directory under `test/conformance/chainsaw`, on the Kubernetes versions of the
 To run a suite the way CI does, run:
 
 ```console
-make test-e2e-local SUITE=<suite> [TEST=<regex>] [K8S=<version>]
+make test-e2e-local SUITE=<suite> [TEST=<regex>] [K8S=<version>] [VARIANT=<variant>]
 ```
 
 - `SUITE` is the `tests-path` of a job in `.github/workflows/tests-conformance.yaml`, such as
@@ -382,6 +382,9 @@ make test-e2e-local SUITE=<suite> [TEST=<regex>] [K8S=<version>]
   By default, every test of the suite runs.
 - `K8S` is a Kubernetes version from the matrix, such as `1.36` or `v1.36.4`. By default, the latest version
   that CI tests the suite on is used.
+- `VARIANT` picks one job of a suite that CI runs with several settings: the `variant` input of that job. For
+  example, the `rbac` suite runs with the `standard`, `default`, and `force-failure-policy-ignore` Kyverno
+  configs. By default, the first one is used.
 
 For example:
 
@@ -391,19 +394,20 @@ make test-e2e-local SUITE=validating-policies TEST='^should-autogen' K8S=1.34
 
 The target reads the suite settings from the workflows with `scripts/e2e/settings.sh`: the digest-pinned kind
 node image, the kind config, the Kyverno Helm values, the extra Helm settings, and whether to install
-cert-manager. Then it does what a CI job does:
+cert-manager or the `kubectl-evict` plugin. Then it does what a CI job does:
 
+1. Installs `kubectl-evict` in `.tools`, if the suite needs it.
 1. Creates a kind cluster with `make kind-create-cluster`.
 1. Installs cert-manager, if the suite needs it.
 1. Builds the images and deploys Kyverno with `make kind-deploy-kyverno`.
 1. Applies the CRDs from `config/crds` and waits for the Kyverno pods.
-1. Runs chainsaw for the suite.
+1. Runs chainsaw for the suite, with `.tools` on the `PATH`.
 
 Unlike CI, the target doesn't skip the tests in `test/conformance/quarantine.yaml`.
 
 Before you start, install [chainsaw](https://kyverno.github.io/chainsaw/latest/quick-start/install/),
-[yq](https://github.com/mikefarah/yq), `jq`, `kubectl`, and Docker. To print the settings without creating a
-cluster, run `./scripts/e2e/settings.sh <suite> [<version>]`.
+[yq](https://github.com/mikefarah/yq), `jq`, `kubectl`, Go, and Docker. To print the settings without
+creating a cluster, run `[VARIANT=<variant>] ./scripts/e2e/settings.sh <suite> [<version>]`.
 
 The cluster stays up after the tests, so you can inspect it. To run the tests again on it, run the chainsaw
 command that the target printed. Delete the cluster with `make kind-delete-cluster` before you run
@@ -414,11 +418,15 @@ command that the target printed. Delete the cluster with `make kind-delete-clust
 
 Each conformance job uploads these artifacts:
 
-- `e2e-reports-<suite>-<k8s>-<shard>`: the chainsaw reports as JSON (`results.json`) and JUnit
+- `e2e-reports-<suite>[-<variant>]-<k8s>-<shard>`: the chainsaw reports as JSON (`results.json`) and JUnit
   (`results.xml`), and the job details (`meta.json`). Jobs upload it even when they fail.
-- `diagnostics-<suite>-<k8s>-<shard>`, only when the job fails: logs from every Kyverno pod, events, webhook
-  configurations, the policies and policy reports with their status, and the Kyverno config maps. Each file is
-  cut at 10 MiB.
+- `diagnostics-<suite>[-<variant>]-<k8s>-<shard>`, only when the job fails: logs from every Kyverno pod,
+  events, webhook configurations, the policies and policy reports with their status, and the Kyverno config
+  maps. Each file is cut at 10 MiB.
+
+The variant is the `variant` input of the conformance action. Set it on a job whose matrix has a dimension,
+other than `k8s-version` and `shard-index`, that doesn't change `tests-path`, so its jobs don't overwrite each
+other's artifacts. `scripts/e2e/test_report.py` checks this.
 
 The `summarize` job of the Tests workflow writes one table to the run summary. It lists each failing test once,
 with the Kubernetes versions it failed on, a link to each failing job, and the first error line:
@@ -427,7 +435,9 @@ with the Kubernetes versions it failed on, a link to each failing job, and the f
 - **Some versions**: the test failed on only some versions, so the cause is version-specific or the test is
   flaky.
 
-It also lists the jobs that failed without a test report, for example while creating the cluster. The table
+Jobs of the same suite with different variants are grouped separately. The summary also counts the passed,
+failed, and skipped test results, lists the skipped tests (by count only when there are many), and lists the
+jobs that failed without a test report, for example while creating the cluster. The table
 comes from `scripts/e2e/report.py`, which has tests in `scripts/e2e/test_report.py`.
 
 ## Code generation

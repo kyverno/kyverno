@@ -584,6 +584,7 @@ jobs:
           kyverno-configs: ${{ matrix.kyverno-configs }}
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: rbac
+          variant: ${{ matrix.kyverno-configs }}
 
   reports:
     needs: kubernetes-matrix

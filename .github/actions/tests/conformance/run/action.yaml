@@ -25,6 +25,14 @@ inputs:
   chainsaw-tests:
     description: Test regex
     default: ''
+  variant:
+    description: >-
+      The values of the matrix dimensions, other than the Kubernetes version
+      and the shard, that change what a job of the same suite tests, for
+      example the kyverno-configs of the rbac jobs. It's part of the report
+      and diagnostics artifact names, so jobs don't overwrite each other's
+      artifacts. Leave it empty when the suite runs in one setting.
+    default: ''
   shard-index:
     description: Shard index
     default: '0'
@@ -185,12 +193,14 @@ runs:
         SUITE: ${{ inputs.tests-path }}
         K8S_VERSION: ${{ inputs.k8s-version }}
         SHARD: ${{ inputs.shard-index }}
+        VARIANT: ${{ inputs.variant }}
         OUTCOME: ${{ job.status }}
         JOB_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}
       run: |
         set -e
         name="$(python3 ./scripts/e2e/report.py prepare --dir "$GITHUB_WORKSPACE/conformance-results" \
-          --suite "$SUITE" --k8s "$K8S_VERSION" --shard "$SHARD" --outcome "$OUTCOME" --job-url "$JOB_URL")"
+          --suite "$SUITE" --variant "$VARIANT" --k8s "$K8S_VERSION" --shard "$SHARD" \
+          --outcome "$OUTCOME" --job-url "$JOB_URL")"
         echo "artifact=$name" >> "$GITHUB_OUTPUT"
         echo "diagnostics=${name/#e2e-reports-/diagnostics-}" >> "$GITHUB_OUTPUT"
     - name: Upload reports

@@ -15,6 +15,10 @@
 # that the job tests. Without <key>, the script prints every setting as
 # key=value. With <key>, it prints only that value.
 #
+# For a suite that CI runs with several settings, such as rbac with three
+# kyverno-configs values, set VARIANT to the variant of one job. The default
+# is the first one.
+#
 # Requires yq (https://github.com/mikefarah/yq) and jq.
 set -euo pipefail
 
@@ -35,19 +39,32 @@ for tool in yq jq; do
   command -v "$tool" > /dev/null || fail "$tool is required"
 done
 
-# Every use of the conformance action, with the matrix variables of the
-# certificate jobs expanded, one JSON object per line.
+# Every use of the conformance action, one JSON object per line and per
+# combination of the matrix dimensions other than k8s-version and shard-index,
+# with the ${{ matrix.* }} expressions of those dimensions expanded.
 jobs="$(yq -o=json '.jobs' "$workflow" | jq -c '
   to_entries[] | .key as $job | .value as $spec
   | .value.steps[]? | select(.uses == "./.github/actions/tests/conformance/run") | .with as $with
-  | ($spec.strategy.matrix["key-algorithm"] // [{}])[] as $k
+  | [($spec.strategy.matrix // {}) | to_entries[]
+     | select(.key != "k8s-version" and .key != "shard-index" and (.value | type) == "array")] as $dims
+  | (reduce $dims[] as $d ([{}]; [.[] as $c | $d.value[] as $v | $c + {($d.key): $v}]))[] as $combo
   | {job: $job, versions: $spec.strategy.matrix["k8s-version"],
      with: ($with | with_entries(.value |= (if type == "string" then
-       gsub("\\$\\{\\{ matrix\\.key-algorithm\\.(?<f>[a-z-]+) \\}\\}"; $k[.f] // "") else . end)))}')"
+       gsub("\\$\\{\\{ matrix\\.(?<k>[a-z-]+)(\\.(?<f>[a-z-]+))? \\}\\}";
+         . as $m | ($combo[$m.k] // "") | (if $m.f then .[$m.f] // "" else . end) | tostring)
+       else . end)))}')"
 
-[ -n "$suite" ] || fail "set SUITE to one of: $(jq -r '.with["tests-path"]' <<< "$jobs" | sort | tr '\n' ' ')"
-job="$(jq -c --arg suite "$suite" 'select(.with["tests-path"] == $suite)' <<< "$jobs" | head -n 1)"
-[ -n "$job" ] || fail "no conformance job runs '$suite'. Use one of: $(jq -r '.with["tests-path"]' <<< "$jobs" | sort | tr '\n' ' ')"
+suites() {
+  jq -r '.with["tests-path"]' <<< "$jobs" | sort -u | tr '\n' ' '
+}
+
+[ -n "$suite" ] || fail "set SUITE to one of: $(suites)"
+candidates="$(jq -c --arg suite "$suite" 'select(.with["tests-path"] == $suite)' <<< "$jobs")"
+[ -n "$candidates" ] || fail "no conformance job runs '$suite'. Use one of: $(suites)"
+# A suite that runs with several settings has a variant input per job.
+# VARIANT picks one of them; the first one is the default.
+job="$(jq -c --arg variant "${VARIANT:-}" 'select($variant == "" or .with.variant == $variant)' <<< "$candidates" | head -n 1)"
+[ -n "$job" ] || fail "CI doesn't run '$suite' with variant '${VARIANT:-}'. Use one of: $(jq -r '.with.variant // empty' <<< "$candidates" | tr '\n' ' ')"
 
 defaults="$(yq -o=json '.inputs' "$action" | jq -c 'map_values(.default // "")')"
 nodes="$(yq '.jobs.matrix.steps[] | select(.id == "matrix") | .env.NODES' "$matrix")"
@@ -82,6 +99,7 @@ settings="$(jq -n --argjson job "$job" --argjson defaults "$defaults" --argjson 
     "install-cert-manager": $w["install-cert-manager"],
     "install-openreports": $w["install-openreports"],
     "install-kubectl-evict": $w["install-kubectl-evict"],
+    "variant": $w["variant"],
     "job": $job.job
   }')"
 
