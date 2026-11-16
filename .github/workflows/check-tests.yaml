@@ -348,6 +348,9 @@ jobs:
       #   label. A later passing reduced run closes the issue, and the next
       #   full run opens a new one with the label if the failure in between
       #   remains.
+      # - A full run fails and its jobs can't be read: the issue gets full-matrix
+      #   too. Not knowing which jobs failed must not let a passing reduced run
+      #   close the issue.
       # - A reduced run fails while the issue has full-matrix: the issue is
       #   updated as usual. The action only adds labels, so the label stays
       #   and the issue still needs a passing full run.
@@ -369,6 +372,9 @@ jobs:
           BATCH_RESULT: ${{ needs.batch.result }}
           BATCH_NOTE: ${{ needs.batch.outputs.issue-note }}
         with:
+          # The job list of a full run is long, and reading it has failed with
+          # a 502 before.
+          retries: 3
           script: |
             const { owner, repo } = context.repo;
             const branch = context.ref.replace(/^refs\/heads\//, '');
@@ -399,8 +405,10 @@ jobs:
              * second time. A job without a version runs in both matrices.
              */
             async function failedOnlyOutsideReduced() {
+              // Small pages: a page of 100 jobs has timed out at GitHub's
+              // gateway on runs with hundreds of jobs.
               const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
-                owner, repo, run_id: context.runId, filter: 'latest', per_page: 100
+                owner, repo, run_id: context.runId, filter: 'latest', per_page: 30
               });
               const inMatrix = job => job.name.startsWith(`${MATRIX_JOB} / `);
               const versions = [...new Set(jobs.filter(inMatrix).map(job => versionOf(job.name)).filter(Boolean))]
@@ -450,15 +458,20 @@ jobs:
                 `### Suspect commits\n\nThe ${BATCH_JOB} job of this run (\`${process.env.BATCH_RESULT}\`) left no list of suspect commits.`);
 
               let outside = null;
+              let unread = false;
               if (matrix === 'full') {
                 try {
                   outside = await failedOnlyOutsideReduced();
                 } catch (err) {
-                  core.warning(`Could not list the jobs of this run (${err.message || String(err)}), so the issue doesn't get the ${FULL_MATRIX} label.`);
+                  // Not knowing which jobs failed counts as a failure that
+                  // reduced runs may skip: without the label, the next
+                  // passing reduced run would close the issue.
+                  unread = true;
+                  core.warning(`Could not list the jobs of this run (${err.message || String(err)}), so it is unknown whether reduced runs have the jobs that failed. The tracking issue gets the ${FULL_MATRIX} label to be safe.`);
                 }
               }
-              fullMatrix = outside !== null;
-              if (fullMatrix) {
+              fullMatrix = unread || outside !== null;
+              if (outside !== null) {
                 core.notice(`Every failed job is on ${outside.join(', ')}, which reduced runs skip, so the tracking issue gets the ${FULL_MATRIX} label.`);
               }
               // Always in the note, also when another run added the label:
@@ -466,8 +479,9 @@ jobs:
               note.push([
                 `### The \`${FULL_MATRIX}\` label`,
                 '',
-                (fullMatrix ? `This run failed only on ${outside.join(', ')}, which reduced runs skip, so this issue has the label. ` : '') +
-                `When this issue has the \`${FULL_MATRIX}\` label, a full run failed only on Kubernetes versions that reduced runs skip, so a passing reduced run leaves the issue open. To clear it, start a full run: [Run workflow](${context.serverUrl}/${owner}/${repo}/actions/workflows/check-tests.yaml) on \`${branch}\` with matrix \`full\`. The nightly run does the same.`,
+                (outside !== null ? `This run failed only on ${outside.join(', ')}, which reduced runs skip, so this issue has the label. ` : '') +
+                (unread ? 'The jobs of this run could not be read, so it is unknown whether reduced runs have the jobs that failed. This issue has the label to be safe. ' : '') +
+                `When this issue has the \`${FULL_MATRIX}\` label, a full run failed on Kubernetes versions that reduced runs skip, or its jobs could not be read, so a passing reduced run leaves the issue open. To clear it, start a full run: [Run workflow](${context.serverUrl}/${owner}/${repo}/actions/workflows/check-tests.yaml) on \`${branch}\` with matrix \`full\`. The nightly run does the same.`,
               ].join('\n'));
             } else if (process.env.CANCELLED === 'true') {
               sync = false;

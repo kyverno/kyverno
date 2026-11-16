@@ -312,12 +312,27 @@ test('versions are compared as numbers', async () => {
   assert.equal((await plan({ failed: true, jobs })).fullMatrix, false);
 });
 
-test('the failed jobs are unknown: no label, and the failure is still recorded', async () => {
+test('the jobs of a failing full run cannot be read: the issue gets the label, to be safe', async () => {
   const unreadable = await plan({ failed: true, jobsError: true });
-  assert.deepEqual([unreadable.sync, unreadable.fullMatrix], [true, false]);
+  assert.deepEqual([unreadable.sync, unreadable.fullMatrix], [true, true]);
   assert.ok(unreadable.log.some(l => l.startsWith('warning:') && l.includes('Bad Gateway')));
+  assert.match(unreadable.note, /jobs of this run could not be read/);
+  assert.match(unreadable.note, /with matrix `full`/);
+  // A reduced run doesn't read the jobs, so an unreadable list changes nothing there.
+  const reduced = await plan({ matrix: 'reduced', failed: true, jobsError: true });
+  assert.deepEqual([reduced.sync, reduced.fullMatrix, reduced.jobReads], [true, false, 0]);
+});
+
+test('no failed job in the list: no label, and the failure is still recorded', async () => {
   const none = await plan({ failed: true, jobs: fullRun() });
   assert.deepEqual([none.sync, none.fullMatrix], [true, false]);
+  assert.doesNotMatch(none.note, /could not be read\. This issue has the label/);
+});
+
+test('the job list is read in small pages, with retries', () => {
+  assert.match(stepScript('Plan the issue update'), /listJobsForWorkflowRun, \{\s+owner, repo, run_id: context\.runId, filter: 'latest', per_page: 30\s+\}/);
+  const step = read(WORKFLOW).split('- name: Plan the issue update')[1].split('- name: Sync issue')[0];
+  assert.match(step, /\n {10}retries: 3\n/);
 });
 
 test('a reduced run that fails never adds the label, and updates an issue that has it', async () => {
