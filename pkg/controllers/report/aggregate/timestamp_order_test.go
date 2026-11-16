@@ -86,16 +86,21 @@ func TestAggregateResultsKeepsFailingCELRuleWhenPassIsExcluded(t *testing.T) {
 	t.Cleanup(func() { reportutils.ReportingCfg = previous })
 
 	const uid = "uid"
-	results := []openreportsv1alpha1.ReportResult{
-		{Source: reportutils.SourceValidatingPolicy, Policy: "require-label", Rule: "failing-rule", Result: openreports.StatusFail},
-		{Source: reportutils.SourceValidatingPolicy, Policy: "require-label", Rule: "passing-rule", Result: openreports.StatusPass},
+	failing := openreportsv1alpha1.ReportResult{
+		Source: reportutils.SourceValidatingPolicy, Policy: "require-label", Rule: "validation",
+		Result: openreports.StatusFail, Properties: map[string]string{"cel.validationIndex": "0"},
 	}
-	report := &reportsv1.EphemeralReport{Spec: reportsv1.EphemeralReportSpec{Results: results}}
-
-	merged := aggregate.AggregateResults(timestampTestMaps(), types.UID(uid), report)
-	require.Len(t, merged, 1)
-	require.Equal(t, "failing-rule", merged[0].Rule)
-	require.Equal(t, openreportsv1alpha1.Result(openreports.StatusFail), merged[0].Result)
+	passing := openreportsv1alpha1.ReportResult{
+		Source: reportutils.SourceValidatingPolicy, Policy: "require-label", Rule: "validation",
+		Result: openreports.StatusPass, Timestamp: metav1.Timestamp{Seconds: 1700000000, Nanos: 500_000_000},
+	}
+	for _, order := range [][]openreportsv1alpha1.ReportResult{{failing, passing}, {passing, failing}} {
+		report := &reportsv1.EphemeralReport{Spec: reportsv1.EphemeralReportSpec{Results: order}}
+		merged := aggregate.AggregateResults(timestampTestMaps(), types.UID(uid), report)
+		require.Len(t, merged, 1)
+		require.Equal(t, "validation", merged[0].Rule)
+		require.Equal(t, openreportsv1alpha1.Result(openreports.StatusFail), merged[0].Result)
+	}
 }
 
 func TestAggregateResultsTimestampCompatibility(t *testing.T) {

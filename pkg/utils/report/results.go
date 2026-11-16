@@ -356,13 +356,6 @@ func SplitResultsByPolicy(logger logr.Logger, results []openreportsv1alpha1.Repo
 
 // SetResults sorts and sets the given report results and computes their summary on the report.
 func SetResults(report reportsv1.ReportInterface, results ...openreportsv1alpha1.ReportResult) {
-	allowed := make([]openreportsv1alpha1.ReportResult, 0, len(results))
-	for _, result := range results {
-		if IsResultAllowed(result.Result) {
-			allowed = append(allowed, result)
-		}
-	}
-	results = allowed
 	SortReportResults(results)
 	report.SetResults(results)
 	report.SetSummary(CalculateSummary(results))

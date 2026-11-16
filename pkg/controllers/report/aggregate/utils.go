@@ -46,6 +46,17 @@ func mergeLatestResult(accumulator map[string]openreportsv1alpha1.ReportResult, 
 	}
 }
 
+func aggregationKey(result openreportsv1alpha1.ReportResult, uid types.UID) string {
+	key := result.Source + "/" + result.Policy
+	if result.Rule != "" {
+		key += "/" + result.Rule
+	}
+	if validationIndex := result.Properties["cel.validationIndex"]; validationIndex != "" {
+		key += "/cel.validationIndex=" + validationIndex
+	}
+	return key + "/" + string(uid)
+}
+
 // MergeReports merges the results of the given reports into accumulator, keyed
 // by (source, policy, [rule], uid). On a key collision it keeps the result
 // with the later recorded (Seconds, Nanos) timestamp, dropping results whose
@@ -62,56 +73,32 @@ func MergeReports(maps Maps, accumulator map[string]openreportsv1alpha1.ReportRe
 			switch result.Source {
 			case reportutils.SourceValidatingPolicy:
 				if maps.Vpol != nil && maps.Vpol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/"
-					if result.Rule != "" {
-						key += result.Rule + "/"
-					}
-					key += string(uid)
+					key := aggregationKey(result, uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceImageValidatingPolicy:
 				if maps.Ivpol != nil && maps.Ivpol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/"
-					if result.Rule != "" {
-						key += result.Rule + "/"
-					}
-					key += string(uid)
+					key := aggregationKey(result, uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceGeneratingPolicy:
 				if maps.Gpol != nil && maps.Gpol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/"
-					if result.Rule != "" {
-						key += result.Rule + "/"
-					}
-					key += string(uid)
+					key := aggregationKey(result, uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceValidatingAdmissionPolicy:
 				if maps.Vap != nil && maps.Vap.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/"
-					if result.Rule != "" {
-						key += result.Rule + "/"
-					}
-					key += string(uid)
+					key := aggregationKey(result, uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceMutatingAdmissionPolicy:
 				if maps.Mappol != nil && maps.Mappol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/"
-					if result.Rule != "" {
-						key += result.Rule + "/"
-					}
-					key += string(uid)
+					key := aggregationKey(result, uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceMutatingPolicy:
 				if maps.Mpol != nil && maps.Mpol.Has(result.Policy) {
-					key := result.Source + "/" + result.Policy + "/"
-					if result.Rule != "" {
-						key += result.Rule + "/"
-					}
-					key += string(uid)
+					key := aggregationKey(result, uid)
 					mergeLatestResult(accumulator, key, result)
 				}
 			default:
