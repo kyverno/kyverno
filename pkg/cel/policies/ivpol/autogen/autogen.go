@@ -15,6 +15,13 @@ import (
 // pkg/cel/autogen directly just to check it.
 const ExtractionReplacementsRef = autogen.ExtractionReplacementsRef
 
+// RewriteExceptions rewrites PolicyException match conditions and validations using the same
+// spec field-path replacements applied to the policy spec for the given autogen
+// config, delegating to the unified implementation in pkg/cel/autogen.
+func RewriteExceptions(exceptions []*policiesv1beta1.PolicyException, config string) ([]*policiesv1beta1.PolicyException, error) {
+	return autogen.RewriteExceptions(exceptions, config)
+}
+
 func Autogen(policy policiesv1beta1.ImageValidatingPolicyLike) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil

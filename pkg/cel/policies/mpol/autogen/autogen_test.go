@@ -1098,3 +1098,61 @@ func TestAutogenPodControllersEnabled(t *testing.T) {
 		}}, result[autogen.AutogenDefaults].Targets)
 	})
 }
+
+func TestRewriteExceptions(t *testing.T) {
+	polex := &policiesv1beta1.PolicyException{
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "match",
+					Expression: "object.spec.containers.exists(c, c.name == 'nginx')",
+				},
+			},
+		},
+	}
+	res, err := RewriteExceptions([]*policiesv1beta1.PolicyException{polex}, autogen.AutogenDefaults)
+	require.NoError(t, err)
+	require.Len(t, res, 1)
+	assert.Equal(t, "object.spec.template.spec.containers.exists(c, c.name == 'nginx')", res[0].Spec.MatchConditions[0].Expression)
+}
+
+func TestConvertPodToTemplateExpression_StringLiteralsWithBraces(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		config   string
+		expected string
+	}{
+		{
+			name:     "string with only closing brace",
+			input:    `Object{spec: Object.spec{msg: "foo } bar"}}`,
+			config:   "deployments",
+			expected: `Object{spec: Object.spec{template: Object.spec.template{spec: Object.spec.template.spec{msg: "foo } bar"}}}}`,
+		},
+		{
+			name:     "string with only opening brace",
+			input:    `Object{spec: Object.spec{msg: "foo { bar"}}`,
+			config:   "deployments",
+			expected: `Object{spec: Object.spec{template: Object.spec.template{spec: Object.spec.template.spec{msg: "foo { bar"}}}}`,
+		},
+		{
+			name:     "backtick raw string with closing brace",
+			input:    "Object{spec: Object.spec{cmd: `cmd } arg`}}",
+			config:   "deployments",
+			expected: "Object{spec: Object.spec{template: Object.spec.template{spec: Object.spec.template.spec{cmd: `cmd } arg`}}}}",
+		},
+		{
+			name:     "unclosed constructor remains unwrapped",
+			input:    `Object{custom: "val"`,
+			config:   "deployments",
+			expected: `Object{custom: "val"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := convertPodToTemplateExpression(tt.input, tt.config)
+			assert.Equal(t, tt.expected, out)
+		})
+	}
+}
