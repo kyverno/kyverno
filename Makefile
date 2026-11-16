@@ -814,14 +814,21 @@ codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
 codegen-fix-all: ## Fixes files
 codegen-fix-all: codegen-fix-tests
 
+.PHONY: codegen-crds-manifests
+codegen-crds-manifests: ## Generate CRDs, CLI embedded CRDs, Helm CRDs, and install manifests
+codegen-crds-manifests: codegen-crds-all
+codegen-crds-manifests: codegen-cli-crds
+codegen-crds-manifests: codegen-helm-crds
+codegen-crds-manifests: codegen-manifest-all
+
 .PHONY: codegen-all-code
 codegen-all-code: ## Generate all generated code
 codegen-all-code: codegen-api-all
 codegen-all-code: codegen-client-all
-codegen-all-code: codegen-crds-all
-codegen-all-code: codegen-cli-all
-codegen-all-code: codegen-helm-all
-codegen-all-code: codegen-manifest-all
+codegen-all-code: codegen-crds-manifests
+codegen-all-code: codegen-cli-api-group-resources
+codegen-all-code: codegen-cli-docs
+codegen-all-code: codegen-helm-docs
 codegen-all-code: codegen-fix-all
 
 .PHONY: codegen-all-docs
