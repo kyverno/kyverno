@@ -19,8 +19,8 @@ spec:
       expression: >-
        http.post(
         "http://test-api-token-service.default.svc.cluster.local/",
-        {"labels": object.metadata.labels},{"Content-Type": "application/json", "Authorization": "Bearer invalid"})
+        {"labels": object.metadata.labels}, {"Content-Type": "application/json", "Authorization": "Bearer <redacted>"})
   validations:
-    - expression: variables.response.tokenValid == true
+    - expression: variables.response.tokenValid == true && variables.response.explicitHeaderReceived == true
       messageExpression: >-
-       'CEL http.post must not accept an explicit Authorization header in place of the projected token: tokenValid=' + string(variables.response.tokenValid)
+       'CEL http.post must not accept an explicit Authorization header in place of the projected token: tokenValid=' + string(variables.response.tokenValid) + ' explicitHeaderReceived=' + string(variables.response.explicitHeaderReceived)

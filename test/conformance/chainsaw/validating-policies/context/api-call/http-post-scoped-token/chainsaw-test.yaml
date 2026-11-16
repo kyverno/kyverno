@@ -67,3 +67,4 @@ spec:
               ($error != null): true
               (contains($error, 'Policy vpol-http-post-token-bad-auth failed')): true
               (contains($error, 'tokenValid=false')): true
+              (contains($error, 'explicitHeaderReceived=true')): true

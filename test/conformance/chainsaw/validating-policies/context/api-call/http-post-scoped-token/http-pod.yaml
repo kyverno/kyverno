@@ -59,6 +59,13 @@ spec:
           status = result.get('status') or {}
           return status.get('authenticated') is True and AUDIENCE in (status.get('audiences') or [])
 
+      # The bad-auth policy sends this exact literal (the text "<redacted>"
+      # itself, never a real token). Matching the full string, case
+      # sensitively, lets the endpoint report whether that explicit header
+      # actually reached it. A projected ServiceAccount token is a real JWT
+      # and can never equal this literal, so there is no false positive.
+      EXPLICIT_HEADER = 'Bearer <redacted>'
+
       class H(BaseHTTPRequestHandler):
           def do_POST(self):
               length = int(self.headers.get('Content-Length') or 0)
@@ -69,7 +76,10 @@ spec:
               self.send_response(200)
               self.send_header('Content-Type', 'application/json')
               self.end_headers()
-              self.wfile.write(json.dumps({'tokenValid': token_is_valid(token)}).encode())
+              self.wfile.write(json.dumps({
+                  'tokenValid': token_is_valid(token),
+                  'explicitHeaderReceived': header == EXPLICIT_HEADER,
+              }).encode())
           def log_message(self, *a): pass
       ThreadingHTTPServer(('', 5000), H).serve_forever()
     ports:

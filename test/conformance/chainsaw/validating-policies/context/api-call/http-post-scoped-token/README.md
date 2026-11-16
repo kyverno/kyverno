@@ -12,3 +12,9 @@ The endpoint pod reads the `Authorization` header of the incoming POST and asks 
 ## Note
 
 No Kubernetes cluster was available in the environment where this fixture was written, so it has not been run. The YAML, the policy expressions and the endpoint's TokenReview request were checked locally, but the in-cluster behaviour is unverified and the maintainers' conformance run is the first execution.
+
+## `explicitHeaderReceived`
+
+The endpoint answers `{"tokenValid": ..., "explicitHeaderReceived": true/false}`. `explicitHeaderReceived` is true if and only if the incoming `Authorization` header is exactly the string `Bearer <redacted>` (case-sensitive, full-string match). It is a boolean only — the endpoint never echoes, logs, or returns the token material itself.
+
+The negative case (`vpol-http-post-token-bad-auth`) requires both `tokenValid == true` and `explicitHeaderReceived == true` to admit. Without the second conjunct the negative case would pass vacuously: `tokenValid` is `false` whether the explicit `Bearer <redacted>` header arrived or the client dropped the header entirely, so the denial would not distinguish "header present but invalid" from "header absent". With the field, the bad-pod assertion checks `explicitHeaderReceived=true` in the denial message, and the test fails if the client ever drops the header — proving the explicit header actually reached the endpoint.
