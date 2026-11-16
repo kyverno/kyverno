@@ -1,0 +1,15 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authorizing-policy-unsupported
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- kind: ConfigMap
+  policy: owner-writes
+  resources:
+  - owned
+  result: pass
+  rule: owner-writes

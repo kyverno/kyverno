@@ -275,7 +275,7 @@ spec:
                                   name:
                                     default: ""
                                     description: |-
-                                      Name of the referent.
+                                      name of the referent.
                                       This field is effectively required, but due to backwards compatibility is
                                       allowed to be empty. Instances of this type with an empty value here are
                                       almost certainly wrong.
@@ -1399,7 +1399,7 @@ spec:
                                                 name:
                                                   default: ""
                                                   description: |-
-                                                    Name of the referent.
+                                                    name of the referent.
                                                     This field is effectively required, but due to backwards compatibility is
                                                     allowed to be empty. Instances of this type with an empty value here are
                                                     almost certainly wrong.
@@ -2342,6 +2342,7 @@ spec:
                           format: date-time
                           type: string
                         message:
+                          default: ""
                           description: |-
                             message is a human readable message indicating details about the transition.
                             This may be an empty string.
@@ -2381,7 +2382,6 @@ spec:
                           type: string
                       required:
                       - lastTransitionTime
-                      - message
                       - reason
                       - status
                       - type
@@ -2664,7 +2664,7 @@ spec:
                                   name:
                                     default: ""
                                     description: |-
-                                      Name of the referent.
+                                      name of the referent.
                                       This field is effectively required, but due to backwards compatibility is
                                       allowed to be empty. Instances of this type with an empty value here are
                                       almost certainly wrong.
@@ -3788,7 +3788,7 @@ spec:
                                                 name:
                                                   default: ""
                                                   description: |-
-                                                    Name of the referent.
+                                                    name of the referent.
                                                     This field is effectively required, but due to backwards compatibility is
                                                     allowed to be empty. Instances of this type with an empty value here are
                                                     almost certainly wrong.
@@ -4731,6 +4731,7 @@ spec:
                           format: date-time
                           type: string
                         message:
+                          default: ""
                           description: |-
                             message is a human readable message indicating details about the transition.
                             This may be an empty string.
@@ -4770,7 +4771,6 @@ spec:
                           type: string
                       required:
                       - lastTransitionTime
-                      - message
                       - reason
                       - status
                       - type
@@ -5052,7 +5052,7 @@ spec:
                                   name:
                                     default: ""
                                     description: |-
-                                      Name of the referent.
+                                      name of the referent.
                                       This field is effectively required, but due to backwards compatibility is
                                       allowed to be empty. Instances of this type with an empty value here are
                                       almost certainly wrong.
@@ -6176,7 +6176,7 @@ spec:
                                                 name:
                                                   default: ""
                                                   description: |-
-                                                    Name of the referent.
+                                                    name of the referent.
                                                     This field is effectively required, but due to backwards compatibility is
                                                     allowed to be empty. Instances of this type with an empty value here are
                                                     almost certainly wrong.
@@ -7119,6 +7119,7 @@ spec:
                           format: date-time
                           type: string
                         message:
+                          default: ""
                           description: |-
                             message is a human readable message indicating details about the transition.
                             This may be an empty string.
@@ -7158,7 +7159,6 @@ spec:
                           type: string
                       required:
                       - lastTransitionTime
-                      - message
                       - reason
                       - status
                       - type

@@ -1,0 +1,20 @@
+# AuthorizingPolicy is evaluated by the Kyverno authorization webhook from the requesting
+# user and action. The CLI cannot supply those, so `kyverno apply` and `kyverno test`
+# reject this file instead of silently skipping it.
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: owner-writes
+spec:
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["configmaps"]
+        verbs: ["*"]
+  rules:
+    - name: owner-writes
+      effect: Allow
+      expression: >-
+        has(object.metadata.labels) && 'owner' in object.metadata.labels &&
+        object.metadata.labels.owner == request.user

@@ -3,7 +3,7 @@ package compiler
 import (
 	"context"
 
-	"github.com/google/cel-go/common/types/ref"
+	"cel.dev/cel-go/common/types/ref"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 )

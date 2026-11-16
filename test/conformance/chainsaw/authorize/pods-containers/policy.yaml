@@ -1,0 +1,34 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: chainsaw-pod-images
+spec:
+  matchSubjects:
+    - matchExpressions:
+        - key: user
+          operator: In
+          values: ["chainsaw-pod-user"]
+  matchResources:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["*"]
+        resources: ["pods", "pods/ephemeralcontainers"]
+        verbs: ["*"]
+  rules:
+    - name: trusted-images
+      effect: Allow
+      description: containers, init containers, and ephemeral containers must use registry.k8s.io images
+      expression: >-
+        request.resourceAttributes.verb in ['create', 'update', 'patch'] &&
+        object.spec.containers.all(c, c.image.startsWith('registry.k8s.io/')) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, c.image.startsWith('registry.k8s.io/'))) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, c.image.startsWith('registry.k8s.io/')))
+    - name: no-privileged-init
+      effect: Deny
+      description: init containers must not be privileged
+      expression: >-
+        request.resourceAttributes.verb == 'create' && has(object.spec.initContainers) &&
+        object.spec.initContainers.exists(c, has(c.securityContext) && has(c.securityContext.privileged) && c.securityContext.privileged)
+    - name: reads
+      effect: Allow
+      expression: "request.resourceAttributes.verb in ['get', 'list', 'watch']"

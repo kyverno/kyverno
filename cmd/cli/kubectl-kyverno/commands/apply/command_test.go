@@ -13,6 +13,7 @@ import (
 	fatihcolor "github.com/fatih/color"
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
@@ -1612,6 +1613,20 @@ func TestApplyBlocksLegacyClusterPolicy(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 	assert.Contains(t, err.Error(), pkgdeprecations.MigrationGuideURL)
+}
+
+func TestApplyRejectsAuthorizingPolicy(t *testing.T) {
+	// Before the loader rejected AuthorizingPolicy, apply skipped the document and reported
+	// "Applying 0 policy rule(s)" with exit code 0.
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-authorizing-policy/unsupported/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-authorizing-policy/unsupported/resources.yaml"},
+		PolicyReport:  true,
+	}
+	_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, policy.ErrUnsupportedPolicyKind)
+	assert.Contains(t, err.Error(), "policies.kyverno.io/v1alpha1 AuthorizingPolicy")
 }
 
 func TestCommandHelp(t *testing.T) {

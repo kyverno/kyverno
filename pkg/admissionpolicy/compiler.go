@@ -1,7 +1,7 @@
 package admissionpolicy
 
 import (
-	celgo "github.com/google/cel-go/cel"
+	celgo "cel.dev/cel-go/cel"
 	kyvernocompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"

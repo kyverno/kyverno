@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: authorize-reads
+spec:
+  description: >-
+    get, list, and watch are decided from request metadata only, including the
+    label selector the client sends. Admission does not run for reads, so
+    object-dependent rules cannot be enforced: an object-dependent Allow never
+    grants, and an object-dependent Deny fails closed to Deny. Kyverno does not
+    infer selectors from object conditions.
+  concurrent: false
+  steps:
+    - name: create policy and objects
+      try:
+        - apply:
+            file: policy.yaml
+        - script:
+            content: |
+              set -e
+              kubectl -n "$NAMESPACE" create configmap public-a --from-literal=a=b
+              kubectl -n "$NAMESPACE" create configmap private-a --from-literal=a=b
+              kubectl -n "$NAMESPACE" label configmap private-a team=a
+              kubectl -n "$NAMESPACE" create secret generic team-a --from-literal=a=b
+              kubectl -n "$NAMESPACE" label secret team-a team=a
+    - name: metadata-only reads
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              as="--as chainsaw-reader"
+              expect_allowed "get a configmap by an allowed name" \
+                kubectl -n "$NAMESPACE" get configmap public-a $as
+              expect_forbidden "get a configmap by another name" \
+                kubectl -n "$NAMESPACE" get configmap private-a $as
+              expect_allowed "list configmaps with the label selector team=a" \
+                kubectl -n "$NAMESPACE" get configmaps -l team=a $as
+              test "$(kubectl -n "$NAMESPACE" get configmaps -l team=a -o name $as)" = "configmap/private-a"
+              expect_allowed "watch configmaps with the label selector team=a" \
+                kubectl -n "$NAMESPACE" get --raw "/api/v1/namespaces/$NAMESPACE/configmaps?watch=1&timeoutSeconds=1&labelSelector=team%3Da" $as
+              expect_forbidden "list configmaps without a selector (no selector inference)" \
+                kubectl -n "$NAMESPACE" get configmaps $as
+              expect_forbidden "list configmaps with a different selector" \
+                kubectl -n "$NAMESPACE" get configmaps -l team=b $as
+    - name: object-dependent reads are not granted
+      try:
+        - script:
+            timeout: 2m
+            content: |
+              set -e
+              . ../_lib/authz.sh
+              expect_forbidden "get a secret whose labels would satisfy the object-dependent Allow" \
+                kubectl -n "$NAMESPACE" get secret team-a --as chainsaw-reader
+              expect_forbidden "list secrets with the matching selector (object rule is not turned into a selector)" \
+                kubectl -n "$NAMESPACE" get secrets -l team=a --as chainsaw-reader
+              expect_forbidden "get an allowed configmap while an object-dependent Deny is unresolved" \
+                kubectl -n "$NAMESPACE" get configmap public-a --as chainsaw-reader-deny
+              out=$(sar chainsaw-reader get secrets "$NAMESPACE")
+              echo "SubjectAccessReview get secrets (Allow residual only): $out"
+              test "$out" = "allowed=false denied=false"
+              out=$(sar chainsaw-reader-deny get configmaps "$NAMESPACE")
+              echo "SubjectAccessReview get configmaps (Deny residual): $out"
+              test "$out" = "allowed=false denied=true"

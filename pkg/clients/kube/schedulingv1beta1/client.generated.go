@@ -2,6 +2,7 @@ package client
 
 import (
 	"github.com/go-logr/logr"
+	compositepodgroups "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1beta1/compositepodgroups"
 	podgroups "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1beta1/podgroups"
 	priorityclasses "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1beta1/priorityclasses"
 	workloads "github.com/kyverno/kyverno/pkg/clients/kube/schedulingv1beta1/workloads"
@@ -31,6 +32,10 @@ type withMetrics struct {
 func (c *withMetrics) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withMetrics) CompositePodGroups(namespace string) k8s_io_client_go_kubernetes_typed_scheduling_v1beta1.CompositePodGroupInterface {
+	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "CompositePodGroup", c.clientType)
+	return compositepodgroups.WithMetrics(c.inner.CompositePodGroups(namespace), recorder)
+}
 func (c *withMetrics) PodGroups(namespace string) k8s_io_client_go_kubernetes_typed_scheduling_v1beta1.PodGroupInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "PodGroup", c.clientType)
 	return podgroups.WithMetrics(c.inner.PodGroups(namespace), recorder)
@@ -52,6 +57,9 @@ type withTracing struct {
 func (c *withTracing) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
+func (c *withTracing) CompositePodGroups(namespace string) k8s_io_client_go_kubernetes_typed_scheduling_v1beta1.CompositePodGroupInterface {
+	return compositepodgroups.WithTracing(c.inner.CompositePodGroups(namespace), c.client, "CompositePodGroup")
+}
 func (c *withTracing) PodGroups(namespace string) k8s_io_client_go_kubernetes_typed_scheduling_v1beta1.PodGroupInterface {
 	return podgroups.WithTracing(c.inner.PodGroups(namespace), c.client, "PodGroup")
 }
@@ -69,6 +77,9 @@ type withLogging struct {
 
 func (c *withLogging) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
+}
+func (c *withLogging) CompositePodGroups(namespace string) k8s_io_client_go_kubernetes_typed_scheduling_v1beta1.CompositePodGroupInterface {
+	return compositepodgroups.WithLogging(c.inner.CompositePodGroups(namespace), c.logger.WithValues("resource", "CompositePodGroups").WithValues("namespace", namespace))
 }
 func (c *withLogging) PodGroups(namespace string) k8s_io_client_go_kubernetes_typed_scheduling_v1beta1.PodGroupInterface {
 	return podgroups.WithLogging(c.inner.PodGroups(namespace), c.logger.WithValues("resource", "PodGroups").WithValues("namespace", namespace))

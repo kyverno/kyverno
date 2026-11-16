@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/cel-go/common/types"
+	"cel.dev/cel-go/common/types"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

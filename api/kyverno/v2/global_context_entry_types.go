@@ -176,7 +176,7 @@ func (e *ExternalAPICall) Validate(path *field.Path) (errs field.ErrorList) {
 // Numeric values extracted via Expression keep their CEL-native type (`int`,
 // `uint`, or `double`), which may differ from the `float64` JMESPath always produces;
 // arithmetic written against one is not guaranteed to type-check against the other.
-// +kubebuilder:validation:XValidation:rule="has(self.jmesPath) != has(self.expression)",message="exactly one of jmesPath or expression must be set"
+// +kubebuilder:validation:XValidation:rule="has(self.jmesPath) ? !has(self.expression) : has(self.expression)",message="exactly one of jmesPath or expression must be set"
 type GlobalContextEntryProjection struct {
 	// Name is the name to use for the extracted value in the context.
 	// +kubebuilder:validation:Required

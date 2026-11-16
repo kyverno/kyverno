@@ -1,7 +1,7 @@
 package compiler
 
 import (
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 )
 
 // Compile is a thin, drop-in wrapper around env.Compile: with no tenant/cluster scope

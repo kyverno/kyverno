@@ -8,8 +8,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"cel.dev/cel-go/cel"
 	"github.com/go-logr/logr"
-	"github.com/google/cel-go/cel"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/sdk/extensions/imagedataloader"

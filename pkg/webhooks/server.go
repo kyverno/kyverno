@@ -291,6 +291,13 @@ func NewServer(
 	// cluster-wide denial; legacy kyverno.io policies are no longer executed regardless, so "allow" is
 	// the correct answer, not "deny". Remove in 1.21 along with #17718.
 	registerLegacyCompatRoutes(mux, resourceLogger.WithName("legacy-compat"))
+	// AuthorizingPolicy authorization webhook endpoints (Kubernetes conditional
+	// authorization, v1.38 alpha). Registered only when the feature is enabled.
+	if apolHandler := resourceHandlers.AuthorizingPolicies; apolHandler != nil {
+		mux.HandlerFunc("POST", config.AuthorizingPolicySubjectAccessReviewPath, apolHandler.HandleSubjectAccessReview)
+		mux.HandlerFunc("POST", config.AuthorizingPolicyConditionsReviewPath, apolHandler.HandleConditionsReview)
+		mux.HandlerFunc("POST", config.AuthorizingPolicyCombinedPath, apolHandler.HandleCombined)
+	}
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{

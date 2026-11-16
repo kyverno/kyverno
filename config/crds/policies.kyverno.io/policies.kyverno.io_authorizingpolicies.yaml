@@ -1,0 +1,454 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: (devel)
+  name: authorizingpolicies.policies.kyverno.io
+spec:
+  group: policies.kyverno.io
+  names:
+    categories:
+    - kyverno
+    kind: AuthorizingPolicy
+    listKind: AuthorizingPolicyList
+    plural: authorizingpolicies
+    shortNames:
+    - apol
+    singular: authorizingpolicy
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    - jsonPath: .status.conditionStatus.ready
+      name: READY
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          AuthorizingPolicy is an alpha, cluster-scoped policy that the Kyverno authorization webhook
+          evaluates for SubjectAccessReview requests. Rules from all applicable AuthorizingPolicy
+          objects are merged into one unordered set and combined with Deny > NoOpinion > Allow
+          precedence. Rule expressions that depend on the request object are automatically turned
+          into conditional decisions that Kubernetes enforces during admission.
+
+          Creating or updating an AuthorizingPolicy is equivalent to holding cluster-admin
+          permissions, because an Allow rule can grant any permission to any subject. Restrict
+          write access to this resource to cluster administrators.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AuthorizingPolicySpec is the specification of the desired
+              behavior of the AuthorizingPolicy.
+            properties:
+              matchResources:
+                description: MatchResources selects the resource and non-resource
+                  requests this policy applies to.
+                properties:
+                  nonResourceRules:
+                    description: NonResourceRules selects non-resource requests, such
+                      as /healthz or /metrics.
+                    items:
+                      description: AuthorizingNonResourceRule selects non-resource
+                        requests. All fields must match.
+                      properties:
+                        paths:
+                          description: |-
+                            Paths is the list of non-resource URL paths. A path matches exactly, or a path ending in
+                            "*" matches every path with that prefix.
+                          items:
+                            minLength: 1
+                            type: string
+                          maxItems: 32
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        verbs:
+                          description: Verbs is the list of lowercase HTTP verbs,
+                            such as get, post, put, or delete. "*" matches all verbs.
+                          items:
+                            minLength: 1
+                            type: string
+                          maxItems: 16
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      required:
+                      - paths
+                      - verbs
+                      type: object
+                    maxItems: 32
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  resourceRules:
+                    description: ResourceRules selects resource requests.
+                    items:
+                      description: AuthorizingResourceRule selects resource requests.
+                        All set fields must match.
+                      properties:
+                        apiGroups:
+                          description: APIGroups is the list of API groups. "" is
+                            the core API group and "*" matches all groups.
+                          items:
+                            type: string
+                          maxItems: 32
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        apiVersions:
+                          description: APIVersions is the list of API versions. "*"
+                            matches all versions.
+                          items:
+                            minLength: 1
+                            type: string
+                          maxItems: 32
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        namespaces:
+                          description: |-
+                            Namespaces restricts the rule to requests in the listed namespaces. "*" matches any
+                            non-empty namespace. When omitted, the rule matches namespaced, cluster-scoped, and
+                            all-namespace requests. When set, cluster-scoped and all-namespace requests never match.
+                          items:
+                            minLength: 1
+                            type: string
+                          maxItems: 64
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        resourceNames:
+                          description: |-
+                            ResourceNames restricts the rule to requests for the listed object names. When omitted,
+                            any name matches. When set, requests without a name (such as create, list, watch, or
+                            deletecollection) never match.
+                          items:
+                            minLength: 1
+                            type: string
+                          maxItems: 64
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        resources:
+                          description: |-
+                            Resources is the list of resources, using the same syntax as admission rules:
+                            "pods" matches pods but not its subresources, "pods/exec" matches one subresource,
+                            "pods/*" matches pods and all of its subresources, "*/scale" matches the scale subresource
+                            of every resource, "*" matches every resource but no subresources, and "*/*" matches everything.
+                          items:
+                            minLength: 1
+                            type: string
+                          maxItems: 32
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        verbs:
+                          description: |-
+                            Verbs is the list of authorization verbs, such as get, list, watch, create, update, patch,
+                            delete, deletecollection, impersonate, bind, or escalate. "*" matches all verbs.
+                          items:
+                            minLength: 1
+                            type: string
+                          maxItems: 32
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      required:
+                      - apiGroups
+                      - apiVersions
+                      - resources
+                      - verbs
+                      type: object
+                    maxItems: 32
+                    type: array
+                    x-kubernetes-list-type: atomic
+                type: object
+                x-kubernetes-validations:
+                - message: at least one of resourceRules or nonResourceRules is required
+                  rule: (has(self.resourceRules) && size(self.resourceRules) > 0)
+                    || (has(self.nonResourceRules) && size(self.nonResourceRules)
+                    > 0)
+              matchSubjects:
+                description: |-
+                  MatchSubjects selects the subjects (users, groups, and service accounts) this policy applies to.
+                  The policy applies to a request when ANY term matches. Enrollment is explicit: an empty or
+                  omitted list is invalid. To select every subject, use a term with the requirement
+                  `{key: user, operator: In, values: ["*"]}`.
+                items:
+                  description: SubjectSelectorTerm matches a subject when ALL of its
+                    requirements match.
+                  properties:
+                    matchExpressions:
+                      description: MatchExpressions is a list of subject requirements
+                        that are ANDed.
+                      items:
+                        description: |-
+                          SubjectSelectorRequirement is a selector requirement over a subject attribute.
+
+                          Semantics by key:
+                            - user: In matches when the user name is in values; NotIn matches when it is not.
+                              Exists and DoesNotExist are invalid.
+                            - groups: In matches when the user is a member of ANY listed group; NotIn matches when the
+                              user is a member of NONE of the listed groups; Exists matches when the user has at least one
+                              group; DoesNotExist matches when the user has no groups.
+                            - serviceAccount: In matches a service account whose `<namespace>/<name>` is in values;
+                              NotIn matches a non-service-account user or a service account not in values; Exists matches
+                              any service account; DoesNotExist matches any user that is not a service account.
+
+                          The wildcard value "*" matches any value and is only valid as the single value of an In requirement.
+                          Matching is exact and case-sensitive.
+                        properties:
+                          key:
+                            description: 'Key is the subject attribute: user, groups,
+                              or serviceAccount.'
+                            enum:
+                            - user
+                            - groups
+                            - serviceAccount
+                            type: string
+                          operator:
+                            description: Operator is one of In, NotIn, Exists, or
+                              DoesNotExist.
+                            enum:
+                            - In
+                            - NotIn
+                            - Exists
+                            - DoesNotExist
+                            type: string
+                          values:
+                            description: Values is the set of values for In and NotIn.
+                              It must be empty for Exists and DoesNotExist.
+                            items:
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                            maxItems: 64
+                            type: array
+                            x-kubernetes-list-type: set
+                        required:
+                        - key
+                        - operator
+                        type: object
+                        x-kubernetes-validations:
+                        - message: values must be non-empty for In and NotIn, and
+                            empty for Exists and DoesNotExist
+                          rule: 'self.operator in [''In'', ''NotIn''] ? (has(self.values)
+                            && size(self.values) > 0) : (!has(self.values) || size(self.values)
+                            == 0)'
+                        - message: the user key supports only the In and NotIn operators
+                          rule: self.key != 'user' || self.operator in ['In', 'NotIn']
+                        - message: the wildcard value "*" is valid only as the single
+                            value of an In requirement
+                          rule: '!has(self.values) || !self.values.exists(v, v ==
+                            ''*'') || (self.operator == ''In'' && size(self.values)
+                            == 1)'
+                        - message: serviceAccount values must be "*" or of the form
+                            <namespace>/<name>
+                          rule: self.key != 'serviceAccount' || !has(self.values)
+                            || self.values.all(v, v == '*' || v.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?/[a-z0-9]([-a-z0-9.]*[a-z0-9])?$'))
+                      maxItems: 8
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: atomic
+                  required:
+                  - matchExpressions
+                  type: object
+                maxItems: 8
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: atomic
+              rules:
+                description: |-
+                  Rules is an unordered set of authorization rules. Rule order has no effect: rules from all
+                  applicable policies are merged and combined with Deny > NoOpinion > Allow precedence.
+                items:
+                  description: |-
+                    AuthorizingRule is one authorization rule.
+
+                    The expression has access to `request` (the SubjectAccessReview spec), `variables`, and
+                    `object` and `oldObject` (the admission objects). When the result depends on `object` or
+                    `oldObject`, Kyverno returns a conditional decision that Kubernetes evaluates during
+                    admission; users do not author separate authorization and admission conditions.
+
+                    When the expression evaluates to an error, Deny and NoOpinion rules take effect and Allow
+                    rules do not.
+                  properties:
+                    description:
+                      description: Description is a human-readable explanation, returned
+                        with conditional decisions and used in reasons.
+                      maxLength: 1024
+                      type: string
+                    effect:
+                      description: Effect is the decision the rule contributes when
+                        its expression evaluates to true.
+                      enum:
+                      - Allow
+                      - Deny
+                      - NoOpinion
+                      type: string
+                    expression:
+                      description: Expression is a CEL expression that must evaluate
+                        to a bool.
+                      maxLength: 10240
+                      minLength: 1
+                      type: string
+                    name:
+                      description: |-
+                        Name uniquely identifies the rule within the policy. It is a stable identifier used in
+                        decision reasons and condition IDs (`<policy name>/<rule name>`).
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                  required:
+                  - effect
+                  - expression
+                  - name
+                  type: object
+                maxItems: 64
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              variables:
+                description: |-
+                  Variables contain definitions of variables that can be used in composition of other expressions.
+                  Each variable is defined as a named CEL expression and is available under `variables` in rule
+                  expressions. The expression of a variable can refer to other variables defined earlier in the
+                  list but not those after.
+                items:
+                  description: Variable is the definition of a variable that is used
+                    for composition. A variable is defined as a named expression.
+                  properties:
+                    expression:
+                      description: |-
+                        expression is the expression that will be evaluated as the value of the variable.
+                        The CEL expression has access to the same identifiers as the CEL expressions in Validation.
+                      type: string
+                    name:
+                      description: |-
+                        name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                        The variable can be accessed in other expressions through `variables`
+                        For example, if name is "foo", the variable will be available as `variables.foo`
+                      type: string
+                  required:
+                  - expression
+                  - name
+                  type: object
+                  x-kubernetes-map-type: atomic
+                maxItems: 64
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+            required:
+            - matchResources
+            - matchSubjects
+            - rules
+            type: object
+          status:
+            description: Status contains policy runtime data.
+            properties:
+              conditionStatus:
+                description: ConditionStatus is the shared status across all policy
+                  types
+                properties:
+                  conditions:
+                    items:
+                      description: Condition contains details for one aspect of the
+                        current state of this API Resource.
+                      properties:
+                        lastTransitionTime:
+                          description: |-
+                            lastTransitionTime is the last time the condition transitioned from one status to another.
+                            This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                          format: date-time
+                          type: string
+                        message:
+                          default: ""
+                          description: |-
+                            message is a human readable message indicating details about the transition.
+                            This may be an empty string.
+                          maxLength: 32768
+                          type: string
+                        observedGeneration:
+                          description: |-
+                            observedGeneration represents the .metadata.generation that the condition was set based upon.
+                            For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                            with respect to the current state of the instance.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        reason:
+                          description: |-
+                            reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                            Producers of specific condition types may define expected values and meanings for this field,
+                            and whether the values are considered a guaranteed API.
+                            The value should be a CamelCase string.
+                            This field may not be empty.
+                          maxLength: 1024
+                          minLength: 1
+                          pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                          type: string
+                        status:
+                          description: status of the condition, one of True, False,
+                            Unknown.
+                          enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                          type: string
+                        type:
+                          description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                          maxLength: 316
+                          pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                          type: string
+                      required:
+                      - lastTransitionTime
+                      - reason
+                      - status
+                      - type
+                      type: object
+                    type: array
+                  message:
+                    description: |-
+                      Message is a human readable message indicating details about the generation of ValidatingAdmissionPolicy/MutatingAdmissionPolicy
+                      It is an empty string when ValidatingAdmissionPolicy/MutatingAdmissionPolicy is successfully generated.
+                    type: string
+                  ready:
+                    description: |-
+                      The ready of a policy is a high-level summary of where the policy is in its lifecycle.
+                      The conditions array, the reason and message fields contain more detail about the policy's status.
+                    type: boolean
+                type: object
+            type: object
+        required:
+        - spec
+        type: object
+        x-kubernetes-validations:
+        - message: metadata.name must not be in the reserved k8s.io or kubernetes.io
+            domains because it prefixes authorization condition IDs
+          rule: '!(self.metadata.name == ''k8s.io'' || self.metadata.name.endsWith(''.k8s.io'')
+            || self.metadata.name == ''kubernetes.io'' || self.metadata.name.endsWith(''.kubernetes.io''))'
+    served: true
+    storage: true
+    subresources:
+      status: {}
