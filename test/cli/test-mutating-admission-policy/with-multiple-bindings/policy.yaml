@@ -1,0 +1,36 @@
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: increment-replicas
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["apps"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["deployments"]
+  failurePolicy: Fail
+  reinvocationPolicy: Never
+  mutations:
+  - patchType: "ApplyConfiguration"
+    applyConfiguration:
+      expression: >
+        Object{
+          spec: Object.spec{
+            replicas: int(object.spec.replicas) + 1
+          }
+        }
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: first
+spec:
+  policyName: increment-replicas
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: second
+spec:
+  policyName: increment-replicas
