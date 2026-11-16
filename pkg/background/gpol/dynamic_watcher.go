@@ -276,13 +276,14 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 	}
 
 	type reconcileBatch struct {
-		gvr   schema.GroupVersionResource
-		items []unstructured.Unstructured
+		gvr     schema.GroupVersionResource
+		watcher *watcher
+		items   []unstructured.Unstructured
 	}
 	var reconcileQueue []reconcileBatch
 	defer func() {
 		for _, b := range reconcileQueue {
-			wm.reconcileRelistedItems(b.gvr, b.items)
+			wm.reconcileRelistedItems(b.gvr, b.watcher, b.items)
 		}
 	}()
 
@@ -340,8 +341,8 @@ func (wm *WatchManager) registerWatchers(policyName string, trigger *kyverno.Res
 			return err
 		}
 		wm.dynamicWatchers[gvr] = w
-		if hadPriorCache[gvr] || len(relisted) > 0 {
-			reconcileQueue = append(reconcileQueue, reconcileBatch{gvr: gvr, items: relisted})
+		if state := prefetched[gvr]; (state != nil && state.rv != "" && hadPriorCache[gvr]) || len(relisted) > 0 {
+			reconcileQueue = append(reconcileQueue, reconcileBatch{gvr: gvr, watcher: w, items: relisted})
 		}
 	}
 
@@ -997,24 +998,37 @@ func (wm *WatchManager) startWatcherWithCacheAndState(
 				logger.Error(lerr, "giving up watcher recovery after 410", "gvr", gvr)
 				return
 			}
-			// Reconcile any downstream drift that occurred before refreshed.rv
-			// (outside wm.lock) before resuming the watch stream at refreshed.rv.
-			wm.reconcileRelistedItems(gvr, refreshed.items)
+			// Serialize recovery reconciliation and replacement watcher swap under
+			// syncLock so lifecycle mutators (DeleteDownstreams, StopWatchers,
+			// RemoveWatchersForPolicy, SyncWatchers) cannot race the snapshot.
+			wm.syncLock.Lock()
+			wm.lock.Lock()
+			if wm.dynamicWatchers[gvr] != thisWatcher {
+				wm.lock.Unlock()
+				wm.syncLock.Unlock()
+				return
+			}
+			wm.lock.Unlock()
+
+			wm.reconcileRelistedItems(gvr, thisWatcher, refreshed.items)
 
 			wm.lock.Lock()
 			if wm.dynamicWatchers[gvr] != thisWatcher {
 				wm.lock.Unlock()
+				wm.syncLock.Unlock()
 				return
 			}
 			nextWatch, rerr := watchTools.NewRetryWatcherWithContext(context.TODO(), refreshed.rv, &cache.ListWatch{WatchFunc: watchFunc})
 			if rerr != nil {
 				wm.lock.Unlock()
+				wm.syncLock.Unlock()
 				logger.Error(rerr, "failed to restart expired watcher", "resourceVersion", refreshed.rv)
 				return
 			}
 			thisWatcher.watcher = nextWatch
 			currentWatch = nextWatch
 			wm.lock.Unlock()
+			wm.syncLock.Unlock()
 		}
 	}(gvr, w)
 	return w, initialState.items, nil
@@ -1072,10 +1086,16 @@ func (wm *WatchManager) listCollectionState(gvr schema.GroupVersionResource, ful
 		return collectionState{}, nil
 	}
 	defer func() {
-		if recover() != nil {
-			// Uninitialized unit-test RESTClient stub: treat as empty synthetic list.
+		if r := recover(); r != nil {
+			// Only tolerate the k8s.io/client-go/dynamic/fake panic when a unit test
+			// constructs NewSimpleDynamicClient(NewScheme()) without registering list kinds.
+			if msg, ok := r.(string); ok && strings.HasPrefix(msg, "coding error: you must register resource to list kind for every resource you're going to LIST") {
+				state = collectionState{}
+				err = nil
+				return
+			}
 			state = collectionState{}
-			err = nil
+			err = fmt.Errorf("unexpected panic listing %s watch state: %v", gvr, r)
 		}
 	}()
 	if !fullRelist {
@@ -1131,17 +1151,25 @@ func (wm *WatchManager) listCollectionState(gvr schema.GroupVersionResource, ful
 	}, nil
 }
 
-// reconcileRelistedItems passes relisted objects that belong to metadataCache
-// through handleUpdate so edits made before a freshly listed resourceVersion
-// are reverted without waiting for a future Modify event. Intact downstreams
-// are included in the paginated GeneratePolicyLabel relist; residual cached UIDs
-// absent from items (e.g. deleted or stripped of mutable GeneratePolicyLabel)
-// use per-item Get probes when <= maxMissingFallbackGets or a streaming
-// unlabelled paginated scan when > maxMissingFallbackGets so no entry is dropped.
-func (wm *WatchManager) reconcileRelistedItems(gvr schema.GroupVersionResource, items []unstructured.Unstructured) {
+type missingDownstreamTarget struct {
+	uid       types.UID
+	name      string
+	namespace string
+	policyKey string
+}
+
+// reconcileRelistedItems reconciles relisted objects that belong to metadataCache
+// so edits made before a freshly listed resourceVersion are reverted without
+// waiting for a future Modify event. Intact downstreams are included in the
+// paginated GeneratePolicyLabel relist; residual cached UIDs absent from items
+// (e.g. deleted or stripped of mutable GeneratePolicyLabel) use per-item Get
+// probes when <= maxMissingFallbackGets or a streaming unlabelled paginated scan
+// when > maxMissingFallbackGets. Confirmed NotFound downstreams are pruned from
+// metadataCache and policy references.
+func (wm *WatchManager) reconcileRelistedItems(gvr schema.GroupVersionResource, expectedWatcher *watcher, items []unstructured.Unstructured) {
 	wm.lock.Lock()
 	w, exists := wm.dynamicWatchers[gvr]
-	if !exists {
+	if !exists || (expectedWatcher != nil && w != expectedWatcher) {
 		wm.lock.Unlock()
 		return
 	}
@@ -1154,21 +1182,26 @@ func (wm *WatchManager) reconcileRelistedItems(gvr schema.GroupVersionResource, 
 			found[uid] = struct{}{}
 		}
 	}
-	type missingTarget struct {
-		uid       types.UID
-		name      string
-		namespace string
-	}
-	var missing []missingTarget
+	var missing []missingDownstreamTarget
 	if wm.client != nil && wm.client.GetDynamicInterface() != nil {
 		for uid, res := range w.metadataCache {
 			if _, ok := found[uid]; !ok && res.Hash != "" && res.Name != "" {
-				missing = append(missing, missingTarget{uid: uid, name: res.Name, namespace: res.Namespace})
+				policyKey := res.PolicyKey
+				if policyKey == "" {
+					policyKey = res.Labels[common.GeneratePolicyLabel]
+				}
+				missing = append(missing, missingDownstreamTarget{
+					uid:       uid,
+					name:      res.Name,
+					namespace: res.Namespace,
+					policyKey: policyKey,
+				})
 			}
 		}
 	}
 	wm.lock.Unlock()
 
+	var notFound []missingDownstreamTarget
 	if len(missing) > 0 {
 		budget, cancelBudget := context.WithTimeout(context.Background(), fallbackGetBudget)
 		defer cancelBudget()
@@ -1187,18 +1220,24 @@ func (wm *WatchManager) reconcileRelistedItems(gvr schema.GroupVersionResource, 
 					obj, getErr = wm.client.GetDynamicInterface().Resource(gvr).Get(ctx, m.name, metav1.GetOptions{})
 				}
 				cancel()
-				if getErr != nil && !apierrors.IsNotFound(getErr) {
-					wm.log.Error(getErr, "failed to fetch cached downstream during recovery", "gvr", gvr, "name", m.name, "namespace", m.namespace)
+				if apierrors.IsNotFound(getErr) {
+					notFound = append(notFound, m)
+					continue
 				}
-				if getErr == nil && obj != nil && obj.GetUID() == m.uid {
+				if getErr != nil {
+					wm.log.Error(getErr, "failed to fetch cached downstream during recovery", "gvr", gvr, "name", m.name, "namespace", m.namespace)
+					continue
+				}
+				if obj != nil && obj.GetUID() == m.uid {
 					tracked = append(tracked, obj)
 				}
 			}
 		} else {
-			missingByUID := make(map[types.UID]struct{}, len(missing))
+			missingByUID := make(map[types.UID]missingDownstreamTarget, len(missing))
 			for _, m := range missing {
-				missingByUID[m.uid] = struct{}{}
+				missingByUID[m.uid] = m
 			}
+			scanCompleted := false
 			var continueToken string
 			for len(missingByUID) > 0 {
 				if budget.Err() != nil {
@@ -1216,6 +1255,7 @@ func (wm *WatchManager) reconcileRelistedItems(gvr schema.GroupVersionResource, 
 					break
 				}
 				if list == nil {
+					scanCompleted = true
 					break
 				}
 				for i := range list.Items {
@@ -1226,16 +1266,127 @@ func (wm *WatchManager) reconcileRelistedItems(gvr schema.GroupVersionResource, 
 					}
 				}
 				nextContinue := list.GetContinue()
-				if nextContinue == "" || nextContinue == continueToken {
+				if nextContinue == "" {
+					scanCompleted = true
+					break
+				}
+				if nextContinue == continueToken {
 					break
 				}
 				continueToken = nextContinue
 			}
+			if scanCompleted {
+				for _, m := range missingByUID {
+					notFound = append(notFound, m)
+				}
+			}
 		}
 	}
 
+	for _, m := range notFound {
+		wm.pruneNotFoundCachedDownstream(gvr, expectedWatcher, m)
+	}
+
 	for _, obj := range tracked {
-		wm.handleUpdate(obj, gvr)
+		wm.reconcileTrackedDownstream(obj, gvr, expectedWatcher)
+	}
+}
+
+// pruneNotFoundCachedDownstream removes a confirmed NotFound downstream UID from
+// metadataCache and releases the policy's GVR reference when no cached resources
+// remain for that policy.
+func (wm *WatchManager) pruneNotFoundCachedDownstream(gvr schema.GroupVersionResource, expectedWatcher *watcher, target missingDownstreamTarget) {
+	wm.lock.Lock()
+	defer wm.lock.Unlock()
+
+	w, exists := wm.dynamicWatchers[gvr]
+	if !exists || (expectedWatcher != nil && w != expectedWatcher) {
+		return
+	}
+	res, found := w.metadataCache[target.uid]
+	if !found || res.Name != target.name || res.Namespace != target.namespace {
+		return
+	}
+	policyKey := res.PolicyKey
+	if policyKey == "" {
+		policyKey = res.Labels[common.GeneratePolicyLabel]
+	}
+	delete(w.metadataCache, target.uid)
+
+	if policyKey == "" {
+		return
+	}
+	stillOwned := false
+	for _, other := range w.metadataCache {
+		if matchesResourcePolicy(other, policyKey) {
+			stillOwned = true
+			break
+		}
+	}
+	if stillOwned {
+		return
+	}
+	if refs, hasRefs := wm.policyRefs[policyKey]; hasRefs {
+		kept := make([]schema.GroupVersionResource, 0, len(refs))
+		removed := false
+		for _, refGVR := range refs {
+			if refGVR == gvr {
+				removed = true
+				continue
+			}
+			kept = append(kept, refGVR)
+		}
+		if len(kept) == 0 {
+			delete(wm.policyRefs, policyKey)
+		} else {
+			wm.policyRefs[policyKey] = kept
+		}
+		if removed && wm.refCount[gvr] > 0 {
+			wm.refCount[gvr]--
+		}
+	}
+	if wm.refCount[gvr] <= 0 && len(w.metadataCache) == 0 {
+		if w.watcher != nil {
+			w.watcher.Stop()
+		}
+		delete(wm.dynamicWatchers, gvr)
+		delete(wm.refCount, gvr)
+	}
+}
+
+// reconcileTrackedDownstream revalidates under wm.lock that expectedWatcher is
+// still active for gvr and obj.GetUID() is still present in metadataCache before
+// reverting drift, preventing a concurrently deleted UID from being treated as
+// an uncached source resource.
+func (wm *WatchManager) reconcileTrackedDownstream(obj *unstructured.Unstructured, gvr schema.GroupVersionResource, expectedWatcher *watcher) {
+	if obj == nil {
+		return
+	}
+	wm.lock.Lock()
+	defer wm.lock.Unlock()
+
+	w, exists := wm.dynamicWatchers[gvr]
+	if !exists || (expectedWatcher != nil && w != expectedWatcher) {
+		return
+	}
+	uid := obj.GetUID()
+	cached, ok := w.metadataCache[uid]
+	if !ok {
+		return
+	}
+	if cached.Hash != "" && cached.Hash != reportutils.CalculateResourceHash(*obj) {
+		cachedLabels := cached.Labels
+		policyKey := cached.PolicyKey
+		if policyKey == "" {
+			policyKey = cachedLabels[common.GeneratePolicyLabel]
+		}
+		key := generateKey(policyKey, types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
+		if pending := wm.pendingGenerates[key]; pending != nil {
+			pending.skipped[uid] = skippedUpdate{gvr: gvr, obj: obj.DeepCopy()}
+			wm.log.V(4).Info("downstream resource changed while its own generate write is in flight, skipping revert", "name", obj.GetName(), "namespace", obj.GetNamespace())
+			return
+		}
+		wm.revertDownstream(w, uid, obj)
 	}
 }
 

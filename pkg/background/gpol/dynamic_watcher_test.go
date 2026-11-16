@@ -29,7 +29,6 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
-	"k8s.io/client-go/rest"
 	ktesting "k8s.io/client-go/testing"
 )
 
@@ -90,7 +89,18 @@ func (m *MockClient) GetDynamicInterface() dynamic.Interface {
 	if m.dynamicClient != nil {
 		return m.dynamicClient
 	}
-	return dynamic.New(&rest.RESTClient{})
+	scheme := runtime.NewScheme()
+	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+		gvr:  "KindList",
+		gvr1: "PodList",
+		{Group: "", Version: "v1", Resource: "configmaps"}:              "ConfigMapList",
+		{Group: "", Version: "v1", Resource: "secrets"}:                 "SecretList",
+		{Group: "", Version: "v1", Resource: "pods"}:                    "PodList",
+		{Group: "g", Version: "v1", Resource: "res1"}:                   "KindList",
+		{Group: "example.io", Version: "v1alpha1", Resource: "widgets"}: "WidgetList",
+		{Group: "example.io", Version: "v1beta1", Resource: "widgets"}:  "WidgetList",
+		{Group: "scheduling.run.ai", Version: "v2", Resource: "queues"}: "QueueList",
+	})
 }
 func (m *MockClient) Discovery() dclient.IDiscovery {
 	return dclient.NewEmptyFakeClient().Discovery()
@@ -295,7 +305,7 @@ func TestSyncWatchers(t *testing.T) {
 			setupWM: func() *WatchManager {
 				return &WatchManager{
 					log:    logging.WithName("test"),
-					client: dclient.NewEmptyFakeClient(),
+					client: &MockClient{},
 					restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
 						return &meta.RESTMapping{Resource: gvr1}, nil
 					}},
@@ -2640,6 +2650,7 @@ func TestStartWatcherWithCache_FreshRVAndExpiredRecovery(t *testing.T) {
 	// tampered ConfigMap from the relist snapshot (no w2.Modify sent), and open w2.
 	expiredStatus := apierrors.NewResourceExpired("too old resource version: 950 (1100)").Status()
 	w1.Error(&expiredStatus)
+	w1.Stop()
 
 	select {
 	case reverted := <-revertedCh:
@@ -2708,7 +2719,9 @@ func TestStartWatcherWithCache_DirectWatchGoneErrorAndListError(t *testing.T) {
 				rv = listRVs[0]
 				listRVs = listRVs[1:]
 			}
-			out := &unstructured.UnstructuredList{}
+			out := &unstructured.UnstructuredList{
+				Items: []unstructured.Unstructured{*downstream.DeepCopy()},
+			}
 			out.SetResourceVersion(rv)
 			return true, out, nil
 		})
@@ -2768,6 +2781,32 @@ func TestStartWatcherWithCache_DirectWatchGoneErrorAndListError(t *testing.T) {
 		err := wm.SyncWatchers("sync-pol", &kyverno.ResourceSpec{UID: "trig-1"}, []*unstructured.Unstructured{downstream}, false)
 		require.Error(t, err)
 	})
+
+	t.Run("unexpected panic in List returns error instead of falling back to stale RV", func(t *testing.T) {
+		scheme := runtime.NewScheme()
+		dynClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+			gvr: "ConfigMapList",
+		})
+		dynClient.PrependReactor("list", "configmaps", func(_ ktesting.Action) (bool, runtime.Object, error) {
+			panic("simulated unexpected client panic")
+		})
+		wm := &WatchManager{
+			log:    logging.WithName("test"),
+			client: &MockClient{dynamicClient: dynClient},
+			restMapper: &mockRESTMapper{fn: func(_ schema.GroupKind, _ string) (*meta.RESTMapping, error) {
+				return &meta.RESTMapping{Resource: gvr}, nil
+			}},
+			dynamicWatchers:  map[schema.GroupVersionResource]*watcher{},
+			policyRefs:       map[string][]schema.GroupVersionResource{},
+			refCount:         map[schema.GroupVersionResource]int{},
+			pendingGenerates: map[string]*pendingGenerate{},
+		}
+		t.Cleanup(wm.StopWatchers)
+
+		err := wm.SyncWatchers("sync-pol", &kyverno.ResourceSpec{UID: "trig-1"}, []*unstructured.Unstructured{downstream}, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unexpected panic listing")
+	})
 }
 
 // TestReconcileRelistedItems_LabelRemovalDuring410Recovery verifies that cached
@@ -2799,6 +2838,7 @@ func TestReconcileRelistedItems_LabelRemovalDuring410Recovery(t *testing.T) {
 		name         string
 		getHandler   func(ktesting.GetAction) (bool, runtime.Object, error)
 		expectRevert bool
+		expectPruned bool
 	}{
 		{
 			name: "successful get restores stripped label and reverts drift",
@@ -2811,7 +2851,7 @@ func TestReconcileRelistedItems_LabelRemovalDuring410Recovery(t *testing.T) {
 			expectRevert: true,
 		},
 		{
-			name: "get returns NotFound without panic or revert",
+			name: "get returns NotFound prunes cached UID and watcher without revert",
 			getHandler: func(getAction ktesting.GetAction) (bool, runtime.Object, error) {
 				if getAction.GetName() == "gen-cm" {
 					return true, nil, apierrors.NewNotFound(gvr.GroupResource(), "gen-cm")
@@ -2819,6 +2859,7 @@ func TestReconcileRelistedItems_LabelRemovalDuring410Recovery(t *testing.T) {
 				return false, nil, nil
 			},
 			expectRevert: false,
+			expectPruned: true,
 		},
 		{
 			name: "get returns apiserver error without panic or revert",
@@ -2910,6 +2951,7 @@ func TestReconcileRelistedItems_LabelRemovalDuring410Recovery(t *testing.T) {
 
 			expiredStatus := apierrors.NewResourceExpired("too old resource version: 950 (1100)").Status()
 			w1.Error(&expiredStatus)
+			w1.Stop()
 
 			if tc.expectRevert {
 				select {
@@ -2919,6 +2961,21 @@ func TestReconcileRelistedItems_LabelRemovalDuring410Recovery(t *testing.T) {
 					assert.Equal(t, "sync-pol", reverted.GetLabels()[common.GeneratePolicyLabel], "GeneratePolicyLabel must be restored")
 				case <-time.After(3 * time.Second):
 					t.Fatal("expected reconcileRelistedItems to revert downstream when label was removed during 410 recovery")
+				}
+			} else if tc.expectPruned {
+				require.Eventually(t, func() bool {
+					return len(wm.GetDownstreams("sync-pol")) == 0
+				}, 3*time.Second, 10*time.Millisecond, "expected confirmed NotFound downstream to be pruned from metadataCache")
+				wm.lock.Lock()
+				_, watcherExists := wm.dynamicWatchers[gvr]
+				_, policyExists := wm.policyRefs["sync-pol"]
+				wm.lock.Unlock()
+				assert.False(t, watcherExists, "empty watcher must be removed when last cached downstream is pruned")
+				assert.False(t, policyExists, "policy reference must be removed when last cached downstream is pruned")
+				select {
+				case rev := <-revertedCh:
+					t.Fatalf("unexpected revert event triggered: %v", rev)
+				case <-time.After(100 * time.Millisecond):
 				}
 			} else {
 				require.Eventually(t, func() bool {
@@ -3037,6 +3094,7 @@ func TestListCollectionState_PaginatedLabelScopedRelistAvoidsPerItemGet(t *testi
 
 	expiredStatus := apierrors.NewResourceExpired("too old resource version: 950 (1100)").Status()
 	w1.Error(&expiredStatus)
+	w1.Stop()
 
 	select {
 	case reverted := <-revertedCh:
