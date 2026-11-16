@@ -10,11 +10,13 @@ metadata:
     name: check-deployment-labels
 spec:
   failurePolicy: Fail
-  matchConditions:
-  - expression: '!(object.metadata.name == ''skipped-deployment'')'
-    name: check-name
-  - expression: '!(object.metadata.name == ''skipped-deployment-from-ns-b'')'
-    name: check-name-from-ns-b
+  # Exceptions are compiled in sorted order, and the first one lives in the
+  # randomly named chainsaw namespace, so the index of each condition varies
+  # per run. Match on name instead of position.
+  (matchConditions[?name == 'check-name'] | length(@)): 1
+  (matchConditions[?name == 'check-name-from-ns-b'] | length(@)): 1
+  (matchConditions[?name == 'check-name'].expression | [0]): '!(object.metadata.name == ''skipped-deployment'')'
+  (matchConditions[?name == 'check-name-from-ns-b'].expression | [0]): '!(object.metadata.name == ''skipped-deployment-from-ns-b'')'
   matchConstraints:
     resourceRules:
     - apiGroups:
