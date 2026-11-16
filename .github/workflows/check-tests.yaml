@@ -126,7 +126,11 @@ jobs:
   # green run on this branch that covers this matrix. When the run fails, the
   # suspects are in this range. The list goes to the run summary and, through
   # the job outputs, to the tracking issue that sync-issue maintains. A failure
-  # here must not mark the run as failed, so the step continues on error.
+  # here must not mark the run as failed or decide the tracking issue, which
+  # reads the result of every job it needs. So the step continues on error and
+  # times out well before the job does: a step timeout counts as a step
+  # failure, which continue-on-error absorbs, while a job timeout fails the
+  # job.
   batch:
     name: Batch summary
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-')
@@ -144,6 +148,7 @@ jobs:
       - name: Summarize batch
         id: summarize
         continue-on-error: true
+        timeout-minutes: 5
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           MATRIX: ${{ inputs.matrix || 'full' }}
@@ -306,7 +311,8 @@ jobs:
       (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
     needs:
       # batch: for the commits this run tests. It finishes long before the
-      # tests do, and its step continues on error, so it never fails the run.
+      # tests do, and its step continues on error and times out before the
+      # job, so its result is success unless the whole run is cancelled.
       - batch
       - images
       - cli
