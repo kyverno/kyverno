@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Runs the tests of scripts/test-e2e-local.sh, the script behind
+# `make test-e2e-local`. The script reads the setup of each conformance suite
+# from the CI files below, so a change to one of them can break it. The tests
+# need no cluster.
+
+name: Local E2E script
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+    paths:
+      - scripts/test-e2e-local.sh
+      - scripts/test-e2e-local_test.sh
+      - .github/workflows/check-e2e-local-script.yaml
+      # Read by the script.
+      - .github/workflows/tests-conformance.yaml
+      - .github/workflows/kubernetes-matrix.yaml
+      - .github/actions/tests/conformance/run/action.yaml
+      - .github/actions/tools/chainsaw/action.yaml
+      - test/conformance/quarantine.yaml
+      - scripts/config/kind/**
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Local E2E script tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/tools/yq
+      - name: Run tests
+        run: scripts/test-e2e-local_test.sh
