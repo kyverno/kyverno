@@ -284,9 +284,19 @@ func TestSyncWatchers(t *testing.T) {
 		{
 			name: "startWatcher error",
 			setupWM: func() *WatchManager {
+				scheme := runtime.NewScheme()
+				dynClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
+					gvr: "KindList",
+				})
+				dynClient.PrependReactor("list", "res", func(_ ktesting.Action) (bool, runtime.Object, error) {
+					return true, nil, errors.New("failed to list watch state")
+				})
+				dynClient.PrependWatchReactor("res", func(_ ktesting.Action) (bool, watch.Interface, error) {
+					return true, nil, errors.New("failed to start watch")
+				})
 				wm := &WatchManager{
 					log:    logging.WithName("test"),
-					client: &MockClient{},
+					client: &MockClient{dynamicClient: dynClient},
 					restMapper: &mockRESTMapper{fn: func(_ schema.GroupKind, _ string) (*meta.RESTMapping, error) {
 						return &meta.RESTMapping{Resource: gvr}, nil
 					}},
@@ -305,7 +315,7 @@ func TestSyncWatchers(t *testing.T) {
 			setupWM: func() *WatchManager {
 				return &WatchManager{
 					log:    logging.WithName("test"),
-					client: &MockClient{},
+					client: dclient.NewEmptyFakeClient(),
 					restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
 						return &meta.RESTMapping{Resource: gvr1}, nil
 					}},

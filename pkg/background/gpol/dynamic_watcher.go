@@ -998,37 +998,32 @@ func (wm *WatchManager) startWatcherWithCacheAndState(
 				logger.Error(lerr, "giving up watcher recovery after 410", "gvr", gvr)
 				return
 			}
-			// Serialize recovery reconciliation and replacement watcher swap under
-			// syncLock so lifecycle mutators (DeleteDownstreams, StopWatchers,
-			// RemoveWatchersForPolicy, SyncWatchers) cannot race the snapshot.
-			wm.syncLock.Lock()
 			wm.lock.Lock()
 			if wm.dynamicWatchers[gvr] != thisWatcher {
 				wm.lock.Unlock()
-				wm.syncLock.Unlock()
 				return
 			}
 			wm.lock.Unlock()
 
+			// Reconcile any downstream drift that occurred before refreshed.rv
+			// without holding syncLock across network I/O; each item revalidates
+			// watcher identity and metadataCache membership under wm.lock.
 			wm.reconcileRelistedItems(gvr, thisWatcher, refreshed.items)
 
 			wm.lock.Lock()
 			if wm.dynamicWatchers[gvr] != thisWatcher {
 				wm.lock.Unlock()
-				wm.syncLock.Unlock()
 				return
 			}
 			nextWatch, rerr := watchTools.NewRetryWatcherWithContext(context.TODO(), refreshed.rv, &cache.ListWatch{WatchFunc: watchFunc})
 			if rerr != nil {
 				wm.lock.Unlock()
-				wm.syncLock.Unlock()
 				logger.Error(rerr, "failed to restart expired watcher", "resourceVersion", refreshed.rv)
 				return
 			}
 			thisWatcher.watcher = nextWatch
 			currentWatch = nextWatch
 			wm.lock.Unlock()
-			wm.syncLock.Unlock()
 		}
 	}(gvr, w)
 	return w, initialState.items, nil
@@ -1362,32 +1357,72 @@ func (wm *WatchManager) reconcileTrackedDownstream(obj *unstructured.Unstructure
 	if obj == nil {
 		return
 	}
-	wm.lock.Lock()
-	defer wm.lock.Unlock()
+	uid := obj.GetUID()
+	objHash := reportutils.CalculateResourceHash(*obj)
 
+	wm.lock.Lock()
 	w, exists := wm.dynamicWatchers[gvr]
 	if !exists || (expectedWatcher != nil && w != expectedWatcher) {
+		wm.lock.Unlock()
 		return
 	}
-	uid := obj.GetUID()
 	cached, ok := w.metadataCache[uid]
-	if !ok {
+	if !ok || cached.Hash == "" || cached.Hash == objHash || cached.Data == nil {
+		wm.lock.Unlock()
 		return
 	}
-	if cached.Hash != "" && cached.Hash != reportutils.CalculateResourceHash(*obj) {
-		cachedLabels := cached.Labels
-		policyKey := cached.PolicyKey
-		if policyKey == "" {
-			policyKey = cachedLabels[common.GeneratePolicyLabel]
-		}
-		key := generateKey(policyKey, types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
-		if pending := wm.pendingGenerates[key]; pending != nil {
-			pending.skipped[uid] = skippedUpdate{gvr: gvr, obj: obj.DeepCopy()}
-			wm.log.V(4).Info("downstream resource changed while its own generate write is in flight, skipping revert", "name", obj.GetName(), "namespace", obj.GetNamespace())
-			return
-		}
-		wm.revertDownstream(w, uid, obj)
+	cachedLabels := cached.Labels
+	policyKey := cached.PolicyKey
+	if policyKey == "" {
+		policyKey = cachedLabels[common.GeneratePolicyLabel]
 	}
+	key := generateKey(policyKey, types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
+	if pending := wm.pendingGenerates[key]; pending != nil {
+		pending.skipped[uid] = skippedUpdate{gvr: gvr, obj: obj.DeepCopy()}
+		wm.lock.Unlock()
+		wm.log.V(4).Info("downstream resource changed while its own generate write is in flight, skipping revert", "name", obj.GetName(), "namespace", obj.GetNamespace())
+		return
+	}
+	desiredData := cached.Data.DeepCopy()
+	desiredHash := cached.Hash
+	ssa := cached.ServerSideApply
+	wm.lock.Unlock()
+
+	// Perform revert I/O outside locks with a bounded timeout, then revalidate
+	// watcher and UID cache membership before committing any cache hash update.
+	wm.log.V(4).Info("downstream resource updated by user, reverting changes", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	var err error
+	var applied *unstructured.Unstructured
+	if ssa {
+		applied, err = wm.applyDownstream(appliedConfiguration(desiredData, obj))
+	} else {
+		downstream := desiredData.DeepCopy()
+		downstream.SetUID("")
+		downstream.SetSelfLink("")
+		downstream.SetCreationTimestamp(metav1.Time{})
+		downstream.SetManagedFields(nil)
+		downstream.SetResourceVersion(obj.GetResourceVersion())
+		downstream.SetFinalizers(obj.GetFinalizers())
+		downstream.SetOwnerReferences(obj.GetOwnerReferences())
+		ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
+		_, err = wm.client.UpdateResource(ctx, downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+		cancel()
+	}
+	if err != nil {
+		wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
+		return
+	}
+	if ssa && applied != nil {
+		wm.lock.Lock()
+		if curW, okW := wm.dynamicWatchers[gvr]; okW && (expectedWatcher == nil || curW == expectedWatcher) {
+			if cur, okC := curW.metadataCache[uid]; okC && cur.Hash == desiredHash {
+				cur.Hash = reportutils.CalculateResourceHash(*applied)
+				curW.metadataCache[uid] = cur
+			}
+		}
+		wm.lock.Unlock()
+	}
+	wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
 }
 
 func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
