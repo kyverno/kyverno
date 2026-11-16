@@ -43,6 +43,61 @@ func TestUpdatePolicyStatusReturnsConflict(t *testing.T) {
 	}
 }
 
+// TestReconcileSkipsPoliciesOwnedByOtherControllers verifies that no admission policy is generated,
+// and no status is written, for a policy whose evaluation mode belongs to another controller.
+func TestReconcileSkipsPoliciesOwnedByOtherControllers(t *testing.T) {
+	t.Parallel()
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+		},
+	}
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			AutogenConfiguration:    mapGenEnabled(),
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "HTTP"},
+		},
+	}
+	tests := []struct {
+		name   string
+		key    string
+		object runtime.Object
+		setup  func(c *controller, indexer cache.Indexer)
+	}{
+		{
+			name:   "ValidatingPolicy",
+			key:    "ValidatingPolicy/policy",
+			object: vpol,
+			setup: func(c *controller, indexer cache.Indexer) {
+				c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(indexer)
+			},
+		},
+		{
+			name:   "MutatingPolicy",
+			key:    "MutatingPolicy/policy",
+			object: mpol,
+			setup: func(c *controller, indexer cache.Indexer) {
+				c.mpolLister = policiesv1beta1listers.NewMutatingPolicyLister(indexer)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			client := versionedfake.NewSimpleClientset(tt.object)
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			require.NoError(t, indexer.Add(tt.object))
+			c := &controller{kyvernoClient: client}
+			tt.setup(c, indexer)
+
+			require.NoError(t, c.reconcile(context.Background(), logr.Discard(), tt.key, "", "policy"))
+			assert.Empty(t, client.Actions(), "the controller must not write to a policy it doesn't own")
+		})
+	}
+}
+
 func TestReconcileReturnsStatusConflictForRetry(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

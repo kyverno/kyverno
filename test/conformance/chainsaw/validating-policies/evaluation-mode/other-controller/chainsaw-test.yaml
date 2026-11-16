@@ -44,11 +44,11 @@ spec:
           (status.conditionStatus.conditions == null): true
   - name: Kyverno doesn't apply the other controller's exception
     try:
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: skipped-deployment.yaml
+    - script:
+        content: kubectl apply -f skipped-deployment.yaml
+        check:
+          ($error != null): true
+          (contains($stderr, 'denied the request: Policy check-deployment-labels failed: Deployment labels must be env=prod')): true
   - name: Kyverno doesn't enforce the other controller's policy
     try:
     - apply:

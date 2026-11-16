@@ -432,3 +432,25 @@ func TestMatchesMutateExisting(t *testing.T) {
 		})
 	}
 }
+
+// TestReconcile_SkipsPoliciesOwnedByOtherControllers verifies that the reconciler drops a policy from
+// its cache when its evaluation mode belongs to another controller, such as Kyverno Authz.
+func TestReconcile_SkipsPoliciesOwnedByOtherControllers(t *testing.T) {
+	ctx := context.Background()
+	policy := disallowLatestTagMutatingPolicy()
+	fc := &fakeClient{policy: policy}
+	rec := newReconciler(fc, compiler.NewCompiler(), nil, false)
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: policy.Name}}
+
+	_, err := rec.Reconcile(ctx, req)
+	require.NoError(t, err)
+	require.NotEmpty(t, rec.Fetch(ctx, false), "a Kubernetes-mode policy must be cached")
+
+	for _, mode := range []policiesv1beta1.EvaluationMode{"Envoy", "HTTP"} {
+		fc.policy = policy.DeepCopy()
+		fc.policy.Spec.EvaluationConfiguration = &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: mode}
+		_, err = rec.Reconcile(ctx, req)
+		require.NoError(t, err, "mode %s", mode)
+		assert.Empty(t, rec.Fetch(ctx, false), "mode %s: the policy must be removed from the cache", mode)
+	}
+}

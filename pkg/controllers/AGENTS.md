@@ -50,8 +50,10 @@ leader-elected = created before/outside that block, so it runs on every replica.
 | `generic/logging` | Generic CRD-change logger — unused since #17710 PR 4 deleted its last caller | n/a (no caller) |
 | `generic/webhook` | Generic webhook-configuration reconciler, reused for cleanup/ttl webhook configs outside `cmd/kyverno` | Yes (from within leader callbacks) |
 
-`generic/webhook.NewController` takes a trailing `...Option`. The only option, `WithoutConfigMatchConditions()`,
-stops `build()` from stamping the ConfigMap's `config.matchConditions` onto the webhook configuration; the zero
+`generic/webhook.NewController` takes a trailing `...Option`, and there are two options.
+`WithMatchConditions(...)` appends controller-specific match conditions after the ConfigMap's; the CEL
+`PolicyException` webhook in `cmd/kyverno/main.go` uses it so Kyverno skips exceptions whose evaluation mode
+belongs to another controller. `WithoutConfigMatchConditions()` stops `build()` from stamping the ConfigMap's `config.matchConditions` onto the webhook configuration; the zero
 value keeps stamping them, so every existing caller is unaffected. Only the two 1.20 legacy-policy-denial
 configurations (the legacy `PolicyException` webhook in `cmd/kyverno/main.go` and the `CleanupPolicy`/
 `ClusterCleanupPolicy` webhook in `cmd/cleanup-controller/main.go`) pass it, because a documented

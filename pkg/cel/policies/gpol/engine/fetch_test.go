@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 type fakeGpolLister struct {
@@ -110,4 +111,59 @@ func TestGet(t *testing.T) {
 		_, err := fp.Get(context.Background(), "test-policy")
 		assert.Error(t, err)
 	})
+}
+
+type capturingCompiler struct {
+	compiler.Compiler
+	exceptions []*policiesv1beta1.PolicyException
+}
+
+func (c *capturingCompiler) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*compiler.Policy, field.ErrorList) {
+	c.exceptions = exceptions
+	return c.Compiler.Compile(policy, exceptions)
+}
+
+func TestGet_SkipsExceptionsOwnedByOtherControllers(t *testing.T) {
+	exception := func(name string, mode policiesv1beta1.EvaluationMode) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: v1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				EvaluationMode: mode,
+				PolicyRefs:     []policiesv1beta1.PolicyRef{{Name: "test-policy", Kind: "GeneratingPolicy"}},
+			},
+		}
+	}
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		want       []string
+	}{
+		{name: "owned", exceptions: []*policiesv1beta1.PolicyException{exception("owned", "")}, want: []string{"owned"}},
+		{name: "foreign", exceptions: []*policiesv1beta1.PolicyException{exception("foreign", "Envoy")}},
+		{
+			name:       "mixed",
+			exceptions: []*policiesv1beta1.PolicyException{exception("owned", "Kubernetes"), exception("foreign", "HTTP")},
+			want:       []string{"owned"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gpol := &policiesv1beta1.GeneratingPolicy{ObjectMeta: v1.ObjectMeta{Name: "test-policy"}}
+			gpol.TypeMeta.Kind = "GeneratingPolicy"
+			comp := &capturingCompiler{Compiler: compiler.NewCompiler()}
+			fp := NewFetchProvider(comp, &fakeGpolLister{policy: gpol}, &fakeNgpolLister{}, &fakePolexLister{exceptions: tt.exceptions}, true)
+
+			policy, err := fp.Get(context.Background(), "test-policy")
+			assert.NoError(t, err)
+			names := func(exceptions []*policiesv1beta1.PolicyException) []string {
+				var out []string
+				for _, polex := range exceptions {
+					out = append(out, polex.Name)
+				}
+				return out
+			}
+			assert.Equal(t, tt.want, names(policy.Exceptions))
+			assert.Equal(t, tt.want, names(comp.exceptions))
+		})
+	}
 }

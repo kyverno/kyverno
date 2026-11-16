@@ -105,36 +105,83 @@ func TestReconcile_ValidatingPolicy_retriesOnUpdateStatusConflict(t *testing.T) 
 
 // TestReconcile_SkipsPoliciesOwnedByOtherControllers verifies that reconcile() never writes
 // status on a policy whose evaluation mode belongs to another controller, such as Kyverno Authz.
+// TestReconcile_AllPolicyTypes covers the Kyverno-owned case for the same kinds.
 func TestReconcile_SkipsPoliciesOwnedByOtherControllers(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
 
-	vpol := &policiesv1beta1.ValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "authz-vpol"},
-		Spec: policiesv1beta1.ValidatingPolicySpec{
-			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+	vpolSpec := policiesv1beta1.ValidatingPolicySpec{
+		MatchConstraints:        emptyMatchResources,
+		EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+	}
+	ivpolSpec := policiesv1beta1.ImageValidatingPolicySpec{
+		MatchConstraints:        emptyMatchResources,
+		EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+	}
+	mpolSpec := policiesv1beta1.MutatingPolicySpec{
+		MatchConstraints:        emptyMatchResources,
+		EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "HTTP"},
+	}
+	tests := []struct {
+		name   string
+		key    string
+		object runtime.Object
+	}{
+		{
+			name:   "ValidatingPolicy",
+			key:    webhook.BuildRecorderKey(webhook.ValidatingPolicyType, "authz", ""),
+			object: &policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "authz"}, Spec: vpolSpec},
+		},
+		{
+			name:   "NamespacedValidatingPolicy",
+			key:    webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, "authz", "test-ns"),
+			object: &policiesv1beta1.NamespacedValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "authz", Namespace: "test-ns"}, Spec: vpolSpec},
+		},
+		{
+			name:   "ImageValidatingPolicy",
+			key:    webhook.BuildRecorderKey(webhook.ImageValidatingPolicyType, "authz", ""),
+			object: &policiesv1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "authz"}, Spec: ivpolSpec},
+		},
+		{
+			name:   "NamespacedImageValidatingPolicy",
+			key:    webhook.BuildRecorderKey(webhook.NamespacedImageValidatingPolicyType, "authz", "test-ns"),
+			object: &policiesv1beta1.NamespacedImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "authz", Namespace: "test-ns"}, Spec: ivpolSpec},
+		},
+		{
+			name:   "MutatingPolicy",
+			key:    webhook.BuildRecorderKey(webhook.MutatingPolicyType, "authz", ""),
+			object: &policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "authz"}, Spec: mpolSpec},
+		},
+		{
+			name:   "NamespacedMutatingPolicy",
+			key:    webhook.BuildRecorderKey(webhook.NamespacedMutatingPolicyType, "authz", "test-ns"),
+			object: &policiesv1beta1.NamespacedMutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "authz", Namespace: "test-ns"}, Spec: mpolSpec},
 		},
 	}
-	client := versionedfake.NewSimpleClientset(vpol)
-	var statusUpdateCalls atomic.Int32
-	client.PrependReactor("update", "validatingpolicies", func(action k8stesting.Action) (bool, runtime.Object, error) {
-		if action.GetSubresource() == "status" {
-			statusUpdateCalls.Add(1)
-		}
-		return false, nil, nil
-	})
 
-	dc := dclient.NewEmptyFakeClient()
-	c := controller{
-		dclient:          dc,
-		client:           client,
-		authChecker:      auth.NewSubjectChecker(dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "", nil),
-		polStateRecorder: webhook.NewStateRecorder(nil),
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			client := versionedfake.NewSimpleClientset(tt.object)
+			var statusUpdateCalls atomic.Int32
+			client.PrependReactor("update", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				if action.GetSubresource() == "status" {
+					statusUpdateCalls.Add(1)
+				}
+				return false, nil, nil
+			})
+
+			dc := dclient.NewEmptyFakeClient()
+			c := controller{
+				dclient:          dc,
+				client:           client,
+				authChecker:      auth.NewSubjectChecker(dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "", nil),
+				polStateRecorder: webhook.NewStateRecorder(nil),
+			}
+
+			require.NoError(t, c.reconcile(context.Background(), logr.Discard(), tt.key, "", ""))
+			assert.Equal(t, int32(0), statusUpdateCalls.Load())
+		})
 	}
-
-	key := webhook.BuildRecorderKey(webhook.ValidatingPolicyType, vpol.Name, "")
-	require.NoError(t, c.reconcile(ctx, logr.Discard(), key, "", ""))
-	assert.Equal(t, int32(0), statusUpdateCalls.Load())
 }
 
 // TestReconcile_AllPolicyTypes verifies that reconcile() correctly routes each

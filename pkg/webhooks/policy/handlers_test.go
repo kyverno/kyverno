@@ -83,14 +83,16 @@ func TestValidateCELPoliciesUnaffected(t *testing.T) {
 // policy whose evaluation mode belongs to another controller, such as Kyverno Authz.
 func TestValidateSkipsPoliciesOwnedByOtherControllers(t *testing.T) {
 	newRequest := func(mode string) handlers.AdmissionRequest {
-		// envoy.allowed() is only declared in the Kyverno Authz Envoy environment, so this policy
-		// fails to compile as a Kubernetes policy
+		// envoy.allowed() is only declared in the Kyverno Authz Envoy environment, so this otherwise
+		// valid policy fails to compile as a Kubernetes policy
 		raw := []byte(`{
 			"apiVersion": "policies.kyverno.io/v1beta1",
 			"kind": "ValidatingPolicy",
 			"metadata": {"name": "vpol"},
 			"spec": {
 				"evaluation": {"mode": "` + mode + `"},
+				"validationActions": ["Deny"],
+				"matchConstraints": {"resourceRules": [{"apiGroups": [""], "apiVersions": ["v1"], "resources": ["pods"], "operations": ["CREATE"]}]},
 				"validations": [{"expression": "envoy.allowed()"}]
 			}
 		}`)
@@ -107,6 +109,8 @@ func TestValidateSkipsPoliciesOwnedByOtherControllers(t *testing.T) {
 
 	resp := h.Validate(context.Background(), logr.Discard(), newRequest("Kubernetes"), "", time.Now())
 	assert.False(t, resp.Allowed, "a Kubernetes policy with an invalid expression must be rejected")
+	assert.Contains(t, resp.Result.Message, "spec.validations[0].expression")
+	assert.Contains(t, resp.Result.Message, "undeclared reference to 'envoy'")
 
 	for _, mode := range []string{"Envoy", "HTTP"} {
 		resp := h.Validate(context.Background(), logr.Discard(), newRequest(mode), "", time.Now())
