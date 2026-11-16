@@ -57,13 +57,14 @@ func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ..
 			return admissionutils.Response(request.UID, err)
 		}
 		// Allow secondary child objects instantiated by controllers:
-		// 1. On CREATE: secondary objects with controller ownerReferences (e.g. CertificateRequest for Certificate,
-		//    Order for CertificateRequest).
-		//    Arbitrary caller-controlled ownerReferences on generate targets (e.g. Secret, ConfigMap) remain denied
-		//    to prevent cache-restore recognition through forged generation labels before UID registration.
+		// 1. On CREATE: secondary objects with controller ownerReferences created by cert-manager
+		//    (e.g. CertificateRequest for Certificate, Order for CertificateRequest).
+		//    Arbitrary caller-controlled ownerReferences on generate targets (e.g. Secret, ConfigMap)
+		//    and unprivileged creators remain denied to prevent cache-restore recognition through
+		//    forged generation labels before UID registration.
 		// 2. On CREATE & UPDATE: core Endpoints and EndpointSlices managed by kube-controller-manager
 		//    (endpoints-controller and endpointslice-controller reconcile Service labels along with endpoint subsets).
-		if request.Operation == admissionv1.Create && isAllowedChildResource(request.Kind, newResource.GetOwnerReferences()) {
+		if request.Operation == admissionv1.Create && isAllowedChildResource(request.Kind, request.UserInfo.Username, newResource.GetOwnerReferences()) {
 			return inner(ctx, logger, request, startTime)
 		}
 		if isEndpointsController(request.UserInfo.Username) &&
@@ -111,7 +112,10 @@ func isEndpointsController(username string) bool {
 	}
 }
 
-func isAllowedChildResource(kind metav1.GroupVersionKind, ownerRefs []metav1.OwnerReference) bool {
+func isAllowedChildResource(kind metav1.GroupVersionKind, username string, ownerRefs []metav1.OwnerReference) bool {
+	if !isCertManagerController(username) {
+		return false
+	}
 	for _, ref := range ownerRefs {
 		if ref.Controller != nil && *ref.Controller {
 			// cert-manager CertificateRequest inheriting labels from Certificate
@@ -123,6 +127,10 @@ func isAllowedChildResource(kind metav1.GroupVersionKind, ownerRefs []metav1.Own
 		}
 	}
 	return false
+}
+
+func isCertManagerController(username string) bool {
+	return strings.HasPrefix(username, "system:serviceaccount:") && strings.Contains(username, "cert-manager")
 }
 
 func (inner AdmissionHandler) withProtection() AdmissionHandler {

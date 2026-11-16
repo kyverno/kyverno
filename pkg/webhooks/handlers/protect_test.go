@@ -321,10 +321,11 @@ func TestWithProtection_NonKyvernoManagedResource(t *testing.T) {
 func TestWithGenerateLabelProtection(t *testing.T) {
 	t.Parallel()
 	const (
-		user           = "system:serviceaccount:tenant:user"
-		kyvernoUser    = "system:serviceaccount:kyverno:kyverno-background-controller"
-		generatePolicy = common.GeneratePolicyLabel
-		cloneSource    = common.GenerateTypeCloneSourceLabel
+		user                      = "system:serviceaccount:tenant:user"
+		certManagerControllerUser = "system:serviceaccount:cert-manager:cert-manager-controller"
+		kyvernoUser               = "system:serviceaccount:kyverno:kyverno-background-controller"
+		generatePolicy            = common.GeneratePolicyLabel
+		cloneSource               = common.GenerateTypeCloneSourceLabel
 	)
 	tests := []struct {
 		name                    string
@@ -356,13 +357,37 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 		{
 			name:              "allows generate labels on create for CertificateRequest child resources with controller ownerReferences",
 			operation:         admissionv1.Create,
-			username:          user,
+			username:          certManagerControllerUser,
 			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
 			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
 			hasOwnerRef:       true,
 			ownerKind:         "Certificate",
 			isControllerOwner: true,
 			wantAllowed:       true,
+		},
+		{
+			name:              "denies generate labels on create for CertificateRequest by ordinary user even with controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for CertificateRequest by non-cert-manager service account",
+			operation:         admissionv1.Create,
+			username:          "system:serviceaccount:default:attacker",
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
 		},
 		{
 			name:              "denies modifying generate labels on update for CertificateRequest with controller ownerReferences",
@@ -417,13 +442,25 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 		{
 			name:              "allows generate labels on create for Order child resources with controller ownerReferences",
 			operation:         admissionv1.Create,
-			username:          user,
+			username:          certManagerControllerUser,
 			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
 			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
 			hasOwnerRef:       true,
 			ownerKind:         "CertificateRequest",
 			isControllerOwner: true,
 			wantAllowed:       true,
+		},
+		{
+			name:              "denies generate labels on create for Order by ordinary user even with controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
 		},
 		{
 			name:              "denies modifying generate labels on update for Order with controller ownerReferences",
