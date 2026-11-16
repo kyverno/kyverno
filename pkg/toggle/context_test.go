@@ -8,16 +8,17 @@ import (
 // mockToggles implements Toggles interface for testing
 type mockToggles struct {
 	protectManagedResources           bool
+	protectGenerationLabels           bool
 	forceFailurePolicyIgnore          bool
 	enableDeferredLoading             bool
 	generateValidatingAdmissionPolicy bool
 	generateMutatingAdmissionPolicy   bool
 	dumpMutatePatches                 bool
-	autogenV2                         bool
 	allowHTTPInNamespacedPolicies     bool
 }
 
 func (m mockToggles) ProtectManagedResources() bool  { return m.protectManagedResources }
+func (m mockToggles) ProtectGenerationLabels() bool  { return m.protectGenerationLabels }
 func (m mockToggles) ForceFailurePolicyIgnore() bool { return m.forceFailurePolicyIgnore }
 func (m mockToggles) EnableDeferredLoading() bool    { return m.enableDeferredLoading }
 func (m mockToggles) GenerateValidatingAdmissionPolicy() bool {
@@ -25,7 +26,6 @@ func (m mockToggles) GenerateValidatingAdmissionPolicy() bool {
 }
 func (m mockToggles) GenerateMutatingAdmissionPolicy() bool { return m.generateMutatingAdmissionPolicy }
 func (m mockToggles) DumpMutatePatches() bool               { return m.dumpMutatePatches }
-func (m mockToggles) AutogenV2() bool                       { return m.autogenV2 }
 func (m mockToggles) AllowHTTPInNamespacedPolicies() bool   { return m.allowHTTPInNamespacedPolicies }
 
 func TestNewContext(t *testing.T) {
@@ -57,7 +57,6 @@ func TestNewContext(t *testing.T) {
 				generateValidatingAdmissionPolicy: true,
 				generateMutatingAdmissionPolicy:   true,
 				dumpMutatePatches:                 true,
-				autogenV2:                         true,
 			},
 			wantNil: false,
 		},
@@ -148,12 +147,12 @@ func TestFromContext(t *testing.T) {
 func TestFromContextReturnsStoredToggles(t *testing.T) {
 	expected := mockToggles{
 		protectManagedResources:           true,
+		protectGenerationLabels:           true,
 		forceFailurePolicyIgnore:          true,
 		enableDeferredLoading:             true,
 		generateValidatingAdmissionPolicy: true,
 		generateMutatingAdmissionPolicy:   true,
 		dumpMutatePatches:                 true,
-		autogenV2:                         true,
 	}
 
 	ctx := NewContext(context.Background(), expected)
@@ -161,6 +160,9 @@ func TestFromContextReturnsStoredToggles(t *testing.T) {
 
 	if result.ProtectManagedResources() != expected.ProtectManagedResources() {
 		t.Error("ProtectManagedResources mismatch")
+	}
+	if result.ProtectGenerationLabels() != expected.ProtectGenerationLabels() {
+		t.Error("ProtectGenerationLabels mismatch")
 	}
 	if result.ForceFailurePolicyIgnore() != expected.ForceFailurePolicyIgnore() {
 		t.Error("ForceFailurePolicyIgnore mismatch")
@@ -177,9 +179,6 @@ func TestFromContextReturnsStoredToggles(t *testing.T) {
 	if result.DumpMutatePatches() != expected.DumpMutatePatches() {
 		t.Error("DumpMutatePatches mismatch")
 	}
-	if result.AutogenV2() != expected.AutogenV2() {
-		t.Error("AutogenV2 mismatch")
-	}
 }
 
 func TestDefaultToggles(t *testing.T) {
@@ -192,12 +191,12 @@ func TestDefaultToggles(t *testing.T) {
 
 	// Default toggles should be returned - verify the interface is implemented
 	_ = result.ProtectManagedResources()
+	_ = result.ProtectGenerationLabels()
 	_ = result.ForceFailurePolicyIgnore()
 	_ = result.EnableDeferredLoading()
 	_ = result.GenerateValidatingAdmissionPolicy()
 	_ = result.GenerateMutatingAdmissionPolicy()
 	_ = result.DumpMutatePatches()
-	_ = result.AutogenV2()
 }
 
 func TestContextChaining(t *testing.T) {

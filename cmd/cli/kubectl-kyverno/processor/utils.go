@@ -2,33 +2,57 @@ package processor
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/go-git/go-billy/v5"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/informers"
 )
 
-func policyHasValidateOrVerifyImageChecks(policy kyvernov1.PolicyInterface) bool {
-	for _, rule := range policy.GetSpec().Rules {
-		//  engine.validate handles both validate and verifyImageChecks atm
-		if rule.HasValidate() || rule.HasVerifyImageChecks() {
-			return true
-		}
-	}
-	return false
+type staticEntry struct {
+	value any
 }
 
-func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool) (libs.Context, error) {
+func (e *staticEntry) Get(projection string) (any, error) {
+	if projection == "" {
+		return e.value, nil
+	}
+	if m, ok := e.value.(map[string]any); ok {
+		if v, found := m[projection]; found {
+			return v, nil
+		}
+		return nil, fmt.Errorf("projection %q not found in global context entry", projection)
+	}
+	return nil, fmt.Errorf("projection %q requested on non-object value", projection)
+}
+
+func (e *staticEntry) Stop() {}
+
+func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool, globalContextEntries map[string]interface{}, httpMockIndex map[string]interface{}) (libs.Context, error) {
 	if dclient != nil && !isFake {
+		kubeClient := dclient.GetKubeClient()
+		informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
+
+		// TODO: informer exit, we rely on the fact that this is gonna be used in the cli
+		// so the context and the informer will just die at the end of the command execution.
+		// but maybe we can do better ?
+		stopCh := make(chan struct{})
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		lister := informerFactory.Core().V1().Secrets().Lister()
+		gStore := gctxstore.New(0)
+		for name, data := range globalContextEntries {
+			_ = gStore.Set(name, &staticEntry{value: data})
+		}
 		return libs.NewContextProvider(
 			dclient,
-			[]imagedataloader.Option{imagedataloader.WithLocalCredentials(registryAccess)},
-			gctxstore.New(),
+			lister,
+			gStore,
 			restMapper,
 			true,
 		)
@@ -64,7 +88,16 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 		}
 	}
 
-	// this is getting a bit bad because what if we are applying different types of policies concurrently ?
+	if len(globalContextEntries) > 0 {
+		for name, data := range globalContextEntries {
+			fakeContextProvider.AddGlobalReference(name, data)
+		}
+	}
+
+	if len(httpMockIndex) > 0 {
+		fakeContextProvider.SetHTTPMocks(httpMockIndex)
+	}
+
 	libs.LibraryContext = fakeContextProvider
 	return fakeContextProvider, nil
 }

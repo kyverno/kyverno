@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: allow-latest-tag-exception
+  namespace: default
+spec:
+  exceptions:
+  - policyName: always-pass
+    ruleNames:
+    - always-pass
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        names:
+        - excepted-pod

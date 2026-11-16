@@ -3,10 +3,7 @@ package api
 import (
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/ext/wildcard"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	utils "github.com/kyverno/kyverno/pkg/utils/match"
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -25,22 +22,6 @@ type EngineResponse struct {
 	PolicyResponse PolicyResponse
 	// stats contains engine statistics
 	stats ExecutionStats
-}
-
-func resource(policyContext PolicyContext) unstructured.Unstructured {
-	resource := policyContext.NewResource()
-	if resource.Object == nil {
-		resource = policyContext.OldResource()
-	}
-	return resource
-}
-
-func NewEngineResponseFromPolicyContext(policyContext PolicyContext) EngineResponse {
-	return NewEngineResponse(
-		resource(policyContext),
-		NewKyvernoPolicy(policyContext.Policy()),
-		policyContext.NamespaceLabels(),
-	)
 }
 
 func NewEngineResponse(
@@ -210,92 +191,4 @@ func (er EngineResponse) getRulesWithErrors(predicate func(RuleResponse) bool) [
 		}
 	}
 	return rules
-}
-
-// If the policy is of type ValidatingAdmissionPolicy, an empty string is returned.
-func (er EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
-	pol := er.Policy()
-	if pol.AsKyvernoPolicy() == nil {
-		return ""
-	}
-	spec := pol.AsKyvernoPolicy().GetSpec()
-	for _, r := range spec.Rules {
-		if r.HasValidate() {
-			for _, v := range r.Validation.FailureActionOverrides {
-				if !v.Action.IsValid() {
-					continue
-				}
-				if v.Namespaces == nil {
-					// If both Namespaces and NamespaceSelector are nil, the override applies to all namespaces
-					if v.NamespaceSelector == nil {
-						return v.Action
-					}
-					hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-					if err == nil && hasPass {
-						return v.Action
-					}
-				}
-				for _, ns := range v.Namespaces {
-					if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
-						if v.NamespaceSelector == nil {
-							return v.Action
-						}
-						hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-						if err == nil && hasPass {
-							return v.Action
-						}
-					}
-				}
-			}
-
-			if r.Validation.FailureAction != nil {
-				return *r.Validation.FailureAction
-			}
-		} else if r.HasVerifyImages() {
-			// Check all VerifyImages entries - if ANY has Enforce, return Enforce
-			// This ensures that enforcement is not bypassed when multiple entries exist
-			var firstAction *kyvernov1.ValidationFailureAction
-			for i := range r.VerifyImages {
-				if r.VerifyImages[i].FailureAction != nil {
-					if r.VerifyImages[i].FailureAction.Enforce() {
-						return *r.VerifyImages[i].FailureAction
-					}
-					if firstAction == nil {
-						firstAction = r.VerifyImages[i].FailureAction
-					}
-				}
-			}
-			// If no Enforce found but we have an explicit action, return it
-			if firstAction != nil {
-				return *firstAction
-			}
-		}
-	}
-	for _, v := range spec.ValidationFailureActionOverrides {
-		if !v.Action.IsValid() {
-			continue
-		}
-		if v.Namespaces == nil {
-			// If both Namespaces and NamespaceSelector are nil, the override applies to all namespaces
-			if v.NamespaceSelector == nil {
-				return v.Action
-			}
-			hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-			if err == nil && hasPass {
-				return v.Action
-			}
-		}
-		for _, ns := range v.Namespaces {
-			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
-				if v.NamespaceSelector == nil {
-					return v.Action
-				}
-				hasPass, err := utils.CheckSelector(v.NamespaceSelector, er.namespaceLabels)
-				if err == nil && hasPass {
-					return v.Action
-				}
-			}
-		}
-	}
-	return spec.ValidationFailureAction
 }

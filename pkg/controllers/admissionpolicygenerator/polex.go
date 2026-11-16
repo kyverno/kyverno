@@ -1,55 +1,15 @@
 package admissionpolicygenerator
 
 import (
-	"strings"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // this file contains the handler functions for PolicyException resources.
-func (c *controller) addException(obj *kyvernov2.PolicyException) {
-	logger.V(2).Info("policy exception created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
-	c.enqueueException(obj)
-}
-
-func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
-	if datautils.DeepEqual(old.Spec, obj.Spec) {
-		return
-	}
-	logger.V(2).Info("policy exception updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
-	c.enqueueException(obj)
-}
-
-func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
-	polex := kubeutils.GetObjectWithTombstone(obj).(*kyvernov2.PolicyException)
-
-	logger.V(2).Info("policy exception deleted", "uid", polex.GetUID(), "kind", polex.GetKind(), "name", polex.GetName())
-	c.enqueueException(obj)
-}
-
-func (c *controller) enqueueException(obj *kyvernov2.PolicyException) {
-	for _, exception := range obj.Spec.Exceptions {
-		// skip adding namespaced policies in the queue.
-		// skip adding policies with multiple rules in the queue.
-		if strings.Contains(exception.PolicyName, "/") || len(exception.RuleNames) > 1 {
-			continue
-		}
-
-		cpol, err := c.getClusterPolicy(exception.PolicyName)
-		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				logger.Error(err, "unable to get the policy from policy informer")
-			}
-			continue
-		}
-		c.enqueuePolicy(cpol)
-	}
-}
-
 func (c *controller) addCELException(obj *policiesv1beta1.PolicyException) {
 	logger.V(2).Info("policy exception created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueueCELException(obj)
@@ -91,5 +51,20 @@ func (c *controller) enqueueCELException(obj *policiesv1beta1.PolicyException) {
 			}
 			c.enqueueMP(mpol)
 		}
+	}
+}
+
+// requeueAtExpiry arms the next deadline on every generation because the queue keeps
+// only the earliest delay for each policy key. Exceptions are filtered by getCELExceptions;
+// if one expires during generation, AddAfter's nonpositive delay queues it immediately.
+func (c *controller) requeueAtExpiry(name, kind string, exceptions []policiesv1beta1.PolicyException) {
+	var earliest time.Time
+	for _, exception := range exceptions {
+		if expiry := exception.Spec.ExpiresAt; expiry != nil && (earliest.IsZero() || expiry.Time.Before(earliest)) {
+			earliest = expiry.Time
+		}
+	}
+	if !earliest.IsZero() {
+		c.queue.AddAfter(kind+"/"+name, time.Until(earliest))
 	}
 }

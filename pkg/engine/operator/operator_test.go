@@ -3,7 +3,7 @@ package operator
 import (
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {

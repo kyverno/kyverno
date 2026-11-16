@@ -12,8 +12,21 @@ spec:
         file: http-pod.yaml
     - apply:
         file: service.yaml
+    - assert:
+        timeout: 120s
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-api
+            namespace: default
+          status:
+            (conditions[?type == 'Ready']):
+            - status: "True"
+    # A Ready pod is not always reachable through its Service yet (the node's
+    # Service rules can lag), and the policy calls it through the Service.
     - sleep:
-        duration: 8s
+        duration: 5s
   - name: create policy
     use:
       template: ../../../../_step-templates/create-policy.yaml

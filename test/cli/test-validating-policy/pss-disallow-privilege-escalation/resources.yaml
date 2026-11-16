@@ -1,0 +1,92 @@
+# Linux pod, field unset: denied, as PSA denies it.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-unset
+spec:
+  containers:
+  - name: app
+    image: nginx
+---
+# Linux pod, field explicitly true: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-true
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: true
+---
+# Init container misses the field: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-init-unset
+spec:
+  initContainers:
+  - name: init
+    image: busybox
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+---
+# Ephemeral container misses the field: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-ephemeral-unset
+spec:
+  ephemeralContainers:
+  - name: debug
+    image: busybox
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+---
+# spec.os.name is linux, not windows: the exemption must not apply.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-explicit-os-unset
+spec:
+  os:
+    name: linux
+  containers:
+  - name: app
+    image: nginx
+---
+# Every container sets the field to false: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-false
+spec:
+  initContainers:
+  - name: init
+    image: busybox
+    securityContext:
+      allowPrivilegeEscalation: false
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+---
+# Windows pod cannot set the field, so PSA admits it unset.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: windows-unset
+spec:
+  os:
+    name: windows
+  containers:
+  - name: app
+    image: mcr.microsoft.com/windows/servercore:ltsc2022

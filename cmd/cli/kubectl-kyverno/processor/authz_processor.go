@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	authzengine "github.com/kyverno/kyverno-authz/pkg/engine"
@@ -29,8 +30,11 @@ type AuthzProcessor struct {
 	dclient       dclient.Interface
 	httpPolicies  []*policiesv1beta1.ValidatingPolicy
 	envoyPolicies []*policiesv1beta1.ValidatingPolicy
+	auditWarn     bool
 }
 
+// ApplyHTTPPolicies applies HTTP authorization validating policies against incoming check requests,
+// recording result counts with audit-warn handling.
 func (p *AuthzProcessor) ApplyHTTPPolicies(resources []*authzhttp.CheckRequest) ([]engineapi.EngineResponse, error) {
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, req := range resources {
@@ -39,13 +43,15 @@ func (p *AuthzProcessor) ApplyHTTPPolicies(resources []*authzhttp.CheckRequest) 
 			if err != nil {
 				return nil, err
 			}
-			p.rc.AddValidatingPolicyResponse(resp)
+			p.rc.AddValidatingPolicyResponse(p.auditWarn, resp)
 			responses = append(responses, resp)
 		}
 	}
 	return responses, nil
 }
 
+// ApplyEnvoyPolicies applies Envoy authorization validating policies against incoming check requests,
+// recording result counts with audit-warn handling.
 func (p *AuthzProcessor) ApplyEnvoyPolicies(resources []*authv3.CheckRequest) ([]engineapi.EngineResponse, error) {
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, req := range resources {
@@ -54,24 +60,27 @@ func (p *AuthzProcessor) ApplyEnvoyPolicies(resources []*authv3.CheckRequest) ([
 			if err != nil {
 				return nil, err
 			}
-			p.rc.AddValidatingPolicyResponse(resp)
+			p.rc.AddValidatingPolicyResponse(p.auditWarn, resp)
 			responses = append(responses, resp)
 		}
 	}
 	return responses, nil
 }
 
+// NewAuthzProcessor creates a new AuthzProcessor.
 func NewAuthzProcessor(
 	rc *ResultCounts,
 	dclient dclient.Interface,
 	httpPolicies []*policiesv1beta1.ValidatingPolicy,
 	envoyPolicies []*policiesv1beta1.ValidatingPolicy,
+	auditWarn bool,
 ) *AuthzProcessor {
 	return &AuthzProcessor{
 		rc:            rc,
 		dclient:       dclient,
 		httpPolicies:  httpPolicies,
 		envoyPolicies: envoyPolicies,
+		auditWarn:     auditWarn,
 	}
 }
 
@@ -81,7 +90,7 @@ func processEnvoyPolicy(vpol *policiesv1beta1.ValidatingPolicy, request *authv3.
 		dynClient = dClient.GetDynamicInterface()
 	}
 	compiler := authzcompiler.NewCompiler[dynamic.Interface, *authv3.CheckRequest, *authv3.CheckResponse](dynClient)
-	compiled, errs := compiler.Compile(vpol)
+	compiled, errs := compiler.Compile(&policiesv1.ValidatingPolicy{TypeMeta: vpol.TypeMeta, ObjectMeta: vpol.ObjectMeta, Spec: vpol.Spec}, nil)
 	if len(errs) > 0 {
 		return engineapi.EngineResponse{}, fmt.Errorf("failed to compile envoy policy %s: %v", vpol.Name, errs.ToAggregate())
 	}
@@ -146,7 +155,7 @@ func processHTTPPolicy(vpol *policiesv1beta1.ValidatingPolicy, request *authzhtt
 		dynClient = dClient.GetDynamicInterface()
 	}
 	compiler := authzcompiler.NewCompiler[dynamic.Interface, *authzhttp.CheckRequest, *authzhttp.CheckResponse](dynClient)
-	compiled, errs := compiler.Compile(vpol)
+	compiled, errs := compiler.Compile(&policiesv1.ValidatingPolicy{TypeMeta: vpol.TypeMeta, ObjectMeta: vpol.ObjectMeta, Spec: vpol.Spec}, nil)
 	if len(errs) > 0 {
 		return engineapi.EngineResponse{}, fmt.Errorf("failed to compile HTTP policy %s: %v", vpol.Name, errs.ToAggregate())
 	}

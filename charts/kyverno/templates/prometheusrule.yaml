@@ -1,0 +1,23 @@
+{{- if and .Values.prometheusRule.enabled .Values.prometheusRule.spec }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ template "kyverno.fullname" . }}
+  {{- if .Values.prometheusRule.namespace }}
+  namespace: {{ .Values.prometheusRule.namespace }}
+  {{- else }}
+  namespace: {{ template "kyverno.namespace" . }}
+  {{- end }}
+  {{- with .Values.prometheusRule.additionalAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- include "kyverno.labels.common" . | nindent 4 }}
+    {{- with .Values.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+  {{- toYaml .Values.prometheusRule.spec | nindent 4 }}
+{{- end }}

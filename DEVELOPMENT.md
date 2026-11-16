@@ -6,6 +6,7 @@ It contains instructions to build, run, and test Kyverno.
 
 - [Open project in devcontainer](#open-project-in-devcontainer-recommended)
 - [Tools](#tools)
+- [Kubernetes CI matrix](#kubernetes-ci-matrix)
 - [Building local binaries](#building-local-binaries)
   - [Building kyvernopre locally](#building-kyvernopre-locally)
   - [Building kyverno locally](#building-kyverno-locally)
@@ -19,6 +20,9 @@ It contains instructions to build, run, and test Kyverno.
   - [Create a local cluster](#create-a-local-cluster)
   - [Build and load local images](#build-and-load-local-images)
   - [Deploy with helm](#deploy-with-helm)
+- [Running conformance tests](#running-conformance-tests)
+  - [Run a suite locally](#run-a-suite-locally)
+  - [Troubleshoot a failed run](#troubleshoot-a-failed-run)
 - [Code generation](#code-generation)
   - [Generating kubernetes API client](#generating-kubernetes-api-client)
   - [Generating API deep copy functions](#generating-api-deep-copy-functions)
@@ -82,6 +86,32 @@ To remove installed tools, run:
 ```console
 make clean-tools
 ```
+
+## Kubernetes CI matrix
+
+The reusable workflow [`.github/workflows/kubernetes-matrix.yaml`](.github/workflows/kubernetes-matrix.yaml)
+is the source of truth for the Kubernetes conformance matrix in both `kyverno/kyverno`
+and `kyverno/policies`. It exports JSON version arrays, a version-to-image map, and
+the compatible kind version without checking out the caller's repository.
+
+Use the latest **published kind node image** for each supported minor (currently
+1.34 through 1.37), pinned by digest from the
+[kind release notes](https://github.com/kubernetes-sigs/kind/releases).
+Kubernetes patch releases can precede their kind images: do not update a version
+until its node image exists. Testing a newer patch before then requires building
+and publishing a custom node image; a Kubernetes release tag alone is insufficient.
+
+Update the workflow's `NODES` data and `KIND_VERSION` together when appropriate.
+The beta/stable MutatingAdmissionPolicy subsets preserve API-specific coverage;
+the smoke subset runs version-independent tests on the newest supported version.
+The 1.33-only alpha MutatingAdmissionPolicy jobs are no longer in the supported matrix.
+Keep release-branch matrices independent of changes to main.
+
+Kyverno calls the workflow using a relative path, so matrix changes are tested in
+the same revision. Policies pins the external workflow to a full commit SHA;
+after publishing a matrix update, update that pin (Dependabot also tracks GitHub
+Actions references). Roll out the shared workflow before its policies consumer.
+Do not resolve latest versions dynamically during a test run.
 
 ## Building local binaries
 
@@ -275,7 +305,7 @@ To create a local KinD cluster, run:
 make kind-create-cluster
 ```
 
-You can override the k8s version by setting the `KIND_IMAGE` environment variable (default value is `kindest/node:v1.29.1`).
+You can override the k8s version by setting the `KIND_IMAGE` environment variable (default value is `kindest/node:v1.35.1`).
 
 You can also override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
 
@@ -331,6 +361,86 @@ This will build local images, load built images in every node of the KinD cluste
 
 You can override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
 
+## Running conformance tests
+
+The conformance (E2E) tests are [chainsaw](https://kyverno.github.io/chainsaw/latest/quick-start/) tests in
+`test/conformance/chainsaw`. The Tests workflow (`.github/workflows/check-tests.yaml`) runs each suite, a
+directory under `test/conformance/chainsaw`, on the Kubernetes versions of the
+[Kubernetes CI matrix](#kubernetes-ci-matrix).
+
+### Run a suite locally
+
+To run a suite the way CI does, run:
+
+```console
+make test-e2e-local SUITE=<suite> [TEST=<regex>] [K8S=<version>] [VARIANT=<variant>]
+```
+
+- `SUITE` is the `tests-path` of a job in `.github/workflows/tests-conformance.yaml`, such as
+  `validating-policies` or `tls-certificates/rsa-cert-manager`.
+- `TEST` is a regular expression for the names of the tests to run (`metadata.name` in `chainsaw-test.yaml`).
+  By default, every test of the suite runs.
+- `K8S` is a Kubernetes version from the matrix, such as `1.36` or `v1.36.4`. By default, the latest version
+  that CI tests the suite on is used.
+- `VARIANT` picks one job of a suite that CI runs with several settings: the `variant` input of that job. For
+  example, the `rbac` suite runs with the `standard`, `default`, and `force-failure-policy-ignore` Kyverno
+  configs. By default, the first one is used.
+
+For example:
+
+```console
+make test-e2e-local SUITE=validating-policies TEST='^should-autogen' K8S=1.34
+```
+
+The target reads the suite settings from the workflows with `scripts/e2e/settings.sh`: the digest-pinned kind
+node image, the kind config, the Kyverno Helm values, the extra Helm settings, and whether to install
+cert-manager or the `kubectl-evict` plugin. Then it does what a CI job does:
+
+1. Installs `kubectl-evict` in `.tools`, if the suite needs it.
+1. Creates a kind cluster with `make kind-create-cluster`.
+1. Installs cert-manager, if the suite needs it.
+1. Builds the images and deploys Kyverno with `make kind-deploy-kyverno`.
+1. Applies the CRDs from `config/crds` and waits for the Kyverno pods.
+1. Runs chainsaw for the suite, with `.tools` on the `PATH`.
+
+Unlike CI, the target doesn't skip the tests in `test/conformance/quarantine.yaml`.
+
+Before you start, install [chainsaw](https://kyverno.github.io/chainsaw/latest/quick-start/install/),
+[yq](https://github.com/mikefarah/yq), `jq`, `kubectl`, Go, and Docker. To print the settings without
+creating a cluster, run `[VARIANT=<variant>] ./scripts/e2e/settings.sh <suite> [<version>]`.
+
+The cluster stays up after the tests, so you can inspect it. To run the tests again on it, run the chainsaw
+command that the target printed. Delete the cluster with `make kind-delete-cluster` before you run
+`make test-e2e-local` again. If `.tools/kind` is older than the kind version of the matrix, run
+`make clean-tools` first, so the target installs the matching version.
+
+### Troubleshoot a failed run
+
+Each conformance job uploads these artifacts:
+
+- `e2e-reports-<suite>[-<variant>]-<k8s>-<shard>`: the chainsaw reports as JSON (`results.json`) and JUnit
+  (`results.xml`), and the job details (`meta.json`). Jobs upload it even when they fail.
+- `diagnostics-<suite>[-<variant>]-<k8s>-<shard>`, only when the job fails: logs from every Kyverno pod,
+  events, webhook configurations, the policies and policy reports with their status, and the Kyverno config
+  maps. Each file is cut at 10 MiB. The `cli` suite runs the Kyverno CLI against a cluster without Kyverno,
+  so it uploads no diagnostics.
+
+The variant is the `variant` input of the conformance action. Set it on a job whose matrix has a dimension,
+other than `k8s-version` and `shard-index`, that doesn't change `tests-path`, so its jobs don't overwrite each
+other's artifacts. `scripts/e2e/test_report.py` checks this.
+
+The `summarize` job of the Tests workflow writes one table to the run summary. It lists each failing test once,
+with the Kubernetes versions it failed on, a link to each failing job, and the first error line:
+
+- **All versions**: the test failed on every version it ran on, so the cause is likely deterministic.
+- **Some versions**: the test failed on only some versions, so the cause is version-specific or the test is
+  flaky.
+
+Jobs of the same suite with different variants are grouped separately. The summary also counts the passed,
+failed, and skipped test results, lists the skipped tests (by count only when there are many), and lists the
+jobs that failed without a test report, for example while creating the cluster. The table
+comes from `scripts/e2e/report.py`, which has tests in `scripts/e2e/test_report.py`.
+
 ## Code generation
 
 We are using code generation tools to create the following portions of code:
@@ -341,6 +451,8 @@ We are using code generation tools to create the following portions of code:
 - [Generating API docs](#generating-api-docs)
 
 > **Note**: You can run `make codegen-all` to build all generated code at once.
+
+> **Note**: After bumping the `github.com/kyverno/api` dependency, run `make codegen-api-bump` (or `make codegen-all`): besides the CRD manifests, the API reference docs under `docs/user/crd/` are generated from the api module types and are checked by the "Verify codegen (docs)" CI job. If that job fails anyway, it uploads a `codegen-*-patch` artifact you can apply directly with `git apply` instead of re-running codegen locally.
 
 ### Generating kubernetes API client
 
@@ -433,7 +545,7 @@ Based on the [APIs golang code definitions](./api), you can generate the corresp
 make codegen-api-docs
 ```
 
-This will output API docs in [/docs/crd](./docs/crd).
+This will output API docs in [/docs/user/crd](./docs/user/crd).
 
 ### Generating helm charts CRDs
 
@@ -444,7 +556,7 @@ Based on the [APIs golang code definitions](./api), you can generate the corresp
 make codegen-helm-crds
 ```
 
-This will output CRDs templates in [/charts/kyverno/templates/crds.yaml](./charts/kyverno/templates/crds.yaml).
+This will output CRD templates in [`charts/kyverno/charts/crds/templates`](./charts/kyverno/charts/crds/templates).
 
 > **Note**: You can run `make codegen-helm-all` to generate CRDs and docs at once.
 
@@ -482,7 +594,7 @@ You can run Kyverno locally or in your IDE of choice with a few steps:
 1. There are multiple environment variables that need to be configured. The variables can be found in [here](./.vscode/launch.json). Their values can be set using the command `export $NAME=value`
 1. To run Kyverno locally against the remote cluster you will need to provide `--kubeconfig` and `--serverIP` arguments:
    - `--kubeconfig` must point to your kubeconfig file (usually `~/.kube/config`)
-   - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip adress of your local machine)
+   - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip address of your local machine)
    - `--backgroundServiceAccountName` must be set to `system:serviceaccount:kyverno:kyverno-background-controller`
    - `--caSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-ca`
    - `--tlsSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-pair`

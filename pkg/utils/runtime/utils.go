@@ -25,6 +25,7 @@ type runtime struct {
 	deploymentLister appsv1listers.DeploymentLister
 	certValidator    tls.CertValidator
 	logger           logr.Logger
+	readinessChecks  []func() bool
 }
 
 func NewRuntime(
@@ -32,12 +33,14 @@ func NewRuntime(
 	serverIP string,
 	deploymentInformer appsv1informers.DeploymentInformer,
 	certValidator tls.CertValidator,
+	readinessChecks ...func() bool,
 ) Runtime {
 	return &runtime{
 		logger:           logger,
 		serverIP:         serverIP,
 		deploymentLister: deploymentInformer.Lister(),
 		certValidator:    certValidator,
+		readinessChecks:  readinessChecks,
 	}
 }
 
@@ -50,7 +53,15 @@ func (c *runtime) IsLive(context.Context) bool {
 }
 
 func (c *runtime) IsReady(ctx context.Context) bool {
-	return c.validateCertificates(ctx)
+	if !c.validateCertificates(ctx) {
+		return false
+	}
+	for _, check := range c.readinessChecks {
+		if !check() {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *runtime) IsRollingUpdate() bool {

@@ -1,8 +1,0 @@
-apiVersion: v1
-data:
-  foo: YmFy
-kind: Secret
-metadata:
-  name: pol-clone-nosync-modify-source-newsecret
-  namespace: default
-type: Opaque

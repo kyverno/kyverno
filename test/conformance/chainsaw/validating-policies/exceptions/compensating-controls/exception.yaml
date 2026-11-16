@@ -1,0 +1,22 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: allow-root-legacy-app
+spec:
+  policyRefs:
+    - name: disallow-root-user
+      kind: ValidatingPolicy
+  # Step 1: target the resources requesting the exception
+  matchConditions:
+    - name: check-app-name
+      expression: "object.metadata.name.startsWith('legacy-app')"
+  # Step 2: compensating controls required to grant the exception
+  validations:
+    - expression: "object.metadata.?annotations[?'security.company.com/ticket-id'].orValue('') != ''"
+      message: >-
+        Compensating Control Failure: Exception requires a valid security ticket
+        annotation ('security.company.com/ticket-id').
+    - expression: "object.metadata.?annotations['security.company.com/network-isolation'].orValue('') == 'strict'"
+      message: >-
+        Compensating Control Failure: Workload must run with 'network-isolation: strict'
+        annotation to bypass non-root checks.

@@ -1,24 +1,13 @@
-apiVersion: kyverno.io/v2
+apiVersion: policies.kyverno.io/v1
 kind: PolicyException
 metadata:
   name: exception
 spec:
-  background: false
-  exceptions:
-  - policyName: require-run-as-non-root-user
-    ruleNames:
-    - run-as-non-root-user
-  match:
-    any:
-    - resources:
-        namespaceSelector:
-          matchExpressions:
-          - key: kyverno.tess.io/mutateresource
-            operator: In
-            values: 
-            - "false"
-        kinds:
-        - Pod
-        operations:
-        - UPDATE
-        - CREATE
+  policyRefs:
+  - name: require-run-as-non-root-user
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: ns-selector
+    expression: >-
+      has(namespaceObject.metadata.labels) &&
+      namespaceObject.metadata.labels['kyverno.tess.io/mutateresource'] == 'false'

@@ -1,8 +1,0 @@
-apiVersion: v1
-data:
-  foo: YmFy
-kind: Secret
-metadata:
-  name: testingsecret
-  namespace: default
-type: Opaque

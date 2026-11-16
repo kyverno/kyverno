@@ -1,0 +1,26 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: delete-spot-deployments
+  annotations:
+    policies.kyverno.io/description: >-
+      Looks up the ComputeClass CRD via resource.get() and deletes the deployment
+      if the compute class has spot enabled. This tests context-based CRD API call 
+      lookups for DeletingPolicy.
+spec:
+  schedule: '*/1 * * * *'
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  conditions:
+  - name: check-spot-compute
+    expression: >-
+      cel.bind(
+        computeclass, 
+        resource.get('cloud.google.com/v1', 'computeclasses', '', object.spec.?template.?spec.?nodeSelector[?'cloud.google.com/compute-class'].orValue('default')),
+        
+        computeclass.?spec.?priorities.orValue([]).exists(p, p.?spot.orValue(false) == true)
+      )

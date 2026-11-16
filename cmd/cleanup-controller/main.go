@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
-	policyhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/policy"
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
@@ -23,26 +23,27 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
-	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/controllers/deleting"
-	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
+	legacypolicymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/legacypolicy"
 	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -74,23 +75,21 @@ func (probes) IsLive(context.Context) bool {
 	return true
 }
 
-func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsInstalled(apiserverClient, "cleanuppolicies.kyverno.io", "clustercleanuppolicies.kyverno.io")
-}
-
 func main() {
 	var (
-		dumpPayload              bool
-		serverIP                 string
-		servicePort              int
-		webhookServerPort        int
-		maxQueuedEvents          int
-		interval                 time.Duration
-		renewBefore              time.Duration
-		maxAPICallResponseLength int64
-		apiCallTimeout           time.Duration
-		autoDeleteWebhooks       bool
-		tlsKeyAlgorithm          string
+		dumpPayload                  bool
+		serverIP                     string
+		servicePort                  int
+		webhookServerPort            int
+		maxQueuedEvents              int
+		interval                     time.Duration
+		renewBefore                  time.Duration
+		maxAPICallResponseLength     int64
+		apiCallTimeout               time.Duration
+		autoDeleteWebhooks           bool
+		tlsKeyAlgorithm              string
+		maxGlobalContextEntries      int
+		disableCertManagerController bool
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -111,6 +110,8 @@ func main() {
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.BoolVar(&autoDeleteWebhooks, "autoDeleteWebhooks", false, "Set this flag to 'true' to enable autodeletion of webhook configurations using finalizers (requires extra permissions).")
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
+	flagset.BoolVar(&disableCertManagerController, "disableCertManagerController", false, "Disable the in-process certificate manager controller.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -124,7 +125,6 @@ func main() {
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithMetadataClient(),
-		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 		internal.WithRestConfig(),
 	)
@@ -152,10 +152,6 @@ func main() {
 			setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
 			os.Exit(1)
 		}
-		if err := sanityChecks(setup.ApiServerClient); err != nil {
-			setup.Logger.Error(err, "sanity checks failed")
-			os.Exit(1)
-		}
 		keyAlgorithm, ok := tls.KeyAlgorithms[strings.ToUpper(tlsKeyAlgorithm)]
 		if !ok {
 			setup.Logger.Error(fmt.Errorf("unsupported key algorithm: %s (supported: RSA, ECDSA, Ed25519)", tlsKeyAlgorithm), "invalid tlsKeyAlgorithm flag")
@@ -176,19 +172,23 @@ func main() {
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		// listers
 		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
-		// log policy changes
-		genericloggingcontroller.NewController(
-			setup.Logger.WithName("cleanup-policy"),
-			"CleanupPolicy",
-			kyvernoInformer.Kyverno().V2().CleanupPolicies(),
-			genericloggingcontroller.CheckGeneration,
-		)
-		genericloggingcontroller.NewController(
-			setup.Logger.WithName("cluster-cleanup-policy"),
-			"ClusterCleanupPolicy",
-			kyvernoInformer.Kyverno().V2().ClusterCleanupPolicies(),
-			genericloggingcontroller.CheckGeneration,
-		)
+		// kyverno_legacy_policies_total gauge: CleanupPolicy and ClusterCleanupPolicy,
+		// read from metadata-only lists refreshed every 30s. ClusterPolicy, Policy, and
+		// legacy PolicyException are gauged by the admission controller instead. Not
+		// constructed at all when metrics export is disabled, so there's no refresh loop
+		// to generate the metadata List traffic.
+		var legacyPolicyController internal.Controller
+		if !internal.MetricsExportDisabled() {
+			legacyPolicyController = internal.NewController(
+				legacypolicymetricscontroller.ControllerName,
+				legacypolicymetricscontroller.NewController(
+					metrics.GetLegacyPolicyMetrics(),
+					"kyverno.io",
+					deprecations.MetadataKindCounters(setup.MetadataClient, "CleanupPolicy", "ClusterCleanupPolicy"),
+				),
+				legacypolicymetricscontroller.Workers,
+			)
+		}
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -200,7 +200,7 @@ func main() {
 			eventGenerator,
 			event.Workers,
 		)
-		gcstore := store.New()
+		gcstore := store.New(maxGlobalContextEntries)
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
@@ -227,7 +227,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		libCtx, err := libs.NewContextProvider(setup.KyvernoDynamicClient, nil, gcstore, restMapper, false)
+		libCtx, err := libs.NewContextProvider(setup.KyvernoDynamicClient, setup.RegistrySecretLister, gcstore, restMapper, false)
 		if err != nil {
 			setup.Logger.Error(err, "failed to create CEL context provider")
 			os.Exit(1)
@@ -271,18 +271,21 @@ func main() {
 					tlsSecretName,
 					keyAlgorithm,
 				)
-				certController := internal.NewController(
-					certmanager.ControllerName,
-					certmanager.NewController(
-						caSecret,
-						tlsSecret,
-						renewer,
-						caSecretName,
-						tlsSecretName,
-						config.KyvernoNamespace(),
-					),
-					certmanager.Workers,
-				)
+				var certController internal.Controller
+				if !disableCertManagerController {
+					certController = internal.NewController(
+						certmanager.ControllerName,
+						certmanager.NewController(
+							caSecret,
+							tlsSecret,
+							renewer,
+							caSecretName,
+							tlsSecretName,
+							config.KyvernoNamespace(),
+						),
+						certmanager.Workers,
+					)
+				}
 				policyValidatingWebhookController := internal.NewController(
 					policyWebhookControllerName,
 					genericwebhookcontroller.NewController(
@@ -297,14 +300,7 @@ func main() {
 						nil,
 						[]admissionregistrationv1.RuleWithOperations{
 							{
-								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{"kyverno.io"},
-									APIVersions: []string{"v2beta1"},
-									Resources: []string{
-										"cleanuppolicies/*",
-										"clustercleanuppolicies/*",
-									},
-								},
+								Rule: deprecations.LegacyCleanupPolicyRule,
 								Operations: []admissionregistrationv1.OperationType{
 									admissionregistrationv1.Create,
 									admissionregistrationv1.Update,
@@ -315,6 +311,11 @@ func main() {
 						genericwebhookcontroller.None,
 						setup.Configuration,
 						caSecretName,
+						// This is one of the two legacy denial configurations pinned by decision 1
+						// of the #17708 design: no ConfigMap matchConditions, so a documented "skip
+						// this principal" value cannot exempt anyone from the 1.20 legacy-write
+						// denial.
+						genericwebhookcontroller.WithoutConfigMatchConditions(),
 					),
 					webhookWorkers,
 				)
@@ -357,22 +358,6 @@ func main() {
 					),
 					webhookWorkers,
 				)
-				cleanupController := internal.NewController(
-					cleanup.ControllerName,
-					cleanup.NewController(
-						setup.KyvernoDynamicClient,
-						setup.KyvernoClient,
-						kyvernoInformer.Kyverno().V2().ClusterCleanupPolicies(),
-						kyvernoInformer.Kyverno().V2().CleanupPolicies(),
-						nsLister,
-						setup.Configuration,
-						cmResolver,
-						setup.Jp,
-						eventGenerator,
-						gcstore,
-					),
-					cleanup.Workers,
-				)
 				deletingController := internal.NewController(
 					deleting.ControllerName,
 					deleting.NewController(
@@ -382,13 +367,7 @@ func main() {
 						kyvernoInformer.Policies().V1beta1().NamespacedDeletingPolicies(),
 						provider,
 						engine.NewEngine(
-							func(name string) *corev1.Namespace {
-								ns, err := nsLister.Get(name)
-								if err != nil {
-									return nil
-								}
-								return ns
-							},
+							celengine.NewNamespaceResolver(logger.WithName("ns-resolver"), nsLister, setup.KubeClient),
 							restMapper,
 							libCtx,
 							matching.NewMatcher(),
@@ -418,10 +397,11 @@ func main() {
 				}
 				// start leader controllers
 				var wg wait.Group
-				certController.Run(ctx, logger, &wg)
+				if certController != nil {
+					certController.Run(ctx, logger, &wg)
+				}
 				policyValidatingWebhookController.Run(ctx, logger, &wg)
 				ttlWebhookController.Run(ctx, logger, &wg)
-				cleanupController.Run(ctx, logger, &wg)
 				deletingController.Run(ctx, logger, &wg)
 				ttlManagerController.Run(ctx, logger, &wg)
 				wg.Wait()
@@ -433,7 +413,6 @@ func main() {
 			os.Exit(1)
 		}
 		// create handlers
-		policyHandlers := policyhandlers.New(setup.KyvernoDynamicClient)
 		resourceHandlers := resourcehandlers.New(checker)
 		// create server
 		server := NewServer(
@@ -444,7 +423,14 @@ func main() {
 				}
 				return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 			},
-			policyHandlers.Validate,
+			// Legacy CleanupPolicy/ClusterCleanupPolicy writes are denied one layer up by
+			// handlers.WithLegacyPolicyDenial() (see server.go); this inner handler only
+			// ever sees requests already allowed through (DELETE, finalizer-removal
+			// UPDATE), so it is success-only, same pattern as
+			// pkg/webhooks/policy/handlers.go's Mutate.
+			func(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+				return admissionutils.ResponseSuccess(request.UID)
+			},
 			resourceHandlers.Validate,
 			setup.MetricsManager,
 			webhooks.DebugModeOptions{
@@ -459,6 +445,9 @@ func main() {
 		// start non leader controllers
 		eventController.Run(ctx, setup.Logger, &wg)
 		gceController.Run(ctx, setup.Logger, &wg)
+		if legacyPolicyController != nil {
+			legacyPolicyController.Run(ctx, setup.Logger, &wg)
+		}
 		// start leader election
 		le.Run(ctx)
 	}()

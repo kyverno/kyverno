@@ -138,6 +138,11 @@ spec:
               {{- join "," $secretNames -}}
             {{- end }}
             - --resyncPeriod={{ .Values.backgroundController.resyncPeriod | default .Values.global.resyncPeriod }}
+            {{- $crdWatcher := .Values.global.crdWatcher }}
+            {{- if hasKey .Values.backgroundController "crdWatcher" }}
+            {{- $crdWatcher = .Values.backgroundController.crdWatcher }}
+            {{- end }}
+            - --crdWatcher={{ $crdWatcher }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.backgroundController.featuresOverride)
               "reporting"
               "configMapCaching"
@@ -183,6 +188,10 @@ spec:
           {{- end }}
           {{- with .Values.backgroundController.securityContext }}
           securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.backgroundController.lifecycle }}
+          lifecycle:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:

@@ -3,11 +3,10 @@ package common
 import (
 	"context"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	errors "github.com/pkg/errors"
@@ -15,9 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func UpdateStatus(client versioned.Interface, urLister kyvernov2listers.UpdateRequestNamespaceLister, name string, state kyvernov2.UpdateRequestState, message string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func UpdateStatus(ctx context.Context, client versioned.Interface, urLister kyvernov2listers.UpdateRequestNamespaceLister, name string, state kyvernov2.UpdateRequestState, message string, genResources []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	var latest *kyvernov2.UpdateRequest
-	ur, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
+	ur, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return ur, errors.Wrapf(err, "failed to fetch update request")
 	}
@@ -29,11 +28,11 @@ func UpdateStatus(client versioned.Interface, urLister kyvernov2listers.UpdateRe
 	}
 
 	if state == kyvernov2.Failed {
-		if latest, err = retryOrDeleteOnFailure(client, latest, 3); err != nil {
+		if latest, err = retryOrDeleteOnFailure(ctx, client, latest, 3); err != nil {
 			return nil, err
 		}
 	}
-	new, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), latest, metav1.UpdateOptions{})
+	new, err := client.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 	if err != nil {
 		return ur, errors.Wrapf(err, "failed to update ur status to %s", string(state))
 	}
@@ -42,15 +41,8 @@ func UpdateStatus(client versioned.Interface, urLister kyvernov2listers.UpdateRe
 	return ur, nil
 }
 
-func PolicyKey(namespace, name string) string {
-	if namespace != "" {
-		return namespace + "/" + name
-	}
-	return name
-}
-
-func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyvernov1.ResourceSpec {
-	return kyvernov1.ResourceSpec{
+func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyverno.ResourceSpec {
+	return kyverno.ResourceSpec{
 		APIVersion: obj.GetAPIVersion(),
 		Kind:       obj.GetKind(),
 		Namespace:  obj.GetNamespace(),
@@ -59,9 +51,9 @@ func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyvernov1.Resou
 	}
 }
 
-func retryOrDeleteOnFailure(kyvernoClient versioned.Interface, ur *kyvernov2.UpdateRequest, limit int) (latest *kyvernov2.UpdateRequest, err error) {
+func retryOrDeleteOnFailure(ctx context.Context, kyvernoClient versioned.Interface, ur *kyvernov2.UpdateRequest, limit int) (latest *kyvernov2.UpdateRequest, err error) {
 	if ur.Status.RetryCount > limit {
-		err = kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
+		err = kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(ctx, ur.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			return nil, errors.Wrapf(err, "exceeds retry limit, failed to delete the UR: %s, retry: %v, resourceVersion: %s", ur.Name, ur.Status.RetryCount, ur.GetResourceVersion())
 		}
@@ -70,9 +62,4 @@ func retryOrDeleteOnFailure(kyvernoClient versioned.Interface, ur *kyvernov2.Upd
 	}
 
 	return ur, nil
-}
-
-func FindDownstream(client dclient.Interface, apiVersion, kind string, labels map[string]string) (*unstructured.UnstructuredList, error) {
-	selector := &metav1.LabelSelector{MatchLabels: labels}
-	return client.ListResource(context.TODO(), apiVersion, kind, "", selector)
 }

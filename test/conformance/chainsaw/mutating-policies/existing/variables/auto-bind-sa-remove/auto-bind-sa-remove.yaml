@@ -1,0 +1,40 @@
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: auto-bind-sa-remove
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConditions:
+    - expression: "has(request.oldObject.metadata.annotations) && request.oldObject.metadata.annotations[?'rbac.example.com/auto-bind'].orValue('') == 'true'"
+      name: has-auto-bind-annotation
+  matchConstraints:
+    resourceRules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - DELETE
+        resources:
+          - serviceaccounts
+  mutations:
+    - jsonPatch:
+        expression: 'variables.matchingSubjectIndices.map(idx, JSONPatch{op: "remove", path: "/subjects/" + string(idx)})'
+      patchType: JSONPatch
+  targetMatchConstraints:
+    resourceRules:
+      - apiGroups:
+          - rbac.authorization.k8s.io
+        apiVersions:
+          - v1
+        resources:
+          - clusterrolebindings
+  variables:
+    - expression: "request.oldObject.metadata.name"
+      name: saName
+    - expression: "request.oldObject.metadata.namespace"
+      name: saNamespace
+    - expression: "object.?subjects.orValue([]).filter(s, s.kind == 'ServiceAccount' && s.name == variables.saName && s.namespace == variables.saNamespace).map(s, object.subjects.indexOf(s))"
+      name: matchingSubjectIndices

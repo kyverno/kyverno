@@ -56,9 +56,14 @@ func NewServer(
 	mux.HandlerFunc(
 		"POST",
 		config.CleanupValidatingWebhookServicePath,
+		// Legacy CleanupPolicy/ClusterCleanupPolicy writes are denied one layer up by
+		// handlers.WithLegacyPolicyDenial(); this inner handler only ever sees requests
+		// already allowed through (DELETE, finalizer-removal UPDATE), so it is
+		// success-only, same pattern as pkg/webhooks/policy/handlers.go's Mutate.
 		handlers.FromAdmissionFunc("VALIDATE", validationHandler).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
+			WithLegacyPolicyDenial().
 			WithMetrics(policyLogger, metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),

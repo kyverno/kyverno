@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: trigger-mutation
-data:
-  key: "some value"

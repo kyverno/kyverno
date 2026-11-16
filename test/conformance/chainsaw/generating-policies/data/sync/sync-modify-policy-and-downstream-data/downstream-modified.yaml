@@ -6,3 +6,4 @@ kind: ConfigMap
 metadata:
   name: sync-modify-policy-and-downstream-data
   namespace: sync-modify-policy-and-downstream-data
+  uid: ($downstream_uid)

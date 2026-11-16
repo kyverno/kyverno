@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: strict-unmasked-host-users-absent
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      procMount: Unmasked
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: strict-unmasked-host-users-true
+spec:
+  hostUsers: true
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      procMount: Unmasked
+---
+# The Restricted profile stays strict: hostUsers false must NOT relax procMount.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: strict-unmasked-host-users-false
+spec:
+  hostUsers: false
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      procMount: Unmasked
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: strict-unmasked-init-host-users-false
+spec:
+  hostUsers: false
+  initContainers:
+  - name: init
+    image: busybox
+    securityContext:
+      procMount: Unmasked
+  containers:
+  - name: app
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: strict-default-proc-mount-host-users-false
+spec:
+  hostUsers: false
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      procMount: Default
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: strict-unset-proc-mount
+spec:
+  containers:
+  - name: app
+    image: nginx

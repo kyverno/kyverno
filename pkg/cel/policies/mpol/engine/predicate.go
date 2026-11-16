@@ -2,6 +2,7 @@ package engine
 
 import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/policies"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -11,10 +12,20 @@ func MatchNames(names ...string) Predicate {
 	}
 	if len(names) == 1 {
 		name := names[0]
-		return func(policy policiesv1beta1.MutatingPolicyLike) bool { return policy.GetName() == name }
+		return func(policy policiesv1beta1.MutatingPolicyLike) bool {
+			return policy.GetName() == name || PolicyKey(policy) == name
+		}
 	}
 	namesSet := sets.New(names...)
-	return func(policy policiesv1beta1.MutatingPolicyLike) bool { return namesSet.Has(policy.GetName()) }
+	return func(policy policiesv1beta1.MutatingPolicyLike) bool {
+		return namesSet.Has(policy.GetName()) || namesSet.Has(PolicyKey(policy))
+	}
+}
+
+// PolicyKey returns the stable identifier of a policy: namespace/name for
+// namespaced policies and the bare name for clustered policies.
+func PolicyKey(policy policiesv1beta1.MutatingPolicyLike) string {
+	return policies.PolicyKey(policy)
 }
 
 func ClusteredPolicy() Predicate {
@@ -22,7 +33,9 @@ func ClusteredPolicy() Predicate {
 }
 
 func NamespacedPolicy(namespace string) Predicate {
-	return func(policy policiesv1beta1.MutatingPolicyLike) bool { return policy.GetNamespace() == namespace }
+	return func(policy policiesv1beta1.MutatingPolicyLike) bool {
+		return namespace != "" && policy.GetNamespace() == namespace
+	}
 }
 
 func NoTargetMatchConstraintPolicy() Predicate {

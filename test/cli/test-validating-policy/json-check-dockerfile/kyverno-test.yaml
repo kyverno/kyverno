@@ -1,5 +1,6 @@
 apiVersion: cli.kyverno.io/v1alpha1
-jsonPayload: ./payload.json
+jsonPayloads:
+- payload.json
 kind: Test
 metadata:
   name: vpol-test-json

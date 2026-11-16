@@ -2,12 +2,12 @@ package event
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -222,7 +222,11 @@ func (gen *controller) emitEvent(key Info) {
 	}
 	message := key.Message
 	if len(message) > 1024 {
-		message = message[0:1021] + "..."
+		cut := 1021
+		for cut > 0 && !utf8.RuneStart(message[cut]) {
+			cut--
+		}
+		message = message[:cut] + "..."
 	}
 
 	// Sanitize refRegarding.Name to comply with RFC 1123 subdomain naming requirements
@@ -230,7 +234,7 @@ func (gen *controller) emitEvent(key Info) {
 
 	event := &eventsv1.Event{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%v.%x", sanitizedName, t.UnixNano()),
+			Name:      util.GenerateEventName(sanitizedName, t.UnixNano()),
 			Namespace: namespace,
 		},
 		EventTime:           timestamp,

@@ -11,6 +11,24 @@ on:
       - edited
 
 jobs:
+  assign:
+    name: Prow Assign
+    # Non-members can self-assign issues labeled 'good first issue' only.
+    # Org members, owners, and collaborators can (un)assign anywhere.
+    if: |
+      contains(fromJson('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.comment.author_association) ||
+      contains(github.event.issue.labels.*.name, 'good first issue')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: jpmcb/prow-github-actions@c44ac3a57d67639e39e4a4988b52049ef45b80dd # v2.0.0
+        with:
+          prow-commands: "/assign
+            /unassign"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
   execute:
     name: Prow
     runs-on: ubuntu-latest
@@ -20,8 +38,6 @@ jobs:
     steps:
       - uses: jpmcb/prow-github-actions@c44ac3a57d67639e39e4a4988b52049ef45b80dd # v2.0.0
         with:
-          prow-commands: "/assign
-            /unassign
-            /lgtm
+          prow-commands: "/lgtm
             /milestone"
           github-token: "${{ secrets.GITHUB_TOKEN }}"

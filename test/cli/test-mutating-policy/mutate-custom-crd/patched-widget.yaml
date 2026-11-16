@@ -1,0 +1,9 @@
+apiVersion: example.com/v1
+kind: Widget
+metadata:
+  name: my-widget
+  namespace: test-namespace
+  annotations:
+    testing: "true"
+spec:
+  color: blue

@@ -2,11 +2,12 @@ package patch
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -1314,4 +1315,13 @@ func Test_GlobalCondition_Fail(t *testing.T) {
 	resource := yaml.MustParse(string(rawResource))
 	err := PreProcessPattern(logr.Discard(), pattern, resource)
 	assert.Error(t, err, "global condition failed: could not found \"emptyDir\" key in the resource")
+}
+
+func Test_ConditionError_Unwrap(t *testing.T) {
+	inner := errors.New("inner error")
+	ce := NewConditionError(inner).(ConditionError)
+	assert.Equal(t, ce.Unwrap(), inner)
+
+	gce := NewGlobalConditionError(inner).(GlobalConditionError)
+	assert.Equal(t, gce.Unwrap(), inner)
 }

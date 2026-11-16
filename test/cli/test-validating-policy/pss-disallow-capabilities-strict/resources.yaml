@@ -1,0 +1,127 @@
+# drop does not include ALL: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-drop-net-raw
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      capabilities:
+        drop: ["NET_RAW"]
+---
+# add includes a capability other than NET_BIND_SERVICE: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-add-sys-admin
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      capabilities:
+        drop: ["ALL"]
+        add: ["SYS_ADMIN"]
+---
+# Init container adds a forbidden capability: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-init-add-sys-admin
+spec:
+  initContainers:
+  - name: init
+    image: busybox
+    securityContext:
+      capabilities:
+        drop: ["ALL"]
+        add: ["SYS_ADMIN"]
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      capabilities:
+        drop: ["ALL"]
+---
+# Ephemeral container adds a forbidden capability: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-ephemeral-add-sys-admin
+spec:
+  ephemeralContainers:
+  - name: debug
+    image: busybox
+    securityContext:
+      capabilities:
+        drop: ["ALL"]
+        add: ["SYS_ADMIN"]
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      capabilities:
+        drop: ["ALL"]
+---
+# spec.os.name is linux, not windows: the exemption must not apply.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-explicit-os-add-sys-admin
+spec:
+  os:
+    name: linux
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      capabilities:
+        drop: ["ALL"]
+        add: ["SYS_ADMIN"]
+---
+# Every container drops ALL: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-drop-all
+spec:
+  initContainers:
+  - name: init
+    image: busybox
+    securityContext:
+      capabilities:
+        drop: ["ALL"]
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      capabilities:
+        drop: ["ALL"]
+---
+# NET_BIND_SERVICE is the one capability that may be added: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-drop-all-add-net-bind
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      capabilities:
+        drop: ["ALL"]
+        add: ["NET_BIND_SERVICE"]
+---
+# Windows pod cannot set capabilities, so PSA admits it without a securityContext.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: windows-no-security-context
+spec:
+  os:
+    name: windows
+  containers:
+  - name: app
+    image: mcr.microsoft.com/windows/servercore:ltsc2022

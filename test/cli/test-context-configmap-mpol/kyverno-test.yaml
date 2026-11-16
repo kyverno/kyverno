@@ -1,0 +1,18 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: test-context-configmap-mpol
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isMutatingPolicy: true
+  kind: Deployment
+  patchedResources: patchedResource.yaml
+  policy: add-env-label
+  resources:
+  - test-deploy
+  result: pass

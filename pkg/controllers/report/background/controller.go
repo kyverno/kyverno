@@ -7,18 +7,12 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -26,7 +20,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -69,21 +62,19 @@ type controller struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	engine        engineapi.Engine
 
 	// listers
-	polLister             kyvernov1listers.PolicyLister
-	cpolLister            kyvernov1listers.ClusterPolicyLister
 	vpolLister            policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister           policiesv1beta1listers.NamespacedValidatingPolicyLister
 	mpolLister            policiesv1beta1listers.MutatingPolicyLister
 	nmpolLister           policiesv1beta1listers.NamespacedMutatingPolicyLister
 	ivpolLister           policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister          policiesv1beta1listers.NamespacedImageValidatingPolicyLister
-	polexLister           kyvernov2listers.PolicyExceptionLister
 	celpolexListener      celengine.PolicyExceptionLister
 	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapBindingLister      admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
+	mapV1Lister           admissionregistrationv1listers.MutatingAdmissionPolicyLister
+	mapV1BindingLister    admissionregistrationv1listers.MutatingAdmissionPolicyBindingLister
 	mapLister             admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
 	mapAlphaLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	mapBindingLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyBindingLister
@@ -91,6 +82,7 @@ type controller struct {
 	bgscanrLister         cache.GenericLister
 	cbgscanrLister        cache.GenericLister
 	nsLister              corev1listers.NamespaceLister
+	secretLister          corev1listers.SecretLister
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[string]
@@ -101,7 +93,6 @@ type controller struct {
 
 	// config
 	config             config.Configuration
-	jp                 jmespath.Interface
 	eventGen           event.Interface
 	policyReports      bool
 	gctxStore          gctxstore.Store
@@ -114,10 +105,7 @@ type controller struct {
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	engine engineapi.Engine,
 	metadataFactory metadatainformers.SharedInformerFactory,
-	polInformer kyvernov1informers.PolicyInformer,
-	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	mpolInformer policiesv1beta1informers.MutatingPolicyInformer,
@@ -125,9 +113,10 @@ func NewController(
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	celpolexlInformer policiesv1beta1informers.PolicyExceptionInformer,
-	polexInformer kyvernov2informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
+	mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer,
+	mapV1BindingInformer admissionregistrationv1informers.MutatingAdmissionPolicyBindingInformer,
 	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
 	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 	mapBindingInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer,
@@ -136,13 +125,13 @@ func NewController(
 	metadataCache resource.MetadataCache,
 	forceDelay time.Duration,
 	config config.Configuration,
-	jp jmespath.Interface,
 	eventGen event.Interface,
 	policyReports bool,
 	exceptionNamespace string,
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
 	typeConverter patch.TypeConverterManager,
+	secretLister corev1listers.SecretLister,
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
@@ -153,10 +142,6 @@ func NewController(
 	c := controller{
 		client:             client,
 		kyvernoClient:      kyvernoClient,
-		engine:             engine,
-		polLister:          polInformer.Lister(),
-		cpolLister:         cpolInformer.Lister(),
-		polexLister:        polexInformer.Lister(),
 		bgscanrLister:      ephrInformer.Lister(),
 		cbgscanrLister:     cephrInformer.Lister(),
 		nsLister:           nsInformer.Lister(),
@@ -164,12 +149,12 @@ func NewController(
 		metadataCache:      metadataCache,
 		forceDelay:         forceDelay,
 		config:             config,
-		jp:                 jp,
 		eventGen:           eventGen,
 		policyReports:      policyReports,
 		exceptionNamespace: exceptionNamespace,
 		gctxStore:          gctxStore,
 		mapper:             mapper,
+		secretLister:       secretLister,
 		typeConverter:      typeConverter,
 	}
 	if vpolInformer != nil {
@@ -226,6 +211,18 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+	if mapV1Informer != nil {
+		c.mapV1Lister = mapV1Informer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(mapV1Informer.Informer(), c.addMAPV1, c.updateMAPV1, c.deleteMAPV1); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if mapV1BindingInformer != nil {
+		c.mapV1BindingLister = mapV1BindingInformer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(mapV1BindingInformer.Informer(), c.addMAPV1Binding, c.updateMAPV1Binding, c.deleteMAPV1Binding); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
 	if mapInformer != nil {
 		c.mapLister = mapInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(mapInformer.Informer(), c.addMAP, c.updateMAP, c.deleteMAP); err != nil {
@@ -250,15 +247,6 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
-	if _, err := controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
-	if _, err := controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
-	if _, err := controllerutils.AddEventHandlersT(polexInformer.Informer(), c.addException, c.updateException, c.deleteException); err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
 	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
 		// if it's a deletion, nothing to do
 		if eventType == resource.Deleted {
@@ -278,30 +266,6 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
-	c.enqueueResources()
-}
-
-func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
-	if old.GetResourceVersion() != obj.GetResourceVersion() {
-		c.enqueueResources()
-	}
-}
-
-func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
-	c.enqueueResources()
-}
-
-func (c *controller) addException(obj *kyvernov2.PolicyException) {
-	c.enqueueResources()
-}
-
-func (c *controller) updateException(old, obj *kyvernov2.PolicyException) {
-	if old.GetResourceVersion() != obj.GetResourceVersion() {
-		c.enqueueResources()
-	}
-}
-
 func (c *controller) deleteCELPolicy(obj *policiesv1beta1.PolicyException) {
 	c.enqueueResources()
 }
@@ -314,10 +278,6 @@ func (c *controller) updateCELException(old, obj *policiesv1beta1.PolicyExceptio
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
 	}
-}
-
-func (c *controller) deleteException(obj *kyvernov2.PolicyException) {
-	c.enqueueResources()
 }
 
 func (c *controller) addVP(obj policiesv1beta1.ValidatingPolicyLike) {
@@ -394,6 +354,20 @@ func (c *controller) addMAP(obj *admissionregistrationv1beta1.MutatingAdmissionP
 	c.enqueueResources()
 }
 
+func (c *controller) addMAPV1(obj *admissionregistrationv1.MutatingAdmissionPolicy) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateMAPV1(old, obj *admissionregistrationv1.MutatingAdmissionPolicy) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteMAPV1(obj *admissionregistrationv1.MutatingAdmissionPolicy) {
+	c.enqueueResources()
+}
+
 func (c *controller) updateMAP(old, obj *admissionregistrationv1beta1.MutatingAdmissionPolicy) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		c.enqueueResources()
@@ -419,6 +393,20 @@ func (c *controller) deleteMAPAlpha(obj *admissionregistrationv1alpha1.MutatingA
 }
 
 func (c *controller) addMAPBinding(obj *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding) {
+	c.enqueueResources()
+}
+
+func (c *controller) addMAPV1Binding(obj *admissionregistrationv1.MutatingAdmissionPolicyBinding) {
+	c.enqueueResources()
+}
+
+func (c *controller) updateMAPV1Binding(old, obj *admissionregistrationv1.MutatingAdmissionPolicyBinding) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		c.enqueueResources()
+	}
+}
+
+func (c *controller) deleteMAPV1Binding(obj *admissionregistrationv1.MutatingAdmissionPolicyBinding) {
 	c.enqueueResources()
 }
 
@@ -480,7 +468,6 @@ func (c *controller) needsReconcile(
 	namespace string,
 	name string,
 	hash string,
-	exceptions []kyvernov2.PolicyException,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	policies ...engineapi.GenericPolicy,
@@ -516,9 +503,6 @@ func (c *controller) needsReconcile(
 	for _, policy := range policies {
 		expected[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
 	}
-	for _, exception := range exceptions {
-		expected[reportutils.PolicyExceptionLabel(exception)] = exception.GetResourceVersion()
-	}
 	for _, binding := range vapBindings {
 		expected[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
 	}
@@ -547,7 +531,6 @@ func (c *controller) reconcileReport(
 	gvk schema.GroupVersionKind,
 	gvr schema.GroupVersionResource,
 	resource resource.Resource,
-	exceptions []kyvernov2.PolicyException,
 	celexceptions []*policiesv1beta1.PolicyException,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
@@ -580,9 +563,6 @@ func (c *controller) reconcileReport(
 	for _, policy := range policies {
 		expected[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
 	}
-	for _, exception := range exceptions {
-		expected[reportutils.PolicyExceptionLabel(exception)] = exception.GetResourceVersion()
-	}
 	for _, binding := range vapBindings {
 		expected[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
 	}
@@ -600,9 +580,7 @@ func (c *controller) reconcileReport(
 		policyNameToLabel := map[string]string{}
 		for _, policy := range policies {
 			var key string
-			if policy.AsKyvernoPolicy() != nil {
-				key = cache.MetaObjectToName(policy.AsKyvernoPolicy()).String()
-			} else if policy.AsValidatingAdmissionPolicy() != nil {
+			if policy.AsValidatingAdmissionPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsValidatingAdmissionPolicy().GetDefinition()).String()
 			} else if policy.AsMutatingAdmissionPolicy() != nil {
 				key = cache.MetaObjectToName(policy.AsMutatingAdmissionPolicy().GetDefinition()).String()
@@ -614,10 +592,6 @@ func (c *controller) reconcileReport(
 				key = cache.MetaObjectToName(policy.AsMutatingPolicyLike()).String()
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
-		}
-		for i, exception := range exceptions {
-			key := cache.MetaObjectToName(&exceptions[i]).String()
-			policyNameToLabel[key] = reportutils.PolicyExceptionLabel(exception)
 		}
 		for _, binding := range vapBindings {
 			key := cache.MetaObjectToName(&binding).String()
@@ -661,14 +635,7 @@ func (c *controller) reconcileReport(
 		}
 
 		reevaluate := false
-		if policy.AsKyvernoPolicy() != nil {
-			for _, polex := range exceptions {
-				if actual[reportutils.PolicyExceptionLabel(polex)] != polex.GetResourceVersion() {
-					reevaluate = true
-					break
-				}
-			}
-		} else if policy.AsValidatingAdmissionPolicy() != nil {
+		if policy.AsValidatingAdmissionPolicy() != nil {
 			for _, binding := range vapBindings {
 				if actual[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] != binding.GetResourceVersion() {
 					reevaluate = true
@@ -684,7 +651,7 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.config, c.jp, c.client, c.gctxStore, c.mapper, c.typeConverter)
+			scanner := utils.NewScanner(logger, c.config, c.client, c.gctxStore, c.mapper, c.secretLister, c.typeConverter)
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error
@@ -703,9 +670,6 @@ func (c *controller) reconcileReport(
 	}
 	for _, policy := range policies {
 		reportutils.SetPolicyLabel(desired, policy)
-	}
-	for _, exception := range exceptions {
-		reportutils.SetPolicyExceptionLabel(desired, exception)
 	}
 	for _, binding := range vapBindings {
 		reportutils.SetValidatingAdmissionPolicyBindingLabel(desired, binding)
@@ -775,24 +739,13 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			}
 		}
 	}
-	// load all kyverno policies
-	kyvernoPolicies, err := utils.FetchClusterPolicies(c.cpolLister)
-	if err != nil {
-		return err
-	}
-	if namespace != "" {
-		pols, err := utils.FetchPolicies(c.polLister, namespace)
-		if err != nil {
-			return err
-		}
-		kyvernoPolicies = append(kyvernoPolicies, pols...)
-	}
-
-	kyvernoPolicies = utils.RemoveNonBackgroundPolicies(kyvernoPolicies...)
-	policies := make([]engineapi.GenericPolicy, 0, len(kyvernoPolicies))
-	for _, pol := range kyvernoPolicies {
-		policies = append(policies, engineapi.NewKyvernoPolicy(pol))
-	}
+	// Always re-arm periodic scanning for this resource, even on error.
+	// Transient errors are already rate-limited by handleErr (up to maxRetries).
+	// This defer ensures recovery at the next forceDelay window if retries are exhausted.
+	defer func() {
+		c.queue.AddAfter(key, c.forceDelay)
+	}()
+	policies := make([]engineapi.GenericPolicy, 0)
 	if c.vpolLister != nil {
 		vpols, err := utils.FetchValidatingPolicies(c.vpolLister)
 		if err != nil {
@@ -858,6 +811,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	}
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	if c.vapBindingLister != nil {
+		var err error
 		vapBindings, err = utils.FetchValidatingAdmissionPolicyBindings(c.vapBindingLister)
 		if err != nil {
 			return err
@@ -872,6 +826,15 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 			policies = append(policies, engineapi.NewMutatingAdmissionPolicy(&pol))
 		}
 	}
+	if c.mapV1Lister != nil {
+		mapV1Policies, err := utils.FetchMutatingAdmissionPoliciesV1(c.mapV1Lister)
+		if err != nil {
+			return err
+		}
+		for _, pol := range mapV1Policies {
+			policies = append(policies, engineapi.NewMutatingAdmissionPolicy(&pol))
+		}
+	}
 	if c.mapAlphaLister != nil {
 		mapAlphaPolicies, err := utils.FetchMutatingAdmissionPoliciesAlpha(c.mapAlphaLister)
 		if err != nil {
@@ -883,10 +846,18 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 	}
 	var mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
 	if c.mapBindingLister != nil {
+		var err error
 		mapBindings, err = utils.FetchMutatingAdmissionPolicyBindings(c.mapBindingLister)
 		if err != nil {
 			return err
 		}
+	}
+	if c.mapV1BindingLister != nil {
+		mapV1Bindings, err := utils.FetchMutatingAdmissionPolicyBindingsV1(c.mapV1BindingLister)
+		if err != nil {
+			return err
+		}
+		mapBindings = append(mapBindings, mapV1Bindings...)
 	}
 	if c.mapAlphaBindingLister != nil {
 		mapAlphaBindings, err := utils.FetchMutatingAdmissionPolicyBindingsAlpha(c.mapAlphaBindingLister)
@@ -896,29 +867,22 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		convertedBindings := engineapi.ConvertMutatingAdmissionPolicyBindingsAlpha(mapAlphaBindings)
 		mapBindings = append(mapBindings, convertedBindings...)
 	}
-	exceptions, err := utils.FetchPolicyExceptions(c.polexLister, c.exceptionNamespace)
-	if err != nil {
-		return err
-	}
 	// load celexceptions with background process enabled
 	celexceptions, err := utils.FetchCELPolicyExceptions(c.celpolexListener)
 	if err != nil {
 		return err
 	}
 	// we have the resource, check if we need to reconcile
-	if observedHash, needsReconcile, full, err := c.needsReconcile(namespace, name, r.Hash, exceptions, vapBindings, mapBindings, policies...); err != nil {
+	observedHash, needsReconcile, full, err := c.needsReconcile(namespace, name, r.Hash, vapBindings, mapBindings, policies...)
+	if err != nil {
 		return err
-	} else {
-		defer func() {
-			c.queue.AddAfter(key, c.forceDelay)
-		}()
-		if needsReconcile {
-			// update the hash if we got a new one
-			if observedHash != r.Hash {
-				c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: r.Name, Namespace: namespace, Hash: observedHash})
-			}
-			return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, r, exceptions, celexceptions, vapBindings, mapBindings, policies...)
+	}
+	if needsReconcile {
+		// update the hash if we got a new one
+		if observedHash != r.Hash {
+			c.metadataCache.UpdateResourceHash(gvr, uid, resource.Resource{Name: r.Name, Namespace: namespace, Hash: observedHash})
 		}
+		return c.reconcileReport(ctx, namespace, name, full, uid, gvk, gvr, r, celexceptions, vapBindings, mapBindings, policies...)
 	}
 	return nil
 }

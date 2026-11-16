@@ -111,9 +111,18 @@ spec:
                       controllers rules.
                     properties:
                       controllers:
+                        description: |-
+                          Controllers specifies the list of pod controllers to generate rules for,
+                          for example DaemonSet, Deployment, Job, StatefulSet, ReplicaSet, ReplicationController, CronJob.
+                          Optional. Defaults to all supported pod controllers if not specified.
                         items:
                           type: string
                         type: array
+                      enabled:
+                        description: |-
+                          Enabled specifies whether to generate pod controller rules.
+                          Optional. Defaults to "true" if not specified.
+                        type: boolean
                     type: object
                   validatingAdmissionPolicy:
                     description: ValidatingAdmissionPolicy specifies whether to generate
@@ -155,7 +164,7 @@ spec:
                   mode:
                     description: |-
                       Mode is the mode of policy evaluation.
-                      Allowed values are "Kubernetes" or "JSON".
+                      Allowed values are "Kubernetes", "HTTP" or "Envoy".
                       Optional. Default value is "Kubernetes".
                     type: string
                 type: object
@@ -817,9 +826,18 @@ spec:
                                     generate a pod controllers rules.
                                   properties:
                                     controllers:
+                                      description: |-
+                                        Controllers specifies the list of pod controllers to generate rules for,
+                                        for example DaemonSet, Deployment, Job, StatefulSet, ReplicaSet, ReplicationController, CronJob.
+                                        Optional. Defaults to all supported pod controllers if not specified.
                                       items:
                                         type: string
                                       type: array
+                                    enabled:
+                                      description: |-
+                                        Enabled specifies whether to generate pod controller rules.
+                                        Optional. Defaults to "true" if not specified.
+                                      type: boolean
                                   type: object
                                 validatingAdmissionPolicy:
                                   description: ValidatingAdmissionPolicy specifies
@@ -862,7 +880,7 @@ spec:
                                 mode:
                                   description: |-
                                     Mode is the mode of policy evaluation.
-                                    Allowed values are "Kubernetes" or "JSON".
+                                    Allowed values are "Kubernetes", "HTTP" or "Envoy".
                                     Optional. Default value is "Kubernetes".
                                   type: string
                               type: object
@@ -1673,9 +1691,18 @@ spec:
                       controllers rules.
                     properties:
                       controllers:
+                        description: |-
+                          Controllers specifies the list of pod controllers to generate rules for,
+                          for example DaemonSet, Deployment, Job, StatefulSet, ReplicaSet, ReplicationController, CronJob.
+                          Optional. Defaults to all supported pod controllers if not specified.
                         items:
                           type: string
                         type: array
+                      enabled:
+                        description: |-
+                          Enabled specifies whether to generate pod controller rules.
+                          Optional. Defaults to "true" if not specified.
+                        type: boolean
                     type: object
                   validatingAdmissionPolicy:
                     description: ValidatingAdmissionPolicy specifies whether to generate
@@ -1717,7 +1744,7 @@ spec:
                   mode:
                     description: |-
                       Mode is the mode of policy evaluation.
-                      Allowed values are "Kubernetes" or "JSON".
+                      Allowed values are "Kubernetes", "HTTP" or "Envoy".
                       Optional. Default value is "Kubernetes".
                     type: string
                 type: object
@@ -2379,9 +2406,18 @@ spec:
                                     generate a pod controllers rules.
                                   properties:
                                     controllers:
+                                      description: |-
+                                        Controllers specifies the list of pod controllers to generate rules for,
+                                        for example DaemonSet, Deployment, Job, StatefulSet, ReplicaSet, ReplicationController, CronJob.
+                                        Optional. Defaults to all supported pod controllers if not specified.
                                       items:
                                         type: string
                                       type: array
+                                    enabled:
+                                      description: |-
+                                        Enabled specifies whether to generate pod controller rules.
+                                        Optional. Defaults to "true" if not specified.
+                                      type: boolean
                                   type: object
                                 validatingAdmissionPolicy:
                                   description: ValidatingAdmissionPolicy specifies
@@ -2424,7 +2460,7 @@ spec:
                                 mode:
                                   description: |-
                                     Mode is the mode of policy evaluation.
-                                    Allowed values are "Kubernetes" or "JSON".
+                                    Allowed values are "Kubernetes", "HTTP" or "Envoy".
                                     Optional. Default value is "Kubernetes".
                                   type: string
                               type: object

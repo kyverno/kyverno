@@ -4,6 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: (devel)
+    helm.sh/resource-policy: keep
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -54,6 +55,10 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
       type: string
+    deprecated: true
+    deprecationWarning: kyverno.io/v1 Policy is deprecated and will be removed in
+      a future release; migrate to NamespacedValidatingPolicy and the other namespaced
+      policy types (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/
     name: v1
     schema:
       openAPIV3Schema:
@@ -1586,8 +1591,8 @@ spec:
                         orphanDownstreamOnPolicyDelete:
                           description: |-
                             OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-                            them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-                            See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            them is deleted with synchronization enabled.
+                            See https://kyverno.io/docs/writing-policies/generate/.
                             Defaults to "false" if not specified.
                           type: boolean
                         synchronize:
@@ -1605,6 +1610,17 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            filter:
+                              description: |-
+                                Filter is an optional value to match against 'key' during wildcard array expansion.
+                                When set, only array elements where the field named by 'key' equals this value
+                                are extracted as image references. Requires 'key' to be set.
+                                This is useful when a wildcard path expands an array containing both image and
+                                non-image elements, and only specific elements should be treated as images.
+                                Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                paths are expanded without filtering.
+                                Filter only applies to wildcard expansion over arrays, not maps.
+                              type: string
                             jmesPath:
                               description: |-
                                 JMESPath is an optional JMESPath expression to apply to the image value.
@@ -3019,8 +3035,9 @@ spec:
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
                         assert:
-                          description: Assert defines a kyverno-json assertion tree.
-                          type: object
+                          description: |-
+                            Assert defines a kyverno-json assertion tree.
+                            Deprecated, kept only for backward compatibility but has no effect since 1.19.
                           x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
@@ -6692,8 +6709,8 @@ spec:
                             orphanDownstreamOnPolicyDelete:
                               description: |-
                                 OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-                                them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-                                See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                them is deleted with synchronization enabled.
+                                See https://kyverno.io/docs/writing-policies/generate/.
                                 Defaults to "false" if not specified.
                               type: boolean
                             synchronize:
@@ -6711,6 +6728,17 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                filter:
+                                  description: |-
+                                    Filter is an optional value to match against 'key' during wildcard array expansion.
+                                    When set, only array elements where the field named by 'key' equals this value
+                                    are extracted as image references. Requires 'key' to be set.
+                                    This is useful when a wildcard path expands an array containing both image and
+                                    non-image elements, and only specific elements should be treated as images.
+                                    Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                    paths are expanded without filtering.
+                                    Filter only applies to wildcard expansion over arrays, not maps.
+                                  type: string
                                 jmesPath:
                                   description: |-
                                     JMESPath is an optional JMESPath expression to apply to the image value.
@@ -8145,9 +8173,9 @@ spec:
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
                             assert:
-                              description: Assert defines a kyverno-json assertion
-                                tree.
-                              type: object
+                              description: |-
+                                Assert defines a kyverno-json assertion tree.
+                                Deprecated, kept only for backward compatibility but has no effect since 1.19.
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
@@ -10358,6 +10386,10 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
       type: string
+    deprecated: true
+    deprecationWarning: kyverno.io/v2beta1 Policy is deprecated and will be removed
+      in a future release; migrate to NamespacedValidatingPolicy and the other namespaced
+      policy types (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -11684,8 +11716,8 @@ spec:
                         orphanDownstreamOnPolicyDelete:
                           description: |-
                             OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-                            them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-                            See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                            them is deleted with synchronization enabled.
+                            See https://kyverno.io/docs/writing-policies/generate/.
                             Defaults to "false" if not specified.
                           type: boolean
                         synchronize:
@@ -11703,6 +11735,17 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            filter:
+                              description: |-
+                                Filter is an optional value to match against 'key' during wildcard array expansion.
+                                When set, only array elements where the field named by 'key' equals this value
+                                are extracted as image references. Requires 'key' to be set.
+                                This is useful when a wildcard path expands an array containing both image and
+                                non-image elements, and only specific elements should be treated as images.
+                                Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                paths are expanded without filtering.
+                                Filter only applies to wildcard expansion over arrays, not maps.
+                              type: string
                             jmesPath:
                               description: |-
                                 JMESPath is an optional JMESPath expression to apply to the image value.
@@ -12971,6 +13014,12 @@ spec:
                             type: object
                           type: array
                       type: object
+                    reportProperties:
+                      additionalProperties:
+                        type: string
+                      description: ReportProperties are the additional properties
+                        from the rule that will be added to the policy report result
+                      type: object
                     skipBackgroundRequests:
                       default: true
                       description: |-
@@ -12987,8 +13036,9 @@ spec:
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
                         assert:
-                          description: Assert defines a kyverno-json assertion tree.
-                          type: object
+                          description: |-
+                            Assert defines a kyverno-json assertion tree.
+                            Deprecated, kept only for backward compatibility but has no effect since 1.19.
                           x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
@@ -16717,8 +16767,8 @@ spec:
                             orphanDownstreamOnPolicyDelete:
                               description: |-
                                 OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-                                them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-                                See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+                                them is deleted with synchronization enabled.
+                                See https://kyverno.io/docs/writing-policies/generate/.
                                 Defaults to "false" if not specified.
                               type: boolean
                             synchronize:
@@ -16736,6 +16786,17 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                filter:
+                                  description: |-
+                                    Filter is an optional value to match against 'key' during wildcard array expansion.
+                                    When set, only array elements where the field named by 'key' equals this value
+                                    are extracted as image references. Requires 'key' to be set.
+                                    This is useful when a wildcard path expands an array containing both image and
+                                    non-image elements, and only specific elements should be treated as images.
+                                    Filter applies at the terminal wildcard only; intermediate wildcards in nested
+                                    paths are expanded without filtering.
+                                    Filter only applies to wildcard expansion over arrays, not maps.
+                                  type: string
                                 jmesPath:
                                   description: |-
                                     JMESPath is an optional JMESPath expression to apply to the image value.
@@ -18170,9 +18231,9 @@ spec:
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
                             assert:
-                              description: Assert defines a kyverno-json assertion
-                                tree.
-                              type: object
+                              description: |-
+                                Assert defines a kyverno-json assertion tree.
+                                Deprecated, kept only for backward compatibility but has no effect since 1.19.
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the

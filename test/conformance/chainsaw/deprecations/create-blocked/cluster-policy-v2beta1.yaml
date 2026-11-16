@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: deprecations-cluster-policy-v2beta1
+spec:
+  rules:
+  - name: check-labels
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "label app is required"
+      pattern:
+        metadata:
+          labels:
+            app: "?*"

@@ -1,7 +1,0 @@
-apiVersion: v1
-data:
-  image: public.ecr.aws/docker/library/nginx
-kind: ConfigMap
-metadata:
-  name: foreach-patchstrategicmerge-context-configmap
-  namespace: foreach-patchstrategicmerge-context-ns

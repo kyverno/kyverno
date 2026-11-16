@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: block-ephemeral-containers
+status:
+  conditionStatus:
+    (conditions[?type == 'WebhookConfigured']):
+    - message: Webhook configured.
+      reason: Succeeded
+      status: "True"
+    # The reports controller cannot read pods/ephemeralcontainers by default, so the
+    # RBAC condition is expected to fail; admission enforcement does not depend on it.
+    (conditions[?type == 'RBACPermissionsGranted']):
+    - reason: Failed
+      status: "False"
+      (contains(message, 'Resource=pods/ephemeralcontainers')): true

@@ -1,0 +1,21 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isDeletingPolicy: true
+  kind: Secret
+  policy: cleanup-invalidated-legacy-sa-tokens
+  resources:
+  - secret-delete
+  result: pass
+- isDeletingPolicy: true
+  kind: Secret
+  policy: cleanup-invalidated-legacy-sa-tokens
+  resources:
+  - secret-skip
+  result: skip

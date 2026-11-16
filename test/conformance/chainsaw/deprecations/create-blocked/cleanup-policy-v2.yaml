@@ -1,0 +1,14 @@
+apiVersion: kyverno.io/v2
+kind: CleanupPolicy
+metadata:
+  name: deprecations-cleanup-v2
+  namespace: ($namespace)
+spec:
+  schedule: "0 0 * * *"
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        names:
+        - deprecations-does-not-exist

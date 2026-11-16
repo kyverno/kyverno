@@ -1,0 +1,36 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-run-as-non-root-user
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  validations:
+    - expression: >-
+        object.spec.?hostUsers.orValue(true) == false ||
+        (!has(object.spec.securityContext) ||
+         !has(object.spec.securityContext.runAsUser) ||
+         object.spec.securityContext.runAsUser != 0) &&
+        (!has(object.spec.containers) || object.spec.containers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.runAsUser) ||
+          c.securityContext.runAsUser != 0)) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.runAsUser) ||
+          c.securityContext.runAsUser != 0)) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.runAsUser) ||
+          c.securityContext.runAsUser != 0))
+      message: >-
+        Running as root user (UID 0) is not allowed. The fields
+        spec.securityContext.runAsUser,
+        spec.containers[*].securityContext.runAsUser,
+        spec.initContainers[*].securityContext.runAsUser, and
+        spec.ephemeralContainers[*].securityContext.runAsUser must not be set to `0`,
+        unless the Pod sets spec.hostUsers to `false`.

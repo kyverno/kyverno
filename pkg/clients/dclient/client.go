@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/kubernetes"
@@ -80,9 +79,7 @@ func NewClient(
 		rest: disco.RESTClient(),
 	}
 	// Set discovery client
-	discoveryClient := &serverResources{
-		cachedClient: memory.NewMemCacheClient(disco),
-	}
+	discoveryClient := NewServerResourcesDiscovery(disco).(*serverResources)
 	// client will invalidate registered resources cache every x seconds,
 	// As there is no way to identify if the registered resource is available or not
 	// we will be invalidating the local cache, so the next request get a fresh cache
@@ -155,7 +152,26 @@ func (c *client) getGroupVersionMapper(apiVersion string, kind string) schema.Gr
 
 // GetResource returns the resource in unstructured/json format
 func (c *client) GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	if err := validateSubresources(subresources); err != nil {
+		return nil, err
+	}
 	return c.getResourceInterface(apiVersion, kind, namespace).Get(ctx, name, metav1.GetOptions{}, subresources...)
+}
+
+// validateSubresources rejects any subresource segment that could escape its
+// intended path position (GHSA-4pqm-wqq6-h9q2). An empty segment is a no-op
+// here (unlike pkg/cel/libs, callers such as pkg/admissionpolicy pass "" to
+// mean "no subresource" and that must stay harmless).
+func validateSubresources(subresources []string) error {
+	for _, s := range subresources {
+		if s == "" {
+			continue
+		}
+		if err := ValidatePathSegment("subresource", s); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *client) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
@@ -223,7 +239,7 @@ func (c *client) rawAbsPathForFakeClient(ctx context.Context, path string, metho
 		}
 	}
 
-	if resource == "" || name == "" {
+	if resource == "" {
 		return nil, fmt.Errorf("failed to parse path: %s", path)
 	}
 
@@ -233,32 +249,41 @@ func (c *client) rawAbsPathForFakeClient(ctx context.Context, path string, metho
 		Resource: resource,
 	}
 
+	var kind string
+	resolvedAPIVersion := version
+	if group != "" {
+		resolvedAPIVersion = group + "/" + version
+	}
+
 	gvk, err := c.disco.GetGVKFromGVR(gvr)
 	if err != nil {
-		kind := inferKindFromResourceName(resource)
-		apiVersion := version
-		if group != "" {
-			apiVersion = group + "/" + version
+		kind = inferKindFromResourceName(resource)
+	} else {
+		kind = gvk.Kind
+		resolvedAPIVersion = gvk.GroupVersion().String()
+		if gvk.Group == "" {
+			resolvedAPIVersion = gvk.Version
 		}
-		obj, err := c.GetResource(ctx, apiVersion, kind, namespace, name)
+	}
+
+	if name == "" {
+		list, err := c.ListResource(ctx, resolvedAPIVersion, kind, namespace, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get resource %s/%s/%s: %w", apiVersion, kind, name, err)
+			if namespace == "" {
+				return nil, fmt.Errorf("failed to list resources %s/%s (cluster-scoped or all namespaces): %w", resolvedAPIVersion, kind, err)
+			}
+			return nil, fmt.Errorf("failed to list resources %s/%s in namespace %q: %w", resolvedAPIVersion, kind, namespace, err)
 		}
-		jsonData, err := json.Marshal(obj)
+		jsonData, err := json.Marshal(list)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal resource to JSON: %w", err)
+			return nil, fmt.Errorf("failed to marshal resource list to JSON: %w", err)
 		}
 		return jsonData, nil
 	}
 
-	apiVersion := gvk.GroupVersion().String()
-	if gvk.Group == "" {
-		apiVersion = gvk.Version
-	}
-
-	obj, err := c.GetResource(ctx, apiVersion, gvk.Kind, namespace, name)
+	obj, err := c.GetResource(ctx, resolvedAPIVersion, kind, namespace, name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get resource %s/%s/%s: %w", apiVersion, gvk.Kind, name, err)
+		return nil, fmt.Errorf("failed to get resource %s/%s/%s: %w", resolvedAPIVersion, kind, name, err)
 	}
 
 	jsonData, err := json.Marshal(obj)
@@ -312,6 +337,9 @@ func (c *client) CreateResource(ctx context.Context, apiVersion string, kind str
 
 // UpdateResource updates object for the specified resource/namespace
 func (c *client) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
+	if err := validateSubresources(subresources); err != nil {
+		return nil, err
+	}
 	options := metav1.UpdateOptions{}
 	if dryRun {
 		options = metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
@@ -338,6 +366,9 @@ func (c *client) UpdateStatusResource(ctx context.Context, apiVersion string, ki
 
 // ApplyResource updates object for the specified resource/namespace
 func (c *client) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, dryRun bool, fieldManager string, subresources ...string) (*unstructured.Unstructured, error) {
+	if err := validateSubresources(subresources); err != nil {
+		return nil, err
+	}
 	// We have a different field manager for different situations, so a generated object that then goes through admission control
 	// won't have the changes wiped out by any use of server-side apply in the mutation path
 	options := metav1.ApplyOptions{FieldManager: "kyverno-" + fieldManager, Force: true}

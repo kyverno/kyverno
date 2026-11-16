@@ -1,0 +1,5 @@
+apiVersion: example.com/v1
+kind: Gadget
+metadata:
+  name: bad-gadget
+  namespace: default

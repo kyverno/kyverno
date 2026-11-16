@@ -13,6 +13,10 @@ inputs:
   gobuild-cache-prefix:
     description: Go build cache prefix (set to '' to disable)
     default: gobuild
+  gobuild-cache-include-run-id:
+    description: Append the workflow run ID to the Go build cache key
+    required: false
+    default: 'false'
 
 outputs:
   gomod-cache:
@@ -39,3 +43,4 @@ runs:
       with:
         path: ${{ steps.install.outputs.gobuild-cache }}
         cache-prefix: ${{ inputs.gobuild-cache-prefix }}
+        include-run-id: ${{ inputs.gobuild-cache-include-run-id }}

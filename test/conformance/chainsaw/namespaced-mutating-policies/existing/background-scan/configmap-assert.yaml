@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-nmpol-background-scan-cm
+  namespace: test-nmpol-background-scan-ns
+  labels:
+    background: scan

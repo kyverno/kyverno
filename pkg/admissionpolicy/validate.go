@@ -71,12 +71,30 @@ func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta
 		for _, group := range rule.APIGroups {
 			for _, version := range rule.APIVersions {
 				for _, resource := range rule.Resources {
+					// these go straight into a GVR with no mapper lookup, and the dynamic
+					// client joins them into the request path with path.Join, which resolves
+					// ".." - skip rather than reinterpret, so an inert rule stays inert
+					if isUnsafeGVRSegment(group, true) || isUnsafeGVRSegment(version, false) || isUnsafeGVRSegment(resource, false) {
+						vapLogger.Error(errors.New("unsafe api path segment"), fmt.Sprintf("skipping resource for group %s, version %s, resource %s", group, version, resource))
+						continue
+					}
 					gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
 				}
 			}
 		}
 	}
 	return gvrList
+}
+
+// isUnsafeGVRSegment reports whether a policy-supplied GVR component cannot be
+// used as a URL path segment. Only the core API group may be empty; an empty
+// version or resource would be collapsed by path.Join and address a different
+// API path (e.g. /api/v1 when resource is empty).
+func isUnsafeGVRSegment(value string, allowEmpty bool) bool {
+	if value == "" {
+		return !allowEmpty
+	}
+	return dclient.ValidatePathSegment("resource", value) != nil
 }
 
 func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {
@@ -160,10 +178,7 @@ func Validate(
 			},
 		}
 	}
-	var user UserInfo
-	if userInfo != nil {
-		user = NewUser(*userInfo)
-	}
+	user := ResolveUser(userInfo)
 	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, user)
 
 	if len(bindings) == 0 {
@@ -379,21 +394,13 @@ func validateResource(
 	}
 
 	newMatcher := matchconditions.NewMatcher(compiler.CompileMatchConditions(optionalVars), policy.Spec.FailurePolicy, "", string(matchPolicy), "")
-	validationEvaluator := compiler.CompileValidations(optionalVars)
-	auditAnnotationEvaluator := compiler.CompileAuditAnnotationsExpressions(optionalVars)
-	messageEvaluator := compiler.CompileMessageExpressions(optionalVars)
-	compileErr := joinCompilationErrors(
-		validationEvaluator.CompilationErrors(),
-		auditAnnotationEvaluator.CompilationErrors(),
-		messageEvaluator.CompilationErrors(),
-	)
 	validator := validating.NewValidator(
-		validationEvaluator,
+		compiler.CompileValidations(optionalVars),
 		newMatcher,
-		auditAnnotationEvaluator,
-		messageEvaluator,
+		compiler.CompileAuditAnnotationsExpressions(optionalVars),
+		compiler.CompileMessageExpressions(optionalVars),
 		policy.Spec.FailurePolicy,
-		compileErr,
+		nil,
 	)
 	versionedAttr, _ := admission.NewVersionedAttributes(a, a.GetKind(), nil)
 	validateResult := validator.Validate(context.TODO(), a.GetResource(), versionedAttr, parameterResource, namespace, celconfig.RuntimeCELCostBudget, nil)
@@ -429,12 +436,4 @@ func validateResource(
 	engineResponse = engineResponse.WithPolicyResponse(policyResp)
 
 	return engineResponse, nil
-}
-
-func joinCompilationErrors(groups ...[]error) error {
-	var errs []error
-	for _, group := range groups {
-		errs = append(errs, group...)
-	}
-	return errors.Join(errs...)
 }

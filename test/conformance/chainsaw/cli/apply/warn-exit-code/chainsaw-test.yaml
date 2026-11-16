@@ -2,7 +2,7 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: test-name
+  name: warn-exit-code
 spec:
   concurrent: false
   steps:
@@ -12,3 +12,9 @@ spec:
             kyverno apply policy.yaml --resource resource.yaml --audit-warn --warn-exit-code 3
           check:
             ($error): "exit status 3"
+    - try:
+      - script:
+          content: |
+            kyverno apply policy.yaml --resource resource.yaml --audit-warn
+          check:
+            ($error): null

@@ -1,20 +1,26 @@
 package test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
 	"regexp"
 
 	"github.com/go-git/go-billy/v5"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,7 +31,7 @@ var ansiRegex = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z0-9]*
 func Command() *cobra.Command {
 	var testCase, outputFormat string
 	var fileName, gitBranch string
-	var registryAccess, failOnly, removeColor, detailedResults, requireTests bool
+	var registryAccess, failOnly, removeColor, detailedResults, requireTests, warningsAsErrors bool
 	cmd := &cobra.Command{
 		Use:          "test [local folder or git repository]...",
 		Short:        command.FormatDescription(true, websiteUrl, false, description...),
@@ -38,7 +44,7 @@ func Command() *cobra.Command {
 				removeColor = true
 			}
 			color.Init(removeColor)
-			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests, removeColor)
+			return testCommandExecute(cmd.Context(), cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests, removeColor, warningsAsErrors)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -50,6 +56,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVar(&requireTests, "require-tests", false, "If set to true, return an error if no tests are found")
+	cmd.Flags().BoolVar(&warningsAsErrors, "warnings-as-errors", false, "Treat deprecation warnings as errors")
 	return cmd
 }
 
@@ -60,6 +67,7 @@ type resultCounts struct {
 }
 
 func testCommandExecute(
+	ctx context.Context,
 	out io.Writer,
 	dirPath []string,
 	fileName string,
@@ -71,7 +79,22 @@ func testCommandExecute(
 	detailedResults bool,
 	requireTests bool,
 	removeColor bool,
+	warningsAsErrors bool,
 ) (err error) {
+	resolvedPaths := make([]string, 0, len(dirPath))
+	for _, p := range dirPath {
+		if source.IsOCI(p) {
+			tmpDir, cleanup, ociErr := pull.ToTempDir(ctx, source.StripOCIPrefix(p), pull.NewKeychain())
+			if ociErr != nil {
+				return fmt.Errorf("failed to pull OCI bundle %s (%w)", p, ociErr)
+			}
+			defer cleanup()
+			resolvedPaths = append(resolvedPaths, tmpDir)
+		} else {
+			resolvedPaths = append(resolvedPaths, p)
+		}
+	}
+	dirPath = resolvedPaths
 	// check input dir
 	if len(dirPath) == 0 {
 		return fmt.Errorf("a directory is required")
@@ -91,19 +114,19 @@ func testCommandExecute(
 	// fetch resource filters
 	resourceFilters := filter.ExtractResourceFilters(testCase)
 	// parse filter
-	filter, errors := filter.ParseFilter(testCase)
-	if len(errors) > 0 {
+	filter, filterErrs := filter.ParseFilter(testCase)
+	if len(filterErrs) > 0 {
 		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Filter errors:")
-		for _, e := range errors {
-			fmt.Fprintln(out, "  Error:", e)
+		fmt.Fprintln(out, color.BoldRed("Filter errors:"))
+		for _, e := range filterErrs {
+			fmt.Fprintln(out, "  "+color.BoldRed("Error:"), e)
 		}
 	}
 	// load tests
 	tests, err := loadTests(dirPath, fileName, gitBranch)
 	if err != nil {
 		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Error loading tests:", err)
+		fmt.Fprintln(out, color.BoldRed("Error loading tests:"), err)
 		return err
 	}
 	if len(tests) == 0 {
@@ -112,10 +135,10 @@ func testCommandExecute(
 	}
 	if errs := tests.Errors(); len(errs) > 0 {
 		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Test errors:")
+		fmt.Fprintln(out, color.BoldRed("Test errors:"))
 		for _, e := range errs {
 			fmt.Fprintln(out, "  Path:", e.Path)
-			fmt.Fprintln(out, "    Error:", e.Err)
+			fmt.Fprintln(out, "    "+color.BoldRed("Error:"), e.Err)
 		}
 		return fmt.Errorf("found %d errors after loading tests", len(errs))
 	}
@@ -124,12 +147,7 @@ func testCommandExecute(
 			return fmt.Errorf("no tests found")
 		}
 
-		if len(errors) == 0 {
-			return nil
-		} else {
-			// TODO aggregate errors
-			return errors[0]
-		}
+		return errors.Join(filterErrs...)
 	}
 	rc := &resultCounts{}
 	var fullTable table.Table
@@ -153,7 +171,7 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(out, test, registryAccess)
+			responses, err := runTest(ctx, out, test, registryAccess, warningsAsErrors)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}
@@ -178,10 +196,22 @@ func testCommandExecute(
 			}
 		}
 	}
-	if !failOnly {
-		fmt.Fprintf(out, "\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
+	var passCount string
+	if rc.Pass+rc.Skip > 0 {
+		passCount = color.BoldGreen(rc.Pass + rc.Skip)
 	} else {
-		fmt.Fprintf(out, "\nTest Summary: %d out of %d tests failed\n", rc.Fail, rc.Pass+rc.Skip+rc.Fail)
+		passCount = fmt.Sprintf("%d", rc.Pass+rc.Skip)
+	}
+	var failCount string
+	if rc.Fail > 0 {
+		failCount = color.BoldRed(rc.Fail)
+	} else {
+		failCount = color.BoldGreen(rc.Fail)
+	}
+	if !failOnly {
+		fmt.Fprintf(out, "\nTest Summary: %s tests passed and %s tests failed\n", passCount, failCount)
+	} else {
+		fmt.Fprintf(out, "\nTest Summary: %s out of %d tests failed\n", failCount, rc.Pass+rc.Skip+rc.Fail)
 	}
 	fmt.Fprintln(out)
 	if rc.Fail > 0 {
@@ -209,7 +239,11 @@ func checkResult(
 	expected := test.Result
 	expectedPatchResources := test.PatchedResources
 	if expectedPatchResources != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources")
+		jsonMode := false
+		if policy := response.Policy().AsMutatingPolicyLike(); policy != nil {
+			jsonMode = policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+		}
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources", jsonMode)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -223,8 +257,8 @@ func checkResult(
 			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
 		}
 	}
-	if test.GeneratedResource != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource")
+	if test.GeneratedResource != "" && len(test.GeneratedResources) == 0 {
+		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, test.GeneratedResource), "GeneratedResource", false)
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
@@ -237,12 +271,64 @@ func checkResult(
 			}
 			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
 		}
+	} else if len(test.GeneratedResources) > 0 {
+		matched := false
+		var lastDiff string
+		var lastErr error
+		for _, expectedRes := range test.GeneratedResources {
+			equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedRes), "GeneratedResources", false)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			if equals {
+				matched = true
+				break
+			}
+			lastDiff = diff
+		}
+		if !matched {
+			if lastDiff == "" && lastErr != nil {
+				return false, lastErr.Error(), "Resource error"
+			}
+			dmp := diffmatchpatch.New()
+			legend := dmp.DiffPrettyText(dmp.DiffMain("only in expected", "only in actual", false))
+			if removeColor {
+				legend = StripANSI(legend)
+				lastDiff = StripANSI(lastDiff)
+			}
+			return false, fmt.Sprintf("Generated resource didn't match any of the expected generated resources in the test result\n(%s)\n\n%s", legend, lastDiff), "Resource diff"
+		}
 	}
+	return compareExpectedRuleResult(expected, response, rule)
+}
+
+func compareExpectedRuleResult(
+	expected openreportsv1alpha1.Result,
+	response engineapi.EngineResponse,
+	rule engineapi.RuleResponse,
+) (bool, string, string) {
 	result := report.ComputePolicyReportResult(false, response, rule)
+	// A messageExpression evaluation error is a policy authoring bug that must be
+	// surfaced even when the validation result (e.g. fail) matches the expectation.
+	// Without this check, a broken messageExpression silently passes the test.
+	if errMsg := rule.MessageExpressionError(); errMsg != "" {
+		return false, result.Description, fmt.Sprintf("messageExpression evaluation error: %s", errMsg)
+	}
 	if result.Result != expected {
 		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
 	return true, result.Description, "Ok"
+}
+
+// checkRuleResultOnly validates the expected test result against the computed policy
+// report result without comparing resource manifests. Use this for Generation rules
+// that produced no generated resources (for example a CEL evaluation error, or a
+// pass due to policy exceptions with nothing generated): passing the trigger resource
+// into checkResult would compare it against generatedResource and fail with a
+// misleading resource diff instead of the status mismatch.
+func checkRuleResultOnly(test v1alpha1.TestResult, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
+	return compareExpectedRuleResult(test.Result, response, rule)
 }
 
 func isRulelessPolicyKind(kind string) bool {

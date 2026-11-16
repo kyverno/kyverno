@@ -1,0 +1,38 @@
+# NamespacedMutatingPolicy with the SAME name as the MutatingPolicy above.
+# Uses a distinct label key (bynamespaced) so cross-contamination
+# is detectable.
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedMutatingPolicy
+metadata:
+  name: same-name-pol
+  namespace: test-same-name-ns
+spec:
+  failurePolicy: Fail
+  evaluation:
+    admission:
+      enabled: false
+    background:
+      enabled: true
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["configmaps"]
+      resourceNames: ["same-name-pol-nmpol-cm"]
+  matchConditions:
+  - name: target-namespace
+    expression: "object.metadata.namespace == 'test-same-name-ns'"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              bynamespaced: "true"
+            }
+          }
+        }

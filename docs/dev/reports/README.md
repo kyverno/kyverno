@@ -67,7 +67,7 @@ To aggregate reports together, Kyverno groups results per policy/rule and keeps 
 
 ### Background scan reports
 
-Background scan reports are produced in the background at regular intervals or when something changes in the policy or the resource.
+Background scan reports are produced in the background at regular intervals or when something changes in the policy or the resource. Here, "the policy" means a `policies.kyverno.io` CEL policy or a ValidatingAdmissionPolicy/MutatingAdmissionPolicy.
 There is always a one-to-one relationship between a resource and a background scan report.
 
 Kyverno updates the same background scan report over and over when policies are evaluated against a resource in the background scan process.
@@ -92,6 +92,7 @@ To reduce the computation power needed, especially when resources change frequen
 - Put the namespace of the report in the queue (`""` if the report is clustered) with a delay of `30s`
 - The queue guarantees that only a single worker will process an item at the same time
 - When the worker gets the namespace from the queue it lists all admission reports and background scan reports for that particular namespace, aggregates them together and reconciles the existing policy reports
+- The aggregator drops any result whose policy no longer exists, and every legacy `source: kyverno` result even while its `ClusterPolicy` or `Policy` is still installed; if legacy `ClusterPolicy`/`Policy` are still present, it also reconciles every existing policy report once on leader start, to prune reports that would otherwise never see another event
 
 This process can have a significant impact on the number of API calls and the memory footprint, especially when we have large reports.
 To mitigate this, we use LIST api calls with pagination and reports are aggregated before loading the next page.
@@ -162,8 +163,8 @@ If we omit the short lived admission reports, this usually means 2 additional re
 - one aggregated admission report
 - one background scan report
 
-Short lived admission reports are ephemeral in nature, as long as they cleaned up correctly they shouldn't impact storage too much.
-If for some reason Kyverno fails to cleanup those reports fast enough it can become a severe issue though.
+Short lived admission reports are ephemeral in nature; as long as they are cleaned up correctly, they shouldn't impact storage too much.
+If for some reason Kyverno fails to clean up those reports fast enough, it can become a severe issue though.
 
 Of course not all resources will have background scan reports, some policies can have `background` disabled but you get the picture.
 One thing to note here is that it doesn't vary with the number of policies in the cluster. The number of policies will have an impact on the report size though, but not on the number of reports.
@@ -479,4 +480,4 @@ The number of policy reports is usually inferior to the number of other reports,
 
 In the end, to use PSS policies (with `restricted` profile) on a 1000 pods cluster, you should budget around 25MB of etcd storage, spread across ~2000 reports.
 
-In comparison, an average `Pod` is around 5KB (at least for a pod with a single container). The storage for 1000 pods is around 5MB. We can see that reports has a significant storage impact. Fortunately, ETCD stores data on disk and associated cost should be negligible.
+In comparison, an average `Pod` is around 5KB (at least for a pod with a single container). The storage for 1000 pods is around 5MB. We can see that reports have a significant storage impact. Fortunately, etcd stores data on disk and the associated cost should be negligible.

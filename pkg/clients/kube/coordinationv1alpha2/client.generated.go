@@ -5,7 +5,7 @@ import (
 	leasecandidates "github.com/kyverno/kyverno/pkg/clients/kube/coordinationv1alpha2/leasecandidates"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_coordination_v1alpha2 "k8s.io/client-go/kubernetes/typed/coordination/v1alpha2"
-	"k8s.io/client-go/rest"
+	k8sclientgorest "k8s.io/client-go/rest"
 )
 
 func WithMetrics(inner k8s_io_client_go_kubernetes_typed_coordination_v1alpha2.CoordinationV1alpha2Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes_typed_coordination_v1alpha2.CoordinationV1alpha2Interface {
@@ -26,7 +26,7 @@ type withMetrics struct {
 	clientType metrics.ClientType
 }
 
-func (c *withMetrics) RESTClient() rest.Interface {
+func (c *withMetrics) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withMetrics) LeaseCandidates(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1alpha2.LeaseCandidateInterface {
@@ -39,7 +39,7 @@ type withTracing struct {
 	client string
 }
 
-func (c *withTracing) RESTClient() rest.Interface {
+func (c *withTracing) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withTracing) LeaseCandidates(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1alpha2.LeaseCandidateInterface {
@@ -51,7 +51,7 @@ type withLogging struct {
 	logger logr.Logger
 }
 
-func (c *withLogging) RESTClient() rest.Interface {
+func (c *withLogging) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withLogging) LeaseCandidates(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1alpha2.LeaseCandidateInterface {

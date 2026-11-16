@@ -1,8 +1,15 @@
 package store
 
 import (
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
+	"github.com/kyverno/sdk/extensions/registryclient"
 )
+
+// GCtxStore is the subset of the global context store the CLI needs.
+type GCtxStore interface {
+	Get(key string) (store.Entry, bool)
+}
 
 type Context struct {
 	Policies []Policy `json:"policies"`
@@ -20,11 +27,15 @@ type Rule struct {
 }
 
 type Store struct {
-	local          bool
-	registryClient registryclient.Client
-	allowApiCalls  bool
-	policies       []Policy
-	foreachElement int
+	local                bool
+	registryClient       registryclient.Client
+	allowApiCalls        bool
+	policies             []Policy
+	foreachElement       int
+	gctxStore            GCtxStore
+	apiCallResponses     []v1alpha1.APICallResponseEntry
+	globalContextEntries []v1alpha1.GlobalContextEntryValue
+	httpMockIndex        map[string]interface{}
 }
 
 // SetLocal sets local (clusterless) execution for the CLI
@@ -47,7 +58,7 @@ func (s *Store) GetForeachElement() int {
 
 func (s *Store) SetRegistryAccess(access bool) {
 	if access {
-		s.registryClient = registryclient.NewOrDie(registryclient.WithLocalKeychain())
+		s.registryClient = registryclient.New()
 	}
 }
 
@@ -96,4 +107,36 @@ func (s *Store) AllowApiCall(allow bool) {
 
 func (s *Store) IsApiCallAllowed() bool {
 	return s.allowApiCalls
+}
+
+func (s *Store) SetGlobalContextStore(gctxStore GCtxStore) {
+	s.gctxStore = gctxStore
+}
+
+func (s *Store) GetGlobalContextStore() GCtxStore {
+	return s.gctxStore
+}
+
+func (s *Store) SetAPICallResponses(responses []v1alpha1.APICallResponseEntry) {
+	s.apiCallResponses = responses
+}
+
+func (s *Store) GetAPICallResponses() []v1alpha1.APICallResponseEntry {
+	return s.apiCallResponses
+}
+
+func (s *Store) SetGlobalContextEntries(entries []v1alpha1.GlobalContextEntryValue) {
+	s.globalContextEntries = entries
+}
+
+func (s *Store) GetGlobalContextEntries() []v1alpha1.GlobalContextEntryValue {
+	return s.globalContextEntries
+}
+
+func (s *Store) SetHTTPMockIndex(index map[string]interface{}) {
+	s.httpMockIndex = index
+}
+
+func (s *Store) GetHTTPMockIndex() map[string]interface{} {
+	return s.httpMockIndex
 }

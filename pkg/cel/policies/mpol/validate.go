@@ -33,8 +33,16 @@ func Validate(mpol v1beta1.MutatingPolicyLike) ([]string, error) {
 		err = append(err, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
 	}
 
-	if mpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
-		if compiler.ExpressionsUseHTTP(mpolExpressions(spec)...) {
+	if !spec.AdmissionEnabled() && !spec.MutateExistingEnabled() {
+		err = append(err, field.Forbidden(field.NewPath("spec").Child("evaluation"), "disabling both admission and mutateExisting evaluation modes is not allowed"))
+	}
+
+	if mpol.GetNamespace() != "" {
+		exprs := mpolExpressions(spec)
+		if compiler.ExpressionsUseGlobalContext(exprs...) {
+			err = append(err, field.Forbidden(field.NewPath("spec"), "globalContext.* is not allowed in namespaced policies"))
+		}
+		if !toggle.AllowHTTPInNamespacedPolicies.Enabled() && compiler.ExpressionsUseHTTP(exprs...) {
 			err = append(err, field.Forbidden(field.NewPath("spec"), "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable"))
 		}
 	}
@@ -51,7 +59,7 @@ func Validate(mpol v1beta1.MutatingPolicyLike) ([]string, error) {
 }
 
 func mpolExpressions(spec *v1beta1.MutatingPolicySpec) []string {
-	capacity := len(spec.Variables) + len(spec.MatchConditions)
+	capacity := len(spec.Variables) + len(spec.MatchConditions) + len(spec.AuditAnnotations)
 	for _, m := range spec.Mutations {
 		if m.ApplyConfiguration != nil {
 			capacity++
@@ -74,6 +82,17 @@ func mpolExpressions(spec *v1beta1.MutatingPolicySpec) []string {
 		if m.JSONPatch != nil {
 			exprs = append(exprs, m.JSONPatch.Expression)
 		}
+	}
+	for _, a := range spec.AuditAnnotations {
+		exprs = append(exprs, a.ValueExpression)
+	}
+	// target selection expressions are compiled and evaluated by the mpol
+	// compiler as well, so they must be scanned for forbidden libraries too
+	if spec.TargetMatchConstraints != nil && spec.TargetMatchConstraints.Expression != "" {
+		exprs = append(exprs, spec.TargetMatchConstraints.Expression)
+	}
+	for _, mc := range spec.TargetMatchConditions {
+		exprs = append(exprs, mc.Expression)
 	}
 	return exprs
 }

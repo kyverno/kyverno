@@ -1,0 +1,50 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: test-mpol-resize
+spec:
+  failurePolicy: Fail
+  evaluation:
+    admission:
+      enabled: false
+    background:
+      enabled: true
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+      resourceNames: ["test-mpol-resize"]
+  matchConditions:
+  - name: test-namespace
+    expression: request.namespace == "test-mpol-resize"
+  variables:
+  - name: targetNamespace
+    expression: request.namespace
+  - name: targetName
+    expression: request.name
+  targetMatchConstraints:
+    expression: resource.get("v1", "pods", variables.targetNamespace, variables.targetName)
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["UPDATE"]
+      resources: ["pods/resize"]
+      resourceNames: ["test-mpol-resize"]
+  targetMatchConditions:
+  - name: target-name
+    expression: variables.targetName == object.metadata.name
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |-
+        [
+          JSONPatch{
+            op: "replace",
+            path: "/spec/containers/0/resources/requests/cpu",
+            value: "200m"
+          }
+        ]

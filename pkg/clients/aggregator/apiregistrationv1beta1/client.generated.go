@@ -4,7 +4,7 @@ import (
 	"github.com/go-logr/logr"
 	apiservices "github.com/kyverno/kyverno/pkg/clients/aggregator/apiregistrationv1beta1/apiservices"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"k8s.io/client-go/rest"
+	k8sclientgorest "k8s.io/client-go/rest"
 	k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1beta1 "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1"
 )
 
@@ -26,7 +26,7 @@ type withMetrics struct {
 	clientType metrics.ClientType
 }
 
-func (c *withMetrics) RESTClient() rest.Interface {
+func (c *withMetrics) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withMetrics) APIServices() k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1beta1.APIServiceInterface {
@@ -39,7 +39,7 @@ type withTracing struct {
 	client string
 }
 
-func (c *withTracing) RESTClient() rest.Interface {
+func (c *withTracing) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withTracing) APIServices() k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1beta1.APIServiceInterface {
@@ -51,7 +51,7 @@ type withLogging struct {
 	logger logr.Logger
 }
 
-func (c *withLogging) RESTClient() rest.Interface {
+func (c *withLogging) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withLogging) APIServices() k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1beta1.APIServiceInterface {

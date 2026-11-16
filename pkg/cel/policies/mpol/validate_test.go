@@ -3,11 +3,47 @@ package mpol
 import (
 	"testing"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	vpol "github.com/kyverno/kyverno/pkg/cel/policies/vpol"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
+
+func TestJSONPolicyAdmissionMatchesValidation(t *testing.T) {
+	t.Parallel()
+	mpol := &v1beta1.MutatingPolicy{Spec: v1beta1.MutatingPolicySpec{
+		EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+		Mutations: []admissionregistrationv1alpha1.Mutation{{
+			PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+			JSONPatch: &admissionregistrationv1alpha1.JSONPatch{Expression: `[JSONPatch{op:"add",path:"/ok",value:true}]`},
+		}},
+	}}
+	vp := &v1beta1.ValidatingPolicy{Spec: v1beta1.ValidatingPolicySpec{
+		EvaluationConfiguration: &v1beta1.EvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+		Validations:             []v1.Validation{{Expression: "true"}},
+	}}
+	_, mutationErr := Validate(mpol)
+	_, validationErr := vpol.Validate(vp)
+	require.ErrorContains(t, mutationErr, "matchConstraints")
+	require.ErrorContains(t, validationErr, "matchConstraints")
+	constraints := &v1.MatchResources{ResourceRules: []v1.NamedRuleWithOperations{{
+		RuleWithOperations: v1.RuleWithOperations{
+			Operations: []v1.OperationType{v1.Create},
+			Rule:       v1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"configmaps"}},
+		},
+	}}}
+	mpol.Spec.MatchConstraints = constraints
+	vp.Spec.MatchConstraints = constraints
+	_, mutationErr = Validate(mpol)
+	_, validationErr = vpol.Validate(vp)
+	require.NoError(t, mutationErr)
+	require.NoError(t, validationErr)
+}
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
@@ -22,6 +58,60 @@ func TestValidate(t *testing.T) {
 					Name: "valid-mpol",
 				},
 				Spec: v1beta1.MutatingPolicySpec{
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: v1.RuleWithOperations{
+									Rule: v1.Rule{
+										APIGroups: []string{"apps"},
+										Resources: []string{"deployments"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "both admission and mutateExisting disabled",
+			pol: &v1beta1.MutatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "all-modes-disabled",
+				},
+				Spec: v1beta1.MutatingPolicySpec{
+					EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{
+						Admission:                   &v1beta1.AdmissionConfiguration{Enabled: ptr.To(false)},
+						MutateExistingConfiguration: &v1beta1.MutateExistingConfiguration{Enabled: ptr.To(false)},
+					},
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: v1.RuleWithOperations{
+									Rule: v1.Rule{
+										APIGroups: []string{"apps"},
+										Resources: []string{"deployments"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "admission disabled with mutateExisting enabled",
+			pol: &v1beta1.MutatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mutate-existing-only",
+				},
+				Spec: v1beta1.MutatingPolicySpec{
+					EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{
+						Admission:                   &v1beta1.AdmissionConfiguration{Enabled: ptr.To(false)},
+						MutateExistingConfiguration: &v1beta1.MutateExistingConfiguration{Enabled: ptr.To(true)},
+					},
 					MatchConstraints: &v1.MatchResources{
 						ResourceRules: []v1.NamedRuleWithOperations{
 							{
@@ -147,6 +237,66 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "variables in match conditions rejected when MAP autogen enabled",
+			pol: &v1beta1.MutatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "invalid-map-compatible-mpol",
+				},
+				Spec: v1beta1.MutatingPolicySpec{
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{{
+							RuleWithOperations: v1.RuleWithOperations{
+								Rule: v1.Rule{
+									APIGroups: []string{""},
+									Resources: []string{"pods"},
+								},
+							},
+						}},
+					},
+					Variables: []v1.Variable{{
+						Name:       "targetName",
+						Expression: `"test"`,
+					}},
+					MatchConditions: []v1.MatchCondition{{
+						Name:       "uses-variable",
+						Expression: `variables.targetName == "test"`,
+					}},
+					AutogenConfiguration: &v1beta1.MutatingPolicyAutogenConfiguration{
+						MutatingAdmissionPolicy: &v1beta1.MAPGenerationConfiguration{Enabled: ptr.To(true)},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "namespaced policy using globalContext is rejected",
+			pol: &v1beta1.MutatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ns-globalcontext-mpol",
+					Namespace: "tenant-ns",
+				},
+				Spec: v1beta1.MutatingPolicySpec{
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: v1.RuleWithOperations{
+									Rule: v1.Rule{
+										APIGroups: []string{""},
+										Resources: []string{"pods"},
+									},
+								},
+							},
+						},
+					},
+					Variables: []v1.Variable{{
+						Name:       "gctx",
+						Expression: `globalContext.get("cluster-entry", "")`,
+					}},
+				},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -162,4 +312,62 @@ func TestValidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_Validate_NamespacedPolicyRejectsGlobalContextInTargetSelection(t *testing.T) {
+	basePolicy := func() *v1beta1.MutatingPolicy {
+		return &v1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "ns-globalcontext-targets-mpol",
+				Namespace: "tenant-ns",
+			},
+			Spec: v1beta1.MutatingPolicySpec{
+				MatchConstraints: &v1.MatchResources{
+					ResourceRules: []v1.NamedRuleWithOperations{{
+						RuleWithOperations: v1.RuleWithOperations{
+							Rule: v1.Rule{
+								APIGroups: []string{""},
+								Resources: []string{"pods"},
+							},
+						},
+					}},
+				},
+				EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &v1beta1.MutateExistingConfiguration{
+						Enabled: ptr.To(true),
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("globalContext in targetMatchConstraints expression is rejected", func(t *testing.T) {
+		pol := basePolicy()
+		pol.Spec.TargetMatchConstraints = &v1beta1.TargetMatchConstraints{
+			Expression: `globalContext.get("cluster-entry", "")`,
+		}
+		_, err := Validate(pol)
+		assert.ErrorContains(t, err, "globalContext.* is not allowed in namespaced policies")
+	})
+
+	t.Run("globalContext in targetMatchConditions is rejected", func(t *testing.T) {
+		pol := basePolicy()
+		pol.Spec.TargetMatchConditions = []v1.MatchCondition{{
+			Name:       "uses-gctx",
+			Expression: `globalContext.get("cluster-entry", "") != ""`,
+		}}
+		_, err := Validate(pol)
+		assert.ErrorContains(t, err, "globalContext.* is not allowed in namespaced policies")
+	})
+
+	t.Run("cluster-scoped policy may use globalContext in target selection", func(t *testing.T) {
+		pol := basePolicy()
+		pol.Namespace = ""
+		pol.Spec.TargetMatchConditions = []v1.MatchCondition{{
+			Name:       "uses-gctx",
+			Expression: `globalContext.get("cluster-entry", "") != ""`,
+		}}
+		_, err := Validate(pol)
+		assert.NoError(t, err)
+	})
 }

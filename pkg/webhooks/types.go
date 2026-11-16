@@ -59,18 +59,18 @@ type AuthorizingPolicyHandler interface {
 }
 
 type ResourceHandlers struct {
-	// Mutation performs the mutation of kube resources
-	Mutation Handler
-	// Validation performs the validation check on kube resources
-	Validation Handler
 	// ValidatingPolicies evaluates validating policies against kube resources
 	ValidatingPolicies Handler
 	// NamespacedValidatingPolicies evaluates namespaced validating policies against kube resources
 	NamespacedValidatingPolicies Handler
 	// ImageVerificationPolicies evaluates imageverificationpolicies mutation phase against kube resources
 	ImageVerificationPoliciesMutation Handler
+	// NamespacedImageVerificationPoliciesMutation evaluates namespaced imageverificationpolicies mutation phase against kube resources
+	NamespacedImageVerificationPoliciesMutation Handler
 	// ImageVerificationPolicies evaluates imageverificationpolicies validation phase against kube resources
 	ImageVerificationPolicies Handler
+	// NamespacedImageVerificationPolicies evaluates namespaced imageverificationpolicies validation phase against kube resources
+	NamespacedImageVerificationPolicies Handler
 	// GeneratingPolicies evaluates generating policies against kube resources
 	GeneratingPolicies Handler
 	// NamespacedGeneratingPolicies evaluates namespaced generating policies against kube resources

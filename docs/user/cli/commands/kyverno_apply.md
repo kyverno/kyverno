@@ -15,6 +15,15 @@ kyverno apply [flags]
 ### Examples
 
 ```
+  # Display evaluation results as a table
+  kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-format table
+
+  # Save mutated/generated resources to a directory
+  kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-dir /path/to/results/
+
+  # Save mutated/generated resources to a file
+  kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-file /path/to/results.yaml
+
   # Apply on a resource
   kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
 
@@ -37,7 +46,7 @@ kyverno apply [flags]
 ### Options
 
 ```
-      --audit-warn                         If set to true, will flag audit policies as warnings instead of failures
+      --audit-warn                         Treat audit-only ValidatingPolicy and ImageValidatingPolicy violations as warnings (counted as warn; by default exit 0)
       --batch-size int                     Number of resources to fetch per API call (default 100)
   -c, --cluster                            Checks if policies should be applied to cluster in the current context
       --cluster-wide-resources             If set to true, will apply policies to cluster-wide resources
@@ -46,7 +55,7 @@ kyverno apply [flags]
       --context-file string                File containing context data for CEL policies
       --continue-on-error                  Continue processing despite resource loading errors (default true)
       --continue-on-fail                   If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out
-      --crd-path string                    crd path to be used for apply command
+      --crd-paths strings                  List of paths to CRD files to be used for apply command
       --detailed-results                   If set to true, display detailed results
       --envoy-payload strings              Path to Envoy check request payload files (JSON)
   -e, --exception strings                  Policy exception to be considered when evaluating policies against resources
@@ -54,6 +63,7 @@ kyverno apply [flags]
       --exceptions-with-resources          Evaluate policy exceptions from the resources path
       --exceptions-within-policies         Evaluate policy exceptions from the policies path
       --exceptions-within-resources        Evaluate policy exceptions from the resources path
+      --explain                            Print how each ValidatingPolicy, MutatingPolicy, GeneratingPolicy, ImageValidatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, the images it checked, and its validations, the mutations it ran, the generate entries it ran or its delete conditions. The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive
       --generate-exceptions                Generate policy exceptions for each violation
       --generated-exception-ttl duration   Default TTL for generated exceptions (default 720h0m0s)
   -b, --git-branch string                  test git repository branch
@@ -62,8 +72,9 @@ kyverno apply [flags]
       --json strings                       Path to JSON payload files
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
-  -o, --output string                      Prints the mutated/generated resources in provided file/directory
-      --output-format string               Specifies the policy report format (json or yaml). Default: yaml. (default "yaml")
+      --output-dir string                  Directory for mutated/generated resources
+      --output-file string                 File for mutated/generated resources
+      --output-format string               Output format: json or yaml for policy reports/exceptions, or table for evaluation results (default "yaml")
       --parameter-resource strings         Path to resource files that act as ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters
       --password string                    Password for connecting to git repository
   -p, --policy-report                      Generates policy report when passed (default policyviolation)
@@ -82,6 +93,7 @@ kyverno apply [flags]
   -f, --values-file string                 File containing values for policy variables
       --warn-exit-code int                 Set the exit code for warnings; if failures or errors are found, will exit 1
       --warn-no-pass                       Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag
+      --warnings-as-errors                 Treat deprecation warnings as errors
 ```
 
 ### Options inherited from parent commands

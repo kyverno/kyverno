@@ -1,0 +1,11 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: valid-exception
+spec:
+  policyRefs:
+  - name: test-policy
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: valid-condition
+    expression: totally.unbound.variable == 'x'

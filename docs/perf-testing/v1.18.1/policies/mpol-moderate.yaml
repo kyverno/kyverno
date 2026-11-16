@@ -1,0 +1,50 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: mpol-moderate
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        has(object.metadata.labels) ?
+        [
+          JSONPatch{op: "add", path: "/metadata/labels/managed-by",   value: "kyverno"},
+          JSONPatch{op: "add", path: "/metadata/labels/policy-check",  value: "passed"},
+          JSONPatch{op: "add", path: "/metadata/labels/inject-time",   value: "admission"}
+        ] :
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/labels",
+            value: {
+              "managed-by":   "kyverno",
+              "policy-check": "passed",
+              "inject-time":  "admission"
+            }
+          }
+        ]
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        has(object.metadata.annotations) ?
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/annotations/kyverno.io~1last-applied-policy",
+            value: "mpol-moderate"
+          }
+        ] :
+        [
+          JSONPatch{
+            op: "add",
+            path: "/metadata/annotations",
+            value: {"kyverno.io/last-applied-policy": "mpol-moderate"}
+          }
+        ]

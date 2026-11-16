@@ -1,0 +1,169 @@
+package apply
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+)
+
+// staticEntry implements store.Entry for CLI offline use.
+// It holds a pre-fetched snapshot of Kubernetes resources and
+// optionally pre-computed JMESPath projections.
+type staticEntry struct {
+	objects     []interface{}
+	projections map[string]interface{}
+}
+
+func (e *staticEntry) Get(projection string) (any, error) {
+	if projection == "" {
+		return e.objects, nil
+	}
+	if result, ok := e.projections[projection]; ok {
+		return result, nil
+	}
+	return nil, fmt.Errorf("projection %q not found", projection)
+}
+
+func (e *staticEntry) Stop() {}
+
+// buildGlobalContextStore creates a globalcontext store populated from
+// GlobalContextEntry resources that reference KubernetesResource specs.
+// The data is fetched once from the provided fake client.
+func buildGlobalContextStore(
+	ctx context.Context,
+	gctxEntries []*kyvernov2.GlobalContextEntry,
+	client dclient.Interface,
+	jp jmespath.Interface,
+) (gctxstore.Store, error) {
+	s := gctxstore.New(0)
+	for _, gce := range gctxEntries {
+		if gce.Spec.KubernetesResource == nil {
+			continue
+		}
+		kr := gce.Spec.KubernetesResource
+		gvr := schema.GroupVersionResource{Group: kr.Group, Version: kr.Version, Resource: kr.Resource}
+
+		// Use the dynamic client directly with the GVR from the spec so the
+		// list targets kr.Resource exactly — avoids kind/apiVersion guessing
+		// and handles irregular plurals and zero-instance resource types.
+		dynClient := client.GetDynamicInterface().Resource(gvr)
+		var unstructList *unstructured.UnstructuredList
+		var err error
+		if kr.Namespace != "" {
+			unstructList, err = dynClient.Namespace(kr.Namespace).List(ctx, metav1.ListOptions{})
+		} else {
+			unstructList, err = dynClient.List(ctx, metav1.ListOptions{})
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list resources for GlobalContextEntry %s (%s): %w", gce.Name, gvr, err)
+		}
+
+		objects := make([]interface{}, 0, len(unstructList.Items))
+		for i := range unstructList.Items {
+			objects = append(objects, unstructList.Items[i].Object)
+		}
+
+		// One shared CEL cost ceiling for every projection evaluated for this entry, so
+		// an entry with many CEL projections can't retain an unbounded multiple of the
+		// per-program limit by spreading cost across projections. Background-sized to
+		// match the controller's own setData/recomputeProjections paths that this CLI
+		// build mirrors offline.
+		budgetCtx, release := requestbudget.EnsureBackground(ctx)
+		defer release()
+
+		projections := make(map[string]interface{})
+		for _, p := range gce.Spec.Projections {
+			var proj gctxstore.Projection
+			// Mirror the CRD's exactly-one-of rule. Without this the branch below takes
+			// expression and silently discards jmesPath, so a manifest the API server
+			// rejects would pass offline - the opposite of what this command is for.
+			switch {
+			case p.Expression != "" && p.JMESPath != "":
+				return nil, fmt.Errorf("projection %q for GlobalContextEntry %s sets both jmesPath and expression: exactly one is allowed", p.Name, gce.Name)
+			case p.Expression == "" && p.JMESPath == "":
+				return nil, fmt.Errorf("projection %q for GlobalContextEntry %s sets neither jmesPath nor expression: exactly one is required", p.Name, gce.Name)
+			}
+			if p.Expression != "" {
+				prog, errs := compiler.CompileGlobalContextProjection(field.NewPath("expression"), p.Expression)
+				if len(errs) > 0 {
+					return nil, fmt.Errorf("failed to compile projection %q for GlobalContextEntry %s: %w", p.Name, gce.Name, errs.ToAggregate())
+				}
+				proj = gctxstore.Projection{Name: p.Name, Program: prog}
+			} else {
+				if jp == nil {
+					return nil, fmt.Errorf("cannot build projection %q for GlobalContextEntry %s: JMESPath engine is required", p.Name, gce.Name)
+				}
+				query, err := jp.Query(p.JMESPath)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse projection %q for GlobalContextEntry %s: %w", p.Name, gce.Name, err)
+				}
+				proj = gctxstore.Projection{Name: p.Name, JP: query}
+			}
+			result, err := proj.Evaluate(budgetCtx, objects)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply projection %q for GlobalContextEntry %s: %w", p.Name, gce.Name, err)
+			}
+			projections[p.Name] = result
+		}
+
+		if err := s.Set(gce.Name, &staticEntry{
+			objects:     objects,
+			projections: projections,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to store GlobalContextEntry %s: %w", gce.Name, err)
+		}
+	}
+	return s, nil
+}
+
+// extractGlobalContextEntries separates GlobalContextEntry resources from
+// the main resource list and returns both sets.
+func extractGlobalContextEntries(resources []*unstructured.Unstructured) ([]*unstructured.Unstructured, []*kyvernov2.GlobalContextEntry, error) {
+	var regular []*unstructured.Unstructured
+	var gctxEntries []*kyvernov2.GlobalContextEntry
+
+	for _, r := range resources {
+		gvk := r.GroupVersionKind()
+		if isGlobalContextEntry(gvk) {
+			gce := &kyvernov2.GlobalContextEntry{}
+			if err := convertToGCE(r, gce); err != nil {
+				return nil, nil, fmt.Errorf("failed to convert %s %q to GlobalContextEntry: %w", gvk, r.GetName(), err)
+			}
+			gctxEntries = append(gctxEntries, gce)
+		} else {
+			regular = append(regular, r)
+		}
+	}
+	return regular, gctxEntries, nil
+}
+
+func isGlobalContextEntry(gvk schema.GroupVersionKind) bool {
+	if gvk.Group != "kyverno.io" || gvk.Kind != "GlobalContextEntry" {
+		return false
+	}
+	switch gvk.Version {
+	case "v2", "v2beta1", "v2alpha1":
+		return true
+	default:
+		return false
+	}
+}
+
+func convertToGCE(src *unstructured.Unstructured, dst *kyvernov2.GlobalContextEntry) error {
+	data, err := json.Marshal(src.Object)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, dst)
+}

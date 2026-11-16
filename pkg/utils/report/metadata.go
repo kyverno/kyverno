@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -38,11 +36,15 @@ const (
 	LabelDomainValidatingPolicy                 = "vpol.kyverno.io"
 	LabelDomainImageValidatingPolicy            = "ivpol.kyverno.io"
 	LabelDomainGeneratingPolicy                 = "gpol.kyverno.io"
+	LabelDomainMutatingPolicy                   = "mpol.kyverno.io"
+	LabelDomainDeletingPolicy                   = "dpol.kyverno.io"
 	LabelPrefixClusterPolicy                    = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                           = LabelDomainPolicy + "/"
 	LabelPrefixValidatingPolicy                 = LabelDomainValidatingPolicy + "/"
 	LabelPrefixImageValidatingPolicy            = LabelDomainImageValidatingPolicy + "/"
 	LabelPrefixGeneratingPolicy                 = LabelDomainGeneratingPolicy + "/"
+	LabelPrefixMutatingPolicy                   = LabelDomainMutatingPolicy + "/"
+	LabelPrefixDeletingPolicy                   = LabelDomainDeletingPolicy + "/"
 	LabelPrefixPolicyException                  = "polex.kyverno.io/"
 	LabelPrefixValidatingAdmissionPolicy        = "validatingadmissionpolicy.apiserver.io/"
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
@@ -59,6 +61,8 @@ func IsPolicyLabel(label string) bool {
 		strings.HasPrefix(label, LabelPrefixValidatingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixImageValidatingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixGeneratingPolicy) ||
+		strings.HasPrefix(label, LabelPrefixMutatingPolicy) ||
+		strings.HasPrefix(label, LabelPrefixDeletingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixPolicyException) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicy) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding) ||
@@ -67,41 +71,33 @@ func IsPolicyLabel(label string) bool {
 }
 
 func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
-	if policy.AsKyvernoPolicy() != nil {
-		if policy.IsNamespaced() {
-			return LabelPrefixPolicy
-		}
-		return LabelPrefixClusterPolicy
-	}
-	if policy.AsValidatingPolicy() != nil {
+	if policy.AsValidatingPolicyLike() != nil {
 		return LabelPrefixValidatingPolicy
 	}
-	if policy.AsImageValidatingPolicy() != nil {
+	if policy.AsImageValidatingPolicyLike() != nil {
 		return LabelPrefixImageValidatingPolicy
 	}
-	if policy.AsGeneratingPolicy() != nil {
+	if policy.AsGeneratingPolicyLike() != nil {
 		return LabelPrefixGeneratingPolicy
+	}
+	if policy.AsMutatingPolicyLike() != nil {
+		return LabelPrefixMutatingPolicy
+	}
+	if policy.AsDeletingPolicy() != nil {
+		return LabelPrefixDeletingPolicy
 	}
 	if policy.AsMutatingAdmissionPolicy() != nil {
 		return LabelPrefixMutatingAdmissionPolicy
 	}
-	// TODO: detect potential type not detected
-	return LabelPrefixValidatingAdmissionPolicy
-}
-
-func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
-	if policy.IsNamespaced() {
-		return LabelDomainPolicy
+	if policy.AsValidatingAdmissionPolicy() != nil {
+		return LabelPrefixValidatingAdmissionPolicy
 	}
-	return LabelDomainClusterPolicy
+	// TODO: handle any policy types not yet classified
+	return LabelPrefixValidatingAdmissionPolicy
 }
 
 func PolicyLabel(policy engineapi.GenericPolicy) string {
 	return PolicyLabelPrefix(policy) + policy.GetName()
-}
-
-func PolicyExceptionLabel(exception kyvernov2.PolicyException) string {
-	return LabelPrefixPolicyException + exception.GetName()
 }
 
 func ValidatingAdmissionPolicyBindingLabel(binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) string {
@@ -187,10 +183,6 @@ func SetResourceVersionLabels(report reportsv1.ReportInterface, resource *unstru
 
 func SetPolicyLabel(report reportsv1.ReportInterface, policy engineapi.GenericPolicy) {
 	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
-}
-
-func SetPolicyExceptionLabel(report reportsv1.ReportInterface, exception kyvernov2.PolicyException) {
-	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
 }
 
 func SetValidatingAdmissionPolicyBindingLabel(report reportsv1.ReportInterface, binding admissionregistrationv1.ValidatingAdmissionPolicyBinding) {

@@ -11,6 +11,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (inner HttpHandler) WithTrace(name string) HttpHandler {
@@ -71,16 +72,16 @@ func (inner AdmissionHandler) WithTrace(name string) AdmissionHandler {
 				tracing.RequestKindVersionKey.String(tracing.StringValue(request.Kind.Version)),
 				tracing.RequestKindKindKey.String(tracing.StringValue(request.Kind.Kind)),
 				tracing.RequestSubResourceKey.String(tracing.StringValue(request.SubResource)),
-				tracing.RequestRequestKindGroupKey.String(tracing.StringValue(request.RequestKind.Group)),
-				tracing.RequestRequestKindVersionKey.String(tracing.StringValue(request.RequestKind.Version)),
-				tracing.RequestRequestKindKindKey.String(tracing.StringValue(request.RequestKind.Kind)),
+				tracing.RequestRequestKindGroupKey.String(tracing.StringValue(gvk(request.RequestKind).Group)),
+				tracing.RequestRequestKindVersionKey.String(tracing.StringValue(gvk(request.RequestKind).Version)),
+				tracing.RequestRequestKindKindKey.String(tracing.StringValue(gvk(request.RequestKind).Kind)),
 				tracing.RequestRequestSubResourceKey.String(tracing.StringValue(request.RequestSubResource)),
 				tracing.RequestResourceGroupKey.String(tracing.StringValue(request.Resource.Group)),
 				tracing.RequestResourceVersionKey.String(tracing.StringValue(request.Resource.Version)),
 				tracing.RequestResourceResourceKey.String(tracing.StringValue(request.Resource.Resource)),
-				tracing.RequestRequestResourceGroupKey.String(tracing.StringValue(request.RequestResource.Group)),
-				tracing.RequestRequestResourceVersionKey.String(tracing.StringValue(request.RequestResource.Version)),
-				tracing.RequestRequestResourceResourceKey.String(tracing.StringValue(request.RequestResource.Resource)),
+				tracing.RequestRequestResourceGroupKey.String(tracing.StringValue(gvr(request.RequestResource).Group)),
+				tracing.RequestRequestResourceVersionKey.String(tracing.StringValue(gvr(request.RequestResource).Version)),
+				tracing.RequestRequestResourceResourceKey.String(tracing.StringValue(gvr(request.RequestResource).Resource)),
 				tracing.RequestUserNameKey.String(tracing.StringValue(request.UserInfo.Username)),
 				tracing.RequestUserUidKey.String(tracing.StringValue(request.UserInfo.UID)),
 				tracing.RequestRolesKey.StringSlice(request.Roles),
@@ -92,4 +93,18 @@ func (inner AdmissionHandler) WithTrace(name string) AdmissionHandler {
 			),
 		)
 	}
+}
+
+func gvk(g *metav1.GroupVersionKind) *metav1.GroupVersionKind {
+	if g == nil {
+		return &metav1.GroupVersionKind{}
+	}
+	return g
+}
+
+func gvr(g *metav1.GroupVersionResource) *metav1.GroupVersionResource {
+	if g == nil {
+		return &metav1.GroupVersionResource{}
+	}
+	return g
 }

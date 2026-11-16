@@ -11,6 +11,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
+// callers of this package (e.g. the engine provider) don't need to import
+// pkg/cel/autogen directly just to check it.
+const ExtractionReplacementsRef = autogen.ExtractionReplacementsRef
+
 func Autogen(policy policiesv1beta1.MutatingPolicyLike) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
@@ -22,10 +27,14 @@ func Autogen(policy policiesv1beta1.MutatingPolicyLike) (map[string]policiesv1be
 	}
 
 	actualControllers := autogen.AllConfigs
-	if policy.GetSpec().AutogenConfiguration != nil &&
-		policy.GetSpec().AutogenConfiguration.PodControllers != nil &&
-		policy.GetSpec().AutogenConfiguration.PodControllers.Controllers != nil {
-		actualControllers = sets.New(policy.GetSpec().AutogenConfiguration.PodControllers.Controllers...)
+	if policy.GetSpec().AutogenConfiguration != nil && policy.GetSpec().AutogenConfiguration.PodControllers != nil {
+		pc := policy.GetSpec().AutogenConfiguration.PodControllers
+		if pc.Enabled != nil && !*pc.Enabled {
+			return nil, nil
+		}
+		if pc.Controllers != nil {
+			actualControllers = sets.New(pc.Controllers...)
+		}
 	}
 	return generateRuleForControllers(policy.GetSpec(), actualControllers)
 }
@@ -33,7 +42,7 @@ func Autogen(policy policiesv1beta1.MutatingPolicyLike) (map[string]policiesv1be
 func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
-		if config := autogen.ConfigsMap[config]; config != nil {
+		if config := autogen.ResolveConfig(config); config != nil {
 			targets := mapping[config.ReplacementsRef]
 			targets = append(targets, config.Target)
 			mapping[config.ReplacementsRef] = targets
@@ -44,20 +53,36 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 		targets := mapping[config]
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
-		match := autogen.CreateMatchConstraints(targets, operations)
+		match := autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
 		spec.SetMatchConstraints(*match)
 
-		for i := range spec.MatchConditions {
-			if spec.MatchConditions[i].Expression != "" {
-				convertedExpr := convertPodToTemplateExpression(spec.MatchConditions[i].Expression, config)
-				spec.MatchConditions[i].Expression = convertedExpr
+		// Extraction-mode targets (custom workload CRDs) have no fixed
+		// "spec.template"-style path to rewrite expressions to - their pod
+		// template is discovered at evaluation time instead - so
+		// convertPodToTemplateExpression must not run for them. Without this
+		// guard it would fall into its "default" case and rewrite these
+		// expressions to the built-in flat shape, which is wrong for
+		// whatever custom CRD this config actually targets.
+		if config != autogen.ExtractionReplacementsRef {
+			for i := range spec.Variables {
+				if spec.Variables[i].Expression != "" {
+					convertedExpr := string(autogen.ApplyMutatingCEL([]byte(spec.Variables[i].Expression), config))
+					spec.Variables[i].Expression = convertedExpr
+				}
 			}
-		}
 
-		for i := range spec.Mutations {
-			if spec.Mutations[i].ApplyConfiguration != nil && spec.Mutations[i].ApplyConfiguration.Expression != "" {
-				convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
-				spec.Mutations[i].ApplyConfiguration.Expression = convertedExpr
+			for i := range spec.MatchConditions {
+				if spec.MatchConditions[i].Expression != "" {
+					convertedExpr := convertPodToTemplateExpression(spec.MatchConditions[i].Expression, config)
+					spec.MatchConditions[i].Expression = convertedExpr
+				}
+			}
+
+			for i := range spec.Mutations {
+				if spec.Mutations[i].ApplyConfiguration != nil && spec.Mutations[i].ApplyConfiguration.Expression != "" {
+					convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
+					spec.Mutations[i].ApplyConfiguration.Expression = convertedExpr
+				}
 			}
 		}
 
@@ -87,29 +112,16 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 
 // convertPodToTemplateExpression converts pod mutation expressions to template expressions
 func convertPodToTemplateExpression(expression string, config string) string {
-	var specReplacement string
-	var metadataReplacement string
+	expression = string(autogen.ApplyMutatingCEL([]byte(expression), config))
 
-	switch config {
-	case "cronjobs":
-		specReplacement = "spec.jobTemplate.spec.template.spec"
-		metadataReplacement = "spec.jobTemplate.spec.template.metadata"
-	default:
-		specReplacement = "spec.template.spec"
-		metadataReplacement = "spec.template.metadata"
-	}
-
-	expression = strings.ReplaceAll(expression, "object.spec", "object."+specReplacement)
-	expression = strings.ReplaceAll(expression, "Object.spec", "Object."+specReplacement)
-
-	expression = strings.ReplaceAll(expression, "object.metadata.labels", "object."+metadataReplacement+".labels")
-	expression = strings.ReplaceAll(expression, "Object.metadata.labels", "Object."+metadataReplacement+".labels")
-	expression = strings.ReplaceAll(expression, "object.metadata.annotations", "object."+metadataReplacement+".annotations")
-	expression = strings.ReplaceAll(expression, "Object.metadata.annotations", "Object."+metadataReplacement+".annotations")
-
-	if strings.HasPrefix(strings.TrimSpace(expression), "Object{") {
-		content := strings.TrimSpace(expression)
-		content = strings.TrimPrefix(content, "Object{")
+	// Detect the root "Object{...}" constructor, tolerating optional whitespace
+	// between "Object" and "{" (e.g. "Object {"), which is valid CEL.
+	if rest, ok := strings.CutPrefix(strings.TrimSpace(expression), "Object"); ok {
+		content := strings.TrimLeft(rest, " \t\r\n")
+		content, ok = strings.CutPrefix(content, "{")
+		if !ok {
+			return expression
+		}
 
 		braceCount := 1
 		endIndex := 0

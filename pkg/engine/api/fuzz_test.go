@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
 
@@ -27,7 +26,6 @@ func FuzzEngineResponse(f *testing.F) {
 		_ = resp.GetPatches()
 		_ = resp.GetFailedRules()
 		_ = resp.GetFailedRulesWithErrors()
-		_ = resp.GetValidationFailureAction()
 		_ = resp.GetSuccessRules()
 	})
 }

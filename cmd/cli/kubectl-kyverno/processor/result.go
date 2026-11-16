@@ -1,9 +1,10 @@
 package processor
 
 import (
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
-	"github.com/kyverno/kyverno/pkg/autogen"
+	"slices"
+
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
 type ResultCounts struct {
@@ -18,77 +19,22 @@ func (rc *ResultCounts) IncrementError(inc int) {
 	rc.Error += inc
 }
 
-func (rc *ResultCounts) addEngineResponses(auditWarn bool, responses ...engineapi.EngineResponse) {
-	for _, response := range responses {
-		rc.addEngineResponse(auditWarn, response)
-	}
-}
-
-func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.EngineResponse) {
-	if !response.IsEmpty() {
-		genericPolicy := response.Policy()
-		if genericPolicy.AsKyvernoPolicy() == nil {
-			return
-		}
-		policy := genericPolicy.AsKyvernoPolicy()
-		scored := annotations.Scored(policy.GetAnnotations())
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
-			if rule.HasValidate() || rule.HasVerifyImageChecks() || rule.HasVerifyImages() {
-				for _, valResponseRule := range response.PolicyResponse.Rules {
-					if rule.Name == valResponseRule.Name() {
-						switch valResponseRule.Status() {
-						case engineapi.RuleStatusPass:
-							rc.Pass++
-						case engineapi.RuleStatusFail:
-							if !scored {
-								rc.Warn++
-								break
-							} else if auditWarn && response.GetValidationFailureAction().Audit() {
-								rc.Warn++
-							} else {
-								rc.Fail++
-							}
-						case engineapi.RuleStatusError:
-							rc.Error++
-						case engineapi.RuleStatusWarn:
-							rc.Warn++
-						case engineapi.RuleStatusSkip:
-							rc.Skip++
-						}
-						continue
-					}
-				}
-			}
-		}
-	}
-}
-
 func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 	genericPolicy := response.Policy()
-	if kyvernoPolicy := genericPolicy.AsKyvernoPolicy(); kyvernoPolicy != nil {
-		for _, policyRule := range autogen.Default.ComputeRules(kyvernoPolicy, "") {
-			for _, ruleResponse := range response.PolicyResponse.Rules {
-				if policyRule.Name == ruleResponse.Name() {
-					switch ruleResponse.Status() {
-					case engineapi.RuleStatusPass:
-						rc.Pass++
-					case engineapi.RuleStatusWarn:
-						rc.Warn++
-					case engineapi.RuleStatusSkip:
-						rc.Skip++
-					case engineapi.RuleStatusError:
-						rc.Error++
-					default:
-						rc.Fail++
-					}
-				}
-			}
-		}
-	} else if gpol := genericPolicy.AsGeneratingPolicyLike(); gpol != nil {
+	if gpol := genericPolicy.AsGeneratingPolicyLike(); gpol != nil {
 		for _, ruleResponse := range response.PolicyResponse.Rules {
-			if ruleResponse.Status() == engineapi.RuleStatusPass {
+			switch ruleResponse.Status() {
+			case engineapi.RuleStatusPass:
 				rc.Pass++
-			} else if ruleResponse.Status() == engineapi.RuleStatusFail {
+			case engineapi.RuleStatusFail:
+				rc.Fail++
+			case engineapi.RuleStatusWarn:
+				rc.Warn++
+			case engineapi.RuleStatusSkip:
+				rc.Skip++
+			case engineapi.RuleStatusError:
+				rc.Error++
+			default:
 				rc.Fail++
 			}
 		}
@@ -98,40 +44,6 @@ func (rc *ResultCounts) addGenerateResponse(response engineapi.EngineResponse) {
 func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) bool {
 	printMutatedRes := false
 	genericPolicy := response.Policy()
-
-	// Handle Kyverno mutate policies
-	if kyvernoPolicy := genericPolicy.AsKyvernoPolicy(); kyvernoPolicy != nil {
-		// Check if it has at least one mutate rule
-		hasMutate := false
-		for _, rule := range autogen.Default.ComputeRules(kyvernoPolicy, "") {
-			if rule.HasMutate() {
-				hasMutate = true
-				break
-			}
-		}
-		if !hasMutate {
-			return false
-		}
-
-		for _, policyRule := range autogen.Default.ComputeRules(kyvernoPolicy, "") {
-			for _, responseRule := range response.PolicyResponse.Rules {
-				if policyRule.Name == responseRule.Name() {
-					switch responseRule.Status() {
-					case engineapi.RuleStatusPass:
-						rc.Pass++
-						printMutatedRes = true
-					case engineapi.RuleStatusFail:
-						rc.Fail++
-					case engineapi.RuleStatusSkip:
-						rc.Skip++
-					case engineapi.RuleStatusError:
-						rc.Error++
-					}
-				}
-			}
-		}
-		return printMutatedRes
-	}
 
 	// Handle native Kubernetes MAPs
 	if mapPolicy := genericPolicy.AsMutatingAdmissionPolicy(); mapPolicy != nil {
@@ -170,6 +82,7 @@ func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) boo
 	return printMutatedRes
 }
 
+// addValidatingAdmissionResponse records rule results for a validating admission policy response.
 func (rc *ResultCounts) addValidatingAdmissionResponse(engineResponse engineapi.EngineResponse) {
 	for _, ruleResp := range engineResponse.PolicyResponse.Rules {
 		if ruleResp.Status() == engineapi.RuleStatusPass {
@@ -182,15 +95,43 @@ func (rc *ResultCounts) addValidatingAdmissionResponse(engineResponse engineapi.
 	}
 }
 
-func (rc *ResultCounts) AddValidatingPolicyResponse(engineResponse engineapi.EngineResponse) {
+// IsAuditOnlyValidatingPolicy checks whether the policy is a ValidatingPolicy or ImageValidatingPolicy
+// with a non-empty validationActions list that does not contain Deny.
+func IsAuditOnlyValidatingPolicy(pol engineapi.GenericPolicy) bool {
+	if pol == nil {
+		return false
+	}
+	if vpol := pol.AsValidatingPolicyLike(); vpol != nil && vpol.GetSpec() != nil {
+		actions := vpol.GetSpec().ValidationActions()
+		return len(actions) > 0 && !slices.Contains(actions, admissionregistrationv1.Deny)
+	}
+	if ivpol := pol.AsImageValidatingPolicyLike(); ivpol != nil && ivpol.GetSpec() != nil {
+		actions := ivpol.GetSpec().ValidationActions()
+		return len(actions) > 0 && !slices.Contains(actions, admissionregistrationv1.Deny)
+	}
+	return false
+}
+
+// AddValidatingPolicyResponse records rule results for a validating policy response.
+// When auditWarn is true and the policy is audit-only (specifies a non-empty list of validation actions
+// without the Deny action), rule failures are counted under Warn instead of Fail.
+func (rc *ResultCounts) AddValidatingPolicyResponse(auditWarn bool, engineResponse engineapi.EngineResponse) {
+	audit := IsAuditOnlyValidatingPolicy(engineResponse.Policy())
 	for _, ruleResp := range engineResponse.PolicyResponse.Rules {
-		if ruleResp.Status() == engineapi.RuleStatusPass {
+		switch ruleResp.Status() {
+		case engineapi.RuleStatusPass:
 			rc.Pass++
-		} else if ruleResp.Status() == engineapi.RuleStatusFail {
-			rc.Fail++
-		} else if ruleResp.Status() == engineapi.RuleStatusError {
+		case engineapi.RuleStatusFail:
+			if auditWarn && audit {
+				rc.Warn++
+			} else {
+				rc.Fail++
+			}
+		case engineapi.RuleStatusError:
 			rc.Error++
-		} else if ruleResp.Status() == engineapi.RuleStatusSkip {
+		case engineapi.RuleStatusWarn:
+			rc.Warn++
+		case engineapi.RuleStatusSkip:
 			rc.Skip++
 		}
 	}

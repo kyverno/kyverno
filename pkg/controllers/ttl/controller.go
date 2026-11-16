@@ -2,6 +2,7 @@ package ttl
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -20,8 +21,8 @@ import (
 )
 
 const (
-	// Workers is the number of workers for this controller
-	maxRetries = 10
+	maxRetries      = 10
+	minRequeueDelay = 1 * time.Second
 )
 
 type controller struct {
@@ -110,6 +111,14 @@ func determinePropagationPolicy(metaObj metav1.Object, logger logr.Logger) *meta
 	}
 }
 
+// rearmAfterRetryExhausted schedules a future reconcile only after handleErr would
+// drop the key (NumRequeues >= maxRetries). Short-term retries stay on the rate limiter.
+func (c *controller) rearmAfterRetryExhausted(itemKey string) {
+	if c.queue.NumRequeues(itemKey) >= maxRetries {
+		c.queue.AddAfter(itemKey, minRequeueDelay)
+	}
+}
+
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey string, _, _ string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(itemKey)
 	if err != nil {
@@ -126,11 +135,13 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 			return nil
 		}
 		// there was an error, return it to requeue the key
+		c.rearmAfterRetryExhausted(itemKey)
 		return err
 	}
 	metaObj, err := meta.Accessor(obj)
 	if err != nil {
 		logger.V(2).Info("object is not of type metav1.Object")
+		c.rearmAfterRetryExhausted(itemKey)
 		return err
 	}
 	// if the object is being deleted, return early
@@ -150,22 +161,47 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		return nil
 	}
 	if time.Now().After(deletionTime) {
+		var execErr error
+		defer func() {
+			if execErr != nil {
+				c.rearmAfterRetryExhausted(itemKey)
+			}
+		}()
+		// The informer observation can be stale. Never delete a resource at this
+		// name unless the API server confirms it is the same object we inspected.
+		uid := metaObj.GetUID()
+		if uid == "" {
+			execErr = fmt.Errorf("refusing TTL deletion of %s: missing resource UID", itemKey)
+			logger.Error(execErr, "failed to safely delete expired resource")
+			if c.metrics != nil {
+				c.metrics.RecordTTLFailure(ctx, c.gvr, metaObj.GetNamespace())
+			}
+			return execErr
+		}
 		deleteOptions := metav1.DeleteOptions{
 			PropagationPolicy: determinePropagationPolicy(metaObj, logger),
+			Preconditions: &metav1.Preconditions{
+				UID: &uid,
+			},
 		}
-		err = c.client.Namespace(namespace).Delete(context.Background(), metaObj.GetName(), deleteOptions)
-		if err != nil {
-			logger.Error(err, "failed to delete resource")
+		// Also protect against updates to the same resource (such as extending
+		// or removing its TTL label) between the cache read and the DELETE.
+		if rv := metaObj.GetResourceVersion(); rv != "" {
+			deleteOptions.Preconditions.ResourceVersion = &rv
+		}
+		execErr = c.client.Namespace(namespace).Delete(ctx, metaObj.GetName(), deleteOptions)
+		if execErr != nil {
+			logger.Error(execErr, "failed to delete resource")
 			if c.metrics != nil {
-				c.metrics.RecordTTLFailure(context.Background(), c.gvr, metaObj.GetNamespace())
+				c.metrics.RecordTTLFailure(ctx, c.gvr, metaObj.GetNamespace())
 			}
-			return err
+			return execErr
 		}
 		logger.V(2).Info("resource has been deleted")
-	} else {
 		if c.metrics != nil {
-			c.metrics.RecordDeletedObject(context.Background(), c.gvr, metaObj.GetNamespace())
+			c.metrics.RecordDeletedObject(ctx, c.gvr, metaObj.GetNamespace())
 		}
+	} else {
 		// Calculate the remaining time until deletion
 		timeRemaining := time.Until(deletionTime)
 		// Add the item back to the queue after the remaining time

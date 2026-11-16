@@ -1,0 +1,22 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: vpol-operation-delete
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  operation: DELETE
+  policy: deny-protected-deletion
+  resources:
+  - protected-pod
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-env-label
+  resources:
+  - protected-pod
+  result: fail

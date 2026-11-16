@@ -1,6 +1,7 @@
 package variables
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -54,6 +55,14 @@ func Test_Attestors(t *testing.T) {
 						},
 					},
 				},
+				{
+					Name: "cosign-trustedRoot",
+					Cosign: &v1beta1.Cosign{
+						TrustedRoot: &v1beta1.StringOrExpression{
+							Expression: "data.foo[0]",
+						},
+					},
+				},
 			},
 			data: map[string]any{
 				"data": map[string][]string{
@@ -104,6 +113,15 @@ func Test_Attestors(t *testing.T) {
 						},
 					},
 				},
+				{
+					Name: "cosign-trustedRoot",
+					Cosign: &v1beta1.Cosign{
+						TrustedRoot: &v1beta1.StringOrExpression{
+							Value:      "bar",
+							Expression: "data.foo[0]",
+						},
+					},
+				},
 			},
 			wantErr: false,
 		},
@@ -114,6 +132,31 @@ func Test_Attestors(t *testing.T) {
 					Name: "notary",
 					Notary: &v1beta1.Notary{
 						Certs: &v1beta1.StringOrExpression{
+							Expression: "data.foo",
+						},
+					},
+				},
+			},
+			data: map[string]any{
+				"data": map[string][]string{
+					"foo": {
+						"bar",
+						"baz",
+					},
+				},
+			},
+			celOpts: []cel.EnvOption{
+				cel.Variable("data", cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
+			},
+			wantErr: true,
+		},
+		{
+			name: "trustedRoot not string",
+			attestors: []v1beta1.Attestor{
+				{
+					Name: "cosign-trustedRoot",
+					Cosign: &v1beta1.Cosign{
+						TrustedRoot: &v1beta1.StringOrExpression{
 							Expression: "data.foo",
 						},
 					},
@@ -143,7 +186,7 @@ func Test_Attestors(t *testing.T) {
 			c, errList := CompileAttestors(field.NewPath("spec", "attestors"), tt.attestors, env)
 			assert.Nil(t, errList)
 			for i, att := range c {
-				a, err := att.Evaluate(tt.data)
+				a, err := att.Evaluate(context.Background(), tt.data)
 				if tt.wantErr {
 					assert.Error(t, err)
 				} else {

@@ -1,0 +1,35 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pss-user-namespace-no-relax
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-host-namespaces
+  resources:
+  - host-network-host-users-false
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-host-namespaces
+  resources:
+  - compliant-host-users-false
+  - privileged-host-users-false
+  result: pass
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-privileged-containers
+  resources:
+  - privileged-host-users-false
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-privileged-containers
+  resources:
+  - compliant-host-users-false
+  - host-network-host-users-false
+  result: pass

@@ -61,9 +61,30 @@ func TestFetchSignatureBlob(t *testing.T) {
 }
 
 func setuprepo(t *testing.T) (notationregistry.Repository, *imagedataloader.ImageData) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	assert.NoError(t, err)
-	img, err := idf.FetchImageData(ctx, image)
+	img, err := idf.FetchImageData(ctx, image, nil, nil)
 	assert.NoError(t, err)
 	return NewRepository(img), img
+}
+
+// A cancelled verification stops before the repository touches the image or
+// the registry, so a nil image is never dereferenced.
+func TestRepositoryCancelled(t *testing.T) {
+	t.Parallel()
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	client := NewRepository(nil)
+
+	_, err := client.Resolve(cancelled, "sha256:abc")
+	assert.ErrorIs(t, err, context.Canceled)
+
+	err = client.ListSignatures(cancelled, ocispec.Descriptor{}, func([]ocispec.Descriptor) error {
+		t.Error("ListSignatures called its callback after cancellation")
+		return nil
+	})
+	assert.ErrorIs(t, err, context.Canceled)
+
+	_, _, err = client.FetchSignatureBlob(cancelled, ocispec.Descriptor{})
+	assert.ErrorIs(t, err, context.Canceled)
 }

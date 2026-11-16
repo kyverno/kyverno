@@ -6,7 +6,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/logging"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func Test_Validate(t *testing.T) {

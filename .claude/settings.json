@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Edit(/pkg/client/**)",
+      "Edit(zz_generated.deepcopy.go)",
+      "Edit(zz_generated.register.go)",
+      "Edit(/pkg/config/mocks/mock_config.go)",
+      "Edit(/config/crds/**/*.yaml)",
+      "Edit(/docs/user/crd/**)",
+      "Edit(/charts/**/README.md)",
+      "Edit(/charts/kyverno/charts/crds/templates/*/**)",
+      "Edit(/config/install-latest-testing.yaml)",
+      "Edit(/cmd/cli/kubectl-kyverno/config/crds/**)",
+      "Edit(/cmd/cli/kubectl-kyverno/data/crds/**)",
+      "Edit(/pkg/clients/**/*.generated.go)",
+      "Edit(/pkg/clients/**/interface.generated.go)"
+    ]
+  }
+}

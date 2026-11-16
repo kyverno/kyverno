@@ -22,6 +22,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// MetricsExportDisabled reports whether --disableMetrics was passed. Unlike a nil
+// metrics.MetricsConfigManager (which InitMetrics never returns, even on this path), this
+// reflects the flag a caller actually asked for.
+func MetricsExportDisabled() bool {
+	return disableMetricsExport
+}
+
 func SetupMetrics(ctx context.Context, logger logr.Logger, metricsConfiguration config.MetricsConfiguration, kubeClient kubernetes.Interface) (metrics.MetricsConfigManager, context.CancelFunc) {
 	logger = logger.WithName("metrics")
 	logger.V(2).Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds, "tlsSecretName", metricsTLSSecretName, "exemplarFilter", exemplarFilter)

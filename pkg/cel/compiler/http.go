@@ -7,22 +7,18 @@ import (
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/sdk/cel/libs/http"
+	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/extensions/cel/libs/http"
 )
 
 // sharedHTTPContext is built once on the first http.* call and reused across
 // admission requests so the underlying http.Transport is not recreated per call.
-// It applies the operator-configured SSRF blocklist and is used for namespaced policies.
+// It applies the operator-configured SSRF blocklist and allowlist for all policies.
 var sharedHTTPContext = &cachedHTTPContext{}
 
-// clusterHTTPContext is the unrestricted counterpart used for cluster-scoped policies.
-// Cluster-scoped policies require cluster-admin privileges, so no SSRF blocklist is needed.
-var clusterHTTPContext = &cachedHTTPContext{unrestricted: true}
-
 type cachedHTTPContext struct {
-	mu           sync.Mutex
-	cached       http.ContextInterface
-	unrestricted bool
+	mu     sync.Mutex
+	cached http.ContextInterface
 }
 
 func (c *cachedHTTPContext) getOrBuild() (http.ContextInterface, error) {
@@ -31,12 +27,7 @@ func (c *cachedHTTPContext) getOrBuild() (http.ContextInterface, error) {
 	if c.cached != nil {
 		return c.cached, nil
 	}
-	var blocklist, allowlist []string
-	if !c.unrestricted {
-		blocklist = toggle.HTTPBlocklist.Values()
-		allowlist = toggle.HTTPAllowlist.Values()
-	}
-	ctx, err := http.NewHTTPWithBlocklist(blocklist, allowlist)
+	ctx, err := http.NewHTTPWithBlocklist(toggle.HTTPBlocklist.Values(), toggle.HTTPAllowlist.Values())
 	if err != nil {
 		return nil, err
 	}
@@ -73,9 +64,22 @@ func (c *cachedHTTPContext) Client(caBundle string) (http.ContextInterface, erro
 // AllowHTTPInNamespacedPolicies toggle is enforced at call time.
 func NewLazyCELHTTPContext(namespace string) http.ContextInterface {
 	if namespace == "" {
-		return clusterHTTPContext
+		return sharedHTTPContext
 	}
 	return &namespacedHTTPContext{inner: sharedHTTPContext}
+}
+
+func ConfineGlobalContext(inner globalcontext.ContextInterface, namespace string) globalcontext.ContextInterface {
+	if namespace == "" {
+		return inner
+	}
+	return namespacedGlobalContext{}
+}
+
+type namespacedGlobalContext struct{}
+
+func (namespacedGlobalContext) GetGlobalReference(_, _ string) (any, error) {
+	return nil, fmt.Errorf("globalContext.* is not allowed in namespaced policies")
 }
 
 // namespacedHTTPContext enforces the AllowHTTPInNamespacedPolicies toggle at call time.
@@ -133,6 +137,14 @@ func getParseEnv() *cel.Env {
 // ExpressionsUseHTTP reports whether any expression references the "http" identifier.
 // Expressions are parsed but not type-checked; malformed expressions are skipped.
 func ExpressionsUseHTTP(expressions ...string) bool {
+	return expressionsUseIdent("http", expressions...)
+}
+
+func ExpressionsUseGlobalContext(expressions ...string) bool {
+	return expressionsUseIdent(GlobalContextKey, expressions...)
+}
+
+func expressionsUseIdent(ident string, expressions ...string) bool {
 	env := getParseEnv()
 	if env == nil {
 		return false
@@ -147,7 +159,7 @@ func ExpressionsUseHTTP(expressions ...string) bool {
 		}
 		nav := celast.NavigateAST(ast.NativeRep())
 		matches := celast.MatchDescendants(nav, func(e celast.NavigableExpr) bool {
-			return e.Kind() == celast.IdentKind && e.AsIdent() == "http"
+			return e.Kind() == celast.IdentKind && e.AsIdent() == ident
 		})
 		if len(matches) > 0 {
 			return true

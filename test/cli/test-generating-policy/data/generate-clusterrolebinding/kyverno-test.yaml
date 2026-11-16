@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: generate-clusterrolebinding
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- generatedResource: generated-resource.yaml
+  isGeneratingPolicy: true
+  kind: ServiceAccount
+  policy: generate-clusterrolebinding
+  resources:
+  - test1/namespace-creator-sa
+  result: pass

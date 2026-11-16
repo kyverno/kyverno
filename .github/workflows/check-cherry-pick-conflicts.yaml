@@ -1,0 +1,64 @@
+name: Cherry-pick conflict markers
+
+permissions: {}
+
+on:
+  # Trusted base code only; read-only token, no secrets, no PR code execution.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+    branches: [main, release-*]
+
+concurrency:
+  group: cherry-pick-conflicts-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: No unresolved cherry-pick markers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      # Use the trusted base workflow, even when the backport conflicts in CI YAML.
+      - name: Checkout base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - name: Check added lines without executing PR code
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          git fetch --no-tags origin "refs/pull/$PR_NUMBER/head"
+          if [[ "$(git rev-parse FETCH_HEAD)" != "$HEAD_SHA" ]]; then
+            echo "::error::PR head changed; the newer run must check the replacement commit"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          pending = subprocess.run(
+              ["git", "ls-tree", "--name-only", os.environ["HEAD_SHA"], "--",
+               ".github/cherry-pick-conflicts"],
+              check=True, capture_output=True,
+          ).stdout
+          if pending:
+              print("::error::Resolve all paths listed in .github/cherry-pick-conflicts and delete that file before merging.")
+              sys.exit(1)
+          diff = subprocess.run(
+              ["git", "diff", "--no-ext-diff", "--no-textconv", "--unified=0",
+               os.environ["BASE_SHA"], os.environ["HEAD_SHA"], "--"],
+              check=True, capture_output=True,
+          ).stdout
+          # Bare '=' separators are also valid Markdown Setext headings.
+          markers = re.findall(rb"^\+(?:<{7,}|>{7,}|\|{7,})(?: .*)?\r?$", diff, re.MULTILINE)
+          if markers:
+              print("::error::Unresolved conflict markers found. Resolve the committed cherry-pick conflicts before merging.")
+              sys.exit(1)
+          PY

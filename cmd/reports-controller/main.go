@@ -23,9 +23,7 @@ import (
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -42,6 +40,7 @@ import (
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/restmapper"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
@@ -66,7 +65,6 @@ func sanityChecks(apiserverClient apiserver.Interface, openreportsEnabled bool) 
 }
 
 func createReportControllers(
-	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
 	aggregateReports bool,
@@ -84,15 +82,17 @@ func createReportControllers(
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	backgroundScanInterval time.Duration,
 	configuration config.Configuration,
-	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	gcstore store.Store,
 	typeConverter patch.TypeConverterManager,
+	secretLister corev1listers.SecretLister,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
 	var vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer
 	var vapBindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer
+	var mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer
+	var mapBindingV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyBindingInformer
 	var mapBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer
 	var mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer
 	var mapBindingBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer
@@ -107,6 +107,9 @@ func createReportControllers(
 			logging.GlobalLogger().V(2).Info("MutatingAdmissionPolicy API is not registered, skipping MAP report informers", "error", err)
 		} else {
 			switch mapVersion {
+			case admissionpolicy.MutatingAdmissionPolicyVersionV1:
+				mapV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicies()
+				mapBindingV1Informer = kubeInformer.Admissionregistration().V1().MutatingAdmissionPolicyBindings()
 			case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
 				mapBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicies()
 				mapBindingBetaInformer = kubeInformer.Admissionregistration().V1beta1().MutatingAdmissionPolicyBindings()
@@ -118,14 +121,10 @@ func createReportControllers(
 			}
 		}
 	}
-	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	kyvernoV2 := kyvernoInformer.Kyverno().V2()
 	policiesV1beta1 := kyvernoInformer.Policies().V1beta1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
-			kyvernoV1.Policies(),
-			kyvernoV1.ClusterPolicies(),
 			policiesV1beta1.ValidatingPolicies(),
 			policiesV1beta1.NamespacedValidatingPolicies(),
 			policiesV1beta1.MutatingPolicies(),
@@ -133,6 +132,7 @@ func createReportControllers(
 			policiesV1beta1.ImageValidatingPolicies(),
 			policiesV1beta1.NamespacedImageValidatingPolicies(),
 			vapInformer,
+			mapV1Informer,
 			mapBetaInformer,
 			mapAlphaInformer,
 			metaClient,
@@ -153,8 +153,6 @@ func createReportControllers(
 					orClient,
 					client,
 					metadataFactory,
-					kyvernoV1.Policies(),
-					kyvernoV1.ClusterPolicies(),
 					policiesV1beta1.ValidatingPolicies(),
 					policiesV1beta1.NamespacedValidatingPolicies(),
 					policiesV1beta1.ImageValidatingPolicies(),
@@ -164,8 +162,10 @@ func createReportControllers(
 					policiesV1beta1.MutatingPolicies(),
 					policiesV1beta1.NamespacedMutatingPolicies(),
 					vapInformer,
+					mapV1Informer,
 					mapBetaInformer,
 					mapAlphaInformer,
+					metaClient,
 				),
 				aggregationWorkers,
 			))
@@ -176,10 +176,7 @@ func createReportControllers(
 			backgroundScanController := backgroundscancontroller.NewController(
 				client,
 				kyvernoClient,
-				eng,
 				metadataFactory,
-				kyvernoV1.Policies(),
-				kyvernoV1.ClusterPolicies(),
 				policiesV1beta1.ValidatingPolicies(),
 				policiesV1beta1.NamespacedValidatingPolicies(),
 				policiesV1beta1.MutatingPolicies(),
@@ -187,9 +184,10 @@ func createReportControllers(
 				policiesV1beta1.ImageValidatingPolicies(),
 				policiesV1beta1.NamespacedImageValidatingPolicies(),
 				policiesV1beta1.PolicyExceptions(),
-				kyvernoV2.PolicyExceptions(),
 				vapInformer,
 				vapBindingInformer,
+				mapV1Informer,
+				mapBindingV1Informer,
 				mapBetaInformer,
 				mapAlphaInformer,
 				mapBindingBetaInformer,
@@ -198,13 +196,13 @@ func createReportControllers(
 				resourceReportController,
 				backgroundScanInterval,
 				configuration,
-				jp,
 				eventGenerator,
 				policyReports,
 				internal.ExceptionNamespace(),
 				gcstore,
 				restMapper,
 				typeConverter,
+				secretLister,
 			)
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
@@ -224,7 +222,6 @@ func createReportControllers(
 }
 
 func createrLeaderControllers(
-	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
 	reportsConfig reportutils.ReportingConfiguration,
@@ -242,14 +239,13 @@ func createrLeaderControllers(
 	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	dynamicClient dclient.Interface,
 	configuration config.Configuration,
-	jp jmespath.Interface,
 	eventGenerator event.Interface,
 	backgroundScanInterval time.Duration,
 	gcstore store.Store,
 	typeConverter patch.TypeConverterManager,
+	secretLister corev1listers.SecretLister,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
-		eng,
 		backgroundScan,
 		admissionReports,
 		aggregateReports,
@@ -267,10 +263,10 @@ func createrLeaderControllers(
 		kyvernoInformer,
 		backgroundScanInterval,
 		configuration,
-		jp,
 		eventGenerator,
 		gcstore,
 		typeConverter,
+		secretLister,
 	)
 	return reportControllers, warmup, nil
 }
@@ -293,6 +289,7 @@ func main() {
 		maxAPICallResponseLength         int64
 		apiCallTimeout                   time.Duration
 		maxBackgroundReports             int
+		maxGlobalContextEntries          int
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable background scan.")
@@ -310,6 +307,7 @@ func main() {
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 2*1000*1000, "Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended).")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.IntVar(&maxBackgroundReports, "maxBackgroundReports", 10000, "Maximum number of ephemeralreports created for the background policies before we stop creating new ones")
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
 	flagset.BoolVar(&reportsCRDsSanityChecks, "reportsCRDsSanityChecks", true, "Enable or disable sanity checks for policy reports and ephemeral reports CRDs.")
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
 	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
@@ -374,11 +372,11 @@ func main() {
 		setup.Logger.V(2).Info("background scan interval", "duration", backgroundScanInterval.String())
 
 		// call NewContextProvider to initialize the libraries context globally, needed during background scan
-		gcstore := store.New()
+		gcstore := store.New(maxGlobalContextEntries)
 		restMapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(setup.KubeClient.Discovery()))
 		_, err := libs.NewContextProvider(
 			setup.KyvernoDynamicClient,
-			nil,
+			setup.RegistrySecretLister,
 			gcstore,
 			restMapper,
 			false,
@@ -389,7 +387,6 @@ func main() {
 		}
 		// informer factories
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
-		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -417,22 +414,6 @@ func main() {
 				setup.Jp,
 			),
 			globalcontextcontroller.Workers,
-		)
-		// engine
-		engine := internal.NewEngine(
-			ctx,
-			setup.Logger,
-			setup.Configuration,
-			setup.Jp,
-			setup.KyvernoDynamicClient,
-			setup.RegistryClient,
-			setup.ImageVerifyCacheClient,
-			setup.KubeClient,
-			setup.KyvernoClient,
-			setup.RegistrySecretLister,
-			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout),
-			polexCache,
-			gcstore,
 		)
 		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
@@ -491,7 +472,6 @@ func main() {
 				metadataInformer := metadatainformers.NewSharedInformerFactory(setup.MetadataClient, setup.ResyncPeriod)
 				// create leader controllers
 				leaderControllers, warmup, err := createrLeaderControllers(
-					engine,
 					backgroundScan,
 					admissionReports,
 					setup.ReportingConfiguration,
@@ -509,11 +489,11 @@ func main() {
 					setup.OpenreportsClient,
 					setup.KyvernoDynamicClient,
 					setup.Configuration,
-					setup.Jp,
 					eventGenerator,
 					backgroundScanInterval,
 					gcstore,
 					typeConverter,
+					setup.RegistrySecretLister,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")
@@ -550,9 +530,6 @@ func main() {
 		// start non leader controllers
 		eventController.Run(ctx, setup.Logger, &wg)
 		gceController.Run(ctx, setup.Logger, &wg)
-		if polexController != nil {
-			polexController.Run(ctx, setup.Logger, &wg)
-		}
 		// start leader election
 		le.Run(ctx)
 	}()

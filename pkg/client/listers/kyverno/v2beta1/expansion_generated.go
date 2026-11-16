@@ -18,38 +18,6 @@ limitations under the License.
 
 package v2beta1
 
-// CleanupPolicyListerExpansion allows custom methods to be added to
-// CleanupPolicyLister.
-type CleanupPolicyListerExpansion interface{}
-
-// CleanupPolicyNamespaceListerExpansion allows custom methods to be added to
-// CleanupPolicyNamespaceLister.
-type CleanupPolicyNamespaceListerExpansion interface{}
-
-// ClusterCleanupPolicyListerExpansion allows custom methods to be added to
-// ClusterCleanupPolicyLister.
-type ClusterCleanupPolicyListerExpansion interface{}
-
-// ClusterPolicyListerExpansion allows custom methods to be added to
-// ClusterPolicyLister.
-type ClusterPolicyListerExpansion interface{}
-
 // GlobalContextEntryListerExpansion allows custom methods to be added to
 // GlobalContextEntryLister.
 type GlobalContextEntryListerExpansion interface{}
-
-// PolicyListerExpansion allows custom methods to be added to
-// PolicyLister.
-type PolicyListerExpansion interface{}
-
-// PolicyNamespaceListerExpansion allows custom methods to be added to
-// PolicyNamespaceLister.
-type PolicyNamespaceListerExpansion interface{}
-
-// PolicyExceptionListerExpansion allows custom methods to be added to
-// PolicyExceptionLister.
-type PolicyExceptionListerExpansion interface{}
-
-// PolicyExceptionNamespaceListerExpansion allows custom methods to be added to
-// PolicyExceptionNamespaceLister.
-type PolicyExceptionNamespaceListerExpansion interface{}

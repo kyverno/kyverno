@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: block-ephemeral-containers
+spec:
+  description: >-
+    An ImageValidatingPolicy that explicitly opts into the "pods/ephemeralcontainers"
+    subresource (see https://github.com/kyverno/kyverno/issues/16275) must be
+    evaluated -- and can deny -- requests that add an ephemeral (debug) container
+    to an existing pod, not just pod CREATE/UPDATE requests.
+  concurrent: false
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    try:
+    - assert:
+        file: policy-assert.yaml
+  - name: create pod
+    try:
+    - apply:
+        file: pod.yaml
+    - assert:
+        file: pod.yaml
+  - name: create ephemeral container
+    try:
+    - script:
+        # WebhookConfigured can turn true before the API server sends
+        # pods/ephemeralcontainers requests to Kyverno, so retry the
+        # side-effect-free dry-run until it is denied. The timeout must exceed
+        # the retry window, because the default exec timeout is 5s.
+        timeout: 2m
+        content: |
+          for i in $(seq 1 15); do
+            if output=$(kubectl -n test-ivpol-subresource-namespace patch pod test-pod \
+              --subresource=ephemeralcontainers --type=merge \
+              --patch='{"spec":{"ephemeralContainers":[{"name":"debugger","image":"busybox:1.35","targetContainerName":"busybox"}]}}' \
+              --dry-run=server 2>&1); then
+              echo "attempt $i: ephemeral container request was allowed, retrying" >&2
+            elif echo "$output" | grep -qF "Ephemeral (debug) containers are not permitted."; then
+              echo "$output"
+              exit 0
+            else
+              echo "attempt $i: unexpected error, retrying: $output" >&2
+            fi
+            sleep 2
+          done
+          echo "expected ephemeral container request to be denied" >&2
+          exit 1

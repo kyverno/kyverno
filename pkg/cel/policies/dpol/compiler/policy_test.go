@@ -21,6 +21,7 @@ func (v *valueProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) { return n
 func (v *valueProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.String("test"), nil, nil
 }
+func (v *valueProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 
 type errorProgram struct{}
 
@@ -28,6 +29,7 @@ func (e *errorProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) { return n
 func (e *errorProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, errors.New("forced variable error")
 }
+func (e *errorProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 
 type trueProgram struct{}
 
@@ -37,6 +39,7 @@ func (t *trueProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 func (t *trueProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(true), nil, nil
 }
+func (t *trueProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 
 type falseProgram struct{}
 
@@ -46,6 +49,7 @@ func (f *falseProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 func (f *falseProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(false), nil, nil
 }
+func (f *falseProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 
 type evalErrorProgram struct{}
 
@@ -55,6 +59,7 @@ func (e *evalErrorProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 func (e *evalErrorProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, errors.New("forced match error")
 }
+func (e *evalErrorProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 
 func TestEvaluate(t *testing.T) {
 	ctx := context.Background()
@@ -146,6 +151,7 @@ func (b *boolProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 func (b *boolProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(b.result), nil, nil
 }
+func (b *boolProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 
 type errorEvalProgram struct{}
 
@@ -155,6 +161,7 @@ func (e *errorEvalProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 func (e *errorEvalProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return nil, nil, errors.New("eval error")
 }
+func (e *errorEvalProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult { return nil }
 
 type errorConvertProgram struct{}
 
@@ -164,6 +171,9 @@ func (e *errorConvertProgram) Eval(_ any) (ref.Val, *cel.EvalDetails, error) {
 func (e *errorConvertProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel.EvalDetails, error) {
 	return types.String("notBool"), nil, nil
 }
+func (e *errorConvertProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult {
+	return nil
+}
 
 func TestMatch(t *testing.T) {
 	ctx := context.TODO()
@@ -171,19 +181,19 @@ func TestMatch(t *testing.T) {
 	data := map[string]any{}
 
 	t.Run("single condition true", func(t *testing.T) {
-		result, err := p.match(ctx, data, []cel.Program{&boolProgram{true}})
+		result, err := p.match(ctx, data, []cel.Program{&boolProgram{true}}, nil)
 		require.NoError(t, err)
 		require.True(t, result)
 	})
 
 	t.Run("single condition false", func(t *testing.T) {
-		result, err := p.match(ctx, data, []cel.Program{&boolProgram{false}})
+		result, err := p.match(ctx, data, []cel.Program{&boolProgram{false}}, nil)
 		require.NoError(t, err)
 		require.False(t, result)
 	})
 
 	t.Run("condition with eval error", func(t *testing.T) {
-		result, err := p.match(ctx, data, []cel.Program{&errorEvalProgram{}})
+		result, err := p.match(ctx, data, []cel.Program{&errorEvalProgram{}}, nil)
 		require.Error(t, err)
 		require.False(t, result)
 		require.Contains(t, err.Error(), "eval error")
@@ -194,7 +204,7 @@ func TestMatch(t *testing.T) {
 			&errorEvalProgram{},
 			&errorConvertProgram{},
 		}
-		result, err := p.match(ctx, data, conditions)
+		result, err := p.match(ctx, data, conditions, nil)
 		require.Error(t, err)
 		require.False(t, result)
 	})

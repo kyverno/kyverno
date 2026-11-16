@@ -51,7 +51,9 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// waitForPolicyReady waits until the provider has compiled at least count policies.
+// waitForPolicyReady waits until the provider has compiled at least count policies. A count is
+// only reliable for a single policy: autogen gives each Pod policy several entries, so wait for two
+// or more policies by name with framework.WaitForVpols.
 func waitForPolicyReady(t *testing.T, count int) {
 	t.Helper()
 	ctx := context.Background()
@@ -228,7 +230,7 @@ func TestValidate_EventsGenerated_OnDeny(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	assert.False(t, resp.Allowed, "pod with latest tag should be denied")
-	assert.NotEmpty(t, eventGen.Events, "deny should generate events")
+	assert.NotEmpty(t, eventGen.GetEvents(), "deny should generate events")
 }
 
 func TestValidate_CELVariables_UsedInValidation(t *testing.T) {
@@ -297,7 +299,7 @@ func TestValidate_AuditAction_AllowsNonCompliantButFiresEvents(t *testing.T) {
 
 	// Wait for the async audit goroutine to record the violation.
 	time.Sleep(200 * time.Millisecond)
-	assert.NotEmpty(t, eventGen.Events, "audit policy should still generate events for observability")
+	assert.NotEmpty(t, eventGen.GetEvents(), "audit policy should still generate events for observability")
 }
 
 func TestValidate_MultiplePolicies_DenyAndWarnCombined(t *testing.T) {
@@ -336,7 +338,7 @@ func TestValidate_MultiplePolicies_DenyAndWarnCombined(t *testing.T) {
 		testEnv.Client.Delete(context.Background(), warnPolicy)
 		waitForPolicyGone(t)
 	})
-	waitForPolicyReady(t, 2)
+	framework.WaitForVpols(t, provider, "deny-latest-image", "warn-missing-limits")
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)

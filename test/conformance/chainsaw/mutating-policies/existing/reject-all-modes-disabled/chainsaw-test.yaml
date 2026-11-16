@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: reject-all-modes-disabled
+spec:
+  concurrent: true
+  steps:
+  - name: create policy with all evaluation modes disabled (should be denied)
+    description: >
+      A MutatingPolicy with both admission and mutateExisting evaluation
+      disabled has no evaluation mode and must be rejected at admission.
+      See https://github.com/kyverno/kyverno/issues/16090.
+    try:
+    - create:
+        file: policy.yaml
+        expect:
+        - check:
+            ($error != null): true

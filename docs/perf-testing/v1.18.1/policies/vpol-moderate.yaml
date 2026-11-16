@@ -1,0 +1,22 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-moderate
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  validationActions: [Deny]
+  variables:
+  - name: labels
+    expression: "object.metadata.labels"
+  validations:
+  - expression: "has(object.metadata.labels)"
+    message: "Pod must have labels"
+  - expression: "'app' in variables.labels"
+    message: "Pod must have label 'app'"
+  - expression: "'env' in variables.labels && variables.labels['env'] in ['prod', 'staging', 'dev']"
+    message: "Pod label 'env' must be one of: prod, staging, dev"

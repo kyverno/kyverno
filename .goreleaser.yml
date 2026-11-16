@@ -1,5 +1,8 @@
 version: 2
 
+# The unified releaser reads the CLI platform matrix below, but builds and retains
+# archives before validation. Publication is handled by release-publish.yaml.
+
 project_name: kyverno-cli
 
 before:
@@ -33,13 +36,10 @@ builds:
 
 signs:
   - cmd: cosign
-    env:
-      - COSIGN_EXPERIMENTAL=1
-    certificate: "${artifact}.pem"
+    signature: "${artifact}.sigstore.json"
     args:
       - sign-blob
-      - --output-certificate=${certificate}
-      - --output-signature=${signature}
+      - --bundle=${signature}
       - ${artifact}
       - --yes
     artifacts: all

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Binding
+metadata:
+  name: pod-to-get-aws-zone-id
+  namespace: default
+  annotations:
+    pod-topology.k8s.aws/zone-id: test-az
+target:
+  apiVersion: v1
+  kind: Node
+  name: my-test-node

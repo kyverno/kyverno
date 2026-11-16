@@ -47,7 +47,7 @@ REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
 CODE_GEN_VERSION                   ?= v0.35.0
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
-GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
+GEN_CRD_API_REFERENCE_DOCS_VERSION ?= fca9c57bb1b2
 GENREF                             ?= $(TOOLS_DIR)/genref
 GENREF_VERSION                     ?= master
 GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
@@ -60,11 +60,12 @@ KO                                 ?= $(TOOLS_DIR)/ko
 # Newer than v0.18.1: Docker 29+ requires API >= 1.44 when loading images; bump to next ko tag once released.
 KO_VERSION                         ?= v0.18.2-0.20260320010637-757161aaa19e
 GOLANGCI_LINT                      ?= $(TOOLS_DIR)/golangci-lint
-GOLANGCI_LINT_VERSION              ?= v2.11.4
+GOLANGCI_LINT_VERSION              ?= v2.14.0
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
+CRD_SPLICE                         ?= $(TOOLS_DIR)/crd-splice
 KUBE_VERSION                       ?= v1.25.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(GOLANGCI_LINT) $(CLIENT_WRAPPER)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(REGISTER_GEN) $(DEEPCOPY_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GENREF) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(GOLANGCI_LINT) $(CLIENT_WRAPPER) $(CRD_SPLICE)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -135,6 +136,10 @@ $(API_GROUP_RESOURCES):
 $(CLIENT_WRAPPER):
 	@echo Install client-wrapper... >&2
 	@cd ./hack/client-wrapper && GOBIN=$(TOOLS_DIR) go install
+
+$(CRD_SPLICE): $(wildcard hack/crd-splice/*.go)
+	@echo Install crd-splice... >&2
+	@cd ./hack/crd-splice && GOBIN=$(TOOLS_DIR) go install
 
 .PHONY: install-tools
 install-tools: ## Install tools
@@ -415,6 +420,7 @@ LOCAL_KYVERNO_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper
 LOCAL_CLEANUP_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_CLEANUP_REPO)
 LOCAL_REPORTS_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_REPORTS_REPO)
 LOCAL_BACKGROUND_REPO  := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_BACKGROUND_REPO)
+LOCAL_READINESS_REPO   := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_READINESS_REPO)
 
 .PHONY: image-build-kyverno-init
 image-build-kyverno-init: $(BUILD_WITH)-build-kyverno-init
@@ -433,6 +439,9 @@ image-build-reports-controller: $(BUILD_WITH)-build-reports-controller
 
 .PHONY: image-build-background-controller
 image-build-background-controller: $(BUILD_WITH)-build-background-controller
+
+.PHONY: image-build-readiness-checker
+image-build-readiness-checker: $(BUILD_WITH)-build-readiness-checker
 
 .PHONY: image-build-all
 image-build-all: $(BUILD_WITH)-build-all
@@ -496,7 +505,6 @@ codegen-client-clientset: $(CLIENT_GEN)
 		--output-dir ./pkg/client/clientset \
 		--output-pkg $(CLIENTSET_PACKAGE) \
 		--input-base github.com/kyverno \
-		--input kyverno/api/kyverno/v1 \
 		--input kyverno/api/kyverno/v2 \
 		--input kyverno/api/kyverno/v2alpha1 \
 		--input kyverno/api/kyverno/v2beta1 \
@@ -513,7 +521,6 @@ codegen-client-listers: $(LISTER_GEN)
 		--go-header-file ./scripts/boilerplate.go.txt \
 		--output-dir ./pkg/client/listers \
 		--output-pkg $(LISTERS_PACKAGE) \
-		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
 		./api/kyverno/v2beta1 \
@@ -532,7 +539,6 @@ codegen-client-informers: $(INFORMER_GEN)
 		--output-pkg $(INFORMERS_PACKAGE) \
 		--versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned \
 		--listers-package $(LISTERS_PACKAGE) \
-		./api/kyverno/v1 \
 		./api/kyverno/v2 \
 		./api/kyverno/v2alpha1 \
 		./api/kyverno/v2beta1 \
@@ -559,19 +565,27 @@ codegen-client-all: codegen-client-wrappers
 	@echo "Tidying modules after client generation..."
 	@go mod tidy
 
+# Single owner of the 1.20 compatibility classification; see config/crds/kyverno/README.md.
+KYVERNO_CRDS_FROZEN_FILES    := kyverno.io_clusterpolicies.yaml kyverno.io_policies.yaml \
+	kyverno.io_policyexceptions.yaml kyverno.io_cleanuppolicies.yaml kyverno.io_clustercleanuppolicies.yaml
+KYVERNO_CRDS_FROZEN_VERSIONS := kyverno.io_updaterequests.yaml=v1beta1
+
 .PHONY: codegen-crds-kyverno
-codegen-crds-kyverno: ## Generate kyverno CRDs
+codegen-crds-kyverno: ## Regenerate kyverno.io CRDs from Go, keeping the frozen 1.20 compatibility schemas (see config/crds/kyverno/README.md)
 codegen-crds-kyverno: $(CONTROLLER_GEN)
+codegen-crds-kyverno: $(CRD_SPLICE)
 	@echo Generate kyverno crds... >&2
-	@rm -rf $(CRDS_PATH)/kyverno && mkdir -p $(CRDS_PATH)/kyverno
-	@$(CONTROLLER_GEN) \
-		paths=./api/kyverno/v1/... \
-		paths=./api/kyverno/v1beta1/... \
+	@tmp=$$(mktemp -d) && \
+	$(CONTROLLER_GEN) \
 		paths=./api/kyverno/v2/... \
 		paths=./api/kyverno/v2alpha1/... \
 		paths=./api/kyverno/v2beta1/... \
 		crd:crdVersions=v1,ignoreUnexportedFields=true,generateEmbeddedObjectMeta=false \
-		output:dir=$(CRDS_PATH)/kyverno
+		output:dir=$$tmp && \
+	$(CRD_SPLICE) splice --generated $$tmp --target $(CRDS_PATH)/kyverno \
+		$(addprefix --frozen-file=,$(KYVERNO_CRDS_FROZEN_FILES)) \
+		$(addprefix --freeze=,$(KYVERNO_CRDS_FROZEN_VERSIONS)) && \
+	rm -rf $$tmp
 
 .PHONY: codegen-crds-policies
 codegen-crds-policies: ## Generate policies CRDs
@@ -701,11 +715,15 @@ endef
 
 .PHONY: helm-setup-dependency-charts
 helm-setup-dependency-charts: $(HELM) ## Add dependency helm repos and build dependencies
+ifneq ($(RELEASE_MODE),true)
 	@echo Setting up helm dependencies... >&2
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) repo add reports-server https://kyverno.github.io/reports-server
 	@$(HELM) repo add kyverno-api https://kyverno.github.io/api
 	@$(HELM) dependency update ./charts/kyverno
+else
+	@test -f .release/plan.json || (echo "Missing retained release workspace" >&2; exit 1)
+endif
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
@@ -806,16 +824,9 @@ codegen-fix-tests: $(CLI_BIN) ## Fix CLI test files
 	@echo Fix CLI test files... >&2
 	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix test test --save --compress --force
 
-.PHONY: codegen-fix-policies
-codegen-fix-policies: $(CLI_BIN) ## Fix CLI policy files
-	@echo Fix CLI policy files... >&2
-	@KYVERNO_EXPERIMENTAL=true $(CLI_BIN) fix policy . --save
-
 .PHONY: codegen-fix-all
 codegen-fix-all: ## Fixes files
 codegen-fix-all: codegen-fix-tests
-# TODO: fix this target
-# codegen-fix-all: codegen-fix-policies
 
 .PHONY: codegen-all-code
 codegen-all-code: ## Generate all generated code
@@ -836,6 +847,11 @@ codegen-all-docs: codegen-cli-api-docs
 codegen-all: ## Generate all generated code and docs
 codegen-all: codegen-all-code
 codegen-all: codegen-all-docs
+
+.PHONY: codegen-api-bump
+codegen-api-bump: ## Regenerate everything affected by a github.com/kyverno/api dependency bump
+codegen-api-bump: codegen-all-code
+codegen-api-bump: codegen-all-docs
 
 # TODO: are we using this ?
 .PHONY: codegen-helm-update-versions
@@ -883,28 +899,67 @@ test-unit:
 	@echo Running unit tests... >&2
 	@go test -v -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
 
+.PHONY: test-perf
+test-perf: ## Run CEL admission hot-path allocation benchmarks
+	@echo Running CEL admission hot-path benchmarks... >&2
+	@bash -o pipefail -c '\
+		go test -run=^$$ -bench=. -benchmem -benchtime=100x -count=1 \
+			./pkg/cel/policies/vpol/engine ./pkg/cel/policies/mpol/engine ./pkg/webhooks/resource/vpol ./pkg/webhooks/resource/mpol \
+			| tee bench-results.txt \
+	'
+
+.PHONY: check-perf
+check-perf: test-perf ## Run benchmarks and gate against thresholds
+	@./scripts/check-perf-regression.sh bench-results.txt scripts/bench/thresholds.txt
+
+.PHONY: bench-baseline
+bench-baseline: ## Regenerate scripts/bench/thresholds.txt ceilings from a fresh -count=10 benchmark run
+	@echo Running CEL admission hot-path benchmarks at -count=10 for ceiling stability... >&2
+	@bash -o pipefail -c '\
+		go test -run=^$$ -bench=. -benchmem -benchtime=100x -count=10 \
+			./pkg/cel/policies/vpol/engine ./pkg/cel/policies/mpol/engine ./pkg/webhooks/resource/vpol ./pkg/webhooks/resource/mpol \
+			| tee bench-baseline-results.txt \
+	'
+	@./scripts/bench-baseline.sh bench-baseline-results.txt scripts/bench/thresholds.txt
+
+#############
+# E2E TESTS #
+#############
+
+# The settings CI uses for the conformance suite SUITE on Kubernetes version
+# K8S, read from the workflows by scripts/e2e/settings.sh. VARIANT picks one
+# job of a suite that CI runs with several settings, such as rbac.
+E2E_SETTING = $(shell VARIANT='$(VARIANT)' ./scripts/e2e/settings.sh '$(SUITE)' '$(K8S)' $(1) 2> /dev/null)
+E2E_OPENREPORTS_URL := https://raw.githubusercontent.com/openreports/reports-api/refs/heads/main/config/install.yaml
+# Some suites run kubectl evict. CI installs the plugin the same way.
+KUBECTL_EVICT := $(TOOLS_DIR)/kubectl-evict
+
+$(KUBECTL_EVICT):
+	@echo Install kubectl-evict... >&2
+	@GOBIN=$(TOOLS_DIR) go install github.com/ueokande/kubectl-evict@latest
+
+.PHONY: test-e2e-local
+test-e2e-local: $(HELM) ## Create a kind cluster, deploy Kyverno, and run a conformance suite like CI (SUITE=<suite> [TEST=<regex>] [K8S=<version>] [VARIANT=<variant>])
+	@VARIANT='$(VARIANT)' ./scripts/e2e/settings.sh '$(SUITE)' '$(K8S)'
+	@command -v chainsaw > /dev/null || { echo 'Install chainsaw first: https://kyverno.github.io/chainsaw/latest/quick-start/install/' >&2; exit 1; }
+	$(if $(filter true,$(call E2E_SETTING,install-kubectl-evict)),@$(MAKE) $(KUBECTL_EVICT))
+	@$(MAKE) kind-create-cluster KIND_VERSION='$(call E2E_SETTING,kind-version)' KIND_IMAGE='$(call E2E_SETTING,kind-image)' KIND_CONFIG='$(call E2E_SETTING,kind-config)'
+	$(if $(filter true,$(call E2E_SETTING,install-openreports)),kubectl apply -f $(E2E_OPENREPORTS_URL))
+	$(if $(filter true,$(call E2E_SETTING,install-cert-manager)),$(HELM) upgrade --install cert-manager cert-manager --repo https://charts.jetstack.io --namespace cert-manager --create-namespace --set crds.enabled=true --wait --timeout 300s)
+	@$(MAKE) kind-deploy-kyverno KIND_VERSION='$(call E2E_SETTING,kind-version)' USE_CONFIG='$(call E2E_SETTING,kyverno-configs)' EXPLICIT_INSTALL_SETTINGS='$(call E2E_SETTING,explicit-install-settings)'
+	kubectl apply --server-side --force-conflicts -R -f ./config/crds
+	kubectl wait --namespace kyverno --for=condition=ready pod --selector '!job-name' --timeout=60s
+	cd ./test/conformance/chainsaw/$(SUITE) && PATH="$(TOOLS_DIR):$$PATH" chainsaw test --config .chainsaw.yaml --include-test-regex '^chainsaw$$/$(TEST)'
+
 #############
 # CLI TESTS #
 #############
 
-TEST_GIT_BRANCH ?= main
-TEST_GIT_REPO   ?= https://github.com/kyverno/policies
-
 .PHONY: test-cli
-test-cli: test-cli-policies test-cli-local ## Run all CLI tests
-
-.PHONY: test-cli-policies
-test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
-	@echo Running cli tests against $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)... >&2
-	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
+test-cli: test-cli-local ## Run all CLI tests
 
 .PHONY: test-cli-local
-test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector test-cli-local-ruleless ## Run local CLI tests
-
-.PHONY: test-cli-local-validate
-test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
-	@echo Running local cli validation tests... >&2
-	@$(CLI_BIN) test ./test/cli/test
+test-cli-local: test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-ruleless ## Run local CLI tests
 
 .PHONY: test-cli-local-ruleless
 test-cli-local-ruleless: $(CLI_BIN) ## Run local CLI ruleless policy tests
@@ -920,11 +975,15 @@ test-cli-local-vpols: $(CLI_BIN) ## Run local CLI VPOL tests
 test-cli-local-gpols: $(CLI_BIN) ## Run local CLI GPOL tests
 	@echo Running local cli gpol tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-generating-policy
+	@$(CLI_BIN) test ./test/cli/test-context-configmap-gpol
+	@$(CLI_BIN) test ./test/cli/test-context-apicall-gpol
 
 .PHONY: test-cli-local-mpols
-test-cli-local-mpols: $(CLI_BIN) ## Run local CLI GPOL tests
+test-cli-local-mpols: $(CLI_BIN) ## Run local CLI MPOL tests
 	@echo Running local cli mpol tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-mutating-policy
+	@$(CLI_BIN) test ./test/cli/test-context-configmap-mpol
+	@$(CLI_BIN) test ./test/cli/test-context-apicall-mpol
 
 .PHONY: test-cli-local-ivpols
 test-cli-local-ivpols: $(CLI_BIN) ## Run local CLI IVPOL tests
@@ -935,6 +994,8 @@ test-cli-local-ivpols: $(CLI_BIN) ## Run local CLI IVPOL tests
 test-cli-local-dpols: $(CLI_BIN) ## Run local CLI IVPOL tests
 	@echo Running local cli dpols tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-deleting-policy
+	@$(CLI_BIN) test ./test/cli/test-context-configmap-dpol
+	@$(CLI_BIN) test ./test/cli/test-context-apicall-dpol
 
 .PHONY: test-cli-local-vaps
 test-cli-local-vaps: $(CLI_BIN) ## Run local CLI VAP tests
@@ -946,36 +1007,6 @@ test-cli-local-maps: $(CLI_BIN) ## Run local CLI MAP tests
 	@echo Running local cli MAP tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-mutating-admission-policy
 
-.PHONY: test-cli-local-mutate
-test-cli-local-mutate: $(CLI_BIN) ## Run local CLI mutation tests
-	@echo Running local cli mutation tests... >&2
-	@$(CLI_BIN) test ./test/cli/test-mutate
-
-.PHONY: test-cli-local-generate
-test-cli-local-generate: $(CLI_BIN) ## Run local CLI generation tests
-	@echo Running local cli generation tests... >&2
-	@$(CLI_BIN) test ./test/cli/test-generate
-
-.PHONY: test-cli-local-exceptions
-test-cli-local-exceptions: $(CLI_BIN) ## Run local CLI exception tests
-	@echo Running local cli exception tests... >&2
-	@$(CLI_BIN) test ./test/cli/test-exceptions
-
-.PHONY: test-cli-local-selector
-test-cli-local-selector: $(CLI_BIN) ## Run local CLI tests (with test case selector)
-	@echo Running local cli selector tests... >&2
-	@$(CLI_BIN) test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
-
-.PHONY: test-cli-local-registry
-test-cli-local-registry: $(CLI_BIN) ## Run local CLI registry tests
-	@echo Running local cli registry tests... >&2
-	@$(CLI_BIN) test ./test/cli/registry --registry
-
-.PHONY: test-cli-local-scenarios
-test-cli-local-scenarios: $(CLI_BIN) ## Run local CLI scenarios tests
-	@echo Running local cli scenarios tests... >&2
-	@$(CLI_BIN) test ./test/cli/scenarios_to_cli --registry
-
 #############
 # HELM TEST #
 #############
@@ -983,8 +1014,50 @@ test-cli-local-scenarios: $(CLI_BIN) ## Run local CLI scenarios tests
 .PHONY: helm-test
 helm-test: $(HELM) ## Run helm test
 	@echo Running helm test... >&2
-	@$(HELM) dependency build ./charts/kyverno
+	@if [ "$(RELEASE_MODE)" != "true" ]; then $(HELM) dependency build ./charts/kyverno; fi
 	@$(HELM) test --namespace kyverno kyverno
+
+.PHONY: verify-legacy-crd-retention
+verify-legacy-crd-retention: helm-setup-dependency-charts ## Verify the five legacy policy CRDs keep their helm.sh/resource-policy annotation (no cluster needed)
+	@echo Verify legacy CRD retention... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-crd-retention.sh
+
+.PHONY: verify-legacy-crd-snapshot
+verify-legacy-crd-snapshot: ## Verify frozen legacy kyverno.io CRD schemas are byte-identical to the 1.20 compatibility snapshot
+verify-legacy-crd-snapshot: $(CRD_SPLICE)
+	@CRD_SPLICE=$(CRD_SPLICE) CRDS_DIR=$(CRDS_PATH)/kyverno \
+	FROZEN_FILES="$(KYVERNO_CRDS_FROZEN_FILES)" FROZEN_VERSIONS="$(KYVERNO_CRDS_FROZEN_VERSIONS)" \
+	./scripts/verify-legacy-crd-snapshot.sh
+
+.PHONY: verify-background-controller-rbac
+verify-background-controller-rbac: helm-setup-dependency-charts ## Verify the background controller holds everything the chart aggregates into admin/edit/view (no cluster needed)
+	@echo Verify background controller RBAC... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-background-controller-rbac.sh
+
+.PHONY: verify-policies-psa-version
+verify-policies-psa-version: $(HELM) ## Verify the policies chart renders the PSA behavior for each podSecurityVersion and the pss-psa-version CLI test policies are up to date (no cluster needed)
+	@echo Verify podSecurityVersion rendering... >&2
+	@HELM=$(HELM) ./scripts/verify-policies-psa-version.sh
+
+.PHONY: verify-policies-sysctls
+verify-policies-sysctls: $(HELM) ## Verify the restrict-sysctls allow-list matches PSA for each Kubernetes version (no cluster needed)
+	@echo Verify restrict-sysctls allow-list... >&2
+	@HELM=$(HELM) ./scripts/verify-policies-sysctls.sh
+
+.PHONY: verify-legacy-policy-gate
+verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-policy Helm gate blocks and opts out correctly (needs a reachable cluster as the current kube context)
+	@echo Verify legacy policy gate... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-policy-gate.sh
+
+.PHONY: verify-legacy-policy-hook
+verify-legacy-policy-hook: helm-setup-dependency-charts ## Verify the legacy-policy pre-install/pre-upgrade hook Job (needs exclusive use of a disposable cluster with Kyverno installed and the local CLI image loaded; briefly stops admission/cleanup controllers)
+	@echo Verify legacy policy hook... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) LOCAL_REGISTRY=$(LOCAL_REGISTRY) LOCAL_CLI_REPO=$(LOCAL_CLI_REPO) GIT_SHA=$(GIT_SHA) ./scripts/verify-legacy-policy-hook.sh
+
+.PHONY: verify-legacy-policy-migration
+verify-legacy-policy-migration: helm-setup-dependency-charts ## Verify 1.19->1.20 retains legacy data without execution, restores enforcement on rollback, blocks unacknowledged upgrades, and migrates to CEL (needs exclusive use of a kind cluster with local images loaded)
+	@echo Verify legacy policy migration... >&2
+	@HELM=$(HELM) ./scripts/verify-legacy-policy-migration.sh
 
 #################
 # RELEASE NOTES #
@@ -1017,6 +1090,7 @@ docker-save-image-all: image-build-all ## Save docker images in archive
 		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(GIT_SHA) \
 		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA) \
 		$(LOCAL_REGISTRY)/$(LOCAL_CLI_REPO):$(GIT_SHA) \
+		$(LOCAL_REGISTRY)/$(LOCAL_READINESS_REPO):$(GIT_SHA) \
 	> kyverno.tar
 
 ########
@@ -1063,6 +1137,11 @@ kind-load-background-controller: $(KIND) image-build-background-controller ## Bu
 	@echo Load background controller image... >&2
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(GIT_SHA)
 
+.PHONY: kind-load-readiness-checker
+kind-load-readiness-checker: $(KIND) image-build-readiness-checker ## Build readiness-checker image and load it in kind cluster
+	@echo Load readiness-checker image... >&2
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_READINESS_REPO):$(GIT_SHA)
+
 .PHONY: kind-load-all
 kind-load-all: ## Build images and load them in kind cluster
 kind-load-all: kind-load-kyverno-init
@@ -1070,6 +1149,7 @@ kind-load-all: kind-load-kyverno
 kind-load-all: kind-load-cleanup-controller
 kind-load-all: kind-load-reports-controller
 kind-load-all: kind-load-background-controller
+kind-load-all: kind-load-readiness-checker
 kind-load-all: kind-load-cli
 
 .PHONY: kind-load-image-archive
@@ -1083,9 +1163,10 @@ kind-install-crds: ## Install CRDs from config manifests
 	@kubectl apply --server-side -R -f ./config/crds
 
 .PHONY: kind-install-kyverno
+KYVERNO_TEST_CHART ?= ./charts/kyverno
 kind-install-kyverno: helm-setup-dependency-charts kind-install-crds ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
-	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait $(KYVERNO_TEST_CHART) \
 		--set crds.install=false \
 		--set crds.migration.enabled=false \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
@@ -1103,9 +1184,15 @@ kind-install-kyverno: helm-setup-dependency-charts kind-install-crds ## Install 
 		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
 		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
 		--set backgroundController.image.tag=$(GIT_SHA) \
+		--set webhooksCleanup.image.registry=$(LOCAL_REGISTRY) \
+		--set webhooksCleanup.image.repository=$(LOCAL_READINESS_REPO) \
+		--set webhooksCleanup.image.tag=$(GIT_SHA) \
 		--set crds.migration.image.registry=$(LOCAL_REGISTRY) \
 		--set crds.migration.image.repository=$(LOCAL_CLI_REPO) \
 		--set crds.migration.image.tag=$(GIT_SHA) \
+		--set upgrade.legacyPolicyCheck.image.registry=$(LOCAL_REGISTRY) \
+		--set upgrade.legacyPolicyCheck.image.repository=$(LOCAL_CLI_REPO) \
+		--set upgrade.legacyPolicyCheck.image.tag=$(GIT_SHA) \
 		--values ./scripts/config/resources/kyverno.yaml \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml) \
 		$(EXPLICIT_INSTALL_SETTINGS)

@@ -24,6 +24,12 @@ spec:
     try:
     - assert:
         file: check-autogen.yaml
+  # This test usually runs first in its shard, right after Kyverno starts, and the policy can
+  # report ready a moment before admission requests are actually checked against it.
+  - name: wait-webhook
+    try:
+    - sleep:
+        duration: 5s
   - name: create good deployment
     try:
     - create:
