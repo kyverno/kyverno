@@ -28,10 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubefake "k8s.io/client-go/kubernetes/fake"
-	k8stesting "k8s.io/client-go/testing"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	clocktesting "k8s.io/utils/clock/testing"
@@ -67,7 +67,10 @@ func expiringException(name, policyName, policyKind string, expiry time.Time) *p
 // TestExpiryArmedBeforePermissionChecks covers permission check failures, which return an error
 // to retain a retry, and policies that generate nothing, which must not be woken at expiry.
 func TestExpiryArmedBeforePermissionChecks(t *testing.T) {
-	type testCase struct{ kind, version, deny, ineligible string; conflict bool }
+	type testCase struct {
+		kind, version, deny, ineligible string
+		conflict                        bool
+	}
 	var tests []testCase
 	for _, deny := range []string{"validatingadmissionpolicies", "validatingadmissionpolicybindings"} {
 		tests = append(tests, testCase{kind: "ValidatingPolicy", deny: deny})
@@ -116,7 +119,7 @@ func TestExpiryArmedBeforePermissionChecks(t *testing.T) {
 				}
 				name = mpol.Name
 				c.kyvernoClient = versionedfake.NewSimpleClientset(mpol)
-				version :=  admissionpolicy.MutatingAdmissionPolicyVersion(tt.version)
+				version := admissionpolicy.MutatingAdmissionPolicyVersion(tt.version)
 				generate = func() error {
 					return c.handleMAPGenerationWithVersion(context.Background(), mpol, version)
 				}
