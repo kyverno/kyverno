@@ -131,3 +131,61 @@ func TestNewProvider_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testin
 	assert.Equal(t, "tenant-a", result.Exceptions[0].GetNamespace())
 	assert.Equal(t, "own", result.Exceptions[0].GetName())
 }
+
+// TestNewProvider_ScopeGatesExceptionSelection pins the scope argument NewProvider passes to
+// scope.Select: it must not be ignored or hardcoded to ExceptionScopeAll. ExceptionScopeNone must
+// select nothing, and a concrete scope must select only the exception filed in that (central)
+// namespace, even though the policy's own namespace would otherwise qualify.
+func TestNewProvider_ScopeGatesExceptionSelection(t *testing.T) {
+	ndpol := &policiesv1beta1.NamespacedDeletingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "guard", Namespace: "tenant-a"}}
+	ndpol.TypeMeta.Kind = "NamespacedDeletingPolicy"
+	ownException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedDeletingPolicy"}},
+		},
+	}
+	centralException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "central", Namespace: "central-ns"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedDeletingPolicy"}},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		scope         engine.ExceptionScope
+		expectedNames []string
+	}{
+		{name: "scope none selects nothing", scope: engine.ExceptionScopeNone},
+		{name: "concrete scope selects only the central namespace's exception", scope: engine.ExceptionScope("central-ns"), expectedNames: []string{"central"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			providerFunc, err := NewProvider(
+				compiler.NewCompiler(),
+				[]policiesv1beta1.DeletingPolicyLike{ndpol},
+				[]*policiesv1beta1.PolicyException{ownException, centralException},
+				tt.scope,
+			)
+			require.NoError(t, err)
+
+			policies, err := providerFunc.Fetch(context.Background())
+			require.NoError(t, err)
+			require.Len(t, policies, 1)
+
+			result, err := policies[0].CompiledPolicy.Evaluate(context.Background(), unstructured.Unstructured{}, nil, &libs.FakeContextProvider{})
+			require.NoError(t, err)
+
+			if len(tt.expectedNames) == 0 {
+				assert.Empty(t, result.Exceptions)
+				return
+			}
+			require.Len(t, result.Exceptions, len(tt.expectedNames))
+			for i, name := range tt.expectedNames {
+				assert.Equal(t, name, result.Exceptions[i].GetName())
+			}
+		})
+	}
+}

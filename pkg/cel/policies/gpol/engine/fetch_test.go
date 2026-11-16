@@ -15,6 +15,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 )
 
 type fakeGpolLister struct {
@@ -183,4 +184,65 @@ func TestGet_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testing.T) {
 	require.Len(t, policy.Exceptions, 1, "tenant-a's policy must only see its own namespace's exception")
 	assert.Equal(t, "tenant-a", policy.Exceptions[0].GetNamespace())
 	assert.Equal(t, "own", policy.Exceptions[0].GetName())
+}
+
+// TestGet_ScopeGatesExceptionSelection pins the scope used by the polexLister Get relies on for
+// namespace filtering: an empty scope ("--exceptionNamespace" unset) must select nothing, and a
+// concrete scope must select only the exception filed in that (central) namespace, even though
+// the policy's own namespace would otherwise qualify. Unlike the other fakes in this file,
+// fakePolexLister hardcodes ExceptionScopeAll, so this exercises the real production lister
+// (engine.NewPolicyExceptionLister) through NewFetchProvider's Get instead.
+func TestGet_ScopeGatesExceptionSelection(t *testing.T) {
+	ngpol := &policiesv1beta1.NamespacedGeneratingPolicy{ObjectMeta: v1.ObjectMeta{Name: "guard", Namespace: "tenant-a"}}
+	ngpol.TypeMeta.Kind = "NamespacedGeneratingPolicy"
+	ownException := &policiesv1beta1.PolicyException{
+		ObjectMeta: v1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+		},
+	}
+	centralException := &policiesv1beta1.PolicyException{
+		ObjectMeta: v1.ObjectMeta{Name: "central", Namespace: "central-ns"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+		},
+	}
+	polexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	require.NoError(t, polexIndexer.Add(ownException))
+	require.NoError(t, polexIndexer.Add(centralException))
+
+	tests := []struct {
+		name          string
+		scope         string
+		expectedNames []string
+	}{
+		{name: "scope none selects nothing", scope: ""},
+		{name: "concrete scope selects only the central namespace's exception", scope: "central-ns", expectedNames: []string{"central"}},
+	}
+
+	comp := compiler.NewCompiler()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			polexLister := engine.NewPolicyExceptionLister(policiesv1beta1listers.NewPolicyExceptionLister(polexIndexer), tt.scope)
+			fp := NewFetchProvider(
+				comp,
+				&fakeGpolLister{},
+				&fakeNgpolLister{policies: map[string]*policiesv1beta1.NamespacedGeneratingPolicy{"tenant-a/guard": ngpol}},
+				polexLister,
+				true,
+			)
+
+			policy, err := fp.Get(context.Background(), "tenant-a/guard")
+			require.NoError(t, err)
+
+			if len(tt.expectedNames) == 0 {
+				assert.Empty(t, policy.Exceptions)
+				return
+			}
+			require.Len(t, policy.Exceptions, len(tt.expectedNames))
+			for i, name := range tt.expectedNames {
+				assert.Equal(t, name, policy.Exceptions[i].GetName())
+			}
+		})
+	}
 }

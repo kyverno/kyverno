@@ -69,3 +69,65 @@ func TestCompileGeneratingPolicies_NamespacedPolicyOnlyAcceptsOwnNamespaceExcept
 	require.Len(t, result.Exceptions, 1, "tenant-a's policy must only see its own namespace's exception")
 	assert.Equal(t, "tenant-a", result.Exceptions[0].GetNamespace())
 }
+
+// TestCompileGeneratingPolicies_SameNamePoliciesEachKeepTheirOwnException compiles two
+// same-named NamespacedGeneratingPolicies, one per tenant, in the same call and asserts each
+// compiled policy only receives its own tenant's exception. A single-policy case cannot catch
+// exception selection leaking from one loop iteration into the next; this requires at least two.
+func TestCompileGeneratingPolicies_SameNamePoliciesEachKeepTheirOwnException(t *testing.T) {
+	ngpolA := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "guard", Namespace: "tenant-a"},
+	}
+	ngpolA.TypeMeta.Kind = "NamespacedGeneratingPolicy"
+	ngpolB := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "guard", Namespace: "tenant-b"},
+	}
+	ngpolB.TypeMeta.Kind = "NamespacedGeneratingPolicy"
+
+	exceptionA := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "exc-a", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+		},
+	}
+	exceptionB := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "exc-b", Namespace: "tenant-b"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+		},
+	}
+
+	compiled, err := compileGeneratingPolicies(
+		[]policiesv1beta1.GeneratingPolicyLike{ngpolA, ngpolB},
+		[]*policiesv1beta1.PolicyException{exceptionA, exceptionB},
+	)
+	require.NoError(t, err)
+	require.Len(t, compiled, 2)
+
+	evaluate := func(namespace string, idx int) []string {
+		res := unstructured.Unstructured{}
+		res.SetGroupVersionKind(schema.GroupVersionKind{})
+		res.SetName("trigger")
+		res.SetNamespace(namespace)
+		attr := admission.NewAttributesRecord(
+			&res, &res, schema.GroupVersionKind{}, res.GetNamespace(), res.GetName(),
+			schema.GroupVersionResource{}, "", admission.Connect, &res, false, &user.DefaultInfo{},
+		)
+		req := admissionv1.AdmissionRequest{
+			UID:       "test",
+			Namespace: res.GetNamespace(),
+			UserInfo:  authenticationv1.UserInfo{},
+		}
+		result, err := compiled[idx].CompiledPolicy.Evaluate(context.TODO(), attr, &req, &res, &libs.FakeContextProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		var names []string
+		for _, e := range result.Exceptions {
+			names = append(names, e.GetName())
+		}
+		return names
+	}
+
+	assert.Equal(t, []string{"exc-a"}, evaluate("tenant-a", 0), "tenant-a's compiled policy must only see its own exception")
+	assert.Equal(t, []string{"exc-b"}, evaluate("tenant-b", 1), "tenant-b's compiled policy must only see its own exception")
+}

@@ -140,6 +140,61 @@ func TestNewProvider_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testin
 	}
 }
 
+// TestNewProvider_ScopeGatesExceptionSelection pins the scope argument NewProvider passes to
+// scope.Select: it must not be ignored or hardcoded to ExceptionScopeAll. ExceptionScopeNone must
+// select nothing, and a concrete scope must select only the exception filed in that (central)
+// namespace, even though the policy's own namespace would otherwise qualify.
+func TestNewProvider_ScopeGatesExceptionSelection(t *testing.T) {
+	policy := namespacedAutogennablePolicy("guard", "tenant-a")
+	ownException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedImageValidatingPolicy"}},
+		},
+	}
+	centralException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "central", Namespace: "central-ns"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedImageValidatingPolicy"}},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		scope         engine.ExceptionScope
+		expectedNames []string
+	}{
+		{name: "scope none selects nothing", scope: engine.ExceptionScopeNone},
+		{name: "concrete scope selects only the central namespace's exception", scope: engine.ExceptionScope("central-ns"), expectedNames: []string{"central"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider, err := NewProvider(
+				iveval.NewCompiler(nil),
+				[]policiesv1beta1.ImageValidatingPolicyLike{policy},
+				[]*policiesv1beta1.PolicyException{ownException, centralException},
+				tt.scope,
+			)
+			require.NoError(t, err)
+
+			policies, err := provider(context.Background())
+			require.NoError(t, err)
+			require.NotEmpty(t, policies)
+			for _, p := range policies {
+				if len(tt.expectedNames) == 0 {
+					assert.Empty(t, p.Exceptions)
+					continue
+				}
+				require.Len(t, p.Exceptions, len(tt.expectedNames))
+				for i, name := range tt.expectedNames {
+					assert.Equal(t, name, p.Exceptions[i].GetName())
+				}
+			}
+		})
+	}
+}
+
 func TestNewProvider_DeterministicAutogenOrdering(t *testing.T) {
 	policy := autogennablePolicy("pod-policy")
 	compiler := iveval.NewCompiler(nil)

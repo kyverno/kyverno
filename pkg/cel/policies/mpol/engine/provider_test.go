@@ -164,6 +164,97 @@ func TestNewProvider_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testin
 	assert.Equal(t, "own", rule.Exceptions()[0].GetName())
 }
 
+// TestNewProvider_ScopeGatesExceptionSelection pins the scope argument NewProvider passes to
+// scope.Select: it must not be ignored or hardcoded to ExceptionScopeAll. ExceptionScopeNone must
+// select nothing, and a concrete scope must select only the exception filed in that (central)
+// namespace, even though the policy's own namespace would otherwise qualify.
+func TestNewProvider_ScopeGatesExceptionSelection(t *testing.T) {
+	policy := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "guard", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule:       admissionregistrationv1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}},
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"env": "test"}}}`,
+				},
+			}},
+		},
+	}
+	ownException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedMutatingPolicy"}},
+		},
+	}
+	centralException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "central", Namespace: "central-ns"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedMutatingPolicy"}},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		scope         engine.ExceptionScope
+		expectedNames []string
+	}{
+		{name: "scope none selects nothing", scope: engine.ExceptionScopeNone},
+		{name: "concrete scope selects only the central namespace's exception", scope: engine.ExceptionScope("central-ns"), expectedNames: []string{"central"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prov, err := NewProvider(
+				compiler.NewCompiler(),
+				[]policiesv1beta1.MutatingPolicyLike{policy},
+				[]*policiesv1beta1.PolicyException{ownException, centralException},
+				libs.NewFakeContextProvider(),
+				tt.scope,
+			)
+			require.NoError(t, err)
+
+			eng := NewEngine(
+				prov,
+				func(ns string) *corev1.Namespace { return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}} },
+				matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{},
+			)
+			requestObject := `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"tenant-a"}}`
+			req := engine.EngineRequest{
+				Request: admissionv1.AdmissionRequest{
+					Kind:      metav1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+					Resource:  metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+					Namespace: "tenant-a",
+					Name:      "nginx",
+					Operation: admissionv1.Create,
+					Object:    runtime.RawExtension{Raw: []byte(requestObject)},
+				},
+			}
+			resp, err := eng.Handle(context.Background(), req, predicate)
+			require.NoError(t, err)
+			require.Len(t, resp.Policies, 1)
+			require.Len(t, resp.Policies[0].Rules, 1)
+			rule := resp.Policies[0].Rules[0]
+
+			if len(tt.expectedNames) == 0 {
+				assert.Empty(t, rule.Exceptions())
+				return
+			}
+			require.Len(t, rule.Exceptions(), len(tt.expectedNames))
+			for i, name := range tt.expectedNames {
+				assert.Equal(t, name, rule.Exceptions()[i].GetName())
+			}
+		})
+	}
+}
+
 func TestStaticProviderFetch(t *testing.T) {
 	trueBool := true
 	falseBool := false

@@ -229,3 +229,65 @@ func TestGet_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testing.T) {
 	assert.Equal(t, "tenant-a", result.Exceptions[0].GetNamespace())
 	assert.Equal(t, "own", result.Exceptions[0].GetName())
 }
+
+// TestGet_ScopeGatesExceptionSelection pins the scope passed to engine.NewPolicyExceptionLister,
+// which Get relies on exclusively for namespace filtering: an empty scope ("--exceptionNamespace"
+// unset) must select nothing, and a concrete scope must select only the exception filed in that
+// (central) namespace, even though the policy's own namespace would otherwise qualify.
+func TestGet_ScopeGatesExceptionSelection(t *testing.T) {
+	ndpol := &policiesv1beta1.NamespacedDeletingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "guard", Namespace: "tenant-a"}}
+	ndpol.TypeMeta.Kind = "NamespacedDeletingPolicy"
+	ownException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedDeletingPolicy"}},
+		},
+	}
+	centralException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "central", Namespace: "central-ns"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedDeletingPolicy"}},
+		},
+	}
+	polexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	polexIndexer.Add(ownException)
+	polexIndexer.Add(centralException)
+
+	tests := []struct {
+		name          string
+		scope         string
+		expectedNames []string
+	}{
+		{name: "scope none selects nothing", scope: ""},
+		{name: "concrete scope selects only the central namespace's exception", scope: "central-ns", expectedNames: []string{"central"}},
+	}
+
+	c := compiler.NewCompiler()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			polexLister := engine.NewPolicyExceptionLister(policiesv1beta1listers.NewPolicyExceptionLister(polexIndexer), tt.scope)
+			provider := NewFetchProvider(
+				c,
+				nil,
+				fakeNdpolLister{policies: map[string]*policiesv1beta1.NamespacedDeletingPolicy{"tenant-a/guard": ndpol}},
+				polexLister,
+				true,
+			)
+
+			fetched, err := provider.Get(context.Background(), "tenant-a", "guard")
+			require.NoError(t, err)
+
+			result, err := fetched.CompiledPolicy.Evaluate(context.Background(), unstructured.Unstructured{}, nil, &libs.FakeContextProvider{})
+			require.NoError(t, err)
+
+			if len(tt.expectedNames) == 0 {
+				assert.Assert(t, len(result.Exceptions) == 0)
+				return
+			}
+			require.Len(t, result.Exceptions, len(tt.expectedNames))
+			for i, name := range tt.expectedNames {
+				assert.Equal(t, name, result.Exceptions[i].GetName())
+			}
+		})
+	}
+}
