@@ -42,6 +42,12 @@ func SetScopedTokenClientTimeout(timeout time.Duration) {
 	scopedTokenClientTimeout = timeout
 }
 
+// ScopedTokenClientTimeout returns the timeout configured for outbound CEL HTTP
+// calls performed with the scoped token. A value of 0 disables the timeout.
+func ScopedTokenClientTimeout() time.Duration {
+	return scopedTokenClientTimeout
+}
+
 func readScopedToken() (string, bool) {
 	return readTokenAt(scopedTokenPath)
 }
@@ -68,7 +74,11 @@ func readTokenAt(path string) (string, bool) {
 		})
 		return "", false
 	}
-	return strings.TrimSpace(string(b)), true
+	token := strings.TrimSpace(string(b))
+	if token == "" {
+		return "", false
+	}
+	return token, true
 }
 
 // scopedTokenClient wraps http.Client and injects the scoped APICall token as

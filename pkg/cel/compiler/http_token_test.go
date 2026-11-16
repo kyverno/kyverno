@@ -1,12 +1,15 @@
 package compiler
 
 import (
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	sdklibhttp "github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/stretchr/testify/assert"
@@ -120,4 +123,115 @@ func TestNewLazyCELHTTPContext_AttachesToken(t *testing.T) {
 	_, err := ctx.Post(srv.URL, map[string]string{"k": "v"}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer e2e-token", *gotAuth)
+}
+
+// slowServer returns a server that answers only after delay, so a call that is
+// not bounded by the scoped token client timeout blocks for the whole delay.
+func slowServer(t *testing.T, delay time.Duration) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(delay)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestTokenHTTPContext_HonoursScopedTokenClientTimeout(t *testing.T) {
+	t.Setenv("KYVERNO_SCOPED_TOKEN_PATH", writeTokenFile(t, "unit-token\n"))
+	srv := slowServer(t, 2*time.Second)
+
+	apicall.SetScopedTokenClientTimeout(200 * time.Millisecond)
+	t.Cleanup(func() { apicall.SetScopedTokenClientTimeout(30 * time.Second) })
+
+	ctx := newTokenContext(t)
+	// The query string must never show up in the timeout error.
+	target := srv.URL + "/?secret=query-value"
+
+	for name, call := range map[string]func() (any, error){
+		"Get":  func() (any, error) { return ctx.Get(target, nil) },
+		"Post": func() (any, error) { return ctx.Post(target, map[string]string{"k": "v"}, nil) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			start := time.Now()
+			_, err := call()
+			require.Error(t, err, "a call slower than the configured timeout must fail")
+			assert.Contains(t, err.Error(), "timed out after 200ms")
+			assert.NotContains(t, err.Error(), "query-value")
+			assert.Less(t, time.Since(start), time.Second, "the call must give up long before the server answers")
+		})
+	}
+}
+
+func TestTokenHTTPContext_ClientDerivedContextHonoursTimeout(t *testing.T) {
+	t.Setenv("KYVERNO_SCOPED_TOKEN_PATH", writeTokenFile(t, "unit-token\n"))
+	srv := slowServer(t, 2*time.Second)
+
+	apicall.SetScopedTokenClientTimeout(200 * time.Millisecond)
+	t.Cleanup(func() { apicall.SetScopedTokenClientTimeout(30 * time.Second) })
+
+	ctx := newTokenContext(t)
+	child, err := ctx.Client("")
+	require.NoError(t, err)
+	require.NotNil(t, child)
+
+	start := time.Now()
+	_, err = child.Post(srv.URL, map[string]string{"k": "v"}, nil)
+	require.Error(t, err, "a Client-derived context must be bounded by the same timeout")
+	assert.Contains(t, err.Error(), "timed out after 200ms")
+	assert.Less(t, time.Since(start), time.Second)
+}
+
+func TestTokenHTTPContext_CADerivedContextAttachesToken(t *testing.T) {
+	t.Setenv("KYVERNO_SCOPED_TOKEN_PATH", writeTokenFile(t, "unit-token\n"))
+
+	var gotAuth string
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	caBundle := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw})
+	require.NotEmpty(t, caBundle)
+
+	ctx := newTokenContext(t)
+	child, err := ctx.Client(string(caBundle))
+	require.NoError(t, err)
+	require.NotNil(t, child)
+
+	_, err = child.Post(srv.URL, map[string]string{"k": "v"}, nil)
+	require.NoError(t, err, "a context built with a trusted CA bundle must reach the TLS server")
+	assert.Equal(t, "Bearer unit-token", gotAuth)
+}
+
+func TestTokenHTTPContext_InvalidCABundleReturnsError(t *testing.T) {
+	ctx := newTokenContext(t)
+
+	child, err := ctx.Client("this is not a PEM bundle")
+	require.Error(t, err)
+	assert.Nil(t, child, "a context must not be returned when the CA bundle cannot be parsed")
+}
+
+func TestTokenHTTPContext_EmptyTokenFileSendsNoHeader(t *testing.T) {
+	for name, contents := range map[string]string{
+		"empty file":      "",
+		"whitespace only": " \n\t ",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("KYVERNO_SCOPED_TOKEN_PATH", writeTokenFile(t, contents))
+			srv, gotAuth := captureAuthServer(t)
+			ctx := newTokenContext(t)
+
+			headers := map[string]string{"X-Test": "1"}
+			assert.Equal(t, headers, withScopedToken(headers), "an unusable token must leave the headers untouched")
+
+			_, err := ctx.Get(srv.URL, headers)
+			require.NoError(t, err)
+			assert.Equal(t, "", *gotAuth, "no Authorization header may be sent for an empty token file")
+			assert.NotContains(t, headers, "Authorization")
+		})
+	}
 }

@@ -2,8 +2,10 @@ package compiler
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
@@ -50,11 +52,15 @@ type tokenHTTPContext struct {
 }
 
 func (c *tokenHTTPContext) Get(url string, headers map[string]string) (any, error) {
-	return c.inner.Get(url, withScopedToken(headers))
+	return withScopedTokenTimeout(url, func() (any, error) {
+		return c.inner.Get(url, withScopedToken(headers))
+	})
 }
 
 func (c *tokenHTTPContext) Post(url string, data any, headers map[string]string) (any, error) {
-	return c.inner.Post(url, data, withScopedToken(headers))
+	return withScopedTokenTimeout(url, func() (any, error) {
+		return c.inner.Post(url, data, withScopedToken(headers))
+	})
 }
 
 func (c *tokenHTTPContext) Client(caBundle string) (http.ContextInterface, error) {
@@ -71,7 +77,7 @@ func (c *tokenHTTPContext) Client(caBundle string) (http.ContextInterface, error
 // available the headers are returned unchanged.
 func withScopedToken(headers map[string]string) map[string]string {
 	token, ok := apicall.ScopedToken()
-	if !ok || token == "" {
+	if !ok {
 		return headers
 	}
 	for k := range headers {
@@ -85,6 +91,47 @@ func withScopedToken(headers map[string]string) map[string]string {
 	}
 	out["Authorization"] = "Bearer " + token
 	return out
+}
+
+// withScopedTokenTimeout bounds how long a CEL http call waits, using the
+// timeout configured through apicall.SetScopedTokenClientTimeout. The SDK builds
+// its requests with context.TODO() and takes no client option, so the deadline
+// cannot be handed to the request itself; the call races the configured timeout
+// instead. A value of 0 disables the timeout. When the timeout wins, the
+// in-flight request is left to finish in the background, and the error names
+// only the host, never the full URL with its query string.
+func withScopedTokenTimeout(rawURL string, call func() (any, error)) (any, error) {
+	timeout := apicall.ScopedTokenClientTimeout()
+	if timeout <= 0 {
+		return call()
+	}
+	type outcome struct {
+		result any
+		err    error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		result, err := call()
+		done <- outcome{result: result, err: err}
+	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case out := <-done:
+		return out.result, out.err
+	case <-timer.C:
+		return nil, fmt.Errorf("CEL http request to %s timed out after %s", requestHost(rawURL), timeout)
+	}
+}
+
+// requestHost extracts the host of rawURL for error messages. Only the host is
+// reported: request URLs can carry query parameters that are not safe to log.
+func requestHost(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return "<unknown host>"
+	}
+	return u.Host
 }
 
 func (c *cachedHTTPContext) Get(url string, headers map[string]string) (any, error) {
