@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: apicall-http-post-scoped-token
+
+spec:
+  concurrent: false
+  steps:
+  - try:
+    - apply:
+        file: rbac.yaml
+    - apply:
+        file: http-pod.yaml
+    - apply:
+        file: service.yaml
+    - assert:
+        timeout: 120s
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-api-token
+            namespace: default
+          status:
+            (conditions[?type == 'Ready']):
+            - status: "True"
+    # A Ready pod is not always reachable through its Service yet (the node's
+    # Service rules can lag), and the policies call it through the Service.
+    - sleep:
+        duration: 5s
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: create policy with an explicit authorization header
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: bad-auth-policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: vpol-http-post-token
+  - name: wait-validating-policy-ready-bad-auth
+    use:
+      template: ../../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: vpol-http-post-token-bad-auth
+  - try:
+    - apply:
+        file: good-pod.yaml
+    - create:
+        file: bad-pod.yaml
+        expect:
+          - check:
+              ($error != null): true
+              (contains($error, 'Policy vpol-http-post-token-bad-auth failed')): true
+              (contains($error, 'tokenValid=false')): true
