@@ -12,11 +12,12 @@ Every event struct (`Info`) contains two `corev1.ObjectReference` fields:
 - **`Related` (Associated Subject)**:
   - Captures the secondary resource involved in the operation (e.g. the pod or deployment being evaluated or generated when `Regarding` references the policy).
 
-## Dynamic APIVersion Resolution (Never Hardcode)
+## Dynamic APIVersion Resolution (Never Hardcode for Policy/Exception References)
 
-- **Never hardcode literal API group/version strings** (such as `"kyverno.io/v1"` or `"kyverno.io/v2"`) in `Regarding` or `Related` references.
-- Always use `policy.GetAPIVersion()`, `exception.GetAPIVersion()`, or `resource.APIVersion`.
+- **Never hardcode literal API group/version strings** (such as `"kyverno.io/v1"` or `"kyverno.io/v2"`) when referencing policies or policy exceptions in `Regarding` or `Related`.
+- Always derive versions dynamically via `policy.GetAPIVersion()`, `exception.GetAPIVersion()`, or `resource.APIVersion` for evaluated policies, exceptions, and workload resources.
 - The `engineapi.GenericPolicy` and `engineapi.GenericException` interfaces abstract the union across legacy Kyverno types, CEL policies (`policies.kyverno.io/v1beta1`), and Kubernetes-native admission policies (`admissionregistration.k8s.io/v1`), dynamically providing the correct APIVersion for each policy kind.
+- **Fixed Kubernetes Resource Kinds**: Fixed group-version strings are permitted only when referencing concrete standard Kubernetes resource kinds created directly by the controller (such as `"admissionregistration.k8s.io/v1"` for generated `ValidatingAdmissionPolicy` and `ValidatingAdmissionPolicyBinding` resources in `NewValidatingAdmissionPolicyEvent`).
 
 ## Event Name Sanitization & Kubernetes API Limits
 
