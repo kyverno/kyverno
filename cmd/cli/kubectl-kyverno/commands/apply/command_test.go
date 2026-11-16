@@ -2638,3 +2638,12 @@ spec:
 		assert.Contains(t, output, "warn: 0")
 	})
 }
+
+func TestApplyGitURLWithoutPath(t *testing.T) {
+	config := &ApplyCommandConfig{
+		PolicyPaths:   []string{"http://github.com"},
+		ResourcePaths: []string{os.DevNull},
+	}
+	_, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.ErrorContains(t, err, "invalid URL path")
+}
