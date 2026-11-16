@@ -59,8 +59,8 @@ func expiringException(name, policyName, policyKind string, expiry time.Time) *p
 	}
 }
 
-// TestExpiryArmedBeforePermissionChecks covers the permission checks, which return without
-// retrying, and policies that generate nothing, which must not be woken at expiry.
+// TestExpiryArmedBeforePermissionChecks covers permission check failures, which return an error
+// to retain a retry, and policies that generate nothing, which must not be woken at expiry.
 func TestExpiryArmedBeforePermissionChecks(t *testing.T) {
 	type testCase struct{ kind, version, deny, ineligible string }
 	var tests []testCase
@@ -122,11 +122,14 @@ func TestExpiryArmedBeforePermissionChecks(t *testing.T) {
 			deadline := time.Now().Add(time.Hour)
 			require.NoError(t, indexer.Add(expiringException("exception", name, tt.kind, deadline)))
 
-			require.NoError(t, generate())
 			key := tt.kind + "/" + name
 			if tt.ineligible != "" {
+				require.NoError(t, generate())
 				assert.NotContains(t, queue.delays, key, "ineligible policies must not schedule expiry requeues")
 			} else {
+				err := generate()
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "insufficient permissions")
 				assert.Contains(t, queue.delays, key, "expiry must be armed even when permission checks fail")
 			}
 			// Confirm the permission check actually fired: nothing was created.
@@ -562,4 +565,208 @@ func TestGenerationCELExceptionsError(t *testing.T) {
 	err = c.handleMAPGenerationWithVersion(context.Background(), mpol, admissionpolicy.MutatingAdmissionPolicyVersionV1)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get celexceptions")
+}
+
+type switchableAuthChecker struct {
+	allowed bool
+}
+
+func (s *switchableAuthChecker) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*checker.AuthResult, error) {
+	return &checker.AuthResult{Allowed: s.allowed}, nil
+}
+
+// TestExpiryPermissionFailureRecoveryRemovalOfCondition tests the lifecycle requested by maintainers:
+// expiry -> permission failure -> recovery -> removal of the expired condition.
+// When an exception expires and the timer fires, if permissions are down, reconciliation must
+// return an error to retain a retry in the workqueue. Once permissions recover, the retried
+// reconciliation removes the expired matchCondition.
+func TestExpiryPermissionFailureRecoveryRemovalOfCondition(t *testing.T) {
+	t.Run("ValidatingPolicy", func(t *testing.T) {
+		vpol := disallowPrivilegeEscalationVpol(nil)
+		vpol.Kind = "ValidatingPolicy"
+		vpol.Spec.AutogenConfiguration.PodControllers.Controllers = []string{}
+		c, kubeClient, kyvernoClient := newVAPTestController(t, vpol)
+
+		vapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		c.vapLister = admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(vapIndexer)
+		c.vapbindingLister = admissionregistrationv1listers.NewValidatingAdmissionPolicyBindingLister(bindingIndexer)
+
+		vpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		require.NoError(t, vpolIndexer.Add(vpol))
+		c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(vpolIndexer)
+
+		exceptionIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		c.celpolexLister = policiesv1beta1listers.NewPolicyExceptionLister(exceptionIndexer)
+		c.polexEnabled, c.exceptionNamespace = true, "*"
+
+		auth := &switchableAuthChecker{allowed: true}
+		c.checker = auth
+		queue := &delayRecorder{delays: map[any]time.Duration{}}
+		c.queue = queue
+
+		// 1. Initial generation: active exception expiring in 1 hour
+		now := time.Now()
+		polex := expiringException("exp-1", vpol.Name, vpol.Kind, now.Add(time.Hour))
+		require.NoError(t, exceptionIndexer.Add(polex))
+
+		require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name))
+
+		vapName := "vpol-" + vpol.Name
+		vapBindingName := constructBindingName(vapName)
+		vap, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		// 1 from policy + 1 from exception = 2 matchConditions
+		require.Len(t, vap.Spec.MatchConditions, 2)
+		require.Equal(t, "exp-1", vap.Spec.MatchConditions[1].Name)
+
+		vap.ResourceVersion = "1"
+		require.NoError(t, vapIndexer.Update(vap))
+		binding, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.Background(), vapBindingName, metav1.GetOptions{})
+		require.NoError(t, err)
+		binding.ResourceVersion = "1"
+		require.NoError(t, bindingIndexer.Update(binding))
+
+		// 2. Expiry occurs: exception is now in the past
+		polex.Spec.ExpiresAt = &metav1.Time{Time: now.Add(-time.Hour)}
+		require.NoError(t, exceptionIndexer.Update(polex))
+
+		// 3. Permission failure: RBAC is lost when timer fires
+		auth.allowed = false
+		err = c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name)
+		require.Error(t, err, "reconciliation must return an error on permission failure to retain a retry")
+		assert.Contains(t, err.Error(), "insufficient permissions")
+
+		// Verify existing VAP still has the condition (not removed yet)
+		vap, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, vap.Spec.MatchConditions, 2)
+
+		// 4. Recovery: RBAC permissions are restored
+		auth.allowed = true
+
+		// 5. Retried reconciliation runs and removes the expired condition
+		require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name))
+
+		vap, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		// Only 1 matchCondition remains (the policy's own, "exp-1" has been removed)
+		require.Len(t, vap.Spec.MatchConditions, 1)
+		assert.Equal(t, "check-prod-label", vap.Spec.MatchConditions[0].Name)
+
+		updatedVpol, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(context.Background(), vpol.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.True(t, updatedVpol.Status.Generated)
+	})
+
+	t.Run("MutatingPolicy", func(t *testing.T) {
+		mpol := &policiesv1beta1.MutatingPolicy{
+			TypeMeta: metav1.TypeMeta{Kind: "MutatingPolicy"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-map-perm-recover",
+				UID:  "test-uid",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				AutogenConfiguration: mapGenEnabled(),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"configmaps"},
+								},
+							},
+						},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{spec: Object.spec{containers: [Object.spec.containers[0]{name: "injected"}]}}`,
+						},
+					},
+				},
+			},
+		}
+
+		kubeClient := kubefake.NewSimpleClientset()
+		kyvernoClient := versionedfake.NewSimpleClientset(mpol)
+		queue := &delayRecorder{delays: map[any]time.Duration{}}
+		exceptionIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		mapV1Indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		mapbindingV1Indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		mpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		require.NoError(t, mpolIndexer.Add(mpol))
+
+		auth := &switchableAuthChecker{allowed: true}
+		c := &controller{
+			client:             kubeClient,
+			kyvernoClient:      kyvernoClient,
+			discoveryClient:    dclient.NewEmptyFakeClient().Discovery(),
+			eventGen:           event.NewFake(),
+			checker:            auth,
+			queue:              queue,
+			celpolexLister:     policiesv1beta1listers.NewPolicyExceptionLister(exceptionIndexer),
+			mpolLister:         policiesv1beta1listers.NewMutatingPolicyLister(mpolIndexer),
+			mapV1Lister:        admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapV1Indexer),
+			mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(mapbindingV1Indexer),
+			polexEnabled:       true,
+			exceptionNamespace: "*",
+		}
+
+		mapName := "mpol-" + mpol.Name
+		mapBindingName := constructBindingName(mapName)
+
+		// 1. Initial generation: active exception expiring in 1 hour
+		now := time.Now()
+		polex := expiringException("exp-map", mpol.Name, mpol.Kind, now.Add(time.Hour))
+		require.NoError(t, exceptionIndexer.Add(polex))
+
+		require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "MutatingPolicy/"+mpol.Name, "", mpol.Name))
+
+		mObj, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(context.Background(), mapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, mObj.Spec.MatchConditions, 1)
+		require.Equal(t, "exp-map", mObj.Spec.MatchConditions[0].Name)
+
+		mObj.ResourceVersion = "1"
+		require.NoError(t, mapV1Indexer.Update(mObj))
+		bObj, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(context.Background(), mapBindingName, metav1.GetOptions{})
+		require.NoError(t, err)
+		bObj.ResourceVersion = "1"
+		require.NoError(t, mapbindingV1Indexer.Update(bObj))
+
+		// 2. Expiry occurs
+		polex.Spec.ExpiresAt = &metav1.Time{Time: now.Add(-time.Hour)}
+		require.NoError(t, exceptionIndexer.Update(polex))
+
+		// 3. Permission failure: RBAC is lost when timer fires
+		auth.allowed = false
+		err = c.reconcile(context.Background(), logr.Discard(), "MutatingPolicy/"+mpol.Name, "", mpol.Name)
+		require.Error(t, err, "reconciliation must return an error on permission failure to retain a retry")
+		assert.Contains(t, err.Error(), "insufficient permissions")
+
+		// Verify existing MAP still has the condition
+		mObj, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(context.Background(), mapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, mObj.Spec.MatchConditions, 1)
+
+		// 4. Recovery: RBAC permissions are restored
+		auth.allowed = true
+
+		// 5. Retried reconciliation runs and removes the expired condition
+		require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "MutatingPolicy/"+mpol.Name, "", mpol.Name))
+
+		mObj, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(context.Background(), mapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Empty(t, mObj.Spec.MatchConditions, "expired exception matchCondition must be removed after recovery")
+
+		updatedMpol, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(context.Background(), mpol.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.True(t, updatedMpol.Status.Generated)
+	})
 }

@@ -2,6 +2,7 @@ package admissionpolicygenerator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -48,16 +49,6 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 		reason = "skip generating ValidatingAdmissionPolicy: not enabled."
 	}
 
-	// Expiry is armed before these permission checks, which return without retrying.
-	if !admissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
-		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicies")
-		return c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies")
-	}
-	if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
-		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
-		return c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings")
-	}
-
 	vapName := "vpol-" + policy.GetName()
 	vapBindingName := constructBindingName(vapName)
 	// get the ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding if exists.
@@ -78,6 +69,22 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 			}
 		}
 		return c.updatePolicyStatus(ctx, policy, false, reason)
+	}
+
+	// Expiry is armed before these permission checks, which return an error so the workqueue retains a retry.
+	if !admissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
+		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicies")
+		if err := c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies"); err != nil {
+			return err
+		}
+		return errors.New("insufficient permissions to generate ValidatingAdmissionPolicies")
+	}
+	if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
+		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
+		if err := c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings"); err != nil {
+			return err
+		}
+		return errors.New("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
 	}
 	genericExceptions := make([]engineapi.GenericException, 0)
 	for _, exception := range celexceptions {

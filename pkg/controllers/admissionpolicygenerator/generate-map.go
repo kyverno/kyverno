@@ -2,6 +2,7 @@ package admissionpolicygenerator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -64,18 +65,37 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 			reason = "skip generating MutatingAdmissionPolicy: " + msg
 		}
 	}
-	// Expiry is armed before these permission checks, which return without retrying.
+	mapName := "mpol-" + mpol.GetName()
+	mapBindingName := constructBindingName(mapName)
+
+	if shouldDelete {
+		switch version {
+		case admissionpolicy.MutatingAdmissionPolicyVersionV1:
+			return c.handleMAPV1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+		case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
+			return c.handleMAPV1Beta1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+		case admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1:
+			return c.handleMAPV1Alpha1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+		default:
+			return fmt.Errorf("unsupported MutatingAdmissionPolicy version: %s", version)
+		}
+	}
+
+	// Expiry is armed before these permission checks, which return an error so the workqueue retains a retry.
 	if !admissionpolicy.HasMutatingAdmissionPolicyPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicies")
-		return c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies")
+		if err := c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies"); err != nil {
+			return err
+		}
+		return errors.New("insufficient permissions to generate MutatingAdmissionPolicies")
 	}
 	if !admissionpolicy.HasMutatingAdmissionPolicyBindingPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicyBindings")
-		return c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicyBindings")
+		if err := c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicyBindings"); err != nil {
+			return err
+		}
+		return errors.New("insufficient permissions to generate MutatingAdmissionPolicyBindings")
 	}
-
-	mapName := "mpol-" + mpol.GetName()
-	mapBindingName := constructBindingName(mapName)
 
 	switch version {
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1:
