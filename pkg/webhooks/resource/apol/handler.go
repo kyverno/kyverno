@@ -551,7 +551,7 @@ func evalCondition(ctx context.Context, env *cel.Env, expression string, activat
 	if !ast.OutputType().IsExactType(types.BoolType) {
 		return false, fmt.Errorf("expression must evaluate to bool")
 	}
-	prog, err := env.Program(ast)
+	prog, err := celcompiler.NewProgram(env, ast)
 	if err != nil {
 		return false, err
 	}

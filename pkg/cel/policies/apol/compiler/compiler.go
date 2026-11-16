@@ -110,7 +110,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.AuthorizingPolicy) (*Pol
 			if !ast.OutputType().IsExactType(types.BoolType) {
 				return nil, append(allErrs, field.Invalid(rpath.Child("expression"), rule.Expression, "must evaluate to bool"))
 			}
-			exprProg, err = env.Program(ast)
+			exprProg, err = compiler.NewProgram(env, ast)
 			if err != nil {
 				return nil, append(allErrs, field.InternalError(rpath.Child("expression"), err))
 			}
@@ -126,7 +126,7 @@ func (c *compilerImpl) Compile(policy *policiesv1alpha1.AuthorizingPolicy) (*Pol
 			if !ast.OutputType().IsExactType(types.BoolType) {
 				return nil, append(allErrs, field.Invalid(cpath.Child("expression"), cond.Expression, "must evaluate to bool"))
 			}
-			condProg, err := env.Program(ast)
+			condProg, err := compiler.NewProgram(env, ast)
 			if err != nil {
 				return nil, append(allErrs, field.InternalError(cpath.Child("expression"), err))
 			}

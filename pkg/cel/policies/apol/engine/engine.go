@@ -86,7 +86,7 @@ func (e *engine) evaluate(ctx context.Context, request map[string]any, condition
 	appendVariables(ctx, activation, pol.Variables)
 
 	log.V(4).Info("evaluating policy-level match conditions", "count", len(pol.MatchConditions))
-	matched, err := evalMatchConditions(pol.MatchConditions, activation)
+	matched, err := evalMatchConditions(ctx, pol.MatchConditions, activation)
 	if err != nil {
 		log.Error(err, "policy-level match condition error")
 		return noOpinionWithError(fmt.Sprintf("match condition error: %v", err), err), nil
@@ -101,7 +101,7 @@ func (e *engine) evaluate(ctx context.Context, request map[string]any, condition
 		ruleLog := log.WithValues("rule", rule.Name, "effect", rule.Effect)
 		ruleLog.V(4).Info("evaluating rule")
 
-		ruleMatched, err := evalMatchConditions(rule.MatchConditions, activation)
+		ruleMatched, err := evalMatchConditions(ctx, rule.MatchConditions, activation)
 		if err != nil {
 			ruleLog.Error(err, "rule match condition error")
 			return failDecision(pol.FailurePolicy, fmt.Sprintf("rule %q match condition error: %v", rule.Name, err), err), nil
@@ -182,7 +182,7 @@ func (e *engine) evaluate(ctx context.Context, request map[string]any, condition
 }
 
 // evalMatchConditions returns true if all programs evaluate to true.
-func evalMatchConditions(progs []cel.Program, activation map[string]any) (bool, error) {
+func evalMatchConditions(ctx context.Context, progs []cel.Program, activation map[string]any) (bool, error) {
 	log := engineLogger.WithValues("conditionCount", len(progs))
 	log.V(4).Info("evaluating match conditions")
 
@@ -190,7 +190,7 @@ func evalMatchConditions(progs []cel.Program, activation map[string]any) (bool, 
 		condLog := log.WithValues("index", i)
 		condLog.V(4).Info("evaluating match condition")
 
-		out, _, err := prog.Eval(activation)
+		out, _, err := prog.ContextEval(ctx, activation)
 		if err != nil {
 			condLog.Error(err, "match condition evaluation error")
 			return false, err
