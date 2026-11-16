@@ -40,14 +40,23 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
+  - name: wait for generation to complete
+    try:
+    - script:
+        timeout: 1m30s
+        content: |
+          set -eu
+          while true; do
+            update_requests=$(kubectl get updaterequests.kyverno.io -n kyverno -l generate.kyverno.io/policy-name=generate-secret -o name)
+            if [ -z "$update_requests" ]; then
+              break
+            fi
+            sleep 1
+          done
   - name: modify the downstream
     try:
     - apply:
         file: downstream-modified.yaml
-  - name: sleep
-    try:
-    - sleep:
-        duration: 5s
   - name: check that the downstream is reverted
     try:
     - assert:
