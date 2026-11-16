@@ -413,6 +413,19 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 			}
 
 			targetNs := resource.GetNamespace()
+			if targetNs == "" && (binding.Spec.ParamRef.Namespace == "") {
+				for _, param := range params {
+					unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
+					obj := &unstructured.Unstructured{Object: unstructuredMap}
+					if obj.GetNamespace() != "" {
+						err := fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
+						vapLogger.Error(err, "invalid paramRef for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+						ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Validation, err.Error(), nil, nil).WithVAPBinding(&bindings[i])
+						er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+						return er, err
+					}
+				}
+			}
 			var matchedParams runtime.Object
 			paramList := &unstructured.UnstructuredList{}
 			var matchedCount int

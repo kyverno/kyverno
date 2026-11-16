@@ -1165,3 +1165,74 @@ func Test_ProcessMAPWithoutClient_ChainedMutation(t *testing.T) {
 	patches := er.GetPatches()
 	assert.Assert(t, len(patches) > 0)
 }
+
+func Test_ProcessMAPWithoutClient_ClusterScopedTarget_NamespacedParamWithoutNamespace_Fails(t *testing.T) {
+	rawPolicy := []byte(`{
+    "apiVersion": "admissionregistration.k8s.io/v1beta1",
+    "kind": "MutatingAdmissionPolicy",
+    "metadata": {
+        "name": "cluster-target-map-policy"
+    },
+    "spec": {
+        "failurePolicy": "Fail",
+        "paramKind": {
+            "apiVersion": "v1",
+            "kind": "ConfigMap"
+        },
+        "matchConstraints": {
+            "resourceRules": [
+                {
+                    "apiGroups": [""],
+                    "apiVersions": ["v1"],
+                    "operations": ["CREATE"],
+                    "resources": ["namespaces"]
+                }
+            ]
+        },
+        "mutations": [
+            {
+                "patchType": "ApplyConfiguration",
+                "applyConfiguration": {
+                    "expression": "Object{metadata: Object.metadata{labels: {'mutated': 'true'}}}"
+                }
+            }
+        ]
+    }
+}`)
+	rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+        "name": "target-ns"
+    }
+}`)
+
+	var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, "", resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+
+	bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-cluster-target"},
+			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+				PolicyName: "cluster-target-map-policy",
+				ParamRef: &admissionregistrationv1beta1.ParamRef{
+					Name: "config-a",
+				},
+			},
+		},
+	}
+
+	cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"config-a","namespace":"tenant-1"}}`))
+	assert.NilError(t, err)
+
+	_, err = processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{cm}, gvr, a, "target-ns", false)
+	assert.ErrorContains(t, err, "can't use namespaced paramRef to match cluster-scoped resources")
+}

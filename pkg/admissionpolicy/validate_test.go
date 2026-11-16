@@ -520,6 +520,61 @@ spec:
 	assert.ErrorContains(t, err, "multiple parameter resources match paramRef without selector")
 }
 
+func Test_ProcessVAPWithoutClient_ClusterScopedTarget_NamespacedParamWithoutNamespace_Fails(t *testing.T) {
+	rawPolicy := []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: cluster-target-vap-policy
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   [""]
+        apiVersions: ["v1"]
+        operations:  ["CREATE"]
+        resources:   ["namespaces"]
+  validations:
+    - expression: "params != null"
+`)
+	policy := decodeVAP(t, rawPolicy)
+
+	rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+        "name": "target-ns"
+    }
+}`)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, "", resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+
+	bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-cluster-target"},
+			Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+				PolicyName: "cluster-target-vap-policy",
+				ParamRef: &admissionregistrationv1.ParamRef{
+					Name: "config-a",
+				},
+			},
+		},
+	}
+
+	cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"config-a","namespace":"tenant-1"}}`))
+	assert.NilError(t, err)
+
+	_, err = processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{cm}, a, "target-ns")
+	assert.ErrorContains(t, err, "can't use namespaced paramRef to match cluster-scoped resources")
+}
+
 type testNamespacedDiscovery struct {
 	dclient.IDiscovery
 	namespaced bool

@@ -367,6 +367,19 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 			}
 
 			targetNs := resource.GetNamespace()
+			if targetNs == "" && (binding.Spec.ParamRef.Namespace == "") {
+				for _, param := range params {
+					unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
+					obj := &unstructured.Unstructured{Object: unstructuredMap}
+					if obj.GetNamespace() != "" {
+						err := fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
+						mapLogger.Error(err, "invalid paramRef for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+						ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindings[i])
+						er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+						return er, err
+					}
+				}
+			}
 			var matchedParams runtime.Object
 			paramList := &unstructured.UnstructuredList{}
 			var matchedCount int
