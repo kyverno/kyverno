@@ -1093,7 +1093,8 @@ func compileGeneratingPolicies(
 	compiler := gpolcompiler.NewCompiler()
 	out := make([]gpolengine.Policy, 0, len(policies))
 	for _, pol := range policies {
-		compiled, errs := compiler.Compile(pol, celExceptions)
+		scopedExceptions := celengine.ExceptionScopeAll.Select(celExceptions, pol.GetKind(), pol.GetName(), pol.GetNamespace())
+		compiled, errs := compiler.Compile(pol, scopedExceptions)
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
 		}

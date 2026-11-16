@@ -195,7 +195,7 @@ on which namespace `metadata.namespace` below names:
 
 | `--exceptionNamespace` | Where to put the exception |
 |---|---|
-| unset (default) | nowhere — exceptions are admitted but silently ignored everywhere; set the flag first |
+| unset (default) | nowhere — exceptions are admitted but ignored at evaluation time everywhere; set the flag first. This is surfaced, not silent: a startup warning logs it, the PolicyException webhook warns on admission, and the chart refuses to render when `policyExceptions.enabled` is true and `namespace` is empty |
 | a concrete namespace, for example `kyverno` | that namespace, for both a cluster-scoped policy and a `Namespaced*Policy` |
 | `*` | the target policy's own namespace, for a `Namespaced*Policy`; any namespace, for a cluster-scoped policy |
 
