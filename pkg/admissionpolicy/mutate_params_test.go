@@ -54,11 +54,11 @@ func Test_Mutate_ClusterScopedResourceWithParamRef(t *testing.T) {
     "failurePolicy": "Fail",
     "reinvocationPolicy": "Never",
     "mutations": [{
-      "patchType": "ApplyConfiguration",
-      "applyConfiguration": {
-        "expression": "object.metadata.?labels[\"bug3\"].hasValue() ? Object{} : Object{ metadata: Object.metadata{ labels: {\"bug3\": \"repro\"}}}"
-      }
-    }]
+  "patchType": "ApplyConfiguration",
+  "applyConfiguration": {
+		"expression": "object.metadata.?labels[\"bug3\"].hasValue() ? Object{} : Object{ metadata: Object.metadata{ labels: {\"bug3\": params.data.key}}}"
+	}
+	}]
   }
 }`)
 	rawResource := []byte(`{
@@ -71,9 +71,12 @@ func Test_Mutate_ClusterScopedResourceWithParamRef(t *testing.T) {
 		name              string
 		paramRefNamespace string
 		wantErr           string
+		paramRefSelector  *metav1.LabelSelector
+		wantLabel         string
 	}{
-		{name: "paramRef.namespace set", paramRefNamespace: "default"},
+		{name: "paramRef.namespace set", paramRefNamespace: "default", wantLabel: "value"},
 		{name: "paramRef.namespace unset", paramRefNamespace: "", wantErr: "cluster-scoped"},
+		{name: "paramRef.selector matches no params", paramRefNamespace: "default", paramRefSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"does-not-match": "true"}}},
 	}
 
 	for _, tc := range tests {
@@ -90,10 +93,13 @@ func Test_Mutate_ClusterScopedResourceWithParamRef(t *testing.T) {
 						Name:                    "map-params",
 						Namespace:               tc.paramRefNamespace,
 						ParameterNotFoundAction: &allow,
+						Selector:                tc.paramRefSelector,
 					},
 				},
 			}
-
+			if tc.paramRefSelector != nil {
+				binding.Spec.ParamRef.Name = ""
+			}
 			resource, err := kubeutils.BytesToUnstructured(rawResource)
 			assert.NilError(t, err)
 			gvk := resource.GroupVersionKind()
@@ -129,7 +135,7 @@ func Test_Mutate_ClusterScopedResourceWithParamRef(t *testing.T) {
 				return
 			}
 			assert.NilError(t, err)
-			assert.Equal(t, er.PatchedResource.GetLabels()["bug3"], "repro")
+			assert.Equal(t, er.PatchedResource.GetLabels()["bug3"], tc.wantLabel)
 		})
 	}
 }

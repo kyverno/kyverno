@@ -99,6 +99,7 @@ func processMAPNoBindings(policy *admissionregistrationv1beta1.MutatingAdmission
 	return er, nil
 }
 
+// processMAPWithClient evaluates a MutatingAdmissionPolicy using live parameter resources.
 func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmissionPolicy, bindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespaceName string, namespace *corev1.Namespace, client dclient.Interface, gvr schema.GroupVersionResource, a admission.Attributes, resPath string, backgroundScan bool) (engineapi.EngineResponse, error) {
 	nsLister := NewCustomNamespaceLister(client)
 	matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
@@ -159,7 +160,9 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 				mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				return er, err
 			}
-
+			if len(params) == 0 {
+				continue
+			}
 			// a selector being present in the binding is the only case in which params will contain more than 1 entry
 			var matchedParams runtime.Object
 			if len(params) > 1 {
