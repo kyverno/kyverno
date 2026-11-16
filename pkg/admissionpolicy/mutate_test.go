@@ -1236,3 +1236,157 @@ func Test_ProcessMAPWithoutClient_ClusterScopedTarget_NamespacedParamWithoutName
 	_, err = processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{cm}, gvr, a, "target-ns", false)
 	assert.ErrorContains(t, err, "can't use namespaced paramRef to match cluster-scoped resources")
 }
+
+func Test_ProcessMAPWithoutClient_FiltersParamsByParamKind(t *testing.T) {
+	t.Run("cluster target with unrelated namespaced resource does not fail preflight", func(t *testing.T) {
+		rawPolicy := []byte(`{
+    "apiVersion": "admissionregistration.k8s.io/v1alpha1",
+    "kind": "MutatingAdmissionPolicy",
+    "metadata": {
+        "name": "cluster-target-filter-policy"
+    },
+    "spec": {
+        "failurePolicy": "Fail",
+        "paramKind": {
+            "apiVersion": "v1",
+            "kind": "ConfigMap"
+        },
+        "matchConstraints": {
+            "resourceRules": [
+                {
+                    "apiGroups": [""],
+                    "apiVersions": ["v1"],
+                    "operations": ["CREATE"],
+                    "resources": ["namespaces"]
+                }
+            ]
+        },
+        "mutations": [
+            {
+                "patchType": "ApplyConfiguration",
+                "applyConfiguration": {
+                    "expression": "Object{metadata: Object.metadata{labels: {'mutated': 'true'}}}"
+                }
+            }
+        ]
+    }
+}`)
+		rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+        "name": "target-ns"
+    }
+}`)
+
+		var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
+		err := json.Unmarshal(rawPolicy, &policy)
+		assert.NilError(t, err)
+
+		resource, err := kubeutils.BytesToUnstructured(rawResource)
+		assert.NilError(t, err)
+
+		gvk := resource.GroupVersionKind()
+		gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+		a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, "", resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+
+		bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-cluster-target"},
+				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+					PolicyName: "cluster-target-filter-policy",
+					ParamRef: &admissionregistrationv1beta1.ParamRef{
+						Name: "cluster-cm",
+					},
+				},
+			},
+		}
+
+		secret, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"secret-a","namespace":"tenant-1"}}`))
+		assert.NilError(t, err)
+		cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cluster-cm"}}`))
+		assert.NilError(t, err)
+
+		er, err := processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{secret, cm}, gvr, a, "target-ns", false)
+		assert.NilError(t, err)
+		assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	})
+
+	t.Run("same name and namespace with different kind does not cause ambiguous match", func(t *testing.T) {
+		rawPolicy := []byte(`{
+    "apiVersion": "admissionregistration.k8s.io/v1alpha1",
+    "kind": "MutatingAdmissionPolicy",
+    "metadata": {
+        "name": "map-kind-disambiguation-policy"
+    },
+    "spec": {
+        "failurePolicy": "Fail",
+        "paramKind": {
+            "apiVersion": "v1",
+            "kind": "ConfigMap"
+        },
+        "matchConstraints": {
+            "resourceRules": [
+                {
+                    "apiGroups": [""],
+                    "apiVersions": ["v1"],
+                    "operations": ["CREATE"],
+                    "resources": ["configmaps"]
+                }
+            ]
+        },
+        "mutations": [
+            {
+                "patchType": "ApplyConfiguration",
+                "applyConfiguration": {
+                    "expression": "Object{metadata: Object.metadata{labels: {'mutated': 'true'}}}"
+                }
+            }
+        ]
+    }
+}`)
+		rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "ConfigMap",
+    "metadata": {
+        "name": "target-cm",
+        "namespace": "default"
+    }
+}`)
+
+		var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
+		err := json.Unmarshal(rawPolicy, &policy)
+		assert.NilError(t, err)
+
+		resource, err := kubeutils.BytesToUnstructured(rawResource)
+		assert.NilError(t, err)
+
+		gvk := resource.GroupVersionKind()
+		gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+		a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+
+		bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-named"},
+				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+					PolicyName: "map-kind-disambiguation-policy",
+					ParamRef: &admissionregistrationv1beta1.ParamRef{
+						Name:      "shared-name",
+						Namespace: "default",
+					},
+				},
+			},
+		}
+
+		secret, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"shared-name","namespace":"default"}}`))
+		assert.NilError(t, err)
+		cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"shared-name","namespace":"default"}}`))
+		assert.NilError(t, err)
+
+		er, err := processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{secret, cm}, gvr, a, "default/ConfigMap/target-cm", false)
+		assert.NilError(t, err)
+		assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	})
+}

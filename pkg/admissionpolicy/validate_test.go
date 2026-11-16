@@ -575,6 +575,129 @@ spec:
 	assert.ErrorContains(t, err, "can't use namespaced paramRef to match cluster-scoped resources")
 }
 
+func Test_ProcessVAPWithoutClient_FiltersParamsByParamKind(t *testing.T) {
+	t.Run("cluster target with unrelated namespaced resource does not fail preflight", func(t *testing.T) {
+		rawPolicy := []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: cluster-target-filter-policy
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   [""]
+        apiVersions: ["v1"]
+        operations:  ["CREATE"]
+        resources:   ["namespaces"]
+  validations:
+    - expression: "params != null"
+`)
+		policy := decodeVAP(t, rawPolicy)
+
+		rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+        "name": "target-ns"
+    }
+}`)
+		resource, err := kubeutils.BytesToUnstructured(rawResource)
+		assert.NilError(t, err)
+
+		gvk := resource.GroupVersionKind()
+		gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+		a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, "", resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+
+		bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-cluster-target"},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName: "cluster-target-filter-policy",
+					ParamRef: &admissionregistrationv1.ParamRef{
+						Name: "cluster-cm",
+					},
+				},
+			},
+		}
+
+		// Secret has namespace "tenant-1" (different Kind), ConfigMap has no namespace (cluster-scoped).
+		secret, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"secret-a","namespace":"tenant-1"}}`))
+		assert.NilError(t, err)
+		cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cluster-cm"}}`))
+		assert.NilError(t, err)
+
+		er, err := processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{secret, cm}, a, "target-ns")
+		assert.NilError(t, err)
+		assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	})
+
+	t.Run("same name and namespace with different kind does not cause ambiguous match", func(t *testing.T) {
+		rawPolicy := []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: vap-kind-disambiguation-policy
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   [""]
+        apiVersions: ["v1"]
+        operations:  ["CREATE"]
+        resources:   ["configmaps"]
+  validations:
+    - expression: "params != null"
+`)
+		policy := decodeVAP(t, rawPolicy)
+
+		rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "ConfigMap",
+    "metadata": {
+        "name": "target-cm",
+        "namespace": "default"
+    }
+}`)
+		resource, err := kubeutils.BytesToUnstructured(rawResource)
+		assert.NilError(t, err)
+
+		gvk := resource.GroupVersionKind()
+		gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+		a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+
+		bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-named"},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName: "vap-kind-disambiguation-policy",
+					ParamRef: &admissionregistrationv1.ParamRef{
+						Name:      "shared-name",
+						Namespace: "default",
+					},
+				},
+			},
+		}
+
+		secret, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"shared-name","namespace":"default"}}`))
+		assert.NilError(t, err)
+		cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"shared-name","namespace":"default"}}`))
+		assert.NilError(t, err)
+
+		er, err := processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{secret, cm}, a, "default/ConfigMap/target-cm")
+		assert.NilError(t, err)
+		assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	})
+}
+
 type testNamespacedDiscovery struct {
 	dclient.IDiscovery
 	namespaced bool
@@ -767,8 +890,8 @@ spec:
 		assert.ErrorContains(t, err, "no params found")
 	})
 
-	t.Run("multi-binding aggregation with matched params passes admission", func(t *testing.T) {
-		paramCM := &corev1.ConfigMap{
+	t.Run("multi-binding aggregation with matched params", func(t *testing.T) {
+		allowedCM := &corev1.ConfigMap{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "v1",
 				Kind:       "ConfigMap",
@@ -781,33 +904,23 @@ spec:
 				"allowed": "true",
 			},
 		}
-
-		bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-			{
-				ObjectMeta: metav1.ObjectMeta{Name: "binding-1"},
-				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-					PolicyName: "client-test-policy",
-					ParamRef: &admissionregistrationv1.ParamRef{
-						Name:      "allowed-cm",
-						Namespace: "default",
-					},
-				},
+		disallowedCM := &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
 			},
-			{
-				ObjectMeta: metav1.ObjectMeta{Name: "binding-2"},
-				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-					PolicyName: "client-test-policy",
-					ParamRef: &admissionregistrationv1.ParamRef{
-						Name:      "allowed-cm",
-						Namespace: "default",
-					},
-				},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "disallowed-cm",
+				Namespace: "default",
+			},
+			Data: map[string]string{
+				"allowed": "false",
 			},
 		}
 
 		scheme := runtime.NewScheme()
 		_ = corev1.AddToScheme(scheme)
-		baseClient, err := dclient.NewFakeClient(scheme, gvrToListKind, ns, paramCM)
+		baseClient, err := dclient.NewFakeClient(scheme, gvrToListKind, ns, allowedCM, disallowedCM)
 		assert.NilError(t, err)
 		baseClient.SetDiscovery(&testNamespacedDiscovery{
 			IDiscovery: dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
@@ -821,13 +934,127 @@ spec:
 			kubeClient: kubefake.NewSimpleClientset(ns),
 		}
 
-		er, err := processVAPWithClient(policy, bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
-		assert.NilError(t, err)
-		assert.Equal(t, len(er.PolicyResponse.Rules), 2)
-		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-		assert.Equal(t, er.PolicyResponse.Rules[0].ValidatingAdmissionPolicyBinding().GetName(), "binding-1")
-		assert.Equal(t, er.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusPass)
-		assert.Equal(t, er.PolicyResponse.Rules[1].ValidatingAdmissionPolicyBinding().GetName(), "binding-2")
-		assert.Assert(t, er.IsSuccessful())
+		tests := []struct {
+			name          string
+			bindings      []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+			expectedRules []struct {
+				bindingName string
+				status      engineapi.RuleStatus
+			}
+			expectedSuccess bool
+		}{
+			{
+				name: "all passing bindings",
+				bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "binding-1"},
+						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+							PolicyName: "client-test-policy",
+							ParamRef: &admissionregistrationv1.ParamRef{
+								Name:      "allowed-cm",
+								Namespace: "default",
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "binding-2"},
+						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+							PolicyName: "client-test-policy",
+							ParamRef: &admissionregistrationv1.ParamRef{
+								Name:      "allowed-cm",
+								Namespace: "default",
+							},
+						},
+					},
+				},
+				expectedRules: []struct {
+					bindingName string
+					status      engineapi.RuleStatus
+				}{
+					{bindingName: "binding-1", status: engineapi.RuleStatusPass},
+					{bindingName: "binding-2", status: engineapi.RuleStatusPass},
+				},
+				expectedSuccess: true,
+			},
+			{
+				name: "mixed bindings: allowed first then disallowed",
+				bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "binding-pass"},
+						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+							PolicyName: "client-test-policy",
+							ParamRef: &admissionregistrationv1.ParamRef{
+								Name:      "allowed-cm",
+								Namespace: "default",
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "binding-fail"},
+						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+							PolicyName: "client-test-policy",
+							ParamRef: &admissionregistrationv1.ParamRef{
+								Name:      "disallowed-cm",
+								Namespace: "default",
+							},
+						},
+					},
+				},
+				expectedRules: []struct {
+					bindingName string
+					status      engineapi.RuleStatus
+				}{
+					{bindingName: "binding-pass", status: engineapi.RuleStatusPass},
+					{bindingName: "binding-fail", status: engineapi.RuleStatusFail},
+				},
+				expectedSuccess: false,
+			},
+			{
+				name: "mixed bindings: disallowed first then allowed",
+				bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "binding-fail"},
+						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+							PolicyName: "client-test-policy",
+							ParamRef: &admissionregistrationv1.ParamRef{
+								Name:      "disallowed-cm",
+								Namespace: "default",
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "binding-pass"},
+						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+							PolicyName: "client-test-policy",
+							ParamRef: &admissionregistrationv1.ParamRef{
+								Name:      "allowed-cm",
+								Namespace: "default",
+							},
+						},
+					},
+				},
+				expectedRules: []struct {
+					bindingName string
+					status      engineapi.RuleStatus
+				}{
+					{bindingName: "binding-fail", status: engineapi.RuleStatusFail},
+					{bindingName: "binding-pass", status: engineapi.RuleStatusPass},
+				},
+				expectedSuccess: false,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				er, err := processVAPWithClient(policy, tt.bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
+				assert.NilError(t, err)
+				assert.Equal(t, len(er.PolicyResponse.Rules), len(tt.expectedRules))
+				for idx, exp := range tt.expectedRules {
+					assert.Equal(t, er.PolicyResponse.Rules[idx].Status(), exp.status)
+					assert.Equal(t, er.PolicyResponse.Rules[idx].ValidatingAdmissionPolicyBinding().GetName(), exp.bindingName)
+				}
+				assert.Equal(t, er.IsSuccessful(), tt.expectedSuccess)
+			})
+		}
 	})
 }

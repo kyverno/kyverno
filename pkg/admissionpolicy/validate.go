@@ -417,6 +417,14 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 				for _, param := range params {
 					unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
 					obj := &unstructured.Unstructured{Object: unstructuredMap}
+					if policy.Spec.ParamKind != nil {
+						if policy.Spec.ParamKind.APIVersion != "" && obj.GetAPIVersion() != policy.Spec.ParamKind.APIVersion {
+							continue
+						}
+						if policy.Spec.ParamKind.Kind != "" && obj.GetKind() != policy.Spec.ParamKind.Kind {
+							continue
+						}
+					}
 					if obj.GetNamespace() != "" {
 						err := fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
 						vapLogger.Error(err, "invalid paramRef for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
@@ -433,6 +441,14 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 			for _, param := range params {
 				unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
 				obj := &unstructured.Unstructured{Object: unstructuredMap}
+				if policy.Spec.ParamKind != nil {
+					if policy.Spec.ParamKind.APIVersion != "" && obj.GetAPIVersion() != policy.Spec.ParamKind.APIVersion {
+						continue
+					}
+					if policy.Spec.ParamKind.Kind != "" && obj.GetKind() != policy.Spec.ParamKind.Kind {
+						continue
+					}
+				}
 				if matchesSelector(obj, binding.Spec.ParamRef, targetNs) {
 					matchedCount++
 					if binding.Spec.ParamRef.Selector == nil {
