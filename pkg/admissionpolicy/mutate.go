@@ -267,15 +267,18 @@ func matchesSelector(obj *unstructured.Unstructured, ref *admissionregistrationv
 	return matches
 }
 
-// mergeBindingResponse returns the response of the latest binding, with the rule responses of the
-// bindings evaluated before it, so that every binding applied to the resource is reported.
+// mergeBindingResponse adds the result of the latest binding to the accumulated response: it keeps
+// the original resource, takes the latest patched resource and appends the latest rule responses,
+// so that every binding applied to the resource is reported and the patches cover all of them.
 func mergeBindingResponse(previous, latest engineapi.EngineResponse) engineapi.EngineResponse {
 	merged := previous.PolicyResponse
 	for i := range latest.PolicyResponse.Rules {
 		rule := latest.PolicyResponse.Rules[i]
 		merged.Add(rule.Stats(), rule)
 	}
-	return latest.WithPolicyResponse(merged)
+	return previous.
+		WithPatchedResource(latest.PatchedResource).
+		WithPolicyResponse(merged)
 }
 
 // attributesForObject returns a copy of the admission attributes with the given object, so that a
