@@ -934,6 +934,22 @@ func Test_MatchesSelector_ConjunctionScoping(t *testing.T) {
 			targetNamespace: "tenant-1",
 			expected:        true,
 		},
+		{
+			name: "namespaced target rejects candidate from different namespace with empty ref namespace",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"name":      "config-a",
+						"namespace": "tenant-2",
+					},
+				},
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name: "config-a",
+			},
+			targetNamespace: "tenant-1",
+			expected:        false,
+		},
 	}
 
 	for _, tt := range tests {

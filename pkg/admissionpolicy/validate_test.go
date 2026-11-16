@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
@@ -14,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/client-go/kubernetes"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/yaml"
 )
 
@@ -515,4 +518,261 @@ spec:
 	// In offline evaluation, when multiple parameter objects match a single-param binding, an admission error must be returned.
 	_, err = processVAPWithoutClient(policy, bindings, *resource, ns, []runtime.Object{cm1, cm2}, a, "default/ConfigMap/target-cm")
 	assert.ErrorContains(t, err, "multiple parameter resources match paramRef without selector")
+}
+
+type testNamespacedDiscovery struct {
+	dclient.IDiscovery
+	namespaced bool
+}
+
+func (d *testNamespacedDiscovery) FindResources(group, version, kind, subresource string) (map[dclient.TopLevelApiDescription]metav1.APIResource, error) {
+	res, err := d.IDiscovery.FindResources(group, version, kind, subresource)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[dclient.TopLevelApiDescription]metav1.APIResource, len(res))
+	for k, v := range res {
+		v.Namespaced = d.namespaced
+		out[k] = v
+	}
+	return out, nil
+}
+
+type testClientWithKube struct {
+	dclient.Interface
+	kubeClient kubernetes.Interface
+}
+
+func (c *testClientWithKube) GetKubeClient() kubernetes.Interface {
+	if c.kubeClient != nil {
+		return c.kubeClient
+	}
+	return c.Interface.GetKubeClient()
+}
+
+func Test_ProcessVAPWithClient_Scenarios(t *testing.T) {
+	rawPolicy := []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: client-test-policy
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   [""]
+        apiVersions: ["v1"]
+        operations:  ["CREATE"]
+        resources:   ["configmaps"]
+  validations:
+    - expression: "params != null && params.data.allowed == 'true'"
+`)
+	policy := decodeVAP(t, rawPolicy)
+
+	rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "ConfigMap",
+    "metadata": {
+        "name": "target-cm",
+        "namespace": "default"
+    }
+}`)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	ns := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+	}
+
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "namespaces"}: "NamespaceList",
+		{Group: "", Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+	}
+
+	t.Run("parameter not found with allow action skips binding", func(t *testing.T) {
+		allowAction := admissionregistrationv1.AllowAction
+		bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-allow"},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName: "client-test-policy",
+					ParamRef: &admissionregistrationv1.ParamRef{
+						Name:                    "missing-cm",
+						Namespace:               "default",
+						ParameterNotFoundAction: &allowAction,
+					},
+				},
+			},
+		}
+
+		scheme := runtime.NewScheme()
+		_ = corev1.AddToScheme(scheme)
+		baseClient, err := dclient.NewFakeClient(scheme, gvrToListKind, ns)
+		assert.NilError(t, err)
+		baseClient.SetDiscovery(&testNamespacedDiscovery{
+			IDiscovery: dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
+				{Group: "", Version: "v1", Resource: "namespaces"},
+				{Group: "", Version: "v1", Resource: "configmaps"},
+			}),
+			namespaced: true,
+		})
+		client := &testClientWithKube{
+			Interface:  baseClient,
+			kubeClient: kubefake.NewSimpleClientset(ns),
+		}
+
+		er, err := processVAPWithClient(policy, bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
+		assert.NilError(t, err)
+		assert.Equal(t, len(er.PolicyResponse.Rules), 0)
+	})
+
+	t.Run("parameter not found with deny action fails admission", func(t *testing.T) {
+		denyAction := admissionregistrationv1.DenyAction
+		bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-deny-named"},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName: "client-test-policy",
+					ParamRef: &admissionregistrationv1.ParamRef{
+						Name:                    "missing-cm",
+						Namespace:               "default",
+						ParameterNotFoundAction: &denyAction,
+					},
+				},
+			},
+		}
+
+		scheme := runtime.NewScheme()
+		_ = corev1.AddToScheme(scheme)
+		baseClient, err := dclient.NewFakeClient(scheme, gvrToListKind, ns)
+		assert.NilError(t, err)
+		baseClient.SetDiscovery(&testNamespacedDiscovery{
+			IDiscovery: dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
+				{Group: "", Version: "v1", Resource: "namespaces"},
+				{Group: "", Version: "v1", Resource: "configmaps"},
+			}),
+			namespaced: true,
+		})
+		client := &testClientWithKube{
+			Interface:  baseClient,
+			kubeClient: kubefake.NewSimpleClientset(ns),
+		}
+
+		_, err = processVAPWithClient(policy, bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
+		assert.ErrorContains(t, err, "parameter resource default/missing-cm not found")
+	})
+
+	t.Run("selector matching zero params with deny action fails admission", func(t *testing.T) {
+		denyAction := admissionregistrationv1.DenyAction
+		bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-deny-selector"},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName: "client-test-policy",
+					ParamRef: &admissionregistrationv1.ParamRef{
+						Namespace: "default",
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"nonexistent": "label",
+							},
+						},
+						ParameterNotFoundAction: &denyAction,
+					},
+				},
+			},
+		}
+
+		scheme := runtime.NewScheme()
+		_ = corev1.AddToScheme(scheme)
+		baseClient, err := dclient.NewFakeClient(scheme, gvrToListKind, ns)
+		assert.NilError(t, err)
+		baseClient.SetDiscovery(&testNamespacedDiscovery{
+			IDiscovery: dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
+				{Group: "", Version: "v1", Resource: "namespaces"},
+				{Group: "", Version: "v1", Resource: "configmaps"},
+			}),
+			namespaced: true,
+		})
+		client := &testClientWithKube{
+			Interface:  baseClient,
+			kubeClient: kubefake.NewSimpleClientset(ns),
+		}
+
+		_, err = processVAPWithClient(policy, bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
+		assert.ErrorContains(t, err, "no params found")
+	})
+
+	t.Run("multi-binding aggregation with matched params passes admission", func(t *testing.T) {
+		paramCM := &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "allowed-cm",
+				Namespace: "default",
+			},
+			Data: map[string]string{
+				"allowed": "true",
+			},
+		}
+
+		bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-1"},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName: "client-test-policy",
+					ParamRef: &admissionregistrationv1.ParamRef{
+						Name:      "allowed-cm",
+						Namespace: "default",
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-2"},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName: "client-test-policy",
+					ParamRef: &admissionregistrationv1.ParamRef{
+						Name:      "allowed-cm",
+						Namespace: "default",
+					},
+				},
+			},
+		}
+
+		scheme := runtime.NewScheme()
+		_ = corev1.AddToScheme(scheme)
+		baseClient, err := dclient.NewFakeClient(scheme, gvrToListKind, ns, paramCM)
+		assert.NilError(t, err)
+		baseClient.SetDiscovery(&testNamespacedDiscovery{
+			IDiscovery: dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
+				{Group: "", Version: "v1", Resource: "namespaces"},
+				{Group: "", Version: "v1", Resource: "configmaps"},
+			}),
+			namespaced: true,
+		})
+		client := &testClientWithKube{
+			Interface:  baseClient,
+			kubeClient: kubefake.NewSimpleClientset(ns),
+		}
+
+		er, err := processVAPWithClient(policy, bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
+		assert.NilError(t, err)
+		assert.Equal(t, len(er.PolicyResponse.Rules), 2)
+		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+		assert.Equal(t, er.PolicyResponse.Rules[0].ValidatingAdmissionPolicyBinding().GetName(), "binding-1")
+		assert.Equal(t, er.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusPass)
+		assert.Equal(t, er.PolicyResponse.Rules[1].ValidatingAdmissionPolicyBinding().GetName(), "binding-2")
+		assert.Assert(t, er.IsSuccessful())
+	})
 }
