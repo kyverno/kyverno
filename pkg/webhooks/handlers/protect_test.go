@@ -1162,6 +1162,155 @@ func TestWithGenerateLabelProtection_ControllerIdentities(t *testing.T) {
 	}
 }
 
+func TestWithGenerateLabelProtection_ConfigurableCertManagerIdentities(t *testing.T) {
+	t.Parallel()
+	const (
+		defaultCertManagerUser = "system:serviceaccount:cert-manager:cert-manager-controller"
+		customCertManagerUser  = "system:serviceaccount:certificates:cert-manager"
+		untrustedUser          = "system:serviceaccount:tenant:user"
+		generatePolicy         = common.GeneratePolicyLabel
+	)
+
+	cfg := GenerateLabelProtectionConfig{
+		CertManagerUsernames: []string{customCertManagerUser},
+	}
+
+	tests := []struct {
+		name              string
+		operation         admissionv1.Operation
+		username          string
+		kind              metav1.GroupVersionKind
+		hasOwnerRef       bool
+		ownerKind         string
+		isControllerOwner bool
+		wantAllowed       bool
+	}{
+		{
+			name:              "allows CertificateRequest by configured custom cert-manager identity with controller ownerRef",
+			operation:         admissionv1.Create,
+			username:          customCertManagerUser,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       true,
+		},
+		{
+			name:              "allows Order by configured custom cert-manager identity with controller ownerRef",
+			operation:         admissionv1.Create,
+			username:          customCertManagerUser,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: true,
+			wantAllowed:       true,
+		},
+		{
+			name:              "still allows default cert-manager identity when custom identities are configured",
+			operation:         admissionv1.Create,
+			username:          defaultCertManagerUser,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       true,
+		},
+		{
+			name:        "denies CertificateRequest by custom cert-manager identity if ownerRef is missing",
+			operation:   admissionv1.Create,
+			username:    customCertManagerUser,
+			kind:        metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			hasOwnerRef: false,
+			wantAllowed: false,
+		},
+		{
+			name:              "denies CertificateRequest by custom cert-manager identity if controller flag is false",
+			operation:         admissionv1.Create,
+			username:          customCertManagerUser,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: false,
+			wantAllowed:       false,
+		},
+		{
+			name:              "denies CertificateRequest by custom cert-manager identity if owner kind is wrong",
+			operation:         admissionv1.Create,
+			username:          customCertManagerUser,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			hasOwnerRef:       true,
+			ownerKind:         "WrongKind",
+			isControllerOwner: true,
+			wantAllowed:       false,
+		},
+		{
+			name:              "denies label tampering on update even by configured custom cert-manager identity",
+			operation:         admissionv1.Update,
+			username:          customCertManagerUser,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+		},
+		{
+			name:              "denies untrusted user even with valid ownerRef structure",
+			operation:         admissionv1.Create,
+			username:          untrustedUser,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			called := false
+			inner := AdmissionHandler(func(context.Context, logr.Logger, AdmissionRequest, time.Time) AdmissionResponse {
+				called = true
+				return admissionv1.AdmissionResponse{Allowed: true}
+			})
+
+			request := AdmissionRequest{AdmissionRequest: admissionv1.AdmissionRequest{
+				UID:       types.UID("test-uid"),
+				Operation: tt.operation,
+				Kind:      tt.kind,
+				UserInfo:  authenticationv1.UserInfo{Username: tt.username},
+			}}
+
+			newLabels := map[string]string{generatePolicy: "sync-secrets"}
+			targetKind := tt.kind.Kind
+			if targetKind == "" {
+				targetKind = "ConfigMap"
+			}
+			if tt.hasOwnerRef {
+				request.Object.Raw = resourceWithLabelsAndOwnerRef(t, targetKind, newLabels, tt.ownerKind, tt.isControllerOwner)
+			} else {
+				request.Object.Raw = resourceWithLabels(t, newLabels)
+			}
+			if tt.operation == admissionv1.Update {
+				oldLabels := map[string]string{generatePolicy: "original-policy"}
+				if tt.hasOwnerRef {
+					request.OldObject.Raw = resourceWithLabelsAndOwnerRef(t, targetKind, oldLabels, tt.ownerKind, tt.isControllerOwner)
+				} else {
+					request.OldObject.Raw = resourceWithLabels(t, oldLabels)
+				}
+			}
+
+			handler := inner.WithGenerateLabelProtectionConfig(cfg)
+			response := handler(context.Background(), logr.Discard(), request, time.Now())
+			assert.Equal(t, tt.wantAllowed, response.Allowed)
+			assert.Equal(t, tt.wantAllowed, called)
+			if !tt.wantAllowed && assert.NotNil(t, response.Result) {
+				assert.Contains(t, response.Result.Message, "generate labels can only be set by Kyverno")
+			}
+		})
+	}
+}
+
 func TestWithProtection_DisabledDoesNotDecodeResources(t *testing.T) {
 	t.Parallel()
 	called := false

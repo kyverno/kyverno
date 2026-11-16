@@ -41,12 +41,25 @@ func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 	return inner.withProtection().WithTrace("PROTECT")
 }
 
+// GenerateLabelProtectionConfig configures identities for generation label protection.
+type GenerateLabelProtectionConfig struct {
+	ControllerUsernames  []string
+	CertManagerUsernames []string
+}
+
 // WithGenerateLabelProtection guards routing metadata on the dedicated generation webhook.
 func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ...string) AdmissionHandler {
+	return inner.WithGenerateLabelProtectionConfig(GenerateLabelProtectionConfig{
+		ControllerUsernames: controllerUsernames,
+	})
+}
+
+// WithGenerateLabelProtectionConfig guards routing metadata with configurable controller and cert-manager identities.
+func (inner AdmissionHandler) WithGenerateLabelProtectionConfig(cfg GenerateLabelProtectionConfig) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		// Only configured controllers may change routing metadata. Other service
 		// accounts in the installation namespace remain ordinary callers.
-		if isControllerUsername(request.UserInfo.Username, controllerUsernames) {
+		if isControllerUsername(request.UserInfo.Username, cfg.ControllerUsernames) {
 			return inner(ctx, logger, request, startTime)
 		}
 		if request.Operation != admissionv1.Create && request.Operation != admissionv1.Update {
@@ -66,7 +79,7 @@ func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ..
 		//    forged generation labels before UID registration.
 		// 2. On CREATE & UPDATE: core Endpoints and EndpointSlices managed by kube-controller-manager
 		//    (endpoints-controller and endpointslice-controller reconcile Service labels along with endpoint subsets).
-		if request.Operation == admissionv1.Create && isAllowedChildResource(request.Kind, request.UserInfo.Username, newResource.GetOwnerReferences()) {
+		if request.Operation == admissionv1.Create && isAllowedChildResource(request.Kind, request.UserInfo.Username, newResource.GetOwnerReferences(), cfg.CertManagerUsernames) {
 			return inner(ctx, logger, request, startTime)
 		}
 		if isEndpointsController(request.UserInfo.Username) &&
@@ -114,8 +127,8 @@ func isEndpointsController(username string) bool {
 	}
 }
 
-func isAllowedChildResource(kind metav1.GroupVersionKind, username string, ownerRefs []metav1.OwnerReference) bool {
-	if !isCertManagerController(username) {
+func isAllowedChildResource(kind metav1.GroupVersionKind, username string, ownerRefs []metav1.OwnerReference, certManagerUsernames []string) bool {
+	if !isCertManagerController(username, certManagerUsernames) {
 		return false
 	}
 	for _, ref := range ownerRefs {
@@ -131,12 +144,12 @@ func isAllowedChildResource(kind metav1.GroupVersionKind, username string, owner
 	return false
 }
 
-func isCertManagerController(username string) bool {
+func isCertManagerController(username string, certManagerUsernames []string) bool {
 	switch username {
 	case certManagerControllerUsername, certManagerServiceAccountUsername:
 		return true
 	default:
-		return false
+		return username != "" && slices.Contains(certManagerUsernames, username)
 	}
 }
 
