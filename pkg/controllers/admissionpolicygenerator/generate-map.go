@@ -64,6 +64,16 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 		return fmt.Errorf("failed to compute autogen configs for %s: %w", mpol.GetName(), err)
 	}
 	shouldDelete := reason != ""
+	if !shouldDelete {
+		celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
+		if err != nil {
+			return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
+		}
+		if ok, msg := admissionpolicy.CanGenerateNativeMutatingPolicy(celexceptions); !ok {
+			shouldDelete = true
+			reason = "skip generating MutatingAdmissionPolicy: " + msg
+		}
+	}
 
 	switch version {
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1:
