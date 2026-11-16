@@ -32,6 +32,9 @@ async function run({ matrix = 'full', green = [], recent = [], commits = [], prs
     },
     rest: {
       actions: {
+        // github.paginate normalizes a { total_count, workflow_runs }
+        // response so that response.data is the array of runs, and this stub
+        // stands in for that normalized page.
         listWorkflowRuns: async a => a.status === 'success'
           ? { data: green }
           : { data: { workflow_runs: recent } },
@@ -95,6 +98,11 @@ test('escapes titles so that they cannot break the table or mention people', asy
   const { outputs } = await run({ green: [wfRun(90, 40, sha('a'), 'success')], commits: [commit('b', 'a | b <x> @team & co', '@bot')] });
   assert.ok(outputs.markdown.includes('a \\| b &lt;x&gt; @&#8203;team &amp; co'));
   assert.ok(!/(^|[^;])@team/.test(outputs.markdown));
+});
+
+test('escapes backslashes so that an escaped pipe cannot end a cell', async () => {
+  const { outputs } = await run({ green: [wfRun(90, 40, sha('a'), 'success')], commits: [commit('b', 'a \\| b', 'dev')] });
+  assert.ok(outputs.markdown.includes('a \\\\\\| b'));
 });
 
 test('the same commit as the last green run gives a one-line summary', async () => {

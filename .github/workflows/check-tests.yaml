@@ -165,7 +165,10 @@ jobs:
             // Commit titles and names come from contributors: keep them from
             // breaking the table, injecting HTML, or mentioning people once
             // the list is posted to an issue.
+            // Backslashes go first: otherwise a title with `\|` would escape
+            // the added backslash and leave the pipe as a cell delimiter.
             const escapeCell = s => s
+              .replace(/\\/g, '\\\\')
               .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
               .replace(/\|/g, '\\|').replace(/@/g, '@&#8203;');
 
