@@ -36,38 +36,7 @@ runs:
       shell: bash
       env:
         RAW_APP_PRIVATE_KEY: ${{ inputs.private-key }}
-      run: |
-        set -euo pipefail
-
-        key="$RAW_APP_PRIVATE_KEY"
-        # Support secrets saved with escaped newlines.
-        key="${key//\\n/$'\n'}"
-
-        if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
-          # Support secrets saved as base64-encoded PEM.
-          decoded="$(printf '%s' "$RAW_APP_PRIVATE_KEY" | tr -d '[:space:]' | base64 --decode 2>/dev/null || true)"
-          decoded="${decoded//\\n/$'\n'}"
-          if printf '%s' "$decoded" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
-            key="$decoded"
-          fi
-        fi
-
-        if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
-          echo "The GitHub App private key does not look like a valid PEM private key." >&2
-          exit 1
-        fi
-
-        # ::add-mask:: is line-based, mask each line of the key individually.
-        while IFS= read -r line; do
-          [ -n "$line" ] && echo "::add-mask::$line"
-        done <<< "$key"
-        {
-          echo "private_key<<EOF"
-          printf '%s\n' "$key"
-          echo "EOF"
-          # github.event.repository is missing from schedule events.
-          echo "repository=${GITHUB_REPOSITORY#*/}"
-        } >> "$GITHUB_OUTPUT"
+      run: ${{ github.action_path }}/normalize-key.sh
     - name: Create the token
       id: app-token
       uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
