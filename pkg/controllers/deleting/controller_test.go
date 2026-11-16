@@ -355,10 +355,11 @@ func lastExecutionTime(t *testing.T, client *versionedfake.Clientset) time.Time 
 // A run that fails keeps the policy's schedule (#18248): reconcile returns the error, so the workqueue still
 // retries and counts it, and arms the next scheduled run. LastExecutionTime stays where it was, as the record
 // of the last run that succeeded. The next run is computed from now, not from the stale LastExecutionTime:
-// with a yearly schedule it is far away, not a requeue after minRequeueDelay.
+// with a yearly schedule it is far away, not a requeue after minRequeueDelay. The yearly slot is the first
+// day of the month six months from now, so the next run is months away whenever the test runs.
 func TestReconcile_FailedRunKeepsSchedule(t *testing.T) {
 	pol := dueConfigMapPolicy()
-	pol.Spec.Schedule = "0 0 1 1 *"
+	pol.Spec.Schedule = fmt.Sprintf("0 0 1 %d *", (int(time.Now().Month())+5)%12+1)
 	cq := &captureQueue{TypedRateLimitingInterface: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())}
 	c, kyvernoClient := reconcileController(t, pol, configMapClient(func() error { return errConnectionRefused }), cq)
 
