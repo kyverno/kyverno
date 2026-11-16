@@ -43,13 +43,27 @@ func SetScopedTokenClientTimeout(timeout time.Duration) {
 }
 
 func readScopedToken() (string, bool) {
-	b, err := os.ReadFile(scopedTokenPath)
+	return readTokenAt(scopedTokenPath)
+}
+
+// ScopedToken returns the scoped APICall token (the projected ServiceAccount
+// token carrying the custom audience) read from the configured token file. The
+// second result is false when no non-empty token is available, in which case
+// callers proceed without an Authorization header — exactly as the scoped token
+// client does. Unlike readScopedToken, the path is resolved at call time so the
+// KYVERNO_SCOPED_TOKEN_PATH override is honoured per call.
+func ScopedToken() (string, bool) {
+	return readTokenAt(getScopedTokenPath())
+}
+
+func readTokenAt(path string) (string, bool) {
+	b, err := os.ReadFile(path)
 	if err != nil {
 		scopedTokenReadWarningOnce.Do(func() {
 			if os.IsNotExist(err) {
-				klog.Warningf("optional scoped APICall token not found at %s; outbound calls will proceed without Authorization header unless explicitly provided", scopedTokenPath)
+				klog.Warningf("optional scoped APICall token not found at %s; outbound calls will proceed without Authorization header unless explicitly provided", path)
 			} else {
-				klog.Warningf("failed to read optional scoped APICall token at %s: %v", scopedTokenPath, err)
+				klog.Warningf("failed to read optional scoped APICall token at %s: %v", path, err)
 			}
 		})
 		return "", false
