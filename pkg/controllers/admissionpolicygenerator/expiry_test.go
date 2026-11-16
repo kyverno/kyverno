@@ -46,11 +46,18 @@ func (c denyResourceAuthChecker) Check(ctx context.Context, group, version, reso
 // delayRecorder records AddAfter without starting timers.
 type delayRecorder struct {
 	workqueue.TypedRateLimitingInterface[any]
-	delays map[any]time.Duration
+	delays   map[any]time.Duration
+	allCalls map[any][]time.Duration
 }
 
 func (r *delayRecorder) AddAfter(item any, delay time.Duration) {
-	r.delays[item] = delay
+	if r.delays != nil {
+		r.delays[item] = delay
+	}
+	if r.allCalls == nil {
+		r.allCalls = map[any][]time.Duration{}
+	}
+	r.allCalls[item] = append(r.allCalls[item], delay)
 }
 
 func expiringException(name, policyName, policyKind string, expiry time.Time) *policiesv1beta1.PolicyException {
@@ -136,7 +143,7 @@ func TestExpiryArmedBeforePermissionChecks(t *testing.T) {
 				c.kyvernoClient = fakeKyverno
 			}
 			c.checker = denyResourceAuthChecker{resource: tt.deny}
-			queue := &delayRecorder{delays: map[any]time.Duration{}}
+			queue := &delayRecorder{delays: map[any]time.Duration{}, allCalls: map[any][]time.Duration{}}
 			c.queue = queue
 			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			c.celpolexLister = policiesv1beta1listers.NewPolicyExceptionLister(indexer)
@@ -149,14 +156,28 @@ func TestExpiryArmedBeforePermissionChecks(t *testing.T) {
 				require.NoError(t, generate())
 				assert.NotContains(t, queue.delays, key, "ineligible policies must not schedule expiry requeues")
 			} else {
+				before := time.Now()
 				err := generate()
+				after := time.Now()
 				require.Error(t, err)
 				if tt.conflict {
 					assert.True(t, apierrors.IsConflict(err), "expected resource-version conflict error to be preserved, got %v", err)
 				} else {
 					assert.Contains(t, err.Error(), "insufficient permissions")
 				}
-				assert.Contains(t, queue.delays, key, "expiry must be armed even when permission checks fail")
+				require.Contains(t, queue.allCalls, key, "queue calls must be armed for key")
+				delays := queue.allCalls[key]
+				var hasExpiryDelay, hasPermissionRetry bool
+				for _, d := range delays {
+					if d >= deadline.Sub(after) && d <= deadline.Sub(before) {
+						hasExpiryDelay = true
+					}
+					if d == 10*time.Second {
+						hasPermissionRetry = true
+					}
+				}
+				assert.True(t, hasExpiryDelay, "expiry delay near deadline must be armed before permission checks fail, got %v", delays)
+				assert.True(t, hasPermissionRetry, "delayed retry for permission failure must be armed, got %v", delays)
 			}
 			// Confirm the permission check actually fired: nothing was created.
 			if tt.kind == "MutatingPolicy" {
@@ -657,11 +678,15 @@ func TestExpiryPermissionFailureRecoveryRemovalOfCondition(t *testing.T) {
 		polex.Spec.ExpiresAt = &metav1.Time{Time: now.Add(-time.Hour)}
 		require.NoError(t, exceptionIndexer.Update(polex))
 
-		// 3. Permission failure: RBAC is lost when timer fires
+		// 3. Permission failure: RBAC is lost when timer fires.
+		// Exhaust the worker's retry budget (maxRetries = 10) to verify delayed retry persists.
 		auth.allowed = false
-		err = c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name)
-		require.Error(t, err, "reconciliation must return an error on permission failure to retain a retry")
-		assert.Contains(t, err.Error(), "insufficient permissions")
+		for i := 0; i < maxRetries; i++ {
+			err = c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name)
+			require.Error(t, err, "reconciliation must return an error on permission failure to retain a retry")
+			assert.Contains(t, err.Error(), "insufficient permissions")
+		}
+		assert.Equal(t, 10*time.Second, queue.delays["ValidatingPolicy/"+vpol.Name], "delayed retry must persist beyond worker retry budget")
 
 		// Verify existing VAP still has the condition (not removed yet)
 		vap, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
@@ -770,11 +795,15 @@ func TestExpiryPermissionFailureRecoveryRemovalOfCondition(t *testing.T) {
 		polex.Spec.ExpiresAt = &metav1.Time{Time: now.Add(-time.Hour)}
 		require.NoError(t, exceptionIndexer.Update(polex))
 
-		// 3. Permission failure: RBAC is lost when timer fires
+		// 3. Permission failure: RBAC is lost when timer fires.
+		// Exhaust the worker's retry budget (maxRetries = 10) to verify delayed retry persists.
 		auth.allowed = false
-		err = c.reconcile(context.Background(), logr.Discard(), "MutatingPolicy/"+mpol.Name, "", mpol.Name)
-		require.Error(t, err, "reconciliation must return an error on permission failure to retain a retry")
-		assert.Contains(t, err.Error(), "insufficient permissions")
+		for i := 0; i < maxRetries; i++ {
+			err = c.reconcile(context.Background(), logr.Discard(), "MutatingPolicy/"+mpol.Name, "", mpol.Name)
+			require.Error(t, err, "reconciliation must return an error on permission failure to retain a retry")
+			assert.Contains(t, err.Error(), "insufficient permissions")
+		}
+		assert.Equal(t, 10*time.Second, queue.delays["MutatingPolicy/"+mpol.Name], "delayed retry must persist beyond worker retry budget")
 
 		// Verify existing MAP still has the condition
 		mObj, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(context.Background(), mapName, metav1.GetOptions{})
@@ -783,6 +812,221 @@ func TestExpiryPermissionFailureRecoveryRemovalOfCondition(t *testing.T) {
 
 		// 4. Recovery: RBAC permissions are restored
 		auth.allowed = true
+
+		// 5. Retried reconciliation runs and removes the expired condition
+		require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "MutatingPolicy/"+mpol.Name, "", mpol.Name))
+
+		mObj, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(context.Background(), mapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Empty(t, mObj.Spec.MatchConditions, "expired exception matchCondition must be removed after recovery")
+
+		updatedMpol, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(context.Background(), mpol.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.True(t, updatedMpol.Status.Generated)
+	})
+}
+
+// TestExpiryGenerationErrorRecoveryRemovalOfCondition verifies that when VAP/MAP update fails
+// after exception expiry, the delayed retry survives exhausting the worker's retry budget (maxRetries)
+// and that reconciliation upon error recovery successfully removes the expired condition.
+func TestExpiryGenerationErrorRecoveryRemovalOfCondition(t *testing.T) {
+	t.Run("ValidatingPolicy", func(t *testing.T) {
+		vpol := disallowPrivilegeEscalationVpol(nil)
+		vpol.Kind = "ValidatingPolicy"
+		vpol.Spec.AutogenConfiguration.PodControllers.Controllers = []string{}
+		c, kubeClient, kyvernoClient := newVAPTestController(t, vpol)
+
+		vapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		c.vapLister = admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(vapIndexer)
+		c.vapbindingLister = admissionregistrationv1listers.NewValidatingAdmissionPolicyBindingLister(bindingIndexer)
+
+		vpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		require.NoError(t, vpolIndexer.Add(vpol))
+		c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(vpolIndexer)
+
+		c.checker = permissiveAuthChecker{}
+		queue := &delayRecorder{delays: map[any]time.Duration{}}
+		c.queue = queue
+
+		exceptionIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		c.celpolexLister = policiesv1beta1listers.NewPolicyExceptionLister(exceptionIndexer)
+		c.polexEnabled = true
+		c.exceptionNamespace = "*"
+
+		vapName := "vpol-" + vpol.Name
+		vapBindingName := constructBindingName(vapName)
+
+		// 1. Initial generation: active exception expiring in 1 hour
+		now := time.Now()
+		polex := expiringException("exp-gen-err", vpol.Name, vpol.Kind, now.Add(time.Hour))
+		require.NoError(t, exceptionIndexer.Add(polex))
+
+		require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name))
+
+		vap, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, vap.Spec.MatchConditions, 2)
+
+		vap.ResourceVersion = "1"
+		require.NoError(t, vapIndexer.Update(vap))
+		binding, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.Background(), vapBindingName, metav1.GetOptions{})
+		require.NoError(t, err)
+		binding.ResourceVersion = "1"
+		require.NoError(t, bindingIndexer.Update(binding))
+
+		// 2. Expiry occurs: exception is now in the past
+		polex.Spec.ExpiresAt = &metav1.Time{Time: now.Add(-time.Hour)}
+		require.NoError(t, exceptionIndexer.Update(polex))
+
+		// 3. Generation update failure: simulate API failure when updating VAP
+		failUpdates := true
+		updateErr := errors.New("simulated VAP update failure")
+		kubeClient.PrependReactor("update", "validatingadmissionpolicies", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			if failUpdates {
+				return true, nil, updateErr
+			}
+			return false, nil, nil
+		})
+
+		// Exhaust the worker's retry budget (maxRetries = 10)
+		for i := 0; i < maxRetries; i++ {
+			err = c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name)
+			require.Error(t, err, "reconciliation must return an error on update failure")
+			assert.Contains(t, err.Error(), "simulated VAP update failure")
+		}
+		assert.Equal(t, 10*time.Second, queue.delays["ValidatingPolicy/"+vpol.Name], "delayed retry must persist beyond worker retry budget on generation update errors")
+
+		// Verify existing VAP still has the condition (update failed)
+		vap, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, vap.Spec.MatchConditions, 2)
+
+		// 4. Recovery: VAP update succeeds again
+		failUpdates = false
+
+		// 5. Retried reconciliation runs and removes the expired condition
+		require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name))
+
+		vap, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), vapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, vap.Spec.MatchConditions, 1)
+		assert.Equal(t, "check-prod-label", vap.Spec.MatchConditions[0].Name)
+
+		updatedVpol, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(context.Background(), vpol.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.True(t, updatedVpol.Status.Generated)
+	})
+
+	t.Run("MutatingPolicy", func(t *testing.T) {
+		mpol := &policiesv1beta1.MutatingPolicy{
+			TypeMeta: metav1.TypeMeta{Kind: "MutatingPolicy"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-map-gen-err-recover",
+				UID:  "test-uid",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				AutogenConfiguration: mapGenEnabled(),
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"configmaps"},
+								},
+							},
+						},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{spec: Object.spec{containers: [Object.spec.containers[0]{name: "injected"}]}}`,
+						},
+					},
+				},
+			},
+		}
+
+		kubeClient := kubefake.NewSimpleClientset()
+		kyvernoClient := versionedfake.NewSimpleClientset(mpol)
+		queue := &delayRecorder{delays: map[any]time.Duration{}}
+		exceptionIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		mapV1Indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		mapbindingV1Indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		mpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		require.NoError(t, mpolIndexer.Add(mpol))
+
+		c := &controller{
+			client:             kubeClient,
+			kyvernoClient:      kyvernoClient,
+			discoveryClient:    dclient.NewEmptyFakeClient().Discovery(),
+			eventGen:           event.NewFake(),
+			checker:            permissiveAuthChecker{},
+			queue:              queue,
+			celpolexLister:     policiesv1beta1listers.NewPolicyExceptionLister(exceptionIndexer),
+			mpolLister:         policiesv1beta1listers.NewMutatingPolicyLister(mpolIndexer),
+			mapV1Lister:        admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapV1Indexer),
+			mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(mapbindingV1Indexer),
+			polexEnabled:       true,
+			exceptionNamespace: "*",
+		}
+
+		mapName := "mpol-" + mpol.Name
+		mapBindingName := constructBindingName(mapName)
+
+		// 1. Initial generation: active exception expiring in 1 hour
+		now := time.Now()
+		polex := expiringException("exp-map-gen-err", mpol.Name, mpol.Kind, now.Add(time.Hour))
+		require.NoError(t, exceptionIndexer.Add(polex))
+
+		require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "MutatingPolicy/"+mpol.Name, "", mpol.Name))
+
+		mObj, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(context.Background(), mapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, mObj.Spec.MatchConditions, 1)
+		require.Equal(t, "exp-map-gen-err", mObj.Spec.MatchConditions[0].Name)
+
+		mObj.ResourceVersion = "1"
+		require.NoError(t, mapV1Indexer.Update(mObj))
+		bObj, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(context.Background(), mapBindingName, metav1.GetOptions{})
+		require.NoError(t, err)
+		bObj.ResourceVersion = "1"
+		require.NoError(t, mapbindingV1Indexer.Update(bObj))
+
+		// 2. Expiry occurs
+		polex.Spec.ExpiresAt = &metav1.Time{Time: now.Add(-time.Hour)}
+		require.NoError(t, exceptionIndexer.Update(polex))
+
+		// 3. Generation update failure: simulate API failure when updating MAP
+		failMapUpdates := true
+		mapUpdateErr := errors.New("simulated MAP update failure")
+		kubeClient.PrependReactor("update", "mutatingadmissionpolicies", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			if failMapUpdates {
+				return true, nil, mapUpdateErr
+			}
+			return false, nil, nil
+		})
+
+		// Exhaust the worker's retry budget (maxRetries = 10)
+		for i := 0; i < maxRetries; i++ {
+			err = c.reconcile(context.Background(), logr.Discard(), "MutatingPolicy/"+mpol.Name, "", mpol.Name)
+			require.Error(t, err, "reconciliation must return an error on update failure")
+			assert.Contains(t, err.Error(), "simulated MAP update failure")
+		}
+		assert.Equal(t, 10*time.Second, queue.delays["MutatingPolicy/"+mpol.Name], "delayed retry must persist beyond worker retry budget on generation update errors")
+
+		// Verify existing MAP still has the condition
+		mObj, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(context.Background(), mapName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, mObj.Spec.MatchConditions, 1)
+
+		// 4. Recovery: MAP update succeeds again
+		failMapUpdates = false
 
 		// 5. Retried reconciliation runs and removes the expired condition
 		require.NoError(t, c.reconcile(context.Background(), logr.Discard(), "MutatingPolicy/"+mpol.Name, "", mpol.Name))

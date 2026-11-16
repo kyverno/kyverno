@@ -17,7 +17,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.GenericPolicy) error {
+func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.GenericPolicy) (err error) {
+	defer func() {
+		if err != nil && c.queue != nil {
+			c.queue.AddAfter("ValidatingPolicy/"+policy.GetName(), 10*time.Second)
+		}
+	}()
 	pol := policy.AsValidatingPolicy()
 	wantVap := pol.GetSpec().GenerateValidatingAdmissionPolicyEnabled()
 	shouldDelete := !wantVap
@@ -73,11 +78,10 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	}
 
 	// Expiry is armed before these permission checks, which return an error so the workqueue retains a retry.
-	// When permission checks fail, also schedule a delayed retry to guarantee eventual recovery even if
-	// the workqueue's immediate retry budget is exhausted before permissions are restored.
+	// When generation or permission checks fail, also schedule a delayed retry to guarantee eventual recovery even if
+	// the workqueue's immediate retry budget is exhausted.
 	if !admissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
 		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicies")
-		c.queue.AddAfter("ValidatingPolicy/"+policy.GetName(), 10*time.Second)
 		if err := c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies"); err != nil {
 			return err
 		}
@@ -85,7 +89,6 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	}
 	if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
 		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
-		c.queue.AddAfter("ValidatingPolicy/"+policy.GetName(), 10*time.Second)
 		if err := c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings"); err != nil {
 			return err
 		}

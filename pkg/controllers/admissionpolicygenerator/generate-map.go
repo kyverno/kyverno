@@ -39,7 +39,13 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1be
 		logger.V(2).Info("No MutatingAdmissionPolicy lister available, skipping MAP generation", "policy", mpol.GetName())
 		if mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
 			genericPolicy := engineapi.NewMutatingPolicy(mpol)
-			return c.updatePolicyStatus(ctx, genericPolicy, false, "skip generating MutatingAdmissionPolicy: requested but no MutatingAdmissionPolicy API/informers are available.")
+			if err := c.updatePolicyStatus(ctx, genericPolicy, false, "skip generating MutatingAdmissionPolicy: requested but no MutatingAdmissionPolicy API/informers are available."); err != nil {
+				if c.queue != nil {
+					c.queue.AddAfter("MutatingPolicy/"+mpol.GetName(), 10*time.Second)
+				}
+				return err
+			}
+			return nil
 		}
 		return nil
 	}
@@ -47,7 +53,12 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1be
 	return c.handleMAPGenerationWithVersion(ctx, mpol, version)
 }
 
-func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, version admissionpolicy.MutatingAdmissionPolicyVersion) error {
+func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, version admissionpolicy.MutatingAdmissionPolicyVersion) (err error) {
+	defer func() {
+		if err != nil && c.queue != nil {
+			c.queue.AddAfter("MutatingPolicy/"+mpol.GetName(), 10*time.Second)
+		}
+	}()
 	genericPolicy := engineapi.NewMutatingPolicy(mpol)
 	reason, err := mapGenerationSkipReason(mpol)
 	if err != nil {
@@ -83,11 +94,10 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	}
 
 	// Expiry is armed before these permission checks, which return an error so the workqueue retains a retry.
-	// When permission checks fail, also schedule a delayed retry to guarantee eventual recovery even if
-	// the workqueue's immediate retry budget is exhausted before permissions are restored.
+	// When generation or permission checks fail, also schedule a delayed retry to guarantee eventual recovery even if
+	// the workqueue's immediate retry budget is exhausted.
 	if !admissionpolicy.HasMutatingAdmissionPolicyPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicies")
-		c.queue.AddAfter("MutatingPolicy/"+mpol.GetName(), 10*time.Second)
 		if err := c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies"); err != nil {
 			return err
 		}
@@ -95,7 +105,6 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	}
 	if !admissionpolicy.HasMutatingAdmissionPolicyBindingPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicyBindings")
-		c.queue.AddAfter("MutatingPolicy/"+mpol.GetName(), 10*time.Second)
 		if err := c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicyBindings"); err != nil {
 			return err
 		}
