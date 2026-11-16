@@ -374,7 +374,8 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 					if obj.GetNamespace() != "" {
 						err := fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
 						mapLogger.Error(err, "invalid paramRef for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-						ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindings[i])
+						bindingCopy := binding
+						ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
 						er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
 						return er, err
 					}

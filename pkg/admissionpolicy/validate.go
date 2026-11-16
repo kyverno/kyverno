@@ -420,7 +420,8 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 					if obj.GetNamespace() != "" {
 						err := fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
 						vapLogger.Error(err, "invalid paramRef for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-						ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Validation, err.Error(), nil, nil).WithVAPBinding(&bindings[i])
+						bindingCopy := binding
+						ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Validation, err.Error(), nil, nil).WithVAPBinding(&bindingCopy)
 						er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
 						return er, err
 					}
