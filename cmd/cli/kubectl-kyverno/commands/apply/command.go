@@ -1207,15 +1207,14 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 			if err != nil {
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
-			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
+			pathElems := gitPathElems(gitSourceURL.Path)
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
-			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
-			repoURL := gitSourceURL.String()
+			repoURL, policyURL := gitRepoAndPolicyURLs(gitSourceURL, pathElems)
 			var gitPathToYamls string
-			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, path)
+			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, policyURL)
 			fs := memfs.New()
 			auth := &http.BasicAuth{
 				Username: c.GitUsername,
@@ -1526,4 +1525,35 @@ func exit(out io.Writer, rc *processor.ResultCounts, warnExitCode int, warnNoPas
 		}
 	}
 	return nil
+}
+
+// gitPathElems splits a URL path into its non-empty elements, so redundant
+// leading, trailing or repeated slashes do not shift the owner and repository.
+func gitPathElems(p string) []string {
+	return strings.FieldsFunc(p, func(r rune) bool { return r == '/' })
+}
+
+// gitRepoAndPolicyURLs returns the repository URL to clone and the policy URL
+// to derive the branch and directory from. Both are built from the same
+// normalized path elements, so the repository URL is always a prefix of the
+// policy URL even when the input has redundant slashes. Only the repository
+// URL is serialized by net/url; the rest is appended as decoded elements so
+// names with non-ASCII characters are not percent-escaped. A query or
+// fragment is dropped, since it has no meaning for a git repository URL and
+// would otherwise end up in the middle of the policy URL.
+func gitRepoAndPolicyURLs(u *url.URL, pathElems []string) (string, string) {
+	repo := *u
+	repo.Path = "/" + pathElems[0] + "/" + pathElems[1]
+	repo.RawPath = ""
+	repo.RawQuery, repo.ForceQuery = "", false
+	repo.Fragment, repo.RawFragment = "", ""
+	repoURL := repo.String()
+	policyURL := repoURL
+	if len(pathElems) > 2 {
+		policyURL += "/" + strings.Join(pathElems[2:], "/")
+	}
+	if strings.HasSuffix(u.Path, "/") {
+		policyURL += "/"
+	}
+	return repoURL, policyURL
 }

@@ -7,16 +7,21 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	fatihcolor "github.com/fatih/color"
+	"github.com/go-git/go-billy/v5"
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -2904,4 +2909,171 @@ spec:
 		assert.Contains(t, output, "fail: 1")
 		assert.Contains(t, output, "warn: 0")
 	})
+}
+
+func TestApplyGitURLPathValidation(t *testing.T) {
+	invalid := []string{
+		"http://github.com",
+		"http://github.com/",
+		"http://github.com///",
+		"https://github.com/owner",
+		"https://github.com//owner",
+	}
+	for _, u := range invalid {
+		t.Run("rejects "+u, func(t *testing.T) {
+			config := &ApplyCommandConfig{
+				PolicyPaths:   []string{u},
+				ResourcePaths: []string{os.DevNull},
+			}
+			_, _, _, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+			require.ErrorContains(t, err, "invalid URL path")
+		})
+	}
+}
+
+func TestGitPathElems(t *testing.T) {
+	tests := map[string][]string{
+		"/owner/repo":     {"owner", "repo"},
+		"//owner/repo":    {"owner", "repo"},
+		"/owner//repo":    {"owner", "repo"},
+		"/owner/repo/":    {"owner", "repo"},
+		"/owner/repo/dir": {"owner", "repo", "dir"},
+		"///":             {},
+		"":                {},
+	}
+	for in, want := range tests {
+		t.Run(in, func(t *testing.T) {
+			assert.Equal(t, want, gitPathElems(in))
+		})
+	}
+}
+
+func TestGitRepoAndPolicyURLsNormalizeRedundantSlashes(t *testing.T) {
+	tests := []struct {
+		messy, clean, gitBranch string
+	}{
+		{"https://github.com//owner/repo/main", "https://github.com/owner/repo/main", ""},
+		{"https://github.com/owner//repo/main/", "https://github.com/owner/repo/main/", ""},
+		{"https://github.com//owner//repo/policies", "https://github.com/owner/repo/policies", "dev"},
+		{"https://github.com//owner/repo/policies/", "https://github.com/owner/repo/policies/", "dev"},
+		{"https://github.com/owner/repo", "https://github.com/owner/repo", ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.messy, func(t *testing.T) {
+			parse := func(raw string) (string, string) {
+				u, err := url.Parse(raw)
+				require.NoError(t, err)
+				return gitRepoAndPolicyURLs(u, gitPathElems(u.Path))
+			}
+			repo, policy := parse(tc.messy)
+			cleanRepo, cleanPolicy := parse(tc.clean)
+			assert.Equal(t, "https://github.com/owner/repo", repo)
+			assert.Equal(t, cleanRepo, repo)
+			assert.Equal(t, cleanPolicy, policy)
+
+			branch, dir := common.GetGitBranchOrPolicyPaths(tc.gitBranch, repo, policy)
+			wantBranch, wantDir := common.GetGitBranchOrPolicyPaths(tc.gitBranch, cleanRepo, cleanPolicy)
+			assert.Equal(t, wantBranch, branch)
+			assert.Equal(t, wantDir, dir)
+		})
+	}
+}
+
+func TestGitRepoAndPolicyURLsKeepNonASCIINames(t *testing.T) {
+	tests := []struct {
+		raw, gitBranch, wantBranch, wantDir string
+	}{
+		{"https://github.com/owner/repo/rélease", "", "rélease", "/"},
+		{"https://github.com//owner/repo/rélease/", "", "rélease/", "/"},
+		{"https://github.com/owner/repo/policiés", "dev", "dev", "//policiés"},
+		{"https://github.com/owner//repo/policiés/", "dev", "dev", "/policiés/"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.raw, func(t *testing.T) {
+			u, err := url.Parse(tc.raw)
+			require.NoError(t, err)
+			repo, policy := gitRepoAndPolicyURLs(u, gitPathElems(u.Path))
+			assert.Equal(t, "https://github.com/owner/repo", repo)
+			branch, dir := common.GetGitBranchOrPolicyPaths(tc.gitBranch, repo, policy)
+			assert.Equal(t, tc.wantBranch, branch)
+			assert.Equal(t, tc.wantDir, dir)
+		})
+	}
+}
+
+func TestGitRepoAndPolicyURLsDropQueryAndFragment(t *testing.T) {
+	tests := []struct {
+		raw, gitBranch, wantBranch, wantDir string
+	}{
+		{"https://github.com/owner/repo/main?ref=x", "", "main", "/"},
+		{"https://github.com/owner/repo/main#frag", "", "main", "/"},
+		{"https://github.com//owner/repo/main/?ref=x#frag", "", "main/", "/"},
+		{"https://github.com/owner/repo/policies/?x=1", "dev", "dev", "/policies/"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.raw, func(t *testing.T) {
+			u, err := url.Parse(tc.raw)
+			require.NoError(t, err)
+			repo, policy := gitRepoAndPolicyURLs(u, gitPathElems(u.Path))
+			assert.Equal(t, "https://github.com/owner/repo", repo)
+			branch, dir := common.GetGitBranchOrPolicyPaths(tc.gitBranch, repo, policy)
+			assert.Equal(t, tc.wantBranch, branch)
+			assert.Equal(t, tc.wantDir, dir)
+		})
+	}
+}
+
+// The loader must derive the branch and directory from the same normalized URL
+// it clones, so this goes through loadPolicies with a stub cloner.
+func TestApplyGitURLLoaderUsesNormalizedURL(t *testing.T) {
+	const policyYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: test
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  validations:
+  - expression: "true"
+`
+	tests := []struct {
+		name, url, gitBranch string
+		wantBranch, file     string
+	}{
+		{"branch only", "https://github.com//owner/repo/main", "", "main", "policy.yaml"},
+		{"directory with git-branch", "https://github.com//owner/repo/policies/", "dev", "dev", "policies/policy.yaml"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotURL, gotBranch string
+			config := &ApplyCommandConfig{
+				PolicyPaths:   []string{tc.url},
+				ResourcePaths: []string{os.DevNull},
+				GitBranch:     tc.gitBranch,
+				Cloner: func(path string, fs billy.Filesystem, branch string, _ http.BasicAuth) (*git.Repository, error) {
+					gotURL, gotBranch = path, branch
+					if err := fs.MkdirAll(filepath.Dir(tc.file), 0o755); err != nil {
+						return nil, err
+					}
+					f, err := fs.Create(tc.file)
+					if err != nil {
+						return nil, err
+					}
+					defer f.Close()
+					_, err = f.Write([]byte(policyYAML))
+					return nil, err
+				},
+			}
+			_, _, _, _, _, vps, _, _, _, _, _, _, err := config.loadPolicies(context.Background(), io.Discard)
+			require.NoError(t, err)
+			assert.Equal(t, "https://github.com/owner/repo", gotURL)
+			assert.Equal(t, tc.wantBranch, gotBranch)
+			assert.Len(t, vps, 1, "the policy from the cloned repository must be loaded")
+		})
+	}
 }
