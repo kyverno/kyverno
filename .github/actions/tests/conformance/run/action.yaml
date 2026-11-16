@@ -174,6 +174,33 @@ runs:
         name: release-conformance-${{ github.job }}-${{ inputs.k8s-version }}-${{ strategy.job-index }}-${{ github.run_attempt }}
         path: conformance-results
         retention-days: 90
+    # Routine runs keep the report of every job for a week, pass or fail. The
+    # summarize job of the Tests workflow groups them by test, and needs the
+    # passing versions to tell a test that fails everywhere from a flaky one.
+    # Chainsaw writes one report format per run, so the script builds the JUnit
+    # report from the JSON one. A problem with a report must not fail the job.
+    - name: Prepare test report
+      if: always() && env.RELEASE_CANDIDATE != 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        REPORT_JOB: ${{ github.job }}
+        REPORT_JOB_ID: ${{ job.check_run_id }}
+        REPORT_JOB_INDEX: ${{ strategy.job-index }}
+        REPORT_K8S_VERSION: ${{ inputs.k8s-version }}
+        REPORT_TESTS_PATH: ${{ inputs.tests-path }}
+        REPORT_SHARD_INDEX: ${{ inputs.shard-index }}
+        REPORT_SHARD_COUNT: ${{ inputs.shard-count }}
+      run: |
+        python3 "$GITHUB_ACTION_PATH/conformance_report.py" prepare "$GITHUB_WORKSPACE/conformance-results"
+    - name: Upload test report
+      if: always() && env.RELEASE_CANDIDATE != 'true'
+      continue-on-error: true
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: conformance-report-${{ github.job }}-${{ inputs.k8s-version }}-${{ strategy.job-index }}-${{ github.run_attempt }}
+        path: conformance-results
+        retention-days: 7
     # debug
     - name: Debug failure
       if: failure()

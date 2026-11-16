@@ -52,6 +52,8 @@ jobs:
       - run: python3 -m pip install -r scripts/release/requirements.txt
       - name: Version, artifact, workflow gate and interrupted-retry regressions
         run: python3 -m unittest discover -s scripts/release -p 'test_*.py' -v
+      - name: Conformance report script
+        run: python3 -B -m unittest discover -s .github/actions/tests/conformance/run -p 'test_*.py' -v
       - uses: ./.github/actions/tools/yq
       - name: Conformance quarantine script
         run: .github/actions/tests/conformance/run/quarantine_test.sh

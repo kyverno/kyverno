@@ -122,6 +122,53 @@ jobs:
       - name: Check performance regression
         run: make check-perf
 
+  # Groups the chainsaw reports of all conformance jobs by test. One broken
+  # test fails on every Kubernetes version, so it is one row here instead of
+  # one red job per version. Informational only: sync-issue doesn't wait for
+  # it, and continue-on-error keeps a failure here from failing the run.
+  # It waits for every job it reports, not only the conformance jobs: a job
+  # that is still running has no result yet and would be missing from the
+  # list of failed jobs. always() runs it when one of them failed or was
+  # skipped, for example the conformance jobs after a failed build.
+  summarize:
+    name: Conformance summary
+    if: always()
+    needs:
+      - images
+      - cli
+      - conformance-tests
+      - conformance-policy-library-tests
+      - k6-tests
+      - perf
+    continue-on-error: true
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      # actions: the job lists the jobs of this run to link each failure to its log
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/tests/conformance/run
+      # Each conformance job uploads its report once per attempt. A re-run
+      # keeps the reports of the earlier attempt, and the script uses the
+      # latest report of each job. No report matches when the build failed.
+      - name: Download test reports
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: conformance-report-*
+          path: conformance-reports
+      - name: Summarize
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPORTS_DOWNLOAD: ${{ steps.download.outcome }}
+        run: python3 .github/actions/tests/conformance/run/conformance_report.py summarize conformance-reports
+
   # Lists the commits this run tests for the first time: those since the last
   # green run on this branch that covers this matrix. When the run fails, the
   # suspects are in this range. Informational only, so sync-issue doesn't
