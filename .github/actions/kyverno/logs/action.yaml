@@ -1,10 +1,48 @@
 name: Kyverno logs
 
-description: Show kyverno pods logs
+description: Show kyverno pods logs, and upload a diagnostics artifact when a suite is given
+
+inputs:
+  suite:
+    description: >-
+      Test suite the job ran. When set, a diagnostics-<suite>-<k8s-version>
+      artifact is uploaded. When empty, the logs are only printed.
+    default: ''
+  k8s-version:
+    description: Kubernetes version, used in the artifact name
+    default: ''
 
 runs:
   using: composite
   steps:
+    # The kind cluster is gone once the job ends, so save what the job log doesn't show.
+    # These two steps come first and never fail, so a step below that fails or hangs
+    # can't lose the artifact. They must not add an error to the log either: the
+    # failure issue quotes the log up to the last error, which should stay the test's.
+    - name: Collect diagnostics
+      id: diagnostics
+      if: inputs.suite != ''
+      shell: bash
+      env:
+        SUITE: ${{ inputs.suite }}
+        K8S_VERSION: ${{ inputs.k8s-version }}
+        JOB_INDEX: ${{ strategy.job-index }}
+      run: |
+        # Suite paths contain slashes, which artifact names can't. The job, its index in
+        # the matrix and the run attempt keep the name unique within a workflow run.
+        name=$(printf '%s' "diagnostics-$SUITE-$K8S_VERSION-$GITHUB_JOB-$JOB_INDEX-$GITHUB_RUN_ATTEMPT" | tr -cs 'A-Za-z0-9._' '-')
+        echo "name=$name" >> "$GITHUB_OUTPUT"
+        echo "path=$RUNNER_TEMP/$name" >> "$GITHUB_OUTPUT"
+        "$GITHUB_ACTION_PATH/diagnostics.sh" "$RUNNER_TEMP/$name" || echo "::warning::Could not collect diagnostics"
+    - name: Upload diagnostics
+      if: inputs.suite != ''
+      continue-on-error: true
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ steps.diagnostics.outputs.name }}
+        path: ${{ steps.diagnostics.outputs.path }}
+        retention-days: 7
+        if-no-files-found: ignore
     - shell: bash
       run: |
         set -e

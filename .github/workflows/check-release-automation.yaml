@@ -12,6 +12,7 @@ on:
       - .github/actions/release/**
       - .github/actions/tools/helm/**
       - .github/actions/tests/conformance/**
+      - .github/actions/kyverno/logs/**
       - scripts/release/**
       - config/releases.yaml
       - charts/kyverno/Chart.lock
@@ -55,6 +56,8 @@ jobs:
       - uses: ./.github/actions/tools/yq
       - name: Conformance quarantine script
         run: .github/actions/tests/conformance/run/quarantine_test.sh
+      - name: Diagnostics collection script
+        run: .github/actions/kyverno/logs/diagnostics_test.sh
       - uses: ./.github/actions/go/setup
       - name: Validate workflow syntax and cross-workflow contracts
         run: |
