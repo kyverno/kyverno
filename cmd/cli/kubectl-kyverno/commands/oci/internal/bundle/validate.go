@@ -5,7 +5,11 @@ import (
 	"strings"
 	"time"
 
+	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
+	authzcompiler "github.com/kyverno/kyverno-authz/pkg/engine/compiler"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -18,6 +22,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/dynamic"
 )
 
 // nativeAdmissionKinds are the admissionregistration.k8s.io kinds validateResults rejects with
@@ -238,6 +243,7 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 			return fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
 		}
 	}
+	envoyCompiler := authzcompiler.NewCompiler[dynamic.Interface, *authv3.CheckRequest, *authv3.CheckResponse](nil)
 	for _, pol := range results.EnvoyPolicies {
 		if err := checkResource(pol); err != nil {
 			return err
@@ -248,10 +254,12 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 				return err
 			}
 		}
-		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
+		vpolObj := &policiesv1.ValidatingPolicy{TypeMeta: pol.TypeMeta, ObjectMeta: pol.ObjectMeta, Spec: pol.Spec}
+		if _, errs := envoyCompiler.Compile(vpolObj, nil); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in EnvoyPolicy %q: %v", pol.GetName(), errs.ToAggregate())
 		}
 	}
+	httpCompiler := authzcompiler.NewCompiler[dynamic.Interface, *authzhttp.CheckRequest, *authzhttp.CheckResponse](nil)
 	for _, pol := range results.HTTPPolicies {
 		if err := checkResource(pol); err != nil {
 			return err
@@ -262,7 +270,8 @@ func validateResults(results *policy.LoaderResults, strict bool, opts Options) e
 				return err
 			}
 		}
-		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
+		vpolObj := &policiesv1.ValidatingPolicy{TypeMeta: pol.TypeMeta, ObjectMeta: pol.ObjectMeta, Spec: pol.Spec}
+		if _, errs := httpCompiler.Compile(vpolObj, nil); len(errs) > 0 {
 			return fmt.Errorf("validating CEL expression in HTTPPolicy %q: %v", pol.GetName(), errs.ToAggregate())
 		}
 	}
