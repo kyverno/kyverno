@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
@@ -82,8 +83,11 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	}
 
 	// Expiry is armed before these permission checks, which return an error so the workqueue retains a retry.
+	// When permission checks fail, also schedule a delayed retry to guarantee eventual recovery even if
+	// the workqueue's immediate retry budget is exhausted before permissions are restored.
 	if !admissionpolicy.HasMutatingAdmissionPolicyPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicies")
+		c.queue.AddAfter("MutatingPolicy/"+mpol.GetName(), 10*time.Second)
 		if err := c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies"); err != nil {
 			return err
 		}
@@ -91,6 +95,7 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	}
 	if !admissionpolicy.HasMutatingAdmissionPolicyBindingPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicyBindings")
+		c.queue.AddAfter("MutatingPolicy/"+mpol.GetName(), 10*time.Second)
 		if err := c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicyBindings"); err != nil {
 			return err
 		}

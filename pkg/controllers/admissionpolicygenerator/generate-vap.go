@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
@@ -72,8 +73,11 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	}
 
 	// Expiry is armed before these permission checks, which return an error so the workqueue retains a retry.
+	// When permission checks fail, also schedule a delayed retry to guarantee eventual recovery even if
+	// the workqueue's immediate retry budget is exhausted before permissions are restored.
 	if !admissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
 		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicies")
+		c.queue.AddAfter("ValidatingPolicy/"+policy.GetName(), 10*time.Second)
 		if err := c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies"); err != nil {
 			return err
 		}
@@ -81,6 +85,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	}
 	if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
 		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
+		c.queue.AddAfter("ValidatingPolicy/"+policy.GetName(), 10*time.Second)
 		if err := c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings"); err != nil {
 			return err
 		}

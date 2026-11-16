@@ -3,6 +3,8 @@ package admissionpolicygenerator
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,7 +25,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubefake "k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
@@ -62,14 +67,16 @@ func expiringException(name, policyName, policyKind string, expiry time.Time) *p
 // TestExpiryArmedBeforePermissionChecks covers permission check failures, which return an error
 // to retain a retry, and policies that generate nothing, which must not be woken at expiry.
 func TestExpiryArmedBeforePermissionChecks(t *testing.T) {
-	type testCase struct{ kind, version, deny, ineligible string }
+	type testCase struct{ kind, version, deny, ineligible string; conflict bool }
 	var tests []testCase
 	for _, deny := range []string{"validatingadmissionpolicies", "validatingadmissionpolicybindings"} {
 		tests = append(tests, testCase{kind: "ValidatingPolicy", deny: deny})
+		tests = append(tests, testCase{kind: "ValidatingPolicy", deny: deny, conflict: true})
 	}
 	for _, version := range []string{"v1", "v1beta1", "v1alpha1"} {
 		for _, deny := range []string{"mutatingadmissionpolicies", "mutatingadmissionpolicybindings"} {
 			tests = append(tests, testCase{kind: "MutatingPolicy", version: version, deny: deny})
+			tests = append(tests, testCase{kind: "MutatingPolicy", version: version, deny: deny, conflict: true})
 		}
 	}
 	for _, ineligible := range []string{"disabled", "autogen"} {
@@ -79,7 +86,8 @@ func TestExpiryArmedBeforePermissionChecks(t *testing.T) {
 		tests = append(tests, testCase{kind: "MutatingPolicy", version: "v1", deny: "mutatingadmissionpolicies", ineligible: ineligible})
 	}
 	for _, tt := range tests {
-		t.Run(tt.kind+"/"+tt.version+"/"+tt.deny+"/"+tt.ineligible, func(t *testing.T) {
+		testName := fmt.Sprintf("%s/%s/%s/%s/conflict=%t", tt.kind, tt.version, tt.deny, tt.ineligible, tt.conflict)
+		t.Run(testName, func(t *testing.T) {
 			vpol := disallowPrivilegeEscalationVpol(nil)
 			vpol.Kind = "ValidatingPolicy"
 			if tt.ineligible != "autogen" {
@@ -108,10 +116,21 @@ func TestExpiryArmedBeforePermissionChecks(t *testing.T) {
 				}
 				name = mpol.Name
 				c.kyvernoClient = versionedfake.NewSimpleClientset(mpol)
-				version := admissionpolicy.MutatingAdmissionPolicyVersion(tt.version)
+				version :=  admissionpolicy.MutatingAdmissionPolicyVersion(tt.version)
 				generate = func() error {
 					return c.handleMAPGenerationWithVersion(context.Background(), mpol, version)
 				}
+			}
+			if tt.conflict {
+				fakeKyverno := versionedfake.NewSimpleClientset()
+				conflictErr := apierrors.NewConflict(schema.GroupResource{Group: "policies.kyverno.io", Resource: strings.ToLower(tt.kind) + "s"}, name, errors.New("conflict"))
+				fakeKyverno.PrependReactor("update", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					if action.GetSubresource() == "status" {
+						return true, nil, conflictErr
+					}
+					return false, nil, nil
+				})
+				c.kyvernoClient = fakeKyverno
 			}
 			c.checker = denyResourceAuthChecker{resource: tt.deny}
 			queue := &delayRecorder{delays: map[any]time.Duration{}}
@@ -129,7 +148,11 @@ func TestExpiryArmedBeforePermissionChecks(t *testing.T) {
 			} else {
 				err := generate()
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "insufficient permissions")
+				if tt.conflict {
+					assert.True(t, apierrors.IsConflict(err), "expected resource-version conflict error to be preserved, got %v", err)
+				} else {
+					assert.Contains(t, err.Error(), "insufficient permissions")
+				}
 				assert.Contains(t, queue.delays, key, "expiry must be armed even when permission checks fail")
 			}
 			// Confirm the permission check actually fired: nothing was created.
