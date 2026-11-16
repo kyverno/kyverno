@@ -176,3 +176,79 @@ func Test_Mutate_BindingsCompose(t *testing.T) {
 		}
 	}
 }
+
+// namespacedDiscovery reports every resource as namespaced: the shared fake discovery client returns
+// empty API resources, which makes namespaced kinds such as ConfigMaps look cluster-scoped.
+type namespacedDiscovery struct {
+	dclient.IDiscovery
+}
+
+func (d namespacedDiscovery) FindResources(group, version, kind, subresource string) (map[dclient.TopLevelApiDescription]metav1.APIResource, error) {
+	resources, err := d.IDiscovery.FindResources(group, version, kind, subresource)
+	for description, resource := range resources {
+		resource.Namespaced = true
+		resources[description] = resource
+	}
+	return resources, err
+}
+
+func incrementParam(name, increment string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": name, "namespace": "default"},
+		"data":       map[string]any{"increment": increment},
+	}}
+}
+
+// Test_Mutate_ParameterizedBindingsCompose checks composition through the parameterized branches:
+// each binding selects its own param by name, and the second binding sees the first one's result.
+func Test_Mutate_ParameterizedBindingsCompose(t *testing.T) {
+	t.Parallel()
+	for _, withClient := range []bool{false, true} {
+		name := "without client"
+		if withClient {
+			name = "with client"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			policy := incrementReplicasPolicy(t)
+			policy.Spec.ParamKind = &admissionregistrationv1beta1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"}
+			policy.Spec.Mutations[0].ApplyConfiguration.Expression = "Object{ spec: Object.spec{ replicas: object.spec.replicas + int(params.data.increment) } }"
+
+			params := []*unstructured.Unstructured{incrementParam("inc-1", "1"), incrementParam("inc-2", "2")}
+			data := engineapi.NewMutatingAdmissionPolicyData(policy)
+			for _, param := range params {
+				binding := newBinding("binding-" + param.GetName())
+				binding.Spec.ParamRef = &admissionregistrationv1beta1.ParamRef{Name: param.GetName(), Namespace: "default"}
+				data.AddBinding(binding)
+				data.AddParam(param)
+			}
+
+			resource, err := kubeutils.BytesToUnstructured([]byte(oneReplicaDeployment))
+			assert.NilError(t, err)
+
+			var client dclient.Interface
+			if withClient {
+				kube := kubefake.NewSimpleClientset(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}})
+				dyn := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+					runtime.NewScheme(),
+					map[schema.GroupVersionResource]string{{Version: "v1", Resource: "configmaps"}: "ConfigMapList"},
+					params[0], params[1],
+				)
+				client = dclient.NewFakeClientWithDisco(dyn, kube, namespacedDiscovery{dclient.NewFakeDiscoveryClient(nil)})
+			}
+			resp, err := Mutate(data, *resource, resource.GroupVersionKind(), deploymentsGVR, map[string]map[string]string{}, client, nil, !withClient, false)
+			assert.NilError(t, err)
+
+			// 1 + 1 (inc-1) + 2 (inc-2)
+			assert.Equal(t, replicasOf(t, resp.PatchedResource), int64(4))
+			assert.Equal(t, replicasOf(t, resp.Resource), int64(1))
+			assert.Equal(t, len(resp.PolicyResponse.Rules), 2)
+			for _, rule := range resp.PolicyResponse.Rules {
+				assert.Equal(t, rule.Status(), engineapi.RuleStatusPass)
+			}
+			assert.Equal(t, resp.PolicyResponse.RulesAppliedCount(), 2)
+		})
+	}
+}
