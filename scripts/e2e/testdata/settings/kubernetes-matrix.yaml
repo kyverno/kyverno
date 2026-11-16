@@ -12,4 +12,10 @@ jobs:
               {"version": "v1.35.2", "image": "kindest/node:v1.35.2@sha256:bbbb", "mutatingAdmissionPolicy": "v1beta1"},
               {"version": "v1.36.3", "image": "kindest/node:v1.36.3@sha256:cccc", "mutatingAdmissionPolicy": "v1"}
             ]
-        run: echo
+        run: |
+          {
+            echo "versions=$(jq -c 'map(.version)' <<< "$NODES")"
+            echo "beta-versions=$(jq -c 'map(select(.mutatingAdmissionPolicy == "v1beta1") | .version)' <<< "$NODES")"
+            echo "stable-versions=$(jq -c 'map(select(.mutatingAdmissionPolicy == "v1") | .version)' <<< "$NODES")"
+            echo "smoke-versions=$(jq -c '[last.version]' <<< "$NODES")"
+          } >> "$GITHUB_OUTPUT"

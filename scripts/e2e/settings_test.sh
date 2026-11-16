@@ -73,6 +73,11 @@ expect "untested version runs with a warning" \
 # Certificate jobs: one suite per key-algorithm entry.
 expect "certificate matrix expansion" "--set certManager.algorithm=ECDSA --set certManager.size=256" \
   "$(fixture tls/ecdsa-cert-manager '' explicit-install-settings)"
+expect "smoke suite defaults to the smoke version" "v1.36.3" "$(fixture tls/rsa-cert-manager '' k8s-version)"
+expect "smoke suite warns on a version outside smoke-versions" \
+  "settings.sh: CI doesn't run tls/rsa-cert-manager on v1.34.1; running it anyway." \
+  "$(fixture tls/rsa-cert-manager 1.34 2>&1 > /dev/null)"
+expect "smoke suite has no warning on the smoke version" "" "$(fixture tls/rsa-cert-manager 1.36 2>&1 > /dev/null)"
 expect "certificate install" "true certs" \
   "$(fixture tls/rsa-cert-manager '' install-cert-manager) $(fixture tls/rsa-cert-manager '' job)"
 

@@ -71,12 +71,23 @@ defaults="$(yq -o=json '.inputs' "$action" | jq -c 'map_values(.default // "")')
 nodes="$(yq '.jobs.matrix.steps[] | select(.id == "matrix") | .env.NODES' "$matrix")"
 kind_version="$(yq '.jobs.matrix.steps[] | select(.id == "matrix") | .env.KIND_VERSION' "$matrix")"
 
-# The versions the job tests, from the matrix output it uses.
-case "$(jq -r '.versions' <<< "$job")" in
-  *beta-versions*) tested="$(jq -c 'map(select(.mutatingAdmissionPolicy == "v1beta1"))' <<< "$nodes")" ;;
-  *stable-versions*) tested="$(jq -c 'map(select(.mutatingAdmissionPolicy == "v1"))' <<< "$nodes")" ;;
-  *) tested="$nodes" ;;
-esac
+# The versions the job tests: the matrix output that its k8s-version uses,
+# computed with the same jq filter as kubernetes-matrix.yaml. A job that
+# picks between versions and smoke-versions, such as the certificate jobs,
+# uses smoke-versions outside release-candidate runs.
+expression="$(jq -r '.versions // ""' <<< "$job")"
+output=versions
+for name in smoke-versions beta-versions stable-versions; do
+  if [[ "$expression" == *"outputs.$name"* ]]; then
+    output="$name"
+    break
+  fi
+done
+script="$(yq '.jobs.matrix.steps[] | select(.id == "matrix") | .run' "$matrix")"
+filter="$(sed -n "s/.*echo \"$output=\$(jq -c '\(.*\)' <<< \"\$NODES\")\".*/\1/p" <<< "$script")"
+[ -n "$filter" ] || fail "can't find how $matrix computes $output"
+tested="$(jq -c --argjson versions "$(jq -c "$filter" <<< "$nodes")" \
+  'map(select(.version as $v | $versions | index($v)))' <<< "$nodes")"
 
 if [ -z "$k8s" ]; then
   node="$(jq -c 'last' <<< "$tested")"

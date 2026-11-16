@@ -48,7 +48,7 @@ jobs:
   certs:
     strategy:
       matrix:
-        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.smoke-versions) }}
+        k8s-version: ${{ fromJSON(inputs.release-candidate && needs.kubernetes-matrix.outputs.versions || needs.kubernetes-matrix.outputs.smoke-versions) }}
         key-algorithm:
           - name: rsa
             test-dir: rsa-cert-manager
