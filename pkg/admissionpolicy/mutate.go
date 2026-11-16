@@ -102,6 +102,10 @@ func processMAPNoBindings(policy *admissionregistrationv1beta1.MutatingAdmission
 	return er, nil
 }
 
+func isFailurePolicyFailMAP(policy *admissionregistrationv1beta1.MutatingAdmissionPolicy) bool {
+	return policy.Spec.FailurePolicy == nil || *policy.Spec.FailurePolicy == admissionregistrationv1beta1.Fail
+}
+
 func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmissionPolicy, bindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespaceName string, namespace *corev1.Namespace, client dclient.Interface, gvr schema.GroupVersionResource, a admission.Attributes, resPath string, backgroundScan bool) (engineapi.EngineResponse, error) {
 	nsLister := NewCustomNamespaceLister(client)
 	matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
@@ -195,8 +199,15 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 			params, err := CollectParams(ctx, adapters.Client(client), convertParamKind(policy.Spec.ParamKind), convertParamRef(binding.Spec.ParamRef), nsName)
 			cancel()
 			if err != nil {
+				if !isFailurePolicyFailMAP(policy) {
+					mapLogger.V(2).Info("ignoring parameter collection error due to failurePolicy: Ignore", "policy", policy.GetName(), "binding", binding.GetName())
+					continue
+				}
 				mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-				return er, err
+				bindingCopy := binding
+				ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
+				er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+				continue
 			}
 
 			if len(params) == 0 {
@@ -207,21 +218,31 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 				if notFoundAction == admissionregistrationv1beta1.AllowAction {
 					continue
 				}
+				if !isFailurePolicyFailMAP(policy) {
+					mapLogger.V(2).Info("ignoring missing parameter resource due to failurePolicy: Ignore", "policy", policy.GetName(), "binding", binding.GetName())
+					continue
+				}
 				err := fmt.Errorf("no params found for policy %s, binding %s", policy.GetName(), binding.GetName())
 				mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-				ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindings[i])
+				bindingCopy := binding
+				ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
 				er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
-				return er, err
+				continue
 			}
 
 			var matchedParams runtime.Object
 			if len(params) > 1 {
 				if binding.Spec.ParamRef.Selector == nil {
+					if !isFailurePolicyFailMAP(policy) {
+						mapLogger.V(2).Info("ignoring parameter resolution error due to failurePolicy: Ignore", "policy", policy.GetName(), "binding", binding.GetName())
+						continue
+					}
 					err := fmt.Errorf("multiple parameter resources match paramRef without selector for policy %s, binding %s", policy.GetName(), binding.GetName())
 					mapLogger.Error(err, "failed to collect params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindings[i])
+					bindingCopy := binding
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
 					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
-					return er, err
+					continue
 				}
 				paramList := &unstructured.UnstructuredList{}
 				for _, p := range params {
@@ -368,6 +389,7 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 
 			targetNs := resource.GetNamespace()
 			if targetNs == "" && (binding.Spec.ParamRef.Namespace == "") {
+				hasInvalidParam := false
 				for _, param := range params {
 					unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
 					obj := &unstructured.Unstructured{Object: unstructuredMap}
@@ -380,13 +402,21 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 						}
 					}
 					if obj.GetNamespace() != "" {
-						err := fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
-						mapLogger.Error(err, "invalid paramRef for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-						bindingCopy := binding
-						ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
-						er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
-						return er, err
+						hasInvalidParam = true
+						break
 					}
+				}
+				if hasInvalidParam {
+					if !isFailurePolicyFailMAP(policy) {
+						mapLogger.V(2).Info("ignoring parameter resolution error due to failurePolicy: Ignore", "policy", policy.GetName(), "binding", binding.GetName())
+						continue
+					}
+					err := fmt.Errorf("can't use namespaced paramRef to match cluster-scoped resources")
+					mapLogger.Error(err, "invalid paramRef for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+					bindingCopy := binding
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
+					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+					continue
 				}
 			}
 			var matchedParams runtime.Object
@@ -423,18 +453,28 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 					if notFoundAction == admissionregistrationv1beta1.AllowAction {
 						continue
 					}
+					if !isFailurePolicyFailMAP(policy) {
+						mapLogger.V(2).Info("ignoring parameter resolution error due to failurePolicy: Ignore", "policy", policy.GetName(), "binding", binding.GetName())
+						continue
+					}
 					err := fmt.Errorf("no parameter resources match paramRef for policy %s, binding %s", policy.GetName(), binding.GetName())
 					mapLogger.Error(err, "failed to match params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindings[i])
+					bindingCopy := binding
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
 					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
-					return er, err
+					continue
 				}
 				if matchedCount > 1 {
+					if !isFailurePolicyFailMAP(policy) {
+						mapLogger.V(2).Info("ignoring parameter resolution error due to failurePolicy: Ignore", "policy", policy.GetName(), "binding", binding.GetName())
+						continue
+					}
 					err := fmt.Errorf("multiple parameter resources match paramRef without selector for policy %s, binding %s", policy.GetName(), binding.GetName())
 					mapLogger.Error(err, "failed to match params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindings[i])
+					bindingCopy := binding
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
 					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
-					return er, err
+					continue
 				}
 			} else {
 				if len(paramList.Items) == 0 {
@@ -445,11 +485,16 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 					if notFoundAction == admissionregistrationv1beta1.AllowAction {
 						continue
 					}
+					if !isFailurePolicyFailMAP(policy) {
+						mapLogger.V(2).Info("ignoring parameter resolution error due to failurePolicy: Ignore", "policy", policy.GetName(), "binding", binding.GetName())
+						continue
+					}
 					err := fmt.Errorf("no parameter resources match selector for policy %s, binding %s", policy.GetName(), binding.GetName())
 					mapLogger.Error(err, "failed to match params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindings[i])
+					bindingCopy := binding
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
 					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
-					return er, err
+					continue
 				}
 				matchedParams = paramList
 			}

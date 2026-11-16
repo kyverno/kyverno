@@ -2,6 +2,7 @@ package admissionpolicy
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -516,8 +517,12 @@ spec:
 	assert.NilError(t, err)
 
 	// In offline evaluation, when multiple parameter objects match a single-param binding, an admission error must be returned.
-	_, err = processVAPWithoutClient(policy, bindings, *resource, ns, []runtime.Object{cm1, cm2}, a, "default/ConfigMap/target-cm")
-	assert.ErrorContains(t, err, "multiple parameter resources match paramRef without selector")
+	er, err := processVAPWithoutClient(policy, bindings, *resource, ns, []runtime.Object{cm1, cm2}, a, "default/ConfigMap/target-cm")
+	assert.NilError(t, err)
+	assert.Equal(t, er.IsSuccessful(), false)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "multiple parameter resources match paramRef without selector"))
 }
 
 func Test_ProcessVAPWithoutClient_ClusterScopedTarget_NamespacedParamWithoutNamespace_Fails(t *testing.T) {
@@ -571,17 +576,21 @@ spec:
 	cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"config-a","namespace":"tenant-1"}}`))
 	assert.NilError(t, err)
 
-	_, err = processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{cm}, a, "target-ns")
-	assert.ErrorContains(t, err, "can't use namespaced paramRef to match cluster-scoped resources")
+	er, err := processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{cm}, a, "target-ns")
+	assert.NilError(t, err)
+	assert.Equal(t, er.IsSuccessful(), false)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "can't use namespaced paramRef to match cluster-scoped resources"))
 }
 
 func Test_ProcessVAPWithoutClient_FiltersParamsByParamKind(t *testing.T) {
-	t.Run("cluster target with unrelated namespaced resource does not fail preflight", func(t *testing.T) {
+	t.Run("cluster target preflight: apiVersion filtering independent of kind", func(t *testing.T) {
 		rawPolicy := []byte(`
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
-  name: cluster-target-filter-policy
+  name: cluster-filter-policy
 spec:
   failurePolicy: Fail
   paramKind:
@@ -597,14 +606,7 @@ spec:
     - expression: "params != null"
 `)
 		policy := decodeVAP(t, rawPolicy)
-
-		rawResource := []byte(`{
-    "apiVersion": "v1",
-    "kind": "Namespace",
-    "metadata": {
-        "name": "target-ns"
-    }
-}`)
+		rawResource := []byte(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"target-ns"}}`)
 		resource, err := kubeutils.BytesToUnstructured(rawResource)
 		assert.NilError(t, err)
 
@@ -614,9 +616,9 @@ spec:
 
 		bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
 			{
-				ObjectMeta: metav1.ObjectMeta{Name: "binding-cluster-target"},
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-cluster"},
 				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-					PolicyName: "cluster-target-filter-policy",
+					PolicyName: "cluster-filter-policy",
 					ParamRef: &admissionregistrationv1.ParamRef{
 						Name: "cluster-cm",
 					},
@@ -624,24 +626,33 @@ spec:
 			},
 		}
 
-		// Secret has namespace "tenant-1" (different Kind), ConfigMap has no namespace (cluster-scoped).
-		secret, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"secret-a","namespace":"tenant-1"}}`))
+		// cmWrongVersion has same Kind ("ConfigMap"), but different apiVersion.
+		cmWrongVersion, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"custom.io/v1beta1","kind":"ConfigMap","metadata":{"name":"cluster-cm","namespace":"tenant-1"}}`))
 		assert.NilError(t, err)
-		cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cluster-cm"}}`))
+		cmRightVersion, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cluster-cm"}}`))
 		assert.NilError(t, err)
 
-		er, err := processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{secret, cm}, a, "target-ns")
+		// Case A: Wrong version present alongside valid cluster param does not fail preflight
+		er, err := processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{cmWrongVersion, cmRightVersion}, a, "target-ns")
 		assert.NilError(t, err)
+		assert.Equal(t, er.IsSuccessful(), true)
 		assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+
+		// Case B: Wrong version only cannot supply params
+		erWrong, err := processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{cmWrongVersion}, a, "target-ns")
+		assert.NilError(t, err)
+		assert.Equal(t, erWrong.IsSuccessful(), false)
+		assert.Equal(t, len(erWrong.PolicyResponse.Rules), 1)
+		assert.Equal(t, erWrong.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
 	})
 
-	t.Run("same name and namespace with different kind does not cause ambiguous match", func(t *testing.T) {
+	t.Run("parameter selection: apiVersion filtering independent of kind", func(t *testing.T) {
 		rawPolicy := []byte(`
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
-  name: vap-kind-disambiguation-policy
+  name: param-filter-policy
 spec:
   failurePolicy: Fail
   paramKind:
@@ -657,15 +668,7 @@ spec:
     - expression: "params != null"
 `)
 		policy := decodeVAP(t, rawPolicy)
-
-		rawResource := []byte(`{
-    "apiVersion": "v1",
-    "kind": "ConfigMap",
-    "metadata": {
-        "name": "target-cm",
-        "namespace": "default"
-    }
-}`)
+		rawResource := []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"target-cm","namespace":"default"}}`)
 		resource, err := kubeutils.BytesToUnstructured(rawResource)
 		assert.NilError(t, err)
 
@@ -677,7 +680,7 @@ spec:
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "binding-named"},
 				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-					PolicyName: "vap-kind-disambiguation-policy",
+					PolicyName: "param-filter-policy",
 					ParamRef: &admissionregistrationv1.ParamRef{
 						Name:      "shared-name",
 						Namespace: "default",
@@ -686,16 +689,95 @@ spec:
 			},
 		}
 
-		secret, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"shared-name","namespace":"default"}}`))
+		// cmWrongVersion has same Kind ("ConfigMap"), same name, and same namespace, but different apiVersion.
+		cmWrongVersion, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"custom.io/v1beta1","kind":"ConfigMap","metadata":{"name":"shared-name","namespace":"default"}}`))
 		assert.NilError(t, err)
-		cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"shared-name","namespace":"default"}}`))
+		cmRightVersion, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"shared-name","namespace":"default"}}`))
 		assert.NilError(t, err)
 
-		er, err := processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{secret, cm}, a, "default/ConfigMap/target-cm")
+		// Case A: Disambiguates identical kind, name, and namespace by apiVersion without ambiguous match error
+		er, err := processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{cmWrongVersion, cmRightVersion}, a, "default/ConfigMap/target-cm")
 		assert.NilError(t, err)
+		assert.Equal(t, er.IsSuccessful(), true)
 		assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+
+		// Case B: Wrong version only cannot match paramRef
+		erWrong, err := processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{cmWrongVersion}, a, "default/ConfigMap/target-cm")
+		assert.NilError(t, err)
+		assert.Equal(t, erWrong.IsSuccessful(), false)
+		assert.Equal(t, len(erWrong.PolicyResponse.Rules), 1)
+		assert.Equal(t, erWrong.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
 	})
+}
+
+func Test_ProcessVAP_FailurePolicy_Ignore_SuppressesParamResolutionErrors(t *testing.T) {
+	ignorePolicy := admissionregistrationv1.Ignore
+	denyAction := admissionregistrationv1.DenyAction
+	rawPolicy := []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: vap-ignore-policy
+spec:
+  failurePolicy: Ignore
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   [""]
+        apiVersions: ["v1"]
+        operations:  ["CREATE"]
+        resources:   ["configmaps"]
+  validations:
+    - expression: "params != null && params.data.allowed == 'true'"
+`)
+	policy := decodeVAP(t, rawPolicy)
+	policy.Spec.FailurePolicy = &ignorePolicy
+
+	rawResource := []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"target-cm","namespace":"default"}}`)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+
+	bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-missing-deny"},
+			Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+				PolicyName: "vap-ignore-policy",
+				ParamRef: &admissionregistrationv1.ParamRef{
+					Name:                    "missing-cm",
+					Namespace:               "default",
+					ParameterNotFoundAction: &denyAction,
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-allowed"},
+			Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+				PolicyName: "vap-ignore-policy",
+				ParamRef: &admissionregistrationv1.ParamRef{
+					Name:      "allowed-cm",
+					Namespace: "default",
+				},
+			},
+		},
+	}
+
+	allowedCM, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"allowed-cm","namespace":"default"},"data":{"allowed":"true"}}`))
+	assert.NilError(t, err)
+
+	er, err := processVAPWithoutClient(policy, bindings, *resource, nil, []runtime.Object{allowedCM}, a, "default/ConfigMap/target-cm")
+	assert.NilError(t, err)
+	// Binding 1's parameter error was suppressed by failurePolicy: Ignore, Binding 2 succeeded
+	assert.Equal(t, er.IsSuccessful(), true)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].ValidatingAdmissionPolicyBinding().GetName(), "binding-allowed")
 }
 
 type testNamespacedDiscovery struct {
@@ -846,8 +928,12 @@ spec:
 			kubeClient: kubefake.NewSimpleClientset(ns),
 		}
 
-		_, err = processVAPWithClient(policy, bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
-		assert.ErrorContains(t, err, "parameter resource default/missing-cm not found")
+		er, err := processVAPWithClient(policy, bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
+		assert.NilError(t, err)
+		assert.Equal(t, er.IsSuccessful(), false)
+		assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+		assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "missing-cm"))
 	})
 
 	t.Run("selector matching zero params with deny action fails admission", func(t *testing.T) {
@@ -886,12 +972,16 @@ spec:
 			kubeClient: kubefake.NewSimpleClientset(ns),
 		}
 
-		_, err = processVAPWithClient(policy, bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
-		assert.ErrorContains(t, err, "no params found")
+		er, err := processVAPWithClient(policy, bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
+		assert.NilError(t, err)
+		assert.Equal(t, er.IsSuccessful(), false)
+		assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+		assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "no params found"))
 	})
 
-	t.Run("multi-binding aggregation with matched params", func(t *testing.T) {
-		allowedCM := &corev1.ConfigMap{
+	t.Run("multi-binding aggregation with matched params passes admission", func(t *testing.T) {
+		paramCM := &corev1.ConfigMap{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "v1",
 				Kind:       "ConfigMap",
@@ -904,23 +994,33 @@ spec:
 				"allowed": "true",
 			},
 		}
-		disallowedCM := &corev1.ConfigMap{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
+
+		bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-1"},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName: "client-test-policy",
+					ParamRef: &admissionregistrationv1.ParamRef{
+						Name:      "allowed-cm",
+						Namespace: "default",
+					},
+				},
 			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "disallowed-cm",
-				Namespace: "default",
-			},
-			Data: map[string]string{
-				"allowed": "false",
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-2"},
+				Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+					PolicyName: "client-test-policy",
+					ParamRef: &admissionregistrationv1.ParamRef{
+						Name:      "allowed-cm",
+						Namespace: "default",
+					},
+				},
 			},
 		}
 
 		scheme := runtime.NewScheme()
 		_ = corev1.AddToScheme(scheme)
-		baseClient, err := dclient.NewFakeClient(scheme, gvrToListKind, ns, allowedCM, disallowedCM)
+		baseClient, err := dclient.NewFakeClient(scheme, gvrToListKind, ns, paramCM)
 		assert.NilError(t, err)
 		baseClient.SetDiscovery(&testNamespacedDiscovery{
 			IDiscovery: dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
@@ -934,127 +1034,13 @@ spec:
 			kubeClient: kubefake.NewSimpleClientset(ns),
 		}
 
-		tests := []struct {
-			name          string
-			bindings      []admissionregistrationv1.ValidatingAdmissionPolicyBinding
-			expectedRules []struct {
-				bindingName string
-				status      engineapi.RuleStatus
-			}
-			expectedSuccess bool
-		}{
-			{
-				name: "all passing bindings",
-				bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-					{
-						ObjectMeta: metav1.ObjectMeta{Name: "binding-1"},
-						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-							PolicyName: "client-test-policy",
-							ParamRef: &admissionregistrationv1.ParamRef{
-								Name:      "allowed-cm",
-								Namespace: "default",
-							},
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{Name: "binding-2"},
-						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-							PolicyName: "client-test-policy",
-							ParamRef: &admissionregistrationv1.ParamRef{
-								Name:      "allowed-cm",
-								Namespace: "default",
-							},
-						},
-					},
-				},
-				expectedRules: []struct {
-					bindingName string
-					status      engineapi.RuleStatus
-				}{
-					{bindingName: "binding-1", status: engineapi.RuleStatusPass},
-					{bindingName: "binding-2", status: engineapi.RuleStatusPass},
-				},
-				expectedSuccess: true,
-			},
-			{
-				name: "mixed bindings: allowed first then disallowed",
-				bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-					{
-						ObjectMeta: metav1.ObjectMeta{Name: "binding-pass"},
-						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-							PolicyName: "client-test-policy",
-							ParamRef: &admissionregistrationv1.ParamRef{
-								Name:      "allowed-cm",
-								Namespace: "default",
-							},
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{Name: "binding-fail"},
-						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-							PolicyName: "client-test-policy",
-							ParamRef: &admissionregistrationv1.ParamRef{
-								Name:      "disallowed-cm",
-								Namespace: "default",
-							},
-						},
-					},
-				},
-				expectedRules: []struct {
-					bindingName string
-					status      engineapi.RuleStatus
-				}{
-					{bindingName: "binding-pass", status: engineapi.RuleStatusPass},
-					{bindingName: "binding-fail", status: engineapi.RuleStatusFail},
-				},
-				expectedSuccess: false,
-			},
-			{
-				name: "mixed bindings: disallowed first then allowed",
-				bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-					{
-						ObjectMeta: metav1.ObjectMeta{Name: "binding-fail"},
-						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-							PolicyName: "client-test-policy",
-							ParamRef: &admissionregistrationv1.ParamRef{
-								Name:      "disallowed-cm",
-								Namespace: "default",
-							},
-						},
-					},
-					{
-						ObjectMeta: metav1.ObjectMeta{Name: "binding-pass"},
-						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-							PolicyName: "client-test-policy",
-							ParamRef: &admissionregistrationv1.ParamRef{
-								Name:      "allowed-cm",
-								Namespace: "default",
-							},
-						},
-					},
-				},
-				expectedRules: []struct {
-					bindingName string
-					status      engineapi.RuleStatus
-				}{
-					{bindingName: "binding-fail", status: engineapi.RuleStatusFail},
-					{bindingName: "binding-pass", status: engineapi.RuleStatusPass},
-				},
-				expectedSuccess: false,
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				er, err := processVAPWithClient(policy, tt.bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
-				assert.NilError(t, err)
-				assert.Equal(t, len(er.PolicyResponse.Rules), len(tt.expectedRules))
-				for idx, exp := range tt.expectedRules {
-					assert.Equal(t, er.PolicyResponse.Rules[idx].Status(), exp.status)
-					assert.Equal(t, er.PolicyResponse.Rules[idx].ValidatingAdmissionPolicyBinding().GetName(), exp.bindingName)
-				}
-				assert.Equal(t, er.IsSuccessful(), tt.expectedSuccess)
-			})
-		}
+		er, err := processVAPWithClient(policy, bindings, *resource, "default", ns, client, a, "default/ConfigMap/target-cm")
+		assert.NilError(t, err)
+		assert.Equal(t, len(er.PolicyResponse.Rules), 2)
+		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+		assert.Equal(t, er.PolicyResponse.Rules[0].ValidatingAdmissionPolicyBinding().GetName(), "binding-1")
+		assert.Equal(t, er.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusPass)
+		assert.Equal(t, er.PolicyResponse.Rules[1].ValidatingAdmissionPolicyBinding().GetName(), "binding-2")
+		assert.Assert(t, er.IsSuccessful())
 	})
 }

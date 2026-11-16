@@ -2,6 +2,7 @@ package admissionpolicy
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -1086,8 +1087,12 @@ func Test_ProcessMAPWithoutClient_MultipleParams_Rejects(t *testing.T) {
 	assert.NilError(t, err)
 
 	// MAP evaluations reject multiple parameter matches without a selector
-	_, err = processMAPWithoutClient(&policy, bindings, *resource, ns, []runtime.Object{cm1, cm2}, gvr, a, "default/ConfigMap/target-cm", false)
-	assert.ErrorContains(t, err, "multiple parameter resources match paramRef without selector")
+	er, err := processMAPWithoutClient(&policy, bindings, *resource, ns, []runtime.Object{cm1, cm2}, gvr, a, "default/ConfigMap/target-cm", false)
+	assert.NilError(t, err)
+	assert.Equal(t, er.IsSuccessful(), false)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "multiple parameter resources match paramRef without selector"))
 }
 
 func Test_ProcessMAPWithoutClient_ChainedMutation(t *testing.T) {
@@ -1233,17 +1238,21 @@ func Test_ProcessMAPWithoutClient_ClusterScopedTarget_NamespacedParamWithoutName
 	cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"config-a","namespace":"tenant-1"}}`))
 	assert.NilError(t, err)
 
-	_, err = processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{cm}, gvr, a, "target-ns", false)
-	assert.ErrorContains(t, err, "can't use namespaced paramRef to match cluster-scoped resources")
+	er, err := processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{cm}, gvr, a, "target-ns", false)
+	assert.NilError(t, err)
+	assert.Equal(t, er.IsSuccessful(), false)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "can't use namespaced paramRef to match cluster-scoped resources"))
 }
 
 func Test_ProcessMAPWithoutClient_FiltersParamsByParamKind(t *testing.T) {
-	t.Run("cluster target with unrelated namespaced resource does not fail preflight", func(t *testing.T) {
+	t.Run("cluster target preflight: apiVersion filtering independent of kind", func(t *testing.T) {
 		rawPolicy := []byte(`{
     "apiVersion": "admissionregistration.k8s.io/v1alpha1",
     "kind": "MutatingAdmissionPolicy",
     "metadata": {
-        "name": "cluster-target-filter-policy"
+        "name": "cluster-filter-policy"
     },
     "spec": {
         "failurePolicy": "Fail",
@@ -1271,18 +1280,11 @@ func Test_ProcessMAPWithoutClient_FiltersParamsByParamKind(t *testing.T) {
         ]
     }
 }`)
-		rawResource := []byte(`{
-    "apiVersion": "v1",
-    "kind": "Namespace",
-    "metadata": {
-        "name": "target-ns"
-    }
-}`)
-
 		var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
 		err := json.Unmarshal(rawPolicy, &policy)
 		assert.NilError(t, err)
 
+		rawResource := []byte(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"target-ns"}}`)
 		resource, err := kubeutils.BytesToUnstructured(rawResource)
 		assert.NilError(t, err)
 
@@ -1292,9 +1294,9 @@ func Test_ProcessMAPWithoutClient_FiltersParamsByParamKind(t *testing.T) {
 
 		bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
 			{
-				ObjectMeta: metav1.ObjectMeta{Name: "binding-cluster-target"},
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-cluster"},
 				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
-					PolicyName: "cluster-target-filter-policy",
+					PolicyName: "cluster-filter-policy",
 					ParamRef: &admissionregistrationv1beta1.ParamRef{
 						Name: "cluster-cm",
 					},
@@ -1302,23 +1304,33 @@ func Test_ProcessMAPWithoutClient_FiltersParamsByParamKind(t *testing.T) {
 			},
 		}
 
-		secret, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"secret-a","namespace":"tenant-1"}}`))
+		// cmWrongVersion has same Kind ("ConfigMap"), but different apiVersion.
+		cmWrongVersion, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"custom.io/v1beta1","kind":"ConfigMap","metadata":{"name":"cluster-cm","namespace":"tenant-1"}}`))
 		assert.NilError(t, err)
-		cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cluster-cm"}}`))
+		cmRightVersion, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cluster-cm"}}`))
 		assert.NilError(t, err)
 
-		er, err := processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{secret, cm}, gvr, a, "target-ns", false)
+		// Case A: Wrong version present alongside valid cluster param does not fail preflight
+		er, err := processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{cmWrongVersion, cmRightVersion}, gvr, a, "target-ns", false)
 		assert.NilError(t, err)
+		assert.Equal(t, er.IsSuccessful(), true)
 		assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+
+		// Case B: Wrong version only cannot supply params
+		erWrong, err := processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{cmWrongVersion}, gvr, a, "target-ns", false)
+		assert.NilError(t, err)
+		assert.Equal(t, erWrong.IsSuccessful(), false)
+		assert.Equal(t, len(erWrong.PolicyResponse.Rules), 1)
+		assert.Equal(t, erWrong.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
 	})
 
-	t.Run("same name and namespace with different kind does not cause ambiguous match", func(t *testing.T) {
+	t.Run("parameter selection: apiVersion filtering independent of kind", func(t *testing.T) {
 		rawPolicy := []byte(`{
     "apiVersion": "admissionregistration.k8s.io/v1alpha1",
     "kind": "MutatingAdmissionPolicy",
     "metadata": {
-        "name": "map-kind-disambiguation-policy"
+        "name": "param-filter-policy"
     },
     "spec": {
         "failurePolicy": "Fail",
@@ -1346,19 +1358,11 @@ func Test_ProcessMAPWithoutClient_FiltersParamsByParamKind(t *testing.T) {
         ]
     }
 }`)
-		rawResource := []byte(`{
-    "apiVersion": "v1",
-    "kind": "ConfigMap",
-    "metadata": {
-        "name": "target-cm",
-        "namespace": "default"
-    }
-}`)
-
 		var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
 		err := json.Unmarshal(rawPolicy, &policy)
 		assert.NilError(t, err)
 
+		rawResource := []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"target-cm","namespace":"default"}}`)
 		resource, err := kubeutils.BytesToUnstructured(rawResource)
 		assert.NilError(t, err)
 
@@ -1370,7 +1374,7 @@ func Test_ProcessMAPWithoutClient_FiltersParamsByParamKind(t *testing.T) {
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "binding-named"},
 				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
-					PolicyName: "map-kind-disambiguation-policy",
+					PolicyName: "param-filter-policy",
 					ParamRef: &admissionregistrationv1beta1.ParamRef{
 						Name:      "shared-name",
 						Namespace: "default",
@@ -1379,14 +1383,108 @@ func Test_ProcessMAPWithoutClient_FiltersParamsByParamKind(t *testing.T) {
 			},
 		}
 
-		secret, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"shared-name","namespace":"default"}}`))
+		// cmWrongVersion has same Kind ("ConfigMap"), same name, and same namespace, but different apiVersion.
+		cmWrongVersion, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"custom.io/v1beta1","kind":"ConfigMap","metadata":{"name":"shared-name","namespace":"default"}}`))
 		assert.NilError(t, err)
-		cm, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"shared-name","namespace":"default"}}`))
+		cmRightVersion, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"shared-name","namespace":"default"}}`))
 		assert.NilError(t, err)
 
-		er, err := processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{secret, cm}, gvr, a, "default/ConfigMap/target-cm", false)
+		// Case A: Disambiguates identical kind, name, and namespace by apiVersion without ambiguous match error
+		er, err := processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{cmWrongVersion, cmRightVersion}, gvr, a, "default/ConfigMap/target-cm", false)
 		assert.NilError(t, err)
+		assert.Equal(t, er.IsSuccessful(), true)
 		assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 		assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+
+		// Case B: Wrong version only cannot match paramRef
+		erWrong, err := processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{cmWrongVersion}, gvr, a, "default/ConfigMap/target-cm", false)
+		assert.NilError(t, err)
+		assert.Equal(t, erWrong.IsSuccessful(), false)
+		assert.Equal(t, len(erWrong.PolicyResponse.Rules), 1)
+		assert.Equal(t, erWrong.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
 	})
+}
+
+func Test_ProcessMAP_FailurePolicy_Ignore_SuppressesParamResolutionErrors(t *testing.T) {
+	ignorePolicy := admissionregistrationv1beta1.Ignore
+	denyAction := admissionregistrationv1beta1.DenyAction
+	rawPolicy := []byte(`{
+    "apiVersion": "admissionregistration.k8s.io/v1alpha1",
+    "kind": "MutatingAdmissionPolicy",
+    "metadata": {
+        "name": "map-ignore-policy"
+    },
+    "spec": {
+        "failurePolicy": "Ignore",
+        "paramKind": {
+            "apiVersion": "v1",
+            "kind": "ConfigMap"
+        },
+        "matchConstraints": {
+            "resourceRules": [
+                {
+                    "apiGroups": [""],
+                    "apiVersions": ["v1"],
+                    "operations": ["CREATE"],
+                    "resources": ["configmaps"]
+                }
+            ]
+        },
+        "mutations": [
+            {
+                "patchType": "ApplyConfiguration",
+                "applyConfiguration": {
+                    "expression": "Object{metadata: Object.metadata{labels: {'mutated': 'true'}}}"
+                }
+            }
+        ]
+    }
+}`)
+	var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+	policy.Spec.FailurePolicy = &ignorePolicy
+
+	rawResource := []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"target-cm","namespace":"default"}}`)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+
+	bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-missing-deny"},
+			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+				PolicyName: "map-ignore-policy",
+				ParamRef: &admissionregistrationv1beta1.ParamRef{
+					Name:                    "missing-cm",
+					Namespace:               "default",
+					ParameterNotFoundAction: &denyAction,
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-allowed"},
+			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+				PolicyName: "map-ignore-policy",
+				ParamRef: &admissionregistrationv1beta1.ParamRef{
+					Name:      "allowed-cm",
+					Namespace: "default",
+				},
+			},
+		},
+	}
+
+	allowedCM, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"allowed-cm","namespace":"default"},"data":{"allowed":"true"}}`))
+	assert.NilError(t, err)
+
+	er, err := processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{allowedCM}, gvr, a, "default/ConfigMap/target-cm", false)
+	assert.NilError(t, err)
+	// Binding 1's parameter error was suppressed by failurePolicy: Ignore, Binding 2 succeeded
+	assert.Equal(t, er.IsSuccessful(), true)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].MutatingAdmissionPolicyBinding().GetName(), "binding-allowed")
 }
