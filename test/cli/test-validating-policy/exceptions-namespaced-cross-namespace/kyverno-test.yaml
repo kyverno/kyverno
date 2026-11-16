@@ -15,11 +15,11 @@ results:
   kind: Deployment
   policy: tenant-a/check-deployment-labels
   resources:
-  - skipped-by-own-namespace
-  result: skip
+  - not-skipped-by-foreign-namespace
+  result: fail
 - isValidatingPolicy: true
   kind: Deployment
   policy: tenant-a/check-deployment-labels
   resources:
-  - not-skipped-by-foreign-namespace
-  result: fail
+  - skipped-by-own-namespace
+  result: skip
