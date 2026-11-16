@@ -154,7 +154,7 @@ func IsValidatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (boo
 // Collect params collects parameter resources from a live cluster
 func CollectParams(ctx context.Context, client engineapi.Client, paramKind *admissionregistrationv1.ParamKind, paramRef *admissionregistrationv1.ParamRef, namespace string) ([]runtime.Object, error) {
 	if paramKind == nil {
-		return nil, fmt.Errorf("paramKind cannot be nil")
+		return nil, nil
 	}
 	if paramRef == nil {
 		return nil, nil

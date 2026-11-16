@@ -634,11 +634,11 @@ func TestCollectParams(t *testing.T) {
 			expectedLen: 0,
 		},
 		{
-			name:           "nil paramKind guard",
-			paramKind:      nil,
-			paramRef:       &admissionregistrationv1.ParamRef{},
-			mockClient:     &mockEngineClient{},
-			expectedErrMsg: "paramKind cannot be nil",
+			name:        "nil paramKind returns no params",
+			paramKind:   nil,
+			paramRef:    &admissionregistrationv1.ParamRef{},
+			mockClient:  &mockEngineClient{},
+			expectedLen: 0,
 		},
 		{
 			name: "nil paramRef guard",
@@ -657,9 +657,12 @@ func TestCollectParams(t *testing.T) {
 				Kind:       "ConfigMap",
 			},
 			paramRef: &admissionregistrationv1.ParamRef{
-				Name:                    "missing-config",
-				Namespace:               "default",
-				ParameterNotFoundAction: func() *admissionregistrationv1.ParameterNotFoundActionType { a := admissionregistrationv1.AllowAction; return &a }(),
+				Name:      "missing-config",
+				Namespace: "default",
+				ParameterNotFoundAction: func() *admissionregistrationv1.ParameterNotFoundActionType {
+					a := admissionregistrationv1.AllowAction
+					return &a
+				}(),
 			},
 			mockClient: &mockEngineClient{
 				isNamespacedResp: true,
@@ -674,9 +677,12 @@ func TestCollectParams(t *testing.T) {
 				Kind:       "ConfigMap",
 			},
 			paramRef: &admissionregistrationv1.ParamRef{
-				Name:                    "missing-config",
-				Namespace:               "default",
-				ParameterNotFoundAction: func() *admissionregistrationv1.ParameterNotFoundActionType { a := admissionregistrationv1.DenyAction; return &a }(),
+				Name:      "missing-config",
+				Namespace: "default",
+				ParameterNotFoundAction: func() *admissionregistrationv1.ParameterNotFoundActionType {
+					a := admissionregistrationv1.DenyAction
+					return &a
+				}(),
 			},
 			mockClient: &mockEngineClient{
 				isNamespacedResp: true,

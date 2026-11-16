@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -16,6 +13,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
+
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 )
 
 func Test_MutateResource(t *testing.T) {
@@ -904,7 +905,7 @@ func Test_MatchesSelector_ConjunctionScoping(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := matchesSelector(tt.obj, tt.paramRef)
+			got := matchesSelector(tt.obj, tt.paramRef, "")
 			assert.Equal(t, got, tt.expected)
 		})
 	}
@@ -1019,25 +1020,98 @@ func Test_ProcessMAPWithoutClient_MultipleParams_Rejects(t *testing.T) {
 
 	bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "binding-selector"},
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-named"},
 			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
 				PolicyName: "mutate-with-params",
 				ParamRef: &admissionregistrationv1beta1.ParamRef{
 					Namespace: "default",
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{"tier": "gold"},
-					},
+					Name:      "cm-1",
 				},
 			},
 		},
 	}
 
-	cm1, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm-1","namespace":"default","labels":{"tier":"gold"}}}`))
+	cm1, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm-1","namespace":"default"}}`))
 	assert.NilError(t, err)
-	cm2, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm-2","namespace":"default","labels":{"tier":"gold"}}}`))
+	cm2, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm-1","namespace":"default"}}`))
 	assert.NilError(t, err)
 
-	// MAP evaluations reject multiple parameter matches per upstream specifications
+	// MAP evaluations reject multiple parameter matches without a selector
 	_, err = processMAPWithoutClient(&policy, bindings, *resource, ns, []runtime.Object{cm1, cm2}, gvr, a, "default/ConfigMap/target-cm", false)
-	assert.ErrorContains(t, err, "multiple parameter resources match paramRef")
+	assert.ErrorContains(t, err, "multiple parameter resources match paramRef without selector")
+}
+
+func Test_ProcessMAPWithoutClient_ChainedMutation(t *testing.T) {
+	rawPolicy := []byte(`{
+    "apiVersion": "admissionregistration.k8s.io/v1alpha1",
+    "kind": "MutatingAdmissionPolicy",
+    "metadata": {
+        "name": "chained-mutation-policy"
+    },
+    "spec": {
+        "failurePolicy": "Fail",
+        "matchConstraints": {
+            "resourceRules": [
+                {
+                    "apiGroups": [""],
+                    "apiVersions": ["v1"],
+                    "operations": ["CREATE"],
+                    "resources": ["configmaps"]
+                }
+            ]
+        },
+        "mutations": [
+            {
+                "patchType": "ApplyConfiguration",
+                "applyConfiguration": {
+                    "expression": "Object{metadata: Object.metadata{labels: {'step1': 'applied'}}}"
+                }
+            }
+        ]
+    }
+}`)
+	var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	rawResource := []byte(`{
+    "apiVersion": "v1",
+    "kind": "ConfigMap",
+    "metadata": {
+        "name": "target-cm",
+        "namespace": "default"
+    }
+}`)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
+
+	bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-1"},
+			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+				PolicyName: "chained-mutation-policy",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "binding-2"},
+			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+				PolicyName: "chained-mutation-policy",
+			},
+		},
+	}
+
+	er, err := processMAPWithoutClient(&policy, bindings, *resource, ns, nil, gvr, a, "default/ConfigMap/target-cm", false)
+	assert.NilError(t, err)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 2)
+	assert.Equal(t, er.PolicyResponse.Rules[0].MutatingAdmissionPolicyBinding().GetName(), "binding-1")
+	assert.Equal(t, er.PolicyResponse.Rules[1].MutatingAdmissionPolicyBinding().GetName(), "binding-2")
+	assert.Assert(t, er.PatchedResource.Object != nil)
+	assert.Equal(t, er.PatchedResource.GetLabels()["step1"], "applied")
+	patches := er.GetPatches()
+	assert.Assert(t, len(patches) > 0)
 }

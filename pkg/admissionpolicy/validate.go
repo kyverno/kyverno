@@ -270,6 +270,20 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 		}
 
 		if binding.Spec.ParamRef != nil {
+			if policy.Spec.ParamKind == nil {
+				engineResponse, err := validateResource(policy, &bindings[i], resource, nil, namespace, a)
+				if err != nil {
+					vapLogger.Error(err, "failed to validate resource for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+					continue
+				}
+				if engineResponse.PolicyResponse.Rules != nil {
+					for _, r := range engineResponse.PolicyResponse.Rules {
+						er.PolicyResponse.Add(r.Stats(), r)
+					}
+				}
+				continue
+			}
+
 			var nsName string
 			if namespace != nil {
 				nsName = namespace.Name
@@ -280,6 +294,11 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 			if err != nil {
 				vapLogger.Error(err, "failed to collect params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				return er, err
+			}
+
+			if len(params) == 0 {
+				// ParameterNotFoundAction: Allow -> skip this binding
+				continue
 			}
 
 			// a selector being present in the binding is the only case in which params will contain more than 1 entry
@@ -355,13 +374,28 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 			}
 		}
 		if binding.Spec.ParamRef != nil {
+			if policy.Spec.ParamKind == nil {
+				engineResponse, err := validateResource(policy, &bindings[i], resource, nil, namespace, a)
+				if err != nil {
+					vapLogger.Error(err, "failed to validate resource for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+					continue
+				}
+				if engineResponse.PolicyResponse.Rules != nil {
+					for _, r := range engineResponse.PolicyResponse.Rules {
+						er.PolicyResponse.Add(r.Stats(), r)
+					}
+				}
+				continue
+			}
+
+			targetNs := resource.GetNamespace()
 			var matchedParams runtime.Object
 			paramList := &unstructured.UnstructuredList{}
 			var matchedCount int
 			for _, param := range params {
 				unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
 				obj := &unstructured.Unstructured{Object: unstructuredMap}
-				if matchesSelector(obj, binding.Spec.ParamRef) {
+				if matchesSelector(obj, binding.Spec.ParamRef, targetNs) {
 					matchedCount++
 					if binding.Spec.ParamRef.Selector == nil {
 						if matchedCount == 1 {
@@ -372,13 +406,43 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 					paramList.Items = append(paramList.Items, *obj)
 				}
 			}
-			if binding.Spec.ParamRef.Selector == nil && matchedCount > 1 {
-				err := fmt.Errorf("multiple parameter resources match paramRef without selector for policy %s, binding %s", policy.GetName(), binding.GetName())
-				vapLogger.Error(err, "failed to match params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
-				ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Validation, err.Error(), nil, nil).WithVAPBinding(&bindings[i])
-				er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
-				return er, err
-			} else if len(paramList.Items) != 0 {
+			if binding.Spec.ParamRef.Selector == nil {
+				if matchedCount == 0 {
+					notFoundAction := admissionregistrationv1.DenyAction
+					if binding.Spec.ParamRef.ParameterNotFoundAction != nil {
+						notFoundAction = *binding.Spec.ParamRef.ParameterNotFoundAction
+					}
+					if notFoundAction == admissionregistrationv1.AllowAction {
+						continue
+					}
+					err := fmt.Errorf("no parameter resources match paramRef for policy %s, binding %s", policy.GetName(), binding.GetName())
+					vapLogger.Error(err, "failed to match params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Validation, err.Error(), nil, nil).WithVAPBinding(&bindings[i])
+					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+					return er, err
+				}
+				if matchedCount > 1 {
+					err := fmt.Errorf("multiple parameter resources match paramRef without selector for policy %s, binding %s", policy.GetName(), binding.GetName())
+					vapLogger.Error(err, "failed to match params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Validation, err.Error(), nil, nil).WithVAPBinding(&bindings[i])
+					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+					return er, err
+				}
+			} else {
+				if len(paramList.Items) == 0 {
+					notFoundAction := admissionregistrationv1.DenyAction
+					if binding.Spec.ParamRef.ParameterNotFoundAction != nil {
+						notFoundAction = *binding.Spec.ParamRef.ParameterNotFoundAction
+					}
+					if notFoundAction == admissionregistrationv1.AllowAction {
+						continue
+					}
+					err := fmt.Errorf("no parameter resources match selector for policy %s, binding %s", policy.GetName(), binding.GetName())
+					vapLogger.Error(err, "failed to match params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Validation, err.Error(), nil, nil).WithVAPBinding(&bindings[i])
+					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+					return er, err
+				}
 				matchedParams = paramList
 			}
 
