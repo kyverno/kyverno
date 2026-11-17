@@ -1,0 +1,1 @@
+{"backend":"kyverno","request":{"capability_type":"command","request_id":"req-004","session_id":"test-session","child_pid":1236,"command":"kubectl","caller":"claude","args":["delete","namespace","production"],"intercept_rule":"kubectl"}}

@@ -1,18 +1,22 @@
 package schema
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"reflect"
-	"slices"
 	"strings"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
+	"github.com/kyverno/kyverno/pkg/logging"
 )
+
+var logger = logging.WithName("payload-schema")
 
 // Decision is the aggregated verdict exposed to a binding's bodyExpression
 // as `decision`.
@@ -21,20 +25,28 @@ type Decision struct {
 	Message  string
 	Schema   string
 	Policies []string
+	// Rejected marks a failure before a typed object existed (unreadable or
+	// malformed body, no schema selected, validation failure). The binding's
+	// bodyExpression never runs for these; a fixed denial is sent instead.
+	Rejected bool
 }
 
 // ServeHTTP implements the request path from the proposal: route -> binding
 // -> schema selection -> validation -> policies -> deny-overrides -> response.
 func (r *Registry) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	start := time.Now()
-	b, ok := r.bindings[req.URL.Path]
+	// An unknown method on a known path is indistinguishable from an unknown
+	// route, so a protected route is not disclosed.
+	b, ok := r.bindings[routeKey(req.Method, req.URL.Path)]
 	if !ok {
 		http.NotFound(w, req)
 		return
 	}
-	if !slices.Contains(b.spec.Route.Methods, req.Method) {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
+	ctx, _ := requestbudget.Ensure(req.Context())
+	if t := b.limits.TimeoutMillis; t > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(t)*time.Millisecond)
+		defer cancel()
 	}
 	transport := transportOf(req)
 	if r.opts.Principal != nil {
@@ -45,7 +57,7 @@ func (r *Registry) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		if !b.allowed[principal] {
-			log.Printf("%s %s binding=%s forbidden principal=%q", req.Method, req.URL.Path, b.name, principal)
+			logger.V(2).Info("forbidden principal", "binding", b.name, "principal", principal)
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
@@ -59,19 +71,20 @@ func (r *Registry) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	var d Decision
 	if err != nil {
-		d = Decision{Message: "reading body: " + err.Error()}
+		d = Decision{Message: "reading body: " + err.Error(), Rejected: true}
 	} else {
-		d = r.decide(b, raw, transport, start)
+		d = r.decide(ctx, b, raw, transport)
 	}
-	log.Printf("%s %s binding=%s schema=%q allowed=%t policies=%v msg=%q (%s)",
-		req.Method, req.URL.Path, b.name, d.Schema, d.Allowed, d.Policies, d.Message, time.Since(start).Round(time.Microsecond))
+	logger.V(2).Info("decision", "method", req.Method, "path", req.URL.Path, "binding", b.name,
+		"schema", d.Schema, "allowed", d.Allowed, "policies", d.Policies, "message", d.Message,
+		"duration", time.Since(start).Round(time.Microsecond).String())
 	status := b.spec.Response.StatusCode
 	if status == 0 {
 		status = http.StatusOK
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(b.render(d))
+	_ = json.NewEncoder(w).Encode(b.render(ctx, d))
 }
 
 func transportOf(req *http.Request) map[string]any {
@@ -87,33 +100,27 @@ func transportOf(req *http.Request) map[string]any {
 }
 
 // decide is fail-closed: anything unexpected yields a denial.
-func (r *Registry) decide(b *compiledBinding, raw []byte, transport map[string]any, start time.Time) Decision {
-	doc, err := ParseJSON(raw)
+func (r *Registry) decide(ctx context.Context, b *compiledBinding, raw []byte, transport map[string]any) Decision {
+	doc, err := ParseJSON(raw, b.limits.MaxDepth)
 	if err != nil {
-		return Decision{Message: err.Error()}
-	}
-	if depth(doc) > b.limits.MaxDepth {
-		return Decision{Message: fmt.Sprintf("payload nesting exceeds maxDepth %d", b.limits.MaxDepth)}
+		return Decision{Message: err.Error(), Rejected: true}
 	}
 	cs, err := b.selectSchema(doc)
 	if err != nil {
-		return Decision{Message: "schema selection: " + err.Error()}
+		return Decision{Message: "schema selection: " + err.Error(), Rejected: true}
 	}
 	d := Decision{Schema: cs.name}
-	payload, err := cs.schema.Build(doc, transport)
+	payload, err := cs.schema.Build(ctx, doc, transport)
 	if err != nil {
 		d.Message = err.Error()
+		d.Rejected = true
 		return d
 	}
 	var denials []string
 	for _, p := range cs.policies {
 		d.Policies = append(d.Policies, p.name)
 		for _, v := range p.validations {
-			if t := b.limits.TimeoutMillis; t > 0 && time.Since(start) > time.Duration(t)*time.Millisecond {
-				d.Message = fmt.Sprintf("evaluation exceeded timeoutMillis %d", t)
-				return d
-			}
-			out, err := v.expr.Eval(payload)
+			out, err := v.expr.Run(ctx, payload)
 			var failure string
 			switch {
 			case err != nil:
@@ -130,7 +137,7 @@ func (r *Registry) decide(b *compiledBinding, raw []byte, transport map[string]a
 			if p.enforcing {
 				denials = append(denials, failure)
 			} else {
-				log.Printf("audit: %s", failure)
+				logger.V(2).Info("audit", "failure", failure)
 			}
 		}
 	}
@@ -209,15 +216,16 @@ func pointer(doc any, ptr string) (any, bool) {
 }
 
 // render builds the response body: the binding's bodyExpression if set,
-// otherwise a default {"decision": ...} shape.
-func (b *compiledBinding) render(d Decision) any {
-	if b.response == nil {
+// otherwise a default {"decision": ...} shape. Failures before a typed object
+// existed always get the fixed default denial, never the template.
+func (b *compiledBinding) render(ctx context.Context, d Decision) any {
+	if b.response == nil || d.Rejected {
 		if d.Allowed {
 			return map[string]any{"decision": "granted"}
 		}
 		return map[string]any{"decision": "denied", "reason": d.Message}
 	}
-	out, _, err := b.response.Eval(map[string]any{"decision": map[string]any{
+	out, _, err := b.response.ContextEval(ctx, map[string]any{"decision": map[string]any{
 		"allowed": d.Allowed, "message": d.Message, "schema": d.Schema,
 	}})
 	if err != nil {
@@ -228,28 +236,6 @@ func (b *compiledBinding) render(d Decision) any {
 		return map[string]any{"decision": "denied", "reason": "response expression: " + err.Error()}
 	}
 	return native
-}
-
-// depth returns the maximum container nesting of decoded JSON.
-func depth(v any) int {
-	max := 0
-	switch t := v.(type) {
-	case map[string]any:
-		for _, c := range t {
-			if d := depth(c); d > max {
-				max = d
-			}
-		}
-		return max + 1
-	case []any:
-		for _, c := range t {
-			if d := depth(c); d > max {
-				max = d
-			}
-		}
-		return max + 1
-	}
-	return 0
 }
 
 // MTLSPrincipal derives the caller identity from a verified client

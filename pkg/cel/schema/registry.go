@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,10 +11,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -59,7 +63,8 @@ type PolicySpec struct {
 }
 
 // Limits bound the work a single request may cause. MaxCELCost is parsed for
-// API parity but not enforced yet (see FINDINGS.md).
+// API parity but rejected when set: the repository's per-program cost limit and
+// per-request budget always apply, and a per-binding override is not supported.
 type Limits struct {
 	MaxBodyBytes  int64 `json:"maxBodyBytes"`
 	MaxDepth      int   `json:"maxDepth"`
@@ -142,8 +147,11 @@ type compiledBinding struct {
 type Registry struct {
 	opts     Options
 	schemas  map[string]*compiledSchema
-	bindings map[string]*compiledBinding // key: path
+	bindings map[string]*compiledBinding // key: routeKey(method, path)
+	ordered  []*compiledBinding          // one entry per binding, in load order
 }
+
+func routeKey(method, path string) string { return method + " " + path }
 
 // Options configure the serving side. With a nil Principal the registry runs
 // unauthenticated (spike/demo only) and ignores authorization settings.
@@ -297,7 +305,7 @@ func compile(docs []document, opts Options) (*Registry, error) {
 		cs.policies = append(cs.policies, cp)
 		policies[name] = cp
 	}
-	respEnv, err := cel.NewEnv(cel.Variable("decision", cel.MapType(cel.StringType, cel.DynType)))
+	respEnv, err := compiler.NewEnv(append(compiler.DynamicResourceEnvOptions(), cel.Variable("decision", cel.MapType(cel.StringType, cel.DynType)))...)
 	if err != nil {
 		return nil, err
 	}
@@ -323,6 +331,12 @@ func compile(docs []document, opts Options) (*Registry, error) {
 			}
 		default:
 			return nil, fmt.Errorf("PayloadBinding %s: selection needs schemaRef or candidates", name)
+		}
+		if sp.Limits.MaxCELCost != 0 {
+			return nil, fmt.Errorf("PayloadBinding %s: limits.maxCELCost is not supported yet; the repository's CEL cost limits always apply", name)
+		}
+		if sc := sp.Response.StatusCode; sc != 0 && (sc < 100 || sc > 599) {
+			return nil, fmt.Errorf("PayloadBinding %s: response.statusCode %d is not a valid HTTP status", name, sc)
 		}
 		b.limits = sp.Limits
 		if b.limits.MaxBodyBytes == 0 {
@@ -376,27 +390,41 @@ func compile(docs []document, opts Options) (*Registry, error) {
 		if sp.Route.Path == "" || len(sp.Route.Methods) == 0 {
 			return nil, fmt.Errorf("PayloadBinding %s: route.path and route.methods are required", name)
 		}
-		if _, dup := r.bindings[sp.Route.Path]; dup {
-			return nil, fmt.Errorf("PayloadBinding %s: route %s already registered", name, sp.Route.Path)
+		for _, m := range sp.Route.Methods {
+			if _, dup := r.bindings[routeKey(m, sp.Route.Path)]; dup {
+				return nil, fmt.Errorf("PayloadBinding %s: route %s %s already registered", name, m, sp.Route.Path)
+			}
 		}
 		if expr := sp.Response.BodyExpression; expr != "" {
 			ast, iss := respEnv.Compile(expr)
 			if iss.Err() != nil {
 				return nil, fmt.Errorf("PayloadBinding %s bodyExpression: %w", name, iss.Err())
 			}
-			if b.response, err = respEnv.Program(ast); err != nil {
+			if b.response, err = compiler.NewProgram(respEnv, ast); err != nil {
 				return nil, err
 			}
+			// The response mapping is trusted configuration, but a template
+			// that ignores the decision would grant a denied request. Require
+			// the output to differ between an allowed and a denied decision.
+			ctx, _ := requestbudget.Ensure(context.Background())
+			granted := b.render(ctx, Decision{Allowed: true, Schema: "s"})
+			denied := b.render(ctx, Decision{Allowed: false, Message: "m", Schema: "s"})
+			if reflect.DeepEqual(granted, denied) {
+				return nil, fmt.Errorf("PayloadBinding %s: bodyExpression must depend on decision.allowed", name)
+			}
 		}
-		r.bindings[sp.Route.Path] = b
+		for _, m := range sp.Route.Methods {
+			r.bindings[routeKey(m, sp.Route.Path)] = b
+		}
+		r.ordered = append(r.ordered, b)
 	}
 	return r, nil
 }
 
 // Summary lists what was loaded, for startup output.
 func (r *Registry) Summary() []string {
-	var out []string
-	for _, b := range r.bindings {
+	out := make([]string, 0, len(r.ordered))
+	for _, b := range r.ordered {
 		sel := "candidates"
 		if b.explicit != nil {
 			sel = "schema " + b.explicit.name

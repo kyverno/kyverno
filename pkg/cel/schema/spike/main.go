@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/cel/schema"
+	"github.com/kyverno/kyverno/pkg/logging"
 )
 
 func main() {
@@ -23,6 +24,15 @@ func main() {
 	keyFile := flag.String("tls-key", "", "server private key")
 	clientCA := flag.String("client-ca", "", "CA bundle for client certificates (enables mTLS authorization)")
 	flag.Parse()
+	if err := logging.Setup("text", "", 2, false); err != nil {
+		log.Fatal(err)
+	}
+	if (*certFile == "") != (*keyFile == "") {
+		log.Fatal("-tls-cert and -tls-key must be given together")
+	}
+	if *clientCA != "" && *certFile == "" {
+		log.Fatal("-client-ca requires -tls-cert and -tls-key: client certificates only exist over TLS")
+	}
 	var opts schema.Options
 	srv := &http.Server{Addr: *addr, ReadHeaderTimeout: 5 * time.Second}
 	if *clientCA != "" {

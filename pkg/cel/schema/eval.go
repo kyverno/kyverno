@@ -2,12 +2,14 @@ package schema
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 )
 
 type computedProgram struct {
@@ -15,12 +17,15 @@ type computedProgram struct {
 	prog cel.Program
 }
 
-func (s *Schema) program(expr string) (cel.Program, *cel.Ast, error) {
+// compileExpr builds the program through compiler.NewProgram so the per-program
+// cost limit applies; it is evaluated with ContextEval so the request budget
+// is charged.
+func (s *Schema) compileExpr(expr string) (cel.Program, *cel.Ast, error) {
 	ast, iss := s.env.Compile(expr)
 	if iss.Err() != nil {
 		return nil, nil, iss.Err()
 	}
-	prog, err := s.env.Program(ast)
+	prog, err := compiler.NewProgram(s.env, ast)
 	return prog, ast, err
 }
 
@@ -30,12 +35,13 @@ type Expr struct {
 	isBool bool
 }
 
-// IsBool reports whether the expression statically evaluates to a bool.
+// IsBool reports whether the expression can evaluate to a bool: statically
+// bool, or dyn (as with a bare `derived.x` reference).
 func (e *Expr) IsBool() bool { return e.isBool }
 
-// Eval runs the expression against a payload.
-func (e *Expr) Eval(p *Payload) (any, error) {
-	out, _, err := e.prog.Eval(p.activation())
+// Run evaluates the expression against a payload.
+func (e *Expr) Run(ctx context.Context, p *Payload) (any, error) {
+	out, _, err := e.prog.ContextEval(ctx, p.activation())
 	if err != nil {
 		return nil, err
 	}
@@ -44,11 +50,12 @@ func (e *Expr) Eval(p *Payload) (any, error) {
 
 // Compile type-checks expr against the schema and returns a reusable program.
 func (s *Schema) Compile(expr string) (*Expr, error) {
-	prog, ast, err := s.program(expr)
+	prog, ast, err := s.compileExpr(expr)
 	if err != nil {
 		return nil, err
 	}
-	return &Expr{prog: prog, isBool: ast.OutputType() == cel.BoolType}, nil
+	t := ast.OutputType()
+	return &Expr{prog: prog, isBool: t.IsExactType(cel.BoolType) || t.IsExactType(cel.DynType)}, nil
 }
 
 // Payload is a validated, normalized payload with its computed fields.
@@ -62,9 +69,14 @@ func (p *Payload) activation() map[string]any {
 	return map[string]any{"object": p.object, "derived": p.derived, "transport": p.transport}
 }
 
-// ParseJSON parses one JSON document losslessly (UseNumber) and rejects
-// trailing data. The result is not yet validated.
-func ParseJSON(raw []byte) (any, error) {
+// ParseJSON parses one JSON document losslessly (UseNumber). It rejects
+// trailing data, duplicate object keys (the decoder would otherwise keep only
+// the last value, so selection and validation could disagree about the
+// payload) and nesting deeper than maxDepth. The result is not yet validated.
+func ParseJSON(raw []byte, maxDepth int) (any, error) {
+	if err := checkStructure(raw, maxDepth); err != nil {
+		return nil, err
+	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
 	var v any
@@ -77,23 +89,81 @@ func ParseJSON(raw []byte) (any, error) {
 	return v, nil
 }
 
+func checkStructure(raw []byte, maxDepth int) error {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	if err := walkTokens(dec, 0, maxDepth); err != nil {
+		return fmt.Errorf("decoding payload: %w", err)
+	}
+	return nil
+}
+
+func walkTokens(dec *json.Decoder, depth, maxDepth int) error {
+	tok, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	d, ok := tok.(json.Delim)
+	if !ok {
+		return nil
+	}
+	if depth+1 > maxDepth {
+		return fmt.Errorf("payload nesting exceeds maxDepth %d", maxDepth)
+	}
+	switch d {
+	case '{':
+		seen := map[string]struct{}{}
+		for dec.More() {
+			kt, err := dec.Token()
+			if err != nil {
+				return err
+			}
+			key, _ := kt.(string)
+			if _, dup := seen[key]; dup {
+				return fmt.Errorf("duplicate object key %q", key)
+			}
+			seen[key] = struct{}{}
+			if err := walkTokens(dec, depth+1, maxDepth); err != nil {
+				return err
+			}
+		}
+	case '[':
+		for dec.More() {
+			if err := walkTokens(dec, depth+1, maxDepth); err != nil {
+				return err
+			}
+		}
+	}
+	_, err = dec.Token()
+	return err
+}
+
 // Decode is ParseJSON followed by Build with empty transport metadata.
-func (s *Schema) Decode(raw []byte) (*Payload, error) {
-	v, err := ParseJSON(raw)
+func (s *Schema) Decode(ctx context.Context, raw []byte) (*Payload, error) {
+	v, err := ParseJSON(raw, defaultMaxDepth)
 	if err != nil {
 		return nil, err
 	}
-	return s.Build(v, nil)
+	return s.Build(ctx, v, nil)
 }
 
-// Build validates a parsed document against the schema, normalizes numbers
-// for CEL, and evaluates computed fields. transport is trusted metadata
-// (method, path, headers) supplied by the listener, never by the payload.
-func (s *Schema) Build(v any, transport map[string]any) (*Payload, error) {
+// Build validates a parsed document against the schema, applies the exposure
+// projection, converts numbers to the declared CEL types, and evaluates
+// computed fields. transport is trusted metadata (method, path, headers,
+// principal) supplied by the listener, never by the payload.
+func (s *Schema) Build(ctx context.Context, v any, transport map[string]any) (*Payload, error) {
+	v, err := walkNumbers(v, &s.jsonSchema, false)
+	if err != nil {
+		return nil, err
+	}
 	if res := s.validator.Validate(v); !res.IsValid() {
 		return nil, fmt.Errorf("payload does not match schema: %w", res.AsError())
 	}
-	obj, ok := normalize(s.exposure.apply(v)).(map[string]any)
+	typed, err := walkNumbers(s.exposure.apply(v), &s.jsonSchema, true)
+	if err != nil {
+		return nil, fmt.Errorf("payload does not match schema: %w", err)
+	}
+	obj, ok := typed.(map[string]any)
 	if !ok {
 		return nil, errors.New("payload root must be an object")
 	}
@@ -102,7 +172,7 @@ func (s *Schema) Build(v any, transport map[string]any) (*Payload, error) {
 	}
 	p := &Payload{object: obj, derived: map[string]any{}, transport: transport}
 	for _, c := range s.computed {
-		out, _, err := c.prog.Eval(p.activation())
+		out, _, err := c.prog.ContextEval(ctx, p.activation())
 		if err != nil {
 			return nil, fmt.Errorf("computed %q: %w", c.name, err)
 		}
@@ -111,39 +181,17 @@ func (s *Schema) Build(v any, transport map[string]any) (*Payload, error) {
 	return p, nil
 }
 
-// Eval compiles and runs expr against the payload.
-func (s *Schema) Eval(expr string, p *Payload) (any, error) {
+// Evaluate compiles and runs expr against the payload.
+func (s *Schema) Evaluate(ctx context.Context, expr string, p *Payload) (any, error) {
 	e, err := s.Compile(expr)
 	if err != nil {
 		return nil, fmt.Errorf("compiling: %w", err)
 	}
-	return e.Eval(p)
+	return e.Run(ctx, p)
 }
 
 // Check type-checks expr without a payload.
 func (s *Schema) Check(expr string) error {
 	_, err := s.Compile(expr)
 	return err
-}
-
-// normalize turns json.Number into int64 when integral, float64 otherwise.
-// Spike: the proposal wants this driven by the schema, not by the value.
-func normalize(v any) any {
-	switch t := v.(type) {
-	case json.Number:
-		if i, err := t.Int64(); err == nil {
-			return i
-		}
-		f, _ := t.Float64()
-		return f
-	case map[string]any:
-		for k, e := range t {
-			t[k] = normalize(e)
-		}
-	case []any:
-		for i, e := range t {
-			t[i] = normalize(e)
-		}
-	}
-	return v
 }

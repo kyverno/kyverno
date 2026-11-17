@@ -80,14 +80,18 @@ func TestEventsSelection(t *testing.T) {
 		{"deploy prod approved", `{"eventType":"deploy.requested","environment":"prod","image":"r/app@sha256:abc","approvedBy":"alice"}`, "deploy-event-v1", "", true},
 		{"unknown event", `{"eventType":"other"}`, "", "no candidate", false},
 		// Selected by discriminator, then rejected by validation; no retry on another schema.
-		{"build with extra field", `{"eventType":"build.completed","repository":"r","artifacts":[],"extra":1}`, "build-event-v1", "does not match schema", false},
+		{"build with extra field", `{"eventType":"build.completed","repository":"r","artifacts":[],"extra":1}`, "", "does not match schema", false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			_, out := post(t, srv, "/events", tc.body)
-			assert.Equal(t, tc.allowed, out["allowed"])
-			if tc.schema != "" {
+			if tc.schema == "" {
+				// Rejected before a typed object existed: the fixed denial, never the template.
+				assert.Equal(t, "denied", out["decision"])
+				assert.NotContains(t, out, "allowed")
+			} else {
+				assert.Equal(t, tc.allowed, out["allowed"])
 				assert.Equal(t, tc.schema, out["schema"])
 			}
 			if tc.reason != "" {
@@ -103,7 +107,7 @@ func TestProtocolErrors(t *testing.T) {
 	resp, err := http.Get(srv.URL + "/approve")
 	require.NoError(t, err)
 	resp.Body.Close()
-	assert.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "a wrong method must not reveal that the route exists")
 	resp, err = http.Post(srv.URL+"/nope", "application/json", strings.NewReader("{}"))
 	require.NoError(t, err)
 	resp.Body.Close()

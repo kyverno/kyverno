@@ -3,8 +3,10 @@ package schema
 import "strings"
 
 // Exposure limits which parts of a validated payload CEL can see. Patterns are
-// JSON Pointers: "/a/b" matches that node and its descendants, "/a/**" the same,
-// and "/**" everything. Exclude wins over include.
+// JSON Pointers where "*" matches exactly one segment and a trailing "**"
+// matches any depth. "/a/b" matches that node and its descendants, and "/**"
+// everything. Exclude wins over include. A nil Include means expose
+// everything; an empty, non-nil Include exposes nothing.
 type Exposure struct {
 	Include []string `json:"include"`
 	Exclude []string `json:"exclude"`
@@ -15,7 +17,7 @@ func (e *Exposure) apply(v any) any {
 		return v
 	}
 	inc := e.Include
-	if len(inc) == 0 {
+	if inc == nil {
 		inc = []string{"/**"}
 	}
 	out, _ := walkExposure(v, "", inc, e.Exclude)
@@ -58,12 +60,29 @@ func matchesAny(patterns []string, path string) bool {
 	return false
 }
 
+// matchPattern compares segment by segment. The pattern matches the node it
+// names and everything below it.
 func matchPattern(pat, path string) bool {
-	if pat == "/**" {
-		return true
+	px, sx := segments(pat), segments(path)
+	for i, p := range px {
+		if p == "**" {
+			return true
+		}
+		if i >= len(sx) {
+			return false
+		}
+		if p != "*" && p != sx[i] {
+			return false
+		}
 	}
-	prefix := strings.TrimSuffix(pat, "/**")
-	return path == prefix || strings.HasPrefix(path, prefix+"/")
+	return true
+}
+
+func segments(p string) []string {
+	if p == "" {
+		return nil
+	}
+	return strings.Split(strings.TrimPrefix(p, "/"), "/")
 }
 
 func escapeToken(s string) string {
