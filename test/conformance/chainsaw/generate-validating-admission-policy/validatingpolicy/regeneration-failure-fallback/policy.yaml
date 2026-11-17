@@ -1,0 +1,22 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: regeneration-failure-fallback
+spec:
+  autogen:
+    podControllers:
+      controllers: []
+    validatingAdmissionPolicy:
+      enabled: true
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [apps]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [deployments]
+  validations:
+    - expression: >-
+        has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'
+      message: Deployment labels must include env=prod
