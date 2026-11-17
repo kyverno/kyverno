@@ -10,6 +10,7 @@ import (
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 )
 
@@ -114,7 +115,7 @@ func TestCommandComplexValuesMerging(t *testing.T) {
 			break
 		}
 	}
-	assert.NotNil(t, mypol)
+	require.NotNil(t, mypol)
 	assert.Len(t, mypol.Rules, 2)
 	assert.Equal(t, "rule1", mypol.Rules[0].Name)
 	assert.Equal(t, "prod", mypol.Rules[0].Values["env"])
@@ -135,7 +136,7 @@ func TestCommandComplexValuesMerging(t *testing.T) {
 			break
 		}
 	}
-	assert.NotNil(t, otherpol)
+	require.NotNil(t, otherpol)
 	assert.Len(t, otherpol.Rules, 1)
 	assert.Equal(t, "v=w", otherpol.Rules[0].Values["k"])
 
@@ -148,7 +149,7 @@ func TestCommandComplexValuesMerging(t *testing.T) {
 			break
 		}
 	}
-	assert.NotNil(t, prodNs)
+	require.NotNil(t, prodNs)
 	assert.Equal(t, "prod", prodNs.Labels["env"])
 	assert.Equal(t, "us-east", prodNs.Labels["region"])
 	assert.Equal(t, "", prodNs.Labels["emptyns"])
@@ -416,14 +417,15 @@ func TestCommandNamespaceLabelTypes(t *testing.T) {
 	assert.Equal(t, "production", labels["name"])
 }
 
-// TestCommandGlobalValueWithCommas verifies that --global uses StringArrayVarP so values with commas (e.g., URLs) are not split.
+// TestCommandGlobalValueWithCommas verifies that --global uses StringSliceVarP so comma-separated pairs are split,
+// and multiple -g flags can be passed for separate values.
 func TestCommandGlobalValueWithCommas(t *testing.T) {
 	cmd := Command()
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetArgs([]string{
-		"-g", "url=https://example.com?a=1,b=2",
-		"-g", "list=item1,item2,item3",
+		"-g", "a=1,b=2",
+		"-g", "url=https://example.com?query=dev",
 	})
 	err := cmd.Execute()
 	assert.NoError(t, err)
@@ -432,8 +434,39 @@ func TestCommandGlobalValueWithCommas(t *testing.T) {
 	err = yaml.UnmarshalStrict(buf.Bytes(), &spec)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "https://example.com?a=1,b=2", spec.GlobalValues["url"])
-	assert.Equal(t, "item1,item2,item3", spec.GlobalValues["list"])
+	assert.Equal(t, float64(1), spec.GlobalValues["a"])
+	assert.Equal(t, float64(2), spec.GlobalValues["b"])
+	assert.Equal(t, "https://example.com?query=dev", spec.GlobalValues["url"])
+}
+
+// TestCommandYAMLQuotingAndSpecialChars verifies that special characters, embedded quotes, tabs, and colons
+// are safely serialized by the YAML encoder and strictly unmarshalled.
+func TestCommandYAMLQuotingAndSpecialChars(t *testing.T) {
+	cmd := Command()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{
+		"-g", `sq='x`,
+		"-g", "ct=a:\tb",
+		"--rule", `testpol,testrule,msg="hello" world,expr=true,num=42,empty=`,
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+
+	var spec v1alpha1.ValuesSpec
+	err = yaml.UnmarshalStrict(buf.Bytes(), &spec)
+	assert.NoError(t, err)
+
+	assert.Equal(t, `'x`, spec.GlobalValues["sq"])
+	assert.Equal(t, "a:\tb", spec.GlobalValues["ct"])
+
+	require.Len(t, spec.Policies, 1)
+	require.Len(t, spec.Policies[0].Rules, 1)
+	ruleValues := spec.Policies[0].Rules[0].Values
+	assert.Equal(t, `"hello" world`, ruleValues["msg"])
+	assert.Equal(t, true, ruleValues["expr"])
+	assert.Equal(t, float64(42), ruleValues["num"])
+	assert.Equal(t, "", ruleValues["empty"])
 }
 
 // TestCommandEmptyRuleAndResourceValues verifies that rules and resources without key-value pairs emit values: {} instead of null.

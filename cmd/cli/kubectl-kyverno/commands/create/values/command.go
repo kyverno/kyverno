@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 	"unicode/utf8"
@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 )
 
 // Command returns a cobra.Command for creating a Kyverno values file.
@@ -63,7 +64,13 @@ func Command() *cobra.Command {
 			}
 
 			if path != "" {
-				return writeOutputFile(path, buf.Bytes())
+				f, err := os.Create(path)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				_, err = f.Write(buf.Bytes())
+				return err
 			}
 			_, err = cmd.OutOrStdout().Write(buf.Bytes())
 			return err
@@ -71,90 +78,57 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&path, "output", "o", "", "Output path (uses standard console output if not set)")
 	cmd.Flags().StringArrayVarP(&namespaceSelector, "ns-selector", "n", nil, "Namespace selector")
-	cmd.Flags().StringArrayVarP(&globalValues, "global", "g", nil, "Global value")
+	cmd.Flags().StringSliceVarP(&globalValues, "global", "g", nil, "Global value")
 	cmd.Flags().StringArrayVar(&rules, "rule", nil, "Policy rule values")
 	cmd.Flags().StringArrayVar(&resources, "resource", nil, "Policy resource values")
 	return cmd
 }
 
-// writeOutputFile writes data safely to destination path using a temporary file in the same directory,
-// preserving any pre-existing permissions and symlink targets.
-func writeOutputFile(path string, data []byte) error {
-	targetPath := filepath.Clean(path)
-	if fi, err := os.Lstat(targetPath); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-		resolved, err := filepath.EvalSymlinks(targetPath)
-		if err != nil {
-			return err
-		}
-		targetPath = resolved
+// formatValue formats a value for safe YAML template serialization.
+// Native typed scalars (true, false, null, and numbers) are preserved as raw scalars.
+// Empty string is represented as explicit `""`.
+// Strings with line breaks are double-quoted (%q) to keep single-line scalar formatting.
+// All other string values are formatted via a YAML encoder so that quotes, colons,
+// tabs, and special characters are safely escaped and quoted.
+func formatValue(val string) (string, error) {
+	if val == "" {
+		return `""`, nil
+	}
+	if val == "true" || val == "false" || val == "null" {
+		return val, nil
+	}
+	if _, err := strconv.ParseInt(val, 10, 64); err == nil {
+		return val, nil
+	}
+	if _, err := strconv.ParseFloat(val, 64); err == nil && !strings.ContainsAny(val, "eE") {
+		return val, nil
+	}
+	if strings.ContainsAny(val, "\r\n") {
+		return fmt.Sprintf("%q", val), nil
 	}
 
-	dir := filepath.Dir(targetPath)
-	tmpFile, err := os.CreateTemp(dir, "values-*.tmp") // #nosec G304
+	b, err := yaml.Marshal(val)
 	if err != nil {
-		return err
+		return "", err
 	}
-	tmpName := tmpFile.Name()
-	defer func() {
-		_ = os.Remove(tmpName) // #nosec G304
-	}()
-
-	if fi, err := os.Stat(targetPath); err == nil {
-		if err := tmpFile.Chmod(fi.Mode().Perm()); err != nil {
-			_ = tmpFile.Close()
-			return err
-		}
-	}
-	if _, err := tmpFile.Write(data); err != nil {
-		_ = tmpFile.Close()
-		return err
-	}
-	if err := tmpFile.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmpName, targetPath) // #nosec G304
+	return strings.TrimSpace(string(b)), nil
 }
 
-// formatValue formats a value for safe YAML template serialization.
-// Empty values are represented as explicit double-quoted strings ("\"\"").
-// Values containing YAML-sensitive sequences (such as inline comments " #" or "\t#",
-// leading YAML indicator characters "#", "*", "&", "[", "{", "]", "}", "|", ">", "%",
-// "@", "`", "!", "?", sequence items "- ", mapping indicators ": ", line breaks,
-// or leading/trailing whitespace) are double-quoted so that YAML parsers retain
-// the full literal value while preserving native scalar typing.
-func formatValue(val string) string {
-	if val == "" {
-		return `""`
+// formatKey formats a key for safe YAML template serialization.
+func formatKey(key string) (string, error) {
+	if strings.ContainsAny(key, "\r\n") {
+		return fmt.Sprintf("%q", key), nil
 	}
-	if strings.Contains(val, " #") ||
-		strings.Contains(val, "\t#") ||
-		strings.HasPrefix(val, "#") ||
-		strings.HasPrefix(val, "*") ||
-		strings.HasPrefix(val, "&") ||
-		strings.HasPrefix(val, "[") ||
-		strings.HasPrefix(val, "{") ||
-		strings.HasPrefix(val, "]") ||
-		strings.HasPrefix(val, "}") ||
-		strings.HasPrefix(val, "|") ||
-		strings.HasPrefix(val, ">") ||
-		strings.HasPrefix(val, "%") ||
-		strings.HasPrefix(val, "@") ||
-		strings.HasPrefix(val, "`") ||
-		strings.HasPrefix(val, "!") ||
-		strings.HasPrefix(val, "?") ||
-		strings.HasPrefix(val, "- ") ||
-		val == "-" ||
-		strings.Contains(val, ": ") ||
-		strings.ContainsAny(val, "\r\n") ||
-		strings.TrimSpace(val) != val {
-		return fmt.Sprintf("%q", val)
+	b, err := yaml.Marshal(key)
+	if err != nil {
+		return "", err
 	}
-	return val
+	return strings.TrimSpace(string(b)), nil
 }
 
 // parseKeyValue parses a key=value string, preserving any '=' in the value.
-// Empty values and YAML-sensitive values are safely quoted to prevent them
-// from being parsed as null, comments, or mappings.
+// Native typed scalars are preserved, while strings and keys are formatted
+// via a YAML encoder to ensure valid YAML serialization.
 func parseKeyValue(in string) (string, string, error) {
 	if !utf8.ValidString(in) {
 		return "", "", fmt.Errorf("invalid UTF-8 in key=value pair: %s", in)
@@ -163,9 +137,15 @@ func parseKeyValue(in string) (string, string, error) {
 	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
 		return "", "", fmt.Errorf("invalid key=value pair: %s", in)
 	}
-	key := strings.TrimSpace(parts[0])
-	val := formatValue(parts[1])
-	return key, val, nil
+	k, err := formatKey(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return "", "", fmt.Errorf("invalid key: %w", err)
+	}
+	v, err := formatValue(parts[1])
+	if err != nil {
+		return "", "", fmt.Errorf("invalid value: %w", err)
+	}
+	return k, v, nil
 }
 
 // parseLabelKeyValue parses a key=value label pair, preserving any '=' in the value,
@@ -180,9 +160,12 @@ func parseLabelKeyValue(in string) (string, string, error) {
 	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
 		return "", "", fmt.Errorf("invalid key=value pair: %s", in)
 	}
-	key := strings.TrimSpace(parts[0])
+	k, err := formatKey(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return "", "", fmt.Errorf("invalid key: %w", err)
+	}
 	val := fmt.Sprintf("%q", parts[1])
-	return key, val, nil
+	return k, val, nil
 }
 
 // addNamespaceSelector parses and merges namespace selector labels under the given namespace name.
