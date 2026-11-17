@@ -384,18 +384,28 @@ func TestReconcile_StatusUpdateFailureKeepsSchedule(t *testing.T) {
 	assert.Greater(t, cq.lastDelay, time.Duration(0), "the next scheduled run must be armed")
 }
 
-// nextRunSoon stands in for the clock: it arms every scheduled run a moment from now, so a test sees the
-// next run without waiting for the cron minute.
-type nextRunSoon struct {
+// heldSchedule stands in for the clock: it records each scheduled run that the controller arms, and holds it
+// until the test calls arrive. The workqueue's own retries are not held: AddRateLimited does not pass
+// through this AddAfter.
+type heldSchedule struct {
 	workqueue.TypedRateLimitingInterface[any]
+	armed atomic.Int32
 }
 
-func (q nextRunSoon) AddAfter(item any, _ time.Duration) {
-	q.TypedRateLimitingInterface.AddAfter(item, 50*time.Millisecond)
+func (q *heldSchedule) AddAfter(any, time.Duration) {
+	q.armed.Add(1)
+}
+
+// arrive makes the next scheduled run due now, if the controller armed one.
+func (q *heldSchedule) arrive(item any) {
+	if q.armed.Load() > 0 {
+		q.TypedRateLimitingInterface.Add(item)
+	}
 }
 
 // The whole worker cycle, as #18248 describes it: the run fails until the workqueue gives up after maxRetries
-// and drops the key; the policy still runs at its next schedule, and that run succeeds.
+// and drops the key; the policy still runs at its next schedule, and that run succeeds. The scheduled run is
+// held until the retries are exhausted, so only the workqueue's retries can make the failed runs.
 func TestRun_PolicyRunsAgainAfterRetriesAreExhausted(t *testing.T) {
 	var lists atomic.Int32
 	failedRuns := int32(maxRetries + 1) // the first run and every retry
@@ -405,7 +415,7 @@ func TestRun_PolicyRunsAgainAfterRetriesAreExhausted(t *testing.T) {
 		}
 		return nil
 	})
-	queue := nextRunSoon{workqueue.NewTypedRateLimitingQueue(workqueue.NewTypedItemExponentialFailureRateLimiter[any](time.Millisecond, time.Millisecond))}
+	queue := &heldSchedule{TypedRateLimitingInterface: workqueue.NewTypedRateLimitingQueue(workqueue.NewTypedItemExponentialFailureRateLimiter[any](time.Millisecond, time.Millisecond))}
 	c, kyvernoClient := reconcileController(t, dueConfigMapPolicy(), client, queue)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -413,9 +423,17 @@ func TestRun_PolicyRunsAgainAfterRetriesAreExhausted(t *testing.T) {
 
 	queue.Add("dpol")
 
+	// The retries are exhausted: every failed run was made, and the workqueue forgot the key.
+	assert.Eventually(t, func() bool { return lists.Load() == failedRuns && queue.NumRequeues("dpol") == 0 }, 5*time.Second, time.Millisecond,
+		"the workqueue must retry the failed run %d times, then drop the key", maxRetries)
+	assert.Equal(t, failedRuns, lists.Load(), "no run after the retries are exhausted, until the next schedule")
+	assert.Positive(t, queue.armed.Load(), "a failed run must arm the next scheduled run")
+
+	queue.arrive("dpol")
+
 	assert.Eventually(t, func() bool { return lastExecutionTime(t, kyvernoClient).After(lastRun) }, 5*time.Second, 10*time.Millisecond,
-		"the policy must run again after %d failed runs", failedRuns)
-	assert.Greater(t, lists.Load(), failedRuns, "the lists made, the failed runs' and the next run's")
+		"the policy must run again at its next schedule after %d failed runs", failedRuns)
+	assert.Equal(t, failedRuns+1, lists.Load(), "the failed runs and the scheduled run")
 }
 
 // mockNamespaceLister is a simple stub to simulate the informer cache returning namespaces.
