@@ -288,8 +288,9 @@ func TestRender_SecretResourceValuesAreHidden(t *testing.T) {
 		Verdict: VerdictTrace{
 			Status: VerdictFail,
 			ExpressionTrace: ExpressionTrace{
-				Source: "variables.password.size() > 32",
-				Result: "false",
+				Source:          "variables.password.size() > 32",
+				Result:          "false",
+				ResultIsBoolean: true,
 				Nodes: []NodeTrace{
 					{Expression: "variables.password.size()", Value: "18"},
 					{Expression: "timestamp(variables.password)", Error: `invalid RFC 3339 timestamp "` + password + `"`},

@@ -33,6 +33,10 @@ func Render(w io.Writer, d *Decision) {
 	}
 	fmt.Fprintln(w)
 
+	if r.all {
+		fmt.Fprintf(w, "NOTE: values are redacted because this resource is a Secret.\n\n")
+	}
+
 	scope := "skipped"
 	if d.Scope.Applied {
 		scope = "applied"
@@ -52,11 +56,12 @@ func Render(w io.Writer, d *Decision) {
 			row(w, "IMAGES", "", "no images found on the resource")
 		}
 		for _, img := range d.Images.Found {
+			imgVal := clip(r.value(Inputs{Secret: r.any}, img.Image, false))
 			if img.Checked {
-				row(w, "IMAGES", "checked", img.Category+": "+img.Image)
+				row(w, "IMAGES", "checked", img.Category+": "+imgVal)
 				continue
 			}
-			row(w, "IMAGES", "skipped", img.Category+": "+img.Image+"  (not matched by matchImageReferences)")
+			row(w, "IMAGES", "skipped", img.Category+": "+imgVal+"  (not matched by matchImageReferences)")
 		}
 	}
 	// with a single validation the list would only repeat the verdict line
@@ -74,7 +79,7 @@ func Render(w io.Writer, d *Decision) {
 		if m.Error == "" {
 			row(w, "MUTATIONS", "", named(r, NamedExpressionTrace{Name: m.Name, ExpressionTrace: m.ExpressionTrace}))
 			if m.NotApplied != "" {
-				fmt.Fprintf(w, "%-10s %-8s (not applied: %s)\n", "", "", m.NotApplied)
+				fmt.Fprintf(w, "%-10s %-8s (not applied: %s)\n", "", "", r.errorText(m.Inputs, m.NotApplied))
 			}
 			continue
 		}
@@ -95,8 +100,8 @@ func Render(w io.Writer, d *Decision) {
 		if len(g.Generated) == 0 {
 			fmt.Fprintf(w, "%-10s %-8s generated nothing\n", "", "")
 		}
-		for _, r := range g.Generated {
-			fmt.Fprintf(w, "%-10s %-8s generated %s\n", "", "", r)
+		for _, res := range g.Generated {
+			fmt.Fprintf(w, "%-10s %-8s generated %s\n", "", "", clip(r.value(Inputs{Secret: r.any}, res, false)))
 		}
 	}
 
@@ -148,7 +153,11 @@ func printNodes(w io.Writer, r redaction, et ExpressionTrace) {
 				fmt.Fprintf(w, "%-10s %-8s   %s  ->  ERROR: %s\n", "", "", n.Expression, clip(r.errorText(n.Inputs, n.Error)))
 				continue
 			}
-			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, clip(r.value(n.Inputs, n.Value)))
+			// Node values are always redacted in secret traces, even booleans: an intermediate
+			// boolean result such as "object.data.token.startsWith('YQ') -> true" reveals structural
+			// information about the secret and can be used for character-by-character probing.
+			isBool := !r.all && n.ValueIsBoolean
+			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, clip(r.value(n.Inputs, n.Value, isBool)))
 		}
 	}
 	if et.LoopValuesOmitted {
@@ -172,7 +181,7 @@ func named(r redaction, n NamedExpressionTrace) string {
 }
 
 func expressionLine(r redaction, et ExpressionTrace) string {
-	return fmt.Sprintf("%s  ->  %s", et.Source, clip(r.value(et.Inputs, et.Result)))
+	return fmt.Sprintf("%s  ->  %s", et.Source, clip(r.value(et.Inputs, et.Result, et.ResultIsBoolean)))
 }
 
 func resourceLabel(d *Decision) string {

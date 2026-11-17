@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"context"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -379,6 +380,38 @@ func TestEvaluateWithTrace_JSONPayload(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEvaluateWithTrace_SecretJSONPayload(t *testing.T) {
+	secretPayload := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Secret",
+		"metadata": map[string]any{
+			"name":      "db-credentials",
+			"namespace": "default",
+		},
+		"data": map[string]any{
+			"password": "hunter2-do-not-leak",
+		},
+		"app": "ghcr.io/x/app:1.0",
+	}
+	policy := jsonTracePolicy("secret-check", false, admissionregistrationv1.Validation{
+		Expression: "images.app.size() == 1",
+	})
+	ivpols := []*CompiledImageValidatingPolicy{{Policy: policy}}
+	traced, err := evaluateWith(context.Background(), countingImages{gets: &atomic.Int32{}}, ivpols, secretPayload, nil, nil, nil, true)
+	require.NoError(t, err)
+	tr := traced[policy.Name]
+	require.NotNil(t, tr)
+	require.NotNil(t, tr.Trace)
+	assert.Equal(t, "Secret", tr.Trace.ResourceKind)
+	assert.Equal(t, "db-credentials", tr.Trace.ResourceName)
+	assert.Equal(t, "default", tr.Trace.ResourceNamespace)
+
+	var sb strings.Builder
+	trace.Render(&sb, tr.Trace)
+	out := sb.String()
+	assert.Contains(t, out, "NOTE: values are redacted because this resource is a Secret.")
 }
 
 func TestEvaluateWithTrace_MatchConditionSkip(t *testing.T) {

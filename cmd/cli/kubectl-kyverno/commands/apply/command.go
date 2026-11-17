@@ -925,6 +925,17 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		// before the error is handled, so a policy that errored still shows how far it got
 		for _, name := range slices.Sorted(maps.Keys(result)) {
 			if rslt := result[name]; rslt != nil {
+				if rslt.Trace != nil {
+					if rslt.Trace.ResourceKind == "" {
+						rslt.Trace.ResourceKind = json.GetKind()
+					}
+					if rslt.Trace.ResourceName == "" {
+						rslt.Trace.ResourceName = json.GetName()
+					}
+					if rslt.Trace.ResourceNamespace == "" {
+						rslt.Trace.ResourceNamespace = json.GetNamespace()
+					}
+				}
 				c.printTrace(out, rslt.Trace)
 			}
 		}

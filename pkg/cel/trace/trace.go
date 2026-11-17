@@ -15,6 +15,10 @@ type NodeTrace struct {
 	Expression string
 	Value      string
 	Error      string
+	// ValueIsBoolean is true when the evaluated value is a genuine CEL boolean (bool).
+	// This ensures that secret fields with decoded string value "true" or "false" are
+	// not exempt from redaction.
+	ValueIsBoolean bool
 	// Inputs is what this sub-expression reads, so its value can be hidden when it may be Secret
 	// data.
 	Inputs Inputs
@@ -24,6 +28,8 @@ type ExpressionTrace struct {
 	Source string
 	Nodes  []NodeTrace
 	Result string
+	// ResultIsBoolean is true when the evaluated result is a genuine CEL boolean (bool).
+	ResultIsBoolean bool
 	// LoopValuesOmitted is set when nodes inside a loop body (all, exists, exists_one, map,
 	// filter) ran but were left out of Nodes; see Build for why.
 	LoopValuesOmitted bool
@@ -37,8 +43,9 @@ type ExpressionTrace struct {
 
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
 	et := ExpressionTrace{
-		Source: source,
-		Result: stringify(result),
+		Source:          source,
+		Result:          stringify(result),
+		ResultIsBoolean: result != nil && result.Type() == types.BoolType,
 	}
 	if ast == nil {
 		return et
@@ -130,6 +137,7 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 			nt.Error = stringify(val)
 		} else {
 			nt.Value = stringify(val)
+			nt.ValueIsBoolean = val != nil && val.Type() == types.BoolType
 		}
 		et.Nodes = append(et.Nodes, nt)
 	}))

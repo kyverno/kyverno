@@ -86,6 +86,25 @@ func evaluateWith(ctx context.Context, ictx imagedataloader.ImageContext, ivpols
 			result.Trace.PolicyKind = "ImageValidatingPolicy"
 		}
 		result.Trace.Scope = scope
+		if result.Trace.ResourceKind == "" {
+			if r, ok := request.(*admissionv1.AdmissionRequest); ok {
+				result.Trace.ResourceKind = r.Kind.Kind
+				result.Trace.ResourceName = r.Name
+				result.Trace.ResourceNamespace = r.Namespace
+			} else if m, ok := request.(map[string]any); ok {
+				if k, ok := m["kind"].(string); ok {
+					result.Trace.ResourceKind = k
+				}
+				if md, ok := m["metadata"].(map[string]any); ok {
+					if n, ok := md["name"].(string); ok {
+						result.Trace.ResourceName = n
+					}
+					if ns, ok := md["namespace"].(string); ok {
+						result.Trace.ResourceNamespace = ns
+					}
+				}
+			}
+		}
 	}
 	for _, ivpol := range policies {
 		p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions)

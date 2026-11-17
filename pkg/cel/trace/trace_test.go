@@ -46,10 +46,10 @@ func TestBuild(t *testing.T) {
 			},
 			wantResult: "true",
 			wantNodes: []NodeTrace{
-				{Expression: `has(object.metadata.labels) && "app" in object.metadata.labels`, Value: "true"},
-				{Expression: "has(object.metadata.labels)", Value: "true"},
+				{Expression: `has(object.metadata.labels) && "app" in object.metadata.labels`, Value: "true", ValueIsBoolean: true},
+				{Expression: "has(object.metadata.labels)", Value: "true", ValueIsBoolean: true},
 				{Expression: "object.metadata", Value: "map[labels:map[app:nginx]]"},
-				{Expression: `"app" in object.metadata.labels`, Value: "true"},
+				{Expression: `"app" in object.metadata.labels`, Value: "true", ValueIsBoolean: true},
 				{Expression: "object.metadata.labels", Value: "map[app:nginx]"},
 				{Expression: "object.metadata", Value: "map[labels:map[app:nginx]]"},
 			},
@@ -64,10 +64,10 @@ func TestBuild(t *testing.T) {
 			},
 			wantResult: "false",
 			wantNodes: []NodeTrace{
-				{Expression: `has(object.metadata.labels) && "app" in object.metadata.labels`, Value: "false"},
-				{Expression: "has(object.metadata.labels)", Value: "true"},
+				{Expression: `has(object.metadata.labels) && "app" in object.metadata.labels`, Value: "false", ValueIsBoolean: true},
+				{Expression: "has(object.metadata.labels)", Value: "true", ValueIsBoolean: true},
 				{Expression: "object.metadata", Value: "map[labels:map[team:platform]]"},
-				{Expression: `"app" in object.metadata.labels`, Value: "false"},
+				{Expression: `"app" in object.metadata.labels`, Value: "false", ValueIsBoolean: true},
 				{Expression: "object.metadata.labels", Value: "map[team:platform]"},
 				{Expression: "object.metadata", Value: "map[labels:map[team:platform]]"},
 			},
@@ -116,6 +116,36 @@ func TestBuild(t *testing.T) {
 			assert.Equal(t, tt.wantNodes, et.Nodes)
 		})
 	}
+}
+
+// TestBuild_BooleanFlagDistinguishesFromStringTrue verifies that Build sets ResultIsBoolean and
+// ValueIsBoolean to true only for genuine CEL booleans, not for strings whose text is "true" or
+// "false". This is the property that makes redaction safe: a Secret field decoded to the string
+// "true" gets isBoolean=false and will be redacted, while a real boolean comparison result gets
+// isBoolean=true and may be preserved.
+func TestBuild_BooleanFlagDistinguishesFromStringTrue(t *testing.T) {
+	// expr evaluates to the CEL bool true (a real boolean)
+	boolExpr := "object.metadata.name == object.metadata.name"
+	// expr evaluates to the CEL string "true" (a string, not a boolean)
+	stringExpr := "object.metadata.name"
+
+	prg, ast := buildTrackedProgram(t, boolExpr)
+	out, details, err := prg.ContextEval(context.TODO(), map[string]any{
+		"object": map[string]any{"metadata": map[string]any{"name": "true"}},
+	})
+	require.NoError(t, err)
+	et := Build(boolExpr, ast, out, details)
+	assert.Equal(t, "true", et.Result)
+	assert.True(t, et.ResultIsBoolean, "a CEL boolean true must set ResultIsBoolean")
+
+	prg2, ast2 := buildTrackedProgram(t, stringExpr)
+	out2, details2, err := prg2.ContextEval(context.TODO(), map[string]any{
+		"object": map[string]any{"metadata": map[string]any{"name": "true"}},
+	})
+	require.NoError(t, err)
+	et2 := Build(stringExpr, ast2, out2, details2)
+	assert.Equal(t, "true", et2.Result)
+	assert.False(t, et2.ResultIsBoolean, "a CEL string 'true' must NOT set ResultIsBoolean")
 }
 
 // TestBuild_StableOrder runs the same expression many times and checks the node order never
