@@ -282,6 +282,54 @@ func TestCommand(t *testing.T) {
 	}
 }
 
+func TestClusterRoleMalformedApiGroups(t *testing.T) {
+	tempDir := t.TempDir()
+	outputPath := filepath.Join(tempDir, "clusterrole.yaml")
+
+	tests := []struct {
+		name       string
+		args       []string
+		outputFile string
+	}{
+		{
+			name: "unterminated quoted api group in console output",
+			args: []string{
+				"bad-role",
+				"--api-groups=\"unterminated",
+				"--resources=pods",
+				"--verbs=get",
+			},
+		},
+		{
+			name: "unterminated quoted api group with output file",
+			args: []string{
+				"bad-role",
+				"--api-groups=\"unterminated",
+				"--resources=pods",
+				"--verbs=get",
+				"-o", outputPath,
+			},
+			outputFile: outputPath,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := Command()
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
+			cmd.SetArgs(tc.args)
+			err := cmd.Execute()
+			assert.Error(t, err)
+			assert.NotContains(t, buf.String(), "kind: ClusterRole")
+			if tc.outputFile != "" {
+				_, statErr := os.Stat(tc.outputFile)
+				assert.True(t, os.IsNotExist(statErr), "output file should not be created on malformed flag input")
+			}
+		})
+	}
+}
+
 func TestClusterRoleValidYAML(t *testing.T) {
 	cmd := Command()
 	var buf bytes.Buffer
