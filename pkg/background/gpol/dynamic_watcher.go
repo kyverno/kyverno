@@ -1360,15 +1360,19 @@ func (wm *WatchManager) reconcileTrackedDownstream(obj *unstructured.Unstructure
 	uid := obj.GetUID()
 	objHash := reportutils.CalculateResourceHash(*obj)
 
+	// Serialize the cache revalidation and bounded revert write under wm.lock
+	// (matching handleUpdate and revertDownstream's contract) so a concurrent
+	// DeleteDownstreams, InvalidateDownstreams, or SyncWatchers cannot remove or
+	// replace the UID between validation and write.
 	wm.lock.Lock()
+	defer wm.lock.Unlock()
+
 	w, exists := wm.dynamicWatchers[gvr]
 	if !exists || (expectedWatcher != nil && w != expectedWatcher) {
-		wm.lock.Unlock()
 		return
 	}
 	cached, ok := w.metadataCache[uid]
 	if !ok || cached.Hash == "" || cached.Hash == objHash || cached.Data == nil {
-		wm.lock.Unlock()
 		return
 	}
 	cachedLabels := cached.Labels
@@ -1379,50 +1383,10 @@ func (wm *WatchManager) reconcileTrackedDownstream(obj *unstructured.Unstructure
 	key := generateKey(policyKey, types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
 	if pending := wm.pendingGenerates[key]; pending != nil {
 		pending.skipped[uid] = skippedUpdate{gvr: gvr, obj: obj.DeepCopy()}
-		wm.lock.Unlock()
 		wm.log.V(4).Info("downstream resource changed while its own generate write is in flight, skipping revert", "name", obj.GetName(), "namespace", obj.GetNamespace())
 		return
 	}
-	desiredData := cached.Data.DeepCopy()
-	desiredHash := cached.Hash
-	ssa := cached.ServerSideApply
-	wm.lock.Unlock()
-
-	// Perform revert I/O outside locks with a bounded timeout, then revalidate
-	// watcher and UID cache membership before committing any cache hash update.
-	wm.log.V(4).Info("downstream resource updated by user, reverting changes", "name", obj.GetName(), "namespace", obj.GetNamespace())
-	var err error
-	var applied *unstructured.Unstructured
-	if ssa {
-		applied, err = wm.applyDownstream(appliedConfiguration(desiredData, obj))
-	} else {
-		downstream := desiredData.DeepCopy()
-		downstream.SetUID("")
-		downstream.SetSelfLink("")
-		downstream.SetCreationTimestamp(metav1.Time{})
-		downstream.SetManagedFields(nil)
-		downstream.SetResourceVersion(obj.GetResourceVersion())
-		downstream.SetFinalizers(obj.GetFinalizers())
-		downstream.SetOwnerReferences(obj.GetOwnerReferences())
-		ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
-		_, err = wm.client.UpdateResource(ctx, downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
-		cancel()
-	}
-	if err != nil {
-		wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
-		return
-	}
-	if ssa && applied != nil {
-		wm.lock.Lock()
-		if curW, okW := wm.dynamicWatchers[gvr]; okW && (expectedWatcher == nil || curW == expectedWatcher) {
-			if cur, okC := curW.metadataCache[uid]; okC && cur.Hash == desiredHash {
-				cur.Hash = reportutils.CalculateResourceHash(*applied)
-				curW.metadataCache[uid] = cur
-			}
-		}
-		wm.lock.Unlock()
-	}
-	wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	wm.revertDownstream(w, uid, obj)
 }
 
 func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
@@ -1563,7 +1527,9 @@ func (wm *WatchManager) revertDownstream(watcher *watcher, uid types.UID, obj *u
 		// set them, such as the finalizer Crossplane adds to a Usage, so keep the live ones.
 		downstream.SetFinalizers(obj.GetFinalizers())
 		downstream.SetOwnerReferences(obj.GetOwnerReferences())
-		_, err = wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+		ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
+		_, err = wm.client.UpdateResource(ctx, downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+		cancel()
 	}
 	if err != nil {
 		wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
@@ -1594,7 +1560,9 @@ func (wm *WatchManager) propagateToDownstream(serverSideApply bool, downstream, 
 
 // applyDownstream server-side applies cfg as the field manager generate uses.
 func (wm *WatchManager) applyDownstream(cfg *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	return wm.client.ApplyResource(context.TODO(), cfg.GetAPIVersion(), cfg.GetKind(), cfg.GetNamespace(), cfg.GetName(), cfg, false, "generate")
+	ctx, cancel := context.WithTimeout(context.Background(), collectionListTimeout)
+	defer cancel()
+	return wm.client.ApplyResource(ctx, cfg.GetAPIVersion(), cfg.GetKind(), cfg.GetNamespace(), cfg.GetName(), cfg, false, "generate")
 }
 
 // applyConfiguration returns the content of a generated object to apply: its name, namespace,
