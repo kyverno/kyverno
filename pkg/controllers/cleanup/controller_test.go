@@ -339,6 +339,7 @@ func (noDeferredLoading) GenerateMutatingAdmissionPolicy() bool   { return false
 func (noDeferredLoading) DumpMutatePatches() bool                 { return false }
 func (noDeferredLoading) AutogenV2() bool                         { return false }
 func (noDeferredLoading) AllowHTTPInNamespacedPolicies() bool     { return false }
+func (noDeferredLoading) ProtectGenerationLabels() bool           { return false }
 
 type stubGctxStore struct{}
 
