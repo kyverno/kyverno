@@ -20,10 +20,8 @@ func NormalizeOperation(operation string) (string, error) {
 }
 
 // NormalizeValuesOperation validates a `request.operation` global value from a
-// values file. In addition to the operations supported by admission request
-// simulation, CONNECT is accepted for backward compatibility with classic
-// policies that evaluate `request.operation` in preconditions; it is not
-// simulated for CEL policy types, which fall back to the CREATE request shape.
+// values file. Supported admission operations include CREATE, UPDATE, DELETE,
+// and CONNECT.
 func NormalizeValuesOperation(operation string) (string, error) {
 	switch operation {
 	case "", "CREATE", "UPDATE", "DELETE", "CONNECT":

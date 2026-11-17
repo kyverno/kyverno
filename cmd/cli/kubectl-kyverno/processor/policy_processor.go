@@ -80,7 +80,7 @@ type PolicyProcessor struct {
 	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
-	// Operation is the admission operation to simulate (CREATE, UPDATE or DELETE).
+	// Operation is the admission operation to simulate (CREATE, UPDATE, DELETE, or CONNECT).
 	// When empty, the `request.operation` global value from the values file is
 	// honored, defaulting to CREATE.
 	Operation          string
@@ -167,6 +167,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// Mutate Admission Policies
 	if len(p.MutatingAdmissionPolicies) != 0 {
+		if p.resolveOperation() == "CONNECT" {
+			return nil, fmt.Errorf("CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		}
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
 			return nil, fmt.Errorf("failed to map gvk to gvr %s: %w", gvk, err)
@@ -449,6 +452,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// validating admission policies
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
 	if len(p.ValidatingAdmissionPolicies) != 0 {
+		if p.resolveOperation() == "CONNECT" {
+			return nil, fmt.Errorf("CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		}
 		// map gvk to gvr
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {

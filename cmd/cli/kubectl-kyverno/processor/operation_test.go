@@ -7,6 +7,9 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -143,4 +146,42 @@ func TestAdmissionRequestShapeUpdateDeepCopy(t *testing.T) {
 	_, object, oldObject := AdmissionRequestShape("UPDATE", resource)
 	object.(*unstructured.Unstructured).SetLabels(map[string]string{"mutated": "true"})
 	assert.Empty(t, oldObject.(*unstructured.Unstructured).GetLabels())
+}
+
+func TestApplyPoliciesOnResource_RejectsConnectForNativePolicies(t *testing.T) {
+	t.Run("rejects CONNECT for ValidatingAdmissionPolicy", func(t *testing.T) {
+		p := &PolicyProcessor{
+			Operation: "CONNECT",
+			ValidatingAdmissionPolicies: []admissionregistrationv1.ValidatingAdmissionPolicy{
+				{ObjectMeta: metav1.ObjectMeta{Name: "test-vap"}},
+			},
+			Resource: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata":   map[string]interface{}{"name": "test-pod"},
+				},
+			},
+		}
+		_, err := p.ApplyPoliciesOnResource()
+		assert.EqualError(t, err, "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for MutatingAdmissionPolicy", func(t *testing.T) {
+		p := &PolicyProcessor{
+			Operation: "CONNECT",
+			MutatingAdmissionPolicies: []admissionregistrationv1beta1.MutatingAdmissionPolicy{
+				{ObjectMeta: metav1.ObjectMeta{Name: "test-map"}},
+			},
+			Resource: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata":   map[string]interface{}{"name": "test-pod"},
+				},
+			},
+		}
+		_, err := p.ApplyPoliciesOnResource()
+		assert.EqualError(t, err, "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
 }
