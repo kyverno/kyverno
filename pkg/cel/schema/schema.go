@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/ext"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/cel/common"
 	"k8s.io/apiserver/pkg/cel/openapi"
@@ -29,12 +29,13 @@ type Computed struct {
 
 // Schema is a compiled payload schema: a validator plus the CEL declarations.
 type Schema struct {
-	validator *validate.SchemaValidator
-	provider  *apiservercel.DeclTypeProvider
-	root      *apiservercel.DeclType
-	computed  []computedProgram
-	env       *cel.Env
-	exposure  *Exposure
+	validator  *validate.SchemaValidator
+	jsonSchema spec.Schema
+	provider   *apiservercel.DeclTypeProvider
+	root       *apiservercel.DeclType
+	computed   []computedProgram
+	env        *cel.Env
+	exposure   *Exposure
 }
 
 // WithExposure sets the projection applied to every payload before CEL sees it.
@@ -55,7 +56,9 @@ func New(schemaJSON []byte, computed []Computed) (*Schema, error) {
 		return nil, fmt.Errorf("schema has no CEL declaration")
 	}
 	provider := apiservercel.NewDeclTypeProvider(root.MaybeAssignTypeName(rootTypeName))
-	base, err := cel.NewEnv(ext.Lists(), ext.Math())
+	// The repository's env chokepoint: Kyverno's default libraries plus the
+	// cost limit that compiler.NewProgram and ContextEval rely on.
+	base, err := compiler.NewEnv(compiler.DefaultEnvOptions()...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,9 +79,9 @@ func New(schemaJSON []byte, computed []Computed) (*Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := &Schema{validator: validator, provider: provider, root: rootType, env: env}
+	out := &Schema{validator: validator, jsonSchema: s, provider: provider, root: rootType, env: env}
 	for _, c := range computed {
-		prog, _, err := out.program(c.Expression)
+		prog, _, err := out.compileExpr(c.Expression)
 		if err != nil {
 			return nil, fmt.Errorf("computed %q: %w", c.Name, err)
 		}

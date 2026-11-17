@@ -1,6 +1,7 @@
 package schema_test
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -81,13 +82,14 @@ func TestDigest(t *testing.T) {
 
 func TestExposureProjection(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 	s, err := schema.New([]byte(`{"type":"object","properties":{
 	  "public":{"type":"string"},
 	  "secret":{"type":"string"},
 	  "nested":{"type":"object","properties":{"keep":{"type":"string"},"drop":{"type":"string"}}}}}`), nil)
 	require.NoError(t, err)
 	s.WithExposure(schema.Exposure{Include: []string{"/**"}, Exclude: []string{"/secret", "/nested/drop"}})
-	p, err := s.Decode([]byte(`{"public":"p","secret":"s","nested":{"keep":"k","drop":"d"}}`))
+	p, err := s.Decode(ctx, []byte(`{"public":"p","secret":"s","nested":{"keep":"k","drop":"d"}}`))
 	require.NoError(t, err)
 	for expr, want := range map[string]any{
 		`has(object.public)`:        true,
@@ -96,19 +98,19 @@ func TestExposureProjection(t *testing.T) {
 		`has(object.nested.drop)`:   false,
 		`object.nested.keep == 'k'`: true,
 	} {
-		got, err := s.Eval(expr, p)
+		got, err := s.Evaluate(ctx, expr, p)
 		require.NoError(t, err, expr)
 		assert.Equal(t, want, got, expr)
 	}
-	_, err = s.Eval(`object.secret == 's'`, p)
+	_, err = s.Evaluate(ctx, `object.secret == 's'`, p)
 	assert.Error(t, err, "excluded field must not be readable")
 
 	only, err := schema.New([]byte(`{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"}}}`), nil)
 	require.NoError(t, err)
 	only.WithExposure(schema.Exposure{Include: []string{"/a"}})
-	p, err = only.Decode([]byte(`{"a":"1","b":"2"}`))
+	p, err = only.Decode(ctx, []byte(`{"a":"1","b":"2"}`))
 	require.NoError(t, err)
-	got, _ := only.Eval(`has(object.b)`, p)
+	got, _ := only.Evaluate(ctx, `has(object.b)`, p)
 	assert.Equal(t, false, got)
 }
 
