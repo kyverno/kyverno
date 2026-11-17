@@ -84,13 +84,21 @@ func (m *Matcher) GetNamespaceLabels(attr admission.Attributes) (map[string]stri
 	// going to change the object, and attr.Object will be a DeleteOptions
 	// rather than a namespace object.
 	if attr.GetResource().Resource == "namespaces" &&
-		len(attr.GetSubresource()) == 0 &&
-		(attr.GetOperation() == admission.Create || attr.GetOperation() == admission.Update) {
-		accessor, err := meta.Accessor(attr.GetObject())
-		if err != nil {
-			return nil, err
+		len(attr.GetSubresource()) == 0 {
+		if attr.GetOperation() == admission.Create || attr.GetOperation() == admission.Update {
+			accessor, err := meta.Accessor(attr.GetObject())
+			if err != nil {
+				return nil, err
+			}
+			return accessor.GetLabels(), nil
 		}
-		return accessor.GetLabels(), nil
+		if attr.GetOperation() == admission.Delete && attr.GetOldObject() != nil {
+			accessor, err := meta.Accessor(attr.GetOldObject())
+			if err != nil {
+				return nil, err
+			}
+			return accessor.GetLabels(), nil
+		}
 	}
 
 	namespace, err := m.GetNamespace(attr.GetNamespace())

@@ -171,9 +171,17 @@ func Validate(
 
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
-	}
-
-	if namespaceName != "" {
+		labels := resource.GetLabels()
+		if len(labels) == 0 && namespaceSelectorMap != nil {
+			labels = namespaceSelectorMap[resource.GetName()]
+		}
+		namespace = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   resource.GetName(),
+				Labels: labels,
+			},
+		}
+	} else if namespaceName != "" {
 		namespace = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   namespaceName,

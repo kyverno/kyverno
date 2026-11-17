@@ -1445,9 +1445,9 @@ func Test_ProcessMAP_FailurePolicy_Ignore_SuppressesParamResolutionErrors(t *tes
 	allowedCM, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"allowed-cm","namespace":"default"},"data":{"allowed":"true"}}`))
 	assert.NilError(t, err)
 
-	ambiguousCM1, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"ambiguous-cm","namespace":"ns-a"}}`))
+	ambiguousCM1, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"ambiguous-cm","namespace":"default","uid":"cm-1"}}`))
 	assert.NilError(t, err)
-	ambiguousCM2, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"ambiguous-cm","namespace":"ns-b"}}`))
+	ambiguousCM2, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"ambiguous-cm","namespace":"default","uid":"cm-2"}}`))
 	assert.NilError(t, err)
 
 	validBinding := admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
@@ -1610,6 +1610,9 @@ func Test_ProcessMAP_FailurePolicy_Ignore_SuppressesParamResolutionErrors(t *tes
 				assert.Equal(t, len(er.PolicyResponse.Rules), 2)
 				assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
 				assert.Equal(t, er.PolicyResponse.Rules[0].MutatingAdmissionPolicyBinding().GetName(), tc.faultBinding.GetName())
+				if strings.Contains(tc.name, "ambiguous") {
+					assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "multiple parameter resources match paramRef without selector"))
+				}
 				assert.Equal(t, er.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusPass)
 				assert.Equal(t, er.PolicyResponse.Rules[1].MutatingAdmissionPolicyBinding().GetName(), validBinding.GetName())
 			} else {

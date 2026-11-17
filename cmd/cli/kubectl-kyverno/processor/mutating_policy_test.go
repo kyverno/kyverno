@@ -301,3 +301,71 @@ func Test_ApplyPoliciesOnResource_NativePolicies_OperationFiltering(t *testing.T
 		assert.Equal(t, responses[0].PatchedResource.GetLabels()["updated"], "true")
 	})
 }
+
+func Test_ApplyPoliciesOnResource_NamespaceDelete_SelectorMatching(t *testing.T) {
+	vapPolicy := admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "deny-prod-namespace-delete",
+		},
+		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Delete,
+							},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"namespaces"},
+							},
+						},
+					},
+				},
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"env": "prod",
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "false",
+					Message:    "cannot delete prod namespace",
+				},
+			},
+		},
+	}
+
+	prodNs := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Namespace",
+			"metadata": map[string]interface{}{
+				"name": "production",
+				"labels": map[string]interface{}{
+					"env": "prod",
+				},
+			},
+		},
+	}
+
+	rc := &ResultCounts{}
+	processor := PolicyProcessor{
+		Store:                       &store.Store{},
+		Operation:                   "DELETE",
+		ValidatingAdmissionPolicies: []admissionregistrationv1.ValidatingAdmissionPolicy{vapPolicy},
+		Resource:                    *prodNs,
+		Variables:                   &variables.Variables{},
+		Rc:                          rc,
+		Out:                         io.Discard,
+	}
+
+	responses, err := processor.ApplyPoliciesOnResource()
+	assert.NilError(t, err)
+	assert.Equal(t, len(responses), 1)
+	assert.Equal(t, len(responses[0].PolicyResponse.Rules), 1)
+	assert.Equal(t, responses[0].PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
+	assert.Equal(t, rc.Fail, 1)
+}
