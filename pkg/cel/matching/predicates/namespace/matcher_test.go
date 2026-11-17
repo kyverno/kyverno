@@ -70,6 +70,11 @@ func TestGetNamespaceLabels(t *testing.T) {
 			expectedLabels: namespace1Labels,
 		},
 		{
+			name:           "request is for deleting namespace with oldObject, labels should be from oldObject",
+			attr:           admission.NewAttributesRecord(nil, &namespace2, schema.GroupVersionKind{}, "", namespace2.Name, schema.GroupVersionResource{Resource: "namespaces"}, "", admission.Delete, &metav1.DeleteOptions{}, false, nil),
+			expectedLabels: namespace2Labels,
+		},
+		{
 			name:           "request is for namespace/finalizer",
 			attr:           admission.NewAttributesRecord(nil, nil, schema.GroupVersionKind{}, namespace1.Name, "mock-name", schema.GroupVersionResource{Resource: "namespaces"}, "finalizers", admission.Create, &metav1.CreateOptions{}, false, nil),
 			expectedLabels: namespace1Labels,
@@ -91,6 +96,29 @@ func TestGetNamespaceLabels(t *testing.T) {
 		if !reflect.DeepEqual(actualLabels, tt.expectedLabels) {
 			t.Errorf("expected labels to be %#v, got %#v", tt.expectedLabels, actualLabels)
 		}
+	}
+}
+
+func TestGetNamespaceLabels_DeleteWithOldObjectAndNilCache(t *testing.T) {
+	namespaceLabels := map[string]string{
+		"runlevel": "2",
+	}
+	ns := corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "2",
+			Labels: namespaceLabels,
+		},
+	}
+	attr := admission.NewAttributesRecord(nil, &ns, schema.GroupVersionKind{}, "", ns.Name, schema.GroupVersionResource{Resource: "namespaces"}, "", admission.Delete, &metav1.DeleteOptions{}, false, nil)
+	matcher := namespace.Matcher{
+		Namespace: nil,
+	}
+	actualLabels, err := matcher.GetNamespaceLabels(attr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(actualLabels, namespaceLabels) {
+		t.Errorf("expected labels to be %#v, got %#v", namespaceLabels, actualLabels)
 	}
 }
 

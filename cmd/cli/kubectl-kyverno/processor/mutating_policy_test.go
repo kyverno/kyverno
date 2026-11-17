@@ -338,34 +338,73 @@ func Test_ApplyPoliciesOnResource_NamespaceDelete_SelectorMatching(t *testing.T)
 		},
 	}
 
-	prodNs := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Namespace",
-			"metadata": map[string]interface{}{
-				"name": "production",
-				"labels": map[string]interface{}{
-					"env": "prod",
-				},
+	testCases := []struct {
+		name       string
+		labels     map[string]interface{}
+		expectFail bool
+	}{
+		{
+			name: "env=prod matches selector and fails admission on DELETE",
+			labels: map[string]interface{}{
+				"env": "prod",
 			},
+			expectFail: true,
+		},
+		{
+			name: "env=dev does not match selector and skips policy on DELETE",
+			labels: map[string]interface{}{
+				"env": "dev",
+			},
+			expectFail: false,
+		},
+		{
+			name:       "absent labels does not match selector and skips policy on DELETE",
+			labels:     nil,
+			expectFail: false,
 		},
 	}
 
-	rc := &ResultCounts{}
-	processor := PolicyProcessor{
-		Store:                       &store.Store{},
-		Operation:                   "DELETE",
-		ValidatingAdmissionPolicies: []admissionregistrationv1.ValidatingAdmissionPolicy{vapPolicy},
-		Resource:                    *prodNs,
-		Variables:                   &variables.Variables{},
-		Rc:                          rc,
-		Out:                         io.Discard,
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			metadata := map[string]interface{}{
+				"name": "test-ns",
+			}
+			if tc.labels != nil {
+				metadata["labels"] = tc.labels
+			}
+			nsObj := &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Namespace",
+					"metadata":   metadata,
+				},
+			}
 
-	responses, err := processor.ApplyPoliciesOnResource()
-	assert.NilError(t, err)
-	assert.Equal(t, len(responses), 1)
-	assert.Equal(t, len(responses[0].PolicyResponse.Rules), 1)
-	assert.Equal(t, responses[0].PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
-	assert.Equal(t, rc.Fail, 1)
+			rc := &ResultCounts{}
+			processor := PolicyProcessor{
+				Store:                       &store.Store{},
+				Operation:                   "DELETE",
+				ValidatingAdmissionPolicies: []admissionregistrationv1.ValidatingAdmissionPolicy{vapPolicy},
+				Resource:                    *nsObj,
+				Variables:                   &variables.Variables{},
+				Rc:                          rc,
+				Out:                         io.Discard,
+			}
+
+			responses, err := processor.ApplyPoliciesOnResource()
+			assert.NilError(t, err)
+
+			if tc.expectFail {
+				assert.Equal(t, len(responses), 1)
+				assert.Equal(t, len(responses[0].PolicyResponse.Rules), 1)
+				assert.Equal(t, responses[0].PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
+				assert.Equal(t, rc.Fail, 1)
+			} else {
+				assert.Equal(t, rc.Fail, 0)
+				for _, r := range responses {
+					assert.Assert(t, r.IsEmpty())
+				}
+			}
+		})
+	}
 }

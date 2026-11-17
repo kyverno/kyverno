@@ -216,10 +216,7 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 				continue
 			}
 
-			var nsName string
-			if namespace != nil {
-				nsName = namespace.Name
-			}
+			nsName := a.GetNamespace()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			params, err := CollectParams(ctx, adapters.Client(client), convertParamKind(policy.Spec.ParamKind), convertParamRef(binding.Spec.ParamRef), nsName)
 			cancel()

@@ -313,10 +313,7 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 				continue
 			}
 
-			var nsName string
-			if namespace != nil {
-				nsName = namespace.Name
-			}
+			nsName := a.GetNamespace()
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			params, err := CollectParams(ctx, adapters.Client(client), policy.Spec.ParamKind, binding.Spec.ParamRef, nsName)
 			cancel()
