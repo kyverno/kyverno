@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 )
 
@@ -99,7 +101,7 @@ func DecodeInput(mode Mode, body []byte) (Input, error) {
 		data := bytes.TrimSpace(body)
 		if data[0] != '{' {
 			var err error
-			if data, err = yaml.YAMLToJSON(body); err != nil {
+			if data, err = singleYAMLDocumentToJSON(body); err != nil {
 				return in, fmt.Errorf("failed to decode HTTP check request: %w", err)
 			}
 		}
@@ -116,7 +118,7 @@ func DecodeInput(mode Mode, body []byte) (Input, error) {
 		}
 		in.HTTPRequests = []*authzhttp.CheckRequest{&request}
 	case ModeEnvoy:
-		data, err := yaml.YAMLToJSON(body)
+		data, err := singleYAMLDocumentToJSON(body)
 		if err != nil {
 			return in, fmt.Errorf("failed to decode Envoy check request: %w", err)
 		}
@@ -129,6 +131,46 @@ func DecodeInput(mode Mode, body []byte) (Input, error) {
 		return in, fmt.Errorf("unsupported mode %q", mode)
 	}
 	return in, nil
+}
+
+// singleYAMLDocumentToJSON converts a YAML body holding exactly one document to JSON.
+// yaml.YAMLToJSON alone keeps the first document and silently drops the rest, so a body with a
+// second request would be evaluated as if it only held the first one.
+func singleYAMLDocumentToJSON(body []byte) ([]byte, error) {
+	reader := utilyaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(body)))
+	var document []byte
+	for {
+		chunk, err := reader.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if len(bytes.TrimSpace(chunk)) == 0 || isOnlyComments(chunk) {
+			continue
+		}
+		if document != nil {
+			return nil, fmt.Errorf("the body holds more than one YAML document; send one request")
+		}
+		document = chunk
+	}
+	if document == nil {
+		return nil, fmt.Errorf("the body holds no YAML document")
+	}
+	return yaml.YAMLToJSON(document)
+}
+
+// isOnlyComments reports whether a YAML chunk holds nothing but comments, such as the header of a
+// file before its first "---".
+func isOnlyComments(chunk []byte) bool {
+	for _, line := range bytes.Split(chunk, []byte("\n")) {
+		line = bytes.TrimSpace(line)
+		if len(line) > 0 && line[0] != '#' && !bytes.Equal(line, []byte("---")) {
+			return false
+		}
+	}
+	return true
 }
 
 // ProcessResources normalizes decoded resources the way apply does before evaluating them.

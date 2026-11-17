@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
@@ -117,6 +118,24 @@ func TestDecodeInput(t *testing.T) {
 		mode:    ModeHTTP,
 		body:    []byte(`{"attribute":{"method":"GET"}}`),
 		wantErr: `unknown field "attribute"`,
+	}, {
+		name:    "http second yaml document",
+		mode:    ModeHTTP,
+		body:    []byte("attributes:\n  method: GET\n---\nattributes:\n  method: DELETE\n"),
+		wantErr: "more than one YAML document",
+	}, {
+		name: "http yaml with a leading document separator and comments",
+		mode: ModeHTTP,
+		body: []byte("# a GET request\n---\nattributes:\n  method: GET\n"),
+		check: func(t *testing.T, in Input) {
+			require.Len(t, in.HTTPRequests, 1)
+			assert.Equal(t, "GET", in.HTTPRequests[0].Attributes.Method)
+		},
+	}, {
+		name:    "envoy second yaml document",
+		mode:    ModeEnvoy,
+		body:    []byte("attributes:\n  request:\n    http:\n      path: /\n---\nattributes:\n  request:\n    http:\n      path: /admin\n"),
+		wantErr: "more than one YAML document",
 	}, {
 		name:    "http trailing data",
 		mode:    ModeHTTP,
@@ -323,4 +342,119 @@ func TestOfflineNamespaceResolver(t *testing.T) {
 	assert.Equal(t, "prod", ns.Labels["env"])
 	assert.Nil(t, resolve("missing"))
 	assert.Nil(t, resolve(""))
+}
+
+// TestLoadStrictRejectsUncompilablePolicies covers each compiler PolicySet.Compile dispatches to:
+// every policy below has a valid schema and a CEL expression that does not compile.
+func TestLoadStrictRejectsUncompilablePolicies(t *testing.T) {
+	t.Parallel()
+	const broken = `"object.metadata.name =="`
+	match := `
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [pods]`
+	tests := []struct {
+		name   string
+		policy string
+	}{{
+		name: "ValidatingPolicy",
+		policy: `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: broken
+spec:` + match + `
+  validations:
+  - expression: ` + broken,
+	}, {
+		name: "MutatingPolicy",
+		policy: `apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: broken
+spec:` + match + `
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: ` + broken,
+	}, {
+		name: "GeneratingPolicy",
+		policy: `apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: broken
+spec:` + match + `
+  generate:
+  - expression: ` + broken,
+	}, {
+		name: "DeletingPolicy",
+		policy: `apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: broken
+spec:
+  schedule: "*/1 * * * *"` + match + `
+  conditions:
+  - name: broken
+    expression: ` + broken,
+	}, {
+		name: "ImageValidatingPolicy",
+		policy: `apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: broken
+spec:` + match + `
+  matchImageReferences:
+  - glob: "registry.example.com/*"
+  attestors:
+  - name: unused
+    cosign:
+      key:
+        data: unused
+  validations:
+  - expression: ` + broken,
+	}, {
+		name: "HTTP ValidatingPolicy",
+		policy: `apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: broken
+spec:
+  evaluation:
+    mode: HTTP
+  validations:
+  - expression: ` + broken,
+	}, {
+		name: "Envoy ValidatingPolicy",
+		policy: `apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: broken
+spec:
+  evaluation:
+    mode: Envoy
+  validations:
+  - expression: ` + broken,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			// the policy itself loads: only compiling it fails
+			results, err := policy.LoadBytes("test", []byte(tt.policy))
+			require.NoError(t, err)
+			require.Empty(t, results.NonFatalErrors)
+
+			set, err := LoadStrictBytes([]byte(tt.policy))
+			require.ErrorContains(t, err, "failed to compile "+tt.name+" broken")
+			assert.Nil(t, set)
+
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.yaml"), []byte(tt.policy), 0o600))
+			set, err = LoadStrict(dir)
+			require.ErrorContains(t, err, "failed to compile "+tt.name+" broken")
+			assert.Nil(t, set)
+		})
+	}
 }
