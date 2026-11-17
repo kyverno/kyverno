@@ -3,6 +3,8 @@ package apply
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -2380,6 +2383,79 @@ func Test_Apply_ExplainHidesSecretData(t *testing.T) {
 			for _, want := range tt.want {
 				assert.Contains(t, output, want)
 			}
+		})
+	}
+}
+
+// updateGolden rewrites the golden files of Test_Apply_ExplainJSON from the current output:
+//
+//	go test ./cmd/cli/kubectl-kyverno/commands/apply/ -run Test_Apply_ExplainJSON -update-golden
+var updateGolden = flag.Bool("update-golden", false, "rewrite the golden files of Test_Apply_ExplainJSON")
+
+// Test_Apply_ExplainJSON runs each policy type with --explain --output-format json and compares
+// what it writes with a golden file, the JSON form of its decisions that consumers depend on. The
+// output must be one DecisionList and nothing else, read back as the document that was written,
+// and summarise the same results as a run without --explain.
+func Test_Apply_ExplainJSON(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	const golden = "../../_testdata/apply/explain-json/"
+	tests := []struct {
+		name     string
+		policy   string
+		resource string
+	}{{
+		name:     "validating-policy",
+		policy:   base + "test-validating-policy/check-deployment-labels/policy.yaml",
+		resource: base + "test-validating-policy/check-deployment-labels/deployment2.yaml",
+	}, {
+		name:     "mutating-policy",
+		policy:   base + "test-mutating-policy/mutating-label/policy.yaml",
+		resource: base + "test-mutating-policy/mutating-label/resource.yaml",
+	}, {
+		name:     "generating-policy",
+		policy:   base + "test-generating-policy/data/generate-cm/policy.yaml",
+		resource: base + "test-generating-policy/data/generate-cm/resource.yaml",
+	}, {
+		name:     "deleting-policy",
+		policy:   base + "test-deleting-policy/deleting-pod-by-name/policy.yaml",
+		resource: base + "test-deleting-policy/deleting-pod-by-name/resource.yaml",
+	}, {
+		name:     "image-validating-policy",
+		policy:   base + "test-image-validating-policy/explain/policy.yaml",
+		resource: base + "test-image-validating-policy/explain/resources.yaml",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetArgs([]string{tt.policy, "--resource", tt.resource, "--explain", "--output-format", "json"})
+			// a failing policy fails the command, as it does without --output-format json
+			_ = cmd.Execute()
+
+			var list trace.DecisionList
+			require.NoError(t, json.Unmarshal(stdout.Bytes(), &list), "standard output is one JSON document and nothing else; standard error was:\n%s", stderr.String())
+			assert.Equal(t, trace.APIVersion, list.APIVersion)
+			assert.Equal(t, trace.KindDecisionList, list.Kind)
+			assert.NotEmpty(t, list.Items)
+			var written bytes.Buffer
+			summary := list.Summary
+			require.NoError(t, printDecisions(&written, list.Items, &processor.ResultCounts{Pass: summary.Pass, Fail: summary.Fail, Warn: summary.Warn, Error: summary.Error, Skip: summary.Skip}))
+			assert.Equal(t, stdout.String(), written.String(), "the document reads back as the one that was written")
+
+			config := ApplyCommandConfig{PolicyPaths: []string{tt.policy}, ResourcePaths: []string{tt.resource}}
+			rc, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+			require.NoError(t, err)
+			assert.Equal(t, trace.Summary{Pass: rc.Pass, Fail: rc.Fail, Warn: rc.Warn, Error: rc.Error, Skip: rc.Skip}, list.Summary)
+
+			path := golden + tt.name + ".json"
+			if *updateGolden {
+				require.NoError(t, os.WriteFile(path, stdout.Bytes(), 0o600))
+			}
+			want, err := os.ReadFile(path)
+			require.NoError(t, err)
+			assert.Equal(t, string(want), stdout.String())
 		})
 	}
 }
