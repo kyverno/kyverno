@@ -1,0 +1,106 @@
+{
+  "name": "chainsaw-report",
+  "startTime": "2026-11-13T19:24:09.24563-07:00",
+  "endTime": "2026-11-13T19:24:09.254895-07:00",
+  "tests": [
+    {
+      "basePath": "chainsaw/validating-policies/webhook-config",
+      "name": "webhook-config",
+      "status": "failed",
+      "startTime": "2026-11-13T19:24:09.24659-07:00",
+      "endTime": "2026-11-13T19:24:09.254864-07:00",
+      "steps": [
+        {
+          "name": "assert-webhook",
+          "status": "failed",
+          "startTime": "2026-11-13T19:24:09.24661-07:00",
+          "endTime": "2026-11-13T19:24:09.254861-07:00",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "assert",
+              "status": "failed",
+              "startTime": "2026-11-13T19:24:09.2477-07:00",
+              "endTime": "2026-11-13T19:24:09.254853-07:00",
+              "failure": {
+                "error": "v1/ConfigMap/default/check - data.mode: Invalid value: \"enforce\": Expected value: \"audit\"\n\n--- expected\n+++ actual\n@@ -1 +1 @@\n-mode: audit\n+mode: enforce"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "basePath": "chainsaw/validating-policies/flaky-audit",
+      "name": "flaky-audit",
+      "status": "passed",
+      "startTime": "2026-11-13T19:24:09.2466-07:00",
+      "endTime": "2026-11-13T19:24:09.254549-07:00",
+      "steps": [
+        {
+          "name": "step-01",
+          "status": "passed",
+          "startTime": "2026-11-13T19:24:09.246612-07:00",
+          "endTime": "2026-11-13T19:24:09.254546-07:00",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "script",
+              "status": "passed",
+              "startTime": "2026-11-13T19:24:09.247706-07:00",
+              "endTime": "2026-11-13T19:24:09.254533-07:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "basePath": "chainsaw/validating-policies/passes",
+      "name": "passes",
+      "status": "passed",
+      "startTime": "2026-11-13T19:24:09.2466-07:00",
+      "endTime": "2026-11-13T19:24:09.254549-07:00",
+      "steps": [
+        {
+          "name": "step-01",
+          "status": "passed",
+          "startTime": "2026-11-13T19:24:09.246612-07:00",
+          "endTime": "2026-11-13T19:24:09.254546-07:00",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "script",
+              "status": "passed",
+              "startTime": "2026-11-13T19:24:09.247706-07:00",
+              "endTime": "2026-11-13T19:24:09.254533-07:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "basePath": "chainsaw/validating-policies/skipped-test",
+      "name": "skipped-test",
+      "status": "skipped",
+      "startTime": "2026-11-13T19:24:09.2466-07:00",
+      "endTime": "2026-11-13T19:24:09.254549-07:00",
+      "steps": [
+        {
+          "name": "step-01",
+          "status": "passed",
+          "startTime": "2026-11-13T19:24:09.246612-07:00",
+          "endTime": "2026-11-13T19:24:09.254546-07:00",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "script",
+              "status": "passed",
+              "startTime": "2026-11-13T19:24:09.247706-07:00",
+              "endTime": "2026-11-13T19:24:09.254533-07:00"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
