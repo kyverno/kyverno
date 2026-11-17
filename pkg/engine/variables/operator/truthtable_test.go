@@ -111,7 +111,7 @@ func TestRealisticPortsComparisonWorks(t *testing.T) {
 }
 
 // TestExactVsWildcardSplitStaysPinned confirms axis 1 (element typing) was
-// unified without erasing axis 2 (exact equality vs symmetric wildcard):
+// unified without erasing axis 2 (exact equality vs directional wildcard):
 // the scalar-key path still honors wildcard values, while the array-key
 // (set) path stays exact. Erasing this split would be a silent fail-open
 // for pattern-shaped values in exclude position.
@@ -406,14 +406,17 @@ func TestScalarValueMatchingStaysDirectional(t *testing.T) {
 	assert.False(t, in.Evaluate("prod*", "prod"))
 }
 
-// TestArrayValueMatchingStaysSymmetric confirms the array-value ([]interface{})
-// path did NOT change: base already matched it symmetrically
-// (wildcard.Match(val, key) || wildcard.Match(key, val)), and that must be
-// preserved even though the scalar-value path is now directional.
-func TestArrayValueMatchingStaysSymmetric(t *testing.T) {
+// TestArrayValueMatchingIsDirectional confirms the array-value ([]interface{})
+// path is directional: the policy-authored value is the only side that may
+// carry a wildcard pattern, and a request-controlled key of "*" is matched
+// literally rather than acting as a pattern itself.
+func TestArrayValueMatchingIsDirectional(t *testing.T) {
 	in := NewInHandler(logr.Discard(), nil)
 
-	// key "*" against an array value containing a concrete string: the
-	// array-value path is symmetric at base, so this still matches.
-	assert.True(t, in.Evaluate("*", []interface{}{"prod"}))
+	// key "*" against an array value containing a concrete string: no
+	// longer matches now that the array-value path is directional.
+	assert.False(t, in.Evaluate("*", []interface{}{"prod"}))
+
+	// the admin-authored pattern side still matches, unchanged.
+	assert.True(t, in.Evaluate("prod", []interface{}{"prod*"}))
 }

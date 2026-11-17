@@ -58,7 +58,7 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 	switch valuesAvailable := value.(type) {
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			if wildcardElements(toElement(val), keyElement) {
+			if wildcardElementDirectional(toElement(val), keyElement) {
 				return false, true
 			}
 		}
