@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -28,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/utils/ptr"
 )
 
@@ -1332,4 +1335,355 @@ func TestShouldReplaceResponse(t *testing.T) {
 			assert.Equal(t, tc.wantReplace, got)
 		})
 	}
+}
+
+// setupSharedActivationFixture constructs an engineImpl and an EngineRequest
+// with two matching Pod policies and one skipped ConfigMap policy for testing
+// shared activation builder behavior across multiple policies.
+func setupSharedActivationFixture() (*engineImpl, engine.EngineRequest) {
+	podMatchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			},
+		},
+	}
+	configMapMatchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"configmaps"},
+					},
+				},
+			},
+		},
+	}
+
+	makePolicy := func(name string, match *admissionregistrationv1.MatchResources, expr string) *policiesv1beta1.ImageValidatingPolicy {
+		return &policiesv1beta1.ImageValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.ImageValidatingPolicySpec{
+				MatchConstraints: match,
+				EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+					Mode: policieskyvernoio.EvaluationModeKubernetes,
+				},
+				ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+					VerifyDigest: ptr.To(false),
+					Required:     ptr.To(false),
+				},
+				MatchImageReferences: []policiesv1beta1.MatchImageReference{
+					{Glob: "*"},
+				},
+				Validations: []admissionregistrationv1.Validation{
+					{
+						Expression: expr,
+					},
+				},
+			},
+		}
+	}
+
+	matching1 := makePolicy("matching-1", podMatchConstraints, "object.metadata.name == 'test-pod'")
+	matching2 := makePolicy("matching-2", podMatchConstraints, "object.metadata.name == 'test-pod'")
+	skipped := makePolicy("skipped", configMapMatchConstraints, "object.metadata.name == 'never-reached'")
+
+	provider := multiPolicyProvider(matching1, matching2, skipped)
+	nsResolver := func(string) *corev1.Namespace {
+		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
+	}
+
+	eng := NewEngine(
+		provider,
+		nsResolver,
+		matching.NewMatcher(),
+		nil,
+		nil,
+		config.NewDefaultConfiguration(false),
+	).(*engineImpl)
+	eng.newImageContext = func() (imagedataloader.ImageContext, error) {
+		return fakeImageContext{}, nil
+	}
+
+	pod := `{
+		"apiVersion":"v1",
+		"kind":"Pod",
+		"metadata":{"name":"test-pod","namespace":"default"},
+		"spec":{
+			"containers":[{"name":"main","image":"ghcr.io/kyverno/test-verify-image:signed"}]
+		}
+	}`
+
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation:       v1.Create,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object:          apiruntime.RawExtension{Raw: []byte(pod)},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+
+	return eng, engineRequest
+}
+
+// sharedActivationCounters holds invocation and assembly counters for instrumented activation builders.
+type sharedActivationCounters struct {
+	instantiations *atomic.Int32
+	invocations    *atomic.Int32
+	assemblies     *atomic.Int32
+}
+
+// setupInstrumentedActivationBuilder installs a wrapped newActivationBuilder that tracks
+// instantiations, invocations, and activation assemblies. It registers cleanup using
+// t.Cleanup to automatically restore the original builder.
+func setupInstrumentedActivationBuilder(t *testing.T) sharedActivationCounters {
+	t.Helper()
+	var builderInstantiations atomic.Int32
+	var builderInvocations atomic.Int32
+	var assemblyInvocations atomic.Int32
+
+	orig := newActivationBuilder
+	newActivationBuilder = func(
+		attr admission.Attributes,
+		request *v1.AdmissionRequest,
+		namespace apiruntime.Object,
+		requestMapFn func() (map[string]any, error),
+		fallback celcompiler.RequestMapBuilder,
+	) celcompiler.ActivationBuilder {
+		builderInstantiations.Add(1)
+		countedRequestMapFn := func() (map[string]any, error) {
+			assemblyInvocations.Add(1)
+			if requestMapFn != nil {
+				return requestMapFn()
+			}
+			return nil, nil
+		}
+		realBuilder := orig(attr, request, namespace, countedRequestMapFn, fallback)
+		return func() (celcompiler.ActivationData, error) {
+			builderInvocations.Add(1)
+			return realBuilder()
+		}
+	}
+	t.Cleanup(func() { newActivationBuilder = orig })
+
+	return sharedActivationCounters{
+		instantiations: &builderInstantiations,
+		invocations:    &builderInvocations,
+		assemblies:     &assemblyInvocations,
+	}
+}
+
+// TestHandleValidating_SharedActivationBuilder_MultiplePolicies verifies that when
+// multiple image validating policies match an admission request, the activation builder
+// is instantiated once for the review and its activation assembly runs at most once
+// across all matching policies. Non-matching policies are skipped and do not evaluate
+// the activation builder.
+func TestHandleValidating_SharedActivationBuilder_MultiplePolicies(t *testing.T) {
+	eng, engineRequest := setupSharedActivationFixture()
+	counters := setupInstrumentedActivationBuilder(t)
+
+	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
+	require.NoError(t, err)
+
+	var evaluated []string
+	for _, p := range resp.Policies {
+		evaluated = append(evaluated, p.Policy.GetName())
+		assert.Equal(t, engineapi.RuleStatusPass, p.Result.Status())
+	}
+	assert.ElementsMatch(t, []string{"matching-1", "matching-2"}, evaluated)
+
+	assert.Equal(t, int32(1), counters.instantiations.Load(), "HandleValidating must instantiate activation builder exactly once across the admission review")
+	assert.Equal(t, int32(2), counters.invocations.Load(), "activation builder should be called once per matching policy (2 matching, 1 skipped)")
+	assert.Equal(t, int32(1), counters.assemblies.Load(), "activation assembly must execute exactly once through HandleValidating across matching policies")
+}
+
+// TestHandleMutating_SharedActivationBuilder_MultiplePolicies verifies that when
+// multiple image validating policies match an admission request in HandleMutating,
+// the activation builder is instantiated once for the review and its activation assembly
+// runs at most once across all matching policies. Both policies invoke the builder,
+// activation data is reused, and successful mutation patches are produced.
+func TestHandleMutating_SharedActivationBuilder_MultiplePolicies(t *testing.T) {
+	eng, engineRequest := setupSharedActivationFixture()
+	counters := setupInstrumentedActivationBuilder(t)
+
+	resp, patches, err := eng.HandleMutating(context.Background(), engineRequest, nil)
+	require.NoError(t, err)
+	assert.Empty(t, resp.Policies)
+	assert.NotEmpty(t, patches)
+
+	assert.Equal(t, int32(1), counters.instantiations.Load(), "HandleMutating must instantiate activation builder exactly once across the admission review")
+	assert.Equal(t, int32(2), counters.invocations.Load(), "activation builder should be called once per matching policy (2 matching, 1 skipped)")
+	assert.Equal(t, int32(1), counters.assemblies.Load(), "activation assembly must execute exactly once through HandleMutating across matching policies")
+}
+
+// TestSharedActivationBuilder_Failure verifies that when activation assembly
+// fails (via an injected failing request-map function), the failure is memoized across
+// matching policies by the original activation builder without repeating assembly.
+// The injected function executes exactly once, and all matching policies report RuleStatusError
+// with the injected error in both HandleValidating and HandleMutating.
+func TestSharedActivationBuilder_Failure(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(t *testing.T, eng *engineImpl, req engine.EngineRequest) ([]string, []engineapi.RuleStatus, error)
+	}{
+		{
+			name: "validating",
+			run: func(t *testing.T, eng *engineImpl, req engine.EngineRequest) ([]string, []engineapi.RuleStatus, error) {
+				resp, err := eng.HandleValidating(context.Background(), req, nil)
+				if err != nil {
+					return nil, nil, err
+				}
+				var evaluated []string
+				var statuses []engineapi.RuleStatus
+				for _, p := range resp.Policies {
+					evaluated = append(evaluated, p.Policy.GetName())
+					statuses = append(statuses, p.Result.Status())
+				}
+				return evaluated, statuses, nil
+			},
+		},
+		{
+			name: "mutating",
+			run: func(t *testing.T, eng *engineImpl, req engine.EngineRequest) ([]string, []engineapi.RuleStatus, error) {
+				resp, patches, err := eng.HandleMutating(context.Background(), req, nil)
+				if err != nil {
+					return nil, nil, err
+				}
+				assert.Empty(t, patches, "no mutation patches should be produced when activation assembly fails")
+				var evaluated []string
+				var statuses []engineapi.RuleStatus
+				for _, p := range resp.Policies {
+					evaluated = append(evaluated, p.Policy.GetName())
+					statuses = append(statuses, p.Result.Status())
+				}
+				return evaluated, statuses, nil
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			eng, engineRequest := setupSharedActivationFixture()
+
+			var requestMapInvocations atomic.Int32
+			injectedErr := errors.New("simulated activation failure")
+
+			orig := newActivationBuilder
+			newActivationBuilder = func(
+				attr admission.Attributes,
+				request *v1.AdmissionRequest,
+				namespace apiruntime.Object,
+				requestMapFn func() (map[string]any, error),
+				fallback celcompiler.RequestMapBuilder,
+			) celcompiler.ActivationBuilder {
+				failingRequestMapFn := func() (map[string]any, error) {
+					requestMapInvocations.Add(1)
+					return nil, injectedErr
+				}
+				return orig(attr, request, namespace, failingRequestMapFn, fallback)
+			}
+			t.Cleanup(func() { newActivationBuilder = orig })
+
+			evaluated, statuses, err := tc.run(t, eng, engineRequest)
+			require.NoError(t, err)
+
+			assert.ElementsMatch(t, []string{"matching-1", "matching-2"}, evaluated)
+			for _, st := range statuses {
+				assert.Equal(t, engineapi.RuleStatusError, st)
+			}
+			assert.Equal(t, int32(1), requestMapInvocations.Load(), "injected failing request-map function must run exactly once across matching policies")
+		})
+	}
+}
+
+// legacyCompiledPolicyOnly wraps an eval.CompiledPolicy interface and exposes only the base
+// CompiledPolicy methods, ensuring tests verify fallback to standard Evaluate and MutateDigest.
+type legacyCompiledPolicyOnly struct {
+	eval.CompiledPolicy
+}
+
+// TestLegacyCompiledPolicy_Fallback verifies that when a compiled policy implements
+// only the basic CompiledPolicy interface without ActivationAwareCompiledPolicy,
+// both evaluatePolicies and handleMutation gracefully fall back to Evaluate and MutateDigest.
+func TestLegacyCompiledPolicy_Fallback(t *testing.T) {
+	eng, engineRequest := setupSharedActivationFixture()
+
+	podMatchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			},
+		},
+	}
+	testPolicy := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "legacy-policy"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: podMatchConstraints,
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeKubernetes,
+			},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				VerifyDigest: ptr.To(false),
+				Required:     ptr.To(false),
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{
+				{Glob: "*"},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "object.metadata.name == 'test-pod'",
+				},
+			},
+		},
+	}
+
+	compiled, errs := iveval.NewCompiler(nil).Compile(testPolicy, nil)
+	require.Empty(t, errs)
+
+	legacy := legacyCompiledPolicyOnly{CompiledPolicy: compiled}
+
+	// Verify type assertion fails as expected for legacy policy
+	_, isAware := any(legacy).(eval.ActivationAwareCompiledPolicy)
+	assert.False(t, isAware, "legacyCompiledPolicyOnly must not implement ActivationAwareCompiledPolicy")
+
+	eng.provider = ProviderFunc(func(context.Context) ([]Policy, error) {
+		return []Policy{
+			{
+				Policy:         testPolicy,
+				CompiledPolicy: legacy,
+				Actions:        sets.New(admissionregistrationv1.Deny),
+			},
+		}, nil
+	})
+
+	// Fallback in evaluatePolicies
+	valResp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
+	require.NoError(t, err)
+	require.Len(t, valResp.Policies, 1)
+	assert.Equal(t, engineapi.RuleStatusPass, valResp.Policies[0].Result.Status())
+
+	// Fallback in handleMutation
+	mutResp, patches, err := eng.HandleMutating(context.Background(), engineRequest, nil)
+	require.NoError(t, err)
+	assert.Empty(t, mutResp.Policies)
+	assert.NotEmpty(t, patches)
 }

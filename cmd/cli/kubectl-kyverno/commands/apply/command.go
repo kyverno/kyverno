@@ -55,7 +55,6 @@ import (
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
@@ -842,7 +841,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
-		imageverifycache.DisabledImageVerifyCache(),
+		nil,
 		config.NewDefaultConfiguration(false),
 	)
 

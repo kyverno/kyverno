@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -239,7 +238,7 @@ func (s *scanner) ScanResource(
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 				s.secretLister,
-				imageverifycache.DisabledImageVerifyCache(),
+				nil,
 				s.config,
 			), metrics.BackgroundScan)
 			request := celengine.Request(
