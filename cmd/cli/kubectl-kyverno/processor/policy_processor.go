@@ -176,6 +176,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			gvr := mapping.Resource
+			op, _, _ := AdmissionRequestShape(p.resolveOperation(), &resource)
+			admOp := admission.Operation(op)
 			for _, mapPolicy := range p.MutatingAdmissionPolicies {
 				data := engineapi.NewMutatingAdmissionPolicyData(&mapPolicy)
 				for _, b := range p.MutatingAdmissionPolicyBindings {
@@ -186,13 +188,19 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				for _, param := range p.ParameterResources {
 					data.AddParam(param)
 				}
-				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster, false)
+				mutateResponse, err := admissionpolicy.Mutate(data, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster, false, admOp)
 				if err != nil {
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 				}
 				if !mutateResponse.IsEmpty() {
-					if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
-						log.Log.Error(err, "failed to log MAP mutation")
+					if slices.ContainsFunc(mutateResponse.PolicyResponse.Rules, func(rule engineapi.RuleResponse) bool {
+						return rule.Status() == engineapi.RuleStatusPass
+					}) {
+						if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {
+							log.Log.Error(err, "failed to log MAP mutation")
+						}
+					} else {
+						p.Rc.addMutateResponse(mutateResponse)
 					}
 					resource = mutateResponse.PatchedResource
 					responses = append(responses, mutateResponse)
@@ -459,6 +467,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if p.UserInfo != nil {
 			user = p.UserInfo.AdmissionUserInfo
 		}
+		op, _, _ := AdmissionRequestShape(p.resolveOperation(), &resource)
+		admOp := admission.Operation(op)
 		for _, policy := range p.ValidatingAdmissionPolicies {
 			policyData := engineapi.NewValidatingAdmissionPolicyData(&policy)
 			for _, binding := range p.ValidatingAdmissionPolicyBindings {
@@ -469,7 +479,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			for _, param := range p.ParameterResources {
 				policyData.AddParam(param)
 			}
-			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster)
+			validateResponse, _ := admissionpolicy.Validate(policyData, resource, gvk, gvr, p.NamespaceSelectorMap, p.Client, &user, !p.Cluster, admOp)
 			vapResponses = append(vapResponses, validateResponse)
 			p.Rc.addValidatingAdmissionResponse(validateResponse)
 		}

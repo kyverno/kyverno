@@ -1406,16 +1406,17 @@ func Test_ProcessMAPWithoutClient_FiltersParamsByParamKind(t *testing.T) {
 }
 
 func Test_ProcessMAP_FailurePolicy_Ignore_SuppressesParamResolutionErrors(t *testing.T) {
+	failPolicy := admissionregistrationv1beta1.Fail
 	ignorePolicy := admissionregistrationv1beta1.Ignore
 	denyAction := admissionregistrationv1beta1.DenyAction
+
 	rawPolicy := []byte(`{
     "apiVersion": "admissionregistration.k8s.io/v1alpha1",
     "kind": "MutatingAdmissionPolicy",
     "metadata": {
-        "name": "map-ignore-policy"
+        "name": "map-failure-policy"
     },
     "spec": {
-        "failurePolicy": "Ignore",
         "paramKind": {
             "apiVersion": "v1",
             "kind": "ConfigMap"
@@ -1440,51 +1441,185 @@ func Test_ProcessMAP_FailurePolicy_Ignore_SuppressesParamResolutionErrors(t *tes
         ]
     }
 }`)
-	var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-	policy.Spec.FailurePolicy = &ignorePolicy
-
-	rawResource := []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"target-cm","namespace":"default"}}`)
-	resource, err := kubeutils.BytesToUnstructured(rawResource)
-	assert.NilError(t, err)
-
-	gvk := resource.GroupVersionKind()
-	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
-	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
-
-	bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "binding-missing-deny"},
-			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
-				PolicyName: "map-ignore-policy",
-				ParamRef: &admissionregistrationv1beta1.ParamRef{
-					Name:                    "missing-cm",
-					Namespace:               "default",
-					ParameterNotFoundAction: &denyAction,
-				},
-			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{Name: "binding-allowed"},
-			Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
-				PolicyName: "map-ignore-policy",
-				ParamRef: &admissionregistrationv1beta1.ParamRef{
-					Name:      "allowed-cm",
-					Namespace: "default",
-				},
-			},
-		},
-	}
 
 	allowedCM, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"allowed-cm","namespace":"default"},"data":{"allowed":"true"}}`))
 	assert.NilError(t, err)
 
-	er, err := processMAPWithoutClient(&policy, bindings, *resource, nil, []runtime.Object{allowedCM}, gvr, a, "default/ConfigMap/target-cm", false)
+	ambiguousCM1, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"ambiguous-cm","namespace":"ns-a"}}`))
 	assert.NilError(t, err)
-	// Binding 1's parameter error was suppressed by failurePolicy: Ignore, Binding 2 succeeded
-	assert.Equal(t, er.IsSuccessful(), true)
-	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
-	assert.Equal(t, er.PolicyResponse.Rules[0].MutatingAdmissionPolicyBinding().GetName(), "binding-allowed")
+	ambiguousCM2, err := kubeutils.BytesToUnstructured([]byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"ambiguous-cm","namespace":"ns-b"}}`))
+	assert.NilError(t, err)
+
+	validBinding := admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "binding-allowed"},
+		Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+			PolicyName: "map-failure-policy",
+			ParamRef: &admissionregistrationv1beta1.ParamRef{
+				Name:      "allowed-cm",
+				Namespace: "default",
+			},
+		},
+	}
+
+	testCases := []struct {
+		name            string
+		failurePolicy   *admissionregistrationv1beta1.FailurePolicyType
+		faultBinding    admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
+		paramPool       []runtime.Object
+		targetIsCluster bool
+	}{
+		{
+			name:          "missing named parameter with DenyAction - failurePolicy nil (defaults to Fail)",
+			failurePolicy: nil,
+			faultBinding: admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-missing-deny"},
+				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+					PolicyName: "map-failure-policy",
+					ParamRef: &admissionregistrationv1beta1.ParamRef{
+						Name:                    "missing-cm",
+						Namespace:               "default",
+						ParameterNotFoundAction: &denyAction,
+					},
+				},
+			},
+			paramPool: []runtime.Object{allowedCM},
+		},
+		{
+			name:          "missing named parameter with DenyAction - failurePolicy Fail",
+			failurePolicy: &failPolicy,
+			faultBinding: admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-missing-deny"},
+				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+					PolicyName: "map-failure-policy",
+					ParamRef: &admissionregistrationv1beta1.ParamRef{
+						Name:                    "missing-cm",
+						Namespace:               "default",
+						ParameterNotFoundAction: &denyAction,
+					},
+				},
+			},
+			paramPool: []runtime.Object{allowedCM},
+		},
+		{
+			name:          "missing named parameter with DenyAction - failurePolicy Ignore",
+			failurePolicy: &ignorePolicy,
+			faultBinding: admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-missing-deny"},
+				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+					PolicyName: "map-failure-policy",
+					ParamRef: &admissionregistrationv1beta1.ParamRef{
+						Name:                    "missing-cm",
+						Namespace:               "default",
+						ParameterNotFoundAction: &denyAction,
+					},
+				},
+			},
+			paramPool: []runtime.Object{allowedCM},
+		},
+		{
+			name:          "ambiguous param matches without selector - failurePolicy Fail",
+			failurePolicy: &failPolicy,
+			faultBinding: admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-ambiguous"},
+				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+					PolicyName: "map-failure-policy",
+					ParamRef: &admissionregistrationv1beta1.ParamRef{
+						Name: "ambiguous-cm",
+					},
+				},
+			},
+			paramPool: []runtime.Object{ambiguousCM1, ambiguousCM2, allowedCM},
+		},
+		{
+			name:          "ambiguous param matches without selector - failurePolicy Ignore",
+			failurePolicy: &ignorePolicy,
+			faultBinding: admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-ambiguous"},
+				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+					PolicyName: "map-failure-policy",
+					ParamRef: &admissionregistrationv1beta1.ParamRef{
+						Name: "ambiguous-cm",
+					},
+				},
+			},
+			paramPool: []runtime.Object{ambiguousCM1, ambiguousCM2, allowedCM},
+		},
+		{
+			name:          "cluster target with namespaced paramRef - failurePolicy Fail",
+			failurePolicy: &failPolicy,
+			faultBinding: admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-cluster-target"},
+				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+					PolicyName: "map-failure-policy",
+					ParamRef: &admissionregistrationv1beta1.ParamRef{
+						Name: "allowed-cm",
+					},
+				},
+			},
+			paramPool:       []runtime.Object{allowedCM},
+			targetIsCluster: true,
+		},
+		{
+			name:          "cluster target with namespaced paramRef - failurePolicy Ignore",
+			failurePolicy: &ignorePolicy,
+			faultBinding: admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "binding-cluster-target"},
+				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+					PolicyName: "map-failure-policy",
+					ParamRef: &admissionregistrationv1beta1.ParamRef{
+						Name: "allowed-cm",
+					},
+				},
+			},
+			paramPool:       []runtime.Object{allowedCM},
+			targetIsCluster: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
+			err := json.Unmarshal(rawPolicy, &policy)
+			assert.NilError(t, err)
+			policy.Spec.FailurePolicy = tc.failurePolicy
+
+			var rawResource []byte
+			if tc.targetIsCluster {
+				rawResource = []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"target-cm"}}`)
+			} else {
+				rawResource = []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"target-cm","namespace":"default"}}`)
+			}
+			resource, err := kubeutils.BytesToUnstructured(rawResource)
+			assert.NilError(t, err)
+
+			gvk := resource.GroupVersionKind()
+			gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+			a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, nil)
+
+			bindings := []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+				tc.faultBinding,
+				validBinding,
+			}
+
+			er, err := processMAPWithoutClient(&policy, bindings, *resource, nil, tc.paramPool, gvr, a, "default/ConfigMap/target-cm", false)
+			assert.NilError(t, err)
+
+			isFail := tc.failurePolicy == nil || *tc.failurePolicy == admissionregistrationv1beta1.Fail
+			if isFail {
+				assert.Equal(t, er.IsSuccessful(), false)
+				assert.Equal(t, len(er.PolicyResponse.Rules), 2)
+				assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+				assert.Equal(t, er.PolicyResponse.Rules[0].MutatingAdmissionPolicyBinding().GetName(), tc.faultBinding.GetName())
+				assert.Equal(t, er.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusPass)
+				assert.Equal(t, er.PolicyResponse.Rules[1].MutatingAdmissionPolicyBinding().GetName(), validBinding.GetName())
+			} else {
+				// failurePolicy: Ignore suppresses faultBinding error, allows validBinding to evaluate and succeed
+				assert.Equal(t, er.IsSuccessful(), true)
+				assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+				assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+				assert.Equal(t, er.PolicyResponse.Rules[0].MutatingAdmissionPolicyBinding().GetName(), validBinding.GetName())
+				assert.Equal(t, er.PatchedResource.GetLabels()["mutated"], "true")
+			}
+		})
+	}
 }

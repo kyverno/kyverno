@@ -159,6 +159,7 @@ func Validate(
 	client dclient.Interface,
 	userInfo *authenticationv1.UserInfo,
 	isFake bool,
+	operations ...admission.Operation,
 ) (engineapi.EngineResponse, error) {
 	var (
 		resPath       = fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
@@ -181,7 +182,23 @@ func Validate(
 		}
 	}
 	user := ResolveUser(userInfo)
-	a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", admission.Create, nil, false, user)
+	op := admission.Create
+	if len(operations) > 0 && operations[0] != "" {
+		op = operations[0]
+	}
+	var obj, oldObj runtime.Object
+	switch op {
+	case admission.Update:
+		obj = resource.DeepCopyObject()
+		oldObj = resource.DeepCopyObject()
+	case admission.Delete:
+		obj = nil
+		oldObj = resource.DeepCopyObject()
+	default:
+		obj = resource.DeepCopyObject()
+		oldObj = nil
+	}
+	a := admission.NewAttributesRecord(obj, oldObj, gvk, resource.GetNamespace(), resource.GetName(), gvr, "", op, nil, false, user)
 
 	if len(bindings) == 0 {
 		return processVAPNoBindings(policy, resource, namespace, a, resPath)

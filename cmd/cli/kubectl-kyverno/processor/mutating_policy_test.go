@@ -1,9 +1,11 @@
 package processor
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -59,23 +61,144 @@ func Test_ApplyPoliciesOnResource_targetConstrainedMutatingPolicySkipsTrigger(t 
 
 func Test_ApplyPoliciesOnResource_MAPParameterResolutionErrorPreserved(t *testing.T) {
 	failPolicy := admissionregistrationv1beta1.Fail
+	ignorePolicy := admissionregistrationv1beta1.Ignore
 	denyAction := admissionregistrationv1beta1.DenyAction
+	allowAction := admissionregistrationv1beta1.AllowAction
+
+	tests := []struct {
+		name          string
+		failurePolicy *admissionregistrationv1beta1.FailurePolicyType
+		notFound      *admissionregistrationv1beta1.ParameterNotFoundActionType
+		expectError   bool
+	}{
+		{
+			name:          "failurePolicy Fail with DenyAction records error and avoids success output",
+			failurePolicy: &failPolicy,
+			notFound:      &denyAction,
+			expectError:   true,
+		},
+		{
+			name:          "failurePolicy Fail with AllowAction skips binding with no error",
+			failurePolicy: &failPolicy,
+			notFound:      &allowAction,
+			expectError:   false,
+		},
+		{
+			name:          "failurePolicy Ignore with DenyAction suppresses error",
+			failurePolicy: &ignorePolicy,
+			notFound:      &denyAction,
+			expectError:   false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mapPolicy := admissionregistrationv1beta1.MutatingAdmissionPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-map-param-error",
+				},
+				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
+					FailurePolicy: tc.failurePolicy,
+					ParamKind: &admissionregistrationv1beta1.ParamKind{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+					MatchConstraints: &admissionregistrationv1beta1.MatchResources{
+						ResourceRules: []admissionregistrationv1beta1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+									Operations: []admissionregistrationv1.OperationType{
+										admissionregistrationv1.Create,
+									},
+									Rule: admissionregistrationv1.Rule{
+										APIGroups:   []string{""},
+										APIVersions: []string{"v1"},
+										Resources:   []string{"configmaps"},
+									},
+								},
+							},
+						},
+					},
+					Mutations: []admissionregistrationv1beta1.Mutation{
+						{
+							PatchType: admissionregistrationv1beta1.PatchTypeApplyConfiguration,
+							ApplyConfiguration: &admissionregistrationv1beta1.ApplyConfiguration{
+								Expression: "Object{metadata: Object.metadata{labels: {'mutated': 'true'}}}",
+							},
+						},
+					},
+				},
+			}
+			binding := admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-map-binding",
+				},
+				Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
+					PolicyName: "test-map-param-error",
+					ParamRef: &admissionregistrationv1beta1.ParamRef{
+						Name:                    "missing-cm",
+						Namespace:               "default",
+						ParameterNotFoundAction: tc.notFound,
+					},
+				},
+			}
+
+			target := &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":      "target-cm",
+						"namespace": "default",
+					},
+				},
+			}
+
+			var outBuf bytes.Buffer
+			rc := &ResultCounts{}
+			processor := PolicyProcessor{
+				Store:                           &store.Store{},
+				MutatingAdmissionPolicies:       []admissionregistrationv1beta1.MutatingAdmissionPolicy{mapPolicy},
+				MutatingAdmissionPolicyBindings: []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{binding},
+				Resource:                        *target,
+				Variables:                       &variables.Variables{},
+				Rc:                              rc,
+				Out:                             &outBuf,
+			}
+
+			responses, err := processor.ApplyPoliciesOnResource()
+			assert.NilError(t, err)
+			assert.Assert(t, !strings.Contains(outBuf.String(), "Mutation has been applied successfully"))
+
+			if tc.expectError {
+				assert.Equal(t, len(responses), 1)
+				assert.Equal(t, len(responses[0].PolicyResponse.Rules), 1)
+				assert.Equal(t, responses[0].PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+				assert.Equal(t, rc.Error, 1)
+			} else {
+				assert.Equal(t, rc.Error, 0)
+				if len(responses) > 0 {
+					for _, r := range responses[0].PolicyResponse.Rules {
+						assert.Assert(t, r.Status() != engineapi.RuleStatusError)
+					}
+				}
+			}
+		})
+	}
+}
+
+func Test_ApplyPoliciesOnResource_NativePolicies_OperationFiltering(t *testing.T) {
 	mapPolicy := admissionregistrationv1beta1.MutatingAdmissionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-map-param-error",
+			Name: "test-update-only-map",
 		},
 		Spec: admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
-			FailurePolicy: &failPolicy,
-			ParamKind: &admissionregistrationv1beta1.ParamKind{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-			},
 			MatchConstraints: &admissionregistrationv1beta1.MatchResources{
 				ResourceRules: []admissionregistrationv1beta1.NamedRuleWithOperations{
 					{
 						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
 							Operations: []admissionregistrationv1.OperationType{
-								admissionregistrationv1.Create,
+								admissionregistrationv1.Update,
 							},
 							Rule: admissionregistrationv1.Rule{
 								APIGroups:   []string{""},
@@ -90,22 +213,37 @@ func Test_ApplyPoliciesOnResource_MAPParameterResolutionErrorPreserved(t *testin
 				{
 					PatchType: admissionregistrationv1beta1.PatchTypeApplyConfiguration,
 					ApplyConfiguration: &admissionregistrationv1beta1.ApplyConfiguration{
-						Expression: "Object{metadata: Object.metadata{labels: {'mutated': 'true'}}}",
+						Expression: "Object{metadata: Object.metadata{labels: {'updated': 'true'}}}",
 					},
 				},
 			},
 		},
 	}
-	binding := admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+	vapPolicy := admissionregistrationv1.ValidatingAdmissionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-map-binding",
+			Name: "test-update-only-vap",
 		},
-		Spec: admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
-			PolicyName: "test-map-param-error",
-			ParamRef: &admissionregistrationv1beta1.ParamRef{
-				Name:                    "missing-cm",
-				Namespace:               "default",
-				ParameterNotFoundAction: &denyAction,
+		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Update,
+							},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "object.metadata.name == oldObject.metadata.name",
+				},
 			},
 		},
 	}
@@ -121,21 +259,45 @@ func Test_ApplyPoliciesOnResource_MAPParameterResolutionErrorPreserved(t *testin
 		},
 	}
 
-	rc := &ResultCounts{}
-	processor := PolicyProcessor{
-		Store:                           &store.Store{},
-		MutatingAdmissionPolicies:       []admissionregistrationv1beta1.MutatingAdmissionPolicy{mapPolicy},
-		MutatingAdmissionPolicyBindings: []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{binding},
-		Resource:                        *target,
-		Variables:                       &variables.Variables{},
-		Rc:                              rc,
-		Out:                             io.Discard,
-	}
+	t.Run("operation CREATE skips UPDATE-only native policies", func(t *testing.T) {
+		rc := &ResultCounts{}
+		processor := PolicyProcessor{
+			Store:                       &store.Store{},
+			Operation:                   "CREATE",
+			MutatingAdmissionPolicies:   []admissionregistrationv1beta1.MutatingAdmissionPolicy{mapPolicy},
+			ValidatingAdmissionPolicies: []admissionregistrationv1.ValidatingAdmissionPolicy{vapPolicy},
+			Resource:                    *target,
+			Variables:                   &variables.Variables{},
+			Rc:                          rc,
+			Out:                         io.Discard,
+		}
+		responses, err := processor.ApplyPoliciesOnResource()
+		assert.NilError(t, err)
+		assert.Equal(t, rc.Pass, 0)
+		assert.Equal(t, rc.Error, 0)
+		assert.Equal(t, rc.Fail, 0)
+		for _, r := range responses {
+			assert.Assert(t, r.IsEmpty())
+		}
+	})
 
-	responses, err := processor.ApplyPoliciesOnResource()
-	assert.NilError(t, err)
-	assert.Equal(t, len(responses), 1)
-	assert.Equal(t, len(responses[0].PolicyResponse.Rules), 1)
-	assert.Equal(t, responses[0].PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
-	assert.Equal(t, rc.Error, 1)
+	t.Run("operation UPDATE evaluates UPDATE-only native policies", func(t *testing.T) {
+		rc := &ResultCounts{}
+		processor := PolicyProcessor{
+			Store:                       &store.Store{},
+			Operation:                   "UPDATE",
+			MutatingAdmissionPolicies:   []admissionregistrationv1beta1.MutatingAdmissionPolicy{mapPolicy},
+			ValidatingAdmissionPolicies: []admissionregistrationv1.ValidatingAdmissionPolicy{vapPolicy},
+			Resource:                    *target,
+			Variables:                   &variables.Variables{},
+			Rc:                          rc,
+			Out:                         io.Discard,
+		}
+		responses, err := processor.ApplyPoliciesOnResource()
+		assert.NilError(t, err)
+		assert.Equal(t, len(responses), 2)
+		assert.Equal(t, responses[0].PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+		assert.Equal(t, responses[1].PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+		assert.Equal(t, responses[0].PatchedResource.GetLabels()["updated"], "true")
+	})
 }
