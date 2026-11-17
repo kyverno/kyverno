@@ -951,6 +951,22 @@ func Test_MatchesSelector_ConjunctionScoping(t *testing.T) {
 			targetNamespace: "tenant-1",
 			expected:        false,
 		},
+		{
+			name: "unqualified paramRef without name or selector is rejected",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"name":      "config-a",
+						"namespace": "tenant-1",
+					},
+				},
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Namespace: "tenant-1",
+			},
+			targetNamespace: "tenant-1",
+			expected:        false,
+		},
 	}
 
 	for _, tt := range tests {

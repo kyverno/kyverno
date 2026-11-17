@@ -53,13 +53,6 @@ func Mutate(
 
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
-		labels := resource.GetLabels()
-		namespace = &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   resource.GetName(),
-				Labels: labels,
-			},
-		}
 	} else if namespaceName != "" {
 		namespace = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -67,9 +60,6 @@ func Mutate(
 				Labels: namespaceSelectorMap[namespaceName],
 			},
 		}
-	}
-	if namespace == nil {
-		namespace = &corev1.Namespace{}
 	}
 	user := ResolveUser(userInfo)
 	op := admission.Create
@@ -602,7 +592,7 @@ func matchesSelector(obj *unstructured.Unstructured, ref *admissionregistrationv
 		}
 		return selector.Matches(labels.Set(obj.GetLabels()))
 	}
-	return true
+	return ref.Name != ""
 }
 
 func mutateResource(

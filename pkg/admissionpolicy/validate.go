@@ -165,19 +165,12 @@ func Validate(
 		resPath       = fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
 		policy        = policyData.GetDefinition()
 		bindings      = policyData.GetBindings()
-		namespace     = &corev1.Namespace{}
+		namespace     *corev1.Namespace
 		namespaceName = resource.GetNamespace()
 	)
 
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
-		labels := resource.GetLabels()
-		namespace = &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   resource.GetName(),
-				Labels: labels,
-			},
-		}
 	} else if namespaceName != "" {
 		namespace = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
