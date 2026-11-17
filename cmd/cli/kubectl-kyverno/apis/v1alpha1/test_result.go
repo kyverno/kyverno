@@ -59,7 +59,7 @@ type TestResultBase struct {
 	// declared via the `request.operation` global value in the values file.
 	// For UPDATE, both object and oldObject are set to the resource. For DELETE,
 	// object is null and oldObject is set to the resource, mirroring the API server.
-	// For CONNECT, both object and oldObject are null.
+	// For CONNECT, object is the connect options resource and oldObject is null.
 	// It is not supported for deleting policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy, and JSON payloads.
 	// +optional
 	// +kubebuilder:validation:Enum=CREATE;UPDATE;DELETE;CONNECT

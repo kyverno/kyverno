@@ -38,7 +38,7 @@ func NormalizeValuesOperation(operation string) (string, error) {
 //   - CREATE (default): object is the resource, oldObject is null
 //   - UPDATE: object and oldObject are both the resource
 //   - DELETE: object is null, oldObject is the resource
-//   - CONNECT: object and oldObject are both null
+//   - CONNECT: object is the connect options resource, oldObject is null
 func AdmissionRequestShape(operation string, resource *unstructured.Unstructured) (admissionv1.Operation, runtime.Object, runtime.Object) {
 	switch operation {
 	case "UPDATE":
@@ -48,7 +48,7 @@ func AdmissionRequestShape(operation string, resource *unstructured.Unstructured
 		// the shared resource object
 		return admissionv1.Delete, nil, resource.DeepCopy()
 	case "CONNECT":
-		return admissionv1.Connect, nil, nil
+		return admissionv1.Connect, resource, nil
 	default:
 		return admissionv1.Create, resource, nil
 	}

@@ -1359,7 +1359,7 @@ func Test_OperationConnect(t *testing.T) {
 	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test")
 
-	resourceKey := "v1,Pod,test-ns,test-pod"
+	resourceKey := "v1,PodExecOptions,test-ns,test-pod"
 
 	t.Run("CONNECT run filters policies by operation", func(t *testing.T) {
 		require.Contains(t, testResponse.TriggerByOperation, "CONNECT")
@@ -1381,19 +1381,17 @@ func Test_OperationConnect(t *testing.T) {
 						continue
 					}
 					matched = true
-					if !tc.wantFail {
-						assert.Empty(t, response.PolicyResponse.Rules)
-						continue
-					}
 					for _, rule := range response.PolicyResponse.Rules {
 						if rule.Status() == engineapi.RuleStatusFail {
 							failed = true
 						}
 					}
 				}
-				require.True(t, matched, "expected a response for %s", tc.policy)
 				if tc.wantFail {
+					require.True(t, matched, "expected a response for %s", tc.policy)
 					assert.True(t, failed, "expected a failing rule for %s", tc.policy)
+				} else {
+					assert.False(t, failed, "CREATE-scoped policy must not fail in CONNECT run")
 				}
 			})
 		}

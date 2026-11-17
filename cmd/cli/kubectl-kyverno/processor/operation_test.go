@@ -94,10 +94,10 @@ func TestAdmissionRequestShape(t *testing.T) {
 		assert.Nil(t, object)
 		assert.Equal(t, resource.Object, oldObject.(*unstructured.Unstructured).Object)
 	})
-	t.Run("CONNECT sets nil object and nil oldObject", func(t *testing.T) {
+	t.Run("CONNECT sets resource as object and nil oldObject", func(t *testing.T) {
 		op, object, oldObject := AdmissionRequestShape("CONNECT", resource)
 		assert.Equal(t, admissionv1.Connect, op)
-		assert.Nil(t, object)
+		assert.Equal(t, resource.Object, object.(*unstructured.Unstructured).Object)
 		assert.Nil(t, oldObject)
 	})
 }
@@ -123,7 +123,7 @@ func TestResolveOperation(t *testing.T) {
 
 		op, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &unstructured.Unstructured{})
 		assert.Equal(t, admissionv1.Connect, op)
-		assert.Nil(t, object)
+		assert.NotNil(t, object)
 		assert.Nil(t, oldObject)
 	})
 	t.Run("empty without variables", func(t *testing.T) {

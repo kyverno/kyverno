@@ -8,15 +8,31 @@ resources:
 - resource.yaml
 results:
 - isValidatingPolicy: true
-  kind: Pod
+  kind: PodExecOptions
   operation: CONNECT
   policy: deny-connect
   resources:
   - test-pod
   result: fail
 - isValidatingPolicy: true
-  kind: Pod
+  kind: PodExecOptions
   policy: require-env-label
   resources:
   - test-pod
   result: fail
+values:
+  subresources:
+  - parentResource:
+      kind: Pod
+      name: pods
+      namespaced: false
+      singularName: ""
+      verbs: null
+      version: v1
+    subresource:
+      kind: PodExecOptions
+      name: pods/exec
+      namespaced: false
+      singularName: ""
+      verbs: null
+      version: v1

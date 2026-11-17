@@ -1,9 +1,11 @@
 apiVersion: v1
-kind: Pod
+kind: PodExecOptions
 metadata:
   name: test-pod
   namespace: test-ns
-spec:
-  containers:
-  - name: nginx
-    image: nginx:latest
+stdin: true
+stdout: true
+tty: true
+container: nginx
+command:
+  - sh
