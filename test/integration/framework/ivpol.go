@@ -5,7 +5,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/config"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
@@ -34,7 +33,7 @@ func NewIvpolEngine(mgr ctrl.Manager, kubeClient kubernetes.Interface) (ivpoleng
 	}
 
 	nsResolver := func(ns string) *corev1.Namespace { return nil }
-	engine := ivpolengine.NewEngine(provider, nsResolver, matching.NewMatcher(), secretLister(kubeClient), imageverifycache.DisabledImageVerifyCache(), config.NewDefaultConfiguration(false))
+	engine := ivpolengine.NewEngine(provider, nsResolver, matching.NewMatcher(), secretLister(kubeClient), nil, config.NewDefaultConfiguration(false))
 	return engine, provider, nil
 }
 
@@ -50,6 +49,6 @@ func NewIvpolEngineWithExceptions(mgr ctrl.Manager, kubeClient kubernetes.Interf
 	}
 
 	nsResolver := func(ns string) *corev1.Namespace { return nil }
-	engine := ivpolengine.NewEngine(provider, nsResolver, matching.NewMatcher(), secretLister(kubeClient), imageverifycache.DisabledImageVerifyCache(), config.NewDefaultConfiguration(false))
+	engine := ivpolengine.NewEngine(provider, nsResolver, matching.NewMatcher(), secretLister(kubeClient), nil, config.NewDefaultConfiguration(false))
 	return engine, provider, nil
 }

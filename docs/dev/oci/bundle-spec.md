@@ -40,12 +40,12 @@ shape**:
   1.0, because a conformant `Read` still produces a local tree that `policy.Load` can walk, which is the same
   contract `ToTempDir` already relies on.
 
-**Open item: this status note is provisional.** Replacing a 2022 byte format is the right technical call — see the
-design record for #17660 for the full argument — but **the epic owner has not yet confirmed that #17660 may
-change a format that shipped in released CLIs**. Until that confirmation lands, treat this specification as the
-intended target, not yet a settled fact about what 1.20 ships. If the epic owner declines, the Flux-consumability
-and file-layout-preservation acceptance criteria for epic #17645 become unsatisfiable and must be dropped from the
-epic instead.
+**The format is committed as of 1.20.** `kyverno oci` ships ungated, without requiring `KYVERNO_EXPERIMENTAL`, as
+of 1.20, which settles the question of whether #17660 may change a format that shipped in released CLIs — it
+does, and this specification is the format 1.20 ships. The pre-1.20 bare-YAML-per-layer artifacts, under media
+types `application/vnd.cncf.kyverno.config.v1+json` and `application/vnd.cncf.kyverno.policy.layer.v1+yaml`, are
+superseded and rejected with an actionable "legacy image format" error; see
+[8. Format versioning and compatibility](#8-format-versioning-and-compatibility).
 
 **This specification also supersedes a 2022 design proposal.**
 `kyverno/KDP:proposals/store_kyverno_policies_in_oci_registries.md` (May 2022, tracking kyverno/kyverno#3154) is
@@ -802,7 +802,7 @@ version outright.
 
 | Kyverno CLI release | Supported major format version |
 |---|---|
-| 1.20 | 1 (`1.0.0` is the only version this document defines; see [1. Status and scope](#1-status-and-scope) for its provisional status) |
+| 1.20 | 1 (`1.0.0` is the only version this document defines; see [1. Status and scope](#1-status-and-scope)) |
 
 ### Legacy-image detection
 
@@ -950,8 +950,9 @@ safe as the equivalent local-directory command.
 
 ## 10. Consumption by generic tooling
 
-This chapter is informative, not normative. A worked, end-to-end Flux example is planned for the `kyverno/website`
-documentation as part of #17667 and doesn't exist yet.
+This chapter is informative, not normative. [`docs/dev/oci/flux-example.md`](./flux-example.md) is a worked,
+digest-pinned example of consuming a bundle with Flux. A user-facing, end-to-end GitOps guide based on it is in
+progress on the `kyverno/website` documentation as part of #17667.
 
 ### Flux `OCIRepository`
 
@@ -959,10 +960,13 @@ Flux's `OCIRepository` controller extracts the first layer of an artifact by def
 be `tar+gzip` for its default `extract` operation. Because this format's single content layer sits at index 0 with
 media type `application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip`, Flux's default configuration (no
 `layerSelector`) already extracts it correctly. An `OCIRepository` SHOULD still set
-`spec.layerSelector.mediaType: application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip` explicitly, so extraction
-keeps working even if a future format version adds a second layer — see
-[8. Format versioning and compatibility](#8-format-versioning-and-compatibility) for why that's a major change and
-not something that could happen silently.
+`spec.layerSelector.mediaType: application/vnd.cncf.kyverno.bundle.content.v1.tar+gzip` explicitly: it selects
+today's content layer unambiguously instead of relying on Flux's `layers[0]` fallback, and it fails visibly
+rather than silently extracting the wrong layer if the artifact ever carries more than one. This does not give
+forward compatibility across a major format change: the major version is carried in the media type's `.v1`
+segment, so a format version that adds a second layer ships a new `.v2` media type — see
+[8. Format versioning and compatibility](#8-format-versioning-and-compatibility) — and a selector pinned to
+`.v1` then matches nothing, requiring the `OCIRepository` to be updated by hand.
 
 ### `crane` and `oras`
 
@@ -979,6 +983,15 @@ never derives from the push reference (see [4. Artifact structure](#4-artifact-s
 [6. Config blob](#6-config-blob)), retagging or mirroring the same bundle to a different reference doesn't change
 its digest, which is what makes the digest form meaningful as a stable identity independent of where the bundle
 is hosted.
+
+`kyverno oci resolve` is the way to obtain this digest. It applies reader MUST 1, 6, and 7
+([9. Conformance](#9-conformance)) — manifest shape, config parse, and major-version and legacy-image checks —
+before printing, so it never pins a non-bundle, a legacy pre-1.20 image, or an artifact whose format major
+version this CLI doesn't support. It does not apply reader MUST 2-4: it never fetches or extracts the content
+layer, so it can't check the archive against the index. A bundle whose manifest and config are well-formed but
+whose archive is malformed or disagrees with the index passes `resolve` and still fails `pull`. `--digest-only`
+prints the bare digest, the form `spec.ref.digest` on a Flux `OCIRepository` expects. For an artifact that isn't a
+Kyverno bundle, `crane digest` is the equivalent way to pin a reference.
 
 ### Signing and referrers
 
@@ -1103,3 +1116,9 @@ The descriptor, `kyverno-bundle.yaml`, isn't in that listing: it's an input, not
   - Accepted-version table widened to `v1`, `kyvernoVersion` constraint semantics, and the writer-policy checks
     specified by #17664. No byte-level effect on any 1.0.0 bundle; no bump because 1.0.0 hasn't shipped in a
     release yet.
+  - `kyverno oci` graduated out of the experimental gate: it no longer requires `KYVERNO_EXPERIMENTAL`.
+    [1. Status and scope](#1-status-and-scope) records this format as committed as of 1.20. No byte-level effect
+    on any 1.0.0 bundle; no bump because 1.0.0 hasn't shipped in a release yet.
+  - `kyverno oci resolve` and the Flux example cross-reference added to
+    [10. Consumption by generic tooling](#10-consumption-by-generic-tooling) by #17667. Informative only; no
+    normative or byte-level change.

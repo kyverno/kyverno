@@ -1,16 +1,15 @@
 package cache
 
 import (
-	"context"
 	"fmt"
 	"runtime"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr/funcr"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -19,6 +18,22 @@ const (
 	testTagRef        = "example.com/repo:latest"
 	testTagPlusDigest = "example.com/repo:latest@sha256:0000000000000000000000000000000000000000000000000000000000000001"
 )
+
+func keyAttestor(name, key string) v1beta1.Attestor {
+	return v1beta1.Attestor{Name: name, Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Data: key}}}
+}
+
+var (
+	testAttestors   = []v1beta1.Attestor{keyAttestor("signer", "KEY-A")}
+	testAttestation = &v1beta1.Attestation{Name: "provenance", InToto: &v1beta1.InToto{Type: "https://slsa.dev/provenance/v1"}}
+)
+
+func newTestCache(t *testing.T, opts ...Option) Client {
+	t.Helper()
+	c, err := New(append([]Option{WithMaxSize(0), WithTTLDuration(0)}, opts...)...)
+	require.NoError(t, err)
+	return c
+}
 
 // Test_payloadCost verifies cache entry cost is charged by real payload byte
 // size instead of a flat 1 per entry, so --imageVerifyCacheMaxSize (ristretto's
@@ -31,43 +46,35 @@ func Test_payloadCost(t *testing.T) {
 	assert.Equal(t, int64(1), payloadCost(map[string][]byte{"a": nil}), "a nil-valued entry contributes zero bytes, not a panic")
 }
 
-// Test_SetWithPayload_presence_only_entry_costs_flat_one confirms the legacy
-// Set()/plain-signature-cache path (which always stores a nil payload) keeps
-// exactly the pre-fix cost of 1, so existing callers like the legacy
-// ClusterPolicy image-verification engine are unaffected by this change.
-func Test_SetWithPayload_presence_only_entry_costs_flat_one(t *testing.T) {
-	c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
-	assert.NoError(t, err)
+// Test_Set_signature_entry_round_trips confirms a signature entry (no
+// attestation, nil payload) is stored and served.
+func Test_Set_signature_entry_round_trips(t *testing.T) {
+	c := newTestCache(t)
 
-	pol := &metav1.ObjectMeta{Name: "cost-test-policy", UID: "cost-test-uid", ResourceVersion: "1"}
-
-	stored, err := c.Set(context.TODO(), pol, "signature-rule", testDigestA, true)
+	stored, err := c.Set(testDigestA, testAttestors, nil, nil)
 	assert.NoError(t, err)
 	assert.True(t, stored)
 
-	found, err := c.Get(context.TODO(), pol, "signature-rule", testDigestA, true)
+	found, payloads, err := c.Get(testDigestA, testAttestors, nil)
 	assert.NoError(t, err)
 	assert.True(t, found)
+	assert.Nil(t, payloads)
 }
 
-// Test_SetWithPayload_round_trips_real_payload_size confirms a payload-carrying
-// entry (the attestation-cache path) round-trips correctly through the cache
-// once cost accounting reflects its real size, not just that storage still
-// works with the old flat cost.
-func Test_SetWithPayload_round_trips_real_payload_size(t *testing.T) {
+// Test_Set_round_trips_real_payload_size confirms a payload-carrying entry (the
+// attestation-cache path) round-trips correctly once cost accounting reflects
+// its real size.
+func Test_Set_round_trips_real_payload_size(t *testing.T) {
 	// MaxSize must comfortably exceed the test payload's cost (1 + byte
 	// length, see payloadCost).
-	c, err := New(WithCacheEnableFlag(true), WithMaxSize(1_000_000), WithTTLDuration(0))
-	assert.NoError(t, err)
-
-	pol := &metav1.ObjectMeta{Name: "cost-test-policy", UID: "cost-test-uid", ResourceVersion: "1"}
+	c := newTestCache(t, WithMaxSize(1_000_000))
 	largePayload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 4096)}
 
-	stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", testDigestB, true, largePayload)
+	stored, err := c.Set(testDigestB, testAttestors, testAttestation, largePayload)
 	assert.NoError(t, err)
 	assert.True(t, stored)
 
-	found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", testDigestB, true)
+	found, got, err := c.Get(testDigestB, testAttestors, testAttestation)
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.Equal(t, largePayload, got)
@@ -84,19 +91,16 @@ func Test_isDigestRef(t *testing.T) {
 
 // Test_Cache_RefusesMutableKeys is the A4-class regression: a verdict must
 // never be stored or served under a mutable (tag-only) reference, in either
-// direction, for both the presence-only and payload-carrying paths.
+// direction, for both signature and attestation entries.
 func Test_Cache_RefusesMutableKeys(t *testing.T) {
-	c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
-	assert.NoError(t, err)
-
-	pol := &metav1.ObjectMeta{Name: "guard-test-policy", UID: "guard-test-uid", ResourceVersion: "1"}
+	c := newTestCache(t)
 
 	t.Run("Set/Get refuse a bare tag", func(t *testing.T) {
-		stored, err := c.Set(context.TODO(), pol, "rule", testTagRef, true)
+		stored, err := c.Set(testTagRef, testAttestors, nil, nil)
 		assert.NoError(t, err)
 		assert.False(t, stored, "a tag-only reference must not be stored")
 
-		found, err := c.Get(context.TODO(), pol, "rule", testTagRef, true)
+		found, _, err := c.Get(testTagRef, testAttestors, nil)
 		assert.NoError(t, err)
 		assert.False(t, found, "a tag-only reference must never be served, even if something else wrote it")
 	})
@@ -107,7 +111,8 @@ func Test_Cache_RefusesMutableKeys(t *testing.T) {
 		// read guard on its own.
 		impl, ok := c.(*cache)
 		assert.True(t, ok)
-		key := generateKey(pol, "rule", testTagRef)
+		key, err := generateKey(testTagRef, testAttestors, nil)
+		require.NoError(t, err)
 		impl.cache.SetWithTTL(key, nil, 1, time.Hour)
 		impl.cache.Wait()
 		// Without this, a store that dropped the entry would make the
@@ -116,63 +121,148 @@ func Test_Cache_RefusesMutableKeys(t *testing.T) {
 		_, seeded := impl.cache.Get(key)
 		assert.True(t, seeded, "the entry must actually be in the store for this to test the read guard")
 
-		found, err := c.Get(context.TODO(), pol, "rule", testTagRef, true)
+		found, payloads, err := c.Get(testTagRef, testAttestors, nil)
 		assert.NoError(t, err)
 		assert.False(t, found, "a seeded tag-only entry must still never be served")
-
-		found, payloads, err := c.GetWithPayload(context.TODO(), pol, "rule", testTagRef, true)
-		assert.NoError(t, err)
-		assert.False(t, found, "a seeded tag-only entry must still never be served with payloads")
 		assert.Nil(t, payloads)
 	})
 
 	t.Run("Set/Get accept a digest and distinguish digests", func(t *testing.T) {
-		stored, err := c.Set(context.TODO(), pol, "rule", testDigestA, true)
+		stored, err := c.Set(testDigestA, testAttestors, nil, nil)
 		assert.NoError(t, err)
 		assert.True(t, stored)
 
-		found, err := c.Get(context.TODO(), pol, "rule", testDigestA, true)
+		found, _, err := c.Get(testDigestA, testAttestors, nil)
 		assert.NoError(t, err)
 		assert.True(t, found)
 
-		found, err = c.Get(context.TODO(), pol, "rule", testTagRef, true)
+		found, _, err = c.Get(testTagRef, testAttestors, nil)
 		assert.NoError(t, err)
 		assert.False(t, found, "a hit for one reference form must not leak to the bare tag")
 
-		found, err = c.Get(context.TODO(), pol, "rule", testDigestB, true)
+		found, _, err = c.Get(testDigestB, testAttestors, nil)
 		assert.NoError(t, err)
 		assert.False(t, found, "a different digest must never hit")
 	})
 
-	t.Run("SetWithPayload/GetWithPayload refuse a bare tag", func(t *testing.T) {
+	t.Run("attestation entries refuse a bare tag", func(t *testing.T) {
 		payload := map[string][]byte{"predicate": []byte("data")}
-		stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", testTagRef, true, payload)
+		stored, err := c.Set(testTagRef, testAttestors, testAttestation, payload)
 		assert.NoError(t, err)
 		assert.False(t, stored, "a tag-only reference must not be stored")
 
-		found, _, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", testTagRef, true)
+		found, _, err := c.Get(testTagRef, testAttestors, testAttestation)
 		assert.NoError(t, err)
 		assert.False(t, found, "a tag-only reference must never be served")
 	})
+}
+
+// Test_generateKey_binds_material_not_names pins that the key tracks the
+// resolved attestor material and the attestation definition, not the labels a
+// policy author picked, and that the attestor order does not matter.
+func Test_generateKey_binds_material_not_names(t *testing.T) {
+	key := func(attestors []v1beta1.Attestor, attestation *v1beta1.Attestation) string {
+		t.Helper()
+		k, err := generateKey(testDigestA, attestors, attestation)
+		require.NoError(t, err)
+		return k
+	}
+	a, b := keyAttestor("signer", "KEY-A"), keyAttestor("signer", "KEY-B")
+
+	assert.NotEqual(t, key([]v1beta1.Attestor{a}, nil), key([]v1beta1.Attestor{b}, nil), "different key material under the same attestor name must not share an entry")
+	assert.Equal(t, key([]v1beta1.Attestor{a}, nil), key([]v1beta1.Attestor{a}, nil), "the same material must produce the same key")
+	assert.Equal(t, key([]v1beta1.Attestor{a, b}, nil), key([]v1beta1.Attestor{b, a}, nil), "attestor order must not matter")
+	assert.Equal(t, key([]v1beta1.Attestor{a}, nil), key([]v1beta1.Attestor{keyAttestor("another-policys-name", "KEY-A")}, nil), "the attestor name is a label and must not change the key")
+
+	renamed := *testAttestation
+	renamed.Name = "slsa"
+	assert.Equal(t, key(testAttestors, testAttestation), key(testAttestors, &renamed), "the attestation name is a label and must not change the key")
+
+	otherType := *testAttestation
+	otherType.InToto = &v1beta1.InToto{Type: "https://cyclonedx.org/bom"}
+	assert.NotEqual(t, key(testAttestors, testAttestation), key(testAttestors, &otherType), "a different predicate type must not share an entry")
+
+	assert.NotEqual(t, key(testAttestors, nil), key(testAttestors, testAttestation), "a signature entry must never share a key with an attestation entry")
+}
+
+// Test_Cache_shares_entries_across_callers confirms entries are keyed by what
+// was verified: any caller with the same attestors and attestation definition
+// gets the hit.
+func Test_Cache_shares_entries_across_callers(t *testing.T) {
+	c := newTestCache(t)
+	payload := map[string][]byte{"https://slsa.dev/provenance/v1": []byte("{}")}
+
+	stored, err := c.Set(testDigestA, testAttestors, testAttestation, payload)
+	require.NoError(t, err)
+	require.True(t, stored)
+
+	renamed := *testAttestation
+	renamed.Name = "another-policys-name"
+	found, got, err := c.Get(testDigestA, testAttestors, &renamed)
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, payload, got)
+
+	found, _, err = c.Get(testDigestA, testAttestors, nil)
+	require.NoError(t, err)
+	assert.False(t, found, "an attestation entry must not satisfy a signature lookup")
+}
+
+// Test_Cache_skips_uncacheable_attestors pins the attestor groups the cache
+// refuses: none at all, and KMS keys whose material the key cannot bind.
+func Test_Cache_skips_uncacheable_attestors(t *testing.T) {
+	kms := []v1beta1.Attestor{{Name: "kms", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{KMS: "awskms:///alias/signer"}}}}
+	for name, attestors := range map[string][]v1beta1.Attestor{
+		"no attestors": nil,
+		"kms key":      kms,
+		"kms in group": append([]v1beta1.Attestor{keyAttestor("inline", "KEY-A")}, kms...),
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := newTestCache(t)
+			stored, err := c.Set(testDigestA, attestors, nil, nil)
+			require.NoError(t, err)
+			assert.False(t, stored)
+
+			found, _, err := c.Get(testDigestA, attestors, nil)
+			require.NoError(t, err)
+			assert.False(t, found)
+		})
+	}
+	t.Run("kms entry already in the store is not served", func(t *testing.T) {
+		c := newTestCache(t)
+		impl, ok := c.(*cache)
+		require.True(t, ok)
+		key, err := generateKey(testDigestA, kms, nil)
+		require.NoError(t, err)
+		impl.cache.SetWithTTL(key, nil, 1, time.Hour)
+		impl.cache.Wait()
+		_, seeded := impl.cache.Get(key)
+		require.True(t, seeded, "the entry must actually be in the store for this to test the read guard")
+
+		found, _, err := c.Get(testDigestA, kms, nil)
+		require.NoError(t, err)
+		assert.False(t, found)
+	})
+	assert.False(t, hasUnbindableKeyMaterial([]v1beta1.Attestor{keyAttestor("inline", "KEY-A")}), "an inline key is bound by the hash")
+	assert.False(t, hasUnbindableKeyMaterial([]v1beta1.Attestor{{Name: "expr", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Expression: "variables.key"}}}}), "an expression key is materialized before hashing")
+	assert.False(t, hasUnbindableKeyMaterial([]v1beta1.Attestor{{Name: "notary", Notary: &v1beta1.Notary{}}}), "a notary attestor carries no KMS key")
 }
 
 // Test_default_budget_holds_many_presence_only_entries: the flag used to
 // promise 1000 keys, but ristretto also charges its own per-item cost, so a
 // 1000 budget kept only about 17 entries.
 func Test_default_budget_holds_many_presence_only_entries(t *testing.T) {
-	c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
-	require.NoError(t, err)
+	c := newTestCache(t)
 
-	pol := &metav1.ObjectMeta{Name: "capacity-policy", UID: "capacity-uid", ResourceVersion: "1"}
 	const entries = 1000
 	for i := range entries {
-		stored, err := c.Set(context.TODO(), pol, "signature-rule", fmt.Sprintf("registry.example/app@sha256:%064x", i), true)
+		stored, err := c.Set(fmt.Sprintf("registry.example/app@sha256:%064x", i), testAttestors, nil, nil)
 		require.NoError(t, err)
 		require.True(t, stored)
 	}
 	found := 0
 	for i := range entries {
-		ok, err := c.Get(context.TODO(), pol, "signature-rule", fmt.Sprintf("registry.example/app@sha256:%064x", i), true)
+		ok, _, err := c.Get(fmt.Sprintf("registry.example/app@sha256:%064x", i), testAttestors, nil)
 		require.NoError(t, err)
 		if ok {
 			found++
@@ -187,16 +277,14 @@ func Test_default_budget_holds_many_presence_only_entries(t *testing.T) {
 func Test_default_budget_caches_attestation_payloads(t *testing.T) {
 	for _, size := range []int{1033, 4 << 10, 256 << 10} {
 		t.Run(fmt.Sprintf("%d bytes", size), func(t *testing.T) {
-			c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
-			require.NoError(t, err)
+			c := newTestCache(t)
 
-			pol := &metav1.ObjectMeta{Name: "payload-policy", UID: "payload-uid", ResourceVersion: "1"}
 			payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, size)}
-			stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", testDigestA, true, payload)
+			stored, err := c.Set(testDigestA, testAttestors, testAttestation, payload)
 			require.NoError(t, err)
 			assert.True(t, stored)
 
-			found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", testDigestA, true)
+			found, got, err := c.Get(testDigestA, testAttestors, testAttestation)
 			require.NoError(t, err)
 			require.True(t, found)
 			assert.Equal(t, payload, got)
@@ -204,20 +292,18 @@ func Test_default_budget_caches_attestation_payloads(t *testing.T) {
 	}
 }
 
-// Test_SetWithPayload_reports_an_entry_larger_than_the_budget_as_not_stored:
-// ristretto accepts the write and drops it afterwards, so the result has to
-// come from the cache contents, not from the write call.
-func Test_SetWithPayload_reports_an_entry_larger_than_the_budget_as_not_stored(t *testing.T) {
-	c, err := New(WithCacheEnableFlag(true), WithMaxSize(100), WithTTLDuration(0))
-	require.NoError(t, err)
+// Test_Set_reports_an_entry_larger_than_the_budget_as_not_stored: ristretto
+// accepts the write and drops it afterwards, so the result has to come from the
+// cache contents, not from the write call.
+func Test_Set_reports_an_entry_larger_than_the_budget_as_not_stored(t *testing.T) {
+	c := newTestCache(t, WithMaxSize(100))
 
-	pol := &metav1.ObjectMeta{Name: "oversize-policy", UID: "oversize-uid", ResourceVersion: "1"}
 	payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 500)}
-	stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", testDigestA, true, payload)
+	stored, err := c.Set(testDigestA, testAttestors, testAttestation, payload)
 	require.NoError(t, err)
 	assert.False(t, stored)
 
-	found, _, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", testDigestA, true)
+	found, _, err := c.Get(testDigestA, testAttestors, testAttestation)
 	require.NoError(t, err)
 	assert.False(t, found)
 }
@@ -230,7 +316,7 @@ func Test_New_keeps_counter_overhead_below_the_budget(t *testing.T) {
 	var before, after runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&before)
-	c, err := New(WithCacheEnableFlag(true), WithMaxSize(budget), WithTTLDuration(0))
+	c, err := New(WithMaxSize(budget), WithTTLDuration(0))
 	runtime.ReadMemStats(&after)
 	require.NoError(t, err)
 	t.Cleanup(c.(*cache).cache.Close)
@@ -241,74 +327,68 @@ func Test_New_keeps_counter_overhead_below_the_budget(t *testing.T) {
 // Test_New_accepts_a_budget_smaller_than_one_entry: the counter count has a
 // floor, so a budget below expectedEntryCost still builds a valid cache.
 func Test_New_accepts_a_budget_smaller_than_one_entry(t *testing.T) {
-	c, err := New(WithCacheEnableFlag(true), WithMaxSize(1), WithTTLDuration(0))
+	c, err := New(WithMaxSize(1), WithTTLDuration(0))
 	require.NoError(t, err)
 	t.Cleanup(c.(*cache).cache.Close)
 }
 
-// Test_SetWithPayload_replacing_an_entry_keeps_the_budget: ristretto updates an
-// existing key without checking MaxCost, so rewriting a presence-only entry
-// (the attestation re-verification path) could keep a payload larger than the
-// whole budget.
-func Test_SetWithPayload_replacing_an_entry_keeps_the_budget(t *testing.T) {
-	c, err := New(WithCacheEnableFlag(true), WithMaxSize(100), WithTTLDuration(0))
-	require.NoError(t, err)
+// Test_Set_replacing_an_entry_keeps_the_budget: ristretto updates an existing
+// key without checking MaxCost, so rewriting a presence-only entry (the
+// attestation re-verification path) could keep a payload larger than the whole
+// budget.
+func Test_Set_replacing_an_entry_keeps_the_budget(t *testing.T) {
+	c := newTestCache(t, WithMaxSize(100))
 
-	pol := &metav1.ObjectMeta{Name: "replace-policy", UID: "replace-uid", ResourceVersion: "1"}
-	stored, err := c.Set(context.TODO(), pol, "attestation-rule", testDigestA, true)
+	stored, err := c.Set(testDigestA, testAttestors, testAttestation, nil)
 	require.NoError(t, err)
 	require.True(t, stored)
 
 	payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 500)}
-	stored, err = c.SetWithPayload(context.TODO(), pol, "attestation-rule", testDigestA, true, payload)
+	stored, err = c.Set(testDigestA, testAttestors, testAttestation, payload)
 	require.NoError(t, err)
 	assert.False(t, stored)
 
-	found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", testDigestA, true)
+	found, got, err := c.Get(testDigestA, testAttestors, testAttestation)
 	require.NoError(t, err)
 	assert.False(t, found)
 	assert.Empty(t, got)
 }
 
-// Test_SetWithPayload_replacing_an_entry_with_a_fitting_payload_stores_it: the
-// usual re-verification case, where a presence-only entry gets its payload.
-func Test_SetWithPayload_replacing_an_entry_with_a_fitting_payload_stores_it(t *testing.T) {
-	c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
-	require.NoError(t, err)
+// Test_Set_replacing_an_entry_with_a_fitting_payload_stores_it: the usual
+// re-verification case, where a presence-only entry gets its payload.
+func Test_Set_replacing_an_entry_with_a_fitting_payload_stores_it(t *testing.T) {
+	c := newTestCache(t)
 
-	pol := &metav1.ObjectMeta{Name: "replace-policy", UID: "replace-uid", ResourceVersion: "1"}
-	stored, err := c.Set(context.TODO(), pol, "attestation-rule", testDigestA, true)
+	stored, err := c.Set(testDigestA, testAttestors, testAttestation, nil)
 	require.NoError(t, err)
 	require.True(t, stored)
 
 	payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 1033)}
-	stored, err = c.SetWithPayload(context.TODO(), pol, "attestation-rule", testDigestA, true, payload)
+	stored, err = c.Set(testDigestA, testAttestors, testAttestation, payload)
 	require.NoError(t, err)
 	assert.True(t, stored)
 
-	found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", testDigestA, true)
+	found, got, err := c.Get(testDigestA, testAttestors, testAttestation)
 	require.NoError(t, err)
 	require.True(t, found)
 	assert.Equal(t, payload, got)
 }
 
-// Test_SetWithPayload_logs_an_entry_the_cache_did_not_keep: callers don't act
-// on the result, so without a log an attestation that never fits is verified
-// again on every admission with nothing showing why.
-func Test_SetWithPayload_logs_an_entry_the_cache_did_not_keep(t *testing.T) {
+// Test_Set_logs_an_entry_the_cache_did_not_keep: callers don't act on the
+// result, so without a log an attestation that never fits is verified again on
+// every admission with nothing showing why.
+func Test_Set_logs_an_entry_the_cache_did_not_keep(t *testing.T) {
 	var logs []string
 	logger := funcr.New(func(_, args string) { logs = append(logs, args) }, funcr.Options{Verbosity: 3})
-	c, err := New(WithCacheEnableFlag(true), WithMaxSize(100), WithTTLDuration(0), WithLogger(logger))
-	require.NoError(t, err)
+	c := newTestCache(t, WithMaxSize(100), WithLogger(logger))
 
-	pol := &metav1.ObjectMeta{Name: "log-policy", UID: "log-uid", ResourceVersion: "1"}
-	stored, err := c.Set(context.TODO(), pol, "signature-rule", testDigestA, true)
+	stored, err := c.Set(testDigestA, testAttestors, nil, nil)
 	require.NoError(t, err)
 	require.True(t, stored)
 	assert.Empty(t, logs, "an entry the cache kept must not be logged")
 
 	payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 500)}
-	stored, err = c.SetWithPayload(context.TODO(), pol, "attestation-rule", testDigestB, true, payload)
+	stored, err = c.Set(testDigestB, testAttestors, testAttestation, payload)
 	require.NoError(t, err)
 	require.False(t, stored)
 	require.Len(t, logs, 1)

@@ -15,7 +15,6 @@ import (
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
@@ -157,7 +156,7 @@ func traceTestHandler(t *testing.T, trace bool) (*handler, *recordedEvents) {
 	provider, err := ivpolengine.NewProvider(evaluator.NewCompilerWithTrace(nil, trace), likes, nil)
 	require.NoError(t, err)
 	namespaceResolver := func(string) *corev1.Namespace { return nil }
-	engine := ivpolengine.NewEngine(provider, namespaceResolver, matching.NewMatcher(), nil, imageverifycache.DisabledImageVerifyCache(), config.NewDefaultConfiguration(false))
+	engine := ivpolengine.NewEngine(provider, namespaceResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
 	events := &recordedEvents{}
 	return New(engine, libs.NewFakeContextProvider(), nil, false, events), events
 }

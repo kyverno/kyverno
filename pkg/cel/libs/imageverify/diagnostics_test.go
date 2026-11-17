@@ -94,7 +94,7 @@ func TestCosignVerificationDiagnosticsCounts(t *testing.T) {
 					policy := &policiesv1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "diagnostics", UID: "diagnostics"}, Spec: policiesv1beta1.ImageValidatingPolicySpec{Attestations: []policiesv1beta1.Attestation{{Name: "proof", InToto: &policiesv1beta1.InToto{Type: "proof"}}}}}
 					ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
 					results := NewImageVerificationResults()
-					cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
+					cache, err := imageverifycache.New(imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 					require.NoError(t, err)
 					r := NewRuntimeForPolicy(context.Background(), ivFuncs, runtimeImages{image: &imagedataloader.ImageData{}}, cache, results)
 					verifier := &diagnosticVerifier{err: cause}
@@ -121,11 +121,11 @@ func TestCosignVerificationDiagnosticsCounts(t *testing.T) {
 					verified, attempted := results.Status("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105")
 					require.True(t, verified)
 					require.True(t, attempted)
-					rule := mustCacheRule(t, signatureCacheRule, "", attestors)
+					var definition *policiesv1beta1.Attestation
 					if attestation {
-						rule = mustCacheRule(t, attestationCacheRule, "proof", attestors)
+						definition = &policy.Spec.Attestations[0]
 					}
-					found, err := cache.Get(context.Background(), policy, rule, "ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", true)
+					found, _, err := cache.Get("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", attestors, definition)
 					require.NoError(t, err)
 					require.False(t, found, "partial verification must not be cached")
 					require.Nil(t, ivFuncs.diagnostics)
@@ -143,10 +143,10 @@ func TestVerificationDiagnosticsCacheHit(t *testing.T) {
 	require.NoError(t, err)
 	policy := &policiesv1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "cached", UID: "cached"}}
 	ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
-	cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
+	cache, err := imageverifycache.New(imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 	require.NoError(t, err)
 	attestors := []policiesv1beta1.Attestor{{Name: "valid", Cosign: &policiesv1beta1.Cosign{}}}
-	stored, err := cache.Set(context.Background(), policy, mustCacheRule(t, signatureCacheRule, "", attestors), "ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", true)
+	stored, err := cache.Set("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", attestors, nil, nil)
 	require.NoError(t, err)
 	require.True(t, stored)
 	r := NewRuntimeForPolicy(context.Background(), ivFuncs, nil, cache, nil)
@@ -168,7 +168,7 @@ func TestCosignVerificationDiagnosticsFailureUncached(t *testing.T) {
 	require.NoError(t, err)
 	policy := &policiesv1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "failed", UID: "failed"}}
 	ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
-	cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
+	cache, err := imageverifycache.New(imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 	require.NoError(t, err)
 	results := NewImageVerificationResults()
 	r := NewRuntimeForPolicy(context.Background(), ivFuncs, runtimeImages{image: &imagedataloader.ImageData{}}, cache, results)
@@ -190,16 +190,7 @@ func TestCosignVerificationDiagnosticsFailureUncached(t *testing.T) {
 	verified, attempted := results.Status("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105")
 	require.True(t, attempted)
 	require.False(t, verified)
-	found, err := cache.Get(context.Background(), policy, mustCacheRule(t, signatureCacheRule, "", attestors), "ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", true)
+	found, _, err := cache.Get("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", attestors, nil)
 	require.NoError(t, err)
 	require.False(t, found)
-}
-
-// mustCacheRule derives a cache rule for a test fixture, failing the test if
-// the attestors cannot be encoded.
-func mustCacheRule(t *testing.T, fn, qualifier string, attestors []policiesv1beta1.Attestor) string {
-	t.Helper()
-	rule, err := attestorCacheRule(fn, qualifier, attestors)
-	require.NoError(t, err)
-	return rule
 }
