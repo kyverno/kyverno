@@ -6,8 +6,6 @@ Pushes, pulls, validates, inspects, and resolves Kyverno CEL Policy Bundles in O
 
 Pushes, pulls, validates, inspects, and resolves Kyverno CEL Policy Bundles in OCI registries. See "kyverno oci <subcommand> --help" for each subcommand's own flags and examples.
 
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
-
   For more information visit https://kyverno.io/docs/kyverno-cli/#oci
 
 ```

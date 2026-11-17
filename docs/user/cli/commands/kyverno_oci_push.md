@@ -7,8 +7,6 @@ Push policie(s) that are included in an OCI image to OCI registry.
 Push policie(s) that are included in an OCI image to OCI registry.
   An optional kyverno-bundle.yaml at the root of the directory names the bundle and assigns resources to named sets.
 
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
-
   For more information visit https://kyverno.io/docs/kyverno-cli/#pushing
 
 ```
