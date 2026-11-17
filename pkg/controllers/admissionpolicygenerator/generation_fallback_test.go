@@ -670,6 +670,45 @@ func TestHandleMAPGeneration_FailureHandsAdmissionBackToKyverno(t *testing.T) {
 	}
 }
 
+// TestHandleMAPGeneration_BindingCreateFailureCleansUpAndRecovers follows a MutatingAdmissionPolicy
+// whose binding can't be created. The first run leaves the new MAP, which the informer hasn't seen
+// yet; once it has, the retry removes it while the binding still fails, and generation recovers
+// once the binding can be created again.
+func TestHandleMAPGeneration_BindingCreateFailureCleansUpAndRecovers(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	vc := mapVersionCases()[0]
+	mpol := generatedMpol()
+	c, kubeClient, kyvernoClient := newVersionedMAPTestController(t, vc.version, mpol)
+	mapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	c.mapV1Lister = admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer)
+	bindingFails := true
+	kubeClient.PrependReactor("create", "mutatingadmissionpolicybindings", func(clienttesting.Action) (bool, runtime.Object, error) {
+		if bindingFails {
+			return true, nil, unavailableError()
+		}
+		return false, nil, nil
+	})
+
+	require.Error(t, c.handleMAPGeneration(ctx, mpol))
+	created, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, testMAPName, metav1.GetOptions{})
+	require.NoError(t, err, "the MAP created in this run is only removed on the retry")
+	assert.False(t, getMpol(t, kyvernoClient, mpol.Name).Status.Generated)
+
+	created.ResourceVersion = "1" // the informer now has the MAP
+	require.NoError(t, mapIndexer.Add(created))
+	require.Error(t, c.handleMAPGeneration(ctx, mpol))
+	assert.True(t, apierrors.IsNotFound(vc.getMAP(ctx, kubeClient)), "the retry must remove the MAP while the binding still fails")
+	assert.True(t, apierrors.IsNotFound(vc.getMAPBinding(ctx, kubeClient)))
+
+	require.NoError(t, mapIndexer.Delete(created))
+	bindingFails = false
+	require.NoError(t, c.handleMAPGeneration(ctx, mpol))
+	assert.NoError(t, vc.getMAP(ctx, kubeClient))
+	assert.NoError(t, vc.getMAPBinding(ctx, kubeClient))
+	assert.True(t, getMpol(t, kyvernoClient, mpol.Name).Status.Generated)
+}
+
 // TestHandleMAPGeneration_FallbackKeepsMAPWhenStatusWriteFails checks the order of the MAP fallback:
 // the stale MutatingAdmissionPolicy is only removed once Kyverno has taken the policy back. If the
 // status write fails, the MAP stays, so the policy is never left with nothing enforcing it.
