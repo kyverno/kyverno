@@ -1,0 +1,131 @@
+{
+  "apiVersion": "trace.kyverno.io/v1alpha1",
+  "kind": "DecisionList",
+  "items": [
+    {
+      "policy": {
+        "name": "deleting-pod-by-name",
+        "kind": "DeletingPolicy"
+      },
+      "resource": {
+        "kind": "Pod",
+        "name": "test-nginx-1",
+        "namespace": "test"
+      },
+      "scope": {
+        "applied": true,
+        "reason": "matched kind Pod, namespace test (deletion scan, so operations are not checked)"
+      },
+      "match": [
+        {
+          "name": "check-pod-ns",
+          "expression": "object.metadata.namespace == \"test\"",
+          "evaluated": [
+            {
+              "expression": "object.metadata.namespace == \"test\"",
+              "value": "true"
+            },
+            {
+              "expression": "object.metadata.namespace",
+              "value": "test"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[name:test-nginx-1 namespace:test]"
+            }
+          ],
+          "result": "true"
+        },
+        {
+          "name": "pod-name",
+          "expression": "object.metadata.name == \"test-nginx-1\"",
+          "evaluated": [
+            {
+              "expression": "object.metadata.name == \"test-nginx-1\"",
+              "value": "true"
+            },
+            {
+              "expression": "object.metadata.name",
+              "value": "test-nginx-1"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[name:test-nginx-1 namespace:test]"
+            }
+          ],
+          "result": "true"
+        }
+      ],
+      "verdict": {
+        "status": "PASS",
+        "message": "conditions held: the resource would be deleted"
+      }
+    },
+    {
+      "policy": {
+        "name": "deleting-pod-by-name",
+        "kind": "DeletingPolicy"
+      },
+      "resource": {
+        "kind": "Pod",
+        "name": "test-nginx-2",
+        "namespace": "test"
+      },
+      "scope": {
+        "applied": true,
+        "reason": "matched kind Pod, namespace test (deletion scan, so operations are not checked)"
+      },
+      "match": [
+        {
+          "name": "check-pod-ns",
+          "expression": "object.metadata.namespace == \"test\"",
+          "evaluated": [
+            {
+              "expression": "object.metadata.namespace == \"test\"",
+              "value": "true"
+            },
+            {
+              "expression": "object.metadata.namespace",
+              "value": "test"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[name:test-nginx-2 namespace:test]"
+            }
+          ],
+          "result": "true"
+        },
+        {
+          "name": "pod-name",
+          "expression": "object.metadata.name == \"test-nginx-1\"",
+          "evaluated": [
+            {
+              "expression": "object.metadata.name == \"test-nginx-1\"",
+              "value": "false"
+            },
+            {
+              "expression": "object.metadata.name",
+              "value": "test-nginx-2"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[name:test-nginx-2 namespace:test]"
+            }
+          ],
+          "result": "false"
+        }
+      ],
+      "verdict": {
+        "status": "FAIL",
+        "message": "condition \"pod-name\" is false: the resource is kept"
+      }
+    }
+  ],
+  "summary": {
+    "pass": 1,
+    "fail": 1,
+    "warn": 0,
+    "error": 0,
+    "skip": 0
+  }
+}

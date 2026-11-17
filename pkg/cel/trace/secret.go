@@ -258,3 +258,63 @@ func expressions(d *Decision) []ExpressionTrace {
 	}
 	return all
 }
+
+// decision returns a copy of d with every value and error that may be Secret data replaced, as
+// Render and LogValues show them. d itself is not changed.
+func (r redaction) decision(d *Decision) *Decision {
+	shown := *d
+	shown.Match = r.named(d.Match)
+	shown.Variables = r.named(d.Variables)
+	if d.Validations != nil {
+		shown.Validations = make([]ValidationTrace, len(d.Validations))
+		for i, v := range d.Validations {
+			v.ExpressionTrace = r.expression(v.ExpressionTrace)
+			shown.Validations[i] = v
+		}
+	}
+	shown.Verdict.ExpressionTrace = r.expression(d.Verdict.ExpressionTrace)
+	shown.Verdict.Message = r.message(d.Verdict)
+	if d.Mutations != nil {
+		shown.Mutations = make([]MutationTrace, len(d.Mutations))
+		for i, m := range d.Mutations {
+			m.ExpressionTrace = r.expression(m.ExpressionTrace)
+			m.Error = r.errorText(m.Inputs, m.Error)
+			shown.Mutations[i] = m
+		}
+	}
+	if d.Generations != nil {
+		shown.Generations = make([]GenerationTrace, len(d.Generations))
+		for i, g := range d.Generations {
+			g.ExpressionTrace = r.expression(g.ExpressionTrace)
+			g.Error = r.errorText(g.Inputs, g.Error)
+			shown.Generations[i] = g
+		}
+	}
+	return &shown
+}
+
+func (r redaction) named(traces []NamedExpressionTrace) []NamedExpressionTrace {
+	if traces == nil {
+		return nil
+	}
+	shown := make([]NamedExpressionTrace, len(traces))
+	for i, n := range traces {
+		n.ExpressionTrace = r.expression(n.ExpressionTrace)
+		shown[i] = n
+	}
+	return shown
+}
+
+func (r redaction) expression(et ExpressionTrace) ExpressionTrace {
+	et.Result = r.value(et.Inputs, et.Result)
+	if et.Nodes != nil {
+		nodes := make([]NodeTrace, len(et.Nodes))
+		for i, n := range et.Nodes {
+			n.Value = r.value(n.Inputs, n.Value)
+			n.Error = r.errorText(n.Inputs, n.Error)
+			nodes[i] = n
+		}
+		et.Nodes = nodes
+	}
+	return et
+}
