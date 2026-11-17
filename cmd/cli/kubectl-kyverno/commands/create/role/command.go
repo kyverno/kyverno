@@ -1,6 +1,7 @@
 package role
 
 import (
+	"encoding/csv"
 	"fmt"
 	"log"
 	"os"
@@ -12,10 +13,51 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type stringSliceValue struct {
+	value   *[]string
+	changed bool
+}
+
+func newStringSliceValue(p *[]string) *stringSliceValue {
+	return &stringSliceValue{value: p}
+}
+
+func (s *stringSliceValue) Set(val string) error {
+	var records []string
+	if val == "" {
+		records = []string{""}
+	} else {
+		r := csv.NewReader(strings.NewReader(val))
+		var err error
+		records, err = r.Read()
+		if err != nil {
+			return err
+		}
+	}
+	if !s.changed {
+		*s.value = records
+		s.changed = true
+	} else {
+		*s.value = append(*s.value, records...)
+	}
+	return nil
+}
+
+func (s *stringSliceValue) Type() string {
+	return "strings"
+}
+
+func (s *stringSliceValue) String() string {
+	if s.value == nil || len(*s.value) == 0 {
+		return "[]"
+	}
+	return "[" + strings.Join(*s.value, ",") + "]"
+}
+
 type options struct {
 	Verbs         []string
 	Controllers   []string
-	ApiGroup      string
+	ApiGroups     []string
 	ResourceTypes []string
 	Name          string
 }
@@ -23,6 +65,7 @@ type options struct {
 // Command returns a cobra.Command for creating an aggregated ClusterRole.
 func Command() *cobra.Command {
 	var verbs []string
+	var apiGroups []string
 	var path string
 	var opts options
 
@@ -40,7 +83,7 @@ Required flags include 'api-groups', 'verbs', and 'resources'.`,
 			}
 			opts.Name = args[0]
 
-			if opts.ApiGroup == "" {
+			if !cmd.Flags().Changed("api-groups") {
 				return fmt.Errorf("required flag(s) \"api-groups\" not set")
 			}
 			if len(opts.ResourceTypes) == 0 {
@@ -49,6 +92,17 @@ Required flags include 'api-groups', 'verbs', and 'resources'.`,
 			if len(verbs) == 0 {
 				return fmt.Errorf("required flag(s) \"verbs\" not set")
 			}
+
+			// Validate and trim api-groups, preserving empty string "" for core API group
+			var trimmedGroups []string
+			for _, g := range apiGroups {
+				trimmed := strings.Trim(strings.TrimSpace(g), `"'`)
+				trimmedGroups = append(trimmedGroups, trimmed)
+			}
+			if len(trimmedGroups) == 0 {
+				trimmedGroups = []string{""}
+			}
+			opts.ApiGroups = trimmedGroups
 
 			// Validate and trim controllers
 			if len(opts.Controllers) == 0 {
@@ -75,10 +129,10 @@ Required flags include 'api-groups', 'verbs', and 'resources'.`,
 			}
 			opts.ResourceTypes = resources
 
-			// Validate and trim verbs
+			// Validate and trim verbs (case-folded)
 			var trimmedVerbs []string
 			for _, v := range verbs {
-				trimmed := strings.TrimSpace(v)
+				trimmed := strings.ToLower(strings.TrimSpace(v))
 				if trimmed == "" {
 					return fmt.Errorf("invalid verb provided")
 				}
@@ -137,7 +191,7 @@ Required flags include 'api-groups', 'verbs', and 'resources'.`,
 	// Define flags
 	cmd.Flags().StringSliceVar(&opts.Controllers, "controllers", []string{"background-controller"}, "List of controllers for the ClusterRole (default = background-controller)")
 	cmd.Flags().StringVarP(&path, "output", "o", "", "Output file path (prints to console if not set)")
-	cmd.Flags().StringVarP(&opts.ApiGroup, "api-groups", "g", "", "API group for the resource (required)")
+	cmd.Flags().VarP(newStringSliceValue(&apiGroups), "api-groups", "g", "API groups for the resource (required, use \"\" for core group)")
 	cmd.Flags().StringSliceVar(&verbs, "verbs", nil, "A comma separated list of verbs or 'all' for all verbs")
 	cmd.Flags().StringSliceVar(&opts.ResourceTypes, "resources", nil, "A comma separated list of resources (required)")
 
