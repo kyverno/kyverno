@@ -78,7 +78,7 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&path, "output", "o", "", "Output path (uses standard console output if not set)")
 	cmd.Flags().StringArrayVarP(&namespaceSelector, "ns-selector", "n", nil, "Namespace selector")
-	cmd.Flags().StringSliceVarP(&globalValues, "global", "g", nil, "Global value")
+	cmd.Flags().StringArrayVarP(&globalValues, "global", "g", nil, "Global value")
 	cmd.Flags().StringArrayVar(&rules, "rule", nil, "Policy rule values")
 	cmd.Flags().StringArrayVar(&resources, "resource", nil, "Policy resource values")
 	return cmd

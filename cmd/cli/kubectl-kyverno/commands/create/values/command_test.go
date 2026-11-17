@@ -417,15 +417,16 @@ func TestCommandNamespaceLabelTypes(t *testing.T) {
 	assert.Equal(t, "production", labels["name"])
 }
 
-// TestCommandGlobalValueWithCommas verifies that --global uses StringSliceVarP so comma-separated pairs are split,
-// and multiple -g flags can be passed for separate values.
+// TestCommandGlobalValueWithCommas verifies that --global uses StringArrayVarP so comma-containing values
+// (such as URLs with query parameters or CSV values) are preserved, and multiple -g flags can be passed for separate values.
 func TestCommandGlobalValueWithCommas(t *testing.T) {
 	cmd := Command()
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetArgs([]string{
-		"-g", "a=1,b=2",
-		"-g", "url=https://example.com?query=dev",
+		"-g", "a=1",
+		"-g", "b=2",
+		"-g", "url=https://example.com?a=1,b=2",
 	})
 	err := cmd.Execute()
 	assert.NoError(t, err)
@@ -436,7 +437,7 @@ func TestCommandGlobalValueWithCommas(t *testing.T) {
 
 	assert.Equal(t, float64(1), spec.GlobalValues["a"])
 	assert.Equal(t, float64(2), spec.GlobalValues["b"])
-	assert.Equal(t, "https://example.com?query=dev", spec.GlobalValues["url"])
+	assert.Equal(t, "https://example.com?a=1,b=2", spec.GlobalValues["url"])
 }
 
 // TestCommandYAMLQuotingAndSpecialChars verifies that special characters, embedded quotes, tabs, and colons
