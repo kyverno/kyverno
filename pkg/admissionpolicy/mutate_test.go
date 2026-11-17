@@ -1642,3 +1642,62 @@ func Test_ProcessMAP_FailurePolicy_Ignore_SuppressesParamResolutionErrors(t *tes
 		})
 	}
 }
+
+func Test_MutateResource_ClusterScopedResourcePreservesNilNamespace(t *testing.T) {
+	rawPolicy := []byte(`{
+  "apiVersion": "admissionregistration.k8s.io/v1beta1",
+  "kind": "MutatingAdmissionPolicy",
+  "metadata": {"name": "cluster-scoped-nil-namespace-map"},
+  "spec": {
+    "matchConstraints": {
+      "resourceRules": [{
+        "apiGroups": ["rbac.authorization.k8s.io"],
+        "apiVersions": ["v1"],
+        "operations": ["CREATE"],
+        "resources": ["clusterroles"]
+      }]
+    },
+    "mutations": [{
+      "patchType": "ApplyConfiguration",
+      "applyConfiguration": {
+        "expression": "namespaceObject == null ? Object{ metadata: Object.metadata{ labels: {\"cluster-scoped\": \"true\"}}} : Object{}"
+      }
+    }]
+  }
+}`)
+	rawBinding := []byte(`{
+  "apiVersion": "admissionregistration.k8s.io/v1beta1",
+  "kind": "MutatingAdmissionPolicyBinding",
+  "metadata": {"name": "cluster-scoped-nil-namespace-map-binding"},
+  "spec": {
+    "policyName": "cluster-scoped-nil-namespace-map"
+  }
+}`)
+	rawResource := []byte(`{
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "kind": "ClusterRole",
+  "metadata": {"name": "test-clusterrole"}
+}`)
+
+	var policy admissionregistrationv1beta1.MutatingAdmissionPolicy
+	assert.NilError(t, json.Unmarshal(rawPolicy, &policy))
+	var binding admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
+	assert.NilError(t, json.Unmarshal(rawBinding, &binding))
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"}
+	policyData := engineapi.NewMutatingAdmissionPolicyData(&policy, binding)
+
+	er, err := Mutate(policyData, *resource, gvk, gvr, nil, nil, nil, false, false)
+	assert.NilError(t, err)
+	assert.Assert(t, er.IsSuccessful())
+	assert.Assert(t, len(er.PolicyResponse.Rules) == 1)
+	r := er.PolicyResponse.Rules[0]
+	assert.Equal(t, r.Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, r.RuleType(), engineapi.Mutation)
+	assert.Assert(t, r.MutatingAdmissionPolicyBinding() != nil)
+	assert.Equal(t, r.MutatingAdmissionPolicyBinding().GetName(), "cluster-scoped-nil-namespace-map-binding")
+	assert.Equal(t, er.PatchedResource.GetLabels()["cluster-scoped"], "true")
+}

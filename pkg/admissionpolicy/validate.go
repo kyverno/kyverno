@@ -591,9 +591,6 @@ func validateResource(
 	namespace *corev1.Namespace,
 	a admission.Attributes,
 ) (engineapi.EngineResponse, error) {
-	if namespace == nil {
-		namespace = &corev1.Namespace{}
-	}
 	startTime := time.Now()
 
 	engineResponse := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)

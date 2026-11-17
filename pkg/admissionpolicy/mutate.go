@@ -120,6 +120,7 @@ func isFailurePolicyFailMAP(policy *admissionregistrationv1beta1.MutatingAdmissi
 
 // processMAPWithClient evaluates a MutatingAdmissionPolicy using live parameter resources.
 func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmissionPolicy, bindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespaceName string, namespace *corev1.Namespace, client dclient.Interface, gvr schema.GroupVersionResource, a admission.Attributes, resPath string, backgroundScan bool) (engineapi.EngineResponse, error) {
+	origResource := resource.DeepCopy()
 	nsLister := NewCustomNamespaceLister(client)
 	matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
@@ -217,7 +218,7 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 				bindingCopy := binding
 				ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
 				er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
-				return er, err
+				continue
 			}
 
 			if len(params) == 0 {
@@ -237,11 +238,33 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 				bindingCopy := binding
 				ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
 				er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
-				return er, err
+				continue
 			}
+			// guard: policy != nil && binding != nil
+			paramRef := binding.Spec.ParamRef
+			paramKind := policy.Spec.ParamKind
 			var matchedParams runtime.Object
-			if len(params) > 1 {
-				if binding.Spec.ParamRef.Selector == nil {
+			if paramRef != nil && paramRef.Selector != nil && len(params) > 1 {
+				paramList := &unstructured.UnstructuredList{}
+				if paramKind != nil {
+					paramList.SetAPIVersion(paramKind.APIVersion)
+					paramList.SetKind(paramKind.Kind + "List")
+				}
+				for _, p := range params {
+					if u, ok := p.(*unstructured.Unstructured); ok {
+						paramList.Items = append(paramList.Items, *u.DeepCopy())
+					} else {
+						unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(p)
+						if err != nil {
+							mapLogger.Error(err, "failed to convert param to unstructured", "policy", policy.GetName(), "binding", binding.GetName())
+							continue
+						}
+						paramList.Items = append(paramList.Items, unstructured.Unstructured{Object: unstructuredMap})
+					}
+				}
+				matchedParams = paramList
+			} else {
+				if len(params) > 1 {
 					if !isFailurePolicyFailMAP(policy) {
 						mapLogger.V(2).Info("ignoring parameter resolution error due to failurePolicy: Ignore", "policy", policy.GetName(), "binding", binding.GetName())
 						continue
@@ -252,21 +275,19 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
 					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
 					continue
+				} else if len(params) == 1 {
+					matchedParams = params[0]
 				}
-				paramList := &unstructured.UnstructuredList{}
-				for _, p := range params {
-					unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(p)
-					obj := &unstructured.Unstructured{Object: unstructuredMap}
-					paramList.Items = append(paramList.Items, *obj)
-				}
-				matchedParams = paramList
-			} else if len(params) == 1 {
-				matchedParams = params[0]
 			}
 
 			newEr, err := mutateResource(policy, &bindings[i], resource, matchedParams, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				if isFailurePolicyFailMAP(policy) {
+					bindingCopy := binding
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
+					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+				}
 				continue
 			}
 			if newEr.PolicyResponse.Rules != nil {
@@ -295,6 +316,11 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 			newEr, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				if isFailurePolicyFailMAP(policy) {
+					bindingCopy := binding
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
+					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+				}
 				continue
 			}
 			if newEr.PolicyResponse.Rules != nil {
@@ -321,10 +347,14 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 			}
 		}
 	}
+	if isFailurePolicyFailMAP(policy) && !er.IsSuccessful() {
+		er.PatchedResource = *origResource.DeepCopy()
+	}
 	return er, nil
 }
 
 func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmissionPolicy, bindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespace *corev1.Namespace, params []runtime.Object, gvr schema.GroupVersionResource, a admission.Attributes, resPath string, backgroundScan bool) (engineapi.EngineResponse, error) {
+	origResource := resource.DeepCopy()
 	matcher := celmatching.NewMatcher()
 	er := engineapi.NewEngineResponse(resource, engineapi.NewMutatingAdmissionPolicy(policy), nil)
 
@@ -428,23 +458,38 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 					continue
 				}
 			}
+			// guard: policy != nil && binding != nil
+			paramRef := binding.Spec.ParamRef
+			paramKind := policy.Spec.ParamKind
 			var matchedParams runtime.Object
 			paramList := &unstructured.UnstructuredList{}
+			if paramKind != nil {
+				paramList.SetAPIVersion(paramKind.APIVersion)
+				paramList.SetKind(paramKind.Kind + "List")
+			}
 			var matchedCount int
 			for _, param := range params {
-				unstructuredMap, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
-				obj := &unstructured.Unstructured{Object: unstructuredMap}
-				if policy.Spec.ParamKind != nil {
-					if policy.Spec.ParamKind.APIVersion != "" && obj.GetAPIVersion() != policy.Spec.ParamKind.APIVersion {
+				var obj *unstructured.Unstructured
+				if u, ok := param.(*unstructured.Unstructured); ok {
+					obj = u.DeepCopy()
+				} else {
+					unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(param)
+					if err != nil {
 						continue
 					}
-					if policy.Spec.ParamKind.Kind != "" && obj.GetKind() != policy.Spec.ParamKind.Kind {
+					obj = &unstructured.Unstructured{Object: unstructuredMap}
+				}
+				if paramKind != nil {
+					if paramKind.APIVersion != "" && obj.GetAPIVersion() != paramKind.APIVersion {
+						continue
+					}
+					if paramKind.Kind != "" && obj.GetKind() != paramKind.Kind {
 						continue
 					}
 				}
-				if matchesSelector(obj, convertParamRef(binding.Spec.ParamRef), targetNs) {
+				if matchesSelector(obj, convertParamRef(paramRef), targetNs) {
 					matchedCount++
-					if binding.Spec.ParamRef.Selector == nil {
+					if paramRef != nil && paramRef.Selector == nil {
 						if matchedCount == 1 {
 							matchedParams = obj
 						}
@@ -453,11 +498,11 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 					paramList.Items = append(paramList.Items, *obj)
 				}
 			}
-			if binding.Spec.ParamRef.Selector == nil {
+			if paramRef != nil && paramRef.Selector == nil {
 				if matchedCount == 0 {
 					notFoundAction := admissionregistrationv1beta1.DenyAction
-					if binding.Spec.ParamRef.ParameterNotFoundAction != nil {
-						notFoundAction = *binding.Spec.ParamRef.ParameterNotFoundAction
+					if paramRef.ParameterNotFoundAction != nil {
+						notFoundAction = *paramRef.ParameterNotFoundAction
 					}
 					if notFoundAction == admissionregistrationv1beta1.AllowAction {
 						continue
@@ -505,12 +550,22 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
 					continue
 				}
-				matchedParams = paramList
+				items := paramList.Items
+				if len(items) > 1 {
+					matchedParams = paramList
+				} else if len(items) == 1 {
+					matchedParams = &items[0]
+				}
 			}
 
 			newEr, err := mutateResource(policy, &bindings[i], resource, matchedParams, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				if isFailurePolicyFailMAP(policy) {
+					bindingCopy := binding
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
+					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+				}
 				continue
 			}
 			if newEr.PolicyResponse.Rules != nil {
@@ -539,6 +594,11 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 			newEr, err := mutateResource(policy, &bindings[i], resource, nil, gvr, namespace, a, backgroundScan)
 			if err != nil {
 				mapLogger.Error(err, "failed to mutate resource with params for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
+				if isFailurePolicyFailMAP(policy) {
+					bindingCopy := binding
+					ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
+					er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
+				}
 				continue
 			}
 			if newEr.PolicyResponse.Rules != nil {
@@ -564,6 +624,9 @@ func processMAPWithoutClient(policy *admissionregistrationv1beta1.MutatingAdmiss
 				)
 			}
 		}
+	}
+	if isFailurePolicyFailMAP(policy) && !er.IsSuccessful() {
+		er.PatchedResource = *origResource.DeepCopy()
 	}
 	return er, nil
 }

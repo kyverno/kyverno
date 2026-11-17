@@ -1,6 +1,7 @@
 package admissionpolicy
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -1388,4 +1389,60 @@ spec:
 			})
 		}
 	})
+}
+
+func Test_Validate_ClusterScopedResourcePreservesNilNamespace(t *testing.T) {
+	rawPolicy := []byte(`{
+  "apiVersion": "admissionregistration.k8s.io/v1",
+  "kind": "ValidatingAdmissionPolicy",
+  "metadata": {"name": "cluster-scoped-nil-namespace"},
+  "spec": {
+    "matchConstraints": {
+      "resourceRules": [{
+        "apiGroups": ["rbac.authorization.k8s.io"],
+        "apiVersions": ["v1"],
+        "operations": ["CREATE"],
+        "resources": ["clusterroles"]
+      }]
+    },
+    "validations": [{
+      "expression": "namespaceObject == null",
+      "message": "cluster-scoped resources must evaluate namespaceObject as null"
+    }]
+  }
+}`)
+	rawBinding := []byte(`{
+  "apiVersion": "admissionregistration.k8s.io/v1",
+  "kind": "ValidatingAdmissionPolicyBinding",
+  "metadata": {"name": "cluster-scoped-nil-namespace-binding"},
+  "spec": {
+    "policyName": "cluster-scoped-nil-namespace"
+  }
+}`)
+	rawResource := []byte(`{
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "kind": "ClusterRole",
+  "metadata": {"name": "test-clusterrole"}
+}`)
+
+	var policy admissionregistrationv1.ValidatingAdmissionPolicy
+	assert.NilError(t, json.Unmarshal(rawPolicy, &policy))
+	var binding admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	assert.NilError(t, json.Unmarshal(rawBinding, &binding))
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"}
+	policyData := engineapi.NewValidatingAdmissionPolicyData(&policy, binding)
+
+	er, err := Validate(policyData, *resource, gvk, gvr, nil, nil, nil, false)
+	assert.NilError(t, err)
+	assert.Assert(t, er.IsSuccessful())
+	assert.Assert(t, len(er.PolicyResponse.Rules) == 1)
+	r := er.PolicyResponse.Rules[0]
+	assert.Equal(t, r.Status(), engineapi.RuleStatusPass)
+	assert.Equal(t, r.RuleType(), engineapi.Validation)
+	assert.Assert(t, r.ValidatingAdmissionPolicyBinding() != nil)
+	assert.Equal(t, r.ValidatingAdmissionPolicyBinding().GetName(), "cluster-scoped-nil-namespace-binding")
 }
