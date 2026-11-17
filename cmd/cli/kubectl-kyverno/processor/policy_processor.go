@@ -193,7 +193,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					log.Log.Error(err, "failed to apply MAP", "policy", mapPolicy.Name)
 				}
 				if !mutateResponse.IsEmpty() {
-					if slices.ContainsFunc(mutateResponse.PolicyResponse.Rules, func(rule engineapi.RuleResponse) bool {
+					if mutateResponse.IsSuccessful() && slices.ContainsFunc(mutateResponse.PolicyResponse.Rules, func(rule engineapi.RuleResponse) bool {
 						return rule.Status() == engineapi.RuleStatusPass
 					}) {
 						if err := p.processMutateEngineResponse(mutateResponse, resPath); err != nil {

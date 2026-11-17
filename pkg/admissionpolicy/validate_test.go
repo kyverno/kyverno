@@ -1207,6 +1207,9 @@ spec:
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "empty-ns-cm",
 				Namespace: "default",
+				Labels: map[string]string{
+					"env": "prod",
+				},
 			},
 			Data: map[string]string{
 				"allowed": "true",
@@ -1217,9 +1220,25 @@ spec:
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "empty-ns-cm",
 				Namespace: "other",
+				Labels: map[string]string{
+					"env": "prod",
+				},
 			},
 			Data: map[string]string{
 				"allowed": "false",
+			},
+		}
+		paramOtherOnly := &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "ConfigMap"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "other-only-cm",
+				Namespace: "other",
+				Labels: map[string]string{
+					"env": "staging",
+				},
+			},
+			Data: map[string]string{
+				"allowed": "true",
 			},
 		}
 
@@ -1237,12 +1256,14 @@ spec:
 		nsGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 		clusterTargetAttr := admission.NewAttributesRecord(targetNamespaceResource.DeepCopyObject(), nil, nsGVK, "", targetNamespaceResource.GetName(), nsGVR, "", admission.Create, nil, false, nil)
 
+		denyAction := admissionregistrationv1.DenyAction
 		tests := []struct {
 			name           string
 			policy         *admissionregistrationv1.ValidatingAdmissionPolicy
 			targetResource []byte
 			targetNSName   string
 			namespaceObj   *corev1.Namespace
+			paramRef       *admissionregistrationv1.ParamRef
 			attr           admission.Attributes
 			resPath        string
 			expectPass     bool
@@ -1254,9 +1275,44 @@ spec:
 				targetResource: rawResource,
 				targetNSName:   "default",
 				namespaceObj:   ns,
-				attr:           a,
-				resPath:        "default/ConfigMap/target-cm",
-				expectPass:     true,
+				paramRef: &admissionregistrationv1.ParamRef{
+					Name: "empty-ns-cm",
+				},
+				attr:       a,
+				resPath:    "default/ConfigMap/target-cm",
+				expectPass: true,
+			},
+			{
+				name:           "namespaced target resolves parameters only in admission namespace via selector",
+				policy:         policy,
+				targetResource: rawResource,
+				targetNSName:   "default",
+				namespaceObj:   ns,
+				paramRef: &admissionregistrationv1.ParamRef{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"env": "prod"},
+					},
+				},
+				attr:       a,
+				resPath:    "default/ConfigMap/target-cm",
+				expectPass: true,
+			},
+			{
+				name:           "namespaced target with selector matching only in other namespace fails with DenyAction",
+				policy:         policy,
+				targetResource: rawResource,
+				targetNSName:   "default",
+				namespaceObj:   ns,
+				paramRef: &admissionregistrationv1.ParamRef{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"env": "staging"},
+					},
+					ParameterNotFoundAction: &denyAction,
+				},
+				attr:         a,
+				resPath:      "default/ConfigMap/target-cm",
+				expectPass:   false,
+				expectErrMsg: "no params found",
 			},
 			{
 				name:           "cluster-scoped namespace target rejects lookup with nonempty namespace object",
@@ -1269,6 +1325,9 @@ spec:
 						Kind:       "Namespace",
 					},
 					ObjectMeta: metav1.ObjectMeta{Name: "target-ns"},
+				},
+				paramRef: &admissionregistrationv1.ParamRef{
+					Name: "empty-ns-cm",
 				},
 				attr:         clusterTargetAttr,
 				resPath:      "target-ns",
@@ -1284,16 +1343,14 @@ spec:
 						ObjectMeta: metav1.ObjectMeta{Name: "binding-empty-param-ns"},
 						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
 							PolicyName: tc.policy.GetName(),
-							ParamRef: &admissionregistrationv1.ParamRef{
-								Name: "empty-ns-cm",
-							},
+							ParamRef:   tc.paramRef,
 						},
 					},
 				}
 
 				scheme := runtime.NewScheme()
 				_ = corev1.AddToScheme(scheme)
-				baseClient, err := dclient.NewFakeClient(scheme, gvrToListKind, ns, paramDefault, paramOther)
+				baseClient, err := dclient.NewFakeClient(scheme, gvrToListKind, ns, paramDefault, paramOther, paramOtherOnly)
 				assert.NilError(t, err)
 				baseClient.SetDiscovery(&testNamespacedDiscovery{
 					IDiscovery: dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{

@@ -54,9 +54,6 @@ func Mutate(
 	if gvk.Kind == "Namespace" && gvk.Version == "v1" && gvk.Group == "" {
 		namespaceName = ""
 		labels := resource.GetLabels()
-		if len(labels) == 0 && namespaceSelectorMap != nil {
-			labels = namespaceSelectorMap[resource.GetName()]
-		}
 		namespace = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   resource.GetName(),
