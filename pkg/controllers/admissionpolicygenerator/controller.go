@@ -229,7 +229,13 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 				return nil
 			}
 			// Nothing keeps a ValidatingAdmissionPolicy generated earlier in step with the policy now.
-			return c.removeValidatingAdmissionPolicy(ctx, policy, "skip generating ValidatingAdmissionPolicy: disabled by the generateValidatingAdmissionPolicy flag.")
+			// As in handleVAPGeneration, a failure also gets a delayed retry, since status-only
+			// changes never requeue the policy once the workqueue's retry budget is used up.
+			err = c.removeValidatingAdmissionPolicy(ctx, policy, "skip generating ValidatingAdmissionPolicy: disabled by the generateValidatingAdmissionPolicy flag.")
+			if err != nil && c.queue != nil {
+				c.queue.AddAfter(key, 10*time.Second)
+			}
+			return err
 		}
 		err = c.handleVAPGeneration(ctx, policy)
 		if err != nil {

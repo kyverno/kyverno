@@ -36,6 +36,7 @@ func isOwnedBy(obj metav1.Object, policy ownerPolicy) bool {
 // generatedObject is a native admission policy or binding generated for a policy.
 type generatedObject struct {
 	name   string
+	uid    types.UID
 	delete func(context.Context, string, metav1.DeleteOptions) error
 }
 
@@ -44,16 +45,18 @@ type generatedObject struct {
 // left out, so that it is never deleted.
 func appendIfGenerated[T metav1.Object](objs []generatedObject, policy ownerPolicy, get func(string) (T, error), name string, del func(context.Context, string, metav1.DeleteOptions) error) []generatedObject {
 	if obj, err := get(name); err == nil && isOwnedBy(obj, policy) {
-		return append(objs, generatedObject{name: name, delete: del})
+		return append(objs, generatedObject{name: name, uid: obj.GetUID(), delete: del})
 	}
 	return objs
 }
 
-// deleteGenerated deletes the objects in order. A failed delete is returned so that the workqueue
-// retries it.
+// deleteGenerated deletes the objects in order. The UID precondition makes the API server refuse to
+// delete an object that was replaced after the informer cache was read, so one that only took over
+// the name is left alone. A failed delete is returned so that the workqueue retries it.
 func deleteGenerated(ctx context.Context, objs []generatedObject) error {
 	for _, obj := range objs {
-		if err := obj.delete(ctx, obj.name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		opts := metav1.DeleteOptions{Preconditions: metav1.NewUIDPreconditions(string(obj.uid))}
+		if err := obj.delete(ctx, obj.name, opts); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 	}
