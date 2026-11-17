@@ -1,0 +1,8 @@
+{
+  "suite": "validating-policies",
+  "k8s": "v1.34.11",
+  "shard": "0",
+  "outcome": "failure",
+  "jobUrl": "https://github.com/kyverno/kyverno/actions/runs/1/job/10",
+  "report": true
+}

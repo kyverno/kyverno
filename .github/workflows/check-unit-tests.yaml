@@ -25,6 +25,17 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    # Tests the E2E scripts: report.py, which prepares and summarizes the E2E
+    # reports, and settings.sh, which make test-e2e-local uses. They take
+    # about ten seconds, so they run here instead of in a workflow that also
+    # runs the E2E suite. The workflow check in test_report.py needs PyYAML,
+    # and the runner image provides yq and jq for settings_test.sh.
+    - name: E2E script tests
+      run: |
+        python3 -m venv "$RUNNER_TEMP/e2e-script-tests"
+        "$RUNNER_TEMP/e2e-script-tests/bin/python" -m pip install --disable-pip-version-check PyYAML==6.0.3
+        "$RUNNER_TEMP/e2e-script-tests/bin/python" scripts/e2e/test_report.py
+        scripts/e2e/settings_test.sh
     - name: Record initial disk headroom
       run: |
         echo '### Disk before Go setup' >> "$GITHUB_STEP_SUMMARY"
