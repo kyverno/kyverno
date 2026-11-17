@@ -15,7 +15,7 @@ kyverno create cluster-role [name]  [flags]
 ### Options
 
 ```
-  -g, --api-groups string     API group for the resource (required)
+  -g, --api-groups strings    API groups for the resource (required, use "" for core group)
       --controllers strings   List of controllers for the ClusterRole (default = background-controller) (default [background-controller])
   -h, --help                  help for cluster-role
   -o, --output string         Output file path (prints to console if not set)
