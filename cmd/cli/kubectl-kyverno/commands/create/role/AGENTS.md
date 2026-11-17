@@ -4,9 +4,10 @@ This package implements the `kyverno create cluster-role` (and `kubectl-kyverno 
 
 ## Command Contract and Flag Semantics
 
-1. **Flag Types (`StringSliceVar`)**:
-   - `--api-groups`, `--controllers`, `--resources`, and `--verbs` use `StringSliceVar` so users can pass both repeated flags (e.g. `--resources=pods --resources=services`) and comma-delimited strings (e.g. `--resources=pods,services`, `--api-groups=apps,batch`).
-   - Flag types must remain `StringSliceVar` (generating `strings` in CLI reference documentation) rather than `StringArrayVar`.
+1. **Flag Types**:
+   - `--controllers`, `--resources`, and `--verbs` use `StringSliceVar` so users can pass both repeated flags (e.g. `--resources=pods --resources=services`) and comma-delimited strings (e.g. `--resources=pods,services`).
+   - `--api-groups` uses a custom CSV-backed `pflag.Value` (`newStringSliceValue`) so users can pass comma-delimited strings (e.g. `--api-groups=apps,batch`) and an empty value `""` for the core group, preserving explicit empty groups across repeated flags. Its type is reported as `strings` in CLI reference documentation.
+   - Flag types for `--controllers`, `--resources`, and `--verbs` must remain `StringSliceVar`, not `StringArrayVar`.
 
 2. **Validation and Trimming**:
    - All slice entries in `opts.Controllers`, `opts.ResourceTypes`, and `verbs` are trimmed of leading and trailing whitespace.
