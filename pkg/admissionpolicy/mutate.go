@@ -118,6 +118,7 @@ func isFailurePolicyFailMAP(policy *admissionregistrationv1beta1.MutatingAdmissi
 	return policy.Spec.FailurePolicy == nil || *policy.Spec.FailurePolicy == admissionregistrationv1beta1.Fail
 }
 
+// processMAPWithClient evaluates a MutatingAdmissionPolicy using live parameter resources.
 func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmissionPolicy, bindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespaceName string, namespace *corev1.Namespace, client dclient.Interface, gvr schema.GroupVersionResource, a admission.Attributes, resPath string, backgroundScan bool) (engineapi.EngineResponse, error) {
 	nsLister := NewCustomNamespaceLister(client)
 	matcher := generic.NewPolicyMatcher(matching.NewMatcher(nsLister, client.GetKubeClient()))
@@ -216,7 +217,7 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 				bindingCopy := binding
 				ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
 				er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
-				continue
+				return er, err
 			}
 
 			if len(params) == 0 {
@@ -236,9 +237,8 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 				bindingCopy := binding
 				ruleResp := engineapi.RuleError(policy.GetName(), engineapi.Mutation, err.Error(), nil, nil).WithMAPBinding(&bindingCopy)
 				er.PolicyResponse.Add(engineapi.ExecutionStats{}, *ruleResp)
-				continue
+				return er, err
 			}
-
 			var matchedParams runtime.Object
 			if len(params) > 1 {
 				if binding.Spec.ParamRef.Selector == nil {
