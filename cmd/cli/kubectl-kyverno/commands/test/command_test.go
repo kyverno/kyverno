@@ -1359,7 +1359,7 @@ func Test_OperationConnect(t *testing.T) {
 	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test")
 
-	resourceKey := "v1,PodExecOptions,test-ns,test-pod"
+	resourceKey := "v1,Pod,test-ns,test-pod"
 
 	t.Run("CONNECT run filters policies by operation", func(t *testing.T) {
 		require.Contains(t, testResponse.TriggerByOperation, "CONNECT")
