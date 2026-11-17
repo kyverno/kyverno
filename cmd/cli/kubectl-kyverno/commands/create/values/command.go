@@ -116,6 +116,9 @@ func formatValue(val string) (string, error) {
 
 // formatKey formats a key for safe YAML template serialization.
 func formatKey(key string) (string, error) {
+	if !utf8.ValidString(key) {
+		return "", fmt.Errorf("invalid UTF-8: %s", key)
+	}
 	if strings.ContainsAny(key, "\r\n") {
 		return fmt.Sprintf("%q", key), nil
 	}
@@ -174,7 +177,10 @@ func addNamespaceSelector(spec *v1alpha1.ValuesSpec, in string) error {
 	if len(parts) < 2 || strings.TrimSpace(parts[0]) == "" {
 		return fmt.Errorf("invalid namespace selector format: %s (expected <name>,<key>=<value>...)", in)
 	}
-	nsName := strings.TrimSpace(parts[0])
+	nsName, err := formatKey(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return fmt.Errorf("invalid namespace name: %w", err)
+	}
 
 	var nsSelector *v1alpha1.NamespaceSelector
 	for i := range spec.NamespaceSelectors {
@@ -223,8 +229,14 @@ func addRule(spec *v1alpha1.ValuesSpec, in string) error {
 	if len(parts) < 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
 		return fmt.Errorf("invalid rule format: %s (expected <policy>,<rule>,<key>=<value>...)", in)
 	}
-	policyName := strings.TrimSpace(parts[0])
-	ruleName := strings.TrimSpace(parts[1])
+	policyName, err := formatKey(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return fmt.Errorf("invalid policy name: %w", err)
+	}
+	ruleName, err := formatKey(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return fmt.Errorf("invalid rule name: %w", err)
+	}
 
 	policy := getOrCreatePolicy(spec, policyName)
 
@@ -262,8 +274,14 @@ func addResource(spec *v1alpha1.ValuesSpec, in string) error {
 	if len(parts) < 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
 		return fmt.Errorf("invalid resource format: %s (expected <policy>,<resource>,<key>=<value>...)", in)
 	}
-	policyName := strings.TrimSpace(parts[0])
-	resourceName := strings.TrimSpace(parts[1])
+	policyName, err := formatKey(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return fmt.Errorf("invalid policy name: %w", err)
+	}
+	resourceName, err := formatKey(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return fmt.Errorf("invalid resource name: %w", err)
+	}
 
 	policy := getOrCreatePolicy(spec, policyName)
 

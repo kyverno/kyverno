@@ -449,6 +449,8 @@ func TestCommandYAMLQuotingAndSpecialChars(t *testing.T) {
 		"-g", `sq='x`,
 		"-g", "ct=a:\tb",
 		"--rule", `testpol,testrule,msg="hello" world,expr=true,num=42,empty=`,
+		"--resource", `testpol,res: bad,k=v`,
+		"-n", `ns: prod,env=true`,
 	})
 	err := cmd.Execute()
 	assert.NoError(t, err)
@@ -467,6 +469,14 @@ func TestCommandYAMLQuotingAndSpecialChars(t *testing.T) {
 	assert.Equal(t, true, ruleValues["expr"])
 	assert.Equal(t, float64(42), ruleValues["num"])
 	assert.Equal(t, "", ruleValues["empty"])
+
+	require.Len(t, spec.Policies[0].Resources, 1)
+	assert.Equal(t, "res: bad", spec.Policies[0].Resources[0].Name)
+	assert.Equal(t, "v", spec.Policies[0].Resources[0].Values["k"])
+
+	require.Len(t, spec.NamespaceSelectors, 1)
+	assert.Equal(t, "ns: prod", spec.NamespaceSelectors[0].Name)
+	assert.Equal(t, "true", spec.NamespaceSelectors[0].Labels["env"])
 }
 
 // TestCommandEmptyRuleAndResourceValues verifies that rules and resources without key-value pairs emit values: {} instead of null.
