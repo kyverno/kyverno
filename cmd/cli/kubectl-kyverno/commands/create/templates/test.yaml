@@ -1,5 +1,7 @@
-# test name
-name: {{ .Name }}
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: {{ .Name }}
 
 # list of policy files
 policies:
@@ -20,7 +22,9 @@ variables: {{ .Values }}
 results:
 {{- range .Results }}
   - policy: {{ .Policy }}
+    {{- if .Rule }}
     rule: {{ .Rule }}
+    {{- end }}
     resources:
       {{- if .Namespace }}
       - {{ printf "%s/%s" .Namespace .Resource | printf "%q" }}
