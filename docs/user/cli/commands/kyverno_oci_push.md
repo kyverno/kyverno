@@ -5,8 +5,7 @@ Push policie(s) that are included in an OCI image to OCI registry.
 ### Synopsis
 
 Push policie(s) that are included in an OCI image to OCI registry.
-
-  NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
+  An optional kyverno-bundle.yaml at the root of the directory names the bundle and assigns resources to named sets.
 
   For more information visit https://kyverno.io/docs/kyverno-cli/#pushing
 
@@ -54,5 +53,5 @@ kyverno oci push [dir or file] [flags]
 
 ### SEE ALSO
 
-* [kyverno oci](kyverno_oci.md)	 - Pulls/pushes images that include policie(s) from/to OCI registries.
+* [kyverno oci](kyverno_oci.md)	 - Pushes, pulls, validates, inspects, and resolves Kyverno CEL Policy Bundles in OCI registries. See "kyverno oci <subcommand> --help" for each subcommand's own flags and examples.
 

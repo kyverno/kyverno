@@ -34,6 +34,10 @@ func loadTest(path string, fileName string, gitBranch string) (test.TestCases, e
 		if err != nil {
 			return nil, err
 		} else {
+			// checks if a blank path was entered i.e. https://github.com
+			if gitURL.Path == "" {
+				return nil, fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
+			}
 			pathElems := strings.Split(gitURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				return nil, fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)

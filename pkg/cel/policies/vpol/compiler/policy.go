@@ -53,6 +53,27 @@ func (p *Policy) Tracing() bool {
 	return p.trace
 }
 
+// EvaluateWithActivation evaluates a policy against a resource using an optional precomputed
+// ActivationBuilder. When activationBuilder is nil, standard activation is prepared.
+func (p *Policy) EvaluateWithActivation(
+	ctx context.Context,
+	json any,
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace runtime.Object,
+	activationBuilder compiler.ActivationBuilder,
+	requestMapFn func() (map[string]any, error),
+	context libs.Context,
+) (*EvaluationResult, error) {
+	switch p.mode {
+	case policieskyvernoio.EvaluationModeJSON:
+		return p.evaluateJson(ctx, json)
+	default:
+		return p.evaluateKubernetes(ctx, attr, request, namespace, activationBuilder, requestMapFn, context)
+	}
+}
+
+// Evaluate evaluates a policy against a resource using default activation preparation.
 func (p *Policy) Evaluate(
 	ctx context.Context,
 	json any,
@@ -62,12 +83,7 @@ func (p *Policy) Evaluate(
 	requestMapFn func() (map[string]any, error),
 	context libs.Context,
 ) (*EvaluationResult, error) {
-	switch p.mode {
-	case policieskyvernoio.EvaluationModeJSON:
-		return p.evaluateJson(ctx, json)
-	default:
-		return p.evaluateKubernetes(ctx, attr, request, namespace, requestMapFn, context)
-	}
+	return p.EvaluateWithActivation(ctx, json, attr, request, namespace, nil, requestMapFn, context)
 }
 
 func (p *Policy) evaluateJson(
@@ -81,15 +97,17 @@ func (p *Policy) evaluateJson(
 	return p.evaluateWithData(ctx, data)
 }
 
+// evaluateKubernetes evaluates a Kubernetes-mode policy with the given activation builder.
 func (p *Policy) evaluateKubernetes(
 	ctx context.Context,
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
+	activationBuilder compiler.ActivationBuilder,
 	requestMapFn func() (map[string]any, error),
 	context libs.Context,
 ) (*EvaluationResult, error) {
-	data, err := prepareK8sData(attr, request, namespace, requestMapFn, context)
+	data, err := prepareK8sDataWithActivation(attr, request, namespace, activationBuilder, requestMapFn, context)
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +136,10 @@ func (p *Policy) evaluateWithData(
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
 		for _, polex := range p.exceptions {
+			// Compiled exceptions can expire without a policy or exception update.
+			if polex.IsExpired() {
+				continue
+			}
 			match, err := p.match(ctx, dataNew, polex.MatchConditions, nil)
 			if err != nil {
 				if fullExemptionFound {

@@ -3,16 +3,28 @@ package oci
 var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#oci`
 
 var description = []string{
-	`Pulls/pushes images that include policie(s) from/to OCI registries.`,
+	`Pushes, pulls, validates, inspects, and resolves Kyverno CEL Policy Bundles in OCI registries. See "kyverno oci <subcommand> --help" for each subcommand's own flags and examples.`,
 }
 
 var examples = [][]string{
 	{
-		`# Push policy to an OCI image from a given policy file`,
-		`kyverno oci push -p policy.yaml -i <imgref>`,
+		`# Push a policy bundle from a directory to an OCI image`,
+		`kyverno oci push policies -i ghcr.io/acme/baseline:v1.0.0`,
 	},
 	{
-		`# Pull policy from an OCI image and save it to the specific directory`,
-		`kyverno oci pull -i <imgref> -d policies`,
+		`# Pull a pushed bundle into a directory`,
+		`kyverno oci pull policies -i ghcr.io/acme/baseline:v1.0.0`,
+	},
+	{
+		`# Validate a pushed bundle without pulling it`,
+		`kyverno oci validate -i ghcr.io/acme/baseline:v1.0.0`,
+	},
+	{
+		`# Inspect a pushed bundle's metadata and Kyverno compatibility`,
+		`kyverno oci inspect -i ghcr.io/acme/baseline:v1.0.0`,
+	},
+	{
+		`# Resolve a tag to its digest-pinned reference`,
+		`kyverno oci resolve -i ghcr.io/acme/baseline:v1.0.0`,
 	},
 }

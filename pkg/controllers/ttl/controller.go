@@ -2,6 +2,7 @@ package ttl
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -166,8 +167,27 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 				c.rearmAfterRetryExhausted(itemKey)
 			}
 		}()
+		// The informer observation can be stale. Never delete a resource at this
+		// name unless the API server confirms it is the same object we inspected.
+		uid := metaObj.GetUID()
+		if uid == "" {
+			execErr = fmt.Errorf("refusing TTL deletion of %s: missing resource UID", itemKey)
+			logger.Error(execErr, "failed to safely delete expired resource")
+			if c.metrics != nil {
+				c.metrics.RecordTTLFailure(ctx, c.gvr, metaObj.GetNamespace())
+			}
+			return execErr
+		}
 		deleteOptions := metav1.DeleteOptions{
 			PropagationPolicy: determinePropagationPolicy(metaObj, logger),
+			Preconditions: &metav1.Preconditions{
+				UID: &uid,
+			},
+		}
+		// Also protect against updates to the same resource (such as extending
+		// or removing its TTL label) between the cache read and the DELETE.
+		if rv := metaObj.GetResourceVersion(); rv != "" {
+			deleteOptions.Preconditions.ResourceVersion = &rv
 		}
 		execErr = c.client.Namespace(namespace).Delete(ctx, metaObj.GetName(), deleteOptions)
 		if execErr != nil {

@@ -147,3 +147,96 @@ func BenchmarkEngineHandleMpol(b *testing.B) {
 		}
 	}
 }
+
+// buildGateJSONPatchPolicy returns a single compiled MutatingPolicy that adds
+// an "env" label via a JSONPatch mutation, measuring JSONPatch evaluation
+// and patcher serializer reuse (#18407).
+func buildGateJSONPatchPolicy(b *testing.B) Provider {
+	b.Helper()
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gate-bench-add-label-jsonpatch",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{"CREATE"},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+						},
+					},
+				},
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{
+				{
+					PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+					JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+						Expression: `[JSONPatch{op: "add", path: "/metadata/labels", value: {"env": "bench"}}]`,
+					},
+				},
+			},
+		},
+	}
+
+	provider, err := NewProvider(
+		compiler.NewCompiler(),
+		[]policiesv1beta1.MutatingPolicyLike{mpol},
+		nil,
+		libs.NewFakeContextProvider(),
+	)
+	require.NoError(b, err)
+	return provider
+}
+
+// BenchmarkEngineHandleMpol_JSONPatch measures the mpol engine's admission-hot-path
+// Handle call for a JSONPatch mutation policy, measuring allocation savings from
+// hoisted object interfaces and serializer reuse (#18407).
+func BenchmarkEngineHandleMpol_JSONPatch(b *testing.B) {
+	provider := buildGateJSONPatchPolicy(b)
+	eng := NewEngine(
+		provider,
+		func(ns string) *corev1.Namespace {
+			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+		},
+		matching.NewMatcher(),
+		&fakeTypeConverter{},
+		&libs.FakeContextProvider{},
+	)
+
+	dryRun := true
+	requestObject := gateBenchDeployment(83) // ~50KB
+	req := engine.EngineRequest{
+		Request: admissionv1.AdmissionRequest{
+			Kind:      metav1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+			Resource:  metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			Namespace: "default",
+			Name:      "nginx",
+			Operation: admissionv1.Create,
+			Object: runtime.RawExtension{
+				Raw: requestObject,
+			},
+			DryRun: &dryRun,
+		},
+	}
+	predicate := func(policiesv1beta1.MutatingPolicyLike) bool { return true }
+
+	// Verify that the policy actually mutates the resource and produces the expected label
+	// so the benchmark doesn't measure an unintended or skipped path.
+	initialResp, err := eng.Handle(context.Background(), req, predicate)
+	require.NoError(b, err)
+	require.NotNil(b, initialResp.PatchedResource)
+	require.Equal(b, "bench", initialResp.PatchedResource.GetLabels()["env"])
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := eng.Handle(context.Background(), req, predicate); err != nil {
+			b.Fatalf("Handle failed: %v", err)
+		}
+	}
+}

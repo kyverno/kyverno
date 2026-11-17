@@ -13,12 +13,12 @@ import (
 )
 
 type clientset struct {
-	discovery              k8s_io_client_go_discovery.DiscoveryInterface
+	discovery              k8s_io_client_go_discovery.DiscoveryInterfaces
 	apiregistrationv1      k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1.ApiregistrationV1Interface
 	apiregistrationv1beta1 k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1beta1.ApiregistrationV1beta1Interface
 }
 
-func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
+func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterfaces {
 	return c.discovery
 }
 func (c *clientset) ApiregistrationV1() k8s_io_kube_aggregator_pkg_client_clientset_generated_clientset_typed_apiregistration_v1.ApiregistrationV1Interface {

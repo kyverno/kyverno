@@ -10,9 +10,14 @@ import (
 	"path/filepath"
 	"testing"
 
+	gcrname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/bundle"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/ocitest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -403,4 +408,79 @@ func TestOptionsExecuteFailsWhenImageDoesNotExist(t *testing.T) {
 	err = o.execute(context.Background(), dir, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "fetching remote image")
+}
+
+// TestFetchDescriptorReturnsDigest pins D1's primitive: FetchDescriptor returns the resolved
+// digest for both a tag and a digest reference, and the digest matches what remote.Get itself
+// reports, so resolve's pinned-reference output has a single source of truth.
+func TestFetchDescriptorReturnsDigest(t *testing.T) {
+	host := ocitest.NewRegistry(t)
+
+	srcDir := writeTree(t, map[string]string{"policy.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-labels
+spec:
+  validations:
+  - expression: "true"
+`})
+	img := buildUnvalidatedImage(t, srcDir)
+
+	tagRef := host + "/bundles/baseline:v1"
+	tagName, err := gcrname.ParseReference(tagRef)
+	require.NoError(t, err)
+	require.NoError(t, remote.Write(tagName, img))
+
+	wantDigest, err := img.Digest()
+	require.NoError(t, err)
+
+	desc, ref, err := FetchDescriptor(context.Background(), tagRef, nil)
+	require.NoError(t, err)
+	assert.Equal(t, wantDigest.String(), desc.Digest.String())
+	assert.Equal(t, tagRef, ref.Name())
+
+	digestRef := host + "/bundles/baseline@" + wantDigest.String()
+	desc2, _, err := FetchDescriptor(context.Background(), digestRef, nil)
+	require.NoError(t, err)
+	assert.Equal(t, wantDigest.String(), desc2.Digest.String())
+}
+
+// TestFetchImageRejectsIndex pins the index guard moved into FetchDescriptor (D1, decision-log
+// 2026-11-03 "index guard"): a reference whose manifest is an image index, not an OCI image
+// manifest, must fail with the shared "expected an OCI 1.0 image manifest" error instead of
+// FetchImage silently descending into a platform child via remote.Descriptor.Image().
+func TestFetchImageRejectsIndex(t *testing.T) {
+	host := ocitest.NewRegistry(t)
+
+	srcDir := writeTree(t, map[string]string{"policy.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-labels
+spec:
+  validations:
+  - expression: "true"
+`})
+	img := buildUnvalidatedImage(t, srcDir)
+
+	idx := mutate.AppendManifests(empty.Index, mutate.IndexAddendum{
+		Add: img,
+		Descriptor: v1.Descriptor{
+			Platform: &v1.Platform{OS: "linux", Architecture: "amd64"},
+		},
+	})
+
+	ref := host + "/bundles/indexed:v1"
+	name, err := gcrname.ParseReference(ref)
+	require.NoError(t, err)
+	require.NoError(t, remote.WriteIndex(name, idx))
+
+	_, _, err = FetchImage(context.Background(), ref, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "expected an OCI 1.0 image manifest")
+
+	dir := t.TempDir()
+	o := options{imageRef: ref}
+	err = o.execute(context.Background(), dir, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "expected an OCI 1.0 image manifest")
 }

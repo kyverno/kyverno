@@ -22,8 +22,8 @@ results:
 - kind: Pod
   policy: check-manifest-list
   resources:
-  - test-pod-with-trusted-registry
   - test-pod-with-single-arch-index
+  - test-pod-with-trusted-registry
   result: pass
   rule: check-manifest-list-rule
 - kind: Pod

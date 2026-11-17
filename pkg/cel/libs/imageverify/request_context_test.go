@@ -60,7 +60,7 @@ func Test_ImageFunctionsUseTheAdmissionRequestContext(t *testing.T) {
 
 			imgCtx := &recordingImageContext{}
 			requestCtx := context.WithValue(context.Background(), requestMarker{}, "admission-request")
-			runtime := NewRuntimeForPolicy(requestCtx, NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
+			runtime := NewRuntimeForPolicy(requestCtx, mustNewIvFuncs(t, logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
 			_, _, _ = prog.Eval(map[string]any{RuntimeKey: runtime, "attestors": attestors})
 
 			require.NotEmpty(t, imgCtx.ctxs, "the function never fetched the image")

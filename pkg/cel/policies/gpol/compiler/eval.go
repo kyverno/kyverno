@@ -1,11 +1,8 @@
 package compiler
 
 import (
-	"fmt"
-
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
@@ -27,30 +24,15 @@ func prepareData(
 	namespace runtime.Object,
 	context libs.Context,
 ) (evaluationData, error) {
-	namespaceVal, err := utils.ObjectToResolveVal(namespace)
+	activation, err := compiler.PrepareK8sActivation(attr, request, namespace, nil, compiler.BuildRawRequestMap)
 	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
-	}
-	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
-	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-	}
-	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
-	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-	}
-	// gpol's base semantics are the raw variant, same as vpol: request.object
-	// is an un-normalized unmarshal of request.Object.Raw, not the
-	// ExtractResources-normalized top-level `object` var.
-	requestVal, err := compiler.BuildRawRequestMap(request)
-	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+		return evaluationData{}, err
 	}
 	return evaluationData{
-		Namespace: namespaceVal,
-		Object:    objectVal,
-		OldObject: oldObjectVal,
-		Request:   requestVal,
+		Namespace: activation.Namespace,
+		Object:    activation.Object,
+		OldObject: activation.OldObject,
+		Request:   activation.Request,
 		Context:   context,
 	}, nil
 }

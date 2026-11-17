@@ -16,12 +16,17 @@ import (
 )
 
 type reconciler struct {
-	client       client.Client
-	compiler     compiler.Compiler
-	lock         *sync.RWMutex
-	policies     map[string][]Policy
-	polexLister  engine.PolicyExceptionLister
-	polexEnabled bool
+	client   client.Client
+	compiler compiler.Compiler
+	// reconcileLock serializes whole Reconcile calls. controller-runtime never reconciles the same
+	// key concurrently, but WarmUp calls Reconcile outside the workqueue: without this lock a
+	// WarmUp reconcile still compiling an older version of a policy could overwrite the newer
+	// result written by a concurrent workqueue reconcile.
+	reconcileLock sync.Mutex
+	lock          *sync.RWMutex
+	policies      map[string][]Policy
+	polexLister   engine.PolicyExceptionLister
+	polexEnabled  bool
 }
 
 func newReconciler(
@@ -41,6 +46,8 @@ func newReconciler(
 }
 
 func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	r.reconcileLock.Lock()
+	defer r.reconcileLock.Unlock()
 	var policy policiesv1beta1.ValidatingPolicyLike
 	if req.NamespacedName.Namespace == "" {
 		var vp policiesv1beta1.ValidatingPolicy
@@ -124,6 +131,28 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	defer r.lock.Unlock()
 	r.policies[req.NamespacedName.String()] = policies
 	return ctrl.Result{}, nil
+}
+
+// WarmUp synchronously compiles every existing ValidatingPolicy and NamespacedValidatingPolicy so
+// that Fetch returns them before the caller starts serving admission traffic. Policies that fail to
+// reconcile are skipped, see engine.WarmUp.
+func (r *reconciler) WarmUp(ctx context.Context) error {
+	var vpols policiesv1beta1.ValidatingPolicyList
+	if err := r.client.List(ctx, &vpols); err != nil {
+		return err
+	}
+	var nvpols policiesv1beta1.NamespacedValidatingPolicyList
+	if err := r.client.List(ctx, &nvpols); err != nil {
+		return err
+	}
+	keys := make([]client.ObjectKey, 0, len(vpols.Items)+len(nvpols.Items))
+	for i := range vpols.Items {
+		keys = append(keys, client.ObjectKeyFromObject(&vpols.Items[i]))
+	}
+	for i := range nvpols.Items {
+		keys = append(keys, client.ObjectKeyFromObject(&nvpols.Items[i]))
+	}
+	return engine.WarmUp(ctx, "ValidatingPolicy", r, keys)
 }
 
 func (r *reconciler) Fetch(ctx context.Context) ([]Policy, error) {

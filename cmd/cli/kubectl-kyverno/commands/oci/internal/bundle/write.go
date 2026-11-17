@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -87,7 +88,7 @@ func identityKey(kind, namespace, name string) string {
 // for any resource they actually name that is present in this bundle. This order — default
 // first, override second, and an override that names a resource not in the bundle is skipped
 // rather than creating a dangling assignment — is what guarantees every resources[] entry always
-// has a non-empty `set` naming an entry in sets[] (section 6), even once #17663 starts passing a
+// has a non-empty `set` naming an entry in sets[] (section 6), even when LoadDescriptor passes a
 // Descriptor whose Sets don't happen to cover every resource. A set with no member is omitted
 // (section 7, "every sets[] entry SHOULD be named by at least one resources[] entry").
 func assignSets(documents []Document, d *Descriptor) ([]ConfigSet, map[string]string) {
@@ -116,7 +117,7 @@ func assignSets(documents []Document, d *Descriptor) ([]ConfigSet, map[string]st
 			if sa.Set == "" {
 				// An empty Set is not a valid override; every resources[] entry MUST have a
 				// non-empty set (bundle-spec.md section 6). Skip rather than assign an empty
-				// set name — #17663 owns producing a well-formed Descriptor, but this function
+				// set name — LoadDescriptor produces a well-formed Descriptor, but this function
 				// still must not emit an invalid config if it's ever handed a malformed one.
 				continue
 			}
@@ -161,39 +162,44 @@ func resolveCreated(d *Descriptor) (string, error) {
 	return time.Unix(sec, 0).UTC().Format(time.RFC3339), nil
 }
 
-// reservedAnnotationKeys are the io.kyverno.bundle.* and org.opencontainers.image.* keys a
-// writer computes itself; a descriptor's spec.annotations MUST NOT override any of them (writer
-// MUST 14). Every key buildAnnotations below can set belongs in this set: the strip in
-// buildAnnotations must have one entry here per annotation buildAnnotations computes, or a new
-// writer-computed key added there without a matching entry here would reopen this exact bug.
-var reservedAnnotationKeys = map[string]bool{
-	internal.AnnotationFormatVersion:  true,
-	internal.AnnotationName:           true,
-	internal.AnnotationVersion:        true,
-	internal.AnnotationKyvernoVersion: true,
-	internal.AnnotationOCISource:      true,
-	internal.AnnotationOCIRevision:    true,
-	internal.AnnotationOCICreated:     true,
-	internal.AnnotationOCIVersion:     true,
-	internal.AnnotationOCITitle:       true,
-	internal.AnnotationOCIDescription: true,
+// reservedAnnotationPrefixes are the namespaces a writer computes annotation keys under:
+// io.kyverno.bundle.* and org.opencontainers.image.*. A descriptor's spec.annotations MUST NOT
+// set any key under either prefix (writer MUST 14, bundle-spec.md section 4), whether or not this
+// CLI happens to compute that exact key today — checking the prefix, rather than listing only the
+// keys buildAnnotations currently sets, is what keeps a new writer-computed key added later from
+// reopening this same hole: everything under these prefixes is reserved, computed or not.
+var reservedAnnotationPrefixes = []string{
+	"io.kyverno.bundle.",
+	"org.opencontainers.image.",
+}
+
+// isReservedAnnotationKey reports whether key falls under a reserved annotation prefix.
+func isReservedAnnotationKey(key string) bool {
+	for _, prefix := range reservedAnnotationPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // buildAnnotations builds the manifest annotations from the config: io.kyverno.bundle.* and the
 // relevant org.opencontainers.image.* keys, kept in agreement with the config (bundle-spec.md
-// section 4, writer MUST 15). A reserved key here is always the writer-computed value; a
-// descriptor's spec.annotations is stripped of every reserved key before it's merged, so it
-// never overrides one (writer MUST 14) — including when the config leaves that field empty and
-// the writer-computed block below has nothing to overwrite it with. Stripping first, rather than
-// only overwriting a reserved key when the config populates it, is what keeps a descriptor from
-// forging, for example, io.kyverno.bundle.version on a bundle with no descriptor-supplied
-// version at all: without the config to draw from, an overwrite-only guard has nothing to
-// overwrite with, and the descriptor's spoofed value would otherwise survive untouched.
+// section 4, writer MUST 15). A key under a reserved prefix is always the writer-computed value;
+// a descriptor's spec.annotations is stripped of every such key before it's merged, so it never
+// overrides one (writer MUST 14) — including when the config leaves that field empty and the
+// writer-computed block below has nothing to overwrite it with, and including a reserved-prefix
+// key this CLI doesn't itself compute (for example io.kyverno.bundle.custom). Stripping first,
+// rather than only overwriting a reserved key when the config populates it, is what keeps a
+// descriptor from forging, for example, io.kyverno.bundle.version on a bundle with no
+// descriptor-supplied version at all: without the config to draw from, an overwrite-only guard
+// has nothing to overwrite with, and the descriptor's spoofed value would otherwise survive
+// untouched.
 func buildAnnotations(cfg Config, d *Descriptor) map[string]string {
 	ann := map[string]string{}
 	if d != nil {
 		for k, v := range d.Annotations {
-			if reservedAnnotationKeys[k] {
+			if isReservedAnnotationKey(k) {
 				continue
 			}
 			ann[k] = v

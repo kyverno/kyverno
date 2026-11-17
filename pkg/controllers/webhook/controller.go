@@ -1084,7 +1084,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	if err != nil {
 		return err
 	}
-	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+	nivpolWebhooks := buildWebhookRules(cfg,
 		c.server,
 		config.NamespacedImageValidatingPolicyValidateWebhookName,
 		"/nivpol/validate",
@@ -1092,8 +1092,12 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		caBundle,
 		nivpols,
 		c.celExpressionCache,
-		c.defaultTimeout)...)
+		c.defaultTimeout)
 
+	for i := range nivpolWebhooks {
+		nivpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(nivpolWebhooks[i].Rules))
+	}
+	result.Webhooks = append(result.Webhooks, nivpolWebhooks...)
 	policies := append(pols, nvpols...)
 	policies = append(policies, gpols...)
 	policies = append(policies, ngpols...)

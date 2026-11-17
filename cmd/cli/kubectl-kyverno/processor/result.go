@@ -1,7 +1,10 @@
 package processor
 
 import (
+	"slices"
+
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
 type ResultCounts struct {
@@ -79,6 +82,7 @@ func (rc *ResultCounts) addMutateResponse(response engineapi.EngineResponse) boo
 	return printMutatedRes
 }
 
+// addValidatingAdmissionResponse records rule results for a validating admission policy response.
 func (rc *ResultCounts) addValidatingAdmissionResponse(engineResponse engineapi.EngineResponse) {
 	for _, ruleResp := range engineResponse.PolicyResponse.Rules {
 		if ruleResp.Status() == engineapi.RuleStatusPass {
@@ -91,15 +95,43 @@ func (rc *ResultCounts) addValidatingAdmissionResponse(engineResponse engineapi.
 	}
 }
 
-func (rc *ResultCounts) AddValidatingPolicyResponse(engineResponse engineapi.EngineResponse) {
+// IsAuditOnlyValidatingPolicy checks whether the policy is a ValidatingPolicy or ImageValidatingPolicy
+// with a non-empty validationActions list that does not contain Deny.
+func IsAuditOnlyValidatingPolicy(pol engineapi.GenericPolicy) bool {
+	if pol == nil {
+		return false
+	}
+	if vpol := pol.AsValidatingPolicyLike(); vpol != nil && vpol.GetSpec() != nil {
+		actions := vpol.GetSpec().ValidationActions()
+		return len(actions) > 0 && !slices.Contains(actions, admissionregistrationv1.Deny)
+	}
+	if ivpol := pol.AsImageValidatingPolicyLike(); ivpol != nil && ivpol.GetSpec() != nil {
+		actions := ivpol.GetSpec().ValidationActions()
+		return len(actions) > 0 && !slices.Contains(actions, admissionregistrationv1.Deny)
+	}
+	return false
+}
+
+// AddValidatingPolicyResponse records rule results for a validating policy response.
+// When auditWarn is true and the policy is audit-only (specifies a non-empty list of validation actions
+// without the Deny action), rule failures are counted under Warn instead of Fail.
+func (rc *ResultCounts) AddValidatingPolicyResponse(auditWarn bool, engineResponse engineapi.EngineResponse) {
+	audit := IsAuditOnlyValidatingPolicy(engineResponse.Policy())
 	for _, ruleResp := range engineResponse.PolicyResponse.Rules {
-		if ruleResp.Status() == engineapi.RuleStatusPass {
+		switch ruleResp.Status() {
+		case engineapi.RuleStatusPass:
 			rc.Pass++
-		} else if ruleResp.Status() == engineapi.RuleStatusFail {
-			rc.Fail++
-		} else if ruleResp.Status() == engineapi.RuleStatusError {
+		case engineapi.RuleStatusFail:
+			if auditWarn && audit {
+				rc.Warn++
+			} else {
+				rc.Fail++
+			}
+		case engineapi.RuleStatusError:
 			rc.Error++
-		} else if ruleResp.Status() == engineapi.RuleStatusSkip {
+		case engineapi.RuleStatusWarn:
+			rc.Warn++
+		case engineapi.RuleStatusSkip:
 			rc.Skip++
 		}
 	}

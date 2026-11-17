@@ -5,12 +5,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // NewVpolEngine creates a vpol engine using the real controller code path (NewKubeProvider).
-// This mirrors the production wiring in cmd/kyverno/main.go: compiler → KubeProvider → engine.
+// This mirrors the production wiring in cmd/kyverno/main.go: compiler → KubeProvider → engine,
+// including the namespace resolver that backs namespaceSelector matching and namespaceObject.
 // The returned provider exposes Fetch() to check reconciliation status in tests.
 func NewVpolEngine(mgr ctrl.Manager) (vpolengine.Engine, vpolengine.Provider, error) {
 	compiler := vpolcompiler.NewCompiler()
@@ -19,7 +19,10 @@ func NewVpolEngine(mgr ctrl.Manager) (vpolengine.Engine, vpolengine.Provider, er
 		return nil, nil, err
 	}
 
-	nsResolver := func(ns string) *corev1.Namespace { return nil }
+	nsResolver, err := namespaceResolverForManager(mgr)
+	if err != nil {
+		return nil, nil, err
+	}
 	matcher := matching.NewMatcher()
 
 	return vpolengine.NewEngine(provider, nsResolver, matcher), provider, nil
@@ -38,7 +41,10 @@ func NewVpolEngineWithExceptions(mgr ctrl.Manager) (vpolengine.Engine, vpolengin
 		return nil, nil, err
 	}
 
-	nsResolver := func(ns string) *corev1.Namespace { return nil }
+	nsResolver, err := namespaceResolverForManager(mgr)
+	if err != nil {
+		return nil, nil, err
+	}
 	matcher := matching.NewMatcher()
 
 	return vpolengine.NewEngine(provider, nsResolver, matcher), provider, nil

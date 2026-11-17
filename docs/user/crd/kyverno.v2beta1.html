@@ -224,7 +224,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
         <td>
           
 
-          <p>Projections defines the list of JMESPath expressions to extract values from the cached resource.</p>
+          <p>Projections defines the list of projections to extract values from the cached resource.</p>
 
 
           
@@ -411,7 +411,20 @@ such as &quot;300ms&quot;, &quot;1.5h&quot; or &quot;2h45m&quot;. Valid time uni
     </p>
   
 
-  <p></p>
+  <p><p>GlobalContextEntryProjection extracts a named value from the cached resource using
+exactly one of JMESPath or Expression.</p>
+<p>The bound input, <code>object</code> for Expression or <code>@</code> for JMESPath, is exactly the value
+returned by <code>globalContext.Get(name)</code> with no projection:</p>
+<ul>
+<li>For an APICall entry, <code>object</code> is the parsed API response, typically
+<code>{&quot;items&quot;: [...]}</code> for a list endpoint, so a projection reads <code>object.items.size()</code>.</li>
+<li>For a KubernetesResource entry, <code>object</code> is the list of matching resources
+directly, so the equivalent projection reads <code>object.size()</code>.</li>
+</ul>
+<p>Numeric values extracted via Expression keep their CEL-native type (<code>int</code>,
+<code>uint</code>, or <code>double</code>), which may differ from the <code>float64</code> JMESPath always produces;
+arithmetic written against one is not guaranteed to type-check against the other.</p>
+</p>
 
   
     <table class="table table-striped">
@@ -478,7 +491,38 @@ such as &quot;300ms&quot;, &quot;1.5h&quot; or &quot;2h45m&quot;. Valid time uni
         <td>
           
 
-          <p>JMESPath is the JMESPath expression to extract the value from the cached resource.</p>
+          <p>JMESPath is the JMESPath expression to extract the value from the cached resource.
+Mutually exclusive with Expression.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Expression is the CEL expression to extract the value from the cached resource.
+Mutually exclusive with JMESPath.</p>
 
 
           
@@ -615,7 +659,7 @@ It can also be used to make calls to the Kubernetes API server in such cases:</p
         <td>
           
 
-          <p>Projections defines the list of JMESPath expressions to extract values from the cached resource.</p>
+          <p>Projections defines the list of projections to extract values from the cached resource.</p>
 
 
           
