@@ -1180,4 +1180,155 @@ spec:
 		assert.Equal(t, er.PolicyResponse.Rules[1].ValidatingAdmissionPolicyBinding().GetName(), "binding-2")
 		assert.Assert(t, er.IsSuccessful())
 	})
+
+	t.Run("empty paramRef namespace resolution", func(t *testing.T) {
+		policyWithNamespaceMatch := decodeVAP(t, []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: client-test-policy-ns
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   [""]
+        apiVersions: ["v1"]
+        operations:  ["CREATE"]
+        resources:   ["namespaces"]
+  validations:
+    - expression: "params != null && params.data.allowed == 'true'"
+`))
+
+		paramDefault := &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "ConfigMap"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "empty-ns-cm",
+				Namespace: "default",
+			},
+			Data: map[string]string{
+				"allowed": "true",
+			},
+		}
+		paramOther := &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "ConfigMap"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "empty-ns-cm",
+				Namespace: "other",
+			},
+			Data: map[string]string{
+				"allowed": "false",
+			},
+		}
+
+		targetNamespaceRaw := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+        "name": "target-ns"
+    }
+}`)
+		targetNamespaceResource, err := kubeutils.BytesToUnstructured(targetNamespaceRaw)
+		assert.NilError(t, err)
+
+		nsGVK := targetNamespaceResource.GroupVersionKind()
+		nsGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+		clusterTargetAttr := admission.NewAttributesRecord(targetNamespaceResource.DeepCopyObject(), nil, nsGVK, "", targetNamespaceResource.GetName(), nsGVR, "", admission.Create, nil, false, nil)
+
+		tests := []struct {
+			name           string
+			policy         *admissionregistrationv1.ValidatingAdmissionPolicy
+			targetResource []byte
+			targetNSName   string
+			namespaceObj   *corev1.Namespace
+			attr           admission.Attributes
+			resPath        string
+			expectPass     bool
+			expectErrMsg   string
+		}{
+			{
+				name:           "namespaced target resolves parameters only in admission namespace",
+				policy:         policy,
+				targetResource: rawResource,
+				targetNSName:   "default",
+				namespaceObj:   ns,
+				attr:           a,
+				resPath:        "default/ConfigMap/target-cm",
+				expectPass:     true,
+			},
+			{
+				name:           "cluster-scoped namespace target rejects lookup with nonempty namespace object",
+				policy:         policyWithNamespaceMatch,
+				targetResource: targetNamespaceRaw,
+				targetNSName:   "",
+				namespaceObj: &corev1.Namespace{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "Namespace",
+					},
+					ObjectMeta: metav1.ObjectMeta{Name: "target-ns"},
+				},
+				attr:         clusterTargetAttr,
+				resPath:      "target-ns",
+				expectPass:   false,
+				expectErrMsg: "can't use namespaced paramRef to match cluster-scoped resources",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				bindings := []admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "binding-empty-param-ns"},
+						Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+							PolicyName: tc.policy.GetName(),
+							ParamRef: &admissionregistrationv1.ParamRef{
+								Name: "empty-ns-cm",
+							},
+						},
+					},
+				}
+
+				scheme := runtime.NewScheme()
+				_ = corev1.AddToScheme(scheme)
+				baseClient, err := dclient.NewFakeClient(scheme, gvrToListKind, ns, paramDefault, paramOther)
+				assert.NilError(t, err)
+				baseClient.SetDiscovery(&testNamespacedDiscovery{
+					IDiscovery: dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
+						{Group: "", Version: "v1", Resource: "namespaces"},
+						{Group: "", Version: "v1", Resource: "configmaps"},
+					}),
+					namespaced: true,
+				})
+
+				kubeObjs := []runtime.Object{ns}
+				if tc.namespaceObj != nil && tc.namespaceObj != ns {
+					kubeObjs = append(kubeObjs, tc.namespaceObj)
+				}
+				client := &testClientWithKube{
+					Interface:  baseClient,
+					kubeClient: kubefake.NewSimpleClientset(kubeObjs...),
+				}
+
+				targetObj, err := kubeutils.BytesToUnstructured(tc.targetResource)
+				assert.NilError(t, err)
+
+				er, err := processVAPWithClient(tc.policy, bindings, *targetObj, tc.targetNSName, tc.namespaceObj, client, tc.attr, tc.resPath)
+				assert.NilError(t, err)
+
+				if tc.expectPass {
+					assert.Assert(t, er.IsSuccessful())
+					assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+					assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass)
+				} else {
+					assert.Equal(t, er.IsSuccessful(), false)
+					assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+					assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+					assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), tc.expectErrMsg))
+				}
+			})
+		}
+	})
 }
