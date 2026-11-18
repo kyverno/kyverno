@@ -102,7 +102,7 @@ func TestChainedCloneSynchronization(t *testing.T) {
 	previous := libs.LibraryContext
 	t.Cleanup(func() { libs.LibraryContext = previous })
 	for _, ssa := range []bool{false, true} {
-		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered"} {
+		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "no-op-convergence"} {
 			t.Run(fmt.Sprintf("%s/ssa=%t", scenario, ssa), func(t *testing.T) {
 				ctx := context.Background()
 				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
@@ -186,6 +186,25 @@ func TestChainedCloneSynchronization(t *testing.T) {
 							}
 						}
 					}
+					return
+				}
+				// no-op/convergence check: after the chain converges, re-delivering the
+				// hub's current accepted state must cause zero additional watcher writes
+				if scenario == "no-op-convergence" {
+					changed := seed.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					drain()
+					require.Equal(t, "v2", version("hub"), "the first hop must succeed")
+					require.Equal(t, "v2", version("leaf"), "an accepted hub update must propagate to the second policy's clone")
+					client.writes = nil // convergence complete; reset the write counter
+					// re-deliver the hub's current accepted state as a watch event
+					wm.handleUpdate(client.objects["hub/settings"].DeepCopy(), gvr)
+					require.Empty(t, client.writes, "re-delivering converged hub state must cause no watcher writes")
+					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					require.Equal(t, "v2", version("hub"))
+					require.Equal(t, "v2", version("leaf"))
 					return
 				}
 				changed := seed.DeepCopy()
