@@ -28,9 +28,10 @@ This package implements the `kubectl-kyverno create test` command, which scaffol
      apiVersion: cli.kyverno.io/v1alpha1
      kind: Test
      metadata:
-       name: {{ .Name }}
+       name: {{ printf "%q" .Name }}
      ```
      Manifests must never emit the deprecated top-level `name: {{ .Name }}` header.
+     `metadata.name` is safely quoted via `%q` so that numeric or boolean names (e.g. `123`, `true`) deserialize as string.
    - **Resource entries**: Rendered under `resources:` as a list. When `namespace` is specified, entries are emitted as `"<namespace>/<resource>"`. When namespace is empty, entries are emitted as `"<resource>"`. All resource identifiers are safely quoted via `%q`.
    - **Conditional rule rendering**: The `rule:` key is emitted only when `.Rule` is non-empty (`{{- if .Rule }}`), omitting empty rule fields for ruleless policies.
    - **Conditional patchedResources rendering**: `patchedResources: {{ printf "%q" .PatchedResource }}` is emitted only when a 6th field is provided.
