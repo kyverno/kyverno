@@ -170,7 +170,7 @@ func TestCommandWithResults(t *testing.T) {
 
 	assert.Contains(t, outputStr, "apiVersion: cli.kyverno.io/v1alpha1")
 	assert.Contains(t, outputStr, "kind: Test")
-	assert.Contains(t, outputStr, "name: my-test")
+	assert.Contains(t, outputStr, `name: "my-test"`)
 	assert.Contains(t, outputStr, "- policy.yaml")
 	assert.Contains(t, outputStr, "- resource.yaml")
 	assert.Contains(t, outputStr, "variables: values.yaml")
@@ -271,4 +271,30 @@ func TestCommandWithResults(t *testing.T) {
 
 	assert.Equal(t, "pol6", parsedTest.Results[6].Policy)
 	assert.Equal(t, "skip", string(parsedTest.Results[6].Result))
+}
+
+func TestCommandWithNumericAndBooleanName(t *testing.T) {
+	for _, name := range []string{"123", "true", "007"} {
+		t.Run("name="+name, func(t *testing.T) {
+			cmd := Command()
+			b := bytes.NewBufferString("")
+			cmd.SetOut(b)
+			cmd.SetArgs([]string{
+				"-n", name,
+				"--pass", "pol1,rule1,res1,default,Pod",
+			})
+			err := cmd.Execute()
+			require.NoError(t, err)
+
+			testFile := filepath.Join(t.TempDir(), "kyverno-test.yaml")
+			err = os.WriteFile(testFile, b.Bytes(), 0600)
+			require.NoError(t, err)
+
+			testCases := test.LoadTest(nil, testFile)
+			require.Len(t, testCases, 1)
+			require.NoError(t, testCases[0].Err)
+			require.NotNil(t, testCases[0].Test)
+			assert.Equal(t, name, testCases[0].Test.ObjectMeta.Name)
+		})
+	}
 }
