@@ -90,6 +90,7 @@ func Test_Mutate_BindingsCompose(t *testing.T) {
 	tests := []struct {
 		name            string
 		matchConditions []string
+		failurePolicy   admissionregistrationv1beta1.FailurePolicyType
 		bindings        []string
 		wantReplicas    int64
 		wantStatuses    []engineapi.RuleStatus
@@ -127,12 +128,24 @@ func Test_Mutate_BindingsCompose(t *testing.T) {
 		},
 		{
 			// the second binding sees replicas: 2, so its match condition reads a missing field and fails;
-			// the first binding's mutation and rule must be kept
-			name:            "second binding fails to evaluate its match condition",
+			// with failurePolicy Fail the request is rejected, so the first binding's mutation is rolled back
+			// and the error is reported
+			name:            "second binding fails to evaluate its match condition with failurePolicy Fail",
 			matchConditions: []string{"object.spec.replicas == 1 || object.spec.missing == 1"},
+			failurePolicy:   admissionregistrationv1beta1.Fail,
+			bindings:        []string{"first", "second"},
+			wantReplicas:    1,
+			wantStatuses:    []engineapi.RuleStatus{engineapi.RuleStatusPass, engineapi.RuleStatusError},
+		},
+		{
+			// same as above with failurePolicy Ignore: the failing binding is skipped and the first
+			// binding's mutation is kept
+			name:            "second binding fails to evaluate its match condition with failurePolicy Ignore",
+			matchConditions: []string{"object.spec.replicas == 1 || object.spec.missing == 1"},
+			failurePolicy:   admissionregistrationv1beta1.Ignore,
 			bindings:        []string{"first", "second"},
 			wantReplicas:    2,
-			wantStatuses:    []engineapi.RuleStatus{engineapi.RuleStatusPass},
+			wantStatuses:    []engineapi.RuleStatus{engineapi.RuleStatusPass, engineapi.RuleStatusSkip},
 		},
 	}
 	for _, tt := range tests {
@@ -143,7 +156,11 @@ func Test_Mutate_BindingsCompose(t *testing.T) {
 			}
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
-				data := engineapi.NewMutatingAdmissionPolicyData(incrementReplicasPolicy(t, tt.matchConditions...))
+				policy := incrementReplicasPolicy(t, tt.matchConditions...)
+				if tt.failurePolicy != "" {
+					policy.Spec.FailurePolicy = &tt.failurePolicy
+				}
+				data := engineapi.NewMutatingAdmissionPolicyData(policy)
 				for _, binding := range tt.bindings {
 					data.AddBinding(newBinding(binding))
 				}
@@ -250,5 +267,65 @@ func Test_Mutate_ParameterizedBindingsCompose(t *testing.T) {
 			}
 			assert.Equal(t, resp.PolicyResponse.RulesAppliedCount(), 2)
 		})
+	}
+}
+
+// Test_Mutate_BindingMatchingUsesOriginalObject checks that bindings are matched against the original
+// object: a label added by one binding must not make a later binding match. The control case, where
+// the object already has the label, shows that the selector itself works.
+func Test_Mutate_BindingMatchingUsesOriginalObject(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name          string
+		initialLabels map[string]string
+		wantRules     int
+	}{
+		{name: "label added by an earlier binding does not match", initialLabels: nil, wantRules: 1},
+		{name: "label already on the object matches", initialLabels: map[string]string{"mutated": "true"}, wantRules: 2},
+	}
+	for _, tt := range tests {
+		for _, withClient := range []bool{false, true} {
+			name := tt.name + "/without client"
+			if withClient {
+				name = tt.name + "/with client"
+			}
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				policy := incrementReplicasPolicy(t)
+				policy.Spec.Mutations[0].ApplyConfiguration.Expression = `Object{ metadata: Object.metadata{ labels: {"mutated": "true"} } }`
+
+				var selective admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
+				assert.NilError(t, json.Unmarshal([]byte(`{
+					"metadata": {"name": "only-mutated"},
+					"spec": {
+						"policyName": "increment-replicas",
+						"matchResources": {
+							"resourceRules": [{"apiGroups": ["apps"], "apiVersions": ["v1"], "operations": ["CREATE"], "resources": ["deployments"]}],
+							"objectSelector": {"matchLabels": {"mutated": "true"}}
+						}
+					}
+				}`), &selective))
+				data := engineapi.NewMutatingAdmissionPolicyData(policy)
+				data.AddBinding(newBinding("add-label"))
+				data.AddBinding(selective)
+
+				resource, err := kubeutils.BytesToUnstructured([]byte(oneReplicaDeployment))
+				assert.NilError(t, err)
+				resource.SetLabels(tt.initialLabels)
+
+				var client dclient.Interface
+				if withClient {
+					client = newFakeClient()
+				}
+				resp, err := Mutate(data, *resource, resource.GroupVersionKind(), deploymentsGVR, map[string]map[string]string{}, client, nil, !withClient, false)
+				assert.NilError(t, err)
+
+				assert.Equal(t, resp.PatchedResource.GetLabels()["mutated"], "true")
+				assert.Equal(t, len(resp.PolicyResponse.Rules), tt.wantRules)
+				for _, rule := range resp.PolicyResponse.Rules {
+					assert.Equal(t, rule.Status(), engineapi.RuleStatusPass)
+				}
+			})
+		}
 	}
 }
