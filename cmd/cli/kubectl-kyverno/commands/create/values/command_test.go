@@ -449,6 +449,12 @@ func TestCommandYAMLQuotingAndSpecialChars(t *testing.T) {
 	cmd.SetArgs([]string{
 		"-g", `sq='x`,
 		"-g", "ct=a:\tb",
+		"-g", "sci=1e3",
+		"-g", "nan_str=NaN",
+		"-g", "nan_lower=nan",
+		"-g", "inf_str=Inf",
+		"-g", "pos_inf=+Inf",
+		"-g", "neg_inf=-Inf",
 		"--rule", `testpol,testrule,msg="hello" world,expr=true,num=42,empty=`,
 		"--resource", `testpol,res: bad,k=v`,
 		"-n", `ns: prod,env=true`,
@@ -462,6 +468,12 @@ func TestCommandYAMLQuotingAndSpecialChars(t *testing.T) {
 
 	assert.Equal(t, `'x`, spec.GlobalValues["sq"])
 	assert.Equal(t, "a:\tb", spec.GlobalValues["ct"])
+	assert.Equal(t, float64(1000), spec.GlobalValues["sci"])
+	assert.Equal(t, "NaN", spec.GlobalValues["nan_str"])
+	assert.Equal(t, "nan", spec.GlobalValues["nan_lower"])
+	assert.Equal(t, "Inf", spec.GlobalValues["inf_str"])
+	assert.Equal(t, "+Inf", spec.GlobalValues["pos_inf"])
+	assert.Equal(t, "-Inf", spec.GlobalValues["neg_inf"])
 
 	require.Len(t, spec.Policies, 1)
 	require.Len(t, spec.Policies[0].Rules, 1)
