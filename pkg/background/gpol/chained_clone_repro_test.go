@@ -157,6 +157,12 @@ func TestChainedCloneSynchronization(t *testing.T) {
 						wm.handleUpdate(event, gvr)
 					}
 				}
+				deliverOne := func() {
+					require.NotEmpty(t, client.events, "expected a pending event")
+					event := client.events[0]
+					client.events = client.events[1:]
+					wm.handleUpdate(event, gvr)
+				}
 				if scenario == "deferred-accepted" || scenario == "deferred-tampered" {
 					// a hub update lands while the generate window for its policy/trigger
 					// is open: the mismatch is skipped and re-checked when the window closes
@@ -321,40 +327,34 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
 					return
 				}
-				// list-error-recovery: fail listing only after seed→hub hop succeeds.
-				// First, converge the chain to v2 (seed→hub→leaf). Then set listErr,
-				// deliver a v3 seed update; assert hub/leaf stay at v2, no writes.
-				// This covers recovery through the accepted cached-hub path: the hub's
-				// accepted state is cached, so a subsequent list failure doesn't lose it.
+				// list-error-recovery: seed propagation updates the hub to v2, then
+				// listing the hub's downstreams fails. Clearing the error and replaying
+				// the hub event covers recovery through the accepted cached-hub path.
 				if scenario == "list-error-recovery" {
-					// Phase 1: converge chain to v2
+					// Phase 1: deliver only the seed event so the hub reaches v2 while
+					// the hub event is still pending and the leaf has not been updated.
 					changed := seed.DeepCopy()
 					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
 					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
 					require.NoError(t, err)
-					drain()
-					require.Equal(t, "v2", version("hub"), "phase 1: hub must reach v2")
-					require.Equal(t, "v2", version("leaf"), "phase 1: leaf must reach v2")
-					// Phase 2: fail listing during v3 seed update (use current seed from client.objects)
-					client.listErr = fmt.Errorf("transient list failure")
-					changed = client.objects["seed/settings"].DeepCopy()
-					require.NoError(t, unstructured.SetNestedField(changed.Object, "v3", "data", "version"))
-					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
-					require.NoError(t, err)
 					client.writes = nil // count only watcher writes
+					deliverOne()
+					require.Equal(t, "v2", version("hub"), "phase 1: seed propagation must update the hub to v2")
+					require.Equal(t, "v1", version("leaf"), "phase 1: leaf must remain at v1 before the hub event is delivered")
+					require.Len(t, client.events, 1, "phase 1: exactly one hub event must be pending")
+					// Phase 2: fail listing the hub's downstreams while draining the pending hub event.
+					client.listErr = fmt.Errorf("transient list failure")
+					client.writes = nil
 					drain()
-					require.Empty(t, client.writes, "failed downstream list must not cause watcher writes")
-					require.Equal(t, "v2", version("hub"), "failed list must leave hub at v2")
-					require.Equal(t, "v2", version("leaf"), "failed list must leave leaf at v2")
-					// Phase 3: list recovers, deliver v4 update; chain converges to v4
+					require.Empty(t, client.writes, "a failed downstream list must not cause watcher writes")
+					require.Equal(t, "v2", version("hub"), "the hub must retain the accepted state")
+					require.Equal(t, "v1", version("leaf"), "the leaf must remain at v1 after the failed list")
+					// Phase 3: clear the error and replay the hub event through the accepted cached-hub path.
 					client.listErr = nil
-					changed = client.objects["seed/settings"].DeepCopy()
-					require.NoError(t, unstructured.SetNestedField(changed.Object, "v4", "data", "version"))
-					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
-					require.NoError(t, err)
+					client.writes = nil
+					wm.handleUpdate(client.objects["hub/settings"].DeepCopy(), gvr)
 					drain()
-					require.Equal(t, "v4", version("hub"), "phase 3: hub must reach v4 after recovery")
-					require.Equal(t, "v4", version("leaf"), "phase 3: leaf must reach v4 after recovery")
+					require.Equal(t, "v2", version("leaf"), "replaying the hub event must propagate the accepted hub state to the leaf")
 					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
 					return
 				}
