@@ -2,8 +2,8 @@ package compiler
 
 import (
 	"context"
-	"errors"
 	"testing"
+	"time"
 
 	"github.com/kyverno/kyverno/pkg/toggle"
 	sdkhttp "github.com/kyverno/sdk/extensions/cel/libs/http"
@@ -11,19 +11,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type immediateHTTPContext struct{}
-
-func (immediateHTTPContext) Get(string, map[string]string) (any, error) {
-	return nil, errors.New("connection refused")
+// getWithoutWaitingForDial calls ctx.Get and reports whether it returned within a short
+// window. The blocklist check runs synchronously before any dial, so a blocklist rejection
+// returns immediately. If the call is still pending, the dial started, which means the
+// request got past the blocklist.
+func getWithoutWaitingForDial(ctx sdkhttp.ContextInterface, url string) (bool, error) {
+	done := make(chan error, 1) // buffered so the goroutine can finish after the test ends
+	go func() {
+		_, err := ctx.Get(url, nil)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		return true, err
+	case <-time.After(2 * time.Second):
+		return false, nil
+	}
 }
 
-func (immediateHTTPContext) Post(string, any, map[string]string) (any, error) {
-	return nil, errors.New("connection refused")
-}
-
-func (immediateHTTPContext) Client(string) (sdkhttp.ContextInterface, error) {
-	return immediateHTTPContext{}, nil
-}
 func TestNewLazyCELHTTPContext_NeverErrors(t *testing.T) {
 	// Construction must never error even with a completely invalid blocklist,
 	// because the cached context reads flags on first call, not at construction time.
@@ -121,47 +126,26 @@ func TestHTTPContextSeparation(t *testing.T) {
 	})
 
 	t.Run("shared policy blocklist allows in-cluster service CIDRs", func(t *testing.T) {
-		sharedHTTPContext.mu.Lock()
-		previous := sharedHTTPContext.cached
-		sharedHTTPContext.cached = immediateHTTPContext{}
-		sharedHTTPContext.mu.Unlock()
-
-		t.Cleanup(func() {
-			sharedHTTPContext.mu.Lock()
-			sharedHTTPContext.cached = previous
-			sharedHTTPContext.mu.Unlock()
-		})
-
 		ctx := NewLazyCELHTTPContext("")
 		require.NotNil(t, ctx)
 
-		// In-cluster service CIDRs should not be blocked by default.
-		_, err := ctx.Get("http://10.1.2.3", nil)
-		// Error is expected (no actual server) but NOT due to blocklist
-		if err != nil {
+		returned, err := getWithoutWaitingForDial(ctx, "http://10.1.2.3:8080/")
+		if returned && err != nil {
+			// The dial failed fast on this machine. It must not be a policy rejection.
 			assert.NotContains(t, err.Error(), "blocked")
 			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
 		}
+		// If it did not return, the dial is in progress, so the blocklist let it through.
 	})
 
 	t.Run("opted-in namespaced policies allow in-cluster service CIDRs", func(t *testing.T) {
 		t.Setenv("FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES", "true")
 
-		sharedHTTPContext.mu.Lock()
-		previous := sharedHTTPContext.cached
-		sharedHTTPContext.cached = immediateHTTPContext{}
-		sharedHTTPContext.mu.Unlock()
-
-		t.Cleanup(func() {
-			sharedHTTPContext.mu.Lock()
-			sharedHTTPContext.cached = previous
-			sharedHTTPContext.mu.Unlock()
-		})
 		ctx := NewLazyCELHTTPContext("my-namespace")
 		require.NotNil(t, ctx)
 
-		_, err := ctx.Get("http://10.1.2.3", nil)
-		if err != nil {
+		returned, err := getWithoutWaitingForDial(ctx, "http://10.1.2.3")
+		if returned && err != nil {
 			assert.NotContains(t, err.Error(), "blocked")
 			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
 		}
@@ -171,8 +155,10 @@ func TestHTTPContextSeparation(t *testing.T) {
 		ctx := NewLazyCELHTTPContext("")
 		require.NotNil(t, ctx)
 
-		// Metadata services should be blocked for all policy scopes.
-		_, err := ctx.Get("http://169.254.169.254", nil)
+		// Metadata services should be blocked for all policy scopes, and the rejection
+		// must happen before any dial.
+		returned, err := getWithoutWaitingForDial(ctx, "http://169.254.169.254")
+		require.True(t, returned, "request was not rejected before dialing")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "blocked")
 	})
