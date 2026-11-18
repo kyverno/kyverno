@@ -903,6 +903,11 @@ func (wm *WatchManager) syncSourceDownstreams(watcher *watcher, obj *unstructure
 		if !exists {
 			continue
 		}
+		if cached.Hash == "" {
+			// invalidated by InvalidateDownstreams: kept only so it can be
+			// deleted later; never restore it with source content.
+			continue
+		}
 		// update the downstream resources with the source information.
 		newResource := &unstructured.Unstructured{}
 		newResource.SetUnstructuredContent(source.UnstructuredContent())
