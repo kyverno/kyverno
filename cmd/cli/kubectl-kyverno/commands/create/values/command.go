@@ -3,6 +3,7 @@ package values
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -103,7 +104,7 @@ func formatValue(val string) (string, error) {
 	if _, err := strconv.ParseInt(val, 10, 64); err == nil {
 		return val, nil
 	}
-	if _, err := strconv.ParseFloat(val, 64); err == nil && !strings.ContainsAny(val, "eE") {
+	if f, err := strconv.ParseFloat(val, 64); err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) {
 		return val, nil
 	}
 	if strings.ContainsAny(val, "\r\n") {
