@@ -147,7 +147,7 @@ func TestChainedCloneSynchronization(t *testing.T) {
 	previous := libs.LibraryContext
 	t.Cleanup(func() { libs.LibraryContext = previous })
 	for _, ssa := range []bool{false, true} {
-		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error", "list-error-recovery", "list-error-retry", "list-error-retry-hub-hop", "aliased-clone-data", "downstream-metadata-preserved"} {
+		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error", "list-error-recovery", "list-error-retry", "list-error-retry-hub-hop", "sync-disabled-downstream", "aliased-clone-data", "downstream-metadata-preserved"} {
 			t.Run(fmt.Sprintf("%s/ssa=%t", scenario, ssa), func(t *testing.T) {
 				ctx := context.Background()
 				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
@@ -437,6 +437,28 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					require.Equal(t, "v2", version("leaf"), "an accepted hub update must propagate to the leaf through retried hub-hop lists")
 					require.Zero(t, client.listFailForUID.remaining, "all injected hub-hop list failures must be consumed by retries")
 					t.Logf("hub=%s leaf=%s watcherWrites=%v remaining=%d", version("hub"), version("leaf"), client.writes, client.listFailForUID.remaining)
+					return
+				}
+				// sync-disabled-downstream: the leaf exists in the fake with the
+				// source-UID label but is not tracked in metadataCache
+				// (synchronize-disabled model). The hub hop must still succeed,
+				// but the leaf must never be written and must stay at v1.
+				if scenario == "sync-disabled-downstream" {
+					delete(w.metadataCache, leaf.GetUID())
+					client.objects["leaf/settings"] = leaf.DeepCopy()
+					changed := seed.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					client.writes = nil // count only watcher writes
+					drain()
+					require.Equal(t, "v2", version("hub"), "the first hop must succeed")
+					require.Equal(t, "v1", version("leaf"), "a synchronize-disabled leaf must stay at v1")
+					for _, wr := range client.writes {
+						require.False(t, strings.HasPrefix(wr.key, "leaf/"), "no write to a synchronize-disabled leaf")
+					}
+					require.Equal(t, "v1", version("leaf"), "leaf remains at v1 after propagation")
+					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
 					return
 				}
 				if scenario == "aliased-clone-data" {
