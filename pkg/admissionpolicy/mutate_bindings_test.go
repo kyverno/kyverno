@@ -91,6 +91,7 @@ func Test_Mutate_BindingsCompose(t *testing.T) {
 		name            string
 		matchConditions []string
 		failurePolicy   admissionregistrationv1beta1.FailurePolicyType
+		unsetFailure    bool
 		bindings        []string
 		wantReplicas    int64
 		wantStatuses    []engineapi.RuleStatus
@@ -138,6 +139,15 @@ func Test_Mutate_BindingsCompose(t *testing.T) {
 			wantStatuses:    []engineapi.RuleStatus{engineapi.RuleStatusPass, engineapi.RuleStatusError},
 		},
 		{
+			// failurePolicy unset defaults to Fail, so the first binding's mutation is rolled back too
+			name:            "second binding fails to evaluate its match condition with failurePolicy unset",
+			matchConditions: []string{"object.spec.replicas == 1 || object.spec.missing == 1"},
+			unsetFailure:    true,
+			bindings:        []string{"first", "second"},
+			wantReplicas:    1,
+			wantStatuses:    []engineapi.RuleStatus{engineapi.RuleStatusPass, engineapi.RuleStatusError},
+		},
+		{
 			// same as above with failurePolicy Ignore: the failing binding is skipped and the first
 			// binding's mutation is kept
 			name:            "second binding fails to evaluate its match condition with failurePolicy Ignore",
@@ -159,6 +169,9 @@ func Test_Mutate_BindingsCompose(t *testing.T) {
 				policy := incrementReplicasPolicy(t, tt.matchConditions...)
 				if tt.failurePolicy != "" {
 					policy.Spec.FailurePolicy = &tt.failurePolicy
+				}
+				if tt.unsetFailure {
+					policy.Spec.FailurePolicy = nil
 				}
 				data := engineapi.NewMutatingAdmissionPolicyData(policy)
 				for _, binding := range tt.bindings {
