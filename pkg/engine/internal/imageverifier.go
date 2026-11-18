@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/notary"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"github.com/kyverno/kyverno/pkg/validation/policy"
 	"go.uber.org/multierr"
@@ -92,9 +93,30 @@ func (iv *imageVerifier) Verify(
 		iv.logger.V(2).Info("caching disabled: entry verifies with key material the cache key cannot bind", "ruleName", iv.rule.Name)
 		useCache = false
 	}
+	// Check every key reference up front rather than as each attestor is
+	// tried: count lets a set pass before reaching a later entry, so a
+	// foreign reference must fail the entry whatever its position, and before
+	// a cached pass can stand in for the check.
+	keyScopeErr := iv.scopeAttestorKeys(imageVerify)
+	if keyScopeErr != nil {
+		iv.logger.Error(keyScopeErr, "invalid attestor key scope", "ruleName", iv.rule.Name)
+	}
 
 	for _, imageInfo := range matchedImageInfos {
 		image := imageInfo.String()
+
+		// Report the error for every image the entry matches, including one
+		// skipImageReferences would skip, so the mutating path flags an invalid
+		// stored policy the same way the validate handler does. Unmatched
+		// images are skipped as before and build no verifier.
+		if keyScopeErr != nil &&
+			(len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0) &&
+			matchReferences(imageVerify.ImageReferences, image) {
+			ruleResp := engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "invalid attestor key scope", keyScopeErr, iv.rule.ReportProperties)
+			iv.addImageVerificationMetadata(image, ruleStatusToImageVerificationStatus(ruleResp.Status()))
+			responses = append(responses, ruleResp)
+			continue
+		}
 
 		// Cache keys must be bound to a resolved digest, never a tag: a tag
 		// is a registry-movable name, and a verdict keyed on it would be
@@ -385,6 +407,9 @@ func (iv *imageVerifier) verifyAttestors(
 		cosignResponse, err = iv.verifyAttestorSet(ctx, attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
 			iv.logger.Error(err, "failed to verify image", "image", image)
+			if kse := (*keyScopeError)(nil); errors.As(err, &kse) {
+				return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "invalid attestor key scope", err, iv.rule.ReportProperties), nil
+			}
 			return iv.handleRegistryErrors(image, err), nil
 		}
 	}
@@ -455,7 +480,10 @@ func (iv *imageVerifier) verifyAttestations(
 			for _, a := range attestor.Entries {
 				var attestationError error
 				entryPath := fmt.Sprintf("%s.entries[%d]", attestorPath, i)
-				v, opts, subPath := iv.buildVerifier(a, imageVerify, image, &imageVerify.Attestations[i])
+				v, opts, subPath, err := iv.buildVerifier(a, imageVerify, image, &imageVerify.Attestations[i])
+				if err != nil {
+					return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, "invalid attestor key scope", fmt.Errorf("%s: %w", entryPath+subPath, err), iv.rule.ReportProperties), ""
+				}
 				cosignResp, err := v.FetchAttestations(ctx, *opts)
 				if err != nil {
 					iv.logger.Error(err, "failed to fetch attestations", "image", image)
@@ -574,9 +602,17 @@ func (iv *imageVerifier) verifyAttestorSet(
 			} else {
 				attestorPath += ".attestor"
 				cosignResp, entryError = iv.verifyAttestorSet(ctx, *nestedAttestorSet, imageVerify, imageInfo, attestorPath)
+				if kse := (*keyScopeError)(nil); errors.As(entryError, &kse) {
+					return nil, entryError
+				}
 			}
 		} else {
-			v, opts, subPath := iv.buildVerifier(a, imageVerify, image, nil)
+			v, opts, subPath, err := iv.buildVerifier(a, imageVerify, image, nil)
+			if err != nil {
+				// Not an entry failure count can outvote: return it so no
+				// other entry turns a foreign key reference into a pass.
+				return nil, fmt.Errorf("%s: %w", attestorPath+subPath, err)
+			}
 			cosignResp, entryError = v.VerifySignature(ctx, *opts)
 			if entryError != nil {
 				entryError = fmt.Errorf("%s: %w", attestorPath+subPath, entryError)
@@ -618,13 +654,146 @@ func (iv *imageVerifier) buildVerifier(
 	imageVerify kyvernov1.ImageVerification,
 	image string,
 	attestation *kyvernov1.Attestation,
-) (verifiers.ImageVerifier, *verifiers.Options, string) {
+) (verifiers.ImageVerifier, *verifiers.Options, string, error) {
 	switch imageVerify.Type {
 	case kyvernov1.Notary:
-		return iv.buildNotaryVerifier(attestor, image, attestation)
+		v, opts, path := iv.buildNotaryVerifier(attestor, image, attestation)
+		return v, opts, path, nil
 	default:
 		return iv.buildCosignVerifier(attestor, imageVerify, image, attestation)
 	}
+}
+
+// keyScopeError marks an attestor key that names a Secret outside the policy
+// namespace. It fails the rule outright instead of counting as one attestor
+// that did not verify.
+type keyScopeError struct {
+	err error
+}
+
+func (e *keyScopeError) Error() string { return e.err.Error() }
+
+func (e *keyScopeError) Unwrap() error { return e.err }
+
+// attestorKeyRef returns the cosign key reference for a static key attestor.
+// cosign reads any k8s:// reference itself, with its own client, so this is
+// the only point at which a namespaced Policy can be held to Secrets in its
+// own namespace. An empty namespace, for a ClusterPolicy, keeps the reference
+// exactly as configured.
+func attestorKeyRef(keys *kyvernov1.StaticKeyAttestor, namespace string) (string, error) {
+	var keyRef string
+	var err error
+	switch {
+	case keys.PublicKeys != "":
+		keyRef = keys.PublicKeys
+		if namespace != "" {
+			keyRef, err = kubeutils.ScopeKeyReference(keyRef, namespace)
+		}
+	case keys.Secret != nil:
+		if namespace == "" {
+			return fmt.Sprintf("k8s://%s/%s", keys.Secret.Namespace, keys.Secret.Name), nil
+		}
+		keyRef, err = kubeutils.ScopeKeySecret(keys.Secret.Namespace, keys.Secret.Name, namespace)
+	case keys.KMS != "":
+		keyRef = keys.KMS
+		if namespace != "" {
+			keyRef, err = kubeutils.ScopeKeyReference(keyRef, namespace)
+		}
+	}
+	if err != nil {
+		return "", &keyScopeError{err: err}
+	}
+	return keyRef, nil
+}
+
+// keyScopeNamespace is the namespace attestor keys are confined to, empty for
+// a ClusterPolicy.
+func (iv *imageVerifier) keyScopeNamespace() (string, error) {
+	return attestorKeyNamespace(iv.policyContext.Policy())
+}
+
+func attestorKeyNamespace(policy kyvernov1.PolicyInterface) (string, error) {
+	namespace, err := engineapi.PolicyNamespace(policy)
+	if err != nil {
+		return "", &keyScopeError{err: err}
+	}
+	return namespace, nil
+}
+
+func (iv *imageVerifier) scopeAttestorKeys(imageVerify kyvernov1.ImageVerification) error {
+	return ScopeAttestorKeys(iv.policyContext.Policy(), imageVerify)
+}
+
+// ScopeAttestorKeys checks every static key the entry can verify with, the
+// way the verifiers will see it: nested sets included and publicKeys split
+// into the single keys ExpandStaticKeys hands to buildCosignVerifier. It
+// reads no Secret, so callers can report a foreign reference before any
+// shortcut that would skip verification.
+func ScopeAttestorKeys(policy kyvernov1.PolicyInterface, imageVerify kyvernov1.ImageVerification) error {
+	namespace, err := attestorKeyNamespace(policy)
+	if err != nil || namespace == "" {
+		return err
+	}
+	for i, attestorSet := range imageVerify.Attestors {
+		if err := scopeAttestorSetKeys(attestorSet, namespace, fmt.Sprintf(".attestors[%d]", i)); err != nil {
+			return err
+		}
+	}
+	for i, attestation := range imageVerify.Attestations {
+		for j, attestorSet := range attestation.Attestors {
+			if err := scopeAttestorSetKeys(attestorSet, namespace, fmt.Sprintf(".attestations[%d].attestors[%d]", i, j)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func scopeAttestorSetKeys(attestorSet kyvernov1.AttestorSet, namespace, path string) error {
+	for i, entry := range ExpandStaticKeys(attestorSet).Entries {
+		entryPath := fmt.Sprintf("%s.entries[%d]", path, i)
+		if entry.Attestor != nil {
+			nested, err := kyvernov1.AttestorSetUnmarshal(entry.Attestor)
+			if err != nil {
+				// verifyAttestorSet fails this entry the same way and builds
+				// no verifier from it, so there is no key to confine.
+				continue
+			}
+			if err := scopeAttestorSetKeys(*nested, namespace, entryPath+".attestor"); err != nil {
+				return err
+			}
+			continue
+		}
+		if entry.Keys == nil {
+			continue
+		}
+		if err := scopeKeySources(entry.Keys, namespace); err != nil {
+			return fmt.Errorf("%s.keys%w", entryPath, err)
+		}
+	}
+	return nil
+}
+
+// scopeKeySources confines every populated key source, not only the one
+// attestorKeyRef selects for the verifier, so a stored policy is held to the
+// same rule admission applies.
+func scopeKeySources(keys *kyvernov1.StaticKeyAttestor, namespace string) error {
+	if keys.PublicKeys != "" {
+		if _, err := kubeutils.ScopeKeyReference(keys.PublicKeys, namespace); err != nil {
+			return &keyScopeError{err: fmt.Errorf(".publicKeys: %w", err)}
+		}
+	}
+	if keys.Secret != nil {
+		if _, err := kubeutils.ScopeKeySecret(keys.Secret.Namespace, keys.Secret.Name, namespace); err != nil {
+			return &keyScopeError{err: fmt.Errorf(".secret: %w", err)}
+		}
+	}
+	if keys.KMS != "" {
+		if _, err := kubeutils.ScopeKeyReference(keys.KMS, namespace); err != nil {
+			return &keyScopeError{err: fmt.Errorf(".kms: %w", err)}
+		}
+	}
+	return nil
 }
 
 func (iv *imageVerifier) buildCosignVerifier(
@@ -632,7 +801,7 @@ func (iv *imageVerifier) buildCosignVerifier(
 	imageVerify kyvernov1.ImageVerification,
 	image string,
 	attestation *kyvernov1.Attestation,
-) (verifiers.ImageVerifier, *verifiers.Options, string) {
+) (verifiers.ImageVerifier, *verifiers.Options, string, error) {
 	path := ""
 	opts := &verifiers.Options{
 		ImageRef:           image,
@@ -664,12 +833,14 @@ func (iv *imageVerifier) buildCosignVerifier(
 
 	if attestor.Keys != nil {
 		path = path + ".keys"
-		if attestor.Keys.PublicKeys != "" {
-			opts.Key = attestor.Keys.PublicKeys
-		} else if attestor.Keys.Secret != nil {
-			opts.Key = fmt.Sprintf("k8s://%s/%s", attestor.Keys.Secret.Namespace, attestor.Keys.Secret.Name)
-		} else if attestor.Keys.KMS != "" {
-			opts.Key = attestor.Keys.KMS
+		// Verify checks these up front; confine them here too so no caller
+		// can reach cosign with an unchecked reference.
+		namespace, err := iv.keyScopeNamespace()
+		if err != nil {
+			return nil, nil, path, err
+		}
+		if opts.Key, err = attestorKeyRef(attestor.Keys, namespace); err != nil {
+			return nil, nil, path, err
 		}
 		if attestor.Keys.Rekor != nil {
 			opts.RekorURL = attestor.Keys.Rekor.URL
@@ -745,7 +916,7 @@ func (iv *imageVerifier) buildCosignVerifier(
 	}
 
 	iv.logger.V(4).Info("cosign verifier built", "ignoreTlog", opts.IgnoreTlog, "ignoreSCT", opts.IgnoreSCT, "image", image)
-	return cosign.NewVerifier(), opts, path
+	return cosign.NewVerifier(), opts, path, nil
 }
 
 func (iv *imageVerifier) buildNotaryVerifier(

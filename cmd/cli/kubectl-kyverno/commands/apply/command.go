@@ -946,6 +946,8 @@ func (c *ApplyCommandConfig) applyCleanupPolicies(
 		// Prepare an engine context and load policy context entries once.
 		// The condition evaluation will update the target resource and namespace for each candidate.
 		engineCtx := enginecontext.NewContext(jp)
+		// Match the cleanup controller: the policy's own scope drives the
+		// context clamps, so the CLI reports the same errors the cluster would.
 		ctxLoader := ctxFactory(cp, kyvernov1.Rule{})
 		if err := ctxLoader.Load(context.TODO(), jp, dclient, nil, spec.Context, engineCtx); err != nil {
 			for _, resource := range resources {
