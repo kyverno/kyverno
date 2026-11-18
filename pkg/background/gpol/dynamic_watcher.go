@@ -893,15 +893,26 @@ func (wm *WatchManager) syncSourceDownstreams(watcher *watcher, obj *unstructure
 		common.GenerateSourceUIDLabel: string(uid),
 	}
 	selector := &metav1.LabelSelector{MatchLabels: sourceLabel}
+	// The whole list+retry sequence is bounded so a hung API call cannot block
+	// SyncWatchers, cache invalidation and unrelated watch events behind wm.lock
+	// indefinitely. A healthy API server answers in milliseconds; 5s comfortably
+	// exceeds the 300ms max backoff plus three healthy list latencies.
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
 	var downstreams *unstructured.UnstructuredList
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
 		if attempt > 0 {
 			backoff := time.Duration(attempt) * 100 * time.Millisecond
 			wm.log.Info("retrying downstream resource list", "attempt", attempt+1, "backoff", backoff)
-			time.Sleep(backoff)
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				wm.log.Error(nil, "downstream list retry abandoned after timeout", "timeout", 5*time.Second)
+				return
+			}
 		}
-		downstreams, err = wm.client.ListResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), "", selector)
+		downstreams, err = wm.client.ListResource(ctx, obj.GetAPIVersion(), obj.GetKind(), "", selector)
 		if err == nil {
 			break
 		}
