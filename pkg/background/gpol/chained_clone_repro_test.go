@@ -3,6 +3,7 @@ package gpol
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -163,6 +164,11 @@ func TestChainedCloneSynchronization(t *testing.T) {
 				if scenario == "tamper-control" {
 					require.Equal(t, "v1", version("hub"), "P1 must continue reverting unauthorized hub edits")
 					require.Equal(t, "v1", version("leaf"), "tampered content must not reach P2's leaf")
+					for _, wr := range client.writes {
+						if strings.HasPrefix(wr.key, "leaf/") {
+							require.Equal(t, "v1", wr.version, "a write to P2's leaf must carry the trusted v1 value")
+						}
+					}
 					return
 				}
 				require.Equal(t, "v2", version("hub"), "the first hop must succeed")
