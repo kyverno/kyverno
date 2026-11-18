@@ -68,9 +68,12 @@ func Command() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				defer f.Close()
-				_, err = f.Write(buf.Bytes())
-				return err
+				_, writeErr := f.Write(buf.Bytes())
+				closeErr := f.Close()
+				if writeErr != nil {
+					return writeErr
+				}
+				return closeErr
 			}
 			_, err = cmd.OutOrStdout().Write(buf.Bytes())
 			return err
