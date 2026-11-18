@@ -108,7 +108,7 @@ func TestChainedCloneSynchronization(t *testing.T) {
 	previous := libs.LibraryContext
 	t.Cleanup(func() { libs.LibraryContext = previous })
 	for _, ssa := range []bool{false, true} {
-		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error"} {
+		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error", "list-error-recovery"} {
 			t.Run(fmt.Sprintf("%s/ssa=%t", scenario, ssa), func(t *testing.T) {
 				ctx := context.Background()
 				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
@@ -318,6 +318,43 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					drain()
 					require.Equal(t, "v2", version("hub"), "the first hop must succeed once the list recovers")
 					require.Equal(t, "v2", version("leaf"), "an accepted hub update must propagate to the second policy's clone")
+					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					return
+				}
+				// list-error-recovery: fail listing only after seed→hub hop succeeds.
+				// First, converge the chain to v2 (seed→hub→leaf). Then set listErr,
+				// deliver a v3 seed update; assert hub/leaf stay at v2, no writes.
+				// This covers recovery through the accepted cached-hub path: the hub's
+				// accepted state is cached, so a subsequent list failure doesn't lose it.
+				if scenario == "list-error-recovery" {
+					// Phase 1: converge chain to v2
+					changed := seed.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					drain()
+					require.Equal(t, "v2", version("hub"), "phase 1: hub must reach v2")
+					require.Equal(t, "v2", version("leaf"), "phase 1: leaf must reach v2")
+					// Phase 2: fail listing during v3 seed update (use current seed from client.objects)
+					client.listErr = fmt.Errorf("transient list failure")
+					changed = client.objects["seed/settings"].DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v3", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					client.writes = nil // count only watcher writes
+					drain()
+					require.Empty(t, client.writes, "failed downstream list must not cause watcher writes")
+					require.Equal(t, "v2", version("hub"), "failed list must leave hub at v2")
+					require.Equal(t, "v2", version("leaf"), "failed list must leave leaf at v2")
+					// Phase 3: list recovers, deliver v4 update; chain converges to v4
+					client.listErr = nil
+					changed = client.objects["seed/settings"].DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v4", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					drain()
+					require.Equal(t, "v4", version("hub"), "phase 3: hub must reach v4 after recovery")
+					require.Equal(t, "v4", version("leaf"), "phase 3: leaf must reach v4 after recovery")
 					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
 					return
 				}
