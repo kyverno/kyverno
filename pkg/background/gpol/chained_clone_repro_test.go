@@ -102,7 +102,7 @@ func TestChainedCloneSynchronization(t *testing.T) {
 	previous := libs.LibraryContext
 	t.Cleanup(func() { libs.LibraryContext = previous })
 	for _, ssa := range []bool{false, true} {
-		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "no-op-convergence"} {
+		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "no-op-convergence", "invalidated-entry"} {
 			t.Run(fmt.Sprintf("%s/ssa=%t", scenario, ssa), func(t *testing.T) {
 				ctx := context.Background()
 				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
@@ -205,6 +205,25 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
 					require.Equal(t, "v2", version("hub"))
 					require.Equal(t, "v2", version("leaf"))
+					return
+				}
+				// invalidated-entry check: an invalidated hub cache entry (Hash == "",
+				// as InvalidateDownstreams does) must not distribute an updated hub to
+				// the leaf that clones from it
+				if scenario == "invalidated-entry" {
+					cachedHub := w.metadataCache[hub.GetUID()]
+					cachedHub.Hash = "" // invalidate, as InvalidateDownstreams does
+					w.metadataCache[hub.GetUID()] = cachedHub
+					changed := hub.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					client.writes = nil // count only watcher writes
+					drain()
+					require.Empty(t, client.writes, "an invalidated entry must not trigger any watcher writes")
+					require.Equal(t, "v2", version("hub"), "the hub update itself is applied")
+					require.Equal(t, "v1", version("leaf"), "an invalidated hub entry must not distribute to P2's leaf")
+					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
 					return
 				}
 				changed := seed.DeepCopy()
