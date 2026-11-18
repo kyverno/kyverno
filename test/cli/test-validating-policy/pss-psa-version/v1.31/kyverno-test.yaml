@@ -1,0 +1,88 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pss-psa-version-v1-31
+policies:
+- policy.yaml
+resources:
+- ../resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-proc-mount
+  resources:
+  - proc-mount-host-users-false
+  - proc-mount-host-users-unset
+  - userns-false-init-proc-mount-unmasked
+  - userns-true-proc-mount-unmasked
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-proc-mount
+  resources:
+  - compliant
+  result: pass
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-selinux
+  resources:
+  - compliant
+  - selinux-container-engine-t
+  - selinux-pod-container-engine-t
+  - selinux-init-container-engine-t
+  - selinux-ephemeral-container-engine-t
+  result: pass
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-run-as-non-root-user
+  resources:
+  - run-as-user-0-host-users-false
+  - userns-false-ctr-run-as-user-0
+  - userns-false-ephemeral-run-as-user-0
+  - userns-unset-run-as-user-0
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-run-as-non-root-user
+  resources:
+  - compliant
+  result: pass
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-run-as-nonroot
+  resources:
+  - run-as-root-allowed-host-users-false
+  - userns-false-run-as-non-root-false
+  - userns-false-ctr-run-as-non-root-false
+  - userns-true-no-run-as-non-root
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-run-as-nonroot
+  resources:
+  - compliant
+  result: pass
+- isValidatingPolicy: true
+  kind: Pod
+  policy: restrict-sysctls
+  resources:
+  - sysctl-v1-32
+  - sysctl-v1-37
+  - sysctl-net-ipv4-tcp-rmem
+  - sysctl-net-ipv4-tcp-wmem
+  - sysctl-net-ipv4-tcp-slow-start-after-idle
+  - sysctl-net-ipv4-tcp-notsent-lowat
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: restrict-sysctls
+  resources:
+  - compliant
+  - sysctl-v1-27
+  - sysctl-v1-29
+  - sysctl-net-ipv4-ip-local-reserved-ports
+  - sysctl-net-ipv4-tcp-keepalive-time
+  - sysctl-net-ipv4-tcp-fin-timeout
+  - sysctl-net-ipv4-tcp-keepalive-intvl
+  - sysctl-net-ipv4-tcp-keepalive-probes
+  result: pass

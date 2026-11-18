@@ -14,9 +14,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	imagecredentials "github.com/kyverno/kyverno/pkg/image/verification/credentials"
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
@@ -31,7 +33,6 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/user"
 	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
-	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -72,14 +73,25 @@ type compilerImpl struct {
 }
 
 func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException, verifications *imageverify.ImageVerificationResults) (CompiledPolicy, field.ErrorList) {
-	var allErrs field.ErrorList
+	ivpolicy, allErrs := imagecredentials.ScopePolicy(ivpolicy)
+	if len(allErrs) != 0 {
+		return nil, allErrs
+	}
 
+	lister := kubeutils.ScopeSecretLister(c.lister, ivpolicy.GetNamespace())
+	// A bare Secret name belongs to the policy's own namespace, and only a
+	// cluster-scoped policy falls back to Kyverno's. ScopePolicy has already
+	// rewritten namespaced references to canonical namespace/name, so this is
+	// belt-and-braces today, but it keeps a future path that reaches
+	// RemoteOptions without ScopePolicy from silently resolving bare names in
+	// the installation namespace again.
+	credentialNamespace := kubeutils.CredentialNamespace(lister, config.KyvernoNamespace())
 	spec := ivpolicy.GetSpec()
 
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
 	if spec.Credentials != nil {
-		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(c.lister, *spec.Credentials, config.KyvernoNamespace(), logging.WithName("imageverify"))
+		authOpts, nameOpts = imagecredentials.RemoteOptions(lister, *spec.Credentials, credentialNamespace, logging.WithName("imageverify"))
 	}
 
 	// keep required failing closed rather than reading from nil
@@ -87,7 +99,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		verifications = imageverify.NewImageVerificationResults()
 	}
 
-	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts, verifications)
+	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, lister, authOpts, verifications)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
@@ -197,7 +209,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}, nil
 }
 
-func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike, remoteOpts []remote.Option, verifications *imageverify.ImageVerificationResults) (*environment.EnvSet, *engine.VariablesProvider, error) {
+func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister, remoteOpts []remote.Option, verifications *imageverify.ImageVerificationResults) (*environment.EnvSet, *engine.VariablesProvider, error) {
 	baseOpts := engine.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(engine.ResourceKey, resource.ContextType),
@@ -246,7 +258,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			remoteOpts,
 		),
 		imageverify.Lib(
-			imageverify.Latest(), c.ictx, ivpol, c.lister,
+			imageverify.Latest(), c.ictx, ivpol, lister,
 			logging.WithName("ivpol/imageverify").WithValues("policy", ivpol.GetName(), "namespace", namespace),
 			c.ivCache,
 			verifications,

@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -574,7 +575,11 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	if !autoUpdateWebhooks {
 		if desired.Name == config.ValidatingWebhookConfigurationName {
 			_, err := controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
-				setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(caData))
+				if toggle.FromContext(ctx).ProtectGenerationLabels() {
+					setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(ctx, caData))
+				} else {
+					w.Webhooks = removeGenerationLabelProtectionWebhook(w.Webhooks)
+				}
 				return nil
 			})
 			return err
@@ -1184,59 +1189,62 @@ func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookC
 	return mutatingWebhooks
 }
 
-func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	sideEffects := &none
 	if c.admissionReports {
 		sideEffects = &noneOnDryRun
 	}
-	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-			ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
-			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
-				Name:         config.ValidatingWebhookName + "-ignore",
-				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/ignore"),
-				Rules: []admissionregistrationv1.RuleWithOperations{{
-					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{"*"},
-						APIVersions: []string{"*"},
-						Resources:   []string{"*/*"},
-					},
-					Operations: []admissionregistrationv1.OperationType{
-						admissionregistrationv1.Create,
-						admissionregistrationv1.Update,
-						admissionregistrationv1.Delete,
-						admissionregistrationv1.Connect,
-					},
-				}},
-				FailurePolicy:           &ignore,
-				SideEffects:             sideEffects,
-				AdmissionReviewVersions: []string{"v1"},
-				TimeoutSeconds:          &c.defaultTimeout,
-				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			}, {
-				Name:         config.ValidatingWebhookName + "-fail",
-				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/fail"),
-				Rules: []admissionregistrationv1.RuleWithOperations{{
-					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{"*"},
-						APIVersions: []string{"*"},
-						Resources:   []string{"*/*"},
-					},
-					Operations: []admissionregistrationv1.OperationType{
-						admissionregistrationv1.Create,
-						admissionregistrationv1.Update,
-						admissionregistrationv1.Delete,
-						admissionregistrationv1.Connect,
-					},
-				}},
-				FailurePolicy:           &fail,
-				MatchConditions:         bootstrapExclusionMatchConditions(c.excludeBootstrapResources),
-				SideEffects:             sideEffects,
-				AdmissionReviewVersions: []string{"v1"},
-				TimeoutSeconds:          &c.defaultTimeout,
-				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			}, c.buildGenerationLabelProtectionWebhook(caBundle)},
-		},
-		nil
+	webhookConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{
+		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
+		Webhooks: []admissionregistrationv1.ValidatingWebhook{{
+			Name:         config.ValidatingWebhookName + "-ignore",
+			ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/ignore"),
+			Rules: []admissionregistrationv1.RuleWithOperations{{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{"*"},
+					APIVersions: []string{"*"},
+					Resources:   []string{"*/*"},
+				},
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
+					admissionregistrationv1.Update,
+					admissionregistrationv1.Delete,
+					admissionregistrationv1.Connect,
+				},
+			}},
+			FailurePolicy:           &ignore,
+			SideEffects:             sideEffects,
+			AdmissionReviewVersions: []string{"v1"},
+			TimeoutSeconds:          &c.defaultTimeout,
+			MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
+		}, {
+			Name:         config.ValidatingWebhookName + "-fail",
+			ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/fail"),
+			Rules: []admissionregistrationv1.RuleWithOperations{{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{"*"},
+					APIVersions: []string{"*"},
+					Resources:   []string{"*/*"},
+				},
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
+					admissionregistrationv1.Update,
+					admissionregistrationv1.Delete,
+					admissionregistrationv1.Connect,
+				},
+			}},
+			FailurePolicy:           &fail,
+			MatchConditions:         bootstrapExclusionMatchConditions(c.excludeBootstrapResources),
+			SideEffects:             sideEffects,
+			AdmissionReviewVersions: []string{"v1"},
+			TimeoutSeconds:          &c.defaultTimeout,
+			MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
+		}},
+	}
+	if toggle.FromContext(ctx).ProtectGenerationLabels() {
+		webhookConfig.Webhooks = append(webhookConfig.Webhooks, c.buildGenerationLabelProtectionWebhook(ctx, caBundle))
+	}
+	return webhookConfig, nil
 }
 
 func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
@@ -1257,7 +1265,9 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 	// Metadata protection is independent of policy selectors and applies the same
 	// configured bootstrap exclusion. Its association selector skips ordinary resources.
 	excludeBootstrapResourcesFromValidatingWebhooks(webhookConfig.Webhooks, c.excludeBootstrapResources)
-	webhookConfig.Webhooks = append(webhookConfig.Webhooks, c.buildGenerationLabelProtectionWebhook(caBundle))
+	if toggle.FromContext(ctx).ProtectGenerationLabels() {
+		webhookConfig.Webhooks = append(webhookConfig.Webhooks, c.buildGenerationLabelProtectionWebhook(ctx, caBundle))
+	}
 
 	slices.SortFunc(webhookConfig.Webhooks, func(a, b admissionregistrationv1.ValidatingWebhook) int {
 		return strings.Compare(a.Name, b.Name)

@@ -2,10 +2,12 @@ package generate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -21,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 )
 
 // failingDeleteClient wraps dclient.Interface and overrides DeleteResource to
@@ -311,4 +315,303 @@ func authenticateCleanupRecord(t *testing.T, controller *GenerateController, ur 
 	require.NoError(t, err)
 	target.SetAnnotations(map[string]string{provenance.Annotation: stamp})
 	controller.client.(*failingDeleteClient).target = target
+}
+
+func cloneListDownstreamSecret(name, namespace, sourceUID string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+				"labels": map[string]interface{}{
+					common.GeneratePolicyLabel:          "sync-secrets",
+					common.GeneratePolicyNamespaceLabel: "",
+					kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+					// both downstreams share the same trigger (the target Namespace)
+					common.GenerateTriggerGroupLabel:   "",
+					common.GenerateTriggerVersionLabel: "v1",
+					common.GenerateTriggerKindLabel:    "Namespace",
+					common.GenerateTriggerNSLabel:      "",
+					common.GenerateTriggerUIDLabel:     "trigger-uid-123",
+					// each downstream references a distinct clone source
+					common.GenerateSourceUIDLabel: sourceUID,
+					common.GenerateRuleLabel:      "sync-secret",
+				},
+			},
+		},
+	}
+}
+
+// newCloneListFixtures builds two provenance-signed downstreams that share one
+// trigger but were cloned from different sources, plus the owning policy.
+func newCloneListFixtures(t *testing.T) (dclient.Interface, *provenance.Store, *kyvernov1.ClusterPolicy) {
+	t.Helper()
+	ds1 := cloneListDownstreamSecret("dummy-secret-1", "certs-replicated", "source-uid-1")
+	ds2 := cloneListDownstreamSecret("dummy-secret-2", "certs-replicated", "source-uid-2")
+
+	// cleanup only deletes downstreams carrying a valid provenance stamp
+	policy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "sync-secrets", UID: "sync-secrets-uid"},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "sync-secret",
+					Generation: &kyvernov1.Generation{
+						Synchronize: true,
+						GeneratePattern: kyvernov1.GeneratePattern{
+							CloneList: kyvernov1.CloneList{
+								Namespace: "certs",
+								Kinds:     []string{"v1/Secret"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	kube := kubefake.NewSimpleClientset()
+	require.NoError(t, provenance.EnsureKey(t.Context(), kube.CoreV1().Secrets(config.KyvernoNamespace())))
+	store := provenance.NewStore(kube)
+	for _, ds := range []*unstructured.Unstructured{ds1, ds2} {
+		ds.SetUID(types.UID("uid-" + ds.GetName()))
+		stamp, err := store.Sign(t.Context(), policy, ds)
+		require.NoError(t, err)
+		ds.SetAnnotations(map[string]string{provenance.Annotation: stamp})
+	}
+
+	scheme := runtime.NewScheme()
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "secrets"}:    "SecretList",
+		{Group: "", Version: "v1", Resource: "namespaces"}: "NamespaceList",
+	}
+	client, err := dclient.NewFakeClient(scheme, gvrToListKind, ds1, ds2)
+	require.NoError(t, err)
+	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	return client, store, policy
+}
+
+// TestHandleNonPolicyChanges_CloneListScopedToDeletedSource is the regression test
+// for https://github.com/kyverno/kyverno/issues/9654 : when a single clone source
+// is deleted, only the downstream cloned from that source is removed, not every
+// downstream sharing the same trigger.
+func TestHandleNonPolicyChanges_CloneListScopedToDeletedSource(t *testing.T) {
+	client, store, policy := newCloneListFixtures(t)
+
+	controller := &GenerateController{
+		client:     client,
+		provenance: store,
+		log:        logr.Discard(),
+	}
+
+	ruleContext := kyvernov2.RuleContext{
+		Rule: "sync-secret",
+		Trigger: kyvernov1.ResourceSpec{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+			Name:       "certs-replicated",
+			UID:        "trigger-uid-123",
+		},
+	}
+
+	// the deleted source secret (dummy-secret-1) carries the clone-source tag
+	deletedSource := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Secret",
+		"metadata": map[string]interface{}{
+			"name":      "dummy-secret-1",
+			"namespace": "certs",
+			"uid":       "source-uid-1",
+			"labels": map[string]interface{}{
+				common.GenerateTypeCloneSourceLabel: "",
+			},
+		},
+	}
+	raw, err := json.Marshal(deletedSource)
+	assert.NoError(t, err)
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ur"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+					Operation: admissionv1.Delete,
+					AdmissionRequest: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Delete,
+						Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"},
+						Namespace: "certs",
+						OldObject: runtime.RawExtension{Raw: raw},
+					},
+				},
+			},
+		},
+	}
+
+	assert.NoError(t, controller.handleNonPolicyChanges(policy, ruleContext, ur))
+
+	// dummy-secret-1's clone must be deleted
+	_, err = client.GetResource(context.TODO(), "v1", "Secret", "certs-replicated", "dummy-secret-1")
+	assert.True(t, apierrors.IsNotFound(err), "dummy-secret-1 clone should have been deleted")
+
+	// dummy-secret-2's clone must be retained
+	remaining, err := client.GetResource(context.TODO(), "v1", "Secret", "certs-replicated", "dummy-secret-2")
+	assert.NoError(t, err, "dummy-secret-2 clone should be retained")
+	assert.NotNil(t, remaining)
+}
+
+// secretRaw marshals a minimal Secret with the given uid and labels.
+func secretRaw(t *testing.T, name, namespace, uid string, labels map[string]interface{}) []byte {
+	t.Helper()
+	meta := map[string]interface{}{"name": name, "namespace": namespace, "uid": uid}
+	if labels != nil {
+		meta["labels"] = labels
+	}
+	raw, err := json.Marshal(map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Secret",
+		"metadata":   meta,
+	})
+	assert.NoError(t, err)
+	return raw
+}
+
+// TestDeletedCloneSourceUID exercises every branch of the helper that decides
+// whether a delete request must be scoped to a specific clone source.
+func TestDeletedCloneSourceUID(t *testing.T) {
+	controller := &GenerateController{log: logr.Discard()}
+
+	newUR := func(req *admissionv1.AdmissionRequest) *kyvernov2.UpdateRequest {
+		return &kyvernov2.UpdateRequest{
+			Spec: kyvernov2.UpdateRequestSpec{
+				Context: kyvernov2.UpdateRequestSpecContext{
+					AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+						AdmissionRequest: req,
+					},
+				},
+			},
+		}
+	}
+
+	cloneSourceLabels := map[string]interface{}{common.GenerateTypeCloneSourceLabel: ""}
+
+	tests := []struct {
+		name string
+		ur   *kyvernov2.UpdateRequest
+		want string
+	}{
+		{
+			name: "no admission request",
+			ur:   newUR(nil),
+			want: "",
+		},
+		{
+			name: "non-delete operation",
+			ur: newUR(&admissionv1.AdmissionRequest{
+				Operation: admissionv1.Update,
+				OldObject: runtime.RawExtension{Raw: secretRaw(t, "s", "certs", "uid-1", cloneSourceLabels)},
+			}),
+			want: "",
+		},
+		{
+			name: "delete but old object is malformed",
+			ur: newUR(&admissionv1.AdmissionRequest{
+				Operation: admissionv1.Delete,
+				OldObject: runtime.RawExtension{Raw: []byte("{not-json")},
+			}),
+			want: "",
+		},
+		{
+			name: "delete of a non clone source (no clone-source label)",
+			ur: newUR(&admissionv1.AdmissionRequest{
+				Operation: admissionv1.Delete,
+				Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+				OldObject: runtime.RawExtension{Raw: secretRaw(t, "trigger", "certs", "uid-2", nil)},
+			}),
+			want: "",
+		},
+		{
+			name: "delete of a clone source",
+			ur: newUR(&admissionv1.AdmissionRequest{
+				Operation: admissionv1.Delete,
+				Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+				OldObject: runtime.RawExtension{Raw: secretRaw(t, "dummy-secret-1", "certs", "source-uid-1", cloneSourceLabels)},
+			}),
+			want: "source-uid-1",
+		},
+		{
+			name: "delete of a trigger that is also a clone source",
+			ur: newUR(&admissionv1.AdmissionRequest{
+				Operation: admissionv1.Delete,
+				Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+				OldObject: runtime.RawExtension{Raw: secretRaw(t, "trigger", "certs", "trigger-uid", cloneSourceLabels)},
+			}),
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, controller.deletedCloneSourceUID(tt.ur, "trigger-uid"))
+		})
+	}
+}
+
+// TestProcessUR_CloneSourceDeletionScopedEndToEnd drives the real background path
+// for a deleted clone source: ProcessUR resolves the trigger through
+// common.GetTrigger (which treats the deleted source as the admission object),
+// then cleanup must still use the UpdateRequest's rule trigger (the Namespace)
+// to find the downstreams, and delete only the one cloned from that source.
+func TestProcessUR_CloneSourceDeletionScopedEndToEnd(t *testing.T) {
+	client, store, policy := newCloneListFixtures(t)
+	statusControl := &fakeStatusControl{}
+	controller := &GenerateController{
+		client:        client,
+		provenance:    store,
+		statusControl: statusControl,
+		policyLister:  &fakeClusterPolicyLister{policy: policy},
+		npolicyLister: &fakePolicyLister{},
+		eventGen:      event.NewFake(),
+		log:           logr.Discard(),
+	}
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ur", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.Generate,
+			Policy: policy.GetName(),
+			RuleContext: []kyvernov2.RuleContext{{
+				Rule:             "sync-secret",
+				DeleteDownstream: true,
+				Trigger: kyvernov1.ResourceSpec{
+					APIVersion: "v1",
+					Kind:       "Namespace",
+					Name:       "certs-replicated",
+					UID:        "trigger-uid-123",
+				},
+			}},
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+					Operation: admissionv1.Delete,
+					AdmissionRequest: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Delete,
+						Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+						Namespace: "certs",
+						OldObject: runtime.RawExtension{Raw: secretRaw(t, "dummy-secret-1", "certs", "source-uid-1",
+							map[string]interface{}{common.GenerateTypeCloneSourceLabel: ""})},
+					},
+				},
+			},
+		},
+	}
+
+	require.NoError(t, controller.ProcessUR(ur))
+	assert.True(t, statusControl.successCalled, "UR must complete successfully")
+	assert.False(t, statusControl.failedCalled)
+
+	_, err := client.GetResource(context.TODO(), "v1", "Secret", "certs-replicated", "dummy-secret-1")
+	assert.True(t, apierrors.IsNotFound(err), "the clone of the deleted source must be removed")
+	_, err = client.GetResource(context.TODO(), "v1", "Secret", "certs-replicated", "dummy-secret-2")
+	assert.NoError(t, err, "the clone of the other source must be retained")
 }
