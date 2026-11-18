@@ -26,7 +26,12 @@ func (e *engine) verifyAndPatchImages(
 	ivm := engineapi.ImageVerificationMetadata{}
 
 	policyContext.JSONContext().Checkpoint()
-	defer policyContext.JSONContext().Restore()
+	// This is the outermost checkpoint for a single policy's verifyImages
+	// evaluation. The JSONContext is reused across policies (WithPolicy only
+	// swaps the policy reference), so any attestation data persisted via
+	// Persist() to survive restores across rules within this loop must not
+	// carry past this boundary into the next policy's evaluation.
+	defer policyContext.JSONContext().RestoreAndClearPersisted()
 
 	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		startTime := time.Now()

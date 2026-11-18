@@ -24,7 +24,13 @@ func (e *engine) validate(
 	applyRules := policy.GetSpec().GetApplyRules()
 
 	policyContext.JSONContext().Checkpoint()
-	defer policyContext.JSONContext().Restore()
+	// This is the outermost checkpoint for a single policy's validate
+	// evaluation, which also covers verifyImageChecks rules. The JSONContext
+	// is reused across policies (WithPolicy only swaps the policy reference),
+	// so any attestation data persisted via Persist() to survive restores
+	// across rules within this loop must not carry past this boundary into
+	// the next policy's evaluation.
+	defer policyContext.JSONContext().RestoreAndClearPersisted()
 
 	gvk, _ := policyContext.ResourceKind()
 	for _, rule := range autogen.Default.ComputeRules(policy, gvk.Kind) {
