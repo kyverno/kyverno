@@ -3,6 +3,7 @@ package gpol
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 
@@ -65,6 +66,12 @@ func (c *chainReproClient) ListResource(_ context.Context, _, _, namespace strin
 			list.Items = append(list.Items, *obj.DeepCopy())
 		}
 	}
+	sort.Slice(list.Items, func(i, j int) bool {
+		if list.Items[i].GetNamespace() != list.Items[j].GetNamespace() {
+			return list.Items[i].GetNamespace() < list.Items[j].GetNamespace()
+		}
+		return list.Items[i].GetName() < list.Items[j].GetName()
+	})
 	return list, nil
 }
 
@@ -282,9 +289,14 @@ func TestChainedCloneSynchronization(t *testing.T) {
 				}
 				// invalidated-downstream check: an invalidated leaf cache entry (Hash == "",
 				// as InvalidateDownstreams does) must not be resurrected when the hub updates.
-				// The seed update should propagate: seed -> hub (accepted) -> leaf (skipped because invalidated).
-				// The hub should reach v2, the leaf must stay at v1, and no write to the leaf should occur.
+				// The seed update should propagate: seed -> hub (accepted) -> leaf (skipped because invalidated)
+				// while an active sibling leaf in namespace "sibling" still reaches v2.
+				// The fake's ListResource returns items sorted by namespace/name so the
+				// invalidated leaf is genuinely first, distinguishing continue from return.
 				if scenario == "invalidated-downstream" {
+					sibling := clone("hub-to-leaf", "sibling", hub)
+					require.Equal(t, string(hub.GetUID()), sibling.GetLabels()[common.GenerateSourceUIDLabel])
+					w.metadataCache[sibling.GetUID()] = cached(sibling)
 					cachedLeaf := w.metadataCache[leaf.GetUID()]
 					cachedLeaf.Hash = "" // invalidate, as InvalidateDownstreams does
 					w.metadataCache[leaf.GetUID()] = cachedLeaf
@@ -294,13 +306,14 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					require.NoError(t, err)
 					client.writes = nil // count only watcher writes
 					drain()
-					// Hub write is expected (seed -> hub), but no leaf write should occur
+					// Hub write is expected (seed -> hub) and sibling must be updated, but no leaf write should occur
 					for _, wr := range client.writes {
 						require.False(t, strings.HasPrefix(wr.key, "leaf/"), "an invalidated leaf entry must not trigger any watcher writes")
 					}
 					require.Equal(t, "v2", version("hub"), "the hub update is applied")
+					require.Equal(t, "v2", version("sibling"), "the active sibling leaf must still reach v2")
 					require.Equal(t, "v1", version("leaf"), "an invalidated leaf entry must not be resurrected by hub update")
-					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					t.Logf("hub=%s leaf=%s sibling=%s watcherWrites=%v", version("hub"), version("leaf"), version("sibling"), client.writes)
 					return
 				}
 				// list-error check: a transient downstream-list failure must not panic
