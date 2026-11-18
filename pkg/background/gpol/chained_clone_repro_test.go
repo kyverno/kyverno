@@ -37,6 +37,9 @@ type chainReproClient struct {
 	// listErr, when set, makes ListResource fail the way the real client can:
 	// a nil list with an error.
 	listErr error
+	// listFailCount, when positive, makes the next N ListResource calls fail
+	// with a transient error then succeed. Used by list-error-retry.
+	listFailCount int
 }
 
 // recordedWrite is one acknowledged write: its key and the data.version it carried.
@@ -53,6 +56,10 @@ func (c *chainReproClient) GetResource(_ context.Context, _, _kind, namespace, n
 }
 
 func (c *chainReproClient) ListResource(_ context.Context, _, _, namespace string, selector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	if c.listFailCount > 0 {
+		c.listFailCount--
+		return nil, fmt.Errorf("transient list failure")
+	}
 	if c.listErr != nil {
 		return nil, c.listErr
 	}
@@ -115,7 +122,7 @@ func TestChainedCloneSynchronization(t *testing.T) {
 	previous := libs.LibraryContext
 	t.Cleanup(func() { libs.LibraryContext = previous })
 	for _, ssa := range []bool{false, true} {
-		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error", "list-error-recovery", "aliased-clone-data"} {
+		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error", "list-error-recovery", "list-error-retry", "aliased-clone-data"} {
 			t.Run(fmt.Sprintf("%s/ssa=%t", scenario, ssa), func(t *testing.T) {
 				ctx := context.Background()
 				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
@@ -368,6 +375,23 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					wm.handleUpdate(client.objects["hub/settings"].DeepCopy(), gvr)
 					drain()
 					require.Equal(t, "v2", version("leaf"), "replaying the hub event must propagate the accepted hub state to the leaf")
+					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					return
+				}
+				// list-error-retry: transient downstream-list failures are retried inline.
+				// The first 2 list attempts fail, the 3rd succeeds; with no hand-delivered
+				// replay event the bounded retry must converge the chain to v2.
+				if scenario == "list-error-retry" {
+					client.listFailCount = 2
+					changed := seed.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					client.writes = nil // count only watcher writes
+					drain()
+					require.Equal(t, "v2", version("hub"), "the first hop must succeed after transient list retries")
+					require.Equal(t, "v2", version("leaf"), "an accepted hub update must propagate to the second policy's clone after transient list retries")
+					require.Zero(t, client.listFailCount, "all injected list failures must be consumed by retries")
 					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
 					return
 				}

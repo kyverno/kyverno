@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -892,7 +893,19 @@ func (wm *WatchManager) syncSourceDownstreams(watcher *watcher, obj *unstructure
 		common.GenerateSourceUIDLabel: string(uid),
 	}
 	selector := &metav1.LabelSelector{MatchLabels: sourceLabel}
-	downstreams, err := wm.client.ListResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), "", selector)
+	var downstreams *unstructured.UnstructuredList
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(attempt) * 100 * time.Millisecond
+			wm.log.Info("retrying downstream resource list", "attempt", attempt+1, "backoff", backoff)
+			time.Sleep(backoff)
+		}
+		downstreams, err = wm.client.ListResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), "", selector)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		wm.log.Error(err, "failed to list downstream resources")
 		return
