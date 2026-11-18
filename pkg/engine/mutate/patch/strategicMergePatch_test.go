@@ -159,6 +159,45 @@ func TestMergePatch(t *testing.T) {
         }
       }`),
 		},
+		{
+			// regression (#16862): a Pod with two matched containers (app,
+			// sidecar) and one unmatched (other). Before the fix, the anchor
+			// cleanup's index shift dropped a container from the merged result;
+			// the matched containers must be patched, all three images retained,
+			// and the unmatched container left unchanged.
+			rawPolicy: []byte(`{
+        "spec": {
+          "containers": [
+            { "(name)": "app",     "imagePullPolicy": "Always" },
+            { "(name)": "sidecar", "imagePullPolicy": "IfNotPresent" }
+          ]
+        }
+      }`),
+			rawResource: []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": { "name": "mypod" },
+        "spec": {
+          "containers": [
+            { "name": "app",     "image": "app:v1" },
+            { "name": "sidecar", "image": "proxy:v1" },
+            { "name": "other",   "image": "other:v1" }
+          ]
+        }
+      }`),
+			expected: []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": { "name": "mypod" },
+        "spec": {
+          "containers": [
+            { "name": "app",     "image": "app:v1",   "imagePullPolicy": "Always" },
+            { "name": "sidecar", "image": "proxy:v1", "imagePullPolicy": "IfNotPresent" },
+            { "name": "other",   "image": "other:v1" }
+          ]
+        }
+      }`),
+		},
 	}
 
 	for i, test := range testCases {
