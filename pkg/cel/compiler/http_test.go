@@ -2,13 +2,28 @@ package compiler
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/toggle"
+	sdkhttp "github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+type immediateHTTPContext struct{}
+
+func (immediateHTTPContext) Get(string, map[string]string) (any, error) {
+	return nil, errors.New("connection refused")
+}
+
+func (immediateHTTPContext) Post(string, any, map[string]string) (any, error) {
+	return nil, errors.New("connection refused")
+}
+
+func (immediateHTTPContext) Client(string) (sdkhttp.ContextInterface, error) {
+	return immediateHTTPContext{}, nil
+}
 func TestNewLazyCELHTTPContext_NeverErrors(t *testing.T) {
 	// Construction must never error even with a completely invalid blocklist,
 	// because the cached context reads flags on first call, not at construction time.
@@ -106,6 +121,17 @@ func TestHTTPContextSeparation(t *testing.T) {
 	})
 
 	t.Run("shared policy blocklist allows in-cluster service CIDRs", func(t *testing.T) {
+		sharedHTTPContext.mu.Lock()
+		previous := sharedHTTPContext.cached
+		sharedHTTPContext.cached = immediateHTTPContext{}
+		sharedHTTPContext.mu.Unlock()
+
+		t.Cleanup(func() {
+			sharedHTTPContext.mu.Lock()
+			sharedHTTPContext.cached = previous
+			sharedHTTPContext.mu.Unlock()
+		})
+
 		ctx := NewLazyCELHTTPContext("")
 		require.NotNil(t, ctx)
 
@@ -121,6 +147,16 @@ func TestHTTPContextSeparation(t *testing.T) {
 	t.Run("opted-in namespaced policies allow in-cluster service CIDRs", func(t *testing.T) {
 		t.Setenv("FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES", "true")
 
+		sharedHTTPContext.mu.Lock()
+		previous := sharedHTTPContext.cached
+		sharedHTTPContext.cached = immediateHTTPContext{}
+		sharedHTTPContext.mu.Unlock()
+
+		t.Cleanup(func() {
+			sharedHTTPContext.mu.Lock()
+			sharedHTTPContext.cached = previous
+			sharedHTTPContext.mu.Unlock()
+		})
 		ctx := NewLazyCELHTTPContext("my-namespace")
 		require.NotNil(t, ctx)
 

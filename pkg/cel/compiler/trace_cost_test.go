@@ -15,9 +15,9 @@ import (
 	"k8s.io/apiserver/pkg/cel/environment"
 )
 
-// costlyExpression runs 20^5 = 3.2M steps, far over the per-call cost limit that the Kubernetes
+// costlyExpression runs 11^5 = 161051 steps, far over the per-call cost limit that the Kubernetes
 // base environment attaches to every program.
-const costlyExpression = "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].all(a, [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].all(b, [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].all(c, [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].all(d, [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].all(e, a+b+c+d+e > 0)))))"
+const costlyExpression = "[1,2,3,4,5,6,7,8,9,10,11].all(a, [1,2,3,4,5,6,7,8,9,10,11].all(b, [1,2,3,4,5,6,7,8,9,10,11].all(c, [1,2,3,4,5,6,7,8,9,10,11].all(d, [1,2,3,4,5,6,7,8,9,10,11].all(e, a+b+c+d+e > 0)))))"
 
 // costLimitedEnv is an env with the Kubernetes per-call cost limit, which NewBaseEnv lacks.
 func costLimitedEnv(t *testing.T) *cel.Env {
