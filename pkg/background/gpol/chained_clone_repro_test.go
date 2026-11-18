@@ -30,8 +30,14 @@ type chainReproClient struct {
 	dclient.Interface
 	objects map[string]*unstructured.Unstructured
 	events  []*unstructured.Unstructured
-	writes  []string
+	writes  []recordedWrite
 	nextRV  int
+}
+
+// recordedWrite is one acknowledged write: its key and the data.version it carried.
+type recordedWrite struct {
+	key     string
+	version string
 }
 
 func (c *chainReproClient) GetResource(_ context.Context, _, _kind, namespace, name string, _ ...string) (*unstructured.Unstructured, error) {
@@ -74,7 +80,8 @@ func (c *chainReproClient) write(obj interface{}, update bool) (*unstructured.Un
 	out.SetResourceVersion(fmt.Sprint(c.nextRV))
 	c.objects[key] = out.DeepCopy()
 	c.events = append(c.events, out.DeepCopy())
-	c.writes = append(c.writes, key)
+	version, _, _ := unstructured.NestedString(out.Object, "data", "version")
+	c.writes = append(c.writes, recordedWrite{key: key, version: version})
 	return out.DeepCopy(), nil
 }
 
