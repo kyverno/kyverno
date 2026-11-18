@@ -108,7 +108,7 @@ func TestChainedCloneSynchronization(t *testing.T) {
 	previous := libs.LibraryContext
 	t.Cleanup(func() { libs.LibraryContext = previous })
 	for _, ssa := range []bool{false, true} {
-		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error", "list-error-recovery"} {
+		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error", "list-error-recovery", "aliased-clone-data"} {
 			t.Run(fmt.Sprintf("%s/ssa=%t", scenario, ssa), func(t *testing.T) {
 				ctx := context.Background()
 				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
@@ -356,6 +356,34 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					drain()
 					require.Equal(t, "v2", version("leaf"), "replaying the hub event must propagate the accepted hub state to the leaf")
 					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					return
+				}
+				if scenario == "aliased-clone-data" {
+					// two leaves clone from the same hub (same object name, different namespaces)
+					sibling := clone("hub-to-leaf", "sibling", hub)
+					require.Equal(t, string(hub.GetUID()), sibling.GetLabels()[common.GenerateSourceUIDLabel])
+					w.metadataCache[sibling.GetUID()] = cached(sibling)
+					changed := seed.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					drain()
+					// each cached Data must retain its own namespace (not aliased by the loop)
+					require.Equal(t, "leaf", w.metadataCache[leaf.GetUID()].Data.GetNamespace(), "cached Data for first leaf must keep its namespace")
+					require.Equal(t, "sibling", w.metadataCache[sibling.GetUID()].Data.GetNamespace(), "cached Data for second leaf must keep its namespace")
+					// tamper the first-listed leaf; revert must target the right object
+					target := leaf
+					if listed, lerr := client.ListResource(ctx, "v1", "ConfigMap", "", &metav1.LabelSelector{MatchLabels: map[string]string{common.GenerateSourceUIDLabel: string(hub.GetUID())}}); lerr == nil && len(listed.Items) > 0 && listed.Items[0].GetNamespace() == "sibling" {
+						target = sibling
+					}
+					tampered := client.objects[target.GetNamespace()+"/settings"].DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(tampered.Object, "tampered", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", tampered.GetNamespace(), tampered, false)
+					require.NoError(t, err)
+					drain()
+					require.Equal(t, "v2", version("leaf"), "leaf must be restored to v2 after tamper")
+					require.Equal(t, "v2", version("sibling"), "sibling must remain at v2 after tamper")
+					t.Logf("hub=%s leaf=%s sibling=%s watcherWrites=%v", version("hub"), version("leaf"), version("sibling"), client.writes)
 					return
 				}
 				changed := seed.DeepCopy()

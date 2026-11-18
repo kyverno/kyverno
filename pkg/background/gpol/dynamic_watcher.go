@@ -909,8 +909,7 @@ func (wm *WatchManager) syncSourceDownstreams(watcher *watcher, obj *unstructure
 			continue
 		}
 		// update the downstream resources with the source information.
-		newResource := &unstructured.Unstructured{}
-		newResource.SetUnstructuredContent(source.UnstructuredContent())
+		newResource := source.DeepCopy()
 		newResource.SetName(downstream.GetName())
 		newResource.SetNamespace(downstream.GetNamespace())
 		newResource.SetKind(downstream.GetKind())
