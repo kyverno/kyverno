@@ -1583,3 +1583,118 @@ func Test_PreProcessPattern_NilInputs(t *testing.T) {
 	err = PreProcessPattern(logr.Discard(), nil, pattern)
 	assert.NilError(t, err)
 }
+
+// Test_deleteAnchorsInList_indexShift is a regression test for
+// https://github.com/kyverno/kyverno/issues/16862: deleting two or more
+// anchored elements from the same list must not shift indices onto elements
+// that have not been visited yet. Before the fix, deleteAnchorsInList iterated
+// a stale snapshot while deleting from the live slice by index, so the second
+// deletion landed on the wrong element (here it left the raw "(name)":"b"
+// anchor template behind instead of removing it).
+func Test_deleteAnchorsInList_indexShift(t *testing.T) {
+	patternRaw := []byte(`{
+		"list": [
+			{ "(name)": "a", "image": "x" },
+			{ "(name)": "b", "image": "y" },
+			{ "name": "c", "image": "z" }
+		]
+	}`)
+
+	pattern := yaml.MustParse(string(patternRaw))
+	list := pattern.Field("list").Value
+
+	_, err := deleteAnchorsInList(list, false)
+	assert.NilError(t, err)
+
+	elements, err := list.Elements()
+	assert.NilError(t, err)
+	assert.Equal(t, len(elements), 1)
+
+	output, err := elements[0].MarshalJSON()
+	assert.NilError(t, err)
+	assert.DeepEqual(t, toJSON(t, output), toJSON(t, []byte(`{"name":"c","image":"z"}`)))
+}
+
+// Test_preProcessStrategicMergePatch_issue16862 covers the three pod shapes a
+// patchStrategicMerge policy with two conditional (name) anchors can hit. Before
+// the index-shift fix in deleteAnchorsInList these produced, respectively: a
+// silently dropped container, a leftover raw-anchor element, and a panic.
+func Test_preProcessStrategicMergePatch_issue16862(t *testing.T) {
+	policy := `{
+		"spec": {
+		  "containers": [
+			{ "(name)": "app",     "imagePullPolicy": "Always" },
+			{ "(name)": "sidecar", "imagePullPolicy": "IfNotPresent" }
+		  ]
+		}
+	  }`
+
+	testCases := []struct {
+		name          string
+		rawResource   string
+		expectedPatch string
+	}{
+		{
+			// both anchored containers present: both must survive, each patched.
+			name: "both present",
+			rawResource: `{
+				"apiVersion": "v1", "kind": "Pod",
+				"metadata": { "name": "mypod" },
+				"spec": { "containers": [
+					{ "name": "app",     "image": "app:v1" },
+					{ "name": "sidecar", "image": "proxy:v1" }
+				] }
+			  }`,
+			expectedPatch: `{
+				"spec": { "containers": [
+					{ "name": "app",     "imagePullPolicy": "Always" },
+					{ "name": "sidecar", "imagePullPolicy": "IfNotPresent" }
+				] }
+			  }`,
+		},
+		{
+			// only the first anchored container present: the surviving element
+			// must be the concretized container, not a leftover anchor template,
+			// and the list must not collapse to empty.
+			name: "only first present",
+			rawResource: `{
+				"apiVersion": "v1", "kind": "Pod",
+				"metadata": { "name": "mypod" },
+				"spec": { "containers": [
+					{ "name": "app", "image": "app:v1" }
+				] }
+			  }`,
+			expectedPatch: `{
+				"spec": { "containers": [
+					{ "name": "app", "imagePullPolicy": "Always" }
+				] }
+			  }`,
+		},
+		{
+			// neither anchored container present: cleanup must not index past the
+			// shrunk slice (previously panicked "slice bounds out of range [2:1]").
+			name: "neither present",
+			rawResource: `{
+				"apiVersion": "v1", "kind": "Pod",
+				"metadata": { "name": "mypod" },
+				"spec": { "containers": [
+					{ "name": "foo", "image": "foo:v1" },
+					{ "name": "bar", "image": "bar:v1" }
+				] }
+			  }`,
+			expectedPatch: `{}`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			preProcessed, err := preProcessStrategicMergePatch(logr.Discard(), policy, tc.rawResource)
+			assert.NilError(t, err)
+
+			output, err := preProcessed.MarshalJSON()
+			assert.NilError(t, err)
+
+			assert.DeepEqual(t, toJSON(t, []byte(tc.expectedPatch)), toJSON(t, output))
+		})
+	}
+}
