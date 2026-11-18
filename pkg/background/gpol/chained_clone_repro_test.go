@@ -122,7 +122,7 @@ func TestChainedCloneSynchronization(t *testing.T) {
 	previous := libs.LibraryContext
 	t.Cleanup(func() { libs.LibraryContext = previous })
 	for _, ssa := range []bool{false, true} {
-		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error", "list-error-recovery", "list-error-retry", "aliased-clone-data"} {
+		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error", "list-error-recovery", "list-error-retry", "aliased-clone-data", "downstream-metadata-preserved"} {
 			t.Run(fmt.Sprintf("%s/ssa=%t", scenario, ssa), func(t *testing.T) {
 				ctx := context.Background()
 				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
@@ -429,6 +429,47 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					changed = hub.DeepCopy()
 				} else if scenario == "tamper-control" {
 					changed, value = hub.DeepCopy(), "tampered"
+				}
+				// downstream-metadata-preserved: an accepted hub update must not
+				// overwrite the leaf's own finalizers and owner references with the
+				// source's. The leaf keeps exactly its own metadata and never
+				// carries the hub's. Metadata is set on the stored objects (the ones
+				// the production code reads from ListResource/watch events), not on
+				// the detached DeepCopy() variables `hub`/`leaf`.
+				if scenario == "downstream-metadata-preserved" {
+					hubObj := client.objects["hub/settings"]
+					leafObj := client.objects["leaf/settings"]
+					hubObj.SetFinalizers([]string{"hub.example.com/keep"})
+					hubObj.SetOwnerReferences([]metav1.OwnerReference{{Name: "hub-owner", APIVersion: "v1", Kind: "ConfigMap", UID: "uid-hub-owner"}})
+					leafObj.SetFinalizers([]string{"leaf.example.com/keep"})
+					leafObj.SetOwnerReferences([]metav1.OwnerReference{{Name: "leaf-owner", APIVersion: "v1", Kind: "ConfigMap", UID: "uid-leaf-owner"}})
+					changed := seed.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					client.writes = nil // count only watcher writes
+					drain()
+					require.Equal(t, "v2", version("hub"), "the first hop must succeed")
+					require.Equal(t, "v2", version("leaf"), "an accepted hub update must propagate to the second policy's clone")
+					if !ssa {
+						// The fake's ApplyResource replaces the whole stored object with the
+						// apply config (applyConfiguration drops metadata outside name,
+						// namespace, labels and annotations), so it does not model SSA field
+						// ownership: finalizers/ownerReferences would not survive a real SSA
+						// write here. Assert metadata preservation only in the non-SSA path,
+						// where the production code copies the live downstream's finalizers
+						// and owner references onto the update.
+						require.Equal(t, []string{"leaf.example.com/keep"}, client.objects["leaf/settings"].GetFinalizers(), "the leaf must keep its own finalizers")
+						require.Equal(t, []metav1.OwnerReference{{Name: "leaf-owner", APIVersion: "v1", Kind: "ConfigMap", UID: "uid-leaf-owner"}}, client.objects["leaf/settings"].GetOwnerReferences(), "the leaf must keep its own owner references")
+						for _, f := range client.objects["leaf/settings"].GetFinalizers() {
+							require.NotEqual(t, "hub.example.com/keep", f, "the leaf must not carry the hub's finalizer")
+						}
+						for _, o := range client.objects["leaf/settings"].GetOwnerReferences() {
+							require.NotEqual(t, "hub-owner", o.Name, "the leaf must not carry the hub's owner reference")
+						}
+					}
+					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					return
 				}
 				require.NoError(t, unstructured.SetNestedField(changed.Object, value, "data", "version"))
 				_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)

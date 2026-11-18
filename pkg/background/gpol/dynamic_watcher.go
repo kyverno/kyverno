@@ -1026,9 +1026,12 @@ func (wm *WatchManager) revertDownstream(watcher *watcher, uid types.UID, obj *u
 // using server-side apply applies it. The labels are the live downstream's, so the apply keeps
 // only the ones Kyverno applied, along with the owner references and finalizers Kyverno applied
 // before, since leaving those out of the apply would remove them. Otherwise the downstream is
-// replaced with an update.
+// replaced with an update, which keeps the live downstream's finalizers and owner references so
+// an accepted hub update never overwrites the leaf's own metadata with the source's.
 func (wm *WatchManager) propagateToDownstream(serverSideApply bool, downstream, newResource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	if !serverSideApply {
+		newResource.SetFinalizers(downstream.GetFinalizers())
+		newResource.SetOwnerReferences(downstream.GetOwnerReferences())
 		return wm.client.UpdateResource(context.TODO(), newResource.GetAPIVersion(), newResource.GetKind(), newResource.GetNamespace(), newResource, false)
 	}
 	cfg := applyConfiguration(newResource)
