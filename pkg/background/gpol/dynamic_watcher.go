@@ -895,6 +895,7 @@ func (wm *WatchManager) syncSourceDownstreams(watcher *watcher, obj *unstructure
 	downstreams, err := wm.client.ListResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), "", selector)
 	if err != nil {
 		wm.log.Error(err, "failed to list downstream resources")
+		return
 	}
 	for _, downstream := range downstreams.Items {
 		// if the downstream doesn't exist in the metadata cache, it means sync is disabled.

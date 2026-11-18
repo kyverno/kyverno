@@ -33,6 +33,9 @@ type chainReproClient struct {
 	events  []*unstructured.Unstructured
 	writes  []recordedWrite
 	nextRV  int
+	// listErr, when set, makes ListResource fail the way the real client can:
+	// a nil list with an error.
+	listErr error
 }
 
 // recordedWrite is one acknowledged write: its key and the data.version it carried.
@@ -49,6 +52,9 @@ func (c *chainReproClient) GetResource(_ context.Context, _, _kind, namespace, n
 }
 
 func (c *chainReproClient) ListResource(_ context.Context, _, _, namespace string, selector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	if c.listErr != nil {
+		return nil, c.listErr
+	}
 	sel, err := metav1.LabelSelectorAsSelector(selector)
 	if err != nil {
 		return nil, err
@@ -102,7 +108,7 @@ func TestChainedCloneSynchronization(t *testing.T) {
 	previous := libs.LibraryContext
 	t.Cleanup(func() { libs.LibraryContext = previous })
 	for _, ssa := range []bool{false, true} {
-		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "no-op-convergence", "invalidated-entry"} {
+		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "no-op-convergence", "invalidated-entry", "list-error"} {
 			t.Run(fmt.Sprintf("%s/ssa=%t", scenario, ssa), func(t *testing.T) {
 				ctx := context.Background()
 				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
@@ -223,6 +229,30 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					require.Empty(t, client.writes, "an invalidated entry must not trigger any watcher writes")
 					require.Equal(t, "v2", version("hub"), "the hub update itself is applied")
 					require.Equal(t, "v1", version("leaf"), "an invalidated hub entry must not distribute to P2's leaf")
+					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					return
+				}
+				// list-error check: a transient downstream-list failure must not panic
+				// the watcher or write anything; the next watch event retries and the
+				// chain still converges
+				if scenario == "list-error" {
+					client.listErr = fmt.Errorf("transient list failure")
+					changed := seed.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					client.writes = nil // count only watcher writes
+					drain()
+					require.Empty(t, client.writes, "a failed downstream list must not cause watcher writes")
+					require.Equal(t, "v1", version("hub"), "a failed downstream list must leave the hub unchanged")
+					require.Equal(t, "v1", version("leaf"), "a failed downstream list must leave the leaf unchanged")
+					// the list recovers; re-delivering the source's current state retries
+					// the propagation and the chain converges
+					client.listErr = nil
+					wm.handleUpdate(client.objects["seed/settings"].DeepCopy(), gvr)
+					drain()
+					require.Equal(t, "v2", version("hub"), "the first hop must succeed once the list recovers")
+					require.Equal(t, "v2", version("leaf"), "an accepted hub update must propagate to the second policy's clone")
 					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
 					return
 				}
