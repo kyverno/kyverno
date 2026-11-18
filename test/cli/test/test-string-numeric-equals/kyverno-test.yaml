@@ -1,0 +1,23 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-string-numeric-equals
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+# replicas == 5 -> Equals("5", 5) is true -> deny fires -> fail
+- kind: Deployment
+  policy: deny-five-replicas
+  rule: deny-when-replicas-equals-five
+  resources:
+  - deployment-five-replicas
+  result: fail
+# replicas == 3 -> Equals("5", 3) is false -> deny does not fire -> pass
+- kind: Deployment
+  policy: deny-five-replicas
+  rule: deny-when-replicas-equals-five
+  resources:
+  - deployment-three-replicas
+  result: pass
