@@ -139,9 +139,29 @@ func (wm *WatchManager) BeginGenerate(policyName string, triggerUID types.UID) f
 				if !ok {
 					continue
 				}
-				if cached, ok := watcher.metadataCache[uid]; ok && cached.Hash != "" && cached.Hash != reportutils.CalculateResourceHash(*s.obj) {
-					wm.revertDownstream(watcher, uid, s.obj)
+				cached, ok := watcher.metadataCache[uid]
+				if !ok {
+					// the cache entry was dropped while the window was open;
+					// there is nothing to revert or replay.
+					continue
 				}
+				if cached.Hash == "" {
+					// the entry was invalidated (see InvalidateDownstreams) while the
+					// window was open; an invalidated entry must never propagate from
+					// either path, so skip it without reverting or replaying.
+					continue
+				}
+				if cached.Hash != "" && cached.Hash != reportutils.CalculateResourceHash(*s.obj) {
+					// a real (unauthorized) edit was skipped inside the window:
+					// revert it so its transient value is not distributed.
+					wm.revertDownstream(watcher, uid, s.obj)
+					continue
+				}
+				// The skipped object matches the refreshed cache: it was an
+				// accepted hub update that arrived while the generate write for
+				// this downstream was in flight. Forward it to downstreams that
+				// clone from this object now that the cache is settled.
+				wm.syncSourceDownstreams(watcher, s.obj, uid)
 			}
 		})
 	}
@@ -846,6 +866,12 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			// an unauthorized transient value must not be distributed as a clone source
 			return
 		}
+		// An invalidated entry (Hash == "") is no longer valid and should not be
+		// restored from the cache or used as a clone source. It is kept only so it
+		// can be deleted later, so never propagate it downstream.
+		if hash == "" {
+			return
+		}
 	}
 	// if the resource is not in the cache, it is a source resource (with or without sync enabled).
 	// if it is in the cache and was not reverted, it is an accepted downstream state that may also
@@ -888,6 +914,14 @@ func (wm *WatchManager) syncSourceDownstreams(watcher *watcher, obj *unstructure
 		// downstream, so carry the downstream's own. Custom resources reject an update that
 		// has no resourceVersion, which used to leave every CRD downstream unsynced.
 		newResource.SetResourceVersion(downstream.GetResourceVersion())
+		// Skip the write when the downstream already holds exactly this content. A
+		// clone cycle (A->B->A) otherwise re-emits a Modified event on every hop and
+		// never converges. For SSA downstreams the stored hash may differ (other
+		// managers' fields), so a mismatch simply proceeds exactly as today.
+		if reportutils.CalculateResourceHash(*newResource) == cached.Hash {
+			wm.log.V(4).Info("downstream resource already up to date, skipping write", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
+			continue
+		}
 		written, err := wm.propagateToDownstream(cached.ServerSideApply, &downstream, newResource)
 		if err != nil {
 			wm.log.Error(err, "failed to update downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
