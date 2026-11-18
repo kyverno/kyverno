@@ -108,7 +108,7 @@ func TestChainedCloneSynchronization(t *testing.T) {
 	previous := libs.LibraryContext
 	t.Cleanup(func() { libs.LibraryContext = previous })
 	for _, ssa := range []bool{false, true} {
-		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error"} {
+		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error"} {
 			t.Run(fmt.Sprintf("%s/ssa=%t", scenario, ssa), func(t *testing.T) {
 				ctx := context.Background()
 				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
@@ -194,6 +194,48 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					}
 					return
 				}
+				// deferred-invalidated check: after drain() and before closer(), invalidate
+				// the hub cache entry (Hash == ""); the closer must not forward the
+				// skipped update or cause any writes.
+				if scenario == "deferred-invalidated" {
+					closer := wm.BeginGenerate("seed-to-hub", types.UID("trigger-hub"))
+					changed := hub.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					drain()
+					// invalidate the hub entry before closer()
+					cachedHub := w.metadataCache[hub.GetUID()]
+					cachedHub.Hash = ""
+					w.metadataCache[hub.GetUID()] = cachedHub
+					client.writes = nil // count only closer writes
+					closer()
+					drain()
+					require.Empty(t, client.writes, "closer must not write when hub entry is invalidated")
+					require.Equal(t, "v1", version("leaf"), "leaf must remain at v1")
+					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					return
+				}
+				// deferred-removed check: after drain() and before closer(), delete the
+				// hub cache entry entirely; the closer must not forward the skipped
+				// update or cause any writes.
+				if scenario == "deferred-removed" {
+					closer := wm.BeginGenerate("seed-to-hub", types.UID("trigger-hub"))
+					changed := hub.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					drain()
+					// remove the hub entry before closer()
+					delete(w.metadataCache, hub.GetUID())
+					client.writes = nil // count only closer writes
+					closer()
+					drain()
+					require.Empty(t, client.writes, "closer must not write when hub entry is removed")
+					require.Equal(t, "v1", version("leaf"), "leaf must remain at v1")
+					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					return
+				}
 				// no-op/convergence check: after the chain converges, re-delivering the
 				// hub's current accepted state must cause zero additional watcher writes
 				if scenario == "no-op-convergence" {
@@ -229,33 +271,33 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					require.Empty(t, client.writes, "an invalidated entry must not trigger any watcher writes")
 					require.Equal(t, "v2", version("hub"), "the hub update itself is applied")
 					require.Equal(t, "v1", version("leaf"), "an invalidated hub entry must not distribute to P2's leaf")
-t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
-				return
-			}
-			// invalidated-downstream check: an invalidated leaf cache entry (Hash == "",
-			// as InvalidateDownstreams does) must not be resurrected when the hub updates.
-			// The seed update should propagate: seed -> hub (accepted) -> leaf (skipped because invalidated).
-			// The hub should reach v2, the leaf must stay at v1, and no write to the leaf should occur.
-			if scenario == "invalidated-downstream" {
-				cachedLeaf := w.metadataCache[leaf.GetUID()]
-				cachedLeaf.Hash = "" // invalidate, as InvalidateDownstreams does
-				w.metadataCache[leaf.GetUID()] = cachedLeaf
-				changed := seed.DeepCopy()
-				require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
-				_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
-				require.NoError(t, err)
-				client.writes = nil // count only watcher writes
-				drain()
-				// Hub write is expected (seed -> hub), but no leaf write should occur
-				for _, wr := range client.writes {
-					require.False(t, strings.HasPrefix(wr.key, "leaf/"), "an invalidated leaf entry must not trigger any watcher writes")
+					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					return
 				}
-				require.Equal(t, "v2", version("hub"), "the hub update is applied")
-				require.Equal(t, "v1", version("leaf"), "an invalidated leaf entry must not be resurrected by hub update")
-				t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
-				return
-			}
-			// list-error check: a transient downstream-list failure must not panic
+				// invalidated-downstream check: an invalidated leaf cache entry (Hash == "",
+				// as InvalidateDownstreams does) must not be resurrected when the hub updates.
+				// The seed update should propagate: seed -> hub (accepted) -> leaf (skipped because invalidated).
+				// The hub should reach v2, the leaf must stay at v1, and no write to the leaf should occur.
+				if scenario == "invalidated-downstream" {
+					cachedLeaf := w.metadataCache[leaf.GetUID()]
+					cachedLeaf.Hash = "" // invalidate, as InvalidateDownstreams does
+					w.metadataCache[leaf.GetUID()] = cachedLeaf
+					changed := seed.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					client.writes = nil // count only watcher writes
+					drain()
+					// Hub write is expected (seed -> hub), but no leaf write should occur
+					for _, wr := range client.writes {
+						require.False(t, strings.HasPrefix(wr.key, "leaf/"), "an invalidated leaf entry must not trigger any watcher writes")
+					}
+					require.Equal(t, "v2", version("hub"), "the hub update is applied")
+					require.Equal(t, "v1", version("leaf"), "an invalidated leaf entry must not be resurrected by hub update")
+					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					return
+				}
+				// list-error check: a transient downstream-list failure must not panic
 				// the watcher or write anything; the next watch event retries and the
 				// chain still converges
 				if scenario == "list-error" {
