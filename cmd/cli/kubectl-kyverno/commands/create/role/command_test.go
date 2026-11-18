@@ -156,6 +156,14 @@ func TestCommand(t *testing.T) {
 			errorMsg: "invalid verb provided",
 		},
 		{
+			name:         "MixedCaseVerbsNormalized",
+			args:         []string{"nameMixedCase", "--resources=pods", "--api-groups=", "--verbs=GET,Watch"},
+			expectedFile: "stdout",
+			expectedContains: []string{
+				`verbs: ["get", "watch"]`,
+			},
+		},
+		{
 			name:         "MultipleResources",
 			args:         []string{"name11", "--resources=pods,services", "--api-groups=", "--verbs=get,list"},
 			expectedFile: "stdout",
@@ -423,4 +431,24 @@ func TestClusterRoleRepeatedApiGroupsYAML(t *testing.T) {
 	assert.Equal(t, []string{"", "apps"}, role.Rules[0].APIGroups)
 	assert.Equal(t, []string{"pods", "deployments"}, role.Rules[0].Resources)
 	assert.Equal(t, []string{"get"}, role.Rules[0].Verbs)
+}
+
+func TestClusterRoleVerbNormalizationYAML(t *testing.T) {
+	cmd := Command()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{
+		"normalize-verbs-role",
+		"--api-groups=",
+		"--resources=pods",
+		"--verbs=GET,Watch,LIST",
+	})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+
+	var role rbacv1.ClusterRole
+	err = yaml.Unmarshal(buf.Bytes(), &role)
+	assert.NoError(t, err)
+	assert.Len(t, role.Rules, 1)
+	assert.Equal(t, []string{"get", "watch", "list"}, role.Rules[0].Verbs)
 }
