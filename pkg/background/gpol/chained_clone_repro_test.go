@@ -40,6 +40,16 @@ type chainReproClient struct {
 	// listFailCount, when positive, makes the next N ListResource calls fail
 	// with a transient error then succeed. Used by list-error-retry.
 	listFailCount int
+	// listFailForUID, when set, fails the first N ListResource calls whose
+	// selector matches the given source UID (other selectors untouched), then
+	// succeeds. Used by list-error-retry-hub-hop; listFailCount is preserved.
+	listFailForUID *listFailForUIDConfig
+}
+
+// listFailForUIDConfig selects per-source-UID list failures injected into the fake.
+type listFailForUIDConfig struct {
+	uid       types.UID
+	remaining int
 }
 
 // recordedWrite is one acknowledged write: its key and the data.version it carried.
@@ -56,6 +66,11 @@ func (c *chainReproClient) GetResource(_ context.Context, _, _kind, namespace, n
 }
 
 func (c *chainReproClient) ListResource(_ context.Context, _, _, namespace string, selector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	if c.listFailForUID != nil && c.listFailForUID.remaining > 0 &&
+		listSelectorMatchesSourceUID(selector, c.listFailForUID.uid) {
+		c.listFailForUID.remaining--
+		return nil, fmt.Errorf("transient list failure for source uid %s", c.listFailForUID.uid)
+	}
 	if c.listFailCount > 0 {
 		c.listFailCount--
 		return nil, fmt.Errorf("transient list failure")
@@ -80,6 +95,16 @@ func (c *chainReproClient) ListResource(_ context.Context, _, _, namespace strin
 		return list.Items[i].GetName() < list.Items[j].GetName()
 	})
 	return list, nil
+}
+
+// listSelectorMatchesSourceUID reports whether selector pins the
+// generate.kyverno.io/source-uid label to uid, i.e. the list is for the downstreams
+// of the source identified by uid.
+func listSelectorMatchesSourceUID(selector *metav1.LabelSelector, uid types.UID) bool {
+	if selector == nil || selector.MatchLabels == nil {
+		return false
+	}
+	return selector.MatchLabels[common.GenerateSourceUIDLabel] == string(uid)
 }
 
 func (c *chainReproClient) write(obj interface{}, update bool) (*unstructured.Unstructured, error) {
@@ -122,7 +147,7 @@ func TestChainedCloneSynchronization(t *testing.T) {
 	previous := libs.LibraryContext
 	t.Cleanup(func() { libs.LibraryContext = previous })
 	for _, ssa := range []bool{false, true} {
-		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error", "list-error-recovery", "list-error-retry", "aliased-clone-data", "downstream-metadata-preserved"} {
+		for _, scenario := range []string{"single-hop-control", "two-hop-chain", "tamper-control", "deferred-accepted", "deferred-tampered", "deferred-invalidated", "deferred-removed", "no-op-convergence", "invalidated-entry", "invalidated-downstream", "list-error", "list-error-recovery", "list-error-retry", "list-error-retry-hub-hop", "aliased-clone-data", "downstream-metadata-preserved"} {
 			t.Run(fmt.Sprintf("%s/ssa=%t", scenario, ssa), func(t *testing.T) {
 				ctx := context.Background()
 				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
@@ -393,6 +418,25 @@ func TestChainedCloneSynchronization(t *testing.T) {
 					require.Equal(t, "v2", version("leaf"), "an accepted hub update must propagate to the second policy's clone after transient list retries")
 					require.Zero(t, client.listFailCount, "all injected list failures must be consumed by retries")
 					t.Logf("hub=%s leaf=%s watcherWrites=%v", version("hub"), version("leaf"), client.writes)
+					return
+				}
+				// list-error-retry-hub-hop: fail the first 2 hub-hop downstream lists
+				// (source UID = hub), leave the seed-hop list (source UID = seed)
+				// untouched. The bounded inline retry in syncSourceDownstreams must
+				// consume the failures and converge the chain with no hand-delivered
+				// replay.
+				if scenario == "list-error-retry-hub-hop" {
+					client.listFailForUID = &listFailForUIDConfig{uid: types.UID("uid-hub"), remaining: 2}
+					changed := seed.DeepCopy()
+					require.NoError(t, unstructured.SetNestedField(changed.Object, "v2", "data", "version"))
+					_, err = client.UpdateResource(ctx, "v1", "ConfigMap", changed.GetNamespace(), changed, false)
+					require.NoError(t, err)
+					client.writes = nil // count only watcher writes
+					drain()
+					require.Equal(t, "v2", version("hub"), "the first hop must succeed")
+					require.Equal(t, "v2", version("leaf"), "an accepted hub update must propagate to the leaf through retried hub-hop lists")
+					require.Zero(t, client.listFailForUID.remaining, "all injected hub-hop list failures must be consumed by retries")
+					t.Logf("hub=%s leaf=%s watcherWrites=%v remaining=%d", version("hub"), version("leaf"), client.writes, client.listFailForUID.remaining)
 					return
 				}
 				if scenario == "aliased-clone-data" {
