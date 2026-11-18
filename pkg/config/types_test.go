@@ -159,6 +159,11 @@ func Test_parseKinds(t *testing.T) {
 			{"*", "*", "Pod", "", "kube-system", "api-server"},
 		},
 	}, {
+		args: args{"[Pod, kube-system, *]"},
+		want: []filter{
+			{"*", "*", "Pod", "", "kube-system", "*"},
+		},
+	}, {
 		args: args{"[Pod,default,nginx,unexpected]"},
 		want: []filter{
 			{},
