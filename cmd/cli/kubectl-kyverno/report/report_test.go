@@ -5,12 +5,14 @@ import (
 	"reflect"
 	"testing"
 
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"gotest.tools/v3/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -422,4 +424,85 @@ func TestNamespacedPolicyReportGeneration(t *testing.T) {
 	report := namespaced[0]
 	assert.Equal(t, report.GetNamespace(), policy.GetNamespace())
 	assert.Equal(t, report.Kind, "Report")
+}
+
+// TestComputePolicyReports_AuditWarn verifies that ComputePolicyReportResult reports
+// failures on audit-only validating policies as warnings when auditWarn is enabled.
+func TestComputePolicyReports_AuditWarn(t *testing.T) {
+	auditPolicy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "vpol-audit"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
+		},
+	}
+	denyPolicy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "vpol-deny"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+		},
+	}
+
+	auditEr := engineapi.EngineResponse{}.WithPolicy(engineapi.NewValidatingPolicy(auditPolicy))
+	auditEr.PolicyResponse.Add(
+		engineapi.ExecutionStats{},
+		*engineapi.RuleFail("fail-rule", engineapi.Validation, "failed", nil),
+	)
+
+	denyEr := engineapi.EngineResponse{}.WithPolicy(engineapi.NewValidatingPolicy(denyPolicy))
+	denyEr.PolicyResponse.Add(
+		engineapi.ExecutionStats{},
+		*engineapi.RuleFail("fail-rule", engineapi.Validation, "failed", nil),
+	)
+
+	auditIvpol := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-audit"},
+		Spec: policiesv1alpha1.ImageValidatingPolicySpec{
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
+		},
+	}
+	auditIvpolEr := engineapi.EngineResponse{}.WithPolicy(engineapi.NewImageValidatingPolicy(auditIvpol))
+	auditIvpolEr.PolicyResponse.Add(
+		engineapi.ExecutionStats{},
+		*engineapi.RuleFail("fail-rule", engineapi.Validation, "failed", nil),
+	)
+
+	t.Run("audit policy with auditWarn true produces warn in report and summary", func(t *testing.T) {
+		clustered, _ := ComputePolicyReports(true, auditEr)
+		assert.Equal(t, len(clustered), 1)
+		rep := clustered[0]
+		assert.Equal(t, len(rep.Results), 1)
+		assert.Equal(t, rep.Results[0].Result, openreportsv1alpha1.Result(openreports.StatusWarn))
+		assert.Equal(t, rep.Summary.Warn, 1)
+		assert.Equal(t, rep.Summary.Fail, 0)
+	})
+
+	t.Run("audit policy with auditWarn false produces fail in report and summary", func(t *testing.T) {
+		clustered, _ := ComputePolicyReports(false, auditEr)
+		assert.Equal(t, len(clustered), 1)
+		rep := clustered[0]
+		assert.Equal(t, len(rep.Results), 1)
+		assert.Equal(t, rep.Results[0].Result, openreportsv1alpha1.Result(openreports.StatusFail))
+		assert.Equal(t, rep.Summary.Warn, 0)
+		assert.Equal(t, rep.Summary.Fail, 1)
+	})
+
+	t.Run("deny policy with auditWarn true produces fail in report and summary", func(t *testing.T) {
+		clustered, _ := ComputePolicyReports(true, denyEr)
+		assert.Equal(t, len(clustered), 1)
+		rep := clustered[0]
+		assert.Equal(t, len(rep.Results), 1)
+		assert.Equal(t, rep.Results[0].Result, openreportsv1alpha1.Result(openreports.StatusFail))
+		assert.Equal(t, rep.Summary.Warn, 0)
+		assert.Equal(t, rep.Summary.Fail, 1)
+	})
+
+	t.Run("audit image validating policy with auditWarn true produces warn in report and summary", func(t *testing.T) {
+		clustered, _ := ComputePolicyReports(true, auditIvpolEr)
+		assert.Equal(t, len(clustered), 1)
+		rep := clustered[0]
+		assert.Equal(t, len(rep.Results), 1)
+		assert.Equal(t, rep.Results[0].Result, openreportsv1alpha1.Result(openreports.StatusWarn))
+		assert.Equal(t, rep.Summary.Warn, 1)
+		assert.Equal(t, rep.Summary.Fail, 0)
+	})
 }

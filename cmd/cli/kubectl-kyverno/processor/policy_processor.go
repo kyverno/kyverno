@@ -582,7 +582,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						},
 					}
 					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
+					p.Rc.AddValidatingPolicyResponse(p.AuditWarn, response)
 					responses = append(responses, response)
 				}
 			}
@@ -620,7 +620,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						},
 					}
 					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
+					p.Rc.AddValidatingPolicyResponse(p.AuditWarn, response)
 					responses = append(responses, response)
 				}
 			}
@@ -660,7 +660,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						},
 					}
 					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
+					p.Rc.AddValidatingPolicyResponse(p.AuditWarn, response)
 					responses = append(responses, response)
 				}
 			}

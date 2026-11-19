@@ -2476,3 +2476,165 @@ func Test_Apply_PolicyReport_DeprecatedUserInfoWarningNoColor(t *testing.T) {
 	assert.Contains(t, output, "kind: ClusterReport")
 	assert.NotContains(t, output, "\x1b[")
 }
+
+// TestAuditWarnWithPolicyReport verifies that applying an audit-only policy with --audit-warn
+// and --policy-report reports status "warn" and respects the --warn-exit-code flag.
+func TestAuditWarnWithPolicyReport(t *testing.T) {
+	policyPath := "../../../../../test/conformance/chainsaw/cli/apply/warn-exit-code/policy.yaml"
+	resourcePath := "../../../../../test/conformance/chainsaw/cli/apply/warn-exit-code/resource.yaml"
+
+	t.Run("audit-warn with policy-report produces warn result and exit 0", func(t *testing.T) {
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--audit-warn", "--policy-report"})
+		err := cmd.Execute()
+		assert.NoError(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: ClusterReport")
+		assert.Contains(t, output, "result: warn")
+		assert.NotContains(t, output, "result: fail")
+
+		var report openreportsv1alpha1.ClusterReport
+		assert.NoError(t, yaml.Unmarshal(out.Bytes(), &report))
+		assert.Equal(t, report.Summary.Warn, 1)
+		assert.Equal(t, report.Summary.Fail, 0)
+	})
+
+	t.Run("without audit-warn, policy-report produces fail result and exits 1", func(t *testing.T) {
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--policy-report"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: ClusterReport")
+		assert.Contains(t, output, "result: fail")
+
+		var report openreportsv1alpha1.ClusterReport
+		assert.NoError(t, yaml.Unmarshal(out.Bytes(), &report))
+		assert.Equal(t, report.Summary.Fail, 1)
+		assert.Equal(t, report.Summary.Warn, 0)
+	})
+
+	t.Run("deny policy with audit-warn and policy-report produces fail result and exits 1", func(t *testing.T) {
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		denyPolicyPath := "../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"
+		denyResourcePath := "../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"
+		cmd.SetArgs([]string{denyPolicyPath, "--resource", denyResourcePath, "--audit-warn", "--policy-report"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: ClusterReport")
+		assert.Contains(t, output, "result: fail")
+		assert.NotContains(t, output, "result: warn")
+
+		var report openreportsv1alpha1.ClusterReport
+		assert.NoError(t, yaml.Unmarshal(out.Bytes(), &report))
+		assert.Equal(t, report.Summary.Fail, 1)
+		assert.Equal(t, report.Summary.Warn, 0)
+	})
+
+	t.Run("audit-only image validating policy with audit-warn and policy-report produces warn result and exit 0", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		ivpolPath := filepath.Join(tmpDir, "ivpol-audit.yaml")
+		resourcePath := filepath.Join(tmpDir, "pod.yaml")
+
+		policyContent := `apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-audit
+spec:
+  validationActions:
+  - Audit
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  matchImageReferences:
+  - glob: "registry.example.com/*"
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  attestors:
+  - name: unused
+    cosign:
+      key:
+        data: unused
+  validations:
+  - expression: "false"
+    message: "offline audit failure"
+`
+		resourceContent := `apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+spec:
+  containers:
+  - name: app
+    image: "example.com/nginx:1.27"
+`
+		assert.NoError(t, os.WriteFile(ivpolPath, []byte(policyContent), 0o600))
+		assert.NoError(t, os.WriteFile(resourcePath, []byte(resourceContent), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{ivpolPath, "--resource", resourcePath, "--audit-warn", "--policy-report"})
+		err := cmd.Execute()
+		assert.NoError(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: ClusterReport")
+		assert.Contains(t, output, "result: warn")
+		assert.NotContains(t, output, "result: fail")
+
+		var report openreportsv1alpha1.ClusterReport
+		assert.NoError(t, yaml.Unmarshal(out.Bytes(), &report))
+		assert.Equal(t, report.Summary.Warn, 1)
+		assert.Equal(t, report.Summary.Fail, 0)
+	})
+
+	t.Run("audit-warn in default output labels violations as warning", func(t *testing.T) {
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--audit-warn", "--remove-color"})
+		err := cmd.Execute()
+		assert.NoError(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "warning:")
+		assert.NotContains(t, output, "failed:")
+		assert.Contains(t, output, "warn: 1")
+		assert.Contains(t, output, "fail: 0")
+	})
+
+	t.Run("without audit-warn, default output labels violations as failed", func(t *testing.T) {
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--remove-color"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "failed:")
+		assert.Contains(t, output, "fail: 1")
+		assert.Contains(t, output, "warn: 0")
+	})
+}
