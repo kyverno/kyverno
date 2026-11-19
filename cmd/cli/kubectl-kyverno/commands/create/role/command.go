@@ -86,17 +86,32 @@ Required flags include 'api-groups', 'verbs', and 'resources'.`,
 			if !cmd.Flags().Changed("api-groups") {
 				return fmt.Errorf("required flag(s) \"api-groups\" not set")
 			}
-			if len(opts.ResourceTypes) == 0 {
+			if !cmd.Flags().Changed("resources") {
 				return fmt.Errorf("required flag(s) \"resources\" not set")
 			}
-			if len(verbs) == 0 {
+			if len(opts.ResourceTypes) == 0 {
+				return fmt.Errorf("invalid resource provided")
+			}
+			if !cmd.Flags().Changed("verbs") {
 				return fmt.Errorf("required flag(s) \"verbs\" not set")
+			}
+			if len(verbs) == 0 {
+				return fmt.Errorf("invalid verb provided")
 			}
 
 			// Validate and trim api-groups, preserving empty string "" for core API group
 			var trimmedGroups []string
 			for _, g := range apiGroups {
+				if g != "" && strings.TrimSpace(g) == "" {
+					return fmt.Errorf("invalid api group provided")
+				}
 				trimmed := strings.Trim(strings.TrimSpace(g), `"'`)
+				if trimmed == "" && g != "" && g != `""` && g != `''` {
+					return fmt.Errorf("invalid api group provided")
+				}
+				if trimmed != "" && strings.TrimSpace(trimmed) == "" {
+					return fmt.Errorf("invalid api group provided")
+				}
 				trimmedGroups = append(trimmedGroups, trimmed)
 			}
 			if len(trimmedGroups) == 0 {
