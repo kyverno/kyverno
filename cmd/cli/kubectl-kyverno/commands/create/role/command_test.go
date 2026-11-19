@@ -151,9 +151,29 @@ func TestCommand(t *testing.T) {
 			errorMsg: "invalid resource provided",
 		},
 		{
+			name:     "ExplicitlyEmptyResources",
+			args:     []string{"nameEmptyResExplicit", "--resources=", "--api-groups=", "--verbs=get"},
+			errorMsg: "invalid resource provided",
+		},
+		{
 			name:     "EmptyVerbEntry",
 			args:     []string{"nameEmptyVerb", "--resources=pods", "--api-groups=", "--verbs=get,"},
 			errorMsg: "invalid verb provided",
+		},
+		{
+			name:     "ExplicitlyEmptyVerbs",
+			args:     []string{"nameEmptyVerbExplicit", "--resources=pods", "--api-groups=", "--verbs="},
+			errorMsg: "invalid verb provided",
+		},
+		{
+			name:     "WhitespaceApiGroup",
+			args:     []string{"nameWhitespaceGroup", "--resources=pods", "--api-groups=   ", "--verbs=get"},
+			errorMsg: "invalid api group provided",
+		},
+		{
+			name:     "WhitespaceInMultiApiGroup",
+			args:     []string{"nameWhitespaceMultiGroup", "--resources=pods", "--api-groups=apps,   ", "--verbs=get"},
+			errorMsg: "invalid api group provided",
 		},
 		{
 			name:         "MixedCaseVerbsNormalized",
