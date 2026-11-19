@@ -20,7 +20,7 @@ This package implements the `kubectl-kyverno create test` command, which scaffol
    - **`kind`** (required): Resource kind (e.g., `Pod`, `Deployment`, `ClusterRole`). Must not be empty.
    - **`patchedResource`** (optional 6th field): File path containing expected mutated resource YAML.
    - **Fail-Fast Validation**:
-     `parseResult` returns `nil` if `len(parts) < 5 || len(parts) > 6` or if `policy`, `resource`, or `kind` is empty. The command returns an error on invalid entries rather than silently skipping them.
+     `parseResult` returns `nil` if `len(parts) < 5 || len(parts) > 6`, if `policy`, `resource`, or `kind` is empty or whitespace-only, or if a 6th field is provided but is empty or whitespace-only. The command returns an error on invalid entries rather than silently skipping them.
 
 3. **Template Rendering and Manifest Schema (`templates/test.yaml`)**:
    - Generated manifests adhere to the modern `cli.kyverno.io/v1alpha1` Test schema:
