@@ -3,6 +3,7 @@ package version
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/pkg/version"
@@ -59,5 +60,16 @@ func Command() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "", "Output format (json, yaml)")
+	if err := cmd.RegisterFlagCompletionFunc("output", func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		formats := make([]string, 0, 2)
+		for _, format := range []string{"json", "yaml"} {
+			if strings.HasPrefix(format, toComplete) {
+				formats = append(formats, format)
+			}
+		}
+		return formats, cobra.ShellCompDirectiveNoFileComp
+	}); err != nil {
+		panic(fmt.Errorf("failed to register output completion: %w", err))
+	}
 	return cmd
 }
