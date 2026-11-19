@@ -576,6 +576,11 @@ stale-issue:
   color: D4C5F9
   description: Waiting on the reporter with no reply; closes if there is still none
 
+# Managed by issue-management.yaml; a person confirms and closes. Never closes by itself.
+possibly-resolved:
+  color: 0E8A16
+  description: A merged PR mentions this issue; needs confirmation that it is resolved
+
 # ── PSA release issues (.github/workflows/psa-release-issues.yaml) ───────────
 # Set by scripts/psa-release-issues.py on the issue for a PSA release. The script uses it to find existing issues.
 psa-cel-update:
