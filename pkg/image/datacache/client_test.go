@@ -262,3 +262,20 @@ func TestOversizedRefreshDoesNotReplaceTheEntry(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, fetches.Load(), "an entry larger than the whole budget is not cached")
 }
+
+func TestUnencodableDataIsReturnedButNotCached(t *testing.T) {
+	t.Parallel()
+	c := newCache(t, WithTagTTLDuration(time.Minute))
+	var fetches atomic.Int32
+	// a channel cannot be JSON encoded, so the entry cost cannot be measured
+	fetch := func(context.Context) (map[string]any, error) {
+		fetches.Add(1)
+		return map[string]any{"digest": digestA, "bad": make(chan int)}, nil
+	}
+	for range 2 {
+		data, err := c.Get(t.Context(), "nginx:1.25", fetch)
+		require.NoError(t, err)
+		assert.Equal(t, digestA, data["digest"])
+	}
+	assert.EqualValues(t, 2, fetches.Load())
+}
