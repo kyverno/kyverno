@@ -2755,7 +2755,13 @@ results:
 		require.Len(t, byPolicy["ivpol-json-matching"].PolicyResponse.Rules, 1)
 		require.Len(t, byPolicy["ivpol-json-test"].PolicyResponse.Rules, 1)
 		assert.Equal(t, engineapi.RuleStatusPass, byPolicy["ivpol-json-matching"].PolicyResponse.Rules[0].Status())
-		assert.Equal(t, engineapi.RuleStatusSkip, byPolicy["ivpol-json-test"].PolicyResponse.Rules[0].Status())
+
+		skippedRule := byPolicy["ivpol-json-test"].PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusSkip, skippedRule.Status())
+		assert.Contains(t, skippedRule.Message(), "test-ns/ex-matching")
+		require.Len(t, skippedRule.Exceptions(), 1)
+		assert.Equal(t, "ex-matching", skippedRule.Exceptions()[0].GetName())
+		assert.Equal(t, "test-ns", skippedRule.Exceptions()[0].GetNamespace())
 	})
 
 	t.Run("expired PolicyException does not exempt payload and results in fail", func(t *testing.T) {
