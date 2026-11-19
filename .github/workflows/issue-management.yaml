@@ -12,9 +12,9 @@ on:
 
 permissions: {}
 
-# The logic, the trusted checkout and the token live in the shared workflow. A scheduled run follows the repository
-# variable ISSUE_AUTOMATION_LIVE (preview unless it is exactly true); a manual run follows its checkbox. A preview
-# writes what it would do to the job summary and changes nothing.
+# The logic, the trusted checkout and the token live in the shared workflow. A scheduled run is a preview unless the
+# variable ISSUE_AUTOMATION_LIVE is true; a manual run follows its checkbox. An issue with an exempt label or a
+# milestone is skipped and loses stale-issue.
 jobs:
   sweep:
     permissions:

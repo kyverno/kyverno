@@ -6,8 +6,7 @@ description: |
 on:
   schedule: daily
 
-# copilot-requests lets the run use the built-in token for Copilot inference, billed to the organization, so no
-# personal access token is stored. pull-requests: read is for the agent's lookups of merged pull requests.
+# copilot-requests bills inference to the organization, so no token is stored.
 permissions:
   contents: read
   issues: read
@@ -15,9 +14,19 @@ permissions:
   copilot-requests: write
 
 safe-outputs:
-  # Preview first, like the issue sweep: while this is on, a run only reports the labels and comments it would add and
-  # writes nothing to any issue. Read a few runs, then delete this line, run `gh aw compile` and commit to go live.
+  # Preview: a run reports what it would add and writes nothing. Delete this line and recompile to go live, after
+  # making sure a label or comment can only name an issue the facts step selected.
   staged: true
+  # gh-aw's own issue reporters stay off in preview: a failure shows as a failed run, not an issue.
+  report-failure-as-issue: false
+  report-missing-tool:
+    create-issue: false
+  report-incomplete:
+    create-issue: false
+  threat-detection:
+    report-as-issue: false
+    # A run whose threat check did not finish must not publish.
+    continue-on-error: false
   add-labels:
     allowed:
       - "triage:critical-review"
@@ -25,27 +34,21 @@ safe-outputs:
       - "triage:verify-closure"
       - "triage:scope-review"
       - "triage:decision"
-    # One label per call. gh-aw cannot stop two calls naming the same issue, so "one queue per issue" rests on the
-    # prompt; a doubled label is visible and a person corrects it.
+    # One label per call; "one queue per issue" rests on the prompt.
     max-labels: 1
     max: 20
     target: "*"
-    # Issues only: a pull request can never be labelled, and the job that applies the labels needs no PR access.
+    # Narrows permissions only; it does not stop a pull request number being named.
     pull-requests: false
-  # The reason for each label, so a maintainer sees it on the issue and not only in the run log. A comment left by an
-  # earlier run of this workflow is collapsed, not repeated.
+  # The reason for each label. Existing comments are never hidden.
   add-comment:
     max: 20
     target: "*"
-    hide-older-comments: true
     issues: true
     pull-requests: false
 
-# Runs before the agent with plain `gh` and `git` calls and gives it what it would otherwise have to hunt for: which
-# issues to sort (the newest 20 in none of the queues and without an exempt label), the merged pull requests that
-# mention each and the first stable release containing each merge, the issues and pull requests it links to, issues
-# that link to it, and a few weak keyword matches. When nothing needs sorting the agent job is skipped. A call the
-# list of issues depends on fails the job; an enrichment that fails is reported to the agent as "unknown".
+# Runs before the agent: picks the newest 20 issues to sort and gathers their PRs, releases, links and look-alikes.
+# With nothing to sort the agent is skipped; a failed list call fails the job; a failed enrichment is "unknown".
 jobs:
   facts:
     runs-on: ubuntu-latest
@@ -79,13 +82,12 @@ jobs:
                   return None
               return json.loads(r.stdout) if r.stdout.strip() else []
 
-          # The newest issues in no queue and with no exempt label, chosen by the search itself so that no page of
-          # already-queued issues can hide an eligible one.
+          # Chosen by the search itself, so queued issues cannot crowd out eligible ones.
           skip = " ".join(f'-label:"{name}"' for name in QUEUES + EXEMPT)
           todo = gh("issue", "list", "-R", REPO, "--state", "open", "--limit", str(LIMIT),
                     "--search", f"sort:created-desc {skip}", "--json", "number,title,body,createdAt", required=True)
 
-          # Release containment from the commit graph alone: a clone with commits and tags but no file contents.
+          # Commits and tags only, no file contents.
           clone = tempfile.mkdtemp()
           cloned = subprocess.run(["gh", "repo", "clone", REPO, clone, "--", "--bare", "--filter=tree:0", "--quiet"],
                                   capture_output=True, text=True)
@@ -103,22 +105,59 @@ jobs:
               stable = [t for t in r.stdout.split() if "-" not in t]
               return stable[0] if stable else None
 
-          QUERY = """query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){
-            timelineItems(first:50,itemTypes:[CROSS_REFERENCED_EVENT]){nodes{... on CrossReferencedEvent{
+          QUERY = """query($o:String!,$r:String!,$n:Int!,$after:String){repository(owner:$o,name:$r){issue(number:$n){
+            timelineItems(first:50,after:$after,itemTypes:[CROSS_REFERENCED_EVENT]){
+            pageInfo{hasNextPage endCursor}
+            nodes{... on CrossReferencedEvent{
             source{__typename ... on PullRequest{number title mergedAt baseRefName mergeCommit{oid}}
             ... on Issue{number title state}}}}}}}}"""
+          MAX_PAGES = 6  # 300 cross-references; past that the agent is told the list is cut short
+
+          def cross_references(n):
+            """(merged pull requests, issues that mention it, cut short). "unknown" when the first read fails."""
+            prs, mentioned_by, after = [], [], None
+            for page in range(MAX_PAGES):
+                args = ["api", "graphql", "-f", f"query={QUERY}", "-f", f"o={OWNER}", "-f", f"r={NAME}", "-F", f"n={n}"]
+                if after:
+                    args += ["-f", f"after={after}"]
+                g = gh(*args)
+                issue = (((g or {}).get("data") or {}).get("repository") or {}).get("issue") or {}
+                conn = issue.get("timelineItems")
+                if conn is None:
+                    return ("unknown", "unknown", False) if page == 0 else (prs, mentioned_by, True)
+                for ev in conn.get("nodes") or []:
+                    src = (ev or {}).get("source") or {}
+                    if src.get("__typename") == "PullRequest" and src.get("mergedAt") and src.get("mergeCommit"):
+                        release = first_release(src["mergeCommit"]["oid"])
+                        prs.append({"pr": src["number"], "title": src["title"], "merged": src["mergedAt"],
+                                    "base": src["baseRefName"], "first_release": release})
+                    elif src.get("__typename") == "Issue":
+                        mentioned_by.append({"issue": src["number"], "title": src["title"], "state": src["state"]})
+                if not conn["pageInfo"]["hasNextPage"]:
+                    return prs, mentioned_by, False
+                after = conn["pageInfo"]["endCursor"]
+            return prs, mentioned_by, True
+
+          URL = re.compile(r"https://github\.com/([\w.-]+/[\w.-]+)/(?:issues|pull)/(\d+)")
+          SHORT = re.compile(r"(?<![\w/])#(\d+)\b")
+          OTHER = re.compile(r"(?<![\w/.-])([\w.-]+/[\w.-]+)#(\d+)\b")
 
           def linked(n, body):
+              """Issues and pull requests the body links to: #N, owner/repo#N and full issue or pull request URLs."""
               refs = []
-              for m in re.finditer(r"(?<![\w/])#(\d+)\b", body or ""):
-                  num = int(m.group(1))
-                  if num != n and num not in refs:
-                      refs.append(num)
+              found_in = [(m.group(1), m.group(2)) for m in URL.finditer(body or "")]
+              found_in += [(REPO, m.group(1)) for m in SHORT.finditer(body or "")]
+              found_in += [(m.group(1), m.group(2)) for m in OTHER.finditer(body or "")]
+              for repo, num in found_in:
+                  key = (repo.lower(), int(num))
+                  if key != (REPO.lower(), n) and key not in refs:
+                      refs.append(key)
               found = []
-              for num in refs[:6]:
-                  d = gh("api", f"repos/{REPO}/issues/{num}")
+              for repo, num in refs[:8]:
+                  d = gh("api", f"repos/{repo}/issues/{num}")
                   if d:
-                      found.append({"ref": f"#{num}", "kind": "pull request" if d.get("pull_request") else "issue",
+                      found.append({"ref": f"#{num}" if repo == REPO.lower() else f"{repo}#{num}",
+                                    "kind": "pull request" if d.get("pull_request") else "issue",
                                     "state": d["state"], "title": d["title"],
                                     "merged": bool((d.get("pull_request") or {}).get("merged_at"))})
               return found
@@ -127,16 +166,7 @@ jobs:
           out = []
           for i in todo:
               n = i["number"]
-              g = gh("api", "graphql", "-f", f"query={QUERY}", "-f", f"o={OWNER}", "-f", f"r={NAME}", "-F", f"n={n}")
-              node = ((((g or {}).get("data") or {}).get("repository") or {}).get("issue")) if g else None
-              prs, mentioned_by = ("unknown", "unknown") if node is None else ([], [])
-              for ev in ((node or {}).get("timelineItems") or {}).get("nodes") or []:
-                  src = ev.get("source") or {}
-                  if src.get("__typename") == "PullRequest" and src.get("mergedAt") and src.get("mergeCommit"):
-                      prs.append({"pr": src["number"], "title": src["title"], "merged": src["mergedAt"],
-                                  "base": src["baseRefName"], "first_release": first_release(src["mergeCommit"]["oid"])})
-                  elif src.get("__typename") == "Issue":
-                      mentioned_by.append({"issue": src["number"], "title": src["title"], "state": src["state"]})
+              prs, mentioned_by, cut_short = cross_references(n)
               words = [w for w in re.findall(r"[A-Za-z0-9_]{4,}", i["title"]) if w.lower() not in STOP][:4]
               weak = {}
               for terms in (words, sorted(words, key=len, reverse=True)[:2]):
@@ -151,7 +181,8 @@ jobs:
                                                         "excerpt": " ".join((f.get("body") or "").split())[:200]})
               out.append({"issue": n, "title": i["title"], "opened": i["createdAt"],
                           "merged_prs_mentioning_it": prs, "links_in_its_text": linked(n, i["body"]),
-                          "other_issues_mentioning_it": mentioned_by if isinstance(mentioned_by, str) else mentioned_by[:6],
+                          "other_issues_mentioning_it": mentioned_by[:6] if mentioned_by != "unknown" else "unknown",
+                          "cross_references_cut_short": cut_short,
                           "weak_keyword_matches": list(weak.values())[:3]})
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write("json=" + json.dumps(out, separators=(",", ":")) + "\n")
@@ -183,8 +214,11 @@ exempt label, at most 20. Sort exactly these and no others. Do not search for mo
 - `merged_prs_mentioning_it`: merged pull requests that mention the issue, with the first stable release that contains
   the merge (`null`: merged but in no stable release yet; `"unknown"`: the lookup failed, so say you could not tell).
   A backport is a different commit and is not followed.
-- `links_in_its_text`: issues and pull requests the issue itself links to, with their state.
+- `links_in_its_text`: issues and pull requests the issue body links to (as `#N`, `owner/repo#N` or a full URL), with
+  their state. Links in the comments are not collected: read the comments yourself.
 - `other_issues_mentioning_it`: issues that link to this one.
+- `cross_references_cut_short`: `true` means the issue is mentioned so often that the older mentions were not read, so
+  a fix could be among them. Say so in your reason if it matters.
 - `weak_keyword_matches`: other issues whose words overlap. These are guesses, usually unrelated.
 
 <facts>
