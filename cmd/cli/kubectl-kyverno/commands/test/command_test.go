@@ -2466,3 +2466,385 @@ func TestRunTest_WarningColor(t *testing.T) {
 	assert.Contains(t, outNoColor, "warning: found duplicated resource")
 	assert.False(t, ansiRegex.MatchString(outNoColor), "expected warning to not contain ANSI codes when color disabled")
 }
+
+func TestRunTest_ImageValidatingPolicy_JSONPayload(t *testing.T) {
+	const ivpolYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-json-test
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+          -----BEGIN CERTIFICATE-----
+          MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
+          BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
+          Tm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx
+          MTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0
+          dGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3
+          DQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+
+          b+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL
+          hVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m
+          Iia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0
+          Vp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f
+          ETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG
+          A1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G
+          CSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9
+          kYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8
+          Zq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF
+          ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
+          5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
+          uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
+          -----END CERTIFICATE-----
+  validations:
+  - expression: "images.app.size() == 0"
+    message: "no images allowed"
+`
+
+	const matchingExYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-matching
+  namespace: test-ns
+spec:
+  policyRefs:
+  - name: ivpol-json-test
+    kind: ImageValidatingPolicy
+`
+
+	const payloadJSON = `{"app": "ghcr.io/kyverno/test:1.0"}`
+
+	const matchingPolicyYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-json-matching
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+          -----BEGIN CERTIFICATE-----
+          MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
+          BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
+          Tm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx
+          MTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0
+          dGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3
+          DQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+
+          b+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL
+          hVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m
+          Iia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0
+          Vp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f
+          ETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG
+          A1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G
+          CSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9
+          kYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8
+          Zq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF
+          ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
+          5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
+          uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
+          -----END CERTIFICATE-----
+  validations:
+  - expression: "images.app.size() == 1"
+    message: "must have 1 image"
+`
+
+	t.Run("matching full-exemption PolicyException with expected skip passes", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.yaml"), []byte(ivpolYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "polex.yaml"), []byte(matchingExYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "payload.json"), []byte(payloadJSON), 0o600))
+
+		testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-ivpol-json-skip
+policies:
+  - policy.yaml
+exceptions:
+  - polex.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - isImageValidatingPolicy: true
+    kind: ""
+    policy: ivpol-json-test
+    resources:
+      - payload.json
+    result: skip
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{dir})
+		err := cmd.Execute()
+		require.NoError(t, err)
+		assert.Contains(t, out.String(), "Pass")
+		assert.NotContains(t, out.String(), "Fail")
+	})
+
+	t.Run("excluded by matchConditions does not trigger nil-pointer panic", func(t *testing.T) {
+		dir := t.TempDir()
+		mismatchPolicyYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-json-match-cond
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchConditions:
+  - name: check-app-name
+    expression: "object.app == 'matching-app'"
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+          -----BEGIN CERTIFICATE-----
+          MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
+          BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
+          Tm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx
+          MTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0
+          dGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3
+          DQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+
+          b+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL
+          hVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m
+          Iia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0
+          Vp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f
+          ETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG
+          A1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G
+          CSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9
+          kYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8
+          Zq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF
+          ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
+          5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
+          uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
+          -----END CERTIFICATE-----
+  validations:
+  - expression: "images.app.size() == 1"
+    message: "must have 1 image"
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "matching-policy.yaml"), []byte(matchingPolicyYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "mismatch-policy.yaml"), []byte(mismatchPolicyYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "payload.json"), []byte(payloadJSON), 0o600))
+
+		testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-ivpol-json-mismatch
+policies:
+  - matching-policy.yaml
+  - mismatch-policy.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - isImageValidatingPolicy: true
+    policy: ivpol-json-matching
+    resources:
+      - payload.json
+    result: pass
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{dir})
+		require.NoError(t, cmd.Execute())
+		assert.Contains(t, out.String(), "Pass")
+		assert.NotContains(t, out.String(), "Fail")
+		assert.Contains(t, out.String(), "1 tests passed and 0 tests failed")
+
+		testCases := test.LoadTest(nil, filepath.Join(dir, "kyverno-test.yaml"))
+		require.Len(t, testCases, 1)
+		testResponse, err := runTest(context.TODO(), &bytes.Buffer{}, testCases[0], false)
+		require.NoError(t, err)
+		responses := testResponse.Trigger["payload.json"]
+		require.Len(t, responses, 1)
+		assert.Equal(t, "ivpol-json-matching", responses[0].Policy().GetName())
+	})
+
+	t.Run("multiple distinct IVPOLs on JSON payload retain both responses", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy1.yaml"), []byte(matchingPolicyYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy2.yaml"), []byte(ivpolYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "polex.yaml"), []byte(matchingExYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "payload.json"), []byte(payloadJSON), 0o600))
+
+		testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-ivpol-json-multiple
+policies:
+  - policy1.yaml
+  - policy2.yaml
+exceptions:
+  - polex.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - isImageValidatingPolicy: true
+    policy: ivpol-json-matching
+    resources:
+      - payload.json
+    result: pass
+  - isImageValidatingPolicy: true
+    policy: ivpol-json-test
+    resources:
+      - payload.json
+    result: skip
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{dir})
+		require.NoError(t, cmd.Execute())
+		assert.Contains(t, out.String(), "Pass")
+		assert.NotContains(t, out.String(), "Fail")
+		assert.Contains(t, out.String(), "2 tests passed and 0 tests failed")
+
+		testCases := test.LoadTest(nil, filepath.Join(dir, "kyverno-test.yaml"))
+		require.Len(t, testCases, 1)
+		testResponse, err := runTest(context.TODO(), &bytes.Buffer{}, testCases[0], false)
+		require.NoError(t, err)
+		responses := testResponse.Trigger["payload.json"]
+		require.Len(t, responses, 2)
+		byPolicy := make(map[string]engineapi.EngineResponse)
+		for _, resp := range responses {
+			byPolicy[resp.Policy().GetName()] = resp
+		}
+		require.Contains(t, byPolicy, "ivpol-json-matching")
+		require.Contains(t, byPolicy, "ivpol-json-test")
+		require.Len(t, byPolicy["ivpol-json-matching"].PolicyResponse.Rules, 1)
+		require.Len(t, byPolicy["ivpol-json-test"].PolicyResponse.Rules, 1)
+		assert.Equal(t, engineapi.RuleStatusPass, byPolicy["ivpol-json-matching"].PolicyResponse.Rules[0].Status())
+		assert.Equal(t, engineapi.RuleStatusSkip, byPolicy["ivpol-json-test"].PolicyResponse.Rules[0].Status())
+	})
+
+	t.Run("expired PolicyException does not exempt payload and results in fail", func(t *testing.T) {
+		dir := t.TempDir()
+		expiredPolicyYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-json-expired-test
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+          -----BEGIN CERTIFICATE-----
+          MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
+          BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
+          Tm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx
+          MTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0
+          dGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3
+          DQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+
+          b+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL
+          hVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m
+          Iia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0
+          Vp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f
+          ETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG
+          A1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G
+          CSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9
+          kYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8
+          Zq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF
+          ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
+          5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
+          uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
+          -----END CERTIFICATE-----
+  validations:
+  - expression: "images.app.size() == 0"
+    message: "no images allowed"
+`
+		expiredPolexYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-expired
+  namespace: test-ns
+spec:
+  expiresAt: "2020-01-01T00:00:00Z"
+  policyRefs:
+  - name: ivpol-json-expired-test
+    kind: ImageValidatingPolicy
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.yaml"), []byte(expiredPolicyYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "polex.yaml"), []byte(expiredPolexYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "payload.json"), []byte(payloadJSON), 0o600))
+
+		testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-ivpol-json-expired
+policies:
+  - policy.yaml
+exceptions:
+  - polex.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - isImageValidatingPolicy: true
+    policy: ivpol-json-expired-test
+    resources:
+      - payload.json
+    result: fail
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{dir})
+		require.NoError(t, cmd.Execute())
+		assert.Contains(t, out.String(), "Pass")
+		assert.Contains(t, out.String(), "1 tests passed and 0 tests failed")
+	})
+}

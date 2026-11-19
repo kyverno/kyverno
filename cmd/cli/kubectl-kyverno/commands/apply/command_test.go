@@ -2691,3 +2691,262 @@ spec:
 		assert.Contains(t, output, "warn: 0")
 	})
 }
+
+func TestApply_ImageValidatingPolicy_JSONPayload_PolicyException(t *testing.T) {
+	const ivpol1YAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-json-1
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+          -----BEGIN CERTIFICATE-----
+          MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
+          BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
+          Tm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx
+          MTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0
+          dGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3
+          DQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+
+          b+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL
+          hVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m
+          Iia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0
+          Vp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f
+          ETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG
+          A1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G
+          CSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9
+          kYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8
+          Zq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF
+          ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
+          5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
+          uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
+          -----END CERTIFICATE-----
+  validations:
+  - expression: "images.app.size() == 0"
+    message: "no images allowed"
+`
+
+	const ivpol2YAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-json-2
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+          -----BEGIN CERTIFICATE-----
+          MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
+          BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
+          Tm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx
+          MTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0
+          dGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3
+          DQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+
+          b+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL
+          hVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m
+          Iia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0
+          Vp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f
+          ETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG
+          A1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G
+          CSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9
+          kYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8
+          Zq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF
+          ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
+          5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
+          uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
+          -----END CERTIFICATE-----
+  validations:
+  - expression: "images.app.size() == 1"
+    message: "must have 1 image"
+`
+
+	const matchingExYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-matching
+  namespace: test-ns
+spec:
+  policyRefs:
+  - name: ivpol-json-1
+    kind: ImageValidatingPolicy
+`
+
+	const otherExYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-other
+  namespace: test-ns
+spec:
+  policyRefs:
+  - name: other-policy
+    kind: ImageValidatingPolicy
+`
+
+	const secondMatchingExYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-second
+  namespace: test-ns
+spec:
+  policyRefs:
+  - name: ivpol-json-1
+    kind: ImageValidatingPolicy
+`
+
+	const payloadJSON = `{"app": "ghcr.io/kyverno/test:1.0"}`
+
+	dir := t.TempDir()
+	ivpol1Path := filepath.Join(dir, "ivpol1.yaml")
+	ivpol2Path := filepath.Join(dir, "ivpol2.yaml")
+	matchingExPath := filepath.Join(dir, "ex-matching.yaml")
+	otherExPath := filepath.Join(dir, "ex-other.yaml")
+	secondMatchingExPath := filepath.Join(dir, "ex-second.yaml")
+	jsonPath := filepath.Join(dir, "payload.json")
+
+	require.NoError(t, os.WriteFile(ivpol1Path, []byte(ivpol1YAML), 0o600))
+	require.NoError(t, os.WriteFile(ivpol2Path, []byte(ivpol2YAML), 0o600))
+	require.NoError(t, os.WriteFile(matchingExPath, []byte(matchingExYAML), 0o600))
+	require.NoError(t, os.WriteFile(otherExPath, []byte(otherExYAML), 0o600))
+	require.NoError(t, os.WriteFile(secondMatchingExPath, []byte(secondMatchingExYAML), 0o600))
+	require.NoError(t, os.WriteFile(jsonPath, []byte(payloadJSON), 0o600))
+
+	t.Run("matching full-exemption exception produces a Skip policy response", func(t *testing.T) {
+		config := &ApplyCommandConfig{
+			PolicyPaths: []string{ivpol1Path},
+			JSONPaths:   []string{jsonPath},
+			Exception:   []string{matchingExPath},
+		}
+		rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+		require.NoError(t, err)
+		assert.Equal(t, 1, rc.Skip)
+		assert.Equal(t, 0, rc.Fail)
+		require.Len(t, responses, 1)
+		require.Len(t, responses[0].PolicyResponse.Rules, 1)
+		rule := responses[0].PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusSkip, rule.Status())
+		assert.Contains(t, rule.Message(), "test-ns/ex-matching")
+	})
+
+	t.Run("non-matching exception preserves normal evaluation", func(t *testing.T) {
+		config := &ApplyCommandConfig{
+			PolicyPaths: []string{ivpol1Path},
+			JSONPaths:   []string{jsonPath},
+			Exception:   []string{otherExPath},
+		}
+		rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+		require.NoError(t, err)
+		assert.Equal(t, 0, rc.Skip)
+		assert.Equal(t, 1, rc.Fail)
+		require.Len(t, responses, 1)
+		require.Len(t, responses[0].PolicyResponse.Rules, 1)
+		rule := responses[0].PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+		assert.Contains(t, rule.Message(), "no images allowed")
+	})
+
+	t.Run("multiple matching exceptions are all present in Skip response", func(t *testing.T) {
+		config := &ApplyCommandConfig{
+			PolicyPaths: []string{ivpol1Path},
+			JSONPaths:   []string{jsonPath},
+			Exception:   []string{matchingExPath, secondMatchingExPath},
+		}
+		rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+		require.NoError(t, err)
+		assert.Equal(t, 1, rc.Skip)
+		require.Len(t, responses, 1)
+		require.Len(t, responses[0].PolicyResponse.Rules, 1)
+		rule := responses[0].PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusSkip, rule.Status())
+		assert.Contains(t, rule.Message(), "test-ns/ex-matching")
+		assert.Contains(t, rule.Message(), "test-ns/ex-second")
+		assert.Len(t, rule.Exceptions(), 2)
+	})
+
+	t.Run("multiple IVPOLs retain their own responses without overwriting", func(t *testing.T) {
+		config := &ApplyCommandConfig{
+			PolicyPaths: []string{ivpol1Path, ivpol2Path},
+			JSONPaths:   []string{jsonPath},
+			Exception:   []string{matchingExPath},
+		}
+		rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+		require.NoError(t, err)
+		assert.Equal(t, 1, rc.Skip)
+		assert.Equal(t, 1, rc.Pass)
+		require.Len(t, responses, 2)
+		byPolicy := make(map[string]engineapi.EngineResponse)
+		for _, resp := range responses {
+			byPolicy[resp.Policy().GetName()] = resp
+		}
+		require.Contains(t, byPolicy, "ivpol-json-1")
+		require.Contains(t, byPolicy, "ivpol-json-2")
+		require.Len(t, byPolicy["ivpol-json-1"].PolicyResponse.Rules, 1)
+		require.Len(t, byPolicy["ivpol-json-2"].PolicyResponse.Rules, 1)
+		assert.Equal(t, engineapi.RuleStatusSkip, byPolicy["ivpol-json-1"].PolicyResponse.Rules[0].Status())
+		assert.Equal(t, engineapi.RuleStatusPass, byPolicy["ivpol-json-2"].PolicyResponse.Rules[0].Status())
+	})
+
+	t.Run("explain output displays SKIP verdict in trace output", func(t *testing.T) {
+		var out bytes.Buffer
+		config := &ApplyCommandConfig{
+			PolicyPaths: []string{ivpol1Path},
+			JSONPaths:   []string{jsonPath},
+			Exception:   []string{matchingExPath},
+			Explain:     true,
+		}
+		rc, _, _, responses, err := config.applyCommandHelper(context.Background(), &out)
+		require.NoError(t, err)
+		assert.Equal(t, 1, rc.Skip)
+		require.Len(t, responses, 1)
+		assert.Contains(t, out.String(), "SKIP")
+	})
+
+	t.Run("expired exception does not exempt payload and results in failure", func(t *testing.T) {
+		expiredExPath := filepath.Join(dir, "ex-expired.yaml")
+		expiredExYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-expired
+  namespace: test-ns
+spec:
+  expiresAt: "2020-01-01T00:00:00Z"
+  policyRefs:
+  - name: ivpol-json-1
+    kind: ImageValidatingPolicy
+`
+		require.NoError(t, os.WriteFile(expiredExPath, []byte(expiredExYAML), 0o600))
+		config := &ApplyCommandConfig{
+			PolicyPaths: []string{ivpol1Path},
+			JSONPaths:   []string{jsonPath},
+			Exception:   []string{expiredExPath},
+		}
+		rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+		require.NoError(t, err)
+		assert.Equal(t, 0, rc.Skip)
+		assert.Equal(t, 1, rc.Fail)
+		require.Len(t, responses, 1)
+		assert.Equal(t, engineapi.RuleStatusFail, responses[0].PolicyResponse.Rules[0].Status())
+	})
+}
