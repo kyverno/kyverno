@@ -37,6 +37,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
@@ -1046,7 +1047,8 @@ func applyImageValidatingPolicies(
 
 	for i := range ivps {
 		p := ivps[i]
-		pMap[p.GetName()] = p
+		key := celpolicies.PolicyKey(p)
+		pMap[key] = p
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{
 			Policy:     p,
 			Exceptions: eval.MatchExceptions(p, celExceptions),
@@ -1066,6 +1068,8 @@ func applyImageValidatingPolicies(
 			if rslt == nil {
 				continue
 			}
+			policy := pMap[p]
+			ruleName := policy.GetName()
 			resp := engineapi.EngineResponse{
 				Resource:       *json,
 				PolicyResponse: engineapi.PolicyResponse{},
@@ -1109,14 +1113,14 @@ func applyImageValidatingPolicies(
 				}
 			} else if rslt.Result {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RulePass(p, engineapi.ImageVerify, "success", nil),
+					*engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil),
 				}
 			} else {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, nil),
+					*engineapi.RuleFail(ruleName, engineapi.ImageVerify, rslt.Message, nil),
 				}
 			}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(policy))
 			rc.AddValidatingPolicyResponse(false, resp)
 			responses = append(responses, resp)
 		}

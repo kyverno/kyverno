@@ -2571,6 +2571,27 @@ spec:
     message: "must have 1 image"
 `
 
+	const testNotaryCert = `          -----BEGIN CERTIFICATE-----
+          MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
+          BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
+          Tm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx
+          MTUxOFowTDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMRAwDgYDVQQHDAdTZWF0
+          dGxlMQ8wDQYDVQQKDAZOb3RhcnkxDTALBgNVBAMMBHRlc3QwggEiMA0GCSqGSIb3
+          DQEBAQUAA4IBDwAwggEKAoIBAQDNhTwv+QMk7jEHufFfIFlBjn2NiJaYPgL4eBS+
+          b+o37ve5Zn9nzRppV6kGsa161r9s2KkLXmJrojNy6vo9a6g6RtZ3F6xKiWLUmbAL
+          hVTCfYw/2n7xNlVMjyyUpE+7e193PF8HfQrfDFxe2JnX5LHtGe+X9vdvo2l41R6m
+          Iia04DvpMdG4+da2tKPzXIuLUz/FDb6IODO3+qsqQLwEKmmUee+KX+3yw8I6G1y0
+          Vp0mnHfsfutlHeG8gazCDlzEsuD4QJ9BKeRf2Vrb0ywqNLkGCbcCWF2H5Q80Iq/f
+          ETVO9z88R7WheVdEjUB8UrY7ZMLdADM14IPhY2Y+tLaSzEVZAgMBAAGjMjAwMAkG
+          A1UdEwQCMAAwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA0G
+          CSqGSIb3DQEBCwUAA4IBAQBX7x4Ucre8AIUmXZ5PUK/zUBVOrZZzR1YE8w86J4X9
+          kYeTtlijf9i2LTZMfGuG0dEVFN4ae3CCpBst+ilhIndnoxTyzP+sNy4RCRQ2Y/k8
+          Zq235KIh7uucq96PL0qsF9s2RpTKXxyOGdtp9+HO0Ty5txJE2txtLDUIVPK5WNDF
+          ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
+          5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
+          uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
+          -----END CERTIFICATE-----`
+
 	t.Run("matching full-exemption PolicyException with expected skip passes", func(t *testing.T) {
 		dir := t.TempDir()
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.yaml"), []byte(ivpolYAML), 0o600))
@@ -2852,5 +2873,391 @@ results:
 		require.NoError(t, cmd.Execute())
 		assert.Contains(t, out.String(), "Pass")
 		assert.Contains(t, out.String(), "1 tests passed and 0 tests failed")
+	})
+
+	t.Run("multiple distinct NIVPOLs with identical names in different namespaces retain both responses", func(t *testing.T) {
+		dir := t.TempDir()
+		nivpol1YAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedImageValidatingPolicy
+metadata:
+  name: nivpol-json-same-name
+  namespace: tenant-a
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+` + testNotaryCert + `
+  validations:
+  - expression: "images.app.size() == 0"
+    message: "no images allowed"
+`
+		nivpol2YAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedImageValidatingPolicy
+metadata:
+  name: nivpol-json-same-name
+  namespace: tenant-b
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+` + testNotaryCert + `
+  validations:
+  - expression: "images.app.size() == 1"
+    message: "must have 1 image"
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy1.yaml"), []byte(nivpol1YAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy2.yaml"), []byte(nivpol2YAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "payload.json"), []byte(payloadJSON), 0o600))
+
+		testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-nivpol-json-same-name
+policies:
+  - policy1.yaml
+  - policy2.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - kind: NamespacedImageValidatingPolicy
+    policy: tenant-a/nivpol-json-same-name
+    resources:
+      - payload.json
+    result: fail
+  - kind: NamespacedImageValidatingPolicy
+    policy: tenant-b/nivpol-json-same-name
+    resources:
+      - payload.json
+    result: pass
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{dir})
+		require.NoError(t, cmd.Execute())
+		assert.Contains(t, out.String(), "Pass")
+		assert.NotContains(t, out.String(), "Fail")
+		assert.Contains(t, out.String(), "2 tests passed and 0 tests failed")
+
+		testCases := test.LoadTest(nil, filepath.Join(dir, "kyverno-test.yaml"))
+		require.Len(t, testCases, 1)
+		testResponse, err := runTest(context.TODO(), &bytes.Buffer{}, testCases[0], false)
+		require.NoError(t, err)
+		responses := testResponse.Trigger["payload.json"]
+		require.Len(t, responses, 2)
+
+		byKey := make(map[string]engineapi.EngineResponse)
+		for _, resp := range responses {
+			key := resp.Policy().GetNamespace() + "/" + resp.Policy().GetName()
+			byKey[key] = resp
+		}
+		require.Contains(t, byKey, "tenant-a/nivpol-json-same-name")
+		require.Contains(t, byKey, "tenant-b/nivpol-json-same-name")
+		require.Len(t, byKey["tenant-a/nivpol-json-same-name"].PolicyResponse.Rules, 1)
+		require.Len(t, byKey["tenant-b/nivpol-json-same-name"].PolicyResponse.Rules, 1)
+		assert.Equal(t, engineapi.RuleStatusFail, byKey["tenant-a/nivpol-json-same-name"].PolicyResponse.Rules[0].Status())
+		assert.Equal(t, engineapi.RuleStatusPass, byKey["tenant-b/nivpol-json-same-name"].PolicyResponse.Rules[0].Status())
+	})
+
+	t.Run("same-name cluster-scoped and namespaced policy exception isolation", func(t *testing.T) {
+		dir := t.TempDir()
+		clusterIvpolYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-same-name
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+` + testNotaryCert + `
+  validations:
+  - expression: "images.app.size() == 0"
+    message: "no images allowed"
+`
+		namespacedIvpolYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedImageValidatingPolicy
+metadata:
+  name: ivpol-same-name
+  namespace: tenant-a
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+` + testNotaryCert + `
+  validations:
+  - expression: "images.app.size() == 0"
+    message: "no images allowed"
+`
+		polexClusterYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-cluster-same-name
+  namespace: test-ns
+spec:
+  policyRefs:
+  - name: ivpol-same-name
+    kind: ImageValidatingPolicy
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy1.yaml"), []byte(clusterIvpolYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy2.yaml"), []byte(namespacedIvpolYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "polex.yaml"), []byte(polexClusterYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "payload.json"), []byte(payloadJSON), 0o600))
+
+		testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-ivpol-same-name-isolation
+policies:
+  - policy1.yaml
+  - policy2.yaml
+exceptions:
+  - polex.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - isImageValidatingPolicy: true
+    policy: ivpol-same-name
+    resources:
+      - payload.json
+    result: skip
+  - kind: NamespacedImageValidatingPolicy
+    policy: tenant-a/ivpol-same-name
+    resources:
+      - payload.json
+    result: fail
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{dir})
+		require.NoError(t, cmd.Execute())
+		assert.Contains(t, out.String(), "Pass")
+		assert.NotContains(t, out.String(), "Fail")
+		assert.Contains(t, out.String(), "2 tests passed and 0 tests failed")
+
+		testCases := test.LoadTest(nil, filepath.Join(dir, "kyverno-test.yaml"))
+		require.Len(t, testCases, 1)
+		testResponse, err := runTest(context.TODO(), &bytes.Buffer{}, testCases[0], false)
+		require.NoError(t, err)
+		responses := testResponse.Trigger["payload.json"]
+		require.Len(t, responses, 2)
+
+		var clusterResp, namespacedResp *engineapi.EngineResponse
+		for i := range responses {
+			p := responses[i].Policy()
+			if p.GetKind() == "ImageValidatingPolicy" && p.GetName() == "ivpol-same-name" && p.GetNamespace() == "" {
+				clusterResp = &responses[i]
+			} else if p.GetKind() == "NamespacedImageValidatingPolicy" && p.GetName() == "ivpol-same-name" && p.GetNamespace() == "tenant-a" {
+				namespacedResp = &responses[i]
+			}
+		}
+		require.NotNil(t, clusterResp, "cluster-scoped policy response must be present")
+		require.NotNil(t, namespacedResp, "namespaced policy response must be present")
+
+		require.Len(t, clusterResp.PolicyResponse.Rules, 1)
+		clusterRule := clusterResp.PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusSkip, clusterRule.Status())
+		assert.Contains(t, clusterRule.Message(), "test-ns/ex-cluster-same-name")
+		require.Len(t, clusterRule.Exceptions(), 1)
+		assert.Equal(t, "ex-cluster-same-name", clusterRule.Exceptions()[0].GetName())
+		assert.Equal(t, "test-ns", clusterRule.Exceptions()[0].GetNamespace())
+
+		require.Len(t, namespacedResp.PolicyResponse.Rules, 1)
+		namespacedRule := namespacedResp.PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusFail, namespacedRule.Status())
+		assert.Empty(t, namespacedRule.Exceptions())
+	})
+
+	t.Run("namespaced PolicyException targeting exempts matching policy and retains non-exempt policy", func(t *testing.T) {
+		dir := t.TempDir()
+		nivpolExemptYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedImageValidatingPolicy
+metadata:
+  name: nivpol-exempt
+  namespace: tenant-a
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+` + testNotaryCert + `
+  validations:
+  - expression: "images.app.size() == 0"
+    message: "no images allowed"
+`
+		nivpolEnforcedYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedImageValidatingPolicy
+metadata:
+  name: nivpol-enforced
+  namespace: tenant-b
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+` + testNotaryCert + `
+  validations:
+  - expression: "images.app.size() == 0"
+    message: "no images allowed"
+`
+		polexNivpolYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-nivpol-exempt
+  namespace: tenant-a
+spec:
+  policyRefs:
+  - name: nivpol-exempt
+    kind: NamespacedImageValidatingPolicy
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy1.yaml"), []byte(nivpolExemptYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy2.yaml"), []byte(nivpolEnforcedYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "polex.yaml"), []byte(polexNivpolYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "payload.json"), []byte(payloadJSON), 0o600))
+
+		testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-nivpol-exception-targeting
+policies:
+  - policy1.yaml
+  - policy2.yaml
+exceptions:
+  - polex.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - kind: NamespacedImageValidatingPolicy
+    policy: tenant-a/nivpol-exempt
+    resources:
+      - payload.json
+    result: skip
+  - kind: NamespacedImageValidatingPolicy
+    policy: tenant-b/nivpol-enforced
+    resources:
+      - payload.json
+    result: fail
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{dir})
+		require.NoError(t, cmd.Execute())
+		assert.Contains(t, out.String(), "Pass")
+		assert.NotContains(t, out.String(), "Fail")
+		assert.Contains(t, out.String(), "2 tests passed and 0 tests failed")
+
+		testCases := test.LoadTest(nil, filepath.Join(dir, "kyverno-test.yaml"))
+		require.Len(t, testCases, 1)
+		testResponse, err := runTest(context.TODO(), &bytes.Buffer{}, testCases[0], false)
+		require.NoError(t, err)
+		responses := testResponse.Trigger["payload.json"]
+		require.Len(t, responses, 2)
+
+		var exemptResp, enforcedResp *engineapi.EngineResponse
+		for i := range responses {
+			p := responses[i].Policy()
+			if p.GetName() == "nivpol-exempt" && p.GetNamespace() == "tenant-a" {
+				exemptResp = &responses[i]
+			} else if p.GetName() == "nivpol-enforced" && p.GetNamespace() == "tenant-b" {
+				enforcedResp = &responses[i]
+			}
+		}
+		require.NotNil(t, exemptResp, "exempt policy response must be present")
+		require.NotNil(t, enforcedResp, "enforced policy response must be present")
+
+		assert.Equal(t, "NamespacedImageValidatingPolicy", exemptResp.Policy().GetKind())
+		require.Len(t, exemptResp.PolicyResponse.Rules, 1)
+		exemptRule := exemptResp.PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusSkip, exemptRule.Status())
+		assert.Contains(t, exemptRule.Message(), "tenant-a/ex-nivpol-exempt")
+		require.Len(t, exemptRule.Exceptions(), 1)
+		assert.Equal(t, "ex-nivpol-exempt", exemptRule.Exceptions()[0].GetName())
+		assert.Equal(t, "tenant-a", exemptRule.Exceptions()[0].GetNamespace())
+
+		assert.Equal(t, "NamespacedImageValidatingPolicy", enforcedResp.Policy().GetKind())
+		require.Len(t, enforcedResp.PolicyResponse.Rules, 1)
+		enforcedRule := enforcedResp.PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusFail, enforcedRule.Status())
+		assert.Empty(t, enforcedRule.Exceptions())
 	})
 }

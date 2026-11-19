@@ -9,6 +9,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -93,6 +94,7 @@ func evaluateWith(ctx context.Context, ictx imagedataloader.ImageContext, ivpols
 			return nil, fmt.Errorf("failed to compile policy %v", errList)
 		}
 
+		key := celpolicies.PolicyKey(ivpol.Policy)
 		result, err := p.Evaluate(ctx, ictx, nil, verifications, admissionAttr, request, namespace, isAdmissionRequest, requestMapFn, nil)
 		if err != nil {
 			if !tracing {
@@ -100,20 +102,20 @@ func evaluateWith(ctx context.Context, ictx imagedataloader.ImageContext, ivpols
 			}
 			// result is nil here unless tracing is on, in which case it carries the partial trace
 			withHeader(ivpol.Policy, result)
-			results[ivpol.Policy.GetName()] = result
+			results[key] = result
 			return results, err
 		}
 		withHeader(ivpol.Policy, result)
-		results[ivpol.Policy.GetName()] = result
-		compiled[ivpol.Policy.GetName()] = p
+		results[key] = result
+		compiled[key] = p
 	}
 	// required is settled only now: a policy's images may have been verified by a
 	// policy evaluated after it
-	for name, result := range results {
+	for key, result := range results {
 		if result == nil || !result.Result {
 			continue
 		}
-		if err := compiled[name].EnforceRequired(result.MatchedImages, verifications); err != nil {
+		if err := compiled[key].EnforceRequired(result.MatchedImages, verifications); err != nil {
 			result.Result = false
 			result.Message = err.Error()
 			if result.Trace != nil {
