@@ -50,14 +50,15 @@ func TestUpdate_NoOpWhenNilVsEmpty(t *testing.T) {
 	_, err := Update[*corev1.ConfigMap, interface {
 		Update(context.Context, *corev1.ConfigMap, metav1.UpdateOptions) (*corev1.ConfigMap, error)
 	}](context.Background(), observed, cmClient, build)
-	
+
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if updateCalled {
-		t.Logf("BUG REPRODUCED: Update was called for a semantically-equal object")
-	} else {
-		t.Logf("OK: no update for semantically-equal object")
+		// Use Fatalf so CI catches any future regressions if the semantic comparator is removed.
+		t.Fatalf("Update was called for a semantically equal object")
 	}
+
+	t.Logf("OK: no update for semantically-equal object")
 }
