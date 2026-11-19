@@ -8,5 +8,7 @@ compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/cel/policies/vpol FuzzVa
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/cel/policies/vpol FuzzValidateNamespacedValidatingPolicy FuzzValidateNamespacedValidatingPolicy
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine/anchor FuzzAnchorParseTest FuzzAnchorParseTest
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine/api FuzzEngineResponse FuzzEngineResponse
+compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/cel/policies/gpol/template FuzzGenerationTemplateScanner FuzzGenerationTemplateScanner
+compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/cel/policies/gpol/template FuzzGenerationTemplateCompileRender FuzzGenerationTemplateCompileRender
 
 cp $SRC/kyverno/test/fuzz/options/* $OUT/

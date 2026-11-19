@@ -2,7 +2,6 @@ package autogen
 
 import (
 	"cmp"
-	"encoding/json"
 	"maps"
 	"slices"
 
@@ -52,13 +51,64 @@ func autogenIvPols(spec policiesv1beta1.ImageValidatingPolicySpec, configs sets.
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
-		bytes, err := json.Marshal(spec)
-		if err != nil {
-			return nil, err
-		}
-		bytes = autogen.Apply(bytes, autogen.ReplacementsMap[config]...)
-		if err := json.Unmarshal(bytes, spec); err != nil {
-			return nil, err
+		replacements := autogen.ReplacementsMap[config]
+		if len(replacements) > 0 {
+			applyCEL := func(expr string) string {
+				if expr == "" {
+					return ""
+				}
+				return string(autogen.ApplyCEL([]byte(expr), replacements...))
+			}
+			for i := range spec.MatchConditions {
+				spec.MatchConditions[i].Expression = applyCEL(spec.MatchConditions[i].Expression)
+			}
+			for i := range spec.Variables {
+				spec.Variables[i].Expression = applyCEL(spec.Variables[i].Expression)
+			}
+			for i := range spec.Validations {
+				spec.Validations[i].Expression = applyCEL(spec.Validations[i].Expression)
+				spec.Validations[i].MessageExpression = applyCEL(spec.Validations[i].MessageExpression)
+			}
+			for i := range spec.AuditAnnotations {
+				spec.AuditAnnotations[i].ValueExpression = applyCEL(spec.AuditAnnotations[i].ValueExpression)
+			}
+			for i := range spec.MatchImageReferences {
+				spec.MatchImageReferences[i].Expression = applyCEL(spec.MatchImageReferences[i].Expression)
+			}
+			for i := range spec.ImageExtractors {
+				spec.ImageExtractors[i].Expression = applyCEL(spec.ImageExtractors[i].Expression)
+			}
+			for i := range spec.Attestors {
+				if cosign := spec.Attestors[i].Cosign; cosign != nil {
+					if cosign.Key != nil {
+						cosign.Key.Expression = applyCEL(cosign.Key.Expression)
+					}
+					if cosign.Keyless != nil {
+						for j := range cosign.Keyless.Identities {
+							cosign.Keyless.Identities[j].SubjectExpression = applyCEL(cosign.Keyless.Identities[j].SubjectExpression)
+						}
+					}
+					if cosign.Certificate != nil {
+						if cosign.Certificate.Certificate != nil {
+							cosign.Certificate.Certificate.Expression = applyCEL(cosign.Certificate.Certificate.Expression)
+						}
+						if cosign.Certificate.CertificateChain != nil {
+							cosign.Certificate.CertificateChain.Expression = applyCEL(cosign.Certificate.CertificateChain.Expression)
+						}
+					}
+					if cosign.TrustedRoot != nil {
+						cosign.TrustedRoot.Expression = applyCEL(cosign.TrustedRoot.Expression)
+					}
+				}
+				if notary := spec.Attestors[i].Notary; notary != nil {
+					if notary.Certs != nil {
+						notary.Certs.Expression = applyCEL(notary.Certs.Expression)
+					}
+					if notary.TSACerts != nil {
+						notary.TSACerts.Expression = applyCEL(notary.TSACerts.Expression)
+					}
+				}
+			}
 		}
 		slices.SortFunc(targets, func(a, b policiesv1beta1.Target) int {
 			if x := cmp.Compare(a.Group, b.Group); x != 0 {
