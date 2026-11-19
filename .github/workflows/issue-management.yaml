@@ -1,0 +1,25 @@
+name: Issue management
+
+on:
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only preview changes (leave enabled until you have read a preview run)
+        type: boolean
+        default: true
+
+permissions: {}
+
+# The logic, the trusted checkout and the token live in the shared workflow. A scheduled run follows the repository
+# variable ISSUE_AUTOMATION_LIVE (preview unless it is exactly true); a manual run follows its checkbox. A preview
+# writes what it would do to the job summary and changes nothing.
+jobs:
+  sweep:
+    permissions:
+      contents: read
+      issues: write
+    uses: kyverno/assistant/.github/workflows/issue-management.yml@9e64d868f3a92aebf1409d2c5b1fb35e5fa3a53e
+    with:
+      dry-run: ${{ github.event_name == 'workflow_dispatch' && (inputs.dry_run && 'true' || 'false') || 'auto' }}

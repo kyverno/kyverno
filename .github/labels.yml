@@ -571,6 +571,11 @@ no-stale:
   color: C2E0C6
   description: Exempt from stale-author, automatic closure, and idle-review handling
 
+# Managed by issue-management.yaml; don't set by hand. Not `stale`: that one belongs to the PR automation.
+stale-issue:
+  color: D4C5F9
+  description: Waiting on the reporter with no reply; closes if there is still none
+
 # ── PSA release issues (.github/workflows/psa-release-issues.yaml) ───────────
 # Set by scripts/psa-release-issues.py on the issue for a PSA release. The script uses it to find existing issues.
 psa-cel-update:
