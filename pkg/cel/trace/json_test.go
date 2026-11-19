@@ -114,6 +114,77 @@ func TestDecision_JSONHidesSecretData(t *testing.T) {
 	assert.Equal(t, "czNjcjN0LXA0c3M=", d.Variables[1].Result, "the decision itself is not changed")
 }
 
+// TestDecision_JSONHidesSecretErrors: an error can quote the value it failed on, so encoding a
+// decision hides the error of each expression that may read a Secret, wherever the error is kept,
+// and keeps an error that has nothing to do with one. The decision itself is not changed.
+func TestDecision_JSONHidesSecretErrors(t *testing.T) {
+	const quoted = `invalid RFC 3339 timestamp "czNjcjN0LXA0c3M="`
+	tests := []struct {
+		name string
+		// decision is a decision with quoted as the error of an expression with these inputs
+		decision func(in Inputs) *Decision
+		// written returns the error as d holds it
+		written func(d *Decision) string
+	}{{
+		name: "a node of the breakdown",
+		decision: func(in Inputs) *Decision {
+			return &Decision{PolicyName: "p", Verdict: VerdictTrace{Status: VerdictFail, ExpressionTrace: ExpressionTrace{
+				Source: "timestamp(variables.password) < timestamp('2026-01-01T00:00:00Z')",
+				Nodes:  []NodeTrace{{Expression: "timestamp(variables.password)", Error: quoted, Inputs: in}},
+			}}}
+		},
+		written: func(d *Decision) string { return d.Verdict.Nodes[0].Error },
+	}, {
+		name: "the message of an ERROR verdict",
+		decision: func(in Inputs) *Decision {
+			return &Decision{PolicyName: "p", Verdict: VerdictTrace{Status: VerdictError, Message: quoted, ExpressionTrace: ExpressionTrace{
+				Source: "timestamp(variables.password) < timestamp('2026-01-01T00:00:00Z')",
+				Inputs: in,
+			}}}
+		},
+		written: func(d *Decision) string { return d.Verdict.Message },
+	}, {
+		name: "a mutation",
+		decision: func(in Inputs) *Decision {
+			return &Decision{PolicyName: "p", Verdict: VerdictTrace{Status: VerdictError}, Mutations: []MutationTrace{{
+				Name:            "mutations[0] (jsonPatch)",
+				ExpressionTrace: ExpressionTrace{Source: "[JSONPatch{op: 'add', path: '/x', value: timestamp(variables.password)}]", Inputs: in},
+				Error:           quoted,
+			}}}
+		},
+		written: func(d *Decision) string { return d.Mutations[0].Error },
+	}, {
+		name: "a generate entry",
+		decision: func(in Inputs) *Decision {
+			return &Decision{PolicyName: "p", Verdict: VerdictTrace{Status: VerdictError}, Generations: []GenerationTrace{{
+				Name:            "generate[0] (expression)",
+				ExpressionTrace: ExpressionTrace{Source: "generator.Apply('prod', [variables.copy])", Inputs: in},
+				Error:           quoted,
+			}}}
+		},
+		written: func(d *Decision) string { return d.Generations[0].Error },
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := tt.decision(Inputs{Secret: true})
+			raw, err := json.Marshal(d)
+			require.NoError(t, err)
+			assert.NotContains(t, string(raw), "czNjcjN0LXA0c3M=")
+			var read Decision
+			require.NoError(t, json.Unmarshal(raw, &read))
+			assert.Equal(t, redacted, tt.written(&read))
+			assert.Equal(t, quoted, tt.written(d), "the decision itself is not changed")
+
+			// the same error of an expression that reads no Secret is kept
+			raw, err = json.Marshal(tt.decision(Inputs{}))
+			require.NoError(t, err)
+			read = Decision{}
+			require.NoError(t, json.Unmarshal(raw, &read))
+			assert.Equal(t, quoted, tt.written(&read))
+		})
+	}
+}
+
 // TestDecisionList_JSON pins a list's envelope, and that it reads back.
 func TestDecisionList_JSON(t *testing.T) {
 	raw, err := json.Marshal(NewDecisionList(nil, Summary{}))

@@ -894,7 +894,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
-				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
+				fmt.Fprintf(out, "failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
 				continue
 			}
 			return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
@@ -937,7 +937,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		}
 		if err != nil {
 			if c.ContinueOnFail {
-				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
+				fmt.Fprintf(out, "failed to apply image validating policies on JSON payload: %v\n", err)
 				continue
 			}
 			return responses, fmt.Errorf("failed to apply image validating policies on JSON payload: %w", err)
@@ -992,6 +992,8 @@ func (c *ApplyCommandConfig) traceSink() func(*trace.Decision) {
 // apply prints otherwise, its warnings, the mutated and generated resources and why it exits,
 // goes to standard error instead.
 func (c *ApplyCommandConfig) explainAsJSON(cmd *cobra.Command) error {
+	// the decisions of an earlier run of the same command are not this run's
+	c.decisions = nil
 	stderr := cmd.ErrOrStderr()
 	rc, _, skipInvalidPolicies, _, err := c.applyCommandHelper(cmd.Context(), stderr)
 	if err != nil {
@@ -1088,7 +1090,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 				rc.AddValidatingPolicyResponse(c.AuditWarn, response)
 
 				if c.ContinueOnFail {
-					fmt.Printf("failed to apply deleting policies on %s: %v\n", payloadType, err)
+					fmt.Fprintf(out, "failed to apply deleting policies on %s: %v\n", payloadType, err)
 					continue
 				}
 				return responses, fmt.Errorf("failed to apply deleting policies on %s: %w", payloadType, err)
