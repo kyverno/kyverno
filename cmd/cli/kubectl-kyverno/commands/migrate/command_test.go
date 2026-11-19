@@ -54,6 +54,7 @@ func TestCommand_Flags(t *testing.T) {
 }
 
 func TestMigrate_ColorAndRemoveColor(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
 		fatihcolor.NoColor = origNoColor
@@ -201,6 +202,7 @@ users:
 }
 
 func TestCommand_ColorAndRemoveColor_EndToEnd(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
 		fatihcolor.NoColor = origNoColor
@@ -275,6 +277,7 @@ func TestCommand_ColorAndRemoveColor_EndToEnd(t *testing.T) {
 }
 
 func TestMigrate_FailurePaths(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
 		fatihcolor.NoColor = origNoColor
