@@ -3,8 +3,8 @@ package controller
 import (
 	"context"
 
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -115,7 +115,8 @@ func CreateOrUpdate[T any, R Object[T], G Getter[R], S Setter[R]](ctx context.Co
 			if obj.GetResourceVersion() == "" {
 				return setter.Create(ctx, mutated, metav1.CreateOptions{})
 			} else {
-				if datautils.DeepEqual(obj, mutated) {
+				// FIX: Use semantic equality to treat nil and empty slices/maps as equal
+				if equality.Semantic.DeepEqual(obj, mutated) {
 					return mutated, nil
 				} else {
 					return setter.Update(ctx, mutated, metav1.UpdateOptions{})
@@ -139,7 +140,8 @@ func Update[T interface {
 		var d T
 		return d, err
 	} else {
-		if datautils.DeepEqual(obj, mutated) {
+		// FIX: Use semantic equality to treat nil and empty slices/maps as equal
+		if equality.Semantic.DeepEqual(obj, mutated) {
 			return mutated, nil
 		} else {
 			return setter.Update(ctx, mutated, metav1.UpdateOptions{})
@@ -162,7 +164,8 @@ func UpdateStatus[T interface {
 		return err
 	} else {
 		if cmp == nil {
-			cmp = datautils.DeepEqual[T]
+			// FIX: Use semantic equality as the default comparator
+			cmp = func(a, b T) bool { return equality.Semantic.DeepEqual(a, b) }
 		}
 		if cmp(obj, mutated) {
 			return nil
