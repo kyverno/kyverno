@@ -7,6 +7,7 @@ import (
 	"io"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
@@ -51,6 +52,17 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "Test github repository branch")
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "policy=*,rule=*,resource=*", "Filter test cases to run")
 	cmd.Flags().StringVarP(&outputFormat, "output-format", "o", "", "Specifies the output format (json, yaml, markdown, junit)")
+	if err := cmd.RegisterFlagCompletionFunc("output-format", func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		formats := make([]string, 0, 4)
+		for _, format := range []string{"json", "yaml", "markdown", "junit"} {
+			if strings.HasPrefix(format, toComplete) {
+				formats = append(formats, format)
+			}
+		}
+		return formats, cobra.ShellCompDirectiveNoFileComp
+	}); err != nil {
+		panic(fmt.Errorf("failed to register output-format completion: %w", err))
+	}
 	cmd.Flags().BoolVar(&registryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVar(&failOnly, "fail-only", false, "If set to true, display all the failing test only as output for the test command")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
