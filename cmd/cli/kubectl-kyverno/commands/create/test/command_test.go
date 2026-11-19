@@ -104,11 +104,16 @@ func TestParseResult(t *testing.T) {
 	assert.Empty(t, resRuleless.PatchedResource)
 	assert.Equal(t, "pass", resRuleless.Result)
 
-	// empty policy, resource, or kind should be rejected
+	// empty or whitespace-only policy, resource, or kind should be rejected
 	assert.Nil(t, parseResult(",rule,resource,ns,Pod", "pass"))
+	assert.Nil(t, parseResult("   ,rule,resource,ns,Pod", "pass"))
 	assert.Nil(t, parseResult("policy,rule,,ns,Pod", "pass"))
+	assert.Nil(t, parseResult("policy,rule,   ,ns,Pod", "pass"))
 	assert.Nil(t, parseResult("policy,rule,resource,ns,", "pass"))
+	assert.Nil(t, parseResult("policy,rule,resource,ns,   ", "pass"))
 	assert.Nil(t, parseResult(",rule,resource,ns,Pod,patched.yaml", "pass"))
+	assert.Nil(t, parseResult("policy,rule,resource,ns,Pod,", "pass"))
+	assert.Nil(t, parseResult("policy,rule,resource,ns,Pod,   ", "pass"))
 
 	// invalid counts
 	assert.Nil(t, parseResult("foo,bar", "pass"))
@@ -127,10 +132,17 @@ func TestCommandWithInvalidEntry(t *testing.T) {
 		{"invalid error count", "--error", "invalid,entry"},
 		{"invalid skip count", "--skip", "invalid,entry"},
 		{"empty policy pass", "--pass", ",rule,resource,default,Pod"},
+		{"whitespace policy pass", "--pass", "   ,rule,resource,default,Pod"},
 		{"empty resource pass", "--pass", "policy,rule,,default,Pod"},
+		{"whitespace resource pass", "--pass", "policy,rule,   ,default,Pod"},
 		{"empty kind pass", "--pass", "policy,rule,resource,default,"},
+		{"whitespace kind pass", "--pass", "policy,rule,resource,default,   "},
+		{"empty patched resource pass", "--pass", "policy,rule,resource,default,Pod,"},
+		{"whitespace patched resource pass", "--pass", "policy,rule,resource,default,Pod,   "},
 		{"empty policy warn", "--warn", ",rule,resource,default,Pod"},
+		{"whitespace policy warn", "--warn", "   ,rule,resource,default,Pod"},
 		{"empty policy error", "--error", ",rule,resource,default,Pod"},
+		{"whitespace policy error", "--error", "   ,rule,resource,default,Pod"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

@@ -107,7 +107,11 @@ func Command() *cobra.Command {
 
 func parseResult(test string, status string) *result {
 	parts := strings.Split(test, ",")
-	if len(parts) < 5 || len(parts) > 6 || parts[0] == "" || parts[2] == "" || parts[4] == "" {
+	if len(parts) < 5 || len(parts) > 6 ||
+		strings.TrimSpace(parts[0]) == "" ||
+		strings.TrimSpace(parts[2]) == "" ||
+		strings.TrimSpace(parts[4]) == "" ||
+		(len(parts) == 6 && strings.TrimSpace(parts[5]) == "") {
 		return nil
 	}
 	res := &result{
