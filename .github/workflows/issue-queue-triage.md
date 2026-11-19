@@ -112,6 +112,7 @@ jobs:
             source{__typename ... on PullRequest{number title mergedAt baseRefName mergeCommit{oid}}
             ... on Issue{number title state}}}}}}}}"""
           MAX_PAGES = 6  # 300 cross-references; past that the agent is told the list is cut short
+          MAX_PRS = 10  # merged PRs listed per issue, so the output stays small
 
           def cross_references(n):
             """(merged pull requests, issues that mention it, cut short). "unknown" when the first read fails."""
@@ -180,9 +181,9 @@ jobs:
                                                         "state": f["state"],
                                                         "excerpt": " ".join((f.get("body") or "").split())[:200]})
               out.append({"issue": n, "title": i["title"], "opened": i["createdAt"],
-                          "merged_prs_mentioning_it": prs, "links_in_its_text": linked(n, i["body"]),
+                          "merged_prs_mentioning_it": prs[:MAX_PRS], "links_in_its_text": linked(n, i["body"]),
                           "other_issues_mentioning_it": mentioned_by[:6] if mentioned_by != "unknown" else "unknown",
-                          "cross_references_cut_short": cut_short,
+                          "cross_references_cut_short": cut_short or len(prs) > MAX_PRS,
                           "weak_keyword_matches": list(weak.values())[:3]})
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write("json=" + json.dumps(out, separators=(",", ":")) + "\n")
