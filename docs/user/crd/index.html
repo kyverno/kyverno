@@ -27,6 +27,9 @@ background-color: #1589dd;
 <a href="#kyverno.io%2fv2beta1"><b style="color: white">kyverno.io/v2beta1</b></a>
 </li>
 <li>
+<a href="#policies.kyverno.io%2fv1"><b style="color: white">policies.kyverno.io/v1</b></a>
+</li>
+<li>
 <a href="#reports.kyverno.io%2fv1"><b style="color: white">reports.kyverno.io/v1</b></a>
 </li>
 <li>
@@ -1982,6 +1985,111 @@ string
 <em>(Optional)</em>
 <p>Namespace defines the namespace of the resource. Leave empty for cluster scoped resources.
 If left empty for namespaced resources, all resources from all namespaces will be cached.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="policies.kyverno.io/v1">policies.kyverno.io/v1</h2>
+<p>
+<strong>Note:</strong> For the full API specification including all fields like <code>autogen</code>, see the <a href="kyverno_cel_policies.v1.html">complete CEL policies reference</a>.
+</p>
+Resource Types:
+<ul><li>
+<a href="#policies.kyverno.io/v1.MutatingPolicy">MutatingPolicy</a>
+</li><li>
+<a href="#policies.kyverno.io/v1.NamespacedMutatingPolicy">NamespacedMutatingPolicy</a>
+</li></ul>
+<hr />
+
+<h3 id="policies.kyverno.io/v1.MutatingPolicy">MutatingPolicy</h3>
+<p>
+<p>MutatingPolicy is the Schema for the MutatingPolicy API.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+policies.kyverno.io/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>MutatingPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+
+<h3 id="policies.kyverno.io/v1.NamespacedMutatingPolicy">NamespacedMutatingPolicy</h3>
+<p>
+<p>NamespacedMutatingPolicy is the Schema for the NamespacedMutatingPolicy API.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+policies.kyverno.io/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>NamespacedMutatingPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
 </td>
 </tr>
 </tbody>
