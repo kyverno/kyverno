@@ -1,0 +1,6 @@
+Source commit: d19336b3fe2a11779efe914f6be4ccd775186102
+Conflicted paths:
+go.mod
+hack/api-group-resources/go.mod
+hack/api-group-resources/go.sum
+hack/controller-gen/go.mod
