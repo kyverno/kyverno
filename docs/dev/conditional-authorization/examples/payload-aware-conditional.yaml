@@ -1,0 +1,22 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: payload-aware-conditional
+spec:
+  rules:
+  - name: deployment-updates-require-risk-evaluation
+    expression: "request.resource == 'deployments' && ['update', 'patch'].exists(v, v == request.verb)"
+    effect: Conditional
+    conditions:
+    - id: allow-low-risk-frontend-change
+      expression: "request.resourceLabels['tier'] == 'frontend' && request.object.spec.replicas <= 3"
+      effect: Allow
+      description: Allow low-risk frontend rollout changes.
+    - id: deny-high-scale-prod-change
+      expression: "request.resourceLabels['env'] == 'prod' && request.object.spec.replicas > 10"
+      effect: Deny
+      description: Deny high-scale production rollout changes.
+    - id: deny-release-label-drift
+      expression: "request.oldResourceLabels['release'] != request.resourceLabels['release']"
+      effect: Deny
+      description: Deny unexpected release-label mutation during update.

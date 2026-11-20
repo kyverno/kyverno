@@ -66,6 +66,8 @@ func BuildRecorderKey(policyType, name, namespace string) string {
 		return ImageValidatingPolicyType + "/" + name
 	case NamespacedImageValidatingPolicyType:
 		return NamespacedImageValidatingPolicyType + "/" + name + "+" + namespace
+	case AuthorizingPolicyType:
+		return AuthorizingPolicyType + "/" + name
 	case MutatingPolicyType:
 		return MutatingPolicyType + "/" + name
 	case NamespacedMutatingPolicyType:

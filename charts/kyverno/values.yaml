@@ -229,6 +229,7 @@ crds:
 
     # -- Install CRDs in group `policies.kyverno.io`
     policies:
+      authorizingpolicies: true
       validatingpolicies: true
       policyexceptions: true
       imagevalidatingpolicies: true
@@ -236,6 +237,7 @@ crds:
       mutatingpolicies: true
       namespacedmutatingpolicies: true
       generatingpolicies: true
+      namespacedgeneratingpolicies: true
       deletingpolicies: true
       namespaceddeletingpolicies: true
       namespacedvalidatingpolicies: true
@@ -271,6 +273,7 @@ crds:
       - globalcontextentries.kyverno.io
       - updaterequests.kyverno.io
       # policies.kyverno.io
+      - authorizingpolicies.policies.kyverno.io
       - deletingpolicies.policies.kyverno.io
       - generatingpolicies.policies.kyverno.io
       - imagevalidatingpolicies.policies.kyverno.io

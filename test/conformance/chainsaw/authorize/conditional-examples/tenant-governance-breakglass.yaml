@@ -1,0 +1,43 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: tenant-governance-breakglass
+spec:
+  variables:
+  - name: isTenantADeveloper
+    expression: "request.groups.exists(g, g == 'tenant-a-developers')"
+  - name: isPlatformAdmin
+    expression: "request.groups.exists(g, g == 'platform-admins')"
+  - name: isBreakGlassUser
+    expression: "request.user.startsWith('ops-breakglass:')"
+  - name: isReadVerb
+    expression: "['get', 'list', 'watch'].exists(v, v == request.verb)"
+  - name: isWriteVerb
+    expression: "['create', 'update', 'patch', 'delete'].exists(v, v == request.verb)"
+  - name: isTenantNamespace
+    expression: "request.namespace.startsWith('tenant-')"
+  rules:
+  - name: allow-tenant-a-developers-read-tenant-a-workloads
+    expression: "variables.isTenantADeveloper && variables.isReadVerb && request.namespace.startsWith('tenant-a-') && ['pods', 'deployments', 'services', 'configmaps'].exists(r, r == request.resource)"
+    effect: Allow
+
+  - name: deny-tenant-a-developers-changing-shared-infra
+    expression: "variables.isTenantADeveloper && variables.isWriteVerb && request.namespace.startsWith('shared-')"
+    effect: Deny
+
+  - name: allow-platform-admins-read-tenant-workloads
+    expression: "variables.isPlatformAdmin && variables.isReadVerb && variables.isTenantNamespace"
+    effect: Allow
+
+  - name: platform-admin-writes-require-breakglass
+    expression: "variables.isPlatformAdmin && variables.isWriteVerb && variables.isTenantNamespace"
+    effect: Conditional
+    conditions:
+    - id: allow-breakglass-admin-writes
+      expression: "variables.isBreakGlassUser"
+      effect: Allow
+      description: Permit write operations only for break-glass admin identities.
+    - id: deny-non-breakglass-admin-writes
+      expression: "!variables.isBreakGlassUser"
+      effect: Deny
+      description: Deny write operations for non-break-glass platform admins.

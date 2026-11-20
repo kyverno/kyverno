@@ -1,0 +1,42 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: api-surface-control
+spec:
+  matchConditions:
+  - name: non-resource-requests-only
+    expression: "request.path != ''"
+  variables:
+  - name: isAuthenticated
+    expression: "request.groups.exists(g, g == 'system:authenticated')"
+  - name: isObservability
+    expression: "request.groups.exists(g, g == 'observability')"
+  - name: isSecurity
+    expression: "request.groups.exists(g, g == 'security')"
+  - name: isBreakGlass
+    expression: "request.user.startsWith('ops-breakglass:')"
+  rules:
+  - name: allow-authenticated-health-endpoints
+    expression: "variables.isAuthenticated && request.verb == 'get' && ['/livez', '/readyz', '/healthz'].exists(p, p == request.path)"
+    effect: Allow
+
+  - name: allow-observability-metrics-read
+    expression: "variables.isObservability && request.verb == 'get' && request.path == '/metrics'"
+    effect: Allow
+
+  - name: conditional-debug-pprof-access
+    expression: "request.verb == 'get' && request.path.startsWith('/debug/pprof')"
+    effect: Conditional
+    conditions:
+    - id: allow-security-or-breakglass-pprof
+      expression: "variables.isSecurity || variables.isBreakGlass"
+      effect: Allow
+      description: Allow debug profile access only to security or break-glass users.
+    - id: deny-other-pprof-access
+      expression: "!(variables.isSecurity || variables.isBreakGlass)"
+      effect: Deny
+      description: Deny debug profile access for all other callers.
+
+  - name: deny-other-non-resource-paths
+    expression: "true"
+    effect: Deny

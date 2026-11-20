@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: AuthorizingPolicy
+metadata:
+  name: service-account-conditional
+spec:
+  rules:
+  - name: service-account-pod-changes
+    expression: "request.user.startsWith('system:serviceaccount:') && request.resource == 'pods' && request.namespace == 'authorize-test' && ['create', 'delete'].exists(v, v == request.verb)"
+    effect: Conditional
+    conditions:
+    - id: allow-create
+      expression: "request.verb == 'create'"
+      effect: Allow
+    - id: deny-delete
+      expression: "request.verb == 'delete'"
+      effect: Deny

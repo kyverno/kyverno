@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
@@ -20,6 +21,8 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	apolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/apol/compiler"
+	apolprovider "github.com/kyverno/kyverno/pkg/cel/policies/apol/provider"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
@@ -58,6 +61,7 @@ import (
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/apol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/gpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/ivpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mpol"
@@ -657,9 +661,14 @@ func main() {
 		var vpolEngine vpolengine.Engine
 		var ivpolEngine ivpolengine.Engine
 		var mpolEngine mpolengine.Engine
+		var apolProvider apol.Handler
 		{
 			// create a controller manager
 			scheme := kruntime.NewScheme()
+			if err := policiesv1alpha1.Install(scheme); err != nil {
+				setup.Logger.Error(err, "failed to initialize policies v1alpha1 scheme")
+				os.Exit(1)
+			}
 			if err := policiesv1beta1.Install(scheme); err != nil {
 				setup.Logger.Error(err, "failed to initialize scheme")
 				os.Exit(1)
@@ -695,6 +704,12 @@ func main() {
 			)
 			if err != nil {
 				setup.Logger.Error(err, "failed to create vpol provider")
+				os.Exit(1)
+			}
+			apolCompiler := apolcompiler.NewCompiler()
+			compiledApolProvider, err := apolprovider.NewKubeProvider(apolCompiler, mgr)
+			if err != nil {
+				setup.Logger.Error(err, "failed to create apol provider")
 				os.Exit(1)
 			}
 			ivpolProvider, err := ivpolengine.NewKubeProvider(iveval.NewCompilerWithTrace(setup.RegistrySecretLister, enableDecisionTraces), mgr, celExceptionLister, internal.PolicyExceptionEnabled())
@@ -761,6 +776,7 @@ func main() {
 				typeConverter,
 				contextProvider,
 			), metrics.AdmissionRequest)
+			apolProvider = apol.New(compiledApolProvider)
 		}
 		if admissionReports {
 			ephrCounterFunc := func(c breaker.Counter) func(context.Context) bool {
@@ -823,6 +839,7 @@ func main() {
 			Namespace: internal.ExceptionNamespace(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
+		apolHandler := apolProvider
 		server := webhooks.NewServer(
 			signalCtx,
 			webhooks.PolicyHandlers{
@@ -840,6 +857,7 @@ func main() {
 				NamespacedImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.ValidateNamespaced),
 				GeneratingPolicies:                          webhooks.HandlerFunc(gpolHandlers.Generate),
 				NamespacedGeneratingPolicies:                webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
+				AuthorizingPolicies:                         apolHandler,
 			},
 			// Legacy kyverno.io PolicyException writes are denied one layer up by
 			// handlers.WithLegacyPolicyDenial(); this inner handler only ever sees

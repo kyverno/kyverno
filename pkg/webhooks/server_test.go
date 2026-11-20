@@ -39,6 +39,13 @@ func (m *mockHandler) Execute(ctx context.Context, logger logr.Logger, request h
 	return admissionv1.AdmissionResponse{UID: request.UID, Allowed: true}
 }
 
+type mockAuthorizationHandler struct{}
+
+func (m *mockAuthorizationHandler) HandleSubjectAccessReview(w http.ResponseWriter, r *http.Request) {
+}
+
+func (m *mockAuthorizationHandler) HandleConditionsReview(w http.ResponseWriter, r *http.Request) {}
+
 type mockDiscovery struct {
 	dclient.IDiscovery
 }
@@ -137,6 +144,7 @@ func (m *mockDeleteCollectionClient) Patch(ctx context.Context, name string, pt 
 func TestNewServer(t *testing.T) {
 	ctx := context.TODO()
 	dummyHandler := &mockHandler{}
+	authHandler := &mockAuthorizationHandler{}
 	cfg := config.NewDefaultConfiguration(false)
 	metricsMgr := &mockMetricsConfig{}
 	discoveryMock := &mockDiscovery{}
@@ -153,6 +161,7 @@ func TestNewServer(t *testing.T) {
 		ValidatingPolicies: dummyHandler, NamespacedValidatingPolicies: dummyHandler,
 		GeneratingPolicies: dummyHandler, NamespacedGeneratingPolicies: dummyHandler,
 		ImageVerificationPolicies: dummyHandler, ImageVerificationPoliciesMutation: dummyHandler,
+		AuthorizingPolicies: authHandler,
 	}
 	eHandlers := ExceptionHandlers{Validation: dummyHandler}
 	celHandlers := CELExceptionHandlers{Validation: dummyHandler}

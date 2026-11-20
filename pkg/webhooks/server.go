@@ -284,6 +284,19 @@ func NewServer(
 			WithAdmission(verifyLogger.WithName("mutate")).
 			ToHandlerFunc("VERIFY"),
 	)
+	// AuthorizingPolicy authorization endpoints
+	// These handle SubjectAccessReview-style authorization decisions
+	apolHandler := resourceHandlers.AuthorizingPolicies
+	if apolHandler != nil {
+		mux.HandlerFunc("POST", "/authz/subjectaccessreview", apolHandler.HandleSubjectAccessReview)
+		mux.HandlerFunc("POST", "/authz/conditions", apolHandler.HandleConditionsReview)
+	} else {
+		unavailable := func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "authorizing policy handler is not configured", http.StatusNotImplemented)
+		}
+		mux.HandlerFunc("POST", "/authz/subjectaccessreview", unavailable)
+		mux.HandlerFunc("POST", "/authz/conditions", unavailable)
+	}
 	// 1.20 upgrade compatibility for webhook configurations persisted by 1.19: the legacy resource
 	// admission path was removed (#17710), but a webhook configuration a 1.19 cluster registered (or
 	// one an operator manages themselves with autoUpdateWebhooks=false) may still point at these

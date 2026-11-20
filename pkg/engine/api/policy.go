@@ -2,6 +2,7 @@ package api
 
 import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policiesv1alpha1 "github.com/kyverno/kyverno/api/policies/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -122,6 +123,8 @@ type GenericPolicy interface {
 	AsNamespacedMutatingPolicy() *policiesv1beta1.NamespacedMutatingPolicy
 	// AsGeneratingPolicyLike returns the generating policy
 	AsGeneratingPolicyLike() policiesv1beta1.GeneratingPolicyLike
+	// AsAuthorizingPolicy returns the authorizing policy.
+	AsAuthorizingPolicy() *policiesv1alpha1.AuthorizingPolicy
 	// AsGeneratingPolicy returns the generating policy
 	AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy
 	// AsNamespacedGeneratingPolicy returns the namespaced generating policy
@@ -139,6 +142,7 @@ type genericPolicy struct {
 	NamespacedImageValidatingPolicy *policiesv1beta1.NamespacedImageValidatingPolicy
 	MutatingPolicy                  *policiesv1beta1.MutatingPolicy
 	NamespacedMutatingPolicy        *policiesv1beta1.NamespacedMutatingPolicy
+	AuthorizingPolicy               *policiesv1alpha1.AuthorizingPolicy
 	GeneratingPolicy                *policiesv1beta1.GeneratingPolicy
 	NamespacedGeneratingPolicy      *policiesv1beta1.NamespacedGeneratingPolicy
 	DeletingPolicy                  policiesv1beta1.DeletingPolicyLike
@@ -222,6 +226,10 @@ func (p *genericPolicy) AsGeneratingPolicyLike() policiesv1beta1.GeneratingPolic
 	return nil
 }
 
+func (p *genericPolicy) AsAuthorizingPolicy() *policiesv1alpha1.AuthorizingPolicy {
+	return p.AuthorizingPolicy
+}
+
 func (p *genericPolicy) AsGeneratingPolicy() *policiesv1beta1.GeneratingPolicy {
 	return p.GeneratingPolicy
 }
@@ -267,6 +275,11 @@ func (p *genericPolicy) GetAPIVersion() string {
 			return apiVersion
 		}
 		return policiesv1beta1.GroupVersion.String()
+	case p.AuthorizingPolicy != nil:
+		if apiVersion := p.AuthorizingPolicy.APIVersion; apiVersion != "" {
+			return apiVersion
+		}
+		return policiesv1alpha1.GroupVersion.String()
 	case p.GeneratingPolicy != nil:
 		return policiesv1beta1.GroupVersion.String()
 	case p.NamespacedGeneratingPolicy != nil:
@@ -295,6 +308,11 @@ func (p *genericPolicy) GetKind() string {
 		return p.MutatingPolicy.GetKind()
 	case p.NamespacedMutatingPolicy != nil:
 		return p.NamespacedMutatingPolicy.GetKind()
+	case p.AuthorizingPolicy != nil:
+		if p.AuthorizingPolicy.Kind != "" {
+			return p.AuthorizingPolicy.Kind
+		}
+		return "AuthorizingPolicy"
 	case p.GeneratingPolicy != nil:
 		return "GeneratingPolicy"
 	case p.NamespacedGeneratingPolicy != nil:
@@ -585,6 +603,16 @@ func NewMutatingPolicyFromLike(pol policiesv1beta1.MutatingPolicyLike) GenericPo
 		return NewNamespacedMutatingPolicy(typed)
 	default:
 		return nil
+	}
+}
+
+func NewAuthorizingPolicy(pol *policiesv1alpha1.AuthorizingPolicy) GenericPolicy {
+	if pol == nil {
+		return nil
+	}
+	return &genericPolicy{
+		Object:            pol,
+		AuthorizingPolicy: pol,
 	}
 }
 
