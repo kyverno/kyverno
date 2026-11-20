@@ -1,0 +1,23 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: invalid-param-selector
+paramResources:
+  - params.yaml
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - isValidatingAdmissionPolicy: true
+    kind: Deployment
+    policy: replica-limit
+    resources:
+      - workload
+    result: error
+  - isValidatingAdmissionPolicy: true
+    kind: Deployment
+    policy: replicas-positive
+    resources:
+      - workload
+    result: pass

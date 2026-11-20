@@ -567,6 +567,39 @@ func TestCollectParams(t *testing.T) {
 			expectedErrMsg: "not found",
 		},
 		{
+			name: "get by name not found with allow",
+			paramKind: &admissionregistrationv1.ParamKind{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name: "my-config",
+			},
+			namespace: "default",
+			mockClient: &mockEngineClient{
+				isNamespacedResp: true,
+				getResourceErr:   apierrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "my-config"),
+			},
+			expectedLen: 0,
+		},
+		{
+			name: "get by name not found with deny",
+			paramKind: &admissionregistrationv1.ParamKind{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name:                    "my-config",
+				ParameterNotFoundAction: &denyAction,
+			},
+			namespace: "default",
+			mockClient: &mockEngineClient{
+				isNamespacedResp: true,
+				getResourceErr:   apierrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "my-config"),
+			},
+			expectedErrMsg: "no params found",
+		},
+		{
 			name: "list by selector success",
 			paramKind: &admissionregistrationv1.ParamKind{
 				APIVersion: "v1",
@@ -599,6 +632,53 @@ func TestCollectParams(t *testing.T) {
 				listResourceErr:  errors.New("list failed"),
 			},
 			expectedErrMsg: "list failed",
+		},
+		{
+			name: "invalid selector is rejected before listing",
+			paramKind: &admissionregistrationv1.ParamKind{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Selector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Key: "env", Operator: "Bogus", Values: []string{"prod"}},
+					},
+				},
+			},
+			namespace: "default",
+			mockClient: &mockEngineClient{
+				isNamespacedResp: true,
+			},
+			expectedErrMsg: "invalid paramRef.selector",
+		},
+		{
+			name: "invalid selector is rejected even when a name is set",
+			paramKind: &admissionregistrationv1.ParamKind{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+			paramRef: &admissionregistrationv1.ParamRef{
+				Name: "my-config",
+				Selector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Key: "env", Operator: "Bogus", Values: []string{"prod"}},
+					},
+				},
+			},
+			namespace: "default",
+			mockClient: &mockEngineClient{
+				isNamespacedResp: true,
+			},
+			expectedErrMsg: "invalid paramRef.selector",
+		},
+		{
+			name:           "missing paramKind is rejected",
+			paramKind:      nil,
+			paramRef:       &admissionregistrationv1.ParamRef{Name: "my-config"},
+			namespace:      "default",
+			mockClient:     &mockEngineClient{},
+			expectedErrMsg: "policy does not define a paramKind",
 		},
 		{
 			name: "not found action deny",
