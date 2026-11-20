@@ -40,15 +40,28 @@ func BuildValidatingAdmissionPolicy(
 		matchConditions = slices.Clone(vpol.Spec.MatchConditions)
 		validations = slices.Clone(vpol.Spec.Validations)
 		auditAnnotations = slices.Clone(vpol.Spec.AuditAnnotations)
-		variables = slices.Clone(vpol.Spec.Variables)
 
 		usedNames := make(map[string]bool)
 		for _, mc := range matchConditions {
 			usedNames[mc.Name] = true
 		}
-		// convert celexceptions if exist
+
+		var (
+			allImages        []string
+			allAllowedValues []string
+		)
+
 		for _, exception := range exceptions {
 			if celpolex := exception.AsCELException(); celpolex != nil {
+				hasImages := len(celpolex.Spec.Images) > 0
+				hasValues := len(celpolex.Spec.AllowedValues) > 0
+				hasConditions := len(celpolex.Spec.MatchConditions) > 0
+
+				// Scoped fine-grained exceptions cannot be safely evaluated in native VAP
+				if (hasImages || hasValues) && hasConditions {
+					return fmt.Errorf("policy exception %s defines fine-grained exceptions (images/allowedValues) scoped with matchConditions, which cannot be safely translated to a ValidatingAdmissionPolicy", celpolex.GetName())
+				}
+
 				if mc := negateMatchConditions(celpolex.GetNamespace(), celpolex.GetName(), celpolex.Spec.MatchConditions); mc != nil {
 					if utf8.RuneCountInString(mc.Expression) > MaxCELCodePoints {
 						return fmt.Errorf("combined matchConditions for exception %s exceeds CEL code point limit (%d)", celpolex.GetName(), MaxCELCodePoints)
@@ -56,34 +69,92 @@ func BuildValidatingAdmissionPolicy(
 					mc.Name = allocateConditionName(usedNames, mc.Name)
 					matchConditions = append(matchConditions, *mc)
 				}
-				if len(celpolex.Spec.Images) > 0 {
-					expression, err := celStringListLiteral(celpolex.Spec.Images)
-					if err != nil {
-						return err
-					}
-					variables = append(variables, admissionregistrationv1.Variable{
-						Name:       "allowedImages",
-						Expression: expression,
-					})
-				}
-				if len(celpolex.Spec.AllowedValues) > 0 {
-					expression, err := celStringListLiteral(celpolex.Spec.AllowedValues)
-					if err != nil {
-						return err
-					}
-					variables = append(variables, admissionregistrationv1.Variable{
-						Name:       "allowedValues",
-						Expression: expression,
-					})
-				}
+				allImages = append(allImages, celpolex.Spec.Images...)
+				allAllowedValues = append(allAllowedValues, celpolex.Spec.AllowedValues...)
 			}
 		}
+
+		needAllowedImages := len(allImages) > 0 || policyReferences(vpol, "exceptions.allowedImages")
+		needAllowedValues := len(allAllowedValues) > 0 || policyReferences(vpol, "exceptions.allowedValues")
+
+		for _, uv := range vpol.Spec.Variables {
+			if needAllowedImages && uv.Name == "allowedImages" {
+				return fmt.Errorf("variable 'allowedImages' already defined in policy spec.variables conflicts with exception-generated allowedImages")
+			}
+			if needAllowedValues && uv.Name == "allowedValues" {
+				return fmt.Errorf("variable 'allowedValues' already defined in policy spec.variables conflicts with exception-generated allowedValues")
+			}
+		}
+
+		var generatedVars []admissionregistrationv1.Variable
+		if needAllowedImages {
+			expr := "[]"
+			if len(allImages) > 0 {
+				var err error
+				expr, err = celStringListLiteral(allImages)
+				if err != nil {
+					return fmt.Errorf("failed to encode allowedImages as CEL list literal: %w", err)
+				}
+			}
+			generatedVars = append(generatedVars, admissionregistrationv1.Variable{
+				Name:       "allowedImages",
+				Expression: expr,
+			})
+		}
+
+		if needAllowedValues {
+			expr := "[]"
+			if len(allAllowedValues) > 0 {
+				var err error
+				expr, err = celStringListLiteral(allAllowedValues)
+				if err != nil {
+					return fmt.Errorf("failed to encode allowedValues as CEL list literal: %w", err)
+				}
+			}
+			generatedVars = append(generatedVars, admissionregistrationv1.Variable{
+				Name:       "allowedValues",
+				Expression: expr,
+			})
+		}
+
 		replacements := map[string]string{
 			"exceptions.allowedImages": "variables.allowedImages",
 			"exceptions.allowedValues": "variables.allowedValues",
 		}
 		for i := range validations {
 			validations[i].Expression = replaceExpressions(validations[i].Expression, replacements)
+			if validations[i].MessageExpression != "" {
+				validations[i].MessageExpression = replaceExpressions(validations[i].MessageExpression, replacements)
+			}
+		}
+		for i := range auditAnnotations {
+			auditAnnotations[i].ValueExpression = replaceExpressions(auditAnnotations[i].ValueExpression, replacements)
+		}
+
+		// Order variables: If any user variable depends on exception variables, insert generated
+		// exception variables before the first dependent user variable to satisfy Kubernetes CEL variable
+		// dependency ordering. Otherwise, keep user variables first to preserve original source order.
+		userVars := slices.Clone(vpol.Spec.Variables)
+		for i := range userVars {
+			userVars[i].Expression = replaceExpressions(userVars[i].Expression, replacements)
+		}
+
+		firstDepIdx := -1
+		for i, uv := range userVars {
+			if hasGeneratedVariableRef(uv.Expression) {
+				firstDepIdx = i
+				break
+			}
+		}
+
+		variables = make([]admissionregistrationv1.Variable, 0, len(generatedVars)+len(userVars))
+		if firstDepIdx >= 0 {
+			variables = append(variables, userVars[:firstDepIdx]...)
+			variables = append(variables, generatedVars...)
+			variables = append(variables, userVars[firstDepIdx:]...)
+		} else {
+			variables = append(variables, userVars...)
+			variables = append(variables, generatedVars...)
 		}
 	}
 
@@ -114,11 +185,350 @@ func BuildValidatingAdmissionPolicy(
 	return nil
 }
 
-func replaceExpressions(expr string, replacements map[string]string) string {
-	for old, new := range replacements {
-		expr = strings.ReplaceAll(expr, old, new)
+func isIdentChar(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_'
+}
+
+func isWhitespace(ch byte) bool {
+	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
+}
+
+func isRootIdent(s string, i int, lastByte, prevByte byte) bool {
+	if i > 0 && isIdentChar(s[i-1]) {
+		return false
 	}
-	return expr
+	if lastByte == '.' {
+		// In CEL, '.' is a member selector (e.g. object.exceptions) if preceded by an expression receiver:
+		// identifier char, closing bracket/paren/brace, or string literal quote.
+		// Otherwise, it is an absolute-name root identifier prefix (e.g. .exceptions.allowedValues).
+		if isIdentChar(prevByte) || prevByte == ')' || prevByte == ']' || prevByte == '}' || prevByte == '"' || prevByte == '\'' || prevByte == '`' {
+			return false
+		}
+		return true
+	}
+	if lastByte == '?' {
+		// In CEL, '?' is only a selector when part of the optional-select token '.?' (e.g. object.?exceptions).
+		// Otherwise, it is the ternary operator (e.g. cond ? exceptions.allowedValues : []), which is an expression root.
+		if prevByte == '.' {
+			return false
+		}
+		return true
+	}
+	return true
+}
+
+func scanCEL(expr string, replace bool, fn func(s string, i int, lastByte, prevByte byte) (int, string, bool)) (string, bool) {
+	n := len(expr)
+	var buf strings.Builder
+	if replace {
+		buf.Grow(n)
+	}
+
+	inString := false
+	var stringQuote string
+	escaped := false
+	var lastByte byte
+	var prevByte byte
+
+	for i := 0; i < n; {
+		if !inString {
+			// Skip CEL single-line comments: // ...
+			if strings.HasPrefix(expr[i:], "//") {
+				newlineIdx := strings.IndexByte(expr[i:], '\n')
+				if newlineIdx == -1 {
+					if replace {
+						buf.WriteString(expr[i:])
+					}
+					break
+				}
+				if replace {
+					buf.WriteString(expr[i : i+newlineIdx+1])
+				}
+				i += newlineIdx + 1
+				continue
+			}
+
+			// Skip CEL block comments: /* ... */
+			if strings.HasPrefix(expr[i:], "/*") {
+				endCommentIdx := strings.Index(expr[i+2:], "*/")
+				if endCommentIdx == -1 {
+					if replace {
+						buf.WriteString(expr[i:])
+					}
+					break
+				}
+				if replace {
+					buf.WriteString(expr[i : i+2+endCommentIdx+2])
+				}
+				i += 2 + endCommentIdx + 2
+				continue
+			}
+
+			// Try handler at current token position
+			if advance, repl, ok := fn(expr, i, lastByte, prevByte); ok {
+				if !replace {
+					return "", true
+				}
+				buf.WriteString(repl)
+				if len(repl) > 0 {
+					prevByte = lastByte
+					lastByte = repl[len(repl)-1]
+				}
+				i += advance
+				continue
+			}
+
+			// Check for string start (check raw triple quotes before raw single quotes)
+			strStart := ""
+			if strings.HasPrefix(expr[i:], "r'''") || strings.HasPrefix(expr[i:], "R'''") {
+				strStart = "r'''"
+			} else if strings.HasPrefix(expr[i:], `r"""`) || strings.HasPrefix(expr[i:], `R"""`) {
+				strStart = `r"""`
+			} else if strings.HasPrefix(expr[i:], "'''") {
+				strStart = "'''"
+			} else if strings.HasPrefix(expr[i:], `"""`) {
+				strStart = `"""`
+			} else if strings.HasPrefix(expr[i:], "r'") || strings.HasPrefix(expr[i:], "R'") {
+				strStart = "r'"
+			} else if strings.HasPrefix(expr[i:], `r"`) || strings.HasPrefix(expr[i:], `R"`) {
+				strStart = `r"`
+			} else if expr[i] == '\'' {
+				strStart = "'"
+			} else if expr[i] == '"' {
+				strStart = `"`
+			} else if expr[i] == '`' {
+				strStart = "`"
+			}
+
+			if strStart != "" {
+				inString = true
+				stringQuote = strStart
+				if replace {
+					buf.WriteString(expr[i : i+len(strStart)])
+				}
+				i += len(strStart)
+				continue
+			}
+
+			ch := expr[i]
+			if !isWhitespace(ch) {
+				prevByte = lastByte
+				lastByte = ch
+			}
+
+			if replace {
+				buf.WriteByte(ch)
+			}
+			i++
+		} else {
+			// Inside string literal
+			isRaw := strings.HasPrefix(stringQuote, "r") || strings.HasPrefix(stringQuote, "R") || stringQuote == "`"
+			if !isRaw && !escaped && expr[i] == '\\' {
+				escaped = true
+				if replace {
+					buf.WriteByte(expr[i])
+				}
+				i++
+				continue
+			}
+
+			closed := false
+			advance := 1
+			if !escaped {
+				if (stringQuote == "r'''" || stringQuote == "'''") && strings.HasPrefix(expr[i:], "'''") {
+					closed = true
+					advance = 3
+				} else if (stringQuote == `r"""` || stringQuote == `"""`) && strings.HasPrefix(expr[i:], `"""`) {
+					closed = true
+					advance = 3
+				} else if (stringQuote == "r'" || stringQuote == "'") && expr[i] == '\'' {
+					closed = true
+				} else if (stringQuote == `r"` || stringQuote == `"`) && expr[i] == '"' {
+					closed = true
+				} else if stringQuote == "`" && expr[i] == '`' {
+					closed = true
+				}
+			} else {
+				escaped = false
+			}
+
+			if closed {
+				inString = false
+				prevByte = lastByte
+				lastByte = '"'
+				if replace {
+					buf.WriteString(expr[i : i+advance])
+				}
+				i += advance
+				continue
+			}
+
+			if replace {
+				buf.WriteByte(expr[i])
+			}
+			i++
+		}
+	}
+
+	if replace {
+		return buf.String(), true
+	}
+	return "", false
+}
+
+func matchExceptionRef(s string, i int, lastByte, prevByte byte) (int, string, string, bool) {
+	if !isRootIdent(s, i, lastByte, prevByte) {
+		return 0, "", "", false
+	}
+
+	const prefix = "exceptions"
+	if !strings.HasPrefix(s[i:], prefix) {
+		return 0, "", "", false
+	}
+
+	idx := i + len(prefix)
+	for idx < len(s) && isWhitespace(s[idx]) {
+		idx++
+	}
+	if idx >= len(s) || s[idx] != '.' {
+		return 0, "", "", false
+	}
+	idx++ // skip '.'
+	for idx < len(s) && isWhitespace(s[idx]) {
+		idx++
+	}
+
+	var targetField string
+	var replacement string
+	if strings.HasPrefix(s[idx:], "allowedImages") {
+		targetField = "allowedImages"
+		replacement = "variables.allowedImages"
+	} else if strings.HasPrefix(s[idx:], "allowedValues") {
+		targetField = "allowedValues"
+		replacement = "variables.allowedValues"
+	} else {
+		return 0, "", "", false
+	}
+
+	endIdx := idx + len(targetField)
+	if endIdx < len(s) && isIdentChar(s[endIdx]) {
+		return 0, "", "", false
+	}
+
+	return endIdx - i, targetField, replacement, true
+}
+
+func matchVariableRef(s string, i int, lastByte, prevByte byte, specificVar string) (int, bool) {
+	if !isRootIdent(s, i, lastByte, prevByte) {
+		return 0, false
+	}
+
+	const prefix = "variables"
+	if !strings.HasPrefix(s[i:], prefix) {
+		return 0, false
+	}
+
+	idx := i + len(prefix)
+	for idx < len(s) && isWhitespace(s[idx]) {
+		idx++
+	}
+	if idx >= len(s) || s[idx] != '.' {
+		return 0, false
+	}
+	idx++ // skip '.'
+	for idx < len(s) && isWhitespace(s[idx]) {
+		idx++
+	}
+	if idx >= len(s) {
+		return 0, false
+	}
+
+	if specificVar == "" {
+		if isIdentChar(s[idx]) {
+			endIdx := idx + 1
+			for endIdx < len(s) && isIdentChar(s[endIdx]) {
+				endIdx++
+			}
+			return endIdx - i, true
+		}
+		return 0, false
+	}
+
+	if strings.HasPrefix(s[idx:], specificVar) {
+		endIdx := idx + len(specificVar)
+		if endIdx == len(s) || !isIdentChar(s[endIdx]) {
+			return endIdx - i, true
+		}
+	}
+	return 0, false
+}
+
+func replaceExpressions(expr string, _ ...map[string]string) string {
+	res, _ := scanCEL(expr, true, func(s string, i int, lastByte, prevByte byte) (int, string, bool) {
+		if advance, _, repl, ok := matchExceptionRef(s, i, lastByte, prevByte); ok {
+			return advance, repl, true
+		}
+		return 0, "", false
+	})
+	return res
+}
+
+func hasExceptionRef(expr string, field string) bool {
+	_, found := scanCEL(expr, false, func(s string, i int, lastByte, prevByte byte) (int, string, bool) {
+		if advance, matchedField, _, ok := matchExceptionRef(s, i, lastByte, prevByte); ok {
+			if field == "" || field == matchedField || field == "exceptions."+matchedField {
+				return advance, "", true
+			}
+		}
+		return 0, "", false
+	})
+	return found
+}
+
+func hasVariableRef(expr string) bool {
+	_, found := scanCEL(expr, false, func(s string, i int, lastByte, prevByte byte) (int, string, bool) {
+		if advance, ok := matchVariableRef(s, i, lastByte, prevByte, ""); ok {
+			return advance, "", true
+		}
+		return 0, "", false
+	})
+	return found
+}
+
+func hasSpecificVariableRef(expr string, varName string) bool {
+	_, found := scanCEL(expr, false, func(s string, i int, lastByte, prevByte byte) (int, string, bool) {
+		if advance, ok := matchVariableRef(s, i, lastByte, prevByte, varName); ok {
+			return advance, "", true
+		}
+		return 0, "", false
+	})
+	return found
+}
+
+func hasGeneratedVariableRef(expr string) bool {
+	return hasSpecificVariableRef(expr, "allowedImages") || hasSpecificVariableRef(expr, "allowedValues")
+}
+
+func policyReferences(vpol *policiesv1beta1.ValidatingPolicy, target string) bool {
+	if vpol == nil {
+		return false
+	}
+	for _, v := range vpol.Spec.Validations {
+		if hasExceptionRef(v.Expression, target) || hasExceptionRef(v.MessageExpression, target) {
+			return true
+		}
+	}
+	for _, a := range vpol.Spec.AuditAnnotations {
+		if hasExceptionRef(a.ValueExpression, target) {
+			return true
+		}
+	}
+	for _, vr := range vpol.Spec.Variables {
+		if hasExceptionRef(vr.Expression, target) {
+			return true
+		}
+	}
+	return false
 }
 
 // BuildValidatingAdmissionPolicyBinding is used to build a Kubernetes ValidatingAdmissionPolicyBinding from a Kyverno policy

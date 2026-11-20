@@ -951,3 +951,795 @@ func TestBuildValidatingAdmissionPolicy_DoesNotWriteIntoSourceSliceCapacity(t *t
 	assert.Equal(t, admissionregistrationv1.Variable{}, vars[:cap(vars)][1],
 		"append must not write into the source policy's backing array")
 }
+
+func TestBuildValidatingAdmissionPolicy_FineGrainedExceptions(t *testing.T) {
+	tests := []struct {
+		name        string
+		policy      *policiesv1beta1.ValidatingPolicy
+		exceptions  []policiesv1beta1.PolicyException
+		wantErr     string
+		validateVAP func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy)
+	}{
+		{
+			name: "0 exceptions generates empty list fallback for allowedImages avoiding undeclared variable DoS",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "check-images"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: "object.spec.containers.all(c, c.image in exceptions.allowedImages)",
+					}},
+				},
+			},
+			exceptions: nil,
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				require.Len(t, vap.Spec.Variables, 1)
+				assert.Equal(t, "allowedImages", vap.Spec.Variables[0].Name)
+				assert.Equal(t, "[]", vap.Spec.Variables[0].Expression)
+				assert.Equal(t, "object.spec.containers.all(c, c.image in variables.allowedImages)", vap.Spec.Validations[0].Expression)
+			},
+		},
+		{
+			name: "0 exceptions generates empty list fallback for allowedValues avoiding undeclared variable DoS",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "check-values"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: "object.metadata.labels['env'] in exceptions.allowedValues",
+					}},
+				},
+			},
+			exceptions: nil,
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				require.Len(t, vap.Spec.Variables, 1)
+				assert.Equal(t, "allowedValues", vap.Spec.Variables[0].Name)
+				assert.Equal(t, "[]", vap.Spec.Variables[0].Expression)
+				assert.Equal(t, "object.metadata.labels['env'] in variables.allowedValues", vap.Spec.Validations[0].Expression)
+			},
+		},
+		{
+			name: "multiple unscoped exceptions union into single variable preserving element multiplicity preventing duplicate variable name collision",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "multi-exceptions"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: "c.image in exceptions.allowedImages && val in exceptions.allowedValues",
+					}},
+				},
+			},
+			exceptions: []policiesv1beta1.PolicyException{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "polex-1"},
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						Images:        []string{"nginx:1.20", "redis:alpine"},
+						AllowedValues: []string{"val1", "val2"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "polex-2"},
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						Images:        []string{"redis:alpine", "busybox:latest"},
+						AllowedValues: []string{"val2", "val3"},
+					},
+				},
+			},
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				require.Len(t, vap.Spec.Variables, 2)
+				assert.Equal(t, "allowedImages", vap.Spec.Variables[0].Name)
+				assert.Equal(t, `["nginx:1.20","redis:alpine","redis:alpine","busybox:latest"]`, vap.Spec.Variables[0].Expression)
+				assert.Equal(t, "allowedValues", vap.Spec.Variables[1].Name)
+				assert.Equal(t, `["val1","val2","val2","val3"]`, vap.Spec.Variables[1].Expression)
+			},
+		},
+		{
+			name: "scoped fine-grained exception with matchConditions is rejected with descriptive error",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "scoped-polex-policy"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations:      []admissionregistrationv1.Validation{{Expression: "true"}},
+				},
+			},
+			exceptions: []policiesv1beta1.PolicyException{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "scoped-polex"},
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						Images: []string{"debug:latest"},
+						MatchConditions: []admissionregistrationv1.MatchCondition{{
+							Name:       "in-dev",
+							Expression: "request.namespace == 'dev'",
+						}},
+					},
+				},
+			},
+			wantErr: "policy exception scoped-polex defines fine-grained exceptions (images/allowedValues) scoped with matchConditions, which cannot be safely translated to a ValidatingAdmissionPolicy",
+		},
+		{
+			name: "generated variables ordered before dependent user variables and rewritten across validations and audit annotations",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "rewrite-and-order"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Variables: []admissionregistrationv1.Variable{{
+						Name:       "hasAllowed",
+						Expression: "variables.allowedImages.exists(img, img == 'special') && exceptions.allowedValues.size() > 0",
+					}},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression:        "request.image in exceptions.allowedImages",
+						MessageExpression: "'Disallowed: ' + string(exceptions.allowedImages)",
+					}},
+					AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+						Key:             "allowed-audit",
+						ValueExpression: "string(exceptions.allowedValues)",
+					}},
+				},
+			},
+			exceptions: []policiesv1beta1.PolicyException{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "polex-both"},
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						Images:        []string{"nginx:latest"},
+						AllowedValues: []string{"VAL"},
+					},
+				},
+			},
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				require.Len(t, vap.Spec.Variables, 3)
+				// Generated exception variables MUST be ordered before dependent user variables
+				assert.Equal(t, "allowedImages", vap.Spec.Variables[0].Name)
+				assert.Equal(t, `["nginx:latest"]`, vap.Spec.Variables[0].Expression)
+				assert.Equal(t, "allowedValues", vap.Spec.Variables[1].Name)
+				assert.Equal(t, `["VAL"]`, vap.Spec.Variables[1].Expression)
+				assert.Equal(t, "hasAllowed", vap.Spec.Variables[2].Name)
+				assert.Equal(t, "variables.allowedImages.exists(img, img == 'special') && variables.allowedValues.size() > 0", vap.Spec.Variables[2].Expression)
+
+				assert.Equal(t, "request.image in variables.allowedImages", vap.Spec.Validations[0].Expression)
+				assert.Equal(t, "'Disallowed: ' + string(variables.allowedImages)", vap.Spec.Validations[0].MessageExpression)
+				assert.Equal(t, "string(variables.allowedValues)", vap.Spec.AuditAnnotations[0].ValueExpression)
+			},
+		},
+		{
+			name: "exceptions.allowedImages referenced only in audit annotations triggers fallback []",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "audit-img-policy"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+						Key:             "audit-key",
+						ValueExpression: "string(exceptions.allowedImages)",
+					}},
+				},
+			},
+			exceptions: nil,
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				require.Len(t, vap.Spec.Variables, 1)
+				assert.Equal(t, "allowedImages", vap.Spec.Variables[0].Name)
+				assert.Equal(t, "[]", vap.Spec.Variables[0].Expression)
+				assert.Equal(t, "string(variables.allowedImages)", vap.Spec.AuditAnnotations[0].ValueExpression)
+			},
+		},
+		{
+			name: "exceptions.allowedValues referenced only in variables triggers fallback []",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "var-val-policy"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Variables: []admissionregistrationv1.Variable{{
+						Name:       "userVar",
+						Expression: "exceptions.allowedValues.size() > 0",
+					}},
+				},
+			},
+			exceptions: nil,
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				require.Len(t, vap.Spec.Variables, 2)
+				assert.Equal(t, "allowedValues", vap.Spec.Variables[0].Name)
+				assert.Equal(t, "[]", vap.Spec.Variables[0].Expression)
+				assert.Equal(t, "userVar", vap.Spec.Variables[1].Name)
+				assert.Equal(t, "variables.allowedValues.size() > 0", vap.Spec.Variables[1].Expression)
+			},
+		},
+		{
+			name: "policy with exclude-reporting label propagates to generated VAP labels",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exclude-rep-policy",
+					Labels: map[string]string{
+						"reports.kyverno.io/disabled": "true",
+					},
+				},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations:      []admissionregistrationv1.Validation{{Expression: "true"}},
+				},
+			},
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				assert.Equal(t, "true", vap.Labels["reports.kyverno.io/disabled"])
+			},
+		},
+		{
+			name: "policy defining variables.allowedImages with 0 exceptions does not duplicate variable",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "user-var-policy"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Variables: []admissionregistrationv1.Variable{{
+						Name:       "allowedImages",
+						Expression: "['custom/image:1.0']",
+					}},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: "request.image in variables.allowedImages",
+					}},
+				},
+			},
+			exceptions: nil,
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				require.Len(t, vap.Spec.Variables, 1)
+				assert.Equal(t, "allowedImages", vap.Spec.Variables[0].Name)
+				assert.Equal(t, "['custom/image:1.0']", vap.Spec.Variables[0].Expression)
+			},
+		},
+		{
+			name: "exception literal containing exceptions.allowedImages is preserved and not rewritten",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "preserve-literal-data"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: "val in exceptions.allowedValues",
+					}},
+				},
+			},
+			exceptions: []policiesv1beta1.PolicyException{{
+				ObjectMeta: metav1.ObjectMeta{Name: "polex-literal"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					AllowedValues: []string{"exceptions.allowedImages"},
+				},
+			}},
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				require.Len(t, vap.Spec.Variables, 1)
+				assert.Equal(t, "allowedValues", vap.Spec.Variables[0].Name)
+				assert.Equal(t, `["exceptions.allowedImages"]`, vap.Spec.Variables[0].Expression)
+				assert.Equal(t, "val in variables.allowedValues", vap.Spec.Validations[0].Expression)
+			},
+		},
+		{
+			name: "policy defining variable allowedImages conflicts with generated exception allowedImages",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "conflict-allowed-images"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Variables: []admissionregistrationv1.Variable{{
+						Name:       "allowedImages",
+						Expression: "['my-image']",
+					}},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: "image in exceptions.allowedImages",
+					}},
+				},
+			},
+			exceptions: []policiesv1beta1.PolicyException{{
+				ObjectMeta: metav1.ObjectMeta{Name: "polex-img"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					Images: []string{"ghcr.io/test:v1"},
+				},
+			}},
+			wantErr: "variable 'allowedImages' already defined in policy spec.variables conflicts with exception-generated allowedImages",
+		},
+		{
+			name: "policy defining variable allowedValues conflicts with generated exception allowedValues",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "conflict-allowed-values"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Variables: []admissionregistrationv1.Variable{{
+						Name:       "allowedValues",
+						Expression: "['val']",
+					}},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: "val in exceptions.allowedValues",
+					}},
+				},
+			},
+			exceptions: []policiesv1beta1.PolicyException{{
+				ObjectMeta: metav1.ObjectMeta{Name: "polex-val"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					AllowedValues: []string{"test-val"},
+				},
+			}},
+			wantErr: "variable 'allowedValues' already defined in policy spec.variables conflicts with exception-generated allowedValues",
+		},
+		{
+			name: "reference after ternary operator is rewritten and generates exception variable",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "ternary-ref"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: "true ? exceptions.allowedValues : []",
+					}},
+				},
+			},
+			exceptions: []policiesv1beta1.PolicyException{{
+				ObjectMeta: metav1.ObjectMeta{Name: "polex-ternary"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					AllowedValues: []string{"allowed-1"},
+				},
+			}},
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				require.Len(t, vap.Spec.Variables, 1)
+				assert.Equal(t, "allowedValues", vap.Spec.Variables[0].Name)
+				assert.Equal(t, `["allowed-1"]`, vap.Spec.Variables[0].Expression)
+				assert.Equal(t, "true ? variables.allowedValues : []", vap.Spec.Validations[0].Expression)
+			},
+		},
+		{
+			name: "reference after line comment ending in punctuation is rewritten",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "comment-punct-ref"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: "// check exceptions.\nexceptions.allowedValues.size() > 0",
+					}},
+				},
+			},
+			exceptions: []policiesv1beta1.PolicyException{{
+				ObjectMeta: metav1.ObjectMeta{Name: "polex-comment"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					AllowedValues: []string{"allowed-1"},
+				},
+			}},
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				require.Len(t, vap.Spec.Variables, 1)
+				assert.Equal(t, "allowedValues", vap.Spec.Variables[0].Name)
+				assert.Equal(t, `["allowed-1"]`, vap.Spec.Variables[0].Expression)
+				assert.Equal(t, "// check exceptions.\nvariables.allowedValues.size() > 0", vap.Spec.Validations[0].Expression)
+			},
+		},
+		{
+			name: "absolute-name reference .exceptions.allowedValues is rewritten",
+			policy: &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "absolute-name-ref"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: ".exceptions.allowedValues.size() == 0",
+					}},
+				},
+			},
+			exceptions: []policiesv1beta1.PolicyException{{
+				ObjectMeta: metav1.ObjectMeta{Name: "polex-abs"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					AllowedValues: []string{"allowed-1"},
+				},
+			}},
+			validateVAP: func(t *testing.T, vap *admissionregistrationv1.ValidatingAdmissionPolicy) {
+				require.Len(t, vap.Spec.Variables, 1)
+				assert.Equal(t, "allowedValues", vap.Spec.Variables[0].Name)
+				assert.Equal(t, ".variables.allowedValues.size() == 0", vap.Spec.Validations[0].Expression)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + tt.policy.GetName()},
+			}
+			var exList []engineapi.GenericException
+			for i := range tt.exceptions {
+				exList = append(exList, engineapi.NewCELPolicyException(&tt.exceptions[i]))
+			}
+			err := BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(tt.policy), exList)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				if tt.validateVAP != nil {
+					tt.validateVAP(t, vap)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildValidatingAdmissionPolicy_CELVariableOrderingAndCompilation(t *testing.T) {
+	// 1. Build a ValidatingAdmissionPolicy from a ValidatingPolicy with dependent variables
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ordering-compiler"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Variables: []admissionregistrationv1.Variable{
+				{
+					Name:       "hasAllowedImage",
+					Expression: "variables.allowedImages.exists(img, img == 'nginx:1.20')",
+				},
+				{
+					Name:       "isProdEnv",
+					Expression: "'prod' in variables.allowedValues",
+				},
+				{
+					Name:       "combinedCheck",
+					Expression: "variables.hasAllowedImage && variables.isProdEnv",
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "variables.combinedCheck",
+				},
+			},
+		},
+	}
+	polex := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "polex-combo"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images:        []string{"nginx:1.20", "redis:alpine"},
+			AllowedValues: []string{"prod", "staging"},
+		},
+	}
+
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "vpol-test-ordering-compiler"},
+	}
+	err := BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(vpol), []engineapi.GenericException{
+		engineapi.NewCELPolicyException(&polex),
+	})
+	require.NoError(t, err)
+
+	// Verify exact variable order: allowedImages, allowedValues, followed by user variables
+	require.Len(t, vap.Spec.Variables, 5)
+	assert.Equal(t, "allowedImages", vap.Spec.Variables[0].Name)
+	assert.Equal(t, "allowedValues", vap.Spec.Variables[1].Name)
+	assert.Equal(t, "hasAllowedImage", vap.Spec.Variables[2].Name)
+	assert.Equal(t, "isProdEnv", vap.Spec.Variables[3].Name)
+	assert.Equal(t, "combinedCheck", vap.Spec.Variables[4].Name)
+
+	// Real CEL compilation using Kyverno's CEL compiler exactly as Kubernetes Admission does
+	env, err := kyvernocompiler.NewBaseEnv()
+	require.NoError(t, err)
+	provider := kyvernocompiler.NewVariablesProvider(env.CELTypeProvider())
+	env, err = env.Extend(
+		cel.Variable(kyvernocompiler.VariablesKey, kyvernocompiler.VariablesType),
+		cel.CustomTypeProvider(provider),
+	)
+	require.NoError(t, err)
+
+	progs, errs := kyvernocompiler.CompileVariables(nil, env, provider, vap.Spec.Variables...)
+	require.Empty(t, errs, "generated variables must compile without any undeclared variable errors")
+	require.Len(t, progs, 5)
+
+	// Negative proof: If allowedImages and allowedValues were ordered AFTER dependent user variables,
+	// CEL compilation MUST fail with undeclared reference.
+	reversedVariables := []admissionregistrationv1.Variable{
+		vap.Spec.Variables[2], // hasAllowedImage (depends on variables.allowedImages)
+		vap.Spec.Variables[3], // isProdEnv (depends on variables.allowedValues)
+		vap.Spec.Variables[0], // allowedImages
+		vap.Spec.Variables[1], // allowedValues
+	}
+	badEnv, err := kyvernocompiler.NewBaseEnv()
+	require.NoError(t, err)
+	badProvider := kyvernocompiler.NewVariablesProvider(badEnv.CELTypeProvider())
+	badEnv, err = badEnv.Extend(
+		cel.Variable(kyvernocompiler.VariablesKey, kyvernocompiler.VariablesType),
+		cel.CustomTypeProvider(badProvider),
+	)
+	require.NoError(t, err)
+
+	_, badErrs := kyvernocompiler.CompileVariables(nil, badEnv, badProvider, reversedVariables...)
+	require.NotEmpty(t, badErrs, "out-of-order variables must fail CEL compilation with undefined field error")
+	assert.Contains(t, badErrs.ToAggregate().Error(), "undefined field 'allowedImages'")
+}
+
+func TestBuildValidatingAdmissionPolicyBinding(t *testing.T) {
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "check-binding",
+			UID:  "uid-123",
+		},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+		},
+	}
+	vapbinding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "vpol-check-binding-binding",
+		},
+	}
+	err := BuildValidatingAdmissionPolicyBinding(vapbinding, engineapi.NewValidatingPolicy(vpol))
+	require.NoError(t, err)
+
+	assert.Equal(t, "vpol-check-binding", vapbinding.Spec.PolicyName)
+	assert.Equal(t, []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}, vapbinding.Spec.ValidationActions)
+	assert.Len(t, vapbinding.OwnerReferences, 1)
+	assert.Equal(t, "check-binding", vapbinding.OwnerReferences[0].Name)
+	assert.Contains(t, vapbinding.Labels, "app.kubernetes.io/managed-by")
+}
+
+func TestBuildValidatingAdmissionPolicy_MultiplicityParity(t *testing.T) {
+	// Two unscoped exceptions both allow the same image and value
+	polex1 := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "polex-dup-1"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images:        []string{"shared-img:v1"},
+			AllowedValues: []string{"shared-val"},
+		},
+	}
+	polex2 := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "polex-dup-2"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images:        []string{"shared-img:v1"},
+			AllowedValues: []string{"shared-val"},
+		},
+	}
+
+	// Policy evaluates a count-based expression observing list multiplicity
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "multiplicity-check"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "exceptions.allowedValues.filter(v, v == 'shared-val').size() == 2 && exceptions.allowedImages.filter(img, img == 'shared-img:v1').size() == 2",
+			}},
+		},
+	}
+
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "vpol-multiplicity-check"},
+	}
+	err := BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(vpol), []engineapi.GenericException{
+		engineapi.NewCELPolicyException(&polex1),
+		engineapi.NewCELPolicyException(&polex2),
+	})
+	require.NoError(t, err)
+
+	// Verify that generated VAP variables preserved multiplicity
+	require.Len(t, vap.Spec.Variables, 2)
+	assert.Equal(t, "allowedImages", vap.Spec.Variables[0].Name)
+	assert.Equal(t, `["shared-img:v1","shared-img:v1"]`, vap.Spec.Variables[0].Expression)
+	assert.Equal(t, "allowedValues", vap.Spec.Variables[1].Name)
+	assert.Equal(t, `["shared-val","shared-val"]`, vap.Spec.Variables[1].Expression)
+
+	// Webhook path evaluation:
+	webhookEnv, err := cel.NewEnv(
+		cel.Variable("exceptions", cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
+	)
+	require.NoError(t, err)
+	webhookAst, issues := webhookEnv.Compile(vpol.Spec.Validations[0].Expression)
+	require.Nil(t, issues)
+	webhookProg, err := webhookEnv.Program(webhookAst)
+	require.NoError(t, err)
+	webhookOut, _, err := webhookProg.Eval(map[string]interface{}{
+		"exceptions": map[string]interface{}{
+			"allowedValues": []string{"shared-val", "shared-val"},
+			"allowedImages": []string{"shared-img:v1", "shared-img:v1"},
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, true, webhookOut.Value())
+
+	// Native VAP path evaluation with compiled variables:
+	vapEnv, err := kyvernocompiler.NewBaseEnv()
+	require.NoError(t, err)
+	vapProvider := kyvernocompiler.NewVariablesProvider(vapEnv.CELTypeProvider())
+	vapEnv, err = vapEnv.Extend(
+		cel.Variable(kyvernocompiler.VariablesKey, kyvernocompiler.VariablesType),
+		cel.CustomTypeProvider(vapProvider),
+	)
+	require.NoError(t, err)
+
+	_, errs := kyvernocompiler.CompileVariables(nil, vapEnv, vapProvider, vap.Spec.Variables...)
+	require.Empty(t, errs)
+
+	vapAst, issues := vapEnv.Compile(vap.Spec.Validations[0].Expression)
+	require.Nil(t, issues)
+	vapProg, err := vapEnv.Program(vapAst)
+	require.NoError(t, err)
+	vapOut, _, err := vapProg.Eval(map[string]interface{}{
+		"variables": map[string]interface{}{
+			"allowedImages": []string{"shared-img:v1", "shared-img:v1"},
+			"allowedValues": []string{"shared-val", "shared-val"},
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, true, vapOut.Value())
+
+	// Both paths return the identical verdict
+	assert.Equal(t, webhookOut.Value(), vapOut.Value())
+}
+
+func TestBuildValidatingAdmissionPolicy_PreservesStringLiterals(t *testing.T) {
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule:       admissionregistrationv1.Rule{Resources: []string{"pods"}},
+					},
+				}},
+			},
+			Variables: []admissionregistrationv1.Variable{
+				{
+					Name:       "blockedMode",
+					Expression: "'exceptions.allowedValues'",
+				},
+				{
+					Name:       "blockedImg",
+					Expression: `"exceptions.allowedImages"`,
+				},
+				{
+					Name:       "activeValues",
+					Expression: "exceptions.allowedValues.size()",
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "object.metadata.labels['mode'] != variables.blockedMode && variables.activeValues >= 0",
+				},
+			},
+		},
+	}
+
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+	err := BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(vpol), nil)
+	require.NoError(t, err)
+
+	var blockedModeVar, blockedImgVar, activeValuesVar *admissionregistrationv1.Variable
+	for i := range vap.Spec.Variables {
+		switch vap.Spec.Variables[i].Name {
+		case "blockedMode":
+			blockedModeVar = &vap.Spec.Variables[i]
+		case "blockedImg":
+			blockedImgVar = &vap.Spec.Variables[i]
+		case "activeValues":
+			activeValuesVar = &vap.Spec.Variables[i]
+		}
+	}
+
+	require.NotNil(t, blockedModeVar)
+	require.NotNil(t, blockedImgVar)
+	require.NotNil(t, activeValuesVar)
+
+	// String literals must remain untouched
+	assert.Equal(t, "'exceptions.allowedValues'", blockedModeVar.Expression)
+	assert.Equal(t, `"exceptions.allowedImages"`, blockedImgVar.Expression)
+
+	// Actual reference must be rewritten to variables.allowedValues
+	assert.Equal(t, "variables.allowedValues.size()", activeValuesVar.Expression)
+}
+
+func TestBuildValidatingAdmissionPolicy_RewritesWhitespaceVariants(t *testing.T) {
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule:       admissionregistrationv1.Rule{Resources: []string{"pods"}},
+					},
+				}},
+			},
+			Variables: []admissionregistrationv1.Variable{
+				{
+					Name:       "hasValues",
+					Expression: "exceptions . allowedValues.size() == 0",
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "exceptions   .   allowedImages.size() > 0",
+				},
+			},
+		},
+	}
+
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+	err := BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(vpol), nil)
+	require.NoError(t, err)
+
+	// Verify allowedValues and allowedImages variables were synthesized
+	hasAllowedValues := false
+	hasAllowedImages := false
+	var hasValuesVar *admissionregistrationv1.Variable
+	for i := range vap.Spec.Variables {
+		switch vap.Spec.Variables[i].Name {
+		case "allowedValues":
+			hasAllowedValues = true
+		case "allowedImages":
+			hasAllowedImages = true
+		case "hasValues":
+			hasValuesVar = &vap.Spec.Variables[i]
+		}
+	}
+
+	assert.True(t, hasAllowedValues, "expected allowedValues variable to be generated")
+	assert.True(t, hasAllowedImages, "expected allowedImages variable to be generated")
+	require.NotNil(t, hasValuesVar)
+	assert.Equal(t, "variables.allowedValues.size() == 0", hasValuesVar.Expression)
+	assert.Equal(t, "variables.allowedImages.size() > 0", vap.Spec.Validations[0].Expression)
+}
+
+func TestBuildValidatingAdmissionPolicy_CELCommentsAndTripleQuotes(t *testing.T) {
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule:       admissionregistrationv1.Rule{Resources: []string{"pods"}},
+					},
+				}},
+			},
+			Variables: []admissionregistrationv1.Variable{
+				{
+					Name:       "commentWithApostrophe",
+					Expression: "// don't rewrite\nexceptions.allowedValues.size() > 0",
+				},
+				{
+					Name:       "blockComment",
+					Expression: "/* don't touch */ exceptions.allowedImages.size() > 0",
+				},
+				{
+					Name:       "tripleQuoteRaw",
+					Expression: `r"""a" exceptions.allowedValues "b"""`,
+				},
+				{
+					Name:       "tripleQuoteStd",
+					Expression: `"""first line\nexceptions.allowedImages\nsecond line"""`,
+				},
+				{
+					Name:       "nestedSelector",
+					Expression: "object.spec.exceptions.allowedValues == 'safe'",
+				},
+				{
+					Name:       "nestedSelectorSpaced",
+					Expression: "object.spec. exceptions.allowedValues == 'safe'",
+				},
+			},
+		},
+	}
+
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+	err := BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(vpol), nil)
+	require.NoError(t, err)
+
+	var commentVar, blockVar, rawVar, stdVar, nestedVar, nestedSpacedVar *admissionregistrationv1.Variable
+	for i := range vap.Spec.Variables {
+		switch vap.Spec.Variables[i].Name {
+		case "commentWithApostrophe":
+			commentVar = &vap.Spec.Variables[i]
+		case "blockComment":
+			blockVar = &vap.Spec.Variables[i]
+		case "tripleQuoteRaw":
+			rawVar = &vap.Spec.Variables[i]
+		case "tripleQuoteStd":
+			stdVar = &vap.Spec.Variables[i]
+		case "nestedSelector":
+			nestedVar = &vap.Spec.Variables[i]
+		case "nestedSelectorSpaced":
+			nestedSpacedVar = &vap.Spec.Variables[i]
+		}
+	}
+
+	require.NotNil(t, commentVar)
+	assert.Equal(t, "// don't rewrite\nvariables.allowedValues.size() > 0", commentVar.Expression)
+
+	require.NotNil(t, blockVar)
+	assert.Equal(t, "/* don't touch */ variables.allowedImages.size() > 0", blockVar.Expression)
+
+	require.NotNil(t, rawVar)
+	assert.Equal(t, `r"""a" exceptions.allowedValues "b"""`, rawVar.Expression)
+
+	require.NotNil(t, stdVar)
+	assert.Equal(t, `"""first line\nexceptions.allowedImages\nsecond line"""`, stdVar.Expression)
+
+	require.NotNil(t, nestedVar)
+	assert.Equal(t, "object.spec.exceptions.allowedValues == 'safe'", nestedVar.Expression)
+
+	require.NotNil(t, nestedSpacedVar)
+	assert.Equal(t, "object.spec. exceptions.allowedValues == 'safe'", nestedSpacedVar.Expression)
+}
