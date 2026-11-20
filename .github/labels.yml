@@ -519,6 +519,10 @@ e2e-failure:
   color: B60205
   description: Post-merge tests are failing on a branch; the E2E gate blocks PRs to it
 
+full-matrix:
+  color: D93F0B
+  description: The e2e-failure is only on Kubernetes versions that reduced runs skip; a full run clears it
+
 e2e-gate-bypass:
   color: FBCA04
   description: Lets this PR through the E2E gate, e.g. the PR that fixes the branch
