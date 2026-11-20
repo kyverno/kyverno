@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 type Provider interface {
@@ -62,18 +61,11 @@ func (fp *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 			return Policy{}, fmt.Errorf("generating policy %s not found: %w", name, err)
 		}
 	}
-	var exceptions, matchedExceptions []*policiesv1beta1.PolicyException
+	var matchedExceptions []*policiesv1beta1.PolicyException
 	if fp.polexLister != nil {
-		exceptions, err = fp.polexLister.List(labels.Everything())
+		matchedExceptions, err = fp.polexLister.ListForPolicy(policy.GetKind(), policy.GetName(), policy.GetNamespace())
 		if err != nil {
 			return Policy{}, err
-		}
-	}
-	for _, polex := range exceptions {
-		for _, ref := range polex.Spec.PolicyRefs {
-			if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
-				matchedExceptions = append(matchedExceptions, polex)
-			}
 		}
 	}
 	compiled, errList := fp.compiler.Compile(policy, matchedExceptions)

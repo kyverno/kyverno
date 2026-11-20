@@ -93,7 +93,7 @@ func buildGateMutatePolicy(b *testing.B) Provider {
 		[]policiesv1beta1.MutatingPolicyLike{mpol},
 		nil,
 		libs.NewFakeContextProvider(),
-	)
+		engine.ExceptionScopeAll)
 	require.NoError(b, err)
 	return provider
 }
@@ -188,7 +188,7 @@ func buildGateJSONPatchPolicy(b *testing.B) Provider {
 		[]policiesv1beta1.MutatingPolicyLike{mpol},
 		nil,
 		libs.NewFakeContextProvider(),
-	)
+		engine.ExceptionScopeAll)
 	require.NoError(b, err)
 	return provider
 }
