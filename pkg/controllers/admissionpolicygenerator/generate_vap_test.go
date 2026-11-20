@@ -16,6 +16,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
@@ -29,15 +30,23 @@ func (permissiveAuthChecker) Check(ctx context.Context, group, version, resource
 	return &checker.AuthResult{Allowed: true}, nil
 }
 
-// newVAPTestController builds a controller backed by fake clientsets and empty listers.
-func newVAPTestController(t *testing.T, vpol *policiesv1beta1.ValidatingPolicy) (*controller, *kubefake.Clientset, *versionedfake.Clientset) {
+// newVAPTestController builds a controller backed by fake clientsets. The listers hold only the
+// ValidatingAdmissionPolicies and bindings passed as existing, which are also in the kube clientset.
+func newVAPTestController(t *testing.T, vpol *policiesv1beta1.ValidatingPolicy, existing ...runtime.Object) (*controller, *kubefake.Clientset, *versionedfake.Clientset) {
 	t.Helper()
-	kubeClient := kubefake.NewSimpleClientset()
+	kubeClient := kubefake.NewSimpleClientset(existing...)
 	kyvernoClient := versionedfake.NewSimpleClientset(vpol)
 	celpolexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-	// no VAP or binding exists yet
 	vapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	vapBindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	for _, obj := range existing {
+		switch obj := obj.(type) {
+		case *admissionregistrationv1.ValidatingAdmissionPolicy:
+			require.NoError(t, vapIndexer.Add(obj))
+		case *admissionregistrationv1.ValidatingAdmissionPolicyBinding:
+			require.NoError(t, vapBindingIndexer.Add(obj))
+		}
+	}
 	c := &controller{
 		client:           kubeClient,
 		kyvernoClient:    kyvernoClient,

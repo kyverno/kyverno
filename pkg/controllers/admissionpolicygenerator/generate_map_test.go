@@ -317,6 +317,7 @@ func TestHandleMAPGeneration_ExistingMAPDeletedOnOversizedCELException(t *testin
 	mpol := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-mutate-pods",
+			UID:  "test-mutate-pods-uid",
 		},
 		Spec: policiesv1beta1.MutatingPolicySpec{
 			AutogenConfiguration: cfg,
@@ -329,12 +330,14 @@ func TestHandleMAPGeneration_ExistingMAPDeletedOnOversizedCELException(t *testin
 
 	existingMAP := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "mpol-test-mutate-pods",
+			Name:            "mpol-test-mutate-pods",
+			OwnerReferences: generatedBy("MutatingPolicy", mpol.Name, mpol.UID),
 		},
 	}
 	existingBinding := &admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "mpol-test-mutate-pods-binding",
+			Name:            "mpol-test-mutate-pods-binding",
+			OwnerReferences: generatedBy("MutatingPolicy", mpol.Name, mpol.UID),
 		},
 	}
 
