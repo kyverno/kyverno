@@ -10,7 +10,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     policies.kyverno.io/severity: "medium"
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: latest
+    kyverno.io/kyverno-version: "latest"
     policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: ">=1.25.0-0"
     kyverno.io/pod-security-version: "v1.37"
@@ -35,7 +35,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   variables:
     - name: allContainers
       expression: >-
@@ -72,7 +72,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     policies.kyverno.io/severity: "medium"
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: latest
+    kyverno.io/kyverno-version: "latest"
     policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: ">=1.25.0-0"
     kyverno.io/pod-security-version: "v1.37"
@@ -94,7 +94,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   validations:
     - expression: >-
         object.spec.?hostUsers.orValue(true) == false ||
@@ -129,7 +129,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     policies.kyverno.io/severity: "medium"
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: latest
+    kyverno.io/kyverno-version: "latest"
     policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: ">=1.25.0-0"
     kyverno.io/pod-security-version: "v1.37"
@@ -151,7 +151,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   validations:
     - expression: >-
         (!has(object.spec.securityContext) ||
@@ -195,7 +195,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     policies.kyverno.io/severity: "medium"
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: latest
+    kyverno.io/kyverno-version: "latest"
     policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: ">=1.25.0-0"
     kyverno.io/pod-security-version: "v1.37"
@@ -217,7 +217,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   validations:
     - expression: >-
         !has(object.spec.securityContext) ||
@@ -239,7 +239,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Restricted)
     policies.kyverno.io/severity: "medium"
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: latest
+    kyverno.io/kyverno-version: "latest"
     policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: ">=1.25.0-0"
     kyverno.io/pod-security-version: "v1.37"
@@ -261,7 +261,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   validations:
     - expression: >-
         object.spec.?hostUsers.orValue(true) == false ||
@@ -300,7 +300,7 @@ metadata:
     policies.kyverno.io/category: Pod Security Standards (Restricted)
     policies.kyverno.io/severity: "medium"
     policies.kyverno.io/subject: Pod
-    kyverno.io/kyverno-version: latest
+    kyverno.io/kyverno-version: "latest"
     policies.kyverno.io/minversion: 1.17.0
     kyverno.io/kubernetes-version: ">=1.25.0-0"
     kyverno.io/pod-security-version: "v1.37"
@@ -323,7 +323,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   variables:
     - name: ctnrs
       expression: >-

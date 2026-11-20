@@ -65,19 +65,47 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
     {{- end }}
 {{- end -}}
 
-{{/* Get deployed Kyverno version from Kubernetes */}}
+{{/* Get deployed Kyverno version from Kubernetes.
+     The Kyverno chart names the admission controller Deployment after its release, so it is found by its component label in the release namespace.
+     This needs permission to list Deployments there. Set kyvernoVersion to skip the lookup.
+     The version is the tag of the container named kyverno. It is empty when no Deployment is found, the image has no version tag,
+     or the Deployments found disagree on the version. */}}
 {{- define "kyverno-policies.kyvernoVersion" -}}
-{{- $version := "" -}}
-{{- if eq .Values.kyvernoVersion "autodetect" }}
-{{- with (lookup "apps/v1" "Deployment" .Release.Namespace "kyverno") -}}
-  {{- with (first .spec.template.spec.containers) -}}
-    {{- $imageTag := (last (splitList ":" .image)) -}}
-    {{- $version = trimPrefix "v" $imageTag -}}
+{{- if eq .Values.kyvernoVersion "autodetect" -}}
+{{- $versions := list -}}
+{{- range (lookup "apps/v1" "Deployment" .Release.Namespace "").items -}}
+  {{- $component := index (default dict .metadata.labels) "app.kubernetes.io/component" -}}
+  {{- if eq $component "admission-controller" -}}
+    {{- range .spec.template.spec.containers -}}
+      {{- if eq .name "kyverno" -}}
+        {{- $tag := last (splitList ":" (first (splitList "@" .image))) -}}
+        {{- if not (contains "/" $tag) -}}
+          {{- $versions = append $versions (trimPrefix "v" $tag) -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
-{{ $version }}
+{{- $versions = uniq $versions -}}
+{{- if and (eq (len $versions) 1) (regexMatch "^[0-9]+\\.[0-9]+" (first $versions)) -}}
+{{ first $versions }}
+{{- end -}}
 {{- else -}}
 {{ .Values.kyvernoVersion }}
+{{- end -}}
+{{- end -}}
+
+{{/* Resources the policies match.
+     pods/ephemeralcontainers is included so that debug containers added with
+     `kubectl debug` are checked too. Kyverno before 1.20 turns off autogen for
+     pod controllers when a policy names a subresource, so it is left out there.
+     When the version can't be detected or isn't a version number, it is included. */}}
+{{- define "kyverno-policies.podResources" -}}
+{{- $version := include "kyverno-policies.kyvernoVersion" . | trim -}}
+{{- if and (regexMatch "^v?[0-9]+\\.[0-9]+" $version) (semverCompare "<1.20.0-0" $version) -}}
+[pods]
+{{- else -}}
+[pods, pods/ephemeralcontainers]
 {{- end -}}
 {{- end -}}
 

@@ -1,0 +1,24 @@
+{{- /*
+  The policies match pods/ephemeralcontainers, and Kyverno checks that the reports
+  controller can read every resource a policy matches. Without this role, each
+  policy reports RBACPermissionsGranted=False.
+*/ -}}
+{{- $policies := or (has .Values.podSecurityStandard (list "baseline" "restricted")) (and (eq .Values.podSecurityStandard "custom") .Values.podSecurityPolicies) .Values.includeRestrictedPolicies .Values.includeOtherPolicies }}
+{{- if and .Values.ephemeralContainersRBAC $policies (contains "pods/ephemeralcontainers" (include "kyverno-policies.podResources" .)) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}:reports-controller:ephemeralcontainers
+  labels:
+    rbac.kyverno.io/aggregate-to-reports-controller: "true"
+    {{- include "kyverno-policies.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods/ephemeralcontainers
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}
