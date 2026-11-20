@@ -20,7 +20,7 @@ spec:
         {{- toYaml .Values.reportsController.networkPolicy.ingressFrom | nindent 8 }}
       ports:
         - protocol: TCP
-          port: {{ .Values.reportsController.metricsService.port }}
+          port: {{ .Values.reportsController.metering.port }}
   {{- else }}
   ingress:
     - {}
