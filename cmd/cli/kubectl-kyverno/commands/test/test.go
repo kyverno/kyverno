@@ -672,6 +672,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				restMapper,
 				gceMap,
 				operation,
+				store.GetHTTPMockIndex(),
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -696,6 +697,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				gceMap,
 				contextProvider,
 				dpolProvider,
+				store.GetHTTPMockIndex(),
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -808,6 +810,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				restMapper,
 				gceMap,
 				"",
+				store.GetHTTPMockIndex(),
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
@@ -831,6 +834,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				gceMap,
 				jsonContextProvider,
 				dpolJSONProvider,
+				store.GetHTTPMockIndex(),
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.name, err)
@@ -942,6 +946,7 @@ func applyImageValidatingPolicies(
 	restMapper meta.RESTMapper,
 	gceMap map[string]interface{},
 	operation string,
+	httpMockIndex map[string]interface{},
 ) ([]engineapi.EngineResponse, error) {
 	var lister corev1listers.SecretLister
 	if dclient != nil {
@@ -965,7 +970,7 @@ func applyImageValidatingPolicies(
 			return nil, mapErr
 		}
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
+	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, httpMockIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -1125,6 +1130,7 @@ func applyDeletingPolicies(
 	gceMap map[string]interface{},
 	cachedContext libs.Context,
 	cachedDpolProvider dpolengine.ProviderFunc,
+	httpMockIndex map[string]interface{},
 ) ([]engineapi.EngineResponse, error) {
 	if restMapper == nil {
 		var mapErr error
@@ -1136,7 +1142,7 @@ func applyDeletingPolicies(
 	contextProvider := cachedContext
 	if contextProvider == nil {
 		var err error
-		contextProvider, err = processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
+		contextProvider, err = processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, httpMockIndex)
 		if err != nil {
 			return nil, err
 		}
