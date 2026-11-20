@@ -275,3 +275,68 @@ func TestVariables_ComputeVariables(t *testing.T) {
 		})
 	}
 }
+
+func TestVariables_GlobalOperation(t *testing.T) {
+	tests := []struct {
+		name      string
+		values    *v1alpha1.ValuesSpec
+		variables map[string]string
+		want      string
+	}{
+		{
+			name:      "nil values and nil variables",
+			values:    nil,
+			variables: nil,
+			want:      "",
+		},
+		{
+			name: "from values file globalValues",
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
+					"request.operation": "CONNECT",
+				},
+			},
+			variables: nil,
+			want:      "CONNECT",
+		},
+		{
+			name:   "from variables map",
+			values: nil,
+			variables: map[string]string{
+				"request.operation": "CONNECT",
+			},
+			want: "CONNECT",
+		},
+		{
+			name: "variables map overrides values file",
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
+					"request.operation": "CREATE",
+				},
+			},
+			variables: map[string]string{
+				"request.operation": "CONNECT",
+			},
+			want: "CONNECT",
+		},
+		{
+			name: "non-string global value returns empty",
+			values: &v1alpha1.ValuesSpec{
+				GlobalValues: map[string]interface{}{
+					"request.operation": 12345,
+				},
+			},
+			variables: nil,
+			want:      "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := Variables{
+				values:    tt.values,
+				variables: tt.variables,
+			}
+			assert.Equal(t, tt.want, v.GlobalOperation())
+		})
+	}
+}

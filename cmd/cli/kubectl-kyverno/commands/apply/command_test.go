@@ -1614,6 +1614,64 @@ func TestApplyBlocksLegacyClusterPolicy(t *testing.T) {
 	assert.Contains(t, err.Error(), pkgdeprecations.MigrationGuideURL)
 }
 
+func Test_Apply_OperationConnect(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/operation-connect/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/operation-connect/resource.yaml"},
+		Variables:     []string{"request.operation=CONNECT"},
+		PolicyReport:  true,
+	}
+	rc, _, _, responses, err := config.applyCommandHelper(context.TODO(), io.Discard)
+	require.NoError(t, err)
+	require.NotNil(t, rc)
+	require.NotEmpty(t, responses)
+
+	var denyConnectMatched, denyConnectFailed bool
+	for _, response := range responses {
+		if response.Policy().GetName() == "deny-connect" {
+			denyConnectMatched = true
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					denyConnectFailed = true
+				}
+			}
+		}
+		if response.Policy().GetName() == "require-env-label" {
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					t.Errorf("require-env-label (CREATE-scoped) must not fail on CONNECT operation")
+				}
+			}
+		}
+	}
+	assert.True(t, denyConnectMatched, "expected deny-connect to match on CONNECT operation")
+	assert.True(t, denyConnectFailed, "expected deny-connect rule to fail")
+}
+
+func Test_Apply_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
+	t.Run("rejects CONNECT for ValidatingAdmissionPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment1.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for MutatingAdmissionPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/mutate-namespace/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/mutate-namespace/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+}
+
 func TestCommandHelp(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)

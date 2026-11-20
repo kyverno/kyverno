@@ -71,8 +71,11 @@ func (v Variables) Namespace(name string) *corev1.Namespace {
 }
 
 // GlobalOperation returns the admission operation declared via the
-// `request.operation` global value, or an empty string if unset.
+// `request.operation` variable or global value, or an empty string if unset.
 func (v Variables) GlobalOperation() string {
+	if op, ok := v.variables["request.operation"]; ok {
+		return op
+	}
 	if v.values == nil {
 		return ""
 	}
