@@ -162,3 +162,22 @@ func TestManagerPolicyExceptionLister_ReadsThroughSharedReader(t *testing.T) {
 		assert.Equal(t, "exempt", got[0].Name)
 	})
 }
+
+func TestAppendExceptions(t *testing.T) {
+	exception := func(namespace, name string) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name}}
+	}
+	first, second := exception("default", "first"), exception("default", "second")
+	// the same name in another namespace is a different exception
+	other := exception("other", "first")
+
+	got := AppendExceptions(nil, []*policiesv1beta1.PolicyException{first, second})
+	got = AppendExceptions(got, []*policiesv1beta1.PolicyException{exception("default", "second"), first, other})
+	assert.Equal(t, []*policiesv1beta1.PolicyException{first, second, other}, got)
+	assert.Nil(t, AppendExceptions(nil, nil))
+	// a duplicate inside src itself is dropped too
+	assert.Equal(t, []*policiesv1beta1.PolicyException{first}, AppendExceptions(nil, []*policiesv1beta1.PolicyException{first, exception("default", "first")}))
+	// nil entries do not panic: a nil in src is skipped, a nil in dst is kept but never matches
+	assert.Equal(t, []*policiesv1beta1.PolicyException{nil, first},
+		AppendExceptions([]*policiesv1beta1.PolicyException{nil}, []*policiesv1beta1.PolicyException{nil, first, nil}))
+}

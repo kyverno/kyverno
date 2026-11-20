@@ -6,6 +6,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -62,6 +63,36 @@ func (l *managerPolicyExceptionLister) List(selector labels.Selector) ([]*polici
 		out = append(out, &list.Items[i])
 	}
 	return out, nil
+}
+
+// AppendExceptions appends to dst every exception in src not already in dst,
+// keeping first-seen order. Exceptions are compared by namespace and name.
+// Extraction mode collects the exceptions of each pod template into one list,
+// and an exception that matches several templates must still be listed once.
+// nil entries in src are skipped, and nil entries in dst never match.
+func AppendExceptions(dst, src []*policiesv1beta1.PolicyException) []*policiesv1beta1.PolicyException {
+	if len(src) == 0 {
+		return dst
+	}
+	// a set of what dst already holds, so each src entry is checked in constant time
+	seen := make(map[types.NamespacedName]struct{}, len(dst)+len(src))
+	for _, exception := range dst {
+		if exception != nil {
+			seen[types.NamespacedName{Namespace: exception.GetNamespace(), Name: exception.GetName()}] = struct{}{}
+		}
+	}
+	for _, exception := range src {
+		if exception == nil {
+			continue
+		}
+		key := types.NamespacedName{Namespace: exception.GetNamespace(), Name: exception.GetName()}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		dst = append(dst, exception)
+	}
+	return dst
 }
 
 func ListExceptions(lister PolicyExceptionLister, kind, name string) ([]*policiesv1beta1.PolicyException, error) {
