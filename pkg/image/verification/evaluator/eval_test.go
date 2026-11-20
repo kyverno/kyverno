@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
@@ -198,4 +200,130 @@ func Test_Eval_RequiredDeniesExpressionToleratingZeroVerifications(t *testing.T)
 	require.NotNil(t, result[p.Name])
 	assert.False(t, result[p.Name].Result, "a passing expression must not override a failed verification")
 	assert.Contains(t, result[p.Name].Message, "failed signature or attestation verification")
+}
+
+func TestMatchExceptions(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "check-images",
+		},
+	}
+	policy.TypeMeta.Kind = "ImageValidatingPolicy"
+
+	t.Run("matching policy name and kind returns the exception", func(t *testing.T) {
+		polex := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "matching-exception"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "check-images", Kind: "ImageValidatingPolicy"},
+				},
+			},
+		}
+		matched := MatchExceptions(policy, []*policiesv1beta1.PolicyException{polex})
+		require.Len(t, matched, 1)
+		assert.Equal(t, "matching-exception", matched[0].GetName())
+	})
+
+	t.Run("mismatched policy name is ignored", func(t *testing.T) {
+		polex := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "mismatched-name"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "other-policy", Kind: "ImageValidatingPolicy"},
+				},
+			},
+		}
+		matched := MatchExceptions(policy, []*policiesv1beta1.PolicyException{polex})
+		assert.Empty(t, matched)
+	})
+
+	t.Run("mismatched policy kind is ignored", func(t *testing.T) {
+		polex := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "mismatched-kind"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "check-images", Kind: "ValidatingPolicy"},
+				},
+			},
+		}
+		matched := MatchExceptions(policy, []*policiesv1beta1.PolicyException{polex})
+		assert.Empty(t, matched)
+	})
+
+	t.Run("duplicate matching PolicyRefs within one exception do not duplicate returned exception", func(t *testing.T) {
+		polex := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "duplicate-refs"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "check-images", Kind: "ImageValidatingPolicy"},
+					{Name: "check-images", Kind: "ImageValidatingPolicy"},
+				},
+			},
+		}
+		matched := MatchExceptions(policy, []*policiesv1beta1.PolicyException{polex})
+		require.Len(t, matched, 1)
+		assert.Equal(t, "duplicate-refs", matched[0].GetName())
+	})
+
+	t.Run("multiple distinct matching exceptions are all returned", func(t *testing.T) {
+		polex1 := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "ex1"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "check-images", Kind: "ImageValidatingPolicy"},
+				},
+			},
+		}
+		polex2 := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "ex2"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "check-images", Kind: "ImageValidatingPolicy"},
+				},
+			},
+		}
+		polex3 := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "ex3-other"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "other-policy", Kind: "ImageValidatingPolicy"},
+				},
+			},
+		}
+		matched := MatchExceptions(policy, []*policiesv1beta1.PolicyException{polex1, polex2, polex3})
+		require.Len(t, matched, 2)
+		assert.Equal(t, "ex1", matched[0].GetName())
+		assert.Equal(t, "ex2", matched[1].GetName())
+	})
+
+	t.Run("expired exception is ignored", func(t *testing.T) {
+		past := metav1.NewTime(time.Now().Add(-time.Hour))
+		polex := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "expired-exception"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				ExpiresAt: &past,
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "check-images", Kind: "ImageValidatingPolicy"},
+				},
+			},
+		}
+		matched := MatchExceptions(policy, []*policiesv1beta1.PolicyException{polex})
+		assert.Empty(t, matched)
+	})
+
+	t.Run("active expiring exception is returned", func(t *testing.T) {
+		future := metav1.NewTime(time.Now().Add(time.Hour))
+		polex := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "future-exception"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				ExpiresAt: &future,
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "check-images", Kind: "ImageValidatingPolicy"},
+				},
+			},
+		}
+		matched := MatchExceptions(policy, []*policiesv1beta1.PolicyException{polex})
+		require.Len(t, matched, 1)
+		assert.Equal(t, "future-exception", matched[0].GetName())
+	})
 }
