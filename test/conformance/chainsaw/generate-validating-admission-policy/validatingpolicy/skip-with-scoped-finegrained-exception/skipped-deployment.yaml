@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skipped-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skipped
+  template:
+    metadata:
+      labels:
+        app: skipped
+    spec:
+      containers:
+      - name: debug
+        image: custom-debug-image:latest

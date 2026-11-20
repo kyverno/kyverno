@@ -40,15 +40,28 @@ func BuildValidatingAdmissionPolicy(
 		matchConditions = slices.Clone(vpol.Spec.MatchConditions)
 		validations = slices.Clone(vpol.Spec.Validations)
 		auditAnnotations = slices.Clone(vpol.Spec.AuditAnnotations)
-		variables = slices.Clone(vpol.Spec.Variables)
 
 		usedNames := make(map[string]bool)
 		for _, mc := range matchConditions {
 			usedNames[mc.Name] = true
 		}
-		// convert celexceptions if exist
+
+		var (
+			allImages        []string
+			allAllowedValues []string
+		)
+
 		for _, exception := range exceptions {
 			if celpolex := exception.AsCELException(); celpolex != nil {
+				hasImages := len(celpolex.Spec.Images) > 0
+				hasValues := len(celpolex.Spec.AllowedValues) > 0
+				hasConditions := len(celpolex.Spec.MatchConditions) > 0
+
+				// Scoped fine-grained exceptions cannot be safely evaluated in native VAP
+				if (hasImages || hasValues) && hasConditions {
+					return fmt.Errorf("policy exception %s defines fine-grained exceptions (images/allowedValues) scoped with matchConditions, which cannot be safely translated to a ValidatingAdmissionPolicy", celpolex.GetName())
+				}
+
 				if mc := negateMatchConditions(celpolex.GetNamespace(), celpolex.GetName(), celpolex.Spec.MatchConditions); mc != nil {
 					if utf8.RuneCountInString(mc.Expression) > MaxCELCodePoints {
 						return fmt.Errorf("combined matchConditions for exception %s exceeds CEL code point limit (%d)", celpolex.GetName(), MaxCELCodePoints)
@@ -56,34 +69,92 @@ func BuildValidatingAdmissionPolicy(
 					mc.Name = allocateConditionName(usedNames, mc.Name)
 					matchConditions = append(matchConditions, *mc)
 				}
-				if len(celpolex.Spec.Images) > 0 {
-					expression, err := celStringListLiteral(celpolex.Spec.Images)
-					if err != nil {
-						return err
-					}
-					variables = append(variables, admissionregistrationv1.Variable{
-						Name:       "allowedImages",
-						Expression: expression,
-					})
-				}
-				if len(celpolex.Spec.AllowedValues) > 0 {
-					expression, err := celStringListLiteral(celpolex.Spec.AllowedValues)
-					if err != nil {
-						return err
-					}
-					variables = append(variables, admissionregistrationv1.Variable{
-						Name:       "allowedValues",
-						Expression: expression,
-					})
-				}
+				allImages = append(allImages, celpolex.Spec.Images...)
+				allAllowedValues = append(allAllowedValues, celpolex.Spec.AllowedValues...)
 			}
 		}
+
+		needAllowedImages := len(allImages) > 0 || policyReferences(vpol, "exceptions.allowedImages")
+		needAllowedValues := len(allAllowedValues) > 0 || policyReferences(vpol, "exceptions.allowedValues")
+
+		for _, uv := range vpol.Spec.Variables {
+			if needAllowedImages && uv.Name == "allowedImages" {
+				return fmt.Errorf("variable 'allowedImages' already defined in policy spec.variables conflicts with exception-generated allowedImages")
+			}
+			if needAllowedValues && uv.Name == "allowedValues" {
+				return fmt.Errorf("variable 'allowedValues' already defined in policy spec.variables conflicts with exception-generated allowedValues")
+			}
+		}
+
+		var generatedVars []admissionregistrationv1.Variable
+		if needAllowedImages {
+			expr := "[]"
+			if len(allImages) > 0 {
+				var err error
+				expr, err = celStringListLiteral(allImages)
+				if err != nil {
+					return fmt.Errorf("failed to encode allowedImages as CEL list literal: %w", err)
+				}
+			}
+			generatedVars = append(generatedVars, admissionregistrationv1.Variable{
+				Name:       "allowedImages",
+				Expression: expr,
+			})
+		}
+
+		if needAllowedValues {
+			expr := "[]"
+			if len(allAllowedValues) > 0 {
+				var err error
+				expr, err = celStringListLiteral(allAllowedValues)
+				if err != nil {
+					return fmt.Errorf("failed to encode allowedValues as CEL list literal: %w", err)
+				}
+			}
+			generatedVars = append(generatedVars, admissionregistrationv1.Variable{
+				Name:       "allowedValues",
+				Expression: expr,
+			})
+		}
+
 		replacements := map[string]string{
 			"exceptions.allowedImages": "variables.allowedImages",
 			"exceptions.allowedValues": "variables.allowedValues",
 		}
 		for i := range validations {
 			validations[i].Expression = replaceExpressions(validations[i].Expression, replacements)
+			if validations[i].MessageExpression != "" {
+				validations[i].MessageExpression = replaceExpressions(validations[i].MessageExpression, replacements)
+			}
+		}
+		for i := range auditAnnotations {
+			auditAnnotations[i].ValueExpression = replaceExpressions(auditAnnotations[i].ValueExpression, replacements)
+		}
+
+		// Order variables: If any user variable depends on exception variables, insert generated
+		// exception variables before the first dependent user variable to satisfy Kubernetes CEL variable
+		// dependency ordering. Otherwise, keep user variables first to preserve original source order.
+		userVars := slices.Clone(vpol.Spec.Variables)
+		for i := range userVars {
+			userVars[i].Expression = replaceExpressions(userVars[i].Expression, replacements)
+		}
+
+		firstDepIdx := -1
+		for i, uv := range userVars {
+			if strings.Contains(uv.Expression, "variables.allowedImages") || strings.Contains(uv.Expression, "variables.allowedValues") {
+				firstDepIdx = i
+				break
+			}
+		}
+
+		variables = make([]admissionregistrationv1.Variable, 0, len(generatedVars)+len(userVars))
+		if firstDepIdx >= 0 {
+			variables = append(variables, userVars[:firstDepIdx]...)
+			variables = append(variables, generatedVars...)
+			variables = append(variables, userVars[firstDepIdx:]...)
+		} else {
+			variables = append(variables, userVars...)
+			variables = append(variables, generatedVars...)
 		}
 	}
 
@@ -119,6 +190,31 @@ func replaceExpressions(expr string, replacements map[string]string) string {
 		expr = strings.ReplaceAll(expr, old, new)
 	}
 	return expr
+}
+
+func policyReferences(vpol *policiesv1beta1.ValidatingPolicy, target string) bool {
+	if vpol == nil {
+		return false
+	}
+	check := func(s string) bool {
+		return strings.Contains(s, target)
+	}
+	for _, v := range vpol.Spec.Validations {
+		if check(v.Expression) || check(v.MessageExpression) {
+			return true
+		}
+	}
+	for _, a := range vpol.Spec.AuditAnnotations {
+		if check(a.ValueExpression) {
+			return true
+		}
+	}
+	for _, vr := range vpol.Spec.Variables {
+		if check(vr.Expression) {
+			return true
+		}
+	}
+	return false
 }
 
 // BuildValidatingAdmissionPolicyBinding is used to build a Kubernetes ValidatingAdmissionPolicyBinding from a Kyverno policy
