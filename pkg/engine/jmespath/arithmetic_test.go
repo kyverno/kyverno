@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func Test_Add(t *testing.T) {
@@ -608,6 +609,46 @@ func Test_Divide(t *testing.T) {
 				assert.Assert(t, ok)
 				assert.Equal(t, equal, tc.expectedResult.(string))
 			}
+		})
+	}
+}
+
+// Test_DivideQuantityByScalar checks quantity precision and rounding across
+// equivalent spellings, signed operands, and fractional results.
+func Test_DivideQuantityByScalar(t *testing.T) {
+	tests := []struct {
+		name     string
+		query    string
+		expected string
+	}{
+		{"integer quantity", "divide('1', `2`)", "500m"},
+		{"decimal quantity", "divide('1.0', `2`)", "500m"},
+		{"milli quantity", "divide('1000m', `2`)", "500m"},
+		{"exponent quantity", "divide('1e0', `2`)", "500m"},
+		{"fractional quantity", "divide('1.5', `2`)", "750m"},
+		{"fractional divisor", "divide('1', `0.5`)", "2"},
+		{"negative quantity", "divide('-1', `2`)", "-500m"},
+		{"negative divisor", "divide('1', `-2`)", "-500m"},
+		{"both negative", "divide('-1', `-2`)", "500m"},
+		{"repeating quotient", "divide('1', `3`)", "333333334n"},
+		{"negative repeating quotient", "divide('-1', `3`)", "-333333334n"},
+		{"repeating milli quotient", "divide('100m', `3`)", "33333334n"},
+		{"sub-nano quotient", "divide('1n', `2`)", "1n"},
+		{"negative sub-nano quotient", "divide('-1n', `2`)", "-1n"},
+		{"binary quantity", "divide('1Ki', `3`)", "341333333334n"},
+		{"large quantity", "divide('9007199254740993', `2`)", "4503599627370496.5"},
+		{"zero quantity", "divide('0', `3`)", "0"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := jmespathInterface.Search(tc.query, nil)
+			assert.NilError(t, err)
+			text, ok := result.(string)
+			assert.Assert(t, ok, "expected a quantity string, got %T", result)
+			got, err := resource.ParseQuantity(text)
+			assert.NilError(t, err)
+			want := resource.MustParse(tc.expected)
+			assert.Equal(t, got.Cmp(want), 0, "%s returned %s, expected %s", tc.query, text, tc.expected)
 		})
 	}
 }
