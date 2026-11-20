@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: authz-exception
+spec:
+  evaluationMode: Envoy
+  policyRefs:
+  - name: check-deployment-labels
+    kind: ValidatingPolicy
+  matchConditions:
+    - name: check-name
+      expression: "object.metadata.name == 'skipped-deployment'"

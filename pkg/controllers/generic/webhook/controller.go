@@ -26,6 +26,8 @@ import (
 
 const (
 	maxRetries = 10
+	// maxMatchConditions is the API server's limit on match conditions per webhook.
+	maxMatchConditions = 64
 )
 
 var (
@@ -66,12 +68,22 @@ type controller struct {
 	// exception, global-context, and TTL webhooks this controller also builds. Only the two
 	// legacy denial configurations pass WithoutConfigMatchConditions() to set it.
 	skipConfigMatchConditions bool
+	// matchConditions are added to the webhook configuration in addition to the ConfigMap's.
+	matchConditions []admissionregistrationv1.MatchCondition
 }
 
-// Option configures a controller at construction time. The only option today,
-// WithoutConfigMatchConditions, exists for the legacy denial webhook configurations; it must not
-// be applied to a resource-facing webhook, which would silently lose user match conditions.
+// Option configures a controller at construction time. WithoutConfigMatchConditions exists for
+// the legacy denial webhook configurations; it must not be applied to a resource-facing webhook,
+// which would silently lose user match conditions.
 type Option func(*controller)
+
+// WithMatchConditions adds match conditions to the webhook configuration, in addition to the
+// ConfigMap's configured matchConditions.
+func WithMatchConditions(matchConditions ...admissionregistrationv1.MatchCondition) Option {
+	return func(c *controller) {
+		c.matchConditions = append(c.matchConditions, matchConditions...)
+	}
+}
 
 // WithoutConfigMatchConditions stops build() from stamping the ConfigMap's configured
 // matchConditions onto the webhook configuration. The legacy PolicyException and CleanupPolicy
@@ -206,11 +218,35 @@ func objectMeta(name string, annotations map[string]string, labels map[string]st
 	}
 }
 
+// appendMatchConditions appends the conditions from WithMatchConditions to the configured ones. The
+// API server rejects a webhook with duplicate condition names or more than maxMatchConditions
+// conditions, so a condition that would cause either is skipped. Skipping one only sends more
+// requests to Kyverno, and the handlers apply the same checks.
+func (c *controller) appendMatchConditions(conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	names := make(map[string]bool, len(conditions))
+	for _, condition := range conditions {
+		names[condition.Name] = true
+	}
+	for _, condition := range c.matchConditions {
+		switch {
+		case names[condition.Name]:
+			c.logger.V(2).Info("skipping match condition, a configured match condition has the same name", "name", condition.Name)
+		case len(conditions) >= maxMatchConditions:
+			c.logger.V(2).Info("skipping match condition, the webhook already has the maximum number of match conditions", "name", condition.Name, "max", maxMatchConditions)
+		default:
+			names[condition.Name] = true
+			conditions = append(conditions, condition)
+		}
+	}
+	return conditions
+}
+
 func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	var matchConditions []admissionregistrationv1.MatchCondition
 	if !c.skipConfigMatchConditions {
-		matchConditions = cfg.GetMatchConditions()
+		matchConditions = append(matchConditions, cfg.GetMatchConditions()...)
 	}
+	matchConditions = c.appendMatchConditions(matchConditions)
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
