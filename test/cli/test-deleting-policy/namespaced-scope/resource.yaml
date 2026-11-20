@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-in-team-a
+  namespace: team-a
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-in-team-b
+  namespace: team-b
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest

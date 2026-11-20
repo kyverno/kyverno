@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedDeletingPolicy
+metadata:
+  name: delete-pods
+  namespace: team-a
+spec:
+  schedule: "*/5 * * * *"
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      resources: [pods]

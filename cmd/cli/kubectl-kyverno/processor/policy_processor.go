@@ -320,11 +320,15 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				false,
 				nil,
 			)
-			// Skip inline mutation for policies with active target constraints, as admission does.
-			reps, err := eng.Handle(context.TODO(), request, func(policy policiesv1beta1.MutatingPolicyLike) bool {
-				return policy.GetSpec().EvaluationMode() != policieskyvernoio.EvaluationModeJSON &&
-					mpolengine.NoTargetMatchConstraintPolicy()(policy)
-			})
+			// Skip inline mutation for JSON-mode policies and policies with active target constraints,
+			// as admission does, and for namespaced policies from other namespaces.
+			reps, err := eng.Handle(context.TODO(), request, mpolengine.And(
+				func(policy policiesv1beta1.MutatingPolicyLike) bool {
+					return policy.GetSpec().EvaluationMode() != policieskyvernoio.EvaluationModeJSON
+				},
+				mpolengine.NoTargetMatchConstraintPolicy(),
+				InNamespaceScope[policiesv1beta1.MutatingPolicyLike](resource.GetNamespace()),
+			))
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
@@ -566,7 +570,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					false,
 					nil,
 				)
-				reps, err := eng.Handle(ctx, request, nil)
+				reps, err := eng.Handle(ctx, request, InNamespaceScope[policiesv1beta1.ValidatingPolicyLike](resource.GetNamespace()))
 				if err != nil {
 					return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 				}
