@@ -1657,7 +1657,7 @@ func Test_Apply_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing
 		}
 		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
 	})
 
 	t.Run("rejects CONNECT for MutatingAdmissionPolicy", func(t *testing.T) {
@@ -1668,7 +1668,18 @@ func Test_Apply_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing
 		}
 		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for MutatingPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-mutating-policy/mutating-label/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-mutating-policy/mutating-label/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
 	})
 }
 

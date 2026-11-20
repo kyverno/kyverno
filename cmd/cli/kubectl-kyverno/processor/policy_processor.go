@@ -168,7 +168,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// Mutate Admission Policies
 	if len(p.MutatingAdmissionPolicies) != 0 {
 		if p.resolveOperation() == "CONNECT" {
-			return nil, fmt.Errorf("CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+			return nil, fmt.Errorf("CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
 		}
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
@@ -207,6 +207,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		}
 	}
 	// MutatingPolicies
+	if len(p.MutatingPolicies) != 0 && p.resolveOperation() == "CONNECT" {
+		return nil, fmt.Errorf("CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	}
 	mutatingPolicies := p.MutatingPolicies
 	if resource.Object == nil {
 		mutatingPolicies = nil
@@ -453,7 +456,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	vapResponses := make([]engineapi.EngineResponse, 0, len(p.ValidatingAdmissionPolicies))
 	if len(p.ValidatingAdmissionPolicies) != 0 {
 		if p.resolveOperation() == "CONNECT" {
-			return nil, fmt.Errorf("CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+			return nil, fmt.Errorf("CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
 		}
 		// map gvk to gvr
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)

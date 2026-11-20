@@ -3,6 +3,7 @@ package processor
 import (
 	"testing"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/stretchr/testify/assert"
@@ -164,7 +165,7 @@ func TestApplyPoliciesOnResource_RejectsConnectForNativePolicies(t *testing.T) {
 			},
 		}
 		_, err := p.ApplyPoliciesOnResource()
-		assert.EqualError(t, err, "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		assert.EqualError(t, err, "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
 	})
 
 	t.Run("rejects CONNECT for MutatingAdmissionPolicy", func(t *testing.T) {
@@ -182,6 +183,26 @@ func TestApplyPoliciesOnResource_RejectsConnectForNativePolicies(t *testing.T) {
 			},
 		}
 		_, err := p.ApplyPoliciesOnResource()
-		assert.EqualError(t, err, "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		assert.EqualError(t, err, "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for MutatingPolicy", func(t *testing.T) {
+		p := &PolicyProcessor{
+			Operation: "CONNECT",
+			MutatingPolicies: []policiesv1beta1.MutatingPolicyLike{
+				&policiesv1beta1.MutatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-mpol"},
+				},
+			},
+			Resource: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata":   map[string]interface{}{"name": "test-pod"},
+				},
+			},
+		}
+		_, err := p.ApplyPoliciesOnResource()
+		assert.EqualError(t, err, "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
 	})
 }

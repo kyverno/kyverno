@@ -1457,7 +1457,7 @@ func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
 		tc.Test.Results[0].Operation = "CONNECT"
 		_, err := runTest(context.TODO(), io.Discard, tc, false)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
 	})
 
 	t.Run("rejects CONNECT for MutatingAdmissionPolicy", func(t *testing.T) {
@@ -1469,7 +1469,18 @@ func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
 		tc.Test.Results[0].Operation = "CONNECT"
 		_, err := runTest(context.TODO(), io.Discard, tc, false)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for MutatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		tc.Test.Results[0].IsMutatingPolicy = true
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
 	})
 
 	t.Run("rejects inherited global CONNECT for ValidatingAdmissionPolicy", func(t *testing.T) {
@@ -1486,7 +1497,23 @@ func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
 		tc.Test.Results[0].Operation = ""
 		_, err := runTest(context.TODO(), io.Discard, tc, false)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects inherited global CONNECT for MutatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results[0].IsMutatingPolicy = true
+		tc.Test.Results[0].Operation = ""
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
 	})
 }
 func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
