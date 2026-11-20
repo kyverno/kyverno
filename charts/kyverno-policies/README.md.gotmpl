@@ -85,10 +85,22 @@ These policies change between PSA versions. The other policies are the same for 
 
 
 ## Deploy custom policies
-If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`:
+If you have custom policies you would like to deploy as part of the Helm release, provide their manifests in `.Values.customPolicies`.
+
+List form:
 ````yaml
 customPolicies:
   - apiVersion: policies.kyverno.io/v1beta1
+    kind: ValidatingPolicy
+    metadata: # metadata
+    spec: # spec
+````
+
+Map form (useful for merging multiple Helm values files):
+````yaml
+customPolicies:
+  myPolicy:
+    apiVersion: policies.kyverno.io/v1beta1
     kind: ValidatingPolicy
     metadata: # metadata
     spec: # spec
