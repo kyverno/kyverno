@@ -2,7 +2,9 @@ package admissionpolicygenerator
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
@@ -15,26 +17,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.GenericPolicy) error {
-	// check if the controller has the required permissions to generate ValidatingAdmissionPolicies.
-	if !admissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
-		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicies")
-		return c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies")
-	}
-	// check if the controller has the required permissions to generate ValidatingAdmissionPolicyBindings.
-	if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
-		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
-		return c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings")
-	}
-
-	vapName := "vpol-" + policy.GetName()
-	vapBindingName := constructBindingName(vapName)
-	// get the ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding if exists.
-	observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
-	observedVAPbinding, vapBindingErr := c.getValidatingAdmissionPolicyBinding(vapBindingName)
-
-	genericExceptions := make([]engineapi.GenericException, 0)
-
+func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.GenericPolicy) (err error) {
+	defer func() {
+		if err != nil && c.queue != nil {
+			c.queue.AddAfter("ValidatingPolicy/"+policy.GetName(), 10*time.Second)
+		}
+	}()
 	pol := policy.AsValidatingPolicy()
 	wantVap := pol.GetSpec().GenerateValidatingAdmissionPolicyEnabled()
 	shouldDelete := !wantVap
@@ -42,11 +30,6 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	var celexceptions []policiesv1beta1.PolicyException
 	var reason string
 	if wantVap {
-		var err error
-		celexceptions, err = c.getCELExceptions(policy.GetName(), pol.GetKind(), pol.GetNamespace())
-		if err != nil {
-			return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
-		}
 		// Read autogen from the spec: status.autogen is written later by the
 		// policystatus controller and can still be empty on a new policy.
 		autogenConfigs, err := vpolautogen.Autogen(pol)
@@ -57,13 +40,27 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 		if isAutogen {
 			shouldDelete = true
 			reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
-		} else if ok, msg := admissionpolicy.CanGenerateNativePolicy(celexceptions); !ok {
-			shouldDelete = true
-			reason = "skip generating ValidatingAdmissionPolicy: " + msg
+		} else {
+			celexceptions, err = c.getCELExceptions(policy.GetName(), pol.GetKind(), pol.GetNamespace())
+			if err != nil {
+				return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
+			}
+			c.requeueAtExpiry(policy.GetName(), "ValidatingPolicy", celexceptions)
+			if ok, msg := admissionpolicy.CanGenerateNativePolicy(celexceptions); !ok {
+				shouldDelete = true
+				reason = "skip generating ValidatingAdmissionPolicy: " + msg
+			}
 		}
 	} else {
 		reason = "skip generating ValidatingAdmissionPolicy: not enabled."
 	}
+
+	vapName := "vpol-" + policy.GetName()
+	vapBindingName := constructBindingName(vapName)
+	// get the ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding if exists.
+	observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
+	observedVAPbinding, vapBindingErr := c.getValidatingAdmissionPolicyBinding(vapBindingName)
+
 	if shouldDelete {
 		// delete the ValidatingAdmissionPolicy if exist
 		if vapErr == nil {
@@ -79,6 +76,25 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 		}
 		return c.updatePolicyStatus(ctx, policy, false, reason)
 	}
+
+	// Expiry is armed before these permission checks, which return an error so the workqueue retains a retry.
+	// When generation or permission checks fail, also schedule a delayed retry to guarantee eventual recovery even if
+	// the workqueue's immediate retry budget is exhausted.
+	if !admissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
+		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicies")
+		if err := c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies"); err != nil {
+			return err
+		}
+		return errors.New("insufficient permissions to generate ValidatingAdmissionPolicies")
+	}
+	if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
+		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
+		if err := c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings"); err != nil {
+			return err
+		}
+		return errors.New("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
+	}
+	genericExceptions := make([]engineapi.GenericException, 0)
 	for _, exception := range celexceptions {
 		genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
 	}

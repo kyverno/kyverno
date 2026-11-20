@@ -232,8 +232,7 @@ func NewResourceGenerationEvent(policy, rule string, source Source, resource kyv
 func NewBackgroundFailedEvent(err error, policy engineapi.GenericPolicy, rule string, source Source, resource kyverno.ResourceSpec) []Info {
 	events := make([]Info, 0, 1)
 	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v1",
+		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),
@@ -272,8 +271,7 @@ func NewBackgroundSuccessEvent(source Source, policy engineapi.GenericPolicy, re
 		action = ResourceMutated
 	}
 	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
-		APIVersion: "kyverno.io/v1",
+		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),
 		Namespace:  policy.GetNamespace(),
@@ -301,7 +299,6 @@ func NewBackgroundSuccessEvent(source Source, policy engineapi.GenericPolicy, re
 
 func NewValidatingAdmissionPolicyEvent(policy engineapi.GenericPolicy, vapName, vapBindingName string) []Info {
 	regarding := corev1.ObjectReference{
-		// TODO: iirc it's not safe to assume api version is set
 		APIVersion: policy.GetAPIVersion(),
 		Kind:       policy.GetKind(),
 		Name:       policy.GetName(),

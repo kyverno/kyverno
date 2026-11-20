@@ -34,6 +34,7 @@ kyverno fix test [dir]... [flags]
   -f, --file-name string   Test filename (default "kyverno-test.yaml")
       --force              Force save file
   -h, --help               help for test
+      --remove-color       Remove any color from output
       --save               Save fixed file
 ```
 

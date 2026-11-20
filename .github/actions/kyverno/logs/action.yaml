@@ -1,10 +1,35 @@
 name: Kyverno logs
 
-description: Show kyverno pods logs
+description: >-
+  Show kyverno pods logs. With artifact-name, also upload a diagnostics
+  artifact with logs from all Kyverno pods, events, webhook configurations,
+  policies with their status, and reports.
+
+inputs:
+  artifact-name:
+    description: Name of the diagnostics artifact to upload. Leave it empty to only print logs.
+    default: ''
 
 runs:
   using: composite
   steps:
+    # Collect diagnostics first and always: the steps below stop at the first
+    # command that fails, for example when a controller isn't deployed.
+    - name: Collect diagnostics
+      if: always() && inputs.artifact-name != ''
+      shell: bash
+      run: |
+        "$GITHUB_ACTION_PATH/diagnostics.sh" "$RUNNER_TEMP/diagnostics"
+    - name: Upload diagnostics
+      if: always() && inputs.artifact-name != ''
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ runner.temp }}/diagnostics
+        # A re-run attempt replaces the diagnostics of the failed attempt.
+        overwrite: true
+        retention-days: 14
+        if-no-files-found: ignore
     - shell: bash
       run: |
         set -e
