@@ -9,6 +9,7 @@ import (
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/stretchr/testify/assert"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -460,6 +462,127 @@ func TestMaxRetries_Constant(t *testing.T) {
 	assert.Equal(t, 10, maxRetries)
 }
 
+// TestReconcileURStatus_CompletedDeleteNotFoundTolerated covers the race where
+// a Completed request was already removed (retry exhaustion on another worker,
+// manual cleanup) between the Get and the Delete. Losing the race is not a
+// reconcile failure and must not requeue the key.
+func TestReconcileURStatus_CompletedDeleteNotFoundTolerated(t *testing.T) {
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur-completed-gone",
+			Namespace: "kyverno",
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			State: kyvernov2.Completed,
+		},
+	}
+	fakeClient := fake.NewSimpleClientset(ur)
+	fakeClient.PrependReactor("delete", "updaterequests", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, nil, apierrors.NewNotFound(
+			schema.GroupResource{Group: "kyverno.io", Resource: "updaterequests"},
+			"test-ur-completed-gone",
+		)
+	})
+
+	c := &controller{
+		kyvernoClient: fakeClient,
+	}
+
+	state, err := c.reconcileURStatus(ur)
+	assert.NoError(t, err, "an already-deleted Completed UR is the desired end state, not an error")
+	assert.Equal(t, kyvernov2.Completed, state)
+}
+
+// TestReconcileURStatus_CompletedDeleteErrorPropagates makes sure the
+// tolerance above only swallows NotFound; real delete failures still surface.
+func TestReconcileURStatus_CompletedDeleteErrorPropagates(t *testing.T) {
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur-completed-err",
+			Namespace: "kyverno",
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			State: kyvernov2.Completed,
+		},
+	}
+	fakeClient := fake.NewSimpleClientset(ur)
+	fakeClient.PrependReactor("delete", "updaterequests", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, nil, errors.New("etcdserver: request timed out")
+	})
+
+	c := &controller{
+		kyvernoClient: fakeClient,
+	}
+
+	_, err := c.reconcileURStatus(ur)
+	assert.Error(t, err, "genuine delete failures must still be retried")
+	assert.Contains(t, err.Error(), "etcdserver")
+}
+
+// TestReconcileURStatus_FailedRepairNotFoundTolerated covers the Failed ->
+// Pending repair losing the same race: the request vanished between Get and
+// UpdateStatus, so there is nothing to repair and no error to report.
+func TestReconcileURStatus_FailedRepairNotFoundTolerated(t *testing.T) {
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ur-failed-gone",
+			Namespace: "kyverno",
+		},
+		Status: kyvernov2.UpdateRequestStatus{
+			State:   kyvernov2.Failed,
+			Message: "previous failure",
+		},
+	}
+	fakeClient := fake.NewSimpleClientset(ur)
+	fakeClient.PrependReactor("update", "updaterequests", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, nil, apierrors.NewNotFound(
+			schema.GroupResource{Group: "kyverno.io", Resource: "updaterequests"},
+			"test-ur-failed-gone",
+		)
+	})
+
+	c := &controller{
+		kyvernoClient: fakeClient,
+	}
+
+	state, err := c.reconcileURStatus(ur)
+	assert.NoError(t, err, "a vanished Failed UR needs no repair and no retry")
+	assert.Equal(t, kyvernov2.Pending, state)
+}
+
+// TestHandleErr_WrappedNotFoundForgetsKey locks in the contract that
+// syncUpdateRequest must preserve the NotFound cause (fmt.Errorf %w) so a
+// processUR failure on a deleted request drops the key instead of burning
+// maxRetries rate-limited requeues.
+func TestHandleErr_WrappedNotFoundForgetsKey(t *testing.T) {
+	c := &controller{
+		queue: newTestQueue(),
+	}
+	key := "kyverno/test-ur"
+
+	wrapped := fmt.Errorf("failed to process UR %s: %w", key, apierrors.NewNotFound(
+		schema.GroupResource{Group: "kyverno.io", Resource: "updaterequests"},
+		"test-ur",
+	))
+	c.handleErr(wrapped, key)
+
+	assert.Equal(t, 0, c.queue.NumRequeues(key), "NotFound must be dropped, not rate-limited")
+	assert.Equal(t, 0, c.queue.Len(), "nothing should be requeued for a deleted request")
+}
+
+// TestHandleErr_GenericErrorRequeues is the control case for the contract
+// above: ordinary failures still go through the rate limiter.
+func TestHandleErr_GenericErrorRequeues(t *testing.T) {
+	c := &controller{
+		queue: newTestQueue(),
+	}
+	key := "kyverno/test-ur"
+
+	c.handleErr(fmt.Errorf("failed to process UR %s: %w", key, errors.New("boom")), key)
+
+	assert.Equal(t, 1, c.queue.NumRequeues(key), "generic errors still requeue with backoff")
+}
+
 // TestProcessUR_UnsupportedTypeFails verifies that processUR's default case
 // (an unrecognized request type reaching the CELGenerate/CELMutate switch)
 // sets the UR to Failed with a message, rather than silently succeeding or
@@ -480,4 +603,51 @@ func TestProcessUR_UnsupportedTypeFails(t *testing.T) {
 	assert.NoError(t, getErr)
 	assert.Equal(t, kyvernov2.Failed, updated.Status.State)
 	assert.Contains(t, updated.Status.Message, "unsupported update request type")
+}
+
+// recordingRateLimitingQueue records whether AddRateLimited was ever called.
+// NumRequeues alone cannot catch a rate-limited add that lands after Forget.
+type recordingRateLimitingQueue struct {
+	workqueue.TypedRateLimitingInterface[any]
+	addRateLimitedCalled bool
+}
+
+func (q *recordingRateLimitingQueue) AddRateLimited(item any) {
+	q.addRateLimitedCalled = true
+	q.TypedRateLimitingInterface.AddRateLimited(item)
+}
+
+// TestSyncUpdateRequest_ProcessURNotFoundForgetsKey exercises the full chain
+// TestHandleErr_WrappedNotFoundForgetsKey only simulates: the lister serves a
+// Pending request, but processUR's status write hits a Get that returns
+// NotFound (another worker already cleaned it up). The error must travel
+// through syncUpdateRequest's %w wrap and still make handleErr drop the key.
+// If the wrap ever degrades to %v, this test catches it.
+func TestSyncUpdateRequest_ProcessURNotFoundForgetsKey(t *testing.T) {
+	ur := newTestUpdateRequest("gone-ur", kyvernov2.Pending, kyvernov2.RequestType("bogus"))
+
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	assert.NoError(t, indexer.Add(ur))
+	urLister := kyvernov2listers.NewUpdateRequestLister(indexer).UpdateRequests(config.KyvernoNamespace())
+
+	// The API no longer has the request: processUR's status write 404s.
+	fakeClient := fake.NewSimpleClientset()
+
+	queue := &recordingRateLimitingQueue{TypedRateLimitingInterface: newTestQueue()}
+	c := &controller{
+		kyvernoClient: fakeClient,
+		urLister:      urLister,
+		queue:         queue,
+	}
+	t.Cleanup(c.queue.ShutDown)
+
+	key := config.KyvernoNamespace() + "/gone-ur"
+	err := c.syncUpdateRequest(key)
+	assert.Error(t, err)
+	assert.True(t, apierrors.IsNotFound(err), "the NotFound cause must survive syncUpdateRequest's wrap, got %v", err)
+
+	c.handleErr(err, key)
+	assert.False(t, queue.addRateLimitedCalled, "a vanished request must not be rate-limited")
+	assert.Equal(t, 0, c.queue.NumRequeues(key), "a vanished request must be dropped, not rate-limited")
+	assert.Equal(t, 0, c.queue.Len(), "nothing should be requeued for a deleted request")
 }
