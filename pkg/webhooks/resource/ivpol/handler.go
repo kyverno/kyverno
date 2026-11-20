@@ -90,7 +90,10 @@ func (h *handler) mutate(ctx context.Context, admissionRequest handlers.Admissio
 	}
 	rawPatches := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)
 	admissionResponse := h.mutationResponse(request, response, rawPatches)
-	h.mutationEvents(ctx, response, !admissionResponse.Allowed)
+	// A dry run must not record events: the webhook is registered with sideEffects: NoneOnDryRun.
+	if !admissionutils.IsDryRun(admissionRequest.AdmissionRequest) {
+		h.mutationEvents(ctx, response, !admissionResponse.Allowed)
+	}
 	return admissionResponse
 }
 
@@ -247,6 +250,11 @@ func (h *handler) validationResponse(request celengine.EngineRequest, response e
 }
 
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request celengine.EngineRequest, response eval.ImageVerifyEngineResponse) {
+	// A dry run must not record events or reports: the webhook is registered with
+	// sideEffects: NoneOnDryRun. The admission decision is made separately.
+	if admissionutils.IsDryRun(admissionRequest.AdmissionRequest) {
+		return
+	}
 	blocked := false
 	for _, p := range response.Policies {
 		if p.Actions.Has(admissionregistrationv1.Deny) {

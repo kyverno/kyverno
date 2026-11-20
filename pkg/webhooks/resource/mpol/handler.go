@@ -90,11 +90,15 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 	}
 	logDecisionTraces(logger, response)
 
-	go func() {
-		if err := h.audit(context.WithoutCancel(ctx), response, request); err != nil {
-			logger.Error(err, "failed to create reports")
-		}
-	}()
+	// A dry run must not record events or reports: the webhook is registered with
+	// sideEffects: NoneOnDryRun. The patch returned below is unchanged.
+	if !admissionutils.IsDryRun(admissionRequest.AdmissionRequest) {
+		go func() {
+			if err := h.audit(context.WithoutCancel(ctx), response, request); err != nil {
+				logger.Error(err, "failed to create reports")
+			}
+		}()
+	}
 
 	// Skip mutate-existing UpdateRequest creation for dry-run requests
 	// to honor the SideEffects: NoneOnDryRun contract.
