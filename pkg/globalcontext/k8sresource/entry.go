@@ -369,8 +369,8 @@ func newWithChangesAndObserver(
 	return e, nil
 }
 
-// listObjects retrieves all objects from the lister and returns them as a slice of map[string]interface{}
-// Since we use DynamicInformer, objects are *unstructured.Unstructured and can be used directly
+// listObjects returns independent snapshots; informer-owned objects must not
+// be exposed to callers or mutated during policy evaluation.
 func (e *entry) listObjects() ([]interface{}, error) {
 	objs, err := e.lister.List(labels.Everything())
 	if err != nil {
@@ -379,10 +379,9 @@ func (e *entry) listObjects() ([]interface{}, error) {
 
 	list := make([]interface{}, 0, len(objs))
 	for _, obj := range objs {
-		// DynamicInformer returns *unstructured.Unstructured
-		// We can use its Object field directly which is already map[string]interface{}
+		// DeepCopy also isolates nested maps and slices.
 		if u, ok := obj.(*unstructured.Unstructured); ok {
-			list = append(list, u.Object)
+			list = append(list, u.DeepCopy().Object)
 		}
 	}
 	return list, nil

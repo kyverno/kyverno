@@ -33,6 +33,9 @@ type entry struct {
 	err         error
 	stop        func()
 	stopOnce    sync.Once
+	publishMu   sync.Mutex // serializes shutdown with cache and event publication
+	statusMu    sync.Mutex // serializes status refreshes with completed shutdown
+	stopped     bool       // guarded by publishMu
 	projections []store.Projection
 }
 
@@ -52,17 +55,7 @@ func New(
 	jp jmespath.Interface,
 ) (store.Entry, error) {
 	var group wait.Group
-	var stopOnce sync.Once
 	ctx, cancel := context.WithCancel(ctx)
-	stop := func() {
-		stopOnce.Do(func() {
-			// Signal the background polling worker (started below via
-			// group.StartWithContext) to stop
-			cancel()
-			// Wait for the group to terminate
-			group.Wait()
-		})
-	}
 
 	projections := make([]store.Projection, 0)
 	for _, p := range gce.Spec.Projections {
@@ -91,8 +84,18 @@ func New(
 
 	e := &entry{
 		dataMap:     make(map[string]any),
-		stop:        stop,
 		projections: projections,
+	}
+	// Cancel first, before waiting on either shutdown gate or poll workers.
+	e.stop = func() {
+		cancel()
+		e.statusMu.Lock()
+		e.publishMu.Lock()
+		e.stopped = true
+		e.publishMu.Unlock()
+		e.statusMu.Unlock()
+		// Never hold either gate while waiting for a worker to exit.
+		group.Wait()
 	}
 
 	group.StartWithContext(ctx, func(ctx context.Context) {
@@ -100,33 +103,62 @@ func New(
 		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
-			if data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit); err != nil {
-				e.setData(ctx, nil, err)
-
-				logger.Error(err, "failed to get data from api caller")
-
-				eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
-					APIVersion: gce.APIVersion,
-					Kind:       gce.Kind,
-					Name:       gce.Name,
-					Namespace:  gce.Namespace,
-					UID:        gce.UID,
-				}, err))
-			} else {
-				e.setData(ctx, data, nil)
-
-				logger.V(4).Info("api call success", "data", data)
-
-				if shouldUpdateStatus {
-					if updateErr := updateStatus(ctx, gce, kyvernoClient); updateErr != nil {
-						logger.Error(updateErr, "failed to update status")
-					}
+			data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit)
+			// Gate cache/event publication against shutdown, leaving status I/O
+			// outside this critical section so Stop can cancel it.
+			e.publish(ctx, func() {
+				if err != nil {
+					e.setData(ctx, nil, err)
+					logger.Error(err, "failed to get data from api caller")
+					eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+						APIVersion: gce.APIVersion,
+						Kind:       gce.Kind,
+						Name:       gce.Name,
+						Namespace:  gce.Namespace,
+						UID:        gce.UID,
+					}, err))
+				} else {
+					e.setData(ctx, data, nil)
+					logger.V(4).Info("api call success", "data", data)
 				}
+			})
+
+			if err == nil && shouldUpdateStatus {
+				e.refreshStatus(ctx, gce, kyvernoClient, logger)
 			}
 		}, period)
 	})
 
 	return e, nil
+}
+
+// refreshStatus ensures that status I/O cannot outlive completed shutdown.
+// Keep this operation outside publishMu so cancellation can interrupt I/O.
+func (e *entry) refreshStatus(
+	ctx context.Context,
+	gce *kyvernov2beta1.GlobalContextEntry,
+	kyvernoClient versioned.Interface,
+	logger logr.Logger,
+) {
+	e.statusMu.Lock()
+	defer e.statusMu.Unlock()
+	if ctx.Err() != nil {
+		return
+	}
+	if err := updateStatus(ctx, gce, kyvernoClient); err != nil && ctx.Err() == nil {
+		logger.Error(err, "failed to update status")
+	}
+}
+
+// publish stops new cache/event publication after completed shutdown.
+// Publication callbacks must not call Stop or perform blocking status I/O.
+func (e *entry) publish(ctx context.Context, fn func()) {
+	e.publishMu.Lock()
+	defer e.publishMu.Unlock()
+	if e.stopped || ctx.Err() != nil {
+		return
+	}
+	fn()
 }
 
 func (e *entry) Get(projection string) (any, error) {
@@ -205,8 +237,12 @@ func doCall(ctx context.Context, caller apicall.Executor, call kyverno.APICall, 
 	}
 
 	retryError := retry.OnError(backoff, func(err error) bool {
-		return err != nil
+		// Teardown must not retry a canceled request.
+		return err != nil && ctx.Err() == nil
 	}, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		var exeErr error
 		result, exeErr = caller.Execute(ctx, &call)
 		return exeErr
