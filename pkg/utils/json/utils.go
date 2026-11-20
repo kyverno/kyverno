@@ -25,6 +25,12 @@ func JoinPatches(patches ...[]byte) []byte {
 			str = strings.TrimSpace(str)
 		}
 
+		// An empty array (`[]`) becomes an empty string here; skip it so it does
+		// not join into the result as a stray, comma-producing operation.
+		if len(str) == 0 {
+			continue
+		}
+
 		patchOperations = append(patchOperations, str)
 	}
 
