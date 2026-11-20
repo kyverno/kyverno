@@ -2,12 +2,14 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -22,7 +24,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/admission"
 )
 
 // buildJSONPolicy creates a ValidatingPolicy in JSON evaluation mode with the
@@ -814,6 +818,9 @@ func TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace(t *testing.T) {
 	assert.Equal(t, engineapi.RuleStatusError, untraced.Rules[0].Status())
 	assert.Equal(t, untraced.Rules[0].Status(), traced.Rules[0].Status())
 	assert.Equal(t, untraced.Rules[0].Message(), traced.Rules[0].Message())
+	assert.Contains(t, untraced.Rules[0].Message(), "failed to evaluate policy")
+	assert.NotContains(t, untraced.Rules[0].Message(), "failed to load context")
+	assert.Contains(t, untraced.Rules[0].Message(), "no such key: labels")
 	assert.Nil(t, untraced.Trace)
 
 	// with tracing, the failing condition is kept instead of a bare ERROR
@@ -1056,4 +1063,266 @@ func TestHandle_JsonPayload_PredicateFilter(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, resp.Policies, 2)
 	})
+}
+
+// TestHandle_SharedActivationBuilder_MultiplePolicies verifies that multiple matching
+// policies share a single ActivationBuilder instance during evaluation and activation
+// assembly is performed at most once, while policies skipped by matching criteria do not
+// assemble activation data.
+func TestHandle_SharedActivationBuilder_MultiplePolicies(t *testing.T) {
+	podMatchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			},
+		},
+	}
+
+	matchingPolicy1 := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "matching-1"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: podMatchConstraints,
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'test-pod'"},
+			},
+		},
+	}
+	matchingPolicy2 := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "matching-2"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: podMatchConstraints,
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'test-pod'"},
+			},
+		},
+	}
+	skippedPolicy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "skipped"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'never-reached'"},
+			},
+		},
+	}
+
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{matchingPolicy1, matchingPolicy2, skippedPolicy}, nil)
+	require.NoError(t, err)
+
+	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+	pod := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]any{
+				"name":      "test-pod",
+				"namespace": "default",
+			},
+		},
+	}
+	req := celengine.Request(
+		nil,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		"",
+		"test-pod",
+		"default",
+		admissionv1.Create,
+		authenticationv1.UserInfo{},
+		pod,
+		nil,
+		false,
+		nil,
+	)
+
+	var builderInstantiations int
+	var builderInvocations int
+	var assemblyInvocations int
+
+	orig := newActivationBuilder
+	newActivationBuilder = func(
+		attr admission.Attributes,
+		request *admissionv1.AdmissionRequest,
+		namespace runtime.Object,
+		requestMapFn func() (map[string]any, error),
+		fallback celcompiler.RequestMapBuilder,
+	) celcompiler.ActivationBuilder {
+		builderInstantiations++
+		countedRequestMapFn := func() (map[string]any, error) {
+			assemblyInvocations++
+			if requestMapFn != nil {
+				return requestMapFn()
+			}
+			return nil, nil
+		}
+		realBuilder := orig(attr, request, namespace, countedRequestMapFn, fallback)
+		return func() (celcompiler.ActivationData, error) {
+			builderInvocations++
+			return realBuilder()
+		}
+	}
+	defer func() { newActivationBuilder = orig }()
+
+	resp, err := eng.Handle(context.Background(), req, nil)
+	require.NoError(t, err)
+
+	var evaluated []string
+	for _, p := range resp.Policies {
+		if len(p.Rules) > 0 {
+			evaluated = append(evaluated, p.Policy.GetName())
+			assert.Equal(t, engineapi.RuleStatusPass, p.Rules[0].Status())
+		}
+	}
+	assert.ElementsMatch(t, []string{"matching-1", "matching-2"}, evaluated)
+
+	assert.Equal(t, 1, builderInstantiations, "Handle must instantiate activation builder exactly once across the admission review")
+	assert.Equal(t, 2, builderInvocations, "activation builder should be called once per matching policy (2 matching, 1 skipped)")
+	assert.Equal(t, 1, assemblyInvocations, "activation assembly must execute exactly once through Handle across matching policies")
+}
+
+// TestHandle_SharedActivationBuilder_Failure verifies that when activation assembly
+// fails (via an injected failing request-map function), the failure is memoized across
+// matching policies by the original activation builder without any extra sync.OnceValues wrapper.
+// The injected function executes exactly once, and all matching policies report RuleStatusError
+// with the injected error.
+func TestHandle_SharedActivationBuilder_Failure(t *testing.T) {
+	podMatchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			},
+		},
+	}
+
+	matchingPolicy1 := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "matching-1"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: podMatchConstraints,
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'test-pod'"},
+			},
+		},
+	}
+	matchingPolicy2 := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "matching-2"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: podMatchConstraints,
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'test-pod'"},
+			},
+		},
+	}
+	skippedPolicy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "skipped"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'never-reached'"},
+			},
+		},
+	}
+
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{matchingPolicy1, matchingPolicy2, skippedPolicy}, nil)
+	require.NoError(t, err)
+
+	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+	pod := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]any{
+				"name":      "test-pod",
+				"namespace": "default",
+			},
+		},
+	}
+	req := celengine.Request(
+		nil,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		"",
+		"test-pod",
+		"default",
+		admissionv1.Create,
+		authenticationv1.UserInfo{},
+		pod,
+		nil,
+		false,
+		nil,
+	)
+
+	var requestMapInvocations int
+	injectedErr := errors.New("simulated activation failure")
+
+	orig := newActivationBuilder
+	newActivationBuilder = func(
+		attr admission.Attributes,
+		request *admissionv1.AdmissionRequest,
+		namespace runtime.Object,
+		requestMapFn func() (map[string]any, error),
+		fallback celcompiler.RequestMapBuilder,
+	) celcompiler.ActivationBuilder {
+		failingRequestMapFn := func() (map[string]any, error) {
+			requestMapInvocations++
+			return nil, injectedErr
+		}
+		return orig(attr, request, namespace, failingRequestMapFn, fallback)
+	}
+	defer func() { newActivationBuilder = orig }()
+
+	resp, err := eng.Handle(context.Background(), req, nil)
+	require.NoError(t, err)
+
+	var evaluated []string
+	for _, p := range resp.Policies {
+		if len(p.Rules) > 0 {
+			evaluated = append(evaluated, p.Policy.GetName())
+			assert.Equal(t, engineapi.RuleStatusError, p.Rules[0].Status())
+			assert.Contains(t, p.Rules[0].Message(), injectedErr.Error())
+		}
+	}
+	assert.ElementsMatch(t, []string{"matching-1", "matching-2"}, evaluated)
+	assert.Equal(t, 1, requestMapInvocations, "injected failing request-map function must run exactly once across matching policies")
 }

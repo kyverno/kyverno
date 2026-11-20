@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -11,6 +12,23 @@ import (
 
 // RequestMapBuilder builds a CEL `request` activation map from an admission request.
 type RequestMapBuilder func(*admissionv1.AdmissionRequest) (map[string]any, error)
+
+// ActivationBuilder builds a CEL `ActivationData` struct.
+type ActivationBuilder func() (ActivationData, error)
+
+// NewActivationBuilder builds a memoized ActivationBuilder shared across policies
+// evaluating the same admission request (e.g. sync.OnceValues).
+func NewActivationBuilder(
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace runtime.Object,
+	requestMapFn func() (map[string]any, error),
+	fallback RequestMapBuilder,
+) ActivationBuilder {
+	return sync.OnceValues(func() (ActivationData, error) {
+		return PrepareK8sActivation(attr, request, namespace, requestMapFn, fallback)
+	})
+}
 
 // ActivationData holds the standard resolved Kubernetes admission activation values
 // ready for CEL evaluation.

@@ -89768,6 +89768,8 @@ rules:
     resources:
       - clusterpolicies/status
       - policies/status
+      - cleanuppolicies/status
+      - clustercleanuppolicies/status
     verbs:
       - list
       - patch
