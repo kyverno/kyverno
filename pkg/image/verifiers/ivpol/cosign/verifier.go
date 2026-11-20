@@ -129,7 +129,11 @@ func (v *Verifier) candidateStore(ctx context.Context, image *imagedataloader.Im
 // referrers attached to the image, so verification can reuse the same bounded read
 // instead of asking cosign to enumerate referrers again.
 func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attestor *policiesv1beta1.Cosign, image *imagedataloader.ImageData) (*cosign.CheckOpts, []*sgbundle.Bundle, *v1.Hash, error) {
-	cOpts, err := checkOptions(ctx, attestor, image.RemoteOpts(), image.NameOpts(), v.secretLister)
+	imageRegistry := ""
+	if ref := image.NameRef(); ref != nil {
+		imageRegistry = ref.Context().RegistryStr()
+	}
+	cOpts, err := checkOptions(ctx, attestor, imageRegistry, image.RemoteOpts(), image.NameOpts(), v.secretLister)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -175,11 +179,10 @@ func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremot
 
 	var bundles []*sgbundle.Bundle
 	for _, result := range index.Manifests {
-		st, err := name.ParseReference(fmt.Sprintf("%s@%s", bundleRepo, result.Digest.String()))
-		if err != nil {
-			v.log.V(2).Info("skipping referrer: cannot parse referrer reference", "digest", result.Digest.String(), "err", err.Error())
-			continue
-		}
+		// Build the referrer reference from bundleRepo instead of re-parsing its
+		// string form: parsing without the image's name options would drop
+		// name.Insecure, so a plain-HTTP registry would be contacted over HTTPS.
+		st := bundleRepo.Digest(result.Digest.String())
 		// ociremote carries the attestor's source credentials and name options, so
 		// the referrer manifest must be fetched through it and not through remote.
 		img, err := ociremote.SignedImage(st, registryClientOpts...)

@@ -242,7 +242,7 @@ func Test_V3Bundle_DecoyBeforeGenuine_DoesNotChangeOptions(t *testing.T) {
 	genuine := parse(genuineJSON)
 
 	attestor := &v1beta1.Attestor{Name: "test", Cosign: keyAttestorFor(pubPEM)}
-	cOpts, err := checkOptions(context.TODO(), attestor.Cosign, img.RemoteOpts(), img.NameOpts(), nil)
+	cOpts, err := checkOptions(context.TODO(), attestor.Cosign, "", img.RemoteOpts(), img.NameOpts(), nil)
 	require.NoError(t, err)
 	cOpts.NewBundleFormat = true
 	cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
