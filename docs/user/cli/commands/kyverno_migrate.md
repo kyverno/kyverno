@@ -25,6 +25,7 @@ kyverno migrate [flags]
       --context string      The name of the kubeconfig context to use
   -h, --help                help for migrate
       --kubeconfig string   path to kubeconfig file with authorization and master location information
+      --remove-color        Remove any color from output
       --resource strings    The resource to migrate
 ```
 
