@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: ControllerRevision
+metadata:
+  name: sample
+  namespace: template-preserve-int64
+revision: 9007199254740993
+data:
+  previous:
+  - 9007199254740992
+  label: "9007199254740993"
