@@ -1,0 +1,166 @@
+name: chart-release
+
+# Failover only. Normal releases publish both charts from one application tag (release.yaml).
+# A chart tag republishes one chart, built from the tagged commit, against the newest published
+# application tag of its line. It never builds or publishes images, binaries or GitHub releases.
+# See docs/dev/releases/create-a-release.md#chart-only-failover.
+
+permissions: {}
+
+on:
+  push:
+    tags:
+      - kyverno-chart-*
+      - kyverno-policies-chart-*
+
+concurrency:
+  group: release-${{ github.repository }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.ref_name }}
+  RELEASE_SHA: ${{ github.sha }}
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  candidate:
+    if: github.repository == 'kyverno/kyverno'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Reject event mismatch before loading release code
+        run: test "$RELEASE_SHA" = "$GITHUB_SHA"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          # The application tag is resolved from the tagged commit's history.
+          fetch-depth: 0
+      - uses: ./.github/actions/go/setup
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - uses: ./.github/actions/tools/install
+        with:
+          helm: true
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y skopeo
+          python3 -m pip install -r scripts/release/requirements.txt
+      - name: Plan, check and prepare the chart against published application images
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: python3 scripts/release/release.py chart-candidate --owner "${OWNER,,}"
+      - name: Package the sealed candidate for publication
+        run: |
+          tar -cf release-candidate.tar .release
+          cp .release/workspace.tar workspace.tar
+          sha256sum workspace.tar > release-workspace.sha256
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-candidate
+          path: release-candidate.tar
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-workspace
+          path: |
+            workspace.tar
+            release-workspace.sha256
+          retention-days: 90
+          if-no-files-found: error
+
+  lint:
+    needs: candidate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Inline restore: the shared action expects the kyverno package, absent from a policies-only release.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-workspace
+      - shell: sh
+        run: |
+          set -eu
+          sha256sum -c release-workspace.sha256
+          tar -xf workspace.tar
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+      - uses: ./.github/actions/tools/helm
+      - name: Lint the prepared chart
+        run: |
+          helm lint --strict .release/packages/*.tgz
+          ct lint --charts "charts/${RELEASE_TAG%-chart-*}" --target-branch=main --check-version-increment=false --validate-maintainers=false --skip-helm-dependencies
+
+  artifacthub:
+    needs: candidate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    container:
+      image: artifacthub/ah:v1.23.0@sha256:e5d2a2cdef85aac4928e8176ffaad24746c5fe961d64ff6856f7222957095356
+      options: --user root
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Inline restore: the shared action expects the kyverno package, absent from a policies-only release.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-workspace
+      - shell: sh
+        run: |
+          set -eu
+          sha256sum -c release-workspace.sha256
+          tar -xf workspace.tar
+      - run: ah lint --path "charts/${RELEASE_TAG%-chart-*}"
+
+  charts:
+    needs: [candidate, lint, artifacthub]
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    uses: ./.github/workflows/helm-release.yaml
+    with:
+      tag: ${{ github.ref_name }}
+      sha: ${{ github.sha }}
+
+  verify:
+    needs: charts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/release/candidate
+      - uses: ./.github/actions/tools/install
+        with:
+          helm: true
+      - uses: ./.github/actions/release/signing
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y skopeo
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Verify remote chart/index bytes, metadata, signatures and referenced images
+        run: python3 scripts/release/release.py verify-remote
