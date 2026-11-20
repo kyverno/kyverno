@@ -60,7 +60,7 @@ spec:
         lifecycle.preStop must leave httpGet.host and tcpSocket.host unset or empty
         in spec.containers[*], spec.initContainers[*], and spec.ephemeralContainers[*].
   validationActions:
-    - Audit
+    - Warn
 ---
 # Source: kyverno-policies/templates/baseline/disallow-proc-mount.cel.yaml
 apiVersion: policies.kyverno.io/v1beta1
@@ -115,7 +115,7 @@ spec:
         spec.initContainers[*].securityContext.procMount, and
         spec.ephemeralContainers[*].securityContext.procMount must be unset or set to `Default`.
   validationActions:
-    - Audit
+    - Warn
 ---
 # Source: kyverno-policies/templates/baseline/disallow-selinux.cel.yaml
 apiVersion: policies.kyverno.io/v1beta1
@@ -181,7 +181,7 @@ spec:
         spec.initContainers[*].securityContext.seLinuxOptions, and
         spec.ephemeralContainers[*].securityContext.seLinuxOptions must be unset or restricted.
   validationActions:
-    - Audit
+    - Warn
 ---
 # Source: kyverno-policies/templates/baseline/restrict-sysctls.cel.yaml
 apiVersion: policies.kyverno.io/v1beta1
@@ -225,7 +225,7 @@ spec:
         Sysctls must be restricted to safe values. The field spec.securityContext.sysctls[*].name
         must be one of the allowed safe sysctls.
   validationActions:
-    - Audit
+    - Warn
 ---
 # Source: kyverno-policies/templates/restricted/require-run-as-non-root-user.cel.yaml
 apiVersion: policies.kyverno.io/v1beta1
@@ -284,7 +284,7 @@ spec:
         spec.initContainers[*].securityContext.runAsUser, and
         spec.ephemeralContainers[*].securityContext.runAsUser must not be set to `0`.
   validationActions:
-    - Audit
+    - Warn
 ---
 # Source: kyverno-policies/templates/restricted/require-run-as-nonroot.cel.yaml
 apiVersion: policies.kyverno.io/v1beta1
@@ -341,4 +341,4 @@ spec:
         `true` when the pod-level field is `true`, and must be set to `true` when the
         pod-level field is unset.
   validationActions:
-    - Audit
+    - Warn

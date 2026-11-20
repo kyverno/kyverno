@@ -57,9 +57,9 @@ customPolicies: []
 # For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/
 failurePolicy: Fail
 
-# -- Validation failure action (`Audit`, `Enforce`).
-# For more info https://kyverno.io/docs/policy-types/cluster-policy/validate.
-validationFailureAction: Audit
+# -- Validation failure action (`Audit`, `Warn`, `Deny`).
+# For more info https://kyverno.io/docs/policy-types/validating-policy/
+validationFailureAction: Warn
 
 # -- Define validationFailureActionByPolicy for specific policies.
 # Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies.
