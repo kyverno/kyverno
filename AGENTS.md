@@ -185,6 +185,8 @@ working in that area: [`api/`](./api/AGENTS.md), [`pkg/engine/`](./pkg/engine/AG
 [`pkg/utils/kube/`](./pkg/utils/kube/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/exception/`](./cmd/cli/kubectl-kyverno/exception/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/commands/test/`](./cmd/cli/kubectl-kyverno/commands/test/AGENTS.md),
+[`cmd/cli/kubectl-kyverno/commands/apply/`](./cmd/cli/kubectl-kyverno/commands/apply/AGENTS.md),
+[`cmd/cli/kubectl-kyverno/commands/serve/`](./cmd/cli/kubectl-kyverno/commands/serve/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/output/color/`](./cmd/cli/kubectl-kyverno/output/color/AGENTS.md). Every claim in them is grounded in code actually read in the
 session that wrote them, not inferred from directory structure — if one goes stale, fix it in place rather than
 letting drift accumulate the way the old `pkg/cosign`/`cmd/tools` references did.

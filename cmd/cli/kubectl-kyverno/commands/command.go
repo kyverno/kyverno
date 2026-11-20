@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/legacypolicies"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/migrate"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/serve"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/version"
 	"github.com/spf13/cobra"
@@ -41,6 +42,7 @@ func RootCommand(experimental bool) *cobra.Command {
 	if experimental {
 		cmd.AddCommand(
 			fix.Command(),
+			serve.Command(),
 		)
 	}
 	return cmd

@@ -1,0 +1,7 @@
+{
+  "attributes": {
+    "method": "DELETE",
+    "path": "/api/v1/pods",
+    "host": "example.com"
+  }
+}

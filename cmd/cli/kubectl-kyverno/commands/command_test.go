@@ -17,6 +17,8 @@ func TestRootCommand(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = cmd.Find([]string{"fix"})
 	assert.Error(t, err)
+	_, _, err = cmd.Find([]string{"serve"})
+	assert.Error(t, err)
 	err = cmd.Execute()
 	assert.NoError(t, err)
 }
@@ -24,10 +26,12 @@ func TestRootCommand(t *testing.T) {
 func TestRootCommandExperimental(t *testing.T) {
 	cmd := RootCommand(true)
 	assert.NotNil(t, cmd)
-	assert.Len(t, cmd.Commands(), 11)
+	assert.Len(t, cmd.Commands(), 12)
 	_, _, err := cmd.Find([]string{"oci"})
 	assert.NoError(t, err)
 	_, _, err = cmd.Find([]string{"fix"})
+	assert.NoError(t, err)
+	_, _, err = cmd.Find([]string{"serve"})
 	assert.NoError(t, err)
 	err = cmd.Execute()
 	assert.NoError(t, err)
