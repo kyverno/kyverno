@@ -1,0 +1,180 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Go hygiene
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+  push:
+    branches:
+      - main
+      - release-*
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  hygiene:
+    name: Hygiene checks
+    runs-on: ubuntu-latest
+    outputs:
+      fmt-result: ${{ steps.fmt.outcome }}
+      imports-result: ${{ steps.imports.outcome }}
+      unused-result: ${{ steps.unused.outcome }}
+      vet-result: ${{ steps.vet.outcome }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Check formatting
+        id: fmt
+        continue-on-error: true
+        run: |
+          git reset --hard HEAD
+          git clean -fd
+          make fmt-check
+      - name: Check imports
+        id: imports
+        continue-on-error: true
+        run: |
+          git reset --hard HEAD
+          git clean -fd
+          make imports-check
+      - name: Check unused packages
+        id: unused
+        continue-on-error: true
+        run: |
+          git reset --hard HEAD
+          git clean -fd
+          make unused-package-check
+      - name: Check vet
+        id: vet
+        continue-on-error: true
+        run: |
+          git reset --hard HEAD
+          git clean -fd
+          make vet
+      - name: Aggregate hygiene results
+        run: |
+          failed=0
+          if [ "${{ steps.fmt.outcome }}" != "success" ]; then
+            echo "::error::Check formatting failed"
+            failed=1
+          fi
+          if [ "${{ steps.imports.outcome }}" != "success" ]; then
+            echo "::error::Check imports failed"
+            failed=1
+          fi
+          if [ "${{ steps.unused.outcome }}" != "success" ]; then
+            echo "::error::Check unused packages failed"
+            failed=1
+          fi
+          if [ "${{ steps.vet.outcome }}" != "success" ]; then
+            echo "::error::Check vet failed"
+            failed=1
+          fi
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi
+
+  fmt:
+    name: Check formatting
+    if: always()
+    needs: hygiene
+    runs-on: ubuntu-slim
+    steps:
+      - name: Require formatting check to succeed
+        run: test "${{ needs.hygiene.outputs.fmt-result }}" = "success"
+
+  imports:
+    name: Check imports
+    if: always()
+    needs: hygiene
+    runs-on: ubuntu-slim
+    steps:
+      - name: Require imports check to succeed
+        run: test "${{ needs.hygiene.outputs.imports-result }}" = "success"
+
+  unused:
+    name: Check unused packages
+    if: always()
+    needs: hygiene
+    runs-on: ubuntu-slim
+    steps:
+      - name: Require unused packages check to succeed
+        run: test "${{ needs.hygiene.outputs.unused-result }}" = "success"
+
+  vet:
+    name: Check vet
+    if: always()
+    needs: hygiene
+    runs-on: ubuntu-slim
+    steps:
+      - name: Require vet check to succeed
+        run: test "${{ needs.hygiene.outputs.vet-result }}" = "success"
+
+  sync-issue:
+    if: "always() && (contains(needs.*.result, 'failure') || !contains(needs.*.result, 'cancelled')) && github.event_name == 'push'"
+    needs:
+      - hygiene
+      - fmt
+      - imports
+      - unused
+      - vet
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
+        with:
+          conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
+          needs: ${{ toJSON(needs) }}
+      - name: Close legacy hygiene tracking issues
+        if: "!contains(needs.*.result, 'failure')"
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const branch = context.ref;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const headSha = context.sha;
+            const legacyWorkflows = ['Go format', 'Go imports', 'Go packages', 'Go vet'];
+            try {
+              const issues = await github.paginate(github.rest.issues.listForRepo, {
+                owner,
+                repo,
+                state: 'open',
+                labels: 'workflow-failure',
+                per_page: 100,
+              });
+              for (const workflow of legacyWorkflows) {
+                const marker = `<!-- workflow-failure:${workflow}:${branch} -->`;
+                const existing = issues.find(i => i.body && i.body.includes(marker));
+                if (existing) {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: existing.number,
+                    body: `Consolidated Go hygiene workflow [succeeded](${runUrl}) (commit \`${headSha}\`). Closing legacy ${workflow} tracking issue.`
+                  });
+                  await github.rest.issues.update({
+                    owner,
+                    repo,
+                    issue_number: existing.number,
+                    state: 'closed'
+                  });
+                  core.info(`Closed legacy tracking issue #${existing.number} for ${workflow}.`);
+                }
+              }
+            } catch (err) {
+              core.warning(`Could not clean up legacy tracking issues: ${err.message || String(err)}`);
+            }

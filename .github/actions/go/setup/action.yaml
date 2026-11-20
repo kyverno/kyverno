@@ -43,4 +43,5 @@ runs:
       with:
         path: ${{ steps.install.outputs.gobuild-cache }}
         cache-prefix: ${{ inputs.gobuild-cache-prefix }}
+        fallback-cache-prefix: ${{ inputs.gobuild-cache-prefix != 'gobuild' && 'gobuild' || '' }}
         include-run-id: ${{ inputs.gobuild-cache-include-run-id }}
