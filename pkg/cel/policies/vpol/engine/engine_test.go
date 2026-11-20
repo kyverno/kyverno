@@ -877,6 +877,24 @@ func TestHandle_TracedExceptionFollowsReportResult(t *testing.T) {
 		ruleStatus: engineapi.RuleStatusPass,
 		verdict:    trace.VerdictPass,
 		names:      []string{"default/low", "default/high"},
+	}, {
+		name: "the highest negative priority decides",
+		exceptions: []*policiesv1beta1.PolicyException{
+			withPriority(buildException("default", "first", "compensating-controls"), "-10"),
+			withPriority(withReportResult(buildException("default", "second", "compensating-controls"), "pass"), "-5"),
+		},
+		ruleStatus: engineapi.RuleStatusPass,
+		verdict:    trace.VerdictPass,
+		names:      []string{"default/first", "default/second"},
+	}, {
+		name: "an unlabelled exception outranks a negative priority",
+		exceptions: []*policiesv1beta1.PolicyException{
+			withPriority(withReportResult(buildException("default", "negative", "compensating-controls"), "pass"), "-5"),
+			buildException("default", "unlabelled", "compensating-controls"),
+		},
+		ruleStatus: engineapi.RuleStatusSkip,
+		verdict:    trace.VerdictSkip,
+		names:      []string{"default/negative", "default/unlabelled"},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
