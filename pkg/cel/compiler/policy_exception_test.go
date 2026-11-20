@@ -56,6 +56,15 @@ func TestCompilePolicyExceptionMatchConditions(t *testing.T) {
 			).metadata.labels["team"] == "infra"`,
 		},
 		{
+			name:       "cel.bind",
+			expression: "cel.bind(allowedNames, ['exempt-configmap'], object.metadata.name in allowedNames)",
+		},
+		{
+			name:       "cel.bind does not leak the binding",
+			expression: "cel.bind(allowedNames, ['exempt-configmap'], object.metadata.name in missing)",
+			wantErrors: true,
+		},
+		{
 			name:       "resource invalid method",
 			expression: `resource.DoesNotExist("v1", "namespaces", "", "default") == true`,
 			wantErrors: true,
@@ -85,6 +94,21 @@ func TestCompilePolicyExceptionMatchConditionsStoredResourceGet(t *testing.T) {
 	errs := CompilePolicyExceptionMatchConditions(
 		[]admissionregistrationv1.MatchCondition{{
 			Name:       "resource-get",
+			Expression: expression,
+		}},
+		map[string]bool{expression: true},
+	)
+
+	assert.Empty(t, errs)
+}
+
+func TestCompilePolicyExceptionMatchConditionsStoredCelBind(t *testing.T) {
+	t.Parallel()
+	expression := "cel.bind(allowedNames, ['exempt-configmap'], object.metadata.name in allowedNames)"
+
+	errs := CompilePolicyExceptionMatchConditions(
+		[]admissionregistrationv1.MatchCondition{{
+			Name:       "allowed-name",
 			Expression: expression,
 		}},
 		map[string]bool{expression: true},
