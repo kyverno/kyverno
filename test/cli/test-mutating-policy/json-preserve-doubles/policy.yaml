@@ -1,0 +1,26 @@
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: add-region
+spec:
+  evaluation:
+    mode: JSON
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "add", path: "/region", value: "west"}, JSONPatch{op: "add", path: "/scale", value: 1.0}]'
+---
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-doubles
+spec:
+  evaluation:
+    mode: JSON
+  validationActions:
+  - Deny
+  validations:
+  - expression: >-
+      type(object.ratio) == double && type(object.weights[0]) == double &&
+      type(object.scale) == double && type(object.count) == int
+    message: Integral doubles must stay doubles through an unrelated mutation.
