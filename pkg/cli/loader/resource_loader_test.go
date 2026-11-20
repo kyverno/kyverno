@@ -119,9 +119,42 @@ func TestClusterLoader_Tasks(t *testing.T) {
 			client: client,
 		}
 
-		tasks := loader.createLoadingTasks()
+		tasks, err := loader.createLoadingTasks()
+		assert.NoError(t, err)
 		assert.Len(t, tasks, 1)
 		assert.Equal(t, "test", tasks[0].Namespace)
+	})
+
+	t.Run("mapping failure without continue on error", func(t *testing.T) {
+		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
+		loader := &ClusterLoader{
+			resourceOptions: ResourceOptions{
+				ResourceTypes: []schema.GroupVersionKind{{Kind: "InvalidKind"}},
+				Namespace:     "test",
+			},
+			client: client,
+		}
+
+		tasks, err := loader.createLoadingTasks()
+		assert.Error(t, err)
+		assert.Nil(t, tasks)
+		assert.Contains(t, err.Error(), "failed to map GVK")
+	})
+
+	t.Run("mapping failure with continue on error", func(t *testing.T) {
+		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
+		loader := &ClusterLoader{
+			resourceOptions: ResourceOptions{
+				ResourceTypes:   []schema.GroupVersionKind{{Kind: "InvalidKind"}},
+				Namespace:       "test",
+				ContinueOnError: true,
+			},
+			client: client,
+		}
+
+		tasks, err := loader.createLoadingTasks()
+		assert.NoError(t, err)
+		assert.Empty(t, tasks)
 	})
 }
 
