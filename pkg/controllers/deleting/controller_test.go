@@ -2,7 +2,9 @@ package deleting
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	configpkg "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/config/mocks"
 	"github.com/kyverno/kyverno/pkg/event"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -269,6 +272,168 @@ func TestReconcile_ClampPastNextExecution(t *testing.T) {
 	if cq.lastDelay <= 0 || cq.lastDelay > minRequeueDelay+60*time.Second {
 		t.Fatalf("expected delay to next cron minute, got %v", cq.lastDelay)
 	}
+}
+
+// lastRun is the LastExecutionTime of a policy that is due: its next scheduled run is long past.
+var lastRun = time.Date(1901, 1, 1, 0, 0, 0, 0, time.UTC)
+
+// errConnectionRefused is what a list returns while the API server cannot be reached: a transient error,
+// which IsRecoverableError does not skip, so it fails the run.
+var errConnectionRefused = errors.New("dial tcp 10.96.0.1:443: connect: connection refused")
+
+// dueConfigMapPolicy returns a DeletingPolicy on configmaps that runs every minute and is due now.
+func dueConfigMapPolicy() *policiesv1beta1.DeletingPolicy {
+	return &policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "dpol"},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			Schedule: "* * * * *",
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				}},
+			},
+		},
+		Status: policiesv1beta1.DeletingPolicyStatus{LastExecutionTime: metav1.NewTime(lastRun)},
+	}
+}
+
+// configMapClient returns a client that knows configmaps and answers every list with listErr(), or an empty
+// list when it returns nil.
+func configMapClient(listErr func() error) *mockDClient {
+	gvrToListKind := map[schema.GroupVersionResource]string{{Version: "v1", Resource: "configmaps"}: "ConfigMapList"}
+	dynClient := fakedynamic.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), gvrToListKind)
+	dynClient.PrependReactor("list", "*", func(clienttesting.Action) (bool, runtime.Object, error) {
+		if err := listErr(); err != nil {
+			return true, nil, err
+		}
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMapList"})
+		return true, list, nil
+	})
+	kubeClient := kubeclientfake.NewSimpleClientset()
+	kubeClient.Discovery().(*fakediscovery.FakeDiscovery).Resources = []*metav1.APIResourceList{{
+		GroupVersion: "v1",
+		APIResources: []metav1.APIResource{{Name: "configmaps", Kind: "ConfigMap", Namespaced: true}},
+	}}
+	return &mockDClient{dyn: dynClient, kube: kubeClient}
+}
+
+// reconcileController returns a controller for pol that reaches the API through client, and the fake
+// clientset that holds pol's status.
+func reconcileController(t *testing.T, pol *policiesv1beta1.DeletingPolicy, client dclient.Interface, queue workqueue.TypedRateLimitingInterface[any]) (*controller, *versionedfake.Clientset) {
+	t.Helper()
+	provFunc, err := dpolengine.NewProvider(enginecompiler.NewCompiler(), []policiesv1beta1.DeletingPolicyLike{pol}, nil)
+	if err != nil {
+		t.Fatalf("provider init failed: %v", err)
+	}
+	kyvernoClient := versionedfake.NewSimpleClientset(pol)
+	return &controller{
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		queue:         queue,
+		provider:      providerAdapter{fetch: provFunc, name: pol.Name},
+	}, kyvernoClient
+}
+
+// lastExecutionTime reads the policy's LastExecutionTime back from the clientset.
+func lastExecutionTime(t *testing.T, client *versionedfake.Clientset) time.Time {
+	t.Helper()
+	pol, err := client.PoliciesV1beta1().DeletingPolicies().Get(context.Background(), "dpol", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get policy: %v", err)
+	}
+	return pol.Status.LastExecutionTime.Time
+}
+
+// A run that fails keeps the policy's schedule (#18248): reconcile returns the error, so the workqueue still
+// retries and counts it, and arms the next scheduled run. LastExecutionTime stays where it was, as the record
+// of the last run that succeeded. The next run is computed from now, not from the stale LastExecutionTime:
+// with a yearly schedule it is far away, not a requeue after minRequeueDelay. The yearly slot is the first
+// day of the month six months from now, so the next run is months away whenever the test runs.
+func TestReconcile_FailedRunKeepsSchedule(t *testing.T) {
+	pol := dueConfigMapPolicy()
+	pol.Spec.Schedule = fmt.Sprintf("0 0 1 %d *", (int(time.Now().Month())+5)%12+1)
+	cq := &captureQueue{TypedRateLimitingInterface: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())}
+	c, kyvernoClient := reconcileController(t, pol, configMapClient(func() error { return errConnectionRefused }), cq)
+
+	err := c.reconcile(context.Background(), logr.Discard(), "dpol", "", "dpol")
+
+	assert.ErrorContains(t, err, "connection refused")
+	assert.Greater(t, cq.lastDelay, time.Minute, "a failed run must arm the next yearly run, not requeue at once")
+	assert.Equal(t, lastRun, lastExecutionTime(t, kyvernoClient).UTC(), "a failed run must not advance lastExecutionTime")
+}
+
+// A run whose status write fails keeps the schedule too, and returns the status error.
+func TestReconcile_StatusUpdateFailureKeepsSchedule(t *testing.T) {
+	cq := &captureQueue{TypedRateLimitingInterface: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())}
+	c, kyvernoClient := reconcileController(t, dueConfigMapPolicy(), configMapClient(func() error { return nil }), cq)
+	kyvernoClient.PrependReactor("update", "deletingpolicies", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		return action.GetSubresource() == "status", nil, apierrors.NewServiceUnavailable("status write refused")
+	})
+
+	err := c.reconcile(context.Background(), logr.Discard(), "dpol", "", "dpol")
+
+	assert.ErrorContains(t, err, "status write refused")
+	assert.Greater(t, cq.lastDelay, time.Duration(0), "the next scheduled run must be armed")
+}
+
+// heldSchedule stands in for the clock: it records each scheduled run that the controller arms, and holds it
+// until the test calls arrive. The workqueue's own retries are not held: AddRateLimited does not pass
+// through this AddAfter.
+type heldSchedule struct {
+	workqueue.TypedRateLimitingInterface[any]
+	armed atomic.Int32
+}
+
+func (q *heldSchedule) AddAfter(any, time.Duration) {
+	q.armed.Add(1)
+}
+
+// arrive makes the next scheduled run due now, if the controller armed one.
+func (q *heldSchedule) arrive(item any) {
+	if q.armed.Load() > 0 {
+		q.TypedRateLimitingInterface.Add(item)
+	}
+}
+
+// The whole worker cycle, as #18248 describes it: the run fails until the workqueue gives up after maxRetries
+// and drops the key; the policy still runs at its next schedule, and that run succeeds. The scheduled run is
+// held until the retries are exhausted, so only the workqueue's retries can make the failed runs.
+func TestRun_PolicyRunsAgainAfterRetriesAreExhausted(t *testing.T) {
+	var lists atomic.Int32
+	failedRuns := int32(maxRetries + 1) // the first run and every retry
+	client := configMapClient(func() error {
+		if lists.Add(1) <= failedRuns {
+			return errConnectionRefused
+		}
+		return nil
+	})
+	queue := &heldSchedule{TypedRateLimitingInterface: workqueue.NewTypedRateLimitingQueue(workqueue.NewTypedItemExponentialFailureRateLimiter[any](time.Millisecond, time.Millisecond))}
+	c, kyvernoClient := reconcileController(t, dueConfigMapPolicy(), client, queue)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go controllerutils.Run(ctx, logr.Discard(), ControllerName, time.Millisecond, queue, 1, maxRetries, c.reconcile)
+
+	queue.Add("dpol")
+
+	// The retries are exhausted: every failed run was made, and the workqueue forgot the key.
+	assert.Eventually(t, func() bool { return lists.Load() == failedRuns && queue.NumRequeues("dpol") == 0 }, 5*time.Second, time.Millisecond,
+		"the workqueue must retry the failed run %d times, then drop the key", maxRetries)
+	assert.Equal(t, failedRuns, lists.Load(), "no run after the retries are exhausted, until the next schedule")
+	assert.Positive(t, queue.armed.Load(), "a failed run must arm the next scheduled run")
+
+	queue.arrive("dpol")
+
+	assert.Eventually(t, func() bool { return lastExecutionTime(t, kyvernoClient).After(lastRun) }, 5*time.Second, 10*time.Millisecond,
+		"the policy must run again at its next schedule after %d failed runs", failedRuns)
+	assert.Equal(t, failedRuns+1, lists.Load(), "the failed runs and the scheduled run")
 }
 
 // mockNamespaceLister is a simple stub to simulate the informer cache returning namespaces.
