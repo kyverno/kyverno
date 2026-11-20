@@ -149,3 +149,53 @@ func TestHandleVAPGeneration_PodControllerAutogen(t *testing.T) {
 		})
 	}
 }
+
+// TestHandleVAPGeneration_ExceptionUsingKyvernoCEL checks that a ValidatingAdmissionPolicy that
+// already exists is deleted, rather than updated, when a PolicyException match condition calls a
+// Kyverno CEL library: the API server cannot compile the negated condition, so the update would
+// fail and leave the VAP enforcing without the exception while Kyverno skips the policy.
+func TestHandleVAPGeneration_ExceptionUsingKyvernoCEL(t *testing.T) {
+	ctx := context.Background()
+	vpol := disallowPrivilegeEscalationVpol(nil)
+	vpol.Spec.AutogenConfiguration.PodControllers.Controllers = []string{}
+	vpol.Status.Generated = true
+
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "vpol-disallow-privilege-escalation", ResourceVersion: "1"}}
+	binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{ObjectMeta: metav1.ObjectMeta{Name: "vpol-disallow-privilege-escalation-binding", ResourceVersion: "1"}}
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "infra-team", Namespace: "kyverno"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "disallow-privilege-escalation", Kind: "ValidatingPolicy"}},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "infra-namespace",
+				Expression: `resource.Get("v1", "namespaces", "", object.metadata.namespace).metadata.labels["team"] == "infra"`,
+			}},
+		},
+	}
+
+	c, _, kyvernoClient := newVAPTestController(t, vpol)
+	kubeClient := kubefake.NewSimpleClientset(vap, binding)
+	c.client = kubeClient
+	vapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, vapIndexer.Add(vap))
+	c.vapLister = admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(vapIndexer)
+	bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, bindingIndexer.Add(binding))
+	c.vapbindingLister = admissionregistrationv1listers.NewValidatingAdmissionPolicyBindingLister(bindingIndexer)
+	polexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, polexIndexer.Add(polex))
+	c.celpolexLister = policiesv1beta1listers.NewPolicyExceptionLister(polexIndexer)
+	c.polexEnabled = true
+	c.exceptionNamespace = "*"
+
+	require.NoError(t, c.handleVAPGeneration(ctx, engineapi.NewValidatingPolicy(vpol)))
+
+	_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vap.Name, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(vapErr), "the ValidatingAdmissionPolicy should be deleted: got err=%v", vapErr)
+	_, bindingErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(bindingErr), "the ValidatingAdmissionPolicyBinding should be deleted: got err=%v", bindingErr)
+	updated, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, vpol.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, updated.Status.Generated)
+	assert.Contains(t, updated.Status.GetConditionStatus().Message, "policy exception(s) kyverno/infra-team use matchConditions")
+}
