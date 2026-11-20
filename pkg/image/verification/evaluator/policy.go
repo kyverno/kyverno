@@ -463,8 +463,9 @@ func (c *compiledPolicy) EnforceRequired(images []string, verifications *imageve
 
 // MutateDigest pins the tag of every image matched by the policy's matchImageReferences
 // to its resolved digest, provided the image does not already carry a digest. It only
-// applies to images extracted from well-known container fields (containers, initContainers,
-// ephemeralContainers) of the resource, mirroring the built-in CEL image extractors.
+// applies to images extracted from the well-known fields of the resource (containers,
+// initContainers, ephemeralContainers and image volumes), mirroring the built-in CEL image
+// extractors.
 //
 // An image that cannot be resolved is an error, not a silent skip: the caller records it
 // against the policy and the webhook denies the request when the policy's validationActions
@@ -541,9 +542,9 @@ func (c *compiledPolicy) MutateDigestWithActivation(
 		}
 	}
 
-	// images are extracted from the well-known container fields directly (rather than
-	// through the policy's CEL image extractors) because we need the JSON pointer to the
-	// image reference within the resource in order to build a patch
+	// images are extracted from the well-known image fields directly (rather than through
+	// the policy's CEL image extractors) because we need the JSON pointer to the image
+	// reference within the resource in order to build a patch
 	imagesByCategory, err := apiutils.ExtractImagesFromResource(resource, cfg)
 	if err != nil {
 		return nil, err

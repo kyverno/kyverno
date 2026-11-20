@@ -22,10 +22,13 @@ func TestImageExtractorProfilesMatchRequestCompilation(t *testing.T) {
 		}
 		profiles, errs := CompileImageExtractorProfiles(field.NewPath("images"), env, custom...)
 		require.Empty(t, errs)
-		for _, gvr := range []*metav1.GroupVersionResource{nil, &pods, &jobs, &deployments, &statefulsets, &daemonsets, &replicasets, &cronjobs, {Group: "example.com", Version: "v1", Resource: "workloads"}} {
+		for _, gvr := range []*metav1.GroupVersionResource{nil, &pods, &jobs, &deployments, &statefulsets, &daemonsets, &replicasets, &replicationcontrollers, &cronjobs, {Group: "example.com", Version: "v1", Resource: "workloads"}} {
 			legacy, errs := CompileImageExtractors(field.NewPath("images"), env, gvr, custom...)
 			require.Empty(t, errs)
-			spec := map[string]any{"containers": []any{map[string]any{"image": "pod-image"}}}
+			spec := map[string]any{
+				"containers": []any{map[string]any{"image": "pod-image"}},
+				"volumes":    []any{map[string]any{"name": "model", "image": map[string]any{"reference": "volume-image"}}},
+			}
 			object := map[string]any{"spec": map[string]any{
 				"containers":  spec["containers"],
 				"template":    map[string]any{"spec": spec},
