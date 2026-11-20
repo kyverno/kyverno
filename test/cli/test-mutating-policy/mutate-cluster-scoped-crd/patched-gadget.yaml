@@ -1,0 +1,8 @@
+apiVersion: example.com/v1
+kind: Gadget
+metadata:
+  name: my-gadget
+  annotations:
+    testing: "true"
+spec:
+  color: blue

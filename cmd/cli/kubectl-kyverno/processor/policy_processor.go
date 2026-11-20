@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -106,6 +107,7 @@ type PolicyProcessor struct {
 	Subresources            []v1alpha1.Subresource
 	Out                     io.Writer
 	CrdPaths                []string
+	CrdFS                   []fs.FS // CRD directories for a git-backed test; read instead of CrdPaths on disk
 	CrdPreloaded            bool
 	ConfigMapResolver       engineapi.ConfigmapResolver
 	RESTMapper              meta.RESTMapper
@@ -904,7 +906,10 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 	}
 
 	addedCrdClient := false
-	if len(p.CrdPaths) > 0 {
+	if len(p.CrdFS) > 0 {
+		clients = append(clients, openapiclient.NewLocalCRDFiles(p.CrdFS...))
+		addedCrdClient = true
+	} else if len(p.CrdPaths) > 0 {
 		visitedDirs := make(map[string]struct{})
 		for _, crdPath := range p.CrdPaths {
 			if strings.TrimSpace(crdPath) == "" {
@@ -1225,15 +1230,7 @@ func (p *PolicyProcessor) getNamespaceResolver() celengine.NamespaceResolver {
 }
 
 func (p *PolicyProcessor) loadCrds() error {
-	for _, crdPath := range p.CrdPaths {
-		if strings.TrimSpace(crdPath) == "" {
-			continue
-		}
-		if err := common.LoadCrdsFromPath(crdPath); err != nil {
-			return err
-		}
-	}
-	return nil
+	return common.LoadCrdsFromPaths(p.CrdPaths)
 }
 
 func getAbsPath(path string) string {
