@@ -1,0 +1,77 @@
+# Which conformance suites a change needs.
+#
+# Used to run a subset of .github/workflows/tests-conformance.yaml instead of
+# the whole matrix. The default is deliberately the safe one: a changed file
+# that matches nothing here runs every suite. Only paths whose blast radius is
+# genuinely narrow are listed, so a wrong entry here costs extra CI time and
+# never costs coverage.
+#
+# Shared packages are absent on purpose. pkg/engine, pkg/cel, pkg/controllers,
+# pkg/webhooks, api/ and config/crds co-change with most suites, so they fall
+# through to the full run.
+#
+# Suite names are directories under test/conformance/chainsaw/ and must match
+# a tests-path in tests-conformance.yaml. scripts/conformance-suites-for.sh
+# reads this file; --verify checks both of those hold.
+
+# Globs that never change conformance results.
+skip:
+  - docs/**
+  - "**/*.md"
+  - .github/ISSUE_TEMPLATE/**
+  - .github/dependabot.yml
+  - .github/labels.yml
+  - .gitignore
+  - LICENSE
+  - NOTICE
+  - codecov.yml
+  - sonar-project.properties
+  - .codeclimate.yml
+  - .semgrepignore
+
+# Globs whose blast radius is a known subset of suites.
+suites:
+  pkg/tls/**:
+    - tls-certificates
+  pkg/controllers/certmanager/**:
+    - tls-certificates
+  pkg/cosign/**:
+    - verify-images
+    - custom-sigstore
+    - sigstore-custom-tuf
+  pkg/notary/**:
+    - verify-images
+  pkg/autogen/**:
+    - autogen
+  pkg/event/**:
+    - events
+  pkg/globalcontext/**:
+    - globalcontext
+  pkg/controllers/globalcontext/**:
+    - globalcontext
+  pkg/webhooks/globalcontext/**:
+    - globalcontext
+  pkg/exceptions/**:
+    - exceptions
+    - policy-exceptions-disabled
+  pkg/controllers/exceptions/**:
+    - exceptions
+    - policy-exceptions-disabled
+  pkg/controllers/ttl/**:
+    - ttl
+  pkg/controllers/cleanup/**:
+    - cleanup
+  pkg/openreports/**:
+    - openreports
+    - reports
+  pkg/leaderelection/**:
+    - lease
+  cmd/cli/**:
+    - cli
+  pkg/cli/**:
+    - cli
+  cmd/cleanup-controller/**:
+    - cleanup
+    - ttl
+    - deleting-policies
+    - namespaced-deleting-policies
