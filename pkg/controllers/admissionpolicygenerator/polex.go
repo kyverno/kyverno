@@ -20,6 +20,9 @@ func (c *controller) updateCELException(old, obj *policiesv1beta1.PolicyExceptio
 		return
 	}
 	logger.V(2).Info("policy exception updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	// Policies removed from policyRefs must also be reconciled so generated VAPs/MAPs
+	// cannot retain exemptions that no longer apply. The queue deduplicates keys.
+	c.enqueueCELException(old)
 	c.enqueueCELException(obj)
 }
 
