@@ -625,7 +625,7 @@ func main() {
 			setup.Logger.Error(err, "failed to initialize leader election")
 			os.Exit(1)
 		}
-		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
+		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, kyvernoInformer.Kyverno().V2().UpdateRequests().Lister())
 		// create webhooks server
 		urgen := webhookgenerate.NewGenerator(
 			setup.KyvernoClient,
