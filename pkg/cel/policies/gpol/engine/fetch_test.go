@@ -45,6 +45,10 @@ func (f *fakePolexLister) List(_ labels.Selector) ([]*policiesv1beta1.PolicyExce
 	return f.exceptions, f.err
 }
 
+func (f *fakePolexLister) ListForPolicy(kind, name, namespace string) ([]*policiesv1beta1.PolicyException, error) {
+	return f.exceptions, f.err
+}
+
 func TestGet(t *testing.T) {
 	t.Run("", func(t *testing.T) {
 		comp := compiler.NewCompiler()

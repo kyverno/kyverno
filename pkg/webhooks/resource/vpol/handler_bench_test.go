@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -98,7 +100,7 @@ func buildGateValidatePolicy(b *testing.B) vpolengine.Provider {
 			},
 		},
 	}
-	provider, err := vpolengine.NewProvider(vpolcompiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{pol}, nil)
+	provider, err := vpolengine.NewProvider(vpolcompiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{pol}, nil, celengine.ExceptionScopeAll)
 	require.NoError(b, err)
 	return provider
 }

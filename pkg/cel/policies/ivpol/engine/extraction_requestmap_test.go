@@ -132,7 +132,7 @@ func buildExtractionModeRequestPolicy() *policiesv1beta1.ImageValidatingPolicy {
 // pkg/image/verification/evaluator.
 func TestHandleValidating_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) {
 	policy := buildExtractionModeRequestPolicy()
-	provider, err := NewProvider([]policiesv1beta1.ImageValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider([]policiesv1beta1.ImageValidatingPolicyLike{policy}, nil, engine.ExceptionScopeAll)
 	require.NoError(t, err)
 	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
 	// The validation only reads request.object, but the default built-in image

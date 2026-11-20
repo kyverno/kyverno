@@ -75,6 +75,10 @@ func (staleExceptionLister) List(labels.Selector) ([]*policiesv1beta1.PolicyExce
 	return nil, nil
 }
 
+func (staleExceptionLister) ListForPolicy(kind, name, namespace string) ([]*policiesv1beta1.PolicyException, error) {
+	return nil, nil
+}
+
 // denyMissingTeamLabelPolicy is a JSON-mode ValidatingPolicy that fails any payload
 // without a "team" field.
 func denyMissingTeamLabelPolicy(name string) *policiesv1beta1.ValidatingPolicy {
@@ -182,7 +186,7 @@ func TestReconcile_ManagerCacheExceptionLister_SeesException(t *testing.T) {
 		exceptions: []policiesv1beta1.PolicyException{fullExemption("exempt-all", policy.Name)},
 	}
 
-	polexLister := celengine.NewManagerPolicyExceptionLister(fc, "")
+	polexLister := celengine.NewManagerPolicyExceptionLister(fc, "*")
 	rec := newReconciler(compiler.NewCompiler(), fc, polexLister, true)
 	_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: policy.Name}})
 	require.NoError(t, err)

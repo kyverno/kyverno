@@ -719,7 +719,7 @@ func applyImageValidatingPolicies(
 	gceMap map[string]interface{},
 	operation string,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
+	provider, err := ivpolengine.NewProvider(ivps, celExceptions, celengine.ExceptionScopeAll)
 	if err != nil {
 		return nil, err
 	}
@@ -883,7 +883,7 @@ func applyDeletingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
+	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions, celengine.ExceptionScopeAll)
 	if err != nil {
 		return nil, err
 	}

@@ -316,7 +316,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 
-		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions, contextProvider)
+		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions, contextProvider, celengine.ExceptionScopeAll)
 		if err != nil {
 			return nil, err
 		}
@@ -523,7 +523,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		if resource.Object != nil {
 			// Evaluate Kubernetes-mode policies via the admission path
 			if len(k8sPolicies) > 0 {
-				provider, err := vpolengine.NewProvider(compiler, k8sPolicies, p.CELExceptions)
+				provider, err := vpolengine.NewProvider(compiler, k8sPolicies, p.CELExceptions, celengine.ExceptionScopeAll)
 				if err != nil {
 					return nil, err
 				}
@@ -592,7 +592,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 			// Also evaluate JSON-mode policies against the K8s resource as raw JSON
 			if len(jsonPolicies) > 0 {
-				provider, err := vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
+				provider, err := vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions, celengine.ExceptionScopeAll)
 				if err != nil {
 					return nil, err
 				}
@@ -624,7 +624,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					"skippedPolicies", len(k8sPolicies))
 			}
 			if len(jsonPolicies) > 0 {
-				provider, err := vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
+				provider, err := vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions, celengine.ExceptionScopeAll)
 				if err != nil {
 					return nil, err
 				}
@@ -659,7 +659,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		compiler := gpolcompiler.NewCompiler()
 		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 		for _, pol := range p.GeneratingPolicies {
-			compiled, errs := compiler.Compile(pol, p.CELExceptions)
+			matchedExceptions := celengine.ExceptionScopeAll.Select(p.CELExceptions, pol.GetKind(), pol.GetName(), pol.GetNamespace())
+			compiled, errs := compiler.Compile(pol, matchedExceptions)
 			if len(errs) > 0 {
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
 			}

@@ -154,13 +154,13 @@ func (c *controller) getExceptions(policyName, rule string) ([]kyvernov2.PolicyE
 // Delegates to the same runtime helpers the CEL engines use (pkg/cel/engine/exception.go)
 // so the enable gate, namespace scoping, expiry, and kind+name matching stay in lockstep
 // with runtime enforcement instead of being reimplemented here.
-func (c *controller) getCELExceptions(policyName, kind string) ([]policiesv1beta1.PolicyException, error) {
+func (c *controller) getCELExceptions(policyName, kind, namespace string) ([]policiesv1beta1.PolicyException, error) {
 	if !c.polexEnabled {
 		return nil, nil
 	}
 
 	lister := celengine.NewPolicyExceptionLister(c.celpolexLister, c.exceptionNamespace)
-	polexs, err := celengine.ListExceptions(lister, kind, policyName)
+	polexs, err := lister.ListForPolicy(kind, policyName, namespace)
 	if err != nil {
 		return nil, err
 	}
