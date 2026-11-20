@@ -1982,6 +1982,7 @@ func TestHandleSourceEvent_RequiresRegisteredDownstreamUID(t *testing.T) {
 						Name:      cached.GetName(),
 						Namespace: cached.GetNamespace(),
 						Labels:    cached.GetLabels(),
+						Hash:      reportutils.CalculateResourceHash(*cached),
 						Data:      cached,
 					}
 				}
