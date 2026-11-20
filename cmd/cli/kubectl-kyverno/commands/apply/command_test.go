@@ -2971,6 +2971,100 @@ spec:
 		assert.Equal(t, engineapi.RuleStatusFail, responses[0].PolicyResponse.Rules[0].Status())
 	})
 
+	t.Run("exception with false matchConditions does not exempt payload and results in fail", func(t *testing.T) {
+		falseMatchExPath := filepath.Join(dir, "ex-false-match.yaml")
+		const falseMatchExYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-false-match
+  namespace: test-ns
+spec:
+  matchConditions:
+  - name: check-app
+    expression: "object.app == 'other-app'"
+  policyRefs:
+  - name: ivpol-json-1
+    kind: ImageValidatingPolicy
+`
+		require.NoError(t, os.WriteFile(falseMatchExPath, []byte(falseMatchExYAML), 0o600))
+		config := &ApplyCommandConfig{
+			PolicyPaths: []string{ivpol1Path},
+			JSONPaths:   []string{jsonPath},
+			Exception:   []string{falseMatchExPath},
+		}
+		rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+		require.NoError(t, err)
+		assert.Equal(t, 0, rc.Skip)
+		assert.Equal(t, 1, rc.Fail)
+		require.Len(t, responses, 1)
+		require.Len(t, responses[0].PolicyResponse.Rules, 1)
+		rule := responses[0].PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+		assert.Empty(t, rule.Exceptions())
+	})
+
+	t.Run("partial exemption with images does not grant full exemption and results in fail", func(t *testing.T) {
+		partialExPath := filepath.Join(dir, "ex-partial.yaml")
+		const partialExYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-partial
+  namespace: test-ns
+spec:
+  images:
+  - "ghcr.io/kyverno/other:1.0"
+  policyRefs:
+  - name: ivpol-json-1
+    kind: ImageValidatingPolicy
+`
+		require.NoError(t, os.WriteFile(partialExPath, []byte(partialExYAML), 0o600))
+		config := &ApplyCommandConfig{
+			PolicyPaths: []string{ivpol1Path},
+			JSONPaths:   []string{jsonPath},
+			Exception:   []string{partialExPath},
+		}
+		rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+		require.NoError(t, err)
+		assert.Equal(t, 0, rc.Skip)
+		assert.Equal(t, 1, rc.Fail)
+		require.Len(t, responses, 1)
+		require.Len(t, responses[0].PolicyResponse.Rules, 1)
+		rule := responses[0].PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+		assert.Empty(t, rule.Exceptions())
+	})
+
+	t.Run("erroring exception matchConditions causes evaluation error", func(t *testing.T) {
+		errorMatchExPath := filepath.Join(dir, "ex-error-match.yaml")
+		const errorMatchExYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-error-match
+  namespace: test-ns
+spec:
+  matchConditions:
+  - name: error-condition
+    expression: "int(object.app) == 0"
+  policyRefs:
+  - name: ivpol-json-1
+    kind: ImageValidatingPolicy
+`
+		require.NoError(t, os.WriteFile(errorMatchExPath, []byte(errorMatchExYAML), 0o600))
+		config := &ApplyCommandConfig{
+			PolicyPaths: []string{ivpol1Path},
+			JSONPaths:   []string{jsonPath},
+			Exception:   []string{errorMatchExPath},
+		}
+		rc, _, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to apply image validating policies on JSON payload")
+		assert.Contains(t, err.Error(), "type conversion error from 'string' to 'int'")
+		assert.Equal(t, 0, rc.Skip)
+		assert.Equal(t, 0, rc.Pass)
+		assert.Equal(t, 0, rc.Fail)
+		assert.Empty(t, responses)
+	})
+
 	t.Run("multiple NamespacedImageValidatingPolicies with identical names in different namespaces retain both responses", func(t *testing.T) {
 		nivpol1YAML := `apiVersion: policies.kyverno.io/v1beta1
 kind: NamespacedImageValidatingPolicy

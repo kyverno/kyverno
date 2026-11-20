@@ -2875,6 +2875,181 @@ results:
 		assert.Contains(t, out.String(), "1 tests passed and 0 tests failed")
 	})
 
+	t.Run("exception with false matchConditions does not exempt payload and results in fail", func(t *testing.T) {
+		dir := t.TempDir()
+		falseMatchExYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-false-match
+  namespace: test-ns
+spec:
+  matchConditions:
+  - name: check-app
+    expression: "object.app == 'other-app'"
+  policyRefs:
+  - name: ivpol-json-test
+    kind: ImageValidatingPolicy
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.yaml"), []byte(ivpolYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "polex.yaml"), []byte(falseMatchExYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "payload.json"), []byte(payloadJSON), 0o600))
+
+		testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-ivpol-json-false-match
+policies:
+  - policy.yaml
+exceptions:
+  - polex.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - isImageValidatingPolicy: true
+    policy: ivpol-json-test
+    resources:
+      - payload.json
+    result: fail
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{dir})
+		require.NoError(t, cmd.Execute())
+		assert.Contains(t, out.String(), "Pass")
+		assert.NotContains(t, out.String(), "Fail")
+		assert.Contains(t, out.String(), "1 tests passed and 0 tests failed")
+
+		testCases := test.LoadTest(nil, filepath.Join(dir, "kyverno-test.yaml"))
+		require.Len(t, testCases, 1)
+		testResponse, err := runTest(context.TODO(), &bytes.Buffer{}, testCases[0], false)
+		require.NoError(t, err)
+		responses := testResponse.Trigger["payload.json"]
+		require.Len(t, responses, 1)
+		require.Len(t, responses[0].PolicyResponse.Rules, 1)
+		rule := responses[0].PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+		assert.Empty(t, rule.Exceptions())
+	})
+
+	t.Run("partial exemption with images does not grant full exemption and results in fail", func(t *testing.T) {
+		dir := t.TempDir()
+		partialExYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-partial
+  namespace: test-ns
+spec:
+  images:
+  - "ghcr.io/kyverno/other:1.0"
+  policyRefs:
+  - name: ivpol-json-test
+    kind: ImageValidatingPolicy
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.yaml"), []byte(ivpolYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "polex.yaml"), []byte(partialExYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "payload.json"), []byte(payloadJSON), 0o600))
+
+		testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-ivpol-json-partial-exemption
+policies:
+  - policy.yaml
+exceptions:
+  - polex.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - isImageValidatingPolicy: true
+    policy: ivpol-json-test
+    resources:
+      - payload.json
+    result: fail
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{dir})
+		require.NoError(t, cmd.Execute())
+		assert.Contains(t, out.String(), "Pass")
+		assert.NotContains(t, out.String(), "Fail")
+		assert.Contains(t, out.String(), "1 tests passed and 0 tests failed")
+
+		testCases := test.LoadTest(nil, filepath.Join(dir, "kyverno-test.yaml"))
+		require.Len(t, testCases, 1)
+		testResponse, err := runTest(context.TODO(), &bytes.Buffer{}, testCases[0], false)
+		require.NoError(t, err)
+		responses := testResponse.Trigger["payload.json"]
+		require.Len(t, responses, 1)
+		require.Len(t, responses[0].PolicyResponse.Rules, 1)
+		rule := responses[0].PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+		assert.Empty(t, rule.Exceptions())
+	})
+
+	t.Run("erroring exception matchConditions causes evaluation error", func(t *testing.T) {
+		dir := t.TempDir()
+		errorMatchExYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-error-match
+  namespace: test-ns
+spec:
+  matchConditions:
+  - name: error-condition
+    expression: "int(object.app) == 0"
+  policyRefs:
+  - name: ivpol-json-test
+    kind: ImageValidatingPolicy
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.yaml"), []byte(ivpolYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "polex.yaml"), []byte(errorMatchExYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "payload.json"), []byte(payloadJSON), 0o600))
+
+		testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-ivpol-json-error-match
+policies:
+  - policy.yaml
+exceptions:
+  - polex.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - isImageValidatingPolicy: true
+    policy: ivpol-json-test
+    resources:
+      - payload.json
+    result: fail
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{dir})
+		err := cmd.Execute()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to apply image validating policies on JSON payload")
+		assert.Contains(t, err.Error(), "type conversion error from 'string' to 'int'")
+
+		testCases := test.LoadTest(nil, filepath.Join(dir, "kyverno-test.yaml"))
+		require.Len(t, testCases, 1)
+		_, err = runTest(context.TODO(), &bytes.Buffer{}, testCases[0], false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to apply image validating policies on JSON payload")
+		assert.Contains(t, err.Error(), "type conversion error from 'string' to 'int'")
+	})
+
 	t.Run("multiple distinct NIVPOLs with identical names in different namespaces retain both responses", func(t *testing.T) {
 		dir := t.TempDir()
 		nivpol1YAML := `apiVersion: policies.kyverno.io/v1beta1
