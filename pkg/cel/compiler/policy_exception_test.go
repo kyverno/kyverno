@@ -61,7 +61,7 @@ func TestCompilePolicyExceptionMatchConditions(t *testing.T) {
 		},
 		{
 			name:       "cel.bind does not leak the binding",
-			expression: "cel.bind(allowedNames, ['exempt-configmap'], object.metadata.name in missing)",
+			expression: "cel.bind(allowedNames, ['exempt-configmap'], object.metadata.name in allowedNames) && allowedNames.size() > 0",
 			wantErrors: true,
 		},
 		{
