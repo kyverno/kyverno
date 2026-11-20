@@ -6,9 +6,13 @@ policies:
     rules:
 {{- range . }}
       - name: {{ .Name }}
+{{- if .Values }}
         values:
 {{- range $key, $value := .Values }}
           {{ $key }}: {{ $value }}
+{{- end }}
+{{- else }}
+        values: {}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -16,9 +20,13 @@ policies:
     resources:
 {{- range . }}
       - name: {{ .Name }}
+{{- if .Values }}
         values:
 {{- range $key, $value := .Values }}
           {{ $key }}: {{ $value }}
+{{- end }}
+{{- else }}
+        values: {}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -34,8 +42,12 @@ globalValues:
 namespaceSelector:
 {{- range .NamespaceSelectors }}
   - name: {{ .Name }}
+{{- if .Labels }}
     labels:
 {{- range $key, $value := .Labels }}
       {{ $key }}: {{ $value }}
+{{- end }}
+{{- else }}
+    labels: {}
 {{- end }}
 {{- end }}
