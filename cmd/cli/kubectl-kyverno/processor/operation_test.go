@@ -3,8 +3,14 @@ package processor
 import (
 	"testing"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -18,7 +24,7 @@ func TestNormalizeOperation(t *testing.T) {
 		{operation: "CREATE", want: "CREATE"},
 		{operation: "UPDATE", want: "UPDATE"},
 		{operation: "DELETE", want: "DELETE"},
-		{operation: "CONNECT", wantErr: true},
+		{operation: "CONNECT", want: "CONNECT"},
 		{operation: "delete", wantErr: true},
 		{operation: "foo", wantErr: true},
 	}
@@ -38,14 +44,15 @@ func TestNormalizeOperation(t *testing.T) {
 func TestNormalizeValuesOperation(t *testing.T) {
 	tests := []struct {
 		operation string
+		want      string
 		wantErr   bool
 	}{
-		{operation: ""},
-		{operation: "CREATE"},
-		{operation: "UPDATE"},
-		{operation: "DELETE"},
-		{operation: "CONNECT"},
-		{operation: "connect", wantErr: true},
+		{operation: "", want: ""},
+		{operation: "CREATE", want: "CREATE"},
+		{operation: "UPDATE", want: "UPDATE"},
+		{operation: "DELETE", want: "DELETE"},
+		{operation: "CONNECT", want: "CONNECT"},
+		{operation: "delete", wantErr: true},
 		{operation: "foo", wantErr: true},
 	}
 	for _, tt := range tests {
@@ -55,7 +62,7 @@ func TestNormalizeValuesOperation(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.operation, got)
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}
@@ -67,29 +74,35 @@ func TestAdmissionRequestShape(t *testing.T) {
 		"kind":       "Pod",
 		"metadata":   map[string]interface{}{"name": "test-pod"},
 	}}
-	t.Run("default is CREATE", func(t *testing.T) {
+	t.Run("default is CREATE with resource as object", func(t *testing.T) {
 		op, object, oldObject := AdmissionRequestShape("", resource)
 		assert.Equal(t, admissionv1.Create, op)
-		assert.Equal(t, resource, object)
+		assert.Equal(t, resource.Object, object.(*unstructured.Unstructured).Object)
 		assert.Nil(t, oldObject)
 	})
-	t.Run("CREATE", func(t *testing.T) {
+	t.Run("CREATE sets resource as object", func(t *testing.T) {
 		op, object, oldObject := AdmissionRequestShape("CREATE", resource)
 		assert.Equal(t, admissionv1.Create, op)
-		assert.Equal(t, resource, object)
+		assert.Equal(t, resource.Object, object.(*unstructured.Unstructured).Object)
 		assert.Nil(t, oldObject)
 	})
-	t.Run("UPDATE sets object and oldObject", func(t *testing.T) {
+	t.Run("UPDATE sets resource as both object and oldObject", func(t *testing.T) {
 		op, object, oldObject := AdmissionRequestShape("UPDATE", resource)
 		assert.Equal(t, admissionv1.Update, op)
-		assert.Equal(t, resource, object)
+		assert.Equal(t, resource.Object, object.(*unstructured.Unstructured).Object)
 		assert.Equal(t, resource.Object, oldObject.(*unstructured.Unstructured).Object)
 	})
-	t.Run("DELETE sets only oldObject", func(t *testing.T) {
+	t.Run("DELETE sets nil object and resource as oldObject", func(t *testing.T) {
 		op, object, oldObject := AdmissionRequestShape("DELETE", resource)
 		assert.Equal(t, admissionv1.Delete, op)
 		assert.Nil(t, object)
 		assert.Equal(t, resource.Object, oldObject.(*unstructured.Unstructured).Object)
+	})
+	t.Run("CONNECT sets nil object and nil oldObject", func(t *testing.T) {
+		op, object, oldObject := AdmissionRequestShape("CONNECT", resource)
+		assert.Equal(t, admissionv1.Connect, op)
+		assert.Nil(t, object)
+		assert.Nil(t, oldObject)
 	})
 }
 
@@ -97,6 +110,25 @@ func TestResolveOperation(t *testing.T) {
 	t.Run("explicit operation wins", func(t *testing.T) {
 		p := &PolicyProcessor{Operation: "DELETE"}
 		assert.Equal(t, "DELETE", p.resolveOperation())
+	})
+	t.Run("explicit CONNECT wins", func(t *testing.T) {
+		p := &PolicyProcessor{Operation: "CONNECT"}
+		assert.Equal(t, "CONNECT", p.resolveOperation())
+	})
+	t.Run("CONNECT from global values", func(t *testing.T) {
+		v, err := variables.New(nil, nil, "", "", &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		})
+		assert.NoError(t, err)
+		p := &PolicyProcessor{Variables: v}
+		assert.Equal(t, "CONNECT", p.resolveOperation())
+
+		op, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &unstructured.Unstructured{})
+		assert.Equal(t, admissionv1.Connect, op)
+		assert.Nil(t, object)
+		assert.Nil(t, oldObject)
 	})
 	t.Run("empty without variables", func(t *testing.T) {
 		p := &PolicyProcessor{}
@@ -115,4 +147,62 @@ func TestAdmissionRequestShapeUpdateDeepCopy(t *testing.T) {
 	_, object, oldObject := AdmissionRequestShape("UPDATE", resource)
 	object.(*unstructured.Unstructured).SetLabels(map[string]string{"mutated": "true"})
 	assert.Empty(t, oldObject.(*unstructured.Unstructured).GetLabels())
+}
+
+func TestApplyPoliciesOnResource_RejectsConnectForNativePolicies(t *testing.T) {
+	t.Run("rejects CONNECT for ValidatingAdmissionPolicy", func(t *testing.T) {
+		p := &PolicyProcessor{
+			Operation: "CONNECT",
+			ValidatingAdmissionPolicies: []admissionregistrationv1.ValidatingAdmissionPolicy{
+				{ObjectMeta: metav1.ObjectMeta{Name: "test-vap"}},
+			},
+			Resource: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata":   map[string]interface{}{"name": "test-pod"},
+				},
+			},
+		}
+		_, err := p.ApplyPoliciesOnResource()
+		assert.EqualError(t, err, "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for MutatingAdmissionPolicy", func(t *testing.T) {
+		p := &PolicyProcessor{
+			Operation: "CONNECT",
+			MutatingAdmissionPolicies: []admissionregistrationv1beta1.MutatingAdmissionPolicy{
+				{ObjectMeta: metav1.ObjectMeta{Name: "test-map"}},
+			},
+			Resource: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata":   map[string]interface{}{"name": "test-pod"},
+				},
+			},
+		}
+		_, err := p.ApplyPoliciesOnResource()
+		assert.EqualError(t, err, "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for MutatingPolicy", func(t *testing.T) {
+		p := &PolicyProcessor{
+			Operation: "CONNECT",
+			MutatingPolicies: []policiesv1beta1.MutatingPolicyLike{
+				&policiesv1beta1.MutatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-mpol"},
+				},
+			},
+			Resource: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata":   map[string]interface{}{"name": "test-pod"},
+				},
+			},
+		}
+		_, err := p.ApplyPoliciesOnResource()
+		assert.EqualError(t, err, "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
 }

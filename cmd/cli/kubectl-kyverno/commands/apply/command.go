@@ -573,6 +573,10 @@ func (c *ApplyCommandConfig) applyPolicies(
 	var rc processor.ResultCounts
 	var responses []engineapi.EngineResponse
 
+	if vars != nil && vars.GlobalOperation() == "CONNECT" && (len(vaps) > 0 || len(maps) > 0 || len(mpols) > 0) {
+		return &rc, resources, responses, fmt.Errorf("CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	}
+
 	params := make([]runtime.Object, len(parameterResources))
 	for i, p := range parameterResources {
 		params[i] = p

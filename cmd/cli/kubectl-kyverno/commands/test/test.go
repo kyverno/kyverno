@@ -455,9 +455,20 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		return nil, err
 	}
 	explicitOperations := sets.New[string]()
+	mutatingPolicyNames := sets.New[string]()
+	for _, p := range results.MutatingPolicies {
+		mutatingPolicyNames.Insert(p.GetName())
+	}
 	for _, res := range testCase.Test.Results {
 		if _, err := processor.NormalizeOperation(res.Operation); err != nil {
 			return nil, fmt.Errorf("invalid test result for policy %s: %w", res.Policy, err)
+		}
+		effectiveOp := res.Operation
+		if effectiveOp == "" {
+			effectiveOp = vars.GlobalOperation()
+		}
+		if effectiveOp == "CONNECT" && (res.IsValidatingAdmissionPolicy || res.IsMutatingAdmissionPolicy || res.IsMutatingPolicy || mutatingPolicyNames.Has(res.Policy)) {
+			return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy", res.Policy)
 		}
 		if res.Operation == "" {
 			continue
