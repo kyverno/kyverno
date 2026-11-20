@@ -26,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -86,6 +87,7 @@ func createReportControllers(
 	gcstore store.Store,
 	typeConverter patch.TypeConverterManager,
 	secretLister corev1listers.SecretLister,
+	ivCache imageverifycache.Client,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -203,6 +205,7 @@ func createReportControllers(
 				restMapper,
 				typeConverter,
 				secretLister,
+				ivCache,
 			)
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
@@ -244,6 +247,7 @@ func createrLeaderControllers(
 	gcstore store.Store,
 	typeConverter patch.TypeConverterManager,
 	secretLister corev1listers.SecretLister,
+	ivCache imageverifycache.Client,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
 		backgroundScan,
@@ -267,6 +271,7 @@ func createrLeaderControllers(
 		gcstore,
 		typeConverter,
 		secretLister,
+		ivCache,
 	)
 	return reportControllers, warmup, nil
 }
@@ -494,6 +499,7 @@ func main() {
 					gcstore,
 					typeConverter,
 					setup.RegistrySecretLister,
+					setup.ImageVerifyCacheClient,
 				)
 				if err != nil {
 					logger.Error(err, "failed to create leader controllers")
