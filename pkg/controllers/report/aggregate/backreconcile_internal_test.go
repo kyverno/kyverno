@@ -13,6 +13,7 @@ import (
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/openreports"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
@@ -263,5 +264,178 @@ func TestLegacyPoliciesPresent(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantPresent, present)
 		})
+	}
+}
+
+func TestBackReconcile_AllowedResultsWithoutPass_FixedViolationDeleted(t *testing.T) {
+	// Configure allowedResults to exclude "pass"
+	reportutils.ResetReportingConfig([]string{"fail", "error", "warn"}, "validate")
+	t.Cleanup(func() {
+		reportutils.ResetReportingConfig([]string{"pass", "fail", "error", "warn", "skip"}, "validate")
+	})
+
+	const second int64 = 1700000000
+	oldPolr := &v1alpha2.PolicyReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "fixed-polr",
+			Namespace:       "default",
+			ResourceVersion: "1",
+			Labels: map[string]string{
+				kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+			},
+		},
+		Results: []v1alpha2.PolicyReportResult{
+			{
+				Source:    reportutils.SourceValidatingPolicy,
+				Policy:    "require-app-label",
+				Result:    v1alpha2.PolicyResult(openreports.StatusFail),
+				Timestamp: metav1.Timestamp{Seconds: second, Nanos: 100_000_000},
+			},
+		},
+	}
+	ephr := &reportsv1.EphemeralReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ephr-fixed-polr",
+			Namespace: "default",
+			Labels: map[string]string{
+				reportutils.LabelResourceUid: "fixed-polr",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{APIVersion: "v1", Kind: "Pod", Name: "test-pod", UID: "fixed-polr"},
+			},
+		},
+		Spec: reportsv1.EphemeralReportSpec{
+			Results: []openreportsv1alpha1.ReportResult{
+				{
+					Source:    reportutils.SourceValidatingPolicy,
+					Policy:    "require-app-label",
+					Result:    openreports.StatusPass,
+					Timestamp: metav1.Timestamp{Seconds: second, Nanos: 900_000_000},
+				},
+			},
+		},
+	}
+	client := versionedfake.NewSimpleClientset(oldPolr, ephr)
+
+	vpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	_ = vpolIndexer.Add(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-app-label"},
+	})
+
+	c := &controller{
+		client:                  client,
+		vpolLister:              policiesv1beta1listers.NewValidatingPolicyLister(vpolIndexer),
+		cacheMu:                 &sync.Mutex{},
+		reportUUIDToPolicyCache: map[string]sets.Set[string]{},
+	}
+
+	err := c.backReconcile(context.TODO(), logr.Discard(), "", "default", "fixed-polr")
+	assert.NoError(t, err)
+
+	var sawDelete bool
+	for _, a := range client.Fake.Actions() {
+		if a.GetResource().Resource != "policyreports" {
+			continue
+		}
+		if action, ok := a.(k8stesting.DeleteAction); ok && action.GetName() == oldPolr.Name {
+			sawDelete = true
+		}
+	}
+	assert.True(t, sawDelete, "expected backReconcile to delete the permanent report because its only violation was fixed to pass and pass is not allowed")
+}
+
+func TestBackReconcile_AllowedResultsWithoutPass_PartialFixUpdated(t *testing.T) {
+	// Configure allowedResults to exclude "pass"
+	reportutils.ResetReportingConfig([]string{"fail", "error", "warn"}, "validate")
+	t.Cleanup(func() {
+		reportutils.ResetReportingConfig([]string{"pass", "fail", "error", "warn", "skip"}, "validate")
+	})
+
+	const second int64 = 1700000000
+	oldPolr := &v1alpha2.PolicyReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "partial-polr",
+			Namespace:       "default",
+			ResourceVersion: "1",
+			Labels: map[string]string{
+				kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+			},
+		},
+		Results: []v1alpha2.PolicyReportResult{
+			{
+				Source:    reportutils.SourceValidatingPolicy,
+				Policy:    "fixed-policy",
+				Result:    v1alpha2.PolicyResult(openreports.StatusFail),
+				Timestamp: metav1.Timestamp{Seconds: second, Nanos: 100_000_000},
+			},
+			{
+				Source:    reportutils.SourceValidatingPolicy,
+				Policy:    "still-failing-policy",
+				Result:    v1alpha2.PolicyResult(openreports.StatusFail),
+				Timestamp: metav1.Timestamp{Seconds: second, Nanos: 100_000_000},
+			},
+		},
+	}
+	ephr := &reportsv1.EphemeralReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ephr-partial-polr",
+			Namespace: "default",
+			Labels: map[string]string{
+				reportutils.LabelResourceUid: "partial-polr",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{APIVersion: "v1", Kind: "Pod", Name: "test-pod", UID: "partial-polr"},
+			},
+		},
+		Spec: reportsv1.EphemeralReportSpec{
+			Results: []openreportsv1alpha1.ReportResult{
+				{
+					Source:    reportutils.SourceValidatingPolicy,
+					Policy:    "fixed-policy",
+					Result:    openreports.StatusPass,
+					Timestamp: metav1.Timestamp{Seconds: second, Nanos: 900_000_000},
+				},
+				{
+					Source:    reportutils.SourceValidatingPolicy,
+					Policy:    "still-failing-policy",
+					Result:    openreports.StatusFail,
+					Timestamp: metav1.Timestamp{Seconds: second, Nanos: 900_000_000},
+				},
+			},
+		},
+	}
+	client := versionedfake.NewSimpleClientset(oldPolr, ephr)
+
+	vpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	_ = vpolIndexer.Add(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "fixed-policy"},
+	})
+	_ = vpolIndexer.Add(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "still-failing-policy"},
+	})
+
+	c := &controller{
+		client:                  client,
+		vpolLister:              policiesv1beta1listers.NewValidatingPolicyLister(vpolIndexer),
+		cacheMu:                 &sync.Mutex{},
+		reportUUIDToPolicyCache: map[string]sets.Set[string]{},
+	}
+
+	err := c.backReconcile(context.TODO(), logr.Discard(), "", "default", "partial-polr")
+	assert.NoError(t, err)
+
+	var updates []*v1alpha2.PolicyReport
+	for _, a := range client.Fake.Actions() {
+		if a.GetResource().Resource != "policyreports" {
+			continue
+		}
+		if action, ok := a.(k8stesting.UpdateAction); ok {
+			updates = append(updates, action.GetObject().(*v1alpha2.PolicyReport))
+		}
+	}
+	if assert.Len(t, updates, 1, "expected update removing fixed policy and keeping still-failing policy") {
+		assert.Len(t, updates[0].Results, 1)
+		assert.Equal(t, "still-failing-policy", updates[0].Results[0].Policy)
+		assert.Equal(t, v1alpha2.PolicyResult(openreports.StatusFail), updates[0].Results[0].Result)
 	}
 }

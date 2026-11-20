@@ -176,6 +176,7 @@ func createReportControllers(
 			backgroundScanController := backgroundscancontroller.NewController(
 				client,
 				kyvernoClient,
+				orClient,
 				metadataFactory,
 				policiesV1beta1.ValidatingPolicies(),
 				policiesV1beta1.NamespacedValidatingPolicies(),

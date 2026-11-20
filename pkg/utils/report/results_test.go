@@ -6,6 +6,7 @@ import (
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -335,4 +336,74 @@ func TestToPolicyReportResultPreservesSubsecondTimestamp(t *testing.T) {
 	assert.False(t, recorded.After(after), "timestamp exceeds evaluation interval")
 	assert.GreaterOrEqual(t, result.Timestamp.Nanos, int32(0))
 	assert.Less(t, result.Timestamp.Nanos, int32(time.Second))
+}
+
+func TestSetResponses_AllowedResultsFiltering(t *testing.T) {
+	ResetReportingConfig([]string{"fail", "error", "warn"}, "validate")
+	t.Cleanup(func() {
+		ResetReportingConfig([]string{"pass", "fail", "error", "warn", "skip"}, "validate")
+	})
+
+	pol := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+	})
+	resp := engineapi.EngineResponse{}.WithPolicy(pol).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{
+			*engineapi.NewRuleResponse("rule-pass", engineapi.Validation, "pass message", engineapi.RuleStatusPass, nil),
+			*engineapi.NewRuleResponse("rule-fail", engineapi.Validation, "fail message", engineapi.RuleStatusFail, nil),
+		},
+	})
+
+	report := &reportsv1.EphemeralReport{}
+	SetResponses(report, resp)
+
+	assert.Equal(t, 1, len(report.GetResults()), "pass result should be filtered out on direct-write path")
+	assert.Equal(t, openreports.StatusFail, string(report.GetResults()[0].Result))
+	assert.Equal(t, "rule-fail", report.GetResults()[0].Rule)
+}
+
+func TestSetMutationResponses_AllowedResultsFiltering(t *testing.T) {
+	ResetReportingConfig([]string{"fail", "error", "warn"}, "mutate")
+	t.Cleanup(func() {
+		ResetReportingConfig([]string{"pass", "fail", "error", "warn", "skip"}, "mutate")
+	})
+
+	pol := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-mutation-policy"},
+	})
+	resp := engineapi.EngineResponse{}.WithPolicy(pol).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{
+			*engineapi.NewRuleResponse("rule-pass", engineapi.Mutation, "pass message", engineapi.RuleStatusPass, nil),
+			*engineapi.NewRuleResponse("rule-fail", engineapi.Mutation, "fail message", engineapi.RuleStatusFail, nil),
+		},
+	})
+
+	report := &reportsv1.EphemeralReport{}
+	SetMutationResponses(report, resp)
+
+	assert.Equal(t, 1, len(report.GetResults()), "pass result should be filtered out on direct mutation path")
+	assert.Equal(t, openreports.StatusFail, string(report.GetResults()[0].Result))
+}
+
+func TestSetGenerationResponses_AllowedResultsFiltering(t *testing.T) {
+	ResetReportingConfig([]string{"fail", "error", "warn"}, "generate")
+	t.Cleanup(func() {
+		ResetReportingConfig([]string{"pass", "fail", "error", "warn", "skip"}, "generate")
+	})
+
+	pol := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-generation-policy"},
+	})
+	resp := engineapi.EngineResponse{}.WithPolicy(pol).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{
+			*engineapi.NewRuleResponse("rule-pass", engineapi.Generation, "pass message", engineapi.RuleStatusPass, nil),
+			*engineapi.NewRuleResponse("rule-fail", engineapi.Generation, "fail message", engineapi.RuleStatusFail, nil),
+		},
+	})
+
+	report := &reportsv1.EphemeralReport{}
+	SetGenerationResponses(report, resp)
+
+	assert.Equal(t, 1, len(report.GetResults()), "pass result should be filtered out on direct generation path")
+	assert.Equal(t, openreports.StatusFail, string(report.GetResults()[0].Result))
 }
