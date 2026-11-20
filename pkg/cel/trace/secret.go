@@ -208,10 +208,12 @@ func (r redaction) reads(in Inputs) bool {
 	return false
 }
 
-// value returns v, or redacted when it may be Secret data. True and false say nothing about the
-// data and are kept, so the trace still shows which checks held.
-func (r redaction) value(in Inputs, v string) string {
-	if v != "" && v != "true" && v != "false" && r.reads(in) {
+// value returns v, or redacted when it may be Secret data. Genuine boolean results
+// (flagged by isBoolean) say nothing about secret data and are kept, so the trace still shows
+// which checks held. String values (even if literally "true" or "false") that may come from a
+// Secret are redacted.
+func (r redaction) value(in Inputs, v string, isBoolean bool) string {
+	if v != "" && !isBoolean && r.reads(in) {
 		return redacted
 	}
 	return v
@@ -226,12 +228,11 @@ func (r redaction) errorText(in Inputs, err string) string {
 	return err
 }
 
-// message returns the verdict's message. The message of an ERROR verdict is the error that ended
-// the evaluation, which can quote a value as errorText says, and may come from any expression of
-// the decision, so it is hidden when anything in the decision may read a Secret. Any other
-// message is the policy's own, which is returned to the requester anyway, and is kept.
+// message returns the verdict's message. When the resource is a Secret, or when the verdict
+// is ERROR and anything in the decision reads a Secret, the message is hidden because it may
+// quote Secret data.
 func (r redaction) message(v VerdictTrace) string {
-	if v.Status == VerdictError && v.Message != "" && r.any {
+	if (r.all || v.Status == VerdictError) && v.Message != "" && r.any {
 		return redacted
 	}
 	return v.Message

@@ -297,5 +297,322 @@ func TestRender_NoBreakdownNote(t *testing.T) {
 		ExpressionTrace: ExpressionTrace{Source: "verify(x) > 0", Result: "true", NoBreakdown: "it verifies images"},
 	}})
 	assert.NotContains(t, sb.String(), "no breakdown", "a pass shows no breakdown, so no note either")
+}
 
+// TestRender_SecretValuesAreRedacted checks that Render replaces non-boolean resolved values with
+// "(redacted)" when the resource is a Secret, and prints a NOTE banner.
+func TestRender_SecretValuesAreRedacted(t *testing.T) {
+	const password = "hunter2-do-not-render"
+	d := &Decision{
+		PolicyName:   "secret-rules",
+		PolicyKind:   "ValidatingPolicy",
+		ResourceKind: "Secret",
+		ResourceName: "db-credentials",
+		Match: []NamedExpressionTrace{{
+			Name:            "has-data",
+			ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true", ResultIsBoolean: true},
+		}},
+		Variables: []NamedExpressionTrace{{
+			Name:            "pw",
+			ExpressionTrace: ExpressionTrace{Source: "object.data.password", Result: password},
+		}},
+		Verdict: VerdictTrace{
+			Status:  VerdictFail,
+			Message: password,
+			ExpressionTrace: ExpressionTrace{
+				Source:          "variables.pw.size() > 32",
+				Result:          "false",
+				ResultIsBoolean: true,
+				Nodes: []NodeTrace{
+					{Expression: "variables.pw.size() > 32", Value: "false", ValueIsBoolean: true},
+					{Expression: "variables.pw.size()", Value: "18"},
+					{Expression: "variables.pw", Value: password},
+				},
+			},
+		},
+	}
+
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+
+	assert.NotContains(t, out, password, "secret value must not appear in rendered output")
+	assert.Contains(t, out, "NOTE:", "a banner must explain why values are redacted")
+	assert.Contains(t, out, redacted)
+	// top-level expression results that are genuine booleans are kept (they only reflect the verdict)
+	assert.Contains(t, out, "has(object.data)  ->  true", "top-level boolean true is kept")
+	assert.Contains(t, out, "variables.pw.size() > 32  ->  false", "top-level boolean false is kept")
+	// non-boolean results are redacted
+	assert.Contains(t, out, "pw: object.data.password  ->  "+redacted, "variable result is redacted")
+	assert.Contains(t, out, `message: "`+redacted+`"`, "message is redacted")
+	// ALL node breakdown values are redacted, even booleans (boolean nodes can probe secret content)
+	assert.Contains(t, out, "variables.pw.size() > 32  ->  "+redacted, "boolean node value is redacted")
+	assert.Contains(t, out, "variables.pw.size()  ->  "+redacted, "non-boolean node value is redacted")
+	assert.Contains(t, out, "variables.pw  ->  "+redacted, "node containing the password is redacted")
+}
+
+// TestRender_NonSecretDecisionIsNotRedacted checks that a non-Secret decision is rendered with its
+// real values and no NOTE banner.
+func TestRender_NonSecretDecisionIsNotRedacted(t *testing.T) {
+	d := &Decision{
+		ResourceKind: "Pod",
+		Variables: []NamedExpressionTrace{{
+			Name:            "team",
+			ExpressionTrace: ExpressionTrace{Source: "object.metadata.labels.team", Result: "payments"},
+		}},
+		Verdict: VerdictTrace{
+			Status: VerdictFail,
+			ExpressionTrace: ExpressionTrace{
+				Source: "variables.team == 'platform'",
+				Result: "false",
+				Nodes: []NodeTrace{
+					{Expression: "variables.team", Value: "payments"},
+				},
+			},
+			Message: "team must be platform",
+		},
+	}
+
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+
+	assert.NotContains(t, out, "NOTE:")
+	assert.NotContains(t, out, redacted)
+	assert.Contains(t, out, "payments")
+	assert.Contains(t, out, `message: "team must be platform"`)
+}
+
+// TestRender_SecretRedactsImagesAndGenerations checks that IMAGES rows and generated-resource
+// descriptors are also redacted when the resource is a Secret.
+func TestRender_SecretRedactsImagesAndGenerations(t *testing.T) {
+	const password = "hunter2-do-not-render"
+	d := &Decision{
+		ResourceKind: "Secret",
+		Images: &ImagesTrace{Found: []ImageTrace{
+			{Category: "containers", Image: password, Checked: true},
+			{Category: "initContainers", Image: password, Checked: false},
+		}},
+		Generations: []GenerationTrace{
+			{
+				Name:      "generate[0] (template)",
+				Generated: []string{"ConfigMap default/" + password},
+			},
+		},
+		Verdict: VerdictTrace{Status: VerdictPass},
+	}
+
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+
+	assert.NotContains(t, out, password)
+	assert.Contains(t, out, "IMAGES     checked  containers: "+redacted)
+	assert.Contains(t, out, "IMAGES     skipped  initContainers: "+redacted)
+	assert.Contains(t, out, "generated "+redacted)
+}
+
+// TestRender_SecretRedactsRemainingPaths is a table-driven test that verifies every changed
+// Render path for a Secret resource does not leak the sensitive value, that "true" and "false"
+// remain visible (over-redaction guard), and that empty values are handled without panic.
+func TestRender_SecretRedactsRemainingPaths(t *testing.T) {
+	const pw = "hunter2-do-not-render"
+
+	tests := []struct {
+		name         string
+		decision     *Decision
+		wantContains []string // substrings that must appear (e.g. booleans kept)
+	}{
+		{
+			name: "mutation Error is redacted",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Mutations:    []MutationTrace{{Name: "mutations[0]", Error: "failed: " + pw}},
+				Verdict:      VerdictTrace{Status: VerdictPass},
+			},
+			wantContains: []string{redacted},
+		},
+		{
+			name: "mutation Error empty value not panics",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Mutations:    []MutationTrace{{Name: "mutations[0]", Error: ""}},
+				Verdict:      VerdictTrace{Status: VerdictPass},
+			},
+		},
+		{
+			name: "mutation NotApplied is redacted",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Mutations: []MutationTrace{{
+					Name:       "mutations[0]",
+					NotApplied: "skipped: " + pw,
+					ExpressionTrace: ExpressionTrace{
+						Source:          "Object{}",
+						Result:          "true",
+						ResultIsBoolean: true,
+					},
+				}},
+				Verdict: VerdictTrace{Status: VerdictPass},
+			},
+			// the expression result "true" is a real boolean and must stay visible
+			wantContains: []string{"Object{}  ->  true"},
+		},
+		{
+			name: "mutation NotApplied empty value not panics",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Mutations: []MutationTrace{{
+					Name:       "mutations[0]",
+					NotApplied: "",
+					ExpressionTrace: ExpressionTrace{
+						Source:          "Object{}",
+						Result:          "false",
+						ResultIsBoolean: true,
+					},
+				}},
+				Verdict: VerdictTrace{Status: VerdictPass},
+			},
+			wantContains: []string{"Object{}  ->  false"},
+		},
+		{
+			name: "generation Error is redacted",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Generations:  []GenerationTrace{{Name: "generate[0]", Error: "failed: " + pw}},
+				Verdict:      VerdictTrace{Status: VerdictPass},
+			},
+			wantContains: []string{redacted},
+		},
+		{
+			name: "node Error through printNodes is redacted",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Verdict: VerdictTrace{
+					Status: VerdictFail,
+					ExpressionTrace: ExpressionTrace{
+						Source:          "object.data.x == true",
+						Result:          "false",
+						ResultIsBoolean: true,
+						Nodes: []NodeTrace{
+							{Expression: "object.data.x == true", Value: "false", ValueIsBoolean: true},
+							{Expression: "object.data.x", Error: "err: " + pw},
+						},
+					},
+				},
+			},
+			// verdict result "false" (top-level) is kept; ALL node values including booleans are redacted
+			wantContains: []string{
+				"object.data.x == true  ->  false",          // verdict line (top-level boolean kept)
+				"   object.data.x == true  ->  " + redacted, // node boolean value is redacted
+				"   object.data.x  ->  ERROR: " + redacted,  // node error redacted
+			},
+		},
+		{
+			name: "multiple Validations rows are redacted",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Validations: []ValidationTrace{
+					{Index: 0, Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "has(object.data)", Result: "true", ResultIsBoolean: true}},
+					{Index: 1, Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "object.type == 'tls'", Result: pw}},
+				},
+				Verdict: VerdictTrace{
+					Status:          VerdictFail,
+					ExpressionTrace: ExpressionTrace{Source: "object.type == 'tls'", Result: "false", ResultIsBoolean: true},
+				},
+			},
+			// "true" and "false" results in validation rows must be kept
+			wantContains: []string{
+				"has(object.data)  ->  true",
+				"object.type == 'tls'  ->  " + redacted,
+			},
+		},
+		{
+			name: "verdict with no Source message is redacted",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Verdict:      VerdictTrace{Status: VerdictFail, Message: pw},
+			},
+			wantContains: []string{redacted},
+		},
+		{
+			name: "verdict with no Source empty message not panics",
+			decision: &Decision{
+				ResourceKind: "Secret",
+				Verdict:      VerdictTrace{Status: VerdictFail, Message: ""},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var sb strings.Builder
+			Render(&sb, tc.decision)
+			out := sb.String()
+			assert.NotContains(t, out, pw, "sensitive value must not appear in rendered output")
+			for _, want := range tc.wantContains {
+				assert.Contains(t, out, want)
+			}
+		})
+	}
+}
+
+// TestRender_PodSecretReadsRedactsImagesAndGenerations verifies that extracted images and
+// generated descriptors are redacted when a decision on a non-Secret resource reads Secret data.
+func TestRender_PodSecretReadsRedactsImagesAndGenerations(t *testing.T) {
+	const password = "hunter2-do-not-render"
+	d := &Decision{
+		ResourceKind: "Pod",
+		Variables: []NamedExpressionTrace{{
+			Name: "token",
+			ExpressionTrace: ExpressionTrace{
+				Source: "resource.Get('v1', 'secrets', 'default', 'creds').data.token",
+				Inputs: Inputs{Secret: true},
+				Result: password,
+			},
+		}},
+		Images: &ImagesTrace{Found: []ImageTrace{
+			{Category: "custom", Image: password, Checked: true},
+		}},
+		Generations: []GenerationTrace{
+			{
+				Name:      "generate[0] (template)",
+				Generated: []string{"ConfigMap default/" + password},
+			},
+		},
+		Verdict: VerdictTrace{Status: VerdictPass},
+	}
+
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+
+	assert.NotContains(t, out, password)
+	assert.Contains(t, out, "IMAGES     checked  custom: "+redacted)
+	assert.Contains(t, out, "generated "+redacted)
+}
+
+// TestRender_NodeErrorsAreClipped verifies that long non-Secret node errors are clipped to maxValueLen.
+func TestRender_NodeErrorsAreClipped(t *testing.T) {
+	longError := strings.Repeat("x", 120)
+	d := &Decision{
+		ResourceKind: "Pod",
+		Verdict: VerdictTrace{
+			Status: VerdictFail,
+			ExpressionTrace: ExpressionTrace{
+				Source: "object.spec.replicas > 0",
+				Result: "false",
+				Nodes: []NodeTrace{
+					{Expression: "object.spec.replicas", Error: longError},
+				},
+			},
+		},
+	}
+
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+
+	assert.Contains(t, out, strings.Repeat("x", 100)+"...")
+	assert.NotContains(t, out, longError)
 }

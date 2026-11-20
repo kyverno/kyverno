@@ -54,7 +54,7 @@ func LogValues(d *Decision) []any {
 		Verdict: LogExpression{
 			Status:     d.Verdict.Status,
 			Expression: d.Verdict.Source,
-			Result:     l.value(d.Verdict.Inputs, d.Verdict.Result),
+			Result:     l.value(d.Verdict.Inputs, d.Verdict.Result, d.Verdict.ResultIsBoolean),
 			Message:    l.message(d.Verdict),
 		},
 	}
@@ -73,7 +73,7 @@ func LogValues(d *Decision) []any {
 			entry.Validations = append(entry.Validations, LogExpression{
 				Status:     v.Status,
 				Expression: v.Source,
-				Result:     l.value(v.Inputs, v.Result),
+				Result:     l.value(v.Inputs, v.Result, v.ResultIsBoolean),
 			})
 		}
 	}
@@ -81,9 +81,9 @@ func LogValues(d *Decision) []any {
 		mutation := LogExpression{
 			Name:       m.Name,
 			Expression: m.Source,
-			Result:     l.value(m.Inputs, m.Result),
+			Result:     l.value(m.Inputs, m.Result, m.ResultIsBoolean),
 			Error:      l.errorText(m.Inputs, m.Error),
-			NotApplied: m.NotApplied,
+			NotApplied: l.errorText(m.Inputs, m.NotApplied),
 		}
 		if m.Error != "" {
 			l.breakdown(&mutation, m.ExpressionTrace)
@@ -103,17 +103,21 @@ type logFormat struct {
 	redaction
 }
 
-func (l logFormat) value(in Inputs, v string) string {
-	return clip(l.redaction.value(in, v))
+func (l logFormat) value(in Inputs, v string, isBoolean bool) string {
+	return clip(l.redaction.value(in, v, isBoolean))
 }
 
 func (l logFormat) named(n NamedExpressionTrace) LogExpression {
-	return LogExpression{Name: n.Name, Expression: n.Source, Result: l.value(n.Inputs, n.Result)}
+	return LogExpression{Name: n.Name, Expression: n.Source, Result: l.value(n.Inputs, n.Result, n.ResultIsBoolean)}
 }
 
 func (l logFormat) breakdown(e *LogExpression, et ExpressionTrace) {
 	e.LoopValuesOmitted = et.LoopValuesOmitted
 	for _, n := range et.Nodes {
-		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Inputs, n.Value), Error: l.errorText(n.Inputs, n.Error)})
+		// Node values are always redacted in secret traces, even booleans: an intermediate
+		// boolean result such as "object.data.token.startsWith('YQ') -> true" leaks structural
+		// information about the secret and can be used for character-by-character probing.
+		isBool := !l.all && n.ValueIsBoolean
+		e.Evaluated = append(e.Evaluated, LogNode{Expression: n.Expression, Value: l.value(n.Inputs, n.Value, isBool), Error: l.errorText(n.Inputs, n.Error)})
 	}
 }
