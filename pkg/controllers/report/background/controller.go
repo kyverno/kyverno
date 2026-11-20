@@ -285,7 +285,7 @@ func (c *controller) addVP(obj policiesv1beta1.ValidatingPolicyLike) {
 }
 
 func (c *controller) updateVP(old, obj policiesv1beta1.ValidatingPolicyLike) {
-	if old.GetResourceVersion() != obj.GetResourceVersion() {
+	if reportutils.EffectivePolicyRevision(old) != reportutils.EffectivePolicyRevision(obj) {
 		c.enqueueResources()
 	}
 }
@@ -299,7 +299,7 @@ func (c *controller) addMP(obj policiesv1beta1.MutatingPolicyLike) {
 }
 
 func (c *controller) updateMP(old, obj policiesv1beta1.MutatingPolicyLike) {
-	if old.GetResourceVersion() != obj.GetResourceVersion() {
+	if reportutils.EffectivePolicyRevision(old) != reportutils.EffectivePolicyRevision(obj) {
 		c.enqueueResources()
 	}
 }
@@ -313,7 +313,7 @@ func (c *controller) addIVP(obj policiesv1beta1.ImageValidatingPolicyLike) {
 }
 
 func (c *controller) updateIVP(old, obj policiesv1beta1.ImageValidatingPolicyLike) {
-	if old.GetResourceVersion() != obj.GetResourceVersion() {
+	if reportutils.EffectivePolicyRevision(old) != reportutils.EffectivePolicyRevision(obj) {
 		c.enqueueResources()
 	}
 }
@@ -501,7 +501,7 @@ func (c *controller) needsReconcile(
 	// if a policy or an exception changed, we need a partial reconcile
 	expected := map[string]string{}
 	for _, policy := range policies {
-		expected[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
+		expected[reportutils.PolicyLabel(policy)] = reportutils.PolicyRevision(policy)
 	}
 	for _, binding := range vapBindings {
 		expected[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
@@ -561,7 +561,7 @@ func (c *controller) reconcileReport(
 	// build desired report
 	expected := map[string]string{}
 	for _, policy := range policies {
-		expected[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
+		expected[reportutils.PolicyLabel(policy)] = reportutils.PolicyRevision(policy)
 	}
 	for _, binding := range vapBindings {
 		expected[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
@@ -650,7 +650,7 @@ func (c *controller) reconcileReport(
 				}
 			}
 		}
-		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
+		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != reportutils.PolicyRevision(policy) {
 			scanner := utils.NewScanner(logger, c.config, c.client, c.gctxStore, c.mapper, c.secretLister, c.typeConverter)
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
