@@ -279,3 +279,11 @@ func Test_AutogenImageVerify_StringLiterals(t *testing.T) {
 	// AuditAnnotations valueExpression preserved
 	assert.Equal(t, "object.metadata.name + ' - evaluated for object.spec'", rule.Spec.AuditAnnotations[0].ValueExpression)
 }
+
+func Test_AutogenImageVerify_ResourceRuleWithoutOperations(t *testing.T) {
+	policy := ivpol.DeepCopy()
+	policy.Spec.MatchConstraints.ResourceRules[0].Operations = nil
+	rules, err := Autogen(policy)
+	assert.NoError(t, err)
+	assert.Empty(t, rules)
+}

@@ -1094,3 +1094,31 @@ func TestAutogenPodControllersEnabled(t *testing.T) {
 		assert.Len(t, rules[autogen.AutogenCronjobs].Targets, 1)
 	})
 }
+
+func TestAutogenResourceRuleWithoutOperations(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "object.spec.containers.all(c, has(c.image))",
+				},
+			},
+		},
+	}
+	rules, err := Autogen(policy)
+	assert.NoError(t, err)
+	assert.Empty(t, rules)
+}
