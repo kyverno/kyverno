@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	apiserverclient "github.com/kyverno/kyverno/pkg/clients/apiserver"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
@@ -88,6 +89,9 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 	var imageVerifyCache imageverifycache.Client
 	if config.UsesImageVerifyCache() {
 		imageVerifyCache = setupImageVerifyCache(logger)
+	}
+	if config.UsesImageDataCache() {
+		libs.SetImageDataCache(setupImageDataCache(logger))
 	}
 	if config.UsesCosign() {
 		setupSigstoreTUF(ctx, logger)

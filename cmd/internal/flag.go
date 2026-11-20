@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	imagedatacache "github.com/kyverno/kyverno/pkg/image/datacache"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -71,6 +72,11 @@ var (
 	imageVerifyCacheEnabled     bool
 	imageVerifyCacheTTLDuration time.Duration
 	imageVerifyCacheMaxSize     int64
+	// image data cache
+	imageDataCacheEnabled        bool
+	imageDataCacheMaxSize        int64
+	imageDataCacheTTLDuration    time.Duration
+	imageDataCacheTagTTLDuration time.Duration
 	// global context
 	enableGlobalContext bool
 	// reporting
@@ -170,6 +176,13 @@ func initImageVerifyCacheFlags() {
 	flag.BoolVar(&imageVerifyCacheEnabled, "imageVerifyCacheEnabled", true, "Enable a TTL cache for verified images.")
 	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", imageverifycache.DefaultMaxSize, "Maximum size of the TTL cache in bytes. Each entry is charged the size of the attestation payloads it stores plus a small fixed overhead, so actual memory use is somewhat higher than this value. Default is 10485760 (10 MiB). 0 sets the value to default.")
 	flag.DurationVar(&imageVerifyCacheTTLDuration, "imageVerifyCacheTTLDuration", 60*time.Minute, "Maximum TTL value for a cache expressed as duration. Default is 60m. 0 sets the value to default.")
+}
+
+func initImageDataCacheFlags() {
+	flag.BoolVar(&imageDataCacheEnabled, "imageDataCacheEnabled", false, "Enable a TTL cache for the image metadata fetched by image.GetMetadata in CEL policies, shared across evaluations. ImageValidatingPolicy lookups are not cached.")
+	flag.Int64Var(&imageDataCacheMaxSize, "imageDataCacheMaxSize", imagedatacache.DefaultMaxSize, "Maximum size of the image data cache in bytes, counted as the JSON size of the cached metadata; actual memory use is somewhat higher. Default is 10485760 (10 MiB). 0 sets the value to default.")
+	flag.DurationVar(&imageDataCacheTTLDuration, "imageDataCacheTTLDuration", imagedatacache.DefaultTTL, "TTL of the cached metadata of an image digest. Default is 60m. 0 disables caching of digest references.")
+	flag.DurationVar(&imageDataCacheTagTTLDuration, "imageDataCacheTagTTLDuration", imagedatacache.DefaultTagTTL, "How long a tag keeps resolving to the same cached digest. Default is 60s. 0 disables caching of tag references.")
 }
 
 func initLeaderElectionFlags() {
@@ -278,6 +291,10 @@ func initFlags(config Configuration, opts ...Option) {
 	// image verify cache
 	if config.UsesImageVerifyCache() {
 		initImageVerifyCacheFlags()
+	}
+	// image data cache
+	if config.UsesImageDataCache() {
+		initImageDataCacheFlags()
 	}
 	// leader election
 	if config.UsesLeaderElection() {

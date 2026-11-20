@@ -16,6 +16,7 @@ type Configuration interface {
 	UsesCosign() bool
 	UsesRegistryClient() bool
 	UsesImageVerifyCache() bool
+	UsesImageDataCache() bool
 	UsesLeaderElection() bool
 	UsesKyvernoClient() bool
 	UsesDynamicClient() bool
@@ -101,6 +102,12 @@ func WithImageVerifyCache() ConfigurationOption {
 	}
 }
 
+func WithImageDataCache() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesImageDataCache = true
+	}
+}
+
 func WithLeaderElection() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesLeaderElection = true
@@ -180,6 +187,7 @@ type configuration struct {
 	usesCosign               bool
 	usesRegistryClient       bool
 	usesImageVerifyCache     bool
+	usesImageDataCache       bool
 	usesLeaderElection       bool
 	usesKyvernoClient        bool
 	usesDynamicClient        bool
@@ -231,6 +239,10 @@ func (c *configuration) UsesCosign() bool {
 
 func (c *configuration) UsesRegistryClient() bool {
 	return c.usesRegistryClient
+}
+
+func (c *configuration) UsesImageDataCache() bool {
+	return c.usesImageDataCache
 }
 
 func (c *configuration) UsesImageVerifyCache() bool {
