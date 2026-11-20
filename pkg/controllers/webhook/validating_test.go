@@ -328,8 +328,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				0,
 				nil,
 				vpols,
-				expressionCache,
-			)
+				expressionCache, 15)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)
@@ -344,6 +343,9 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				}
 				if expect.TimeoutSeconds != nil {
 					assert.Equal(t, expect.TimeoutSeconds, webhooks[i].TimeoutSeconds)
+				} else {
+					assert.NotNil(t, webhooks[i].TimeoutSeconds)
+					assert.Equal(t, int32(15), *webhooks[i].TimeoutSeconds)
 				}
 				if expect.ClientConfig.Service != nil {
 					assert.Equal(t, *webhooks[i].ClientConfig.Service.Path, *expect.ClientConfig.Service.Path)
@@ -456,8 +458,7 @@ func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
 				0,
 				nil,
 				nvpols,
-				expressionCache,
-			)
+				expressionCache, 10)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)
@@ -516,8 +517,7 @@ func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 		return buildWebhookRules(
 			config.NewDefaultConfiguration(false),
 			"", webhookName, queryPath,
-			0, nil, generic, cache,
-		)
+			0, nil, generic, cache, 10)
 	}
 	vpolA := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "policy-aardvark"},
@@ -777,8 +777,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				0,
 				nil,
 				ivpols,
-				expressionCache,
-			)
+				expressionCache, 10)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)
@@ -861,8 +860,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy_EphemeralContainers(t *testing.
 			0,
 			nil,
 			ivpols,
-			expressionCache,
-		)
+			expressionCache, 10)
 		if len(webhooks) != 1 {
 			t.Fatalf("expected exactly one webhook, got %d", len(webhooks))
 		}
@@ -1040,8 +1038,7 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 		0,
 		nil,
 		[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
-		expressionCache,
-	)
+		expressionCache, 10)
 	ngpolWebhooks := buildWebhookRules(
 		config.NewDefaultConfiguration(false),
 		"",
@@ -1050,8 +1047,7 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 		0,
 		nil,
 		[]engineapi.GenericPolicy{engineapi.NewNamespacedGeneratingPolicy(ngpol)},
-		expressionCache,
-	)
+		expressionCache, 10)
 
 	assert.Len(t, gpolWebhooks, 1)
 	assert.Len(t, ngpolWebhooks, 1)
@@ -1136,8 +1132,7 @@ func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *te
 				0,
 				nil,
 				[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
-				expressionCache,
-			)
+				expressionCache, 10)
 			assert.Len(t, webhooks, 1)
 			assert.Len(t, webhooks[0].MatchConditions, 1)
 			assert.Equal(t, "opt-in", webhooks[0].MatchConditions[0].Name)
@@ -1273,9 +1268,9 @@ func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) 
 	cfg := config.NewDefaultConfiguration(false)
 
 	mpolWebhooks := buildWebhookRules(cfg, "", config.MutatingPolicyWebhookName, "/mpol", 0, nil,
-		[]engineapi.GenericPolicy{engineapi.NewMutatingPolicy(mpol)}, expressionCache)
+		[]engineapi.GenericPolicy{engineapi.NewMutatingPolicy(mpol)}, expressionCache, 10)
 	nmpolWebhooks := buildWebhookRules(cfg, "", config.NamespacedMutatingPolicyWebhookName, "/nmpol", 0, nil,
-		[]engineapi.GenericPolicy{engineapi.NewNamespacedMutatingPolicy(nmpol)}, expressionCache)
+		[]engineapi.GenericPolicy{engineapi.NewNamespacedMutatingPolicy(nmpol)}, expressionCache, 10)
 
 	assert.Len(t, mpolWebhooks, 1)
 	assert.Len(t, nmpolWebhooks, 1)
@@ -1357,8 +1352,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInDifferentNamespaces(t *testing.T)
 		config.NewDefaultConfiguration(false),
 		"", config.NamespacedValidatingPolicyWebhookName, "/nvpol", 0, nil,
 		[]engineapi.GenericPolicy{teamA, teamB},
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	assert.Len(t, webhooks, 2, "each namespaced policy needs its own webhook")
 	pinned := map[string]bool{}
@@ -1417,8 +1411,7 @@ func TestBuildWebhookRules_PoliciesWithDifferentSelectorsGetSeparateWebhooks(t *
 		0,
 		nil,
 		policies,
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	assert.Len(t, webhooks, 2, "policies with different selectors need their own webhook")
 	environments := make([]string, 0, len(webhooks))
@@ -1476,8 +1469,7 @@ func TestBuildWebhookRules_PoliciesSharingSelectorsShareAWebhook(t *testing.T) {
 		0,
 		nil,
 		policies,
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	// three distinct selectors (none, production, payments) means three webhooks, not six.
 	assert.Len(t, webhooks, 3, "policies sharing a selector should share a webhook")
@@ -1527,8 +1519,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *tes
 		0,
 		nil,
 		policies,
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	// two namespaces means two webhooks, not three
 	assert.Len(t, webhooks, 2, "policies in the same namespace should share a webhook")
@@ -1563,6 +1554,7 @@ func newImageValidatingPolicyTestController(t *testing.T, ivpol *policiesv1beta1
 		},
 	}
 	return &controller{
+		defaultTimeout:     17,
 		vpolLister:         policiesv1beta1listers.NewValidatingPolicyLister(newIndexer()),
 		nvpolLister:        policiesv1beta1listers.NewNamespacedValidatingPolicyLister(newIndexer()),
 		gpolLister:         policiesv1beta1listers.NewGeneratingPolicyLister(newIndexer()),
@@ -1626,6 +1618,9 @@ func TestBuildForJSONPolicies_ImageValidatingPolicyWebhookNamesDoNotCollide(t *t
 		config.ImageValidatingPolicyValidateWebhookName + "-fail",
 		config.NamespacedImageValidatingPolicyValidateWebhookName + "-fail",
 	}, validatingNames)
+	for _, webhook := range validating.Webhooks {
+		assert.Equal(t, ptr.To(int32(17)), webhook.TimeoutSeconds)
+	}
 
 	mutating := &admissionregistrationv1.MutatingWebhookConfiguration{}
 	assert.NoError(t, c.buildForJSONPoliciesMutation(cfg, nil, mutating))
@@ -1637,6 +1632,125 @@ func TestBuildForJSONPolicies_ImageValidatingPolicyWebhookNamesDoNotCollide(t *t
 		config.ImageValidatingPolicyMutateWebhookName + "-fail",
 		config.NamespacedImageValidatingPolicyMutateWebhookName + "-fail",
 	}, mutatingNames)
+	for _, webhook := range mutating.Webhooks {
+		assert.Equal(t, ptr.To(int32(17)), webhook.TimeoutSeconds)
+	}
+}
+
+func TestBuildWebhookRules_TimeoutCappedAtKubernetesMaximum(t *testing.T) {
+	rule := admissionregistrationv1.NamedRuleWithOperations{
+		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{""},
+				APIVersions: []string{"v1"},
+				Resources:   []string{"pods"},
+			},
+		},
+	}
+	basicVpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "basic-pol"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{rule},
+			},
+		},
+	}
+	fineGrainedVpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "finegrained-pol"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "test-cond",
+				Expression: "true",
+			}},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{rule},
+			},
+		},
+	}
+	customTimeoutVpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "custom-timeout-pol"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			WebhookConfiguration: &policiesv1beta1.WebhookConfiguration{
+				TimeoutSeconds: ptr.To(int32(40)),
+			},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{rule},
+			},
+		},
+	}
+
+	cache := NewExpressionCache()
+	cache.AddPolicyExpressions(fineGrainedVpol.Spec.MatchConditions)
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.ValidatingPolicyWebhookName,
+		"/vpol",
+		0,
+		nil,
+		[]engineapi.GenericPolicy{
+			engineapi.NewValidatingPolicy(basicVpol),
+			engineapi.NewValidatingPolicy(fineGrainedVpol),
+			engineapi.NewValidatingPolicy(customTimeoutVpol),
+		},
+		cache,
+		45,
+	)
+
+	assert.NotEmpty(t, webhooks)
+	for _, wh := range webhooks {
+		assert.NotNil(t, wh.TimeoutSeconds, "TimeoutSeconds must be set for webhook %s", wh.Name)
+		assert.Equal(t, int32(30), *wh.TimeoutSeconds, "webhook %s timeout must be capped to 30", wh.Name)
+	}
+}
+
+func TestBuildForJSONPolicies_TimeoutCappedAtKubernetesMaximum(t *testing.T) {
+	rule := admissionregistrationv1.NamedRuleWithOperations{
+		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{""},
+				APIVersions: []string{"v1"},
+				Resources:   []string{"pods"},
+			},
+		},
+	}
+	matchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{rule},
+	}
+	ivpol := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-capping"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: matchConstraints,
+		},
+	}
+	nivpol := &policiesv1beta1.NamespacedImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "nivpol-capping", Namespace: "default"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: matchConstraints,
+		},
+	}
+
+	c := newImageValidatingPolicyTestController(t, ivpol, nivpol)
+	c.defaultTimeout = 45
+
+	cfg := config.NewDefaultConfiguration(false)
+
+	validating := &admissionregistrationv1.ValidatingWebhookConfiguration{}
+	assert.NoError(t, c.buildForJSONPoliciesValidation(cfg, nil, validating))
+	assert.NotEmpty(t, validating.Webhooks)
+	for _, webhook := range validating.Webhooks {
+		assert.Equal(t, ptr.To(int32(30)), webhook.TimeoutSeconds)
+	}
+
+	mutating := &admissionregistrationv1.MutatingWebhookConfiguration{}
+	assert.NoError(t, c.buildForJSONPoliciesMutation(cfg, nil, mutating))
+	assert.NotEmpty(t, mutating.Webhooks)
+	for _, webhook := range mutating.Webhooks {
+		assert.Equal(t, ptr.To(int32(30)), webhook.TimeoutSeconds)
+	}
 }
 
 func TestBuildWebhookRules_FineGrained_SharedCollisionTracking(t *testing.T) {
