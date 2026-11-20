@@ -182,7 +182,10 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		return err
 	}
 
-	gvrList := admissionpolicy.GetGVRs(spec.MatchConstraints, restMapper)
+	gvrList, err := admissionpolicy.GetGVRs(spec.MatchConstraints, restMapper)
+	if err != nil {
+		return err
+	}
 	for _, gvr := range gvrList {
 		debug := debug.WithValues("gvr", gvr)
 		debug.Info("processing...")
