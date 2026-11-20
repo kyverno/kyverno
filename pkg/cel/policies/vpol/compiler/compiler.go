@@ -76,7 +76,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exce
 
 func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	vpolEnvSet, variablesProvider, err := createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace(), true)
+	vpolEnvSet, variablesProvider, err := createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace(), true, false)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -145,7 +145,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 
 func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	vpolEnvSet, variablesProvider, err := createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace(), true)
+	vpolEnvSet, variablesProvider, err := createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace(), true, false)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -216,7 +216,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 // createBaseVpolEnv builds the environment ValidatingPolicy expressions compile against.
 // withPolicyScope declares `variables` and `exceptions`, which hold nothing until the policy runs
 // and are unknowable to the exception webhook, so exception expressions compile without them.
-func createBaseVpolEnv(libsctx libs.Context, namespace string, withPolicyScope bool) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+func createBaseVpolEnv(libsctx libs.Context, namespace string, withPolicyScope, readOnly bool) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptionsWithCompat()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -264,6 +264,7 @@ func createBaseVpolEnv(libsctx libs.Context, namespace string, withPolicyScope b
 			resource.Context{ContextInterface: libsctx},
 			namespace,
 			resource.Latest(),
+			readOnly,
 		),
 		image.Lib(
 			image.Latest(),
@@ -308,6 +309,7 @@ func createBaseVpolEnv(libsctx libs.Context, namespace string, withPolicyScope b
 		http.Lib(
 			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
 			http.Latest(),
+			readOnly,
 		),
 	)
 
@@ -335,7 +337,7 @@ func createBaseVpolEnv(libsctx libs.Context, namespace string, withPolicyScope b
 // Exported so the webhook can reject a malformed one up front: an exception that fails to compile
 // takes down every policy it references, and writing one needs access to a single namespace.
 func NewExceptionEnv(namespace string) (*cel.Env, error) {
-	envSet, _, err := createBaseVpolEnv(libs.GetLibsCtx(), namespace, false)
+	envSet, _, err := createBaseVpolEnv(libs.GetLibsCtx(), namespace, false, true)
 	if err != nil {
 		return nil, err
 	}

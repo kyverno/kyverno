@@ -274,6 +274,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			resource.Context{ContextInterface: libsctx},
 			namespace,
 			resource.Latest(),
+			false,
 		),
 		user.Lib(
 			user.Latest(),
@@ -307,6 +308,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		http.Lib(
 			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
 			http.Latest(),
+			false,
 		),
 	}
 

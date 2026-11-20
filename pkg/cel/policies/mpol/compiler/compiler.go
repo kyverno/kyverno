@@ -252,6 +252,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 			resource.Context{ContextInterface: libCtx},
 			namespace,
 			resource.Latest(),
+			false,
 		),
 		image.Lib(
 			image.Latest(),
@@ -296,6 +297,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		http.Lib(
 			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libCtx.GetHTTPMocks())},
 			http.Latest(),
+			false,
 		),
 	}
 
