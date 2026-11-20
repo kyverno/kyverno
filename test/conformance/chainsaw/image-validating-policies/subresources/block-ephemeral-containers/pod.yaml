@@ -9,6 +9,7 @@ metadata:
   name: test-pod
   namespace: test-ivpol-subresource-namespace
 spec:
+  terminationGracePeriodSeconds: 0
   containers:
   - name: busybox
     image: mirror.gcr.io/library/busybox:1.35
