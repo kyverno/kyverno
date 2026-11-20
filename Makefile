@@ -497,6 +497,7 @@ codegen-api-all: codegen-api-deepcopy
 .PHONY: codegen-client-clientset
 codegen-client-clientset: ## Generate clientset
 codegen-client-clientset: $(CLIENT_GEN)
+codegen-client-clientset: codegen-api-all
 	@echo Generate clientset... >&2
 	@rm -rf ./pkg/client/clientset && mkdir -p ./pkg/client/clientset
 	@$(CLIENT_GEN) \
@@ -558,6 +559,7 @@ codegen-client-wrappers: $(CLIENT_WRAPPER)
 
 .PHONY: codegen-client-all
 codegen-client-all: ## Generate clientset, listers and informers
+codegen-client-all: codegen-api-all
 codegen-client-all: codegen-client-clientset
 codegen-client-all: codegen-client-listers
 codegen-client-all: codegen-client-informers
@@ -629,6 +631,7 @@ codegen-crds-cli: $(CONTROLLER_GEN)
 
 .PHONY: codegen-crds-all
 codegen-crds-all: ## Generate all CRDs
+codegen-crds-all: codegen-api-all
 codegen-crds-all: codegen-crds-kyverno
 codegen-crds-all: codegen-crds-policyreport
 codegen-crds-all: codegen-crds-reports
@@ -756,6 +759,7 @@ codegen-helm-all: codegen-helm-docs
 .PHONY: codegen-manifest-install-latest
 codegen-manifest-install-latest: ## Create install_latest manifest
 codegen-manifest-install-latest: helm-setup-dependency-charts
+codegen-manifest-install-latest: codegen-helm-crds
 	@echo Generate latest install manifest... >&2
 	@rm -f $(INSTALL_MANIFEST_PATH)
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -772,6 +776,7 @@ codegen-manifest-install-latest: helm-setup-dependency-charts
 .PHONY: codegen-manifest-debug
 codegen-manifest-debug: ## Create debug manifest
 codegen-manifest-debug: helm-setup-dependency-charts
+codegen-manifest-debug: codegen-helm-crds
 	@echo Generate debug manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -788,6 +793,7 @@ codegen-manifest-debug: helm-setup-dependency-charts
 .PHONY: codegen-manifest-release
 codegen-manifest-release: ## Create release manifest
 codegen-manifest-release: helm-setup-dependency-charts
+codegen-manifest-release: codegen-helm-crds
 	@echo Generate release manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
@@ -816,10 +822,10 @@ codegen-fix-all: codegen-fix-tests
 
 .PHONY: codegen-crds-manifests
 codegen-crds-manifests: ## Generate CRDs, CLI embedded CRDs, Helm CRDs, and install manifests
-	+$(MAKE) codegen-crds-all
-	+$(MAKE) codegen-cli-crds
-	+$(MAKE) codegen-helm-crds
-	+$(MAKE) codegen-manifest-all
+codegen-crds-manifests: codegen-crds-all
+codegen-crds-manifests: codegen-cli-crds
+codegen-crds-manifests: codegen-helm-crds
+codegen-crds-manifests: codegen-manifest-all
 
 .PHONY: codegen-all-code
 codegen-all-code: ## Generate all generated code
