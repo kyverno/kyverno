@@ -93,7 +93,7 @@ def main():
     for name, main_path in IMAGES.items():
         layout = Path(f".release/images/{name}")
         run("ko", "build", f"./{main_path}", "--push=false", "--bare",
-            "--platform=all", f"--oci-layout-path={layout}",
+            "--platform=all", f"--oci-layout-path={layout}", "--sbom-dir=.release/spdx",
             "--image-annotation", f"org.opencontainers.image.revision={metadata['sha']}",
             "--image-annotation", f"org.opencontainers.image.source=https://github.com/{os.environ['GITHUB_REPOSITORY']}",
             env={**os.environ, "KO_DOCKER_REPO": f"ghcr.io/{metadata['owner']}/{name}",

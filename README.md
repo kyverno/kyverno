@@ -144,6 +144,15 @@ All Kyverno images include a Software Bill of Materials (SBOM) in [CycloneDX](ht
 - 👉 [`ghcr.io/kyverno/sbom`](https://github.com/orgs/kyverno/packages?tab=packages&q=sbom)
 - 👉 [Fetching the SBOM](https://kyverno.io/docs/security/#fetching-the-sbom-for-kyverno)
 
+Each platform image also carries its SPDX SBOM as a signed attestation, stored next to the image:
+
+```sh
+cosign verify-attestation --type spdxjson \
+  --certificate-identity-regexp '^https://github\.com/kyverno/kyverno/\.github/workflows/(images-publish|release-publish)\.yaml@refs/(heads/(main|release-[0-9]+\.[0-9]+)|tags/v[0-9].*)$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/kyverno/kyverno@<platform digest>
+```
+
 ## 👥 Contributors
 
 Kyverno is built and maintained by our growing community of contributors!
