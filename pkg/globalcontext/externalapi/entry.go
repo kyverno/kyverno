@@ -28,7 +28,9 @@ import (
 )
 
 type entry struct {
-	sync.Mutex
+	sync.RWMutex
+	// refreshMu serializes cache refreshes without blocking readers.
+	refreshMu   sync.Mutex
 	dataMap     map[string]any
 	err         error
 	stop        func()
@@ -130,8 +132,8 @@ func New(
 }
 
 func (e *entry) Get(projection string) (any, error) {
-	e.Lock()
-	defer e.Unlock()
+	e.RLock()
+	defer e.RUnlock()
 
 	if e.err != nil {
 		return nil, e.err
@@ -149,50 +151,64 @@ func (e *entry) Stop() {
 	e.stopOnce.Do(e.stop)
 }
 
-func (e *entry) setData(ctx context.Context, data any, err error) {
-	e.Lock()
-	defer e.Unlock()
+// setData computes the next cache snapshot without blocking policy reads of
+// the previous snapshot. The separate refreshMu preserves setData call ordering
+// when invoked concurrently, while the RWMutex only protects published state.
+func (e *entry) setData(ctx context.Context, data any, fetchErr error) {
+	e.refreshMu.Lock()
+	defer e.refreshMu.Unlock()
 
-	if err != nil {
-		e.err = err
-	} else {
-		var jsonData any
-		if bytes, ok := data.([]byte); ok {
-			err = json.Unmarshal(bytes, &jsonData)
-			if err != nil {
-				e.err = err
-				return
+	if fetchErr != nil {
+		e.setError(fetchErr)
+		return
+	}
+
+	bytes, ok := data.([]byte)
+	if !ok {
+		e.setError(fmt.Errorf("data is not a byte array"))
+		return
+	}
+
+	var jsonData any
+	if err := json.Unmarshal(bytes, &jsonData); err != nil {
+		e.setError(err)
+		return
+	}
+
+	// Compute all projections against one private input; an error retains the
+	// previous complete snapshot and publishes only the error.
+	nextDataMap := make(map[string]any, len(e.projections)+1)
+	nextDataMap[""] = jsonData
+
+	// Retain one shared background CEL cost budget per refresh cycle.
+	budgetCtx, release := requestbudget.EnsureBackground(ctx)
+	defer release()
+
+	for _, projection := range e.projections {
+		result, err := projection.Evaluate(budgetCtx, jsonData)
+		if err != nil {
+			if projection.Program != nil {
+				err = fmt.Errorf("failed to apply projection %q: %w (object is the parsed API response)", projection.Name, err)
 			}
-		} else {
-			e.err = fmt.Errorf("data is not a byte array")
+			e.setError(err)
 			return
 		}
-		newDataMap := make(map[string]any)
-		newDataMap[""] = jsonData
-
-		// One shared CEL cost ceiling for every projection recomputed this cycle, so an
-		// entry with many CEL projections can't retain an unbounded multiple of the
-		// per-program limit by spreading cost across projections. Background-sized: this
-		// runs on the poll-tick worker in every binary that wires up this controller,
-		// including cmd/kyverno, so the admission-sized ceiling would be wrong for the
-		// other two.
-		budgetCtx, release := requestbudget.EnsureBackground(ctx)
-		defer release()
-
-		for _, projection := range e.projections {
-			result, err := projection.Evaluate(budgetCtx, jsonData)
-			if err != nil {
-				if projection.Program != nil {
-					err = fmt.Errorf("failed to apply projection %q: %w (object is the parsed API response)", projection.Name, err)
-				}
-				e.err = err
-				return
-			}
-			newDataMap[projection.Name] = result
-		}
-		e.dataMap = newDataMap
-		e.err = nil
+		nextDataMap[projection.Name] = result
 	}
+
+	// Readers observe either the complete old or the complete new snapshot.
+	e.Lock()
+	e.dataMap = nextDataMap
+	e.err = nil
+	e.Unlock()
+}
+
+// setError preserves the last good snapshot but retains the original
+// behavior of rejecting reads until a later successful refresh.
+func (e *entry) setError(err error) {
+	e.Lock()
+	e.err = err
+	e.Unlock()
 }
 
 func doCall(ctx context.Context, caller apicall.Executor, call kyverno.APICall, retryLimit int) (any, error) {
