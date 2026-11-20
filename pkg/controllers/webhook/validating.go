@@ -489,10 +489,25 @@ func restrictMatchConditionsToCreate(conditions []admissionregistrationv1.MatchC
 	return wrapped
 }
 
-func generateName(name string, policy policiesv1beta1.GenericPolicy) string {
-	if ns := policy.GetNamespace(); ns != "" {
-		return name + "-" + ns + "-" + policy.GetName()
-	}
+// maxWebhookNameLength is the longest webhook name the API server accepts: it
+// validates every webhook name with IsFullyQualifiedName, a DNS-1123 subdomain.
+const maxWebhookNameLength = 253
 
-	return name + "-" + policy.GetName()
+// generateName returns the name of a policy's fine-grained webhook. A name over
+// maxWebhookNameLength is truncated and suffixed with a hash of the full name,
+// so it stays unique and deterministic: a single policy with a long name (and
+// namespace) must not make the API server reject the whole webhook
+// configuration, which every other policy's webhook shares.
+func generateName(name string, policy policiesv1beta1.GenericPolicy) string {
+	full := name + "-" + policy.GetName()
+	if ns := policy.GetNamespace(); ns != "" {
+		full = name + "-" + ns + "-" + policy.GetName()
+	}
+	if len(full) <= maxWebhookNameLength {
+		return full
+	}
+	sum := sha256.Sum256([]byte(full))
+	suffix := hex.EncodeToString(sum[:])[:16]
+	base := strings.TrimRight(full[:maxWebhookNameLength-len(suffix)-1], "-.")
+	return base + "-" + suffix
 }
