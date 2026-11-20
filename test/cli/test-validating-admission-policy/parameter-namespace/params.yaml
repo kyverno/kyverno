@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: replica-limits
+  namespace: foreign
+data:
+  maxReplicas: "100"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: replica-limits
+  namespace: trusted
+data:
+  maxReplicas: "5"
