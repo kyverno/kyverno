@@ -7,6 +7,6 @@ metadata:
       rbac.kyverno.io/aggregate-to-{{ . }}: "true"
       {{- end }}
 rules:
-  - apiGroups: ["{{.ApiGroup}}"]
-    resources: ["{{.ResourceTypes | join ","}}"]
+  - apiGroups: [{{- range $index, $group := .ApiGroups}}{{if $index}}, {{end}}"{{$group}}"{{end}}]
+    resources: [{{- range $index, $resource := .ResourceTypes}}{{if $index}}, {{end}}"{{$resource}}"{{end}}]
     verbs: [{{- range $index, $verb := .Verbs}}{{if $index}}, {{end}}"{{$verb}}"{{end}}]
