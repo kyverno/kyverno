@@ -13,8 +13,10 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -268,4 +270,76 @@ func variantOrder(policies []Policy) []string {
 		order = append(order, fmt.Sprintf("%s:%s:%t", p.Policy.GetName(), ruleNames, p.ExtractionMode))
 	}
 	return order
+}
+
+// staticExceptionLister serves a fixed set of PolicyExceptions.
+type staticExceptionLister []*policiesv1beta1.PolicyException
+
+func (l staticExceptionLister) List(labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
+	return l, nil
+}
+
+// recordingCompiler compiles with a real compiler and records the exceptions each policy was
+// compiled with, keyed by every resource the policy matches ("pods", "deployments", ...).
+type recordingCompiler struct {
+	iveval.Compiler
+	exceptions map[string][]*policiesv1beta1.PolicyException
+}
+
+func (c *recordingCompiler) Compile(policy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (iveval.CompiledPolicy, field.ErrorList) {
+	for _, rule := range policy.GetSpec().MatchConstraints.ResourceRules {
+		for _, resource := range rule.Resources {
+			c.exceptions[resource] = exceptions
+		}
+	}
+	return c.Compiler.Compile(policy, exceptions)
+}
+
+// TestReconcile_AutogenVariantsCompileRewrittenExceptions: each autogen variant must be compiled
+// with the PolicyExceptions rewritten for its controller's shape. A Pod-shaped expression such as
+// object.spec.containers reads nothing on a Deployment, so an exception compiled as written never
+// matches the Deployment variant.
+func TestReconcile_AutogenVariantsCompileRewrittenExceptions(t *testing.T) {
+	ctx := context.Background()
+	const podExpression = "object.spec.containers.exists(c, c.image == 'nginx')"
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "allow-nginx", Namespace: "default"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs:      []policiesv1beta1.PolicyRef{{Name: "alpha", Kind: "ImageValidatingPolicy"}},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "nginx", Expression: podExpression}},
+		},
+	}
+	compiler := &recordingCompiler{Compiler: iveval.NewCompiler(nil), exceptions: map[string][]*policiesv1beta1.PolicyException{}}
+	rec := newReconciler(compiler,
+		&fakeClient{policies: map[string]*policiesv1beta1.ImageValidatingPolicy{
+			"alpha": autogennablePolicy("alpha"),
+		}},
+		staticExceptionLister{polex}, true,
+	)
+
+	_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "alpha"}})
+	require.NoError(t, err)
+
+	expression := func(exceptions []*policiesv1beta1.PolicyException) string {
+		t.Helper()
+		require.Len(t, exceptions, 1)
+		require.Len(t, exceptions[0].Spec.MatchConditions, 1)
+		return exceptions[0].Spec.MatchConditions[0].Expression
+	}
+	assert.Equal(t, podExpression, expression(compiler.exceptions["pods"]), "the Pod policy is compiled with the exception as written")
+	assert.Equal(t, "object.spec.template.spec.containers.exists(c, c.image == 'nginx')", expression(compiler.exceptions["deployments"]))
+	assert.Equal(t, "object.spec.jobTemplate.spec.template.spec.containers.exists(c, c.image == 'nginx')", expression(compiler.exceptions["cronjobs"]))
+	assert.Equal(t, podExpression, polex.Spec.MatchConditions[0].Expression, "the listed exception itself is not modified")
+
+	fetched, err := rec.Fetch(ctx)
+	require.NoError(t, err)
+	var sawDeploymentVariant bool
+	for _, p := range fetched {
+		if targetsDeployments(p) {
+			sawDeploymentVariant = true
+			assert.Equal(t, "object.spec.template.spec.containers.exists(c, c.image == 'nginx')", expression(p.Exceptions),
+				"the variant reports the exceptions it was compiled with")
+		}
+	}
+	assert.True(t, sawDeploymentVariant, "expected a deployments autogen variant")
 }
