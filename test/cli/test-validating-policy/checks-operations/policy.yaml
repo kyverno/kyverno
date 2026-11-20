@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: allow-deletion
+spec:
+  validationActions:
+  - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ['']
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE, DELETE]
+      resources: [pods]
+  validations:
+  - expression: request.operation == 'DELETE'
+    message: Only deletion is allowed.
