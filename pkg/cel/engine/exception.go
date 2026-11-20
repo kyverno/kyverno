@@ -19,35 +19,26 @@ const (
 	ExceptionScopeAll  ExceptionScope = "*"
 )
 
-func (s ExceptionScope) accepts(namespace string) bool {
-	switch s {
-	case ExceptionScopeNone:
-		return false
-	case ExceptionScopeAll:
-		return true
-	default:
-		return string(s) == namespace
-	}
-}
-
-func (s ExceptionScope) central() string {
-	if s == ExceptionScopeNone || s == ExceptionScopeAll {
-		return ""
-	}
-	return string(s)
-}
-
 // Applies reports whether polex may apply to the policy identified by kind, name and
-// namespace (empty for a cluster-scoped policy). See the trust-model table in the design doc.
+// namespace (empty for a cluster-scoped policy).
 func (s ExceptionScope) Applies(polex *policiesv1beta1.PolicyException, kind, name, namespace string) bool {
 	if polex.IsExpired() {
 		return false
 	}
-	if !s.accepts(polex.GetNamespace()) {
+	switch s {
+	case ExceptionScopeNone:
+		// No namespace is trusted to author exceptions.
 		return false
-	}
-	if namespace != "" && polex.GetNamespace() != namespace {
-		if central := s.central(); central == "" || polex.GetNamespace() != central {
+	case ExceptionScopeAll:
+		// Every namespace may author, but a namespaced policy takes only its own namespace's
+		// exceptions, so no namespace can reach another's policies.
+		if namespace != "" && polex.GetNamespace() != namespace {
+			return false
+		}
+	default:
+		// Only the configured namespace may author. It is also the central namespace, so an
+		// exception there may except a policy in any namespace.
+		if string(s) != polex.GetNamespace() {
 			return false
 		}
 	}
