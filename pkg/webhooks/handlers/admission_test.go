@@ -82,6 +82,46 @@ func TestWithAdmission(t *testing.T) {
 			expectedStatusCode: http.StatusUnsupportedMediaType,
 		},
 		{
+			name: "Valid Content-Type with charset parameter",
+			requestBody: func() []byte {
+				review := admissionv1.AdmissionReview{
+					Request: baseAdmissionRequest,
+				}
+				body, _ := json.Marshal(review)
+				return body
+			}(),
+			contentType: "application/json; charset=utf-8",
+			handlerResponse: AdmissionResponse{
+				Allowed: true,
+				UID:     "test-uid",
+				Result: &metav1.Status{
+					Message: "Pod is allowed",
+				},
+			},
+			expectedStatusCode: http.StatusOK,
+			expectResponse:     true,
+		},
+		{
+			name: "Valid Content-Type case insensitive",
+			requestBody: func() []byte {
+				review := admissionv1.AdmissionReview{
+					Request: baseAdmissionRequest,
+				}
+				body, _ := json.Marshal(review)
+				return body
+			}(),
+			contentType: "APPLICATION/JSON",
+			handlerResponse: AdmissionResponse{
+				Allowed: true,
+				UID:     "test-uid",
+				Result: &metav1.Status{
+					Message: "Pod is allowed",
+				},
+			},
+			expectedStatusCode: http.StatusOK,
+			expectResponse:     true,
+		},
+		{
 			name:               "Malformed JSON Body",
 			requestBody:        []byte(`{"key": "value"`),
 			contentType:        "application/json",
