@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: default
+  name: test-api-token
+  labels:
+    app: test-api-token
+spec:
+  serviceAccountName: apicall-http-post-scoped-token
+  automountServiceAccountToken: true
+  containers:
+  - name: test-api
+    image: mirror.gcr.io/library/python:3.9-slim
+    command: [python3, -c]
+    args:
+    - |
+      import json, os, ssl, sys, urllib.request
+      from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+      AUDIENCE = 'kyverno-svc.kyverno.io'
+      SA_DIR = '/var/run/secrets/kubernetes.io/serviceaccount'
+      SA_TOKEN = os.path.join(SA_DIR, 'token')
+      SA_CA = os.path.join(SA_DIR, 'ca.crt')
+      TOKENREVIEW_URL = 'https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews'
+
+      def token_is_valid(token):
+          # The token under test is not used to talk to the API server: it has a
+          # custom audience and would be rejected as a credential. The endpoint
+          # authenticates with its own service-account token instead and asks the
+          # TokenReview API whether the presented token is valid for that audience.
+          if not token:
+              return False
+          try:
+              with open(SA_TOKEN) as f:
+                  sa_token = f.read().strip()
+              review = {
+                  'apiVersion': 'authentication.k8s.io/v1',
+                  'kind': 'TokenReview',
+                  'spec': {'token': token, 'audiences': [AUDIENCE]},
+              }
+              req = urllib.request.Request(
+                  TOKENREVIEW_URL,
+                  data=json.dumps(review).encode(),
+                  headers={
+                      'Content-Type': 'application/json',
+                      'Authorization': 'Bearer ' + sa_token,
+                  },
+                  method='POST',
+              )
+              opener = urllib.request.build_opener(
+                  urllib.request.ProxyHandler({}),
+                  urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=SA_CA)),
+              )
+              with opener.open(req, timeout=10) as resp:
+                  result = json.loads(resp.read().decode())
+          except Exception as exc:
+              print('TokenReview failed: %s' % (exc,), file=sys.stderr)
+              return False
+          status = result.get('status') or {}
+          return status.get('authenticated') is True and AUDIENCE in (status.get('audiences') or [])
+
+      # The bad-auth policy sends this exact literal (the text "<redacted>"
+      # itself, never a real token). Matching the full string, case
+      # sensitively, lets the endpoint report whether that explicit header
+      # actually reached it. A projected ServiceAccount token is a real JWT
+      # and can never equal this literal, so there is no false positive.
+      EXPLICIT_HEADER = 'Bearer <redacted>'
+
+      class H(BaseHTTPRequestHandler):
+          def do_POST(self):
+              length = int(self.headers.get('Content-Length') or 0)
+              if length:
+                  self.rfile.read(length)
+              header = self.headers.get('Authorization') or ''
+              token = header[7:].strip() if header[:7].lower() == 'bearer ' else ''
+              self.send_response(200)
+              self.send_header('Content-Type', 'application/json')
+              self.end_headers()
+              self.wfile.write(json.dumps({
+                  'tokenValid': token_is_valid(token),
+                  'explicitHeaderReceived': header == EXPLICIT_HEADER,
+              }).encode())
+          def log_message(self, *a): pass
+      ThreadingHTTPServer(('', 5000), H).serve_forever()
+    ports:
+    - containerPort: 5000
+    readinessProbe:
+      tcpSocket:
+        port: 5000
+      initialDelaySeconds: 1
+      periodSeconds: 2
+      failureThreshold: 15

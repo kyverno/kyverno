@@ -2,10 +2,14 @@ package compiler
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
@@ -31,8 +35,103 @@ func (c *cachedHTTPContext) getOrBuild() (http.ContextInterface, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.cached = ctx
-	return ctx, nil
+	// The SDK constructors hardcode http.DefaultClient and take no client option,
+	// so CEL http.Get/Post would otherwise go out without the projected
+	// ServiceAccount token. Wrap the context so the token is attached per call.
+	c.cached = &tokenHTTPContext{inner: ctx}
+	return c.cached, nil
+}
+
+// tokenHTTPContext decorates an http.ContextInterface so CEL http.Get and
+// http.Post attach the projected ServiceAccount token (custom audience
+// kyverno-svc.kyverno.io) as an Authorization Bearer header when the policy did
+// not already supply one. Contexts derived through Client(caBundle) are wrapped
+// too, so CA-bundle clients authenticate as well.
+type tokenHTTPContext struct {
+	inner http.ContextInterface
+}
+
+func (c *tokenHTTPContext) Get(url string, headers map[string]string) (any, error) {
+	return withScopedTokenTimeout(url, func() (any, error) {
+		return c.inner.Get(url, withScopedToken(headers))
+	})
+}
+
+func (c *tokenHTTPContext) Post(url string, data any, headers map[string]string) (any, error) {
+	return withScopedTokenTimeout(url, func() (any, error) {
+		return c.inner.Post(url, data, withScopedToken(headers))
+	})
+}
+
+func (c *tokenHTTPContext) Client(caBundle string) (http.ContextInterface, error) {
+	inner, err := c.inner.Client(caBundle)
+	if err != nil {
+		return nil, err
+	}
+	return &tokenHTTPContext{inner: inner}, nil
+}
+
+// withScopedToken returns headers with the scoped APICall token attached as an
+// Authorization Bearer header, unless the caller already set one (compared
+// case-insensitively). The caller's map is never mutated. When no token is
+// available the headers are returned unchanged.
+func withScopedToken(headers map[string]string) map[string]string {
+	token, ok := apicall.ScopedToken()
+	if !ok {
+		return headers
+	}
+	for k := range headers {
+		if strings.EqualFold(k, "Authorization") {
+			return headers
+		}
+	}
+	out := make(map[string]string, len(headers)+1)
+	for k, v := range headers {
+		out[k] = v
+	}
+	out["Authorization"] = "Bearer " + token
+	return out
+}
+
+// withScopedTokenTimeout bounds how long a CEL http call waits, using the
+// timeout configured through apicall.SetScopedTokenClientTimeout. The SDK builds
+// its requests with context.TODO() and takes no client option, so the deadline
+// cannot be handed to the request itself; the call races the configured timeout
+// instead. A value of 0 disables the timeout. When the timeout wins, the
+// in-flight request is left to finish in the background, and the error names
+// only the host, never the full URL with its query string.
+func withScopedTokenTimeout(rawURL string, call func() (any, error)) (any, error) {
+	timeout := apicall.ScopedTokenClientTimeout()
+	if timeout <= 0 {
+		return call()
+	}
+	type outcome struct {
+		result any
+		err    error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		result, err := call()
+		done <- outcome{result: result, err: err}
+	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case out := <-done:
+		return out.result, out.err
+	case <-timer.C:
+		return nil, fmt.Errorf("CEL http request to %s timed out after %s", requestHost(rawURL), timeout)
+	}
+}
+
+// requestHost extracts the host of rawURL for error messages. Only the host is
+// reported: request URLs can carry query parameters that are not safe to log.
+func requestHost(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return "<unknown host>"
+	}
+	return u.Host
 }
 
 func (c *cachedHTTPContext) Get(url string, headers map[string]string) (any, error) {

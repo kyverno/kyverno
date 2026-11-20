@@ -47,6 +47,23 @@ func withScopedTokenPath(t *testing.T, path string) {
 	})
 }
 
+func TestScopedToken_EmptyTokenFileIsNotUsable(t *testing.T) {
+	for name, contents := range map[string]string{
+		"empty file":      "",
+		"whitespace only": " \n\t ",
+	} {
+		t.Run(name, func(t *testing.T) {
+			tokenPath := filepath.Join(t.TempDir(), "token")
+			assert.NilError(t, os.WriteFile(tokenPath, []byte(contents), 0o600))
+			t.Setenv(scopedTokenPathEnvVar, tokenPath)
+
+			token, ok := ScopedToken()
+			assert.Equal(t, token, "")
+			assert.Check(t, !ok, "an empty or whitespace-only token file must not report a usable token")
+		})
+	}
+}
+
 func Test_scopedTokenClient_Do_SetsAuthorizationWhenAbsent(t *testing.T) {
 	tokenPath := filepath.Join(t.TempDir(), "token")
 	assert.NilError(t, os.WriteFile(tokenPath, []byte("  test-token\n"), 0o600))

@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: default
+  name: apicall-http-post-scoped-token
+---
+# The endpoint pod only ever needs to review a token, nothing else.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: apicall-http-post-scoped-token-tokenreviews
+rules:
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: apicall-http-post-scoped-token-tokenreviews
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: apicall-http-post-scoped-token-tokenreviews
+subjects:
+  - kind: ServiceAccount
+    name: apicall-http-post-scoped-token
+    namespace: default
