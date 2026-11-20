@@ -22,6 +22,7 @@ import (
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
@@ -323,9 +324,10 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	status := &policiesv1beta1.ConditionStatus{}
 	backgroundOnly := false
 	// backgroundEnabled gates the reports-controller RBAC permission check below.
-	// GeneratingPolicies have no background toggle (they are inherently background),
-	// so they keep the default of true and are always checked.
-	backgroundEnabled := true
+	// MutatingPolicies gate this on their background evaluation toggle.
+	// GeneratingPolicies do not produce policy reports, so reports-controller RBAC
+	// permissions are not required.
+	backgroundEnabled := false
 	switch policy.GetKind() {
 	case webhook.MutatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName(), "")
@@ -350,6 +352,7 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	case webhook.GeneratingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
+		backgroundOnly = !policy.AsGeneratingPolicy().GetSpec().AdmissionEnabled()
 		// GeneratingPolicy uses v1alpha1.ConditionStatus, convert to v1beta1
 		v1alpha1Status := policy.AsGeneratingPolicy().GetStatus().ConditionStatus
 		status = &policiesv1beta1.ConditionStatus{
@@ -360,6 +363,7 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	case webhook.NamespacedGeneratingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.NamespacedGeneratingPolicyType, policy.GetName(), policy.GetNamespace())
 		matchConstraints = policy.AsNamespacedGeneratingPolicy().GetMatchConstraints()
+		backgroundOnly = !policy.AsNamespacedGeneratingPolicy().GetSpec().AdmissionEnabled()
 		// NamespacedGeneratingPolicy uses v1alpha1.ConditionStatus, convert to v1beta1
 		v1alpha1Status := policy.AsNamespacedGeneratingPolicy().GetStatus().ConditionStatus
 		status = &policiesv1beta1.ConditionStatus{
@@ -375,6 +379,8 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		} else if ok {
 			status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionFalse, "Policy is not configured in the webhook.")
 		}
+	} else {
+		meta.RemoveStatusCondition(&status.Conditions, string(policiesv1beta1.PolicyConditionTypeWebhookConfigured))
 	}
 
 	c.reconcileRBACPermissionsCondition(ctx, status, matchConstraints, autogenMatchConstraints, backgroundEnabled)
