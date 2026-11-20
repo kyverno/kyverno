@@ -148,6 +148,9 @@ func parseKinds(in string) []filter {
 		element = strings.Trim(element, "[")
 		element = strings.Trim(element, "]")
 		elements := strings.Split(element, ",")
+		for i := range elements {
+			elements[i] = strings.TrimSpace(elements[i])
+		}
 		if len(elements) == 0 {
 			continue
 		}
