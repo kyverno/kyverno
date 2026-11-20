@@ -1,0 +1,6 @@
+spec:
+  ephemeralContainers:
+  - name: debug
+    image: 169.254.169.254/debug:latest
+    command: ["sh"]
+    targetContainerName: app

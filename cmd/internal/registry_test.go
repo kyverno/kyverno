@@ -2,9 +2,15 @@ package internal
 
 import (
 	"context"
+	"flag"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/utils/egress"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -86,4 +92,116 @@ func TestRegistrySecretListerKeepsCacheOnlyDefault(t *testing.T) {
 		require.True(t, apierrors.IsNotFound(err), "an empty namespace must not enable live reads, got %v", err)
 		assert.Empty(t, client.Actions())
 	})
+}
+
+// registryEgressOptions is the only thing wiring the guard into the process-wide registry
+// client, and every image fetch in the controllers inherits it from there. Exercising the
+// options beats counting them: a non-empty slice says nothing about whether the guard reached
+// them. A literal metadata address needs no DNS and no network, so the transport rejects it
+// before the first byte is written.
+func TestRegistryEgressOptionsCarryTheGuard(t *testing.T) {
+	previous := egress.Global()
+	t.Cleanup(func() { egress.RestoreGlobal(previous) })
+	require.NoError(t, egress.SetGlobal(egress.Config{Mode: egress.ModeEnforce, DeniedIPs: []string{"169.254.0.0/16"}}))
+
+	blocked, err := name.ParseReference("169.254.169.254/app:v1")
+	require.NoError(t, err)
+	opts, _ := registryclient.NewRemoteOptions(registryEgressOptions()...)
+	_, err = gcrremote.Get(blocked, opts...)
+	require.ErrorIs(t, err, egress.ErrAddressBlocked, "the registry client options did not carry the guard")
+}
+
+// check() runs before the config controller, so only the mode can be validated at that point.
+// The denylists arrive later from the ConfigMap and a bad entry there is logged and skipped,
+// deliberately, so that a typo cannot crashloop admission.
+func TestEgressModeValidation(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		mode      string
+		wantError bool
+	}{
+		{mode: ""},
+		{mode: "audit"},
+		{mode: "enforce"},
+		{mode: "disabled", wantError: true},
+		{mode: "Enforce", wantError: true},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			t.Parallel()
+			err := egress.ValidateMode(tc.mode)
+			require.Equal(t, tc.wantError, err != nil, "error = %v", err)
+		})
+	}
+}
+
+// egressConfig is the only join between the mode flag and the ConfigMap denylists. With the keys
+// absent or empty it carries no entries: the defaults come from the chart, not from code.
+func TestEgressConfigReadsTheConfigMap(t *testing.T) {
+	originalMode := privateRegistryEgressMode
+	t.Cleanup(func() { privateRegistryEgressMode = originalMode })
+	privateRegistryEgressMode = egress.ModeEnforce
+
+	configuration := config.NewDefaultConfiguration(false)
+	got := egressConfig(configuration)
+	require.Equal(t, egress.ModeEnforce, got.Mode)
+	require.Empty(t, got.DeniedHosts)
+	require.Empty(t, got.DeniedIPs)
+
+	configuration.Load(&corev1.ConfigMap{Data: map[string]string{
+		"registryEgressDeniedHosts": "metadata.internal",
+		"registryEgressDeniedIPs":   "",
+	}})
+	got = egressConfig(configuration)
+	require.Equal(t, []string{"metadata.internal"}, got.DeniedHosts)
+	require.Empty(t, got.DeniedIPs)
+}
+
+// Egress flags must reach controllers that only read image metadata, while the credential
+// flags stay behind WithRegistryClient so the cleanup controller does not get Secret
+// informers or the RBAC they need.
+func TestRegistryFlagRegistration(t *testing.T) {
+	originalFlags := flag.CommandLine
+	originalMode := privateRegistryEgressMode
+	originalSecrets, originalHelpers := imagePullSecrets, registryCredentialHelpers
+	originalInsecure, originalPayloadLimit := allowInsecureRegistry, imageVerifyPayloadLimit
+	t.Cleanup(func() {
+		flag.CommandLine = originalFlags
+		privateRegistryEgressMode = originalMode
+		imagePullSecrets, registryCredentialHelpers = originalSecrets, originalHelpers
+		allowInsecureRegistry, imageVerifyPayloadLimit = originalInsecure, originalPayloadLimit
+	})
+	for _, test := range []struct {
+		name       string
+		options    []ConfigurationOption
+		wantEgress bool
+		wantClient bool
+	}{
+		{name: "disabled"},
+		{name: "egress only", options: []ConfigurationOption{WithRegistryEgress()}, wantEgress: true},
+		{name: "registry client implies egress", options: []ConfigurationOption{WithRegistryClient()}, wantEgress: true, wantClient: true},
+		{name: "both options", options: []ConfigurationOption{WithRegistryEgress(), WithRegistryClient()}, wantEgress: true, wantClient: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			flag.CommandLine = flag.NewFlagSet(test.name, flag.ContinueOnError)
+			configuration := NewConfiguration(test.options...)
+			require.Equal(t, test.wantEgress, configuration.UsesRegistryEgress())
+			require.Equal(t, test.wantClient, configuration.UsesRegistryClient())
+			initRegistryFlags(configuration)
+			require.Equal(t, test.wantEgress, flag.Lookup("privateRegistryEgressMode") != nil)
+			// The denylists are ConfigMap entries, not flags, because they are expected to grow
+			// past what is workable on a command line. Registering one would quietly give
+			// operators a second place to configure them that the chart never writes to.
+			for _, flagName := range []string{"privateRegistryAllowlist", "privateRegistryRanges", "registryEgressDeniedHosts", "registryEgressDeniedIPs"} {
+				require.Nil(t, flag.Lookup(flagName), flagName)
+			}
+			for _, flagName := range []string{"imagePullSecrets", "registryCredentialHelpers", "allowInsecureRegistry", "imageVerifyPayloadLimit"} {
+				require.Equal(t, test.wantClient, flag.Lookup(flagName) != nil, flagName)
+			}
+			if test.wantEgress {
+				require.Equal(t, egress.ModeAudit, privateRegistryEgressMode, "audit is the default so enabling the guard cannot break an existing cluster")
+				require.NoError(t, flag.CommandLine.Parse([]string{"--privateRegistryEgressMode=enforce"}))
+				require.Equal(t, "enforce", privateRegistryEgressMode)
+			}
+		})
+	}
 }

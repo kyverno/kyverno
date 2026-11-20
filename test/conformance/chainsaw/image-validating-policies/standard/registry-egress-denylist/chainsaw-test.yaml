@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: ivpol-registry-egress-denylist
+spec:
+  concurrent: false
+  steps:
+  # The shipped denylist already covers metadata and loopback, but the shipped mode is audit,
+  # which logs a denied destination and connects anyway. Switch the admission controller to
+  # enforce so a denied destination is rejected, and restore its arguments afterwards.
+  - name: enforce-registry-egress
+    try:
+    - script:
+        timeout: 3m
+        content: |
+          set -e
+          kubectl get deployment kyverno-admission-controller -n kyverno \
+            -o 'go-template=[{{ range $i, $a := (index .spec.template.spec.containers 0).args }}{{ if $i }},{{ end }}"{{ $a }}"{{ end }}]' \
+            > /tmp/kyverno-registry-egress-args.json
+          ENFORCED=$(python3 -c "
+          import json
+          args = json.load(open('/tmp/kyverno-registry-egress-args.json'))
+          args = [a for a in args if not a.startswith('--privateRegistryEgressMode=')]
+          args.append('--privateRegistryEgressMode=enforce')
+          print(json.dumps(args))
+          ")
+          kubectl patch deployment kyverno-admission-controller -n kyverno \
+            --type=json \
+            --patch="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",\"value\":$ENFORCED}]"
+          kubectl rollout status deployment/kyverno-admission-controller \
+            -n kyverno --timeout=120s
+          sleep 5 # Wait for the webhook to be ready.
+    cleanup:
+    - script:
+        timeout: 3m
+        content: |
+          set -e
+          ORIGINAL=$(cat /tmp/kyverno-registry-egress-args.json)
+          kubectl patch deployment kyverno-admission-controller -n kyverno \
+            --type=json \
+            --patch="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",\"value\":$ORIGINAL}]"
+          kubectl rollout status deployment/kyverno-admission-controller \
+            -n kyverno --timeout=120s
+  - name: create-policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-policy-ready
+    use:
+      template: ../../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-registry-egress-denylist
+  - name: reject-denied-registry-addresses
+    try:
+    - create:
+        file: metadata-pod.yaml
+        expect:
+        - check:
+            (contains($error, 'connection blocked to network host')): true
+    - create:
+        file: loopback-pod.yaml
+        expect:
+        - check:
+            (contains($error, 'connection blocked to network host')): true
+  - name: preserve-unmatched-pods
+    try:
+    - create:
+        file: unmatched-pod.yaml
+  # The guard runs at the fetch site, so a reference hardcoded in the policy is checked on
+  # the same terms as one read from the Pod.
+  - name: create-literal-policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: literal-policy.yaml
+  - name: wait-literal-policy-ready
+    use:
+      template: ../../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-registry-egress-literal
+  - name: reject-policy-authored-denied-address
+    try:
+    - create:
+        file: literal-pod.yaml
+        expect:
+        - check:
+            (contains($error, 'connection blocked to network host')): true
+  - name: reject-init-image
+    try:
+    - create:
+        file: init-pod.yaml
+        expect:
+        - check:
+            (contains($error, 'connection blocked to network host')): true
+  - name: reject-ephemeral-image
+    try:
+    - create:
+        file: ephemeral-pod.yaml
+    - script:
+        content: |
+          if output=$(kubectl -n "$NAMESPACE" patch pod registry-egress-ephemeral --subresource=ephemeralcontainers --type=merge --patch-file ephemeral-patch.yaml 2>&1); then
+            echo "ephemeral image was unexpectedly admitted"
+            exit 1
+          fi
+          echo "$output"
+          echo "$output" | grep -F 'connection blocked to network host'

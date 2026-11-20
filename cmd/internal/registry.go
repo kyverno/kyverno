@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/utils/egress"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
@@ -14,9 +15,42 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-func setupRegistryClient(ctx context.Context, logger logr.Logger, client kubernetes.Interface) (registryclient.Client, corev1listers.SecretLister) {
+// egressConfig combines the mode flag with the denylists from the kyverno ConfigMap. The
+// ConfigMap is read by startConfigController, which runs before this, so the lists are already
+// loaded. They are not re-read afterwards: an operator editing the ConfigMap has to restart the
+// controller for the change to take effect. Syncing live would need an informer on ConfigMap
+// events and is deliberately left to a follow-up rather than half-done here.
+//
+// The chart ships the recommended lists in the ConfigMap. A missing or empty key denies nothing.
+func egressConfig(configuration config.Configuration) egress.Config {
+	return egress.Config{
+		Mode:        privateRegistryEgressMode,
+		DeniedHosts: configuration.GetRegistryEgressDeniedHosts(),
+		DeniedIPs:   configuration.GetRegistryEgressDeniedIPs(),
+	}
+}
+
+// registryEgressOptions guards every request the registry client makes: the transport
+// validates each destination, including token challenges and redirects.
+func registryEgressOptions() []registryclient.Option {
+	return []registryclient.Option{
+		registryclient.WithTransport(egress.Global().Transport()),
+	}
+}
+
+// setupRegistryEgress installs the guard for controllers that read image metadata without
+// needing registry credentials, so they get no credential helpers, image-pull Secret
+// informers, or the RBAC those require.
+func setupRegistryEgress(logger logr.Logger, configuration config.Configuration) {
+	checkError(logger, egress.SetGlobal(egressConfig(configuration)), "failed to configure registry egress")
+	registryclient.SetupGlobalRegistryClient(nil, "", "", "", false,
+		append(registryEgressOptions(), registryclient.WithLogger(logger))...)
+}
+
+func setupRegistryClient(ctx context.Context, logger logr.Logger, client kubernetes.Interface, configuration config.Configuration) (registryclient.Client, corev1listers.SecretLister) {
 	logger = logger.WithName("registry-client").WithValues("secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
 	logger.V(2).Info("setup registry client...")
+	checkError(logger, egress.SetGlobal(egressConfig(configuration)), "failed to configure registry egress")
 	ms := &multiLister{
 		listersMap: make(map[string]corev1listers.SecretLister),
 	}
@@ -40,7 +74,7 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 	registryClient := registryclient.SetupGlobalRegistryClient(ms, config.KyvernoNamespace(),
 		imagePullSecrets,
 		registryCredentialHelpers, allowInsecureRegistry,
-		registryclient.WithLogger(logger))
+		append(registryEgressOptions(), registryclient.WithLogger(logger))...)
 
 	// WithSecretClient does not change how this lister resolves secrets. It wraps ms so that
 	// namespaced ivpol credential resolution can opt into an authorized, bounded GET for a secret

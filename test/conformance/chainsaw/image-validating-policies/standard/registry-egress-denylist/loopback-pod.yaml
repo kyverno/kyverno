@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cel-registry-loopback
+  labels:
+    test.kyverno.io/registry-egress: "true"
+spec:
+  containers:
+  - name: container
+    image: 127.0.0.1/blocked:latest
