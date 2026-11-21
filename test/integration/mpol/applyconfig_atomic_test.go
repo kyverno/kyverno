@@ -79,8 +79,8 @@ func mutateAnnotatedPod(t *testing.T, policyName, podName string) (allowed bool,
 
 // Inject a sidecar initContainer with args (an atomic []string) with the opt-in enabled.
 func TestMutate_ApplyConfiguration_InjectsSidecarInitContainerWithArgs(t *testing.T) {
+	t.Parallel()
 	createPolicyWithCleanup(t, applyConfigPolicy("sidecar-args", sidecarArgsExpression, true))
-	waitForPolicyReady(t, 1)
 
 	allowed, patched, patch := mutateAnnotatedPod(t, "sidecar-args", "pod-args")
 	assert.True(t, allowed, "#15094: injecting initContainer args must be allowed when useServerSideApply is set")
@@ -91,8 +91,8 @@ func TestMutate_ApplyConfiguration_InjectsSidecarInitContainerWithArgs(t *testin
 // Default behaviour (useServerSideApply not set) keeps the upstream atomic guard, matching a
 // native MutatingAdmissionPolicy: the same atomic mutation is rejected and no patch is produced.
 func TestMutate_ApplyConfiguration_DefaultRejectsAtomic(t *testing.T) {
+	t.Parallel()
 	createPolicyWithCleanup(t, applyConfigPolicy("sidecar-args-default", sidecarArgsExpression, false))
-	waitForPolicyReady(t, 1)
 
 	allowed, patched, _ := mutateAnnotatedPod(t, "sidecar-args-default", "pod-args-default")
 	assert.False(t, allowed, "default: atomic args mutation must be rejected (no opt-in)")
@@ -101,6 +101,7 @@ func TestMutate_ApplyConfiguration_DefaultRejectsAtomic(t *testing.T) {
 
 // Inject an env var whose valueFrom.fieldRef is an atomic struct (ObjectFieldSelector).
 func TestMutate_ApplyConfiguration_InjectsEnvWithFieldRef(t *testing.T) {
+	t.Parallel()
 	createPolicyWithCleanup(t, applyConfigPolicy("env-fieldref", `Object{
 		spec: Object.spec{
 			containers: object.spec.containers.map(c, Object.spec.containers{
@@ -119,7 +120,6 @@ func TestMutate_ApplyConfiguration_InjectsEnvWithFieldRef(t *testing.T) {
 			})
 		}
 	}`, true))
-	waitForPolicyReady(t, 1)
 
 	allowed, patched, patch := mutateAnnotatedPod(t, "env-fieldref", "pod-env")
 	assert.True(t, allowed, "#15094: injecting env valueFrom.fieldRef (atomic struct) must be allowed")
@@ -129,6 +129,7 @@ func TestMutate_ApplyConfiguration_InjectsEnvWithFieldRef(t *testing.T) {
 
 // Inject a projected volume whose downwardAPI items carry an atomic fieldRef struct.
 func TestMutate_ApplyConfiguration_InjectsProjectedVolumeWithFieldRef(t *testing.T) {
+	t.Parallel()
 	createPolicyWithCleanup(t, applyConfigPolicy("projected-volume", `Object{
 		spec: Object.spec{
 			volumes: [
@@ -154,7 +155,6 @@ func TestMutate_ApplyConfiguration_InjectsProjectedVolumeWithFieldRef(t *testing
 			]
 		}
 	}`, true))
-	waitForPolicyReady(t, 1)
 
 	allowed, patched, patch := mutateAnnotatedPod(t, "projected-volume", "pod-vol")
 	assert.True(t, allowed, "#15094: injecting a projected volume with fieldRef must be allowed")

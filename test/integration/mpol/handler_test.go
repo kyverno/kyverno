@@ -66,22 +66,34 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// waitForPolicyReady waits until the provider has compiled at least count policies.
-func waitForPolicyReady(t *testing.T, count int) {
+// waitForPolicyReady waits until the provider has compiled the policy with the given name and namespace.
+func waitForPolicyReady(t *testing.T, name, namespace string) {
 	t.Helper()
 	ctx := context.Background()
 	require.Eventually(t, func() bool {
-		return len(provider.Fetch(ctx, false)) >= count
-	}, 5*time.Second, 100*time.Millisecond, "policies not reconciled in time")
+		policies := provider.Fetch(ctx, false)
+		for _, p := range policies {
+			if p.Policy.GetName() == name && p.Policy.GetNamespace() == namespace {
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second, 100*time.Millisecond, "policy %q not reconciled in time", name)
 }
 
-// waitForPolicyGone waits until the provider has no compiled policies.
-func waitForPolicyGone(t *testing.T) {
+// waitForPolicyGone waits until the provider has removed the policy with the given name and namespace.
+func waitForPolicyGone(t *testing.T, name, namespace string) {
 	t.Helper()
 	ctx := context.Background()
 	require.Eventually(t, func() bool {
-		return len(provider.Fetch(ctx, false)) == 0
-	}, 5*time.Second, 100*time.Millisecond, "policies not cleaned up in time")
+		policies := provider.Fetch(ctx, false)
+		for _, p := range policies {
+			if p.Policy.GetName() == name && p.Policy.GetNamespace() == namespace {
+				return false
+			}
+		}
+		return true
+	}, 5*time.Second, 100*time.Millisecond, "policy %q not cleaned up in time", name)
 }
 
 // createPolicyWithCleanup creates a MutatingPolicy and registers cleanup.
@@ -91,8 +103,9 @@ func createPolicyWithCleanup(t *testing.T, policy *policiesv1beta1.MutatingPolic
 	require.NoError(t, testEnv.Client.Create(ctx, policy))
 	t.Cleanup(func() {
 		testEnv.Client.Delete(context.Background(), policy)
-		waitForPolicyGone(t)
+		waitForPolicyGone(t, policy.GetName(), policy.GetNamespace())
 	})
+	waitForPolicyReady(t, policy.GetName(), policy.GetNamespace())
 }
 
 // createNamespacedPolicyWithCleanup creates a NamespacedMutatingPolicy and registers cleanup.
@@ -102,8 +115,9 @@ func createNamespacedPolicyWithCleanup(t *testing.T, policy *policiesv1beta1.Nam
 	require.NoError(t, testEnv.Client.Create(ctx, policy))
 	t.Cleanup(func() {
 		testEnv.Client.Delete(context.Background(), policy)
-		waitForPolicyGone(t)
+		waitForPolicyGone(t, policy.GetName(), policy.GetNamespace())
 	})
+	waitForPolicyReady(t, policy.GetName(), policy.GetNamespace())
 }
 
 // createNamespace creates a namespace in envtest and registers cleanup.
@@ -136,6 +150,7 @@ func findPatch(patches []jsonpatch.JsonPatchOperation, path string) *jsonpatch.J
 }
 
 func TestMutate_JSONPatch_AddsLabel(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "add-env-label"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
@@ -150,7 +165,6 @@ func TestMutate_JSONPatch_AddsLabel(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, nil, reportutils.ReportingCfg, nil, "", eventGen)
@@ -203,7 +217,6 @@ func TestMutate_JSONPatch_ReportHasMutatingPolicyLabel(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	// The report-result filtering in reportutils.EngineResponseToReportResults reads the
 	// package-level reportutils.ReportingCfg, not the ReportingConfiguration passed to
@@ -239,6 +252,7 @@ func TestMutate_JSONPatch_ReportHasMutatingPolicyLabel(t *testing.T) {
 }
 
 func TestMutate_JSONPatch_AllowsWithoutChange(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "add-label-if-missing"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
@@ -257,7 +271,6 @@ func TestMutate_JSONPatch_AllowsWithoutChange(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, nil, reportutils.ReportingCfg, nil, "", eventGen)
@@ -275,6 +288,7 @@ func TestMutate_JSONPatch_AllowsWithoutChange(t *testing.T) {
 }
 
 func TestMutate_MatchCondition_SkipsNonMatching(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "mutate-only-prod-ns"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
@@ -293,7 +307,6 @@ func TestMutate_MatchCondition_SkipsNonMatching(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, nil, reportutils.ReportingCfg, nil, "", eventGen)
@@ -311,6 +324,7 @@ func TestMutate_MatchCondition_SkipsNonMatching(t *testing.T) {
 }
 
 func TestMutate_EventsGenerated_OnMutation(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "add-team-label"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
@@ -325,7 +339,6 @@ func TestMutate_EventsGenerated_OnMutation(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, nil, reportutils.ReportingCfg, nil, "", eventGen)
@@ -337,14 +350,14 @@ func TestMutate_EventsGenerated_OnMutation(t *testing.T) {
 		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
 	}`)), "", time.Now())
 
-	// Wait for the async audit goroutine to generate events
-	time.Sleep(200 * time.Millisecond)
-
 	assert.True(t, resp.Allowed, "mutation should allow the resource")
-	assert.NotEmpty(t, eventGen.GetEvents(), "mutation should generate events")
+	require.Eventually(t, func() bool {
+		return len(eventGen.GetEvents()) > 0
+	}, 2*time.Second, 50*time.Millisecond, "mutation should generate events")
 }
 
 func TestMutate_CELVariables_UsedInMutation(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "add-computed-label"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
@@ -363,7 +376,6 @@ func TestMutate_CELVariables_UsedInMutation(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, nil, reportutils.ReportingCfg, nil, "", eventGen)
@@ -385,6 +397,7 @@ func TestMutate_CELVariables_UsedInMutation(t *testing.T) {
 }
 
 func TestMutate_MultipleMutations_ChainedCorrectly(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "add-multiple-labels"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
@@ -407,7 +420,6 @@ func TestMutate_MultipleMutations_ChainedCorrectly(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, nil, reportutils.ReportingCfg, nil, "", eventGen)
@@ -436,6 +448,7 @@ func TestMutate_MultipleMutations_ChainedCorrectly(t *testing.T) {
 // Test 1: Background controller's service account requests should bypass mutation entirely
 // to prevent infinite loops when the controller itself creates or modifies resources.
 func TestMutate_BackgroundControllerSkipsMutation(t *testing.T) {
+	t.Parallel()
 	// The mpol handler short-circuits when UserInfo.Username matches the configured
 	// background service account name, returning before engine evaluation. To prove
 	// the bypass actually fires (and the test would catch the short-circuit being
@@ -455,7 +468,6 @@ func TestMutate_BackgroundControllerSkipsMutation(t *testing.T) {
 		},
 	}
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	bgSA := "system:serviceaccount:kyverno:kyverno-background-controller"
 	eventGen := &framework.MockEventGen{}
@@ -470,6 +482,7 @@ func TestMutate_BackgroundControllerSkipsMutation(t *testing.T) {
 	ctx := framework.ContextWithPolicies(context.Background(), "bg-controller-skip-mutation")
 
 	t.Run("non-background request produces a patch", func(t *testing.T) {
+		t.Parallel()
 		resp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("bg-pod", "default", podJSON), "", time.Now())
 		assert.True(t, resp.Allowed, "non-background requests should still be allowed")
 		require.NotNil(t, resp.Patch, "configured mutation should produce a patch for normal requests")
@@ -479,6 +492,7 @@ func TestMutate_BackgroundControllerSkipsMutation(t *testing.T) {
 	})
 
 	t.Run("background controller skips mutation", func(t *testing.T) {
+		t.Parallel()
 		resp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequestWithUsername("bg-pod", "default", bgSA, podJSON), "", time.Now())
 		assert.True(t, resp.Allowed, "background controller requests should be allowed")
 		assert.Nil(t, resp.Patch, "background controller requests should not produce patches")
@@ -512,7 +526,6 @@ func TestMutate_DryRunSkipsUpdateRequestCreation(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	urGen := &framework.MockURGenerator{}
 	eventGen := &framework.MockEventGen{}
@@ -531,8 +544,9 @@ func TestMutate_DryRunSkipsUpdateRequestCreation(t *testing.T) {
 
 		assert.True(t, resp.Allowed)
 		// Wait for the async goroutine that fires URs
-		time.Sleep(300 * time.Millisecond)
-		assert.NotEmpty(t, urGen.GetSpecs(), "non-dry-run should create update requests")
+		require.Eventually(t, func() bool {
+			return len(urGen.GetSpecs()) > 0
+		}, 2*time.Second, 50*time.Millisecond, "non-dry-run should create update requests")
 	})
 
 	// Reset UR generator for the dry-run test
@@ -553,6 +567,7 @@ func TestMutate_DryRunSkipsUpdateRequestCreation(t *testing.T) {
 // Test 3: When a CEL expression fails at evaluation time and failurePolicy is Fail,
 // the handler should reject the admission request.
 func TestMutate_FailurePolicy_FailBlocksOnCELError(t *testing.T) {
+	t.Parallel()
 	failPolicy := admissionregistrationv1.Fail
 	policy := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "broken-cel-fail"},
@@ -571,7 +586,6 @@ func TestMutate_FailurePolicy_FailBlocksOnCELError(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, nil, reportutils.ReportingCfg, nil, "", eventGen)
@@ -589,6 +603,7 @@ func TestMutate_FailurePolicy_FailBlocksOnCELError(t *testing.T) {
 // Test 4: When a CEL expression fails at evaluation time and failurePolicy is Ignore,
 // the handler should allow the request and silently skip the mutation.
 func TestMutate_FailurePolicy_IgnoreAllowsOnCELError(t *testing.T) {
+	t.Parallel()
 	ignorePolicy := admissionregistrationv1.Ignore
 	policy := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "broken-cel-ignore"},
@@ -605,7 +620,6 @@ func TestMutate_FailurePolicy_IgnoreAllowsOnCELError(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, nil, reportutils.ReportingCfg, nil, "", eventGen)
@@ -625,6 +639,7 @@ func TestMutate_FailurePolicy_IgnoreAllowsOnCELError(t *testing.T) {
 // pods in "team-a", not pods in other namespaces. This is the multi-tenancy isolation
 // guarantee — each team's policies are scoped to their namespace.
 func TestMutateNamespaced_PolicyOnlyAppliesToItsNamespace(t *testing.T) {
+	t.Parallel()
 	createNamespace(t, "team-a")
 	createNamespace(t, "team-b")
 
@@ -645,13 +660,13 @@ func TestMutateNamespaced_PolicyOnlyAppliesToItsNamespace(t *testing.T) {
 	}
 
 	createNamespacedPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, nil, reportutils.ReportingCfg, nil, "", eventGen)
 
 	// Pod in team-a should get mutated
 	t.Run("same namespace gets mutated", func(t *testing.T) {
+		t.Parallel()
 		ctx := framework.ContextWithPolicies(context.Background(), "team-a-inject-label")
 		resp := h.MutateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequest("frontend-pod", "team-a", []byte(`{
 			"apiVersion": "v1", "kind": "Pod",
@@ -669,6 +684,7 @@ func TestMutateNamespaced_PolicyOnlyAppliesToItsNamespace(t *testing.T) {
 
 	// Pod in team-b should NOT get mutated
 	t.Run("different namespace not mutated", func(t *testing.T) {
+		t.Parallel()
 		ctx := framework.ContextWithPolicies(context.Background(), "team-a-inject-label")
 		resp := h.MutateNamespaced(ctx, logr.Discard(), framework.PodAdmissionRequest("backend-pod", "team-b", []byte(`{
 			"apiVersion": "v1", "kind": "Pod",
@@ -684,6 +700,7 @@ func TestMutateNamespaced_PolicyOnlyAppliesToItsNamespace(t *testing.T) {
 // Test 6: MutateNamespaced should immediately return success for cluster-scoped
 // resources (namespace == ""), since namespaced policies cannot govern them.
 func TestMutateNamespaced_SkipsClusterScopedResources(t *testing.T) {
+	t.Parallel()
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, nil, reportutils.ReportingCfg, nil, "", eventGen)
 
@@ -702,6 +719,7 @@ func TestMutateNamespaced_SkipsClusterScopedResources(t *testing.T) {
 // to be skipped for matching resources. This is the break-glass escape hatch:
 // security team enforces policy, but a specific workload gets a temporary exemption.
 func TestMutate_PolicyExceptionSkipsMutation(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "require-runasnonroot"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
@@ -738,7 +756,6 @@ func TestMutate_PolicyExceptionSkipsMutation(t *testing.T) {
 	})
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := mpol.New(testEnv.ContextProvider, engine, nil, reportutils.ReportingCfg, nil, "", eventGen)
