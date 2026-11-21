@@ -12,13 +12,13 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/stretchr/testify/assert"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8stesting "k8s.io/client-go/testing"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func newTestUR(name string, state kyvernov2.UpdateRequestState, retryCount int) *kyvernov2.UpdateRequest {
@@ -248,10 +248,13 @@ func TestRetryOrDeleteOnFailure_DeleteNotFoundCountsAsDeleted(t *testing.T) {
 // still attributable.
 func TestUpdateStatus_TerminalDropLogOmitsFailureMessage(t *testing.T) {
 	var buf bytes.Buffer
-	log.SetLogger(funcr.New(func(prefix, args string) {
+	testLogger := funcr.New(func(prefix, args string) {
 		fmt.Fprintf(&buf, "%s %s\n", prefix, args)
-	}, funcr.Options{Verbosity: 2}))
-	defer log.SetLogger(logr.Discard())
+	}, funcr.Options{Verbosity: 2})
+	// logging.V() reads pkg/logging's own globalLog, not controller-runtime's
+	// log.Log, so we must swap the global logger directly.
+	logging.SetGlobalLogger(testLogger)
+	defer logging.SetGlobalLogger(logr.Discard())
 
 	const message = "trigger-configmap-prod-secret-values-3f9c2a"
 	ur := newTestUR("ur-log-guard", kyvernov2.Pending, 4)

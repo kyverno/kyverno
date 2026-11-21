@@ -96,6 +96,12 @@ func resolveTimestampFormat(format string) string {
 	}
 }
 
+// SetGlobalLogger replaces the global logger. It is intended for use in tests
+// where the caller needs to capture log output.
+func SetGlobalLogger(logger logr.Logger) {
+	globalLog = logger
+}
+
 // GlobalLogger returns a logr.Logger as configured in main.
 func GlobalLogger() logr.Logger {
 	return globalLog
