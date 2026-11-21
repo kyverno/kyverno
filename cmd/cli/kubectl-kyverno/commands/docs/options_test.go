@@ -77,3 +77,39 @@ func TestGenMarkdownTreeMatchesCobra(t *testing.T) {
 		assert.Equal(t, string(wantContent), string(gotContent), e.Name())
 	}
 }
+
+// TestExecuteReturnsWriteErrors checks that errors from creating the output
+// files are returned, including those from subcommand files written by the
+// recursive calls.
+func TestExecuteReturnsWriteErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T) string
+		wantErr error
+	}{
+		{
+			name: "output path has a regular-file ancestor",
+			setup: func(t *testing.T) string {
+				file := filepath.Join(t.TempDir(), "file")
+				require.NoError(t, os.WriteFile(file, nil, 0o600))
+				return filepath.Join(file, "docs")
+			},
+			wantErr: syscall.ENOTDIR,
+		},
+		{
+			name: "subcommand file path is a directory",
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				require.NoError(t, os.Mkdir(filepath.Join(dir, "kyverno_sub.md"), 0o750))
+				return dir
+			},
+			wantErr: syscall.EISDIR,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := (options{path: tt.setup(t)}).execute(testRootCommand())
+			require.ErrorIs(t, err, tt.wantErr)
+		})
+	}
+}
