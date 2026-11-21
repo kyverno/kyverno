@@ -28,9 +28,9 @@ results:
   resources:
   - compliant
   - selinux-container-engine-t
-  - selinux-pod-container-engine-t
-  - selinux-init-container-engine-t
   - selinux-ephemeral-container-engine-t
+  - selinux-init-container-engine-t
+  - selinux-pod-container-engine-t
   result: pass
 - isValidatingPolicy: true
   kind: Pod
@@ -59,30 +59,30 @@ results:
   resources:
   - compliant
   - run-as-root-allowed-host-users-false
-  - userns-false-run-as-non-root-false
   - userns-false-ctr-run-as-non-root-false
+  - userns-false-run-as-non-root-false
   result: pass
 - isValidatingPolicy: true
   kind: Pod
   policy: restrict-sysctls
   resources:
+  - sysctl-net-ipv4-tcp-notsent-lowat
+  - sysctl-net-ipv4-tcp-rmem
+  - sysctl-net-ipv4-tcp-slow-start-after-idle
+  - sysctl-net-ipv4-tcp-wmem
   - sysctl-v1-32
   - sysctl-v1-37
-  - sysctl-net-ipv4-tcp-rmem
-  - sysctl-net-ipv4-tcp-wmem
-  - sysctl-net-ipv4-tcp-slow-start-after-idle
-  - sysctl-net-ipv4-tcp-notsent-lowat
   result: fail
 - isValidatingPolicy: true
   kind: Pod
   policy: restrict-sysctls
   resources:
   - compliant
-  - sysctl-v1-27
-  - sysctl-v1-29
   - sysctl-net-ipv4-ip-local-reserved-ports
-  - sysctl-net-ipv4-tcp-keepalive-time
   - sysctl-net-ipv4-tcp-fin-timeout
   - sysctl-net-ipv4-tcp-keepalive-intvl
   - sysctl-net-ipv4-tcp-keepalive-probes
+  - sysctl-net-ipv4-tcp-keepalive-time
+  - sysctl-v1-27
+  - sysctl-v1-29
   result: pass

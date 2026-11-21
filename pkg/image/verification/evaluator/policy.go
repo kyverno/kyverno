@@ -68,6 +68,18 @@ type CompiledPolicy interface {
 	MutateDigest(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration, libs.Context) ([]jsonpatch.JsonPatchOperation, error)
 }
 
+// ActivationAwareCompiledPolicy is an optional extension of CompiledPolicy for policies
+// that support evaluating with a precomputed ActivationBuilder.
+type ActivationAwareCompiledPolicy interface {
+	CompiledPolicy
+	// EvaluateWithActivation evaluates the compiled policy using an optional precomputed
+	// ActivationBuilder. When activationBuilder is nil, standard activation is prepared.
+	EvaluateWithActivation(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, runtime.Object, bool, engine.ActivationBuilder, func() (map[string]any, error), libs.Context) (*EvaluationResult, error)
+	// MutateDigestWithActivation computes image digest mutation patches using an optional
+	// precomputed ActivationBuilder. When activationBuilder is nil, standard activation is prepared.
+	MutateDigestWithActivation(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, engine.ActivationBuilder, func() (map[string]any, error), config.Configuration, libs.Context) ([]jsonpatch.JsonPatchOperation, error)
+}
+
 type compiledPolicy struct {
 	namespace            string
 	failurePolicy        admissionregistrationv1.FailurePolicyType
@@ -96,8 +108,14 @@ func (c *compiledPolicy) Tracing() bool {
 	return c.trace
 }
 
+// Evaluate evaluates the policy against admission data using standard activation preparation.
 func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *imageverify.ImageVerificationResults, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, requestMapFn func() (map[string]any, error), context libs.Context) (*EvaluationResult, error) {
-	data, err := prepareK8sData(attr, request, namespace, isK8s, requestMapFn)
+	return c.EvaluateWithActivation(ctx, imgCtx, cache, results, attr, request, namespace, isK8s, nil, requestMapFn, context)
+}
+
+// EvaluateWithActivation evaluates the policy against admission data using an optional ActivationBuilder.
+func (c *compiledPolicy) EvaluateWithActivation(ctx context.Context, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *imageverify.ImageVerificationResults, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, activationBuilder engine.ActivationBuilder, requestMapFn func() (map[string]any, error), context libs.Context) (*EvaluationResult, error) {
+	data, err := prepareK8sDataWithActivation(attr, request, namespace, isK8s, activationBuilder, requestMapFn)
 	if err != nil {
 		return nil, err
 	}
@@ -192,6 +210,10 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
 		for _, polex := range c.exceptions {
+			// Compiled exceptions can expire without a policy or exception update.
+			if polex.IsExpired() {
+				continue
+			}
 			match, err := c.match(ctx, data, polex.MatchConditions, nil)
 			if err != nil {
 				if fullExemptionFound {
@@ -451,6 +473,7 @@ func (c *compiledPolicy) EnforceRequired(images []string, verifications *imageve
 // Resolution is per image. The returned patches cover every image that could be pinned even
 // when the returned error is non-nil, so one unresolvable image does not cost the others their
 // digest, matching how ClusterPolicy pins each image independently.
+// MutateDigest generates digest mutation patches using standard activation preparation.
 func (c *compiledPolicy) MutateDigest(
 	ctx context.Context,
 	imgCtx imagedataloader.ImageContext,
@@ -464,7 +487,25 @@ func (c *compiledPolicy) MutateDigest(
 	cfg config.Configuration,
 	libctx libs.Context,
 ) ([]jsonpatch.JsonPatchOperation, error) {
-	data, err := prepareK8sData(attr, request, namespace, isK8s(request), requestMapFn)
+	return c.MutateDigestWithActivation(ctx, imgCtx, cache, results, attr, request, namespace, resource, nil, requestMapFn, cfg, libctx)
+}
+
+// MutateDigestWithActivation generates digest mutation patches using an optional ActivationBuilder.
+func (c *compiledPolicy) MutateDigestWithActivation(
+	ctx context.Context,
+	imgCtx imagedataloader.ImageContext,
+	cache imageverifycache.Client,
+	results *imageverify.ImageVerificationResults,
+	attr admission.Attributes,
+	request interface{},
+	namespace runtime.Object,
+	resource unstructured.Unstructured,
+	activationBuilder engine.ActivationBuilder,
+	requestMapFn func() (map[string]any, error),
+	cfg config.Configuration,
+	libctx libs.Context,
+) ([]jsonpatch.JsonPatchOperation, error) {
+	data, err := prepareK8sDataWithActivation(attr, request, namespace, isK8s(request), activationBuilder, requestMapFn)
 	if err != nil {
 		return nil, err
 	}
@@ -484,6 +525,10 @@ func (c *compiledPolicy) MutateDigest(
 	// exceptions must not skip digest pinning for the whole resource — same rule as
 	// Evaluate, so validating and mutating paths stay aligned.
 	for _, polex := range c.exceptions {
+		// Recheck on every admission: the compiled policy may outlive this exception.
+		if polex.IsExpired() {
+			continue
+		}
 		match, err := c.match(ctx, data, polex.MatchConditions, nil)
 		if err != nil {
 			return nil, err
@@ -602,11 +647,7 @@ func (p *compiledPolicy) match(
 // requestMapFn is a memoized request-map builder shared across every policy in the
 // admission request; pass nil to build the map from request instead (JSON mode,
 // ExtractionMode synthetic requests). The request map MUST be treated as immutable.
-//
-// TODO(#17586): this helper is a twin of vpol's prepareK8sData
-// (pkg/cel/policies/vpol/compiler/eval.go). Both should move behind a shared
-// choke point in pkg/cel/compiler so a fourth engine cannot reintroduce the
-// per-policy rebuild this design eliminates here and in #17572.
+// prepareK8sData assembles evaluation data using standard activation preparation.
 func prepareK8sData(
 	attr admission.Attributes,
 	request interface{},
@@ -614,36 +655,36 @@ func prepareK8sData(
 	isK8s bool,
 	requestMapFn func() (map[string]any, error),
 ) (map[string]any, error) {
-	data := map[string]any{}
+	return prepareK8sDataWithActivation(attr, request, namespace, isK8s, nil, requestMapFn)
+}
+
+// prepareK8sDataWithActivation assembles CEL activation data using an optional precomputed
+// ActivationBuilder. When activationBuilder is nil, it falls back to PrepareK8sActivation.
+func prepareK8sDataWithActivation(
+	attr admission.Attributes,
+	request interface{},
+	namespace runtime.Object,
+	isK8s bool,
+	activationBuilder engine.ActivationBuilder,
+	requestMapFn func() (map[string]any, error),
+) (map[string]any, error) {
 	if !isK8s {
-		data[engine.ObjectKey] = request
-		return data, nil
+		return map[string]any{
+			engine.ObjectKey: request,
+		}, nil
 	}
-	namespaceVal, err := utils.ObjectToResolveVal(namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
-	}
-	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-	}
-	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-	}
-	var requestMap map[string]any
-	if requestMapFn != nil {
-		requestMap, err = requestMapFn()
+	var (
+		activation engine.ActivationData
+		err        error
+	)
+	if activationBuilder != nil {
+		activation, err = activationBuilder()
 	} else {
 		admissionReq, _ := request.(*admissionv1.AdmissionRequest)
-		requestMap, err = engine.BuildRawRequestMap(admissionReq)
+		activation, err = engine.PrepareK8sActivation(attr, admissionReq, namespace, requestMapFn, engine.BuildRawRequestMap)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+		return nil, err
 	}
-	data[engine.NamespaceObjectKey] = namespaceVal
-	data[engine.RequestKey] = requestMap
-	data[engine.ObjectKey] = objectVal
-	data[engine.OldObjectKey] = oldObjectVal
-	return data, nil
+	return activation.ToMap(), nil
 }

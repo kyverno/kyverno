@@ -1,0 +1,11 @@
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: exempt-json
+spec:
+  policyRefs:
+  - name: exempted
+    kind: MutatingPolicy
+  matchConditions:
+  - name: all
+    expression: "true"

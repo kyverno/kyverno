@@ -81,6 +81,7 @@ func main() {
 	// produces N events per rollout. This is acceptable and relies on normal Kubernetes
 	// event garbage collection (default TTL) to age them out.
 	checkLegacyPolicies(ctx, setup)
+	markLegacyPoliciesUnsupported(ctx, setup)
 	checkOrphanedWebhookConfigs(ctx, setup)
 
 	run := func(context.Context) {

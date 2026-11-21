@@ -23,7 +23,7 @@ func ClusteredPolicy() Predicate {
 
 func NamespacedPolicy(namespace string) Predicate {
 	return func(policy policiesv1beta1.ImageValidatingPolicyLike) bool {
-		return policy.GetNamespace() == namespace
+		return namespace != "" && policy.GetNamespace() == namespace
 	}
 }
 

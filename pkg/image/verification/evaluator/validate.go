@@ -29,6 +29,12 @@ type ImageVerifyPolicyResponse struct {
 	Trace *trace.Decision
 }
 
+// TraceOnly reports whether the policy is in the response only for its trace: it did not apply,
+// or a match condition skipped it, and without tracing it would not be in the response at all.
+func (r ImageVerifyPolicyResponse) TraceOnly() bool {
+	return r.Trace != nil && r.Result.Status() == ""
+}
+
 func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister) ([]string, error) {
 	compiler := NewCompiler(lister)
 	_, errList := compiler.Compile(ivpol, nil)

@@ -639,6 +639,199 @@ func TestEvaluate(t *testing.T) {
 		assert.Equal(t, "staging", labels["env"], "first policy mutation should be present")
 		assert.Equal(t, "backend", labels["team"], "second policy mutation should be present")
 	})
+
+	t.Run("nil predicate evaluates and chains multiple matching policies", func(t *testing.T) {
+		mutateExisting := true
+		mpol1 := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "nil-pred-label-env",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+						Enabled: &mutateExisting,
+					},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{"CREATE"},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"apps"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"deployments"},
+								},
+							},
+						},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{metadata: Object.metadata{labels: {"env": "staging"}}}`,
+						},
+					},
+				},
+			},
+		}
+
+		mpol2 := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "nil-pred-label-team",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+						Enabled: &mutateExisting,
+					},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{"CREATE"},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"apps"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"deployments"},
+								},
+							},
+						},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{metadata: Object.metadata{labels: {"team": "backend"}}}`,
+						},
+					},
+				},
+			},
+		}
+
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol1, mpol2}, nil, libs.NewFakeContextProvider())
+		assert.NoError(t, err)
+
+		engine := NewEngine(
+			provider,
+			func(ns string) *corev1.Namespace {
+				return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+			}, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+
+		// Pass nil predicate: all matching policies must evaluate and chain mutations
+		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, nil)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.NotNil(t, resp.PatchedResource)
+		assert.Len(t, resp.Policies, 2)
+
+		labels, found, _ := unstructured.NestedMap(resp.PatchedResource.Object, "metadata", "labels")
+		assert.True(t, found)
+		assert.Equal(t, "staging", labels["env"], "first policy mutation should be present")
+		assert.Equal(t, "backend", labels["team"], "second policy mutation should be present")
+	})
+
+	t.Run("predicate rejects first matching policy and evaluates second", func(t *testing.T) {
+		mutateExisting := true
+		mpol1 := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "rejected-policy",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+						Enabled: &mutateExisting,
+					},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{"CREATE"},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"apps"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"deployments"},
+								},
+							},
+						},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{metadata: Object.metadata{labels: {"rejected": "true"}}}`,
+						},
+					},
+				},
+			},
+		}
+
+		mpol2 := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "accepted-policy",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+						Enabled: &mutateExisting,
+					},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{"CREATE"},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{"apps"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"deployments"},
+								},
+							},
+						},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{metadata: Object.metadata{labels: {"accepted": "true"}}}`,
+						},
+					},
+				},
+			},
+		}
+
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol1, mpol2}, nil, libs.NewFakeContextProvider())
+		assert.NoError(t, err)
+
+		engine := NewEngine(
+			provider,
+			func(ns string) *corev1.Namespace {
+				return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+			}, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+
+		// Predicate filters out mpol1 and accepts mpol2
+		resp, err := engine.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, func(p policiesv1beta1.MutatingPolicyLike) bool {
+			return p.GetName() == "accepted-policy"
+		})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.NotNil(t, resp.PatchedResource)
+		assert.Len(t, resp.Policies, 1)
+		assert.Equal(t, "accepted-policy", resp.Policies[0].Policy.GetName())
+
+		labels, found, _ := unstructured.NestedMap(resp.PatchedResource.Object, "metadata", "labels")
+		assert.True(t, found)
+		assert.Equal(t, "true", labels["accepted"])
+		assert.NotContains(t, labels, "rejected", "rejected policy mutation should not be present")
+	})
 }
 
 func TestHandle(t *testing.T) {

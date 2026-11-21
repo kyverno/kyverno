@@ -100,7 +100,7 @@ func newReferrerTest(t *testing.T) *referrerTest {
 	require.NoError(t, err)
 	rt.subject, rt.image = *desc, rt.repo.Digest(desc.Digest.String()).String()
 
-	rt.ivCache, err = imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
+	rt.ivCache, err = imageverifycache.New(imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 	require.NoError(t, err)
 	rt.attestors = []v1beta1.Attestor{{Name: "notary", Notary: &v1beta1.Notary{Certs: &v1beta1.StringOrExpression{Value: "cert"}}}}
 	pol := &v1beta1.ImageValidatingPolicy{
@@ -173,9 +173,8 @@ func Test_impl_verify_referrer_attestation_degraded_cache_entry_reverifies(t *te
 			t.Parallel()
 			rt := newReferrerTest(t)
 			rt.push(t, `{"signed":true}`)
-			rule, err := attestorCacheRule(attestationCacheRule, "sbom", rt.attestors)
-			require.NoError(t, err)
-			stored, err := rt.ivCache.SetWithPayload(context.TODO(), rt.base.policy, rule, rt.image, true, cached)
+			attestation := &v1beta1.Attestation{Name: "sbom", Referrer: &v1beta1.Referrer{Type: sbomType}}
+			stored, err := rt.ivCache.Set(rt.image, rt.attestors, attestation, cached)
 			require.NoError(t, err)
 			require.True(t, stored)
 
@@ -187,14 +186,15 @@ func Test_impl_verify_referrer_attestation_degraded_cache_entry_reverifies(t *te
 	}
 }
 
-func Test_impl_verify_referrer_attestation_failure_is_not_cached(t *testing.T) {
+func Test_impl_verify_referrer_attestation_failure_is_not_cached_or_exposed(t *testing.T) {
 	t.Parallel()
 	rt := newReferrerTest(t)
 	rt.push(t, `{"signed":false}`)
 
 	for range 2 {
-		count, _ := rt.admit(t)
+		count, payload := rt.admit(t)
 		require.Equal(t, int64(0), count.Value())
+		assert.True(t, types.IsError(payload()), "extractPayload() must not return a referrer nobody verified")
 	}
 	assert.Equal(t, 2, rt.notary.calls, "a failed verification must not be cached")
 }

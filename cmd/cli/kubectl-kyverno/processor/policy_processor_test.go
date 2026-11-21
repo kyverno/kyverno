@@ -7,20 +7,28 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"gotest.tools/v3/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
+	kubefake "k8s.io/client-go/kubernetes/fake"
+	clienttesting "k8s.io/client-go/testing"
 	yaml "sigs.k8s.io/yaml"
 )
 
@@ -643,4 +651,150 @@ spec:
 			assert.Equal(t, err, expectedErr)
 		})
 	}
+}
+
+func Test_GetNamespaceResolver(t *testing.T) {
+	localVals := &v1alpha1.ValuesSpec{
+		Namespaces: []corev1.Namespace{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "local-ns",
+					Labels: map[string]string{"env": "local"},
+				},
+			},
+		},
+	}
+	vars, err := variables.New(nil, nil, "", "", localVals)
+	assert.NilError(t, err)
+
+	clusterNs := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "cluster-ns",
+			Labels: map[string]string{"env": "cluster"},
+		},
+	}
+	kclient := kubefake.NewSimpleClientset(clusterNs)
+	client := dclient.NewFakeClientWithDisco(nil, kclient, nil)
+
+	t.Run("resolves local namespace without cluster", func(t *testing.T) {
+		resolver := GetNamespaceResolver(vars, nil, false)
+		ns := resolver("local-ns")
+		assert.Assert(t, ns != nil)
+		assert.Equal(t, ns.Name, "local-ns")
+		assert.Equal(t, ns.Labels["env"], "local")
+
+		assert.Assert(t, resolver("nonexistent") == nil)
+	})
+
+	t.Run("falls back to live cluster when cluster mode is enabled and reuses cache", func(t *testing.T) {
+		kclientLive := kubefake.NewSimpleClientset(clusterNs)
+		clientLive := dclient.NewFakeClientWithDisco(nil, kclientLive, nil)
+
+		resolver := GetNamespaceResolver(nil, clientLive, true)
+		actionsBefore := len(kclientLive.Actions())
+		ns := resolver("cluster-ns")
+		assert.Assert(t, ns != nil)
+		assert.Equal(t, ns.Name, "cluster-ns")
+		assert.Equal(t, ns.Labels["env"], "cluster")
+		assert.Equal(t, len(kclientLive.Actions()), actionsBefore+1)
+
+		// Cached lookup should return the exact same namespace without performing a second GET
+		actionsAfterFirst := len(kclientLive.Actions())
+		cached := resolver("cluster-ns")
+		assert.Assert(t, cached != nil)
+		assert.Equal(t, cached.Name, "cluster-ns")
+		assert.Equal(t, len(kclientLive.Actions()), actionsAfterFirst)
+
+		// Missing namespace returns 404 and is cached so subsequent lookup avoids extra GET
+		actionsBeforeMissing := len(kclientLive.Actions())
+		assert.Assert(t, resolver("nonexistent") == nil)
+		assert.Equal(t, len(kclientLive.Actions()), actionsBeforeMissing+1)
+
+		actionsAfterMissing := len(kclientLive.Actions())
+		assert.Assert(t, resolver("nonexistent") == nil)
+		assert.Equal(t, len(kclientLive.Actions()), actionsAfterMissing)
+	})
+
+	t.Run("transient API errors are not cached and allow retry", func(t *testing.T) {
+		kclientErr := kubefake.NewSimpleClientset()
+		kclientErr.PrependReactor("get", "namespaces", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+			getAction, ok := action.(clienttesting.GetAction)
+			if ok && getAction.GetName() == "transient-ns" {
+				return true, nil, apierrors.NewInternalError(errors.New("transient server failure"))
+			}
+			return false, nil, nil
+		})
+		clientErr := dclient.NewFakeClientWithDisco(nil, kclientErr, nil)
+
+		resolver := GetNamespaceResolver(nil, clientErr, true)
+		assert.Assert(t, resolver("transient-ns") == nil)
+		actionsCount := len(kclientErr.Actions())
+
+		// Second call should retry the GET rather than returning a cached negative result
+		assert.Assert(t, resolver("transient-ns") == nil)
+		assert.Equal(t, len(kclientErr.Actions()), actionsCount+1)
+	})
+
+	t.Run("local variables take precedence over cluster namespaces", func(t *testing.T) {
+		overrideVals := &v1alpha1.ValuesSpec{
+			Namespaces: []corev1.Namespace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "shared-ns",
+						Labels: map[string]string{"source": "local"},
+					},
+				},
+			},
+		}
+		overrideVars, err := variables.New(nil, nil, "", "", overrideVals)
+		assert.NilError(t, err)
+
+		sharedClusterNs := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "shared-ns",
+				Labels: map[string]string{"source": "cluster"},
+			},
+		}
+		kclientShared := kubefake.NewSimpleClientset(sharedClusterNs)
+		overrideClient := dclient.NewFakeClientWithDisco(nil, kclientShared, nil)
+
+		resolver := GetNamespaceResolver(overrideVars, overrideClient, true)
+		ns := resolver("shared-ns")
+		assert.Assert(t, ns != nil)
+		assert.Equal(t, ns.Labels["source"], "local")
+	})
+
+	t.Run("cluster lookup ignored when cluster mode is disabled", func(t *testing.T) {
+		resolver := GetNamespaceResolver(nil, client, false)
+		assert.Assert(t, resolver("cluster-ns") == nil)
+	})
+
+	t.Run("empty name returns nil", func(t *testing.T) {
+		resolver := GetNamespaceResolver(vars, client, true)
+		assert.Assert(t, resolver("") == nil)
+	})
+
+	t.Run("policy processor memoizes namespace resolver", func(t *testing.T) {
+		kclientMemo := kubefake.NewSimpleClientset(clusterNs)
+		clientMemo := dclient.NewFakeClientWithDisco(nil, kclientMemo, nil)
+		pp := &PolicyProcessor{
+			Client:  clientMemo,
+			Cluster: true,
+		}
+		res1 := pp.getNamespaceResolver()
+		assert.Assert(t, res1 != nil)
+		assert.Assert(t, pp.NamespaceResolver != nil)
+
+		actionsBefore := len(kclientMemo.Actions())
+		ns1 := res1("cluster-ns")
+		assert.Assert(t, ns1 != nil)
+		assert.Equal(t, len(kclientMemo.Actions()), actionsBefore+1)
+
+		res2 := pp.getNamespaceResolver()
+		assert.Assert(t, res2 != nil)
+		ns2 := res2("cluster-ns")
+		assert.Assert(t, ns2 != nil)
+		// Memoized resolver shares the exact same cache instance, issuing no additional GET
+		assert.Equal(t, len(kclientMemo.Actions()), actionsBefore+1)
+	})
 }

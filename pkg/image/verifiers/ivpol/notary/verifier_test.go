@@ -1,11 +1,13 @@
 package notary
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -102,4 +104,27 @@ func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
 	verified, err := v.VerifyAttestationSignature(ctx, img, "application/vnd.cncf.notary.signature", cert, "")
 	assert.ErrorContains(t, err, "make sure the artifact was signed successfully")
 	assert.Nil(t, verified)
+}
+
+// Referrers verified in parallel share one notation verifier and repository,
+// so they must be safe for concurrent use. Run with -race.
+func Test_ImageAttestationVerificationSharedVerifier(t *testing.T) {
+	idf, err := imagedataloader.New(nil, nil, nil)
+	require.NoError(t, err)
+	img, err := idf.FetchImageData(ctx, image, nil, nil)
+	require.NoError(t, err)
+	vInfo, err := getVerificationInfo(img, cert, "")
+	require.NoError(t, err)
+	referrers, err := img.FetchReferrers("sbom/cyclone-dx")
+	require.NoError(t, err)
+	require.NotEmpty(t, referrers)
+
+	v := Verifier{log: logr.Discard()}
+	var wg sync.WaitGroup
+	for range 4 {
+		wg.Go(func() {
+			assert.NoError(t, v.verifyReferrer(ctx, logr.Discard(), img, vInfo, referrers[0]))
+		})
+	}
+	wg.Wait()
 }

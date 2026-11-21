@@ -1,29 +1,23 @@
 package cache
 
 import (
-	"context"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 )
 
+// Client caches image verification verdicts. An entry records that every
+// attestor in a group verified an image digest: its signature when attestation
+// is nil, otherwise that attestation. Entries are keyed by what was verified,
+// not by the policy that asked, so policies trusting the same attestors share
+// them.
 type Client interface {
-	// Set Adds an image to the cache. The image is considered to be verified for the given rule in the policy
-	// The entry outomatically expires after sometime
-	// Returns true when the cache entry is added
-	Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error)
+	// Get reports whether every attestor verified imageRef, and returns the
+	// verified attestation payloads stored with the entry: intoto payloads keyed
+	// by predicate type, or verified referrer descriptors keyed by artifact
+	// type. Payloads are nil for signature entries.
+	Get(imageRef string, attestors []v1beta1.Attestor, attestation *v1beta1.Attestation) (found bool, payloads map[string][]byte, err error)
 
-	// Get Searches for the image verified using the rule in the policy in the cache
-	// Returns true when the cache entry is found
-	Get(ctx context.Context, policy metav1.Object, ruleName string, imagerRef string, useCache bool) (bool, error)
-
-	// SetWithPayload is like Set, but also stores verified attestation payloads: intoto
-	// predicates keyed by predicate type, and lists of verified Notary/OCI referrer
-	// descriptors keyed by artifact type.
-	// Callers that only need a presence marker can keep using Set.
-	SetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool, payloads map[string][]byte) (bool, error)
-
-	// GetWithPayload is like Get, but also returns any cached attestation payloads.
-	// found is true when the verification cache entry exists; payloads may be nil/empty
-	// when the entry was written with Set (presence-only).
-	GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (found bool, payloads map[string][]byte, err error)
+	// Set records that every attestor verified imageRef, along with the
+	// verified payloads. The entry expires after the cache TTL. Returns true
+	// when the cache holds the entry afterwards.
+	Set(imageRef string, attestors []v1beta1.Attestor, attestation *v1beta1.Attestation, payloads map[string][]byte) (bool, error)
 }

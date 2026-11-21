@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/go-git/go-billy/v5"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
@@ -34,15 +35,21 @@ import (
 	"github.com/kyverno/kyverno/ext/cluster"
 	"github.com/kyverno/kyverno/ext/output/pluralize"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
+	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
+	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -76,7 +83,16 @@ func deletingPolicyKey(namespace, name string) string {
 	return namespace + "/" + name
 }
 
+var (
+	hookVpolProviderCreated    func()
+	hookMpolProviderCreated    func()
+	hookGpolCompiled           func()
+	hookDpolProviderCreated    func()
+	hookContextProviderCreated func()
+)
+
 // `kyverno test` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
+
 func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
 	failOnWarnings := len(warningsAsErrors) > 0 && warningsAsErrors[0]
 	crdProcessor := data.NewCRDProcessor(nil)
@@ -85,7 +101,14 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	if testCase.Err != nil {
 		return nil, testCase.Err
 	}
-	fmt.Fprintln(out, "Loading test", testCase.Test.Name, "(", testCase.Path, ")", "...")
+	testName := testCase.Test.GetName()
+	if testName == "" {
+		testName = testCase.Test.Name
+	}
+	if testName != "" {
+		testName = color.BoldCyan(testName)
+	}
+	fmt.Fprintln(out, "Loading test", testName, "(", testCase.Path, ")", "...")
 	isGit := testCase.Fs != nil
 	testDir := testCase.Dir()
 	var dClient dclient.Interface
@@ -147,12 +170,12 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 	if results != nil && results.NonFatalErrors != nil {
 		for _, e := range results.NonFatalErrors {
-			fmt.Fprintf(out, "  ERROR: %s: %s\n", e.Path, e.Error)
+			fmt.Fprintf(out, "  %s %s: %s\n", color.BoldRed("ERROR:"), e.Path, e.Error)
 		}
 	}
 	if results != nil && results.Warnings != nil {
 		for _, warning := range results.Warnings {
-			fmt.Fprintf(out, "  Warning: %s: %s\n", warning.Path, warning.Warning)
+			fmt.Fprintf(out, "  %s %s: %s\n", color.BoldYellow("Warning:"), warning.Path, warning.Warning)
 		}
 		if failOnWarnings && len(results.Warnings) > 0 {
 			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(results.Warnings))
@@ -176,7 +199,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	uniques, duplicates := resource.RemoveDuplicates(resources)
 	if len(duplicates) > 0 {
 		for dup := range duplicates {
-			fmt.Fprintln(out, "  warning: found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
+			fmt.Fprintln(out, "  "+color.BoldYellow("warning:")+" found duplicated resource", dup.Kind, dup.Name, dup.Namespace)
 		}
 	}
 	uniquesObjectArr := []runtime.Object{}
@@ -200,7 +223,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				var fileBytes []byte
 				fileBytes, loadErr = common.ReadFile(testCase.Fs, filepath.Join(testDir, jp))
 				if loadErr == nil {
-					loadErr = json.Unmarshal(fileBytes, &data)
+					data, loadErr = payload.Parse(jp, fileBytes)
 				}
 			} else {
 				data, loadErr = payload.Load(jp)
@@ -337,7 +360,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 	if polexLoader != nil && polexLoader.Warnings != nil {
 		for _, warning := range polexLoader.Warnings {
-			fmt.Fprintf(out, "  Warning: %s\n", warning)
+			fmt.Fprintf(out, "  %s %s\n", color.BoldYellow("Warning:"), warning)
 		}
 		if failOnWarnings && len(polexLoader.Warnings) > 0 {
 			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(polexLoader.Warnings))
@@ -444,6 +467,138 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		explicitOperations.Insert(res.Operation)
 	}
+	nsResolver := processor.GetNamespaceResolver(vars, dClient, len(testCase.Test.ClusterResources) > 0)
+
+	var contextProvider libs.Context
+	var vpolProvider vpolengine.Provider
+	var vpolProviderErr error
+	var vpolJSONProvider vpolengine.Provider
+	var vpolJSONProviderErr error
+	var mpolProvider mpolengine.Provider
+	var mpolProviderErr error
+	var gpolCompiledPolicies []gpolengine.Policy
+	var gpolCompiledPoliciesErr error
+	var gpolCompiledJSONPolicies []gpolengine.Policy
+	var gpolCompiledJSONPoliciesErr error
+	var dpolProvider dpolengine.ProviderFunc
+	var dpolProviderErr error
+	var jsonContextProvider libs.Context
+	var dpolJSONProvider dpolengine.ProviderFunc
+
+	if (len(uniques) > 0 || len(jsonPayloads) > 0) && (len(results.ValidatingPolicies) != 0 || len(results.MutatingPolicies) != 0 || len(results.GeneratingPolicies) != 0 || len(results.DeletingPolicies) != 0) {
+		if restMapper == nil {
+			var err error
+			restMapper, err = utils.GetRESTMapper(dClient)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var err error
+		contextProvider, err = processor.NewContextProvider(dClient, restMapper, testCase.Fs, contextPath, registryAccess, !(len(testCase.Test.ClusterResources) > 0), gceMap, store.GetHTTPMockIndex())
+		if err != nil {
+			return nil, err
+		}
+		if hookContextProviderCreated != nil {
+			hookContextProviderCreated()
+		}
+		var celExceptions []*policiesv1beta1.PolicyException
+		if polexLoader != nil {
+			celExceptions = polexLoader.CELExceptions
+		}
+		if len(results.ValidatingPolicies) != 0 {
+			compiler := vpolcompiler.NewCompiler()
+			var jsonPolicies []policiesv1beta1.ValidatingPolicyLike
+			var k8sPolicies []policiesv1beta1.ValidatingPolicyLike
+			for i := range results.ValidatingPolicies {
+				pol := results.ValidatingPolicies[i]
+				if pol.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+					jsonPolicies = append(jsonPolicies, pol)
+				} else {
+					k8sPolicies = append(k8sPolicies, pol)
+				}
+			}
+			if len(k8sPolicies) > 0 && len(uniques) > 0 {
+				vpolProvider, vpolProviderErr = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
+				if hookVpolProviderCreated != nil {
+					hookVpolProviderCreated()
+				}
+			}
+			if len(jsonPolicies) > 0 {
+				vpolJSONProvider, vpolJSONProviderErr = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
+				if hookVpolProviderCreated != nil {
+					hookVpolProviderCreated()
+				}
+			}
+		}
+		if len(results.MutatingPolicies) != 0 {
+			var policies []policiesv1beta1.MutatingPolicyLike
+			for _, policy := range results.MutatingPolicies {
+				if policy.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+					if len(jsonPayloads) > 0 {
+						policies = append(policies, policy)
+					}
+				} else if len(uniques) > 0 {
+					policies = append(policies, policy)
+				}
+			}
+			compiler := mpolcompiler.NewCompiler()
+			mpolProvider, mpolProviderErr = mpolengine.NewProvider(compiler, policies, celExceptions, contextProvider)
+			if hookMpolProviderCreated != nil {
+				hookMpolProviderCreated()
+			}
+		}
+		if len(results.GeneratingPolicies) != 0 {
+			gpolCompiledPolicies, gpolCompiledPoliciesErr = compileGeneratingPolicies(results.GeneratingPolicies, celExceptions)
+			if hookGpolCompiled != nil {
+				hookGpolCompiled()
+			}
+		}
+		if len(results.DeletingPolicies) != 0 {
+			dpolProvider, dpolProviderErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions)
+			if dpolProviderErr != nil {
+				return nil, dpolProviderErr
+			}
+			if hookDpolProviderCreated != nil {
+				hookDpolProviderCreated()
+			}
+		}
+		if len(jsonPayloads) > 0 {
+			if len(testCase.Test.ClusterResources) == 0 {
+				jsonContextProvider = contextProvider
+				dpolJSONProvider = dpolProvider
+				gpolCompiledJSONPolicies = gpolCompiledPolicies
+				gpolCompiledJSONPoliciesErr = gpolCompiledPoliciesErr
+			} else {
+				var err error
+				jsonContextProvider, err = processor.NewContextProvider(dClient, restMapper, testCase.Fs, contextPath, registryAccess, true, gceMap, store.GetHTTPMockIndex())
+				if err != nil {
+					return nil, err
+				}
+				if hookContextProviderCreated != nil {
+					hookContextProviderCreated()
+				}
+				if len(results.GeneratingPolicies) != 0 {
+					gpolCompiledJSONPolicies, gpolCompiledJSONPoliciesErr = compileGeneratingPolicies(results.GeneratingPolicies, celExceptions)
+					if hookGpolCompiled != nil {
+						hookGpolCompiled()
+					}
+				}
+				if len(results.DeletingPolicies) != 0 {
+					var dpolErr error
+					dpolJSONProvider, dpolErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions)
+					if dpolErr != nil {
+						return nil, dpolErr
+					}
+					if hookDpolProviderCreated != nil {
+						hookDpolProviderCreated()
+					}
+				}
+				// Restore LibraryContext to cluster contextProvider for resource evaluation
+				libs.LibraryContext = contextProvider
+			}
+		}
+	}
+
 	// evalResource is a closure that applies all loaded policies to a single
 	// resource under the given admission operation. The defaultRun flag controls
 	// whether DeletingPolicies are evaluated (they run only once, in the default
@@ -455,6 +610,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	evalResource := func(resource *unstructured.Unstructured, operation string, defaultRun bool) ([]engineapi.EngineResponse, error) {
 		// the policy processor is for multiple policies at once
 		pp := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             &store,
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
@@ -484,6 +640,15 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			ConfigMapResolver:                 cmResolver,
 			RESTMapper:                        restMapper,
 			CrdPaths:                          crdPaths,
+			ContextProvider:                   contextProvider,
+			VpolProvider:                      vpolProvider,
+			VpolProviderErr:                   vpolProviderErr,
+			VpolJSONProvider:                  vpolJSONProvider,
+			VpolJSONProviderErr:               vpolJSONProviderErr,
+			MpolProvider:                      mpolProvider,
+			MpolProviderErr:                   mpolProviderErr,
+			GpolCompiledPolicies:              gpolCompiledPolicies,
+			GpolCompiledPoliciesErr:           gpolCompiledPoliciesErr,
 		}
 		ers, err := pp.ApplyPoliciesOnResource()
 		if err != nil {
@@ -495,7 +660,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				nil,
 				[]*unstructured.Unstructured{resource},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				userInfo,
 				&resultCounts,
 				dClient,
@@ -520,7 +685,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{resource},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				&resultCounts,
 				dClient,
 				true,
@@ -529,6 +694,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				!(len(testCase.Test.ClusterResources) > 0),
 				restMapper,
 				gceMap,
+				contextProvider,
+				dpolProvider,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -573,6 +740,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	// file name in testResponse.Trigger.
 	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
+			NamespaceResolver:                 nsResolver,
 			Store:                             &store,
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
@@ -599,10 +767,28 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			Out:                               io.Discard,
 			CrdPaths:                          crdPaths,
 			RESTMapper:                        restMapper,
+			ContextProvider:                   jsonContextProvider,
+			VpolProvider:                      vpolProvider,
+			VpolProviderErr:                   vpolProviderErr,
+			VpolJSONProvider:                  vpolJSONProvider,
+			VpolJSONProviderErr:               vpolJSONProviderErr,
+			MpolProvider:                      mpolProvider,
+			MpolProviderErr:                   mpolProviderErr,
+			GpolCompiledPolicies:              gpolCompiledJSONPolicies,
+			GpolCompiledPoliciesErr:           gpolCompiledJSONPoliciesErr,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
+			hasError := false
+			for _, response := range ers {
+				hasError = hasError || response.IsError()
+			}
+			if !hasError {
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %s (%w)", jp.name, err)
+			}
+		}
+		if processor.JsonPayload.Object != nil {
+			jp.data = processor.JsonPayload.Object
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(
@@ -610,7 +796,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				[]*unstructured.Unstructured{{Object: jp.data}},
 				nil,
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				userInfo,
 				&resultCounts,
 				dClient,
@@ -634,7 +820,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{{Object: jp.data}},
 				polexLoader.CELExceptions,
-				vars.Namespace,
+				nsResolver,
 				&resultCounts,
 				dClient,
 				true,
@@ -643,6 +829,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				true,
 				restMapper,
 				gceMap,
+				jsonContextProvider,
+				dpolJSONProvider,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.name, err)
@@ -654,7 +842,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		engineResponses = append(engineResponses, ers...)
 	}
 
-	authProzessor := processor.NewAuthzProcessor(&resultCounts, dClient, results.HTTPPolicies, results.EnvoyPolicies)
+	authProzessor := processor.NewAuthzProcessor(&resultCounts, dClient, results.HTTPPolicies, results.EnvoyPolicies, false)
 	// Evaluate HTTP-authorization policies against each HTTP check payload.
 	// Results are keyed by the payload file path in testResponse.Trigger.
 	if len(httpPayloads) > 0 {
@@ -793,7 +981,7 @@ func applyImageValidatingPolicies(
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
-		imageverifycache.DisabledImageVerifyCache(),
+		nil,
 		config.NewDefaultConfiguration(false),
 	)
 
@@ -848,7 +1036,7 @@ func applyImageValidatingPolicies(
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
-			rc.AddValidatingPolicyResponse(resp)
+			rc.AddValidatingPolicyResponse(false, resp)
 			responses = append(responses, resp)
 		}
 	}
@@ -889,11 +1077,32 @@ func applyImageValidatingPolicies(
 				}
 			}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
-			rc.AddValidatingPolicyResponse(resp)
+			rc.AddValidatingPolicyResponse(false, resp)
 			responses = append(responses, resp)
 		}
 	}
 	return responses, nil
+}
+
+// compileGeneratingPolicies compiles GeneratingPolicies with the given CEL exceptions.
+// It returns the slice of compiled gpolengine.Policy objects, or an error if any policy fails compilation.
+func compileGeneratingPolicies(
+	policies []policiesv1beta1.GeneratingPolicyLike,
+	celExceptions []*policiesv1beta1.PolicyException,
+) ([]gpolengine.Policy, error) {
+	compiler := gpolcompiler.NewCompiler()
+	out := make([]gpolengine.Policy, 0, len(policies))
+	for _, pol := range policies {
+		compiled, errs := compiler.Compile(pol, celExceptions)
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
+		}
+		out = append(out, gpolengine.Policy{
+			Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
+			CompiledPolicy: compiled,
+		})
+	}
+	return out, nil
 }
 
 // applyDeletingPolicies evaluates DeletingPolicies against the given
@@ -914,6 +1123,8 @@ func applyDeletingPolicies(
 	isFake bool,
 	restMapper meta.RESTMapper,
 	gceMap map[string]interface{},
+	cachedContext libs.Context,
+	cachedDpolProvider dpolengine.ProviderFunc,
 ) ([]engineapi.EngineResponse, error) {
 	if restMapper == nil {
 		var mapErr error
@@ -922,13 +1133,29 @@ func applyDeletingPolicies(
 			return nil, mapErr
 		}
 	}
-	contextProvider, err := processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
-	if err != nil {
-		return nil, err
+	contextProvider := cachedContext
+	if contextProvider == nil {
+		var err error
+		contextProvider, err = processor.NewContextProvider(dclient, restMapper, f, contextPath, registryAccess, isFake, gceMap, nil)
+		if err != nil {
+			return nil, err
+		}
+		if hookContextProviderCreated != nil {
+			hookContextProviderCreated()
+		}
 	}
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
-	if err != nil {
-		return nil, err
+	var provider dpolengine.ProviderFunc
+	if cachedDpolProvider != nil {
+		provider = cachedDpolProvider
+	} else {
+		var err error
+		provider, err = dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
+		if err != nil {
+			return nil, err
+		}
+		if hookDpolProviderCreated != nil {
+			hookDpolProviderCreated()
+		}
 	}
 
 	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewMatcher())
@@ -956,7 +1183,7 @@ func applyDeletingPolicies(
 				}})
 
 				responses = append(responses, response)
-				rc.AddValidatingPolicyResponse(response)
+				rc.AddValidatingPolicyResponse(false, response)
 
 				continue
 			}
@@ -982,7 +1209,7 @@ func applyDeletingPolicies(
 
 			responses = append(responses, response)
 
-			rc.AddValidatingPolicyResponse(response)
+			rc.AddValidatingPolicyResponse(false, response)
 		}
 	}
 

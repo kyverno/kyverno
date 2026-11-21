@@ -49,7 +49,7 @@ func TestFactoryCredentialsObserveSecretRotation(t *testing.T) {
 	}
 	update("first")
 	policy := &policiesv1beta1.ImageValidatingPolicy{Spec: policiesv1beta1.ImageValidatingPolicySpec{Credentials: &policiesv1beta1.Credentials{Secrets: []string{"registry"}, AllowInsecureRegistry: true}}}
-	ivFuncs := NewIvFuncs(logr.Discard(), policy, corev1listers.NewSecretLister(indexer), types.DefaultTypeAdapter, nil)
+	ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, corev1listers.NewSecretLister(indexer), types.DefaultTypeAdapter, nil)
 	ref, err := name.ParseReference(host+"/image:tag", ivFuncs.nameOpts...)
 	require.NoError(t, err)
 	check := func() error {
