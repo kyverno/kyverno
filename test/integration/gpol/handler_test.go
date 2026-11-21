@@ -116,6 +116,7 @@ var podJSON = []byte(`{
 }`)
 
 func TestGenerate_CreateTriggersUpdateRequest(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.GeneratingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "gen-networkpolicy"},
 		Spec: policiesv1beta1.GeneratingPolicySpec{
@@ -150,6 +151,7 @@ func TestGenerate_CreateTriggersUpdateRequest(t *testing.T) {
 }
 
 func TestGenerate_DryRunSkipsGeneration(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.GeneratingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "gen-dryrun-skip"},
 		Spec: policiesv1beta1.GeneratingPolicySpec{
@@ -177,6 +179,7 @@ func TestGenerate_DryRunSkipsGeneration(t *testing.T) {
 }
 
 func TestGenerate_DeleteWithSyncDeletesDownstream(t *testing.T) {
+	t.Parallel()
 	// Policy matches CREATE only (not DELETE) and has synchronization enabled.
 	// Deleting the trigger should produce a UR with deleteDownstream=true.
 	policy := &policiesv1beta1.GeneratingPolicy{
@@ -215,6 +218,7 @@ func TestGenerate_DeleteWithSyncDeletesDownstream(t *testing.T) {
 }
 
 func TestGenerate_DeleteMatchingDeleteOpFiresGeneration(t *testing.T) {
+	t.Parallel()
 	// Policy explicitly matches DELETE operations.
 	// Deleting the trigger should fire a generation, not a downstream deletion.
 	policy := &policiesv1beta1.GeneratingPolicy{
@@ -246,6 +250,7 @@ func TestGenerate_DeleteMatchingDeleteOpFiresGeneration(t *testing.T) {
 }
 
 func TestGenerate_UpdateWithSyncSetsSynchronize(t *testing.T) {
+	t.Parallel()
 	// Policy has synchronization enabled. Updating the trigger should
 	// create a UR with synchronize=true so downstream stays in sync.
 	policy := &policiesv1beta1.GeneratingPolicy{
@@ -282,6 +287,7 @@ func TestGenerate_UpdateWithSyncSetsSynchronize(t *testing.T) {
 }
 
 func TestGenerate_MultiplePoliciesCreateMultipleURs(t *testing.T) {
+	t.Parallel()
 	policyA := &policiesv1beta1.GeneratingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "gen-multi-a"},
 		Spec: policiesv1beta1.GeneratingPolicySpec{
@@ -578,6 +584,7 @@ func createNgpolWithCleanup(t *testing.T, policy *policiesv1beta1.NamespacedGene
 }
 
 func TestGenerateNamespaced_CreateTriggersURWithNamespacePrefix(t *testing.T) {
+	t.Parallel()
 	// A team deploys a namespace-scoped generate policy that auto-creates resources
 	// whenever a pod is created in their namespace. The handler should produce an
 	// UpdateRequest with policyKey = "namespace/policy" so the background controller
@@ -619,6 +626,7 @@ func TestGenerateNamespaced_CreateTriggersURWithNamespacePrefix(t *testing.T) {
 }
 
 func TestGenerateNamespaced_SkipsClusterScopedResources(t *testing.T) {
+	t.Parallel()
 	// Namespaced generate policies can only govern namespaced resources.
 	// When the admission request has no namespace (cluster-scoped resource),
 	// the handler should return success immediately without creating any URs.
@@ -636,6 +644,7 @@ func TestGenerateNamespaced_SkipsClusterScopedResources(t *testing.T) {
 }
 
 func TestGenerateNamespaced_DeleteWithSyncDeletesDownstream(t *testing.T) {
+	t.Parallel()
 	// Namespaced generate policy with synchronization enabled: when the trigger
 	// pod is deleted and the policy only matches CREATE (not DELETE), the handler
 	// should produce a UR with deleteDownstream=true and the correct namespace-prefixed

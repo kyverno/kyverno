@@ -59,18 +59,60 @@ func waitForPolicyReady(t *testing.T, count int) {
 	ctx := context.Background()
 	require.Eventually(t, func() bool {
 		policies, err := provider.Fetch(ctx)
-		return err == nil && len(policies) >= count
-	}, 5*time.Second, 100*time.Millisecond, "policies not reconciled in time")
+		if err != nil {
+			return false
+		}
+		return len(policies) >= count
+	}, 5*time.Second, 100*time.Millisecond, "compiled policies never reached count %d", count)
 }
 
-// waitForPolicyGone waits until the provider has no compiled policies.
+// waitForPolicyGone waits until the provider has removed all policies.
 func waitForPolicyGone(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
 	require.Eventually(t, func() bool {
 		policies, err := provider.Fetch(ctx)
-		return err == nil && len(policies) == 0
-	}, 5*time.Second, 100*time.Millisecond, "policies not cleaned up in time")
+		if err != nil {
+			return false
+		}
+		return len(policies) == 0
+	}, 5*time.Second, 100*time.Millisecond, "compiled policies never emptied")
+}
+
+// waitForNamedPolicyReady waits until the provider has compiled the policy with the given name and namespace.
+func waitForNamedPolicyReady(t *testing.T, name, namespace string) {
+	t.Helper()
+	ctx := context.Background()
+	require.Eventually(t, func() bool {
+		policies, err := provider.Fetch(ctx)
+		if err != nil {
+			return false
+		}
+		for _, p := range policies {
+			if p.Policy.GetName() == name && p.Policy.GetNamespace() == namespace {
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second, 100*time.Millisecond, "policy %q (namespace %q) not reconciled in time", name, namespace)
+}
+
+// waitForNamedPolicyGone waits until the provider has removed the policy with the given name and namespace.
+func waitForNamedPolicyGone(t *testing.T, name, namespace string) {
+	t.Helper()
+	ctx := context.Background()
+	require.Eventually(t, func() bool {
+		policies, err := provider.Fetch(ctx)
+		if err != nil {
+			return false
+		}
+		for _, p := range policies {
+			if p.Policy.GetName() == name && p.Policy.GetNamespace() == namespace {
+				return false
+			}
+		}
+		return true
+	}, 5*time.Second, 100*time.Millisecond, "policy %q (namespace %q) not cleaned up in time", name, namespace)
 }
 
 // createPolicyWithCleanup creates a ValidatingPolicy and registers cleanup.
@@ -80,11 +122,25 @@ func createPolicyWithCleanup(t *testing.T, policy *policiesv1beta1.ValidatingPol
 	require.NoError(t, testEnv.Client.Create(ctx, policy))
 	t.Cleanup(func() {
 		testEnv.Client.Delete(context.Background(), policy)
-		waitForPolicyGone(t)
+		waitForNamedPolicyGone(t, policy.GetName(), policy.GetNamespace())
 	})
+	waitForNamedPolicyReady(t, policy.GetName(), policy.GetNamespace())
+}
+
+// createNamespacedPolicyWithCleanup creates a NamespacedValidatingPolicy and registers cleanup.
+func createNamespacedPolicyWithCleanup(t *testing.T, policy *policiesv1beta1.NamespacedValidatingPolicy) {
+	t.Helper()
+	ctx := context.Background()
+	require.NoError(t, testEnv.Client.Create(ctx, policy))
+	t.Cleanup(func() {
+		testEnv.Client.Delete(context.Background(), policy)
+		waitForNamedPolicyGone(t, policy.GetName(), policy.GetNamespace())
+	})
+	waitForNamedPolicyReady(t, policy.GetName(), policy.GetNamespace())
 }
 
 func TestValidate_DenyPolicy_BlocksNonCompliantResource(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "deny-production-pods"},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
@@ -98,12 +154,12 @@ func TestValidate_DenyPolicy_BlocksNonCompliantResource(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
 
-	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("prod-app", "default", []byte(`{
+	ctx := framework.ContextWithPolicies(context.Background(), "deny-production-pods")
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("prod-app", "default", []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
 		"metadata": {"name": "prod-app", "namespace": "default", "labels": {"env": "production"}},
 		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
@@ -113,6 +169,7 @@ func TestValidate_DenyPolicy_BlocksNonCompliantResource(t *testing.T) {
 }
 
 func TestValidate_DenyPolicy_AllowsCompliantResource(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "deny-production-pods-allow"},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
@@ -126,12 +183,12 @@ func TestValidate_DenyPolicy_AllowsCompliantResource(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
 
-	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("staging-app", "default", []byte(`{
+	ctx := framework.ContextWithPolicies(context.Background(), "deny-production-pods-allow")
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("staging-app", "default", []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
 		"metadata": {"name": "staging-app", "namespace": "default", "labels": {"env": "staging"}},
 		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
@@ -141,6 +198,7 @@ func TestValidate_DenyPolicy_AllowsCompliantResource(t *testing.T) {
 }
 
 func TestValidate_WarnPolicy_AllowsButWarns(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "warn-no-resource-limits"},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
@@ -154,12 +212,12 @@ func TestValidate_WarnPolicy_AllowsButWarns(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
 
-	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("no-limits-pod", "default", []byte(`{
+	ctx := framework.ContextWithPolicies(context.Background(), "warn-no-resource-limits")
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("no-limits-pod", "default", []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
 		"metadata": {"name": "no-limits-pod", "namespace": "default"},
 		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
@@ -170,6 +228,7 @@ func TestValidate_WarnPolicy_AllowsButWarns(t *testing.T) {
 }
 
 func TestValidate_MatchCondition_SkipsNonMatchingResource(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "deny-only-in-production-ns"},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
@@ -187,12 +246,12 @@ func TestValidate_MatchCondition_SkipsNonMatchingResource(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
 
-	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("my-app", "default", []byte(`{
+	ctx := framework.ContextWithPolicies(context.Background(), "deny-only-in-production-ns")
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("my-app", "default", []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
 		"metadata": {"name": "my-app", "namespace": "default"},
 		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
@@ -202,6 +261,7 @@ func TestValidate_MatchCondition_SkipsNonMatchingResource(t *testing.T) {
 }
 
 func TestValidate_EventsGenerated_OnDeny(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "deny-latest-tag"},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
@@ -215,25 +275,28 @@ func TestValidate_EventsGenerated_OnDeny(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
 
-	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("bad-pod", "default", []byte(`{
+	ctx := framework.ContextWithPolicies(context.Background(), "deny-latest-tag")
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("bad-pod", "default", []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
 		"metadata": {"name": "bad-pod", "namespace": "default"},
 		"spec": {"containers": [{"name": "app", "image": "nginx:latest"}]}
 	}`)), "", time.Now())
 
 	// Wait for the async audit goroutine to generate events
-	time.Sleep(200 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		return len(eventGen.GetEvents()) > 0
+	}, 2*time.Second, 50*time.Millisecond, "deny should generate events")
 
 	assert.False(t, resp.Allowed, "pod with latest tag should be denied")
 	assert.NotEmpty(t, eventGen.GetEvents(), "deny should generate events")
 }
 
 func TestValidate_CELVariables_UsedInValidation(t *testing.T) {
+	t.Parallel()
 	policy := &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "require-app-label"},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
@@ -251,12 +314,12 @@ func TestValidate_CELVariables_UsedInValidation(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
 
-	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("no-label-pod", "default", []byte(`{
+	ctx := framework.ContextWithPolicies(context.Background(), "require-app-label")
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("no-label-pod", "default", []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
 		"metadata": {"name": "no-label-pod", "namespace": "default"},
 		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
@@ -266,6 +329,7 @@ func TestValidate_CELVariables_UsedInValidation(t *testing.T) {
 }
 
 func TestValidate_AuditAction_AllowsNonCompliantButFiresEvents(t *testing.T) {
+	t.Parallel()
 	// Security team deploys a policy in audit mode to observe which pods would
 	// violate the rule before switching to enforce. Non-compliant pods should
 	// pass through, but the violation is recorded via events for review.
@@ -282,12 +346,12 @@ func TestValidate_AuditAction_AllowsNonCompliantButFiresEvents(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
 
-	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("unlabeled-pod", "default", []byte(`{
+	ctx := framework.ContextWithPolicies(context.Background(), "audit-require-team-label")
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("unlabeled-pod", "default", []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
 		"metadata": {"name": "unlabeled-pod", "namespace": "default"},
 		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
@@ -298,11 +362,14 @@ func TestValidate_AuditAction_AllowsNonCompliantButFiresEvents(t *testing.T) {
 	assert.Empty(t, resp.Warnings, "audit policy should not produce warnings")
 
 	// Wait for the async audit goroutine to record the violation.
-	time.Sleep(200 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		return len(eventGen.GetEvents()) > 0
+	}, 2*time.Second, 50*time.Millisecond, "audit policy should still generate events for observability")
 	assert.NotEmpty(t, eventGen.GetEvents(), "audit policy should still generate events for observability")
 }
 
 func TestValidate_MultiplePolicies_DenyAndWarnCombined(t *testing.T) {
+	t.Parallel()
 	// Real clusters have multiple policies from different teams. A security
 	// team's deny policy blocks latest tags while a platform team's warn policy
 	// flags missing resource limits. Both should fire on the same pod.
@@ -330,15 +397,8 @@ func TestValidate_MultiplePolicies_DenyAndWarnCombined(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
-	require.NoError(t, testEnv.Client.Create(ctx, denyPolicy))
-	require.NoError(t, testEnv.Client.Create(ctx, warnPolicy))
-	t.Cleanup(func() {
-		testEnv.Client.Delete(context.Background(), denyPolicy)
-		testEnv.Client.Delete(context.Background(), warnPolicy)
-		waitForPolicyGone(t)
-	})
-	framework.WaitForVpols(t, provider, "deny-latest-image", "warn-missing-limits")
+	createPolicyWithCleanup(t, denyPolicy)
+	createPolicyWithCleanup(t, warnPolicy)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
@@ -355,6 +415,7 @@ func TestValidate_MultiplePolicies_DenyAndWarnCombined(t *testing.T) {
 }
 
 func TestValidate_MultipleValidations_PartialFailureDenies(t *testing.T) {
+	t.Parallel()
 	// Admin writes a policy with two compliance checks. A pod passes the image
 	// tag check but fails the label check. The deny should fire with a message
 	// about the specific failing validation.
@@ -377,13 +438,13 @@ func TestValidate_MultipleValidations_PartialFailureDenies(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
 
+	ctx := framework.ContextWithPolicies(context.Background(), "multi-check-compliance")
 	// Pod uses nginx:1.25 (passes image check) but has no cost-center label (fails label check)
-	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("partial-pod", "default", []byte(`{
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("partial-pod", "default", []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
 		"metadata": {"name": "partial-pod", "namespace": "default"},
 		"spec": {"containers": [{"name": "app", "image": "nginx:1.25"}]}
@@ -396,18 +457,8 @@ func TestValidate_MultipleValidations_PartialFailureDenies(t *testing.T) {
 
 // --- Namespaced policy tests ---
 
-// createNamespacedPolicyWithCleanup creates a NamespacedValidatingPolicy and registers cleanup.
-func createNamespacedPolicyWithCleanup(t *testing.T, policy *policiesv1beta1.NamespacedValidatingPolicy) {
-	t.Helper()
-	ctx := context.Background()
-	require.NoError(t, testEnv.Client.Create(ctx, policy))
-	t.Cleanup(func() {
-		testEnv.Client.Delete(context.Background(), policy)
-		waitForPolicyGone(t)
-	})
-}
-
 func TestValidateNamespaced_PolicyOnlyAppliesToItsNamespace(t *testing.T) {
+	t.Parallel()
 	// Multi-tenant cluster: team-a deploys a NamespacedValidatingPolicy that requires
 	// an "owner" label on all pods. team-b's pods in a different namespace should
 	// not be affected — the policy is scoped to team-a only.
@@ -430,7 +481,6 @@ func TestValidateNamespaced_PolicyOnlyAppliesToItsNamespace(t *testing.T) {
 	}
 
 	createNamespacedPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
@@ -456,6 +506,7 @@ func TestValidateNamespaced_PolicyOnlyAppliesToItsNamespace(t *testing.T) {
 }
 
 func TestValidate_PolicyExceptionSkipsValidation(t *testing.T) {
+	t.Parallel()
 	// Break-glass scenario: a DB migration pod needs to bypass the label-enforcement
 	// policy temporarily. The platform team creates a PolicyException so the migration
 	// can proceed without being blocked.
@@ -473,7 +524,11 @@ func TestValidate_PolicyExceptionSkipsValidation(t *testing.T) {
 
 	ctx := context.Background()
 	require.NoError(t, testEnv.Client.Create(ctx, policy))
-	waitForPolicyReady(t, 1)
+	t.Cleanup(func() {
+		testEnv.Client.Delete(context.Background(), policy)
+		waitForNamedPolicyGone(t, policy.GetName(), policy.GetNamespace())
+	})
+	waitForNamedPolicyReady(t, policy.GetName(), policy.GetNamespace())
 
 	// Verify the policy actually denies before the exception is created.
 	eventGen := &framework.MockEventGen{}
@@ -484,7 +539,8 @@ func TestValidate_PolicyExceptionSkipsValidation(t *testing.T) {
 		"spec": {"containers": [{"name": "migrate", "image": "postgres:16"}]}
 	}`)
 
-	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("db-migration", "default", podJSON), "", time.Now())
+	policyCtx := framework.ContextWithPolicies(context.Background(), "require-team-label-ex")
+	resp := h.ValidateClustered(policyCtx, logr.Discard(), framework.PodAdmissionRequest("db-migration", "default", podJSON), "", time.Now())
 	require.False(t, resp.Allowed, "policy should deny before exception is created")
 
 	// Now create the exception — the reconciler will re-compile the policy with exception data.
@@ -502,30 +558,25 @@ func TestValidate_PolicyExceptionSkipsValidation(t *testing.T) {
 	}
 
 	require.NoError(t, testEnv.Client.Create(ctx, exception))
-
-	// Manage cleanup explicitly: delete exception first and wait for the
-	// re-reconciliation it triggers to settle, then delete the policy.
-	// This avoids the race where exception-delete re-queues the policy
-	// right as we're trying to delete it.
+	// Manage exception cleanup: delete exception first and wait for the
+	// re-reconciliation it triggers to settle before policy deletion runs.
+	// In Go, t.Cleanup callbacks run in LIFO order, so this runs before the policy cleanup.
 	t.Cleanup(func() {
 		testEnv.Client.Delete(context.Background(), exception)
-		// Wait for the exception-delete-triggered re-reconciliation to complete
-		// before deleting the policy.
 		time.Sleep(500 * time.Millisecond)
-		testEnv.Client.Delete(context.Background(), policy)
-		waitForPolicyGone(t)
 	})
 
 	// Wait for the exception to take effect by polling the handler.
 	// The exception watch re-queues the policy, and the reconciler re-compiles
 	// it with exception data from the same manager cache — no dual-cache race.
 	require.Eventually(t, func() bool {
-		resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("db-migration", "default", podJSON), "", time.Now())
+		resp := h.ValidateClustered(policyCtx, logr.Discard(), framework.PodAdmissionRequest("db-migration", "default", podJSON), "", time.Now())
 		return resp.Allowed
 	}, 5*time.Second, 200*time.Millisecond, "exception should make the policy skip validation")
 }
 
 func TestValidate_FailurePolicy_FailBlocksOnMatchConditionError(t *testing.T) {
+	t.Parallel()
 	// An admin writes a match condition that references a field that doesn't exist
 	// on all resource types. With failurePolicy=Fail (the default), a CEL eval
 	// error in the match condition should block admission rather than silently
@@ -549,12 +600,12 @@ func TestValidate_FailurePolicy_FailBlocksOnMatchConditionError(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
 
-	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("test-pod", "default", []byte(`{
+	ctx := framework.ContextWithPolicies(context.Background(), "fail-on-match-error")
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("test-pod", "default", []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
 		"metadata": {"name": "test-pod", "namespace": "default"},
 		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
@@ -564,6 +615,7 @@ func TestValidate_FailurePolicy_FailBlocksOnMatchConditionError(t *testing.T) {
 }
 
 func TestValidate_FailurePolicy_IgnoreSkipsOnMatchConditionError(t *testing.T) {
+	t.Parallel()
 	// Same broken match condition, but failurePolicy=Ignore. The policy should
 	// be skipped entirely — the pod goes through without being validated.
 	ignore := admissionregistrationv1.Ignore
@@ -585,12 +637,12 @@ func TestValidate_FailurePolicy_IgnoreSkipsOnMatchConditionError(t *testing.T) {
 	}
 
 	createPolicyWithCleanup(t, policy)
-	waitForPolicyReady(t, 1)
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
 
-	resp := h.ValidateClustered(context.Background(), logr.Discard(), framework.PodAdmissionRequest("test-pod", "default", []byte(`{
+	ctx := framework.ContextWithPolicies(context.Background(), "ignore-on-match-error")
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("test-pod", "default", []byte(`{
 		"apiVersion": "v1", "kind": "Pod",
 		"metadata": {"name": "test-pod", "namespace": "default"},
 		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
