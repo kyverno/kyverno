@@ -3,6 +3,8 @@ package apply
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -15,9 +17,11 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -2382,6 +2386,144 @@ func Test_Apply_ExplainHidesSecretData(t *testing.T) {
 			}
 		})
 	}
+}
+
+// updateGolden rewrites the golden files of Test_Apply_ExplainJSON from the current output:
+//
+//	go test ./cmd/cli/kubectl-kyverno/commands/apply/ -run Test_Apply_ExplainJSON -update-golden
+var updateGolden = flag.Bool("update-golden", false, "rewrite the golden files of Test_Apply_ExplainJSON")
+
+// Test_Apply_ExplainJSON runs each policy type with --explain --output-format json and compares
+// what it writes with a golden file, the JSON form of its decisions that consumers depend on. The
+// output must be one DecisionList and nothing else, read back as the document that was written,
+// and summarise the same results as a run without --explain.
+func Test_Apply_ExplainJSON(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	const golden = "../../_testdata/apply/explain-json/"
+	tests := []struct {
+		name     string
+		policy   string
+		resource string
+		// wantErr is whether the command fails, as it does without --output-format json when a
+		// policy fails
+		wantErr bool
+	}{{
+		name:     "validating-policy",
+		policy:   base + "test-validating-policy/check-deployment-labels/policy.yaml",
+		resource: base + "test-validating-policy/check-deployment-labels/deployment2.yaml",
+		wantErr:  true,
+	}, {
+		name:     "mutating-policy",
+		policy:   base + "test-mutating-policy/mutating-label/policy.yaml",
+		resource: base + "test-mutating-policy/mutating-label/resource.yaml",
+	}, {
+		name:     "generating-policy",
+		policy:   base + "test-generating-policy/data/generate-cm/policy.yaml",
+		resource: base + "test-generating-policy/data/generate-cm/resource.yaml",
+	}, {
+		name:     "deleting-policy",
+		policy:   base + "test-deleting-policy/deleting-pod-by-name/policy.yaml",
+		resource: base + "test-deleting-policy/deleting-pod-by-name/resource.yaml",
+		wantErr:  true,
+	}, {
+		name:     "image-validating-policy",
+		policy:   base + "test-image-validating-policy/explain/policy.yaml",
+		resource: base + "test-image-validating-policy/explain/resources.yaml",
+		wantErr:  true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetArgs([]string{tt.policy, "--resource", tt.resource, "--explain", "--output-format", "json"})
+			err := cmd.Execute()
+			assert.Equal(t, tt.wantErr, err != nil, "whether the command fails: %v", err)
+
+			var list trace.DecisionList
+			require.NoError(t, json.Unmarshal(stdout.Bytes(), &list), "standard output is one JSON document and nothing else; standard error was:\n%s", stderr.String())
+			assert.Equal(t, trace.APIVersion, list.APIVersion)
+			assert.Equal(t, trace.KindDecisionList, list.Kind)
+			assert.NotEmpty(t, list.Items)
+			var written bytes.Buffer
+			summary := list.Summary
+			require.NoError(t, printDecisions(&written, list.Items, &processor.ResultCounts{Pass: summary.Pass, Fail: summary.Fail, Warn: summary.Warn, Error: summary.Error, Skip: summary.Skip}))
+			assert.Equal(t, stdout.String(), written.String(), "the document reads back as the one that was written")
+
+			config := ApplyCommandConfig{PolicyPaths: []string{tt.policy}, ResourcePaths: []string{tt.resource}}
+			rc, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+			require.NoError(t, err)
+			assert.Equal(t, trace.Summary{Pass: rc.Pass, Fail: rc.Fail, Warn: rc.Warn, Error: rc.Error, Skip: rc.Skip}, list.Summary)
+
+			path := golden + tt.name + ".json"
+			if *updateGolden {
+				require.NoError(t, os.WriteFile(path, stdout.Bytes(), 0o600))
+			}
+			want, err := os.ReadFile(path)
+			require.NoError(t, err)
+			assert.Equal(t, string(want), stdout.String())
+		})
+	}
+}
+
+// Test_Apply_ExplainJSONContinueOnFail: with --continue-on-fail, an evaluation error is reported
+// and apply carries on. The report goes to standard error like the rest of apply's text, not to
+// the process's standard output, where it would be written ahead of the JSON document.
+func Test_Apply_ExplainJSONContinueOnFail(t *testing.T) {
+	const dir = "../../../../../test/cli/test-deleting-policy/explain-continue-on-fail/"
+	// the process's own standard output, which the command's writers do not cover
+	read, write, err := os.Pipe()
+	require.NoError(t, err)
+	processStdout := os.Stdout
+	os.Stdout = write
+	t.Cleanup(func() { os.Stdout = processStdout })
+
+	cmd := Command()
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{dir + "policy.yaml", "--resource", dir + "resource.yaml", "--explain", "--output-format", "json", "--continue-on-fail"})
+	err = cmd.Execute()
+	require.NoError(t, write.Close())
+	os.Stdout = processStdout
+	printed, readErr := io.ReadAll(read)
+	require.NoError(t, readErr)
+
+	require.Error(t, err, "a policy error fails the command")
+	assert.Empty(t, string(printed), "nothing is written to the process's standard output")
+	assert.Contains(t, stderr.String(), "failed to apply deleting policies on resource: no such key: labels")
+	var list trace.DecisionList
+	require.NoError(t, json.Unmarshal(stdout.Bytes(), &list), "standard output is one JSON document and nothing else")
+	require.Len(t, list.Items, 1)
+	assert.Equal(t, trace.VerdictError, list.Items[0].Verdict.Status)
+	assert.Equal(t, trace.Summary{Error: 1}, list.Summary)
+}
+
+// Test_Apply_ExplainJSONRunsTwice: the same configuration run twice writes each run's decisions
+// once, not the earlier run's again.
+func Test_Apply_ExplainJSONRunsTwice(t *testing.T) {
+	const dir = "../../../../../test/cli/test-validating-policy/check-deployment-labels/"
+	config := &ApplyCommandConfig{
+		PolicyPaths:   []string{dir + "policy.yaml"},
+		ResourcePaths: []string{dir + "deployment2.yaml"},
+		Explain:       true,
+		OutputFormat:  "json",
+	}
+	var documents []string
+	for range 2 {
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+		var stdout bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(io.Discard)
+		require.Error(t, config.explainAsJSON(cmd), "the policy fails")
+		documents = append(documents, stdout.String())
+	}
+	var second trace.DecisionList
+	require.NoError(t, json.Unmarshal([]byte(documents[1]), &second))
+	assert.Len(t, second.Items, 1)
+	assert.Equal(t, documents[0], documents[1])
 }
 
 // Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition is a JSON payload a JSON-mode

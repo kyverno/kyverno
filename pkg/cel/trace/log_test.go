@@ -58,7 +58,7 @@ func TestLogValues(t *testing.T) {
 		assert.Equal(t, "ValidatingPolicy", pairs["policyKind"])
 		assert.Equal(t, VerdictFail, pairs["verdict"])
 
-		assert.Equal(t, "matched resourceRules[0]", entry.Scope)
+		assert.Equal(t, ScopeTrace{Applied: true, Reason: "matched resourceRules[0]"}, entry.Scope)
 		assert.Equal(t, []LogExpression{{Name: "not-system", Expression: "object.metadata.namespace != 'kube-system'", Result: "true"}}, entry.Match)
 		assert.Equal(t, []LogExpression{{Name: "team", Expression: "object.metadata.labels.team", Result: "payments"}}, entry.Variables)
 		assert.Empty(t, entry.Validations, "a single validation is the verdict, it is not listed again")
@@ -184,13 +184,18 @@ func TestLogValues_SecretValuesAreNotLogged(t *testing.T) {
 	assert.Equal(t, password, entry.Variables[0].Result)
 }
 
-// TestLogValues_JSON pins the field names a logged trace is written with.
+// TestLogValues_JSON pins the field names a logged trace is written with: the names of a
+// Decision's JSON, under its own kind.
 func TestLogValues_JSON(t *testing.T) {
 	entry, _ := logged(t, failedPodDecision())
 	raw, err := json.Marshal(entry)
 	require.NoError(t, err)
 	assert.JSONEq(t, `{
-		"scope": "matched resourceRules[0]",
+		"apiVersion": "trace.kyverno.io/v1alpha1",
+		"kind": "DecisionLogEntry",
+		"policy": {"name": "require-team-label", "kind": "ValidatingPolicy"},
+		"resource": {"kind": "Pod", "name": "web"},
+		"scope": {"applied": true, "reason": "matched resourceRules[0]"},
 		"match": [{"name": "not-system", "expression": "object.metadata.namespace != 'kube-system'", "result": "true"}],
 		"variables": [{"name": "team", "expression": "object.metadata.labels.team", "result": "payments"}],
 		"verdict": {
