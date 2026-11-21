@@ -7,6 +7,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -70,6 +71,9 @@ func (fp *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 		}
 	}
 	for _, polex := range exceptions {
+		if !celpolicies.IsKyvernoOwnedException(polex) {
+			continue
+		}
 		for _, ref := range polex.Spec.PolicyRefs {
 			if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
 				matchedExceptions = append(matchedExceptions, polex)

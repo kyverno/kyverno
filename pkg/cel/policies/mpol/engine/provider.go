@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -184,6 +185,9 @@ func NewProvider(
 	for _, policy := range policies {
 		var matchedExceptions []*policiesv1beta1.PolicyException
 		for _, polex := range exceptions {
+			if !celpolicies.IsKyvernoOwnedException(polex) {
+				continue
+			}
 			for _, ref := range polex.Spec.PolicyRefs {
 				if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
 					matchedExceptions = append(matchedExceptions, polex)

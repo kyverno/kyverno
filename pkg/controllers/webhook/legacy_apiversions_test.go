@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/stretchr/testify/assert"
@@ -120,7 +121,9 @@ func TestPolicyValidatingWebhookRegistrationInvariants(t *testing.T) {
 	require.Len(t, vwc.Webhooks, 1)
 	webhook := vwc.Webhooks[0]
 
-	assert.Nil(t, webhook.MatchConditions, "the ConfigMap match condition set on cfg must not reach this webhook")
+	// the only match condition is the evaluation mode one, which always matches legacy policies
+	assert.Equal(t, []admissionregistrationv1.MatchCondition{celpolicies.PolicyEvaluationModeMatchCondition()}, webhook.MatchConditions,
+		"the ConfigMap match condition set on cfg must not reach this webhook")
 	assert.Nil(t, webhook.NamespaceSelector)
 	assert.Nil(t, webhook.ObjectSelector)
 	require.NotNil(t, webhook.FailurePolicy)

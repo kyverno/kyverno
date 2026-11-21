@@ -2,12 +2,72 @@ package engine
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
+
+type capturingCompiler struct {
+	compiler.Compiler
+	exceptions []*policiesv1beta1.PolicyException
+}
+
+func (c *capturingCompiler) Compile(policy policiesv1beta1.DeletingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*compiler.Policy, field.ErrorList) {
+	c.exceptions = exceptions
+	return c.Compiler.Compile(policy, exceptions)
+}
+
+func TestNewProvider_SkipsExceptionsOwnedByOtherControllers(t *testing.T) {
+	exception := func(name string, mode policiesv1beta1.EvaluationMode) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				EvaluationMode: mode,
+				PolicyRefs:     []policiesv1beta1.PolicyRef{{Name: "p", Kind: "DeletingPolicy"}},
+			},
+		}
+	}
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		want       []string
+	}{
+		{name: "no mode", exceptions: []*policiesv1beta1.PolicyException{exception("owned", "")}, want: []string{"owned"}},
+		{name: "Kubernetes mode", exceptions: []*policiesv1beta1.PolicyException{exception("owned", "Kubernetes")}, want: []string{"owned"}},
+		{name: "Envoy mode", exceptions: []*policiesv1beta1.PolicyException{exception("foreign", "Envoy")}},
+		{name: "HTTP mode", exceptions: []*policiesv1beta1.PolicyException{exception("foreign", "HTTP")}},
+		{
+			name:       "mixed",
+			exceptions: []*policiesv1beta1.PolicyException{exception("owned", ""), exception("foreign", "Envoy")},
+			want:       []string{"owned"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &capturingCompiler{Compiler: compiler.NewCompiler()}
+			policies := []policiesv1beta1.DeletingPolicyLike{
+				&policiesv1beta1.DeletingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "p"},
+					TypeMeta:   metav1.TypeMeta{Kind: "DeletingPolicy"},
+				},
+			}
+			if _, err := NewProvider(c, policies, tt.exceptions); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			var got []string
+			for _, polex := range c.exceptions {
+				got = append(got, polex.Name)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("expected exceptions %v, got %v", tt.want, got)
+			}
+		})
+	}
+}
 
 func TestNewProvider(t *testing.T) {
 	c := compiler.NewCompiler()

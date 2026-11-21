@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	dpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/dpol"
 	gpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/gpol"
 	mpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/mpol"
@@ -41,6 +42,10 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	}
 
 	if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
+		// policies owned by another controller, such as Kyverno Authz, are validated by that controller
+		if !celpolicies.IsKyvernoOwned(vpol.GetValidatingPolicySpec()) {
+			return admissionutils.ResponseSuccess(request.UID)
+		}
 		warnings, err := vpolvalidation.Validate(vpol)
 		if err != nil {
 			logger.Error(err, "ValidatingPolicy validation errors")
@@ -49,6 +54,9 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	}
 
 	if ivpol := policy.AsImageValidatingPolicyLike(); ivpol != nil {
+		if !celpolicies.IsKyvernoOwned(ivpol.GetSpec()) {
+			return admissionutils.ResponseSuccess(request.UID)
+		}
 		warnings, err := eval.Validate(ivpol, h.secretLister)
 		if err != nil {
 			logger.Error(err, "ImageValidatingPolicy validation errors")
@@ -57,6 +65,9 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	}
 
 	if mpol := policy.AsMutatingPolicyLike(); mpol != nil {
+		if !celpolicies.IsKyvernoOwned(mpol.GetSpec()) {
+			return admissionutils.ResponseSuccess(request.UID)
+		}
 		warnings, err := mpolvalidation.Validate(mpol)
 		if err != nil {
 			logger.Error(err, "MutatingPolicy validation errors")

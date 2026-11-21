@@ -6,6 +6,7 @@ import (
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -169,7 +170,9 @@ func FetchValidatingPolicies(vpolLister policiesv1beta1listers.ValidatingPolicyL
 		return nil, err
 	} else {
 		for _, pol := range pols {
-			policies = append(policies, *pol)
+			if celpolicies.IsKyvernoOwned(pol.Spec) {
+				policies = append(policies, *pol)
+			}
 		}
 	}
 	return policies, nil
@@ -191,7 +194,9 @@ func FetchNamespacedValidatingPolicies(nvpolLister policiesv1beta1listers.Namesp
 	}
 	policies := make([]policiesv1beta1.NamespacedValidatingPolicy, 0, len(pols))
 	for _, pol := range pols {
-		policies = append(policies, *pol)
+		if celpolicies.IsKyvernoOwned(pol.Spec) {
+			policies = append(policies, *pol)
+		}
 	}
 	return policies, nil
 }
@@ -206,7 +211,9 @@ func FetchMutatingPolicies(mpolLister policiesv1beta1listers.MutatingPolicyListe
 		return nil, err
 	} else {
 		for _, pol := range pols {
-			policies = append(policies, *pol)
+			if celpolicies.IsKyvernoOwned(pol.Spec) {
+				policies = append(policies, *pol)
+			}
 		}
 	}
 	return policies, nil
@@ -228,7 +235,9 @@ func FetchNamespacedMutatingPolicies(nmpolLister policiesv1beta1listers.Namespac
 	}
 	policies := make([]policiesv1beta1.NamespacedMutatingPolicy, 0, len(pols))
 	for _, pol := range pols {
-		policies = append(policies, *pol)
+		if celpolicies.IsKyvernoOwned(pol.Spec) {
+			policies = append(policies, *pol)
+		}
 	}
 	return policies, nil
 }
@@ -243,7 +252,9 @@ func FetchImageVerificationPolicies(ivpolLister policiesv1beta1listers.ImageVali
 		return nil, err
 	} else {
 		for _, pol := range pols {
-			policies = append(policies, *pol)
+			if celpolicies.IsKyvernoOwned(pol.Spec) {
+				policies = append(policies, *pol)
+			}
 		}
 	}
 	return policies, nil
@@ -265,7 +276,9 @@ func FetchNamespacedImageVerificationPolicies(nivpolLister policiesv1beta1lister
 	}
 	policies := make([]policiesv1beta1.NamespacedImageValidatingPolicy, 0, len(pols))
 	for _, pol := range pols {
-		policies = append(policies, *pol)
+		if celpolicies.IsKyvernoOwned(pol.Spec) {
+			policies = append(policies, *pol)
+		}
 	}
 	return policies, nil
 }
