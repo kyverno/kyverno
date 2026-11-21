@@ -113,6 +113,39 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
+{{/* Map autogenControllers to spec.autogen.podControllers.controllers of a ValidatingPolicy.
+The value uses Kind names (`none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`).
+Nothing is rendered when it is empty, so Kyverno generates rules for all the pod controllers. Only `none` renders an
+empty list. An unknown name fails the render so that a typo cannot silently turn autogen off. `ReplicationController`
+is accepted but ignored, because ValidatingPolicy autogen does not support it. A boolean fails the render too, since
+`false` would otherwise read as empty and leave autogen on. */}}
+{{- define "kyverno-policies.vpolAutogen" -}}
+{{- if kindIs "bool" .Values.autogenControllers }}
+{{- fail (printf "autogenControllers: a boolean (%v) is not supported, use `none` to turn autogen off or a comma-separated list of DaemonSet, Deployment, ReplicaSet, StatefulSet, Job and CronJob" .Values.autogenControllers) }}
+{{- end }}
+{{- with .Values.autogenControllers }}
+{{- $supported := list "daemonsets" "deployments" "replicasets" "statefulsets" "jobs" "cronjobs" }}
+{{- $controllers := list }}
+{{- if ne (lower (trim (toString .))) "none" }}
+{{- range splitList "," (toString .) }}
+{{- $kind := lower (trim .) }}
+{{- $name := printf "%ss" $kind }}
+{{- if has $name $supported }}
+{{- $controllers = append $controllers $name }}
+{{- else if ne $kind "replicationcontroller" }}
+{{- fail (printf "autogenControllers: unsupported controller %q, use `none` or a comma-separated list of DaemonSet, Deployment, ReplicaSet, StatefulSet, Job and CronJob" (trim .)) }}
+{{- end }}
+{{- end }}
+{{- if not $controllers }}
+{{- fail "autogenControllers: no supported controller given, use `none` or a comma-separated list of DaemonSet, Deployment, ReplicaSet, StatefulSet, Job and CronJob" }}
+{{- end }}
+{{- end -}}
+autogen:
+  podControllers:
+    controllers: {{ toJson $controllers }}
+{{- end }}
+{{- end -}}
+
 {{/* Get validationActions from validationFailureAction for ValidatingPolicy */}}
 {{/* Maps: Audit -> Audit, Enforce -> Deny */}}
 {{- define "kyverno-policies.validationActions" -}}
