@@ -45,6 +45,7 @@ func writeFixture(t *testing.T, content string) string {
 }
 
 func TestLoadGeneratingPolicy(t *testing.T) {
+	t.Parallel()
 	policy := LoadGeneratingPolicy(t, writeFixture(t, validPolicyYAML))
 	assert.Equal(t, "generate-secret", policy.GetName())
 	require.NotNil(t, policy.Spec.EvaluationConfiguration)
@@ -55,6 +56,7 @@ func TestLoadGeneratingPolicy(t *testing.T) {
 }
 
 func TestLoadResource(t *testing.T) {
+	t.Parallel()
 	secret := &corev1.Secret{}
 	LoadResource(t, writeFixture(t, validSecretYAML), secret)
 	assert.Equal(t, "source-secret", secret.GetName())
@@ -64,6 +66,7 @@ func TestLoadResource(t *testing.T) {
 }
 
 func TestDecodeSingleResource_Errors(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		content string
@@ -94,6 +97,7 @@ func TestDecodeSingleResource_Errors(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			path := filepath.Join(t.TempDir(), "missing.yaml")
 			if tc.write {
 				path = writeFixture(t, tc.content)
@@ -106,6 +110,7 @@ func TestDecodeSingleResource_Errors(t *testing.T) {
 }
 
 func TestDecodeTypedResource_KindMismatch(t *testing.T) {
+	t.Parallel()
 	// A Secret fixture decoded into a GeneratingPolicy decodes "successfully"
 	// (shared ObjectMeta, lenient codec) but is semantically empty. The kind
 	// guard must reject it rather than return a silent no-op policy.
@@ -120,6 +125,7 @@ func TestDecodeTypedResource_KindMismatch(t *testing.T) {
 }
 
 func TestDecodeSingleResource_IgnoresUnknownFields(t *testing.T) {
+	t.Parallel()
 	// Forward compatibility: a fixture carrying a field the current struct does
 	// not know about should still decode (lenient), not error.
 	content := "apiVersion: v1\nkind: Secret\nmetadata:\n  name: s\nsomeFutureField: value\n"

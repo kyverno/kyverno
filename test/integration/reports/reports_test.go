@@ -90,6 +90,7 @@ func createPolicyWithCleanup(t *testing.T, policy *policiesv1beta1.ValidatingPol
 // resulting PolicyReport to see which workloads violate it, without the policy
 // blocking anything.
 func TestPolicyReport_VpolAuditEmitsFailResult(t *testing.T) {
+	t.Parallel()
 	const (
 		policyName = "audit-require-team"
 		ns         = "reports-flagship"

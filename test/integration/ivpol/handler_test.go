@@ -229,6 +229,7 @@ func podRawWithImages(t *testing.T, name, namespace string, images ...string) []
 // verified (it is unsigned, and the hermetic run has no registry egress to complete the check
 // either), a Deny policy refuses the pod rather than admitting it unverified.
 func TestValidate_UnverifiableImage_FailsClosed(t *testing.T) {
+	t.Parallel()
 	createIvpolWithCleanup(t, newIvpol("require-signed"))
 	waitForPolicyReady(t, "require-signed", "")
 
@@ -247,6 +248,7 @@ func TestValidate_UnverifiableImage_FailsClosed(t *testing.T) {
 // actually verify, and it is still denied. (A genuinely signed image being admitted is covered by
 // the registry-tagged tests, which can reach a registry to complete the signature check.)
 func TestValidate_StampedOutcomeIsNotTrusted(t *testing.T) {
+	t.Parallel()
 	createIvpolWithCleanup(t, newIvpol("reverify-stamped"))
 	waitForPolicyReady(t, "reverify-stamped", "")
 
@@ -262,6 +264,7 @@ func TestValidate_StampedOutcomeIsNotTrusted(t *testing.T) {
 // TestValidate_WarnAction_AdmitsPodWithWarning covers the rollout path teams use before enforcing: a
 // failing verification only warns, and does not block, when the policy is in Warn mode.
 func TestValidate_WarnAction_AdmitsPodWithWarning(t *testing.T) {
+	t.Parallel()
 	createIvpolWithCleanup(t, newIvpol("warn-only", admissionregistrationv1.Warn))
 	waitForPolicyReady(t, "warn-only", "")
 
@@ -280,6 +283,7 @@ func TestValidate_WarnAction_AdmitsPodWithWarning(t *testing.T) {
 // by the Deny policy and still carries the Warn policy's warning, proving the per-policy actions are
 // aggregated rather than one overriding the other.
 func TestValidate_MultiplePolicies_DenyAndWarnEnforcedIndependently(t *testing.T) {
+	t.Parallel()
 	createIvpolWithCleanup(t, newIvpol("enforce-signed"))
 	createIvpolWithCleanup(t, newIvpol("observe-signed", admissionregistrationv1.Warn))
 	waitForPolicyReady(t, "enforce-signed", "")
@@ -300,6 +304,7 @@ func TestValidate_MultiplePolicies_DenyAndWarnEnforcedIndependently(t *testing.T
 // namespaced policy share a name here but differ in action, so the admission outcome reveals which
 // one each route actually evaluated.
 func TestValidate_SameNameClusterAndNamespacedPolicies_DoNotCollide(t *testing.T) {
+	t.Parallel()
 	framework.CreateNamespace(t, testEnv.KubeClient, "collide-ns")
 	createIvpolWithCleanup(t, newIvpol("shared-name", admissionregistrationv1.Warn))
 	createNivpolWithCleanup(t, newNivpol("shared-name", "collide-ns", admissionregistrationv1.Deny))
@@ -327,6 +332,7 @@ func TestValidate_SameNameClusterAndNamespacedPolicies_DoNotCollide(t *testing.T
 // denied when the policy asks for Deny. This matches ClusterPolicy, where a failing
 // handleMutateDigest raises a RuleError that blocks under failurePolicy Fail.
 func TestMutate_UnresolvableImage_Denies(t *testing.T) {
+	t.Parallel()
 	createIvpolWithCleanup(t, newIvpol("mutate-unresolvable"))
 	waitForPolicyReady(t, "mutate-unresolvable", "")
 
@@ -343,6 +349,7 @@ func TestMutate_UnresolvableImage_Denies(t *testing.T) {
 // governs whether a policy blocks, so a policy that only audits or warns must not have its digest
 // pinning failure turned into a denial by the mutating route.
 func TestMutate_UnresolvableImage_AdmitsWithoutDenyAction(t *testing.T) {
+	t.Parallel()
 	createIvpolWithCleanup(t, newIvpol("mutate-unresolvable-warn", admissionregistrationv1.Warn))
 	waitForPolicyReady(t, "mutate-unresolvable-warn", "")
 
@@ -360,6 +367,7 @@ func TestMutate_UnresolvableImage_AdmitsWithoutDenyAction(t *testing.T) {
 // that nothing was written to the pod. The successful pinning counterpart, which proves the patch
 // touches only the image field, lives in the registry tagged tests.
 func TestMutate_DoesNotVerifyOrStampOutcomeAnnotation(t *testing.T) {
+	t.Parallel()
 	createIvpolWithCleanup(t, newIvpol("mutate-no-stamp"))
 	waitForPolicyReady(t, "mutate-no-stamp", "")
 
@@ -376,6 +384,7 @@ func TestMutate_DoesNotVerifyOrStampOutcomeAnnotation(t *testing.T) {
 // workloads" shape: a pod that does not satisfy the policy matchConditions is not evaluated at all, so
 // its image (which would otherwise fail verification) is never pulled and the pod is admitted.
 func TestValidate_MatchConditionNotMet_SkipsVerification(t *testing.T) {
+	t.Parallel()
 	policy := newIvpol("prod-only")
 	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{
 		Name:       "check-prod-label",
@@ -400,6 +409,7 @@ func TestValidate_MatchConditionNotMet_SkipsVerification(t *testing.T) {
 // is one that would otherwise fail to verify, so admission proves the exception short-circuited
 // before the image was pulled rather than the image happening to pass.
 func TestValidate_PolicyExceptionSkipsVerification(t *testing.T) {
+	t.Parallel()
 	exception := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "allow-migration-pod", Namespace: "default"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
@@ -432,6 +442,7 @@ func TestValidate_PolicyExceptionSkipsVerification(t *testing.T) {
 // TestMutate_ResourceOutsideMatchConstraints_NotEvaluated confirms matchConstraints filtering reaches
 // the handler: a policy scoped to pods records nothing for a namespace admission request.
 func TestValidate_ResourceOutsideMatchConstraints_NotEvaluated(t *testing.T) {
+	t.Parallel()
 	createIvpolWithCleanup(t, newIvpol("pods-only"))
 	waitForPolicyReady(t, "pods-only", "")
 
@@ -455,6 +466,7 @@ func TestValidate_ResourceOutsideMatchConstraints_NotEvaluated(t *testing.T) {
 // namespace scoping relies on: one provider must surface both an ImageValidatingPolicy and a
 // NamespacedImageValidatingPolicy.
 func TestImageValidatingPolicy_ReconcilesClusterAndNamespaced(t *testing.T) {
+	t.Parallel()
 	framework.CreateNamespace(t, testEnv.KubeClient, "recon-ns")
 	createIvpolWithCleanup(t, newIvpol("cluster-verify"))
 	createNivpolWithCleanup(t, newNivpol("namespaced-verify", "recon-ns"))
@@ -468,6 +480,7 @@ func TestImageValidatingPolicy_ReconcilesClusterAndNamespaced(t *testing.T) {
 // image that would fail verification, so admission proves the ns-a policy was scoped out rather than
 // evaluated.
 func TestValidateNamespaced_PolicyDoesNotApplyAcrossNamespaces(t *testing.T) {
+	t.Parallel()
 	framework.CreateNamespace(t, testEnv.KubeClient, "team-a")
 	framework.CreateNamespace(t, testEnv.KubeClient, "team-b")
 	createNivpolWithCleanup(t, newNivpol("req-crossns", "team-a"))
@@ -485,6 +498,7 @@ func TestValidateNamespaced_PolicyDoesNotApplyAcrossNamespaces(t *testing.T) {
 // TestValidateNamespaced_PolicyAppliesInOwnNamespace is the positive control: the same
 // NamespacedImageValidatingPolicy denies a pod in its own namespace when the stamped outcome is a fail.
 func TestValidateNamespaced_PolicyAppliesInOwnNamespace(t *testing.T) {
+	t.Parallel()
 	framework.CreateNamespace(t, testEnv.KubeClient, "team-own")
 	createNivpolWithCleanup(t, newNivpol("req-ownns", "team-own"))
 	waitForPolicyReady(t, "req-ownns", "team-own")
@@ -501,6 +515,7 @@ func TestValidateNamespaced_PolicyAppliesInOwnNamespace(t *testing.T) {
 // TestValidateClustered_PolicyAppliesInEveryNamespace confirms a cluster ImageValidatingPolicy
 // enforces regardless of the request namespace.
 func TestValidateClustered_PolicyAppliesInEveryNamespace(t *testing.T) {
+	t.Parallel()
 	createIvpolWithCleanup(t, newIvpol("cluster-require-signed"))
 	waitForPolicyReady(t, "cluster-require-signed", "")
 
@@ -508,9 +523,14 @@ func TestValidateClustered_PolicyAppliesInEveryNamespace(t *testing.T) {
 	ctx := framework.ContextWithPolicies(context.Background(), "cluster-require-signed")
 
 	for _, ns := range []string{"default", "kube-system"} {
-		raw := podRawWithImage(t, "app", ns, unverifiableImage)
-		resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("app", ns, raw), "", time.Now())
-		assert.Falsef(t, resp.Allowed, "cluster policy must deny an unverified pod in namespace %q", ns)
+		t.Run(ns, func(t *testing.T) {
+			t.Parallel()
+			raw := podRawWithImage(t, "app", ns, unverifiablePinnedImage)
+			resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("app", ns, raw), "", time.Now())
+			assert.Falsef(t, resp.Allowed, "cluster policy must deny an unverified pod in namespace %q", ns)
+			require.NotNil(t, resp.Result)
+			assert.Contains(t, resp.Result.Message, "failed to get imagedata", "the denial must come from image verification")
+		})
 	}
 }
 
@@ -518,6 +538,7 @@ func TestValidateClustered_PolicyAppliesInEveryNamespace(t *testing.T) {
 // present, the namespaced route must not apply it, so a pod that would fail the cluster policy is
 // still admitted through /nivpol.
 func TestValidateNamespaced_IgnoresClusterPolicy(t *testing.T) {
+	t.Parallel()
 	framework.CreateNamespace(t, testEnv.KubeClient, "route-ns")
 	createIvpolWithCleanup(t, newIvpol("cluster-only"))
 	waitForPolicyReady(t, "cluster-only", "")

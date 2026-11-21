@@ -42,6 +42,7 @@ func TestMain(m *testing.M) {
 // not requested must remain nil so callers can detect misconfigured tests
 // up-front instead of nil-dereferencing later.
 func TestMulti_OnlyRequestedTypesAreWired(t *testing.T) {
+	t.Parallel()
 	require.NotNil(t, testEnv.Vpol, "Vpol was requested but not wired")
 	require.NotNil(t, testEnv.Vpol.Engine)
 	require.NotNil(t, testEnv.Vpol.Provider)
