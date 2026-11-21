@@ -2,8 +2,11 @@ package anchor
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
+
+	"go.uber.org/multierr"
 )
 
 func Test_validateAnchorError_Error(t *testing.T) {
@@ -163,6 +166,16 @@ func TestIsNegationAnchorError(t *testing.T) {
 		args: args{
 			err: errors.New("negation anchor matched in resource: test"),
 		},
+		want: false,
+	}, {
+		args: args{
+			err: fmt.Errorf("wrapped: %w", newNegationAnchorError("test")),
+		},
+		want: true,
+	}, {
+		args: args{
+			err: fmt.Errorf("multiply wrapped: %w", fmt.Errorf("wrapped: %w", newNegationAnchorError("test"))),
+		},
 		want: true,
 	}, {
 		args: args{
@@ -179,6 +192,21 @@ func TestIsNegationAnchorError(t *testing.T) {
 			err: newNegationAnchorError("test"),
 		},
 		want: true,
+	}, {
+		args: args{
+			err: multierr.Combine(newConditionalAnchorError("test"), newNegationAnchorError("test")),
+		},
+		want: true,
+	}, {
+		args: args{
+			err: errors.Join(newConditionalAnchorError("test"), newNegationAnchorError("test")),
+		},
+		want: true,
+	}, {
+		args: args{
+			err: multierr.Combine(newConditionalAnchorError("test"), newGlobalAnchorError("test")),
+		},
+		want: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -206,6 +234,16 @@ func TestIsConditionalAnchorError(t *testing.T) {
 		args: args{
 			err: errors.New("conditional anchor mismatch: test"),
 		},
+		want: false,
+	}, {
+		args: args{
+			err: fmt.Errorf("wrapped: %w", newConditionalAnchorError("test")),
+		},
+		want: true,
+	}, {
+		args: args{
+			err: fmt.Errorf("multiply wrapped: %w", fmt.Errorf("wrapped: %w", newConditionalAnchorError("test"))),
+		},
 		want: true,
 	}, {
 		args: args{
@@ -220,6 +258,21 @@ func TestIsConditionalAnchorError(t *testing.T) {
 	}, {
 		args: args{
 			err: newNegationAnchorError("test"),
+		},
+		want: false,
+	}, {
+		args: args{
+			err: multierr.Combine(newGlobalAnchorError("test"), newConditionalAnchorError("test")),
+		},
+		want: true,
+	}, {
+		args: args{
+			err: errors.Join(newGlobalAnchorError("test"), newConditionalAnchorError("test")),
+		},
+		want: true,
+	}, {
+		args: args{
+			err: multierr.Combine(newGlobalAnchorError("test"), newNegationAnchorError("test")),
 		},
 		want: false,
 	}}
@@ -249,6 +302,16 @@ func TestIsGlobalAnchorError(t *testing.T) {
 		args: args{
 			err: errors.New("global anchor mismatch: test"),
 		},
+		want: false,
+	}, {
+		args: args{
+			err: fmt.Errorf("wrapped: %w", newGlobalAnchorError("test")),
+		},
+		want: true,
+	}, {
+		args: args{
+			err: fmt.Errorf("multiply wrapped: %w", fmt.Errorf("wrapped: %w", newGlobalAnchorError("test"))),
+		},
 		want: true,
 	}, {
 		args: args{
@@ -263,6 +326,21 @@ func TestIsGlobalAnchorError(t *testing.T) {
 	}, {
 		args: args{
 			err: newNegationAnchorError("test"),
+		},
+		want: false,
+	}, {
+		args: args{
+			err: multierr.Combine(newConditionalAnchorError("test"), newGlobalAnchorError("test")),
+		},
+		want: true,
+	}, {
+		args: args{
+			err: errors.Join(newConditionalAnchorError("test"), newGlobalAnchorError("test")),
+		},
+		want: true,
+	}, {
+		args: args{
+			err: multierr.Combine(newConditionalAnchorError("test"), newNegationAnchorError("test")),
 		},
 		want: false,
 	}}

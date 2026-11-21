@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -83,7 +83,7 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 			if trigger.Object == nil {
 				trigger = oldTrigger
 			}
-			triggerSpec := kyvernov1.ResourceSpec{
+			triggerSpec := kyverno.ResourceSpec{
 				APIVersion: trigger.GetAPIVersion(),
 				Kind:       trigger.GetKind(),
 				Namespace:  trigger.GetNamespace(),
@@ -191,7 +191,7 @@ func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, re
 			if trigger.Object == nil {
 				trigger = oldTrigger
 			}
-			triggerSpec := kyvernov1.ResourceSpec{
+			triggerSpec := kyverno.ResourceSpec{
 				APIVersion: trigger.GetAPIVersion(),
 				Kind:       trigger.GetKind(),
 				Namespace:  trigger.GetNamespace(),

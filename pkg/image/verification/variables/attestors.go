@@ -1,10 +1,12 @@
 package variables
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -35,7 +37,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Cosign.Key, iss.Err().Error()))
 				}
-				prg, err := env.Program(ast)
+				prg, err := celcompiler.NewProgram(env, ast)
 				if err != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Cosign.Key, err.Error()))
 				}
@@ -46,7 +48,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 					if iss.Err() != nil {
 						return nil, append(allErrs, field.Invalid(path, att.Cosign.Certificate, iss.Err().Error()))
 					}
-					prg, err := env.Program(ast)
+					prg, err := celcompiler.NewProgram(env, ast)
 					if err != nil {
 						return nil, append(allErrs, field.Invalid(path, att.Cosign.Certificate, err.Error()))
 					}
@@ -57,7 +59,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 					if iss.Err() != nil {
 						return nil, append(allErrs, field.Invalid(path, att.Cosign.Certificate, iss.Err().Error()))
 					}
-					prg, err := env.Program(ast)
+					prg, err := celcompiler.NewProgram(env, ast)
 					if err != nil {
 						return nil, append(allErrs, field.Invalid(path, att.Cosign.Certificate, err.Error()))
 					}
@@ -69,7 +71,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Cosign.TrustedRoot, iss.Err().Error()))
 				}
-				prg, err := env.Program(ast)
+				prg, err := celcompiler.NewProgram(env, ast)
 				if err != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Cosign.TrustedRoot, err.Error()))
 				}
@@ -81,7 +83,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, iss.Err().Error()))
 				}
-				prg, err := env.Program(ast)
+				prg, err := celcompiler.NewProgram(env, ast)
 				if err != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, err.Error()))
 				}
@@ -92,7 +94,7 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 				if iss.Err() != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, iss.Err().Error()))
 				}
-				prg, err := env.Program(ast)
+				prg, err := celcompiler.NewProgram(env, ast)
 				if err != nil {
 					return nil, append(allErrs, field.Invalid(path, att.Notary, err.Error()))
 				}
@@ -104,10 +106,10 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 	return compiledAttestors, nil
 }
 
-func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
+func (c *CompiledAttestor) Evaluate(ctx context.Context, data any) (v1beta1.Attestor, error) {
 	value := c.val.DeepCopy()
 	if c.keyProg != nil {
-		result, err := evalProgramString(c.Key, c.keyProg, data)
+		result, err := evalProgramString(ctx, c.Key, c.keyProg, data)
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert key in compiled attestor: %s, error: %w", c.Key, err)
 		}
@@ -115,7 +117,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 	}
 
 	if c.certProg != nil {
-		result, err := evalProgramString(c.Key, c.certProg, data)
+		result, err := evalProgramString(ctx, c.Key, c.certProg, data)
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert cert in compiled attestor: %s, error: %w", c.Key, err)
 		}
@@ -123,7 +125,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 	}
 
 	if c.certChainProg != nil {
-		result, err := evalProgramString(c.Key, c.certChainProg, data)
+		result, err := evalProgramString(ctx, c.Key, c.certChainProg, data)
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert cert chain in compiled attestor: %s, error: %w", c.Key, err)
 		}
@@ -131,7 +133,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 	}
 
 	if c.notaryCertProg != nil {
-		result, err := evalProgramString(c.Key, c.notaryCertProg, data)
+		result, err := evalProgramString(ctx, c.Key, c.notaryCertProg, data)
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert notary cert in compiled attestor: %s, error: %w", c.Key, err)
 		}
@@ -139,7 +141,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 	}
 
 	if c.notaryTSACertProg != nil {
-		result, err := evalProgramString(c.Key, c.notaryTSACertProg, data)
+		result, err := evalProgramString(ctx, c.Key, c.notaryTSACertProg, data)
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert notary tsa cert in compiled attestor: %s, error: %w", c.Key, err)
 		}
@@ -147,7 +149,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 	}
 
 	if c.trustedRootProg != nil {
-		result, err := evalProgramString(c.Key, c.trustedRootProg, data)
+		result, err := evalProgramString(ctx, c.Key, c.trustedRootProg, data)
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert trustedRoot in compiled attestor: %s, error: %w", c.Key, err)
 		}
@@ -157,8 +159,8 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 	return *value, nil
 }
 
-func evalProgramString(key string, e cel.Program, data any) (string, error) {
-	v, _, err := e.Eval(data)
+func evalProgramString(ctx context.Context, key string, e cel.Program, data any) (string, error) {
+	v, _, err := e.ContextEval(ctx, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to evaluate compiled attestor: %s, error: %w", key, err)
 	}

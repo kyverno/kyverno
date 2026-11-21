@@ -106,8 +106,19 @@ type fakePatcher struct {
 	err    error
 }
 
-func (f *fakePatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
-	return f.retVal, f.err
+func (f *fakePatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, MutationEval, error) {
+	return f.retVal, MutationEval{}, f.err
+}
+
+type capturePatcher struct {
+	onPatch func(patch.Request)
+}
+
+func (c *capturePatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, MutationEval, error) {
+	if c.onPatch != nil {
+		c.onPatch(patchRequest)
+	}
+	return &unstructured.Unstructured{}, MutationEval{}, nil
 }
 
 func TestEvaluate(t *testing.T) {
@@ -141,6 +152,24 @@ func TestEvaluate(t *testing.T) {
 		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.Equal(t, patchedObj, res.PatchedResource)
+	})
+
+	t.Run("reuses default object interfaces", func(t *testing.T) {
+		var receivedOI admission.ObjectInterfaces
+		p := &Policy{
+			patchers: []Patcher{
+				&capturePatcher{
+					onPatch: func(req patch.Request) {
+						receivedOI = req.ObjectInterfaces
+					},
+				},
+			},
+		}
+
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
+		assert.NotNil(t, res)
+		assert.Nil(t, res.Error)
+		assert.Same(t, defaultObjectInterfaces, receivedOI)
 	})
 
 	t.Run("full-exemption exception takes precedence over partial exceptions", func(t *testing.T) {

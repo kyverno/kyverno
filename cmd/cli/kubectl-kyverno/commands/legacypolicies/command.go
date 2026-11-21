@@ -24,6 +24,12 @@ import (
 // output.
 const maxNamesPerKind = 5
 
+// acknowledgeSettingHint is the chart value this command points users at when legacy resources
+// are found. It must match charts/kyverno/values.yaml's upgrade.acknowledgeLegacyPoliciesNotEnforced
+// key exactly, checked by TestAcknowledgeSettingHintMatchesChartValue: setting it does not restore
+// enforcement, it only acknowledges that legacy policies found on the cluster are not enforced.
+const acknowledgeSettingHint = "upgrade.acknowledgeLegacyPoliciesNotEnforced=true"
+
 // legacyKind names one legacy kyverno.io policy type this command checks
 // for, by its CRD name and display Kind. Everything else about the type
 // (group, stored version, plural, scope) is read from the live CRD, not
@@ -106,7 +112,7 @@ func run(ctx context.Context, out io.Writer, apiServerClient apiextensionsclient
 	}
 	printResults(out, results, total)
 	if total > 0 {
-		return fmt.Errorf("found %d legacy policy resource(s); migrate them to policies.kyverno.io before continuing, see %s (or set upgrade.allowLegacyPolicies=true to bypass this check)", total, deprecations.MigrationGuideURL)
+		return fmt.Errorf("found %d legacy policy resource(s); migrate them to policies.kyverno.io before continuing, see %s (or set %s to acknowledge they are not enforced and proceed anyway)", total, deprecations.MigrationGuideURL, acknowledgeSettingHint)
 	}
 	return nil
 }
@@ -207,5 +213,5 @@ func printResults(out io.Writer, results []kindResult, total int) {
 		}
 	}
 	fmt.Fprintf(out, "migrate these resources to the policies.kyverno.io policy types, see %s\n", deprecations.MigrationGuideURL)
-	fmt.Fprintln(out, "to bypass this check, set upgrade.allowLegacyPolicies=true")
+	fmt.Fprintf(out, "to acknowledge these are not enforced and proceed anyway, set %s\n", acknowledgeSettingHint)
 }

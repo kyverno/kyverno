@@ -12,25 +12,25 @@ results:
   kind: Pod
   policy: require-run-as-nonroot
   resources:
-  - pod-false-containers-true
-  - pod-false-containers-unset
-  - pod-unset-containers-unset
-  - pod-true-container-false
-  - pod-true-init-container-false
-  - pod-unset-ephemeral-unset
+  - nonroot-container-false-host-users-absent
   - nonroot-unset-host-users-absent
   - nonroot-unset-host-users-true
-  - nonroot-container-false-host-users-absent
+  - pod-false-containers-true
+  - pod-false-containers-unset
+  - pod-true-container-false
+  - pod-true-init-container-false
+  - pod-unset-containers-unset
+  - pod-unset-ephemeral-unset
   result: fail
 - isValidatingPolicy: true
   kind: Pod
   policy: require-run-as-nonroot
   resources:
-  - pod-unset-containers-true
-  - pod-true-containers-unset
-  - pod-true-all-scopes-unset
-  - nonroot-unset-host-users-false
   - nonroot-container-false-host-users-false
-  - nonroot-pod-true
   - nonroot-containers-true
+  - nonroot-pod-true
+  - nonroot-unset-host-users-false
+  - pod-true-all-scopes-unset
+  - pod-true-containers-unset
+  - pod-unset-containers-true
   result: pass

@@ -6,6 +6,7 @@ import (
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -99,4 +100,25 @@ func TestPolicyExceptionHandler_RequeuesOldAndNewRefs(t *testing.T) {
 			{NamespacedName: client.ObjectKey{Name: "policy-a"}},
 		}, drain(q))
 	})
+}
+
+func TestNewProvider_DeterministicAutogenOrdering(t *testing.T) {
+	policy := autogennablePolicy("pod-policy")
+	compiler := iveval.NewCompiler(nil)
+
+	var baseline []string
+	for i := 0; i < 50; i++ {
+		prov, err := NewProvider(compiler, []policiesv1beta1.ImageValidatingPolicyLike{policy}, nil)
+		require.NoError(t, err)
+		fetched, err := prov.Fetch(context.Background())
+		require.NoError(t, err)
+
+		order := variantOrder(fetched)
+		if i == 0 {
+			baseline = order
+			require.Greater(t, len(baseline), 1, "expected autogennable policy to generate variants")
+		} else {
+			assert.Equal(t, baseline, order, "NewProvider autogen variants order must be deterministic at iteration %d", i)
+		}
+	}
 }

@@ -1,11 +1,9 @@
 package compiler
 
 import (
-	"fmt"
-
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
-	"github.com/kyverno/sdk/extensions/cel/utils"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,6 +15,14 @@ type EvaluationResult struct {
 	Exceptions       []*policiesv1beta1.PolicyException
 	AuditAnnotations map[string]string
 	Error            error
+	// Trace is the decision trace for this evaluation. It is nil unless the policy was compiled
+	// with tracing on, so callers must nil-check it. Mirrors vpol's EvaluationResult.Trace
+	// (pkg/cel/policies/vpol/compiler/eval.go).
+	Trace *trace.Decision
+	// Skipped is set when a match condition excluded the resource. Without tracing that case
+	// returns a nil result, and it still does; a non-nil skipped result is only returned when
+	// tracing is on, so the match traces are not lost. Mirrors vpol's EvaluationResult.Skipped.
+	Skipped bool
 }
 
 // prepareData assembles the CEL activation data for a single evaluation.
@@ -35,38 +41,9 @@ func prepareData(
 	namespace *corev1.Namespace,
 	requestMapFn func() (map[string]any, error),
 ) (map[string]any, error) {
-	if attr == nil {
-		return nil, fmt.Errorf("cannot evaluate Kubernetes-mode policy without admission attributes (hint: use a non-Kubernetes evaluation mode for raw payloads)")
-	}
-	namespaceVal, err := utils.ObjectToResolveVal(namespace)
+	activation, err := compiler.PrepareK8sActivation(attr, request, namespace, requestMapFn, compiler.BuildNormalizedRequestMap)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
+		return nil, err
 	}
-	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-	}
-	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-	}
-
-	var requestMap map[string]any
-	if requestMapFn != nil {
-		requestMap, err = requestMapFn()
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-		}
-	} else if request != nil {
-		requestMap, err = compiler.BuildNormalizedRequestMap(request)
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-		}
-	}
-	return map[string]any{
-		compiler.NamespaceObjectKey: namespaceVal,
-		compiler.ObjectKey:          objectVal,
-		compiler.OldObjectKey:       oldObjectVal,
-		compiler.RequestKey:         requestMap,
-	}, nil
+	return activation.ToMap(), nil
 }

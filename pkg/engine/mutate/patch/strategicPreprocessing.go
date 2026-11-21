@@ -18,6 +18,10 @@ func (ce ConditionError) Error() string {
 	return fmt.Sprintf("condition failed: %s", ce.errorChain.Error())
 }
 
+func (ce ConditionError) Unwrap() error {
+	return ce.errorChain
+}
+
 func NewConditionError(err error) error {
 	return ConditionError{err}
 }
@@ -28,6 +32,10 @@ type GlobalConditionError struct {
 
 func (ce GlobalConditionError) Error() string {
 	return fmt.Sprintf("global condition failed: %s", ce.errorChain.Error())
+}
+
+func (ce GlobalConditionError) Unwrap() error {
+	return ce.errorChain
 }
 
 func NewGlobalConditionError(err error) error {

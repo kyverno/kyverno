@@ -44,6 +44,10 @@ func TestMain(m *testing.M) {
 	var err error
 	testEnv, err = framework.NewTestEnv(
 		"../../../config/crds/policies.kyverno.io",
+		// A third party CRD, so the sync tests can cover custom resource downstreams. It is installed
+		// up front rather than from inside a test because the dclient caches discovery, and a CRD that
+		// appears later is not visible to a client that already looked the group up.
+		"testdata/crds",
 	)
 	if err != nil {
 		panic(err)
@@ -60,7 +64,7 @@ func TestMain(m *testing.M) {
 
 	// Use exception-enabled engine so full-flow tests can verify exception behavior.
 	// When no exceptions exist, this behaves identically to NewGpolEngine.
-	gpolEngine, gpolProvider = framework.NewGpolEngineWithExceptions(gpolLister, ngpolLister, polexLister)
+	gpolEngine, gpolProvider = framework.NewGpolEngineWithExceptions(infCtx, testEnv.KubeClient, gpolLister, ngpolLister, polexLister)
 
 	if err := testEnv.Start(); err != nil {
 		cancel()

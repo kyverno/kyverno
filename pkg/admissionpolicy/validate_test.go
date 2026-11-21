@@ -6,13 +6,22 @@ import (
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
-	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
+	"sigs.k8s.io/yaml"
 )
+
+// decodeVAP decodes a single ValidatingAdmissionPolicy YAML fixture; every fixture in this
+// file's tables is one such document.
+func decodeVAP(t *testing.T, raw []byte) *admissionregistrationv1.ValidatingAdmissionPolicy {
+	t.Helper()
+	var policy admissionregistrationv1.ValidatingAdmissionPolicy
+	assert.NilError(t, yaml.Unmarshal(raw, &policy))
+	return &policy
+}
 
 func TestGetKinds(t *testing.T) {
 	type test struct {
@@ -226,11 +235,10 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, policy, _, _, _, _, _, err := yamlutils.GetPolicy(tt.policy)
-			assert.NilError(t, err)
+			policy := decodeVAP(t, tt.policy)
 			restMapper, err := utils.GetRESTMapper(nil)
 			assert.NilError(t, err)
-			kinds := GetKinds(policy[0].Spec.MatchConstraints, restMapper)
+			kinds := GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if !reflect.DeepEqual(kinds, tt.wantKinds) {
 				t.Errorf("Expected %v, got %v", tt.wantKinds, kinds)
 			}
@@ -289,4 +297,43 @@ func Test_ValidateResourceNilMatchConstraints(t *testing.T) {
 	response, err := validateResource(policy, nil, *resource, nil, ns, a)
 	assert.NilError(t, err)
 	assert.Equal(t, len(response.PolicyResponse.Rules), 1)
+}
+
+// TestGetGVRs_SkipsUnsafeResourceSegments covers GHSA-4pqm-wqq6-h9q2 for the
+// deleting controller: GetGVRs builds a GVR straight from the policy strings
+// with no mapper lookup, and the dynamic client joins that resource into the
+// request path with path.Join, so a ".." entry would turn the controller's
+// LIST into an attacker-chosen path under its own ServiceAccount.
+func TestGetGVRs_SkipsUnsafeResourceSegments(t *testing.T) {
+	rules := func(group, version string, resources ...string) *admissionregistrationv1.MatchResources {
+		return &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{group},
+						APIVersions: []string{version},
+						Resources:   resources,
+					},
+				},
+			}},
+		}
+	}
+
+	got := GetGVRs(rules("", "v1", "pods/../namespaces/kube-system/secrets", "..", ".", "configmaps"), nil)
+	assert.Equal(t, len(got), 1)
+	assert.Equal(t, got[0].Resource, "configmaps")
+
+	assert.Equal(t, len(GetGVRs(rules("..", "v1", "pods"), nil)), 0, "unsafe api group")
+	assert.Equal(t, len(GetGVRs(rules("", "..", "pods"), nil)), 0, "unsafe api version")
+
+	// only the core group may be empty: path.Join would collapse an empty version or
+	// resource and address a different API path (e.g. /api/v1 for an empty resource)
+	assert.Equal(t, len(GetGVRs(rules("", "", "pods"), nil)), 0, "empty api version")
+	assert.Equal(t, len(GetGVRs(rules("", "v1", ""), nil)), 0, "empty resource")
+	assert.Equal(t, len(GetGVRs(rules("apps", "v1", ""), nil)), 0, "empty resource, named group")
+
+	// wildcards and the core group must still resolve
+	wild := GetGVRs(rules("", "v1", "*"), nil)
+	assert.Equal(t, len(wild), 1)
+	assert.Equal(t, wild[0].Resource, "*")
 }

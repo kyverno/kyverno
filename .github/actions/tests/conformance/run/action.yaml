@@ -4,6 +4,12 @@ inputs:
   k8s-version:
     description: Kubernetes version
     required: true
+  node-image:
+    description: Digest-pinned kind node image
+    default: ''
+  kind-version:
+    description: kind version compatible with the node image
+    default: v0.33.0
   kind-config:
     description: Kind cluster config
     default: ./scripts/config/kind/default.yaml
@@ -19,15 +25,25 @@ inputs:
   chainsaw-tests:
     description: Test regex
     default: ''
+  variant:
+    description: >-
+      The values of the matrix dimensions, other than the Kubernetes version
+      and the shard, that change what a job of the same suite tests, for
+      example the kyverno-configs of the rbac jobs. It's part of the report
+      and diagnostics artifact names, so jobs don't overwrite each other's
+      artifacts. Leave it empty when the suite runs in one setting.
+    default: ''
   shard-index:
     description: Shard index
     default: '0'
   shard-count:
     description: Shard count
     default: '0'
-  quarantined-tests:
-    description: tests to exclude from the run, comma separated
-    default: ''
+  quarantine-file:
+    description: >-
+      Quarantine file listing the tests to skip, with an owner, issue, and
+      expiry date for each. Release-candidate runs ignore it and run every test.
+    default: ./test/conformance/quarantine.yaml
   install-cert-manager:
     description: Install cert-manager before running tests
     default: 'false'
@@ -60,7 +76,9 @@ runs:
       uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
       continue-on-error: true
       with:
-        node_image: kindest/node:${{ inputs.k8s-version }}
+        version: ${{ inputs.kind-version }}
+        kubectl_version: ${{ inputs.k8s-version }}
+        node_image: ${{ inputs.node-image || format('kindest/node:{0}', inputs.k8s-version) }}
         cluster_name: kind
         config: ${{ inputs.kind-config }}
     - name: Clean up the failed kind cluster
@@ -74,7 +92,9 @@ runs:
       if: steps.kind.outcome == 'failure'
       uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
       with:
-        node_image: kindest/node:${{ inputs.k8s-version }}
+        version: ${{ inputs.kind-version }}
+        kubectl_version: ${{ inputs.k8s-version }}
+        node_image: ${{ inputs.node-image || format('kindest/node:{0}', inputs.k8s-version) }}
         cluster_name: kind
         config: ${{ inputs.kind-config }}
     # deploy kyverno
@@ -131,52 +151,72 @@ runs:
         echo "${GOBIN}" >> "${GITHUB_PATH}"
     - name: Wait for kyverno ready
       uses: ./.github/actions/kyverno/wait-ready
-    - name: Add excluded tests
+    # Release-candidate runs ignore the quarantine file, so they still run every test.
+    - name: Skip quarantined tests
+      if: env.RELEASE_CANDIDATE != 'true'
       shell: bash
+      env:
+        QUARANTINE_FILE: ${{ inputs.quarantine-file }}
+        TESTS_PATH: ${{ inputs.tests-path }}
       run: |
-        if [ -z "${{ inputs.quarantined-tests }}" ]; then
-          echo "no quarantined tests, skipping"
-          exit 0
-        fi
-
-        IFS=',' read -ra TEST_DIRS <<< "${{ inputs.quarantined-tests }}"
-
-        for DIR_NAME in "${TEST_DIRS[@]}"; do
-          # Find ALL matching directories
-          mapfile -t FOUND_DIRS < <(find ./test/conformance/chainsaw/${{ inputs.tests-path }} -type d -name "$DIR_NAME")
-
-          if [ ${#FOUND_DIRS[@]} -eq 0 ]; then
-            echo "Error: No directories found matching '$DIR_NAME'"
-            continue
-          fi
-
-          for FOUND_TEST_DIR in "${FOUND_DIRS[@]}"; do
-            echo "Found directory: $FOUND_TEST_DIR"
-
-            TEST_FILE="$FOUND_TEST_DIR/chainsaw-test.yaml"
-            if [ ! -f "$TEST_FILE" ]; then
-              echo "Error: chainsaw-test.yaml not found in $FOUND_TEST_DIR"
-              continue
-            fi
-
-            yq eval '.spec.skip = true' -i "$TEST_FILE"
-            echo "Set skip: true in $TEST_FILE"
-          done
-        done
+        "$GITHUB_ACTION_PATH/quarantine.sh" "$QUARANTINE_FILE" ./test/conformance/chainsaw "$TESTS_PATH"
     # run tests
     - name: Test with Chainsaw
+      id: chainsaw
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -e
+        mkdir -p "$GITHUB_WORKSPACE/conformance-results"
         cd ./test/conformance/chainsaw/${{ inputs.tests-path }}
         chainsaw test \
+          --report-format JSON --report-path "$GITHUB_WORKSPACE/conformance-results" --report-name results \
           --config .chainsaw.yaml \
           --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' \
           --shard-index ${{ inputs.shard-index }} \
           --shard-count ${{ inputs.shard-count }}
+    - name: Retain per-test release results
+      if: always() && env.RELEASE_CANDIDATE == 'true'
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: release-conformance-${{ github.job }}-${{ inputs.k8s-version }}-${{ strategy.job-index }}-${{ github.run_attempt }}
+        path: conformance-results
+        retention-days: 90
+    # Every job uploads its reports, also when it failed before chainsaw ran,
+    # so the summarize job of the Tests workflow can list it.
+    - name: Prepare reports
+      id: reports
+      if: always()
+      shell: bash
+      env:
+        SUITE: ${{ inputs.tests-path }}
+        K8S_VERSION: ${{ inputs.k8s-version }}
+        SHARD: ${{ inputs.shard-index }}
+        VARIANT: ${{ inputs.variant }}
+        OUTCOME: ${{ job.status }}
+        JOB_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}
+      run: |
+        set -e
+        name="$(python3 ./scripts/e2e/report.py prepare --dir "$GITHUB_WORKSPACE/conformance-results" \
+          --suite "$SUITE" --variant "$VARIANT" --k8s "$K8S_VERSION" --shard "$SHARD" \
+          --outcome "$OUTCOME" --job-url "$JOB_URL")"
+        echo "artifact=$name" >> "$GITHUB_OUTPUT"
+        echo "diagnostics=${name/#e2e-reports-/diagnostics-}" >> "$GITHUB_OUTPUT"
+    - name: Upload reports
+      if: always() && steps.reports.outputs.artifact != ''
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ steps.reports.outputs.artifact }}
+        path: conformance-results
+        # A re-run attempt replaces the reports of the failed attempt, so the
+        # summary shows the latest result of each job.
+        overwrite: true
+        retention-days: 14
+        if-no-files-found: ignore
     # debug
     - name: Debug failure
       if: failure()
       uses: ./.github/actions/kyverno/logs
+      with:
+        artifact-name: ${{ steps.reports.outputs.diagnostics }}

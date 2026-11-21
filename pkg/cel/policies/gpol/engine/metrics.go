@@ -23,8 +23,8 @@ func NewMetricsEngine(engine Engine) Engine {
 	}
 }
 
-func (w *metricWrapper) Handle(request engine.EngineRequest, policy Policy, cacheRestore bool) (EngineResponse, error) {
-	response, err := w.inner.Handle(request, policy, cacheRestore)
+func (w *metricWrapper) Handle(ctx context.Context, request engine.EngineRequest, policy Policy, cacheRestore bool) (EngineResponse, error) {
+	response, err := w.inner.Handle(ctx, request, policy, cacheRestore)
 	if err != nil {
 		return response, err
 	}
@@ -34,8 +34,8 @@ func (w *metricWrapper) Handle(request engine.EngineRequest, policy Policy, cach
 			continue
 		}
 
-		w.metrics.RecordDuration(context.TODO(), policy.Result.Stats().ProcessingTime().Seconds(), string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
-		w.metrics.RecordResult(context.TODO(), string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
+		w.metrics.RecordDuration(ctx, policy.Result.Stats().ProcessingTime().Seconds(), string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
+		w.metrics.RecordResult(ctx, string(policy.Result.Status()), policy.Policy, response.Trigger, string(request.Request.Operation))
 	}
 
 	return response, nil

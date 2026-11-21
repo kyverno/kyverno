@@ -10,7 +10,7 @@ results:
 - kind: Pod
   policy: disallow-protected-namespaces
   resources:
-  - namespace2/test2
   - namespace1/test1
+  - namespace2/test2
   result: fail
   rule: disallow

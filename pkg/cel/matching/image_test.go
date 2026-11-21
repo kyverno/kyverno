@@ -1,6 +1,7 @@
 package matching
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -62,7 +63,7 @@ func Test_Match(t *testing.T) {
 			assert.NoError(t, err)
 			c, errList := compiler.CompileMatchImageReferences(field.NewPath("spec", "matchImageReferences"), env, tt.MatchImageReferences...)
 			assert.Nil(t, errList)
-			matched, err := MatchImage(tt.image, c...)
+			matched, err := MatchImage(context.Background(), tt.image, c...)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

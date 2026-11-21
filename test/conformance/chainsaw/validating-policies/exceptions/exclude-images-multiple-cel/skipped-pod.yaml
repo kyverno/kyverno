@@ -3,6 +3,10 @@ kind: Pod
 metadata:
   name: skipped-pod-1
 spec:
+  # Only admission is under test. The gate keeps the pod off the node so its
+  # images are never pulled and cleanup does not wait on the pulls.
+  schedulingGates:
+  - name: kyverno.io/admission-only
   containers:
   - name: container01
     image: public.ecr.aws/docker/library/nginx:latest
@@ -20,6 +24,8 @@ kind: Pod
 metadata:
   name: skipped-pod-2
 spec:
+  schedulingGates:
+  - name: kyverno.io/admission-only
   containers:
   - name: container01
     image: public.ecr.aws/docker/library/busybox:latest
@@ -37,6 +43,8 @@ kind: Pod
 metadata:
   name: skipped-pod-3
 spec:
+  schedulingGates:
+  - name: kyverno.io/admission-only
   containers:
   - name: container01
     image: public.ecr.aws/docker/library/busybox:latest

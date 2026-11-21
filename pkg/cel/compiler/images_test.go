@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"testing"
@@ -180,7 +181,7 @@ func Test_Match(t *testing.T) {
 				tt.imageExtractor...,
 			)
 			assert.Nil(t, errs)
-			images, err := ExtractImages(tt.request, c)
+			images, err := ExtractImages(context.Background(), tt.request, c)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

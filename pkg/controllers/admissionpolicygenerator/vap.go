@@ -23,13 +23,7 @@ func (c *controller) deleteVAP(obj *admissionregistrationv1.ValidatingAdmissionP
 
 func (c *controller) enqueueVAP(v *admissionregistrationv1.ValidatingAdmissionPolicy) {
 	if len(v.OwnerReferences) == 1 {
-		if v.OwnerReferences[0].Kind == "ClusterPolicy" {
-			cpol, err := c.cpolLister.Get(v.OwnerReferences[0].Name)
-			if err != nil {
-				return
-			}
-			c.enqueuePolicy(cpol)
-		} else if v.OwnerReferences[0].Kind == "ValidatingPolicy" {
+		if v.OwnerReferences[0].Kind == "ValidatingPolicy" {
 			vpol, err := c.vpolLister.Get(v.OwnerReferences[0].Name)
 			if err != nil {
 				return
@@ -56,13 +50,7 @@ func (c *controller) deleteVAPbinding(obj *admissionregistrationv1.ValidatingAdm
 
 func (c *controller) enqueueVAPbinding(vb *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
 	if len(vb.OwnerReferences) == 1 {
-		if vb.OwnerReferences[0].Kind == "ClusterPolicy" {
-			cpol, err := c.cpolLister.Get(vb.OwnerReferences[0].Name)
-			if err != nil {
-				return
-			}
-			c.enqueuePolicy(cpol)
-		} else if vb.OwnerReferences[0].Kind == "ValidatingPolicy" {
+		if vb.OwnerReferences[0].Kind == "ValidatingPolicy" {
 			vpol, err := c.vpolLister.Get(vb.OwnerReferences[0].Name)
 			if err != nil {
 				return

@@ -29,6 +29,8 @@
                   </li><li>
                     <a href="#cli-kyverno-io-v1alpha1-Context">Context</a>
                   </li><li>
+                    <a href="#cli-kyverno-io-v1alpha1-PolicyBundle">PolicyBundle</a>
+                  </li><li>
                     <a href="#cli-kyverno-io-v1alpha1-Test">Test</a>
                   </li><li>
                     <a href="#cli-kyverno-io-v1alpha1-UserInfo">UserInfo</a>
@@ -362,6 +364,368 @@
           
 
           
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+            </table>
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-PolicyBundle">PolicyBundle
+    </H3>
+
+  
+
+  <p><p>PolicyBundle is the optional kyverno-bundle.yaml descriptor at the root of a <code>kyverno oci push</code>
+input tree. See docs/dev/oci/bundle-spec.md section 7 for the normative shape.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+          
+          <tr>
+            <td><code>apiVersion</code></br>string</td>
+            <td><code>cli.kyverno.io/v1alpha1</code></td>
+          </tr>
+          <tr>
+            <td><code>kind</code></br>string</td>
+            <td><code>PolicyBundle</code></td>
+          </tr>
+        
+
+        
+        
+
+  
+  
+    
+    
+  
+    
+    
+      <tr>
+        <td><code>metadata</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">meta/v1.ObjectMeta</span>
+            
+          
+        </td>
+        <td>
+          
+
+          
+
+          
+            Refer to the Kubernetes API documentation for the fields of the
+            <code>metadata</code> field.
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>spec</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-PolicyBundleSpec">
+                <span style="font-family: monospace">PolicyBundleSpec</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Spec declares the bundle's metadata and named set membership.</p>
+
+
+          
+
+          
+            <br/>
+            <br/>
+            <table>
+              
+
+  
+  
+    
+    
+      <tr>
+        <td><code>version</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Version is the bundle's own version string, passed through to the config blob verbatim.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>description</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Description is a human-readable summary of the bundle, passed through to the config blob.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>formatVersion</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FormatVersion pins the bundle format version this descriptor was written against. It must
+exactly match the format version this CLI writes, or push fails before writing anything.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>kyvernoVersion</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>KyvernoVersion is a semver constraint string (for example &quot;&gt;=1.20&quot;) naming the Kyverno
+versions this bundle targets. Push rejects a malformed one before writing anything; push and
+<code>kyverno oci validate</code> warn when the CLI's own version does not satisfy it.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>source</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-PolicyBundleSource">
+                <span style="font-family: monospace">PolicyBundleSource</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Source records where the bundle's content comes from.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>created</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Created is an RFC 3339 timestamp passed through to the config blob and manifest
+annotations verbatim.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>sets</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-PolicyBundleSet">
+                <span style="font-family: monospace">[]PolicyBundleSet</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Sets declares named sets and the path globs that assign resources to them. A resource not
+claimed by any set here falls back to the by-kind default set (policies or exceptions).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>annotations</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Annotations are extra manifest annotations. A key under the reserved io.kyverno.bundle. or
+org.opencontainers.image. prefix here is discarded — the whole prefix is reserved, not only
+the specific keys a writer currently computes — and the writer-computed value for any key it
+does compute always wins. Quote a key or value that could otherwise be read as a YAML number
+or boolean; push rejects either.</p>
+
 
           
 
@@ -1525,7 +1889,7 @@ If empty, the entry matches any method via plain URL lookup.</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v1.Any</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -1554,7 +1918,7 @@ If empty, the entry matches any method via plain URL lookup.</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v1.Any</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -1583,7 +1947,7 @@ If empty, the entry matches any method via plain URL lookup.</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v1.Any</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -1678,7 +2042,7 @@ If empty, the entry matches any method via plain URL lookup.</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v1.Any</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -1707,7 +2071,7 @@ If empty, the entry matches any method via plain URL lookup.</p>
           
           
             
-              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno/v1.Any</span>
+              <span style="font-family: monospace">github.com/kyverno/kyverno/api/kyverno.Any</span>
             
           
         </td>
@@ -2115,7 +2479,8 @@ Mutually exclusive with Data and Resources.</p>
         <td>
           
 
-          <p>Projections are optional named JMESPath extracts (see GlobalContextProjection).</p>
+          <p>Projections are optional named extracts, each written in either JMESPath or CEL
+(see GlobalContextProjection).</p>
 
 
           
@@ -2141,7 +2506,9 @@ Mutually exclusive with Data and Resources.</p>
     </p>
   
 
-  <p><p>GlobalContextProjection pairs a policy-visible name with a JMESPath over the mock root.</p>
+  <p><p>GlobalContextProjection pairs a policy-visible name with a JMESPath or CEL expression over
+the mock root. Mirrors GlobalContextEntryProjection's exactly-one-of jmesPath/expression
+contract (api/kyverno/v2beta1), so a test fixture can mock either kind of projection.</p>
 </p>
 
   
@@ -2195,7 +2562,33 @@ Mutually exclusive with Data and Resources.</p>
       <tr>
         <td><code>path</code>
           
-          <span style="color:blue;"> *</span>
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.
+Mutually exclusive with Expression.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>expression</code>
           
           </br>
 
@@ -2209,7 +2602,9 @@ Mutually exclusive with Data and Resources.</p>
         <td>
           
 
-          <p>Path is a JMESPath expression evaluated against the root after FieldPath (if any) is applied.</p>
+          <p>Expression is a CEL expression evaluated against the root after FieldPath (if any) is
+applied, bound to the <code>object</code> variable, matching the real GlobalContextEntry projection's
+expression field. Mutually exclusive with Path.</p>
 
 
           
@@ -2718,6 +3113,513 @@ Mutually exclusive with Data and Resources.</p>
           
 
           <p>Rules are values for specific policy rules</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-PolicyBundleSet">PolicyBundleSet
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-PolicyBundleSpec">PolicyBundleSpec</a>)
+    </p>
+  
+
+  <p><p>PolicyBundleSet declares one named set and the path globs that assign resources to it.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>name</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Name is the set's name. The reserved names &quot;policies&quot; and &quot;exceptions&quot; must carry the
+matching type.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>type</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Type is the set's type, &quot;policies&quot; or &quot;exceptions&quot;. It filters which matched documents the
+set claims: a &quot;policies&quot; set claims every matched document except PolicyException, and an
+&quot;exceptions&quot; set claims only matched PolicyException documents.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>paths</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Paths are glob patterns, relative to the bundle root, matched against each archived
+document's path. &quot;*&quot; and &quot;?&quot; do not cross a &quot;/&quot;; &quot;**&quot; does.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-PolicyBundleSource">PolicyBundleSource
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-PolicyBundleSpec">PolicyBundleSpec</a>)
+    </p>
+  
+
+  <p><p>PolicyBundleSource records where a bundle's source lives.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>url</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>URL is the bundle's source location, for example a Git repository URL.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>revision</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Revision is the source revision the bundle was built from, for example a Git commit SHA.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="cli-kyverno-io-v1alpha1-PolicyBundleSpec">PolicyBundleSpec
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#cli-kyverno-io-v1alpha1-PolicyBundle">PolicyBundle</a>)
+    </p>
+  
+
+  <p><p>PolicyBundleSpec is the descriptor's spec. Version, Description, FormatVersion, KyvernoVersion,
+and Created are scalar strings; Annotations is a map of strings; Source is a nested object and
+Sets is a list of nested objects, but every leaf scalar inside either of those, and
+metadata.name and metadata.annotations above, is still a string. Quote a value that could
+otherwise be read as a YAML number or boolean (for example &quot;1.20&quot;, &quot;yes&quot;, &quot;0123456&quot;). Push
+rejects an unquoted one anywhere in this scope instead of letting YAML silently reformat it.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>version</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Version is the bundle's own version string, passed through to the config blob verbatim.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>description</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Description is a human-readable summary of the bundle, passed through to the config blob.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>formatVersion</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>FormatVersion pins the bundle format version this descriptor was written against. It must
+exactly match the format version this CLI writes, or push fails before writing anything.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>kyvernoVersion</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>KyvernoVersion is a semver constraint string (for example &quot;&gt;=1.20&quot;) naming the Kyverno
+versions this bundle targets. Push rejects a malformed one before writing anything; push and
+<code>kyverno oci validate</code> warn when the CLI's own version does not satisfy it.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>source</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-PolicyBundleSource">
+                <span style="font-family: monospace">PolicyBundleSource</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Source records where the bundle's content comes from.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>created</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Created is an RFC 3339 timestamp passed through to the config blob and manifest
+annotations verbatim.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>sets</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#cli-kyverno-io-v1alpha1-PolicyBundleSet">
+                <span style="font-family: monospace">[]PolicyBundleSet</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Sets declares named sets and the path globs that assign resources to them. A resource not
+claimed by any set here falls back to the by-kind default set (policies or exceptions).</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>annotations</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Annotations are extra manifest annotations. A key under the reserved io.kyverno.bundle. or
+org.opencontainers.image. prefix here is discarded — the whole prefix is reserved, not only
+the specific keys a writer currently computes — and the writer-computed value for any key it
+does compute always wins. Quote a key or value that could otherwise be read as a YAML number
+or boolean; push rejects either.</p>
 
 
           

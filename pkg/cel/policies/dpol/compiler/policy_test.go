@@ -181,19 +181,19 @@ func TestMatch(t *testing.T) {
 	data := map[string]any{}
 
 	t.Run("single condition true", func(t *testing.T) {
-		result, err := p.match(ctx, data, []cel.Program{&boolProgram{true}})
+		result, err := p.match(ctx, data, []cel.Program{&boolProgram{true}}, nil)
 		require.NoError(t, err)
 		require.True(t, result)
 	})
 
 	t.Run("single condition false", func(t *testing.T) {
-		result, err := p.match(ctx, data, []cel.Program{&boolProgram{false}})
+		result, err := p.match(ctx, data, []cel.Program{&boolProgram{false}}, nil)
 		require.NoError(t, err)
 		require.False(t, result)
 	})
 
 	t.Run("condition with eval error", func(t *testing.T) {
-		result, err := p.match(ctx, data, []cel.Program{&errorEvalProgram{}})
+		result, err := p.match(ctx, data, []cel.Program{&errorEvalProgram{}}, nil)
 		require.Error(t, err)
 		require.False(t, result)
 		require.Contains(t, err.Error(), "eval error")
@@ -204,7 +204,7 @@ func TestMatch(t *testing.T) {
 			&errorEvalProgram{},
 			&errorConvertProgram{},
 		}
-		result, err := p.match(ctx, data, conditions)
+		result, err := p.match(ctx, data, conditions, nil)
 		require.Error(t, err)
 		require.False(t, result)
 	})

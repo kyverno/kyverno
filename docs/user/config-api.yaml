@@ -2,6 +2,8 @@ hiddenMemberFields:
 - "TypeMeta"
 
 externalPackages:
+- match: ^github\.com/kyverno/kyverno/api/kyverno\.
+  target: https://pkg.go.dev/{{.PackagePath}}#{{.TypeIdentifier}}
 - match: ^k8s\\.io/apimachinery/pkg/apis/meta/v1\\.Duration$
   target: https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration
 - match: ^k8s\\.io/(api|apimachinery|apiextensions-apiserver/pkg/apis)/
@@ -23,16 +25,6 @@ stripPrefix:
 - github.com/tengqm/kubeconfig/config/bootstraptoken/v1.
 
 apis:
-- name: kyverno
-  title: kyverno (v1)
-  package: github.com/kyverno/kyverno
-  path: api/kyverno/v1
-
-- name: kyverno
-  title: kyverno (v1beta1)
-  package: github.com/kyverno/kyverno
-  path: api/kyverno/v1beta1
-
 - name: kyverno
   title: kyverno (v2)
   package: github.com/kyverno/kyverno

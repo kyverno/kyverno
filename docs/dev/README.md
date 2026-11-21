@@ -4,16 +4,27 @@ This folder contains developer documentation.
 
 To get started see: [DEVELOPMENT.md](../../DEVELOPMENT.md).
 
-When you are ready to contribute, you can select issue at [Good First Issues](https://github.com/orgs/kyverno/projects/10). 
+When you are ready to contribute, you can select an issue from
+[Good First Issues](https://github.com/orgs/kyverno/projects/10).
+
+For substantial design changes, submit proposals to
+[kyverno/KDP](https://github.com/kyverno/KDP) until the handoff is complete;
+after the handoff, use the in-repo
+[Kyverno Design Proposals](proposals/README.md) process.
 
 For release instructions, see: [create-a-release.md](releases/create-a-release.md).
+
+For the `kyverno oci` bundle format, see: [docs/dev/oci/bundle-spec.md](oci/bundle-spec.md).
+
+For the issues that track the PSS CEL policy updates each Pod Security Admission release needs, see:
+[psa-release-issues/README.md](psa-release-issues/README.md).
 
 ## Performance benchmarks
 
 A `perf` job in the post-merge `check-tests` workflow
-(`.github/workflows/check-tests.yaml`, triggered on push to `main` and
-`release-*`) runs a fast, cluster-free allocation-regression check against
-the CEL admission path. It doesn't run per pull request: if a regression
+(`.github/workflows/check-tests.yaml`, started on a schedule on `main` and
+`release-*` by `.github/workflows/e2e-scheduler.yaml`) runs a fast,
+cluster-free allocation-regression check against the CEL admission path. It doesn't run per pull request: if a regression
 lands on `main`, the `perf` job files or updates a workflow-failure issue
 for a maintainer to triage, rather than blocking a PR, which is what lets
 the check use tight headroom (see the ratchet process below).

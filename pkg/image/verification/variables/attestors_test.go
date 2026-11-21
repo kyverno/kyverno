@@ -1,6 +1,7 @@
 package variables
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -185,7 +186,7 @@ func Test_Attestors(t *testing.T) {
 			c, errList := CompileAttestors(field.NewPath("spec", "attestors"), tt.attestors, env)
 			assert.Nil(t, errList)
 			for i, att := range c {
-				a, err := att.Evaluate(tt.data)
+				a, err := att.Evaluate(context.Background(), tt.data)
 				if tt.wantErr {
 					assert.Error(t, err)
 				} else {

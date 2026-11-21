@@ -7,10 +7,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	reportresource "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -22,12 +20,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-type failingClusterPolicyLister struct {
-	kyvernov1listers.ClusterPolicyLister
+type failingValidatingPolicyLister struct {
+	policiesv1beta1listers.ValidatingPolicyLister
 }
 
-func (f *failingClusterPolicyLister) List(labels.Selector) ([]*kyvernov1.ClusterPolicy, error) {
-	return nil, errors.New("transient cluster policy lister error")
+func (f *failingValidatingPolicyLister) List(labels.Selector) ([]*policiesv1beta1.ValidatingPolicy, error) {
+	return nil, errors.New("transient validating policy lister error")
 }
 
 type fakeMetadataCache struct {
@@ -92,15 +90,6 @@ func TestReconcile_NoReconcileNeeded_StillRearmed(t *testing.T) {
 		t.Fatalf("failed to add report to indexer: %v", err)
 	}
 
-	cpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
-		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
-	})
-	polIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
-		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
-	})
-	polexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
-		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
-	})
 	celpolexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	})
@@ -112,9 +101,6 @@ func TestReconcile_NoReconcileNeeded_StillRearmed(t *testing.T) {
 	cq := &captureQueue{TypedRateLimitingInterface: baseQ}
 
 	ctrl := &controller{
-		cpolLister:       kyvernov1listers.NewClusterPolicyLister(cpolIndexer),
-		polLister:        kyvernov1listers.NewPolicyLister(polIndexer),
-		polexLister:      kyvernov2listers.NewPolicyExceptionLister(polexIndexer),
 		celpolexListener: policiesv1beta1listers.NewPolicyExceptionLister(celpolexIndexer),
 		bgscanrLister: cache.NewGenericLister(
 			reportIndexer,
@@ -162,7 +148,7 @@ func TestReconcile_ListerError_StillRearmed(t *testing.T) {
 	cq := &captureQueue{TypedRateLimitingInterface: baseQ}
 
 	ctrl := &controller{
-		cpolLister: &failingClusterPolicyLister{},
+		vpolLister: &failingValidatingPolicyLister{},
 		metadataCache: &fakeMetadataCache{
 			resource: reportresource.Resource{
 				Name:      "test-pod",

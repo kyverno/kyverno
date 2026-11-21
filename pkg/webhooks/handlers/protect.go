@@ -4,18 +4,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const namespaceControllerUsername = "system:serviceaccount:kube-system:namespace-controller"
+
+const (
+	kubeControllerManagerUsername         = "system:kube-controller-manager"
+	endpointsControllerUsername           = "system:serviceaccount:kube-system:endpoint-controller"
+	endpointSliceControllerUsername       = "system:serviceaccount:kube-system:endpointslice-controller"
+	endpointSliceMirrorControllerUsername = "system:serviceaccount:kube-system:endpointslicemirroring-controller"
+	certManagerControllerUsername         = "system:serviceaccount:cert-manager:cert-manager-controller"
+	certManagerServiceAccountUsername     = "system:serviceaccount:cert-manager:cert-manager"
+)
+
+const generateLabelPrefix = "generate.kyverno.io/"
 
 var kyvernoUsernamePrefix = fmt.Sprintf("system:serviceaccount:%s:", config.KyvernoNamespace())
 
@@ -24,6 +39,105 @@ func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 		return inner
 	}
 	return inner.withProtection().WithTrace("PROTECT")
+}
+
+// WithGenerateLabelProtection guards routing metadata on the dedicated generation webhook.
+func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ...string) AdmissionHandler {
+	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+		// Only configured controllers may change routing metadata. Other service
+		// accounts in the installation namespace remain ordinary callers.
+		if isControllerUsername(request.UserInfo.Username, controllerUsernames) {
+			return inner(ctx, logger, request, startTime)
+		}
+		if request.Operation != admissionv1.Create && request.Operation != admissionv1.Update {
+			return inner(ctx, logger, request, startTime)
+		}
+
+		newResource, oldResource, err := admissionutils.ExtractResources(nil, request.AdmissionRequest)
+		if err != nil {
+			logger.Error(err, "failed to extract resources")
+			return admissionutils.Response(request.UID, err)
+		}
+		// Allow secondary child objects instantiated by controllers:
+		// 1. On CREATE: secondary objects with controller ownerReferences created by cert-manager
+		//    (e.g. CertificateRequest for Certificate, Order for CertificateRequest).
+		//    Arbitrary caller-controlled ownerReferences on generate targets (e.g. Secret, ConfigMap)
+		//    and unprivileged creators remain denied to prevent cache-restore recognition through
+		//    forged generation labels before UID registration.
+		// 2. On CREATE & UPDATE: core Endpoints and EndpointSlices managed by kube-controller-manager
+		//    (endpoints-controller and endpointslice-controller reconcile Service labels along with endpoint subsets).
+		if request.Operation == admissionv1.Create && isAllowedChildResource(request.Kind, request.UserInfo.Username, newResource.GetOwnerReferences()) {
+			return inner(ctx, logger, request, startTime)
+		}
+		if isEndpointsController(request.UserInfo.Username) &&
+			((request.Kind.Group == "" && request.Kind.Kind == "Endpoints") ||
+				(request.Kind.Group == "discovery.k8s.io" && request.Kind.Kind == "EndpointSlice")) {
+			return inner(ctx, logger, request, startTime)
+		}
+		if !maps.Equal(extractKyvernoGenerateLabels(newResource.GetLabels()), extractKyvernoGenerateLabels(oldResource.GetLabels())) {
+			logger.V(2).Info("access to Kyverno generate labels is not authorized")
+			return admissionutils.Response(request.UID, errors.New("Kyverno generate labels can only be set by Kyverno"))
+		}
+		return inner(ctx, logger, request, startTime)
+	}
+}
+
+func extractKyvernoGenerateLabels(labels map[string]string) map[string]string {
+	metadata := make(map[string]string)
+	for key, value := range labels {
+		// Clone sources remain user-owned and may be restored or replaced without
+		// retaining the marker Kyverno adds to them.
+		if strings.HasPrefix(key, generateLabelPrefix) && key != common.GenerateTypeCloneSourceLabel {
+			metadata[key] = value
+		}
+	}
+	// The generic managed-by label is reserved only alongside generation routing
+	// metadata. The optional managed-resource protection handles it otherwise.
+	if len(metadata) != 0 {
+		if value, ok := labels[kyverno.LabelAppManagedBy]; ok {
+			metadata[kyverno.LabelAppManagedBy] = value
+		}
+	}
+	return metadata
+}
+
+func isControllerUsername(username string, controllerUsernames []string) bool {
+	return username != "" && slices.Contains(controllerUsernames, username)
+}
+
+func isEndpointsController(username string) bool {
+	switch username {
+	case kubeControllerManagerUsername, endpointsControllerUsername, endpointSliceControllerUsername, endpointSliceMirrorControllerUsername:
+		return true
+	default:
+		return false
+	}
+}
+
+func isAllowedChildResource(kind metav1.GroupVersionKind, username string, ownerRefs []metav1.OwnerReference) bool {
+	if !isCertManagerController(username) {
+		return false
+	}
+	for _, ref := range ownerRefs {
+		if ref.Controller != nil && *ref.Controller {
+			// cert-manager CertificateRequest inheriting labels from Certificate
+			// or cert-manager ACME Order inheriting labels from CertificateRequest
+			if (kind.Group == "cert-manager.io" && kind.Kind == "CertificateRequest" && ref.Kind == "Certificate") ||
+				(kind.Group == "acme.cert-manager.io" && kind.Kind == "Order" && ref.Kind == "CertificateRequest") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func isCertManagerController(username string) bool {
+	switch username {
+	case certManagerControllerUsername, certManagerServiceAccountUsername:
+		return true
+	default:
+		return false
+	}
 }
 
 func (inner AdmissionHandler) withProtection() AdmissionHandler {

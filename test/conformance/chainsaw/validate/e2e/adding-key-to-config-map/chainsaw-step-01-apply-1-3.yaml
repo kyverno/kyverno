@@ -1,7 +1,0 @@
-apiVersion: v1
-data:
-  key: xyz
-kind: ConfigMap
-metadata:
-  name: test-configmap
-  namespace: test-validate-e2e-adding-key-to-config-map

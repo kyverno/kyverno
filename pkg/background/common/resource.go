@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -105,9 +105,9 @@ func getTriggerForCreateOperation(client dclient.Interface, spec kyvernov2.Updat
 	return trigger, err
 }
 
-func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, urSpec kyvernov2.UpdateRequestSpec, log logr.Logger) (resource *unstructured.Unstructured, err error) {
+func GetResource(client dclient.Interface, resourceSpec kyverno.ResourceSpec, urSpec kyvernov2.UpdateRequestSpec, log logr.Logger) (resource *unstructured.Unstructured, err error) {
 	obj := resourceSpec
-	if reflect.DeepEqual(obj, kyvernov1.ResourceSpec{}) {
+	if reflect.DeepEqual(obj, kyverno.ResourceSpec{}) {
 		obj = urSpec.GetResource()
 		resourceSpec = obj
 	}
@@ -169,11 +169,6 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 		}
 		resource, err := client.GetResource(context.TODO(), resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
 		if err != nil {
-			if urSpec.GetRequestType() == kyvernov2.Mutate && errors.IsNotFound(err) && urSpec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
-				log.V(4).Info("trigger resource does not exist for mutateExisting rule", "operation", urSpec.Context.AdmissionRequestInfo.Operation)
-				return nil, nil
-			}
-
 			return nil, fmt.Errorf("resource %s/%s/%s/%s: %v", resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name, err)
 		}
 

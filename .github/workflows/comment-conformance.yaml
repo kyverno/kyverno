@@ -11,20 +11,33 @@ on:
       - edited
 
 jobs:
+  # Only the reaction needs write access; build and test jobs remain read-only.
+  acknowledge:
+    name: Acknowledge conformance request
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/conformance')
+    permissions:
+      issues: write
+    steps:
+      - name: React to comment
+        uses: dkershner6/reaction-action@97ede302a1b145b3739dec3ca84a489a34ef48b5 # v2.2.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          reaction: "+1"
+
   images:
     name: Build test images
     runs-on: ubuntu-latest
     if: |
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/conformance')
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: React to comment
-        uses: dkershner6/reaction-action@97ede302a1b145b3739dec3ca84a489a34ef48b5 # v2.2.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          reaction: "+1"
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Install Ko
@@ -47,14 +60,11 @@ jobs:
     if: |
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/conformance')
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: React to comment
-        uses: dkershner6/reaction-action@97ede302a1b145b3739dec3ca84a489a34ef48b5 # v2.2.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          reaction: "+1"
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Build
@@ -78,5 +88,6 @@ jobs:
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/conformance')
     permissions:
+      contents: read
       packages: read
     uses: ./.github/workflows/tests-conformance.yaml
