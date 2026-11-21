@@ -857,14 +857,21 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				newResource.SetLabels(downstream.GetLabels())
 				// Strip inherited ownerReferences when propagating across namespaces so
 				// Kubernetes garbage collection does not delete the downstream resource.
-				if srcNamespace := obj.GetNamespace(); srcNamespace != "" && srcNamespace != downstream.GetNamespace() && newResource.GetOwnerReferences() != nil {
-					newResource.SetOwnerReferences(nil)
+				var stripOwnerUIDs map[types.UID]bool
+				if srcNamespace := obj.GetNamespace(); srcNamespace != "" && srcNamespace != downstream.GetNamespace() {
+					if srcOwners := newResource.GetOwnerReferences(); len(srcOwners) > 0 {
+						stripOwnerUIDs = make(map[types.UID]bool, len(srcOwners))
+						for _, ref := range srcOwners {
+							stripOwnerUIDs[ref.UID] = true
+						}
+						newResource.SetOwnerReferences(nil)
+					}
 				}
 				// The content comes from the source, whose resourceVersion means nothing for the
 				// downstream, so carry the downstream's own. Custom resources reject an update that
 				// has no resourceVersion, which used to leave every CRD downstream unsynced.
 				newResource.SetResourceVersion(downstream.GetResourceVersion())
-				written, err := wm.propagateToDownstream(cached.ServerSideApply, &downstream, newResource)
+				written, err := wm.propagateToDownstream(cached.ServerSideApply, &downstream, newResource, stripOwnerUIDs)
 				if err != nil {
 					wm.log.Error(err, "failed to update downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
 				} else {
@@ -964,14 +971,24 @@ func (wm *WatchManager) revertDownstream(watcher *watcher, uid types.UID, obj *u
 // only the ones Kyverno applied, along with the owner references and finalizers Kyverno applied
 // before, since leaving those out of the apply would remove them. Otherwise the downstream is
 // replaced with an update.
-func (wm *WatchManager) propagateToDownstream(serverSideApply bool, downstream, newResource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func (wm *WatchManager) propagateToDownstream(serverSideApply bool, downstream, newResource *unstructured.Unstructured, stripOwnerUIDs map[types.UID]bool) (*unstructured.Unstructured, error) {
 	if !serverSideApply {
 		return wm.client.UpdateResource(context.TODO(), newResource.GetAPIVersion(), newResource.GetKind(), newResource.GetNamespace(), newResource, false)
 	}
 	cfg := applyConfiguration(newResource)
 	if applied, ok := appliedByGenerate(downstream); ok {
 		cfg.SetLabels(onlyKeys(cfg.GetLabels(), applied.labels))
-		cfg.SetOwnerReferences(applied.ownerReferencesOf(downstream))
+		ownerRefs := applied.ownerReferencesOf(downstream)
+		if len(stripOwnerUIDs) > 0 {
+			var filtered []metav1.OwnerReference
+			for _, ref := range ownerRefs {
+				if !stripOwnerUIDs[ref.UID] {
+					filtered = append(filtered, ref)
+				}
+			}
+			ownerRefs = filtered
+		}
+		cfg.SetOwnerReferences(ownerRefs)
 		cfg.SetFinalizers(applied.finalizersOf(downstream))
 	} else {
 		cfg.SetLabels(generateLabels(cfg.GetLabels()))
