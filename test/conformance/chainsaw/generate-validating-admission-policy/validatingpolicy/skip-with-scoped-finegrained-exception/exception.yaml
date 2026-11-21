@@ -1,0 +1,13 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: check-deployment-scoped-image
+spec:
+  policyRefs:
+  - name: "check-deployment-images"
+    kind: ValidatingPolicy
+  matchConditions:
+    - name: "check-name"
+      expression: "object.metadata.name == 'skipped-deployment'"
+  images:
+    - "custom-debug-image:latest"

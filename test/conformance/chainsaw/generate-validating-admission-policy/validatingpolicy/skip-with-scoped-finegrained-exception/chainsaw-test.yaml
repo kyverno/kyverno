@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: skip-with-scoped-finegrained-exception
+spec:
+  concurrent: false
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../_step-templates/validating-policy-generated-vap-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: check-deployment-images
+  - name: create an exception carrying scoped finegrained images
+    try:
+    - create:
+        file: exception.yaml
+    - sleep:
+        duration: 15s
+  # a generated VAP cannot evaluate scoped image exceptions safely because CEL variables are global
+  # across all resources, so generation must be skipped and evaluation left to Kyverno's own webhook.
+  - name: no validatingadmissionpolicy is generated
+    try:
+    - error:
+        file: validatingadmissionpolicy.yaml
+    - error:
+        file: validatingadmissionpolicybinding.yaml
+  # the exception name in the message carries chainsaw's ephemeral namespace, so match on the
+  # explanation rather than the full string
+  - name: the policy status explains why
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: ValidatingPolicy
+          metadata:
+            name: check-deployment-images
+          status:
+            generated: false
+            conditionStatus:
+              (contains(message, 'fine-grained exceptions')): true
+  # because native VAP generation was skipped, Kyverno webhook evaluates the policy and exception:
+  # skipped-deployment matches the exception's matchConditions and is accepted.
+  - name: create skipped-deployment (accepted by webhook)
+    try:
+    - apply:
+        file: skipped-deployment.yaml
+  # bad-deployment does not match the exception's matchConditions and is rejected.
+  - name: create bad-deployment (rejected by webhook)
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'check-deployment-images')): true
+            (contains($error, 'Deployment images must be in allowedImages')): true
+        file: bad-deployment.yaml

@@ -1,9 +1,11 @@
 package admissionpolicygenerator
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -46,7 +48,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 				return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
 			}
 			c.requeueAtExpiry(policy.GetName(), "ValidatingPolicy", celexceptions)
-			if ok, msg := admissionpolicy.CanGenerateNativePolicy(celexceptions); !ok {
+			if ok, msg := admissionpolicy.CanGenerateNativeValidatingPolicy(pol, celexceptions); !ok {
 				shouldDelete = true
 				reason = "skip generating ValidatingAdmissionPolicy: " + msg
 			}
@@ -62,6 +64,12 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	observedVAPbinding, vapBindingErr := c.getValidatingAdmissionPolicyBinding(vapBindingName)
 
 	if shouldDelete {
+		// Update status.generated to false before deleting the native VAP and binding.
+		// Setting it to false first ensures the webhook controller resumes webhook enforcement
+		// upon observing the updated status, minimizing any un-enforced admission window.
+		if err := c.updatePolicyStatus(ctx, policy, false, reason); err != nil {
+			return err
+		}
 		// delete the ValidatingAdmissionPolicy if exist
 		if vapErr == nil {
 			if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{}); err != nil {
@@ -74,7 +82,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 				return err
 			}
 		}
-		return c.updatePolicyStatus(ctx, policy, false, reason)
+		return nil
 	}
 
 	// Expiry is armed before these permission checks, which return an error so the workqueue retains a retry.
@@ -94,9 +102,16 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 		}
 		return errors.New("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
 	}
-	genericExceptions := make([]engineapi.GenericException, 0)
-	for _, exception := range celexceptions {
-		genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
+	sortedPolex := slices.Clone(celexceptions)
+	slices.SortFunc(sortedPolex, func(a, b policiesv1beta1.PolicyException) int {
+		if c := cmp.Compare(a.Namespace, b.Namespace); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Name, b.Name)
+	})
+	genericExceptions := make([]engineapi.GenericException, 0, len(sortedPolex))
+	for i := range sortedPolex {
+		genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&sortedPolex[i]))
 	}
 
 	if vapErr != nil {
