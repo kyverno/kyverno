@@ -118,7 +118,7 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 						fmt.Fprintf(out, "    %s converting to yaml: %s\n", color.Error("ERROR:"), err)
 						continue
 					}
-					if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil {
+					if err := os.WriteFile(path, yamlBytes, 0o600); err != nil {
 						fmt.Fprintf(out, "    %s saving user info file (%s): %s\n", color.Error("ERROR:"), color.FilePath(path), err)
 						continue
 					}
@@ -179,7 +179,7 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 						fmt.Fprintf(out, "    %s converting to yaml: %s\n", color.Error("ERROR:"), err)
 						continue
 					}
-					if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil {
+					if err := os.WriteFile(path, yamlBytes, 0o600); err != nil {
 						fmt.Fprintf(out, "    %s saving values file (%s): %s\n", color.Error("ERROR:"), color.FilePath(path), err)
 						continue
 					}
@@ -219,7 +219,7 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 				}
 				yamlBytes = append(yamlBytes, finalBytes...)
 			}
-			if err := os.WriteFile(path, yamlBytes, os.ModePerm); err != nil {
+			if err := os.WriteFile(path, yamlBytes, 0o600); err != nil {
 				fmt.Fprintf(out, "    %s saving test file (%s): %s", color.Error("ERROR:"), color.FilePath(path), err)
 				fmt.Fprintln(out)
 				continue
