@@ -34,6 +34,7 @@ func BuildValidatingAdmissionPolicy(
 	var validations []admissionregistrationv1.Validation
 	var auditAnnotations []admissionregistrationv1.AuditAnnotation
 	var variables []admissionregistrationv1.Variable
+	var failurePolicy *admissionregistrationv1.FailurePolicyType
 
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		matchResources = *vpol.Spec.MatchConstraints
@@ -41,6 +42,7 @@ func BuildValidatingAdmissionPolicy(
 		validations = slices.Clone(vpol.Spec.Validations)
 		auditAnnotations = slices.Clone(vpol.Spec.AuditAnnotations)
 		variables = slices.Clone(vpol.Spec.Variables)
+		failurePolicy = vpol.Spec.FailurePolicy
 
 		usedNames := make(map[string]bool)
 		for _, mc := range matchConditions {
@@ -104,6 +106,7 @@ func BuildValidatingAdmissionPolicy(
 		Validations:      validations,
 		AuditAnnotations: auditAnnotations,
 		MatchConditions:  matchConditions,
+		FailurePolicy:    failurePolicy,
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(vap)
