@@ -849,13 +849,17 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 					continue
 				}
 				// update the downstream resources with the source information.
-				newResource := &unstructured.Unstructured{}
-				newResource.SetUnstructuredContent(source.UnstructuredContent())
+				newResource := source.DeepCopy()
 				newResource.SetName(downstream.GetName())
 				newResource.SetNamespace(downstream.GetNamespace())
 				newResource.SetKind(downstream.GetKind())
 				newResource.SetAPIVersion(downstream.GetAPIVersion())
 				newResource.SetLabels(downstream.GetLabels())
+				// Strip inherited ownerReferences when propagating across namespaces so
+				// Kubernetes garbage collection does not delete the downstream resource.
+				if srcNamespace := obj.GetNamespace(); srcNamespace != "" && srcNamespace != downstream.GetNamespace() && newResource.GetOwnerReferences() != nil {
+					newResource.SetOwnerReferences(nil)
+				}
 				// The content comes from the source, whose resourceVersion means nothing for the
 				// downstream, so carry the downstream's own. Custom resources reject an update that
 				// has no resourceVersion, which used to leave every CRD downstream unsynced.

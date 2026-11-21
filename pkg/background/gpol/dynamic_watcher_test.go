@@ -2529,3 +2529,65 @@ func TestHandleUpdate_SourcePropagationErrorKeepsCache(t *testing.T) {
 	require.Len(t, mc.applied, 1)
 	assert.Equal(t, entry, wm.dynamicWatchers[gvr].metadataCache["ds-uid"])
 }
+
+func TestHandleUpdate_SourcePropagation_CrossNamespaceStripsOwnerReferences(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	src := makeUnstructured("500", "", "v1", "Secret", "credentials", "source-ns", "src-uid", nil)
+	src.SetOwnerReferences([]metav1.OwnerReference{
+		{APIVersion: "v1", Kind: "ConfigMap", Name: "owner", UID: "owner-uid"},
+	})
+	ds := makeUnstructured("305", "", "v1", "Secret", "credentials", "target-ns", "ds-uid",
+		map[string]string{common.GenerateSourceUIDLabel: "src-uid"})
+
+	var captured *unstructured.Unstructured
+	mc := &MockClient{
+		updateFn:  func(obj interface{}) { captured, _ = obj.(*unstructured.Unstructured) },
+		listItems: []unstructured.Unstructured{*ds},
+	}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: mc,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {metadataCache: map[types.UID]Resource{
+				"ds-uid": {Name: "credentials", Namespace: "target-ns", Labels: ds.GetLabels(), Hash: "stale", Data: ds},
+			}},
+		},
+	}
+
+	wm.handleUpdate(src, gvr)
+
+	require.NotNil(t, captured, "propagation must call UpdateResource on the downstream")
+	assert.Equal(t, "target-ns", captured.GetNamespace())
+	assert.Empty(t, captured.GetOwnerReferences(), "cross-namespace source propagation must strip ownerReferences")
+}
+
+func TestHandleUpdate_SourcePropagation_SameNamespaceKeepsOwnerReferences(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	owner := metav1.OwnerReference{APIVersion: "v1", Kind: "ConfigMap", Name: "owner", UID: "owner-uid"}
+	src := makeUnstructured("500", "", "v1", "Secret", "credentials", "shared-ns", "src-uid", nil)
+	src.SetOwnerReferences([]metav1.OwnerReference{owner})
+	ds := makeUnstructured("305", "", "v1", "Secret", "credentials-copy", "shared-ns", "ds-uid",
+		map[string]string{common.GenerateSourceUIDLabel: "src-uid"})
+
+	var captured *unstructured.Unstructured
+	mc := &MockClient{
+		updateFn:  func(obj interface{}) { captured, _ = obj.(*unstructured.Unstructured) },
+		listItems: []unstructured.Unstructured{*ds},
+	}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: mc,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {metadataCache: map[types.UID]Resource{
+				"ds-uid": {Name: "credentials-copy", Namespace: "shared-ns", Labels: ds.GetLabels(), Hash: "stale", Data: ds},
+			}},
+		},
+	}
+
+	wm.handleUpdate(src, gvr)
+
+	require.NotNil(t, captured, "propagation must call UpdateResource on the downstream")
+	assert.Equal(t, "shared-ns", captured.GetNamespace())
+	assert.Equal(t, []metav1.OwnerReference{owner}, captured.GetOwnerReferences(),
+		"same-namespace source propagation must keep ownerReferences intact")
+}
