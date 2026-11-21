@@ -6,11 +6,13 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/cache"
 )
 
 type fakeGpolLister struct {
@@ -46,7 +48,7 @@ func (f *fakePolexLister) List(_ labels.Selector) ([]*policiesv1beta1.PolicyExce
 }
 
 func (f *fakePolexLister) ListForPolicy(kind, name, namespace string) ([]*policiesv1beta1.PolicyException, error) {
-	return f.exceptions, f.err
+	return celengine.ExceptionScopeAll.Select(f.exceptions, kind, name, namespace), f.err
 }
 
 func TestGet(t *testing.T) {
@@ -105,7 +107,9 @@ func TestGet(t *testing.T) {
 
 		fp := NewFetchProvider(
 			comp,
-			&fakeGpolLister{policy: nil},
+			&fakeGpolLister{policy: &policiesv1beta1.GeneratingPolicy{
+				ObjectMeta: v1.ObjectMeta{Name: "test-policy"},
+			}},
 			&fakeNgpolLister{},
 			&fakePolexLister{err: errors.New("error while test")},
 			true,
@@ -114,4 +118,30 @@ func TestGet(t *testing.T) {
 		_, err := fp.Get(context.Background(), "test-policy")
 		assert.Error(t, err)
 	})
+}
+
+func TestGet_NamespacedPolicyIgnoresForeignException(t *testing.T) {
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	ngpol := &policiesv1beta1.NamespacedGeneratingPolicy{ObjectMeta: v1.ObjectMeta{Name: "gen", Namespace: "team-a"}}
+	ngpol.TypeMeta.Kind = "NamespacedGeneratingPolicy"
+	assert.NoError(t, indexer.Add(ngpol))
+	polex := func(ns string) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: v1.ObjectMeta{Name: "ex", Namespace: ns},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "gen", Kind: "NamespacedGeneratingPolicy"}},
+			},
+		}
+	}
+	own := polex("team-a")
+	fp := NewFetchProvider(
+		compiler.NewCompiler(),
+		&fakeGpolLister{},
+		policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(indexer),
+		&fakePolexLister{exceptions: []*policiesv1beta1.PolicyException{own, polex("team-b")}},
+		true,
+	)
+	got, err := fp.Get(context.TODO(), "team-a/gen")
+	assert.NoError(t, err)
+	assert.Equal(t, []*policiesv1beta1.PolicyException{own}, got.Exceptions)
 }
