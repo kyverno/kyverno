@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -60,6 +61,13 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 		}
 	}()
 	genericPolicy := engineapi.NewMutatingPolicy(mpol)
+	// Build from a copy carrying the effective failure policy. The informer-cached policy must
+	// not be mutated, and an unset field would be defaulted by the API server to Fail.
+	failurePolicy := mpol.GetFailurePolicy(toggle.FromContext(ctx).ForceFailurePolicyIgnore())
+	mpolCopy := *mpol
+	mpolCopy.Spec = mpol.Spec
+	mpolCopy.Spec.FailurePolicy = &failurePolicy
+	buildMPol := &mpolCopy
 	reason, err := mapGenerationSkipReason(mpol)
 	if err != nil {
 		return fmt.Errorf("failed to compute autogen configs for %s: %w", mpol.GetName(), err)
@@ -83,11 +91,11 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	if shouldDelete {
 		switch version {
 		case admissionpolicy.MutatingAdmissionPolicyVersionV1:
-			return c.handleMAPV1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+			return c.handleMAPV1(ctx, buildMPol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
 		case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
-			return c.handleMAPV1Beta1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+			return c.handleMAPV1Beta1(ctx, buildMPol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
 		case admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1:
-			return c.handleMAPV1Alpha1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+			return c.handleMAPV1Alpha1(ctx, buildMPol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
 		default:
 			return fmt.Errorf("unsupported MutatingAdmissionPolicy version: %s", version)
 		}
@@ -113,11 +121,11 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 
 	switch version {
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1:
-		return c.handleMAPV1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+		return c.handleMAPV1(ctx, buildMPol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
-		return c.handleMAPV1Beta1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+		return c.handleMAPV1Beta1(ctx, buildMPol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1:
-		return c.handleMAPV1Alpha1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+		return c.handleMAPV1Alpha1(ctx, buildMPol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
 	default:
 		return fmt.Errorf("unsupported MutatingAdmissionPolicy version: %s", version)
 	}

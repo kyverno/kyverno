@@ -11,6 +11,7 @@ import (
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -135,8 +136,19 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 		}
 	}
 
+	// Build from a copy carrying the effective failure policy. The informer-cached policy must
+	// not be mutated, and an unset field would be defaulted by the API server to Fail.
+	buildPolicy := policy
+	if vpol := policy.AsValidatingPolicy(); vpol != nil {
+		failurePolicy := vpol.GetFailurePolicy(toggle.FromContext(ctx).ForceFailurePolicyIgnore())
+		policyCopy := *vpol
+		policyCopy.Spec = vpol.Spec
+		policyCopy.Spec.FailurePolicy = &failurePolicy
+		buildPolicy = engineapi.NewValidatingPolicy(&policyCopy)
+	}
+
 	if observedVAP.ResourceVersion == "" {
-		err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, genericExceptions)
+		err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, buildPolicy, genericExceptions)
 		if err != nil {
 			return fmt.Errorf("failed to build validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
 		}
@@ -150,7 +162,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 			observedVAP,
 			c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1.ValidatingAdmissionPolicy) error {
-				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, genericExceptions)
+				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, buildPolicy, genericExceptions)
 			})
 		if err != nil {
 			return fmt.Errorf("failed to update validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
