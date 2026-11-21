@@ -43,7 +43,7 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
   `.github/workflows/check-codegen.yaml`'s `verify-codegen-code` (an explicit-success gate over isolated
   matrix jobs for independent code generation groups `codegen-api-all`, `codegen-client-all`,
   `codegen-crds-manifests`, `codegen-cli-api-group-resources`, `codegen-cli-docs`, `codegen-helm-docs`,
-  and `codegen-fix-all`, each followed by the same full-tree check, which is just `git diff --exit-code`) and
+  and `codegen-fix-all`, each followed by a scoped freshness check over its owned output paths) and
   `verify-codegen-docs` (an explicit-success gate over isolated `codegen-api-docs` and `codegen-cli-api-docs`
   matrix jobs, each followed by the same full-tree check). These target groups read source types and write
   disjoint output files; keep the code matrix in sync with `codegen-all-code` and the docs matrix in sync
