@@ -14,11 +14,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy/auth"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
 // Generate provides implementation to validate 'generate' rule
 type Generate struct {
 	user               string
+	groups             []string
 	rule               *kyvernov1.Rule
 	authChecker        auth.AuthChecks
 	authCheckerReports auth.AuthChecks
@@ -26,16 +28,17 @@ type Generate struct {
 }
 
 // NewGenerateFactory returns a new instance of Generate validation checker
-func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, reportsSA string, log logr.Logger) *Generate {
+func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user string, groups []string, reportsSA string, log logr.Logger) *Generate {
 	var authCheckerReports auth.AuthChecks
 	if reportsSA != "" {
-		authCheckerReports = auth.NewAuth(client, reportsSA, log)
+		authCheckerReports = auth.NewAuth(client, reportsSA, nil, log)
 	}
 
 	g := Generate{
 		user:               user,
+		groups:             groups,
 		rule:               rule,
-		authChecker:        auth.NewAuth(client, user, log),
+		authChecker:        auth.NewAuth(client, user, groups, log),
 		authCheckerReports: authCheckerReports,
 		log:                log,
 	}

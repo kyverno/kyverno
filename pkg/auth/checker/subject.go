@@ -17,6 +17,15 @@ type subject struct {
 	groups []string
 }
 
+// Add this constructor function!
+func NewSubjectChecker(client authorizationv1client.SubjectAccessReviewInterface, user string, groups []string) AuthChecker {
+	return &subject{
+		client: client,
+		user:   user,
+		groups: groups,
+	}
+}
+
 func (c subject) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*AuthResult, error) {
 	if c.user == "" {
 		return nil, ErrNoServiceAccount

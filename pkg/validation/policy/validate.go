@@ -39,6 +39,7 @@ import (
 	"k8s.io/apiserver/pkg/cel/openapi/resolver"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/restmapper"
+	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
 var (
@@ -127,7 +128,7 @@ func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFa
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string, userInfo authenticationv1.UserInfo) ([]string, error) {
 	var warnings []string
 	if policy.GetKind() == "ClusterPolicy" && policy.GetNamespace() != "" {
 		warnings = append(warnings, "A clusterpolicy should not have the namespace defined")
@@ -358,7 +359,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA)
+		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA, userInfo)
 		if err != nil {
 			return warnings, err
 		} else if len(w) > 0 {

@@ -26,7 +26,7 @@ func NewSelfChecker(client authorizationv1client.SelfSubjectAccessReviewInterfac
 }
 
 func NewSubjectChecker(client authorizationv1client.SubjectAccessReviewInterface, user string, groups []string) AuthChecker {
-	return subject{
+	return &subject{
 		client: client,
 		user:   user,
 		groups: groups,

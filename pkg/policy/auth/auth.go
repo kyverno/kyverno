@@ -23,14 +23,16 @@ type AuthChecks interface {
 type Auth struct {
 	client dclient.Interface
 	user   string
+	groups []string
 	log    logr.Logger
 }
 
 // NewAuth returns a new instance of Auth for operations
-func NewAuth(client dclient.Interface, user string, log logr.Logger) *Auth {
+func NewAuth(client dclient.Interface, user string, groups []string, log logr.Logger) *Auth {
 	a := Auth{
 		client: client,
 		user:   user,
+		groups: groups,
 		log:    log,
 	}
 	return &a
@@ -43,7 +45,7 @@ func (a *Auth) User() string {
 func (a *Auth) CanI(ctx context.Context, verbs []string, gvk, namespace, name, subresource string) (bool, string, error) {
 	var failedVerbs []string
 	for _, v := range verbs {
-		if ok, err := a.check(ctx, v, gvk, namespace, name, subresource); err != nil {
+		if ok, err := a.check(ctx, v, gvk, namespace, name, subresource, a.groups); err != nil {
 			return false, "", err
 		} else if !ok {
 			failedVerbs = append(failedVerbs, v)
@@ -60,12 +62,13 @@ func (a *Auth) CanI(ctx context.Context, verbs []string, gvk, namespace, name, s
 
 // CanICreate returns 'true' if self can 'create' resource
 func (a *Auth) CanICreate(ctx context.Context, gvk, namespace, name, subresource string) (bool, error) {
-	return a.check(ctx, "create", gvk, namespace, name, subresource)
+	return a.check(ctx, "create", gvk, namespace, name, subresource, a.groups)
 }
 
-func (a *Auth) check(ctx context.Context, verb, gvk, namespace, name, subresource string) (bool, error) {
+func (a *Auth) check(ctx context.Context, verb, gvk, namespace, name, subresource string, groups []string) (bool, error) {
 	subjectReview := a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews()
-	canI := auth.NewCanI(a.client.Discovery(), subjectReview, gvk, namespace, name, verb, subresource, a.user)
+	// Pass groups to NewCanI
+	canI := auth.NewCanI(a.client.Discovery(), subjectReview, gvk, namespace, name, verb, subresource, a.user, groups)
 	ok, _, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err
