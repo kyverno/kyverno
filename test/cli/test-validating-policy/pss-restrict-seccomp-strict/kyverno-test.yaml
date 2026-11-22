@@ -11,18 +11,18 @@ results:
   kind: Pod
   policy: restrict-seccomp-strict
   resources:
-  - linux-unset
-  - linux-pod-unconfined
   - linux-container-unconfined
-  - linux-init-unset
   - linux-explicit-os-unset
+  - linux-init-unset
+  - linux-pod-unconfined
+  - linux-unset
   result: fail
 - isValidatingPolicy: true
   kind: Pod
   policy: restrict-seccomp-strict
   resources:
   - linux-container-runtime-default
-  - linux-pod-runtime-default
   - linux-pod-localhost
+  - linux-pod-runtime-default
   - windows-unset
   result: pass

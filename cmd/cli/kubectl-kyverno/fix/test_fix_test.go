@@ -1,6 +1,8 @@
 package fix
 
 import (
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -8,6 +10,165 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+func TestFixTest_SortResources(t *testing.T) {
+	t.Parallel()
+
+	newResult := func(policy string, resources, generated []string) v1alpha1.TestResult {
+		return v1alpha1.TestResult{
+			TestResultBase: v1alpha1.TestResultBase{
+				Policy: policy,
+			},
+			TestResultData: v1alpha1.TestResultData{
+				Resources:          resources,
+				GeneratedResources: generated,
+			},
+		}
+	}
+
+	tests := []struct {
+		name     string
+		compress bool
+		results  []v1alpha1.TestResult
+		want     []v1alpha1.TestResult
+	}{
+		{
+			name: "single result",
+			results: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"zebra", "apple"},
+					[]string{"z-generated", "a-generated"}),
+			},
+			want: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+			},
+		},
+		{
+			name: "different policies",
+			results: []v1alpha1.TestResult{
+				newResult("policy-b",
+					[]string{"zebra", "apple"},
+					[]string{"z-generated", "a-generated"}),
+				newResult("policy-a",
+					[]string{"orange", "banana"},
+					[]string{"o-generated", "b-generated"}),
+			},
+			want: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"banana", "orange"},
+					[]string{"b-generated", "o-generated"}),
+				newResult("policy-b",
+					[]string{"apple", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+			},
+		},
+		{
+			name: "different resources",
+			results: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"zebra", "banana"},
+					[]string{"a-generated", "z-generated"}),
+				newResult("policy-a",
+					[]string{"zebra", "apple"},
+					[]string{"a-generated", "z-generated"}),
+			},
+			want: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+				newResult("policy-a",
+					[]string{"banana", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+			},
+		},
+		{
+			name: "different generated resources with equivalent resources",
+			results: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"z-generated", "b-generated"}),
+				newResult("policy-a",
+					[]string{"zebra", "apple"},
+					[]string{"z-generated", "a-generated"}),
+			},
+			want: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"b-generated", "z-generated"}),
+			},
+		},
+		{
+			name: "equivalent resource lists in different orders",
+			results: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"zebra", "apple"},
+					[]string{"a-generated", "z-generated"}),
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"z-generated", "a-generated"}),
+			},
+			want: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+				newResult("policy-a",
+					[]string{"apple", "zebra"},
+					[]string{"a-generated", "z-generated"}),
+			},
+		},
+		{
+			name:     "compressed results",
+			compress: true,
+			results: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"zebra", "banana"},
+					[]string{"z-generated", "b-generated"}),
+				newResult("policy-a",
+					[]string{"banana", "apple"},
+					[]string{"b-generated", "a-generated"}),
+			},
+			want: []v1alpha1.TestResult{
+				newResult("policy-a",
+					[]string{"apple", "banana", "zebra"},
+					[]string{"a-generated", "b-generated", "z-generated"}),
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			input := v1alpha1.Test{
+				Results: tc.results,
+			}
+			originalResults := slices.Clone(input.Results)
+			for i := range originalResults {
+				originalResults[i].Resources = slices.Clone(input.Results[i].Resources)
+				originalResults[i].GeneratedResources = slices.Clone(input.Results[i].GeneratedResources)
+			}
+
+			fixed, _, err := FixTest(input, tc.compress)
+			if err != nil {
+				t.Fatalf("FixTest() returned an error: %v", err)
+			}
+
+			if !reflect.DeepEqual(fixed.Results, tc.want) {
+				t.Errorf("results mismatch:\ngot:  %#v\nwant: %#v",
+					fixed.Results, tc.want)
+			}
+
+			if !reflect.DeepEqual(input.Results, originalResults) {
+				t.Error("FixTest() modified the input results")
+			}
+		})
+	}
+}
 
 func TestFixTest_GlobalContextEntries_hasData(t *testing.T) {
 	tests := []struct {

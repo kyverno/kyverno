@@ -74,12 +74,12 @@ type controller struct {
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	ephrLister     cache.GenericLister
 	cephrLister    cache.GenericLister
-	// polrLister/cpolrLister list permanent reports via the metadata client, used by the
-	// startup sweep (enqueueAllReports) to find legacy-only reports that no longer get events.
+	// polrLister/cpolrLister list permanent reports via the metadata client. They're used to
+	// queue reports on policy events and by the startup sweep (enqueueAllReports).
 	polrLister  cache.GenericLister
 	cpolrLister cache.GenericLister
 
-	// managedSelector matches reports managed by kyverno, used by the startup sweep.
+	// managedSelector matches reports managed by kyverno.
 	managedSelector labels.Selector
 
 	// metaClient lists kyverno.io policies/clusterpolicies by metadata only, to gate the
@@ -206,85 +206,7 @@ func NewController(
 	if _, _, err := controllerutils.AddDelayedDefaultEventHandlers(logger, cephrInformer.Informer(), c.frontQueue, enqueueDelay); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-	enqueueAll := func(items []runtime.Object) {
-		for _, item := range items {
-			itemMeta := item.(*metav1.PartialObjectMetadata)
-			c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
-		}
-	}
-	// enqueueReportsForPolicy queues only reports affected by a specific policy change using the cache.
-	enqueueReportsForPolicy := func(o metav1.Object) {
-		if list, err := polrInformer.Lister().List(selector); err == nil {
-			// the cache has not been built yet, enqueue all reports for reconciliation
-			cacheMu.Lock()
-			cacheLen := len(reportUUIDToPolicyCache)
-			cacheMu.Unlock()
-
-			if cacheLen == 0 {
-				enqueueAll(list)
-				return
-			}
-
-			for _, item := range list {
-				itemMeta := item.(*metav1.PartialObjectMetadata)
-				cacheMu.Lock()
-				policiesForReport, ok := reportUUIDToPolicyCache[string(itemMeta.GetUID())]
-				cacheMu.Unlock()
-				// the report doesn't exist in the cache, queue it for processing to eventually build the cache
-				if !ok {
-					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
-					continue
-				}
-				for _, polNsName := range sets.List(policiesForReport) {
-					polNs, polName, err := cache.SplitMetaNamespaceKey(polNsName)
-					if err != nil {
-						continue
-					}
-					if o.GetNamespace() == "" {
-						// cluster-scoped policy event: only match cache entries without a namespace
-						if polNs != "" || o.GetName() != polName {
-							continue
-						}
-					} else {
-						// namespaced policy event: only match cache entries with a namespace
-						if polNs == "" || o.GetNamespace() != polNs || o.GetName() != polName {
-							continue
-						}
-					}
-					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
-				}
-			}
-		}
-		if list, err := cpolrInformer.Lister().List(selector); err == nil {
-			// the cache has not been built yet, enqueue all reports for reconciliation
-			cacheMu.Lock()
-			cacheLen := len(reportUUIDToPolicyCache)
-			cacheMu.Unlock()
-
-			if cacheLen == 0 {
-				enqueueAll(list)
-				return
-			}
-
-			for _, item := range list {
-				itemMeta := item.(*metav1.PartialObjectMetadata)
-				cacheMu.Lock()
-				policiesForReport, ok := reportUUIDToPolicyCache[string(itemMeta.GetUID())]
-				cacheMu.Unlock()
-				// the report doesn't exist in the cache, queue it for processing to eventually build the cache
-				if !ok {
-					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
-					continue
-				}
-				for _, polName := range sets.List(policiesForReport) {
-					if o.GetName() != polName {
-						continue
-					}
-					c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
-				}
-			}
-		}
-	}
+	enqueueReportsForPolicy := c.enqueueReportsForPolicy
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(
@@ -418,6 +340,82 @@ func NewController(
 		}
 	}
 	return &c
+}
+
+// enqueueReportsForPolicy queues the reports affected by a policy change. Until the cache is
+// built, it queues every namespaced and cluster-scoped report.
+func (c *controller) enqueueReportsForPolicy(o metav1.Object) {
+	polrs, polrErr := c.polrLister.List(c.managedSelector)
+	cpolrs, cpolrErr := c.cpolrLister.List(c.managedSelector)
+	c.cacheMu.Lock()
+	cacheLen := len(c.reportUUIDToPolicyCache)
+	c.cacheMu.Unlock()
+	if cacheLen == 0 {
+		if polrErr == nil {
+			c.enqueueReports(polrs)
+		}
+		if cpolrErr == nil {
+			c.enqueueReports(cpolrs)
+		}
+		return
+	}
+	if polrErr == nil {
+		for _, item := range polrs {
+			itemMeta := item.(*metav1.PartialObjectMetadata)
+			c.cacheMu.Lock()
+			policiesForReport, ok := c.reportUUIDToPolicyCache[string(itemMeta.GetUID())]
+			c.cacheMu.Unlock()
+			// the report doesn't exist in the cache, queue it for processing to eventually build the cache
+			if !ok {
+				c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+				continue
+			}
+			for _, polNsName := range sets.List(policiesForReport) {
+				polNs, polName, err := cache.SplitMetaNamespaceKey(polNsName)
+				if err != nil {
+					continue
+				}
+				if o.GetNamespace() == "" {
+					// cluster-scoped policy event: only match cache entries without a namespace
+					if polNs != "" || o.GetName() != polName {
+						continue
+					}
+				} else {
+					// namespaced policy event: only match cache entries with a namespace
+					if polNs == "" || o.GetNamespace() != polNs || o.GetName() != polName {
+						continue
+					}
+				}
+				c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+			}
+		}
+	}
+	if cpolrErr == nil {
+		for _, item := range cpolrs {
+			itemMeta := item.(*metav1.PartialObjectMetadata)
+			c.cacheMu.Lock()
+			policiesForReport, ok := c.reportUUIDToPolicyCache[string(itemMeta.GetUID())]
+			c.cacheMu.Unlock()
+			// the report doesn't exist in the cache, queue it for processing to eventually build the cache
+			if !ok {
+				c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+				continue
+			}
+			for _, polName := range sets.List(policiesForReport) {
+				if o.GetName() != polName {
+					continue
+				}
+				c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+			}
+		}
+	}
+}
+
+func (c *controller) enqueueReports(items []runtime.Object) {
+	for _, item := range items {
+		itemMeta := item.(*metav1.PartialObjectMetadata)
+		c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+	}
 }
 
 // legacyPoliciesPresent reports whether any kyverno.io v1 ClusterPolicy or Policy object still
