@@ -330,3 +330,34 @@ func TestFindResources_InvalidationFindsNewResource(t *testing.T) {
 	assert.EqualValues(t, 1, fake.calls.Load()-filled, "a stale cache must refresh immediately")
 	assert.Equal(t, lastRefetch, d.lastRefetch, "a cache refresh must not need a forced miss refetch")
 }
+
+// TestGetGVRFromGVK_UnqualifiedNonCoreKindDoesNotRefetch verifies that querying
+// an unqualified non-core kind (e.g. gvk.Group == "" and gvk.Version == "") resolves
+// via registered server resources without triggering a spurious discovery cache
+// refetch or resetting the RESTMapper.
+func TestGetGVRFromGVK_UnqualifiedNonCoreKindDoesNotRefetch(t *testing.T) {
+	// Initialize discovery with the resource already present and valid in the cache.
+	disco, fake := newStaleCacheDiscovery(t, -time.Hour)
+	d := disco.(*serverResources)
+	_, _, err := d.cachedClient.ServerGroupsAndResources()
+	require.NoError(t, err)
+	_, err = d.cachedClient.ServerPreferredResources()
+	require.NoError(t, err)
+	filled := fake.calls.Load()
+
+	// Query with unqualified GVK (Group and Version are empty, matching policies using bare kinds).
+	unqualifiedGVK := schema.GroupVersionKind{Kind: fake.kind}
+	gvr, err := d.GetGVRFromGVK(unqualifiedGVK)
+	require.NoError(t, err)
+	assert.Equal(t, fake.gv.WithResource(fake.resource), gvr)
+
+	// Assert no refetch or cache invalidation was triggered.
+	assert.EqualValues(t, filled, fake.calls.Load(), "unqualified kind lookup must not trigger discovery refetch")
+
+	// Verify that querying a non-existent unqualified kind falls through
+	// gracefully to miss refetch and returns an error.
+	beforeMiss := d.lastRefetch
+	_, err = d.GetGVRFromGVK(schema.GroupVersionKind{Kind: "NonExistentKind"})
+	require.Error(t, err)
+	assert.NotEqual(t, beforeMiss, d.lastRefetch, "a missing unqualified kind must trigger a miss refetch")
+}

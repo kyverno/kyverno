@@ -1,0 +1,252 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Re-runs the failed jobs of a failed Tests run on main or a release branch
+# once, so that one flaky test doesn't open a tracking issue and turn the E2E
+# Gate red on every open pull request.
+#
+# How it fits with the Tests workflow (check-tests.yaml):
+#
+# 1. On the first attempt of a run that has a failure and no cancelled job,
+#    the sync-issue job of Tests leaves the tracking issue alone and runs its
+#    "Defer to the automatic re-run" step instead. The rerun job below re-runs
+#    a run only when that step ran, so the two can't disagree.
+# 2. Re-running the failed jobs also re-runs sync-issue, which depends on them,
+#    even though sync-issue itself succeeded. GitHub documents this: "When you
+#    re-run failed jobs or a specific job, GitHub also re-runs the jobs that
+#    depend on them." On that second attempt sync-issue opens, updates, or
+#    closes the tracking issue as usual, so the issue reflects the final
+#    attempt.
+# 3. The rerun job waits for the second attempt. Events caused by GITHUB_TOKEN
+#    may not start other workflows, so it then starts the E2E gate itself, and
+#    if the second attempt passed, the record-flaky job lists the tests that
+#    failed on the first attempt in its job summary and on a single rolling
+#    issue labelled flaky-test.
+#
+# A run is re-run at most once: only first attempts are re-run. Cancelled runs
+# are never re-run. When a newer Tests run on the same branch is queued,
+# running, or finished, the re-run is skipped: the re-run would join the Tests
+# concurrency group and cancel a queued newer run, and the newer run's result
+# is the one that counts. The newer run then decides the tracking issue.
+#
+# The sync-issue deferral applies only to runs of the Tests workflow itself in
+# kyverno/kyverno. If another workflow calls check-tests.yaml, add its name to
+# the workflows list below, or its failures are never recorded.
+
+name: Tests re-run
+
+on:
+  workflow_run:
+    workflows:
+      - Tests
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  rerun:
+    name: Re-run failed jobs once
+    if: >-
+      github.repository == 'kyverno/kyverno' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt == 1 &&
+      (github.event.workflow_run.head_branch == 'main' ||
+        startsWith(github.event.workflow_run.head_branch, 'release-'))
+    # Not ubuntu-slim: GitHub ends ubuntu-slim jobs after 15 minutes, and this
+    # job waits for the second attempt, which may queue behind another Tests
+    # run first.
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      # actions: write lets the job re-run the failed jobs and start the E2E gate
+      actions: write
+    outputs:
+      conclusion: ${{ steps.wait.outputs.conclusion }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+      RUN_URL: ${{ github.event.workflow_run.html_url }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - name: Re-run failed jobs
+        id: rerun
+        env:
+          WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+        run: |
+          set -euo pipefail
+
+          jobs=$(gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/attempts/1/jobs?per_page=100" --jq '.jobs[]')
+          failed=$(jq -r 'select(.conclusion == "failure") | "- " + .name' <<< "$jobs")
+
+          # Re-run only when sync-issue deferred to this workflow. Otherwise it
+          # has already updated the tracking issue, for example because a job
+          # was cancelled, and a re-run would only flip the issue again.
+          deferred=$(jq -r 'select(.name == "sync-issue") | .steps[]
+            | select(.name == "Defer to the automatic re-run" and .conclusion == "success") | .name' <<< "$jobs")
+          if [ -z "$deferred" ]; then
+            echo "::notice::The sync-issue job of $RUN_URL didn't defer to a re-run, so the run isn't re-run."
+            exit 0
+          fi
+
+          newer=$(gh api "repos/$GH_REPO/actions/workflows/$WORKFLOW_ID/runs?branch=$BRANCH&per_page=20" \
+            --jq "[.workflow_runs[] | select(.run_number > $RUN_NUMBER and .conclusion != \"cancelled\") | .html_url] | first // empty")
+          if [ -n "$newer" ]; then
+            {
+              echo "### Re-run skipped"
+              echo
+              echo "Tests run [#$RUN_NUMBER]($RUN_URL) on \`$BRANCH\` failed, but a newer run, $newer, is queued, running, or finished. Its result decides the tracking issue."
+              echo
+              echo "Failed jobs of #$RUN_NUMBER:"
+              echo
+              echo "$failed"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          gh run rerun "$RUN_ID" --failed
+          echo "rerun=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Re-running failed jobs"
+            echo
+            echo "Tests run [#$RUN_NUMBER]($RUN_URL) on \`$BRANCH\` failed on its first attempt. This job re-ran these failed jobs once; the second attempt decides the tracking issue:"
+            echo
+            echo "$failed"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Wait for the second attempt
+        id: wait
+        if: steps.rerun.outputs.rerun == 'true'
+        run: |
+          set -euo pipefail
+
+          # Polls until the second attempt has completed with a conclusion. The
+          # re-run request returns before the run leaves the completed state of
+          # the first attempt, and a failed API read is retried on the next
+          # poll. The job's timeout ends the wait if the attempt never finishes;
+          # the gate is then left to the next Tests run. One read a minute keeps
+          # the job well under the GITHUB_TOKEN API rate limit.
+          while true; do
+            sleep 60
+            state=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID" \
+              --jq '"\(.run_attempt) \(.status) \(.conclusion // "")"' 2>/dev/null) || continue
+            read -r attempt status conclusion <<< "$state"
+            if [ "$attempt" -ge 2 ] && [ "$status" = completed ] && [ -n "$conclusion" ]; then
+              break
+            fi
+          done
+
+          echo "Attempt $attempt of $RUN_URL finished: $conclusion."
+          echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
+          echo "Second attempt: \`$conclusion\`." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Update the E2E gate
+        if: steps.wait.outputs.conclusion != ''
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: gh workflow run e2e-gate.yaml --ref "$DEFAULT_BRANCH"
+
+  record-flaky:
+    name: Record flaky tests
+    needs: rerun
+    if: needs.rerun.outputs.conclusion == 'success'
+    # Not ubuntu-slim, which ends jobs after 15 minutes: reading up to 40 job
+    # logs, each capped at about 45 seconds with its retry, takes up to 30.
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      # actions: read lets the job read the first attempt's jobs and logs
+      actions: read
+      # issues: write lets the job comment on the rolling flaky-test issue
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Find flaky tests
+        id: find
+        env:
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          report=$RUNNER_TEMP/flaky.md
+          {
+            echo "Tests run [#$RUN_NUMBER]($RUN_URL) on \`$BRANCH\` (commit \`$HEAD_SHA\`) failed on its first attempt and passed when its failed jobs were re-run automatically."
+            echo
+            echo "| Job | Failed tests |"
+            echo "| --- | --- |"
+          } > "$report"
+
+          # chainsaw reports each failed test as "--- FAIL: chainsaw/<test>". A job
+          # whose log has no such line, or can't be read, failed outside a test,
+          # for example in setup or image loading.
+          # curl rather than gh api: gh refuses output with terminal escapes.
+          # Only the first max_logs failed jobs are read, so that a run with
+          # many failed matrix jobs can't time out or get throttled before it
+          # reports; the others are listed as not inspected.
+          max_logs=40
+          found=0
+          inspected=0
+          while IFS=$'\t' read -r id name url; do
+            if [ "$inspected" -ge "$max_logs" ]; then
+              echo "| [$name]($url) | not inspected: only the first $max_logs failed jobs are read |" >> "$report"
+              continue
+            fi
+            inspected=$((inspected + 1))
+            tests=$(curl -fsSL --max-time 20 --retry 1 --retry-delay 2 --retry-all-errors \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              "$GITHUB_API_URL/repos/$GH_REPO/actions/jobs/$id/logs" 2>/dev/null \
+              | grep -oE -- '--- FAIL: chainsaw/[^ ]+' | sed 's#.*chainsaw/##' | sort -u \
+              | sed "s/.*/\`&\`/" | paste -sd ',' - | sed 's/,/, /g' || true)
+            [ -n "$tests" ] && found=$((found + 1))
+            echo "| [$name]($url) | ${tests:-no test failure in the log} |" >> "$report"
+          done < <(gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/attempts/1/jobs?per_page=100" \
+            --jq '.jobs[] | select(.conclusion == "failure") | [.id, .name, .html_url] | @tsv')
+
+          {
+            echo "### Flaky tests"
+            echo
+            cat "$report"
+            if [ "$found" -eq 0 ]; then
+              echo
+              echo "The logs read show no Chainsaw test failure, or couldn't be read, so nothing is recorded on the flaky-test issue."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "report=$report" >> "$GITHUB_OUTPUT"
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+
+      # Only Chainsaw test failures go on the issue. Setup, image, and other
+      # infrastructure failures stay in the job summary above.
+      - name: Comment on the flaky-test issue
+        if: steps.find.outputs.found != '0'
+        env:
+          REPORT: ${{ steps.find.outputs.report }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          label=flaky-test
+          marker='<!-- flaky-e2e-tests -->'
+          gh label create "$label" --color FBCA04 \
+            --description 'A test that failed and then passed on an automatic re-run' 2>/dev/null || true
+
+          issue=$(gh issue list --label "$label" --state open --limit 100 --json number,body \
+            --jq "[.[] | select(.body | contains(\"$marker\")) | .number] | min // empty")
+          if [ -z "$issue" ]; then
+            body=$(printf '%s\n' \
+              "The Tests workflow re-runs its failed jobs once when a run on \`main\` or a release branch fails. When the re-run passes, the [Tests re-run]($REPO_URL/actions/workflows/tests-rerun.yaml) workflow adds a comment here with the tests that failed on the first attempt." \
+              '' \
+              "If a test shows up here repeatedly, fix it, or add it to [\`test/conformance/quarantine.yaml\`]($REPO_URL/blob/main/test/conformance/quarantine.yaml) with an owner, an issue, and an expiry date. Close this issue once you have handled the tests listed in it; the next flaky run opens a new one." \
+              '' \
+              "$marker")
+            url=$(gh issue create --title 'Flaky E2E tests' --label "$label" --body "$body")
+            issue=${url##*/}
+          fi
+          gh issue comment "$issue" --body-file "$REPORT"
+          echo "Recorded the flaky tests on issue #$issue."

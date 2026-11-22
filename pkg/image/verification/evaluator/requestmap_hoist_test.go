@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -163,6 +164,89 @@ func TestMutateDigest_RequestMapBuiltOnceRegardlessOfExceptions(t *testing.T) {
 	_, err = compiled.MutateDigest(context.Background(), ictx, nil, nil, attr, request, nil, pod, requestMapFn, config.NewDefaultConfiguration(false), nil)
 	require.NoError(t, err)
 	assert.Equal(t, 1, *calls, "MutateDigest must call requestMapFn exactly once per invocation, regardless of matchConditions/exception count")
+}
+
+// TestEvaluateWithActivation_UsesProvidedActivationBuilder verifies that EvaluateWithActivation
+// invokes the provided ActivationBuilder rather than building activation independently.
+func TestEvaluateWithActivation_UsesProvidedActivationBuilder(t *testing.T) {
+	policy, exceptions := buildRequestMapHoistPolicy("eval-activation", 0)
+	compiled := compileRequestMapHoistPolicy(t, policy, exceptions)
+	request, attr, _ := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
+	ictx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	require.NoError(t, err)
+
+	builderCalls := 0
+	builder := func() (engine.ActivationData, error) {
+		builderCalls++
+		return engine.PrepareK8sActivation(attr, request, nil, nil, engine.BuildRawRequestMap)
+	}
+
+	aware := compiled.(ActivationAwareCompiledPolicy)
+	result, err := aware.EvaluateWithActivation(context.Background(), ictx, nil, nil, attr, request, nil, true, builder, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 1, builderCalls, "EvaluateWithActivation must invoke the supplied activationBuilder")
+}
+
+// TestMutateDigestWithActivation_UsesProvidedActivationBuilder verifies that MutateDigestWithActivation
+// invokes the provided ActivationBuilder rather than building activation independently.
+func TestMutateDigestWithActivation_UsesProvidedActivationBuilder(t *testing.T) {
+	policy, exceptions := buildRequestMapHoistPolicy("mutate-activation", 0)
+	compiled := compileRequestMapHoistPolicy(t, policy, exceptions)
+	request, attr, pod := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
+	ictx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	require.NoError(t, err)
+
+	builderCalls := 0
+	builder := func() (engine.ActivationData, error) {
+		builderCalls++
+		return engine.PrepareK8sActivation(attr, request, nil, nil, engine.BuildRawRequestMap)
+	}
+
+	aware := compiled.(ActivationAwareCompiledPolicy)
+	_, err = aware.MutateDigestWithActivation(context.Background(), ictx, nil, nil, attr, request, nil, pod, builder, nil, config.NewDefaultConfiguration(false), nil)
+	require.NoError(t, err)
+	assert.Equal(t, 1, builderCalls, "MutateDigestWithActivation must invoke the supplied activationBuilder")
+}
+
+// TestEvaluateWithActivation_PropagatesBuilderError verifies that EvaluateWithActivation
+// returns an error when activationBuilder fails.
+func TestEvaluateWithActivation_PropagatesBuilderError(t *testing.T) {
+	policy, exceptions := buildRequestMapHoistPolicy("eval-err", 0)
+	compiled := compileRequestMapHoistPolicy(t, policy, exceptions)
+	request, attr, _ := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
+	ictx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	require.NoError(t, err)
+
+	expectedErr := errors.New("injected activation error")
+	builder := func() (engine.ActivationData, error) {
+		return engine.ActivationData{}, expectedErr
+	}
+
+	aware := compiled.(ActivationAwareCompiledPolicy)
+	result, err := aware.EvaluateWithActivation(context.Background(), ictx, nil, nil, attr, request, nil, true, builder, nil, nil)
+	require.ErrorIs(t, err, expectedErr)
+	require.Nil(t, result)
+}
+
+// TestMutateDigestWithActivation_PropagatesBuilderError verifies that MutateDigestWithActivation
+// returns an error when activationBuilder fails.
+func TestMutateDigestWithActivation_PropagatesBuilderError(t *testing.T) {
+	policy, exceptions := buildRequestMapHoistPolicy("mutate-err", 0)
+	compiled := compileRequestMapHoistPolicy(t, policy, exceptions)
+	request, attr, pod := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
+	ictx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	require.NoError(t, err)
+
+	expectedErr := errors.New("injected activation error")
+	builder := func() (engine.ActivationData, error) {
+		return engine.ActivationData{}, expectedErr
+	}
+
+	aware := compiled.(ActivationAwareCompiledPolicy)
+	patches, err := aware.MutateDigestWithActivation(context.Background(), ictx, nil, nil, attr, request, nil, pod, builder, nil, config.NewDefaultConfiguration(false), nil)
+	require.ErrorIs(t, err, expectedErr)
+	require.Nil(t, patches)
 }
 
 // buildRequestMapConsumptionPolicy returns a Kubernetes-mode

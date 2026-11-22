@@ -218,6 +218,9 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
 		}
+		if !toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy() && vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() {
+			logger.Info("generating ValidatingAdmissionPolicy explicitly enabled in policy", "policy", vpol.GetName())
+		}
 		// Explicit per-policy generation must work even when the global toggle is
 		// disabled. When both are off, skip idle policies but still reconcile
 		// previously generated native resources (including after a restart).
@@ -253,7 +256,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
 		}
-		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
+		generateMutatingAdmissionPolicy := toggle.FromContext(ctx).GenerateMutatingAdmissionPolicy()
 		if !generateMutatingAdmissionPolicy {
 			if !mpol.Spec.GenerateMutatingAdmissionPolicyEnabled() {
 				return nil

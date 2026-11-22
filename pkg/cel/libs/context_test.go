@@ -1,16 +1,21 @@
 package libs
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/version"
 )
 
@@ -175,4 +180,193 @@ func TestAddGenerateLabels_NeverWritesLegacyOnlyLabels(t *testing.T) {
 	assert.False(t, hasPolicyNamespaceLabel, "addGenerateLabels must never write %s", common.GeneratePolicyNamespaceLabel)
 	// Sanity: the labels it does write are still present.
 	assert.Equal(t, "my-gpol", labels[common.GeneratePolicyLabel])
+}
+
+// TestCELGeneratePolicyScopeDisallowsCrossScopeAdoption ensures a cluster
+// GeneratingPolicy and a NamespacedGeneratingPolicy of the same name and
+// trigger UID cannot adopt each other's newly generated resources.
+func TestCELGeneratePolicyScopeDisallowsCrossScopeAdoption(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		namespace string
+		wantScope string
+	}{
+		{name: "cluster", wantScope: common.GeneratePolicyScopeCluster},
+		{name: "namespaced", namespace: "team-a", wantScope: common.GeneratePolicyScopeNamespaced},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cp := &contextProvider{}
+			cp.SetGenerateContext("same-name", tc.namespace, "trigger", "team-a", "v1", "", "ConfigMap", "same-trigger-uid", false, false)
+			obj := &unstructured.Unstructured{Object: map[string]any{}}
+			cp.addGenerateLabels(obj)
+			require.Equal(t, tc.wantScope, obj.GetLabels()[common.GeneratePolicyScopeLabel])
+			require.True(t, cp.isManagedByPolicy(context.Background(), obj))
+
+			other := &contextProvider{}
+			otherNamespace := ""
+			if tc.namespace == "" {
+				otherNamespace = "team-a"
+			}
+			other.SetGenerateContext("same-name", otherNamespace, "trigger", "team-a", "v1", "", "ConfigMap", "same-trigger-uid", false, false)
+			require.False(t, other.isManagedByPolicy(context.Background(), obj))
+		})
+	}
+}
+
+// A NamespacedGeneratingPolicy can match the cluster-scoped Namespace object
+// with the same name as its own namespace. It must preserve ownership even
+// though that trigger has an empty metadata.namespace.
+func TestNamespacedCELPolicyCanTrackNamespaceTrigger(t *testing.T) {
+	cp := &contextProvider{}
+	cp.SetGenerateContext("same-name", "team-a", "team-a", "", "v1", "", "Namespace", "namespace-uid", false, false)
+	obj := &unstructured.Unstructured{Object: map[string]any{}}
+	cp.addGenerateLabels(obj)
+	require.Empty(t, obj.GetLabels()[common.GenerateTriggerNSLabel])
+	require.True(t, cp.isManagedByPolicy(context.Background(), obj))
+
+	other := &contextProvider{}
+	other.SetGenerateContext("same-name", "team-b", "team-b", "", "v1", "", "Namespace", "namespace-uid", false, false)
+	require.False(t, other.isManagedByPolicy(context.Background(), obj))
+}
+
+// conflictingPolicyLookup models policy presence/absence for legacy tests.
+// Neither case can prove origin without a persisted UID-qualified record.
+type conflictingPolicyLookup struct {
+	dclient.Interface
+	conflict bool
+}
+
+func (c conflictingPolicyLookup) GetResource(_ context.Context, _, _, _, _ string, _ ...string) (*unstructured.Unstructured, error) {
+	if c.conflict {
+		return &unstructured.Unstructured{Object: map[string]any{"kind": "GeneratingPolicy"}}, nil
+	}
+	return nil, apierrors.NewNotFound(schema.GroupResource{Group: "policies.kyverno.io", Resource: "generatingpolicies"}, "same-name")
+}
+
+func TestLegacyCELDownstreamAdoptionChecksConflictingPolicyScope(t *testing.T) {
+	for _, policyNamespace := range []string{"", "team-a"} {
+		t.Run("policy-namespace="+policyNamespace, func(t *testing.T) {
+			labels := map[string]string{
+				kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+				common.GeneratePolicyLabel:     "same-name",
+				common.GenerateTriggerNSLabel:  "team-a",
+				common.GenerateTriggerUIDLabel: "same-trigger-uid",
+			}
+			obj := &unstructured.Unstructured{Object: map[string]any{}}
+			obj.SetLabels(labels)
+			client := &conflictingPolicyLookup{}
+			cp := &contextProvider{client: client}
+			cp.SetGenerateContext("same-name", policyNamespace, "trigger", "team-a", "v1", "", "ConfigMap", "same-trigger-uid", false, false)
+			require.False(t, cp.isManagedByPolicy(context.Background(), obj), "missing counterpart cannot prove historical ownership")
+			client.conflict = true
+			require.False(t, cp.isManagedByPolicy(context.Background(), obj), "same-name policy in other scope prevents ambiguous adoption")
+			client.conflict = false
+			if policyNamespace == "" {
+				labels[common.GeneratePolicyScopeLabel] = common.GeneratePolicyScopeCluster
+			} else {
+				labels[common.GeneratePolicyScopeLabel] = common.GeneratePolicyScopeNamespaced
+			}
+			obj.SetLabels(labels)
+			require.True(t, cp.isManagedByPolicy(context.Background(), obj), "explicitly scoped object does not need a competing-policy lookup")
+		})
+	}
+}
+
+// Apart from Namespace, cluster-scoped triggers cannot be selected by a
+// NamespacedGeneratingPolicy, so old CEL downstreams need no counterpart GET.
+func TestLegacyCELClusterTriggerRemainsAdoptable(t *testing.T) {
+	cp := &contextProvider{}
+	cp.SetGenerateContext("same-name", "", "trigger", "", "v1", "", "Node", "trigger-uid", false, false)
+	obj := &unstructured.Unstructured{Object: map[string]any{}}
+	obj.SetLabels(map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     "same-name",
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	})
+	require.True(t, cp.isManagedByPolicy(context.Background(), obj))
+}
+
+// Namespace triggers are different: a NamespacedGeneratingPolicy in that
+// namespace may have the same name and trigger UID as a cluster policy.
+// Legacy downstreams without a scope marker must not be adopted even when
+// the counterpart has been deleted.
+func TestLegacyCELNamespaceTriggerRequiresCounterpartCheck(t *testing.T) {
+	client := &conflictingPolicyLookup{conflict: true}
+	cp := &contextProvider{client: client}
+	cp.SetGenerateContext("same-name", "", "team-a", "", "v1", "", "Namespace", "trigger-uid", false, false)
+	obj := &unstructured.Unstructured{Object: map[string]any{}}
+	obj.SetLabels(map[string]string{
+		kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:      "same-name",
+		common.GenerateTriggerUIDLabel:  "trigger-uid",
+		common.GenerateTriggerNameLabel: "team-a",
+		common.GenerateTriggerKindLabel: "Namespace",
+	})
+	require.False(t, cp.isManagedByPolicy(context.Background(), obj), "a competing namespaced policy makes legacy ownership ambiguous")
+	client.conflict = false
+	require.False(t, cp.isManagedByPolicy(context.Background(), obj), "deleted counterpart still leaves historical ownership ambiguous")
+}
+
+func TestAmbiguousLegacyCELDownstreamFailsOwnershipVerification(t *testing.T) {
+	cp := &contextProvider{}
+	cp.SetGenerateContext("same-name", "", "trigger", "team-a", "v1", "", "ConfigMap", "trigger-uid", false, false)
+	obj := &unstructured.Unstructured{Object: map[string]any{}}
+	obj.SetLabels(map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     "same-name",
+		common.GenerateTriggerNSLabel:  "team-a",
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	})
+	owned, err := cp.isManagedByPolicyChecked(context.Background(), obj)
+	require.False(t, owned)
+	require.ErrorContains(t, err, "ambiguous legacy downstream")
+}
+
+type acknowledgedLegacyGenerationClient struct {
+	dclient.Interface
+	resource *unstructured.Unstructured
+}
+
+func (c *acknowledgedLegacyGenerationClient) GetResource(_ context.Context, _, _, _, _ string, _ ...string) (*unstructured.Unstructured, error) {
+	return c.resource.DeepCopy(), nil
+}
+
+func (c *acknowledgedLegacyGenerationClient) UpdateResource(_ context.Context, _, _, _ string, obj interface{}, _ bool, _ ...string) (*unstructured.Unstructured, error) {
+	return obj.(*unstructured.Unstructured).DeepCopy(), nil
+}
+
+// A verified legacy downstream must appear in the successful generation result
+// so full watcher reconciliation cannot misinterpret it as obsolete.
+func TestUIDVerifiedLegacyDownstreamRemainsInGenerationResult(t *testing.T) {
+	old := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":            "old",
+			"namespace":       "team-a",
+			"uid":             "old-uid",
+			"resourceVersion": "5",
+		},
+	}}
+	old.SetLabels(map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     "same-name",
+		common.GenerateTriggerNSLabel:  "team-a",
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	})
+	client := &acknowledgedLegacyGenerationClient{resource: old}
+	cp := &contextProvider{client: client}
+	cp.SetGenerateContext("same-name", "", "trigger", "team-a", "v1", "", "ConfigMap", "trigger-uid", false, false)
+	cp.SetAcknowledgedGeneratedResources([]kyverno.ResourceSpec{{
+		APIVersion: "v1", Kind: "ConfigMap", Namespace: "team-a", Name: "old", UID: "old-uid",
+	}})
+	generated := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "old"},
+		"data":       map[string]any{"key": "value"},
+	}
+	require.NoError(t, cp.GenerateResourcesContext(context.Background(), "team-a", []map[string]any{generated}))
+	require.Len(t, cp.GetGeneratedResources(), 1)
+	require.Equal(t, old.GetUID(), cp.GetGeneratedResources()[0].GetUID())
 }
