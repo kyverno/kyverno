@@ -1582,6 +1582,43 @@ func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
 	})
+
+	t.Run("rejects CONNECT for namespace-qualified DeletingPolicy", func(t *testing.T) {
+		dpolTestDir := filepath.Join(rootDir, "test", "cli", "test-deleting-policy", "deleting-pod-by-name")
+		testCases := test.LoadTest(nil, filepath.Join(dpolTestDir, "kyverno-test.yaml"))
+		require.NotEmpty(t, testCases)
+		tc := testCases[0]
+		tc.Test.Results[0].Policy = "test-ns/deleting-pod-by-name"
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
+	})
+
+	t.Run("rejects CONNECT for namespace-qualified MutatingPolicy", func(t *testing.T) {
+		mpolTestDir := filepath.Join(rootDir, "test", "cli", "test-mutating-policy", "mutating-label")
+		testCases := test.LoadTest(nil, filepath.Join(mpolTestDir, "kyverno-test.yaml"))
+		require.NotEmpty(t, testCases)
+		tc := testCases[0]
+		tc.Test.Results[0].Policy = "test-ns/mutating-label"
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for namespace-qualified JSON-mode ValidatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		jsonPolicyDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "json-check-dockerfile")
+		tc.Test.Policies = []string{filepath.Join(jsonPolicyDir, "policy.yaml")}
+		tc.Test.Results[0].Policy = "test-ns/check-dockerfile-disallow-curl"
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
+	})
 }
 func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
 	wd, err := os.Getwd()

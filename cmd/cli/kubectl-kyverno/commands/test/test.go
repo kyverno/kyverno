@@ -76,11 +76,33 @@ type TestResponse struct {
 	DeletingPolicies   map[string]struct{}
 }
 
-func deletingPolicyKey(namespace, name string) string {
+func policyKey(namespace, name string) string {
 	if namespace == "" {
 		return name
 	}
 	return namespace + "/" + name
+}
+
+func deletingPolicyKey(namespace, name string) string {
+	return policyKey(namespace, name)
+}
+
+func normalizeTestPolicy(policy string) (string, string, string) {
+	if ns, name, ok := strings.Cut(policy, "/"); ok {
+		return policyKey(ns, name), ns, name
+	}
+	return policy, "", policy
+}
+
+func matchesPolicy(set sets.Set[string], policy string) bool {
+	key, ns, name := normalizeTestPolicy(policy)
+	if set.Has(key) {
+		return true
+	}
+	if ns == "" && set.Has(name) {
+		return true
+	}
+	return false
 }
 
 var (
@@ -457,25 +479,30 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	explicitOperations := sets.New[string]()
 	mutatingPolicyNames := sets.New[string]()
 	for _, p := range results.MutatingPolicies {
+		mutatingPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
 		mutatingPolicyNames.Insert(p.GetName())
 	}
 	deletingPolicyNames := sets.New[string]()
 	for _, p := range results.DeletingPolicies {
+		deletingPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
 		deletingPolicyNames.Insert(p.GetName())
 	}
 	jsonPolicyNames := sets.New[string]()
 	for _, p := range results.ValidatingPolicies {
 		if p.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+			jsonPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
 			jsonPolicyNames.Insert(p.GetName())
 		}
 	}
 	for _, p := range results.MutatingPolicies {
 		if p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+			jsonPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
 			jsonPolicyNames.Insert(p.GetName())
 		}
 	}
 	for _, p := range results.ImageValidatingPolicies {
 		if p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+			jsonPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
 			jsonPolicyNames.Insert(p.GetName())
 		}
 	}
@@ -493,23 +520,23 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			effectiveOp = vars.GlobalOperation()
 		}
 		if effectiveOp == "CONNECT" {
-			if res.IsDeletingPolicy || deletingPolicyNames.Has(res.Policy) {
+			if res.IsDeletingPolicy || matchesPolicy(deletingPolicyNames, res.Policy) {
 				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for deleting policies", res.Policy)
 			}
-			if res.IsValidatingAdmissionPolicy || res.IsMutatingAdmissionPolicy || res.IsMutatingPolicy || mutatingPolicyNames.Has(res.Policy) {
+			if res.IsValidatingAdmissionPolicy || res.IsMutatingAdmissionPolicy || res.IsMutatingPolicy || matchesPolicy(mutatingPolicyNames, res.Policy) {
 				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy", res.Policy)
 			}
 			if isJSONPayloadResult(res, jsonPayloadFiles, len(uniques)) {
 				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON payloads", res.Policy)
 			}
-			if jsonPolicyNames.Has(res.Policy) {
+			if matchesPolicy(jsonPolicyNames, res.Policy) {
 				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON-mode policies", res.Policy)
 			}
 		}
 		if res.Operation == "" {
 			continue
 		}
-		if res.IsDeletingPolicy || deletingPolicyNames.Has(res.Policy) {
+		if res.IsDeletingPolicy || matchesPolicy(deletingPolicyNames, res.Policy) {
 			return nil, fmt.Errorf("invalid test result for policy %s: operation is not supported for deleting policies", res.Policy)
 		}
 		explicitOperations.Insert(res.Operation)
