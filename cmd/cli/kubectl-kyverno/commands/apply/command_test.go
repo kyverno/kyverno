@@ -2331,6 +2331,59 @@ func Test_Apply_ExplainImageValidatingPolicy(t *testing.T) {
 	}
 }
 
+// Test_Apply_ExplainHidesSecretData runs policies that read a Secret, given by a context file,
+// with --explain: the trace prints neither the Secret's data, nor a value worked out from it, nor
+// an error that quotes it, while values that do not come from a Secret are still printed. The
+// results are the ones without --explain.
+func Test_Apply_ExplainHidesSecretData(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	tests := []struct {
+		name string
+		dir  string
+		want []string
+	}{{
+		name: "a validating policy reads a Secret into variables",
+		dir:  base + "test-validating-policy/explain-secret/",
+		want: []string{
+			"VARIABLES           password: resource.Get('v1', 'secrets', 'kyverno', 'db-credentials').data.password  ->  (redacted)",
+			"VARIABLES           decoded: string(base64.decode(variables.password))  ->  (redacted)",
+			"VARIABLES           team: object.metadata.?labels.?team.orValue('')  ->  payments",
+			`message: "the password is too short"`,
+		},
+	}, {
+		name: "an image validating policy fails on a Secret's data",
+		dir:  base + "test-image-validating-policy/explain-secret/",
+		want: []string{
+			"VERDICT    ERROR    timestamp(resource.Get('v1', 'secrets', 'kyverno', 'db-credentials').data.password) < timestamp('2026-01-01T00:00:00Z')  ->  (redacted)",
+			`message: "(redacted)"`,
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := func(explain bool) (*processor.ResultCounts, string) {
+				config := ApplyCommandConfig{
+					PolicyPaths:   []string{tt.dir + "policy.yaml"},
+					ResourcePaths: []string{tt.dir + "resources.yaml"},
+					ContextPath:   tt.dir + "context.yaml",
+					Explain:       explain,
+				}
+				var out bytes.Buffer
+				rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+				require.NoError(t, err)
+				return rc, out.String()
+			}
+			plain, _ := run(false)
+			explained, output := run(true)
+			assert.Equal(t, plain, explained, "--explain must not change the results")
+			assert.NotContains(t, output, "czNjcjN0LXA0c3M=", "the Secret's data")
+			assert.NotContains(t, output, "s3cr3t-p4ss", "the Secret's data, decoded")
+			for _, want := range tt.want {
+				assert.Contains(t, output, want)
+			}
+		})
+	}
+}
+
 // Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition is a JSON payload a JSON-mode
 // policy's match condition excludes. Evaluating it returns a nil result, which the apply command
 // used to read and crash on; it must report nothing, and with --explain print the skip.
@@ -2475,4 +2528,166 @@ func Test_Apply_PolicyReport_DeprecatedUserInfoWarningNoColor(t *testing.T) {
 	assert.Contains(t, output, "uses a deprecated schema")
 	assert.Contains(t, output, "kind: ClusterReport")
 	assert.NotContains(t, output, "\x1b[")
+}
+
+// TestAuditWarnWithPolicyReport verifies that applying an audit-only policy with --audit-warn
+// and --policy-report reports status "warn" and respects the --warn-exit-code flag.
+func TestAuditWarnWithPolicyReport(t *testing.T) {
+	policyPath := "../../../../../test/conformance/chainsaw/cli/apply/warn-exit-code/policy.yaml"
+	resourcePath := "../../../../../test/conformance/chainsaw/cli/apply/warn-exit-code/resource.yaml"
+
+	t.Run("audit-warn with policy-report produces warn result and exit 0", func(t *testing.T) {
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--audit-warn", "--policy-report"})
+		err := cmd.Execute()
+		assert.NoError(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: ClusterReport")
+		assert.Contains(t, output, "result: warn")
+		assert.NotContains(t, output, "result: fail")
+
+		var report openreportsv1alpha1.ClusterReport
+		assert.NoError(t, yaml.Unmarshal(out.Bytes(), &report))
+		assert.Equal(t, report.Summary.Warn, 1)
+		assert.Equal(t, report.Summary.Fail, 0)
+	})
+
+	t.Run("without audit-warn, policy-report produces fail result and exits 1", func(t *testing.T) {
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--policy-report"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: ClusterReport")
+		assert.Contains(t, output, "result: fail")
+
+		var report openreportsv1alpha1.ClusterReport
+		assert.NoError(t, yaml.Unmarshal(out.Bytes(), &report))
+		assert.Equal(t, report.Summary.Fail, 1)
+		assert.Equal(t, report.Summary.Warn, 0)
+	})
+
+	t.Run("deny policy with audit-warn and policy-report produces fail result and exits 1", func(t *testing.T) {
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		denyPolicyPath := "../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"
+		denyResourcePath := "../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"
+		cmd.SetArgs([]string{denyPolicyPath, "--resource", denyResourcePath, "--audit-warn", "--policy-report"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: ClusterReport")
+		assert.Contains(t, output, "result: fail")
+		assert.NotContains(t, output, "result: warn")
+
+		var report openreportsv1alpha1.ClusterReport
+		assert.NoError(t, yaml.Unmarshal(out.Bytes(), &report))
+		assert.Equal(t, report.Summary.Fail, 1)
+		assert.Equal(t, report.Summary.Warn, 0)
+	})
+
+	t.Run("audit-only image validating policy with audit-warn and policy-report produces warn result and exit 0", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		ivpolPath := filepath.Join(tmpDir, "ivpol-audit.yaml")
+		resourcePath := filepath.Join(tmpDir, "pod.yaml")
+
+		policyContent := `apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-audit
+spec:
+  validationActions:
+  - Audit
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  matchImageReferences:
+  - glob: "registry.example.com/*"
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  attestors:
+  - name: unused
+    cosign:
+      key:
+        data: unused
+  validations:
+  - expression: "false"
+    message: "offline audit failure"
+`
+		resourceContent := `apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+spec:
+  containers:
+  - name: app
+    image: "example.com/nginx:1.27"
+`
+		assert.NoError(t, os.WriteFile(ivpolPath, []byte(policyContent), 0o600))
+		assert.NoError(t, os.WriteFile(resourcePath, []byte(resourceContent), 0o600))
+
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{ivpolPath, "--resource", resourcePath, "--audit-warn", "--policy-report"})
+		err := cmd.Execute()
+		assert.NoError(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "kind: ClusterReport")
+		assert.Contains(t, output, "result: warn")
+		assert.NotContains(t, output, "result: fail")
+
+		var report openreportsv1alpha1.ClusterReport
+		assert.NoError(t, yaml.Unmarshal(out.Bytes(), &report))
+		assert.Equal(t, report.Summary.Warn, 1)
+		assert.Equal(t, report.Summary.Fail, 0)
+	})
+
+	t.Run("audit-warn in default output labels violations as warning", func(t *testing.T) {
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--audit-warn", "--remove-color"})
+		err := cmd.Execute()
+		assert.NoError(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "warning:")
+		assert.NotContains(t, output, "failed:")
+		assert.Contains(t, output, "warn: 1")
+		assert.Contains(t, output, "fail: 0")
+	})
+
+	t.Run("without audit-warn, default output labels violations as failed", func(t *testing.T) {
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--remove-color"})
+		err := cmd.Execute()
+		assert.Error(t, err)
+
+		output := out.String()
+		assert.Contains(t, output, "failed:")
+		assert.Contains(t, output, "fail: 1")
+		assert.Contains(t, output, "warn: 0")
+	})
 }

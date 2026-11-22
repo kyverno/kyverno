@@ -75,6 +75,9 @@ func (h *handler) MutateClustered(ctx context.Context, logger logr.Logger, admis
 // namespaces, so the request's namespace is matched as well to avoid evaluating a same named
 // policy from another namespace (or a cluster scoped one).
 func (h *handler) MutateNamespaced(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	if admissionRequest.Namespace == "" {
+		return admissionutils.ResponseSuccess(admissionRequest.UID)
+	}
 	predicate := ivpolengine.And(ivpolengine.MatchNames(policyNames(ctx)...), ivpolengine.NamespacedPolicy(admissionRequest.Namespace))
 	return h.mutate(ctx, admissionRequest, predicate)
 }
@@ -100,6 +103,9 @@ func (h *handler) ValidateClustered(ctx context.Context, logger logr.Logger, adm
 // ValidateNamespaced serves the /nivpol/validate route, scoping evaluation to policies in the
 // request's namespace (see MutateNamespaced).
 func (h *handler) ValidateNamespaced(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	if admissionRequest.Namespace == "" {
+		return admissionutils.ResponseSuccess(admissionRequest.UID)
+	}
 	predicate := ivpolengine.And(ivpolengine.MatchNames(policyNames(ctx)...), ivpolengine.NamespacedPolicy(admissionRequest.Namespace))
 	return h.validate(ctx, logger, admissionRequest, predicate)
 }

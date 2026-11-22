@@ -135,7 +135,7 @@ func extractGlobalContextEntries(resources []*unstructured.Unstructured) ([]*uns
 
 	for _, r := range resources {
 		gvk := r.GroupVersionKind()
-		if gvk.Kind == "GlobalContextEntry" && gvk.Group == "kyverno.io" && gvk.Version == "v2" {
+		if isGlobalContextEntry(gvk) {
 			gce := &kyvernov2.GlobalContextEntry{}
 			if err := convertToGCE(r, gce); err != nil {
 				return nil, nil, fmt.Errorf("failed to convert %s %q to GlobalContextEntry: %w", gvk, r.GetName(), err)
@@ -146,6 +146,18 @@ func extractGlobalContextEntries(resources []*unstructured.Unstructured) ([]*uns
 		}
 	}
 	return regular, gctxEntries, nil
+}
+
+func isGlobalContextEntry(gvk schema.GroupVersionKind) bool {
+	if gvk.Group != "kyverno.io" || gvk.Kind != "GlobalContextEntry" {
+		return false
+	}
+	switch gvk.Version {
+	case "v2", "v2beta1", "v2alpha1":
+		return true
+	default:
+		return false
+	}
 }
 
 func convertToGCE(src *unstructured.Unstructured, dst *kyvernov2.GlobalContextEntry) error {
