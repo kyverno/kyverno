@@ -459,6 +459,10 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	for _, p := range results.MutatingPolicies {
 		mutatingPolicyNames.Insert(p.GetName())
 	}
+	deletingPolicyNames := sets.New[string]()
+	for _, p := range results.DeletingPolicies {
+		deletingPolicyNames.Insert(p.GetName())
+	}
 	jsonPolicyNames := sets.New[string]()
 	for _, p := range results.ValidatingPolicies {
 		if p.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
@@ -489,6 +493,9 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			effectiveOp = vars.GlobalOperation()
 		}
 		if effectiveOp == "CONNECT" {
+			if res.IsDeletingPolicy || deletingPolicyNames.Has(res.Policy) {
+				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for deleting policies", res.Policy)
+			}
 			if res.IsValidatingAdmissionPolicy || res.IsMutatingAdmissionPolicy || res.IsMutatingPolicy || mutatingPolicyNames.Has(res.Policy) {
 				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy", res.Policy)
 			}
@@ -502,7 +509,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		if res.Operation == "" {
 			continue
 		}
-		if res.IsDeletingPolicy {
+		if res.IsDeletingPolicy || deletingPolicyNames.Has(res.Policy) {
 			return nil, fmt.Errorf("invalid test result for policy %s: operation is not supported for deleting policies", res.Policy)
 		}
 		explicitOperations.Insert(res.Operation)

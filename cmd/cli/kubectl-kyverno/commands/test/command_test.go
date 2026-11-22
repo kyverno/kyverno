@@ -1555,6 +1555,33 @@ func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
 	})
+
+	t.Run("rejects CONNECT for DeletingPolicy", func(t *testing.T) {
+		dpolTestDir := filepath.Join(rootDir, "test", "cli", "test-deleting-policy", "deleting-pod-by-name")
+		testCases := test.LoadTest(nil, filepath.Join(dpolTestDir, "kyverno-test.yaml"))
+		require.NotEmpty(t, testCases)
+		tc := testCases[0]
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
+	})
+
+	t.Run("rejects inherited global CONNECT for DeletingPolicy", func(t *testing.T) {
+		dpolTestDir := filepath.Join(rootDir, "test", "cli", "test-deleting-policy", "deleting-pod-by-name")
+		testCases := test.LoadTest(nil, filepath.Join(dpolTestDir, "kyverno-test.yaml"))
+		require.NotEmpty(t, testCases)
+		tc := testCases[0]
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results[0].Operation = ""
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
+	})
 }
 func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
 	wd, err := os.Getwd()

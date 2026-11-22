@@ -319,6 +319,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err := c.failOnDeprecationWarnings(); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+	if variables != nil && variables.GlobalOperation() == "CONNECT" && len(dps) > 0 {
+		return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("CONNECT operation is not supported for deleting policies")
+	}
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps))
 	for _, pol := range vaps {
 		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))

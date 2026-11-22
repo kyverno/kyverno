@@ -1703,6 +1703,17 @@ func Test_Apply_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
 	})
+
+	t.Run("rejects CONNECT for DeletingPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
+	})
 }
 
 func TestCommandHelp(t *testing.T) {
