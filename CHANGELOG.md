@@ -1,3 +1,7 @@
+## Unreleased
+
+- fix(mutate): prevent panics when strategic merge patches target missing or null list fields (#18684)
+
 ## v1.13.0
 
 ### Note
