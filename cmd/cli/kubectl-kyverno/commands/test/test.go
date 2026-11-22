@@ -545,6 +545,14 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		explicitOperations.Insert(res.Operation)
 	}
+	if vars != nil && vars.GlobalOperation() == "CONNECT" {
+		if len(results.DeletingPolicies) > 0 {
+			return nil, fmt.Errorf("CONNECT operation is not supported for deleting policies")
+		}
+		if hasJSONIvpol {
+			return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
+		}
+	}
 	nsResolver := processor.GetNamespaceResolver(vars, dClient, len(testCase.Test.ClusterResources) > 0)
 
 	var contextProvider libs.Context
@@ -686,6 +694,10 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	// variables, context, …) from the enclosing runTest scope so each call
 	// site only needs to supply the resource and operation.
 	evalResource := func(resource *unstructured.Unstructured, operation string, defaultRun bool) ([]engineapi.EngineResponse, error) {
+		effectiveOp := operation
+		if effectiveOp == "" && vars != nil {
+			effectiveOp = vars.GlobalOperation()
+		}
 		// the policy processor is for multiple policies at once
 		pp := processor.PolicyProcessor{
 			NamespaceResolver:                 nsResolver,
@@ -733,10 +745,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
-			effectiveOp := operation
-			if effectiveOp == "" && vars != nil {
-				effectiveOp = vars.GlobalOperation()
-			}
 			ivpols, err := applyImageValidatingPolicies(
 				results.ImageValidatingPolicies,
 				nil,
@@ -761,8 +769,11 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			ers = append(ers, ivpols...)
 		}
 		// Deleting policies are cluster-driven rather than admission-driven,
-		// so they are evaluated only in the default run.
+		// so they are evaluated only in the default run when operation is not CONNECT.
 		if defaultRun && len(results.DeletingPolicies) != 0 {
+			if effectiveOp == "CONNECT" {
+				return nil, fmt.Errorf("CONNECT operation is not supported for deleting policies")
+			}
 			dpols, err := applyDeletingPolicies(
 				results.DeletingPolicies,
 				[]*unstructured.Unstructured{resource},

@@ -87,6 +87,17 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 	if response.Resource.Object == nil {
 		response.Resource = &oldObject
 	}
+	if response.Resource.Object == nil {
+		res := &unstructured.Unstructured{}
+		res.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   request.Request.Kind.Group,
+			Version: request.Request.Kind.Version,
+			Kind:    request.Request.Kind.Kind,
+		})
+		res.SetName(request.Request.Name)
+		res.SetNamespace(request.Request.Namespace)
+		response.Resource = res
+	}
 	// default dry run
 	dryRun := false
 	if request.Request.DryRun != nil {

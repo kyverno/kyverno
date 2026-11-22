@@ -1628,6 +1628,9 @@ func Test_Apply_OperationConnect(t *testing.T) {
 
 	var denyConnectMatched, denyConnectFailed bool
 	for _, response := range responses {
+		assert.Equal(t, "test-pod", response.Resource.GetName())
+		assert.Equal(t, "test-ns", response.Resource.GetNamespace())
+		assert.Equal(t, "Pod", response.Resource.GetKind())
 		if response.Policy().GetName() == "deny-connect" {
 			denyConnectMatched = true
 			for _, rule := range response.PolicyResponse.Rules {

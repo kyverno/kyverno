@@ -1377,6 +1377,9 @@ func Test_OperationConnect(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				var matched, failed bool
 				for _, response := range responses {
+					assert.Equal(t, "test-pod", response.Resource.GetName())
+					assert.Equal(t, "test-ns", response.Resource.GetNamespace())
+					assert.Equal(t, "Pod", response.Resource.GetKind())
 					if response.Policy().GetName() != tc.policy {
 						continue
 					}
@@ -1651,6 +1654,23 @@ func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
 		_, err := runTest(context.TODO(), io.Discard, tc, false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
+	})
+
+	t.Run("rejects inherited global CONNECT for DeletingPolicy with empty test results", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		dpolDir := filepath.Join(rootDir, "test", "cli", "test-deleting-policy", "deleting-pod-by-name")
+		tc.Test.Policies = []string{filepath.Join(dpolDir, "policy.yaml")}
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results = nil
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
 	})
 }
 func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {

@@ -342,13 +342,17 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
 					continue
 				}
-				patched := *reps.Resource
+				resourceVal := resource
+				if reps.Resource != nil && reps.Resource.Object != nil {
+					resourceVal = *reps.Resource
+				}
+				patched := resourceVal
 				if reps.PatchedResource != nil {
 					patched = *reps.PatchedResource
 				}
 
 				response := engineapi.EngineResponse{
-					Resource:        *reps.Resource,
+					Resource:        resourceVal,
 					PatchedResource: patched,
 					PolicyResponse: engineapi.PolicyResponse{
 						Rules: r.Rules,
@@ -590,8 +594,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
 						continue
 					}
+					resourceVal := resource
+					if reps.Resource != nil && reps.Resource.Object != nil {
+						resourceVal = *reps.Resource
+					}
 					response := engineapi.EngineResponse{
-						Resource: *reps.Resource,
+						Resource: resourceVal,
 						PolicyResponse: engineapi.PolicyResponse{
 							Rules: r.Rules,
 						},
@@ -628,8 +636,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					if len(r.Rules) == 0 {
 						continue
 					}
+					resourceVal := resource
+					if reps.Resource != nil && reps.Resource.Object != nil {
+						resourceVal = *reps.Resource
+					}
 					response := engineapi.EngineResponse{
-						Resource: *reps.Resource,
+						Resource: resourceVal,
 						PolicyResponse: engineapi.PolicyResponse{
 							Rules: r.Rules,
 						},
@@ -777,9 +789,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						trace.Render(p.Out, res.Trace)
 						fmt.Fprintln(p.Out)
 					}
+					trigger := resource
+					if engineResponse.Trigger != nil && engineResponse.Trigger.Object != nil {
+						trigger = *engineResponse.Trigger
+					}
 					if res.Result == nil {
 						generateResponse := engineapi.EngineResponse{
-							Resource: *engineResponse.Trigger,
+							Resource: trigger,
 						}
 						generateResponse = generateResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
 						p.Rc.addGenerateResponse(generateResponse)
@@ -787,7 +803,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						continue
 					}
 					generateResponse := engineapi.EngineResponse{
-						Resource: *engineResponse.Trigger,
+						Resource: trigger,
 						PolicyResponse: engineapi.PolicyResponse{
 							Rules: []engineapi.RuleResponse{*res.Result},
 						},
