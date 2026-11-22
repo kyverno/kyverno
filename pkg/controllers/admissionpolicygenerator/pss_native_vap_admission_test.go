@@ -9,14 +9,18 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	celmatching "github.com/kyverno/kyverno/pkg/cel/matching"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 // pssAdmissionPod builds a Pod with the supplied container and optional ephemeral
@@ -110,6 +114,28 @@ func evaluatePSSNativeCEL(t *testing.T, policy *admissionregistrationv1.Validati
 	return result.PolicyResponse.Rules[0].Status()
 }
 
+// verifyPSSNativeSubresourceUpdateMatch exercises Kubernetes admission
+// resource-rule matching with the actual UPDATE operation and subresource,
+// rather than relying only on the rendered resource names.
+func verifyPSSNativeSubresourceUpdateMatch(t *testing.T, policy *admissionregistrationv1.ValidatingAdmissionPolicy, rawPod string) {
+	t.Helper()
+	var pod unstructured.Unstructured
+	require.NoError(t, json.Unmarshal([]byte(rawPod), &pod.Object))
+	attrs := admission.NewAttributesRecord(
+		&pod, nil, pod.GroupVersionKind(), pod.GetNamespace(), pod.GetName(),
+		schema.GroupVersionResource{Version: "v1", Resource: "pods"},
+		"ephemeralcontainers", admission.Update, &metav1.UpdateOptions{}, false,
+		&user.DefaultInfo{Name: "pss-test-user"},
+	)
+	matched, err := celmatching.NewMatcher().Match(
+		&celmatching.MatchCriteria{Constraints: policy.Spec.MatchConstraints},
+		attrs,
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: pod.GetNamespace()}},
+	)
+	require.NoError(t, err, "resource-rule matching failed for %s", policy.Name)
+	assert.True(t, matched, "native VAP must match pods/ephemeralcontainers UPDATE")
+}
+
 func TestPSSNativeVAPAdmissionDecisions(t *testing.T) {
 	helm := os.Getenv("HELM")
 	if helm == "" {
@@ -124,6 +150,7 @@ func TestPSSNativeVAPAdmissionDecisions(t *testing.T) {
 	badEscalation := `{"privileged":false,"allowPrivilegeEscalation":true,"procMount":"Default","capabilities":{"drop":["ALL"]}}`
 	badProcMount := `{"privileged":false,"allowPrivilegeEscalation":false,"procMount":"Unmasked","capabilities":{"drop":["ALL"]}}`
 	validPod := pssAdmissionPod(safeSecurity, "")
+	validEphemeralPod := pssAdmissionPod(safeSecurity, safeSecurity)
 
 	type admissionCase struct {
 		name string
@@ -177,6 +204,8 @@ func TestPSSNativeVAPAdmissionDecisions(t *testing.T) {
 					status := evaluatePSSNativeCEL(t, vap, binding, validPod)
 					assert.NotEqual(t, engineapi.RuleStatusFail, status, "PSS-compliant Pod should not be denied")
 					assert.NotEqual(t, engineapi.RuleStatusError, status, "PSS-compliant Pod must compile and evaluate without errors")
+					verifyPSSNativeSubresourceUpdateMatch(t, vap, validEphemeralPod)
+					assert.NotEqual(t, engineapi.RuleStatusFail, evaluatePSSNativeCEL(t, vap, binding, validEphemeralPod), "compliant ephemeral container should not be denied")
 
 					// A positive-only check would not detect a vacuous always-true
 					// translation. Each PSS policy must reject its own violation.
