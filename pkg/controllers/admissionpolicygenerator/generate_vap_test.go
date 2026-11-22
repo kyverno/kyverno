@@ -41,6 +41,16 @@ func (permissiveAuthChecker) Check(ctx context.Context, group, version, resource
 	return &checker.AuthResult{Allowed: true}, nil
 }
 
+// vpolOwnerReferences mirrors the owner references assigned by the generator.
+func vpolOwnerReferences(policy *policiesv1beta1.ValidatingPolicy) []metav1.OwnerReference {
+	return []metav1.OwnerReference{{
+		APIVersion: policiesv1beta1.GroupVersion.String(),
+		Kind:       "ValidatingPolicy",
+		Name:       policy.Name,
+		UID:        policy.UID,
+	}}
+}
+
 // newVAPTestController builds a controller backed by fake clientsets and empty listers.
 func newVAPTestController(t *testing.T, vpol *policiesv1beta1.ValidatingPolicy, existingKubeObjects ...runtime.Object) (*controller, *kubefake.Clientset, *versionedfake.Clientset) {
 	t.Helper()
@@ -85,6 +95,7 @@ func disallowPrivilegeEscalationVpol(statusAutogenConfigs map[string]policiesv1b
 	return &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "disallow-privilege-escalation",
+			UID:  "pss-native-vap-test-owner",
 		},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
 			AutogenConfiguration: &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
@@ -217,10 +228,10 @@ func TestReconcile_ValidatingPolicy_PerPolicyVAPGeneration(t *testing.T) {
 				vpol.Status.Generated = true
 				existingKubeObjects = append(existingKubeObjects,
 					&admissionregistrationv1.ValidatingAdmissionPolicy{
-						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name},
+						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name, OwnerReferences: vpolOwnerReferences(vpol)},
 					},
 					&admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name + "-binding"},
+						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name + "-binding", OwnerReferences: vpolOwnerReferences(vpol)},
 					},
 				)
 			}
@@ -364,7 +375,7 @@ func TestReconcileVAPDisabledCleanup(t *testing.T) {
 			bindingName := vapName + "-binding"
 			if tt.seedVAP {
 				vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
-					ObjectMeta: metav1.ObjectMeta{Name: vapName},
+					ObjectMeta: metav1.ObjectMeta{Name: vapName, OwnerReferences: vpolOwnerReferences(policy)},
 				}
 				if !tt.cacheOnly {
 					_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(ctx, vap, metav1.CreateOptions{})
@@ -374,7 +385,7 @@ func TestReconcileVAPDisabledCleanup(t *testing.T) {
 			}
 			if tt.seedBinding {
 				binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-					ObjectMeta: metav1.ObjectMeta{Name: bindingName},
+					ObjectMeta: metav1.ObjectMeta{Name: bindingName, OwnerReferences: vpolOwnerReferences(policy)},
 				}
 				if !tt.cacheOnly {
 					_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Create(ctx, binding, metav1.CreateOptions{})
