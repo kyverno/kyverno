@@ -29,6 +29,61 @@ func pssAdmissionPod(containerSecurity, ephemeralSecurity string) string {
 	return `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"pss-native-admission","namespace":"default"},"spec":{"securityContext":{"runAsNonRoot":true,"runAsUser":1000,"runAsGroup":1000,"seccompProfile":{"type":"RuntimeDefault"}},"containers":[{"name":"main","image":"busybox","securityContext":` + containerSecurity + `}]` + ephemeral + `}}`
 }
 
+// pssViolatingPod creates a targeted failure case for every chart policy.
+// Each case starts from the same Restricted-compliant Pod used by the allow path.
+func pssViolatingPod(t *testing.T, policyName, validPod string) string {
+	t.Helper()
+	var pod map[string]any
+	require.NoError(t, json.Unmarshal([]byte(validPod), &pod))
+	spec := pod["spec"].(map[string]any)
+	podSecurity := spec["securityContext"].(map[string]any)
+	container := spec["containers"].([]any)[0].(map[string]any)
+	containerSecurity := container["securityContext"].(map[string]any)
+
+	switch policyName {
+	case "disallow-capabilities":
+		containerSecurity["capabilities"] = map[string]any{"add": []string{"SYS_ADMIN"}}
+	case "disallow-host-namespaces":
+		spec["hostPID"] = true
+	case "disallow-host-path", "restrict-volume-types":
+		spec["volumes"] = []any{map[string]any{"name": "host", "hostPath": map[string]any{"path": "/tmp"}}}
+	case "disallow-host-ports":
+		container["ports"] = []any{map[string]any{"containerPort": 80, "hostPort": 8080}}
+	case "disallow-host-probes":
+		container["livenessProbe"] = map[string]any{"httpGet": map[string]any{"host": "example.com", "path": "/", "port": 80}}
+	case "disallow-host-process":
+		containerSecurity["windowsOptions"] = map[string]any{"hostProcess": true}
+	case "disallow-privileged-containers":
+		containerSecurity["privileged"] = true
+	case "disallow-proc-mount", "disallow-proc-mount-strict":
+		containerSecurity["procMount"] = "Unmasked"
+	case "disallow-selinux":
+		containerSecurity["seLinuxOptions"] = map[string]any{"user": "root"}
+	case "restrict-apparmor-profiles":
+		containerSecurity["appArmorProfile"] = map[string]any{"type": "Unconfined"}
+	case "restrict-seccomp":
+		containerSecurity["seccompProfile"] = map[string]any{"type": "Unconfined"}
+	case "restrict-sysctls":
+		podSecurity["sysctls"] = []any{map[string]any{"name": "kernel.kptr_restrict", "value": "0"}}
+	case "disallow-capabilities-strict":
+		containerSecurity["capabilities"] = map[string]any{"drop": []string{}}
+	case "disallow-privilege-escalation":
+		containerSecurity["allowPrivilegeEscalation"] = true
+	case "require-run-as-non-root-user":
+		podSecurity["runAsUser"] = 0
+	case "require-run-as-nonroot":
+		podSecurity["runAsNonRoot"] = false
+	case "restrict-seccomp-strict":
+		podSecurity["seccompProfile"] = map[string]any{"type": "Unconfined"}
+		containerSecurity["seccompProfile"] = map[string]any{"type": "Unconfined"}
+	default:
+		t.Fatalf("no native admission-denial fixture for %q", policyName)
+	}
+	b, err := json.Marshal(pod)
+	require.NoError(t, err)
+	return string(b)
+}
+
 // evaluatePSSNativeCEL uses Kubernetes' validating-admission-policy compiler
 // and validator rather than comparing CEL strings or using a fake policy API.
 // This is an in-process CEL check, NOT a substitute for an API-server test of
@@ -122,6 +177,12 @@ func TestPSSNativeVAPAdmissionDecisions(t *testing.T) {
 					status := evaluatePSSNativeCEL(t, vap, binding, validPod)
 					assert.NotEqual(t, engineapi.RuleStatusFail, status, "PSS-compliant Pod should not be denied")
 					assert.NotEqual(t, engineapi.RuleStatusError, status, "PSS-compliant Pod must compile and evaluate without errors")
+
+					// A positive-only check would not detect a vacuous always-true
+					// translation. Each PSS policy must reject its own violation.
+					assert.Equal(t, engineapi.RuleStatusFail,
+						evaluatePSSNativeCEL(t, vap, binding, pssViolatingPod(t, pol.Name, validPod)),
+						"generated VAP must reject its policy-specific violation")
 
 					for _, tc := range violations[pol.Name] {
 						t.Run(tc.name, func(t *testing.T) {
