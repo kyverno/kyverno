@@ -635,11 +635,22 @@ func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.Gro
 }
 
 func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	wm.handleUpdateWithContext(ctx, obj, gvr, nil)
+}
+
+// expectedWatcher is non-nil for delayed retries; it prevents writing through
+// a replacement watcher after a policy or GVR was removed.
+func (wm *WatchManager) handleUpdateWithContext(ctx context.Context, obj *unstructured.Unstructured, gvr schema.GroupVersionResource, expectedWatcher *watcher) {
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
 
 	wm.log.V(4).Info("Resource updated", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	watcher, exists := wm.dynamicWatchers[gvr]
+	if expectedWatcher != nil && watcher != expectedWatcher {
+		return
+	}
 	if exists {
 		uid := obj.GetUID()
 		// the metadata cache is used to track the generated resources.
@@ -660,7 +671,7 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				common.GenerateSourceUIDLabel: string(uid),
 			}
 			selector := &metav1.LabelSelector{MatchLabels: sourceLabel}
-			downstreams, err := wm.client.ListResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), "", selector)
+			downstreams, err := wm.client.ListResource(ctx, obj.GetAPIVersion(), obj.GetKind(), "", selector)
 			if err != nil {
 				wm.log.Error(err, "failed to list downstream resources")
 				wm.scheduleSourceSyncRetry(obj, gvr)
@@ -686,7 +697,7 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				// downstream, so carry the downstream's own. Custom resources reject an update that
 				// has no resourceVersion, which used to leave every CRD downstream unsynced.
 				newResource.SetResourceVersion(downstream.GetResourceVersion())
-				written, err := wm.propagateToDownstream(cached.ServerSideApply, &downstream, newResource)
+				written, err := wm.propagateToDownstreamWithContext(ctx, cached.ServerSideApply, &downstream, newResource)
 				if err != nil {
 					anyFailed = true
 					wm.trackSyncFailure(downstream.GetUID(), downstream.GetName(), downstream.GetNamespace(), err)
@@ -891,7 +902,7 @@ func (wm *WatchManager) retrySourceSync(key sourceSyncRetryKey, expected *source
 
 	// handleUpdate will reschedule this source if any write still fails, or
 	// clear its retry state after all downstreams are synchronized.
-	wm.handleUpdate(live, key.gvr)
+	wm.handleUpdateWithContext(ctx, live, key.gvr, expected.watcher)
 }
 
 // revertDownstream restores the cached desired state of a downstream. The caller
@@ -949,8 +960,12 @@ func (wm *WatchManager) revertDownstream(watcher *watcher, uid types.UID, obj *u
 // before, since leaving those out of the apply would remove them. Otherwise the downstream is
 // replaced with an update.
 func (wm *WatchManager) propagateToDownstream(serverSideApply bool, downstream, newResource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	return wm.propagateToDownstreamWithContext(context.Background(), serverSideApply, downstream, newResource)
+}
+
+func (wm *WatchManager) propagateToDownstreamWithContext(ctx context.Context, serverSideApply bool, downstream, newResource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	if !serverSideApply {
-		return wm.client.UpdateResource(context.TODO(), newResource.GetAPIVersion(), newResource.GetKind(), newResource.GetNamespace(), newResource, false)
+		return wm.client.UpdateResource(ctx, newResource.GetAPIVersion(), newResource.GetKind(), newResource.GetNamespace(), newResource, false)
 	}
 	cfg := applyConfiguration(newResource)
 	if applied, ok := appliedByGenerate(downstream); ok {
@@ -960,12 +975,16 @@ func (wm *WatchManager) propagateToDownstream(serverSideApply bool, downstream, 
 	} else {
 		cfg.SetLabels(generateLabels(cfg.GetLabels()))
 	}
-	return wm.applyDownstream(cfg)
+	return wm.applyDownstreamWithContext(ctx, cfg)
 }
 
 // applyDownstream server-side applies cfg as the field manager generate uses.
 func (wm *WatchManager) applyDownstream(cfg *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	return wm.client.ApplyResource(context.TODO(), cfg.GetAPIVersion(), cfg.GetKind(), cfg.GetNamespace(), cfg.GetName(), cfg, false, "generate")
+	return wm.applyDownstreamWithContext(context.Background(), cfg)
+}
+
+func (wm *WatchManager) applyDownstreamWithContext(ctx context.Context, cfg *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	return wm.client.ApplyResource(ctx, cfg.GetAPIVersion(), cfg.GetKind(), cfg.GetNamespace(), cfg.GetName(), cfg, false, "generate")
 }
 
 // applyConfiguration returns the content of a generated object to apply: its name, namespace,
