@@ -180,9 +180,9 @@ func TestNeedsReconcile_CELExceptionRevision(t *testing.T) {
 	report := &reportsv1.EphemeralReport{ObjectMeta: metav1.ObjectMeta{
 		Namespace: namespace, Name: uid,
 		Labels: map[string]string{
-			reportutils.LabelResourceHash: hash,
+			reportutils.LabelResourceHash:   hash,
 			reportutils.PolicyLabel(policy): reportutils.PolicyRevision(policy),
-			celExceptionRevisionLabel: celExceptionRevision([]*policiesv1beta1.PolicyException{first}),
+			celExceptionRevisionLabel:       celExceptionRevision([]*policiesv1beta1.PolicyException{first}),
 		},
 		Annotations: map[string]string{annotationLastScanTime: time.Now().Format(time.RFC3339)},
 	}}
