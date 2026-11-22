@@ -2631,8 +2631,11 @@ func TestHandleUpdate_RetriesLatestSourceAfterTransientFailure(t *testing.T) {
 	ds := makeUnstructured("50", "", "v1", "Secret", "shared", "tenant", "ds-uid",
 		map[string]string{common.GenerateSourceUIDLabel: "src-uid"})
 	entry := Resource{
-		Name: ds.GetName(), Namespace: ds.GetNamespace(), Labels: ds.GetLabels(),
-		Hash: "previous", Data: ds,
+		Name:      ds.GetName(),
+		Namespace: ds.GetNamespace(),
+		Labels:    ds.GetLabels(),
+		Hash:      "previous",
+		Data:      ds,
 	}
 	mc := &MockClient{listItems: []unstructured.Unstructured{*ds}}
 	mc.getFn = func(_ context.Context, _, _, _, _ string) (*unstructured.Unstructured, error) {
@@ -2648,7 +2651,8 @@ func TestHandleUpdate_RetriesLatestSourceAfterTransientFailure(t *testing.T) {
 		}
 	}
 	wm := &WatchManager{
-		log: logging.WithName("test"), client: mc,
+		log:    logging.WithName("test"),
+		client: mc,
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
 			gvr: {metadataCache: map[types.UID]Resource{"ds-uid": entry}},
 		},
@@ -2673,14 +2677,14 @@ func TestStopWatchers_CancelsSourceRetries(t *testing.T) {
 	wm := &WatchManager{
 		log: logging.WithName("test"),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{gvr: w},
-		sourceRetries:   map[sourceSyncRetryKey]*sourceSyncRetry{},
+		sourceRetries:    map[sourceSyncRetryKey]*sourceSyncRetry{},
 		syncFailureCount: map[types.UID]int{"orphan": 2},
 	}
 	src := makeUnstructured("1", "", "v1", "Secret", "source", "platform", "src-uid", nil)
 	wm.lock.Lock()
 	wm.scheduleSourceSyncRetry(src, gvr)
-	require.Len(t, wm.sourceRetries, 1)
 	wm.lock.Unlock()
+	require.Len(t, wm.sourceRetries, 1)
 
 	wm.StopWatchers()
 	assert.Nil(t, wm.sourceRetries, "stopped manager must cancel all delayed retry work")
