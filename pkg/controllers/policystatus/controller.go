@@ -325,9 +325,10 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	backgroundOnly := false
 	// backgroundEnabled gates the reports-controller RBAC permission check below.
 	// MutatingPolicies gate this on their background evaluation toggle.
-	// GeneratingPolicies do not produce policy reports, so reports-controller RBAC
-	// permissions are not required.
+	// The reports-controller does not scan GeneratingPolicy trigger resources,
+	// so it does not need read access to them.
 	backgroundEnabled := false
+	isGeneratingPolicy := false
 	switch policy.GetKind() {
 	case webhook.MutatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName(), "")
@@ -350,6 +351,7 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		status = &v1beta1Status
 		autogenMatchConstraints = c.resolveMpolAutogenMatchConstraints(policy.AsNamespacedMutatingPolicy())
 	case webhook.GeneratingPolicyType:
+		isGeneratingPolicy = true
 		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
 		backgroundOnly = !policy.AsGeneratingPolicy().GetSpec().AdmissionEnabled()
@@ -361,6 +363,7 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 			Message:    v1alpha1Status.Message,
 		}
 	case webhook.NamespacedGeneratingPolicyType:
+		isGeneratingPolicy = true
 		key = webhook.BuildRecorderKey(webhook.NamespacedGeneratingPolicyType, policy.GetName(), policy.GetNamespace())
 		matchConstraints = policy.AsNamespacedGeneratingPolicy().GetMatchConstraints()
 		backgroundOnly = !policy.AsNamespacedGeneratingPolicy().GetSpec().AdmissionEnabled()
@@ -383,7 +386,11 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		meta.RemoveStatusCondition(&status.Conditions, string(policiesv1beta1.PolicyConditionTypeWebhookConfigured))
 	}
 
-	c.reconcileRBACPermissionsCondition(ctx, status, matchConstraints, autogenMatchConstraints, backgroundEnabled)
+	if isGeneratingPolicy {
+		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "The reports-controller does not scan GeneratingPolicy trigger resources, so it does not need read access to them.")
+	} else {
+		c.reconcileRBACPermissionsCondition(ctx, status, matchConstraints, autogenMatchConstraints, backgroundEnabled)
+	}
 	return status
 }
 

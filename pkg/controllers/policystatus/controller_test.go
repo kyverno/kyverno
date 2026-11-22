@@ -549,9 +549,9 @@ func TestReconcileBeta1Conditions_RBACChecksAutogenTargets(t *testing.T) {
 
 // TestReconcileConditions_GeneratingPolicy_ReportsRBACCheckSkipped verifies that GeneratingPolicy
 // and NamespacedGeneratingPolicy do not require reports-controller RBAC permissions on matched
-// trigger resources (e.g. sensitive kinds like Secrets). Because GeneratingPolicies do not produce
-// policy reports, the reports-controller RBAC check must be skipped and reported as satisfied,
-// preventing policies from getting stuck not-ready (#18351).
+// trigger resources (e.g. sensitive kinds like Secrets). Because the reports-controller does not
+// scan GeneratingPolicy trigger resources, the reports-controller RBAC check is not required and
+// is reported as satisfied, preventing policies from getting stuck not-ready (#18351).
 // It also verifies that when admission is disabled, WebhookConfigured does not gate policy readiness,
 // and any previously persisted WebhookConfigured condition is cleared.
 func TestReconcileConditions_GeneratingPolicy_ReportsRBACCheckSkipped(t *testing.T) {
@@ -709,7 +709,7 @@ func TestReconcileConditions_GeneratingPolicy_ReportsRBACCheckSkipped(t *testing
 			cond := findCondition(status.Conditions, policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted)
 			require.NotNil(t, cond, "RBACPermissionsGranted condition should always be set")
 			assert.Equal(t, metav1.ConditionTrue, cond.Status, "RBACPermissionsGranted should be True for GeneratingPolicy")
-			assert.Contains(t, cond.Message, "reporting permissions not required", "RBACPermissionsGranted message should indicate reporting permissions are not required")
+			assert.Equal(t, "The reports-controller does not scan GeneratingPolicy trigger resources, so it does not need read access to them.", cond.Message)
 
 			webhookCond := findCondition(status.Conditions, policiesv1beta1.PolicyConditionTypeWebhookConfigured)
 			if tt.expectWebhookFalse {
@@ -801,6 +801,7 @@ func TestReconcile_GeneratingPolicy_AdmissionDisabled_TransitionClearsStaleWebho
 	gpolRbac := findCondition(updatedGpol.Status.ConditionStatus.Conditions, policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted)
 	require.NotNil(t, gpolRbac)
 	assert.Equal(t, metav1.ConditionTrue, gpolRbac.Status)
+	assert.Equal(t, "The reports-controller does not scan GeneratingPolicy trigger resources, so it does not need read access to them.", gpolRbac.Message)
 
 	err = c.reconcile(ctx, logr.Discard(), ngpolKey, "", "")
 	require.NoError(t, err)
@@ -812,4 +813,5 @@ func TestReconcile_GeneratingPolicy_AdmissionDisabled_TransitionClearsStaleWebho
 	ngpolRbac := findCondition(updatedNgpol.Status.ConditionStatus.Conditions, policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted)
 	require.NotNil(t, ngpolRbac)
 	assert.Equal(t, metav1.ConditionTrue, ngpolRbac.Status)
+	assert.Equal(t, "The reports-controller does not scan GeneratingPolicy trigger resources, so it does not need read access to them.", ngpolRbac.Message)
 }
