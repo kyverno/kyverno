@@ -9,6 +9,7 @@ import (
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	versionedinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/stretchr/testify/assert"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -525,47 +526,45 @@ func TestDefaultRetryBackoff_MonotonicallyIncreasing(t *testing.T) {
 	}
 }
 
-// TestControllerReconcileTimeout verifies that the controller's reconcileTimeout
-// is set to a reasonable non-zero value that bounds UR processing time.
-func TestControllerReconcileTimeout(t *testing.T) {
-	c := &controller{
-		reconcileTimeout: 2 * time.Minute,
-	}
-	assert.Equal(t, 2*time.Minute, c.reconcileTimeout,
-		"reconcileTimeout should be 2 minutes to bound slow UR processing")
+// newConfiguredTestController constructs the real production queue through
+// NewController so tests detect regressions in constructor wiring.
+func newConfiguredTestController(t *testing.T) *controller {
+	t.Helper()
+	client := fake.NewSimpleClientset()
+	informer := versionedinformers.NewSharedInformerFactory(client, 0).Kyverno().V2().UpdateRequests()
+	c := NewController(client, nil, informer, nil, nil, nil, nil, nil, nil, nil, nil, nil).(*controller)
+	t.Cleanup(c.queue.ShutDown)
+	return c
 }
 
-// TestQueueUsesPerItemExponentialRateLimiter verifies that the work queue is
-// configured with a per-item exponential failure rate limiter instead of the
-// default controller rate limiter. This prevents the thundering-herd retry
-// storm described in issue #18797.
+func TestControllerReconcileTimeout(t *testing.T) {
+	c := newConfiguredTestController(t)
+	assert.Equal(t, 2*time.Minute, c.reconcileTimeout,
+		"NewController must configure the 2-minute reconciliation deadline")
+}
+
+// TestQueueUsesPerItemExponentialRateLimiter exercises the actual queue and
+// handleErr path, including independent keys and Forget after success.
 func TestQueueUsesPerItemExponentialRateLimiter(t *testing.T) {
-	rateLimiter := workqueue.NewTypedItemExponentialFailureRateLimiter[any](
-		500*time.Millisecond,
-		30*time.Second,
-	)
-	q := workqueue.NewTypedRateLimitingQueueWithConfig(
-		rateLimiter,
-		workqueue.TypedRateLimitingQueueConfig[any]{Name: "test-background"},
-	)
-	defer q.ShutDown()
+	c := newConfiguredTestController(t)
+	requeue := func(key string, minDelay time.Duration) {
+		t.Helper()
+		started := time.Now()
+		c.handleErr(errors.New("temporary API failure"), key)
+		got, quit := c.queue.Get()
+		if quit {
+			t.Fatal("queue shut down unexpectedly")
+		}
+		assert.Equal(t, key, got)
+		assert.GreaterOrEqual(t, time.Since(started), minDelay,
+			"retry for %s returned before the configured backoff", key)
+		c.queue.Done(got)
+	}
+	requeue("first", 450*time.Millisecond)  // first attempt: 500ms
+	requeue("first", 900*time.Millisecond)  // second attempt: 1s
+	requeue("second", 450*time.Millisecond) // independent first attempt: 500ms
 
-	key := "test-key"
-
-	// First failure: should get base delay (500ms)
-	d1 := rateLimiter.When(key)
-	assert.Equal(t, 500*time.Millisecond, d1)
-
-	// Second failure: should double (1s)
-	d2 := rateLimiter.When(key)
-	assert.Equal(t, 1*time.Second, d2)
-
-	// Third failure: should double again (2s)
-	d3 := rateLimiter.When(key)
-	assert.Equal(t, 2*time.Second, d3)
-
-	// After forgetting, should reset to base
-	rateLimiter.Forget(key)
-	d4 := rateLimiter.When(key)
-	assert.Equal(t, 500*time.Millisecond, d4)
+	c.handleErr(nil, "first")
+	assert.Zero(t, c.queue.NumRequeues("first"), "success must reset retry history")
+	requeue("first", 450*time.Millisecond) // returns to 500ms, not 2s
 }
