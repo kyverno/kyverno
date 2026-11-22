@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	dpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/dpol"
 	gpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/gpol"
 	mpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/mpol"
@@ -13,20 +14,18 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type policyHandlers struct {
 	client                       dclient.Interface
-	secretLister                 corev1listers.SecretLister
 	backgroundServiceAccountName string
 	reportsServiceAccountName    string
 }
 
-func NewHandlers(client dclient.Interface, secretLister corev1listers.SecretLister, backgroundSA, reportsSA string) *policyHandlers {
+func NewHandlers(client dclient.Interface, backgroundSA, reportsSA string) *policyHandlers {
 	return &policyHandlers{
-		secretLister:                 secretLister,
 		client:                       client,
 		backgroundServiceAccountName: backgroundSA,
 		reportsServiceAccountName:    reportsSA,
@@ -34,7 +33,7 @@ func NewHandlers(client dclient.Interface, secretLister corev1listers.SecretList
 }
 
 func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
-	policy, _, err := admissionutils.GetPolicies(request.AdmissionRequest)
+	policy, oldPolicy, err := admissionutils.GetPolicies(request.AdmissionRequest)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
@@ -49,7 +48,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	}
 
 	if ivpol := policy.AsImageValidatingPolicyLike(); ivpol != nil {
-		warnings, err := eval.Validate(ivpol, h.secretLister)
+		warnings, err := eval.Validate(ivpol, h.client.GetKubeClient().CoreV1().Secrets(""))
 		if err != nil {
 			logger.Error(err, "ImageValidatingPolicy validation errors")
 		}
@@ -76,6 +75,19 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		warnings, err := dpolvalidation.Validate(dpol)
 		if err != nil {
 			logger.Error(err, "DeletingPolicy validation errors")
+		}
+		return admissionutils.Response(request.UID, err, warnings...)
+	}
+
+	if pol := policy.AsKyvernoPolicy(); pol != nil {
+		var old kyvernov1.PolicyInterface
+		if oldPolicy != nil {
+			old = oldPolicy.AsKyvernoPolicy()
+		}
+
+		warnings, err := policyvalidate.Validate(policy.AsKyvernoPolicy(), old, h.client, false, h.backgroundServiceAccountName, h.reportsServiceAccountName, request.UserInfo)
+		if err != nil {
+			logger.Error(err, "policy validation errors")
 		}
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
