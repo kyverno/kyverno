@@ -201,7 +201,6 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	return nil
 }
 
-
 // isOwnedByValidatingPolicy requires a matching nonempty UID, not just the
 // generated resource name. An absent or foreign owner is never safe to mutate.
 func isOwnedByValidatingPolicy(resource metav1.Object, policy engineapi.GenericPolicy) bool {
