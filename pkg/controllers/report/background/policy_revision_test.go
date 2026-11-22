@@ -168,3 +168,48 @@ func TestNeedsReconcile_CELPolicyEffectiveRevision(t *testing.T) {
 		t.Fatalf("upgraded revision must converge without repeated work: needs=%v err=%v", needs, err)
 	}
 }
+
+func TestNeedsReconcile_CELExceptionRevision(t *testing.T) {
+	const namespace, uid, hash = "default", "pod-with-exception", "same-hash"
+	policy := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy", UID: "policy-uid", Generation: 2},
+	})
+	first := &policiesv1beta1.PolicyException{ObjectMeta: metav1.ObjectMeta{
+		Namespace: namespace, Name: "exception", UID: "exception-uid", ResourceVersion: "10",
+	}}
+	report := &reportsv1.EphemeralReport{ObjectMeta: metav1.ObjectMeta{
+		Namespace: namespace, Name: uid,
+		Labels: map[string]string{
+			reportutils.LabelResourceHash: hash,
+			reportutils.PolicyLabel(policy): reportutils.PolicyRevision(policy),
+			celExceptionRevisionLabel: celExceptionRevision([]*policiesv1beta1.PolicyException{first}),
+		},
+		Annotations: map[string]string{annotationLastScanTime: time.Now().Format(time.RFC3339)},
+	}}
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	if err := indexer.Add(report); err != nil {
+		t.Fatal(err)
+	}
+	ctrl := &controller{forceDelay: time.Hour,
+		bgscanrLister: cache.NewGenericLister(indexer,
+			schema.GroupVersionResource{Group: "reports.kyverno.io", Version: "v1", Resource: "ephemeralreports"}.GroupResource()),
+	}
+	check := func(name string, exceptions []*policiesv1beta1.PolicyException, want bool) {
+		t.Helper()
+		_, needs, full, err := ctrl.needsReconcileWithExceptions(namespace, uid, hash, nil, nil, exceptions, policy)
+		if err != nil || needs != want || full {
+			t.Fatalf("%s: needs=%v full=%v err=%v (want needs=%v)", name, needs, full, err, want)
+		}
+	}
+	check("unchanged exceptions", []*policiesv1beta1.PolicyException{first}, false)
+	second := first.DeepCopy()
+	second.ResourceVersion = "11"
+	check("updated exception", []*policiesv1beta1.PolicyException{second}, true)
+	check("deleted exception", nil, true)
+	// Emulate successful partial reconcile persisting the new exception label.
+	report.Labels[celExceptionRevisionLabel] = celExceptionRevision([]*policiesv1beta1.PolicyException{second})
+	if err := indexer.Update(report); err != nil {
+		t.Fatal(err)
+	}
+	check("updated exception already processed", []*policiesv1beta1.PolicyException{second}, false)
+}

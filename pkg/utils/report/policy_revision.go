@@ -17,14 +17,14 @@ import (
 // The revision fits in a Kubernetes label value (63 characters).
 func EffectivePolicyRevision(policy metav1.Object) string {
 	state := struct {
-		Generation int64 `json:"generation"`
+		Generation int64  `json:"generation"`
 		UID        string `json:"uid,omitempty"`
-		Excluded   bool  `json:"excluded"`
+		Excluded   bool   `json:"excluded"`
 		Category   string `json:"category,omitempty"`
 		Severity   string `json:"severity,omitempty"`
 		Scored     string `json:"scored,omitempty"`
-		Generated  bool  `json:"generated,omitempty"`
-		Autogen    any   `json:"autogen,omitempty"`
+		Generated  bool   `json:"generated,omitempty"`
+		Autogen    any    `json:"autogen,omitempty"`
 	}{
 		Generation: policy.GetGeneration(),
 		UID:        string(policy.GetUID()),
