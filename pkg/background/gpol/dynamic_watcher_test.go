@@ -2594,10 +2594,10 @@ func TestHandleUpdate_SourcePropagationTracksSyncFailure(t *testing.T) {
 		Hash:      "original-hash",
 		Data:      ds,
 	}
-	mc := &MockClient{
-		listItems: []unstructured.Unstructured{*ds},
-		err:       errors.New("409 conflict"),
-	}
+	mc := &MockClient{listItems: []unstructured.Unstructured{*ds}}
+	// The list must succeed; inject the error into the actual downstream
+	// write so this test reaches the propagation-failure tracking branch.
+	mc.updateFn = func(interface{}) { mc.err = errors.New("409 conflict") }
 	wm := &WatchManager{
 		log:    logging.WithName("test"),
 		client: mc,
