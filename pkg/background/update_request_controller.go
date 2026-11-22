@@ -150,18 +150,23 @@ func (c *controller) Run(ctx context.Context, workers int) {
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
 func (c *controller) worker(ctx context.Context) {
-	for c.processNextWorkItem() {
+	for c.processNextWorkItemWithContext(ctx) {
 	}
 }
 
+// Retain the original entrypoint for tests that process one queued item.
 func (c *controller) processNextWorkItem() bool {
+	return c.processNextWorkItemWithContext(context.Background())
+}
+
+func (c *controller) processNextWorkItemWithContext(parentCtx context.Context) bool {
 	key, quit := c.queue.Get()
 	if quit {
 		return false
 	}
 
 	defer c.queue.Done(key)
-	err := c.syncUpdateRequest(key.(string))
+	err := c.syncUpdateRequestWithContext(parentCtx, key.(string))
 	c.handleErr(err, key)
 	return true
 }
@@ -189,6 +194,10 @@ func (c *controller) handleErr(err error, key interface{}) {
 }
 
 func (c *controller) syncUpdateRequest(key string) error {
+	return c.syncUpdateRequestWithContext(context.Background(), key)
+}
+
+func (c *controller) syncUpdateRequestWithContext(parentCtx context.Context, key string) error {
 	startTime := time.Now()
 	logger.V(4).Info("started sync", "key", key, "startTime", startTime)
 	_, urName, err := cache.SplitMetaNamespaceKey(key)
@@ -210,7 +219,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 	if ur.Status.State == kyvernov2.Pending {
 		// Bound processing time to prevent a single slow UR (e.g., one blocked on a
 		// registry call or DNS lookup) from occupying a worker goroutine indefinitely.
-		ctx, cancel := context.WithTimeout(context.Background(), c.reconcileTimeout)
+		ctx, cancel := context.WithTimeout(parentCtx, c.reconcileTimeout)
 		defer cancel()
 		if err := c.processUR(ctx, ur); err != nil {
 			return fmt.Errorf("failed to process UR %s: %v", key, err)
@@ -266,7 +275,7 @@ func (c *controller) updateUR(_, cur interface{}) {
 			logger.Error(err, "failed to extract name")
 			return
 		}
-		delay := defaultRetryBackoff(curUr.Status.RetryCount)
+		delay := wait.Jitter(defaultRetryBackoff(curUr.Status.RetryCount), 0.2)
 		logger.V(3).Info("retrying update request with backoff", "key", key, "retryCount", curUr.Status.RetryCount, "delay", delay)
 		c.queue.AddAfter(key, delay)
 		return
