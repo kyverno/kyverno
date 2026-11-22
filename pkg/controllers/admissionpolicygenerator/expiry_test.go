@@ -805,10 +805,12 @@ func TestExpiryPermissionFailureRecoveryRemovalOfCondition(t *testing.T) {
 		}
 		assert.Equal(t, 10*time.Second, queue.delays["MutatingPolicy/"+mpol.Name], "delayed retry must persist beyond worker retry budget")
 
-		// Verify existing MAP still has the condition
-		mObj, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(context.Background(), mapName, metav1.GetOptions{})
-		require.NoError(t, err)
-		require.Len(t, mObj.Spec.MatchConditions, 1)
+		// Kyverno enforces the policy meanwhile, so the stale MAP is removed instead of mutating on top
+		// of it. The informer then drops the MAP and its binding from the cache.
+		_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(context.Background(), mapName, metav1.GetOptions{})
+		require.True(t, apierrors.IsNotFound(err), "the stale MutatingAdmissionPolicy must be removed: %v", err)
+		require.NoError(t, mapV1Indexer.Delete(mObj))
+		require.NoError(t, mapbindingV1Indexer.Delete(bObj))
 
 		// 4. Recovery: RBAC permissions are restored
 		auth.allowed = true
@@ -1020,10 +1022,12 @@ func TestExpiryGenerationErrorRecoveryRemovalOfCondition(t *testing.T) {
 		}
 		assert.Equal(t, 10*time.Second, queue.delays["MutatingPolicy/"+mpol.Name], "delayed retry must persist beyond worker retry budget on generation update errors")
 
-		// Verify existing MAP still has the condition
-		mObj, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(context.Background(), mapName, metav1.GetOptions{})
-		require.NoError(t, err)
-		require.Len(t, mObj.Spec.MatchConditions, 1)
+		// Kyverno enforces the policy meanwhile, so the stale MAP is removed instead of mutating on top
+		// of it. The informer then drops the MAP and its binding from the cache.
+		_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(context.Background(), mapName, metav1.GetOptions{})
+		require.True(t, apierrors.IsNotFound(err), "the stale MutatingAdmissionPolicy must be removed: %v", err)
+		require.NoError(t, mapV1Indexer.Delete(mObj))
+		require.NoError(t, mapbindingV1Indexer.Delete(bObj))
 
 		// 4. Recovery: MAP update succeeds again
 		failMapUpdates = false

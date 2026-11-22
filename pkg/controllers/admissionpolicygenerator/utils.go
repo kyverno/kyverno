@@ -1,6 +1,7 @@
 package admissionpolicygenerator
 
 import (
+	"context"
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -8,7 +9,56 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
+
+type ownerPolicy interface {
+	GetKind() string
+	GetName() string
+	GetUID() types.UID
+}
+
+// isOwnedBy reports whether obj was generated for this instance of the policy: the generator makes
+// the policy the owner of each native admission policy and binding it writes. The API version is
+// not compared, because the policy API is served in several versions and older releases recorded
+// older ones.
+func isOwnedBy(obj metav1.Object, policy ownerPolicy) bool {
+	for _, ref := range obj.GetOwnerReferences() {
+		if ref.UID == policy.GetUID() && ref.Kind == policy.GetKind() && ref.Name == policy.GetName() {
+			return true
+		}
+	}
+	return false
+}
+
+// generatedObject is a native admission policy or binding generated for a policy.
+type generatedObject struct {
+	name   string
+	delete func(context.Context, string, metav1.DeleteOptions) error
+}
+
+// appendIfGenerated appends the named object when the informer cache holds it and it was generated
+// for the policy. An object that only shares the generated name, such as one created by hand, is
+// left out, so that it is never deleted.
+func appendIfGenerated[T metav1.Object](objs []generatedObject, policy ownerPolicy, get func(string) (T, error), name string, del func(context.Context, string, metav1.DeleteOptions) error) []generatedObject {
+	if obj, err := get(name); err == nil && isOwnedBy(obj, policy) {
+		return append(objs, generatedObject{name: name, delete: del})
+	}
+	return objs
+}
+
+// deleteGenerated deletes the objects in order. A failed delete is returned so that the workqueue
+// retries it.
+func deleteGenerated(ctx context.Context, objs []generatedObject) error {
+	for _, obj := range objs {
+		if err := obj.delete(ctx, obj.name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}
 
 // getValidatngPolicy gets the Kyverno ValidatingPolicy
 func (c *controller) getValidatingPolicy(name string) (*policiesv1beta1.ValidatingPolicy, error) {

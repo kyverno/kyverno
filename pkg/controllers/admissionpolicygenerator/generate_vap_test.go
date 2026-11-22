@@ -214,13 +214,15 @@ func TestReconcile_ValidatingPolicy_PerPolicyVAPGeneration(t *testing.T) {
 
 			var existingKubeObjects []runtime.Object
 			if tt.existingVAP {
+				vpol.UID = testVpolUID
 				vpol.Status.Generated = true
+				owners := generatedBy("ValidatingPolicy", vpol.Name, vpol.UID)
 				existingKubeObjects = append(existingKubeObjects,
 					&admissionregistrationv1.ValidatingAdmissionPolicy{
-						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name},
+						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name, OwnerReferences: owners},
 					},
 					&admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name + "-binding"},
+						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name + "-binding", OwnerReferences: owners},
 					},
 				)
 			}
