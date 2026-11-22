@@ -526,3 +526,30 @@ func TestGetResource_UIDWithoutName_FallsBackToList(t *testing.T) {
 	assert.Equal(t, 1, client.listCalls, "without a name the namespace must be listed")
 	assert.Equal(t, 0, client.getCalls)
 }
+
+// cancelProbeClient ensures a trigger lookup inherits the UR deadline rather
+// than silently detaching the dynamic client from it.
+type cancelProbeClient struct {
+	dclient.Interface
+	observed context.Context
+}
+
+func (f *cancelProbeClient) GetResource(ctx context.Context, _, _, _, _ string, _ ...string) (*unstructured.Unstructured, error) {
+	f.observed = ctx
+	return nil, ctx.Err()
+}
+
+func TestGetTriggerWithContext_PropagatesCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	client := &cancelProbeClient{Interface: dclient.NewEmptyFakeClient()}
+	spec := kyvernov2.UpdateRequestSpec{
+		RuleContext: []kyvernov2.RuleContext{{
+			Trigger: makeNamespaceSpec("test-ns", "trigger-uid"),
+		}},
+	}
+	_, err := GetTriggerWithContext(ctx, client, spec, 0, logr.Discard())
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, ctx, client.observed, "live trigger lookup must use the UR context")
+}
