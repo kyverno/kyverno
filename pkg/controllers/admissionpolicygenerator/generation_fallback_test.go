@@ -3,6 +3,7 @@ package admissionpolicygenerator
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -321,8 +322,12 @@ func TestReconcile_VAPFlagOffRemovesPolicyThatOptedOut(t *testing.T) {
 		vpol := optedOutVpol()
 		c, kubeClient, kyvernoClient := newVAPTestController(t, vpol, staleVAP(), staleVAPBinding())
 		failFirstDelete(kubeClient, "validatingadmissionpolicies")
+		queue := &delayRecorder{delays: map[any]time.Duration{}}
+		c.queue = queue
 
 		require.Error(t, c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name))
+		// Status-only changes never requeue the policy, so the retry has to outlive the workqueue's budget.
+		assert.Equal(t, 10*time.Second, queue.delays["ValidatingPolicy/"+vpol.Name], "a delayed retry must be scheduled")
 		retried := getVpol(t, kyvernoClient, vpol.Name)
 		require.False(t, retried.Status.Generated)
 		c.vpolLister = vpolListerWith(t, retried)
@@ -362,6 +367,43 @@ func TestReconcile_VAPFlagOffLeavesObjectsKyvernoDidNotGenerate(t *testing.T) {
 			assert.False(t, getVpol(t, kyvernoClient, vpol.Name).Status.Generated)
 		})
 	}
+}
+
+// enforceUIDPrecondition makes the fake API server check the UID precondition of a delete, as a
+// real one does: the fake object tracker ignores preconditions.
+func enforceUIDPrecondition(client *kubefake.Clientset, resource string) {
+	client.PrependReactor("delete", resource, func(action clienttesting.Action) (bool, runtime.Object, error) {
+		del := action.(clienttesting.DeleteAction)
+		stored, err := client.Tracker().Get(del.GetResource(), del.GetNamespace(), del.GetName())
+		if p := del.GetDeleteOptions().Preconditions; err == nil && p != nil && p.UID != nil && *p.UID != stored.(metav1.Object).GetUID() {
+			return true, nil, apierrors.NewConflict(del.GetResource().GroupResource(), del.GetName(), nil)
+		}
+		return false, nil, nil
+	})
+}
+
+// TestReconcile_VAPFlagOffLeavesObjectReplacedAfterCacheRead covers a ValidatingAdmissionPolicy
+// that was replaced by one Kyverno didn't generate after the informer cache was read. The delete
+// carries the cached UID as a precondition, so the API server refuses it and the replacement stays.
+func TestReconcile_VAPFlagOffLeavesObjectReplacedAfterCacheRead(t *testing.T) {
+	t.Parallel()
+	ctx := vapFlagOff()
+	vpol := optedOutVpol()
+	replacement := staleVAP()
+	replacement.UID, replacement.OwnerReferences = "uid-of-the-replacement", nil
+	c, kubeClient, _ := newVAPTestController(t, vpol, replacement)
+	cached := staleVAP()
+	cached.UID = "uid-of-the-generated-vap"
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, indexer.Add(cached))
+	c.vapLister = admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(indexer)
+	enforceUIDPrecondition(kubeClient, "validatingadmissionpolicies")
+
+	err := c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name)
+
+	assert.True(t, apierrors.IsConflict(err), "the API server must refuse the delete: %v", err)
+	_, getErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, testVAPName, metav1.GetOptions{})
+	assert.NoError(t, getErr, "the replacement must not be deleted")
 }
 
 // generatedMpol is a MutatingPolicy whose MutatingAdmissionPolicy was generated earlier.
@@ -550,19 +592,37 @@ func TestHandleMAPGeneration_GeneratesForEachVersion(t *testing.T) {
 func TestHandleMAPGeneration_FailureHandsAdmissionBackToKyverno(t *testing.T) {
 	t.Parallel()
 	failures := []struct {
-		name  string
-		stale bool
-		verb  string
-		err   error
+		name     string
+		stale    bool
+		resource string
+		verb     string
+		err      error
+		// mapLeft is set when the MutatingAdmissionPolicy was created in this run: the informer
+		// hasn't seen it yet, so only a retry removes it. It can't mutate anything without a binding.
+		mapLeft bool
 	}{{
-		name:  "update of the existing MutatingAdmissionPolicy is rejected",
-		stale: true,
-		verb:  "update",
-		err:   rejectedExpressionError(mapGroupKind, testMAPName),
+		name:     "update of the existing MutatingAdmissionPolicy is rejected",
+		stale:    true,
+		resource: "mutatingadmissionpolicies",
+		verb:     "update",
+		err:      rejectedExpressionError(mapGroupKind, testMAPName),
 	}, {
-		name: "MutatingAdmissionPolicy deleted out of band and re-creating it fails",
-		verb: "create",
-		err:  unavailableError(),
+		name:     "MutatingAdmissionPolicy deleted out of band and re-creating it fails",
+		resource: "mutatingadmissionpolicies",
+		verb:     "create",
+		err:      unavailableError(),
+	}, {
+		name:     "binding update fails after the MutatingAdmissionPolicy was updated",
+		stale:    true,
+		resource: "mutatingadmissionpolicybindings",
+		verb:     "update",
+		err:      unavailableError(),
+	}, {
+		name:     "binding creation fails after the MutatingAdmissionPolicy was created",
+		resource: "mutatingadmissionpolicybindings",
+		verb:     "create",
+		err:      unavailableError(),
+		mapLeft:  true,
 	}}
 	for _, vc := range mapVersionCases() {
 		for _, tt := range failures {
@@ -575,7 +635,7 @@ func TestHandleMAPGeneration_FailureHandsAdmissionBackToKyverno(t *testing.T) {
 					existing = vc.stale()
 				}
 				c, kubeClient, kyvernoClient := newVersionedMAPTestController(t, vc.version, mpol, existing...)
-				kubeClient.PrependReactor(tt.verb, "mutatingadmissionpolicies", func(clienttesting.Action) (bool, runtime.Object, error) {
+				kubeClient.PrependReactor(tt.verb, tt.resource, func(clienttesting.Action) (bool, runtime.Object, error) {
 					return true, nil, tt.err
 				})
 
@@ -585,7 +645,7 @@ func TestHandleMAPGeneration_FailureHandsAdmissionBackToKyverno(t *testing.T) {
 				assert.False(t, updated.Status.Generated, "Kyverno must evaluate the policy again")
 				assert.Contains(t, updated.Status.GetConditionStatus().Message, "failed to generate MutatingAdmissionPolicy")
 				mapErr := vc.getMAP(ctx, kubeClient)
-				assert.True(t, apierrors.IsNotFound(mapErr), "the stale MutatingAdmissionPolicy must be removed: got err=%v", mapErr)
+				assert.Equal(t, tt.mapLeft, mapErr == nil, "MutatingAdmissionPolicy left until a retry, err=%v", mapErr)
 				bindingErr := vc.getMAPBinding(ctx, kubeClient)
 				assert.True(t, apierrors.IsNotFound(bindingErr), "the stale binding must be removed: got err=%v", bindingErr)
 			})
