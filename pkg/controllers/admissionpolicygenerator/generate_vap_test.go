@@ -19,9 +19,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 )
 
@@ -464,4 +466,65 @@ func TestReconcileVAPExplicitOptOutAfterGeneration(t *testing.T) {
 	stored, err = kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.False(t, stored.Status.Generated)
+}
+
+
+// TestReconcileVAPCleanupStatusConflictRecovery verifies that cleanup errors are
+// propagated, and the next reconciliation recovers when the informer catches up.
+// Deletion must not leave the generated flag stuck after a transient conflict.
+func TestReconcileVAPCleanupStatusConflictRecovery(t *testing.T) {
+	baseCtx := context.Background()
+	ctx := toggle.NewContext(baseCtx, disabledVAPGenerationToggle{Toggles: toggle.FromContext(baseCtx)})
+	policy := disallowPrivilegeEscalationVpol(nil)
+	policy.Spec.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled = ptr.To(false)
+	policy.Status.Generated = true
+
+	vapName := "vpol-" + policy.Name
+	bindingName := vapName + "-binding"
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: vapName, OwnerReferences: vpolOwnerReferences(policy)},
+	}
+	binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName, OwnerReferences: vpolOwnerReferences(policy)},
+	}
+	c, kubeClient, kyvernoClient := newVAPTestController(t, policy, vap, binding)
+
+	policyIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, policyIndexer.Add(policy))
+	c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(policyIndexer)
+
+	conflictCount := 0
+	kyvernoClient.PrependReactor("update", "validatingpolicies", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		update, ok := action.(k8stesting.UpdateAction)
+		if !ok || update.GetSubresource() != "status" || conflictCount != 0 {
+			return false, nil, nil
+		}
+		conflictCount++
+		return true, nil, apierrors.NewConflict(
+			schema.GroupResource{Group: "policies.kyverno.io", Resource: "validatingpolicies"},
+			policy.Name, assert.AnError,
+		)
+	})
+
+	key := "ValidatingPolicy/" + policy.Name
+	err := c.reconcile(ctx, logr.Discard(), key, "", policy.Name)
+	require.True(t, apierrors.IsConflict(err), "status-write conflict must reach the reconciler: %v", err)
+	assert.Equal(t, 1, conflictCount, "conflict injection must execute exactly once")
+
+	_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vapName, metav1.GetOptions{})
+	_, bindingErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(vapErr), "VAP should already be deleted: %v", vapErr)
+	assert.True(t, apierrors.IsNotFound(bindingErr), "binding should already be deleted: %v", bindingErr)
+
+	stored, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.True(t, stored.Status.Generated, "failed status update must not claim cleanup succeeded")
+
+	// The lister may still contain both deleted resources, but a retry should
+	// tolerate Delete NotFound and persist the final generated=false status.
+	require.NoError(t, policyIndexer.Update(stored))
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), key, "", policy.Name))
+	stored, err = kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, stored.Status.Generated, "retry must clear the generated flag")
 }
