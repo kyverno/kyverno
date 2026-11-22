@@ -468,9 +468,8 @@ func TestReconcileVAPExplicitOptOutAfterGeneration(t *testing.T) {
 	assert.False(t, stored.Status.Generated)
 }
 
-
 // TestReconcileVAPCleanupStatusConflictRecovery verifies that cleanup errors are
-// propagated, and the next reconciliation recovers when the informer catches up.
+// propagated, and the next reconciliation recovers despite stale resource listers.
 // Deletion must not leave the generated flag stuck after a transient conflict.
 func TestReconcileVAPCleanupStatusConflictRecovery(t *testing.T) {
 	baseCtx := context.Background()
