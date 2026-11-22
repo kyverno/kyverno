@@ -62,8 +62,9 @@ func (m *mockRESTMapper) ResourceSingularizer(resource string) (string, error) {
 type MockClient struct {
 	deleted  []string
 	created  []string
-	updated  []string
-	err      error
+	updated   []string
+	err       error
+	updateErr error
 	deleteFn func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error
 	createFn func(ctx context.Context, apiVersion, kind, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
 	getFn    func(ctx context.Context, apiVersion, kind, namespace, name string) (*unstructured.Unstructured, error)
@@ -133,6 +134,9 @@ func (m *MockClient) CreateResource(ctx context.Context, apiVersion string, kind
 func (m *MockClient) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresource ...string) (*unstructured.Unstructured, error) {
 	if m.updateFn != nil {
 		m.updateFn(obj)
+	}
+	if m.updateErr != nil {
+		return nil, m.updateErr
 	}
 	if m.err != nil {
 		return nil, m.err
@@ -2597,7 +2601,7 @@ func TestHandleUpdate_SourcePropagationTracksSyncFailure(t *testing.T) {
 	mc := &MockClient{listItems: []unstructured.Unstructured{*ds}}
 	// The list must succeed; inject the error into the actual downstream
 	// write so this test reaches the propagation-failure tracking branch.
-	mc.updateFn = func(interface{}) { mc.err = errors.New("409 conflict") }
+	mc.updateFn = func(interface{}) { mc.updateErr = errors.New("409 conflict") }
 	wm := &WatchManager{
 		log:    logging.WithName("test"),
 		client: mc,
@@ -2638,9 +2642,9 @@ func TestHandleUpdate_RetriesLatestSourceAfterTransientFailure(t *testing.T) {
 	mc.updateFn = func(obj interface{}) {
 		attempted = append(attempted, obj.(*unstructured.Unstructured).GetAnnotations()["revision"])
 		if len(attempted) == 1 {
-			mc.err = errors.New("transient write failure")
+			mc.updateErr = errors.New("transient write failure")
 		} else {
-			mc.err = nil
+			mc.updateErr = nil
 		}
 	}
 	wm := &WatchManager{
