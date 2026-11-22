@@ -98,11 +98,14 @@ func (c *CELGenerateController) ProcessUR(parentCtx context.Context, ur *kyverno
 	ctx, releaseBudget := requestbudget.EnsureBackground(parentCtx)
 	defer releaseBudget()
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if ur.Spec.RuleContext[i].DeleteDownstream {
 			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
 			continue
 		}
-		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
+		trigger, err := common.GetTriggerWithContext(ctx, c.client, ur.Spec, i, c.log)
 		if err != nil || trigger == nil {
 			logger.V(4).Info("the trigger resource does not exist or is pending creation")
 			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: %v", ur.Spec.GetPolicyKey(), err))
@@ -204,6 +207,9 @@ func (c *CELGenerateController) ProcessUR(parentCtx context.Context, ur *kyverno
 					if len(resourcesToSync) > 0 {
 						if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger, resourcesToSync, policy.Policy.GetSpec().UseServerSideApply); err != nil {
 							logger.Error(err, "failed to sync watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
+							// A watcher setup failure must not mark the request Completed.
+							// Retain it for UR status retry instead of silently losing sync.
+							failures = append(failures, fmt.Errorf("gpol %s failed to sync watchers: %w", ur.Spec.GetPolicyKey(), err))
 						} else {
 							logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						}
