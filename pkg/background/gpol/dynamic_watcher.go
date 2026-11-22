@@ -437,6 +437,7 @@ func (wm *WatchManager) deleteCachedDownstream(logger logr.Logger, watcher *watc
 		logger.V(4).Info("downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
 	}
 	delete(watcher.metadataCache, uid)
+	delete(wm.syncFailureCount, uid)
 }
 
 // namespaceMissing reports whether namespace has been deleted. A cluster scoped
@@ -484,8 +485,9 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 							}
 						}
 					}
-					// remove the resource from the metadata cache
+					// remove the resource and any obsolete retry diagnostics
 					delete(watcher.metadataCache, uid)
+					delete(wm.syncFailureCount, uid)
 				}
 			}
 
@@ -523,6 +525,7 @@ func (wm *WatchManager) StopWatchers() {
 	wm.dynamicWatchers = map[schema.GroupVersionResource]*watcher{}
 	wm.policyRefs = map[string][]schema.GroupVersionResource{}
 	wm.refCount = map[schema.GroupVersionResource]int{}
+	wm.syncFailureCount = map[types.UID]int{}
 }
 
 // startWatcher starts a new watcher for the given resource and GVR.
@@ -625,6 +628,8 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			downstreams, err := wm.client.ListResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), "", selector)
 			if err != nil {
 				wm.log.Error(err, "failed to list downstream resources")
+				// A list failure does not return items; do not dereference nil.
+				return
 			}
 			for _, downstream := range downstreams.Items {
 				// if the downstream doesn't exist in the metadata cache, it means sync is disabled.
@@ -997,6 +1002,7 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				// we need to revert it back unless it has been invalidated by the policy update.
 				if resource.Hash == "" {
 					delete(watcher.metadataCache, uid)
+					delete(wm.syncFailureCount, uid)
 					return
 				}
 				var created *unstructured.Unstructured
@@ -1020,6 +1026,7 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 					// The namespace is gone, so another recreate cannot succeed.
 					if wm.namespaceMissing(resource.Namespace) {
 						delete(watcher.metadataCache, uid)
+						delete(wm.syncFailureCount, uid)
 					}
 				} else {
 					wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
@@ -1030,6 +1037,7 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 					if created != nil && created.GetUID() != "" && created.GetUID() != uid {
 						watcher.metadataCache[created.GetUID()] = watcher.metadataCache[uid]
 						delete(watcher.metadataCache, uid)
+						delete(wm.syncFailureCount, uid)
 					}
 				}
 			}
