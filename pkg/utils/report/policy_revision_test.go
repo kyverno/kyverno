@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
@@ -120,5 +122,56 @@ func TestSetPolicyLabel_PersistsEffectiveRevision(t *testing.T) {
 	SetPolicyLabel(updated, metadataOnly)
 	if report.GetLabels()[PolicyLabel(policy)] != updated.GetLabels()[PolicyLabel(metadataOnly)] {
 		t.Fatal("metadata-only update rewrote the report policy revision label")
+	}
+}
+
+func TestPolicyRevision_RecreatedPolicyAndReportAnnotations(t *testing.T) {
+	original := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "policy", UID: "policy-uid-a", Generation: 1, ResourceVersion: "10",
+		},
+	}
+	base := EffectivePolicyRevision(original)
+	recreated := original.DeepCopy()
+	recreated.UID = "policy-uid-b"
+	recreated.ResourceVersion = "11"
+	if base == EffectivePolicyRevision(recreated) {
+		t.Fatal("deleting and recreating a policy must invalidate old results")
+	}
+	metadataOnly := original.DeepCopy()
+	metadataOnly.ResourceVersion = "12"
+	metadataOnly.Annotations = map[string]string{"example.com/unrelated": "changed"}
+	if base != EffectivePolicyRevision(metadataOnly) {
+		t.Fatal("unrelated annotation should not trigger report invalidation")
+	}
+	for _, key := range []string{
+		"policies.kyverno.io/category",
+		"policies.kyverno.io/severity",
+		"policies.kyverno.io/scored",
+	} {
+		t.Run(key, func(t *testing.T) {
+			changed := original.DeepCopy()
+			changed.Annotations = map[string]string{key: "updated"}
+			if base == EffectivePolicyRevision(changed) {
+				t.Fatalf("report-relevant annotation %s did not invalidate results", key)
+			}
+		})
+	}
+}
+
+func TestSelectorPolicyNotEquals_UsesEffectiveRevision(t *testing.T) {
+	policy := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy", UID: "uid-a", Generation: 2, ResourceVersion: "20"},
+	})
+	selector, err := SelectorPolicyNotEquals(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	label := PolicyLabel(policy)
+	if selector.Matches(labels.Set{label: PolicyRevision(policy)}) {
+		t.Fatal("current semantic revision must not be selected as stale")
+	}
+	if !selector.Matches(labels.Set{label: "legacy-resource-version"}) {
+		t.Fatal("old report revision must match stale selector")
 	}
 }
