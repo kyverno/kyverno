@@ -51,15 +51,9 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "Test github repository branch")
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "policy=*,rule=*,resource=*", "Filter test cases to run")
-	cmd.Flags().StringVarP(&outputFormat, "output-format", "o", "", "Specifies the output format (json, yaml, markdown, junit)")
+	cmd.Flags().StringVarP(&outputFormat, "output-format", "o", "", fmt.Sprintf("Specifies the output format (%s)", strings.Join(outputFormats.Names(""), ", ")))
 	if err := cmd.RegisterFlagCompletionFunc("output-format", func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		formats := make([]string, 0, 4)
-		for _, format := range []string{"json", "yaml", "markdown", "junit"} {
-			if strings.HasPrefix(format, toComplete) {
-				formats = append(formats, format)
-			}
-		}
-		return formats, cobra.ShellCompDirectiveNoFileComp
+		return outputFormats.Names(toComplete), cobra.ShellCompDirectiveNoFileComp
 	}); err != nil {
 		panic(fmt.Errorf("failed to register output-format completion: %w", err))
 	}
@@ -113,14 +107,8 @@ func testCommandExecute(
 	}
 	// check correct format output
 	if len(outputFormat) > 0 {
-		validFormats := map[string]bool{
-			"json":     true,
-			"yaml":     true,
-			"markdown": true,
-			"junit":    true,
-		}
-		if !validFormats[outputFormat] {
-			return fmt.Errorf("invalid format, expected (json, yaml, markdown, junit)")
+		if _, ok := outputFormats.Lookup(outputFormat); !ok {
+			return fmt.Errorf("invalid format, expected (%s)", strings.Join(outputFormats.Names(""), ", "))
 		}
 	}
 	// fetch resource filters

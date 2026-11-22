@@ -11,6 +11,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/assert"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -557,9 +558,30 @@ func printFailedTestResult(out io.Writer, resultsTable table.Table, detailedResu
 	printer.Print(resultsTable.Rows(detailedResults))
 }
 
+var outputFormats = command.OutputFormats[func(table.Table, bool) string]{
+	{Name: "json", Render: func(results table.Table, detailed bool) string {
+		data, _ := json.MarshalIndent(outputRows(results, detailed), "", "  ")
+		return string(data)
+	}},
+	{Name: "yaml", Render: func(results table.Table, detailed bool) string {
+		data, _ := yaml.Marshal(outputRows(results, detailed))
+		return string(data)
+	}},
+	{Name: "markdown", Render: renderMarkdown},
+	{Name: "junit", Render: renderJUnit},
+}
+
 func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Table, detailedResults bool) {
+	render, ok := outputFormats.Lookup(outputFormat)
+	if ok {
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, render(resultTable, detailedResults))
+		fmt.Fprintln(out)
+	}
+}
+
+func outputRows(resultTable table.Table, detailedResults bool) []interface{} {
 	output := make([]interface{}, 0, len(resultTable.RawRows))
-	failedTests := 0
 	for _, row := range resultTable.RawRows {
 		rowMap := map[string]interface{}{
 			"ID":       row.ID,
@@ -572,81 +594,74 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 		if detailedResults {
 			rowMap["Message"] = row.Message
 		}
+		output = append(output, rowMap)
+	}
+	return output
+}
+
+func renderMarkdown(resultTable table.Table, detailedResults bool) string {
+	var b strings.Builder
+	headers := []string{"ID", "POLICY", "RULE", "RESOURCE", "RESULT", "REASON"}
+	if detailedResults {
+		headers = append(headers, "MESSAGE")
+	}
+	b.WriteString("| " + strings.Join(headers, " | ") + " | \n")
+	b.WriteString("|" + strings.Repeat("----|", len(headers)) + "\n")
+	for _, row := range resultTable.RawRows {
+		b.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %s | %s |",
+			row.ID, row.Policy, row.Rule, row.Resource, row.Result, row.Reason))
+		if detailedResults {
+			b.WriteString(fmt.Sprintf(" %s |\n", row.Message))
+		} else {
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
+}
+
+func renderJUnit(resultTable table.Table, detailedResults bool) string {
+	failedTests := 0
+	for _, row := range resultTable.RawRows {
 		if row.IsFailure {
 			failedTests++
 		}
-		output = append(output, rowMap)
 	}
-	var finalOutput []byte
-	if outputFormat == "markdown" {
-		var b strings.Builder
-		headers := []string{"ID", "POLICY", "RULE", "RESOURCE", "RESULT", "REASON"}
-		if detailedResults {
-			headers = append(headers, "MESSAGE")
+	var b strings.Builder
+	b.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+	b.WriteString(fmt.Sprintf("<testsuites tests=\"%d\" failures=\"%d\">\n", len(resultTable.RawRows), failedTests))
+	suites := make(map[string][]table.Row)
+	for _, row := range resultTable.RawRows {
+		suites[row.Policy] = append(suites[row.Policy], row)
+	}
+	for policyName, rows := range suites {
+		failures := 0
+		for _, row := range rows {
+			if row.IsFailure {
+				failures++
+			}
 		}
-		b.WriteString("| " + strings.Join(headers, " | ") + " | \n")
-		b.WriteString("|" + strings.Repeat("----|", len(headers)) + "\n")
-		for _, row := range resultTable.RawRows {
-			b.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %s | %s |",
-				row.ID, row.Policy, row.Rule, row.Resource, row.Result, row.Reason))
-			if detailedResults {
-				b.WriteString(fmt.Sprintf(" %s |\n", row.Message))
+		b.WriteString(fmt.Sprintf(" <testsuite name=\"%s\" tests=\"%d\" failures=\"%d\">\n", escapeXML(policyName), len(rows), failures))
+		for _, policyRow := range rows {
+			b.WriteString(fmt.Sprintf("  <testcase classname=\"%s\" name=\"%s\">\n", escapeXML(policyRow.Rule), escapeXML(policyRow.Resource)))
+			if policyRow.IsFailure {
+				b.WriteString(fmt.Sprintf("   <failure message=\"%s\">\n    Policy: %s\n    Rule: %s\n    Resource: %s\n    Result: %s\n", escapeXML(policyRow.Reason), escapeXML(policyRow.Policy), escapeXML(policyRow.Rule), escapeXML(policyRow.Resource), escapeXML(policyRow.Result)))
+				if detailedResults {
+					b.WriteString(fmt.Sprintf("    Message: %s\n", escapeXML(policyRow.Message)))
+				}
+				b.WriteString("   </failure>\n")
 			} else {
-				b.WriteString("\n")
-			}
-		}
-		fmt.Fprintln(out)
-		fmt.Fprintln(out, b.String())
-		fmt.Fprintln(out)
-	} else if outputFormat == "junit" {
-		var b strings.Builder
-		b.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
-		b.WriteString(fmt.Sprintf("<testsuites tests=\"%d\" failures=\"%d\">\n", len(output), failedTests))
-		suites := make(map[string][]table.Row)
-		for _, row := range resultTable.RawRows {
-			suites[row.Policy] = append(suites[row.Policy], row)
-		}
-		for policyName, rows := range suites {
-			failures := 0
-			for _, row := range rows {
-				if row.IsFailure {
-					failures++
+				b.WriteString(fmt.Sprintf("   <system-out><![CDATA[\n    Reason: %s\n    Policy: %s\n    Rule: %s\n    Resource: %s\n", escapeCDATA(policyRow.Reason), escapeCDATA(policyRow.Policy), escapeCDATA(policyRow.Rule), escapeCDATA(policyRow.Resource)))
+				if detailedResults {
+					b.WriteString(fmt.Sprintf("    Message: %s\n", escapeCDATA(policyRow.Message)))
 				}
+				b.WriteString("   ]]></system-out>\n")
 			}
-			b.WriteString(fmt.Sprintf(" <testsuite name=\"%s\" tests=\"%d\" failures=\"%d\">\n", escapeXML(policyName), len(rows), failures))
-			for _, policyRow := range rows {
-				b.WriteString(fmt.Sprintf("  <testcase classname=\"%s\" name=\"%s\">\n", escapeXML(policyRow.Rule), escapeXML(policyRow.Resource)))
-				if policyRow.IsFailure {
-					b.WriteString(fmt.Sprintf("   <failure message=\"%s\">\n    Policy: %s\n    Rule: %s\n    Resource: %s\n    Result: %s\n", escapeXML(policyRow.Reason), escapeXML(policyRow.Policy), escapeXML(policyRow.Rule), escapeXML(policyRow.Resource), escapeXML(policyRow.Result)))
-					if detailedResults {
-						b.WriteString(fmt.Sprintf("    Message: %s\n", escapeXML(policyRow.Message)))
-					}
-					b.WriteString("   </failure>\n")
-				} else {
-					b.WriteString(fmt.Sprintf("   <system-out><![CDATA[\n    Reason: %s\n    Policy: %s\n    Rule: %s\n    Resource: %s\n", escapeCDATA(policyRow.Reason), escapeCDATA(policyRow.Policy), escapeCDATA(policyRow.Rule), escapeCDATA(policyRow.Resource)))
-					if detailedResults {
-						b.WriteString(fmt.Sprintf("    Message: %s\n", escapeCDATA(policyRow.Message)))
-					}
-					b.WriteString("   ]]></system-out>\n")
-				}
-				b.WriteString("  </testcase>\n")
-			}
-			b.WriteString(" </testsuite>\n")
+			b.WriteString("  </testcase>\n")
 		}
-		b.WriteString("</testsuites>")
-		fmt.Fprintln(out)
-		fmt.Fprintln(out, b.String())
-		fmt.Fprintln(out)
-	} else {
-		if outputFormat == "json" {
-			finalOutput, _ = json.MarshalIndent(output, "", "  ")
-		} else if outputFormat == "yaml" {
-			finalOutput, _ = yaml.Marshal(output)
-		}
-		fmt.Fprintln(out)
-		fmt.Fprintln(out, string(finalOutput))
-		fmt.Fprintln(out)
+		b.WriteString(" </testsuite>\n")
 	}
+	b.WriteString("</testsuites>")
+	return b.String()
 }
 
 func escapeXML(s string) string {

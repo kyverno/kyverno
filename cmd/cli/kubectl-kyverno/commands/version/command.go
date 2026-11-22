@@ -17,6 +17,11 @@ type versionInfo struct {
 	GitCommitID string `json:"gitCommitId" yaml:"gitCommitId"`
 }
 
+var outputFormats = command.OutputFormats[func(any) ([]byte, error)]{
+	{Name: "json", Render: func(value any) ([]byte, error) { return json.MarshalIndent(value, "", "  ") }},
+	{Name: "yaml", Render: yaml.Marshal},
+}
+
 func Command() *cobra.Command {
 	var output string
 	cmd := &cobra.Command{
@@ -40,34 +45,21 @@ func Command() *cobra.Command {
 				GitCommitID: version.Hash(),
 			}
 
-			switch output {
-			case "json":
-				data, err := json.MarshalIndent(info, "", "  ")
-				if err != nil {
-					return fmt.Errorf("failed to marshal version to json: %w", err)
-				}
-				fmt.Fprintln(cmd.OutOrStdout(), string(data))
-			case "yaml":
-				data, err := yaml.Marshal(info)
-				if err != nil {
-					return fmt.Errorf("failed to marshal version to yaml: %w", err)
-				}
-				fmt.Fprintln(cmd.OutOrStdout(), string(data))
-			default:
-				return fmt.Errorf("invalid output format: %s (supported formats: json, yaml)", output)
+			marshal, ok := outputFormats.Lookup(output)
+			if !ok {
+				return fmt.Errorf("invalid output format: %s (supported formats: %s)", output, strings.Join(outputFormats.Names(""), ", "))
 			}
+			data, err := marshal(info)
+			if err != nil {
+				return fmt.Errorf("failed to marshal version to %s: %w", output, err)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), string(data))
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&output, "output", "o", "", "Output format (json, yaml)")
+	cmd.Flags().StringVarP(&output, "output", "o", "", fmt.Sprintf("Output format (%s)", strings.Join(outputFormats.Names(""), ", ")))
 	if err := cmd.RegisterFlagCompletionFunc("output", func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		formats := make([]string, 0, 2)
-		for _, format := range []string{"json", "yaml"} {
-			if strings.HasPrefix(format, toComplete) {
-				formats = append(formats, format)
-			}
-		}
-		return formats, cobra.ShellCompDirectiveNoFileComp
+		return outputFormats.Names(toComplete), cobra.ShellCompDirectiveNoFileComp
 	}); err != nil {
 		panic(fmt.Errorf("failed to register output completion: %w", err))
 	}
