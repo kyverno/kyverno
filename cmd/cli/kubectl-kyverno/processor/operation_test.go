@@ -3,6 +3,7 @@ package processor
 import (
 	"testing"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
@@ -204,5 +205,41 @@ func TestApplyPoliciesOnResource_RejectsConnectForNativePolicies(t *testing.T) {
 		}
 		_, err := p.ApplyPoliciesOnResource()
 		assert.EqualError(t, err, "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects CONNECT for JSON payload", func(t *testing.T) {
+		p := &PolicyProcessor{
+			Operation: "CONNECT",
+			JsonPayload: unstructured.Unstructured{
+				Object: map[string]interface{}{"foo": "bar"},
+			},
+		}
+		_, err := p.ApplyPoliciesOnResource()
+		assert.EqualError(t, err, "CONNECT operation is not supported for JSON payloads")
+	})
+
+	t.Run("rejects CONNECT for JSON-mode policy", func(t *testing.T) {
+		p := &PolicyProcessor{
+			Operation: "CONNECT",
+			ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{
+				&policiesv1beta1.ValidatingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "json-vpol"},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+							Mode: policieskyvernoio.EvaluationModeJSON,
+						},
+					},
+				},
+			},
+			Resource: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata":   map[string]interface{}{"name": "test-pod"},
+				},
+			},
+		}
+		_, err := p.ApplyPoliciesOnResource()
+		assert.EqualError(t, err, "CONNECT operation is not supported for JSON-mode policies")
 	})
 }

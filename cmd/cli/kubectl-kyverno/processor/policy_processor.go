@@ -125,6 +125,9 @@ type PolicyProcessor struct {
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
+	if p.JsonPayload.Object != nil && p.resolveOperation() == "CONNECT" {
+		return nil, fmt.Errorf("CONNECT operation is not supported for JSON payloads")
+	}
 	resource := p.Resource
 	if !p.CrdPreloaded && len(p.CrdPaths) > 0 {
 		if err := p.loadCrds(); err != nil {
@@ -501,6 +504,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			} else {
 				k8sPolicies = append(k8sPolicies, pol)
 			}
+		}
+		if len(jsonPolicies) > 0 && p.resolveOperation() == "CONNECT" {
+			return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
 		}
 		contextProvider := p.ContextProvider
 		if contextProvider == nil {

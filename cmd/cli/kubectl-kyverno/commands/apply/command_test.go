@@ -1681,6 +1681,28 @@ func Test_Apply_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
 	})
+
+	t.Run("rejects CONNECT for JSON payload", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/policy.yaml"},
+			JSONPaths:   []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/payload.json"},
+			Variables:   []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON payloads")
+	})
+
+	t.Run("rejects CONNECT for JSON-mode policy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/operation-connect/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
+	})
 }
 
 func TestCommandHelp(t *testing.T) {

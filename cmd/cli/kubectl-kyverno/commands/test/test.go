@@ -459,6 +459,27 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	for _, p := range results.MutatingPolicies {
 		mutatingPolicyNames.Insert(p.GetName())
 	}
+	jsonPolicyNames := sets.New[string]()
+	for _, p := range results.ValidatingPolicies {
+		if p.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+			jsonPolicyNames.Insert(p.GetName())
+		}
+	}
+	for _, p := range results.MutatingPolicies {
+		if p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+			jsonPolicyNames.Insert(p.GetName())
+		}
+	}
+	for _, p := range results.ImageValidatingPolicies {
+		if p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+			jsonPolicyNames.Insert(p.GetName())
+		}
+	}
+	jsonPayloadFiles := sets.New[string]()
+	for _, jp := range testCase.Test.JSONPayloads {
+		jsonPayloadFiles.Insert(jp)
+		jsonPayloadFiles.Insert(filepath.Base(jp))
+	}
 	for _, res := range testCase.Test.Results {
 		if _, err := processor.NormalizeOperation(res.Operation); err != nil {
 			return nil, fmt.Errorf("invalid test result for policy %s: %w", res.Policy, err)
@@ -467,8 +488,16 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		if effectiveOp == "" {
 			effectiveOp = vars.GlobalOperation()
 		}
-		if effectiveOp == "CONNECT" && (res.IsValidatingAdmissionPolicy || res.IsMutatingAdmissionPolicy || res.IsMutatingPolicy || mutatingPolicyNames.Has(res.Policy)) {
-			return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy", res.Policy)
+		if effectiveOp == "CONNECT" {
+			if res.IsValidatingAdmissionPolicy || res.IsMutatingAdmissionPolicy || res.IsMutatingPolicy || mutatingPolicyNames.Has(res.Policy) {
+				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy", res.Policy)
+			}
+			if isJSONPayloadResult(res, jsonPayloadFiles, len(uniques)) {
+				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON payloads", res.Policy)
+			}
+			if jsonPolicyNames.Has(res.Policy) {
+				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON-mode policies", res.Policy)
+			}
 		}
 		if res.Operation == "" {
 			continue
@@ -1310,4 +1339,22 @@ func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
 		"body":       body,
 		"statusCode": statusCode,
 	}
+}
+
+func isJSONPayloadResult(res v1alpha1.TestResult, jsonPayloadFiles sets.Set[string], k8sResourceCount int) bool {
+	if len(jsonPayloadFiles) == 0 {
+		return false
+	}
+	if k8sResourceCount == 0 {
+		return true
+	}
+	if res.Kind == "" {
+		return true
+	}
+	for _, r := range res.Resources {
+		if jsonPayloadFiles.Has(r) || jsonPayloadFiles.Has(filepath.Base(r)) {
+			return true
+		}
+	}
+	return false
 }

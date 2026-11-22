@@ -573,8 +573,19 @@ func (c *ApplyCommandConfig) applyPolicies(
 	var rc processor.ResultCounts
 	var responses []engineapi.EngineResponse
 
-	if vars != nil && vars.GlobalOperation() == "CONNECT" && (len(vaps) > 0 || len(maps) > 0 || len(mpols) > 0) {
-		return &rc, resources, responses, fmt.Errorf("CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	hasJSONPolicy := slices.ContainsFunc(vpols, func(p policiesv1beta1.ValidatingPolicyLike) bool {
+		return p.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+	})
+	if vars != nil && vars.GlobalOperation() == "CONNECT" {
+		if len(vaps) > 0 || len(maps) > 0 || len(mpols) > 0 {
+			return &rc, resources, responses, fmt.Errorf("CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+		}
+		if len(jsonPayloads) > 0 {
+			return &rc, resources, responses, fmt.Errorf("CONNECT operation is not supported for JSON payloads")
+		}
+		if hasJSONPolicy {
+			return &rc, resources, responses, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
+		}
 	}
 
 	params := make([]runtime.Object, len(parameterResources))
