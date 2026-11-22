@@ -34,10 +34,10 @@ func TestReconcileVAPDisabledCleanupStatusConflictRecovery(t *testing.T) {
 	vapName := "vpol-" + policy.Name
 	bindingName := vapName + "-binding"
 	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: vapName},
+		ObjectMeta: metav1.ObjectMeta{Name: vapName, OwnerReferences: vpolOwnerReferences(policy)},
 	}
 	binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: bindingName},
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName, OwnerReferences: vpolOwnerReferences(policy)},
 	}
 	c, kubeClient, kyvernoClient := newVAPTestController(t, policy, vap, binding)
 
