@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
@@ -506,6 +507,9 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			jsonPolicyNames.Insert(p.GetName())
 		}
 	}
+	hasJSONIvpol := slices.ContainsFunc(results.ImageValidatingPolicies, func(p policiesv1beta1.ImageValidatingPolicyLike) bool {
+		return p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+	})
 	jsonPayloadFiles := sets.New[string]()
 	for _, jp := range testCase.Test.JSONPayloads {
 		jsonPayloadFiles.Insert(jp)
@@ -529,7 +533,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			if isJSONPayloadResult(res, jsonPayloadFiles, len(uniques)) {
 				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON payloads", res.Policy)
 			}
-			if matchesPolicy(jsonPolicyNames, res.Policy) {
+			if matchesPolicy(jsonPolicyNames, res.Policy) || (res.IsImageValidatingPolicy && hasJSONIvpol) {
 				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON-mode policies", res.Policy)
 			}
 		}
@@ -1017,6 +1021,12 @@ func applyImageValidatingPolicies(
 	gceMap map[string]interface{},
 	operation string,
 ) ([]engineapi.EngineResponse, error) {
+	hasJSONPolicy := slices.ContainsFunc(ivps, func(p policiesv1beta1.ImageValidatingPolicyLike) bool {
+		return p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+	})
+	if operation == "CONNECT" && hasJSONPolicy {
+		return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
+	}
 	var lister corev1listers.SecretLister
 	if dclient != nil {
 		// this informer technically lives for the duration of the cli command..

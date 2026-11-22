@@ -319,8 +319,16 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err := c.failOnDeprecationWarnings(); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-	if variables != nil && variables.GlobalOperation() == "CONNECT" && len(dps) > 0 {
-		return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("CONNECT operation is not supported for deleting policies")
+	hasJSONIvpol := slices.ContainsFunc(ivps, func(p policiesv1beta1.ImageValidatingPolicyLike) bool {
+		return p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+	})
+	if variables != nil && variables.GlobalOperation() == "CONNECT" {
+		if len(dps) > 0 {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("CONNECT operation is not supported for deleting policies")
+		}
+		if hasJSONIvpol {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
+		}
 	}
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps))
 	for _, pol := range vaps {
@@ -822,6 +830,12 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 ) ([]engineapi.EngineResponse, error) {
 	if len(ivps) == 0 {
 		return nil, nil
+	}
+	hasJSONPolicy := slices.ContainsFunc(ivps, func(p policiesv1beta1.ImageValidatingPolicyLike) bool {
+		return p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
+	})
+	if operation == "CONNECT" && hasJSONPolicy {
+		return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
 	}
 
 	var lister corev1listers.SecretLister

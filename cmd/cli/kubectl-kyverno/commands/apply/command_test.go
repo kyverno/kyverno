@@ -1714,6 +1714,17 @@ func Test_Apply_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
 	})
+
+	t.Run("rejects CONNECT for JSON-mode ImageValidatingPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-json.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/operation-connect/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
+	})
 }
 
 func TestCommandHelp(t *testing.T) {
