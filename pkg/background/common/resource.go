@@ -93,7 +93,7 @@ func getTriggerForUpdateOperation(ctx context.Context, client dclient.Interface,
 func getTriggerForCreateOperation(ctx context.Context, client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
 	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	resourceSpec := spec.RuleContext[i].Trigger
-	trigger, err := GetResource(client, resourceSpec, spec, logger)
+	trigger, err := GetResourceWithContext(ctx, client, resourceSpec, spec, logger)
 	if err != nil || trigger == nil {
 		if admissionRequest.SubResource == "" {
 			return nil, err
