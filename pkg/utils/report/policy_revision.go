@@ -18,13 +18,22 @@ import (
 func EffectivePolicyRevision(policy metav1.Object) string {
 	state := struct {
 		Generation int64 `json:"generation"`
+		UID        string `json:"uid,omitempty"`
 		Excluded   bool  `json:"excluded"`
+		Category   string `json:"category,omitempty"`
+		Severity   string `json:"severity,omitempty"`
+		Scored     string `json:"scored,omitempty"`
 		Generated  bool  `json:"generated,omitempty"`
 		Autogen    any   `json:"autogen,omitempty"`
 	}{
 		Generation: policy.GetGeneration(),
+		UID:        string(policy.GetUID()),
 	}
 	_, state.Excluded = policy.GetLabels()[kyverno.LabelExcludeReporting]
+	annotations := policy.GetAnnotations()
+	state.Category = annotations["policies.kyverno.io/category"]
+	state.Severity = annotations["policies.kyverno.io/severity"]
+	state.Scored = annotations["policies.kyverno.io/scored"]
 
 	// Generated-state transitions and autogen targets change which evaluation
 	// runs, even when Kubernetes generation itself remains unchanged.
