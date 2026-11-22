@@ -95,6 +95,7 @@ func newVAPTestController(t *testing.T, vpol *policiesv1beta1.ValidatingPolicy, 
 // and VAP generation enabled.
 func disallowPrivilegeEscalationVpol(statusAutogenConfigs map[string]policiesv1beta1.ValidatingPolicyAutogen) *policiesv1beta1.ValidatingPolicy {
 	return &policiesv1beta1.ValidatingPolicy{
+		TypeMeta: metav1.TypeMeta{APIVersion: policiesv1beta1.GroupVersion.String(), Kind: "ValidatingPolicy"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "disallow-privilege-escalation",
 			UID:  "pss-native-vap-test-owner",
