@@ -19,19 +19,19 @@ import (
 // destructive operation so a partial collision cannot delete the other one.
 func TestReconcileVAPForeignOwnerCollision(t *testing.T) {
 	for _, tc := range []struct {
-		name       string
-		foreignVAP bool
-		noVAPOwner bool
+		name           string
+		foreignVAP     bool
+		noVAPOwner     bool
 		foreignBinding bool
 		noBindingOwner bool
-		enabled bool
+		enabled        bool
 	}{
-		{name:"foreign policy owner",foreignVAP:true},
-		{name:"unowned native policy",noVAPOwner:true},
-		{name:"foreign binding owner",foreignBinding:true},
-		{name:"unowned binding",noBindingOwner:true},
-		{name:"foreign native policy while generation enabled",foreignVAP:true,enabled:true},
-		{name:"foreign binding while generation enabled",foreignBinding:true,enabled:true},
+		{name: "foreign policy owner", foreignVAP: true},
+		{name: "unowned native policy", noVAPOwner: true},
+		{name: "foreign binding owner", foreignBinding: true},
+		{name: "unowned binding", noBindingOwner: true},
+		{name: "foreign native policy while generation enabled", foreignVAP: true, enabled: true},
+		{name: "foreign binding while generation enabled", foreignBinding: true, enabled: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			baseCtx := context.Background()
