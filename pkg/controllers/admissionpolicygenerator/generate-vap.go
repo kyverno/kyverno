@@ -76,16 +76,30 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
 	observedVAPbinding, vapBindingErr := c.getValidatingAdmissionPolicyBinding(vapBindingName)
 
+	// Generated resources are cluster-scoped. A matching name alone does not
+	// authorize Kyverno to delete or overwrite someone else's admission policy.
+	// Check both resources before performing either deletion (or update).
+	if vapErr == nil && !isOwnedByValidatingPolicy(observedVAP, policy) {
+		return c.updatePolicyStatus(ctx, policy, false,
+			fmt.Sprintf("cannot manage ValidatingAdmissionPolicy %s: name collision (owner UID does not match)", vapName))
+	}
+	if vapBindingErr == nil && !isOwnedByValidatingPolicy(observedVAPbinding, policy) {
+		return c.updatePolicyStatus(ctx, policy, false,
+			fmt.Sprintf("cannot manage ValidatingAdmissionPolicyBinding %s: name collision (owner UID does not match)", vapBindingName))
+	}
+
 	if shouldDelete {
-		// delete the ValidatingAdmissionPolicy if exist
+		// delete the ValidatingAdmissionPolicy if it is still the observed object
 		if vapErr == nil {
-			if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			options := deletionOptionsForObservedObject(observedVAP)
+			if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, options); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
-		// delete the ValidatingAdmissionPolicyBinding if exist
+		// delete the binding if it is still the observed object
 		if vapBindingErr == nil {
-			if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			options := deletionOptionsForObservedObject(observedVAPbinding)
+			if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, options); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
@@ -185,4 +199,29 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	c.eventGen.Add(event.NewValidatingAdmissionPolicyEvent(policy, observedVAP.Name, observedVAPbinding.Name)...)
 
 	return nil
+}
+
+
+// isOwnedByValidatingPolicy requires a matching nonempty UID, not just the
+// generated resource name. An absent or foreign owner is never safe to mutate.
+func isOwnedByValidatingPolicy(resource metav1.Object, policy engineapi.GenericPolicy) bool {
+	if resource == nil || policy.GetUID() == "" {
+		return false
+	}
+	for _, owner := range resource.GetOwnerReferences() {
+		if owner.UID == policy.GetUID() && owner.Name == policy.GetName() && owner.Kind == "ValidatingPolicy" {
+			return true
+		}
+	}
+	return false
+}
+
+// deletionOptionsForObservedObject prevents a newly recreated object with the
+// same name from being deleted using an old informer cache entry.
+func deletionOptionsForObservedObject(resource metav1.Object) metav1.DeleteOptions {
+	options := metav1.DeleteOptions{}
+	if uid := resource.GetUID(); uid != "" {
+		options.Preconditions = &metav1.Preconditions{UID: &uid}
+	}
+	return options
 }
