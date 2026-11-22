@@ -88,22 +88,15 @@ func deletingPolicyKey(namespace, name string) string {
 	return policyKey(namespace, name)
 }
 
-func normalizeTestPolicy(policy string) (string, string, string) {
+func normalizeTestPolicy(policy string) string {
 	if ns, name, ok := strings.Cut(policy, "/"); ok {
-		return policyKey(ns, name), ns, name
+		return policyKey(ns, name)
 	}
-	return policy, "", policy
+	return policy
 }
 
 func matchesPolicy(set sets.Set[string], policy string) bool {
-	key, ns, name := normalizeTestPolicy(policy)
-	if set.Has(key) {
-		return true
-	}
-	if ns == "" && set.Has(name) {
-		return true
-	}
-	return false
+	return set.Has(normalizeTestPolicy(policy))
 }
 
 var (
@@ -481,35 +474,29 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	mutatingPolicyNames := sets.New[string]()
 	for _, p := range results.MutatingPolicies {
 		mutatingPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
-		mutatingPolicyNames.Insert(p.GetName())
 	}
 	deletingPolicyNames := sets.New[string]()
 	for _, p := range results.DeletingPolicies {
 		deletingPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
-		deletingPolicyNames.Insert(p.GetName())
 	}
 	imageValidatingPolicyNames := sets.New[string]()
 	for _, p := range results.ImageValidatingPolicies {
 		imageValidatingPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
-		imageValidatingPolicyNames.Insert(p.GetName())
 	}
 	jsonPolicyNames := sets.New[string]()
 	for _, p := range results.ValidatingPolicies {
 		if p.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
 			jsonPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
-			jsonPolicyNames.Insert(p.GetName())
 		}
 	}
 	for _, p := range results.MutatingPolicies {
 		if p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
 			jsonPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
-			jsonPolicyNames.Insert(p.GetName())
 		}
 	}
 	for _, p := range results.ImageValidatingPolicies {
 		if p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
 			jsonPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
-			jsonPolicyNames.Insert(p.GetName())
 		}
 	}
 	hasJSONIvpol := slices.ContainsFunc(results.ImageValidatingPolicies, func(p policiesv1beta1.ImageValidatingPolicyLike) bool {

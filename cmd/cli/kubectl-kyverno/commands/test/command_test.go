@@ -28,6 +28,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func TestCommandWithInvalidArg(t *testing.T) {
@@ -1704,6 +1705,24 @@ func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
 		_, err := runTest(context.TODO(), io.Discard, tc, false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "CONNECT operation is not supported for deleting policies")
+	})
+
+	t.Run("does not misclassify cluster-scoped policy when name overlaps across scopes", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		tc.Test.Results = []v1alpha1.TestResult{
+			{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy:    "overlap-policy",
+					Operation: "CONNECT",
+				},
+			},
+		}
+		mutatingPolicyNames := sets.New[string]()
+		mutatingPolicyNames.Insert(policyKey("prod", "overlap-policy"))
+		assert.False(t, matchesPolicy(mutatingPolicyNames, tc.Test.Results[0].Policy))
+		assert.True(t, matchesPolicy(mutatingPolicyNames, "prod/overlap-policy"))
 	})
 }
 func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
