@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"golang.org/x/time/rate"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,9 +98,15 @@ func NewController(
 		urLister:         urLister,
 		reconcileTimeout: 2 * time.Minute,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.NewTypedItemExponentialFailureRateLimiter[any](
-				500*time.Millisecond, // base delay
-				30*time.Second,       // max delay per item
+			workqueue.NewTypedMaxOfRateLimiter[any](
+				workqueue.NewTypedItemExponentialFailureRateLimiter[any](
+					500*time.Millisecond, // base delay per key
+					30*time.Second,       // max delay per key
+				),
+				// Keep aggregate rate limiting when many distinct URs fail.
+				&workqueue.TypedBucketRateLimiter[any]{
+					Limiter: rate.NewLimiter(rate.Limit(10), 100),
+				},
 			),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: "background"},
 		),
