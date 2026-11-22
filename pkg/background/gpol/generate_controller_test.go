@@ -211,7 +211,7 @@ func TestProcessUR_FilteredTriggerSkipsEngine(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, controller.ProcessUR(ur))
+	require.NoError(t, controller.ProcessUR(context.Background(), ur))
 	assert.Zero(t, engine.calls)
 }
 
@@ -317,11 +317,11 @@ func TestProcessUR_ConcurrentCacheRestoreAndGenerateExistingDoesNotDeleteDownstr
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		require.NoError(t, controller.ProcessUR(newUR(true)))
+		require.NoError(t, controller.ProcessUR(context.Background(), newUR(true)))
 	}()
 	go func() {
 		defer wg.Done()
-		require.NoError(t, controller.ProcessUR(newUR(false)))
+		require.NoError(t, controller.ProcessUR(context.Background(), newUR(false)))
 	}()
 	wg.Wait()
 
@@ -513,7 +513,7 @@ func TestProcessUR_SyncWatchersMustCompleteBeforeReturn(t *testing.T) {
 	// (mocked) RESTMapping call is released.
 	done := make(chan error, 1)
 	go func() {
-		done <- controller.ProcessUR(ur)
+		done <- controller.ProcessUR(context.Background(), ur)
 	}()
 
 	select {
@@ -598,7 +598,7 @@ func TestProcessUR_ErrorResultMarksURFailed(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, controller.ProcessUR(ur))
+	require.NoError(t, controller.ProcessUR(context.Background(), ur))
 	assert.True(t, statusControl.failed, "UR should be marked as Failed")
 	assert.False(t, statusControl.success, "UR should not be marked as Completed")
 	assert.Contains(t, statusControl.message, "failed to evaluate policy")
@@ -648,7 +648,7 @@ func TestProcessUR_SkippedByExceptionEmitsEvent(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, controller.ProcessUR(ur))
+	require.NoError(t, controller.ProcessUR(context.Background(), ur))
 	assert.False(t, statusControl.failed, "UR should not be marked as Failed")
 
 	var sawException bool
@@ -907,7 +907,7 @@ func TestProcessUR_SyncDoesNotRevertOwnWriteBeforeCacheRefresh(t *testing.T) {
 				f.wm.handleUpdate(written, configMapGVR)
 			}
 
-			require.NoError(t, f.controller.ProcessUR(f.ur))
+			require.NoError(t, f.controller.ProcessUR(context.Background(), f.ur))
 			require.False(t, f.statusControl.failed, "UR must not be marked Failed: %s", f.statusControl.message)
 
 			require.True(t, fired, "the generate call never wrote the downstream")
@@ -937,7 +937,7 @@ func TestProcessUR_SyncRevertsEditMadeBeforeCacheRefresh(t *testing.T) {
 				f.wm.handleUpdate(edited, configMapGVR)
 			}
 
-			require.NoError(t, f.controller.ProcessUR(f.ur))
+			require.NoError(t, f.controller.ProcessUR(context.Background(), f.ur))
 			require.False(t, f.statusControl.failed, "UR must not be marked Failed: %s", f.statusControl.message)
 
 			require.Len(t, f.client.updates, 2, "the generate write plus one revert of the edit")
