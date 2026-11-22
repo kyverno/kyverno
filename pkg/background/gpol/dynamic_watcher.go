@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -14,12 +15,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	restmapperutils "github.com/kyverno/kyverno/pkg/utils/restmapper"
+	"golang.org/x/time/rate"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	watchTools "k8s.io/client-go/tools/watch"
@@ -55,6 +58,11 @@ type WatchManager struct {
 	// syncFailureCount tracks consecutive propagation failures per downstream UID,
 	// used to log escalating warnings so operators can diagnose persistent drift.
 	syncFailureCount map[types.UID]int
+	// sourceRetries coalesces transient source-to-downstream failures and
+	// re-reads the source before replaying. Nil disables scheduling in
+	// minimal test fixtures that do not own a manager lifecycle.
+	sourceRetries map[sourceSyncRetryKey]*sourceSyncRetry
+	retryLimiter  *rate.Limiter
 
 	log  logr.Logger
 	lock sync.Mutex
@@ -63,6 +71,23 @@ type WatchManager struct {
 type watcher struct {
 	watcher       watch.Interface
 	metadataCache map[types.UID]Resource
+}
+
+// sourceSyncRetryKey identifies a source in a particular watched GVR. Using
+// the source UID prevents replay onto a deleted-and-recreated object.
+type sourceSyncRetryKey struct {
+	gvr        schema.GroupVersionResource
+	apiVersion string
+	kind       string
+	namespace  string
+	name       string
+	uid        types.UID
+}
+
+type sourceSyncRetry struct {
+	watcher  *watcher
+	failures int
+	timer    *time.Timer
 }
 
 func NewWatchManager(log logr.Logger, client dclient.Interface) *WatchManager {
@@ -80,6 +105,8 @@ func NewWatchManager(log logr.Logger, client dclient.Interface) *WatchManager {
 		refCount:         map[schema.GroupVersionResource]int{},
 		pendingGenerates: map[string]*pendingGenerate{},
 		syncFailureCount: map[types.UID]int{},
+		sourceRetries:    map[sourceSyncRetryKey]*sourceSyncRetry{},
+		retryLimiter:     rate.NewLimiter(rate.Limit(5), 10),
 	}
 }
 
@@ -270,6 +297,7 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.Resourc
 						oldWatcher.watcher.Stop()
 					}
 					delete(wm.dynamicWatchers, oldGVR)
+					wm.clearSourceRetriesForWatcher(oldGVR, oldWatcher)
 				}
 				delete(wm.refCount, oldGVR)
 			}
@@ -502,6 +530,7 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 						watcher.watcher.Stop()
 					}
 					delete(wm.dynamicWatchers, gvr)
+					wm.clearSourceRetriesForWatcher(gvr, watcher)
 				}
 				delete(wm.refCount, gvr)
 			}
@@ -526,6 +555,12 @@ func (wm *WatchManager) StopWatchers() {
 	wm.policyRefs = map[string][]schema.GroupVersionResource{}
 	wm.refCount = map[schema.GroupVersionResource]int{}
 	wm.syncFailureCount = map[types.UID]int{}
+	for _, retry := range wm.sourceRetries {
+		if retry.timer != nil {
+			retry.timer.Stop()
+		}
+	}
+	wm.sourceRetries = nil
 }
 
 // startWatcher starts a new watcher for the given resource and GVR.
@@ -628,9 +663,11 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			downstreams, err := wm.client.ListResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), "", selector)
 			if err != nil {
 				wm.log.Error(err, "failed to list downstream resources")
+				wm.scheduleSourceSyncRetry(obj, gvr)
 				// A list failure does not return items; do not dereference nil.
 				return
 			}
+			anyFailed := false
 			for _, downstream := range downstreams.Items {
 				// if the downstream doesn't exist in the metadata cache, it means sync is disabled.
 				cached, exists := watcher.metadataCache[downstream.GetUID()]
@@ -651,6 +688,7 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				newResource.SetResourceVersion(downstream.GetResourceVersion())
 				written, err := wm.propagateToDownstream(cached.ServerSideApply, &downstream, newResource)
 				if err != nil {
+					anyFailed = true
 					wm.trackSyncFailure(downstream.GetUID(), downstream.GetName(), downstream.GetNamespace(), err)
 				} else {
 					wm.clearSyncFailure(downstream.GetUID())
@@ -672,6 +710,11 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 					}
 					wm.log.V(4).Info("resource metadata updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace(), "hash", hash)
 				}
+			}
+			if anyFailed {
+				wm.scheduleSourceSyncRetry(obj, gvr)
+			} else {
+				wm.clearSourceSyncRetry(sourceSyncKey(obj, gvr))
 			}
 		} else {
 			// if the resource is already in the cache, then it is the downstream resource that has been updated and it is sync enabled.
@@ -977,6 +1020,7 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 		managedBy := labels[kyverno.LabelAppManagedBy] == kyverno.ValueKyvernoApp
 		// the source resource is deleted, we need to clean up the downstream resources.
 		if !managedBy {
+			wm.clearSourceSyncRetry(sourceSyncKey(obj, gvr))
 			wm.log.V(4).Info("source resource deleted, removing downstreams", "name", obj.GetName(), "namespace", obj.GetNamespace())
 			// fetch downstreams that have the source UID label.
 			sourceLabel := map[string]string{
