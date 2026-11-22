@@ -52,6 +52,9 @@ type WatchManager struct {
 	// pendingGenerates tracks, per policy/trigger, generate writes that are being
 	// applied but are not yet reflected in the metadata cache. See BeginGenerate.
 	pendingGenerates map[string]*pendingGenerate
+	// syncFailureCount tracks consecutive propagation failures per downstream UID,
+	// used to log escalating warnings so operators can diagnose persistent drift.
+	syncFailureCount map[types.UID]int
 
 	log  logr.Logger
 	lock sync.Mutex
@@ -76,6 +79,7 @@ func NewWatchManager(log logr.Logger, client dclient.Interface) *WatchManager {
 		policyRefs:       map[string][]schema.GroupVersionResource{},
 		refCount:         map[schema.GroupVersionResource]int{},
 		pendingGenerates: map[string]*pendingGenerate{},
+		syncFailureCount: map[types.UID]int{},
 	}
 }
 
@@ -642,8 +646,9 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				newResource.SetResourceVersion(downstream.GetResourceVersion())
 				written, err := wm.propagateToDownstream(cached.ServerSideApply, &downstream, newResource)
 				if err != nil {
-					wm.log.Error(err, "failed to update downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
+					wm.trackSyncFailure(downstream.GetUID(), downstream.GetName(), downstream.GetNamespace(), err)
 				} else {
+					wm.clearSyncFailure(downstream.GetUID())
 					wm.log.V(4).Info("downstream resource updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
 					hash := reportutils.CalculateResourceHash(*newResource)
 					if cached.ServerSideApply && written != nil {
@@ -684,10 +689,48 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 	}
 }
 
+// trackSyncFailure increments the consecutive failure count for a downstream UID
+// and logs at increasing severity so operators notice persistent drift. The caller
+// must hold wm.lock.
+func (wm *WatchManager) trackSyncFailure(uid types.UID, name, namespace string, err error) {
+	if wm.syncFailureCount == nil {
+		wm.syncFailureCount = map[types.UID]int{}
+	}
+	wm.syncFailureCount[uid]++
+	count := wm.syncFailureCount[uid]
+	if count <= 3 {
+		wm.log.Error(err, "failed to propagate source change to downstream resource",
+			"name", name, "namespace", namespace, "consecutiveFailures", count)
+	} else {
+		// Escalate: persistent failure likely indicates a systemic issue
+		// (RBAC, quota, webhook blocking updates, etc.)
+		wm.log.Error(err, "PERSISTENT sync failure: downstream resource is drifted from source",
+			"name", name, "namespace", namespace, "consecutiveFailures", count,
+			"hint", "check RBAC permissions, resource quotas, and validating webhooks that may block Kyverno's updates")
+	}
+}
+
+// clearSyncFailure resets the failure counter after a successful propagation. The
+// caller must hold wm.lock.
+func (wm *WatchManager) clearSyncFailure(uid types.UID) {
+	if wm.syncFailureCount == nil {
+		return
+	}
+	if prev, ok := wm.syncFailureCount[uid]; ok && prev > 0 {
+		wm.log.V(2).Info("downstream sync recovered after previous failures",
+			"uid", uid, "previousFailures", prev)
+	}
+	delete(wm.syncFailureCount, uid)
+}
+
 // revertDownstream restores the cached desired state of a downstream. The caller
 // must hold wm.lock.
 func (wm *WatchManager) revertDownstream(watcher *watcher, uid types.UID, obj *unstructured.Unstructured) {
-	wm.log.V(4).Info("downstream resource updated by user, reverting changes", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	cachedLabels := watcher.metadataCache[uid].Labels
+	policyName := cachedLabels[common.GeneratePolicyLabel]
+	wm.log.V(3).Info("downstream resource modified externally, reverting to policy-defined state",
+		"name", obj.GetName(), "namespace", obj.GetNamespace(),
+		"policy", policyName, "triggerUID", cachedLabels[common.GenerateTriggerUIDLabel])
 	cached := watcher.metadataCache[uid]
 	var err error
 	if cached.ServerSideApply {

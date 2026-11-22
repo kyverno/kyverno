@@ -2529,3 +2529,87 @@ func TestHandleUpdate_SourcePropagationErrorKeepsCache(t *testing.T) {
 	require.Len(t, mc.applied, 1)
 	assert.Equal(t, entry, wm.dynamicWatchers[gvr].metadataCache["ds-uid"])
 }
+
+
+// TestTrackSyncFailure_IncrementAndEscalate verifies that consecutive propagation
+// failures increment the counter and that clearing resets it.
+func TestTrackSyncFailure_IncrementAndEscalate(t *testing.T) {
+	wm := &WatchManager{
+		log:              logging.WithName("test"),
+		syncFailureCount: map[types.UID]int{},
+	}
+
+	uid := types.UID("downstream-uid-1")
+
+	// First three failures — normal error logging path
+	for i := 1; i <= 3; i++ {
+		wm.trackSyncFailure(uid, "my-secret", "tenant-1", errors.New("conflict"))
+		assert.Equal(t, i, wm.syncFailureCount[uid],
+			"failure count should be %d after %d failures", i, i)
+	}
+
+	// Fourth failure — escalated (PERSISTENT) logging path
+	wm.trackSyncFailure(uid, "my-secret", "tenant-1", errors.New("conflict"))
+	assert.Equal(t, 4, wm.syncFailureCount[uid])
+
+	// Clear after a successful sync
+	wm.clearSyncFailure(uid)
+	_, exists := wm.syncFailureCount[uid]
+	assert.False(t, exists, "failure count should be cleared after successful sync")
+}
+
+// TestClearSyncFailure_NoopWhenNotTracked verifies clearSyncFailure is safe to
+// call for a UID that was never tracked.
+func TestClearSyncFailure_NoopWhenNotTracked(t *testing.T) {
+	wm := &WatchManager{
+		log:              logging.WithName("test"),
+		syncFailureCount: map[types.UID]int{},
+	}
+
+	// Should not panic
+	wm.clearSyncFailure("unknown-uid")
+}
+
+// TestClearSyncFailure_NilMap verifies clearSyncFailure is safe when the map is nil.
+func TestClearSyncFailure_NilMap(t *testing.T) {
+	wm := &WatchManager{
+		log: logging.WithName("test"),
+	}
+
+	// Should not panic when syncFailureCount is nil
+	wm.clearSyncFailure("any-uid")
+}
+
+// TestHandleUpdate_SourcePropagationTracksSyncFailure verifies that a failed
+// source-to-downstream propagation increments the sync failure counter.
+func TestHandleUpdate_SourcePropagationTracksSyncFailure(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	src := makeUnstructured("100", "", "v1", "Secret", "shared-tls", "platform", "src-uid", nil)
+	ds := makeUnstructured("50", "", "v1", "Secret", "shared-tls", "tenant-1", "ds-uid",
+		map[string]string{common.GenerateSourceUIDLabel: "src-uid"})
+	entry := Resource{
+		Name:      "shared-tls",
+		Namespace: "tenant-1",
+		Labels:    ds.GetLabels(),
+		Hash:      "original-hash",
+		Data:      ds,
+	}
+	mc := &MockClient{
+		listItems: []unstructured.Unstructured{*ds},
+		err:       errors.New("409 conflict"),
+	}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: mc,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {metadataCache: map[types.UID]Resource{"ds-uid": entry}},
+		},
+		syncFailureCount: map[types.UID]int{},
+	}
+
+	wm.handleUpdate(src, gvr)
+
+	// The propagation should have failed and tracked the failure
+	assert.Equal(t, 1, wm.syncFailureCount[types.UID("ds-uid")],
+		"sync failure should be tracked after propagation error")
+}

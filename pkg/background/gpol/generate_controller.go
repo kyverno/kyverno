@@ -85,7 +85,7 @@ func NewCELGenerateController(
 	}
 }
 
-func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
+func (c *CELGenerateController) ProcessUR(parentCtx context.Context, ur *kyvernov2.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	generatedResources := make([]kyverno.ResourceSpec, 0)
 	logger.V(2).Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
@@ -94,7 +94,8 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	// One cost budget for the whole update request, established outside the loop. Inside
 	// it, every iteration would start from a fresh context and so get its own ceiling,
 	// which bounds each rule context rather than the request that contains them.
-	ctx, releaseBudget := requestbudget.EnsureBackground(context.TODO())
+	// Use the parent context so the reconcile timeout is propagated.
+	ctx, releaseBudget := requestbudget.EnsureBackground(parentCtx)
 	defer releaseBudget()
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		if ur.Spec.RuleContext[i].DeleteDownstream {
@@ -215,7 +216,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 					}
 				}
 			}
-			if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {
+			if err := c.audit(ctx, engineResponse, generatedResources); err != nil {
 				logger.Error(err, "failed to audit gpol", "gpol", ur.Spec.GetPolicyKey())
 			}
 			if len(engineResponse.PolicyResponse.Rules) > 0 &&
@@ -225,7 +226,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		}
 		endGenerate()
 		if c.needsReports(*trigger) && len(reportableEngineResponses) > 0 {
-			if err := c.createReports(context.TODO(), *trigger, reportableEngineResponses...); err != nil {
+			if err := c.createReports(ctx, *trigger, reportableEngineResponses...); err != nil {
 				c.log.Error(err, "failed to create report")
 			}
 		}

@@ -59,6 +59,11 @@ type controller struct {
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
 
+	// reconcileTimeout bounds how long a single UR reconciliation may run.
+	// It prevents unbounded API calls (e.g., slow registry or DNS lookups
+	// in generate/mutate handlers) from hanging the worker goroutine forever.
+	reconcileTimeout time.Duration
+
 	context      libs.Context
 	gpolEngine   gpolengine.Engine
 	gpolProvider gpolengine.Provider
@@ -87,11 +92,15 @@ func NewController(
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		urLister:      urLister,
+		client:           client,
+		kyvernoClient:    kyvernoClient,
+		urLister:         urLister,
+		reconcileTimeout: 2 * time.Minute,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[any](),
+			workqueue.NewTypedItemExponentialFailureRateLimiter[any](
+				500*time.Millisecond, // base delay
+				30*time.Second,       // max delay per item
+			),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: "background"},
 		),
 		context:       context,
@@ -192,7 +201,11 @@ func (c *controller) syncUpdateRequest(key string) error {
 	}
 
 	if ur.Status.State == kyvernov2.Pending {
-		if err := c.processUR(ur); err != nil {
+		// Bound processing time to prevent a single slow UR (e.g., one blocked on a
+		// registry call or DNS lookup) from occupying a worker goroutine indefinitely.
+		ctx, cancel := context.WithTimeout(context.Background(), c.reconcileTimeout)
+		defer cancel()
+		if err := c.processUR(ctx, ur); err != nil {
 			return fmt.Errorf("failed to process UR %s: %v", key, err)
 		}
 	}
@@ -301,12 +314,12 @@ func defaultRetryBackoff(retryCount int) time.Duration {
 	return d
 }
 
-func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
+func (c *controller) processUR(ctx context.Context, ur *kyvernov2.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch t := ur.Spec.GetRequestType(); t {
 	case kyvernov2.CELGenerate:
 		ctrl := gpol.NewCELGenerateController(c.client, c.kyvernoClient, c.context, c.gpolEngine, c.gpolProvider, c.watchManager, statusControl, c.eventGen, logger, c.configuration)
-		return ctrl.ProcessUR(ur)
+		return ctrl.ProcessUR(ctx, ur)
 	case kyvernov2.CELMutate:
 		processor := mpol.NewProcessor(c.client, c.kyvernoClient, c.mpolEngine, c.restMapper, c.context, statusControl, c.eventGen, c.configuration)
 		return processor.Process(ur)

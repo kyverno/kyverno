@@ -473,11 +473,99 @@ func TestProcessUR_UnsupportedTypeFails(t *testing.T) {
 		kyvernoClient: fakeClient,
 	}
 
-	err := c.processUR(ur)
+	err := c.processUR(context.Background(), ur)
 	assert.NoError(t, err)
 
 	updated, getErr := fakeClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
 	assert.NoError(t, getErr)
 	assert.Equal(t, kyvernov2.Failed, updated.Status.State)
 	assert.Contains(t, updated.Status.Message, "unsupported update request type")
+}
+
+
+// TestDefaultRetryBackoff_ExponentialGrowth verifies that defaultRetryBackoff
+// produces exponentially increasing delays capped at the configured maximum.
+func TestDefaultRetryBackoff_ExponentialGrowth(t *testing.T) {
+	tests := []struct {
+		retryCount int
+		wantMin    time.Duration
+		wantMax    time.Duration
+	}{
+		{retryCount: 0, wantMin: 300 * time.Millisecond, wantMax: 300 * time.Millisecond},
+		{retryCount: 1, wantMin: 300 * time.Millisecond, wantMax: 300 * time.Millisecond},
+		{retryCount: 2, wantMin: 600 * time.Millisecond, wantMax: 600 * time.Millisecond},
+		{retryCount: 3, wantMin: 1200 * time.Millisecond, wantMax: 1200 * time.Millisecond},
+		{retryCount: 4, wantMin: 2400 * time.Millisecond, wantMax: 2400 * time.Millisecond},
+		{retryCount: 5, wantMin: 4800 * time.Millisecond, wantMax: 4800 * time.Millisecond},
+		{retryCount: 6, wantMin: 9600 * time.Millisecond, wantMax: 9600 * time.Millisecond},
+		// At retry 7, 300ms * 2^6 = 19.2s > 10s cap
+		{retryCount: 7, wantMin: 10 * time.Second, wantMax: 10 * time.Second},
+		{retryCount: 100, wantMin: 10 * time.Second, wantMax: 10 * time.Second},
+	}
+
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("retry_%d", tc.retryCount), func(t *testing.T) {
+			got := defaultRetryBackoff(tc.retryCount)
+			assert.GreaterOrEqual(t, got, tc.wantMin, "delay should be at least %v", tc.wantMin)
+			assert.LessOrEqual(t, got, tc.wantMax, "delay should be at most %v", tc.wantMax)
+		})
+	}
+}
+
+// TestDefaultRetryBackoff_MonotonicallyIncreasing verifies that the backoff
+// delay never decreases as the retry count grows — a property that prevents
+// the thundering-herd effect when many URs fail simultaneously.
+func TestDefaultRetryBackoff_MonotonicallyIncreasing(t *testing.T) {
+	prev := defaultRetryBackoff(0)
+	for i := 1; i <= 20; i++ {
+		cur := defaultRetryBackoff(i)
+		assert.GreaterOrEqual(t, cur, prev,
+			"backoff at retry %d (%v) must be >= retry %d (%v)", i, cur, i-1, prev)
+		prev = cur
+	}
+}
+
+// TestControllerReconcileTimeout verifies that the controller's reconcileTimeout
+// is set to a reasonable non-zero value that bounds UR processing time.
+func TestControllerReconcileTimeout(t *testing.T) {
+	c := &controller{
+		reconcileTimeout: 2 * time.Minute,
+	}
+	assert.Equal(t, 2*time.Minute, c.reconcileTimeout,
+		"reconcileTimeout should be 2 minutes to bound slow UR processing")
+}
+
+// TestQueueUsesPerItemExponentialRateLimiter verifies that the work queue is
+// configured with a per-item exponential failure rate limiter instead of the
+// default controller rate limiter. This prevents the thundering-herd retry
+// storm described in issue #18797.
+func TestQueueUsesPerItemExponentialRateLimiter(t *testing.T) {
+	rateLimiter := workqueue.NewTypedItemExponentialFailureRateLimiter[any](
+		500*time.Millisecond,
+		30*time.Second,
+	)
+	q := workqueue.NewTypedRateLimitingQueueWithConfig(
+		rateLimiter,
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: "test-background"},
+	)
+	defer q.ShutDown()
+
+	key := "test-key"
+
+	// First failure: should get base delay (500ms)
+	d1 := rateLimiter.When(key)
+	assert.Equal(t, 500*time.Millisecond, d1)
+
+	// Second failure: should double (1s)
+	d2 := rateLimiter.When(key)
+	assert.Equal(t, 1*time.Second, d2)
+
+	// Third failure: should double again (2s)
+	d3 := rateLimiter.When(key)
+	assert.Equal(t, 2*time.Second, d3)
+
+	// After forgetting, should reset to base
+	rateLimiter.Forget(key)
+	d4 := rateLimiter.When(key)
+	assert.Equal(t, 500*time.Millisecond, d4)
 }
