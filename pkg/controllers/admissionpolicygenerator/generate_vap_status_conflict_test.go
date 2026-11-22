@@ -24,7 +24,7 @@ import (
 func TestReconcileVAPDisabledCleanupStatusConflictRecovery(t *testing.T) {
 	baseCtx := context.Background()
 	ctx := toggle.NewContext(baseCtx, fakeVAPToggle{
-		Toggles: toggle.FromContext(baseCtx),
+		Toggles:                           toggle.FromContext(baseCtx),
 		generateValidatingAdmissionPolicy: false,
 	})
 	policy := disallowPrivilegeEscalationVpol(nil)
