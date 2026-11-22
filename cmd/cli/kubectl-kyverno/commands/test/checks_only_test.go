@@ -197,6 +197,7 @@ checks:
 		err := cmd.Execute()
 		require.NoError(t, err)
 		output := out.String()
-		assert.Contains(t, output, "2 tests passed and 0 tests failed")
+		assert.Contains(t, output, "│ 1 │ require-team-label")
+		assert.Contains(t, output, "│ 2 │ require-team-label")
 	})
 }
