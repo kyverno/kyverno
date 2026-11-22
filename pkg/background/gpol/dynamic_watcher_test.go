@@ -2613,3 +2613,72 @@ func TestHandleUpdate_SourcePropagationTracksSyncFailure(t *testing.T) {
 	assert.Equal(t, 1, wm.syncFailureCount[types.UID("ds-uid")],
 		"sync failure should be tracked after propagation error")
 }
+
+// TestHandleUpdate_RetriesLatestSourceAfterTransientFailure verifies a failed
+// clone propagation is not discarded, and the retry reads the latest persisted
+// source rather than replaying an older informer event.
+func TestHandleUpdate_RetriesLatestSourceAfterTransientFailure(t *testing.T) {
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "secrets"}
+	oldSource := makeUnstructured("100", "", "v1", "Secret", "shared", "platform", "src-uid", nil)
+	oldSource.SetAnnotations(map[string]string{"revision": "old"})
+	latestSource := oldSource.DeepCopy()
+	latestSource.SetResourceVersion("101")
+	latestSource.SetAnnotations(map[string]string{"revision": "latest"})
+	ds := makeUnstructured("50", "", "v1", "Secret", "shared", "tenant", "ds-uid",
+		map[string]string{common.GenerateSourceUIDLabel: "src-uid"})
+	entry := Resource{
+		Name: ds.GetName(), Namespace: ds.GetNamespace(), Labels: ds.GetLabels(),
+		Hash: "previous", Data: ds,
+	}
+	mc := &MockClient{listItems: []unstructured.Unstructured{*ds}}
+	mc.getFn = func(_ context.Context, _, _, _, _ string) (*unstructured.Unstructured, error) {
+		return latestSource, nil
+	}
+	var attempted []string
+	mc.updateFn = func(obj interface{}) {
+		attempted = append(attempted, obj.(*unstructured.Unstructured).GetAnnotations()["revision"])
+		if len(attempted) == 1 {
+			mc.err = errors.New("transient write failure")
+		} else {
+			mc.err = nil
+		}
+	}
+	wm := &WatchManager{
+		log: logging.WithName("test"), client: mc,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {metadataCache: map[types.UID]Resource{"ds-uid": entry}},
+		},
+		sourceRetries:    map[sourceSyncRetryKey]*sourceSyncRetry{},
+		syncFailureCount: map[types.UID]int{},
+	}
+	t.Cleanup(wm.StopWatchers)
+
+	wm.handleUpdate(oldSource, gvr)
+	require.Equal(t, []string{"old"}, attempted)
+	require.Eventually(t, func() bool {
+		wm.lock.Lock()
+		defer wm.lock.Unlock()
+		return len(attempted) == 2 && len(wm.sourceRetries) == 0 && len(wm.syncFailureCount) == 0
+	}, 5*time.Second, 20*time.Millisecond)
+	assert.Equal(t, []string{"old", "latest"}, attempted)
+}
+
+func TestStopWatchers_CancelsSourceRetries(t *testing.T) {
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "secrets"}
+	w := &watcher{metadataCache: map[types.UID]Resource{}}
+	wm := &WatchManager{
+		log: logging.WithName("test"),
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{gvr: w},
+		sourceRetries:   map[sourceSyncRetryKey]*sourceSyncRetry{},
+		syncFailureCount: map[types.UID]int{"orphan": 2},
+	}
+	src := makeUnstructured("1", "", "v1", "Secret", "source", "platform", "src-uid", nil)
+	wm.lock.Lock()
+	wm.scheduleSourceSyncRetry(src, gvr)
+	require.Len(t, wm.sourceRetries, 1)
+	wm.lock.Unlock()
+
+	wm.StopWatchers()
+	assert.Nil(t, wm.sourceRetries, "stopped manager must cancel all delayed retry work")
+	assert.Empty(t, wm.syncFailureCount, "stopped manager must release failure counters")
+}
