@@ -1633,6 +1633,25 @@ func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
 	})
+
+	t.Run("rejects inherited global CONNECT for JSON-mode ImageValidatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		ivpolDir := filepath.Join(rootDir, "test", "cli", "test-image-validating-policy", "check-json")
+		tc.Test.Policies = []string{filepath.Join(ivpolDir, "ivpol-json.yaml")}
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results[0].Policy = "ivpol-cli-sample"
+		tc.Test.Results[0].IsImageValidatingPolicy = true
+		tc.Test.Results[0].Operation = ""
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
+	})
 }
 func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
 	wd, err := os.Getwd()

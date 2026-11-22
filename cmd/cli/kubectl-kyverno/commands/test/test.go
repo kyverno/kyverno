@@ -733,6 +733,10 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
+			effectiveOp := operation
+			if effectiveOp == "" && vars != nil {
+				effectiveOp = vars.GlobalOperation()
+			}
 			ivpols, err := applyImageValidatingPolicies(
 				results.ImageValidatingPolicies,
 				nil,
@@ -749,7 +753,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				!(len(testCase.Test.ClusterResources) > 0),
 				restMapper,
 				gceMap,
-				operation,
+				effectiveOp,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -783,9 +787,9 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		return ers, nil
 	}
 	// Evaluate resource-oriented policies against each unique Kubernetes resource.
-	// In the default pass, the standard PolicyProcessor resolves the operation
-	// from the values file (or uses CREATE), but ImageValidatingPolicies use
-	// CREATE and DeletingPolicies have no admission operation. A separate run
+	// In the default pass, the standard PolicyProcessor and ImageValidatingPolicies
+	// resolve the operation from the values file (or use CREATE), while DeletingPolicies
+	// have no admission operation. A separate run is executed for each distinct
 	// is executed for each distinct operation explicitly declared on test
 	// results, populating TriggerByOperation so that the result-matching phase
 	// can look up responses for each operation-scoped test result.
