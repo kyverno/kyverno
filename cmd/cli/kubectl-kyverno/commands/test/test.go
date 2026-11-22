@@ -488,6 +488,11 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		deletingPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
 		deletingPolicyNames.Insert(p.GetName())
 	}
+	imageValidatingPolicyNames := sets.New[string]()
+	for _, p := range results.ImageValidatingPolicies {
+		imageValidatingPolicyNames.Insert(policyKey(p.GetNamespace(), p.GetName()))
+		imageValidatingPolicyNames.Insert(p.GetName())
+	}
 	jsonPolicyNames := sets.New[string]()
 	for _, p := range results.ValidatingPolicies {
 		if p.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
@@ -527,13 +532,19 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			if res.IsDeletingPolicy || matchesPolicy(deletingPolicyNames, res.Policy) {
 				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for deleting policies", res.Policy)
 			}
+			if res.IsImageValidatingPolicy || matchesPolicy(imageValidatingPolicyNames, res.Policy) {
+				if matchesPolicy(jsonPolicyNames, res.Policy) || (res.IsImageValidatingPolicy && hasJSONIvpol) {
+					return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON-mode policies", res.Policy)
+				}
+				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for image validating policies", res.Policy)
+			}
 			if res.IsValidatingAdmissionPolicy || res.IsMutatingAdmissionPolicy || res.IsMutatingPolicy || matchesPolicy(mutatingPolicyNames, res.Policy) {
 				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for mutating policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy", res.Policy)
 			}
 			if isJSONPayloadResult(res, jsonPayloadFiles, len(uniques)) {
 				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON payloads", res.Policy)
 			}
-			if matchesPolicy(jsonPolicyNames, res.Policy) || (res.IsImageValidatingPolicy && hasJSONIvpol) {
+			if matchesPolicy(jsonPolicyNames, res.Policy) {
 				return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for JSON-mode policies", res.Policy)
 			}
 		}
@@ -551,6 +562,9 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		if hasJSONIvpol {
 			return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
+		}
+		if len(results.ImageValidatingPolicies) > 0 {
+			return nil, fmt.Errorf("CONNECT operation is not supported for image validating policies")
 		}
 	}
 	nsResolver := processor.GetNamespaceResolver(vars, dClient, len(testCase.Test.ClusterResources) > 0)
@@ -745,6 +759,9 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
+			if effectiveOp == "CONNECT" {
+				return nil, fmt.Errorf("CONNECT operation is not supported for image validating policies")
+			}
 			ivpols, err := applyImageValidatingPolicies(
 				results.ImageValidatingPolicies,
 				nil,
@@ -1039,8 +1056,11 @@ func applyImageValidatingPolicies(
 	hasJSONPolicy := slices.ContainsFunc(ivps, func(p policiesv1beta1.ImageValidatingPolicyLike) bool {
 		return p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
 	})
-	if operation == "CONNECT" && hasJSONPolicy {
-		return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
+	if operation == "CONNECT" {
+		if hasJSONPolicy {
+			return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
+		}
+		return nil, fmt.Errorf("CONNECT operation is not supported for image validating policies")
 	}
 	var lister corev1listers.SecretLister
 	if dclient != nil {

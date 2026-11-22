@@ -1656,6 +1656,39 @@ func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
 		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
 	})
 
+	t.Run("rejects CONNECT for ImageValidatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		ivpolDir := filepath.Join(rootDir, "test", "cli", "test-image-validating-policy", "empty-message")
+		tc.Test.Policies = []string{filepath.Join(ivpolDir, "policy.yaml")}
+		tc.Test.Results[0].Policy = "sample-ivpol"
+		tc.Test.Results[0].IsImageValidatingPolicy = true
+		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for image validating policies")
+	})
+
+	t.Run("rejects inherited global CONNECT for ImageValidatingPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		ivpolDir := filepath.Join(rootDir, "test", "cli", "test-image-validating-policy", "empty-message")
+		tc.Test.Policies = []string{filepath.Join(ivpolDir, "policy.yaml")}
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results[0].Policy = "sample-ivpol"
+		tc.Test.Results[0].IsImageValidatingPolicy = true
+		tc.Test.Results[0].Operation = ""
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for image validating policies")
+	})
+
 	t.Run("rejects inherited global CONNECT for DeletingPolicy with empty test results", func(t *testing.T) {
 		testCases := test.LoadTest(nil, testFile)
 		require.Len(t, testCases, 1)

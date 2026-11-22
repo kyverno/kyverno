@@ -1728,6 +1728,17 @@ func Test_Apply_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "CONNECT operation is not supported for JSON-mode policies")
 	})
+
+	t.Run("rejects CONNECT for ImageValidatingPolicy", func(t *testing.T) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
+			ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/empty-message/resource.yaml"},
+			Variables:     []string{"request.operation=CONNECT"},
+		}
+		_, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for image validating policies")
+	})
 }
 
 func TestCommandHelp(t *testing.T) {

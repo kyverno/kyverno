@@ -104,9 +104,17 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		dryRun = *request.Request.DryRun
 	}
 	// create admission attributes
+	var obj runtime.Object
+	if object.Object != nil {
+		obj = &object
+	}
+	var oldObj runtime.Object
+	if oldObject.Object != nil {
+		oldObj = &oldObject
+	}
 	attr := admission.NewAttributesRecord(
-		&object,
-		&oldObject,
+		obj,
+		oldObj,
 		schema.GroupVersionKind(request.Request.Kind),
 		request.Request.Namespace,
 		request.Request.Name,

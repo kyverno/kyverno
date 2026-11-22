@@ -329,6 +329,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		if hasJSONIvpol {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
 		}
+		if len(ivps) > 0 {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("CONNECT operation is not supported for image validating policies")
+		}
 	}
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps))
 	for _, pol := range vaps {
@@ -834,8 +837,11 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	hasJSONPolicy := slices.ContainsFunc(ivps, func(p policiesv1beta1.ImageValidatingPolicyLike) bool {
 		return p.GetSpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON
 	})
-	if operation == "CONNECT" && hasJSONPolicy {
-		return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
+	if operation == "CONNECT" {
+		if hasJSONPolicy {
+			return nil, fmt.Errorf("CONNECT operation is not supported for JSON-mode policies")
+		}
+		return nil, fmt.Errorf("CONNECT operation is not supported for image validating policies")
 	}
 
 	var lister corev1listers.SecretLister
