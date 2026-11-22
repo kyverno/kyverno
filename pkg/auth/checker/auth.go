@@ -24,11 +24,3 @@ func NewSelfChecker(client authorizationv1client.SelfSubjectAccessReviewInterfac
 		client: client,
 	}
 }
-
-func NewSubjectChecker(client authorizationv1client.SubjectAccessReviewInterface, user string, groups []string) AuthChecker {
-	return &subject{
-		client: client,
-		user:   user,
-		groups: groups,
-	}
-}
