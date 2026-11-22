@@ -771,6 +771,129 @@ func (wm *WatchManager) clearSyncFailure(uid types.UID) {
 	delete(wm.syncFailureCount, uid)
 }
 
+// sourceSyncKey records enough identity to re-fetch the latest persisted
+// source rather than replaying a potentially stale informer event.
+func sourceSyncKey(source *unstructured.Unstructured, gvr schema.GroupVersionResource) sourceSyncRetryKey {
+	return sourceSyncRetryKey{
+		gvr:        gvr,
+		apiVersion: source.GetAPIVersion(),
+		kind:       source.GetKind(),
+		namespace:  source.GetNamespace(),
+		name:       source.GetName(),
+		uid:        source.GetUID(),
+	}
+}
+
+// The following retry helpers must be called with wm.lock held, except for
+// retrySourceSync which acquires the lock itself.
+func (wm *WatchManager) clearSourceSyncRetry(key sourceSyncRetryKey) {
+	if retry := wm.sourceRetries[key]; retry != nil {
+		if retry.timer != nil {
+			retry.timer.Stop()
+		}
+		delete(wm.sourceRetries, key)
+	}
+}
+
+func (wm *WatchManager) clearSourceRetriesForWatcher(gvr schema.GroupVersionResource, stopped *watcher) {
+	for key, retry := range wm.sourceRetries {
+		if key.gvr == gvr && retry.watcher == stopped {
+			wm.clearSourceSyncRetry(key)
+		}
+	}
+}
+
+func (wm *WatchManager) scheduleSourceSyncRetry(source *unstructured.Unstructured, gvr schema.GroupVersionResource) {
+	wm.scheduleSourceSyncRetryKey(sourceSyncKey(source, gvr))
+}
+
+func (wm *WatchManager) scheduleSourceSyncRetryKey(key sourceSyncRetryKey) {
+	// Minimal test fixtures without a manager lifecycle do not schedule
+	// asynchronous writes. Production managers initialize this map.
+	if wm.sourceRetries == nil || key.uid == "" || key.name == "" {
+		return
+	}
+	active := wm.dynamicWatchers[key.gvr]
+	if active == nil {
+		return
+	}
+	retry := wm.sourceRetries[key]
+	if retry != nil && retry.timer != nil {
+		return // coalesce multiple downstream failures for the same source
+	}
+	if retry == nil || retry.watcher != active {
+		retry = &sourceSyncRetry{watcher: active}
+		wm.sourceRetries[key] = retry
+	}
+	retry.failures++
+	// 500ms, 1s, 2s, ..., 30s capped, with jitter.
+	shift := retry.failures - 1
+	if shift > 6 {
+		shift = 6
+	}
+	delay := (500 * time.Millisecond) * time.Duration(1<<uint(shift))
+	if delay > 30*time.Second {
+		delay = 30 * time.Second
+	}
+	delay = wait.Jitter(delay, 0.2)
+	if delay > 30*time.Second {
+		delay = 30 * time.Second
+	}
+	// Pace distinct failing sources as well as repeated attempts for one UID.
+	if wm.retryLimiter != nil {
+		if reservation := wm.retryLimiter.Reserve(); reservation.OK() && reservation.Delay() > delay {
+			delay = reservation.Delay()
+		}
+	}
+	retry.timer = time.AfterFunc(delay, func() { wm.retrySourceSync(key, retry) })
+}
+
+// retrySourceSync never holds the manager lock while fetching the live source;
+// its UID and watcher are re-checked before replay to avoid stale writes after
+// deletion, recreation, or policy/watcher teardown.
+func (wm *WatchManager) retrySourceSync(key sourceSyncRetryKey, expected *sourceSyncRetry) {
+	wm.lock.Lock()
+	if wm.sourceRetries[key] != expected || wm.dynamicWatchers[key.gvr] != expected.watcher {
+		if wm.sourceRetries[key] == expected {
+			wm.clearSourceSyncRetry(key)
+		}
+		wm.lock.Unlock()
+		return
+	}
+	expected.timer = nil
+	wm.lock.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	live, err := wm.client.GetResource(ctx, key.apiVersion, key.kind, key.namespace, key.name)
+
+	wm.lock.Lock()
+	if wm.sourceRetries[key] != expected || wm.dynamicWatchers[key.gvr] != expected.watcher {
+		wm.lock.Unlock()
+		return
+	}
+	if apierrors.IsNotFound(err) || (err == nil && live != nil && live.GetUID() != key.uid) {
+		wm.clearSourceSyncRetry(key)
+		wm.lock.Unlock()
+		return
+	}
+	if err != nil || live == nil {
+		if err == nil {
+			err = errors.New("live source lookup returned no resource")
+		}
+		wm.log.Error(err, "failed to refetch source for downstream sync retry",
+			"kind", key.kind, "name", key.name, "namespace", key.namespace)
+		wm.scheduleSourceSyncRetryKey(key)
+		wm.lock.Unlock()
+		return
+	}
+	wm.lock.Unlock()
+
+	// handleUpdate will reschedule this source if any write still fails, or
+	// clear its retry state after all downstreams are synchronized.
+	wm.handleUpdate(live, key.gvr)
+}
+
 // revertDownstream restores the cached desired state of a downstream. The caller
 // must hold wm.lock.
 func (wm *WatchManager) revertDownstream(watcher *watcher, uid types.UID, obj *unstructured.Unstructured) {
