@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -253,8 +252,9 @@ func TestUpdateStatus_TerminalDropLogOmitsFailureMessage(t *testing.T) {
 	}, funcr.Options{Verbosity: 2})
 	// logging.V() reads pkg/logging's own globalLog, not controller-runtime's
 	// log.Log, so we must swap the global logger directly.
+	prevLogger := logging.GlobalLogger()
 	logging.SetGlobalLogger(testLogger)
-	defer logging.SetGlobalLogger(logr.Discard())
+	defer logging.SetGlobalLogger(prevLogger)
 
 	const message = "trigger-configmap-prod-secret-values-3f9c2a"
 	ur := newTestUR("ur-log-guard", kyvernov2.Pending, 4)
