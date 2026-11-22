@@ -1,3 +1,13 @@
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:08eb181c2a5f1f0f1adea631c12bff82c06d959619295318cb5736cb4025dcf8 -->
+
+## Unreleased
+
+- fix(admissionpolicygenerator): respect per-policy ValidatingAdmissionPolicy generation when the global toggle is disabled (#18707)
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## v1.13.0
 
 ### Note
