@@ -2,7 +2,6 @@ package background
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -602,38 +601,9 @@ func (c *controller) reconcileReport(
 			policyNameToLabel[key] = reportutils.MutatingAdmissionPolicyBindingLabel(&binding)
 		}
 		for _, result := range observed.GetResults() {
-			// Reuse a result only when its owning policy revision is unchanged.
-			// A changed (or legacy) revision must replace, not duplicate, the old
-			// result when the partial scan appends the new evaluation.
-			label := policyNameToLabel[result.Policy]
-			keepResult := label != "" && expected[label] != "" && expected[label] == actual[label]
-
-			// Native admission results depend on both the policy and the binding.
-			if binding := result.Properties["binding"]; binding != "" {
-				bindingLabel := policyNameToLabel[binding]
-				keepResult = keepResult && bindingLabel != "" && expected[bindingLabel] != "" &&
-					expected[bindingLabel] == actual[bindingLabel]
-			}
-			if binding := result.Properties["mapBinding"]; binding != "" {
-				bindingLabel := policyNameToLabel[binding]
-				keepResult = keepResult && bindingLabel != "" && expected[bindingLabel] != "" &&
-					expected[bindingLabel] == actual[bindingLabel]
-			}
-
-			// Policy exceptions can change an otherwise unchanged result.
-			if keepResult {
-				for _, exception := range strings.Split(result.Properties["exceptions"], ",") {
-					exceptionLabel := policyNameToLabel[exception]
-					if exceptionLabel != "" && expected[exceptionLabel] != actual[exceptionLabel] {
-						keepResult = false
-						break
-					}
-				}
-			}
-			if keepResult {
+			if keepResultForEffectiveRevision(result, policyNameToLabel, expected, actual) {
 				ruleResults = append(ruleResults, result)
 			}
-
 		}
 	}
 	// calculate necessary results
