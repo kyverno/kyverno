@@ -602,27 +602,38 @@ func (c *controller) reconcileReport(
 			policyNameToLabel[key] = reportutils.MutatingAdmissionPolicyBindingLabel(&binding)
 		}
 		for _, result := range observed.GetResults() {
-			// The result is kept as it is if:
-			// 1. The Kyverno policy and its matched exceptions are unchanged
-			// 2. The ValidatingAdmissionPolicy and its matched binding are unchanged
-			keepResult := true
-			exception := result.Properties["exceptions"]
-			exceptions := strings.Split(exception, ",")
-			for _, exception := range exceptions {
-				exceptionLabel := policyNameToLabel[exception]
-				if exceptionLabel != "" && expected[exceptionLabel] != actual[exceptionLabel] {
-					keepResult = false
-					break
+			// Reuse a result only when its owning policy revision is unchanged.
+			// A changed (or legacy) revision must replace, not duplicate, the old
+			// result when the partial scan appends the new evaluation.
+			label := policyNameToLabel[result.Policy]
+			keepResult := label != "" && expected[label] != "" && expected[label] == actual[label]
+
+			// Native admission results depend on both the policy and the binding.
+			if binding := result.Properties["binding"]; binding != "" {
+				bindingLabel := policyNameToLabel[binding]
+				keepResult = keepResult && bindingLabel != "" && expected[bindingLabel] != "" &&
+					expected[bindingLabel] == actual[bindingLabel]
+			}
+			if binding := result.Properties["mapBinding"]; binding != "" {
+				bindingLabel := policyNameToLabel[binding]
+				keepResult = keepResult && bindingLabel != "" && expected[bindingLabel] != "" &&
+					expected[bindingLabel] == actual[bindingLabel]
+			}
+
+			// Policy exceptions can change an otherwise unchanged result.
+			if keepResult {
+				for _, exception := range strings.Split(result.Properties["exceptions"], ",") {
+					exceptionLabel := policyNameToLabel[exception]
+					if exceptionLabel != "" && expected[exceptionLabel] != actual[exceptionLabel] {
+						keepResult = false
+						break
+					}
 				}
 			}
-			label := policyNameToLabel[result.Policy]
-			vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
-			mapBindingLabel := policyNameToLabel[result.Properties["mapBinding"]]
-			if (label != "" && expected[label] == actual[label]) ||
-				(vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) ||
-				(mapBindingLabel != "" && expected[mapBindingLabel] == actual[mapBindingLabel]) || keepResult {
+			if keepResult {
 				ruleResults = append(ruleResults, result)
 			}
+
 		}
 	}
 	// calculate necessary results
