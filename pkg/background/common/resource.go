@@ -17,19 +17,24 @@ import (
 )
 
 func GetTrigger(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
+	return GetTriggerWithContext(context.Background(), client, spec, i, logger)
+}
+
+// GetTriggerWithContext resolves the trigger while honoring the reconciliation deadline.
+func GetTriggerWithContext(ctx context.Context, client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
 	resourceSpec := spec.RuleContext[i].Trigger
 	logger.V(4).Info("fetching trigger", "trigger", resourceSpec.String())
 	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	if admissionRequest == nil {
-		return GetResource(client, resourceSpec, spec, logger)
+		return GetResourceWithContext(ctx, client, resourceSpec, spec, logger)
 	} else {
 		operation := spec.Context.AdmissionRequestInfo.Operation
 		if operation == admissionv1.Delete {
-			return getTriggerForDeleteOperation(client, spec, i, logger)
+			return getTriggerForDeleteOperation(ctx, client, spec, i, logger)
 		} else if operation == admissionv1.Create {
-			return getTriggerForCreateOperation(client, spec, i, logger)
+			return getTriggerForCreateOperation(ctx, client, spec, i, logger)
 		} else if operation == admissionv1.Update {
-			return getTriggerForUpdateOperation(client, spec, i, logger)
+			return getTriggerForUpdateOperation(ctx, client, spec, i, logger)
 		} else {
 			newResource, oldResource, err := admissionutils.ExtractResources(nil, *admissionRequest)
 			if err != nil {
@@ -46,7 +51,7 @@ func GetTrigger(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i in
 	}
 }
 
-func getTriggerForDeleteOperation(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
+func getTriggerForDeleteOperation(ctx context.Context, client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
 	request := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	_, oldResource, err := admissionutils.ExtractResources(nil, *request)
 	if err != nil {
@@ -57,14 +62,14 @@ func getTriggerForDeleteOperation(client dclient.Interface, spec kyvernov2.Updat
 	if labels[GeneratePolicyLabel] != "" {
 		// non-trigger deletion, get trigger from ur spec
 		logger.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", spec.Resource.String())
-		return GetResource(client, resourceSpec, spec, logger)
+		return GetResourceWithContext(ctx, client, resourceSpec, spec, logger)
 	}
 	// Verify the deletion was actually persisted: if the live object still exists
 	// with the same UID and is not terminating, the delete request was rejected
 	// downstream (e.g. by another webhook) and generation must not proceed.
 	// NotFound confirms the deletion; other lookup errors are retried so a transient
 	// API failure cannot make a rejected deletion appear persisted.
-	live, err := client.GetResource(context.TODO(), oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName())
+	live, err := client.GetResource(ctx, oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName())
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to verify deletion of trigger resource %s/%s %s/%s with uid %s: %w",
 			oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName(), oldResource.GetUID(), err)
@@ -76,16 +81,16 @@ func getTriggerForDeleteOperation(client dclient.Interface, spec kyvernov2.Updat
 	return &oldResource, nil
 }
 
-func getTriggerForUpdateOperation(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
+func getTriggerForUpdateOperation(ctx context.Context, client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
 	// Resolve the trigger from the live cluster state rather than the admission
 	// request payload: a rejected UPDATE leaves the live object unchanged, and
 	// mutations applied in the admission chain may never have been persisted.
 	// Evaluating the live object guarantees generation reflects persisted state.
 	resourceSpec := spec.RuleContext[i].Trigger
-	return GetResource(client, resourceSpec, spec, logger)
+	return GetResourceWithContext(ctx, client, resourceSpec, spec, logger)
 }
 
-func getTriggerForCreateOperation(client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
+func getTriggerForCreateOperation(ctx context.Context, client dclient.Interface, spec kyvernov2.UpdateRequestSpec, i int, logger logr.Logger) (*unstructured.Unstructured, error) {
 	admissionRequest := spec.Context.AdmissionRequestInfo.AdmissionRequest
 	resourceSpec := spec.RuleContext[i].Trigger
 	trigger, err := GetResource(client, resourceSpec, spec, logger)
@@ -106,6 +111,11 @@ func getTriggerForCreateOperation(client dclient.Interface, spec kyvernov2.Updat
 }
 
 func GetResource(client dclient.Interface, resourceSpec kyverno.ResourceSpec, urSpec kyvernov2.UpdateRequestSpec, log logr.Logger) (resource *unstructured.Unstructured, err error) {
+	return GetResourceWithContext(context.Background(), client, resourceSpec, urSpec, log)
+}
+
+// GetResourceWithContext fetches the live resource using the caller's deadline.
+func GetResourceWithContext(ctx context.Context, client dclient.Interface, resourceSpec kyverno.ResourceSpec, urSpec kyvernov2.UpdateRequestSpec, log logr.Logger) (resource *unstructured.Unstructured, err error) {
 	obj := resourceSpec
 	if reflect.DeepEqual(obj, kyverno.ResourceSpec{}) {
 		obj = urSpec.GetResource()
@@ -139,7 +149,7 @@ func GetResource(client dclient.Interface, resourceSpec kyverno.ResourceSpec, ur
 			if resourceSpec.Kind == "Namespace" {
 				namespace = ""
 			}
-			live, err := client.GetResource(context.TODO(), resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), namespace, obj.GetName())
+			live, err := client.GetResource(ctx, resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), namespace, obj.GetName())
 			if err != nil && !errors.IsNotFound(err) {
 				return nil, fmt.Errorf("failed to get trigger resource %s/%s %s/%s: %w",
 					resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), obj.GetNamespace(), obj.GetName(), err)
@@ -151,7 +161,7 @@ func GetResource(client dclient.Interface, resourceSpec kyverno.ResourceSpec, ur
 		}
 
 		// No name to fetch by: list the namespace and match on UID.
-		triggers, err := client.ListResource(context.TODO(), resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), resourceSpec.GetNamespace(), nil)
+		triggers, err := client.ListResource(ctx, resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), resourceSpec.GetNamespace(), nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list trigger resources: %v", err)
 		}
@@ -167,7 +177,7 @@ func GetResource(client dclient.Interface, resourceSpec kyverno.ResourceSpec, ur
 		if resourceSpec.Kind == "Namespace" {
 			resourceSpec.Namespace = ""
 		}
-		resource, err := client.GetResource(context.TODO(), resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
+		resource, err := client.GetResource(ctx, resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
 		if err != nil {
 			return nil, fmt.Errorf("resource %s/%s/%s/%s: %v", resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name, err)
 		}
