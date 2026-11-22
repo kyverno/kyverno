@@ -72,11 +72,31 @@ func TestPolicyUpdate_StatusAndMetadataOnlyChangesDoNotEnqueue(t *testing.T) {
 		t.Fatalf("status-only IVPOL update enqueued %d resources, want zero", got)
 	}
 
-	after.Generation = 4
-	ctrl.updateVP(before, after)
-	if got := queue.Len(); got != 2 {
-		t.Fatalf("new policy generation enqueued %d resources, want 2", got)
+	// Drain between cases: workqueue deduplicates keys still queued.
+	checkGeneration := func(name string, update func()) {
+		t.Helper()
+		update()
+		if got := queue.Len(); got != 2 {
+			t.Fatalf("%s generation update enqueued %d resources, want 2", name, got)
+		}
+		for queue.Len() > 0 {
+			item, shutdown := queue.Get()
+			if shutdown {
+				t.Fatal("queue shut down during revision test")
+			}
+			queue.Done(item)
+			queue.Forget(item)
+		}
 	}
+	vpNext := after.DeepCopy()
+	vpNext.Generation = 4
+	checkGeneration("VPOL", func() { ctrl.updateVP(before, vpNext) })
+	mpNext := mpolNew.DeepCopy()
+	mpNext.Generation = 4
+	checkGeneration("MPOL", func() { ctrl.updateMP(mpolOld, mpNext) })
+	ivpNext := ivpolNew.DeepCopy()
+	ivpNext.Generation = 4
+	checkGeneration("IVPOL", func() { ctrl.updateIVP(ivpolOld, ivpNext) })
 }
 
 func TestNeedsReconcile_CELPolicyEffectiveRevision(t *testing.T) {
@@ -89,7 +109,7 @@ func TestNeedsReconcile_CELPolicyEffectiveRevision(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: uid, Namespace: namespace,
 			Labels: map[string]string{
-				reportutils.LabelResourceHash: hash,
+				reportutils.LabelResourceHash:   hash,
 				reportutils.PolicyLabel(before): reportutils.PolicyRevision(before),
 			},
 			Annotations: map[string]string{
