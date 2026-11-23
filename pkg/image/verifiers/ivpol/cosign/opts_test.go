@@ -92,6 +92,14 @@ func baseOpts() ([]remote.Option, []name.Option) {
 
 func stubTufWithFixture(t *testing.T) {
 	t.Helper()
+	stubTufWith(t, nil, nil)
+}
+
+// stubTufWith is stubTufWithFixture with the TUF-derived trust material
+// overridable: a nil trustedRoot keeps the default test fixture, and a nil
+// fulcioRoots keeps the stubbed-failure behaviour.
+func stubTufWith(t *testing.T, trustedRoot *root.TrustedRoot, fulcioRoots *x509.CertPool) {
+	t.Helper()
 	origTufInit := tufInitializeFn
 	origRoot := getTrustedRootFromTUFFn
 	origRekor := getRekorPubsFn
@@ -100,6 +108,9 @@ func stubTufWithFixture(t *testing.T) {
 	origFulcioIntermed := getFulcioIntermedFn
 	tufInitializeFn = func(_ context.Context, _ string, _ []byte) error { return nil }
 	getTrustedRootFromTUFFn = func(_ context.Context, _ *v1beta1.TUF) (*root.TrustedRoot, error) {
+		if trustedRoot != nil {
+			return trustedRoot, nil
+		}
 		return newTestTrustedRoot(t), nil
 	}
 	getRekorPubsFn = func(_ context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
@@ -109,6 +120,9 @@ func stubTufWithFixture(t *testing.T) {
 		return nil, fmt.Errorf("stubbed CTLog TUF lookup")
 	}
 	getFulcioRootsFn = func() (*x509.CertPool, error) {
+		if fulcioRoots != nil {
+			return fulcioRoots, nil
+		}
 		return nil, fmt.Errorf("stubbed Fulcio roots TUF lookup")
 	}
 	getFulcioIntermedFn = func() (*x509.CertPool, error) {

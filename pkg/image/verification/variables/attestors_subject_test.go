@@ -57,6 +57,8 @@ func TestSubjectExpressionBecomesSubjectRegExp(t *testing.T) {
 
 // TestSubjectExpressionPerIdentity checks that every identity keeps its own
 // resolved subject, so a later identity cannot inherit an earlier one's value.
+// Two expressions sit at nonzero indices: a program stored at a fixed index
+// would resolve one of them into the wrong identity and fail here.
 func TestSubjectExpressionPerIdentity(t *testing.T) {
 	env := subjectExpressionEnv(t)
 	attestors := []policiesv1beta1.Attestor{{
@@ -64,9 +66,10 @@ func TestSubjectExpressionPerIdentity(t *testing.T) {
 		Cosign: &policiesv1beta1.Cosign{
 			Keyless: &policiesv1beta1.Keyless{
 				Identities: []policiesv1beta1.Identity{
-					{Issuer: "https://token.actions.githubusercontent.com", SubjectExpression: "data.first"},
 					{Issuer: "https://accounts.google.com", Subject: "static@example.com"},
+					{Issuer: "https://token.actions.githubusercontent.com", SubjectExpression: "data.first"},
 					{Issuer: "https://token.actions.githubusercontent.com", SubjectRegExp: "^static-regexp$"},
+					{Issuer: "https://token.actions.githubusercontent.com", SubjectExpression: "data.second"},
 				},
 			},
 		},
@@ -76,15 +79,31 @@ func TestSubjectExpressionPerIdentity(t *testing.T) {
 	require.Empty(t, errs)
 
 	got, err := compiled[0].Evaluate(context.Background(), map[string]any{
-		"data": map[string]string{"first": "^from-expression$"},
+		"data": map[string]string{
+			"first":  "^from-first-expression$",
+			"second": "^from-second-expression$",
+		},
 	})
 	require.NoError(t, err)
 
 	identities := got.Cosign.Keyless.Identities
-	assert.Equal(t, "^from-expression$", identities[0].SubjectRegExp)
-	assert.Empty(t, identities[1].SubjectRegExp)
-	assert.Equal(t, "static@example.com", identities[1].Subject)
+	// The static identity is untouched by either expression.
+	assert.Equal(t, "static@example.com", identities[0].Subject)
+	assert.Empty(t, identities[0].SubjectRegExp)
+	assert.Empty(t, identities[0].SubjectExpression)
+	// Each expression lands on its own identity.
+	assert.Equal(t, "^from-first-expression$", identities[1].SubjectRegExp)
+	assert.Equal(t, "^from-second-expression$", identities[3].SubjectRegExp)
+	// The static regexp identity keeps its own value.
 	assert.Equal(t, "^static-regexp$", identities[2].SubjectRegExp)
+	assert.Empty(t, identities[2].SubjectExpression)
+
+	if t.Failed() {
+		return
+	}
+	for i, id := range identities {
+		t.Logf("identity[%d] subject=%q subjectRegExp=%q subjectExpression=%q", i, id.Subject, id.SubjectRegExp, id.SubjectExpression)
+	}
 }
 
 // TestSubjectExpressionEmptyResultFailsClosed guards the one way the fix could
