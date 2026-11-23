@@ -201,6 +201,184 @@ func Test_firstVerifiedPanics(t *testing.T) {
 	assert.Empty(t, errs)
 }
 
+// acquire aborts immediately if the context is already cancelled, without taking
+// from own or extra.
+func Test_verifyPoolAcquirePreCancelledContext(t *testing.T) {
+	t.Parallel()
+	pool := testPool(1, time.Hour)
+	own := make(chan struct{}, 1)
+	own <- struct{}{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	release, err := pool.acquire(ctx, own, false)
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Nil(t, release)
+
+	// own should not have been consumed.
+	select {
+	case <-own:
+	default:
+		t.Fatal("expected own to retain its token")
+	}
+}
+
+// waitContext signals waiting when acquire enters a blocking select on Done().
+type waitContext struct {
+	context.Context
+	waiting chan struct{}
+}
+
+func (c *waitContext) Done() <-chan struct{} {
+	select {
+	case c.waiting <- struct{}{}:
+	default:
+	}
+	return c.Context.Done()
+}
+
+// acquire aborts when the context is cancelled while waiting for extra.
+func Test_verifyPoolAcquireCancelledWhileWaitingForExtra(t *testing.T) {
+	t.Parallel()
+	pool := testPool(0, 0)        // extra has buffer 0, so extra <- struct{}{} will block
+	own := make(chan struct{}, 1) // own is empty
+
+	baseCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	waiting := make(chan struct{}, 1)
+	ctx := &waitContext{Context: baseCtx, waiting: waiting}
+
+	done := make(chan struct{})
+	go func() {
+		release, err := pool.acquire(ctx, own, false)
+		assert.ErrorIs(t, err, context.Canceled)
+		assert.Nil(t, release)
+		close(done)
+	}()
+
+	select {
+	case <-waiting:
+	case <-time.After(5 * time.Second):
+		t.Fatal("acquire did not start waiting for extra")
+	}
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("acquire did not return after context cancellation")
+	}
+}
+
+// acquire aborts when the context is cancelled while waiting for hedgeDelay.
+func Test_verifyPoolAcquireCancelledWhileHedging(t *testing.T) {
+	t.Parallel()
+	pool := testPool(1, time.Hour)
+	own := make(chan struct{}, 1) // own is empty
+
+	baseCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	waiting := make(chan struct{}, 1)
+	ctx := &waitContext{Context: baseCtx, waiting: waiting}
+
+	done := make(chan struct{})
+	go func() {
+		release, err := pool.acquire(ctx, own, true)
+		assert.ErrorIs(t, err, context.Canceled)
+		assert.Nil(t, release)
+		close(done)
+	}()
+
+	select {
+	case <-waiting:
+	case <-time.After(5 * time.Second):
+		t.Fatal("acquire did not start waiting for hedge")
+	}
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("acquire did not abort hedge wait after context cancellation")
+	}
+}
+
+// acquire successfully acquires own during hedgeDelay if own becomes available,
+// and stops the hedge timer.
+func Test_verifyPoolAcquireOwnFreedDuringHedge(t *testing.T) {
+	t.Parallel()
+	pool := testPool(0, time.Hour)
+	own := make(chan struct{}, 1) // initially empty
+
+	waiting := make(chan struct{}, 1)
+	ctx := &waitContext{Context: context.Background(), waiting: waiting}
+
+	done := make(chan struct{})
+	go func() {
+		release, err := pool.acquire(ctx, own, true)
+		assert.NoError(t, err)
+		assert.NotNil(t, release)
+		release()
+		close(done)
+	}()
+
+	select {
+	case <-waiting:
+	case <-time.After(5 * time.Second):
+		t.Fatal("acquire did not start waiting for hedge")
+	}
+	own <- struct{}{}
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("acquire did not acquire own when freed during hedge")
+	}
+}
+
+// firstVerified returns immediately when the caller's context is cancelled,
+// and does not block on hedge delay or pool contention.
+func Test_firstVerifiedContextCancelled(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	started0 := make(chan struct{})
+	pool := testPool(0, time.Hour)
+
+	done := make(chan struct{})
+	go func() {
+		found, errs := pool.firstVerified(ctx, 3, func(ctx context.Context, i int) error {
+			if i == 0 {
+				close(started0)
+				<-ctx.Done()
+				return ctx.Err()
+			}
+			return nil
+		})
+		assert.Equal(t, -1, found)
+		assert.Len(t, errs, 3)
+		for _, err := range errs {
+			assert.ErrorIs(t, err, context.Canceled)
+		}
+		close(done)
+	}()
+
+	select {
+	case <-started0:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first index did not start")
+	}
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("firstVerified did not return promptly after context cancellation")
+	}
+}
+
 func errStrings(errs []error) []string {
 	s := []string{}
 	for _, err := range errs {

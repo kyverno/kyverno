@@ -279,3 +279,20 @@ func Test_AutogenImageVerify_StringLiterals(t *testing.T) {
 	// AuditAnnotations valueExpression preserved
 	assert.Equal(t, "object.metadata.name + ' - evaluated for object.spec'", rule.Spec.AuditAnnotations[0].ValueExpression)
 }
+
+func TestRewriteExceptions(t *testing.T) {
+	polex := &policiesv1beta1.PolicyException{
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "match",
+					Expression: "object.spec.containers.exists(c, c.name == 'nginx')",
+				},
+			},
+		},
+	}
+	res, err := RewriteExceptions([]*policiesv1beta1.PolicyException{polex}, autogen.AutogenDefaults)
+	assert.NoError(t, err)
+	assert.Len(t, res, 1)
+	assert.Equal(t, "object.spec.template.spec.containers.exists(c, c.name == 'nginx')", res[0].Spec.MatchConditions[0].Expression)
+}
