@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -36,10 +37,10 @@ func BuildValidatingAdmissionPolicy(
 
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		matchResources = *vpol.Spec.MatchConstraints
-		matchConditions = vpol.Spec.MatchConditions
-		validations = vpol.Spec.Validations
-		auditAnnotations = vpol.Spec.AuditAnnotations
-		variables = vpol.Spec.Variables
+		matchConditions = slices.Clone(vpol.Spec.MatchConditions)
+		validations = slices.Clone(vpol.Spec.Validations)
+		auditAnnotations = slices.Clone(vpol.Spec.AuditAnnotations)
+		variables = slices.Clone(vpol.Spec.Variables)
 
 		usedNames := make(map[string]bool)
 		for _, mc := range matchConditions {

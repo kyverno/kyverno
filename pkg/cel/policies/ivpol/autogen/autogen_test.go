@@ -287,3 +287,20 @@ func Test_AutogenImageVerify_ResourceRuleWithoutOperations(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, rules)
 }
+
+func TestRewriteExceptions(t *testing.T) {
+	polex := &policiesv1beta1.PolicyException{
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "match",
+					Expression: "object.spec.containers.exists(c, c.name == 'nginx')",
+				},
+			},
+		},
+	}
+	res, err := RewriteExceptions([]*policiesv1beta1.PolicyException{polex}, autogen.AutogenDefaults)
+	assert.NoError(t, err)
+	assert.Len(t, res, 1)
+	assert.Equal(t, "object.spec.template.spec.containers.exists(c, c.name == 'nginx')", res[0].Spec.MatchConditions[0].Expression)
+}

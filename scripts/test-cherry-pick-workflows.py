@@ -155,6 +155,23 @@ const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
 """
 
 
+# Stands in for `sleep`, so a retry loop costs no time and the test can see how often it waited. It writes to its own
+# file, not CALLS, so tests that compare the exact gh and git calls are unaffected. With CATCH_UP_REF set, the first sleep
+# also pushes that ref to refs/pull/42/head, which is GitHub catching up with the push while the workflow waits.
+MOCK_SLEEP = """
+import os
+import subprocess
+import sys
+
+with open(os.environ["SLEEPS"], "a") as log:
+    log.write(" ".join(sys.argv[1:]) + "\\n")
+if os.environ.get("CATCH_UP_REF") and os.path.getsize(os.environ["SLEEPS"]) == len(" ".join(sys.argv[1:])) + 1:
+    subprocess.run(
+        ["/usr/bin/git", "push", "-q", "origin", os.environ["CATCH_UP_REF"] + ":refs/pull/42/head"], check=True,
+    )
+"""
+
+
 class CherryPickTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -167,10 +184,14 @@ class CherryPickTests(unittest.TestCase):
             path = self.directory / command
             path.write_text(f"#!{sys.executable}\n{MOCK_COMMAND}")
             path.chmod(0o755)
+        sleep = self.directory / "sleep"
+        sleep.write_text(f"#!{sys.executable}\n{MOCK_SLEEP}")
+        sleep.chmod(0o755)
         self.env = {
             **os.environ,
             "PATH": f"{self.directory}:{os.environ['PATH']}",
             "CALLS": str(self.directory / "calls"),
+            "SLEEPS": str(self.directory / "sleeps"),
             "GITHUB_OUTPUT": str(self.directory / "outputs"),
             "SOURCE_PR": "42",
             "SOURCE_PR_TITLE": "A normal PR",
@@ -197,6 +218,10 @@ class CherryPickTests(unittest.TestCase):
             cwd=self.directory,
             timeout=10,
         )
+
+    def sleeps(self):
+        path = self.directory / "sleeps"
+        return path.read_text().splitlines() if path.exists() else []
 
     def calls(self):
         path = self.directory / "calls"
@@ -679,9 +704,26 @@ class CherryPickTests(unittest.TestCase):
         git("push", "-q", "origin", "HEAD:refs/pull/42/head")
         result = self.shell(guard, REAL_GIT="1", BASE_SHA=base, HEAD_SHA=head)
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.sleeps(), [], "a head that already matches must not wait")
         result = self.shell(guard, REAL_GIT="1", BASE_SHA=base, HEAD_SHA=base)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("PR head changed", result.stdout)
+        self.assertEqual(self.sleeps(), ["5"] * 5, "a head that really changed fails after six fetches and five waits")
+
+    def test_conflict_guard_waits_for_the_pr_head_ref_to_catch_up(self):
+        git, _ = self.local_repository()
+        guard = CONFLICT_CHECK["jobs"]["check"]["steps"][-1]
+        base = git("rev-parse", "release-1.19")
+        # GitHub still has the previous commit under refs/pull/42/head when the run starts...
+        git("push", "-q", "origin", "HEAD:refs/pull/42/head")
+        (self.directory / "resource").write_text("fixed\n")
+        git("commit", "-qam", "The commit the event names")
+        head = git("rev-parse", "HEAD")
+        # ...and catches up during the first wait.
+        result = self.shell(guard, REAL_GIT="1", BASE_SHA=base, HEAD_SHA=head, CATCH_UP_REF="HEAD")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.sleeps(), ["5"], "the run waits once, then checks the commit it was started for")
+        self.assertNotIn("PR head changed", result.stdout)
 
     def test_conflict_guard_detects_diff3_without_rejecting_markdown(self):
         git, _ = self.local_repository()
