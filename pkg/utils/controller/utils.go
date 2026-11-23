@@ -6,9 +6,11 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/pager"
 )
 
 type CreateClient[T metav1.Object] interface {
@@ -50,6 +52,51 @@ type WatchClient interface {
 
 type ListClient[T any] interface {
 	List(context.Context, metav1.ListOptions) (T, error)
+}
+
+// ListIndexByUID builds a complete UID index and returns the collection version to watch from.
+func ListIndexByUID[L interface {
+	runtime.Object
+	metav1.ListInterface
+}, V any](
+	ctx context.Context,
+	options metav1.ListOptions,
+	list func(context.Context, metav1.ListOptions) (L, error),
+	entry func(runtime.Object) (types.UID, V),
+) (map[types.UID]V, string, error) {
+	if options.Continue != "" {
+		return nil, "", apierrors.NewBadRequest("a complete UID index cannot start with a continuation token")
+	}
+	for attempt := 0; ; attempt++ {
+		index := make(map[types.UID]V)
+		var resourceVersion string
+		pages := pager.New(func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
+			if opts.Continue != "" {
+				opts.ResourceVersion = ""
+				opts.ResourceVersionMatch = ""
+			}
+			page, err := list(ctx, opts)
+			if err == nil && opts.Continue == "" {
+				resourceVersion = page.GetResourceVersion()
+			}
+			return page, err
+		})
+		pages.FullListIfExpired = false // Retry expired snapshots with paginated requests only.
+		pages.PageBufferSize = 0        // Do not queue decoded pages while building the index.
+		// EachListItem lets us retain only the index as pages are consumed.
+		err := pages.EachListItem(ctx, options, func(obj runtime.Object) error {
+			uid, value := entry(obj)
+			index[uid] = value
+			return nil
+		})
+		if err == nil {
+			return index, resourceVersion, nil
+		}
+		if attempt == 0 && (apierrors.IsResourceExpired(err) || apierrors.IsGone(err)) && resourceVersion != "" && ctx.Err() == nil {
+			continue // Rebuild from a fresh snapshot, discarding the partial index.
+		}
+		return nil, "", err
+	}
 }
 
 type StatusClient[T metav1.Object] interface {

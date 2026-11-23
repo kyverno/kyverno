@@ -21,6 +21,8 @@ var testGVR = schema.GroupVersionResource{Group: "reports.kyverno.io", Version: 
 
 // listResult is one canned response for the List call, in order.
 type listResult struct {
+	err             error
+	continueToken   string
 	resourceVersion string
 	items           []metav1.PartialObjectMetadata
 }
@@ -60,7 +62,10 @@ func newFakeReportsClient(lists ...listResult) *fakeReportsClient {
 		defer c.mu.Unlock()
 		result := c.lists[min(c.listed, len(c.lists)-1)]
 		c.listed++
-		list := &metav1.List{ListMeta: metav1.ListMeta{ResourceVersion: result.resourceVersion}}
+		if result.err != nil {
+			return true, nil, result.err
+		}
+		list := &metav1.List{ListMeta: metav1.ListMeta{ResourceVersion: result.resourceVersion, Continue: result.continueToken}}
 		for i := range result.items {
 			list.Items = append(list.Items, runtime.RawExtension{Object: &result.items[i]})
 		}
@@ -174,9 +179,13 @@ func TestResourceCounterRecoversFromRejectedWatch(t *testing.T) {
 // admission counter counts background scan reports and the other way around.
 func TestResourceCounterSeedsOnlyMatchingResources(t *testing.T) {
 	client := newFakeReportsClient(
-		listResult{resourceVersion: "100", items: []metav1.PartialObjectMetadata{
+		listResult{resourceVersion: "100", continueToken: "next", items: []metav1.PartialObjectMetadata{
 			report("a", "uid-a", "admission"),
 			report("b", "uid-b", "background-scan"),
+		}},
+		listResult{resourceVersion: "100", items: []metav1.PartialObjectMetadata{
+			report("c", "uid-c", "admission"),
+			report("d", "uid-d", "background-scan"),
 		}},
 	)
 
@@ -185,7 +194,22 @@ func TestResourceCounterSeedsOnlyMatchingResources(t *testing.T) {
 		t.Fatalf("StartResourceCounter: %v", err)
 	}
 
-	if count, _ := c.Count(); count != 1 {
-		t.Fatalf("Count() = %d, want 1: only the admission report should be counted", count)
+	if count, _ := c.Count(); count != 2 {
+		t.Fatalf("Count() = %d, want 2: only the admission reports from both pages should be counted", count)
+	}
+}
+
+func TestListResourceUIDsRestartsExpiredSnapshot(t *testing.T) {
+	client := newFakeReportsClient(
+		listResult{resourceVersion: "10", continueToken: "next", items: []metav1.PartialObjectMetadata{report("old", "old", "admission")}},
+		listResult{err: apierrors.NewResourceExpired("expired continuation")},
+		listResult{resourceVersion: "20", items: []metav1.PartialObjectMetadata{report("new", "new", "admission")}},
+	)
+	uids, rv, err := listResourceUIDs(t.Context(), metav1.ListOptions{}, client.Resource(testGVR).List)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rv != "20" || uids.Len() != 1 || !uids.Has("new") {
+		t.Fatalf("expected only the new UID at version 20, got %v at %q", uids, rv)
 	}
 }
