@@ -15,6 +15,14 @@
 # is a Tests run on the target branch: the tracking issue and the E2E gate
 # (.github/workflows/e2e-gate.yaml) follow those runs only.
 #
+# Runs are started with a token of the PR updater GitHub App, not GITHUB_TOKEN:
+# when a run started with GITHUB_TOKEN finishes, GitHub doesn't start the
+# workflows that listen for it, so the Tests re-run workflow
+# (.github/workflows/tests-rerun.yaml) and the E2E gate would never see it.
+# When the app token can't be created, the job falls back to GITHUB_TOKEN with
+# a warning, and the Tests run then updates the tracking issue on its first
+# attempt instead of waiting for a re-run.
+#
 # Supported release branches: set the E2E_RELEASE_BRANCHES repository variable
 # to a space-separated list, for example "release-1.19 release-1.20". When it
 # is unset, the scheduler uses the three newest release-1.x branches.
@@ -61,14 +69,36 @@ jobs:
       actions: write
       contents: read
     env:
-      GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       MATRIX: ${{ github.event_name == 'workflow_dispatch' && inputs.matrix || (github.event.schedule == '0 2 * * *' && 'full' || 'reduced') }}
       RELEASE_BRANCHES: ${{ vars.E2E_RELEASE_BRANCHES }}
       WORKFLOW: check-tests.yaml
     steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions
+      - name: Create GitHub App token
+        id: app-token
+        continue-on-error: true
+        uses: ./.github/actions/workflow/app-token
+        with:
+          client-id: ${{ secrets.PR_UPDATER_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PR_UPDATER_APP_PRIVATE_KEY }}
+          # actions: list and start runs of the Tests workflow
+          permission-actions: write
+          # contents: resolve the HEAD of each branch
+          permission-contents: read
+      - name: Warn about the GITHUB_TOKEN fallback
+        if: steps.app-token.outputs.token == ''
+        run: |
+          echo "::warning::Could not create the GitHub App token, so runs start with GITHUB_TOKEN. Failed runs aren't re-run automatically, and the E2E gate updates only on its next trigger."
+          echo "- Started runs with \`GITHUB_TOKEN\` because the GitHub App token couldn't be created. Failed runs aren't re-run automatically." >> "$GITHUB_STEP_SUMMARY"
       - name: Start runs
         shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
         run: |
           set -euo pipefail
 

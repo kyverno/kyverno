@@ -119,7 +119,7 @@ func TestCosignVerificationDiagnosticsCounts(t *testing.T) {
 					}
 					require.Equal(t, 4, verifier.calls)
 					verified, attempted := results.Status("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105")
-					require.True(t, verified)
+					require.False(t, verified, "partial verification must not record verified")
 					require.True(t, attempted)
 					var definition *policiesv1beta1.Attestation
 					if attestation {
@@ -193,4 +193,85 @@ func TestCosignVerificationDiagnosticsFailureUncached(t *testing.T) {
 	found, _, err := cache.Get("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", attestors, nil)
 	require.NoError(t, err)
 	require.False(t, found)
+}
+
+func TestVerificationResults_RequireAllAttestorsToSucceed(t *testing.T) {
+	t.Parallel()
+	const image = "ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
+	for _, attestation := range []bool{false, true} {
+		t.Run(fmt.Sprintf("attestation=%t", attestation), func(t *testing.T) {
+			t.Parallel()
+			env, err := cel.NewEnv(Lib(), cel.Variable("attestors", cel.ListType(cel.DynType)))
+			require.NoError(t, err)
+
+			expression := `verifyImageSignatures("` + image + `", attestors)`
+			if attestation {
+				expression = `verifyAttestationSignatures("` + image + `", "proof", attestors)`
+			}
+			policy := &policiesv1beta1.ImageValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "multi-attestor-test", UID: "multi-attestor-test"},
+				Spec: policiesv1beta1.ImageValidatingPolicySpec{
+					Attestations: []policiesv1beta1.Attestation{{Name: "proof", InToto: &policiesv1beta1.InToto{Type: "proof"}}},
+				},
+			}
+
+			t.Run("partial attestor failure records false", func(t *testing.T) {
+				ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
+				results := NewImageVerificationResults()
+				cache, err := imageverifycache.New(imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
+				require.NoError(t, err)
+				r := NewRuntimeForPolicy(context.Background(), ivFuncs, runtimeImages{image: &imagedataloader.ImageData{}}, cache, results)
+				verifier := &diagnosticVerifier{err: errors.New("invalid signature")}
+				r.functions.cosignVerifier = verifier
+
+				// Two attestors: one invalid, one valid. 1 of 2 succeeds.
+				attestors := []policiesv1beta1.Attestor{
+					{Name: "invalid", Cosign: &policiesv1beta1.Cosign{}},
+					{Name: "valid", Cosign: &policiesv1beta1.Cosign{}},
+				}
+
+				ast, issues := env.Compile(expression)
+				require.NoError(t, issues.Err())
+				program, err := env.Program(ast)
+				require.NoError(t, err)
+
+				out, _, err := program.Eval(map[string]any{RuntimeKey: r, "attestors": attestors})
+				require.NoError(t, err)
+				require.Equal(t, int64(1), out.Value(), "count should be 1 because 1 attestor succeeded")
+
+				verified, attempted := results.Status(image)
+				require.True(t, attempted, "image verification was attempted")
+				require.False(t, verified, "partial attestor verification must not mark image as verified")
+			})
+
+			t.Run("all attestors succeed records true", func(t *testing.T) {
+				ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
+				results := NewImageVerificationResults()
+				cache, err := imageverifycache.New(imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
+				require.NoError(t, err)
+				r := NewRuntimeForPolicy(context.Background(), ivFuncs, runtimeImages{image: &imagedataloader.ImageData{}}, cache, results)
+				verifier := &diagnosticVerifier{err: errors.New("invalid signature")}
+				r.functions.cosignVerifier = verifier
+
+				// All attestors succeed.
+				attestors := []policiesv1beta1.Attestor{
+					{Name: "valid", Cosign: &policiesv1beta1.Cosign{}},
+				}
+
+				ast, issues := env.Compile(expression)
+				require.NoError(t, issues.Err())
+				program, err := env.Program(ast)
+				require.NoError(t, err)
+
+				out, _, err := program.Eval(map[string]any{RuntimeKey: r, "attestors": attestors})
+				require.NoError(t, err)
+				require.Equal(t, int64(1), out.Value())
+
+				verified, attempted := results.Status(image)
+				require.True(t, attempted, "image verification was attempted")
+				require.True(t, verified, "all attestors succeeded, so image must be marked as verified")
+			})
+		})
+	}
 }
