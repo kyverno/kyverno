@@ -3,7 +3,6 @@ package tracing
 import (
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -35,9 +34,7 @@ func TestStringValueTruncatesOnRuneBoundary(t *testing.T) {
 		input := strings.Repeat("a", 251+offset) + "€" + strings.Repeat("b", 50)
 		got := StringValue(input)
 
-		assert.True(t, utf8.ValidString(got))
-		assert.LessOrEqual(t, len(got), 256)
-		assert.True(t, strings.HasSuffix(got, "..."))
+		assert.Equal(t, strings.Repeat("a", 251+offset)+"...", got)
 	}
 }
 
