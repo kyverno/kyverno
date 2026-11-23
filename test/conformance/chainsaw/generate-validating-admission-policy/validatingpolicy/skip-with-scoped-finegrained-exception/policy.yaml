@@ -1,0 +1,23 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-deployment-images
+spec:
+  autogen:
+    podControllers:
+      controllers: []
+    validatingAdmissionPolicy:
+      enabled: true
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [apps]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   [deployments]
+  validations:
+    - expression: >-
+        object.spec.template.spec.containers.all(c, c.image in exceptions.allowedImages)
+      message: >-
+        Deployment images must be in allowedImages
