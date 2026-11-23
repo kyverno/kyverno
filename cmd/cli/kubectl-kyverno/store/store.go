@@ -2,9 +2,14 @@ package store
 
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/sdk/extensions/registryclient"
 )
+
+// GCtxStore is the subset of the global context store the CLI needs.
+type GCtxStore interface {
+	Get(key string) (store.Entry, bool)
+}
 
 type Context struct {
 	Policies []Policy `json:"policies"`
@@ -27,7 +32,7 @@ type Store struct {
 	allowApiCalls        bool
 	policies             []Policy
 	foreachElement       int
-	gctxStore            loaders.Store
+	gctxStore            GCtxStore
 	apiCallResponses     []v1alpha1.APICallResponseEntry
 	globalContextEntries []v1alpha1.GlobalContextEntryValue
 	httpMockIndex        map[string]interface{}
@@ -104,11 +109,11 @@ func (s *Store) IsApiCallAllowed() bool {
 	return s.allowApiCalls
 }
 
-func (s *Store) SetGlobalContextStore(store loaders.Store) {
-	s.gctxStore = store
+func (s *Store) SetGlobalContextStore(gctxStore GCtxStore) {
+	s.gctxStore = gctxStore
 }
 
-func (s *Store) GetGlobalContextStore() loaders.Store {
+func (s *Store) GetGlobalContextStore() GCtxStore {
 	return s.gctxStore
 }
 

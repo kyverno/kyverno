@@ -3,6 +3,7 @@ package evaluator
 import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -22,6 +23,16 @@ type ImageVerifyPolicyResponse struct {
 	Exceptions []*policiesv1beta1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 	Result     engineapi.RuleResponse
+	// Trace explains how the policy reached Result. It is nil unless the policy was compiled
+	// with tracing on (NewCompilerWithTrace). A traced policy that did not apply, or that a
+	// match condition skipped, is still returned so its trace is not lost, with an empty Result.
+	Trace *trace.Decision
+}
+
+// TraceOnly reports whether the policy is in the response only for its trace: it did not apply,
+// or a match condition skipped it, and without tracing it would not be in the response at all.
+func (r ImageVerifyPolicyResponse) TraceOnly() bool {
+	return r.Trace != nil && r.Result.Status() == ""
 }
 
 func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister) ([]string, error) {
@@ -96,10 +107,17 @@ func ivpolExpressions(ivpol policiesv1beta1.ImageValidatingPolicyLike) []string 
 }
 
 func attestorExpressions(att policiesv1beta1.Attestor) []string {
-	exprs := make([]string, 0, 6)
+	exprs := make([]string, 0, 7)
 	if att.Cosign != nil {
 		if att.Cosign.Key != nil && att.Cosign.Key.Expression != "" {
 			exprs = append(exprs, att.Cosign.Key.Expression)
+		}
+		if att.Cosign.Keyless != nil {
+			for _, id := range att.Cosign.Keyless.Identities {
+				if id.SubjectExpression != "" {
+					exprs = append(exprs, id.SubjectExpression)
+				}
+			}
 		}
 		if att.Cosign.Certificate != nil {
 			if att.Cosign.Certificate.Certificate != nil && att.Cosign.Certificate.Certificate.Expression != "" {

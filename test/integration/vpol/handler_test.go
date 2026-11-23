@@ -51,7 +51,9 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// waitForPolicyReady waits until the provider has compiled at least count policies.
+// waitForPolicyReady waits until the provider has compiled at least count policies. A count is
+// only reliable for a single policy: autogen gives each Pod policy several entries, so wait for two
+// or more policies by name with framework.WaitForVpols.
 func waitForPolicyReady(t *testing.T, count int) {
 	t.Helper()
 	ctx := context.Background()
@@ -336,7 +338,7 @@ func TestValidate_MultiplePolicies_DenyAndWarnCombined(t *testing.T) {
 		testEnv.Client.Delete(context.Background(), warnPolicy)
 		waitForPolicyGone(t)
 	})
-	waitForPolicyReady(t, 2)
+	framework.WaitForVpols(t, provider, "deny-latest-image", "warn-missing-limits")
 
 	eventGen := &framework.MockEventGen{}
 	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)

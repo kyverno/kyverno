@@ -619,8 +619,9 @@ def write_reports(a, rows):
             for r in sub:
                 k = r["counts"]
                 lbl = f"`{r['proposed_label']}`" if r.get("proposed_label") else "—"
+                title = r["title"].replace("|", "\\|")[:70]
                 fh.write(f"| [#{r['number']}](https://github.com/{a.repo}/pull/{r['number']}) | @{r['author']} | "
-                         f"{r['title'].replace('|', '\\|')[:70]} | {'Y' if r['draft'] else ''} | "
+                         f"{title} | {'Y' if r['draft'] else ''} | "
                          f"{'Y' if r['fork'] else ''} | {'Y' if r['maintainerCanModify'] else 'N'} | {r['mergeable']} | "
                          f"{k.get('LEGACY',0)}/{k.get('CEL',0)}/{k.get('SHARED',0)} | "
                          f"{r.get('content_signal') or ''} | {r.get('probe','SKIPPED')} | {lbl} | {r['action']} |\n")

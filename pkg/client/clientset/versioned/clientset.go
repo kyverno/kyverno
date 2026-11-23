@@ -22,7 +22,6 @@ import (
 	fmt "fmt"
 	http "net/http"
 
-	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
@@ -36,7 +35,6 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	KyvernoV1() kyvernov1.KyvernoV1Interface
 	KyvernoV2() kyvernov2.KyvernoV2Interface
 	KyvernoV2alpha1() kyvernov2alpha1.KyvernoV2alpha1Interface
 	KyvernoV2beta1() kyvernov2beta1.KyvernoV2beta1Interface
@@ -48,18 +46,12 @@ type Interface interface {
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	kyvernoV1           *kyvernov1.KyvernoV1Client
 	kyvernoV2           *kyvernov2.KyvernoV2Client
 	kyvernoV2alpha1     *kyvernov2alpha1.KyvernoV2alpha1Client
 	kyvernoV2beta1      *kyvernov2beta1.KyvernoV2beta1Client
 	policiesV1beta1     *policiesv1beta1.PoliciesV1beta1Client
 	wgpolicyk8sV1alpha2 *wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Client
 	reportsV1           *reportsv1.ReportsV1Client
-}
-
-// KyvernoV1 retrieves the KyvernoV1Client
-func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
-	return c.kyvernoV1
 }
 
 // KyvernoV2 retrieves the KyvernoV2Client
@@ -136,10 +128,6 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
-	cs.kyvernoV1, err = kyvernov1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
 	cs.kyvernoV2, err = kyvernov2.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -185,7 +173,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.kyvernoV1 = kyvernov1.New(c)
 	cs.kyvernoV2 = kyvernov2.New(c)
 	cs.kyvernoV2alpha1 = kyvernov2alpha1.New(c)
 	cs.kyvernoV2beta1 = kyvernov2beta1.New(c)

@@ -6,6 +6,8 @@ description: Install Helm
 runs:
   using: composite
   steps:
+    - if: env.RELEASE_CANDIDATE == 'true' && env.RELEASE_RESTORED != 'true'
+      uses: ./.github/actions/release/restore
     - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
     - shell: bash
       run: |

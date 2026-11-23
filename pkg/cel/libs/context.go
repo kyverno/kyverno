@@ -74,9 +74,12 @@ type contextProvider struct {
 	imagedata          imagedataloader.Fetcher
 	gctxStore          gctxstore.Store
 	generatedResources []*unstructured.Unstructured
-	genCtx             generateContext
-	cliEvaluation      bool // if true, libraries that create resources (like the generator library) don't post the created resource to an actual cluster
-	restMapper         meta.RESTMapper
+	// UID-qualified identities from the current UpdateRequest, isolated per
+	// evaluation. These authorize only matching legacy downstream objects.
+	acknowledgedGeneratedResources map[string]string
+	genCtx                         generateContext
+	cliEvaluation                  bool // if true, libraries that create resources (like the generator library) don't post the created resource to an actual cluster
+	restMapper                     meta.RESTMapper
 }
 
 func NewContextProvider(
@@ -140,6 +143,10 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 }
 
 func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option) (map[string]any, error) {
+	return cp.GetImageDataContext(context.TODO(), image, remoteOpts)
+}
+
+func (cp *contextProvider) GetImageDataContext(ctx context.Context, image string, remoteOpts []remote.Option) (map[string]any, error) {
 	// NOTE: we deliberately not pass name options here because there is currently only one
 	// name option we build, which is name.Insecure. This option already gets build and passed
 	// during the fetching of the global registry client options and then building the image data
@@ -147,7 +154,7 @@ func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option
 	// the current state means we are using the flags of the registry client to denote whether we use the name insecure option here
 	// so we aren't honoring it per policy. but if we did per policy, then a policy without anything wouldn't pass this opt
 	// but the if the flag is set, the registry client opts will come with the name insecure option
-	data, err := cp.imagedata.FetchImageData(context.TODO(), image, remoteOpts, nil)
+	data, err := cp.imagedata.FetchImageData(ctx, image, remoteOpts, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -155,6 +162,10 @@ func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option
 }
 
 func (cp *contextProvider) ListResources(apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
+	return cp.ListResourcesContext(context.TODO(), apiVersion, resource, namespace, l)
+}
+
+func (cp *contextProvider) ListResourcesContext(ctx context.Context, apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
@@ -176,12 +187,16 @@ func (cp *contextProvider) ListResources(apiVersion, resource, namespace string,
 		labelSelector = labels.SelectorFromSet(l)
 	}
 
-	return resourceInteface.List(context.TODO(), metav1.ListOptions{
+	return resourceInteface.List(ctx, metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 }
 
 func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+	return cp.GetResourceContext(context.TODO(), apiVersion, resource, namespace, name)
+}
+
+func (cp *contextProvider) GetResourceContext(ctx context.Context, apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
@@ -201,10 +216,17 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	}
 
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{}, subresources...)
+	return resourceInteface.Get(ctx, name, metav1.GetOptions{}, subresources...)
 }
 
 func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
+	return cp.PostResourceContext(context.TODO(), apiVersion, resource, namespace, data)
+}
+
+func (cp *contextProvider) PostResourceContext(ctx context.Context, apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
@@ -221,10 +243,17 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 	}
 
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{}, subresources...)
+	return resourceInteface.Create(ctx, &unstructured.Unstructured{Object: data}, metav1.CreateOptions{}, subresources...)
 }
 
 func (cp *contextProvider) GenerateResources(namespace string, dataList []map[string]any) error {
+	return cp.GenerateResourcesContext(context.TODO(), namespace, dataList)
+}
+
+func (cp *contextProvider) GenerateResourcesContext(ctx context.Context, namespace string, dataList []map[string]any) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	for _, data := range dataList {
 		resource := &unstructured.Unstructured{Object: data}
 
@@ -293,7 +322,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			item.SetNamespace(targetNamespace)
 			// check if the resource already exists
 			existing, err := cp.client.GetResource(
-				context.TODO(),
+				ctx,
 				item.GetAPIVersion(),
 				item.GetKind(),
 				targetNamespace,
@@ -306,7 +335,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 						var generatedRes *unstructured.Unstructured
 						if cp.genCtx.useServerSideApply {
 							generatedRes, err = cp.client.ApplyResource(
-								context.TODO(),
+								ctx,
 								item.GetAPIVersion(),
 								item.GetKind(),
 								targetNamespace,
@@ -317,7 +346,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 							)
 						} else {
 							generatedRes, err = cp.client.CreateResource(
-								context.TODO(),
+								ctx,
 								item.GetAPIVersion(),
 								item.GetKind(),
 								targetNamespace,
@@ -334,11 +363,16 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				}
 				return err
 			}
-			if !cp.isManagedByPolicy(existing) {
-				// If the existing resource is NOT labeled as managed by this
-				// policy (e.g. an unrelated, user-created resource that
-				// happens to share the same name/kind/namespace), it must not
-				// be reported or updated here, otherwise it would be silently adopted.
+			owned, ownershipErr := cp.isManagedByPolicyChecked(ctx, existing)
+			if ownershipErr != nil {
+				// An incomplete desired set must not be reconciled as success.
+				// In particular, legacy scope ambiguity must stop evaluation,
+				// not silently make a previously generated object disappear.
+				return fmt.Errorf("verify generated resource %s/%s ownership: %w", targetNamespace, item.GetName(), ownershipErr)
+			}
+			if !owned {
+				// A pre-existing resource belonging to somebody else must not
+				// be reported or updated by this generating policy.
 				continue
 			}
 			// the resource already exists and is managed by this policy
@@ -352,7 +386,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			}
 			if cp.genCtx.useServerSideApply {
 				generatedRes, err := cp.client.ApplyResource(
-					context.TODO(),
+					ctx,
 					item.GetAPIVersion(),
 					item.GetKind(),
 					targetNamespace,
@@ -374,7 +408,7 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			item.SetUID(existing.GetUID())
 			item.SetResourceVersion(existing.GetResourceVersion())
 			generatedRes, err := cp.client.UpdateResource(
-				context.TODO(),
+				ctx,
 				item.GetAPIVersion(),
 				item.GetKind(),
 				targetNamespace,
@@ -397,14 +431,50 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 // were generated by us. The trigger UID check additionally prevents two
 // different triggers of the same policy from "adopting" each other's
 // downstream resource when they happen to render the same target name.
-func (cp *contextProvider) isManagedByPolicy(obj *unstructured.Unstructured) bool {
+func (cp *contextProvider) isManagedByPolicy(ctx context.Context, obj *unstructured.Unstructured) bool {
+	owned, _ := cp.isManagedByPolicyChecked(ctx, obj)
+	return owned
+}
+
+func (cp *contextProvider) isManagedByPolicyChecked(ctx context.Context, obj *unstructured.Unstructured) (bool, error) {
 	if obj == nil {
-		return false
+		return false, nil
 	}
 	labels := obj.GetLabels()
-	return labels[kyverno.LabelAppManagedBy] == kyverno.ValueKyvernoApp &&
-		labels[common.GeneratePolicyLabel] == cp.genCtx.policyName &&
-		labels[common.GenerateTriggerUIDLabel] == cp.genCtx.triggerUID
+	if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp ||
+		labels[common.GeneratePolicyLabel] != cp.genCtx.policyName ||
+		labels[common.GenerateTriggerUIDLabel] != cp.genCtx.triggerUID {
+		return false, nil
+	}
+	if cp.genCtx.policyNamespace != "" && !common.MatchesPolicyTriggerNamespace(labels, cp.genCtx.policyNamespace) {
+		return false, nil
+	}
+	if scope, marked := labels[common.GeneratePolicyScopeLabel]; marked {
+		if cp.genCtx.policyNamespace == "" {
+			return scope == common.GeneratePolicyScopeCluster, nil
+		}
+		return scope == common.GeneratePolicyScopeNamespaced, nil
+	}
+	// Apart from Namespace, cluster-scoped triggers cannot belong to a
+	// namespaced policy. Namespace triggers can, so legacy objects need the
+	// counterpart policy lookup below before being adopted.
+	if cp.genCtx.policyNamespace == "" && labels[common.GenerateTriggerNSLabel] == "" &&
+		labels[common.GenerateTriggerKindLabel] != "Namespace" {
+		return true, nil
+	}
+	// Historical downstreams with a namespaced or Namespace trigger have no
+	// durable policy-scope identity. The absence of a same-named policy in the
+	// other scope is NOT proof of origin: that policy may have been deleted.
+	// Do not adopt, update or delete these ambiguous objects without a
+	// UID-qualified UpdateRequest record. Compare the *live* object's UID to
+	// the persisted identity supplied for this evaluation by the controller.
+	if key := acknowledgedResourceKey(obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), obj.GetName()); key != "" &&
+		cp.acknowledgedGeneratedResources[key] != "" && cp.acknowledgedGeneratedResources[key] == string(obj.GetUID()) {
+		return true, nil
+	}
+	// Reject the evaluation rather than reporting a successful empty desired
+	// set that could prune an otherwise live watcher registration.
+	return false, fmt.Errorf("ambiguous legacy downstream without verified policy ownership")
 }
 
 func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
@@ -415,6 +485,11 @@ func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
 
 	labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
 	labels[common.GeneratePolicyLabel] = cp.genCtx.policyName
+	if cp.genCtx.policyNamespace == "" {
+		labels[common.GeneratePolicyScopeLabel] = common.GeneratePolicyScopeCluster
+	} else {
+		labels[common.GeneratePolicyScopeLabel] = common.GeneratePolicyScopeNamespaced
+	}
 	labels[common.GenerateTriggerNameLabel] = cp.genCtx.triggerName
 	labels[common.GenerateTriggerNSLabel] = cp.genCtx.triggerNamespace
 	labels[common.GenerateTriggerUIDLabel] = cp.genCtx.triggerUID
@@ -444,6 +519,31 @@ func (cp *contextProvider) SetGenerateContext(
 	cp.genCtx.triggerUID = triggerUID
 	cp.genCtx.restoreCache = restoreCache
 	cp.genCtx.useServerSideApply = useServerSideApply
+}
+
+// acknowledgedResourceKey ignores served API version but preserves the group,
+// kind and namespaced identity of a Kubernetes object.
+func acknowledgedResourceKey(apiVersion, kind, namespace, name string) string {
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return ""
+	}
+	return gv.Group + "\x00" + kind + "\x00" + namespace + "\x00" + name
+}
+
+// SetAcknowledgedGeneratedResources supplies the persisted UID identities of
+// previously generated resources for this evaluation only. It does not infer
+// ownership from the absence of a same-name policy in another scope.
+func (cp *contextProvider) SetAcknowledgedGeneratedResources(specs []kyverno.ResourceSpec) {
+	cp.acknowledgedGeneratedResources = make(map[string]string, len(specs))
+	for _, spec := range specs {
+		if spec.UID == "" || spec.Kind == "" || spec.Name == "" {
+			continue
+		}
+		if key := acknowledgedResourceKey(spec.APIVersion, spec.Kind, spec.Namespace, spec.Name); key != "" {
+			cp.acknowledgedGeneratedResources[key] = string(spec.UID)
+		}
+	}
 }
 
 func (cp *contextProvider) GetGeneratedResources() []*unstructured.Unstructured {

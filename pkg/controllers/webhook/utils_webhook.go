@@ -1,10 +1,9 @@
 package webhook
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	objectmeta "k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
 
@@ -12,8 +11,6 @@ import (
 // based on group, kind, scopeType, failurePolicy and webhookTimeout
 // a fine-grained webhook is created per policy with a unique path
 type webhook struct {
-	// policyMeta is set for fine-grained webhooks
-	policyMeta        objectmeta.ObjectName
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
 	rules             sets.Set[ruleEntry]
@@ -26,7 +23,7 @@ type ruleEntry struct {
 	resource    string
 	subresource string
 	scope       admissionregistrationv1.ScopeType
-	operation   kyvernov1.AdmissionOperation
+	operation   admissionv1.Operation
 }
 
 type groupVersionScope struct {
@@ -71,22 +68,10 @@ func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePoli
 	}
 }
 
-func newWebhookPerPolicy(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType, matchConditions []admissionregistrationv1.MatchCondition, policy kyvernov1.PolicyInterface) *webhook {
-	webhook := newWebhook(timeout, failurePolicy, matchConditions)
-	webhook.policyMeta = objectmeta.ObjectName{
-		Namespace: policy.GetNamespace(),
-		Name:      policy.GetName(),
-	}
-	if policy.GetSpec().CustomWebhookMatchConditions() {
-		webhook.matchConditions = policy.GetSpec().GetMatchConditions()
-	}
-	return webhook
-}
-
 func (wh *webhook) hasRule(
 	group, version, resource, subresource string,
 	scope admissionregistrationv1.ScopeType,
-	operation kyvernov1.AdmissionOperation,
+	operation admissionv1.Operation,
 ) bool {
 	var scopes []admissionregistrationv1.ScopeType
 	if scope == admissionregistrationv1.AllScopes {
@@ -175,13 +160,13 @@ func (wh *webhook) buildRulesWithOperations() []admissionregistrationv1.RuleWith
 			}
 			ops := gvs[resource]
 			switch rule.operation {
-			case kyvernov1.Create:
+			case admissionv1.Create:
 				ops.create = true
-			case kyvernov1.Update:
+			case admissionv1.Update:
 				ops.update = true
-			case kyvernov1.Delete:
+			case admissionv1.Delete:
 				ops.delete = true
-			case kyvernov1.Connect:
+			case admissionv1.Connect:
 				ops.connect = true
 			}
 			gvs[resource] = ops
@@ -225,7 +210,7 @@ func (wh *webhook) set(
 	resource string,
 	subresource string,
 	scope admissionregistrationv1.ScopeType,
-	operations ...kyvernov1.AdmissionOperation,
+	operations ...admissionv1.Operation,
 ) {
 	for _, operation := range operations {
 		wh.rules.Insert(ruleEntry{
@@ -241,12 +226,4 @@ func (wh *webhook) set(
 
 func (wh *webhook) isEmpty() bool {
 	return len(wh.rules) == 0
-}
-
-func (wh *webhook) key(separator string) string {
-	p := wh.policyMeta
-	if p.Namespace != "" {
-		return p.Namespace + separator + p.Name
-	}
-	return p.Name
 }

@@ -74,7 +74,7 @@ func TestGenerateResources_NamespacedPolicyAllowsNamespaced(t *testing.T) {
 
 // A cluster-scoped policy uses an empty namespace argument and may still
 // generate cluster-scoped resources.
-func TestGenerateResources_ClusterPolicyAllowsClusterScoped(t *testing.T) {
+func TestGenerateResources_ClusterScopedPolicyAllowsClusterScoped(t *testing.T) {
 	cp := &contextProvider{
 		cliEvaluation: true,
 		restMapper:    generateTestRESTMapper(),
@@ -104,9 +104,11 @@ func TestGenerateResources_ExistingResourceReportedAsGenerated(t *testing.T) {
 				"name":      "data",
 				"namespace": "tenant-ns",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel:     "test-gpol",
-					common.GenerateTriggerUIDLabel: "trigger-uid",
+					kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:      "test-gpol",
+					common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeNamespaced,
+					common.GenerateTriggerNSLabel:   "tenant-ns",
+					common.GenerateTriggerUIDLabel:  "trigger-uid",
 				},
 			},
 		},
@@ -229,9 +231,11 @@ func TestGenerateResources_ExistingResourceUpdatedInPlace(t *testing.T) {
 				"name":      "data",
 				"namespace": "tenant-ns",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel:     "test-gpol",
-					common.GenerateTriggerUIDLabel: "trigger-uid",
+					kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:      "test-gpol",
+					common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeNamespaced,
+					common.GenerateTriggerNSLabel:   "tenant-ns",
+					common.GenerateTriggerUIDLabel:  "trigger-uid",
 				},
 			},
 			"data": map[string]any{"quota": "10"},
@@ -273,9 +277,11 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 				"name":      "data",
 				"namespace": "tenant-ns",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel:     "test-gpol",
-					common.GenerateTriggerUIDLabel: "trigger-uid",
+					kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:      "test-gpol",
+					common.GeneratePolicyScopeLabel: common.GeneratePolicyScopeNamespaced,
+					common.GenerateTriggerNSLabel:   "tenant-ns",
+					common.GenerateTriggerUIDLabel:  "trigger-uid",
 				},
 			},
 		},

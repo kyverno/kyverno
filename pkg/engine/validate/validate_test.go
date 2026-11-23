@@ -2,13 +2,13 @@ package validate
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"gotest.tools/v3/assert"
 )
 
@@ -741,7 +741,9 @@ func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
 	assert.NilError(t, err)
 }
 
-func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
+// The pattern carries a literal operator value. Nothing in this tree substitutes variables any
+// more, so the pattern is used exactly as written.
+func TestValidateMap_LiteralOperatorPatternPasses(t *testing.T) {
 	rawPattern := []byte(`{
 		"spec":{
 			"containers":[
@@ -749,7 +751,7 @@ func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
 					"name":"*",
 					"resources":{
 						"requests":{
-							"memory":"$(<=./../../limits/memory)"
+							"memory":"<=2048Mi"
 						},
 						"limits":{
 							"memory":"2048Mi"
@@ -789,9 +791,6 @@ func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
 	var pattern, resource interface{}
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
-
-	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
-	assert.NilError(t, err)
 
 	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
@@ -960,7 +959,7 @@ func TestValidateMap_MalformedReferenceOnlyDolarMark(t *testing.T) {
 	assert.Assert(t, err != nil)
 }
 
-func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
+func TestValidateMap_LiteralOperatorPatternLimitsOnlyPasses(t *testing.T) {
 	rawPattern := []byte(`{
 		"spec":{
 			"containers":[
@@ -968,7 +967,7 @@ func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
 					"name":"*",
 					"resources":{
 						"requests":{
-							"memory":"$(<=./../../lim(its/mem)ory)"
+							"memory":"<=2048Mi"
 						},
 						"lim(its":{
 							"mem)ory":"2048Mi"
@@ -1009,12 +1008,63 @@ func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
-	assert.NilError(t, err)
-
 	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
+}
+
+func TestValidateMap_LiteralOperatorPatternRejects(t *testing.T) {
+	rawPattern := []byte(`{
+		"spec":{
+			"containers":[
+				{
+					"name":"*",
+					"resources":{
+						"requests":{
+							"memory":"<=2048Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	rawMap := []byte(`{
+		"apiVersion":"apps/v1",
+		"kind":"Deployment",
+		"metadata":{
+			"name":"nginx-deployment",
+			"labels":{
+				"app":"nginx"
+			}
+		},
+		"spec":{
+			"containers":[
+				{
+					"name":"nirmata",
+					"resources":{
+						"requests":{
+							"memory":"4096Mi"
+						},
+						"limits":{
+							"memory":"2048Mi"
+						}
+					}
+				}
+			]
+		}
+	}`)
+
+	var pattern, resource interface{}
+	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
+	assert.Assert(t, json.Unmarshal(rawMap, &resource))
+
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
+	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
+	assert.Assert(t, err != nil)
 }
 
 func TestValidateMap_MalformedPath(t *testing.T) {
@@ -1071,63 +1121,6 @@ func TestValidateMap_MalformedPath(t *testing.T) {
 	assert.Assert(t, err != nil)
 }
 
-func TestValidateMap_AbosolutePathExists(t *testing.T) {
-	rawPattern := []byte(`{
-		"spec":{
-			"containers":[
-				{
-					"name":"*",
-					"resources":{
-						"requests":{
-							"memory":"$(<=/spec/containers/0/resources/limits/memory)"
-						},
-						"limits":{
-							"memory":"2048Mi"
-						}
-					}
-				}
-			]
-		}
-	}`)
-
-	rawMap := []byte(`{
-		"apiVersion":"apps/v1",
-		"kind":"Deployment",
-		"metadata":{
-			"name":"nginx-deployment",
-			"labels":{
-				"app":"nginx"
-			}
-		},
-		"spec":{
-			"containers":[
-				{
-					"name":"nirmata",
-					"resources":{
-						"requests":{
-							"memory":"1024Mi"
-						},
-						"limits":{
-							"memory":"2048Mi"
-						}
-					}
-				}
-			]
-		}
-	}`)
-
-	var pattern, resource interface{}
-	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
-	assert.Assert(t, json.Unmarshal(rawMap, &resource))
-
-	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
-	assert.NilError(t, err)
-
-	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
-	assert.Equal(t, path, "")
-	assert.Assert(t, err == nil)
-}
-
 func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
 	rawPattern := []byte(`{
 		"spec":{
@@ -1170,7 +1163,7 @@ func TestValidateMap_AbsolutePathToMetadata_fail(t *testing.T) {
 		"spec":{
 			"containers":[
 				{
-					"(name)":"$(/metadata/labels/app)",
+					"(name)":"nirmata*",
 					"image":"nirmata.io*"
 				}
 			]
@@ -1196,9 +1189,6 @@ func TestValidateMap_AbsolutePathToMetadata_fail(t *testing.T) {
 	var pattern, resource interface{}
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
-
-	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
-	assert.NilError(t, err)
 
 	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "/spec/containers/0/image/")
@@ -1760,4 +1750,19 @@ func testMatchPattern(t *testing.T, testCase struct {
 	} else if testCase.status == engineapi.RuleStatusError {
 		assert.Assert(t, err == nil, fmt.Sprintf("\nexpected error - test: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
 	}
+}
+
+func TestPatternError_Unwrap(t *testing.T) {
+	inner := errors.New("inner error")
+	pe := &PatternError{
+		Err:  inner,
+		Path: "spec.containers",
+		Skip: false,
+	}
+	assert.Equal(t, pe.Unwrap(), inner)
+	assert.Equal(t, errors.Unwrap(pe), inner)
+
+	var nilPe *PatternError
+	assert.Equal(t, nilPe.Unwrap(), nil)
+	assert.Equal(t, errors.Unwrap(nilPe), nil)
 }

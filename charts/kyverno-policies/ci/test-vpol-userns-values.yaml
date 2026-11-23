@@ -1,4 +1,3 @@
-policyType: ValidatingPolicy
 podSecurityStandard: restricted
 
 # Enable the Kubernetes PSA relaxation for user namespace pods.

@@ -52,6 +52,10 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 	}
 }
 
+// newActivationBuilder constructs the ActivationBuilder for an admission review.
+// Swapped in unit tests to observe builder instantiation and assembly across Handle.
+var newActivationBuilder = celcompiler.NewActivationBuilder
+
 func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicate Predicate) (EngineResponse, error) {
 	// A shared CEL cost budget for every policy this call evaluates (requestbudget.Ensure
 	// is a no-op if the webhook handler already set one on ctx).
@@ -66,7 +70,10 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 	if request.JsonPayload != nil {
 		response.Resource = request.JsonPayload
 		for _, policy := range policies {
-			response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.JsonPayload.Object, nil, nil, nil, nil, request.Context))
+			if predicate != nil && !predicate(policy.Policy) {
+				continue
+			}
+			response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.JsonPayload.Object, nil, nil, nil, nil, nil, request.Context))
 		}
 		annotateTraces(&response)
 		return response, nil
@@ -117,6 +124,7 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
 		return celcompiler.BuildRawRequestMap(&request.Request)
 	})
+	activationBuilder := newActivationBuilder(attr, &request.Request, namespace, requestMapFn, celcompiler.BuildRawRequestMap)
 	// evaluate policies
 	for _, policy := range policies {
 		if predicate != nil && !predicate(policy.Policy) {
@@ -124,7 +132,7 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		}
 
 		startTime := time.Now()
-		pol := e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, requestMapFn, request.Context)
+		pol := e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, activationBuilder, requestMapFn, request.Context)
 		for i, rule := range pol.Rules {
 			pol.Rules[i] = rule.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 		}
@@ -156,7 +164,8 @@ func annotateTraces(response *EngineResponse) {
 	}
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, requestMapFn func() (map[string]any, error), context libs.Context) engine.ValidatingPolicyResponse {
+// handlePolicy matches and evaluates a single ValidatingPolicy using the shared activationBuilder.
+func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, activationBuilder celcompiler.ActivationBuilder, requestMapFn func() (map[string]any, error), context libs.Context) engine.ValidatingPolicyResponse {
 	response := engine.ValidatingPolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
@@ -196,11 +205,10 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		// requestMapFn above - it must not be forwarded here.
 		result, err = e.evaluateExtracted(ctx, policy, attr, request, namespace, context)
 	default:
-		result, err = policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, requestMapFn, context)
+		result, err = policy.CompiledPolicy.EvaluateWithActivation(ctx, nil, attr, request, namespace, activationBuilder, requestMapFn, context)
 	}
-	// TODO: error is about match conditions here ?
 	if err != nil {
-		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
+		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to evaluate policy", err, nil))
 	} else if result == nil || result.Skipped {
 		response.Rules = append(response.Rules, *engineapi.RuleSkip("", engineapi.Validation, "skip", nil).WithSkipReason(engineapi.SkipReasonMatchConditions))
 	} else if len(result.Exceptions) > 0 {

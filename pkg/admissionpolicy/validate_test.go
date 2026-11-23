@@ -6,13 +6,22 @@ import (
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
-	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
+	"sigs.k8s.io/yaml"
 )
+
+// decodeVAP decodes a single ValidatingAdmissionPolicy YAML fixture; every fixture in this
+// file's tables is one such document.
+func decodeVAP(t *testing.T, raw []byte) *admissionregistrationv1.ValidatingAdmissionPolicy {
+	t.Helper()
+	var policy admissionregistrationv1.ValidatingAdmissionPolicy
+	assert.NilError(t, yaml.Unmarshal(raw, &policy))
+	return &policy
+}
 
 func TestGetKinds(t *testing.T) {
 	type test struct {
@@ -226,11 +235,10 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, policy, _, _, _, _, _, err := yamlutils.GetPolicy(tt.policy)
-			assert.NilError(t, err)
+			policy := decodeVAP(t, tt.policy)
 			restMapper, err := utils.GetRESTMapper(nil)
 			assert.NilError(t, err)
-			kinds := GetKinds(policy[0].Spec.MatchConstraints, restMapper)
+			kinds := GetKinds(policy.Spec.MatchConstraints, restMapper)
 			if !reflect.DeepEqual(kinds, tt.wantKinds) {
 				t.Errorf("Expected %v, got %v", tt.wantKinds, kinds)
 			}

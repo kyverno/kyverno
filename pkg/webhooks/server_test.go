@@ -153,7 +153,6 @@ func TestNewServer(t *testing.T) {
 		ValidatingPolicies: dummyHandler, NamespacedValidatingPolicies: dummyHandler,
 		GeneratingPolicies: dummyHandler, NamespacedGeneratingPolicies: dummyHandler,
 		ImageVerificationPolicies: dummyHandler, ImageVerificationPoliciesMutation: dummyHandler,
-		Mutation: dummyHandler, Validation: dummyHandler,
 	}
 	eHandlers := ExceptionHandlers{Validation: dummyHandler}
 	celHandlers := CELExceptionHandlers{Validation: dummyHandler}
@@ -201,7 +200,6 @@ func buildTestServerWithContext(t *testing.T, ctx context.Context, backgroundSer
 		GeneratingPolicies: dummyHandler, NamespacedGeneratingPolicies: dummyHandler,
 		ImageVerificationPolicies: dummyHandler, ImageVerificationPoliciesMutation: dummyHandler,
 		NamespacedImageVerificationPolicies: dummyHandler, NamespacedImageVerificationPoliciesMutation: dummyHandler,
-		Mutation: dummyHandler, Validation: dummyHandler,
 	}
 	eHandlers := ExceptionHandlers{Validation: dummyHandler}
 	celHandlers := CELExceptionHandlers{Validation: dummyHandler}
@@ -392,7 +390,6 @@ func TestServerProtectionRoutes(t *testing.T) {
 	const tenant = "system:serviceaccount:tenant:editor"
 	routes := []string{
 		config.GenerationLabelProtectionWebhookServicePath,
-		config.MutatingWebhookServicePath, config.ValidatingWebhookServicePath,
 		"/mpol/policy", "/nmpol/policy", "/vpol/policy", "/nvpol/policy",
 		"/ivpol/validate/policy", "/ivpol/mutate/policy",
 		"/nivpol/validate/policy", "/nivpol/mutate/policy", "/gpol/policy", "/ngpol/policy",
@@ -458,4 +455,137 @@ func TestServerProtectionRoutes(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestServerLegacyPolicyDenial proves the policy and exception validating routes deny legacy
+// kyverno.io policy writes at the mux level (WithLegacyPolicyDenial), including the 1.20
+// behavioural flip: a status-subresource update is now denied, not allowed. The mock inner
+// handler always returns Allowed: true, so any denial observed here comes from the decorator,
+// not from the handler.
+func TestServerLegacyPolicyDenial(t *testing.T) {
+	t.Parallel()
+	router := buildTestServer(t, "")
+
+	terminatingOld := []byte(`{"metadata":{"name":"cpol","deletionTimestamp":"2024-01-01T00:00:00Z","finalizers":["kyverno.io/cleanup"]},"spec":{}}`)
+	terminatingNew := []byte(`{"metadata":{"name":"cpol","deletionTimestamp":"2024-01-01T00:00:00Z","finalizers":[]},"spec":{}}`)
+
+	tests := []struct {
+		name, route string
+		kind        metav1.GroupVersionKind
+		operation   admissionv1.Operation
+		subResource string
+		oldObject   []byte
+		object      []byte
+		allowed     bool
+	}{
+		{
+			name: "policy route: create ClusterPolicy denied", route: config.PolicyValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}, operation: admissionv1.Create,
+			object: []byte(`{"metadata":{"name":"cpol"},"spec":{}}`), allowed: false,
+		},
+		{
+			name: "policy route: top-level update denied", route: config.PolicyValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}, operation: admissionv1.Update,
+			oldObject: []byte(`{"metadata":{"name":"cpol"},"spec":{"a":1}}`), object: []byte(`{"metadata":{"name":"cpol"},"spec":{"a":2}}`), allowed: false,
+		},
+		{
+			// This is PR 1's headline behavioural flip: the per-binary legacy status writer that
+			// used to register "status" as a transitionally allowed subresource is gone, so this
+			// now denies rather than succeeds.
+			name: "policy route: status subresource update denied", route: config.PolicyValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}, operation: admissionv1.Update, subResource: "status",
+			oldObject: []byte(`{"metadata":{"name":"cpol"},"status":{"ready":false}}`), object: []byte(`{"metadata":{"name":"cpol"},"status":{"ready":true}}`), allowed: false,
+		},
+		{
+			name: "policy route: delete allowed", route: config.PolicyValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}, operation: admissionv1.Delete,
+			object: []byte(`{"metadata":{"name":"cpol"},"spec":{}}`), allowed: true,
+		},
+		{
+			name: "policy route: finalizer removal on terminating object allowed", route: config.PolicyValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}, operation: admissionv1.Update,
+			oldObject: terminatingOld, object: terminatingNew, allowed: true,
+		},
+		{
+			name: "exception route: create legacy PolicyException denied", route: config.ExceptionValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"}, operation: admissionv1.Create,
+			object: []byte(`{"metadata":{"name":"polex"},"spec":{}}`), allowed: false,
+		},
+		{
+			name: "exception route: delete allowed", route: config.ExceptionValidatingWebhookServicePath,
+			kind: metav1.GroupVersionKind{Group: "kyverno.io", Version: "v2", Kind: "PolicyException"}, operation: admissionv1.Delete,
+			object: []byte(`{"metadata":{"name":"polex"},"spec":{}}`), allowed: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			request := &admissionv1.AdmissionRequest{
+				UID: "legacy-denial", Operation: test.operation, SubResource: test.subResource,
+				Kind:      test.kind,
+				Object:    runtime.RawExtension{Raw: test.object},
+				OldObject: runtime.RawExtension{Raw: test.oldObject},
+			}
+			body, err := json.Marshal(admissionv1.AdmissionReview{TypeMeta: metav1.TypeMeta{APIVersion: "admission.k8s.io/v1", Kind: "AdmissionReview"}, Request: request})
+			require.NoError(t, err)
+			httpRequest := httptest.NewRequest(http.MethodPost, test.route, bytes.NewReader(body))
+			httpRequest.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httpRequest)
+			require.Equal(t, http.StatusOK, response.Code)
+			var review admissionv1.AdmissionReview
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &review))
+			require.NotNil(t, review.Response)
+			assert.Equal(t, request.UID, review.Response.UID)
+			assert.Equal(t, test.allowed, review.Response.Allowed)
+		})
+	}
+}
+
+// TestServerLegacyCompatRoutes proves every 1.19 path shape under /validate and /mutate still gets
+// a 200/allowed response instead of a 404, so a stale webhook configuration persisted from before
+// #17710 doesn't turn into a cluster-wide write denial on a failurePolicy: Fail webhook. The
+// negative control proves the test would actually catch a missing route.
+func TestServerLegacyCompatRoutes(t *testing.T) {
+	t.Parallel()
+	router := buildTestServer(t, "")
+
+	for _, base := range []string{config.ValidatingWebhookServicePath, config.MutatingWebhookServicePath} {
+		for _, path := range []string{
+			base,
+			base + "/ignore",
+			base + "/fail",
+			base + "/ignore" + config.FineGrainedWebhookPath + "/ns/name",
+			base + "/fail" + config.FineGrainedWebhookPath + "/ns/name",
+		} {
+			t.Run(path, func(t *testing.T) {
+				t.Parallel()
+				request := &admissionv1.AdmissionRequest{
+					UID:       "legacy-compat",
+					Operation: admissionv1.Create,
+					Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+					Object:    runtime.RawExtension{Raw: []byte(`{"metadata":{"name":"pod"}}`)},
+				}
+				body, err := json.Marshal(admissionv1.AdmissionReview{TypeMeta: metav1.TypeMeta{APIVersion: "admission.k8s.io/v1", Kind: "AdmissionReview"}, Request: request})
+				require.NoError(t, err)
+				httpRequest := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
+				httpRequest.Header.Set("Content-Type", "application/json")
+				response := httptest.NewRecorder()
+				router.ServeHTTP(response, httpRequest)
+				require.Equalf(t, http.StatusOK, response.Code, "POST %s must not 404: a stale 1.19 webhook configuration with failurePolicy Fail would deny every matching write", path)
+				var review admissionv1.AdmissionReview
+				require.NoError(t, json.Unmarshal(response.Body.Bytes(), &review))
+				require.NotNil(t, review.Response)
+				assert.Equal(t, request.UID, review.Response.UID)
+				assert.True(t, review.Response.Allowed)
+			})
+		}
+	}
+
+	// Negative control: an unregistered path under the same base must still 404, proving the
+	// compat routes above are specific registrations, not a catch-all that would swallow this test.
+	httpRequest := httptest.NewRequest(http.MethodPost, config.ValidatingWebhookServicePath+"/not-a-real-shape/extra/segments", bytes.NewReader([]byte("{}")))
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httpRequest)
+	assert.Equal(t, http.StatusNotFound, response.Code)
 }

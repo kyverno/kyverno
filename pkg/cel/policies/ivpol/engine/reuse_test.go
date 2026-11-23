@@ -241,3 +241,32 @@ func TestReconcileRecompilesExceptions(t *testing.T) {
 	require.Equal(t, engineapi.RuleStatusFail, response.Policies[0].Result.Status())
 	require.Equal(t, 3*initial, c.calls)
 }
+
+// BenchmarkHandleValidating_SharedActivation measures admission validation throughput
+// and memory allocations across varying counts of image validating policies evaluating
+// the same admission review with shared activation assembly.
+func BenchmarkHandleValidating_SharedActivation(b *testing.B) {
+	for _, n := range []int{1, 16, 64} {
+		b.Run(fmt.Sprintf("N=%d", n), func(b *testing.B) {
+			policies := make([]policiesv1beta1.ImageValidatingPolicyLike, 0, n)
+			for i := 0; i < n; i++ {
+				p := reusablePolicy()
+				p.Name = fmt.Sprintf("policy-%d", i)
+				policies = append(policies, p)
+			}
+			provider, err := NewProvider(eval.NewCompiler(nil), policies, nil)
+			if err != nil {
+				b.Fatal(err)
+			}
+			e := reusableEngine(provider)
+			req := reuseRequest()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for b.Loop() {
+				if _, err := e.HandleValidating(context.Background(), req, nil); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}

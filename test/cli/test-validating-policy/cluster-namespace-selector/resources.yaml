@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-prod-pod
+  namespace: prod-ns
+  labels:
+    app: backend
+spec:
+  containers:
+  - name: app
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-prod-pod
+  namespace: prod-ns
+spec:
+  containers:
+  - name: app
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dev-pod
+  namespace: dev-ns
+spec:
+  containers:
+  - name: app
+    image: nginx

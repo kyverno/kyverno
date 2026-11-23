@@ -26,7 +26,6 @@ func FuzzEngineResponse(f *testing.F) {
 		_ = resp.GetPatches()
 		_ = resp.GetFailedRules()
 		_ = resp.GetFailedRulesWithErrors()
-		_ = resp.GetValidationFailureAction()
 		_ = resp.GetSuccessRules()
 	})
 }

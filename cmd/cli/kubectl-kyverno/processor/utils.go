@@ -2,9 +2,9 @@ package processor
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/go-git/go-billy/v5"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	clicontext "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/context"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -13,15 +13,24 @@ import (
 	"k8s.io/client-go/informers"
 )
 
-func policyHasValidateOrVerifyImageChecks(policy kyvernov1.PolicyInterface) bool {
-	for _, rule := range policy.GetSpec().Rules {
-		//  engine.validate handles both validate and verifyImageChecks atm
-		if rule.HasValidate() || rule.HasVerifyImageChecks() {
-			return true
-		}
-	}
-	return false
+type staticEntry struct {
+	value any
 }
+
+func (e *staticEntry) Get(projection string) (any, error) {
+	if projection == "" {
+		return e.value, nil
+	}
+	if m, ok := e.value.(map[string]any); ok {
+		if v, found := m[projection]; found {
+			return v, nil
+		}
+		return nil, fmt.Errorf("projection %q not found in global context entry", projection)
+	}
+	return nil, fmt.Errorf("projection %q requested on non-object value", projection)
+}
+
+func (e *staticEntry) Stop() {}
 
 func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f billy.Filesystem, contextPath string, registryAccess bool, isFake bool, globalContextEntries map[string]interface{}, httpMockIndex map[string]interface{}) (libs.Context, error) {
 	if dclient != nil && !isFake {
@@ -36,10 +45,14 @@ func NewContextProvider(dclient dclient.Interface, restMapper meta.RESTMapper, f
 		informerFactory.WaitForCacheSync(stopCh)
 
 		lister := informerFactory.Core().V1().Secrets().Lister()
+		gStore := gctxstore.New(0)
+		for name, data := range globalContextEntries {
+			_ = gStore.Set(name, &staticEntry{value: data})
+		}
 		return libs.NewContextProvider(
 			dclient,
 			lister,
-			gctxstore.New(0),
+			gStore,
 			restMapper,
 			true,
 		)

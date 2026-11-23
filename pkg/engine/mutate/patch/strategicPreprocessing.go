@@ -18,6 +18,10 @@ func (ce ConditionError) Error() string {
 	return fmt.Sprintf("condition failed: %s", ce.errorChain.Error())
 }
 
+func (ce ConditionError) Unwrap() error {
+	return ce.errorChain
+}
+
 func NewConditionError(err error) error {
 	return ConditionError{err}
 }
@@ -28,6 +32,10 @@ type GlobalConditionError struct {
 
 func (ce GlobalConditionError) Error() string {
 	return fmt.Sprintf("global condition failed: %s", ce.errorChain.Error())
+}
+
+func (ce GlobalConditionError) Unwrap() error {
+	return ce.errorChain
 }
 
 func NewGlobalConditionError(err error) error {
@@ -45,6 +53,9 @@ func NewGlobalConditionError(err error) error {
 // A parent node having Sequence keeps the data as array of Node inside Content field and a Tag field as "!!seq".
 // https://github.com/kubernetes-sigs/kustomize/blob/master/kyaml/yaml/rnode.go
 func PreProcessPattern(logger logr.Logger, pattern, resource *yaml.RNode) error {
+	if pattern == nil || pattern.YNode() == nil {
+		return nil
+	}
 	err := preProcessRecursive(logger, pattern, resource)
 	if err != nil {
 		return err
@@ -54,6 +65,9 @@ func PreProcessPattern(logger logr.Logger, pattern, resource *yaml.RNode) error 
 }
 
 func preProcessRecursive(logger logr.Logger, pattern, resource *yaml.RNode) error {
+	if pattern == nil || pattern.YNode() == nil {
+		return nil
+	}
 	switch pattern.YNode().Kind {
 	case yaml.MappingNode:
 		return walkMap(logger, pattern, resource)
@@ -105,7 +119,7 @@ func walkList(logger logr.Logger, pattern, resource *yaml.RNode) error {
 		return nil
 	}
 
-	if elements[0].YNode().Kind == yaml.MappingNode {
+	if elements[0] != nil && elements[0].YNode() != nil && elements[0].YNode().Kind == yaml.MappingNode {
 		return processListOfMaps(logger, pattern, resource)
 	}
 
@@ -122,9 +136,16 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 		return err
 	}
 
-	resourceElements, err := resource.Elements()
-	if err != nil {
-		return err
+	if yaml.IsMissingOrNull(resource) {
+		resource = nil
+	}
+
+	var resourceElements []*yaml.RNode
+	if resource != nil {
+		resourceElements, err = resource.Elements()
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, patternElement := range patternElements {
@@ -318,6 +339,9 @@ func hasAnchor(a anchor.Anchor) bool {
 }
 
 func hasAnchors(pattern *yaml.RNode, isAnchor func(anchor.Anchor) bool) bool {
+	if pattern == nil || pattern.YNode() == nil {
+		return false
+	}
 	ynode := pattern.YNode() //nolint:ifshort
 	if ynode.Kind == yaml.MappingNode {
 		fields, err := pattern.Fields()
@@ -353,14 +377,21 @@ func hasAnchors(pattern *yaml.RNode, isAnchor func(anchor.Anchor) bool) bool {
 }
 
 func renameField(name, newName string, pattern *yaml.RNode) {
+	if pattern == nil {
+		return
+	}
 	field := pattern.Field(name)
-	if field == nil {
+	if field == nil || field.Key == nil || field.Key.YNode() == nil {
 		return
 	}
 	field.Key.YNode().Value = newName
 }
 
 func convertRNodeToInterface(document *yaml.RNode) (interface{}, error) {
+	if document == nil || document.YNode() == nil {
+		return nil, nil
+	}
+
 	if document.YNode().Kind == yaml.ScalarNode {
 		return document.YNode().Value, nil
 	}
@@ -400,6 +431,9 @@ func checkCondition(logger logr.Logger, pattern *yaml.RNode, resource *yaml.RNod
 }
 
 func deleteConditionElements(pattern *yaml.RNode) error {
+	if pattern == nil {
+		return nil
+	}
 	fields, err := pattern.Fields()
 	if err != nil {
 		return err
@@ -407,7 +441,11 @@ func deleteConditionElements(pattern *yaml.RNode) error {
 
 	for _, field := range fields {
 		deleteScalar := anchor.ContainsCondition(anchor.Parse(field))
-		canDelete, err := deleteAnchors(pattern.Field(field).Value, deleteScalar, false)
+		fieldNode := pattern.Field(field)
+		if fieldNode == nil || fieldNode.Value == nil {
+			continue
+		}
+		canDelete, err := deleteAnchors(fieldNode.Value, deleteScalar, false)
 		if err != nil {
 			return err
 		}
@@ -429,6 +467,9 @@ func deleteConditionElements(pattern *yaml.RNode) error {
 // A patch with nil values which could cause
 // unnecessary resource elements deletion.
 func deleteAnchors(node *yaml.RNode, deleteScalar, traverseMappingNodes bool) (bool, error) {
+	if node == nil || node.YNode() == nil {
+		return false, nil
+	}
 	switch node.YNode().Kind {
 	case yaml.MappingNode:
 		return deleteAnchorsInMap(node, traverseMappingNodes)
@@ -450,6 +491,9 @@ func deleteAnchorsInMap(node *yaml.RNode, traverseMappingNodes bool) (bool, erro
 	anchorsExist := false
 	for _, a := range anchors {
 		field := node.Field(a.String())
+		if field == nil || field.Value == nil {
+			continue
+		}
 		shouldDelete, err := deleteAnchors(field.Value, true, traverseMappingNodes)
 		if err != nil {
 			return false, err
@@ -476,7 +520,11 @@ func deleteAnchorsInMap(node *yaml.RNode, traverseMappingNodes bool) (bool, erro
 
 	needToDelete := true
 	for _, field := range fields {
-		canDelete, err := deleteAnchors(node.Field(field).Value, false, traverseMappingNodes)
+		fieldNode := node.Field(field)
+		if fieldNode == nil || fieldNode.Value == nil {
+			continue
+		}
+		canDelete, err := deleteAnchors(fieldNode.Value, false, traverseMappingNodes)
 		if err != nil {
 			return false, err
 		}

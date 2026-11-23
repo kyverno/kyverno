@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: output-flags
+policies:
+- ../../../conformance/chainsaw/cli/apply/output-flags/policy.yaml
+resources:
+- ../../../conformance/chainsaw/cli/apply/output-flags/resource.yaml
+results:
+- isMutatingPolicy: true
+  kind: ConfigMap
+  patchedResources: ../../../conformance/chainsaw/cli/apply/output-flags/patched-resource.yaml
+  policy: add-output-label
+  resources:
+  - default/output-example
+  result: pass

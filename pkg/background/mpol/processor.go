@@ -11,7 +11,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
@@ -533,7 +533,7 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 	return result, multierr.Combine(errs...)
 }
 
-func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec) error {
+func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error, genResources []kyverno.ResourceSpec) error {
 	if err != nil {
 		if _, err := statusControl.Failed(ur.GetName(), err.Error(), genResources); err != nil {
 			return err
@@ -638,7 +638,7 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	if !pol.CompiledPolicy.MatchesConditions(ctx, attr, ar, nil, nil, p.context) {
 		return nil, nil
 	}
-	unstructuredResources, err := pol.CompiledPolicy.EvaluateTargetExpression(ctx, attr, ar, nil)
+	unstructuredResources, err := pol.CompiledPolicy.EvaluateTargetExpression(ctx, attr, ar, nil, p.context)
 	if err != nil {
 		return nil, err
 	}
@@ -700,7 +700,8 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 }
 
 func (p *processor) getResourcesFromExpression(ctx context.Context, expr, policyNs string, data map[string]interface{}) (map[string]interface{}, error) {
-	e, err := BuildMpolTargetEvalEnv(libs.GetLibsCtx(), policyNs)
+	libsCtx := libs.GetLibsCtx()
+	e, err := BuildMpolTargetEvalEnv(libsCtx, policyNs)
 	if err != nil {
 		return nil, err
 	}
@@ -716,6 +717,7 @@ func (p *processor) getResourcesFromExpression(ctx context.Context, expr, policy
 	if err != nil {
 		return nil, err
 	}
+	libs.BindRequestContext(ctx, libsCtx, data)
 	out, _, err := prog.ContextEval(ctx, data)
 	if err != nil {
 		return nil, err

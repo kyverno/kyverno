@@ -5,9 +5,6 @@ import (
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,74 +12,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
-
-// TestEnqueueExceptionContinuesOnMissingPolicy verifies that enqueueException
-// continues processing remaining exceptions even when one policy lookup fails.
-// This is a regression test for a bug where the function returned early on
-// the first error, skipping all subsequent exceptions.
-func TestEnqueueExceptionContinuesOnMissingPolicy(t *testing.T) {
-	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-
-	policy1 := &kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "policy-1",
-		},
-	}
-	policy2 := &kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "policy-2",
-		},
-	}
-
-	indexer.Add(policy1)
-	indexer.Add(policy2)
-
-	lister := kyvernov1listers.NewClusterPolicyLister(indexer)
-
-	c := &controller{
-		cpolLister: lister,
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[any](),
-			workqueue.TypedRateLimitingQueueConfig[any]{Name: "test"},
-		),
-	}
-
-	policies, err := lister.List(labels.Everything())
-	assert.NoError(t, err)
-	assert.Len(t, policies, 2, "should have 2 policies in lister")
-
-	// Create an exception that references three policies:
-	// - policy-1: exists, should be enqueued
-	// - policy-missing: does not exist, should be skipped
-	// - policy-2: exists, should be enqueued
-	exception := &kyvernov2.PolicyException{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-exception",
-		},
-		Spec: kyvernov2.PolicyExceptionSpec{
-			Exceptions: []kyvernov2.Exception{
-				{PolicyName: "policy-1", RuleNames: []string{"rule1"}},
-				{PolicyName: "policy-missing", RuleNames: []string{"rule1"}},
-				{PolicyName: "policy-2", RuleNames: []string{"rule1"}},
-			},
-		},
-	}
-
-	c.enqueueException(exception)
-
-	assert.Equal(t, 2, c.queue.Len(),
-		"both existing policies should be enqueued even when one is missing in between")
-
-	enqueuedPolicies := make(map[string]bool)
-	for c.queue.Len() > 0 {
-		item, _ := c.queue.Get()
-		enqueuedPolicies[item.(string)] = true
-		c.queue.Done(item)
-	}
-
-	assert.True(t, enqueuedPolicies["ClusterPolicy/policy-1"], "policy-1 should be enqueued")
-	assert.True(t, enqueuedPolicies["ClusterPolicy/policy-2"], "policy-2 should be enqueued despite policy-missing error")
-}
 
 // TestEnqueueCELExceptionContinuesOnMissingPolicy verifies that enqueueCELException
 // continues processing remaining policy refs even when one policy lookup fails.

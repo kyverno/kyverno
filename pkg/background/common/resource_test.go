@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
@@ -57,8 +57,8 @@ func newFakeClientWithNamespace(name string, uid types.UID, labels map[string]st
 	}
 }
 
-func makeNamespaceSpec(name string, uid types.UID) kyvernov1.ResourceSpec {
-	return kyvernov1.ResourceSpec{
+func makeNamespaceSpec(name string, uid types.UID) kyverno.ResourceSpec {
+	return kyverno.ResourceSpec{
 		APIVersion: "v1",
 		Kind:       "Namespace",
 		Name:       name,
@@ -105,7 +105,7 @@ func TestGetResource_UIDMismatch_DeletedRecreated(t *testing.T) {
 
 func TestGetResource_NoUID_NameLookup(t *testing.T) {
 	client := newFakeClientWithNamespace("test-ns", "live-uid-111", nil)
-	spec := kyvernov1.ResourceSpec{
+	spec := kyverno.ResourceSpec{
 		APIVersion: "v1",
 		Kind:       "Namespace",
 		Name:       "test-ns",
@@ -190,9 +190,9 @@ func TestGetResource_UIDMismatch_Subresource_ReturnsAdmissionObject(t *testing.T
 
 func TestGetResource_EmptySpec_FallbackToURResource(t *testing.T) {
 	client := newFakeClientWithNamespace("test-ns", "fallback-uid-777", nil)
-	var emptySpec kyvernov1.ResourceSpec
+	var emptySpec kyverno.ResourceSpec
 	urSpec := kyvernov2.UpdateRequestSpec{
-		Resource: kyvernov1.ResourceSpec{
+		Resource: kyverno.ResourceSpec{
 			APIVersion: "v1",
 			Kind:       "Namespace",
 			Name:       "test-ns",
@@ -270,7 +270,7 @@ func TestGetResource_MutateExisting_PhantomUID(t *testing.T) {
 	assert.Nil(t, result, "mutate-existing must not evaluate a phantom trigger from a rejected admission request")
 }
 
-func deleteURSpec(oldObjectRaw string, trigger kyvernov1.ResourceSpec) kyvernov2.UpdateRequestSpec {
+func deleteURSpec(oldObjectRaw string, trigger kyverno.ResourceSpec) kyvernov2.UpdateRequestSpec {
 	return kyvernov2.UpdateRequestSpec{
 		RuleContext: []kyvernov2.RuleContext{
 			{Trigger: trigger},
@@ -465,7 +465,7 @@ func TestGetResource_NameAndUID_GetsByNameWithoutListing(t *testing.T) {
 		makeService("kafka", "broker-1", "uid-1"),
 		makeService("kafka", "broker-2", "uid-2"),
 	)
-	spec := kyvernov1.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", Name: "broker-1", UID: "uid-1"}
+	spec := kyverno.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", Name: "broker-1", UID: "uid-1"}
 
 	result, err := GetResource(client, spec, kyvernov2.UpdateRequestSpec{}, logr.Discard())
 
@@ -482,7 +482,7 @@ func TestGetResource_NameAndUID_GetsByNameWithoutListing(t *testing.T) {
 // existed) is rejected, and nothing is listed to look for the stale UID.
 func TestGetResource_NameAndUID_Mismatch_DoesNotList(t *testing.T) {
 	client := newCountingClient(makeService("kafka", "broker-1", "new-uid"))
-	spec := kyvernov1.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", Name: "broker-1", UID: "old-uid"}
+	spec := kyverno.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", Name: "broker-1", UID: "old-uid"}
 
 	result, err := GetResource(client, spec, kyvernov2.UpdateRequestSpec{}, logr.Discard())
 
@@ -498,7 +498,7 @@ func TestGetResource_NameAndUID_Mismatch_DoesNotList(t *testing.T) {
 func TestGetResource_NameAndUID_TransientGetError(t *testing.T) {
 	client := newCountingClient(makeService("kafka", "broker-1", "uid-1"))
 	client.fakeListClient.getResourceErr = fmt.Errorf("temporary API failure")
-	spec := kyvernov1.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", Name: "broker-1", UID: "uid-1"}
+	spec := kyverno.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", Name: "broker-1", UID: "uid-1"}
 
 	result, err := GetResource(client, spec, kyvernov2.UpdateRequestSpec{}, logr.Discard())
 
@@ -516,7 +516,7 @@ func TestGetResource_UIDWithoutName_FallsBackToList(t *testing.T) {
 		makeService("kafka", "broker-0", "uid-0"),
 		makeService("kafka", "broker-1", "uid-1"),
 	)
-	spec := kyvernov1.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", UID: "uid-1"}
+	spec := kyverno.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", UID: "uid-1"}
 
 	result, err := GetResource(client, spec, kyvernov2.UpdateRequestSpec{}, logr.Discard())
 

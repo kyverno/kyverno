@@ -1,0 +1,33 @@
+# Configuration for scripts/psa-release-issues.py.
+
+# Baseline: every Pod Security Admission minor release after this
+# kubernetes-1.<minor>.0 tag is checked on every run, so the PSS CEL policies
+# must already match upstream at this release. Move it forward only to a minor
+# release whose changes are all handled.
+since: kubernetes-1.37.0
+
+# Upstream check ID (the ID in policy/check_*.go) to the PSS policy in
+# charts/kyverno-policies. Fixture names are the lowercased ID plus a number,
+# for example sysctls0.yaml.
+checks:
+  # Baseline
+  privileged: disallow-privileged-containers
+  hostNamespaces: disallow-host-namespaces
+  hostPathVolumes: disallow-host-path
+  hostPorts: disallow-host-ports
+  hostProbesAndHostLifecycle: disallow-host-probes
+  windowsHostProcess: disallow-host-process
+  capabilities_baseline: disallow-capabilities
+  procMount: disallow-proc-mount
+  appArmorProfile: restrict-apparmor-profiles
+  seLinuxOptions: disallow-selinux
+  seccompProfile_baseline: restrict-seccomp
+  sysctls: restrict-sysctls
+  # Restricted
+  allowPrivilegeEscalation: disallow-privilege-escalation
+  capabilities_restricted: disallow-capabilities-strict
+  procMount_restricted: disallow-proc-mount-strict
+  restrictedVolumes: restrict-volume-types
+  runAsNonRoot: require-run-as-nonroot
+  runAsUser: require-run-as-non-root-user
+  seccompProfile_restricted: restrict-seccomp-strict
