@@ -3,8 +3,12 @@ package match
 import (
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestCheckNamespace_EmptyStatement(t *testing.T) {
@@ -143,4 +147,51 @@ func TestCheckNameSpace_MultiplePatterns(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+func TestCheckMatchesResources_EmptyStatement(t *testing.T) {
+	statement := kyvernov2beta1.MatchResources{}
+	resource := unstructured.Unstructured{}
+	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+	admissionInfo := kyvernov2.RequestInfo{}
+
+	err := CheckMatchesResources(resource, statement, nil, admissionInfo, gvk, "")
+	assert.Error(t, err, "empty statement should return an error, not match")
+	assert.Contains(t, err.Error(), "no resource filter specified")
+}
+
+func TestCheckMatchesResources_AnyMatches(t *testing.T) {
+	statement := kyvernov2beta1.MatchResources{
+		Any: kyvernov1.ResourceFilters{
+			{
+				ResourceDescription: kyvernov1.ResourceDescription{
+					Kinds: []string{"Pod"},
+				},
+			},
+		},
+	}
+	resource := unstructured.Unstructured{}
+	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+	admissionInfo := kyvernov2.RequestInfo{}
+
+	err := CheckMatchesResources(resource, statement, nil, admissionInfo, gvk, "")
+	assert.NoError(t, err, "should match when kind matches")
+}
+
+func TestCheckMatchesResources_AnyMismatch(t *testing.T) {
+	statement := kyvernov2beta1.MatchResources{
+		Any: kyvernov1.ResourceFilters{
+			{
+				ResourceDescription: kyvernov1.ResourceDescription{
+					Kinds: []string{"Deployment"},
+				},
+			},
+		},
+	}
+	resource := unstructured.Unstructured{}
+	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+	admissionInfo := kyvernov2.RequestInfo{}
+
+	err := CheckMatchesResources(resource, statement, nil, admissionInfo, gvk, "")
+	assert.Error(t, err, "should not match when kind differs")
 }

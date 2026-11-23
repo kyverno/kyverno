@@ -71,5 +71,5 @@ results:
   policy: example
   resources:
   - example
-  result: pass
+  result: fail
   rule: wildcard-match

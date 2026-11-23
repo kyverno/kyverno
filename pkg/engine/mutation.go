@@ -46,7 +46,7 @@ func (e *engine) mutate(
 				if e.client == nil {
 					return nil, fmt.Errorf("Handler factory requires a client but a nil client was passed, likely due to a bug or unsupported operation.")
 				}
-				return mutation.NewMutateExistingHandler(e.client, e.isCluster)
+				return mutation.NewMutateExistingHandler(e.client, e.isCluster, e.configuration)
 			}
 			return mutation.NewMutateResourceHandler(e.client, e.isCluster)
 		}

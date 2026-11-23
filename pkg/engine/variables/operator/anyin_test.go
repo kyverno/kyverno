@@ -175,6 +175,55 @@ func TestAnyInHandler_Evaluate(t *testing.T) {
 			value:    `["apple", "banana"]`,
 			expected: false,
 		},
+		// A request-supplied key of "*" is matched literally and must never
+		// act as a pattern against a concrete policy allow-list, in either
+		// scalar- or list-key form.
+		{
+			name:     "scalar request key wildcard is matched literally against the policy allow-list",
+			key:      "*",
+			value:    []interface{}{"apple", "banana"},
+			expected: false,
+		},
+		{
+			name:     "list request key wildcard is matched literally against the policy allow-list",
+			key:      []interface{}{"*"},
+			value:    []interface{}{"apple", "banana"},
+			expected: false,
+		},
+		{
+			name:     "mixed list request key, wildcard element is matched literally but concrete element still matches",
+			key:      []interface{}{"*", "apple"},
+			value:    []interface{}{"apple", "banana"},
+			expected: true,
+		},
+		// Invariant: an admin value-side wildcard still matches a
+		// concrete request key, in both forms.
+		{
+			name:     "scalar key: admin value wildcard still matches concrete key",
+			key:      "prod-web",
+			value:    []interface{}{"prod-*"},
+			expected: true,
+		},
+		{
+			name:     "list key: admin value wildcard still matches concrete key",
+			key:      []interface{}{"prod-web"},
+			value:    []interface{}{"prod-*"},
+			expected: true,
+		},
+		// Invariant: an admin universal catch-all still matches any key,
+		// including an opaque one (nested object) in list-key form.
+		{
+			name:     "scalar key: admin universal catch-all still matches any concrete key",
+			key:      "anything",
+			value:    []interface{}{"*"},
+			expected: true,
+		},
+		{
+			name:     "list key: admin universal catch-all still matches an opaque key element",
+			key:      []interface{}{map[string]interface{}{"foo": "bar"}},
+			value:    []interface{}{"*"},
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {

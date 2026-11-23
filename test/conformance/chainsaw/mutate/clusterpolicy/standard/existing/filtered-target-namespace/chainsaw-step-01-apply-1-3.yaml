@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mutate-existing-target
+  namespace: kyverno
+data:
+  foo: bar

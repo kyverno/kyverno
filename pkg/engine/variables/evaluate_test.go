@@ -307,7 +307,8 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{1, 2}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON([]interface{}{1, 2, 3, 4})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{1, 5}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON([]interface{}{1, 2, 3, 4})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{5}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON([]interface{}{1, 2, 3, 4})}, false},
-		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1*"}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, true},
+		// Request key wildcard is matched literally against concrete value.
+		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1*"}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"5*"}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "5.5.5.5"}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON([]interface{}{"2*"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "5.5.5.5"}), Operator: kyverno.ConditionOperators["AnyIn"], RawValue: kyverno.ToJSON([]interface{}{"4*"})}, false},
@@ -327,7 +328,8 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{1, 2}), Operator: kyverno.ConditionOperators["AllIn"], RawValue: kyverno.ToJSON([]interface{}{1, 2, 3, 4})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{1, 5}), Operator: kyverno.ConditionOperators["AllIn"], RawValue: kyverno.ToJSON([]interface{}{1, 2, 3, 4})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{5}), Operator: kyverno.ConditionOperators["AllIn"], RawValue: kyverno.ToJSON([]interface{}{1, 2, 3, 4})}, false},
-		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1*"}), Operator: kyverno.ConditionOperators["AllIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, true},
+		// Request key wildcard is matched literally against concrete value.
+		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1*"}), Operator: kyverno.ConditionOperators["AllIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"5*"}), Operator: kyverno.ConditionOperators["AllIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"2.1.1.1", "2.2.2.2", "2.5.5.5"}), Operator: kyverno.ConditionOperators["AllIn"], RawValue: kyverno.ToJSON([]interface{}{"2*"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "5.5.5.5"}), Operator: kyverno.ConditionOperators["AllIn"], RawValue: kyverno.ToJSON([]interface{}{"4*"})}, false},
@@ -349,7 +351,9 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "4.4.4.4", "1.1.1.1"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3", "1.1.1.1", "4.4.4.4"})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"5.5.5.5", "4.4.4.4"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"7*", "6*", "5*"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, true},
-		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1*", "2*"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, false},
+		// Request key wildcards are matched literally against concrete value;
+		// neither key is in value, so AllNotIn is true.
+		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1*", "2*"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "3.3.3.3", "5.5.5.5"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"2*"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"4.1.1.1", "4.2.2.2", "4.5.5.5"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"4*"})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "4.4.4.4"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON("2.2.2.2")}, true},
@@ -371,7 +375,9 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"5.5.5.5", "4.4.4.4"}), Operator: kyverno.ConditionOperators["AnyNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1*", "3*", "5*"}), Operator: kyverno.ConditionOperators["AnyNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "5.5.5.5"}), Operator: kyverno.ConditionOperators["AnyNotIn"], RawValue: kyverno.ToJSON([]interface{}{"2*"})}, true},
-		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"2.2*"}), Operator: kyverno.ConditionOperators["AnyNotIn"], RawValue: kyverno.ToJSON([]interface{}{"2.2.2.2"})}, false},
+		// Request key wildcard is matched literally against concrete value,
+		// so the key is not in value and AnyNotIn is true.
+		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"2.2*"}), Operator: kyverno.ConditionOperators["AnyNotIn"], RawValue: kyverno.ToJSON([]interface{}{"2.2.2.2"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON("5"), Operator: kyverno.ConditionOperators["AnyNotIn"], RawValue: kyverno.ToJSON("1-3")}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{1, 5, 11}), Operator: kyverno.ConditionOperators["AnyNotIn"], RawValue: kyverno.ToJSON("0-10")}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{1, 5, 7}), Operator: kyverno.ConditionOperators["AnyNotIn"], RawValue: kyverno.ToJSON("0-10")}, false},
