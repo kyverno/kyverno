@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -285,14 +286,26 @@ func (c *controller) AddEventHandler(eventHandler EventHandler) {
 	}
 }
 
+func listResourceHashes(ctx context.Context, list func(context.Context, metav1.ListOptions) (*unstructured.UnstructuredList, error)) (map[types.UID]Resource, string, error) {
+	return controllerutils.ListIndexByUID(ctx, metav1.ListOptions{}, list, func(item runtime.Object) (types.UID, Resource) {
+		obj := item.(*unstructured.Unstructured)
+		return obj.GetUID(), Resource{
+			Hash:      reportutils.CalculateResourceHash(*obj),
+			Namespace: obj.GetNamespace(),
+			Name:      obj.GetName(),
+		}
+	})
+}
+
 func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, errChan chan schema.GroupVersionResource) (*watcher, error) {
-	hashes := map[types.UID]Resource{}
+	var hashes map[types.UID]Resource
 	var resourceVersion string
 
 	w, ok := c.dynamicWatchers[gvr]
 	// if we never started a watcher for this resource before, list the resources initially
 	if !ok {
-		objs, err := c.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
+		var err error
+		hashes, resourceVersion, err = listResourceHashes(ctx, c.client.GetDynamicInterface().Resource(gvr).List)
 		if err != nil {
 			if apierrors.IsForbidden(err) {
 				logger.Error(err, "reports-controller is missing RBAC to list/watch this resource - "+
@@ -302,16 +315,6 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 				logger.Error(err, "failed to list resources")
 			}
 			return nil, err
-		}
-		resourceVersion = objs.GetResourceVersion()
-		for _, obj := range objs.Items {
-			uid := obj.GetUID()
-			hash := reportutils.CalculateResourceHash(obj)
-			hashes[uid] = Resource{
-				Hash:      hash,
-				Namespace: obj.GetNamespace(),
-				Name:      obj.GetName(),
-			}
 		}
 		// we started watcher for this resource before, use the previously existing hashes
 	} else {
