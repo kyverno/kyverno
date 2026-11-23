@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: namespaces-field
+spec:
+  concurrent: false
+  steps:
+  - name: create namespaces
+    try:
+    - create:
+        file: namespace-a.yaml
+    - create:
+        file: namespace-b.yaml
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-namespaced-validating-policy-ready
+    use:
+      template: ../../../_step-templates/namespaced-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: require-team-label
+        - name: namespace
+          value: ns-a
+  - name: control - no exception, pod denied
+    try:
+    - create:
+        file: pod.yaml
+        expect:
+        - check:
+            (contains($error, 'pods in ns-a must carry a team label')): true
+  - name: exception without namespaces is rejected
+    try:
+    - create:
+        file: exception-no-namespaces.yaml
+        expect:
+        - check:
+            (contains($error, 'must be set when policyRefs[0] references a namespaced policy')): true
+  - name: exception listing ns-a admits the pod
+    try:
+    - create:
+        file: exception.yaml
+    - sleep:
+        duration: 5s
+    - create:
+        file: pod.yaml
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Pod
+          name: no-label-pod
+          namespace: ns-a
+  - name: exception updated to ns-b no longer applies
+    try:
+    - apply:
+        file: exception-moved.yaml
+    - sleep:
+        duration: 5s
+    - create:
+        file: pod.yaml
+        expect:
+        - check:
+            (contains($error, 'pods in ns-a must carry a team label')): true
+    - delete:
+        file: exception-moved.yaml

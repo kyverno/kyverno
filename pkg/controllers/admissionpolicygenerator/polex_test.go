@@ -254,12 +254,14 @@ func TestGetCELExceptions_NamespacedPolicy(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "cel-polex-a", Namespace: "ns-a"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "nvpol-1", Kind: "NamespacedValidatingPolicy"}},
+			Namespaces: []string{"ns-a"},
 		},
 	}
 	polexB := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "cel-polex-b", Namespace: "ns-b"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "nvpol-1", Kind: "NamespacedValidatingPolicy"}},
+			Namespaces: []string{"ns-a"},
 		},
 	}
 	lister := newCELPolexLister(t, polexA, polexB)

@@ -207,12 +207,14 @@ func TestReconcile_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testing.
 		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedMutatingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 	foreignException := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "foreign", Namespace: "tenant-b"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedMutatingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 	lister := &reconcilerTestExceptionLister{exceptions: []*policiesv1beta1.PolicyException{ownException, foreignException}}

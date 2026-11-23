@@ -1,0 +1,11 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: scoped-exception
+  namespace: ns-a
+spec:
+  namespaces:
+  - ns-a
+  policyRefs:
+  - name: require-team-label
+    kind: NamespacedValidatingPolicy

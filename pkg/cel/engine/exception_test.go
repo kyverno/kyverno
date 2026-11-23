@@ -122,8 +122,10 @@ func TestExceptionScope_Select(t *testing.T) {
 // applies to a policy, cluster-scoped or namespaced, under each scope value.
 func TestExceptionScope_Applies(t *testing.T) {
 	refKind, refName := "ValidatingPolicy", "require-team"
-	matching := func(namespace string) *policiesv1beta1.PolicyException {
-		return exceptionWithRef(namespace, refKind, refName)
+	matching := func(namespace string, namespaces ...string) *policiesv1beta1.PolicyException {
+		p := exceptionWithRef(namespace, refKind, refName)
+		p.Spec.Namespaces = namespaces
+		return p
 	}
 
 	tests := []struct {
@@ -136,13 +138,13 @@ func TestExceptionScope_Applies(t *testing.T) {
 		{name: "none scope / cluster-scoped policy / any namespace", scope: ExceptionScopeNone, polex: matching("ns-a"), policyNS: "", want: false},
 		{name: "none scope / namespaced policy / own namespace", scope: ExceptionScopeNone, polex: matching("ns-a"), policyNS: "ns-a", want: false},
 		{name: "all scope / cluster-scoped policy / any namespace accepted", scope: ExceptionScopeAll, polex: matching("ns-a"), policyNS: "", want: true},
-		{name: "all scope / namespaced policy / own namespace", scope: ExceptionScopeAll, polex: matching("ns-a"), policyNS: "ns-a", want: true},
+		{name: "all scope / namespaced policy / own namespace", scope: ExceptionScopeAll, polex: matching("ns-a", "ns-a"), policyNS: "ns-a", want: true},
 		{name: "all scope / namespaced policy / different namespace rejected", scope: ExceptionScopeAll, polex: matching("ns-b"), policyNS: "ns-a", want: false},
 		{name: "all scope / namespaced policy / exception with empty namespace rejected", scope: ExceptionScopeAll, polex: matching(""), policyNS: "ns-a", want: false},
 		{name: "concrete scope / cluster-scoped policy / matching namespace", scope: ExceptionScope("kyverno"), polex: matching("kyverno"), policyNS: "", want: true},
 		{name: "concrete scope / cluster-scoped policy / non-matching namespace rejected", scope: ExceptionScope("kyverno"), polex: matching("other"), policyNS: "", want: false},
-		{name: "concrete scope / namespaced policy / own namespace equal to central namespace", scope: ExceptionScope("kyverno"), polex: matching("kyverno"), policyNS: "kyverno", want: true},
-		{name: "concrete scope / namespaced policy / exception in the central namespace", scope: ExceptionScope("kyverno"), polex: matching("kyverno"), policyNS: "ns-a", want: true},
+		{name: "concrete scope / namespaced policy / own namespace equal to central namespace", scope: ExceptionScope("kyverno"), polex: matching("kyverno", "kyverno"), policyNS: "kyverno", want: true},
+		{name: "concrete scope / namespaced policy / exception in the central namespace", scope: ExceptionScope("kyverno"), polex: matching("kyverno", "ns-a"), policyNS: "ns-a", want: true},
 		{name: "concrete scope / namespaced policy / exception namespace not accepted by scope rejected", scope: ExceptionScope("kyverno"), polex: matching("ns-a"), policyNS: "ns-a", want: false},
 		{name: "concrete scope / namespaced policy / exception elsewhere rejected", scope: ExceptionScope("kyverno"), polex: matching("ns-b"), policyNS: "ns-a", want: false},
 		{name: "expired exception always rejected", scope: ExceptionScopeAll, polex: func() *policiesv1beta1.PolicyException {
@@ -156,6 +158,53 @@ func TestExceptionScope_Applies(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.scope.Applies(tt.polex, refKind, refName, tt.policyNS)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestExceptionScope_Applies_Namespaces covers scope x spec.namespaces x target policy.
+func TestExceptionScope_Applies_Namespaces(t *testing.T) {
+	const kind, name = "NamespacedValidatingPolicy", "guard"
+	// namespaces: nil = omitted, "own" = [the exception's namespace], "foreign" = [ns-x].
+	build := func(polexNS, listed string) *policiesv1beta1.PolicyException {
+		p := exceptionWithRef(polexNS, kind, name)
+		if listed != "" {
+			p.Spec.Namespaces = []string{listed}
+		}
+		return p
+	}
+	tests := []struct {
+		name     string
+		scope    ExceptionScope
+		polexNS  string
+		listed   string // "" = omitted
+		policyNS string // "" = cluster-scoped policy
+		want     bool
+	}{
+		// scope "": nothing applies
+		{"none / omitted / cluster", ExceptionScopeNone, "a", "", "", false},
+		{"none / own / ns policy", ExceptionScopeNone, "a", "a", "a", false},
+		// scope "*": own-namespace rule, field only narrows
+		{"all / omitted / cluster policy", ExceptionScopeAll, "a", "", "", true},
+		{"all / listed / cluster policy ignores field", ExceptionScopeAll, "a", "x", "", true},
+		{"all / omitted / own ns policy never applies", ExceptionScopeAll, "a", "", "a", false},
+		{"all / own / own ns policy", ExceptionScopeAll, "a", "a", "a", true},
+		{"all / foreign / own ns policy", ExceptionScopeAll, "a", "b", "a", false},
+		{"all / exception in b listing a does not reach a's policy", ExceptionScopeAll, "b", "a", "a", false},
+		{"all / exception in b listing b does not reach a's policy", ExceptionScopeAll, "b", "b", "a", false},
+		// scope "central": field selects target namespaces
+		{"central / omitted / cluster policy", ExceptionScope("central"), "central", "", "", true},
+		{"central / listed / cluster policy ignores field", ExceptionScope("central"), "central", "a", "", true},
+		{"central / omitted / ns policy never applies", ExceptionScope("central"), "central", "", "a", false},
+		{"central / [a] / ns policy in a", ExceptionScope("central"), "central", "a", "a", true},
+		{"central / [a] / ns policy in b", ExceptionScope("central"), "central", "a", "b", false},
+		{"central / [central] / ns policy in central", ExceptionScope("central"), "central", "central", "central", true},
+		{"central / exception outside central namespace", ExceptionScope("central"), "a", "a", "a", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			polex := build(tt.polexNS, tt.listed)
+			assert.Equal(t, tt.want, tt.scope.Applies(polex, kind, name, tt.policyNS))
 		})
 	}
 }

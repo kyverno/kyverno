@@ -32,12 +32,14 @@ func TestCompileGeneratingPolicies_NamespacedPolicyOnlyAcceptsOwnNamespaceExcept
 		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 	foreignException := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "foreign", Namespace: "tenant-b"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 
@@ -88,12 +90,14 @@ func TestCompileGeneratingPolicies_SameNamePoliciesEachKeepTheirOwnException(t *
 		ObjectMeta: metav1.ObjectMeta{Name: "exc-a", Namespace: "tenant-a"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 	exceptionB := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "exc-b", Namespace: "tenant-b"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+			Namespaces: []string{"tenant-b"},
 		},
 	}
 

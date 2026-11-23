@@ -78,6 +78,54 @@ func Test_Validate(t *testing.T) {
 	}
 }
 
+func Test_ValidateScopeReach_Namespaces(t *testing.T) {
+	polex := func(ns string, namespaces ...string) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "polex", Namespace: ns},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "vpol-1", Kind: "ValidatingPolicy"}},
+				Namespaces: namespaces,
+			},
+		}
+	}
+	all := ValidationOptions{Enabled: true, Namespace: "*"}
+	testCases := []struct {
+		name  string
+		polex *policiesv1beta1.PolicyException
+		opts  ValidationOptions
+		want  []string
+	}{{
+		name:  "no namespaces means no warning",
+		polex: polex("a"),
+		opts:  all,
+	}, {
+		name:  "own namespace only means no warning",
+		polex: polex("a", "a"),
+		opts:  all,
+	}, {
+		name:  "foreign entry warns under wildcard",
+		polex: polex("a", "a", "b", "c"),
+		opts:  all,
+		want: []string{
+			"exceptionNamespace is \"*\": spec.namespaces entry b has no effect, this exception only applies in namespace a.",
+			"exceptionNamespace is \"*\": spec.namespaces entry c has no effect, this exception only applies in namespace a.",
+		},
+	}, {
+		name:  "foreign entry does not warn under a central namespace",
+		polex: polex("central", "b"),
+		opts:  ValidationOptions{Enabled: true, Namespace: "central"},
+	}, {
+		name:  "disabled does not warn",
+		polex: polex("a", "b"),
+		opts:  ValidationOptions{Enabled: false, Namespace: "*"},
+	}}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.DeepEqual(t, tc.want, ValidateScopeReach(tc.polex, tc.opts))
+		})
+	}
+}
+
 func Test_ValidateCompensatingControls(t *testing.T) {
 	validations := []admissionregistrationv1.Validation{{Expression: "true"}}
 	testCases := []struct {

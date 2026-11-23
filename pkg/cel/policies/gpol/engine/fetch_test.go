@@ -162,12 +162,14 @@ func TestGet_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 	foreignException := &policiesv1beta1.PolicyException{
 		ObjectMeta: v1.ObjectMeta{Name: "foreign", Namespace: "tenant-b"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 
@@ -199,12 +201,14 @@ func TestGet_ScopeGatesExceptionSelection(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 	centralException := &policiesv1beta1.PolicyException{
 		ObjectMeta: v1.ObjectMeta{Name: "central", Namespace: "central-ns"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedGeneratingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 	polexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})

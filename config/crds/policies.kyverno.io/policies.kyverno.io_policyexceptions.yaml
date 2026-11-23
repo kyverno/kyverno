@@ -105,6 +105,15 @@ spec:
                   - name
                   type: object
                 type: array
+              namespaces:
+                description: |-
+                  Namespaces lists the namespaces of the namespaced policies this exception applies to.
+                  Required when any policyRef targets a namespaced policy kind; ignored for cluster-scoped policies.
+                  The exception must still be accepted by the exceptionNamespace setting, so this field only narrows its reach.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               policyRefs:
                 description: PolicyRefs identifies the policies to which the exception
                   is applied.
@@ -339,6 +348,15 @@ spec:
                   - name
                   type: object
                 type: array
+              namespaces:
+                description: |-
+                  Namespaces lists the namespaces of the namespaced policies this exception applies to.
+                  Required when any policyRef targets a namespaced policy kind; ignored for cluster-scoped policies.
+                  The exception must still be accepted by the exceptionNamespace setting, so this field only narrows its reach.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               policyRefs:
                 description: PolicyRefs identifies the policies to which the exception
                   is applied.
@@ -572,6 +590,15 @@ spec:
                   - name
                   type: object
                 type: array
+              namespaces:
+                description: |-
+                  Namespaces lists the namespaces of the namespaced policies this exception applies to.
+                  Required when any policyRef targets a namespaced policy kind; ignored for cluster-scoped policies.
+                  The exception must still be accepted by the exceptionNamespace setting, so this field only narrows its reach.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               policyRefs:
                 description: PolicyRefs identifies the policies to which the exception
                   is applied.
