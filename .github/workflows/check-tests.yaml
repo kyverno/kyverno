@@ -225,6 +225,37 @@ jobs:
               ])
               .write();
 
+  # Groups the chainsaw reports of all conformance jobs into one table in the
+  # run summary: each failing test with its failing Kubernetes versions, job
+  # links, and first error. Runs even when the tests failed, and again in a
+  # re-run attempt, where the re-run jobs replace their reports. Informational
+  # only, so sync-issue doesn't wait for it.
+  summarize:
+    name: Summarize E2E failures
+    if: always() && needs.conformance-tests.result != 'skipped'
+    needs:
+      - conformance-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/e2e
+      - name: Download reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: e2e-reports-*
+          path: e2e-reports
+      - name: Summarize
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 scripts/e2e/report.py summarize e2e-reports --run-url "$RUN_URL" >> "$GITHUB_STEP_SUMMARY"
+
   # A run that was cancelled without a failure says nothing about the tests:
   # it must neither close the tracking issue nor open one, so the issue is
   # left as it is. A failure is still recorded even if other jobs were then
@@ -255,12 +286,15 @@ jobs:
       # on them"), and then updates the tracking issue. So a flaky test doesn't
       # turn the E2E gate red.
       # Runs with a cancelled job aren't re-run, so they update the issue now.
+      # Neither do runs started with GITHUB_TOKEN: when they finish, GitHub
+      # doesn't start tests-rerun.yaml, so no re-run would ever come.
       - name: Defer to the automatic re-run
         id: defer
         if: >-
           github.repository == 'kyverno/kyverno' &&
           github.workflow == 'Tests' &&
           github.run_attempt == '1' &&
+          github.triggering_actor != 'github-actions[bot]' &&
           contains(needs.*.result, 'failure') &&
           !contains(needs.*.result, 'cancelled')
         run: |

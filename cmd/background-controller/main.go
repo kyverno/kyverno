@@ -204,7 +204,7 @@ func main() {
 			eventGenerator,
 			event.Workers,
 		)
-		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
+		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, kyvernoInformer.Kyverno().V2().UpdateRequests().Lister())
 		gcstore := store.New(maxGlobalContextEntries)
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
