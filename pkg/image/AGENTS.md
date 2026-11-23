@@ -38,7 +38,10 @@ Before keying, the image reference is canonicalized to its digest form (tag comp
 Each attestor is hashed with its `name` and its CEL `expression` fields cleared (`canonicalizeAttestor`), so a
 dynamically resolved attestor keys strictly on its resolved cryptographic material. This allows policies that resolve
 identical trust materials via differing CEL expressions (or static configuration) to share cache entries. Only
-digest-pinned references and attestors without KMS key material are cached.
+digest-pinned references and attestors without KMS key material are cached. Keyless identity `subjectExpression` is
+cleared like the other expression fields: it is resolved into the identity's `subjectRegExp` before verification, and
+that resolved regexp stays part of the key, so two policies resolving the same subject share an entry while different
+subjects still miss.
 
 Entries cost against that budget by size: presence-only entries cost `1`, entries carrying attestation payload bytes
 cost roughly their real size, and ristretto adds its own per-item cost (about 56 bytes) to both, so the number of
