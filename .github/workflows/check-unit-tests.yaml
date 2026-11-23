@@ -36,6 +36,8 @@ jobs:
         "$RUNNER_TEMP/e2e-script-tests/bin/python" -m pip install --disable-pip-version-check PyYAML==6.0.3
         "$RUNNER_TEMP/e2e-script-tests/bin/python" scripts/e2e/test_report.py
         scripts/e2e/settings_test.sh
+    - name: GitHub App token key tests
+      run: .github/actions/workflow/app-token/normalize-key_test.sh
     - name: Record initial disk headroom
       run: |
         echo '### Disk before Go setup' >> "$GITHUB_STEP_SUMMARY"
