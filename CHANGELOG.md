@@ -1,3 +1,13 @@
+## Unreleased
+
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:6deefbc2ba2deba9877fced303d7e0e45349ae0ab1417f28bbfebd44cbe4283c -->
+
+- fix(ivpol): reject `globalContext.*` and, unless `--allowHTTPInNamespacedPolicies` is enabled, `http.*` in namespaced Cosign keyless identity subject expressions (#18781)
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## v1.13.0
 
 ### Note
