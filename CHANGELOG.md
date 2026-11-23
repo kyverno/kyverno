@@ -1,3 +1,13 @@
+## Unreleased
+
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:563d1e3ab96431fc00c9c0df15eb83d22d117988e53db0f00dc41cd0cf467c7b -->
+
+- fix(ivpol): skip TUF when an inline `trustedRoot.value` is set, ignoring any `tuf` block; report missing required keyless transparency or CT log material as configuration errors (#18052)
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## v1.13.0
 
 ### Note
