@@ -107,10 +107,17 @@ func ivpolExpressions(ivpol policiesv1beta1.ImageValidatingPolicyLike) []string 
 }
 
 func attestorExpressions(att policiesv1beta1.Attestor) []string {
-	exprs := make([]string, 0, 6)
+	exprs := make([]string, 0, 7)
 	if att.Cosign != nil {
 		if att.Cosign.Key != nil && att.Cosign.Key.Expression != "" {
 			exprs = append(exprs, att.Cosign.Key.Expression)
+		}
+		if att.Cosign.Keyless != nil {
+			for _, id := range att.Cosign.Keyless.Identities {
+				if id.SubjectExpression != "" {
+					exprs = append(exprs, id.SubjectExpression)
+				}
+			}
 		}
 		if att.Cosign.Certificate != nil {
 			if att.Cosign.Certificate.Certificate != nil && att.Cosign.Certificate.Certificate.Expression != "" {
