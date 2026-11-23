@@ -412,6 +412,46 @@ func Test_generateKey_binds_resolved_material_not_expressions(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, found, "differing TSA certs value must miss cache")
 	})
+
+	t.Run("keyless subject expressions", func(t *testing.T) {
+		identity := v1beta1.Identity{
+			Issuer:        "https://token.actions.githubusercontent.com",
+			SubjectRegExp: "^https://github.com/allowed/repo/.*$",
+		}
+		resolved := v1beta1.Attestor{Cosign: &v1beta1.Cosign{Keyless: &v1beta1.Keyless{Identities: []v1beta1.Identity{identity}}}}
+
+		withExpr1 := *resolved.DeepCopy()
+		withExpr1.Cosign.Keyless.Identities[0].SubjectExpression = "variables.subject"
+		withExpr2 := *resolved.DeepCopy()
+		withExpr2.Cosign.Keyless.Identities[0].SubjectExpression = "globalContext.get('entry', '')"
+
+		k1, err := generateKey(testDigestA, []v1beta1.Attestor{resolved}, nil)
+		require.NoError(t, err)
+		k2, err := generateKey(testDigestA, []v1beta1.Attestor{withExpr1}, nil)
+		require.NoError(t, err)
+		k3, err := generateKey(testDigestA, []v1beta1.Attestor{withExpr2}, nil)
+		require.NoError(t, err)
+
+		assert.Equal(t, k1, k2, "a resolved subject expression must not change the key")
+		assert.Equal(t, k2, k3, "differing subject expressions resolving to the same subject must share a key")
+
+		// Negative check: a different resolved subject must miss the cache even
+		// when the expression text is unchanged.
+		differentSubject := *withExpr1.DeepCopy()
+		differentSubject.Cosign.Keyless.Identities[0].SubjectRegExp = "^https://github.com/other/repo/.*$"
+		kDiff, err := generateKey(testDigestA, []v1beta1.Attestor{differentSubject}, nil)
+		require.NoError(t, err)
+		assert.NotEqual(t, k1, kDiff, "differing resolved subject must produce a differing cache key")
+
+		c := newTestCache(t)
+		stored, err := c.Set(testDigestA, []v1beta1.Attestor{withExpr1}, nil, nil)
+		require.NoError(t, err)
+		require.True(t, stored)
+
+		found, _, err := c.Get(testDigestA, []v1beta1.Attestor{differentSubject}, nil)
+		require.NoError(t, err)
+		assert.False(t, found, "differing resolved subject must miss cache")
+	})
 }
 
 // Test_Cache_skips_uncacheable_attestors pins the attestor groups the cache
