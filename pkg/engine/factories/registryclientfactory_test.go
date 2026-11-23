@@ -360,6 +360,29 @@ func TestGetClient_PreservesGlobalKeychain(t *testing.T) {
 	assert.Equal(t, resolved, authn.Authenticator(globalAuth), "global keychain should win over policy/resource credentials")
 }
 
+func TestGetClient_PreservesGlobalKeychainWithOnlyImagePullSecrets(t *testing.T) {
+	globalAuth := &authn.Basic{Username: "global-user", Password: "global-pass"}
+	global := &mockGlobalClient{keychain: fixedKeychain{auth: globalAuth}}
+
+	factory := DefaultRegistryClientFactory(global, nil)
+
+	// nil policy credentials with resource imagePullSecrets is the path a Pod with
+	// imagePullSecrets takes, which used to build a secrets-only client.
+	client, err := factory.GetClient(context.Background(), nil, "default", []string{"some-pull-secret"})
+	assert.NilError(t, err)
+	assert.Assert(t, client != nil)
+
+	_, isGlobal := client.(*mockGlobalClient)
+	assert.Assert(t, !isGlobal, "should build a derived client, not return the global instance")
+
+	kc, ok := client.(keychainSource)
+	assert.Assert(t, ok, "derived client should expose a composed keychain")
+
+	resolved, err := kc.Keychain().Resolve(testResource("example.com/repo"))
+	assert.NilError(t, err)
+	assert.Equal(t, resolved, authn.Authenticator(globalAuth), "global keychain should win over resource imagePullSecrets")
+}
+
 func TestGetClient_FallsBackWhenGlobalKeychainIsAnonymous(t *testing.T) {
 	global := &mockGlobalClient{keychain: fixedKeychain{auth: authn.Anonymous}}
 	factory := DefaultRegistryClientFactory(global, nil)
