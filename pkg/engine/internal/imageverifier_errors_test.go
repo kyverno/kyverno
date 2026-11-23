@@ -25,11 +25,11 @@ import (
 // Fail, so classifying a registry HTTP response as Error would admit an image
 // under failurePolicy Ignore that a Fail would have denied.
 func TestIsInfrastructureErrorExcludesRegistryResponses(t *testing.T) {
-	assert.False(t, isInfrastructureError(nil))
+	assert.False(t, isInfrastructureError(logr.Discard(), nil))
 
 	netErr := &net.OpError{Op: "dial", Err: errors.New("connection refused")}
-	assert.True(t, isInfrastructureError(netErr), "an unreachable registry is infrastructure")
-	assert.True(t, isInfrastructureError(fmt.Errorf("wrapped: %w", netErr)), "wrapping must not lose the classification")
+	assert.True(t, isInfrastructureError(logr.Discard(), netErr), "an unreachable registry is infrastructure")
+	assert.True(t, isInfrastructureError(logr.Discard(), fmt.Errorf("wrapped: %w", netErr)), "wrapping must not lose the classification")
 
 	for _, code := range []int{
 		http.StatusUnauthorized, http.StatusForbidden,
@@ -37,10 +37,10 @@ func TestIsInfrastructureErrorExcludesRegistryResponses(t *testing.T) {
 		http.StatusServiceUnavailable, http.StatusGatewayTimeout,
 	} {
 		err := &transport.Error{StatusCode: code}
-		assert.False(t, isInfrastructureError(err), "registry response %d must fail closed, not degrade to Error", code)
+		assert.False(t, isInfrastructureError(logr.Discard(), err), "registry response %d must fail closed, not degrade to Error", code)
 	}
 
-	assert.False(t, isInfrastructureError(errors.New("signature mismatch")))
+	assert.False(t, isInfrastructureError(logr.Discard(), errors.New("signature mismatch")))
 }
 
 // TestHasResourceDependentGate pins which entries must not be served from the
@@ -234,11 +234,11 @@ func TestFirstInfrastructureErrorIsSetScoped(t *testing.T) {
 	rejected := errors.New("signature mismatch")
 
 	t.Run("reports an infrastructure error from this set", func(t *testing.T) {
-		assert.Equal(t, infra, firstInfrastructureError([]error{rejected, infra}))
+		assert.Equal(t, infra, firstInfrastructureError(logr.Discard(), []error{rejected, infra}))
 	})
 
 	t.Run("a genuine rejection alone is not infrastructure", func(t *testing.T) {
-		assert.Nil(t, firstInfrastructureError([]error{rejected}))
+		assert.Nil(t, firstInfrastructureError(logr.Discard(), []error{rejected}))
 	})
 
 	t.Run("an earlier set's error must not leak in", func(t *testing.T) {
@@ -246,11 +246,11 @@ func TestFirstInfrastructureErrorIsSetScoped(t *testing.T) {
 		// set B then rejected the signature.
 		all := []error{infra, rejected}
 		setBErrors := all[1:]
-		assert.Nil(t, firstInfrastructureError(setBErrors), "set B rejected the signature; it must Fail, not Error")
-		assert.Equal(t, infra, firstInfrastructureError(all), "scanning the whole list is the bug this guards against")
+		assert.Nil(t, firstInfrastructureError(logr.Discard(), setBErrors), "set B rejected the signature; it must Fail, not Error")
+		assert.Equal(t, infra, firstInfrastructureError(logr.Discard(), all), "scanning the whole list is the bug this guards against")
 	})
 
 	t.Run("no errors", func(t *testing.T) {
-		assert.Nil(t, firstInfrastructureError(nil))
+		assert.Nil(t, firstInfrastructureError(logr.Discard(), nil))
 	})
 }

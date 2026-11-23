@@ -396,21 +396,37 @@ func (iv *imageVerifier) verifyAttestors(
 }
 
 // isInfrastructureError reports whether err reflects an inability to reach the
-// registry at all. Registry HTTP responses are deliberately excluded: Error
-// only blocks under failurePolicy Fail, so treating an auth or 5xx response as
-// Error would admit the image under failurePolicy Ignore.
-func isInfrastructureError(err error) bool {
-	if err == nil {
+// registry at all: a network error, or a registry call that was cancelled or
+// timed out before it completed (including net/http transport timeouts such as
+// the TLS handshake or response header timeouts). Registry HTTP responses are
+// deliberately excluded: Error only blocks under failurePolicy Fail, so treating
+// an auth or 5xx response as Error would admit the image under failurePolicy Ignore.
+func isInfrastructureError(logger logr.Logger, err error) bool {
+	var opErr *net.OpError
+	var netErr net.Error
+	var kind string
+	switch {
+	case err == nil:
+		return false
+	case errors.As(err, &opErr):
+		kind = "network"
+	case errors.Is(err, context.Canceled):
+		kind = "canceled"
+	case errors.Is(err, context.DeadlineExceeded):
+		kind = "deadlineExceeded"
+	case errors.As(err, &netErr) && netErr.Timeout():
+		kind = "timeout"
+	default:
 		return false
 	}
-	var netErr *net.OpError
-	return errors.As(err, &netErr)
+	logger.V(4).Info("image verification infrastructure error", "kind", kind, "error", err.Error())
+	return true
 }
 
 // handle registry network errors as a rule error (instead of a policy failure)
 func (iv *imageVerifier) handleRegistryErrors(image string, err error) *engineapi.RuleResponse {
 	msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
-	if isInfrastructureError(err) {
+	if isInfrastructureError(iv.logger, err) {
 		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to verify image %s", image), err, iv.rule.ReportProperties)
 	}
 	return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties)
@@ -510,7 +526,7 @@ func (iv *imageVerifier) verifyAttestations(
 				// rejected credential means the constraint was never
 				// actually checked; report that distinctly from a genuine
 				// rejection.
-				if e := firstInfrastructureError(errorList[setErrorsFrom:]); e != nil {
+				if e := firstInfrastructureError(iv.logger, errorList[setErrorsFrom:]); e != nil {
 					return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, msg, e, iv.rule.ReportProperties), ""
 				}
 				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), ""
@@ -604,9 +620,9 @@ func (iv *imageVerifier) verifyAttestorSet(
 // pass only the errors of the attestor set they are deciding: an error from a
 // different, already satisfied set would turn this set's genuine rejection
 // into an Error, which failurePolicy Ignore admits.
-func firstInfrastructureError(errs []error) error {
+func firstInfrastructureError(logger logr.Logger, errs []error) error {
 	for _, e := range errs {
-		if isInfrastructureError(e) {
+		if isInfrastructureError(logger, e) {
 			return e
 		}
 	}
