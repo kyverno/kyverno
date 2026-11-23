@@ -1,3 +1,7 @@
+## Unreleased
+
+- fix(notary): stop waiting for verification slots on request cancellation to prevent goroutine and timer leaks (#18779)
+
 ## v1.13.0
 
 ### Note
