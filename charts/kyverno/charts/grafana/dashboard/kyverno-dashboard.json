@@ -45,7 +45,7 @@
             "showLineNumbers": false,
             "showMiniMap": false
           },
-          "content": "# Kyverno\nA Kubernetes-native policy management engine\n\n#### About this dashboard\n\nThis dashboard represents generic insights that can be extracted from a cluster with Kyverno running.\n\n- **Policies (policies.kyverno.io)** rows cover `ValidatingPolicy`, `ImageValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`, `DeletingPolicy` and their namespaced variants.\n- **Legacy Policies (kyverno.io)** rows cover `ClusterPolicy` and `Policy`, and stay empty when no legacy policies are installed.\n\n#### For more details around the metrics\n\nCheckout the [official docs of Kyverno metrics](https://kyverno.io/docs/monitoring/)",
+          "content": "# Kyverno\nA Kubernetes-native policy management engine\n\n#### About this dashboard\n\nThis dashboard represents generic insights that can be extracted from a cluster with Kyverno running.\n\n- **Policies (policies.kyverno.io)** rows cover `ValidatingPolicy`, `ImageValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`, `DeletingPolicy` and their namespaced variants.\n\n#### For more details around the metrics\n\nCheckout the [official docs of Kyverno metrics](https://kyverno.io/docs/monitoring/)",
           "mode": "markdown"
         },
         "pluginVersion": "11.2.0",
