@@ -606,6 +606,104 @@ spec:
 	assert.Equal(t, "app-2-config", gen2[0].GetName())
 }
 
+// TestRunTest_NamespacedGeneratingPolicy verifies that NamespacedGeneratingPolicy is compiled
+// and evaluated properly without panicking via runTest.
+func TestRunTest_NamespacedGeneratingPolicy(t *testing.T) {
+	fs := memfs.New()
+
+	kyvernoTestYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-ngp
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: generate-cm-namespaced
+    kind: ConfigMap
+    resources:
+      - trigger-cm
+    result: pass
+`
+
+	policyYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedGeneratingPolicy
+metadata:
+  name: generate-cm-namespaced
+  namespace: test-ns
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["configmaps"]
+  generate:
+    - expression: >
+        generator.Apply([{
+          "apiVersion": dyn("v1"),
+          "kind": dyn("ConfigMap"),
+          "metadata": dyn({
+            "name": dyn("gen-child-cm")
+          })
+        }])
+`
+
+	resourceYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trigger-cm
+  namespace: test-ns
+`
+
+	f1, err := fs.Create("kyverno-test.yaml")
+	require.NoError(t, err)
+	_, err = f1.Write([]byte(kyvernoTestYAML))
+	require.NoError(t, err)
+	f1.Close()
+
+	f2, err := fs.Create("policy.yaml")
+	require.NoError(t, err)
+	_, err = f2.Write([]byte(policyYAML))
+	require.NoError(t, err)
+	f2.Close()
+
+	f3, err := fs.Create("resource.yaml")
+	require.NoError(t, err)
+	_, err = f3.Write([]byte(resourceYAML))
+	require.NoError(t, err)
+	f3.Close()
+
+	testCases := test.LoadTest(fs, "kyverno-test.yaml")
+	require.Len(t, testCases, 1)
+
+	var gpolCompileCount int
+	previousHook := hookGpolCompiled
+	hookGpolCompiled = func() { gpolCompileCount++ }
+
+	defer func() {
+		hookGpolCompiled = previousHook
+	}()
+
+	resp, err := runTest(context.TODO(), io.Discard, testCases[0], false)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, 1, gpolCompileCount, "GeneratingPolicies should be compiled via compileGeneratingPolicies")
+
+	key := "v1,ConfigMap,test-ns,trigger-cm"
+	require.Contains(t, resp.Trigger, key)
+	require.NotEmpty(t, resp.Trigger[key])
+	assert.Equal(t, "generate-cm-namespaced", resp.Trigger[key][0].Policy().GetName())
+	assert.Equal(t, "test-ns", resp.Trigger[key][0].Policy().GetNamespace())
+	assert.True(t, resp.Trigger[key][0].IsSuccessful())
+
+	require.NotEmpty(t, resp.Trigger[key][0].PolicyResponse.Rules)
+	gen := resp.Trigger[key][0].PolicyResponse.Rules[0].GeneratedResources()
+	require.NotEmpty(t, gen)
+	assert.Equal(t, "gen-child-cm", gen[0].GetName())
+}
+
 // TestRunTest_ProviderCachingGeneratingPolicyCompileFailure verifies error propagation when GeneratingPolicy compilation fails.
 func TestRunTest_ProviderCachingGeneratingPolicyCompileFailure(t *testing.T) {
 	fs := memfs.New()

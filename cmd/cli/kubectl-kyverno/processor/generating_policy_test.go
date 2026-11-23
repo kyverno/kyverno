@@ -76,3 +76,71 @@ func Test_ApplyPoliciesOnResource_preservesSkippedGeneratingPolicy(t *testing.T)
 	assert.Equal(t, responses[0].Policy().GetName(), policy.Name)
 	assert.Equal(t, len(responses[0].PolicyResponse.Rules), 0)
 }
+
+// Test_ApplyPoliciesOnResource_NamespacedGeneratingPolicy verifies that a valid
+// NamespacedGeneratingPolicy is evaluated on matching resources via the fallback
+// compilation path without panicking due to typed-nil conversion defects.
+func Test_ApplyPoliciesOnResource_NamespacedGeneratingPolicy(t *testing.T) {
+	policy := &policiesv1beta1.NamespacedGeneratingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "policies.kyverno.io/v1beta1",
+			Kind:       "NamespacedGeneratingPolicy",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "generate-cm-namespaced",
+			Namespace: "test-ns",
+		},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						},
+					},
+				},
+			},
+			Generation: []policiesv1beta1.Generation{
+				{
+					Expression: `generator.Apply([{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap"), "metadata": dyn({"name": "gen-child-cm"})}])`,
+				},
+			},
+		},
+	}
+
+	resource := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      "trigger-cm",
+				"namespace": "test-ns",
+			},
+		},
+	}
+
+	processor := PolicyProcessor{
+		Store:              &store.Store{},
+		GeneratingPolicies: []policiesv1beta1.GeneratingPolicyLike{policy},
+		Resource:           resource,
+		Variables:          &variables.Variables{},
+		Rc:                 &ResultCounts{},
+		Out:                io.Discard,
+	}
+
+	responses, err := processor.ApplyPoliciesOnResource()
+	assert.NilError(t, err)
+	assert.Equal(t, len(responses), 1)
+	assert.Equal(t, responses[0].Policy().GetName(), policy.Name)
+	assert.Equal(t, responses[0].Policy().GetNamespace(), policy.Namespace)
+	assert.Assert(t, responses[0].IsSuccessful())
+	assert.Equal(t, len(responses[0].PolicyResponse.Rules), 1)
+	gen := responses[0].PolicyResponse.Rules[0].GeneratedResources()
+	assert.Equal(t, len(gen), 1)
+	assert.Equal(t, gen[0].GetName(), "gen-child-cm")
+}

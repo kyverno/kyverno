@@ -1098,7 +1098,7 @@ func compileGeneratingPolicies(
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
 		}
 		out = append(out, gpolengine.Policy{
-			Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
+			Policy:         pol,
 			CompiledPolicy: compiled,
 		})
 	}
