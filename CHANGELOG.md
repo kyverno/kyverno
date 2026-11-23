@@ -1,3 +1,13 @@
+## Unreleased
+
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:1593502ae81e6d34fe6dfd5e3a6a923ba580f7b6a5a90fdfc057ea65a54dcae6 -->
+
+- fix(imageverify): record image signature and attestation verification as successful only when all evaluated attestors succeed (#18780)
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## v1.13.0
 
 ### Note
