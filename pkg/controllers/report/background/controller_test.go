@@ -9,16 +9,62 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	reportresource "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
+
+func TestReconcileReportChecksResourceUID(t *testing.T) {
+	t.Parallel()
+
+	const liveUID types.UID = "live-uid"
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}
+	gvk := schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}
+	for _, tc := range []struct {
+		name      string
+		queuedUID types.UID
+		wantScan  bool
+	}{
+		{name: "same UID", queuedUID: liveUID, wantScan: true},
+		{name: "resource replaced", queuedUID: "deleted-uid"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			resource := &unstructured.Unstructured{}
+			resource.SetGroupVersionKind(gvk)
+			resource.SetName("test-namespace")
+			resource.SetUID(liveUID)
+			dynamicClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), resource)
+			kyvernoClient := versionedfake.NewSimpleClientset()
+			c := &controller{
+				client:        dclient.NewFakeClientWithDisco(dynamicClient, nil, dclient.NewFakeDiscoveryClient(nil)),
+				kyvernoClient: kyvernoClient,
+			}
+
+			err := c.reconcileReport(t.Context(), "", string(tc.queuedUID), true, tc.queuedUID, gvk, gvr, reportresource.Resource{Name: resource.GetName()}, nil, nil, nil)
+			require.NoError(t, err)
+			if tc.wantScan {
+				require.Len(t, kyvernoClient.Actions(), 1)
+				require.True(t, kyvernoClient.Actions()[0].Matches("get", "clusterephemeralreports"))
+			} else {
+				require.Empty(t, kyvernoClient.Actions())
+			}
+		})
+	}
+}
 
 type failingValidatingPolicyLister struct {
 	policiesv1beta1listers.ValidatingPolicyLister

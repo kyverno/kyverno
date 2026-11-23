@@ -550,6 +550,10 @@ func (c *controller) reconcileReport(
 	if err != nil {
 		return err
 	}
+	if target.GetUID() != uid {
+		// A resource recreated under the same name is queued under its own UID.
+		return nil
+	}
 	// load observed report
 	observed, err := c.getReport(ctx, namespace, name)
 	if err != nil {

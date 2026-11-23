@@ -786,6 +786,10 @@ func (c *controller) adopt(ctx context.Context, reportMeta *metav1.PartialObject
 	if report == nil {
 		return false, false
 	}
+	// A CREATE admission report can be written before Kubernetes assigns a UID.
+	if uid := reportutils.GetResourceUid(report); uid != "" && uid != resource.GetUID() {
+		return false, false
+	}
 	controllerutils.SetOwner(report, resource.GetAPIVersion(), resource.GetKind(), resource.GetName(), resource.GetUID())
 	reportutils.SetResourceUid(report, resource.GetUID())
 	if _, err := updateReport(ctx, report, c.client, c.orClient); err != nil {

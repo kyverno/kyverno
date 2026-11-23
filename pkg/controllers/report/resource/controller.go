@@ -271,7 +271,10 @@ func (c *controller) UpdateResourceHash(gvr schema.GroupVersionResource, uid typ
 		// watcher may have been removed by updateDynamicWatchers during concurrent policy changes
 		return
 	}
-	w.hashes[uid] = hash
+	// The watch may have removed this UID since the scan read the cache.
+	if _, exists := w.hashes[uid]; exists {
+		w.hashes[uid] = hash
+	}
 }
 
 func (c *controller) AddEventHandler(eventHandler EventHandler) {
