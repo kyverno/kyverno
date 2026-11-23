@@ -106,6 +106,11 @@ func Exhausted(ctx context.Context) error {
 	if b.exhaustedBy > 0 {
 		return fmt.Errorf("%w: already exhausted by an earlier charge of %d (of %d)", ErrBudgetExceeded, b.exhaustedBy, b.limit)
 	}
+	// A charge that spends the counter to exactly zero fits (Charge allows it) and leaves
+	// exhaustedBy unset, but nothing remains for the next program, so refuse it here too.
+	if b.remaining == 0 {
+		return fmt.Errorf("%w: no budget remains (of %d)", ErrBudgetExceeded, b.limit)
+	}
 	return nil
 }
 
