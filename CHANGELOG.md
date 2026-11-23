@@ -1,3 +1,7 @@
+## Unreleased
+
+- fix(cel): accept `cel.bind` in PolicyException admission validation (#18764)
+
 ## v1.13.0
 
 ### Note
