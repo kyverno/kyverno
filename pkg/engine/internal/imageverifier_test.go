@@ -3,17 +3,30 @@ package internal
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/go-logr/logr"
 	gcrname "github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 )
+
+// transportTimeoutError mimics net/http's unexported transport timeouts (TLS
+// handshake, response header): a net.Error that reports Timeout() but neither
+// is a *net.OpError nor matches context.DeadlineExceeded.
+type transportTimeoutError struct{}
+
+func (transportTimeoutError) Error() string   { return "net/http: TLS handshake timeout" }
+func (transportTimeoutError) Timeout() bool   { return true }
+func (transportTimeoutError) Temporary() bool { return true }
 
 // mockRegistryClient is a minimal RegistryClient that propagates context errors.
 type mockRegistryClient struct{}
@@ -98,6 +111,29 @@ func TestHandleRegistryErrors(t *testing.T) {
 		{
 			name:           "generic error returns RuleFail",
 			err:            fmt.Errorf("failed to load public key"),
+			expectedStatus: engineapi.RuleStatusFail,
+		},
+		{
+			name: "url.Error wrapping a transport timeout returns RuleError",
+			err: fmt.Errorf("constructing cosign remote options: %w", &url.Error{
+				Op:  "Get",
+				URL: "https://registry.example.com/v2/",
+				Err: transportTimeoutError{},
+			}),
+			expectedStatus: engineapi.RuleStatusError,
+		},
+		{
+			name: "url.Error wrapping a non-timeout transport error returns RuleFail",
+			err: &url.Error{
+				Op:  "Get",
+				URL: "https://registry.example.com/v2/",
+				Err: io.ErrUnexpectedEOF,
+			},
+			expectedStatus: engineapi.RuleStatusFail,
+		},
+		{
+			name:           "registry response returns RuleFail",
+			err:            fmt.Errorf("GET https://registry.example.com/v2/: %w", &transport.Error{StatusCode: http.StatusServiceUnavailable}),
 			expectedStatus: engineapi.RuleStatusFail,
 		},
 	}
