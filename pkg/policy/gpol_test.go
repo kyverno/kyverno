@@ -553,6 +553,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 	const customGroup = "example.test.io"
 	coreGVR := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
 	coreNamespaceGVR := schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}
+	coreNodeGVR := schema.GroupVersionResource{Version: "v1", Resource: "nodes"}
 	customAlphaGVR := schema.GroupVersionResource{Group: customGroup, Version: "v1alpha1", Resource: "configmaps"}
 	customV1GVR := schema.GroupVersionResource{Group: customGroup, Version: "v1", Resource: "configmaps"}
 
@@ -569,6 +570,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 				"v1": {
 					{Name: "configmaps", Namespaced: true, Kind: "ConfigMap"},
 					{Name: "namespaces", Namespaced: false, Kind: "Namespace"},
+					{Name: "nodes", Namespaced: false, Kind: "Node"},
 				},
 			},
 		},
@@ -607,6 +609,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 		map[schema.GroupVersionResource]string{
 			coreGVR:          "ConfigMapList",
 			coreNamespaceGVR: "NamespaceList",
+			coreNodeGVR:      "NodeList",
 			customAlphaGVR:   "ExampleConfigMapList",
 			customV1GVR:      "ExampleConfigMapList",
 		},
@@ -618,7 +621,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	discovery := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{coreGVR, coreNamespaceGVR, customAlphaGVR, customV1GVR})
+	discovery := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{coreGVR, coreNamespaceGVR, coreNodeGVR, customAlphaGVR, customV1GVR})
 	discovery.AddGVRToGVKMapping(coreGVR, coreGVR.GroupVersion().WithKind("ConfigMap"))
 	discovery.AddGVRToGVKMapping(coreNamespaceGVR, coreNamespaceGVR.GroupVersion().WithKind("Namespace"))
 	discovery.AddGVRToGVKMapping(customAlphaGVR, customAlphaGVR.GroupVersion().WithKind("ExampleConfigMap"))
@@ -651,6 +654,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 		resource             string
 		scope                *admissionregistrationv1.ScopeType
 		policyNamespace      string
+		wantNoList           bool
 		excludeCore          bool
 		excludeAlpha         bool
 		excludeStatus        bool
@@ -750,6 +754,11 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 			groups: []string{""}, versions: []string{"v1"}, resource: "namespaces", policyNamespace: "other-ns",
 		},
 		{
+			name:   "namespaced policy skips Nodes before listing",
+			groups: []string{""}, versions: []string{"v1"}, resource: "nodes", policyNamespace: "existing-ns",
+			wantNoList: true,
+		},
+		{
 			name:   "unserved version does not produce a trigger",
 			groups: []string{"*"}, versions: []string{"v2"},
 		},
@@ -819,7 +828,14 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 					},
 				}}
 			}
+			dynamicClient := client.GetDynamicInterface().(*dynamicfake.FakeDynamicClient)
+			dynamicClient.ClearActions()
 			triggers := pc.getGpolTriggers(match, tc.policyNamespace)
+			if tc.wantNoList {
+				for _, action := range dynamicClient.Actions() {
+					assert.False(t, action.Matches("list", resource), "unexpected LIST for %s", resource)
+				}
+			}
 			gotNames := make([]string, 0, len(triggers))
 			for _, trigger := range triggers {
 				gotNames = append(gotNames, trigger.GetName())
