@@ -2691,3 +2691,50 @@ spec:
 		assert.Contains(t, output, "warn: 0")
 	})
 }
+
+// A git URL with a host but no path (e.g. "http://github.com" or "https://github.com") must not
+// panic loadPolicies with a slice-bounds error on gitSourceURL.Path[1:]; it should return an
+// "invalid URL path" error instead.
+func Test_Apply_GitURLWithoutPath(t *testing.T) {
+	resourcePath := "../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{
+			name: "http url without path",
+			url:  "http://github.com",
+		},
+		{
+			name: "https url without path",
+			url:  "https://github.com",
+		},
+		{
+			name: "url with empty path and port",
+			url:  "http://github.com:8080",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(&out)
+			cmd.SetArgs([]string{tt.url, "--resource", resourcePath})
+			err := cmd.Execute()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid URL path")
+		})
+	}
+}
+
+func Test_Apply_loadPolicies_GitURLWithoutPath(t *testing.T) {
+	c := &ApplyCommandConfig{
+		PolicyPaths: []string{"http://github.com"},
+	}
+	var out bytes.Buffer
+	_, _, _, _, _, _, _, _, _, _, _, _, err := c.loadPolicies(context.TODO(), &out)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid URL path")
+}
