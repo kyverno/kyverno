@@ -2,6 +2,14 @@
 
 - fix(policy): scope background lists of namespaced triggers for generating and mutating policies to the policy namespace, while retaining matches for the policy's own Namespace (#18841)
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:c39841fd3b4247898eee419d9abbd4d71f2e8952ab6b1c9c46cf2a65fc72e1bd -->
+
+- feat(trace): add `trace.kyverno.io/v1alpha1` JSON for `kyverno apply --explain --output-format json` and admission decision traces; admission log `scope` changes from a string to an object and gains `apiVersion`, `kind`, `policy`, and `resource` (#18716)
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## v1.13.0
 
 ### Note
