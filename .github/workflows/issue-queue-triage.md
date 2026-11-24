@@ -20,6 +20,7 @@ tools:
   cli-proxy: false
   github:
     min-integrity: none
+    allowed-repos: public
 
 safe-outputs:
   # Preview: a run reports what it would add and writes nothing. Delete this line and recompile to go live.
@@ -91,7 +92,7 @@ safe-outputs:
             def skip(why):
                 lines.append(f"- skipped: {why}")
 
-            for item in items[:len(selected)]:
+            for item in items:
                 try:
                     n = int(str(item.get("issue", "")).strip().lstrip("#"))
                 except ValueError:
@@ -123,9 +124,17 @@ safe-outputs:
                         if staged:
                             lines.append(f"- would label #{n} `{queue}`: {reason}")
                             continue
-                        subprocess.run(["gh", "issue", "edit", str(n), "-R", REPO, "--add-label", queue], check=True)
-                        subprocess.run(["gh", "issue", "comment", str(n), "-R", REPO, "--body", body], check=True)
-                        lines.append(f"- labelled #{n} `{queue}`")
+                        try:
+                            subprocess.run(["gh", "issue", "edit", str(n), "-R", REPO, "--add-label", queue],
+                                           check=True, capture_output=True)
+                        except subprocess.CalledProcessError:
+                            done.discard(n)
+                            skip(f"#{n} could not be labelled")
+                            continue
+                        # A label without its reason is harmless and a person can fix it, so go on to the next issue.
+                        c = subprocess.run(["gh", "issue", "comment", str(n), "-R", REPO, "--body", body],
+                                           capture_output=True)
+                        lines.append(f"- labelled #{n} `{queue}`" + ("" if c.returncode == 0 else " (comment failed)"))
             head = "Would queue" if staged else "Queued"
             with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
                 f.write(f"## {head} {len(done)} of {len(selected)} issues\n\n" + "\n".join(lines) + "\n")
