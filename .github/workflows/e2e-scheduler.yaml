@@ -23,6 +23,10 @@
 # a warning, and the Tests run then updates the tracking issue on its first
 # attempt instead of waiting for a re-run.
 #
+# The app secrets live in the pr-updater-app environment, whose branch rules
+# allow only main. A manual run started from another branch fails before it
+# starts, so only main's copy of this workflow can read the app key.
+#
 # Supported release branches: set the E2E_RELEASE_BRANCHES repository variable
 # to a space-separated list, for example "release-1.19 release-1.20". When it
 # is unset, the scheduler uses the three newest release-1.x branches.
@@ -64,6 +68,7 @@ jobs:
     if: github.repository == 'kyverno/kyverno'
     runs-on: ubuntu-slim
     timeout-minutes: 10
+    environment: pr-updater-app
     permissions:
       # actions: the job lists and starts runs of the Tests workflow
       actions: write
