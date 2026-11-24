@@ -49,7 +49,8 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 	}
 	native := ast.NativeRep()
 	references := native.ReferenceMap()
-	et.Inputs = inputsOf(native.Expr(), references)
+	bound := boundInputs(native.Expr(), references)
+	et.Inputs = inputsOf(native.Expr(), references, bound)
 	if details == nil {
 		return et
 	}
@@ -129,7 +130,7 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 			// noise to a reader. The macro call itself renders without them and is kept.
 			return
 		}
-		nt := NodeTrace{Expression: text, Inputs: inputsOf(e, references)}
+		nt := NodeTrace{Expression: text, Inputs: inputsOf(e, references, bound)}
 		if types.IsError(val) {
 			nt.Error = stringify(val)
 		} else {

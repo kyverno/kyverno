@@ -34,8 +34,9 @@ var resourceCallPrefixes = []string{"resource_get_", "resource_list_", "list_res
 
 // inputsOf returns what e reads. references is the AST's reference map, which holds the overload
 // IDs of a checked AST; an AST that was only parsed has none, and the resource calls are then
-// recognized by their name.
-func inputsOf(e celast.Expr, references map[int64]*celast.ReferenceInfo) Inputs {
+// recognized by their name. bound is what each name bound in the expression reads (see
+// boundInputs), which a use of the name reads too.
+func inputsOf(e celast.Expr, references map[int64]*celast.ReferenceInfo, bound map[string]Inputs) Inputs {
 	var in Inputs
 	// named holds the variables identifiers that a read by name uses, such as the one in
 	// variables.password; any other use of the identifier reads variables without naming them.
@@ -55,9 +56,69 @@ func inputsOf(e celast.Expr, references map[int64]*celast.ReferenceInfo) Inputs 
 			if _, ok := named[n.ID()]; !ok && n.AsIdent() == "variables" {
 				in.AnyVariable = true
 			}
+			if b, ok := bound[n.AsIdent()]; ok {
+				in.merge(b)
+			}
 		}
 	}))
 	return in
+}
+
+// boundInputs returns, for each name the expression e binds, what the value bound to it reads.
+// cel.bind(name, value, body) and x.optMap(name, body) expand into a comprehension whose
+// accumulator is the name and whose initial value is the value, and a loop such as all() or map()
+// binds its variable to the items of the list it loops over. A node that uses the name reads what
+// that value reads, though the name alone does not show it: pw in cel.bind(pw, variables.password,
+// pw == ”) reads the password. Names are matched by name, not by scope, so a name that two
+// comprehensions bind reads what either value reads: that can hide a value that is not Secret
+// data, never show one that is.
+func boundInputs(e celast.Expr, references map[int64]*celast.ReferenceInfo) map[string]Inputs {
+	var comprehensions []celast.ComprehensionExpr
+	celast.PreOrderVisit(e, celast.NewExprVisitor(func(n celast.Expr) {
+		if n.Kind() == celast.ComprehensionKind {
+			comprehensions = append(comprehensions, n.AsComprehension())
+		}
+	}))
+	bound := map[string]Inputs{}
+	// a value can use a name another comprehension binds, so this repeats until nothing changes
+	for changed := true; changed; {
+		changed = false
+		bind := func(name string, values ...celast.Expr) {
+			in := bound[name]
+			for _, value := range values {
+				if in.merge(inputsOf(value, references, bound)) {
+					changed = true
+				}
+			}
+			bound[name] = in
+		}
+		for _, c := range comprehensions {
+			bind(c.AccuVar(), c.AccuInit(), c.IterRange())
+			bind(c.IterVar(), c.IterRange())
+			if c.HasIterVar2() {
+				bind(c.IterVar2(), c.IterRange())
+			}
+		}
+	}
+	return bound
+}
+
+// merge adds what other reads to in, and reports whether that changed in.
+func (in *Inputs) merge(other Inputs) bool {
+	changed := false
+	if other.Secret && !in.Secret {
+		in.Secret, changed = true, true
+	}
+	if other.AnyVariable && !in.AnyVariable {
+		in.AnyVariable, changed = true, true
+	}
+	for _, name := range other.Variables {
+		if !slices.Contains(in.Variables, name) {
+			in.Variables = append(in.Variables, name)
+			changed = true
+		}
+	}
+	return changed
 }
 
 func (in *Inputs) addVariable(name string) {

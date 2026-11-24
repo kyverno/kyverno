@@ -2355,6 +2355,14 @@ func Test_Apply_ExplainHidesSecretData(t *testing.T) {
 			`message: "the password is too short"`,
 		},
 	}, {
+		name: "a validating policy binds names to a Secret's data",
+		dir:  base + "test-validating-policy/explain-secret-bind/",
+		want: []string{
+			`object.metadata.labels.team == "payments"  ->  true`,
+			"pw  ->  (redacted)",
+			`message: "the password is not the expected one"`,
+		},
+	}, {
 		name: "an image validating policy fails on a Secret's data",
 		dir:  base + "test-image-validating-policy/explain-secret/",
 		want: []string{
