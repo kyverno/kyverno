@@ -371,7 +371,7 @@ func main() {
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.BoolVar(&enableAuthorizingPolicies, "enableAuthorizingPolicies", false, "Set this flag to 'true' to serve AuthorizingPolicy authorization webhook endpoints (/authz, /authz/subjectaccessreview, /authz/conditionsreview) for Kubernetes conditional authorization (alpha, Kubernetes 1.38+). Requires the AuthorizingPolicy CRD to be installed.")
-	flagset.BoolVar(&enableDecisionTraces, "enableDecisionTraces", false, "Set this flag to 'true' to log a decision trace for every ValidatingPolicy, MutatingPolicy and ImageValidatingPolicy admission decision: which expressions ran and what they resolved to. FAIL and ERROR decisions are logged at verbosity 2, PASS and SKIP decisions at verbosity 3, and policies that did not apply to the resource at verbosity 4. This is a debug mode: every expression is evaluated a second time to explain it, and the trace contains values read from the admitted resource (no values are logged for Secrets).")
+	flagset.BoolVar(&enableDecisionTraces, "enableDecisionTraces", false, "Set this flag to 'true' to log a decision trace for every ValidatingPolicy, MutatingPolicy and ImageValidatingPolicy admission decision: which expressions ran and what they resolved to. FAIL and ERROR decisions are logged at verbosity 2, PASS and SKIP decisions at verbosity 3, and policies that did not apply to the resource at verbosity 4. This is a debug mode: every expression is evaluated a second time to explain it, and the trace contains values read from the admitted resource (no values that may come from a Secret are logged).")
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations (number of seconds, integer).")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
@@ -632,7 +632,7 @@ func main() {
 			setup.Logger.Error(err, "failed to initialize leader election")
 			os.Exit(1)
 		}
-		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
+		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, kyvernoInformer.Kyverno().V2().UpdateRequests().Lister())
 		// create webhooks server
 		urgen := webhookgenerate.NewGenerator(
 			setup.KyvernoClient,

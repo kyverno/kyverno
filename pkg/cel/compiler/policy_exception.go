@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"cel.dev/cel-go/cel"
+	"cel.dev/cel-go/ext"
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -87,7 +88,7 @@ func getPolicyExceptionEnvSet() (*environment.EnvSet, error) {
 			errPolicyExceptionEnvSet = err
 			return
 		}
-		envOptions := make([]cel.EnvOption, 0, 6+len(declOptions))
+		envOptions := make([]cel.EnvOption, 0, 8+len(declOptions))
 		envOptions = append(envOptions,
 			cel.Variable(NamespaceObjectKey, NamespaceType.CelType()),
 			cel.Variable(ObjectKey, cel.DynType),
@@ -98,6 +99,10 @@ func getPolicyExceptionEnvSet() (*environment.EnvSet, error) {
 		)
 		envOptions = append(envOptions, declOptions...)
 
+		// The Kubernetes base env does not include cel.bind. Exception evaluators
+		// register it through DefaultEnvOptions, so admission must too or the
+		// webhook rejects expressions the CLI and engines accept.
+		envOptions = append(envOptions, ext.Bindings())
 		// Register the resource library so PolicyException match conditions
 		// can validate expressions using resource.Get().
 		envOptions = append(envOptions, resource.Lib(nil, "", resource.Latest()))

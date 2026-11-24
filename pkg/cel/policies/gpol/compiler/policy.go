@@ -137,13 +137,18 @@ func (p *Policy) Evaluate(
 		}
 		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Generations: generationTraces, Verdict: verdict}
 	}
-	// failed returns what Evaluate returned on this error before tracing existed (nil, err),
-	// plus, with tracing on, a result carrying what was traced up to the failure
+	// An evaluation error does not roll back already acknowledged API writes.
+	// Preserve their identities before ClearGeneratedResources runs so callers can
+	// register them even when decision tracing is disabled.
 	failed := func(err error) (*EvaluationResult, error) {
-		if !p.trace {
+		generated := data.Context.GetGeneratedResources()
+		if !p.trace && len(generated) == 0 {
 			return nil, err
 		}
-		return &EvaluationResult{Trace: decision(trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()})}, err
+		return &EvaluationResult{
+			GeneratedResources: append([]*unstructured.Unstructured(nil), generated...),
+			Trace:              decision(trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()}),
+		}, err
 	}
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {

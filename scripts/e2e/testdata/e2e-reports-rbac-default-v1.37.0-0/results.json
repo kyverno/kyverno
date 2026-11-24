@@ -1,0 +1,34 @@
+{
+  "name": "chainsaw-report",
+  "startTime": "2026-11-13T19:24:09.24563-07:00",
+  "endTime": "2026-11-13T19:24:09.254895-07:00",
+  "tests": [
+    {
+      "basePath": "chainsaw/rbac/background-controller-permissions",
+      "name": "background-controller-permissions",
+      "status": "failed",
+      "startTime": "2026-11-13T19:24:09.24659-07:00",
+      "endTime": "2026-11-13T19:24:09.254864-07:00",
+      "steps": [
+        {
+          "name": "assert-webhook",
+          "status": "failed",
+          "startTime": "2026-11-13T19:24:09.24661-07:00",
+          "endTime": "2026-11-13T19:24:09.254861-07:00",
+          "operations": [
+            {
+              "name": "operation 1",
+              "type": "assert",
+              "status": "failed",
+              "startTime": "2026-11-13T19:24:09.2477-07:00",
+              "endTime": "2026-11-13T19:24:09.254853-07:00",
+              "failure": {
+                "error": "rbac.authorization.k8s.io/v1/ClusterRole/kyverno:background-controller - rules: missing permission"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
