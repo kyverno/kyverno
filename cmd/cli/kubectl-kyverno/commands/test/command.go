@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -55,7 +56,7 @@ func Command() *cobra.Command {
 	if err := cmd.RegisterFlagCompletionFunc("output-format", func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return outputFormats.Names(toComplete), cobra.ShellCompDirectiveNoFileComp
 	}); err != nil {
-		panic(fmt.Errorf("failed to register output-format completion: %w", err))
+		log.Println("WARNING", err)
 	}
 	cmd.Flags().BoolVar(&registryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVar(&failOnly, "fail-only", false, "If set to true, display all the failing test only as output for the test command")

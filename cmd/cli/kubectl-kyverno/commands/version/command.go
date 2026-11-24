@@ -3,6 +3,7 @@ package version
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
@@ -61,7 +62,7 @@ func Command() *cobra.Command {
 	if err := cmd.RegisterFlagCompletionFunc("output", func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return outputFormats.Names(toComplete), cobra.ShellCompDirectiveNoFileComp
 	}); err != nil {
-		panic(fmt.Errorf("failed to register output completion: %w", err))
+		log.Println("WARNING", err)
 	}
 	return cmd
 }
