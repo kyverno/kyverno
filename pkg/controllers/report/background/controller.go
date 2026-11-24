@@ -100,6 +100,9 @@ type controller struct {
 
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
+
+	providerCache utils.ProviderCache
+	scanner       utils.Scanner
 }
 
 func NewController(
@@ -139,6 +142,7 @@ func NewController(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: ControllerName},
 	)
+	providerCache := utils.NewProviderCache()
 	c := controller{
 		client:             client,
 		kyvernoClient:      kyvernoClient,
@@ -156,6 +160,18 @@ func NewController(
 		mapper:             mapper,
 		secretLister:       secretLister,
 		typeConverter:      typeConverter,
+		providerCache:      providerCache,
+		scanner: utils.NewScannerWithCache(
+			logger,
+			config,
+			client,
+			gctxStore,
+			mapper,
+			secretLister,
+			typeConverter,
+			celengine.ExceptionScope(exceptionNamespace),
+			providerCache,
+		),
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -291,6 +307,9 @@ func (c *controller) updateVP(old, obj policiesv1beta1.ValidatingPolicyLike) {
 }
 
 func (c *controller) deleteVP(obj policiesv1beta1.ValidatingPolicyLike) {
+	if c.providerCache != nil {
+		c.providerCache.Evict(obj.GetKind(), obj.GetNamespace(), obj.GetName())
+	}
 	c.enqueueResources()
 }
 
@@ -305,6 +324,9 @@ func (c *controller) updateMP(old, obj policiesv1beta1.MutatingPolicyLike) {
 }
 
 func (c *controller) deleteMP(obj policiesv1beta1.MutatingPolicyLike) {
+	if c.providerCache != nil {
+		c.providerCache.Evict(obj.GetKind(), obj.GetNamespace(), obj.GetName())
+	}
 	c.enqueueResources()
 }
 
@@ -319,6 +341,9 @@ func (c *controller) updateIVP(old, obj policiesv1beta1.ImageValidatingPolicyLik
 }
 
 func (c *controller) deleteIVP(obj policiesv1beta1.ImageValidatingPolicyLike) {
+	if c.providerCache != nil {
+		c.providerCache.Evict(obj.GetKind(), obj.GetNamespace(), obj.GetName())
+	}
 	c.enqueueResources()
 }
 
@@ -651,7 +676,10 @@ func (c *controller) reconcileReport(
 			}
 		}
 		if full || reevaluate || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.config, c.client, c.gctxStore, c.mapper, c.secretLister, c.typeConverter, celengine.ExceptionScope(c.exceptionNamespace))
+			scanner := c.scanner
+			if scanner == nil {
+				scanner = utils.NewScanner(logger, c.config, c.client, c.gctxStore, c.mapper, c.secretLister, c.typeConverter, celengine.ExceptionScope(c.exceptionNamespace))
+			}
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error
