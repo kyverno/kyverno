@@ -2757,4 +2757,75 @@ spec:
 	assert.Equal(t, 1, rc.Pass)
 	assert.Equal(t, 1, rc.Fail)
 	assert.Equal(t, 0, rc.Error)
+
+	// Command-level regression testing table-driven cases for multiple resource directories
+	dirC := filepath.Join(tmpDir, "team-c")
+	require.NoError(t, os.Mkdir(dirC, 0o755))
+	goodDep2 := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: good-deployment-2
+  namespace: default
+  labels:
+    env: prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test2
+  template:
+    metadata:
+      labels:
+        app: test2
+    spec:
+      containers:
+      - name: test
+        image: nginx
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dirC, "good2.yaml"), []byte(goodDep2), 0o644))
+
+	policyPath := "../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"
+
+	tests := []struct {
+		name         string
+		resourceDirs []string
+		expectError  bool
+		assertOutput func(t *testing.T, out string)
+	}{
+		{
+			name:         "two passing directories",
+			resourceDirs: []string{dirA, dirC},
+			expectError:  false,
+			assertOutput: func(t *testing.T, out string) {
+				assert.Contains(t, out, "pass: 2")
+				assert.Contains(t, out, "fail: 0")
+			},
+		},
+		{
+			name:         "violation in second directory",
+			resourceDirs: []string{dirA, dirB},
+			expectError:  true,
+			assertOutput: func(t *testing.T, out string) {
+				assert.Contains(t, out, "bad-deployment")
+				assert.Contains(t, out, "fail: 1")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(&out)
+			cmd.SetArgs([]string{policyPath, "--resource", tt.resourceDirs[0], "--resource", tt.resourceDirs[1]})
+			err := cmd.Execute()
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			tt.assertOutput(t, out.String())
+		})
+	}
 }

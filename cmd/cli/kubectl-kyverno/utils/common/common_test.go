@@ -2,6 +2,8 @@ package common
 
 import (
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -131,17 +133,94 @@ func TestGetResourceAccordingToResourcePath_DirectoryFiltersNonYAMLAndSubdirs(t 
 	assert.Contains(t, names, "cm-yml")
 }
 
+func TestGetResourceAccordingToResourcePath_MixedURLAndDirectory(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/yaml")
+		_, _ = w.Write([]byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cm-url\n  namespace: default\n"))
+	}))
+	defer ts.Close()
+
+	tmpDir := t.TempDir()
+	dir := filepath.Join(tmpDir, "local-dir")
+	require.NoError(t, os.Mkdir(dir, 0o755))
+	cmDir := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cm-dir\n  namespace: default\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "cm-dir.yaml"), []byte(cmDir), 0o644))
+
+	t.Run("URL followed by directory", func(t *testing.T) {
+		resources, err := GetResourceAccordingToResourcePath(
+			io.Discard, nil, []string{ts.URL, dir},
+			false, nil, nil, "", false, false, "",
+			loader.ResourceOptions{}, false,
+		)
+		require.NoError(t, err)
+		require.Len(t, resources, 2)
+		assert.Equal(t, "cm-url", resources[0].GetName())
+		assert.Equal(t, "cm-dir", resources[1].GetName())
+	})
+
+	t.Run("directory followed by URL", func(t *testing.T) {
+		resources, err := GetResourceAccordingToResourcePath(
+			io.Discard, nil, []string{dir, ts.URL},
+			false, nil, nil, "", false, false, "",
+			loader.ResourceOptions{}, false,
+		)
+		require.NoError(t, err)
+		require.Len(t, resources, 2)
+		assert.Equal(t, "cm-dir", resources[0].GetName())
+		assert.Equal(t, "cm-url", resources[1].GetName())
+	})
+}
+
 func TestGetResourceAccordingToResourcePath_NonExistentPath(t *testing.T) {
 	tmpDir := t.TempDir()
+	validDir := filepath.Join(tmpDir, "valid-dir")
+	require.NoError(t, os.Mkdir(validDir, 0o755))
+	cm := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cm-valid\n  namespace: default\n"
+	require.NoError(t, os.WriteFile(filepath.Join(validDir, "cm.yaml"), []byte(cm), 0o644))
+
 	nonExistent := filepath.Join(tmpDir, "does-not-exist")
 
-	_, err := GetResourceAccordingToResourcePath(
-		io.Discard, nil, []string{nonExistent},
-		false, nil, nil, "", false, false, "",
+	testCases := []struct {
+		name  string
+		paths []string
+	}{
+		{
+			name:  "missing path only",
+			paths: []string{nonExistent},
+		},
+		{
+			name:  "valid directory followed by missing path",
+			paths: []string{validDir, nonExistent},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := GetResourceAccordingToResourcePath(
+				io.Discard, nil, tc.paths,
+				false, nil, nil, "", false, false, "",
+				loader.ResourceOptions{}, false,
+			)
+			require.Error(t, err)
+			assert.True(t, os.IsNotExist(err))
+		})
+	}
+}
+
+func TestGetResourceAccordingToResourcePath_ClusterModePreservesSelectors(t *testing.T) {
+	// In cluster mode (cluster == true), ResourcePaths are cluster resource selectors,
+	// not necessarily local files/directories. Non-existent local paths must not trigger os.Stat errors.
+	resources, err := GetResourceAccordingToResourcePath(
+		io.Discard, nil, []string{"my-test-pod", "manifests/other-pod.yaml"},
+		true, nil, nil, "", false, false, "",
 		loader.ResourceOptions{}, false,
 	)
-	require.Error(t, err)
-	assert.True(t, os.IsNotExist(err))
+	// Without a live cluster client, fetcher fails at client lookup or returns empty/nil,
+	// but it MUST NOT fail with os.IsNotExist from directory expansion.
+	if err != nil {
+		assert.False(t, os.IsNotExist(err), "cluster mode should not attempt local file os.Stat")
+	}
+	_ = resources
 }
 
 func TestGetResourceAccordingToResourcePath_EmptyPaths(t *testing.T) {

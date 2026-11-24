@@ -60,7 +60,7 @@ func GetResourceAccordingToResourcePath(
 				}
 			}
 		} else {
-			if len(resourcePaths) > 0 {
+			if !cluster && len(resourcePaths) > 0 {
 				var listOfFiles []string
 				for _, resourcePath := range resourcePaths {
 					if source.IsHttp(resourcePath) {
