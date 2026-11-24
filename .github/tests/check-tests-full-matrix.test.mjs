@@ -164,3 +164,29 @@ test('label: without versioned conformance jobs the labels stay as they are', as
   assert.deepEqual(calls, { addLabels: [], removeLabel: [], createLabel: [], comment: [] });
   assert.ok(log.some(l => l.startsWith('warning:')));
 });
+
+test('keep open: if the check fails, Sync issue does not run', () => {
+  const lines = fs.readFileSync(path.join(root, FILE), 'utf8').split('\n');
+  const step = lines.findIndex(l => l.trim() === '- name: Sync issue');
+  const cond = lines.slice(step + 1, step + 6).join('\n');
+  assert.match(cond, /steps\.full-matrix-open\.outcome != 'failure'/);
+  assert.match(cond, /steps\.full-matrix-open\.outputs\.skip != 'true'/);
+  const guard = lines.findIndex(l => l.trim() === 'id: full-matrix-open');
+  assert.equal(lines[guard + 1].trim(), 'continue-on-error: true');
+});
+
+test('label: a timed-out job between the oldest and the latest version counts as a failure', async () => {
+  const { calls } = await run(label, {
+    open: [issue(5, ['e2e-failure'])], jobs: matrixJobs({ 'v1.35.8': 'timed_out' }),
+  });
+  assert.equal(calls.addLabels.length, 1);
+});
+
+test('label: a cancelled job between the oldest and the latest version neither adds nor removes the label', async () => {
+  for (const labels of [['e2e-failure'], ['e2e-failure', 'full-matrix']]) {
+    const { calls } = await run(label, {
+      open: [issue(5, labels)], jobs: matrixJobs({ 'v1.34.11': 'failure', 'v1.36.4': 'cancelled' }),
+    });
+    assert.deepEqual(calls, { addLabels: [], removeLabel: [], createLabel: [], comment: [] }, labels.join());
+  }
+});

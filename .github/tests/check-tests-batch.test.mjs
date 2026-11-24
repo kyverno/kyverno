@@ -88,10 +88,10 @@ test('lists the authors of merged pull requests to mention, without bots or dupl
     [sha('b')]: [pr(1, 'zoe')],
     [sha('c')]: [pr(2, 'alice')],
     [sha('d')]: [pr(3, 'dependabot[bot]', 'Bot')],
-    [sha('e')]: [pr(4, 'alice'), pr(5, 'other', 'User', { merged_at: null })],
+    [sha('e')]: [pr(4, 'alice'), pr(5, 'other', 'User', { merged_at: null }), pr(6, 'bob')],
   };
   const { outputs } = await run({ green: [wfRun(90, 40, sha('a'), 'success')], commits, prs });
-  assert.equal(outputs['pr-authors'], 'alice zoe');
+  assert.equal(outputs['pr-authors'], 'alice bob zoe');
 });
 
 test('without a batch range there is nobody to mention', async () => {

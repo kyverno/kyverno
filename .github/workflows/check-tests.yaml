@@ -232,9 +232,10 @@ jobs:
                 const merged = prs.filter(p => p.merged_at && p.base.ref === branch);
                 const login = merged[0]?.user?.login || c.author?.login;
                 if (login) authors.add(login);
-                const prAuthor = merged[0]?.user;
-                if (prAuthor?.login && prAuthor.type !== 'Bot' && !prAuthor.login.endsWith('[bot]')) {
-                  prAuthors.add(prAuthor.login);
+                for (const { user } of merged) {
+                  if (user?.login && user.type !== 'Bot' && !user.login.endsWith('[bot]')) {
+                    prAuthors.add(user.login);
+                  }
                 }
                 const cells = [
                   `[\`${c.sha.slice(0, 9)}\`](${c.html_url})`,
@@ -377,9 +378,16 @@ jobs:
             const minors = conformance.map(j => minorOf(j.name));
             const oldest = Math.min(...minors);
             const latest = Math.max(...minors);
-            const fullOnly = conformance.filter(j =>
-              j.status === 'completed' && j.conclusion === 'failure' &&
+            const between = conformance.filter(j =>
               minorOf(j.name) !== oldest && minorOf(j.name) !== latest);
+            // A step that times out fails its job, and the API reports a job
+            // that hit its own timeout as cancelled. A cancelled job says
+            // nothing about the version, so it neither adds nor removes the
+            // label.
+            const fullOnly = between.filter(j =>
+              j.status === 'completed' && ['failure', 'timed_out'].includes(j.conclusion));
+            const unknown = between.filter(j =>
+              j.status !== 'completed' || !['success', 'failure', 'timed_out', 'skipped'].includes(j.conclusion));
             const labelled = labelsOf(issue).includes(LABEL);
 
             if (fullOnly.length > 0) {
@@ -418,6 +426,8 @@ jobs:
                 ].join('\n')
               });
               core.info(`Labelled issue #${issue.number} ${LABEL} (${versions}).`);
+            } else if (labelled && unknown.length > 0) {
+              core.info(`Keeping the ${LABEL} label: ${unknown.length} job(s) on a version that only the full matrix tests did not finish.`);
             } else if (labelled) {
               await github.rest.issues.removeLabel({ owner, repo, issue_number: issue.number, name: LABEL });
               await github.rest.issues.createComment({
@@ -479,8 +489,9 @@ jobs:
       # When the tracking issue has the full-matrix label, the last full run
       # failed on a version in between, which a reduced run doesn't test. So
       # a green reduced run leaves that issue open; a green full run or a
-      # maintainer closes it. If the check fails, the run updates the issue
-      # as it did before the label existed.
+      # maintainer closes it. If the check fails, "Sync issue" doesn't run
+      # either: closing the issue could clear a failure the reduced run
+      # didn't test. The next run tries again.
       - name: Keep full-matrix failures open
         id: full-matrix-open
         continue-on-error: true
@@ -503,7 +514,10 @@ jobs:
               core.notice(`Issue #${issue.number} tracks a failure that only the full matrix tests, so this reduced run leaves it open. A green full run closes it.`);
             }
       - name: Sync issue
-        if: steps.defer.outputs.deferred != 'true' && steps.full-matrix-open.outputs.skip != 'true'
+        if: >-
+          steps.defer.outputs.deferred != 'true' &&
+          steps.full-matrix-open.outcome != 'failure' &&
+          steps.full-matrix-open.outputs.skip != 'true'
         uses: ./.github/actions/workflow/failure-issue
         with:
           conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
