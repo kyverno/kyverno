@@ -8,9 +8,45 @@ import (
 	"github.com/stretchr/testify/assert"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+func TestListIndexByUIDDiscardsIncompleteSnapshot(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		pageErr   error
+		wantCalls int
+	}{
+		{"continuation expires on both attempts", apierrors.NewResourceExpired("expired continuation"), 4},
+		{"continuation is forbidden", apierrors.NewForbidden(schema.GroupResource{Resource: "pods"}, "", errors.New("denied")), 2},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			calls := 0
+			list := func(_ context.Context, opts metav1.ListOptions) (*metav1.PartialObjectMetadataList, error) {
+				calls++
+				if calls > tt.wantCalls {
+					return nil, errors.New("unexpected extra LIST")
+				}
+				if opts.Continue != "" {
+					return nil, tt.pageErr
+				}
+				return &metav1.PartialObjectMetadataList{
+					ListMeta: metav1.ListMeta{ResourceVersion: "10", Continue: "next"},
+					Items:    []metav1.PartialObjectMetadata{{ObjectMeta: metav1.ObjectMeta{UID: "partial"}}},
+				}, nil
+			}
+			index, rv, err := ListIndexByUID(t.Context(), metav1.ListOptions{}, list, func(obj runtime.Object) (types.UID, bool) {
+				return obj.(*metav1.PartialObjectMetadata).GetUID(), true
+			})
+			assert.Equal(t, tt.wantCalls, calls)
+			assert.ErrorIs(t, err, tt.pageErr)
+			assert.Nil(t, index)
+			assert.Empty(t, rv)
+		})
+	}
+}
 
 // mockDeleter is a mock for the Deleter interface.
 type mockDeleter struct {
