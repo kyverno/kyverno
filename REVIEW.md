@@ -43,7 +43,7 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
   `.github/workflows/check-codegen.yaml`'s `verify-codegen-code` (an explicit-success gate over isolated
   matrix jobs for independent code generation groups `codegen-api-all`, `codegen-client-all`,
   `codegen-crds-manifests`, `codegen-cli-api-group-resources`, `codegen-cli-docs`, `codegen-helm-docs`,
-  and `codegen-fix-all`, each followed by a scoped freshness check over its owned output paths) and
+  and `codegen-fix-all`, each followed by a full-tree check via `make verify-codegen`) and
   `verify-codegen-docs` (an explicit-success gate over isolated `codegen-api-docs` and `codegen-cli-api-docs`
   matrix jobs, each followed by the same full-tree check). These target groups read source types and write
   disjoint output files; keep the code matrix in sync with `codegen-all-code` and the docs matrix in sync
@@ -61,8 +61,8 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
 - **A CRD schema change touches more files than `config/crds/`.** The generated CRD YAML for a given kind is
   duplicated into `config/crds/`, `cmd/cli/kubectl-kyverno/data/crds/` (the CLI's offline copy), the Helm chart
   under `charts/kyverno/charts/crds/templates/`, and the install manifest `config/install-latest-testing.yaml` —
-  all four move together under `make codegen-all-code` (its `codegen-crds-all`, `codegen-cli-all`,
-  `codegen-helm-all`, and `codegen-manifest-all` sub-targets each cover one). If a reviewer only checks `config/crds/`
+  all four move together under `make codegen-all-code` (it reaches `codegen-crds-manifests`, which runs
+  `codegen-crds-all`, `codegen-cli-crds`, `codegen-helm-crds`, and `codegen-manifest-all`, each covering one). If a reviewer only checks `config/crds/`
   for a schema change, the other three can silently drift — `make verify-codegen` is the actual guarantee, not a
   manual diff of one directory.
 - **A new/changed `+kubebuilder:deprecatedversion:warning="..."` marker has a hard 256-character limit** —
