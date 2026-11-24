@@ -10,7 +10,9 @@
 #   /lgtm, /milestone           (prow)
 #
 # The prow action matches commands anywhere in the comment body, so the prow
-# filters use contains(); the other commands must start the comment.
+# filters use contains(); the other commands must start the comment. Comments
+# by bots never reach prow: review bots quote commands such as /lgtm in their
+# summaries, and prow would then reply that the bot can't apply the label.
 #
 # Comment bodies are untrusted: they are only read through expressions in
 # job-level conditions or env, never interpolated into run scripts.
@@ -34,15 +36,16 @@ jobs:
     if: |
       (github.event.issue.pull_request && startsWith(github.event.comment.body, '/cherry-pick')) ||
       (github.event.issue.pull_request && startsWith(github.event.comment.body, '/conformance')) ||
-      contains(github.event.comment.body, '/assign') ||
-      contains(github.event.comment.body, '/unassign') ||
-      contains(github.event.comment.body, '/lgtm') ||
-      contains(github.event.comment.body, '/milestone')
+      (github.event.comment.user.type != 'Bot' && (
+        contains(github.event.comment.body, '/assign') ||
+        contains(github.event.comment.body, '/unassign') ||
+        contains(github.event.comment.body, '/lgtm') ||
+        contains(github.event.comment.body, '/milestone')))
     outputs:
       cherry-pick: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/cherry-pick') && 'true' || 'false' }}
       conformance: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/conformance') && 'true' || 'false' }}
-      prow-assign: ${{ (contains(github.event.comment.body, '/assign') || contains(github.event.comment.body, '/unassign')) && (contains(fromJson('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.comment.author_association) || contains(github.event.issue.labels.*.name, 'good first issue')) && 'true' || 'false' }}
-      prow: ${{ (contains(github.event.comment.body, '/lgtm') || contains(github.event.comment.body, '/milestone')) && 'true' || 'false' }}
+      prow-assign: ${{ github.event.comment.user.type != 'Bot' && (contains(github.event.comment.body, '/assign') || contains(github.event.comment.body, '/unassign')) && (contains(fromJson('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.comment.author_association) || contains(github.event.issue.labels.*.name, 'good first issue')) && 'true' || 'false' }}
+      prow: ${{ github.event.comment.user.type != 'Bot' && (contains(github.event.comment.body, '/lgtm') || contains(github.event.comment.body, '/milestone')) && 'true' || 'false' }}
     steps:
       - name: Record route
         run: echo "Comment matched a command filter; dependent jobs check the route outputs."

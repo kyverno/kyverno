@@ -9,7 +9,7 @@ chainsaw test --config .chainsaw.yaml credential-scope
 ```
 
 Note that commenting `/conformance` on a pull request does **not** exercise this
-directory: `.github/workflows/comment-conformance.yaml` checks out the default
+directory: `.github/workflows/comment-commands.yaml` checks out the default
 branch rather than the PR ref, so it builds and tests `main`. The suite runs for
 real post-merge via `.github/workflows/check-tests.yaml`.
 

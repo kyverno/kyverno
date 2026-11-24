@@ -274,6 +274,49 @@ class CherryPickTests(unittest.TestCase):
             for step in job.get("steps", []):
                 self.assertNotIn("github.event.comment.body", step.get("run", ""), name)
 
+    def test_comment_dispatcher_routes_every_command(self):
+        jobs = COMMENT["jobs"]
+        route = jobs["route"]
+        outputs = route["outputs"]
+        self.assertEqual(set(outputs), {"cherry-pick", "conformance", "prow-assign", "prow"})
+        is_pr = "github.event.issue.pull_request"
+        not_bot = "github.event.comment.user.type != 'Bot'"
+        for command, output in (("cherry-pick", "cherry-pick"), ("conformance", "conformance")):
+            self.assertIn(f"{is_pr} && startsWith(github.event.comment.body, '/{command}')", outputs[output])
+            self.assertIn(f"startsWith(github.event.comment.body, '/{command}')", route["if"])
+        for output, commands in (("prow-assign", ("/assign", "/unassign")), ("prow", ("/lgtm", "/milestone"))):
+            self.assertTrue(outputs[output].startswith("${{ " + not_bot + " && "), output)
+            for command in commands:
+                self.assertIn(f"contains(github.event.comment.body, '{command}')", outputs[output])
+                self.assertIn(f"contains(github.event.comment.body, '{command}')", route["if"])
+        self.assertIn(not_bot, route["if"])
+        # Non-members may (un)assign only on issues labeled 'good first issue'.
+        self.assertIn(
+            "contains(fromJson('[\"MEMBER\", \"OWNER\", \"COLLABORATOR\"]'), github.event.comment.author_association)",
+            outputs["prow-assign"],
+        )
+        self.assertIn("contains(github.event.issue.labels.*.name, 'good first issue')", outputs["prow-assign"])
+        gated = {
+            "cherry-pick": "cherry-pick",
+            "conformance-acknowledge": "conformance",
+            "conformance-images": "conformance",
+            "conformance-cli": "conformance",
+            "conformance-tests": "conformance",
+            "prow-assign": "prow-assign",
+            "prow": "prow",
+        }
+        for name, output in gated.items():
+            needs = jobs[name]["needs"]
+            self.assertIn("route", [needs] if isinstance(needs, str) else needs, name)
+            self.assertEqual(jobs[name]["if"], f"needs.route.outputs.{output} == 'true'", name)
+        self.assertEqual(set(jobs), {"route", *gated})
+        prow_commands = {
+            "prow-assign": "/assign /unassign",
+            "prow": "/lgtm /milestone",
+        }
+        for name, commands in prow_commands.items():
+            self.assertEqual(jobs[name]["steps"][0]["with"]["prow-commands"], commands)
+
     def test_comment_reaction_permissions(self):
         self.assertEqual(COMMENT["jobs"]["cherry-pick"]["permissions"]["issues"], "write")
 
