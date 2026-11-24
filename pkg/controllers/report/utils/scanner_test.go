@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -42,7 +43,7 @@ func newTestScanner(t *testing.T) Scanner {
 	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
 	assert.NoError(t, err)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	return NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nil)
+	return NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nil, nil)
 }
 
 // nilTypeConverterManager is a no-op TypeConverterManager for tests that exercise
@@ -63,7 +64,7 @@ func newTestScannerWithTypeConverter(t *testing.T) Scanner {
 	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
 	assert.NoError(t, err)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	return NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nilTypeConverterManager{})
+	return NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nilTypeConverterManager{}, nil)
 }
 
 func newDeploymentResource() (unstructured.Unstructured, schema.GroupVersionResource) {
@@ -98,6 +99,135 @@ func TestScanResource_ImageValidatingPolicy(t *testing.T) {
 	results := newTestScanner(t).ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, nil, policy)
 
 	assert.Len(t, results, 1, "ImageValidatingPolicy must not be silently skipped by the scanner")
+}
+
+type spyImageVerifyCache struct {
+	getCalled bool
+	imageRef  string
+	attestors []policiesv1beta1.Attestor
+}
+
+var _ imageverifycache.Client = (*spyImageVerifyCache)(nil)
+
+func (s *spyImageVerifyCache) Get(imageRef string, attestors []policiesv1beta1.Attestor, attestation *policiesv1beta1.Attestation) (bool, map[string][]byte, error) {
+	s.getCalled = true
+	s.imageRef = imageRef
+	s.attestors = attestors
+	return true, nil, nil
+}
+
+func (s *spyImageVerifyCache) Set(imageRef string, attestors []policiesv1beta1.Attestor, attestation *policiesv1beta1.Attestation, payloads map[string][]byte) (bool, error) {
+	return true, nil
+}
+
+func TestNewScanner_ImageVerifyCache(t *testing.T) {
+	scheme := runtime.NewScheme()
+	assert.NoError(t, kubescheme.AddToScheme(scheme))
+	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
+	assert.NoError(t, err)
+	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	scannerNil := NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nil, nil)
+	sImplNil, ok := scannerNil.(*scanner)
+	assert.True(t, ok)
+	assert.Nil(t, sImplNil.ivCache)
+
+	spy := &spyImageVerifyCache{}
+	scannerWithCache := NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nil, spy)
+	sImplCache, ok := scannerWithCache.(*scanner)
+	assert.True(t, ok)
+	assert.Equal(t, spy, sImplCache.ivCache)
+}
+
+// TestScanResource_ImageValidatingPolicy_UsesImageVerifyCache verifies that the
+// image verification cache passed to NewScanner is plumbed into the IVPOL engine
+// and queried with container image references during background scans.
+// Testing the cache-hit path ensures hermetic execution without external registry network calls.
+func TestScanResource_ImageValidatingPolicy_UsesImageVerifyCache(t *testing.T) {
+	scheme := runtime.NewScheme()
+	assert.NoError(t, kubescheme.AddToScheme(scheme))
+	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
+	assert.NoError(t, err)
+	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	spy := &spyImageVerifyCache{}
+	scannerWithCache := NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nil, spy)
+
+	testImage := "ghcr.io/kyverno/test-image@sha256:bb065582c0762a5b6f38fe1cb340156cc5e2eec024c0d0c3eb1bc4fc9f67a6d8"
+	podResource := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "test-pod",
+				"namespace": "test-ns",
+			},
+			"spec": map[string]interface{}{
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "app",
+						"image": testImage,
+					},
+				},
+			},
+		},
+	}
+	podGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+
+	ivp := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ivp-cache", ResourceVersion: "1"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+						},
+					},
+				}},
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{
+				{
+					Glob: "ghcr.io/*",
+				},
+			},
+			Attestors: []policiesv1beta1.Attestor{
+				{
+					Name: "notary",
+					Notary: &policiesv1beta1.Notary{
+						Certs: &policiesv1beta1.StringOrExpression{
+							Value: "test-cert",
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)",
+				},
+			},
+		},
+	}
+	policy := engineapi.NewImageValidatingPolicy(ivp)
+
+	results := scannerWithCache.ScanResource(t.Context(), podResource, podGVR, "", nil, nil, nil, nil, policy)
+	assert.Len(t, results, 1)
+	var result ScanResult
+	for _, res := range results {
+		result = res
+	}
+	assert.NoError(t, result.Error)
+	if assert.NotNil(t, result.EngineResponse) && assert.Len(t, result.EngineResponse.PolicyResponse.Rules, 1) {
+		assert.Equal(t, engineapi.RuleStatusPass, result.EngineResponse.PolicyResponse.Rules[0].Status())
+	}
+	assert.True(t, spy.getCalled, "expected image verification cache Get to be called during scan")
+	assert.Equal(t, testImage, spy.imageRef)
+	if assert.Len(t, spy.attestors, 1) {
+		assert.Equal(t, "notary", spy.attestors[0].Name)
+	}
 }
 
 func newPodResource() (unstructured.Unstructured, schema.GroupVersionResource) {
