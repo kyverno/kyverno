@@ -9,8 +9,12 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/cli/loader"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func Test_GetGitBranchOrPolicyPaths(t *testing.T) {
@@ -208,19 +212,64 @@ func TestGetResourceAccordingToResourcePath_NonExistentPath(t *testing.T) {
 }
 
 func TestGetResourceAccordingToResourcePath_ClusterModePreservesSelectors(t *testing.T) {
-	// In cluster mode (cluster == true), ResourcePaths are cluster resource selectors,
-	// not necessarily local files/directories. Non-existent local paths must not trigger os.Stat errors.
+	// In cluster mode with a cluster client (cluster == true && dClient != nil),
+	// ResourcePaths are cluster resource selectors, not necessarily local files/directories.
+	// Non-existent local paths must not trigger os.Stat errors.
+	pod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "my-test-pod",
+				"namespace": "default",
+			},
+		},
+	}
+	dClient, err := dclient.NewFakeClient(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			{Group: "", Version: "v1", Resource: "pods"}: "PodList",
+		},
+		pod,
+	)
+	require.NoError(t, err)
+	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
+		{Group: "", Version: "v1", Resource: "pods"},
+	}))
+
 	resources, err := GetResourceAccordingToResourcePath(
 		io.Discard, nil, []string{"my-test-pod", "manifests/other-pod.yaml"},
+		true, nil, dClient, "", false, false, "",
+		loader.ResourceOptions{}, false,
+	)
+	if err != nil {
+		assert.False(t, os.IsNotExist(err), "cluster mode with client should not attempt local file os.Stat")
+	}
+	_ = resources
+}
+
+func TestGetResourceAccordingToResourcePath_ClusterModeWithNilClientExpandsDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+	dir := filepath.Join(tmpDir, "resources")
+	require.NoError(t, os.Mkdir(dir, 0o755))
+
+	cm1 := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: target-cm1\n  namespace: default\n"
+	cm2 := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: target-cm2\n  namespace: default\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "cm1.yaml"), []byte(cm1), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "cm2.yml"), []byte(cm2), 0o644))
+
+	// In cluster mode, target and parameter resources are loaded before dClient is initialized (dClient == nil).
+	// Directory expansion must still expand local directories in this case.
+	resources, err := GetResourceAccordingToResourcePath(
+		io.Discard, nil, []string{dir},
 		true, nil, nil, "", false, false, "",
 		loader.ResourceOptions{}, false,
 	)
-	// Without a live cluster client, fetcher fails at client lookup or returns empty/nil,
-	// but it MUST NOT fail with os.IsNotExist from directory expansion.
-	if err != nil {
-		assert.False(t, os.IsNotExist(err), "cluster mode should not attempt local file os.Stat")
-	}
-	_ = resources
+	require.NoError(t, err)
+	require.Len(t, resources, 2)
+	names := []string{resources[0].GetName(), resources[1].GetName()}
+	assert.Contains(t, names, "target-cm1")
+	assert.Contains(t, names, "target-cm2")
 }
 
 func TestGetResourceAccordingToResourcePath_EmptyPaths(t *testing.T) {
