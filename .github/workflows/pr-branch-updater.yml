@@ -25,3 +25,7 @@ jobs:
       # the app secrets from this environment, whose branch rules allow
       # only main.
       environment: pr-updater-app
+    # A reusable workflow sees only the secrets its caller passes, even when
+    # its job runs in an environment. inherit makes the environment's
+    # PR_UPDATER_APP_* secrets visible to the job.
+    secrets: inherit
