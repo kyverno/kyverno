@@ -1,3 +1,13 @@
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:d8053cfef14480664425612756fb44084d93a1276bc8f1c6137debb0b9c9efd7 -->
+
+## Unreleased
+
+- fix(admissionpolicy): preserve blanket PolicyException exemptions in generated native admission policies (#18709)
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 ## v1.13.0
 
 ### Note
