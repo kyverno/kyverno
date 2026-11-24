@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/restmapper"
 )
 
@@ -125,7 +126,7 @@ func TestGetGpolTriggers_WildcardAPIVersions(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
+	triggers := pc.getGpolTriggers(match, "")
 
 	// Wildcard must resolve to a single (preferred version) and list once,
 	// so each of the 2 distinct objects appears exactly once.
@@ -202,7 +203,7 @@ func TestGetGpolTriggers_SubresourceTrigger(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
+	triggers := pc.getGpolTriggers(match, "")
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "status", triggers[0].SubResource)
 }
@@ -269,7 +270,7 @@ func TestGetGpolTriggers_WildcardAPIVersions_Subresource(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
+	triggers := pc.getGpolTriggers(match, "")
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "status", triggers[0].SubResource)
 	assert.Equal(t, "my-pod", triggers[0].GetName())
@@ -337,8 +338,15 @@ func TestGetGpolTriggers_DeduplicateTriggers(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
-	assert.Len(t, triggers, 1, "expected duplicate triggers from pods and pods/status to be deduplicated")
+	triggers := pc.getGpolTriggers(match, "")
+	// Different admission subresources may have different mutation match conditions.
+	// Deduplicate repeated versions of the same context, not the base and status
+	// contexts of the same Kubernetes object.
+	require.Len(t, triggers, 2)
+	assert.ElementsMatch(t, []string{"", "status"}, []string{
+		triggers[0].SubResource,
+		triggers[1].SubResource,
+	})
 }
 
 func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
@@ -391,7 +399,7 @@ func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
+	triggers := pc.getGpolTriggers(match, "")
 
 	assert.Len(t, triggers, 1)
 }
@@ -466,8 +474,29 @@ func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Len(t, generator.captured, 1)
-			require.Len(t, generator.captured[0].Spec.RuleContext, 1)
-			assert.Equal(t, tc.synchronize, generator.captured[0].Spec.RuleContext[0].Synchronize)
+
+			// Global generation includes both namespaces; a namespaced
+			// policy must create only team-a's context. Base and status
+			// matches still collapse into a single context per parent.
+			wantTriggers := []string{"team-a/cert-a", "team-b/cert-b"}
+			wantNamespace := ""
+			if tc.namespaced {
+				wantTriggers = []string{"team-a/cert-a"}
+				wantNamespace = "team-a"
+			}
+			for _, action := range fakeClient.GetDynamicInterface().(*dynamicfake.FakeDynamicClient).Actions() {
+				if action.Matches("list", "certificates") {
+					assert.Equal(t, wantNamespace, action.GetNamespace())
+				}
+			}
+			contexts := generator.captured[0].Spec.RuleContext
+			require.Len(t, contexts, len(wantTriggers))
+			gotTriggers := make([]string, 0, len(contexts))
+			for _, ruleContext := range contexts {
+				gotTriggers = append(gotTriggers, ruleContext.Trigger.Namespace+"/"+ruleContext.Trigger.Name)
+				assert.Equal(t, tc.synchronize, ruleContext.Synchronize)
+			}
+			assert.ElementsMatch(t, wantTriggers, gotTriggers)
 		})
 	}
 }
