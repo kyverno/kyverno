@@ -19,10 +19,14 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   freeze:
     name: Code freeze
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Check whether target branch is frozen
         env:

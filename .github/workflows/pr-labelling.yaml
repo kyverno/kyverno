@@ -9,6 +9,11 @@ on:
 
 permissions: {}
 
+# A newer push to the same PR supersedes the older labelling run; push runs never share a group.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
+
 jobs:
   labeler:
     # The shared workflow holds several jobs, so the caller grants their union; this job's own token is limited to

@@ -27,6 +27,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Go
         uses: ./.github/actions/go/setup
+        with:
+          # go fmt compiles nothing, so skip restoring the ~2 GB Go build cache.
+          gobuild-cache-prefix: ''
       - name: go fmt check
         run: make fmt-check
 
