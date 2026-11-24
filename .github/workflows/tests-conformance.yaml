@@ -11,6 +11,10 @@ on:
         type: boolean
         default: false
       release-sha:
+        description: >-
+          Commit to test instead of the workflow commit. Release workflows set
+          it to the release commit, and the /conformance PR comment command to
+          the PR head.
         type: string
         default: ""
       matrix:
@@ -20,12 +24,6 @@ on:
           kubernetes-matrix.yaml, such as v1.36.4, runs only that version.
         type: string
         default: full
-      ref:
-        description: >-
-          Commit to test instead of release-sha or the workflow commit. The
-          /conformance PR comment command sets it to the PR head.
-        type: string
-        default: ""
       suites:
         description: >-
           JSON array of the job IDs to run, for example ["mutate"]. Empty runs
@@ -63,8 +61,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -87,8 +100,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -112,8 +140,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -138,8 +181,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -162,8 +220,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -186,8 +259,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -200,7 +288,8 @@ jobs:
 
   generate-mutating-admission-policy:
     needs: kubernetes-matrix
-    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'generate-mutating-admission-policy')
+    if: (inputs.suites == '' || contains(fromJSON(inputs.suites), 'generate-mutating-admission-policy')) &&
+      needs.kubernetes-matrix.outputs.beta-versions != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -210,8 +299,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -225,7 +329,8 @@ jobs:
 
   generate-mutating-admission-policy-v1:
     needs: kubernetes-matrix
-    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'generate-mutating-admission-policy-v1')
+    if: (inputs.suites == '' || contains(fromJSON(inputs.suites), 'generate-mutating-admission-policy-v1')) &&
+      needs.kubernetes-matrix.outputs.stable-versions != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -235,8 +340,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -259,8 +379,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -284,8 +419,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -311,8 +461,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -336,8 +501,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -362,8 +542,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -387,8 +582,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -403,7 +613,8 @@ jobs:
 
   mutating-admission-policy-reports:
     needs: kubernetes-matrix
-    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutating-admission-policy-reports')
+    if: (inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutating-admission-policy-reports')) &&
+      needs.kubernetes-matrix.outputs.beta-versions != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -413,8 +624,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -428,7 +654,8 @@ jobs:
 
   mutating-admission-policy-reports-v1:
     needs: kubernetes-matrix
-    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutating-admission-policy-reports-v1')
+    if: (inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutating-admission-policy-reports-v1')) &&
+      needs.kubernetes-matrix.outputs.stable-versions != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -438,8 +665,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -463,8 +705,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -489,8 +746,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -514,8 +786,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -540,8 +827,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -564,8 +866,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -589,8 +906,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -615,8 +947,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -640,8 +987,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -666,8 +1028,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -692,8 +1069,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -716,8 +1108,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -741,8 +1148,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -767,8 +1189,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -792,8 +1229,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -847,8 +1299,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - if: inputs.release-candidate
         uses: ./.github/actions/release/restore
       # install tools
@@ -880,11 +1347,17 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Comes from a PR comment for /conformance, so it stays out of the script.
+          CHAINSAW_TESTS: ${{ inputs.chainsaw-tests }}
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           mkdir -p "$GITHUB_WORKSPACE/release-reports"
           cd ./test/conformance/chainsaw/cli
-          chainsaw test --config .chainsaw.yaml --report-format JSON --report-path "$GITHUB_WORKSPACE/release-reports" --report-name cli
+          chainsaw test --config .chainsaw.yaml --report-format JSON --report-path "$GITHUB_WORKSPACE/release-reports" --report-name cli \
+            --include-test-regex "^chainsaw\$/${CHAINSAW_TESTS:-}"
       - name: Retain CLI conformance test results
         if: always() && inputs.release-candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -932,8 +1405,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -1013,8 +1501,23 @@ jobs:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -1064,8 +1567,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - name: Install helm
         uses: ./.github/actions/tools/helm
       # create cluster
@@ -1125,8 +1643,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
@@ -1181,8 +1714,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
@@ -1215,8 +1763,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
+          ref: ${{ inputs.release-sha || github.sha }}
           persist-credentials: false
+      # /conformance tests a PR head. Run the local actions of the workflow
+      # commit, not the ones from the PR. Release and Tests runs check out the
+      # workflow commit itself, so they skip this step.
+      - name: Use the CI actions of the workflow commit
+        if: inputs.release-sha != '' && inputs.release-sha != github.sha
+        shell: bash
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}

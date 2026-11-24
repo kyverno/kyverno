@@ -51,26 +51,32 @@ async function plan(body, { permission = 'write', sender = 'maintainer', state =
   return { outputs, failure: core.failure, asked };
 }
 
-test('a bare command runs every suite on the latest version', async () => {
+const groups = outputs => JSON.parse(outputs.groups).map(g => [g.k8s, JSON.parse(g.suites)]);
+
+test('a bare command runs each suite on the latest version it supports', async () => {
   const { outputs } = await plan('/conformance');
   assert.equal(outputs.valid, 'true');
   assert.equal(outputs.sha, HEAD);
-  assert.equal(outputs['k8s-version'], 'v1.37.0');
   assert.equal(outputs['chainsaw-tests'], '');
-  // The v1beta1-only suite doesn't run on v1.37.
-  assert.deepEqual(JSON.parse(outputs.suites), ['assert', 'mutate', 'cel-http', 'helm-tests']);
+  // The v1beta1-only suite runs on v1.35, the newest version it supports.
+  assert.deepEqual(groups(outputs), [
+    ['v1.37.0', ['assert', 'mutate', 'cel-http', 'helm-tests']],
+    ['v1.35.8', ['generate-mutating-admission-policy']],
+  ]);
+  assert.equal(outputs['k8s-summary'], 'Kubernetes v1.37.0 (4 suites) and v1.35.8 (1 suites)');
 });
 
 test('a suite name selects one suite', async () => {
   const { outputs } = await plan('/conformance mutate\r\nplease');
   assert.equal(outputs.valid, 'true');
-  assert.deepEqual(JSON.parse(outputs.suites), ['mutate']);
+  assert.deepEqual(groups(outputs), [['v1.37.0', ['mutate']]]);
   assert.equal(outputs.description, 'suite `mutate`');
+  assert.equal(outputs['k8s-summary'], 'Kubernetes v1.37.0');
 });
 
 test('a suite defaults to the latest version it supports', async () => {
   const { outputs } = await plan('/conformance generate-mutating-admission-policy');
-  assert.equal(outputs['k8s-version'], 'v1.35.8');
+  assert.deepEqual(groups(outputs), [['v1.35.8', ['generate-mutating-admission-policy']]]);
 });
 
 test('a suite on a version it does not support is rejected', async () => {
@@ -82,22 +88,28 @@ test('a suite on a version it does not support is rejected', async () => {
 test('suite/regex scopes the regex to the suite', async () => {
   const { outputs } = await plan('/conformance mutate/foreach-.* 1.36');
   assert.equal(outputs.valid, 'true');
-  assert.deepEqual(JSON.parse(outputs.suites), ['mutate']);
+  assert.deepEqual(groups(outputs), [['v1.36.4', ['mutate']]]);
   assert.equal(outputs['chainsaw-tests'], 'foreach-.*');
-  assert.equal(outputs['k8s-version'], 'v1.36.4');
 });
 
 test('a bare regex runs every chainsaw suite', async () => {
   const { outputs } = await plan('/conformance ^cel.*$ v1.34.11');
   assert.equal(outputs.valid, 'true');
   assert.equal(outputs['chainsaw-tests'], '^cel.*$');
-  assert.deepEqual(JSON.parse(outputs.suites), ['assert', 'mutate', 'cel-http', 'generate-mutating-admission-policy']);
+  assert.deepEqual(groups(outputs), [['v1.34.11', ['assert', 'mutate', 'cel-http', 'generate-mutating-admission-policy']]]);
+});
+
+test('a regex accepts RE2-compatible syntax', async () => {
+  for (const regex of ['a{2,1000}', 'x(?:y|z)+?', '[a-z]{3}/b']) {
+    const { outputs } = await plan(`/conformance mutate/${regex}`);
+    assert.equal(outputs.valid, 'true', regex);
+    assert.equal(outputs['chainsaw-tests'], regex);
+  }
 });
 
 test('a version alone runs every suite on that version', async () => {
   const { outputs } = await plan('/conformance v1.35');
-  assert.equal(outputs['k8s-version'], 'v1.35.8');
-  assert.ok(JSON.parse(outputs.suites).includes('generate-mutating-admission-policy'));
+  assert.deepEqual(groups(outputs), [['v1.35.8', ['assert', 'mutate', 'cel-http', 'generate-mutating-admission-policy', 'helm-tests']]]);
 });
 
 test('a regex on a non-chainsaw suite is rejected', async () => {
@@ -119,6 +131,10 @@ for (const [name, body] of [
   ['an invalid regex', '/conformance mutate/a(b'],
   ['a prefix-only match', '/conformancefoo'],
   ['a long line', `/conformance ${'a.'.repeat(200)}`],
+  ['a repeat count over 1000', '/conformance mutate/a{1001}'],
+  ['a repeat range over 1000', '/conformance mutate/a{1,1001}'],
+  ['a nested repetition', '/conformance mutate/a**'],
+  ['a flag group', '/conformance mutate/(?i)abc'],
 ]) {
   test(`rejects ${name}`, async () => {
     const { outputs, failure } = await plan(body);
@@ -153,25 +169,47 @@ async function comment(environment) {
   const bodies = [];
   const github = { rest: { issues: { createComment: async ({ body }) => { bodies.push(body); } } } };
   const context = { repo: { owner: 'o', repo: 'r' }, issue: { number: 7 }, serverUrl: 'https://github.com', runId: 42 };
-  for (const key of ['VALID', 'ERROR', 'SHA', 'K8S_VERSION', 'DESCRIPTION', 'IMAGES_RESULT', 'CLI_RESULT', 'TESTS_RESULT']) {
+  for (const key of ['VALID', 'ERROR', 'SHA', 'K8S_SUMMARY', 'DESCRIPTION', 'REGEX', 'COUNTS',
+    'IMAGES_RESULT', 'CLI_RESULT', 'TESTS_RESULT']) {
     process.env[key] = environment[key] ?? '';
   }
   await runScript(report, { core, github, context });
   return bodies[0];
 }
 
-test('reports a pass with a link to the run', async () => {
+const success = { IMAGES_RESULT: 'success', CLI_RESULT: 'success', TESTS_RESULT: 'success' };
+
+test('reports a pass with the tested commit, the counts, and a link to the run', async () => {
   const body = await comment({
-    VALID: 'true', SHA: HEAD, K8S_VERSION: 'v1.37.0', DESCRIPTION: 'suite `mutate`',
-    IMAGES_RESULT: 'success', CLI_RESULT: 'success', TESTS_RESULT: 'success',
+    VALID: 'true', SHA: HEAD, K8S_SUMMARY: 'Kubernetes v1.37.0', DESCRIPTION: 'suite `mutate`',
+    COUNTS: '{"failed": 0, "missing": 0, "passed": 12, "skipped": 1}', ...success,
   });
   assert.match(body, /passed for suite `mutate` on Kubernetes v1.37.0/);
+  assert.ok(body.includes(`at ${HEAD}.`));
+  assert.match(body, /12 passed, 0 failed, 1 skipped/);
   assert.match(body, /https:\/\/github.com\/o\/r\/actions\/runs\/42/);
 });
 
+test('reports a regex that matched no test', async () => {
+  const body = await comment({
+    VALID: 'true', SHA: HEAD, REGEX: 'nomatch', DESCRIPTION: 'tests matching `nomatch` in suite `mutate`',
+    COUNTS: '{"failed": 0, "missing": 0, "passed": 0, "skipped": 0}', ...success,
+  });
+  assert.match(body, /:warning: Conformance ran no tests: no test matched the regex/);
+  assert.doesNotMatch(body, /passed for/);
+});
+
+test('reports a pass of a suite without chainsaw reports', async () => {
+  const body = await comment({
+    VALID: 'true', SHA: HEAD, DESCRIPTION: 'suite `helm-tests`',
+    COUNTS: '{"failed": 0, "missing": 0, "passed": 0, "skipped": 0}', ...success,
+  });
+  assert.match(body, /passed/);
+});
+
 test('reports a build failure', async () => {
-  const body = await comment({ VALID: 'true', IMAGES_RESULT: 'failure', CLI_RESULT: 'success', TESTS_RESULT: 'skipped' });
-  assert.match(body, /failed/);
+  const body = await comment({ VALID: 'true', SHA: HEAD, IMAGES_RESULT: 'failure', CLI_RESULT: 'success', TESTS_RESULT: 'skipped' });
+  assert.match(body, /:x: Conformance failed/);
 });
 
 test('reports a rejected command', async () => {

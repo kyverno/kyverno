@@ -107,7 +107,7 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
   needs e2e verification before merge, a maintainer (write permission) needs to explicitly trigger it with a
   `/conformance [<suite> | <suite>/<regex> | <regex>] [<k8s-version>]` comment — it isn't a gate that runs on
   its own, and its absence from a PR's checks list doesn't mean it was skipped by CI, only that it was never asked
-  to run. The command tests the PR head commit, on the latest supported Kubernetes version by default; `<suite>`
+  to run. The command tests the PR head commit, by default running each suite on the latest Kubernetes version it supports; `<suite>`
   is a job ID from `tests-conformance.yaml` and `<regex>` goes to chainsaw's `--include-test-regex`. It runs PR
   code, so read the diff before you post it. The result comes back as a PR comment with a link to the run.
 - Logic changes still need unit tests regardless of chainsaw coverage; `kubectl-kyverno test` fixtures under

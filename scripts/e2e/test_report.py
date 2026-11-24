@@ -137,6 +137,16 @@ class SummarizeTest(unittest.TestCase):
             self.assertIn("All test results passed.", out)
             self.assertIn("No chainsaw reports", run("summarize", str(Path(directory) / "none")))
 
+    def test_counts_results_across_jobs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ("e2e-reports-assert-v1.34.11-0", "e2e-reports-rbac-default-v1.37.0-0"):
+                shutil.copytree(TESTDATA / name, Path(directory) / name)
+            self.assertEqual(json.loads(run("counts", directory)),
+                             {"passed": 1, "failed": 1, "skipped": 0, "missing": 0})
+            # No reports at all, for example when a regex matched no test.
+            self.assertEqual(json.loads(run("counts", str(Path(directory) / "none"))),
+                             {"passed": 0, "failed": 0, "skipped": 0, "missing": 0})
+
     def test_reads_a_single_artifact_extracted_into_the_root(self):
         with tempfile.TemporaryDirectory() as directory:
             source = TESTDATA / "e2e-reports-rbac-default-v1.37.0-0"

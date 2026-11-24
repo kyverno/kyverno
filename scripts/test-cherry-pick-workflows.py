@@ -298,10 +298,7 @@ class CherryPickTests(unittest.TestCase):
         self.assertIn("contains(github.event.issue.labels.*.name, 'good first issue')", outputs["prow-assign"])
         gated = {
             "cherry-pick": "cherry-pick",
-            "conformance-acknowledge": "conformance",
-            "conformance-images": "conformance",
-            "conformance-cli": "conformance",
-            "conformance-tests": "conformance",
+            "conformance-plan": "conformance",
             "prow-assign": "prow-assign",
             "prow": "prow",
         }
@@ -309,7 +306,15 @@ class CherryPickTests(unittest.TestCase):
             needs = jobs[name]["needs"]
             self.assertIn("route", [needs] if isinstance(needs, str) else needs, name)
             self.assertEqual(jobs[name]["if"], f"needs.route.outputs.{output} == 'true'", name)
-        self.assertEqual(set(jobs), {"route", *gated})
+        # The other /conformance jobs run only for a command the plan job accepted.
+        planned = ("conformance-acknowledge", "conformance-images", "conformance-cli", "conformance-tests")
+        for name in planned:
+            self.assertEqual(jobs[name]["if"], "needs.conformance-plan.outputs.valid == 'true'", name)
+        self.assertEqual(
+            jobs["conformance-report"]["if"],
+            "always() && needs.route.outputs.conformance == 'true'",
+        )
+        self.assertEqual(set(jobs), {"route", "conformance-report", *gated, *planned})
         prow_commands = {
             "prow-assign": "/assign /unassign",
             "prow": "/lgtm /milestone",

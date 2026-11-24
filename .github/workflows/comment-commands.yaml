@@ -225,10 +225,11 @@ jobs:
   #
   # Runs conformance tests against the PR head. The plan job authorizes the
   # commenter, validates every argument against tests-conformance.yaml and
-  # kubernetes-matrix.yaml on the default branch, and pins the PR head commit.
+  # kubernetes-matrix.yaml at the workflow commit, and pins the PR head commit.
   # The build and test jobs run PR code, so they get a read-only token, no
-  # repository secrets, and no credentials persisted in the checkout. Only the
-  # acknowledge and report jobs can write, and they never check out PR code.
+  # repository secrets, no credentials persisted in the checkout, and the
+  # local actions of the workflow commit instead of the PR's. Only the
+  # acknowledge and report jobs can write, and they never run PR code.
   conformance-plan:
     name: Validate conformance request
     needs: route
@@ -242,15 +243,17 @@ jobs:
       valid: ${{ steps.command.outputs.valid }}
       error: ${{ steps.command.outputs.error }}
       sha: ${{ steps.command.outputs.sha }}
-      suites: ${{ steps.command.outputs.suites }}
+      groups: ${{ steps.command.outputs.groups }}
       chainsaw-tests: ${{ steps.command.outputs.chainsaw-tests }}
-      k8s-version: ${{ steps.command.outputs.k8s-version }}
+      k8s-summary: ${{ steps.command.outputs.k8s-summary }}
       description: ${{ steps.command.outputs.description }}
     steps:
-      - name: Checkout default branch
+      # The called tests-conformance.yaml comes from this commit, so read the
+      # suites from the same one.
+      - name: Checkout workflow commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.sha }}
           persist-credentials: false
           sparse-checkout: |
             .github/workflows
@@ -258,12 +261,14 @@ jobs:
         id: catalog
         run: |
           set -euo pipefail
-          # A suite is a job of tests-conformance.yaml. api is the
+          # A suite is a job of tests-conformance.yaml. chainsaw tells whether
+          # it runs chainsaw, so whether it takes a test regex. api is the
           # MutatingAdmissionPolicy API version its matrix requires, if any.
           suites="$(yq -o=json '.' .github/workflows/tests-conformance.yaml | jq -c '
             [.jobs | to_entries[] | select(.key != "kubernetes-matrix") | {
               id: .key,
-              chainsaw: any(.value.steps[]?; .uses == "./.github/actions/tests/conformance/run"),
+              chainsaw: any(.value.steps[]?;
+                .uses == "./.github/actions/tests/conformance/run" or ((.run // "") | test("chainsaw test"))),
               api: ((.value.strategy.matrix["k8s-version"] // "") as $m |
                 if ($m | contains("beta-versions")) then "v1beta1"
                 elif ($m | contains("stable-versions")) then "v1"
@@ -343,10 +348,22 @@ jobs:
               regex = selector;
             }
             if (regex !== '' || slash > 0) {
-              // The regex reaches chainsaw's --include-test-regex. Allow only
-              // RE2-compatible syntax without quotes, backslashes, or spaces.
-              if (!/^[A-Za-z0-9._*+?^$()|[\]{}\/-]{1,200}$/.test(regex)) {
-                return reject('The test regex must be 1 to 200 letters, digits, or `._*+?^$()|[]{}/-` characters.');
+              // The regex reaches chainsaw's --include-test-regex, which uses Go
+              // RE2 syntax. Allow only a subset that RE2 and JavaScript agree on:
+              // no quotes, backslashes, spaces, flags, named groups, lookarounds,
+              // or backreferences, no nested repetition, and repeat counts up to
+              // 1000, the RE2 limit.
+              if (!/^[A-Za-z0-9._,:*+?^$()|[\]{}\/-]{1,200}$/.test(regex)) {
+                return reject('The test regex must be 1 to 200 letters, digits, or `._,:*+?^$()|[]{}/-` characters.');
+              }
+              if (/\(\?(?!:)/.test(regex)) {
+                return reject('The test regex may use `(?:` groups only, no flags or other group syntax.');
+              }
+              if (/[*+?}][*+{]/.test(regex)) {
+                return reject('The test regex has a nested repetition, which Go rejects.');
+              }
+              if ([...regex.matchAll(/\{([0-9]*)(?:,([0-9]*))?\}/g)].some(m => Number(m[1] || 0) > 1000 || Number(m[2] || 0) > 1000)) {
+                return reject('Repeat counts in the test regex must be at most 1000.');
               }
               try {
                 new RegExp(regex);
@@ -358,29 +375,35 @@ jobs:
                 : `tests matching \`${regex}\` in every chainsaw suite`;
             }
 
-            // Pick the Kubernetes version: the one asked for, or the latest one
-            // that the selected suites support.
+            // Pick the Kubernetes version of each suite: the one asked for, or
+            // the latest one that the suite supports. Suites that share a
+            // version run in one call of tests-conformance.yaml.
             const supports = (suite, node) => !suite.api || suite.api === node.api;
             const chosen = suites.filter(s => selected.includes(s.id));
-            let node;
+            let asked = null;
             if (k8s !== '') {
               const match = k8s.match(versionPattern);
               if (!match) {
                 return reject('The Kubernetes version must look like `v1.36` or `v1.36.4`.');
               }
-              node = nodes.find(n => match[2] ? n.version === `v1.${match[1]}${match[2]}` : n.version.startsWith(`v1.${match[1]}.`));
-              if (!node) {
+              asked = nodes.find(n => match[2] ? n.version === `v1.${match[1]}${match[2]}` : n.version.startsWith(`v1.${match[1]}.`));
+              if (!asked) {
                 return reject(`Kubernetes \`${k8s}\` isn't in kubernetes-matrix.yaml. Versions: ${nodes.map(n => `\`${n.version}\``).join(', ')}.`);
               }
-            } else if (chosen.length === 1) {
-              node = nodes.filter(n => supports(chosen[0], n)).at(-1);
-            } else {
-              node = nodes.at(-1);
             }
-            const runnable = node ? chosen.filter(s => supports(s, node)).map(s => s.id) : [];
-            if (runnable.length === 0) {
-              return reject(`Suite \`${selected[0]}\` doesn't run on Kubernetes ${node ? `\`${node.version}\`` : 'any version in kubernetes-matrix.yaml'}.`);
+            const byVersion = new Map();
+            for (const suite of chosen) {
+              const node = asked ? (supports(suite, asked) ? asked : null) : nodes.filter(n => supports(suite, n)).at(-1);
+              if (node) {
+                byVersion.set(node.version, [...(byVersion.get(node.version) || []), suite.id]);
+              }
             }
+            if (byVersion.size === 0) {
+              return reject(`Suite \`${selected[0]}\` doesn't run on Kubernetes ${asked ? `\`${asked.version}\`` : 'any version in kubernetes-matrix.yaml'}.`);
+            }
+            const order = nodes.map(n => n.version);
+            const groups = [...byVersion].sort(([a], [b]) => order.indexOf(b) - order.indexOf(a))
+              .map(([version, list]) => ({ k8s: version, suites: JSON.stringify(list), count: list.length }));
 
             const { data: pr } = await github.rest.pulls.get({ ...context.repo, pull_number: context.issue.number });
             if (pr.state !== 'open') {
@@ -389,13 +412,18 @@ jobs:
             if (!/^[0-9a-f]{40}$/.test(pr.head.sha)) {
               return reject('The pull request head commit is invalid.');
             }
+            const summary = groups.length === 1
+              ? `Kubernetes ${groups[0].k8s}`
+              : `Kubernetes ${groups.map(g => `${g.k8s} (${g.count} suites)`).join(' and ')}`;
             core.setOutput('valid', 'true');
             core.setOutput('sha', pr.head.sha);
-            core.setOutput('suites', JSON.stringify(runnable));
+            core.setOutput('groups', JSON.stringify(groups));
             core.setOutput('chainsaw-tests', regex);
-            core.setOutput('k8s-version', node.version);
+            core.setOutput('k8s-summary', summary);
             core.setOutput('description', description);
-            core.info(`Testing ${description} on Kubernetes ${node.version} at ${pr.head.sha}: ${runnable.join(', ')}`);
+            for (const group of groups) {
+              core.info(`Testing on Kubernetes ${group.k8s} at ${pr.head.sha}: ${JSON.parse(group.suites).join(', ')}`);
+            }
 
   # Only the reaction needs write access; build and test jobs remain read-only.
   conformance-acknowledge:
@@ -412,6 +440,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           reaction: "+1"
 
+  # Runs PR code. The ACTIONS_* variables are blank so that the build can't
+  # reach the Actions cache or artifact services through them.
   conformance-images:
     name: Build test images
     needs: conformance-plan
@@ -425,12 +455,26 @@ jobs:
         with:
           ref: ${{ needs.conformance-plan.outputs.sha }}
           persist-credentials: false
+      - name: Use the CI actions of the workflow commit
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Install Ko
         uses: ./.github/actions/tools/ko
       - name: Build
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           VERSION=${{ github.ref_name }} make docker-save-image-all
@@ -454,10 +498,24 @@ jobs:
         with:
           ref: ${{ needs.conformance-plan.outputs.sha }}
           persist-credentials: false
+      - name: Use the CI actions of the workflow commit
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
+          rm -rf .github/actions
+          git checkout FETCH_HEAD -- .github/actions
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Build
         shell: bash
+        env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
         run: |
           set -e
           VERSION=${{ github.ref_name }} make build-cli
@@ -468,23 +526,31 @@ jobs:
           path: cmd/cli/kubectl-kyverno/kubectl-kyverno
           if-no-files-found: error
 
+  # One call per Kubernetes version, so that each suite runs on the latest
+  # version it supports.
   conformance-tests:
-    name: Conformance tests
+    name: Conformance tests (${{ matrix.k8s }})
     needs:
       - conformance-plan
       - conformance-images
       - conformance-cli
     if: needs.conformance-plan.outputs.valid == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.conformance-plan.outputs.groups) }}
     permissions:
       contents: read
       packages: read
     uses: ./.github/workflows/tests-conformance.yaml
     with:
-      ref: ${{ needs.conformance-plan.outputs.sha }}
-      suites: ${{ needs.conformance-plan.outputs.suites }}
+      release-sha: ${{ needs.conformance-plan.outputs.sha }}
+      suites: ${{ matrix.suites }}
       chainsaw-tests: ${{ needs.conformance-plan.outputs.chainsaw-tests }}
-      matrix: ${{ needs.conformance-plan.outputs.k8s-version }}
+      matrix: ${{ matrix.k8s }}
 
+  # Never runs PR code: it reads the test reports as data with the report
+  # script of the workflow commit.
   conformance-report:
     name: Report conformance result
     needs:
@@ -495,18 +561,45 @@ jobs:
       - conformance-tests
     if: always() && needs.route.outputs.conformance == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
+      contents: read
       issues: write
     steps:
+      - name: Checkout workflow commit
+        if: needs.conformance-plan.outputs.valid == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/e2e
+      - name: Download test reports
+        if: needs.conformance-plan.outputs.valid == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: e2e-reports-*
+          path: e2e-reports
+      - name: Count test results
+        id: counts
+        if: needs.conformance-plan.outputs.valid == 'true'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          echo "counts=$(python3 scripts/e2e/report.py counts e2e-reports)" >> "$GITHUB_OUTPUT"
+          python3 scripts/e2e/report.py summarize e2e-reports --run-url "$RUN_URL" >> "$GITHUB_STEP_SUMMARY"
       - name: Comment result
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           VALID: ${{ needs.conformance-plan.outputs.valid }}
           ERROR: ${{ needs.conformance-plan.outputs.error }}
           SHA: ${{ needs.conformance-plan.outputs.sha }}
-          K8S_VERSION: ${{ needs.conformance-plan.outputs.k8s-version }}
+          K8S_SUMMARY: ${{ needs.conformance-plan.outputs.k8s-summary }}
           DESCRIPTION: ${{ needs.conformance-plan.outputs.description }}
+          REGEX: ${{ needs.conformance-plan.outputs.chainsaw-tests }}
+          COUNTS: ${{ steps.counts.outputs.counts }}
           IMAGES_RESULT: ${{ needs.conformance-images.result }}
           CLI_RESULT: ${{ needs.conformance-cli.result }}
           TESTS_RESULT: ${{ needs.conformance-tests.result }}
@@ -520,10 +613,29 @@ jobs:
                 ? `:x: \`/conformance\` was rejected: ${env.ERROR}`
                 : `:x: \`/conformance\` couldn't be validated. See the [workflow run](${run}).`;
             } else {
+              let counts = null;
+              try {
+                counts = env.COUNTS ? JSON.parse(env.COUNTS) : null;
+              } catch {
+                counts = null;
+              }
+              const ran = counts ? counts.passed + counts.failed : null;
               const results = [env.IMAGES_RESULT, env.CLI_RESULT, env.TESTS_RESULT];
-              const [icon, outcome] = results.every(r => r === 'success') ? [':white_check_mark:', 'passed']
-                : results.includes('cancelled') ? [':warning:', 'was cancelled'] : [':x:', 'failed'];
-              body = `${icon} Conformance ${outcome} for ${env.DESCRIPTION} on Kubernetes ${env.K8S_VERSION} at ${env.SHA}. See the [workflow run](${run}).`;
+              let icon;
+              let outcome;
+              if (results.every(r => r === 'success') && env.REGEX && ran === 0) {
+                [icon, outcome] = [':warning:', 'ran no tests: no test matched the regex'];
+              } else if (results.every(r => r === 'success')) {
+                [icon, outcome] = [':white_check_mark:', 'passed'];
+              } else if (results.includes('cancelled')) {
+                [icon, outcome] = [':warning:', 'was cancelled'];
+              } else {
+                [icon, outcome] = [':x:', 'failed'];
+              }
+              const tally = counts
+                ? ` Test results: ${counts.passed} passed, ${counts.failed} failed, ${counts.skipped} skipped.`
+                : '';
+              body = `${icon} Conformance ${outcome} for ${env.DESCRIPTION} on ${env.K8S_SUMMARY} at ${env.SHA}.${tally} See the [workflow run](${run}).`;
             }
             await core.summary.addRaw(body).write();
             await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });

@@ -123,6 +123,12 @@ runs:
           --set crds.enabled=true --wait --timeout 300s
     - name: Install Kyverno
       shell: bash
+      env:
+        # Runs code under test, a PR head for /conformance: keep the Actions
+        # cache and artifact service variables out of its environment.
+        ACTIONS_RUNTIME_TOKEN: ""
+        ACTIONS_CACHE_URL: ""
+        ACTIONS_RESULTS_URL: ""
       run: |
         set -ex
         export USE_CONFIG=${{ inputs.kyverno-configs }}
@@ -168,6 +174,11 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
         # Comes from a PR comment for /conformance, so it stays out of the script.
         CHAINSAW_TESTS: ${{ inputs.chainsaw-tests }}
+        # Runs code under test, a PR head for /conformance: keep the Actions
+        # cache and artifact service variables out of its environment.
+        ACTIONS_RUNTIME_TOKEN: ""
+        ACTIONS_CACHE_URL: ""
+        ACTIONS_RESULTS_URL: ""
       run: |
         set -e
         mkdir -p "$GITHUB_WORKSPACE/conformance-results"

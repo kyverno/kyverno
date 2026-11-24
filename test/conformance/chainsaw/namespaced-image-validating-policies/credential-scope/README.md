@@ -8,10 +8,10 @@ cd test/conformance/chainsaw/namespaced-image-validating-policies
 chainsaw test --config .chainsaw.yaml credential-scope
 ```
 
-Note that commenting `/conformance` on a pull request does **not** exercise this
-directory: `.github/workflows/comment-commands.yaml` checks out the default
-branch rather than the PR ref, so it builds and tests `main`. The suite runs for
-real post-merge via `.github/workflows/check-tests.yaml`.
+To run it on a pull request, a maintainer comments
+`/conformance namespaced-image-validating-policies/credential-scope` (see
+`.github/workflows/comment-commands.yaml`), which tests the PR head. The suite
+also runs after merge via `.github/workflows/check-tests.yaml`.
 
 The admission webhook accepts bare and same-namespace Secret references and rejects
 foreign and installation-namespace references in both policy credentials and
