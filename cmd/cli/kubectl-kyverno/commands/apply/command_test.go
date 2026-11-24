@@ -2691,3 +2691,70 @@ spec:
 		assert.Contains(t, output, "warn: 0")
 	})
 }
+
+func TestApplyMultipleResourceDirectories(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	dirA := filepath.Join(tmpDir, "team-a")
+	dirB := filepath.Join(tmpDir, "team-b")
+	require.NoError(t, os.Mkdir(dirA, 0o755))
+	require.NoError(t, os.Mkdir(dirB, 0o755))
+
+	goodDep := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: good-deployment
+  namespace: default
+  labels:
+    env: prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+      - name: test
+        image: nginx
+`
+	badDep := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+      - name: test
+        image: nginx
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dirA, "good.yaml"), []byte(goodDep), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dirB, "bad.yaml"), []byte(badDep), 0o644))
+
+	config := ApplyCommandConfig{
+		PolicyPaths: []string{
+			"../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml",
+		},
+		ResourcePaths: []string{dirA, dirB},
+	}
+
+	rc, resources, _, responses, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.NoError(t, err)
+	require.Len(t, resources, 2)
+	require.Len(t, responses, 2)
+	assert.Equal(t, 1, rc.Pass)
+	assert.Equal(t, 1, rc.Fail)
+	assert.Equal(t, 0, rc.Error)
+}

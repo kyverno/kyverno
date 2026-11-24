@@ -61,24 +61,34 @@ func GetResourceAccordingToResourcePath(
 			}
 		} else {
 			if len(resourcePaths) > 0 {
-				fileDesc, err := os.Stat(resourcePaths[0])
-				if err != nil {
-					return nil, err
-				}
-				if fileDesc.IsDir() {
-					files, err := os.ReadDir(resourcePaths[0])
+				var listOfFiles []string
+				for _, resourcePath := range resourcePaths {
+					if source.IsHttp(resourcePath) {
+						listOfFiles = append(listOfFiles, resourcePath)
+						continue
+					}
+					fileDesc, err := os.Stat(resourcePath)
 					if err != nil {
-						return nil, fmt.Errorf("failed to parse %v (%w)", resourcePaths[0], err)
+						return nil, err
 					}
-					listOfFiles := make([]string, 0)
-					for _, file := range files {
-						ext := filepath.Ext(file.Name())
-						if ext == ".yaml" || ext == ".yml" {
-							listOfFiles = append(listOfFiles, filepath.Join(resourcePaths[0], file.Name()))
+					if fileDesc.IsDir() {
+						files, err := os.ReadDir(resourcePath)
+						if err != nil {
+							return nil, fmt.Errorf("failed to parse %v (%w)", resourcePath, err)
 						}
+						for _, file := range files {
+							if !file.IsDir() {
+								ext := filepath.Ext(file.Name())
+								if ext == ".yaml" || ext == ".yml" {
+									listOfFiles = append(listOfFiles, filepath.Join(resourcePath, file.Name()))
+								}
+							}
+						}
+					} else {
+						listOfFiles = append(listOfFiles, resourcePath)
 					}
-					resourcePaths = listOfFiles
 				}
+				resourcePaths = listOfFiles
 			}
 			if clusterWideResources {
 				fetcher := &ResourceFetcher{
