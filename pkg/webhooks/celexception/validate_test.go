@@ -227,7 +227,7 @@ func TestValidateNamespace(t *testing.T) {
 			request:     newAdmissionRequest(t, admissionv1.Create, foreignListedException, nil),
 			allowed:     true,
 			hasWarnings: true,
-			warningMsg:  "exceptionNamespace is \"*\": spec.namespaces entry other has no effect, this exception only applies in namespace default.",
+			warningMsg:  "exceptionNamespace is \"*\": spec.namespaces entry other has no effect, this exception only applies to namespaced policies in namespace default.",
 		},
 		{
 			name: "valid exception with matching namespace",

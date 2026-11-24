@@ -47,16 +47,18 @@ func ValidateScopeReach(polex *policiesv1beta1.PolicyException, opts ValidationO
 		return nil
 	}
 	var warnings []string
-	for _, ns := range polex.Spec.Namespaces {
-		if ns != polex.GetNamespace() {
-			warnings = append(warnings, fmt.Sprintf(
-				"exceptionNamespace is \"*\": spec.namespaces entry %s has no effect, this exception only applies in namespace %s.",
-				ns, polex.GetNamespace(),
-			))
+	if slices.ContainsFunc(polex.Spec.PolicyRefs, func(ref policiesv1beta1.PolicyRef) bool { return ref.IsNamespaced() }) {
+		for _, ns := range polex.Spec.Namespaces {
+			if ns != polex.GetNamespace() {
+				warnings = append(warnings, fmt.Sprintf(
+					"exceptionNamespace is \"*\": spec.namespaces entry %s has no effect, this exception only applies to namespaced policies in namespace %s.",
+					ns, polex.GetNamespace(),
+				))
+			}
 		}
 	}
 	for _, ref := range polex.Spec.PolicyRefs {
-		if strings.HasPrefix(ref.Kind, "Namespaced") {
+		if ref.IsNamespaced() {
 			warnings = append(warnings, fmt.Sprintf(
 				"exceptionNamespace is \"*\": this exception only applies to %s %s in namespace %s, not to a policy of that name in another namespace.",
 				ref.Kind, ref.Name, polex.GetNamespace(),
