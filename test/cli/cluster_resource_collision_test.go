@@ -68,6 +68,9 @@ func TestApplyClusterResourceCollisions(t *testing.T) {
 				map[string]any{"apiVersion": "v1", "kind": "Namespace", "metadata": map[string]any{"name": "default", "resourceVersion": "1"}},
 			}})
 			return
+		case "/api/v1/namespaces/default":
+			write(map[string]any{"apiVersion": "v1", "kind": "Namespace", "metadata": map[string]any{"name": "default", "resourceVersion": "1"}})
+			return
 		}
 		for i, group := range []string{"alpha.example.com", "beta.example.com"} {
 			base := "/apis/" + group + "/v1"
