@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/yaml"
 )
 
 func Test_Compile_VerifyDigest_Resolution(t *testing.T) {
@@ -103,4 +105,28 @@ func Test_Compile_VerifyDigest_Resolution(t *testing.T) {
 			assert.Equal(t, tt.want, cp.verifyDigest)
 		})
 	}
+}
+
+func Test_Compile_SerializedPolicy_VerifyDigest(t *testing.T) {
+	t.Parallel()
+
+	rawYAML := `
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ImageValidatingPolicy
+metadata:
+  name: test-mutate-false-no-verify
+spec:
+  validationConfigurations:
+    mutateDigest: false
+`
+	var policy policiesv1beta1.ImageValidatingPolicy
+	err := yaml.Unmarshal([]byte(rawYAML), &policy)
+	require.NoError(t, err)
+
+	compiled, errList := NewCompiler(nil).Compile(&policy, nil)
+	require.Empty(t, errList)
+
+	cp, ok := compiled.(*compiledPolicy)
+	require.True(t, ok)
+	assert.False(t, cp.verifyDigest, "deserialized policy with mutateDigest: false and omitted verifyDigest must resolve verifyDigest to false")
 }

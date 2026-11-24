@@ -151,6 +151,64 @@ func Test_Eval_VerifyDigest_ImageWithoutDigest_Fails(t *testing.T) {
 	assert.Contains(t, result[policy.Name].Message, "does not have a digest")
 }
 
+func Test_Eval_MutateDigestFalse_Validations(t *testing.T) {
+	tests := []struct {
+		name        string
+		expression  string
+		message     string
+		wantResult  bool
+		wantMessage string
+	}{
+		{
+			name:       "successful CEL validation admits tag image (control)",
+			expression: "true",
+			wantResult: true,
+		},
+		{
+			name:        "failing CEL validation rejects tag image with distinctive message",
+			expression:  "false",
+			message:     "cel validation failed for tag image",
+			wantResult:  false,
+			wantMessage: "cel validation failed for tag image",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			policy := &policiesv1beta1.ImageValidatingPolicy{
+				Spec: policiesv1beta1.ImageValidatingPolicySpec{
+					EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+						Mode: policieskyvernoio.EvaluationModeJSON,
+					},
+					ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+						MutateDigest: ptr.To(false),
+						Required:     ptr.To(false),
+					},
+					MatchImageReferences: []policiesv1beta1.MatchImageReference{
+						{Glob: "ghcr.io/*"},
+					},
+					ImageExtractors: []policiesv1beta1.ImageExtractor{
+						{Name: "bar", Expression: "[object.foo.bar]"},
+					},
+					Validations: []admissionregistrationv1.Validation{
+						{Expression: tt.expression, Message: tt.message},
+					},
+				},
+			}
+
+			imageWithoutDigest := "ghcr.io/kyverno/test-verify-image:latest"
+			result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: policy}}, obj(imageWithoutDigest), nil, nil, nil)
+			assert.NoError(t, err)
+			require.NotNil(t, result[policy.Name])
+			assert.Equal(t, tt.wantResult, result[policy.Name].Result)
+			if tt.wantMessage != "" {
+				assert.Contains(t, result[policy.Name].Message, tt.wantMessage)
+			}
+		})
+	}
+}
+
 func Test_Eval_MutateDigestFalse_AllowsImageWithoutDigest(t *testing.T) {
 	policy := &policiesv1beta1.ImageValidatingPolicy{
 		Spec: policiesv1beta1.ImageValidatingPolicySpec{
