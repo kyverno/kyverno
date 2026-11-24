@@ -117,6 +117,9 @@ safe-outputs:
                         skip(f"#{n} was queued or exempted meanwhile")
                     else:
                         reason = re.sub(r"\s+", " ", str(item.get("reason", ""))).strip()[:400]
+                        if not reason:
+                            skip(f"#{n} came without a reason")
+                            continue
                         reason = re.sub(r"@(\w)", "@\u200b\\1", reason)
                         body = (f"Queue: `{queue}`. {reason}\n\nThis is a first-pass sort by an automated agent. "
                                 "A maintainer can change it by swapping the label.")
