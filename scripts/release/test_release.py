@@ -119,8 +119,11 @@ class Versions(unittest.TestCase):
         metadata["chart_images"] = release.chart_image_references(
             release.read(ROOT / "charts/kyverno/values.yaml"), metadata
         )
-        self.assertEqual(metadata["chart_images"]["backgroundController.image"],
-                         "ghcr.io/kyverno/background-controller:v1.20.2-rc3")
+        self.assertEqual(set(metadata["chart_images"]), set(release.IMAGE_VALUES))
+        for keys, name in release.IMAGE_VALUES.items():
+            with self.subTest(image=keys):
+                self.assertEqual(metadata["chart_images"][keys],
+                                 f"ghcr.io/kyverno/{name}:v1.20.2-rc3")
         rendered = yaml.safe_dump({"containers": [
             {"image": reference} for reference in metadata["chart_images"].values()
         ]})
