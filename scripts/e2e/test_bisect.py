@@ -12,8 +12,10 @@ import io
 import json
 import shutil
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from typing import Callable, List, Optional, Tuple
 
 HERE = Path(__file__).resolve().parent
 TESTDATA = HERE / "testdata"
@@ -90,13 +92,14 @@ class NextProbeTest(unittest.TestCase):
 class BisectTest(unittest.TestCase):
     commits = [f"c{i}" for i in range(32)]
 
-    def run_with(self, verdict, max_steps=6, **kwargs):
-        probed = []
+    def run_with(self, verdict: Callable[[int], str], max_steps: int = 6,
+                 deadline: Optional[float] = None) -> Tuple[dict, List[str]]:
+        probed: List[str] = []
 
-        def probe(sha):
+        def probe(sha: str) -> str:
             probed.append(sha)
             return verdict(self.commits.index(sha))
-        return bisect.bisect(self.commits, probe, max_steps, clock=lambda: 0, **kwargs), probed
+        return bisect.bisect(self.commits, probe, max_steps, deadline, clock=lambda: 0), probed
 
     def test_finds_the_first_bad_commit_of_32_in_6_steps(self):
         for culprit in (0, 1, 13, 30, 31):
@@ -138,8 +141,104 @@ class VerdictTest(unittest.TestCase):
         shutil.copy(TESTDATA / "e2e-reports-validating-policies-v1.37.0-0" / "results.json", self.dir)
         self.assertEqual(bisect.verdict_of(self.dir, ["webhook-config"]), "bad")
         self.assertEqual(bisect.verdict_of(self.dir, ["passes"]), "good")
-        # A test that doesn't exist yet at a commit can't fail there.
+        self.assertEqual(bisect.verdict_of(self.dir, ["passes", "webhook-config"]), "bad")
+        # A skipped target test says nothing about the commit.
+        self.assertEqual(bisect.verdict_of(self.dir, ["skipped-test"]), "skip")
+        self.assertEqual(bisect.verdict_of(self.dir, ["passes", "skipped-test"]), "skip")
+        # A test that doesn't exist yet at a commit can't fail there, but one
+        # that exists and is missing from the report wasn't run.
         self.assertEqual(bisect.verdict_of(self.dir, ["added-later"]), "good")
+        self.assertEqual(bisect.verdict_of(self.dir, ["added-later"], {"added-later"}), "skip")
+
+    def test_finds_the_name_of_every_conformance_test(self):
+        root = HERE.parents[1] / "test" / "conformance" / "chainsaw"
+        files = list(root.rglob("chainsaw-test.y*ml"))
+        self.assertGreater(len(files), 100)
+        unnamed = [str(f) for f in files if not bisect._TEST_NAME.search(f.read_text())]
+        self.assertEqual(unnamed, [])
+        self.assertIn("invalid-label", bisect.test_names(root / "ttl"))
+
+
+class Completed:
+    def __init__(self, returncode: int = 0) -> None:
+        self.returncode = returncode
+
+
+class ProbeTest(unittest.TestCase):
+    """Runs make_probe with a fake subprocess runner, so no cluster is needed."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root)
+        suite = self.root / "test" / "conformance" / "chainsaw" / "validating-policies" / "webhook-config"
+        suite.mkdir(parents=True)
+        (suite / "chainsaw-test.yaml").write_text(
+            "apiVersion: chainsaw.kyverno.io/v1alpha1\nkind: Test\nmetadata:\n  name: webhook-config\n")
+        self.calls: List[List[str]] = []
+        self.report_dirs: List[Path] = []
+
+    def probe(self, checkout: int = 0, report: Optional[str] = "results.json",
+              tests: Tuple[str, ...] = ("webhook-config",)) -> str:
+        def runner(command: List[str], **_: object) -> Completed:
+            self.calls.append(command)
+            if command[:2] == ["git", "checkout"]:
+                return Completed(checkout)
+            if "test-e2e-local" in command:
+                work = Path(next(a for a in command if a.startswith("E2E_REPORT_DIR="))[len("E2E_REPORT_DIR="):])
+                self.report_dirs.append(work)
+                self.assertTrue(work.is_dir())
+                if report:
+                    shutil.copy(TESTDATA / "e2e-reports-validating-policies-v1.37.0-0" / report, work)
+                return Completed(1)
+            return Completed(0)
+
+        args = types.SimpleNamespace(tests_json=json.dumps(list(tests)), suite="validating-policies",
+                                     variant="", k8s="v1.37.0", step_timeout=2100)
+        probe = bisect.make_probe(args, log=io.StringIO(), runner=runner, root=self.root)
+        return probe("abc")
+
+    def assert_cleaned_up(self) -> None:
+        self.assertEqual(self.calls[-1][:2], ["make", "kind-delete-cluster"])
+        for work in self.report_dirs:
+            self.assertFalse(work.exists())
+
+    def test_a_failed_test_makes_the_commit_bad(self):
+        self.assertEqual(self.probe(), "bad")
+        self.assertEqual(self.calls[0], ["git", "checkout", "--force", "--quiet", "abc"])
+        make = self.calls[1]
+        self.assertEqual(make[:5], ["timeout", "--kill-after=60", "2100", "make", "test-e2e-local"])
+        self.assertEqual(make[5:9], ["SUITE=validating-policies", "TEST=^(webhook-config)$$",
+                                     "K8S=v1.37.0", "VARIANT="])
+        self.assert_cleaned_up()
+
+    def test_dollar_signs_are_doubled_for_make(self):
+        self.probe(tests=("a$b", "c"))
+        self.assertIn(r"TEST=^(a\$$b|c)$$", self.calls[1])
+
+    def test_a_setup_failure_without_a_report_is_skipped(self):
+        self.assertEqual(self.probe(report=None), "skip")
+        self.assert_cleaned_up()
+
+    def test_a_test_that_exists_but_did_not_run_is_skipped(self):
+        # A test missing from both the report and the suite doesn't exist yet
+        # at the commit. Once a chainsaw-test.yaml has its name, it does.
+        self.assertEqual(self.probe(tests=("passes",)), "good")
+        self.assertEqual(self.probe(tests=("missing",)), "good")
+        (self.root / "test" / "conformance" / "chainsaw" / "validating-policies" / "webhook-config"
+         / "chainsaw-test.yaml").write_text("metadata:\n  name: missing\n")
+        self.assertEqual(self.probe(tests=("missing",)), "skip")
+
+    def test_a_checkout_failure_is_skipped_and_cleaned_up(self):
+        self.assertEqual(self.probe(checkout=1), "skip")
+        self.assertEqual(len(self.calls), 2)
+        self.assert_cleaned_up()
+
+    def test_each_probe_gets_its_own_report_directory(self):
+        self.probe()
+        self.probe(report=None)
+        self.assertEqual(len(self.report_dirs), 2)
+        self.assertNotEqual(self.report_dirs[0], self.report_dirs[1])
+        self.assert_cleaned_up()
 
 
 class CommentTest(unittest.TestCase):

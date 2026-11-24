@@ -24,9 +24,11 @@ report.py, it uses the Python 3 standard library only.
       of the pull requests of the first bad commit, as the GitHub API returns
       them.
 
-A commit is bad when one of the target tests fails, good when they all pass
-or don't exist yet, and skipped when no chainsaw report was written, for
-example because the build or the cluster setup failed.
+A commit is bad when one of the target tests fails, and good when they all
+pass or don't exist yet at the commit (no chainsaw-test.yaml under the suite
+has their name). It's skipped otherwise: when no chainsaw report was written,
+for example because the build or the cluster setup failed, or when a target
+test was skipped or is missing from the report.
 """
 
 import argparse
@@ -182,8 +184,29 @@ def bisect(commits, probe, max_steps, deadline=None, clock=time.monotonic):
     return result
 
 
-def verdict_of(report_dir, tests):
-    """Classifies a commit from the chainsaw JSON report in report_dir."""
+# The metadata.name of a chainsaw-test.yaml file. test_bisect.py checks that it
+# finds the name of every test in test/conformance/chainsaw.
+_TEST_NAME = re.compile(r"^metadata:[ \t]*\n(?:[ \t]+.*\n)*?[ \t]+name:[ \t]*[\"']?([^\"'\s#]+)", re.M)
+
+
+def test_names(suite_dir):
+    """Returns the names of the chainsaw tests under suite_dir."""
+    names = set()
+    for path in Path(suite_dir).rglob("chainsaw-test.y*ml"):
+        match = _TEST_NAME.search(path.read_text(errors="replace"))
+        if match:
+            names.add(match.group(1))
+    return names
+
+
+def verdict_of(report_dir, tests, existing=frozenset()):
+    """Classifies a commit from the chainsaw JSON report in report_dir.
+
+    bad: a target test failed. skip: there's no report, a target test was
+    skipped, or a target test exists at the commit (it's in existing) but
+    isn't in the report. good: every target test passed or doesn't exist yet,
+    so the commit can't have broken it.
+    """
     path = Path(report_dir) / report.REPORT
     if not path.is_file():
         return SKIP
@@ -191,34 +214,41 @@ def verdict_of(report_dir, tests):
         data = json.loads(path.read_text())
     except ValueError:
         return SKIP
-    wanted = set(tests)
-    for test in data.get("tests") or []:
-        if test.get("name") in wanted and report.status(test) == "failed":
-            return BAD
+    statuses = {t.get("name"): report.status(t) for t in data.get("tests") or [] if t.get("name") in tests}
+    if "failed" in statuses.values():
+        return BAD
+    if "skipped" in statuses.values():
+        return SKIP
+    if any(name not in statuses and name in existing for name in tests):
+        return SKIP
     return GOOD
 
 
-def make_probe(args, log=sys.stderr):
-    """Returns a probe that runs the target tests at a commit with make."""
+def make_probe(args, log=sys.stderr, runner=subprocess.run, root="."):
+    """Returns a probe that runs the target tests at a commit with make.
+
+    runner stands in for subprocess.run, and root for the clone, in the tests.
+    """
     tests = json.loads(args.tests_json)
+    suite_dir = Path(root) / "test" / "conformance" / "chainsaw" / args.suite
 
     def probe(sha):
         print(f"::group::Testing {sha}", file=log, flush=True)
         work = Path(tempfile.mkdtemp(prefix="bisect-"))
         try:
-            subprocess.run(["git", "checkout", "--force", "--quiet", sha], check=True)
+            if runner(["git", "checkout", "--force", "--quiet", sha]).returncode != 0:
+                print(f"Can't check out {sha}, so it's skipped.", file=log, flush=True)
+                return SKIP
             # make expands $ in command-line variables, so it's doubled.
             command = ["timeout", "--kill-after=60", str(args.step_timeout), "make", "test-e2e-local",
                        f"SUITE={args.suite}", f"TEST={test_regex(tests).replace('$', '$$')}", f"K8S={args.k8s}",
                        f"VARIANT={args.variant}", f"E2E_REPORT_DIR={work}"]
-            code = subprocess.run(command).returncode
-            verdict = verdict_of(work, tests)
+            code = runner(command).returncode
+            verdict = verdict_of(work, tests, test_names(suite_dir))
             print(f"make exited with {code}; {sha} is {verdict}", file=log, flush=True)
             return verdict
-        except subprocess.CalledProcessError:
-            return SKIP
         finally:
-            subprocess.run(["make", "kind-delete-cluster"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            runner(["make", "kind-delete-cluster"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             shutil.rmtree(work, ignore_errors=True)
             print("::endgroup::", file=log, flush=True)
 
