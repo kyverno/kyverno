@@ -298,6 +298,13 @@ func NewServer(
 		mux.HandlerFunc("POST", config.AuthorizingPolicyConditionsReviewPath, apolHandler.HandleConditionsReview)
 		mux.HandlerFunc("POST", config.AuthorizingPolicyCombinedPath, apolHandler.HandleCombined)
 	}
+	// The AuthorizingPolicy handler can authenticate kube-apiserver by its client
+	// certificate. Request one without verifying it in the handshake, so
+	// admission webhook callers that send no certificate are not affected.
+	clientAuth := tls.NoClientCert
+	if resourceHandlers.AuthorizingPolicies != nil {
+		clientAuth = tls.RequestClientCert
+	}
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{
@@ -315,6 +322,7 @@ func NewServer(
 					}
 					return &pair, nil
 				},
+				ClientAuth: clientAuth,
 				MinVersion: tls.VersionTLS12,
 				CipherSuites: []uint16{
 					// AEADs w/ ECDHE

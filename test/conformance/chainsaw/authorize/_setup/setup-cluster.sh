@@ -53,7 +53,9 @@ done
 "${KUBECTL[@]}" apply --server-side -f config/crds/policies.kyverno.io/policies.kyverno.io_authorizingpolicies.yaml
 kubectl config use-context "kind-${KIND_NAME}"
 retry make kind-install-kyverno KIND="${KIND}" KIND_NAME="${KIND_NAME}" \
-  EXPLICIT_INSTALL_SETTINGS="--set admissionController.container.extraArgs.enableAuthorizingPolicies=true"
+  EXPLICIT_INSTALL_SETTINGS="--set admissionController.container.extraArgs.enableAuthorizingPolicies=true \
+    --set admissionController.container.extraArgs.authzClientCAFile=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
+    --set admissionController.container.extraArgs.authzAllowedClientNames=kube-apiserver-kubelet-client"
 "${KUBECTL[@]}" -n kyverno rollout status deployment kyverno-admission-controller --timeout=300s
 
 # kube-apiserver runs on the host network, so it cannot resolve cluster DNS
@@ -89,9 +91,13 @@ clusters:
       server: https://127.0.0.1:1/authz/conditionsreview
       certificate-authority: /etc/kubernetes/authz/kyverno-ca.crt
       tls-server-name: kyverno-svc.kyverno.svc
+# kube-apiserver authenticates with the kubeadm client certificate that the
+# cluster CA signed; Kyverno accepts only that certificate name.
 users:
   - name: kube-apiserver
-    user: {}
+    user:
+      client-certificate: /etc/kubernetes/pki/apiserver-kubelet-client.crt
+      client-key: /etc/kubernetes/pki/apiserver-kubelet-client.key
 contexts:
   - name: kyverno-sar
     context: {cluster: kyverno-sar, user: kube-apiserver}

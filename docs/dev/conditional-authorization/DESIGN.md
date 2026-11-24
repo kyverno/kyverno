@@ -212,9 +212,16 @@ author holds the permissions their policy grants.
 
 ### Endpoint exposure
 
-The `/authz` endpoints do not authenticate the caller. A client that can reach
-the Kyverno service can learn policy outcomes but cannot change what
-kube-apiserver enforces. Restrict access to the service with network policies.
+Set `--authzClientCAFile` and `--authzAllowedClientNames` so that the `/authz`
+endpoints accept only kube-apiserver's TLS client certificate. Kyverno requests
+a client certificate during the TLS handshake without requiring one, so
+admission webhook callers are not affected, and the authorization handlers
+verify the certificate chain, the client-auth key usage, and the name.
+
+Without these flags, the endpoints do not authenticate the caller, and Kyverno
+logs a warning at startup. A client that can reach the Kyverno service can then
+learn policy outcomes but cannot change what kube-apiserver enforces. Restrict
+access to the service with network policies.
 
 ### Break-glass and recovery
 
@@ -367,4 +374,5 @@ These capabilities are out of scope and are not provided:
 - Whether broad selectors should be rejected or warned about, and where Kyverno
   surfaces the warnings.
 - Whether the CLI should gain an identity- and action-aware mode.
-- Whether the `/authz` endpoints should require a client certificate.
+- Whether client certificate authentication should be required by default
+  instead of opt-in through `--authzClientCAFile`.

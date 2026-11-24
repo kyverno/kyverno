@@ -37,7 +37,18 @@ admissionController:
   container:
     extraArgs:
       enableAuthorizingPolicies: true
+      # Accept only kube-apiserver's client certificate.
+      authzClientCAFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      authzAllowedClientNames: kube-apiserver-kubelet-client
 ```
+
+With `authzClientCAFile` set, the `/authz` endpoints reject callers that don't
+present a client certificate signed by one of the CAs in the file, and return
+HTTP 401. `authzAllowedClientNames` further restricts callers to the listed
+certificate common names or DNS SANs. Set both: the cluster CA also signs node
+and user client certificates. The webhook kubeconfig then needs a matching
+`client-certificate` and `client-key`; see
+[`examples/kyverno-authz-kubeconfig.yaml`](examples/kyverno-authz-kubeconfig.yaml).
 
 Kyverno then serves these endpoints on its webhook service. It registers them
 only after it has loaded and compiled all existing policies, so it never answers

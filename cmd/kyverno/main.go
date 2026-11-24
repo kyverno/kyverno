@@ -355,6 +355,8 @@ func main() {
 		dumpPayload                     bool
 		enableDecisionTraces            bool
 		enableAuthorizingPolicies       bool
+		authzClientCAFile               string
+		authzAllowedClientNames         string
 		servicePort                     int
 		webhookServerHost               string
 		webhookServerPort               int
@@ -371,6 +373,8 @@ func main() {
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.BoolVar(&enableAuthorizingPolicies, "enableAuthorizingPolicies", false, "Set this flag to 'true' to serve AuthorizingPolicy authorization webhook endpoints (/authz, /authz/subjectaccessreview, /authz/conditionsreview) for Kubernetes conditional authorization (alpha, Kubernetes 1.38+). Requires the AuthorizingPolicy CRD to be installed.")
+	flagset.StringVar(&authzClientCAFile, "authzClientCAFile", "", "Path to PEM CA certificates. When set, the AuthorizingPolicy authorization webhook endpoints only accept callers that present a TLS client certificate signed by one of these CAs. To trust the cluster CA, use /var/run/secrets/kubernetes.io/serviceaccount/ca.crt.")
+	flagset.StringVar(&authzAllowedClientNames, "authzAllowedClientNames", "", "Comma-separated client certificate names (subject common name or DNS SAN) allowed to call the AuthorizingPolicy authorization webhook endpoints. Requires authzClientCAFile. When empty, any certificate signed by authzClientCAFile is accepted.")
 	flagset.BoolVar(&enableDecisionTraces, "enableDecisionTraces", false, "Set this flag to 'true' to log a decision trace for every ValidatingPolicy, MutatingPolicy and ImageValidatingPolicy admission decision: which expressions ran and what they resolved to. FAIL and ERROR decisions are logged at verbosity 2, PASS and SKIP decisions at verbosity 3, and policies that did not apply to the resource at verbosity 4. This is a debug mode: every expression is evaluated a second time to explain it, and the trace contains values read from the admitted resource (no values that may come from a Secret are logged).")
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations (number of seconds, integer).")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -772,7 +776,21 @@ func main() {
 					setup.Logger.Error(err, "failed to create apol engine")
 					os.Exit(1)
 				}
-				apolHandler = apol.New(apolEngine)
+				handler := apol.New(apolEngine)
+				if authzClientCAFile != "" {
+					clientAuth, err := apol.LoadClientAuth(authzClientCAFile, splitNames(authzAllowedClientNames))
+					if err != nil {
+						setup.Logger.Error(err, "failed to load authorization webhook client CA")
+						os.Exit(1)
+					}
+					handler = handler.WithClientAuth(clientAuth)
+				} else if authzAllowedClientNames != "" {
+					setup.Logger.Error(errors.New("authzAllowedClientNames requires authzClientCAFile"), "invalid authorization webhook flags")
+					os.Exit(1)
+				} else {
+					setup.Logger.Info("WARNING: AuthorizingPolicy authorization webhook endpoints do not authenticate callers; set --authzClientCAFile or restrict network access to the Kyverno service")
+				}
+				apolHandler = handler
 			}
 			vpolEngine = vpolengine.NewMetricWrapper(vpolengine.NewEngine(
 				vpolProvider,
@@ -934,4 +952,15 @@ func main() {
 	}()
 	// wait for everything to shut down and exit
 	wg.Wait()
+}
+
+// splitNames parses a comma-separated flag value, dropping empty entries.
+func splitNames(value string) []string {
+	var names []string
+	for _, name := range strings.Split(value, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }

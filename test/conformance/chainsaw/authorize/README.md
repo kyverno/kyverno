@@ -38,10 +38,13 @@ The setup script does the following:
    [`authorization-config-bootstrap.yaml`](_setup/authorization-config-bootstrap.yaml)
    (Node and RBAC only).
 2. Loads the Kyverno images, installs the `AuthorizingPolicy` CRD, and installs
-   the chart with `admissionController.container.extraArgs.enableAuthorizingPolicies=true`.
+   the chart with `enableAuthorizingPolicies=true`. It also sets
+   `authzClientCAFile` to the cluster CA and `authzAllowedClientNames` to
+   `kube-apiserver-kubelet-client`, so the endpoints accept only kube-apiserver.
 3. Writes the webhook kubeconfig. kube-apiserver uses the host network and
    cannot resolve cluster DNS names, so the kubeconfig uses the `kyverno-svc`
-   ClusterIP with `tls-server-name: kyverno-svc.kyverno.svc` and Kyverno's CA.
+   ClusterIP with `tls-server-name: kyverno-svc.kyverno.svc` and Kyverno's CA,
+   and authenticates with kubeadm's `apiserver-kubelet-client` certificate.
 4. Replaces the authorization configuration with
    [`authorization-config.yaml`](_setup/authorization-config.yaml).
    kube-apiserver reloads it without a restart. The script waits until a probe
