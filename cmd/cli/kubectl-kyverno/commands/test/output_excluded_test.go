@@ -55,6 +55,20 @@ func TestFormatResourceDisplay(t *testing.T) {
 			expectedName:      "admin",
 		},
 		{
+			name:              "cluster-scoped resource with group/version slash form",
+			resourceKey:       "rbac.authorization.k8s.io/v1/ClusterRole/admin",
+			expectedKind:      "rbac.authorization.k8s.io/v1/ClusterRole",
+			expectedNamespace: "",
+			expectedName:      "admin",
+		},
+		{
+			name:              "namespaced resource starting with v (vault/Pod/my-pod)",
+			resourceKey:       "vault/Pod/my-pod",
+			expectedKind:      "Pod",
+			expectedNamespace: "vault",
+			expectedName:      "my-pod",
+		},
+		{
 			name:              "slash-separated 4 parts (v1/Pod/default/test-pod)",
 			resourceKey:       "v1/Pod/default/test-pod",
 			expectedKind:      "v1/Pod",
@@ -119,8 +133,10 @@ func TestCreateExcludedRowResourceFormatting(t *testing.T) {
 	color.Init(true)
 
 	testResult := v1alpha1.TestResult{
-		Policy: "test-policy",
-		Rule:   "test-rule",
+		TestResultBase: v1alpha1.TestResultBase{
+			Policy: "test-policy",
+			Rule:   "test-rule",
+		},
 	}
 
 	t.Run("namespaced resource", func(t *testing.T) {
@@ -145,8 +161,10 @@ func TestCreateRowsAccordingToResultsResourceFormatting(t *testing.T) {
 	color.Init(true)
 
 	testResult := v1alpha1.TestResult{
-		Policy: "test-policy",
-		Rule:   "test-rule",
+		TestResultBase: v1alpha1.TestResultBase{
+			Policy: "test-policy",
+			Rule:   "test-rule",
+		},
 	}
 
 	t.Run("namespaced pod from resource key", func(t *testing.T) {

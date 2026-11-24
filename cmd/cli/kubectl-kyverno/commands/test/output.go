@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -434,6 +435,12 @@ func printTestResult(
 	return nil
 }
 
+var apiVersionRegex = regexp.MustCompile(`^v\d+(?:alpha\d+|beta\d+)?$`)
+
+func isAPIVersion(s string) bool {
+	return apiVersionRegex.MatchString(s)
+}
+
 func formatResourceDisplay(resource string) (string, string, string) {
 	if strings.Contains(resource, ",") {
 		nameParts := strings.SplitN(resource, ",", 4)
@@ -454,11 +461,31 @@ func formatResourceDisplay(resource string) (string, string, string) {
 	case 2:
 		return resourceParts[0], "", resourceParts[1]
 	case 3:
-		if strings.HasPrefix(resourceParts[0], "v") || strings.Contains(resourceParts[0], ".") {
+		if isAPIVersion(resourceParts[0]) {
 			return resourceParts[0] + "/" + resourceParts[1], "", resourceParts[2]
 		}
 		return resourceParts[1], resourceParts[0], resourceParts[2]
+	case 4:
+		if isAPIVersion(resourceParts[1]) {
+			// cluster-scoped with group/version: group/version/kind/name
+			return resourceParts[0] + "/" + resourceParts[1] + "/" + resourceParts[2], "", resourceParts[3]
+		}
+		if isAPIVersion(resourceParts[0]) {
+			// namespaced with core version: version/kind/namespace/name
+			return resourceParts[0] + "/" + resourceParts[1], resourceParts[2], resourceParts[3]
+		}
+		name := resourceParts[len(resourceParts)-1]
+		namespace := resourceParts[len(resourceParts)-2]
+		kind := strings.Join(resourceParts[:len(resourceParts)-2], "/")
+		return kind, namespace, name
 	default:
+		if len(resourceParts) >= 5 && isAPIVersion(resourceParts[1]) {
+			// group/version/kind/namespace/name
+			kind := strings.Join(resourceParts[:len(resourceParts)-2], "/")
+			namespace := resourceParts[len(resourceParts)-2]
+			name := resourceParts[len(resourceParts)-1]
+			return kind, namespace, name
+		}
 		name := resourceParts[len(resourceParts)-1]
 		namespace := resourceParts[len(resourceParts)-2]
 		kind := strings.Join(resourceParts[:len(resourceParts)-2], "/")
