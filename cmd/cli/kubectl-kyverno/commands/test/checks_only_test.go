@@ -201,4 +201,19 @@ checks:
 		assert.Regexp(t, `│\s*2\s*│\s*require-team-label`, output)
 		assert.Contains(t, output, "2 tests passed and 0 tests failed")
 	})
+
+	t.Run("fixture test-validating-policy/checks-only executes successfully", func(t *testing.T) {
+		cmd := Command()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{filepath.Join("..", "..", "..", "..", "..", "test", "cli", "test-validating-policy", "checks-only"), "--remove-color"})
+
+		err := cmd.Execute()
+		require.NoError(t, err)
+		output := out.String()
+		assert.Regexp(t, `│\s*1\s*│\s*require-team-label`, output)
+		assert.Regexp(t, `│\s*2\s*│\s*require-team-label`, output)
+		assert.Contains(t, output, "3 tests passed and 0 tests failed")
+	})
 }
