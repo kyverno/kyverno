@@ -45,7 +45,7 @@ func (m *matcher) Match(criteria matching.MatchCriteria, attr admission.Attribut
 	}
 
 	matchResources := criteria.GetMatchResources()
-	if isExcluded, err := matchesResourceRules(matchResources.ExcludeResourceRules, attr); isExcluded || err != nil {
+	if isExcluded, err := matchesResourceRules(matchResources.ExcludeResourceRules, attr, false); isExcluded || err != nil {
 		return false, err
 	}
 
@@ -56,7 +56,7 @@ func (m *matcher) Match(criteria matching.MatchCriteria, attr admission.Attribut
 	if len(matchResources.ResourceRules) == 0 {
 		isMatch = true
 	} else {
-		isMatch, matchErr = matchesResourceRules(matchResources.ResourceRules, attr)
+		isMatch, matchErr = matchesResourceRules(matchResources.ResourceRules, attr, true)
 	}
 	if matchErr != nil {
 		return false, matchErr
@@ -76,7 +76,7 @@ func (m *matcher) Match(criteria matching.MatchCriteria, attr admission.Attribut
 	return true, nil
 }
 
-func matchesResourceRules(namedRules []admissionregistrationv1.NamedRuleWithOperations, attr admission.Attributes) (bool, error) {
+func matchesResourceRules(namedRules []admissionregistrationv1.NamedRuleWithOperations, attr admission.Attributes, allowGeneratedName bool) (bool, error) {
 	for _, namedRule := range namedRules {
 		rule := namedRule.RuleWithOperations
 		ruleMatcher := rules.Matcher{
@@ -94,7 +94,7 @@ func matchesResourceRules(namedRules []admissionregistrationv1.NamedRuleWithOper
 		name := attr.GetName()
 
 		if name == "" {
-			if matchesGeneratedName(namedRule, attr) {
+			if allowGeneratedName && matchesGeneratedName(namedRule, attr) {
 				return true, nil
 			}
 
@@ -123,8 +123,18 @@ func matchesGeneratedName(rule admissionregistrationv1.NamedRuleWithOperations, 
 	}
 
 	genName := accessor.GetGenerateName()
+	if genName == "" {
+		return false
+	}
+
 	for _, matchedName := range rule.ResourceNames {
-		if strings.HasPrefix(genName, matchedName) {
+		if matchedName == "" {
+			continue
+		}
+		if genName == matchedName {
+			return true
+		}
+		if strings.TrimSuffix(genName, "-") == strings.TrimSuffix(matchedName, "-") {
 			return true
 		}
 	}

@@ -35,6 +35,40 @@ func podRules(ops ...admissionregistrationv1.OperationType) []admissionregistrat
 	}}
 }
 
+func namedPodRules(resourceNames []string, ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.NamedRuleWithOperations {
+	return []admissionregistrationv1.NamedRuleWithOperations{{
+		ResourceNames: resourceNames,
+		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+			Operations: ops,
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{""},
+				APIVersions: []string{"v1"},
+				Resources:   []string{"pods"},
+			},
+		},
+	}}
+}
+
+func podAttrsWithGenerateName(namespace string, op admission.Operation, name, genName string) admission.Attributes {
+	var obj runtime.Object
+	if genName != "" || name != "" {
+		obj = &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:         name,
+				GenerateName: genName,
+				Namespace:    namespace,
+			},
+		}
+	}
+	return admission.NewAttributesRecord(
+		obj, nil,
+		schema.GroupVersionKind{Version: "v1", Kind: "Pod"},
+		namespace, name,
+		schema.GroupVersionResource{Version: "v1", Resource: "pods"},
+		"", op, nil, false, nil,
+	)
+}
+
 func labelledNamespace(name string, labels map[string]string) *corev1.Namespace {
 	return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: labels}}
 }
@@ -105,6 +139,44 @@ func TestExplain(t *testing.T) {
 			ns:         labelledNamespace("prod", map[string]string{"env": "prod"}),
 			wantMatch:  true,
 			wantReason: "matched kind Pod, namespace prod, operation CREATE",
+		},
+		{
+			name: "generateName in excludeResourceRules does not exclude",
+			constraints: &admissionregistrationv1.MatchResources{
+				ResourceRules:        podRules(admissionregistrationv1.Create),
+				ExcludeResourceRules: namedPodRules([]string{"nginx"}, admissionregistrationv1.Create),
+			},
+			attr:       podAttrsWithGenerateName("prod", admission.Create, "", "nginx-"),
+			wantMatch:  true,
+			wantReason: "matched kind Pod, namespace prod, operation CREATE",
+		},
+		{
+			name: "exact name in excludeResourceRules excludes",
+			constraints: &admissionregistrationv1.MatchResources{
+				ResourceRules:        podRules(admissionregistrationv1.Create),
+				ExcludeResourceRules: namedPodRules([]string{"nginx"}, admissionregistrationv1.Create),
+			},
+			attr:       podAttrsWithGenerateName("prod", admission.Create, "nginx", ""),
+			wantMatch:  false,
+			wantReason: "excluded by the policy's excludeResourceRules",
+		},
+		{
+			name: "generateName matching resourceRules allows admission",
+			constraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: namedPodRules([]string{"nginx"}, admissionregistrationv1.Create),
+			},
+			attr:       podAttrsWithGenerateName("prod", admission.Create, "", "nginx-"),
+			wantMatch:  true,
+			wantReason: "matched kind Pod, namespace prod, operation CREATE",
+		},
+		{
+			name: "generateName spoofing prefix not covered by resourceRules",
+			constraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: namedPodRules([]string{"nginx"}, admissionregistrationv1.Create),
+			},
+			attr:       podAttrsWithGenerateName("prod", admission.Create, "", "nginx-malicious-"),
+			wantMatch:  false,
+			wantReason: "is not covered by the policy's resourceRules",
 		},
 		{
 			name:        "no constraints",
