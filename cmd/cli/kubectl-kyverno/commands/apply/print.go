@@ -245,16 +245,16 @@ func printViolations(out io.Writer, rc *processor.ResultCounts) {
 }
 
 // printDecisions writes the decisions and the summary of their results as one JSON document.
-func printDecisions(out io.Writer, decisions []*trace.Decision, rc *processor.ResultCounts) error {
+// runErr is the error apply stopped on, if it did: the document then holds the decisions made
+// before it, and rc is nil when apply stopped before it counted any result.
+func printDecisions(out io.Writer, decisions []*trace.Decision, rc *processor.ResultCounts, runErr error) error {
+	var summary *trace.Summary
+	if rc != nil {
+		summary = &trace.Summary{Pass: rc.Pass, Fail: rc.Fail, Warn: rc.Warn, Error: rc.Error, Skip: rc.Skip}
+	}
 	encoder := json.NewEncoder(out)
 	encoder.SetIndent("", "  ")
 	// CEL expressions are full of &&, which is not escaped for HTML
 	encoder.SetEscapeHTML(false)
-	return encoder.Encode(trace.NewDecisionList(decisions, trace.Summary{
-		Pass:  rc.Pass,
-		Fail:  rc.Fail,
-		Warn:  rc.Warn,
-		Error: rc.Error,
-		Skip:  rc.Skip,
-	}))
+	return encoder.Encode(trace.NewDecisionList(decisions, summary, runErr))
 }

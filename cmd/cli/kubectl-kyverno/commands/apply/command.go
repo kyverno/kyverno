@@ -258,7 +258,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
 	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
-	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy, MutatingPolicy, GeneratingPolicy, ImageValidatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, the images it checked, and its validations, the mutations it ran, the generate entries it ran or its delete conditions. The trace prints the values the expressions read, including resource fields and variables; values that may come from a Secret are shown as (redacted), but treat the output as sensitive. With --output-format json, the traces and the summary are written as one JSON document (a trace.kyverno.io/v1alpha1 DecisionList), and everything else apply prints goes to standard error")
+	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy, MutatingPolicy, GeneratingPolicy, ImageValidatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, the images it checked, and its validations, the mutations it ran, the generate entries it ran or its delete conditions. The trace prints the values the expressions read, including resource fields and variables; values that may come from a Secret are shown as (redacted), but treat the output as sensitive. With --output-format json, the traces and the summary are written as one JSON document (a trace.kyverno.io/v1alpha1 DecisionList), and everything else apply prints goes to standard error; if apply stops on an error, the document holds the decisions made before it and the error")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "Treat audit-only ValidatingPolicy and ImageValidatingPolicy violations as warnings (counted as warn; by default exit 0)")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
@@ -990,18 +990,27 @@ func (c *ApplyCommandConfig) traceSink() func(*trace.Decision) {
 // explainAsJSON runs apply with --explain --output-format json. Standard output then carries only
 // the decisions and the summary, as one trace.DecisionList, so that it can be parsed; everything
 // apply prints otherwise, its warnings, the mutated and generated resources and why it exits,
-// goes to standard error instead.
+// goes to standard error instead. When apply stops on an error, the list still holds the
+// decisions made before it, and the error, rather than standard output being left empty; the
+// command fails with the error as it does without --output-format json. Arguments that cannot
+// be used together are rejected before anything is written, as they are without it.
 func (c *ApplyCommandConfig) explainAsJSON(cmd *cobra.Command) error {
+	if err := c.checkArguments(); err != nil {
+		return err
+	}
 	// the decisions of an earlier run of the same command are not this run's
 	c.decisions = nil
 	stderr := cmd.ErrOrStderr()
 	rc, _, skipInvalidPolicies, _, err := c.applyCommandHelper(cmd.Context(), stderr)
 	if err != nil {
+		if printErr := printDecisions(cmd.OutOrStdout(), c.decisions, rc, err); printErr != nil {
+			return printErr
+		}
 		return err
 	}
 	cmd.SilenceErrors = true
 	printSkippedAndInvalidPolicies(stderr, skipInvalidPolicies)
-	if err := printDecisions(cmd.OutOrStdout(), c.decisions, rc); err != nil {
+	if err := printDecisions(cmd.OutOrStdout(), c.decisions, rc, nil); err != nil {
 		return err
 	}
 	return exit(stderr, rc, c.warnExitCode, c.warnNoPassed)

@@ -25,7 +25,11 @@ type DecisionList struct {
 	APIVersion string      `json:"apiVersion"`
 	Kind       string      `json:"kind"`
 	Items      []*Decision `json:"items"`
-	Summary    Summary     `json:"summary"`
+	// Summary counts the results. It is nil when the run stopped before it made any decision.
+	Summary *Summary `json:"summary,omitempty"`
+	// Error is set when the run stopped on an error, and says why. Items then holds only the
+	// decisions made before it stopped, and Summary only their results.
+	Error string `json:"error,omitempty"`
 }
 
 // Summary counts the results of a run, as the text output's last line does.
@@ -37,13 +41,18 @@ type Summary struct {
 	Skip  int `json:"skip"`
 }
 
-// NewDecisionList returns items and summary as a DecisionList of this APIVersion.
-func NewDecisionList(items []*Decision, summary Summary) DecisionList {
+// NewDecisionList returns items and summary as a DecisionList of this APIVersion. err is the
+// error the run stopped on, or nil when it ran to the end.
+func NewDecisionList(items []*Decision, summary *Summary, err error) DecisionList {
 	if items == nil {
 		// an empty list, not null
 		items = []*Decision{}
 	}
-	return DecisionList{APIVersion: APIVersion, Kind: KindDecisionList, Items: items, Summary: summary}
+	list := DecisionList{APIVersion: APIVersion, Kind: KindDecisionList, Items: items, Summary: summary}
+	if err != nil {
+		list.Error = err.Error()
+	}
+	return list
 }
 
 // PolicyRef names the policy a decision is about.

@@ -2455,14 +2455,16 @@ func Test_Apply_ExplainJSON(t *testing.T) {
 			assert.Equal(t, trace.KindDecisionList, list.Kind)
 			assert.NotEmpty(t, list.Items)
 			var written bytes.Buffer
+			require.NotNil(t, list.Summary)
+			assert.Empty(t, list.Error, "the run did not stop on an error")
 			summary := list.Summary
-			require.NoError(t, printDecisions(&written, list.Items, &processor.ResultCounts{Pass: summary.Pass, Fail: summary.Fail, Warn: summary.Warn, Error: summary.Error, Skip: summary.Skip}))
+			require.NoError(t, printDecisions(&written, list.Items, &processor.ResultCounts{Pass: summary.Pass, Fail: summary.Fail, Warn: summary.Warn, Error: summary.Error, Skip: summary.Skip}, nil))
 			assert.Equal(t, stdout.String(), written.String(), "the document reads back as the one that was written")
 
 			config := ApplyCommandConfig{PolicyPaths: []string{tt.policy}, ResourcePaths: []string{tt.resource}}
 			rc, _, _, _, err := config.applyCommandHelper(context.TODO(), io.Discard)
 			require.NoError(t, err)
-			assert.Equal(t, trace.Summary{Pass: rc.Pass, Fail: rc.Fail, Warn: rc.Warn, Error: rc.Error, Skip: rc.Skip}, list.Summary)
+			assert.Equal(t, &trace.Summary{Pass: rc.Pass, Fail: rc.Fail, Warn: rc.Warn, Error: rc.Error, Skip: rc.Skip}, list.Summary)
 
 			path := golden + tt.name + ".json"
 			if *updateGolden {
@@ -2505,7 +2507,69 @@ func Test_Apply_ExplainJSONContinueOnFail(t *testing.T) {
 	require.NoError(t, json.Unmarshal(stdout.Bytes(), &list), "standard output is one JSON document and nothing else")
 	require.Len(t, list.Items, 1)
 	assert.Equal(t, trace.VerdictError, list.Items[0].Verdict.Status)
-	assert.Equal(t, trace.Summary{Error: 1}, list.Summary)
+	assert.Equal(t, &trace.Summary{Error: 1}, list.Summary)
+	assert.Empty(t, list.Error, "--continue-on-fail carried on, so the run did not stop")
+}
+
+// Test_Apply_ExplainJSONStopsOnError: when apply stops on an error, standard output is still one
+// DecisionList. It holds the decisions made before apply stopped, one for each trace --explain
+// prints as text up to that point, and the error it stopped on; the summary counts the results
+// so far, and is left out when apply stopped before it counted any. The command fails with the
+// same error as without --output-format json.
+func Test_Apply_ExplainJSONStopsOnError(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	tests := []struct {
+		name      string
+		policy    string
+		resource  string
+		wantError string
+		// wantSummary is whether apply counted any result before it stopped
+		wantSummary bool
+	}{{
+		name:        "a deleting policy fails to evaluate",
+		policy:      base + "test-deleting-policy/explain-continue-on-fail/policy.yaml",
+		resource:    base + "test-deleting-policy/explain-continue-on-fail/resource.yaml",
+		wantError:   "failed to apply deleting policies on resource: no such key: labels",
+		wantSummary: true,
+	}, {
+		// apply runs the deleting policies after the validating ones, so the validating policy's
+		// decisions are made before it stops
+		name:        "a resource of a kind apply cannot map",
+		policy:      base + "test-deleting-policy/explain-stops-on-error/policies.yaml",
+		resource:    base + "test-deleting-policy/explain-stops-on-error/resources.yaml",
+		wantError:   `no matches for kind "Certificate" in version "cert-manager.io/v1"`,
+		wantSummary: true,
+	}, {
+		name:      "apply stops before it makes any decision",
+		policy:    base + "test-deleting-policy/explain-continue-on-fail/policy.yaml",
+		resource:  base + "test-deleting-policy/explain-continue-on-fail/does-not-exist.yaml",
+		wantError: "does-not-exist.yaml",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := func(extra ...string) (string, error) {
+				cmd := Command()
+				var stdout bytes.Buffer
+				cmd.SetOut(&stdout)
+				cmd.SetErr(io.Discard)
+				cmd.SetArgs(append([]string{tt.policy, "--resource", tt.resource, "--explain"}, extra...))
+				err := cmd.Execute()
+				return stdout.String(), err
+			}
+			text, textErr := run()
+			written, err := run("--output-format", "json")
+			require.Error(t, textErr)
+			require.Error(t, err)
+			assert.Equal(t, textErr.Error(), err.Error(), "the command fails as it does without --output-format json")
+
+			var list trace.DecisionList
+			require.NoError(t, json.Unmarshal([]byte(written), &list), "standard output is one JSON document and nothing else")
+			assert.Equal(t, err.Error(), list.Error)
+			assert.Contains(t, list.Error, tt.wantError)
+			assert.Len(t, list.Items, strings.Count(text, "Policy:   "), "one decision for each trace printed as text before apply stopped")
+			assert.Equal(t, tt.wantSummary, list.Summary != nil)
+		})
+	}
 }
 
 // Test_Apply_ExplainJSONRunsTwice: the same configuration run twice writes each run's decisions

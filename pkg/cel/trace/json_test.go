@@ -2,6 +2,7 @@ package trace
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -187,7 +188,7 @@ func TestDecision_JSONHidesSecretErrors(t *testing.T) {
 
 // TestDecisionList_JSON pins a list's envelope, and that it reads back.
 func TestDecisionList_JSON(t *testing.T) {
-	raw, err := json.Marshal(NewDecisionList(nil, Summary{}))
+	raw, err := json.Marshal(NewDecisionList(nil, &Summary{}, nil))
 	require.NoError(t, err)
 	assert.JSONEq(t, `{
 		"apiVersion": "trace.kyverno.io/v1alpha1",
@@ -196,7 +197,17 @@ func TestDecisionList_JSON(t *testing.T) {
 		"summary": {"pass": 0, "fail": 0, "warn": 0, "error": 0, "skip": 0}
 	}`, string(raw), "no decisions is an empty list, not null")
 
-	list := NewDecisionList([]*Decision{fullDecision(), failedPodDecision()}, Summary{Pass: 1, Fail: 1})
+	// a run that stopped before it made any decision has no summary, only why it stopped
+	raw, err = json.Marshal(NewDecisionList(nil, nil, errors.New("failed to load policies")))
+	require.NoError(t, err)
+	assert.JSONEq(t, `{
+		"apiVersion": "trace.kyverno.io/v1alpha1",
+		"kind": "DecisionList",
+		"items": [],
+		"error": "failed to load policies"
+	}`, string(raw))
+
+	list := NewDecisionList([]*Decision{fullDecision(), failedPodDecision()}, &Summary{Pass: 1, Fail: 1}, errors.New("failed to apply deleting policies"))
 	raw, err = json.Marshal(list)
 	require.NoError(t, err)
 	var read DecisionList
