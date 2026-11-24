@@ -18,6 +18,8 @@ type WorkerPool struct {
 	resultChan chan LoadTaskResult
 	wg         sync.WaitGroup
 	logger     *logrus.Logger
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 type WorkerPoolConfig struct {
@@ -44,16 +46,19 @@ type LoadTaskResult struct {
 }
 
 func NewWorkerPool(config WorkerPoolConfig) *WorkerPool {
+	ctx, cancel := context.WithCancel(context.Background())
 	wp := &WorkerPool{
 		workers:    config.Workers,
 		taskQueue:  make(chan LoadTask, config.QueueSize),
 		resultChan: make(chan LoadTaskResult, config.QueueSize),
 		logger:     config.Logger,
+		ctx:        ctx,
+		cancel:     cancel,
 	}
 
 	for i := 0; i < config.Workers; i++ {
 		wp.wg.Add(1)
-		go wp.worker(context.Background(), i)
+		go wp.worker(wp.ctx, i)
 	}
 
 	return wp
@@ -141,8 +146,17 @@ func (wp *WorkerPool) GetResults() <-chan LoadTaskResult {
 	return wp.resultChan
 }
 
+func (wp *WorkerPool) Cancel() {
+	if wp.cancel != nil {
+		wp.cancel()
+	}
+}
+
 func (wp *WorkerPool) Close(cancel context.CancelFunc) {
-	cancel()
+	if cancel != nil {
+		cancel()
+	}
+	wp.Cancel()
 	close(wp.taskQueue)
 	wp.wg.Wait()
 	close(wp.resultChan)

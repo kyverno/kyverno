@@ -227,8 +227,7 @@ func TestClusterLoader_executeTasks(t *testing.T) {
 
 	t.Run("all tasks succeed and timer resets across results", func(t *testing.T) {
 		resChan := make(chan LoadTaskResult, 5)
-		resChan <- LoadTaskResult{TaskID: "task-0"}
-		resChan <- LoadTaskResult{TaskID: "task-1"}
+		timeout := 80 * time.Millisecond
 
 		cl := &ClusterLoader{
 			logger: logrus.New(),
@@ -238,13 +237,25 @@ func TestClusterLoader_executeTasks(t *testing.T) {
 				logger:     logrus.New(),
 			},
 			resourceOptions: ResourceOptions{
-				Timeout:         100 * time.Millisecond,
+				Timeout:         timeout,
 				ContinueOnError: false,
 			},
 		}
 
+		// Asynchronously deliver result 0 at 40ms (< timeout) and result 1 at 90ms.
+		// Total duration (~90ms) exceeds initial timeout (80ms), verifying timer reset after result 0.
+		go func() {
+			time.Sleep(40 * time.Millisecond)
+			resChan <- LoadTaskResult{TaskID: "task-0"}
+			time.Sleep(50 * time.Millisecond)
+			resChan <- LoadTaskResult{TaskID: "task-1"}
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
 		tasks := []LoadTask{{ID: "task-0"}, {ID: "task-1"}}
-		results, err := cl.executeTasks(context.Background(), tasks)
+		results, err := cl.executeTasks(ctx, tasks)
 		require.NoError(t, err)
 		require.Len(t, results, 2)
 		assert.Equal(t, "task-0", results[0].TaskID)
