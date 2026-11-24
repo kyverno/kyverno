@@ -286,12 +286,15 @@ jobs:
       # on them"), and then updates the tracking issue. So a flaky test doesn't
       # turn the E2E gate red.
       # Runs with a cancelled job aren't re-run, so they update the issue now.
+      # Neither do runs started with GITHUB_TOKEN: when they finish, GitHub
+      # doesn't start tests-rerun.yaml, so no re-run would ever come.
       - name: Defer to the automatic re-run
         id: defer
         if: >-
           github.repository == 'kyverno/kyverno' &&
           github.workflow == 'Tests' &&
           github.run_attempt == '1' &&
+          github.triggering_actor != 'github-actions[bot]' &&
           contains(needs.*.result, 'failure') &&
           !contains(needs.*.result, 'cancelled')
         run: |

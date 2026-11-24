@@ -18,6 +18,21 @@ import (
 )
 
 func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.GenericPolicy) (err error) {
+	if c.vapLister == nil || c.vapbindingLister == nil {
+		logger.V(2).Info("No ValidatingAdmissionPolicy lister available, skipping VAP generation", "policy", policy.GetName())
+		pol := policy.AsValidatingPolicy()
+		if pol != nil && pol.GetSpec().GenerateValidatingAdmissionPolicyEnabled() {
+			if err := c.updatePolicyStatus(ctx, policy, false, "skip generating ValidatingAdmissionPolicy: requested but no ValidatingAdmissionPolicy API/informers are available."); err != nil {
+				if c.queue != nil {
+					c.queue.AddAfter("ValidatingPolicy/"+policy.GetName(), 10*time.Second)
+				}
+				return err
+			}
+			return nil
+		}
+		return nil
+	}
+
 	defer func() {
 		if err != nil && c.queue != nil {
 			c.queue.AddAfter("ValidatingPolicy/"+policy.GetName(), 10*time.Second)
