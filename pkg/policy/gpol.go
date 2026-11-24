@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/ptr"
 )
 
 func (pc *policyController) createURForGeneratingPolicy(gpol *policiesv1beta1.GeneratingPolicy) error {
@@ -135,13 +136,21 @@ type gpolTrigger struct {
 	SubResource string
 }
 
+<<<<<<< HEAD
 func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.MatchResources) []gpolTrigger {
+=======
+// getGpolTriggers discovers existing matching resources for background
+// generation and trigger-based mutation. Discovery must resolve wildcard API
+// groups before listing, and matching/exclusions must precede deduplication.
+func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.MatchResources, namespace string) []gpolTrigger {
+>>>>>>> dac9471a7 (fix(policy): scope background trigger lists to the policy namespace (#18841))
 	var triggers []gpolTrigger
 	seen := make(map[string]bool)
 	objectSelector := match.ObjectSelector
 	nsSelector := match.NamespaceSelector
 
 	for _, rule := range match.ResourceRules {
+		scope := ptr.Deref(rule.Scope, admissionregistrationv1.AllScopes)
 		for _, group := range rule.APIGroups {
 			for _, resource := range rule.Resources {
 				baseResource := resource
@@ -179,7 +188,33 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 						pc.log.Error(err, "mapping gvr to gvk failed", "gvr", gvr)
 						continue
 					}
+<<<<<<< HEAD
 					resources, err := pc.client.ListResource(context.TODO(), groupVersion.String(), gvk.Kind, "", objectSelector)
+=======
+					// MatchResources scope applies to the parent resource of a
+					// subresource. Skip unmatched scopes before issuing a LIST.
+					listNamespace := namespace
+					if namespace != "" || scope != admissionregistrationv1.AllScopes {
+						mapping, err := pc.restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+						if err != nil {
+							pc.log.Error(err, "failed to resolve trigger resource scope", "gvr", gvr)
+							continue
+						}
+						namespaced := mapping.Scope.Name() == meta.RESTScopeNameNamespace
+						if (scope == admissionregistrationv1.NamespacedScope && !namespaced) ||
+							(scope == admissionregistrationv1.ClusterScope && namespaced) {
+							continue
+						}
+						if namespace != "" && !namespaced {
+							// A namespaced policy can also match its own Namespace.
+							if gvk.Group != "" || gvk.Kind != "Namespace" {
+								continue
+							}
+							listNamespace = ""
+						}
+					}
+					resources, err := pc.client.ListResource(context.TODO(), groupVersion.String(), gvk.Kind, listNamespace, objectSelector)
+>>>>>>> dac9471a7 (fix(policy): scope background trigger lists to the policy namespace (#18841))
 					if err != nil {
 						pc.log.Error(err, "failed to list resources", "groupVersion", groupVersion, "kind", gvk.Kind)
 						continue
@@ -210,9 +245,98 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 			}
 		}
 	}
-	return triggers
+	return filterTriggersByNamespace(triggers, namespace)
 }
 
+<<<<<<< HEAD
+=======
+// resolveWildcardGroupTriggerGVRs expands a wildcard API group into concrete
+// served resources. A MatchResources wildcard covers both the core group and
+// named API groups; an empty RESTMapper query group is used only for discovery.
+//
+// Select one version per group/resource to avoid duplicate background work
+// against the same object served through multiple API versions.
+func (pc *policyController) resolveWildcardGroupTriggerGVRs(versions []string, resource string) []schema.GroupVersionResource {
+	var resolved []schema.GroupVersionResource
+	seen := make(map[schema.GroupResource]struct{})
+	for _, version := range versions {
+		query := schema.GroupVersionResource{Resource: resource}
+		if version != "*" {
+			query.Version = version
+		}
+		candidates, err := pc.restMapper.ResourcesFor(query)
+		if err != nil {
+			pc.log.Error(err, "failed to resolve wildcard API groups", "version", version, "resource", resource)
+			continue
+		}
+		for _, candidate := range candidates {
+			if version != "*" && candidate.Version != version {
+				continue
+			}
+			if version == "*" {
+				// ResourcesFor returns every served version. Prefer the
+				// mapper's selected version for each concrete API group.
+				preferred, err := pc.restMapper.ResourceFor(schema.GroupVersionResource{
+					Group:    candidate.Group,
+					Resource: resource,
+				})
+				if err == nil && preferred.Group == candidate.Group {
+					candidate = preferred
+				}
+			}
+			// Explicit version lists are independent matches. Drop duplicate
+			// served versions only for an unconstrained version wildcard.
+			if version == "*" {
+				groupResource := candidate.GroupResource()
+				if _, exists := seen[groupResource]; exists {
+					continue
+				}
+				seen[groupResource] = struct{}{}
+			}
+			resolved = append(resolved, candidate)
+		}
+	}
+	return resolved
+}
+
+// getGeneratingPolicyTriggers collapses subresource and version matches for the
+// same parent object before a GeneratingPolicy creates RuleContexts. Generation
+// does not carry the admission SubResource into a RuleContext, unlike mutation.
+// Keep getGpolTriggers subresource-aware for MutatingPolicy callers.
+func (pc *policyController) getGeneratingPolicyTriggers(match *admissionregistrationv1.MatchResources, namespace string) []gpolTrigger {
+	return deduplicateGenerationTriggers(pc.getGpolTriggers(match, namespace))
+}
+
+// deduplicateGenerationTriggers retains the first eligible trigger for each
+// Kubernetes parent object, independent of API version or subresource. Trigger
+// matching and exclusions have already been applied by getGpolTriggers.
+func deduplicateGenerationTriggers(triggers []gpolTrigger) []gpolTrigger {
+	type objectKey struct {
+		groupKind schema.GroupKind
+		namespace string
+		name      string
+		uid       string
+	}
+
+	seen := make(map[objectKey]struct{}, len(triggers))
+	unique := make([]gpolTrigger, 0, len(triggers))
+	for _, trigger := range triggers {
+		key := objectKey{
+			groupKind: trigger.GroupVersionKind().GroupKind(),
+			namespace: trigger.GetNamespace(),
+			name:      trigger.GetName(),
+			uid:       string(trigger.GetUID()),
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		unique = append(unique, trigger)
+	}
+	return unique
+}
+
+>>>>>>> dac9471a7 (fix(policy): scope background trigger lists to the policy namespace (#18841))
 func filterTriggersByNamespace(triggers []gpolTrigger, namespace string) []gpolTrigger {
 	if namespace == "" {
 		return triggers
