@@ -31,6 +31,8 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: fixed
+      description: Auto-delete the finished CRD migration Job after `crds.migration.ttlSecondsAfterFinished` (default 300 seconds), so Argo CD cannot read the previous upgrade's Job status for the new Job.
+    - kind: fixed
       description: Grant the background controller every permission the chart aggregates into the admin and view roles, so generate rules can create RoleBindings to admin again.
     - kind: fixed
       description: Bump bundled reports-server dependency to v0.1.7 to fix APIServices being de-registered on pod termination when another replica is still ready.

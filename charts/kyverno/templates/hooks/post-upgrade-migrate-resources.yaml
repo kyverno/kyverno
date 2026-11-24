@@ -86,6 +86,11 @@ metadata:
     helm.sh/hook-weight: "200"
 spec:
   backoffLimit: 2
+  {{- if .Values.crds.migration.ttlSecondsAfterFinished }}
+  # Auto-delete the finished Job (and its Pod), so the next upgrade does not
+  # find a completed Job of the same name.
+  ttlSecondsAfterFinished: {{ .Values.crds.migration.ttlSecondsAfterFinished }}
+  {{- end }}
   template:
     {{- if or .Values.crds.migration.podAnnotations .Values.crds.migration.podLabels }}
     metadata:

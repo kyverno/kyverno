@@ -266,6 +266,12 @@ crds:
     # -- Additional CLI flags passed to the migration job
     extraArgs: {}
 
+    # -- Seconds after the migration Job finishes before it (and its Pod) are auto-deleted.
+    # Without it, the completed Job stays until the next upgrade, where GitOps tools that
+    # recreate hooks by name, such as Argo CD, can read the old Job's status for the new Job.
+    # Set to 0 or null to keep it indefinitely.
+    ttlSecondsAfterFinished: 300
+
     # -- Resources to migrate
     resources:
       - globalcontextentries.kyverno.io

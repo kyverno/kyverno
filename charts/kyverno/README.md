@@ -370,6 +370,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | crds.customLabels | object | `{}` | Additional CRDs labels |
 | crds.migration.enabled | bool | `true` | Enable CRDs migration using helm post upgrade hook |
 | crds.migration.extraArgs | object | `{}` | Additional CLI flags passed to the migration job |
+| crds.migration.ttlSecondsAfterFinished | int | `300` | Seconds after the migration Job finishes before it (and its Pod) are auto-deleted. Without it, the completed Job stays until the next upgrade, where GitOps tools that recreate hooks by name, such as Argo CD, can read the old Job's status for the new Job. Set to 0 or null to keep it indefinitely. |
 | crds.migration.resources | list | `["globalcontextentries.kyverno.io","updaterequests.kyverno.io","deletingpolicies.policies.kyverno.io","generatingpolicies.policies.kyverno.io","imagevalidatingpolicies.policies.kyverno.io","mutatingpolicies.policies.kyverno.io","namespaceddeletingpolicies.policies.kyverno.io","namespacedgeneratingpolicies.policies.kyverno.io","namespacedimagevalidatingpolicies.policies.kyverno.io","namespacedmutatingpolicies.policies.kyverno.io","namespacedvalidatingpolicies.policies.kyverno.io","policyexceptions.policies.kyverno.io","validatingpolicies.policies.kyverno.io"]` | Resources to migrate |
 | crds.migration.image.registry | string | `nil` | Image registry |
 | crds.migration.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
