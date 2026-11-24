@@ -1,6 +1,13 @@
 ## Unreleased
 
 - fix(policy): scope background lists of namespaced triggers for generating and mutating policies to the policy namespace, while retaining matches for the policy's own Namespace (#18841)
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:cd30cfb7a4ff9a8a67f47f4da49d00b3d07bd43b4e249ff4af94fd1a9f9d107e -->
+
+- fix(helm): pull Kyverno chart images from ghcr.io by default instead of reg.kyverno.io (#18858)
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ## v1.13.0
 
