@@ -6,6 +6,7 @@
 package apol
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -15,10 +16,12 @@ import (
 	apolengine "github.com/kyverno/kyverno/pkg/cel/policies/apol/engine"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
+	admissionv1 "k8s.io/api/admission/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	authorizationv1alpha1 "k8s.io/api/authorization/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/operation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	authorizationvalidation "k8s.io/apiserver/pkg/apis/authorization/validation"
@@ -51,12 +54,20 @@ var (
 
 // Handler serves the authorization webhook endpoints.
 type Handler struct {
-	engine apolengine.Engine
+	engine     apolengine.Engine
+	clientAuth *ClientAuth
 }
 
 // New returns a Handler using the given engine.
 func New(engine apolengine.Engine) *Handler {
 	return &Handler{engine: engine}
+}
+
+// WithClientAuth requires callers to present a TLS client certificate that
+// auth accepts. Without it, the endpoints do not authenticate callers.
+func (h *Handler) WithClientAuth(auth *ClientAuth) *Handler {
+	h.clientAuth = auth
+	return h
 }
 
 // HandleSubjectAccessReview serves SubjectAccessReview requests only.
@@ -75,6 +86,13 @@ func (h *Handler) HandleCombined(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) serve(w http.ResponseWriter, r *http.Request, onlyKind string) {
+	if h.clientAuth != nil {
+		if err := h.clientAuth.Authenticate(r); err != nil {
+			logger.V(2).Info("rejecting unauthenticated authorization webhook request", "remote", r.RemoteAddr, "error", err.Error())
+			writeError(w, http.StatusUnauthorized, errors.New("unauthorized"))
+			return
+		}
+	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxRequestBytes))
 	if err != nil {
 		writeError(w, http.StatusRequestEntityTooLarge, fmt.Errorf("reading request body: %w", err))
@@ -191,7 +209,17 @@ func (h *Handler) reviewConditions(ctx context.Context, in *authorizationv1alpha
 	if in.Request.AdmissionRequest.UID == "" {
 		return nil, errors.New("request.admissionRequest.uid is required")
 	}
-	decision := h.engine.EvaluateConditions(ctx, &in.Request.Decision, in.Request.AdmissionRequest)
+	var decision authorizationv1.ConditionsAwareDecision
+	if errs := ValidateAdmissionRequest(in.Request.AdmissionRequest, field.NewPath("request", "admissionRequest")); len(errs) > 0 {
+		// A malformed admission request must not reach the residual conditions:
+		// an expression such as object == null could otherwise allow it.
+		decision = authorizationv1.ConditionsAwareDecision{
+			Type: authorizationv1.ConditionsAwareDecisionTypeDeny,
+			Deny: &authorizationv1.UnconditionalDecision{Reason: "failed closed: invalid admission request", EvaluationError: errs.ToAggregate().Error()},
+		}
+	} else {
+		decision = h.engine.EvaluateConditions(ctx, &in.Request.Decision, in.Request.AdmissionRequest)
+	}
 	out := &authorizationv1alpha1.AuthorizationConditionsReview{
 		TypeMeta: metav1.TypeMeta{APIVersion: acrGVK.GroupVersion().String(), Kind: acrGVK.Kind},
 		Response: &authorizationv1alpha1.AuthorizationConditionsResponse{
@@ -209,6 +237,57 @@ func (h *Handler) reviewConditions(ctx context.Context, in *authorizationv1alpha
 		}
 	}
 	return out, nil
+}
+
+// ValidateAdmissionRequest checks the fields kube-apiserver always sets on an
+// admission request, and that object and oldObject match the operation.
+func ValidateAdmissionRequest(r *admissionv1.AdmissionRequest, path *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	if r.Kind.Version == "" || r.Kind.Kind == "" {
+		errs = append(errs, field.Required(path.Child("kind"), "version and kind are required"))
+	}
+	if r.Resource.Version == "" || r.Resource.Resource == "" {
+		errs = append(errs, field.Required(path.Child("resource"), "version and resource are required"))
+	}
+	if r.UserInfo.Username == "" {
+		errs = append(errs, field.Required(path.Child("userInfo", "username"), ""))
+	}
+	var wantObject, wantOldObject bool
+	switch r.Operation {
+	case admissionv1.Create:
+		wantObject = true
+	case admissionv1.Update:
+		wantObject, wantOldObject = true, true
+	case admissionv1.Delete:
+		wantOldObject = true
+	case admissionv1.Connect:
+		// object holds the optional connect options; oldObject is never set.
+		wantObject = isSet(r.Object)
+	default:
+		errs = append(errs, field.NotSupported(path.Child("operation"), r.Operation, []admissionv1.Operation{admissionv1.Create, admissionv1.Update, admissionv1.Delete, admissionv1.Connect}))
+		return errs
+	}
+	errs = append(errs, validateRawObject(r.Object, wantObject, path.Child("object"))...)
+	errs = append(errs, validateRawObject(r.OldObject, wantOldObject, path.Child("oldObject"))...)
+	return errs
+}
+
+func validateRawObject(raw runtime.RawExtension, want bool, path *field.Path) field.ErrorList {
+	set := isSet(raw)
+	switch {
+	case want && !set:
+		return field.ErrorList{field.Required(path, "")}
+	case !want && set:
+		return field.ErrorList{field.Forbidden(path, "must not be set for this operation")}
+	case set && !bytes.HasPrefix(bytes.TrimSpace(raw.Raw), []byte("{")):
+		return field.ErrorList{field.Invalid(path, "", "must be a JSON object")}
+	}
+	return nil
+}
+
+func isSet(raw runtime.RawExtension) bool {
+	trimmed := bytes.TrimSpace(raw.Raw)
+	return raw.Object != nil || (len(trimmed) > 0 && !bytes.Equal(trimmed, []byte("null")))
 }
 
 func encode(obj any) ([]byte, int, error) {

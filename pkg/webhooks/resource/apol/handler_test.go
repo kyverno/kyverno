@@ -13,6 +13,7 @@ import (
 	apolengine "github.com/kyverno/kyverno/pkg/cel/policies/apol/engine"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	authorizationv1alpha1 "k8s.io/api/authorization/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -364,5 +365,56 @@ func TestToStatusFailsClosedForUnawareCallers(t *testing.T) {
 }
 
 func admissionRequest(uid string) *admissionv1.AdmissionRequest {
-	return &admissionv1.AdmissionRequest{UID: types.UID(uid)}
+	return &admissionv1.AdmissionRequest{
+		UID:       types.UID(uid),
+		Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+		Resource:  metav1.GroupVersionResource{Version: "v1", Resource: "configmaps"},
+		Operation: admissionv1.Create,
+		UserInfo:  authenticationv1.UserInfo{Username: "alice"},
+		Object:    runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm"}}`)},
+	}
+}
+
+func TestConditionsReviewDeniesMalformedAdmissionRequests(t *testing.T) {
+	t.Parallel()
+	h := newHandler(t, ownerPolicy())
+	st := reviewSAR(t, h, sarBody("create", "Allow", "Deny", "NoOpinion", "ConditionsMap", "Union"))
+	require.NotNil(t, st.ConditionalDecision)
+	obj := runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm","labels":{"owner":"alice"}}}`)}
+	tests := []struct {
+		name   string
+		mutate func(*admissionv1.AdmissionRequest)
+	}{
+		{"create without object", func(r *admissionv1.AdmissionRequest) { r.Object = runtime.RawExtension{} }},
+		{"create with null object", func(r *admissionv1.AdmissionRequest) { r.Object = runtime.RawExtension{Raw: []byte("null")} }},
+		{"create with oldObject", func(r *admissionv1.AdmissionRequest) { r.OldObject = obj }},
+		{"update without oldObject", func(r *admissionv1.AdmissionRequest) { r.Operation = admissionv1.Update }},
+		{"delete with object", func(r *admissionv1.AdmissionRequest) { r.Operation = admissionv1.Delete; r.OldObject = obj }},
+		{"missing operation", func(r *admissionv1.AdmissionRequest) { r.Operation = "" }},
+		{"missing resource", func(r *admissionv1.AdmissionRequest) { r.Resource = metav1.GroupVersionResource{} }},
+		{"missing kind", func(r *admissionv1.AdmissionRequest) { r.Kind = metav1.GroupVersionKind{} }},
+		{"missing username", func(r *admissionv1.AdmissionRequest) { r.UserInfo = authenticationv1.UserInfo{} }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			req := admissionRequest("uid-" + tt.name)
+			req.Object = obj
+			tt.mutate(req)
+			in := &authorizationv1alpha1.AuthorizationConditionsReview{
+				TypeMeta: metav1.TypeMeta{APIVersion: "authorization.k8s.io/v1alpha1", Kind: AuthorizationConditionsReview},
+				Request:  &authorizationv1alpha1.AuthorizationConditionsRequest{Decision: *st.ConditionalDecision, AdmissionRequest: req},
+			}
+			body, err := json.Marshal(in)
+			require.NoError(t, err)
+			raw, status, err := h.Review(context.Background(), body, AuthorizationConditionsReview)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, status)
+			var out authorizationv1alpha1.AuthorizationConditionsReview
+			require.NoError(t, json.Unmarshal(raw, &out))
+			require.Equal(t, string(req.UID), string(out.Response.UID))
+			require.Equal(t, authorizationv1.ConditionsAwareDecisionTypeDeny, out.Response.Decision.Type)
+			require.NotEmpty(t, out.Response.Decision.Deny.EvaluationError)
+		})
+	}
 }
