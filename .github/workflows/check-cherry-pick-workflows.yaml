@@ -11,7 +11,7 @@ on:
       - release-*
     paths:
       - .github/actions/git/cherry-pick/**
-      - .github/workflows/comment-cherry-pick.yaml
+      - .github/workflows/comment-commands.yaml
       - .github/workflows/cherry-pick-on-merge.yaml
       - .github/workflows/check-cherry-pick-workflows.yaml
       - .github/workflows/check-cherry-pick-conflicts.yaml
@@ -22,7 +22,7 @@ on:
       - release-*
     paths:
       - .github/actions/git/cherry-pick/**
-      - .github/workflows/comment-cherry-pick.yaml
+      - .github/workflows/comment-commands.yaml
       - .github/workflows/cherry-pick-on-merge.yaml
       - .github/workflows/check-cherry-pick-workflows.yaml
       - .github/workflows/check-cherry-pick-conflicts.yaml

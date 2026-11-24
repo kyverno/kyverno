@@ -102,7 +102,7 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
   run opens a `workflow-failure` issue.
 - **The ~1000+ chainsaw conformance suite in `test/conformance/chainsaw/` does *not* run automatically on a PR.**
   `.github/workflows/tests-conformance.yaml` is `workflow_call`-only; it's actually triggered either by
-  `comment-conformance.yaml` (posting `/conformance` on the PR, `issue_comment` triggered) or by
+  `comment-commands.yaml` (posting `/conformance` on the PR, `issue_comment` triggered) or by
   `check-tests.yaml` (only on push to `main`/`release-*`, i.e. after merge). For a PR whose correctness genuinely
   needs e2e verification before merge, a reviewer (or the author) needs to explicitly trigger it with a
   `/conformance` comment — it isn't a gate that runs on its own, and its absence from a PR's checks list doesn't

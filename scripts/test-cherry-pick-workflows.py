@@ -17,7 +17,7 @@ ACTION = yaml.safe_load(
     (ROOT / ".github/actions/git/cherry-pick/action.yaml").read_text()
 )
 COMMENT = yaml.safe_load(
-    (ROOT / ".github/workflows/comment-cherry-pick.yaml").read_text()
+    (ROOT / ".github/workflows/comment-commands.yaml").read_text()
 )
 MERGE = yaml.safe_load(
     (ROOT / ".github/workflows/cherry-pick-on-merge.yaml").read_text()
@@ -26,7 +26,7 @@ CONFLICT_CHECK = yaml.safe_load(
     (ROOT / ".github/workflows/check-cherry-pick-conflicts.yaml").read_text()
 )
 ACTION_STEPS = ACTION["runs"]["steps"]
-COMMENT_STEPS = COMMENT["jobs"]["execute"]["steps"]
+COMMENT_STEPS = COMMENT["jobs"]["cherry-pick"]["steps"]
 MERGE_STEPS = MERGE["jobs"]["cherry-pick"]["steps"]
 
 MOCK_COMMAND = r"""
@@ -259,8 +259,23 @@ class CherryPickTests(unittest.TestCase):
             self.assertEqual(checkout["with"]["ref"], "${{ github.event.repository.default_branch }}")
             self.assertFalse(checkout["with"]["persist-credentials"])
 
+    def test_comment_dispatcher_routing(self):
+        jobs = COMMENT["jobs"]
+        self.assertEqual(jobs["route"]["permissions"], {})
+        self.assertIn("startsWith(github.event.comment.body, '/cherry-pick')", jobs["route"]["if"])
+        self.assertEqual(jobs["cherry-pick"]["needs"], "route")
+        self.assertEqual(jobs["cherry-pick"]["if"], "needs.route.outputs.cherry-pick == 'true'")
+        self.assertEqual(jobs["cherry-pick"]["environment"], "pr-updater-app")
+        self.assertEqual(
+            jobs["cherry-pick"]["permissions"],
+            {"issues": "write", "pull-requests": "write", "contents": "read"},
+        )
+        for name, job in jobs.items():
+            for step in job.get("steps", []):
+                self.assertNotIn("github.event.comment.body", step.get("run", ""), name)
+
     def test_comment_reaction_permissions(self):
-        self.assertEqual(COMMENT["jobs"]["execute"]["permissions"]["issues"], "write")
+        self.assertEqual(COMMENT["jobs"]["cherry-pick"]["permissions"]["issues"], "write")
 
     def test_workflow_token_permissions(self):
         for steps in (COMMENT_STEPS, MERGE_STEPS):
