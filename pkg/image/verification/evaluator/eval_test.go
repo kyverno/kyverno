@@ -151,6 +151,66 @@ func Test_Eval_VerifyDigest_ImageWithoutDigest_Fails(t *testing.T) {
 	assert.Contains(t, result[policy.Name].Message, "does not have a digest")
 }
 
+func Test_Eval_MutateDigestFalse_AllowsImageWithoutDigest(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeJSON,
+			},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: ptr.To(false),
+				Required:     ptr.To(false),
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{
+				{Glob: "ghcr.io/*"},
+			},
+			ImageExtractors: []policiesv1beta1.ImageExtractor{
+				{Name: "bar", Expression: "[object.foo.bar]"},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true"},
+			},
+		},
+	}
+
+	imageWithoutDigest := "ghcr.io/kyverno/test-verify-image:latest"
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: policy}}, obj(imageWithoutDigest), nil, nil, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, result[policy.Name])
+	assert.True(t, result[policy.Name].Result)
+}
+
+func Test_Eval_MutateDigestFalse_ExplicitVerifyDigestTrue_RejectsImageWithoutDigest(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeJSON,
+			},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: ptr.To(false),
+				VerifyDigest: ptr.To(true),
+				Required:     ptr.To(false),
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{
+				{Glob: "ghcr.io/*"},
+			},
+			ImageExtractors: []policiesv1beta1.ImageExtractor{
+				{Name: "bar", Expression: "[object.foo.bar]"},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true"},
+			},
+		},
+	}
+
+	imageWithoutDigest := "ghcr.io/kyverno/test-verify-image:latest"
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: policy}}, obj(imageWithoutDigest), nil, nil, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, result[policy.Name])
+	assert.False(t, result[policy.Name].Result)
+	assert.Contains(t, result[policy.Name].Message, "does not have a digest")
+}
+
 // A policy whose expressions never perform a cryptographic check must not be
 // treated as having verified the image. This is the gap
 // validationConfigurations.required closes: such a policy passes all of its

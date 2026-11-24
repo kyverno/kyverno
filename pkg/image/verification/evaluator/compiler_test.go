@@ -9,7 +9,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func Test_Compile_VerifyDigest_DefaultsToTrue(t *testing.T) {
+func Test_Compile_VerifyDigest_Resolution(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -32,6 +32,52 @@ func Test_Compile_VerifyDigest_DefaultsToTrue(t *testing.T) {
 		{
 			name: "explicit false",
 			cfg: policiesv1alpha1.ValidationConfiguration{
+				VerifyDigest: ptr.To(false),
+			},
+			want: false,
+		},
+		{
+			name: "mutateDigest false with unset verifyDigest defaults to false",
+			cfg: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: ptr.To(false),
+			},
+			want: false,
+		},
+		{
+			name: "mutateDigest false with explicit verifyDigest true",
+			cfg: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: ptr.To(false),
+				VerifyDigest: ptr.To(true),
+			},
+			want: true,
+		},
+		{
+			name: "mutateDigest false with explicit verifyDigest false",
+			cfg: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: ptr.To(false),
+				VerifyDigest: ptr.To(false),
+			},
+			want: false,
+		},
+		{
+			name: "mutateDigest true with unset verifyDigest defaults to true",
+			cfg: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: ptr.To(true),
+			},
+			want: true,
+		},
+		{
+			name: "mutateDigest true with explicit verifyDigest true",
+			cfg: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: ptr.To(true),
+				VerifyDigest: ptr.To(true),
+			},
+			want: true,
+		},
+		{
+			name: "mutateDigest true with explicit verifyDigest false",
+			cfg: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: ptr.To(true),
 				VerifyDigest: ptr.To(false),
 			},
 			want: false,
