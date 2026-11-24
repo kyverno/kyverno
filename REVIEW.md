@@ -104,9 +104,12 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
   `.github/workflows/tests-conformance.yaml` is `workflow_call`-only; it's actually triggered either by
   `comment-commands.yaml` (posting `/conformance` on the PR, `issue_comment` triggered) or by
   `check-tests.yaml` (only on push to `main`/`release-*`, i.e. after merge). For a PR whose correctness genuinely
-  needs e2e verification before merge, a reviewer (or the author) needs to explicitly trigger it with a
-  `/conformance` comment — it isn't a gate that runs on its own, and its absence from a PR's checks list doesn't
-  mean it was skipped by CI, only that it was never asked to run.
+  needs e2e verification before merge, a maintainer (write permission) needs to explicitly trigger it with a
+  `/conformance [<suite> | <suite>/<regex> | <regex>] [<k8s-version>]` comment — it isn't a gate that runs on
+  its own, and its absence from a PR's checks list doesn't mean it was skipped by CI, only that it was never asked
+  to run. The command tests the PR head commit, on the latest supported Kubernetes version by default; `<suite>`
+  is a job ID from `tests-conformance.yaml` and `<regex>` goes to chainsaw's `--include-test-regex`. It runs PR
+  code, so read the diff before you post it. The result comes back as a PR comment with a link to the run.
 - Logic changes still need unit tests regardless of chainsaw coverage; `kubectl-kyverno test` fixtures under
   `test/cli/` for CLI-observable behavior.
 - Proof manifests in the PR description, per the PR template and

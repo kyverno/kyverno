@@ -16,9 +16,28 @@ on:
       matrix:
         description: >-
           Kubernetes versions to test: full runs every supported version,
-          reduced runs only the oldest and the latest one.
+          reduced runs only the oldest and the latest one, and a version from
+          kubernetes-matrix.yaml, such as v1.36.4, runs only that version.
         type: string
         default: full
+      ref:
+        description: >-
+          Commit to test instead of release-sha or the workflow commit. The
+          /conformance PR comment command sets it to the PR head.
+        type: string
+        default: ""
+      suites:
+        description: >-
+          JSON array of the job IDs to run, for example ["mutate"]. Empty runs
+          every job.
+        type: string
+        default: ""
+      chainsaw-tests:
+        description: >-
+          Regular expression that selects the chainsaw tests to run in each
+          suite, passed to the conformance run action. Empty runs every test.
+        type: string
+        default: ""
 
 env:
   RELEASE_CANDIDATE: ${{ inputs.release-candidate }}
@@ -34,6 +53,7 @@ jobs:
 
   assert:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'assert')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -43,7 +63,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -53,9 +73,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: assert
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   cel-http:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'cel-http')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -65,7 +87,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -75,9 +97,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: cel/http
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   deleting-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'deleting-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -88,7 +112,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -98,11 +122,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deleting-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 6
 
   deprecations:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'deprecations')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -112,7 +138,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -122,9 +148,11 @@ jobs:
           kyverno-configs: standard,legacy-denial-probe
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deprecations
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   events:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'events')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -134,7 +162,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -144,9 +172,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: events
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   force-failure-policy-ignore:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'force-failure-policy-ignore')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -156,7 +186,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -166,9 +196,11 @@ jobs:
           kyverno-configs: standard,force-failure-policy-ignore
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: force-failure-policy-ignore
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   generate-mutating-admission-policy:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'generate-mutating-admission-policy')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -178,7 +210,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -189,9 +221,11 @@ jobs:
           kyverno-configs: standard,generate-mutating-admission-policy
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   generate-mutating-admission-policy-v1:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'generate-mutating-admission-policy-v1')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -201,7 +235,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -211,9 +245,11 @@ jobs:
           kyverno-configs: standard,generate-mutating-admission-policy
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy-v1
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   generate-validating-admission-policy:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'generate-validating-admission-policy')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -223,7 +259,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -233,9 +269,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-validating-admission-policy
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   generating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'generating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -246,7 +284,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -256,12 +294,14 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 6
           install-kubectl-evict: true
 
   globalcontext:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'globalcontext')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -271,7 +311,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -281,9 +321,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: globalcontext
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   image-validating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'image-validating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -294,7 +336,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -304,11 +346,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: image-validating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   lease:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'lease')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -318,7 +362,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -328,9 +372,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: lease
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   mutate:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutate')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -341,7 +387,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -351,11 +397,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutate
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   mutating-admission-policy-reports:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutating-admission-policy-reports')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -365,7 +413,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -376,9 +424,11 @@ jobs:
           kyverno-configs: standard,mutating-admission-policy-reports
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   mutating-admission-policy-reports-v1:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutating-admission-policy-reports-v1')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -388,7 +438,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -398,9 +448,11 @@ jobs:
           kyverno-configs: standard,mutating-admission-policy-reports
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports-v1
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   mutating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'mutating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -411,7 +463,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -421,11 +473,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   namespaced-deleting-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'namespaced-deleting-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -435,7 +489,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -445,9 +499,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-deleting-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   namespaced-generating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'namespaced-generating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -458,7 +514,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -468,11 +524,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-generating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   namespaced-image-validating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'namespaced-image-validating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -482,7 +540,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -492,9 +550,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-image-validating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   namespaced-mutating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'namespaced-mutating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -504,7 +564,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -514,9 +574,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-mutating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   namespaced-validating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'namespaced-validating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -527,7 +589,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -537,11 +599,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-validating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   policy-exceptions-disabled:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'policy-exceptions-disabled')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -551,7 +615,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -561,9 +625,11 @@ jobs:
           kyverno-configs: default
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: policy-exceptions-disabled
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   rbac:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'rbac')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -574,7 +640,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -584,10 +650,12 @@ jobs:
           kyverno-configs: ${{ matrix.kyverno-configs }}
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: rbac
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           variant: ${{ matrix.kyverno-configs }}
 
   reports:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'reports')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -598,7 +666,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -608,11 +676,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: reports
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 3
 
   ttl:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'ttl')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -622,7 +692,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -632,9 +702,11 @@ jobs:
           kyverno-configs: standard,ttl
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: ttl
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   validating-admission-policy-reports:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'validating-admission-policy-reports')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -644,7 +716,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -654,9 +726,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-admission-policy-reports
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   validating-policies:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'validating-policies')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -667,7 +741,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -677,11 +751,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-policies
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           shard-index: ${{ matrix.shard-index }}
           shard-count: 5
 
   webhook-bootstrap-exclusion:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'webhook-bootstrap-exclusion')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -691,7 +767,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -701,9 +777,11 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: webhook-bootstrap-exclusion
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
 
   monitor-helm-secret-size:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'monitor-helm-secret-size')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -714,7 +792,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - name: Install helm
         uses: ./.github/actions/tools/helm
@@ -758,6 +836,7 @@ jobs:
 
   check-tests:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'check-tests')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -768,7 +847,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - if: inputs.release-candidate
         uses: ./.github/actions/release/restore
@@ -842,6 +921,7 @@ jobs:
 
   helm-tests:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'helm-tests')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -852,7 +932,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - name: Install helm
         uses: ./.github/actions/tools/helm
@@ -922,6 +1002,7 @@ jobs:
 
   helm-uninstall:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'helm-uninstall')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -932,7 +1013,7 @@ jobs:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - name: Install helm
         uses: ./.github/actions/tools/helm
@@ -972,6 +1053,7 @@ jobs:
 
   helm-upgrade:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'helm-upgrade')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -982,7 +1064,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - name: Install helm
         uses: ./.github/actions/tools/helm
@@ -1028,6 +1110,7 @@ jobs:
 
   helm-upgrade-legacy-migration:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'helm-upgrade-legacy-migration')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -1042,7 +1125,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - name: Install helm
         uses: ./.github/actions/tools/helm
@@ -1080,6 +1163,7 @@ jobs:
 
   cert-manager-certificates:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'cert-manager-certificates')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -1097,7 +1181,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -1107,11 +1191,13 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           install-cert-manager: 'true'
           explicit-install-settings: ${{ matrix.key-algorithm.helm-settings }}
 
   self-signed-certificates:
     needs: kubernetes-matrix
+    if: inputs.suites == '' || contains(fromJSON(inputs.suites), 'self-signed-certificates')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -1129,7 +1215,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release-sha || github.sha }}
+          ref: ${{ inputs.ref || inputs.release-sha || github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/tests/conformance/run
         with:
@@ -1139,4 +1225,5 @@ jobs:
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
+          chainsaw-tests: ${{ inputs.chainsaw-tests }}
           explicit-install-settings: ${{ matrix.key-algorithm.helm-settings }}

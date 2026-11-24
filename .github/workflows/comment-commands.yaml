@@ -5,7 +5,8 @@
 #
 # Commands handled here:
 #   /cherry-pick <branch>       (PRs, write permission)
-#   /conformance                (PRs)
+#   /conformance [<suite> | <suite>/<regex> | <regex>] [<k8s-version>]
+#                               (PRs, write permission)
 #   /assign, /unassign          (prow, members or 'good first issue')
 #   /lgtm, /milestone           (prow)
 #
@@ -220,12 +221,188 @@ jobs:
           echo "::error::Cherry-pick failed; see the workflow logs"
           exit 1
 
+  # /conformance [<suite> | <suite>/<regex> | <regex>] [<k8s-version>]
+  #
+  # Runs conformance tests against the PR head. The plan job authorizes the
+  # commenter, validates every argument against tests-conformance.yaml and
+  # kubernetes-matrix.yaml on the default branch, and pins the PR head commit.
+  # The build and test jobs run PR code, so they get a read-only token, no
+  # repository secrets, and no credentials persisted in the checkout. Only the
+  # acknowledge and report jobs can write, and they never check out PR code.
+  conformance-plan:
+    name: Validate conformance request
+    needs: route
+    if: needs.route.outputs.conformance == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      valid: ${{ steps.command.outputs.valid }}
+      error: ${{ steps.command.outputs.error }}
+      sha: ${{ steps.command.outputs.sha }}
+      suites: ${{ steps.command.outputs.suites }}
+      chainsaw-tests: ${{ steps.command.outputs.chainsaw-tests }}
+      k8s-version: ${{ steps.command.outputs.k8s-version }}
+      description: ${{ steps.command.outputs.description }}
+    steps:
+      - name: Checkout default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows
+      - name: Read suites and Kubernetes versions
+        id: catalog
+        run: |
+          set -euo pipefail
+          # A suite is a job of tests-conformance.yaml. api is the
+          # MutatingAdmissionPolicy API version its matrix requires, if any.
+          suites="$(yq -o=json '.' .github/workflows/tests-conformance.yaml | jq -c '
+            [.jobs | to_entries[] | select(.key != "kubernetes-matrix") | {
+              id: .key,
+              chainsaw: any(.value.steps[]?; .uses == "./.github/actions/tests/conformance/run"),
+              api: ((.value.strategy.matrix["k8s-version"] // "") as $m |
+                if ($m | contains("beta-versions")) then "v1beta1"
+                elif ($m | contains("stable-versions")) then "v1"
+                else "" end)
+            }]')"
+          nodes="$(yq -r '.jobs.matrix.steps[] | select(.id == "matrix") | .env.NODES' .github/workflows/kubernetes-matrix.yaml |
+            jq -c 'map({version, api: .mutatingAdmissionPolicy})')"
+          echo "suites=$suites" >> "$GITHUB_OUTPUT"
+          echo "nodes=$nodes" >> "$GITHUB_OUTPUT"
+      - name: Authorize and validate conformance command
+        id: command
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          SUITES: ${{ steps.catalog.outputs.suites }}
+          NODES: ${{ steps.catalog.outputs.nodes }}
+        with:
+          script: |
+            const usage = 'Usage: `/conformance [<suite> | <suite>/<regex> | <regex>] [<k8s-version>]`';
+            const reject = message => {
+              core.setOutput('valid', 'false');
+              core.setOutput('error', `${message}\n\n${usage}`);
+              core.setFailed(message);
+            };
+            const comment = context.payload.comment;
+            // On an edit, the sender is the editor, so both must be authorized.
+            const users = new Set([comment.user.login, context.payload.sender?.login].filter(Boolean));
+            for (const username of users) {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({ ...context.repo, username });
+              if (!['write', 'maintain', 'admin'].includes(data.permission)) {
+                return reject(`@${username} needs repository write permission to run \`/conformance\`.`);
+              }
+            }
+
+            const suites = JSON.parse(process.env.SUITES);
+            const nodes = JSON.parse(process.env.NODES);
+            const line = (comment.body || '').split(/\r?\n/, 1)[0].trim();
+            if (line.length > 300) {
+              return reject('The command line is too long.');
+            }
+            const words = line.split(/[ \t]+/);
+            if (words[0] !== '/conformance') {
+              return reject('The command must start with `/conformance` followed by a space.');
+            }
+            const args = words.slice(1);
+            if (args.length > 2) {
+              return reject('Too many arguments.');
+            }
+            const versionPattern = /^v?1\.(0|[1-9][0-9]{0,2})(\.(?:0|[1-9][0-9]{0,2}))?$/;
+            let selector = args[0] ?? '';
+            let k8s = args[1] ?? '';
+            if (args.length === 1 && versionPattern.test(selector)) {
+              [selector, k8s] = ['', selector];
+            }
+
+            // Pick the suites, and the chainsaw test regex if any.
+            const ids = suites.map(s => s.id);
+            const chainsawIds = suites.filter(s => s.chainsaw).map(s => s.id);
+            let selected = ids;
+            let regex = '';
+            let description = 'every suite';
+            const slash = selector.indexOf('/');
+            if (selector === '') {
+              // Every suite.
+            } else if (ids.includes(selector)) {
+              selected = [selector];
+              description = `suite \`${selector}\``;
+            } else if (slash > 0 && ids.includes(selector.slice(0, slash))) {
+              selected = [selector.slice(0, slash)];
+              regex = selector.slice(slash + 1);
+              if (!chainsawIds.includes(selected[0])) {
+                return reject(`Suite \`${selected[0]}\` doesn't run chainsaw, so it doesn't take a test regex.`);
+              }
+            } else if (/^[A-Za-z0-9-]+$/.test(selector)) {
+              return reject(`Unknown suite \`${selector}\`. Suites: ${ids.map(id => `\`${id}\``).join(', ')}.`);
+            } else {
+              selected = chainsawIds;
+              regex = selector;
+            }
+            if (regex !== '' || slash > 0) {
+              // The regex reaches chainsaw's --include-test-regex. Allow only
+              // RE2-compatible syntax without quotes, backslashes, or spaces.
+              if (!/^[A-Za-z0-9._*+?^$()|[\]{}\/-]{1,200}$/.test(regex)) {
+                return reject('The test regex must be 1 to 200 letters, digits, or `._*+?^$()|[]{}/-` characters.');
+              }
+              try {
+                new RegExp(regex);
+              } catch {
+                return reject('The test regex isn\'t a valid regular expression.');
+              }
+              description = selected.length === 1
+                ? `tests matching \`${regex}\` in suite \`${selected[0]}\``
+                : `tests matching \`${regex}\` in every chainsaw suite`;
+            }
+
+            // Pick the Kubernetes version: the one asked for, or the latest one
+            // that the selected suites support.
+            const supports = (suite, node) => !suite.api || suite.api === node.api;
+            const chosen = suites.filter(s => selected.includes(s.id));
+            let node;
+            if (k8s !== '') {
+              const match = k8s.match(versionPattern);
+              if (!match) {
+                return reject('The Kubernetes version must look like `v1.36` or `v1.36.4`.');
+              }
+              node = nodes.find(n => match[2] ? n.version === `v1.${match[1]}${match[2]}` : n.version.startsWith(`v1.${match[1]}.`));
+              if (!node) {
+                return reject(`Kubernetes \`${k8s}\` isn't in kubernetes-matrix.yaml. Versions: ${nodes.map(n => `\`${n.version}\``).join(', ')}.`);
+              }
+            } else if (chosen.length === 1) {
+              node = nodes.filter(n => supports(chosen[0], n)).at(-1);
+            } else {
+              node = nodes.at(-1);
+            }
+            const runnable = node ? chosen.filter(s => supports(s, node)).map(s => s.id) : [];
+            if (runnable.length === 0) {
+              return reject(`Suite \`${selected[0]}\` doesn't run on Kubernetes ${node ? `\`${node.version}\`` : 'any version in kubernetes-matrix.yaml'}.`);
+            }
+
+            const { data: pr } = await github.rest.pulls.get({ ...context.repo, pull_number: context.issue.number });
+            if (pr.state !== 'open') {
+              return reject('The pull request isn\'t open.');
+            }
+            if (!/^[0-9a-f]{40}$/.test(pr.head.sha)) {
+              return reject('The pull request head commit is invalid.');
+            }
+            core.setOutput('valid', 'true');
+            core.setOutput('sha', pr.head.sha);
+            core.setOutput('suites', JSON.stringify(runnable));
+            core.setOutput('chainsaw-tests', regex);
+            core.setOutput('k8s-version', node.version);
+            core.setOutput('description', description);
+            core.info(`Testing ${description} on Kubernetes ${node.version} at ${pr.head.sha}: ${runnable.join(', ')}`);
+
   # Only the reaction needs write access; build and test jobs remain read-only.
   conformance-acknowledge:
     name: Acknowledge conformance request
-    needs: route
+    needs: conformance-plan
     runs-on: ubuntu-latest
-    if: needs.route.outputs.conformance == 'true'
+    if: needs.conformance-plan.outputs.valid == 'true'
     permissions:
       issues: write
     steps:
@@ -237,14 +414,17 @@ jobs:
 
   conformance-images:
     name: Build test images
-    needs: route
+    needs: conformance-plan
     runs-on: ubuntu-latest
-    if: needs.route.outputs.conformance == 'true'
+    if: needs.conformance-plan.outputs.valid == 'true'
     permissions:
       contents: read
     steps:
-      - name: Checkout
+      - name: Checkout PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.conformance-plan.outputs.sha }}
+          persist-credentials: false
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Install Ko
@@ -263,14 +443,17 @@ jobs:
 
   conformance-cli:
     name: Build test CLI
-    needs: route
+    needs: conformance-plan
     runs-on: ubuntu-latest
-    if: needs.route.outputs.conformance == 'true'
+    if: needs.conformance-plan.outputs.valid == 'true'
     permissions:
       contents: read
     steps:
-      - name: Checkout
+      - name: Checkout PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.conformance-plan.outputs.sha }}
+          persist-credentials: false
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Build
@@ -288,14 +471,62 @@ jobs:
   conformance-tests:
     name: Conformance tests
     needs:
-      - route
+      - conformance-plan
       - conformance-images
       - conformance-cli
-    if: needs.route.outputs.conformance == 'true'
+    if: needs.conformance-plan.outputs.valid == 'true'
     permissions:
       contents: read
       packages: read
     uses: ./.github/workflows/tests-conformance.yaml
+    with:
+      ref: ${{ needs.conformance-plan.outputs.sha }}
+      suites: ${{ needs.conformance-plan.outputs.suites }}
+      chainsaw-tests: ${{ needs.conformance-plan.outputs.chainsaw-tests }}
+      matrix: ${{ needs.conformance-plan.outputs.k8s-version }}
+
+  conformance-report:
+    name: Report conformance result
+    needs:
+      - route
+      - conformance-plan
+      - conformance-images
+      - conformance-cli
+      - conformance-tests
+    if: always() && needs.route.outputs.conformance == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Comment result
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          VALID: ${{ needs.conformance-plan.outputs.valid }}
+          ERROR: ${{ needs.conformance-plan.outputs.error }}
+          SHA: ${{ needs.conformance-plan.outputs.sha }}
+          K8S_VERSION: ${{ needs.conformance-plan.outputs.k8s-version }}
+          DESCRIPTION: ${{ needs.conformance-plan.outputs.description }}
+          IMAGES_RESULT: ${{ needs.conformance-images.result }}
+          CLI_RESULT: ${{ needs.conformance-cli.result }}
+          TESTS_RESULT: ${{ needs.conformance-tests.result }}
+        with:
+          script: |
+            const env = process.env;
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            let body;
+            if (env.VALID !== 'true') {
+              body = env.ERROR
+                ? `:x: \`/conformance\` was rejected: ${env.ERROR}`
+                : `:x: \`/conformance\` couldn't be validated. See the [workflow run](${run}).`;
+            } else {
+              const results = [env.IMAGES_RESULT, env.CLI_RESULT, env.TESTS_RESULT];
+              const [icon, outcome] = results.every(r => r === 'success') ? [':white_check_mark:', 'passed']
+                : results.includes('cancelled') ? [':warning:', 'was cancelled'] : [':x:', 'failed'];
+              body = `${icon} Conformance ${outcome} for ${env.DESCRIPTION} on Kubernetes ${env.K8S_VERSION} at ${env.SHA}. See the [workflow run](${run}).`;
+            }
+            await core.summary.addRaw(body).write();
+            await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
 
   prow-assign:
     name: Prow Assign
