@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/pkg/ext/file"
 	yamlutils "github.com/kyverno/pkg/ext/yaml"
 	"go.yaml.in/yaml/v3"
+	kjson "sigs.k8s.io/json"
 )
 
 func Load(path string) (any, error) {
@@ -16,10 +17,14 @@ func Load(path string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	return Parse(path, content)
+}
+
+func Parse(path string, content []byte) (any, error) {
 	var payload any
 	switch {
 	case file.IsJson(path):
-		if err := json.Unmarshal(content, &payload); err != nil {
+		if err := kjson.UnmarshalCaseSensitivePreserveInts(content, &payload); err != nil {
 			return nil, err
 		}
 	case file.IsYaml(path):
@@ -39,6 +44,13 @@ func Load(path string) (any, error) {
 			payload = objects[0]
 		} else {
 			payload = objects
+		}
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
+		if err := kjson.UnmarshalCaseSensitivePreserveInts(encoded, &payload); err != nil {
+			return nil, err
 		}
 	default:
 		return nil, fmt.Errorf("unrecognized payload format, must be yaml or json (%s)", path)

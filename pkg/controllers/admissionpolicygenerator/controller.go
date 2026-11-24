@@ -210,10 +210,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	polType := strings.Split(key, "/")[0]
 	if polType == "ValidatingPolicy" {
-		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-		if !generateValidatingAdmissionPolicy {
-			return nil
-		}
 		vpol, err := c.getValidatingPolicy(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -221,6 +217,16 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			}
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
+		}
+		generateValidatingAdmissionPolicy := toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy()
+		if !generateValidatingAdmissionPolicy {
+			if !vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() {
+				if c.vapLister == nil || c.vapbindingLister == nil {
+					return nil
+				}
+			} else {
+				logger.Info("generating ValidatingAdmissionPolicy explicitly enabled in policy", "policy", vpol.GetName())
+			}
 		}
 		policy = engineapi.NewValidatingPolicy(vpol)
 		err = c.handleVAPGeneration(ctx, policy)
@@ -236,7 +242,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
 		}
-		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
+		generateMutatingAdmissionPolicy := toggle.FromContext(ctx).GenerateMutatingAdmissionPolicy()
 		if !generateMutatingAdmissionPolicy {
 			if !mpol.Spec.GenerateMutatingAdmissionPolicyEnabled() {
 				return nil
@@ -251,7 +257,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.GenericPolicy, generated bool, msg string) {
+func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.GenericPolicy, generated bool, msg string) error {
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		latest := vpol.DeepCopy()
 		latest.Status.Generated = generated
@@ -260,7 +266,7 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		new, err := c.kyvernoClient.PoliciesV1beta1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
 			logging.Error(err, "failed to update validating policy status", "name", vpol.GetName(), "status", latest.Status)
-			return
+			return err
 		}
 
 		logging.V(3).Info("updated validating policy status", "name", vpol.GetName(), "status", new.Status)
@@ -272,9 +278,10 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		new, err := c.kyvernoClient.PoliciesV1beta1().MutatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
 			logging.Error(err, "failed to update mutating policy status", "name", mpol.GetName(), "status", latest.Status)
-			return
+			return err
 		}
 
 		logging.V(3).Info("updated mutating policy status", "name", mpol.GetName(), "status", new.Status)
 	}
+	return nil
 }

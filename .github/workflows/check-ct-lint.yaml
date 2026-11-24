@@ -21,7 +21,7 @@ concurrency:
 jobs:
   check:
     name: Chart-testing (lint)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,7 +32,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: 3.13.1
+          python-version: "3.13"
       # Setting up chart-testing downloads cosign and Python packages, which fails now and
       # then on the runners, so wait and try once more.
       - name: Set up chart-testing
@@ -91,6 +91,12 @@ jobs:
         run: |
           set -e
           make verify-policies-sysctls
+      - name: Verify podSecurityVersion rendering
+        # Renders the policies at each PSA version gate and checks the
+        # behavior against PSA for that version.
+        run: |
+          set -e
+          make verify-policies-psa-version
 
   sync-issue:
     if: always() && github.event_name == 'push'

@@ -26,16 +26,6 @@ stripPrefix:
 
 apis:
 - name: kyverno
-  title: kyverno (v1)
-  package: github.com/kyverno/kyverno
-  path: api/kyverno/v1
-
-- name: kyverno
-  title: kyverno (v1beta1)
-  package: github.com/kyverno/kyverno
-  path: api/kyverno/v1beta1
-
-- name: kyverno
   title: kyverno (v2)
   package: github.com/kyverno/kyverno
   path: api/kyverno/v2

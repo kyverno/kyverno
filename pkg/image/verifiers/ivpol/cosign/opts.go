@@ -15,9 +15,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	imagecredentials "github.com/kyverno/kyverno/pkg/image/verification/credentials"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/sigstoretuf"
-	"github.com/kyverno/sdk/extensions/regcreds"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/sigstore/cosign/v3/pkg/blob"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
@@ -83,6 +84,8 @@ func countPEMCertBlocks(pem []byte) int {
 }
 
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister) (*cosign.CheckOpts, error) {
+	// Each verification owns the options appended for its source and context.
+	baseROpts = slices.Clone(baseROpts)
 	// Key/certificate verification with the transparency log ignored needs no
 	// Sigstore infrastructure (TUF, Rekor, CTLog), mirroring cosign.
 	ignoreTlog := att.CTLog != nil && att.CTLog.InsecureIgnoreTlog
@@ -108,6 +111,8 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			cosignRemoteOpts = append(cosignRemoteOpts, ociremote.WithPrefix(att.Source.TagPrefix))
 		}
 	}
+	// A cached image may carry older registry options; verification owns the request context.
+	baseROpts = append(baseROpts, remote.WithContext(ctx))
 	cosignRemoteOpts = append(cosignRemoteOpts, ociremote.WithRemoteOptions(baseROpts...), ociremote.WithNameOptions(baseNOpts...))
 
 	var err error
@@ -117,14 +122,29 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 	}
 
 	if !skipSigstoreInfra {
-		// initTUFAndFetch initializes the TUF singleton and reads all
-		// TUF-derived trust material (Rekor/CTLog pubkeys, trusted root,
-		// Fulcio roots) in a single mutex acquisition, so no concurrent
-		// goroutine can reinitialize the singleton with a different mirror
-		// between the init step and the reads.
-		trust, err = initTUFAndFetch(ctx, att.TUF)
-		if err != nil {
-			return nil, err
+		if att.TrustedRoot != nil && att.TrustedRoot.Value != "" {
+			// An inline trusted root replaces the TUF-distributed one and
+			// takes precedence over the tuf field, so the TUF repository is
+			// never contacted: a cluster without egress verifies against the
+			// inline root alone.
+			tr, err := parseInlineTrustedRoot(att.TrustedRoot.Value)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
+			}
+			trust = trustFromTrustedRoot(tr)
+			if err := checkInlineTrustedRootCoverage(att, trust); err != nil {
+				return nil, err
+			}
+		} else {
+			// initTUFAndFetch initializes the TUF singleton and reads all
+			// TUF-derived trust material (Rekor/CTLog pubkeys, trusted root,
+			// Fulcio roots) in a single mutex acquisition, so no concurrent
+			// goroutine can reinitialize the singleton with a different mirror
+			// between the init step and the reads.
+			trust, err = initTUFAndFetch(ctx, att.TUF)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		rekorClient, rekorPubKeys, ctlogPubKey, err := getRekor(ctx, att.CTLog, trust.rekorPubKeys, trust.ctlogPubKeys)
@@ -141,11 +161,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			}
 		}
 
-		trustedMaterial, err := resolveTrustedMaterial(att, trust.trustedRoot)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
-		}
-		opts.TrustedMaterial = trustedMaterial
+		opts.TrustedMaterial = trust.trustedRoot
 	}
 
 	if att.CTLog != nil {
@@ -444,7 +460,13 @@ func sourceRemoteOpts(secretLister corev1listers.SecretLister, src *v1beta1.Sour
 		for _, s := range src.SignaturePullSecrets {
 			signaturePullSecrets = append(signaturePullSecrets, s.Name)
 		}
-		kc := regcreds.NewSecretsKeychain(secretLister, config.KyvernoNamespace(), logging.GlobalLogger(), signaturePullSecrets...)
+		// No policy is in scope here, so take the namespace from the lister the
+		// verifier was built with: NewIvFuncs confines it to the policy
+		// namespace for a namespaced policy and leaves it unconfined for a
+		// cluster-scoped one, which is exactly the distinction a bare
+		// signaturePullSecrets name needs.
+		namespace := kubeutils.CredentialNamespace(secretLister, config.KyvernoNamespace())
+		kc := imagecredentials.NewSecretsKeychain(secretLister, namespace, logging.GlobalLogger(), signaturePullSecrets...)
 		opts = append(opts, remote.WithAuthFromKeychain(kc))
 	}
 	return opts, nil
@@ -677,24 +699,53 @@ func logKeyStatus(start, end time.Time) tuf.StatusKind {
 	return tuf.Active
 }
 
-// resolveTrustedMaterial returns the sigstore-go TrustedMaterial used to
-// verify Sigstore bundles. When att.TrustedRoot carries an inline JSON value
-// (typically resolved from a CEL expression reading a ConfigMap, see
-// variables.CompiledAttestor), it is parsed and used directly instead of
-// the trusted_root.json already fetched atomically by initTUFAndFetch. This
-// allows verifying attestations/signatures from private Sigstore instances
-// (e.g. GitHub's) that don't operate a TUF server, while still falling back
-// to the TUF-derived trusted root for standard Sigstore verification.
-func resolveTrustedMaterial(att *v1beta1.Cosign, defaultTrustedRoot *root.TrustedRoot) (root.TrustedMaterial, error) {
-	if att.TrustedRoot != nil && att.TrustedRoot.Value != "" {
-		if n := len(att.TrustedRoot.Value); n > maxTrustedRootJSONSize {
-			return nil, fmt.Errorf("inline trustedRoot JSON is too large (%d bytes), maximum allowed is %d bytes", n, maxTrustedRootJSONSize)
-		}
-		tr, err := root.NewTrustedRootFromJSON([]byte(att.TrustedRoot.Value))
-		if err != nil {
-			return nil, fmt.Errorf("parsing inline trustedRoot JSON: %w", err)
-		}
-		return tr, nil
+// parseInlineTrustedRoot parses an inline trustedRoot JSON value
+// (att.TrustedRoot.Value, possibly resolved from a CEL expression reading a
+// ConfigMap, see variables.CompiledAttestor). This allows verifying
+// attestations/signatures from private Sigstore instances (e.g. GitHub's)
+// that don't operate a TUF server.
+func parseInlineTrustedRoot(value string) (*root.TrustedRoot, error) {
+	if n := len(value); n > maxTrustedRootJSONSize {
+		return nil, fmt.Errorf("inline trustedRoot JSON is too large (%d bytes), maximum allowed is %d bytes", n, maxTrustedRootJSONSize)
 	}
-	return defaultTrustedRoot, nil
+	tr, err := root.NewTrustedRootFromJSON([]byte(value))
+	if err != nil {
+		return nil, fmt.Errorf("parsing inline trustedRoot JSON: %w", err)
+	}
+	return tr, nil
+}
+
+// trustFromTrustedRoot derives from an inline trusted root the material that
+// initTUFAndFetch would otherwise read from TUF. A trusted root need not
+// describe every service (GitHub's has no transparency or CT logs), so a
+// missing piece is left nil instead of failing here: cosign verifies against
+// TrustedMaterial and rejects any signature whose evidence the root cannot
+// vouch for, and checkInlineTrustedRootCoverage rejects keyless configurations
+// that require a missing log up front.
+func trustFromTrustedRoot(tr *root.TrustedRoot) *sigstoreTrustMaterial {
+	m := &sigstoreTrustMaterial{trustedRoot: tr}
+	m.rekorPubKeys, _ = rekorPubsFromTrustedRoot(tr)
+	m.ctlogPubKeys, _ = ctLogPubsFromTrustedRoot(tr)
+	m.fulcioRoots, m.fulcioIntermediates, _ = fulcioRootsFromTrustedRoot(tr)
+	return m
+}
+
+// checkInlineTrustedRootCoverage turns a keyless attestor that requires
+// evidence the inline trusted root cannot verify into a configuration error,
+// instead of every signature being refused at verification time. With a
+// trusted root, cosign checks tlog entries and embedded SCTs against the
+// root's own logs (no detached SCT is ever passed), so neither
+// ctlog.rekorPubKey nor ctlog.ctLogPubKey makes up for a log the root does
+// not carry.
+func checkInlineTrustedRootCoverage(att *v1beta1.Cosign, trust *sigstoreTrustMaterial) error {
+	if att.Keyless == nil {
+		return nil
+	}
+	if (att.CTLog == nil || !att.CTLog.InsecureIgnoreTlog) && trust.rekorPubKeys == nil {
+		return fmt.Errorf("inline trustedRoot has no usable transparency log, but the keyless attestor requires one: set ctlog.insecureIgnoreTlog or use a trusted root that includes tlogs")
+	}
+	if (att.CTLog == nil || !att.CTLog.InsecureIgnoreSCT) && trust.ctlogPubKeys == nil {
+		return fmt.Errorf("inline trustedRoot has no usable CT log, but the keyless attestor requires an SCT: set ctlog.insecureIgnoreSCT or use a trusted root that includes ctlogs")
+	}
+	return nil
 }

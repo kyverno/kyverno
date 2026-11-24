@@ -1,6 +1,7 @@
 package report
 
 import (
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -9,6 +10,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ComputePolicyReportResult converts an engine response and rule response into a policy report result,
+// downgrading failures on audit-only validating policies to warnings when auditWarn is enabled.
 func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineResponse, ruleResponse engineapi.RuleResponse) openreportsv1alpha1.ReportResult {
 	resource := engineResponse.Resource
 	resorceRef := &corev1.ObjectReference{
@@ -20,16 +23,14 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 		ResourceVersion: resource.GetResourceVersion(),
 	}
 	result := reportutils.ToPolicyReportResult(engineResponse.Policy(), ruleResponse, resorceRef)
-	if result.Result == openreports.StatusFail {
-		audit := engineResponse.GetValidationFailureAction().Audit()
-		if audit && auditWarn {
-			result.Result = openreports.StatusWarn
-		}
+	if auditWarn && result.Result == openreports.StatusFail && processor.IsAuditOnlyValidatingPolicy(engineResponse.Policy()) {
+		result.Result = openreports.StatusWarn
 	}
-
 	return result
 }
 
+// ComputePolicyReportResultsPerPolicy groups computed report results by policy across all engine responses,
+// taking audit-warn into account for validating policies.
 func ComputePolicyReportResultsPerPolicy(auditWarn bool, engineResponses ...engineapi.EngineResponse) map[engineapi.GenericPolicy][]openreportsv1alpha1.ReportResult {
 	results := map[engineapi.GenericPolicy][]openreportsv1alpha1.ReportResult{}
 	for _, engineResponse := range engineResponses {

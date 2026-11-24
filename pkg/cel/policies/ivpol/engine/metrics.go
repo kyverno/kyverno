@@ -35,6 +35,11 @@ func (w *metricWrapper) HandleValidating(ctx context.Context, request EngineRequ
 	}
 
 	for _, policy := range response.Policies {
+		// with tracing on, a policy that did not apply is in the response for its trace only; it
+		// was not evaluated, so it records nothing, as it does with tracing off
+		if policy.TraceOnly() {
+			continue
+		}
 		w.metrics.RecordDuration(ctx, policy.Result.Stats().ProcessingTime().Seconds(), string(policy.Result.Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
 		w.metrics.RecordResult(ctx, string(policy.Result.Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
 	}

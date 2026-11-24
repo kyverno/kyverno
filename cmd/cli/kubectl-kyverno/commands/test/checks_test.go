@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
@@ -24,7 +24,7 @@ func TestPrintCheckResult(t *testing.T) {
 				"kind":       "Pod",
 				"metadata":   map[string]any{"name": resource, "namespace": "default"},
 			}},
-			engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{ObjectMeta: metav1.ObjectMeta{Name: "require-team-label"}}),
+			engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "require-team-label"}}),
 			nil,
 		)
 		response.PolicyResponse.Rules = []engineapi.RuleResponse{rule}

@@ -124,8 +124,15 @@ func (c *serverResources) OnChanged(callback func()) {
 	c.callbacks = append(c.callbacks, callback)
 }
 
+// notify calls every registered callback. It snapshots the callbacks under the
+// read lock and invokes them after unlocking, so callbacks may call OnChanged.
 func (c *serverResources) notify() {
-	for _, callback := range c.callbacks {
+	c.mux.RLock()
+	callbacks := make([]func(), len(c.callbacks))
+	copy(callbacks, c.callbacks)
+	c.mux.RUnlock()
+
+	for _, callback := range callbacks {
 		callback()
 	}
 }
@@ -228,6 +235,15 @@ func (c *serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.Gro
 		c.refetchMux.RUnlock()
 		if err == nil {
 			return mapping.Resource, nil
+		}
+		// For unqualified kinds (empty group and version), search registered API groups
+		// via FindResource before triggering an expensive discovery cache invalidation.
+		// RESTMapping only checks the core group ("") for an empty group, whereas
+		// FindResource searches all registered groups (e.g. apps, batch, rbac.authorization.k8s.io).
+		if gvk.Group == "" && gvk.Version == "" {
+			if _, _, gvr, findErr := c.FindResource("", gvk.Kind); findErr == nil {
+				return gvr, nil
+			}
 		}
 		if err = c.refetchOnMiss(func() error {
 			mapping, err = c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)

@@ -46,6 +46,19 @@ func TestEnforceRequired_DeniesImageThatFailedVerification(t *testing.T) {
 		"an image that was checked and rejected must report differently from one never checked")
 }
 
+func TestEnforceRequired_DeniesImageWhenPartialAttestorsRecordedFalse(t *testing.T) {
+	t.Parallel()
+	image := "ghcr.io/kyverno/test-verify-image:partial"
+	// When only a subset of required attestors pass, Record(image, false) is called.
+	// EnforceRequired must deny admission for the image.
+	c, verifications := policyWithVerifications(nil, map[string]bool{image: false})
+
+	err := c.EnforceRequired([]string{image}, verifications)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed signature or attestation verification")
+}
+
 func TestEnforceRequired_AllowsVerifiedImage(t *testing.T) {
 	t.Parallel()
 	image := "ghcr.io/kyverno/test-verify-image:signed"

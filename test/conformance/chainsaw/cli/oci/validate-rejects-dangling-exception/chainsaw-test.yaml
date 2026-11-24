@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: validate-rejects-dangling-exception
+spec:
+  concurrent: false
+  steps:
+    - try:
+      - script:
+          # A single file, not ".": Assemble succeeds (a dangling in-bundle reference is
+          # format-legal, writer MUST 12's carve-out is push's own strict default); validate's
+          # own re-application of ValidateWithOptions is what rejects it.
+          content: |
+            KYVERNO_EXPERIMENTAL=true kyverno oci validate exception.yaml
+          check:
+            ($error != null): true
+            (contains($stderr, 'references unknown policy')): true

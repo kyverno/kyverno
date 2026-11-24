@@ -29,6 +29,12 @@ type ImageVerifyPolicyResponse struct {
 	Trace *trace.Decision
 }
 
+// TraceOnly reports whether the policy is in the response only for its trace: it did not apply,
+// or a match condition skipped it, and without tracing it would not be in the response at all.
+func (r ImageVerifyPolicyResponse) TraceOnly() bool {
+	return r.Trace != nil && r.Result.Status() == ""
+}
+
 func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister) ([]string, error) {
 	compiler := NewCompiler(lister)
 	_, errList := compiler.Compile(ivpol, nil)
@@ -101,10 +107,17 @@ func ivpolExpressions(ivpol policiesv1beta1.ImageValidatingPolicyLike) []string 
 }
 
 func attestorExpressions(att policiesv1beta1.Attestor) []string {
-	exprs := make([]string, 0, 6)
+	exprs := make([]string, 0, 7)
 	if att.Cosign != nil {
 		if att.Cosign.Key != nil && att.Cosign.Key.Expression != "" {
 			exprs = append(exprs, att.Cosign.Key.Expression)
+		}
+		if att.Cosign.Keyless != nil {
+			for _, id := range att.Cosign.Keyless.Identities {
+				if id.SubjectExpression != "" {
+					exprs = append(exprs, id.SubjectExpression)
+				}
+			}
 		}
 		if att.Cosign.Certificate != nil {
 			if att.Cosign.Certificate.Certificate != nil && att.Cosign.Certificate.Certificate.Expression != "" {

@@ -6,7 +6,6 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -197,69 +196,6 @@ func Test_NewFailedEvent_no_rule(t *testing.T) {
 	assert.NotContains(t, ev.Message, "baseline-policy/")
 }
 
-func Test_NewCleanupPolicyEvent_success(t *testing.T) {
-	pol := &kyvernov2.ClusterCleanupPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "remove-stale-pods",
-			UID:  "pol-uid-1",
-		},
-	}
-	res := unstructured.Unstructured{}
-	res.SetAPIVersion("v1")
-	res.SetKind("Pod")
-	res.SetNamespace("default")
-	res.SetName("zombie")
-
-	ev := NewCleanupPolicyEvent(pol, res, nil)
-
-	assert.Equal(t, "remove-stale-pods", ev.Regarding.Name)
-	assert.Equal(t, PolicyApplied, ev.Reason)
-	assert.Equal(t, ResourceCleanedUp, ev.Action)
-	assert.Equal(t, CleanupController, ev.Source)
-	assert.Contains(t, ev.Message, "successfully cleaned up")
-	assert.Contains(t, ev.Message, "Pod/default/zombie")
-}
-
-func Test_NewCleanupPolicyEvent_failure(t *testing.T) {
-	pol := &kyvernov2.ClusterCleanupPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "cleanup-cm",
-		},
-	}
-	res := unstructured.Unstructured{}
-	res.SetKind("ConfigMap")
-	res.SetNamespace("test")
-	res.SetName("leftover")
-	err := errors.New("forbidden")
-
-	ev := NewCleanupPolicyEvent(pol, res, err)
-
-	assert.Equal(t, PolicyError, ev.Reason)
-	assert.Equal(t, None, ev.Action)
-	assert.Contains(t, ev.Message, "failed to clean up")
-	assert.Contains(t, ev.Message, "forbidden")
-}
-
-func Test_NewCleanupPolicyEvent_namespaced(t *testing.T) {
-	pol := &kyvernov2.CleanupPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "secret-cleaner",
-			Namespace: "team-a",
-			UID:       "sec-uid",
-		},
-	}
-	res := unstructured.Unstructured{}
-	res.SetKind("Secret")
-	res.SetNamespace("team-a")
-	res.SetName("expired-token")
-
-	ev := NewCleanupPolicyEvent(pol, res, nil)
-
-	assert.Equal(t, "secret-cleaner", ev.Regarding.Name)
-	assert.Equal(t, "team-a", ev.Regarding.Namespace)
-	assert.Equal(t, ResourceCleanedUp, ev.Action)
-}
-
 func Test_resourceKey_namespaced(t *testing.T) {
 	res := unstructured.Unstructured{}
 	res.SetKind("Deployment")
@@ -368,4 +304,123 @@ func Test_NewPolicyAppliedEvent_NamespacedMutatingPolicy(t *testing.T) {
 	assert.Equal(t, ResourceMutated, ev.Action)
 	assert.Contains(t, ev.Message, "Secret team-a/credentials is successfully mutated")
 	assert.Equal(t, "team-a", ev.Regarding.Namespace)
+}
+
+// gpol builds its EngineResponse with only Resource set, no PatchedResource (generate_controller.go);
+// the exception message must still name the resource instead of joining two empty strings into "/".
+func Test_NewPolicyExceptionEvents_NoPatchedResource(t *testing.T) {
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-labels"},
+	}
+	resource := unstructured.Unstructured{}
+	resource.SetKind("Deployment")
+	resource.SetNamespace("default")
+	resource.SetName("nginx")
+
+	er := engineapi.EngineResponse{
+		Resource: resource,
+	}
+	er = er.WithPolicy(engineapi.NewValidatingPolicy(vpol))
+
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "skip-nginx", Namespace: "default"},
+	}
+	ruleResp := engineapi.RuleSkip("require-labels", engineapi.Validation, "skipped", nil).
+		WithExceptions([]engineapi.GenericException{engineapi.NewCELPolicyException(polex)})
+
+	events := NewPolicyExceptionEvents(er, *ruleResp, GeneratePolicyController)
+
+	assert.Len(t, events, 2)
+	for _, e := range events {
+		assert.Contains(t, e.Message, "Deployment/default/nginx")
+		assert.NotContains(t, e.Message, "resource  was skipped")
+	}
+}
+
+func Test_NewBackgroundFailedEvent_GeneratingPolicy(t *testing.T) {
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "generate-secret",
+			UID:  "gpol-uid",
+		},
+	}
+	policy := engineapi.NewGeneratingPolicy(gpol)
+	res := kyverno.ResourceSpec{
+		APIVersion: "v1",
+		Kind:       "Secret",
+		Namespace:  "default",
+		Name:       "my-secret",
+		UID:        "sec-uid",
+	}
+	err := errors.New("failed to generate secret")
+
+	events := NewBackgroundFailedEvent(err, policy, "gen-rule", GeneratePolicyController, res)
+
+	assert.Len(t, events, 1)
+	assert.Equal(t, "policies.kyverno.io/v1beta1", events[0].Regarding.APIVersion)
+	assert.Equal(t, "GeneratingPolicy", events[0].Regarding.Kind)
+	assert.Equal(t, "generate-secret", events[0].Regarding.Name)
+	assert.Equal(t, "gpol-uid", string(events[0].Regarding.UID))
+	assert.Equal(t, PolicyError, events[0].Reason)
+	assert.Equal(t, GeneratePolicyController, events[0].Source)
+	assert.Equal(t, None, events[0].Action)
+	assert.Contains(t, events[0].Message, "generate-secret/gen-rule error: failed to generate secret")
+}
+
+func Test_NewBackgroundSuccessEvent_GeneratingPolicy(t *testing.T) {
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "generate-cm",
+			UID:  "gpol-uid-2",
+		},
+	}
+	policy := engineapi.NewGeneratingPolicy(gpol)
+	resources := []kyverno.ResourceSpec{
+		{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+			Namespace:  "default",
+			Name:       "my-cm",
+			UID:        "cm-uid",
+		},
+	}
+
+	events := NewBackgroundSuccessEvent(GeneratePolicyController, policy, resources)
+
+	assert.Len(t, events, 1)
+	assert.Equal(t, "policies.kyverno.io/v1beta1", events[0].Regarding.APIVersion)
+	assert.Equal(t, "GeneratingPolicy", events[0].Regarding.Kind)
+	assert.Equal(t, "generate-cm", events[0].Regarding.Name)
+	assert.Equal(t, PolicyApplied, events[0].Reason)
+	assert.Equal(t, ResourceGenerated, events[0].Action)
+	assert.Equal(t, "resource generated", events[0].Message)
+}
+
+func Test_NewBackgroundSuccessEvent_MutateExistingController(t *testing.T) {
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mutate-existing",
+			UID:  "mpol-uid",
+		},
+	}
+	policy := engineapi.NewMutatingPolicy(mpol)
+	resources := []kyverno.ResourceSpec{
+		{
+			APIVersion: "v1",
+			Kind:       "Pod",
+			Namespace:  "default",
+			Name:       "my-pod",
+			UID:        "pod-uid",
+		},
+	}
+
+	events := NewBackgroundSuccessEvent(MutateExistingController, policy, resources)
+
+	assert.Len(t, events, 1)
+	assert.Equal(t, "policies.kyverno.io/v1beta1", events[0].Regarding.APIVersion)
+	assert.Equal(t, "MutatingPolicy", events[0].Regarding.Kind)
+	assert.Equal(t, "mutate-existing", events[0].Regarding.Name)
+	assert.Equal(t, PolicyApplied, events[0].Reason)
+	assert.Equal(t, ResourceMutated, events[0].Action)
+	assert.Equal(t, "resource mutated", events[0].Message)
 }

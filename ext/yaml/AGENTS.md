@@ -1,6 +1,6 @@
 # AGENTS.md — ext/yaml
 
-Splits a multi-document YAML byte stream into individual documents (`SplitDocuments`) and classifies a document as empty/comment-only (`IsEmptyDocument`). `pkg/utils/yaml/loadpolicy.go` uses `SplitDocuments` to load Kyverno policies from multi-document YAML files, so a bug here can silently drop policies with no error surfaced.
+Splits a multi-document YAML byte stream into individual documents (`SplitDocuments`) and classifies a document as empty/comment-only (`IsEmptyDocument`). `pkg/utils/yaml` no longer exists (deleted by #17710 PR 4); the live callers are the CLI's own loaders — `cmd/cli/kubectl-kyverno/policy/load.go`, `test/load.go`, `payload/load.go`, `resource/resource.go`, `exception/load.go`, and `store/gctx_load.go` — so a bug here can silently drop policies with no error surfaced.
 
 ## The underlying reader conflates "done" with "broken" — check error before length
 

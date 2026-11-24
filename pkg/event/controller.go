@@ -2,7 +2,6 @@ package event
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -235,7 +234,7 @@ func (gen *controller) emitEvent(key Info) {
 
 	event := &eventsv1.Event{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%v.%x", sanitizedName, t.UnixNano()),
+			Name:      util.GenerateEventName(sanitizedName, t.UnixNano()),
 			Namespace: namespace,
 		},
 		EventTime:           timestamp,

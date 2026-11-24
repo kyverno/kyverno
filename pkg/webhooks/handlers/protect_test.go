@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -320,17 +321,22 @@ func TestWithProtection_NonKyvernoManagedResource(t *testing.T) {
 func TestWithGenerateLabelProtection(t *testing.T) {
 	t.Parallel()
 	const (
-		user           = "system:serviceaccount:tenant:user"
-		kyvernoUser    = "system:serviceaccount:kyverno:kyverno-background-controller"
-		generatePolicy = common.GeneratePolicyLabel
-		cloneSource    = common.GenerateTypeCloneSourceLabel
+		user                      = "system:serviceaccount:tenant:user"
+		certManagerControllerUser = "system:serviceaccount:cert-manager:cert-manager-controller"
+		kyvernoUser               = "system:serviceaccount:kyverno:kyverno-background-controller"
+		generatePolicy            = common.GeneratePolicyLabel
+		cloneSource               = common.GenerateTypeCloneSourceLabel
 	)
 	tests := []struct {
 		name                    string
 		operation               admissionv1.Operation
 		username                string
+		kind                    metav1.GroupVersionKind
 		oldLabels               map[string]string
 		newLabels               map[string]string
+		hasOwnerRef             bool
+		ownerKind               string
+		isControllerOwner       bool
 		protectManagedResources bool
 		wantAllowed             bool
 		wantError               string
@@ -347,6 +353,469 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 			operation: admissionv1.Create,
 			username:  user,
 			newLabels: map[string]string{generatePolicy: "sync-secrets"},
+		},
+		{
+			name:              "allows generate labels on create for CertificateRequest child resources with controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          certManagerControllerUser,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       true,
+		},
+		{
+			name:              "denies generate labels on create for CertificateRequest by ordinary user even with controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for CertificateRequest by lookalike username in tenant namespace",
+			operation:         admissionv1.Create,
+			username:          "system:serviceaccount:tenant:cert-manager-attacker",
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for CertificateRequest by lookalike namespace",
+			operation:         admissionv1.Create,
+			username:          "system:serviceaccount:cert-manager-lookalike:cert-manager",
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for CertificateRequest by non-cert-manager service account",
+			operation:         admissionv1.Create,
+			username:          "system:serviceaccount:default:attacker",
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies modifying generate labels on update for CertificateRequest with controller ownerReferences",
+			operation:         admissionv1.Update,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			oldLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:         map[string]string{generatePolicy: "tampered"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies removing generate labels on update for CertificateRequest with controller ownerReferences",
+			operation:         admissionv1.Update,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			oldLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:         map[string]string{},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for CertificateRequest without controller ownerReferences by cert-manager",
+			operation:         admissionv1.Create,
+			username:          certManagerControllerUser,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: false,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for CertificateRequest with incorrect controller owner kind by cert-manager",
+			operation:         admissionv1.Create,
+			username:          certManagerControllerUser,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Service",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:        "denies generate labels on create for CertificateRequest with absent ownerReferences by cert-manager",
+			operation:   admissionv1.Create,
+			username:    certManagerControllerUser,
+			kind:        metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef: false,
+			wantAllowed: false,
+			wantError:   "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for CertificateRequest without controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: false,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for CertificateRequest with incorrect controller owner kind",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateRequest"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Service",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "allows generate labels on create for Order child resources with controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          certManagerControllerUser,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: true,
+			wantAllowed:       true,
+		},
+		{
+			name:              "denies generate labels on create for Order by ordinary user even with controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies modifying generate labels on update for Order with controller ownerReferences",
+			operation:         admissionv1.Update,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			oldLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:         map[string]string{generatePolicy: "tampered"},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies removing generate labels on update for Order with controller ownerReferences",
+			operation:         admissionv1.Update,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			oldLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:         map[string]string{},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for Order without controller ownerReferences by cert-manager",
+			operation:         admissionv1.Create,
+			username:          certManagerControllerUser,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: false,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for Order with incorrect controller owner kind by cert-manager",
+			operation:         admissionv1.Create,
+			username:          certManagerControllerUser,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:        "denies generate labels on create for Order with absent ownerReferences by cert-manager",
+			operation:   admissionv1.Create,
+			username:    certManagerControllerUser,
+			kind:        metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef: false,
+			wantAllowed: false,
+			wantError:   "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for Order without controller ownerReferences",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "CertificateRequest",
+			isControllerOwner: false,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for Order with incorrect controller owner kind",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "acme.cert-manager.io", Version: "v1", Kind: "Order"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Certificate",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:              "denies generate labels on create for standalone generate targets with ownerReferences (cache-restore forgery protection)",
+			operation:         admissionv1.Create,
+			username:          user,
+			kind:              metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			newLabels:         map[string]string{generatePolicy: "sync-secrets"},
+			hasOwnerRef:       true,
+			ownerKind:         "Service",
+			isControllerOwner: true,
+			wantAllowed:       false,
+			wantError:         "generate labels can only be set by Kyverno",
+		},
+		{
+			name:        "allows generate labels on create for endpoints created by endpoints-controller without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    endpointsControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows generate labels on create for endpoints created by endpointslice-controller without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpoints with changing generate labels by endpoints-controller",
+			operation:   admissionv1.Update,
+			username:    endpointsControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpoints with changing generate labels by endpointslice-controller",
+			operation:   admissionv1.Update,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows creating endpointslice with changing generate labels by endpointslice-controller",
+			operation:   admissionv1.Create,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpointslice with changing generate labels by endpointslice-controller",
+			operation:   admissionv1.Update,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows creating endpointslice by endpointslice-mirroring-controller",
+			operation:   admissionv1.Create,
+			username:    endpointSliceMirrorControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpointslice by endpointslice-mirroring-controller",
+			operation:   admissionv1.Update,
+			username:    endpointSliceMirrorControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows creating endpoints by unified kube-controller-manager",
+			operation:   admissionv1.Create,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpoints by unified kube-controller-manager",
+			operation:   admissionv1.Update,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows creating endpointslice by unified kube-controller-manager",
+			operation:   admissionv1.Create,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: true,
+		},
+		{
+			name:        "allows updating endpointslice by unified kube-controller-manager",
+			operation:   admissionv1.Update,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "updated-policy"},
+			wantAllowed: true,
+		},
+		{
+			name:        "denies endpoints-controller modifying non-endpoints kind without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    endpointsControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies endpointslice-controller modifying non-endpoints kind without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies endpointslice-mirroring-controller modifying non-endpoints kind without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    endpointSliceMirrorControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies endpoints-controller modifying endpoints in non-core group",
+			operation:   admissionv1.Create,
+			username:    endpointsControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "custom.io", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies endpointslice-controller modifying endpointslice in non-discovery group",
+			operation:   admissionv1.Create,
+			username:    endpointSliceControllerUsername,
+			kind:        metav1.GroupVersionKind{Group: "custom.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies unified kube-controller-manager creating configmap with generate labels without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies unified kube-controller-manager updating configmap with changed generate labels",
+			operation:   admissionv1.Update,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "tampered"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies unified kube-controller-manager modifying endpoints in non-core group",
+			operation:   admissionv1.Create,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "custom.io", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies unified kube-controller-manager modifying endpointslice in non-discovery group",
+			operation:   admissionv1.Create,
+			username:    kubeControllerManagerUsername,
+			kind:        metav1.GroupVersionKind{Group: "custom.io", Version: "v1", Kind: "EndpointSlice"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies generate labels on create for endpoints created by ordinary user without ownerReferences",
+			operation:   admissionv1.Create,
+			username:    user,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			newLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies endpoints update with changing generate labels by ordinary user",
+			operation:   admissionv1.Update,
+			username:    user,
+			kind:        metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"},
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "tampered"},
+			wantAllowed: false,
+		},
+		{
+			name:        "denies modifying generate labels on update even with ownerReferences",
+			operation:   admissionv1.Update,
+			username:    user,
+			oldLabels:   map[string]string{generatePolicy: "sync-secrets"},
+			newLabels:   map[string]string{generatePolicy: "tampered"},
+			hasOwnerRef: true,
+			wantAllowed: false,
 		},
 		{
 			name:        "allows standalone Kyverno managed-by on create",
@@ -569,19 +1038,47 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 				called = true
 				return admissionv1.AdmissionResponse{Allowed: true}
 			})
+			gvk := test.kind
+			if gvk.Kind == "" {
+				gvk = metav1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}
+			}
 			request := AdmissionRequest{AdmissionRequest: admissionv1.AdmissionRequest{
 				UID:       types.UID("test-uid"),
 				Operation: test.operation,
-				Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+				Kind:      gvk,
 				Namespace: "tenant",
 				Name:      "test",
 				UserInfo:  authenticationv1.UserInfo{Username: test.username},
 			}}
 			if test.operation != admissionv1.Delete {
-				request.Object.Raw = resourceWithLabels(t, test.newLabels)
+				if test.hasOwnerRef {
+					targetKind := gvk.Kind
+					if targetKind == "" {
+						targetKind = "ConfigMap"
+					}
+					ownerKind := test.ownerKind
+					if ownerKind == "" {
+						ownerKind = "Service"
+					}
+					request.Object.Raw = resourceWithLabelsAndOwnerRef(t, targetKind, test.newLabels, ownerKind, test.isControllerOwner)
+				} else {
+					request.Object.Raw = resourceWithLabels(t, test.newLabels)
+				}
 			}
 			if test.operation != admissionv1.Create {
-				request.OldObject.Raw = resourceWithLabels(t, test.oldLabels)
+				if test.hasOwnerRef {
+					targetKind := gvk.Kind
+					if targetKind == "" {
+						targetKind = "ConfigMap"
+					}
+					ownerKind := test.ownerKind
+					if ownerKind == "" {
+						ownerKind = "Service"
+					}
+					request.OldObject.Raw = resourceWithLabelsAndOwnerRef(t, targetKind, test.oldLabels, ownerKind, test.isControllerOwner)
+				} else {
+					request.OldObject.Raw = resourceWithLabels(t, test.oldLabels)
+				}
 			}
 
 			handler := inner.WithGenerateLabelProtection(kyvernoUser).WithProtection(test.protectManagedResources)
@@ -722,6 +1219,42 @@ func resourceWithLabels(t *testing.T, labels map[string]string) []byte {
 			"name":      "test",
 			"namespace": "tenant",
 			"labels":    labels,
+		},
+	}
+	raw, err := json.Marshal(resource)
+	assert.NoError(t, err)
+	return raw
+}
+
+func resourceWithLabelsAndOwnerRef(t *testing.T, targetKind string, labels map[string]string, ownerKind string, isController bool) []byte {
+	t.Helper()
+	apiVersion := "v1"
+	if targetKind == "CertificateRequest" {
+		apiVersion = "cert-manager.io/v1"
+	} else if targetKind == "Order" {
+		apiVersion = "acme.cert-manager.io/v1"
+	}
+	ownerAPIVersion := "v1"
+	if ownerKind == "Certificate" || ownerKind == "CertificateRequest" {
+		ownerAPIVersion = "cert-manager.io/v1"
+	}
+	ownerRef := map[string]interface{}{
+		"apiVersion": ownerAPIVersion,
+		"kind":       ownerKind,
+		"name":       "parent-" + strings.ToLower(ownerKind),
+		"uid":        "parent-uid",
+	}
+	if isController {
+		ownerRef["controller"] = true
+	}
+	resource := map[string]interface{}{
+		"apiVersion": apiVersion,
+		"kind":       targetKind,
+		"metadata": map[string]interface{}{
+			"name":            "test",
+			"namespace":       "tenant",
+			"labels":          labels,
+			"ownerReferences": []map[string]interface{}{ownerRef},
 		},
 	}
 	raw, err := json.Marshal(resource)

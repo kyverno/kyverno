@@ -6,9 +6,12 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy/annotations"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
+// printTable renders engine response results as formatted ASCII/Markdown tables,
+// converting audit-only validating policy failures into warnings when auditWarn is enabled.
 func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engineapi.EngineResponse) {
 	var resultsTable table.Table
 	id := 1
@@ -26,16 +29,11 @@ func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engin
 			row.ID = id
 			id++
 			row.Policy = color.Policy(policyNamespace, policyName)
-			if policy.AsKyvernoPolicy() != nil {
-				row.Rule = color.Rule(ruleResponse.Name())
-			}
 			row.Resource = color.Resource(resourceKind, resourceNamespace, resourceName)
 			if ruleResponse.Status() == engineapi.RuleStatusPass {
 				row.Result = color.ResultPass()
 			} else if ruleResponse.Status() == engineapi.RuleStatusFail {
-				if !scored {
-					row.Result = color.ResultWarn()
-				} else if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
+				if !scored || (auditWarn && processor.IsAuditOnlyValidatingPolicy(policy)) {
 					row.Result = color.ResultWarn()
 				} else {
 					row.Result = color.ResultFail()

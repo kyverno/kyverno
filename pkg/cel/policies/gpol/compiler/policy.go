@@ -137,19 +137,28 @@ func (p *Policy) Evaluate(
 		}
 		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Generations: generationTraces, Verdict: verdict}
 	}
-	// failed returns what Evaluate returned on this error before tracing existed (nil, err),
-	// plus, with tracing on, a result carrying what was traced up to the failure
+	// An evaluation error does not roll back already acknowledged API writes.
+	// Preserve their identities before ClearGeneratedResources runs so callers can
+	// register them even when decision tracing is disabled.
 	failed := func(err error) (*EvaluationResult, error) {
-		if !p.trace {
+		generated := data.Context.GetGeneratedResources()
+		if !p.trace && len(generated) == 0 {
 			return nil, err
 		}
-		return &EvaluationResult{Trace: decision(trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()})}, err
+		return &EvaluationResult{
+			GeneratedResources: append([]*unstructured.Unstructured(nil), generated...),
+			Trace:              decision(trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()}),
+		}, err
 	}
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
 		for _, polex := range p.exceptions {
+			// Compiled exceptions can expire without a policy or exception update.
+			if polex.IsExpired() {
+				continue
+			}
 			match, err := p.match(ctx, dataNew, polex.MatchConditions, nil)
 			if err != nil {
 				if fullExemptionFound {
@@ -211,7 +220,7 @@ func (p *Policy) Evaluate(
 	}
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew[compiler.VariablesKey] = vars
-	dataNew[compiler.GeneratorKey] = generator.Context{ContextInterface: data.Context}
+	dataNew[compiler.GeneratorKey] = generator.Context{ContextInterface: libs.WithRequestContext(ctx, data.Context)}
 	// explainData is what every tracking twin below is re-run against: the same data, the same
 	// lazy variables, but a generator that generates nothing, so explaining a variable or a
 	// generate expression can never generate its resources a second time
@@ -382,8 +391,9 @@ func (p *Policy) applyTemplate(ctx context.Context, tpl *template.Template, acti
 		}
 		grouped[namespace] = append(grouped[namespace], resource)
 	}
+	reqCtx := libs.WithRequestContext(ctx, libsCtx)
 	for _, namespace := range namespaces {
-		if err := libsCtx.GenerateResources(namespace, grouped[namespace]); err != nil {
+		if err := reqCtx.GenerateResources(namespace, grouped[namespace]); err != nil {
 			return fmt.Errorf("failed to generate resources: %w", err)
 		}
 	}

@@ -5,9 +5,9 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
@@ -17,7 +17,7 @@ func Test_webhook_isEmpty(t *testing.T) {
 	empty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore, []admissionregistrationv1.MatchCondition{})
 	assert.Equal(t, empty.isEmpty(), true)
 	notEmpty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore, []admissionregistrationv1.MatchCondition{})
-	notEmpty.set("", "v1", "pods", "", admissionregistrationv1.NamespacedScope, kyvernov1.Create)
+	notEmpty.set("", "v1", "pods", "", admissionregistrationv1.NamespacedScope, admissionv1.Create)
 	assert.Equal(t, notEmpty.isEmpty(), false)
 }
 
@@ -28,8 +28,8 @@ func TestBuildRulesWithOperations(t *testing.T) {
 		expectedResult []admissionregistrationv1.RuleWithOperations
 	}{{
 		rules: sets.New[ruleEntry](
-			ruleEntry{"", "v1", "configmaps", "", admissionregistrationv1.NamespacedScope, kyvernov1.Create},
-			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, kyvernov1.Create},
+			ruleEntry{"", "v1", "configmaps", "", admissionregistrationv1.NamespacedScope, admissionv1.Create},
+			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, admissionv1.Create},
 		),
 		expectedResult: []admissionregistrationv1.RuleWithOperations{{
 			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -42,9 +42,9 @@ func TestBuildRulesWithOperations(t *testing.T) {
 		}},
 	}, {
 		rules: sets.New[ruleEntry](
-			ruleEntry{"", "v1", "configmaps", "", admissionregistrationv1.NamespacedScope, kyvernov1.Create},
-			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, kyvernov1.Create},
-			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, kyvernov1.Update},
+			ruleEntry{"", "v1", "configmaps", "", admissionregistrationv1.NamespacedScope, admissionv1.Create},
+			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, admissionv1.Create},
+			ruleEntry{"", "v1", "pods", "", admissionregistrationv1.NamespacedScope, admissionv1.Update},
 		),
 		expectedResult: []admissionregistrationv1.RuleWithOperations{{
 			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
@@ -573,4 +573,28 @@ func TestIvpolsNeedingMutation(t *testing.T) {
 			assert.Equal(t, tt.expectedCount, len(got))
 		})
 	}
+}
+
+func TestSortedRules_DoesNotMutateInput(t *testing.T) {
+	t.Parallel()
+	rules := []admissionregistrationv1.RuleWithOperations{{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"b", "a"},
+			APIVersions: []string{"v2", "v1"},
+			Resources:   []string{"pods", "configmaps"},
+		},
+		Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update, admissionregistrationv1.Create},
+	}}
+
+	got := sortedRules(rules)
+
+	assert.Equal(t, []string{"a", "b"}, got[0].APIGroups)
+	assert.Equal(t, []string{"v1", "v2"}, got[0].APIVersions)
+	assert.Equal(t, []string{"configmaps", "pods"}, got[0].Resources)
+	assert.Equal(t, []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}, got[0].Operations)
+	// the input (shared with the cached policy) must be untouched
+	assert.Equal(t, []string{"b", "a"}, rules[0].APIGroups)
+	assert.Equal(t, []string{"v2", "v1"}, rules[0].APIVersions)
+	assert.Equal(t, []string{"pods", "configmaps"}, rules[0].Resources)
+	assert.Equal(t, []admissionregistrationv1.OperationType{admissionregistrationv1.Update, admissionregistrationv1.Create}, rules[0].Operations)
 }
