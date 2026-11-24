@@ -75,22 +75,24 @@ func NewKubeProvider(compiler apolcompiler.Compiler, mgr ctrl.Manager) (Provider
 func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	key := req.NamespacedName.String()
 	var policy policiesv1alpha1.AuthorizingPolicy
+	// The cache read and the map update happen under one lock, so they are
+	// serialized with WarmUp: whichever runs second sees the newer cache state.
+	r.lock.Lock()
 	if err := r.client.Get(ctx, req.NamespacedName, &policy); err != nil {
 		if errors.IsNotFound(err) {
-			r.lock.Lock()
 			delete(r.policies, key)
 			r.publish()
 			r.lock.Unlock()
 			logger.V(4).Info("removed AuthorizingPolicy from cache", "policy", req.Name)
 			return ctrl.Result{}, nil
 		}
+		r.lock.Unlock()
 		return ctrl.Result{}, err
 	}
 	// Compile and validate at reconcile time, never on the request path.
 	compiled := apolengine.NewCompiledPolicy(r.compiler, policy.DeepCopy())
 	// A policy that fails to compile stays in the cache: its Deny and NoOpinion
 	// rules then apply as errors (fail closed), see the authorization contract.
-	r.lock.Lock()
 	r.policies[key] = compiled
 	r.publish()
 	r.lock.Unlock()
@@ -104,20 +106,23 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
+// WarmUp lists the cache under r.lock, the same lock Reconcile holds across its
+// cache read, and replaces the policy set with the listed policies. A policy
+// deleted before the list is therefore never re-added, and any change after
+// the list is applied by the reconcile its cache event triggers.
 func (r *reconciler) WarmUp(ctx context.Context) error {
+	r.lock.Lock()
+	defer r.lock.Unlock()
 	var list policiesv1alpha1.AuthorizingPolicyList
 	if err := r.client.List(ctx, &list); err != nil {
 		return err
 	}
-	r.lock.Lock()
-	defer r.lock.Unlock()
+	policies := make(map[string]apolengine.CompiledPolicy, len(list.Items))
 	for i := range list.Items {
 		policy := &list.Items[i]
-		key := client.ObjectKeyFromObject(policy).String()
-		if _, ok := r.policies[key]; !ok {
-			r.policies[key] = apolengine.NewCompiledPolicy(r.compiler, policy)
-		}
+		policies[client.ObjectKeyFromObject(policy).String()] = apolengine.NewCompiledPolicy(r.compiler, policy)
 	}
+	r.policies = policies
 	r.warm = true
 	r.publish()
 	return nil
