@@ -120,7 +120,7 @@ class Versions(unittest.TestCase):
             release.read(ROOT / "charts/kyverno/values.yaml"), metadata
         )
         self.assertEqual(metadata["chart_images"]["backgroundController.image"],
-                         "reg.kyverno.io/kyverno/background-controller:v1.20.2-rc3")
+                         "ghcr.io/kyverno/background-controller:v1.20.2-rc3")
         rendered = yaml.safe_dump({"containers": [
             {"image": reference} for reference in metadata["chart_images"].values()
         ]})
