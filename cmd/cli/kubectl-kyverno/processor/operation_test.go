@@ -223,3 +223,19 @@ func TestAdmissionRequestShapeUpdateDeepCopy(t *testing.T) {
 	object.(*unstructured.Unstructured).SetLabels(map[string]string{"mutated": "true"})
 	assert.Empty(t, oldObject.(*unstructured.Unstructured).GetLabels())
 }
+
+func TestMergeOldObjectFallback(t *testing.T) {
+	resource := &unstructured.Unstructured{Object: map[string]interface{}{
+		"metadata": map[string]interface{}{"name": "p1", "labels": map[string]interface{}{"tier": "new"}},
+	}}
+	// A func can't be marshaled, so the merge fails and the override is ignored.
+	got := mergeOldObject(resource, map[string]interface{}{"bad": func() {}})
+	assert.Equal(t, resource.Object, got.Object)
+	got.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{})["tier"] = "changed"
+	assert.Equal(t, "new", resource.Object["metadata"].(map[string]interface{})["labels"].(map[string]interface{})["tier"], "the fallback is a copy")
+
+	_, err := mergeJSON(map[string]interface{}{"bad": func() {}}, map[string]interface{}{})
+	assert.Error(t, err)
+	_, err = mergeJSON(map[string]interface{}{}, map[string]interface{}{"bad": func() {}})
+	assert.Error(t, err)
+}

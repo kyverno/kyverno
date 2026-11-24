@@ -1,0 +1,58 @@
+# Each policy checks the old object's tier: tier-old and tier-other declare different overrides, and
+# tier-unchanged declares none, so it sees the resource itself.
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: tier-old
+spec:
+  attestors: []
+  validationConfigurations:
+    verifyDigest: false
+    mutateDigest: false
+    required: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [UPDATE]
+        resources: [pods]
+  validations:
+    - expression: "oldObject.metadata.labels.tier == 'old'"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: tier-other
+spec:
+  attestors: []
+  validationConfigurations:
+    verifyDigest: false
+    mutateDigest: false
+    required: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [UPDATE]
+        resources: [pods]
+  validations:
+    - expression: "oldObject.metadata.labels.tier == 'other'"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: tier-unchanged
+spec:
+  attestors: []
+  validationConfigurations:
+    verifyDigest: false
+    mutateDigest: false
+    required: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [UPDATE]
+        resources: [pods]
+  validations:
+    - expression: "oldObject.metadata.labels.tier == object.metadata.labels.tier"

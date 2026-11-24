@@ -1,0 +1,33 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: mark-tier-change
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  matchConditions:
+  - name: tier-changed
+    expression: "oldObject.metadata.labels.tier != object.metadata.labels.tier"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: {"tier-changed-from": string(oldObject.metadata.labels.tier)}}}
+---
+# A JSON-mode policy never shares the Pod's admission request, so its override can't conflict with mark-tier-change's.
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: json-labeler
+spec:
+  evaluation:
+    mode: JSON
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{labeled: true}

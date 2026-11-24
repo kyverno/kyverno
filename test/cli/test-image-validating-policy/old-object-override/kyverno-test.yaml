@@ -1,0 +1,28 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: ivpol-old-object-override
+policies:
+- policy.yaml
+resources:
+- pod.yaml
+variables: values.yaml
+results:
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: tier-old
+  operation: UPDATE
+  resources: [p1]
+  result: pass
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: tier-other
+  operation: UPDATE
+  resources: [p1]
+  result: pass
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: tier-unchanged
+  operation: UPDATE
+  resources: [p1]
+  result: pass

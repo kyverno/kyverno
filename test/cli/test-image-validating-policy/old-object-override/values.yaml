@@ -1,0 +1,15 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+metadata:
+  name: values
+policies:
+  - name: tier-old
+    resources:
+      - name: p1
+        values:
+          request.oldObject: {metadata: {labels: {tier: old}}}
+  - name: tier-other
+    resources:
+      - name: p1
+        values:
+          request.oldObject: {metadata: {labels: {tier: other}}}

@@ -277,7 +277,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 		}
 		if resource.Object != nil {
-			oldObjectOverride, err := mutatingOldObjectOverride(p.Variables, mutatingPolicies, resource.GetName(), p.resolveOperation())
+			// Skip inline mutation for policies with active target constraints, as admission does.
+			inline := func(policy policiesv1beta1.MutatingPolicyLike) bool {
+				return policy.GetSpec().EvaluationMode() != policieskyvernoio.EvaluationModeJSON &&
+					mpolengine.NoTargetMatchConstraintPolicy()(policy)
+			}
+			// Only the policies this request evaluates share its oldObject.
+			oldObjectOverride, err := mutatingOldObjectOverride(p.Variables, slices.DeleteFunc(slices.Clone(mutatingPolicies), func(policy policiesv1beta1.MutatingPolicyLike) bool { return !inline(policy) }), resource.GetName(), p.resolveOperation())
 			if err != nil {
 				return nil, err
 			}
@@ -324,11 +330,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				false,
 				nil,
 			)
-			// Skip inline mutation for policies with active target constraints, as admission does.
-			reps, err := eng.Handle(context.TODO(), request, func(policy policiesv1beta1.MutatingPolicyLike) bool {
-				return policy.GetSpec().EvaluationMode() != policieskyvernoio.EvaluationModeJSON &&
-					mpolengine.NoTargetMatchConstraintPolicy()(policy)
-			})
+			reps, err := eng.Handle(context.TODO(), request, inline)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}

@@ -508,3 +508,11 @@ func TestVariables_OldObjectOverrideDottedMapNotMutated(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, map[string]interface{}{"metadata": map[string]interface{}{"labels": map[string]interface{}{"tier": "old"}}}, got)
 }
+
+func TestVariables_OldObjectOverrideMalformedDottedKey(t *testing.T) {
+	key := `request.oldObject.metadata.labels."tier`
+	v := Variables{values: &v1alpha1.ValuesSpec{GlobalValues: map[string]interface{}{key: "old"}}}
+	_, err := v.OldObjectOverride(nil, "p1")
+	assert.ErrorContains(t, err, key)
+	assert.Equal(t, map[string]interface{}{key: "old"}, v.values.GlobalValues)
+}
