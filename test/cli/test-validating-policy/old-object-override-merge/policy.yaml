@@ -1,0 +1,22 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: labels-only-override-keeps-spec
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [UPDATE]
+      resources:   [pods]
+  validations:
+    - expression: >-
+        has(oldObject.spec) &&
+        oldObject.spec.containers[0].image == object.spec.containers[0].image &&
+        object.metadata.labels.tier != oldObject.metadata.labels.tier
+      message: >-
+        a request.oldObject override naming only metadata.labels must merge
+        onto the resource copy, not replace it outright: spec (present only
+        on the resource, not in the override) must survive in oldObject

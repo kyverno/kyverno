@@ -490,7 +490,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, nsResolver, userInfo, rc, dClient, variables.GlobalOperation())
+	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, nsResolver, userInfo, rc, dClient, variables.GlobalOperation(), variables)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -801,6 +801,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
 	operation string,
+	vars *variables.Variables,
 ) ([]engineapi.EngineResponse, error) {
 	if len(ivps) == 0 {
 		return nil, nil
@@ -869,45 +870,61 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		if userInfo != nil {
 			user = userInfo.AdmissionUserInfo
 		}
-		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
-		request := celengine.Request(
-			contextProvider,
-			resource.GroupVersionKind(),
-			gvr,
-			"",
-			resource.GetName(),
-			resource.GetNamespace(),
-			op,
-			user,
-			object,
-			oldObject,
-			false,
-			nil,
-		)
-		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
+		// One engine call per group of policies that resolve to the same
+		// request.oldObject override, so a policy that declares none (or a
+		// different one) never inherits another's; see GroupByOldObjectOverride.
+		groups, err := processor.GroupByOldObjectOverride(vars, processor.NamesOf(ivps), resource.GetName(), operation)
 		if err != nil {
 			if c.ContinueOnFail {
-				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
+				fmt.Printf("failed to resolve request.oldObject override for resource %s (%v)\n", resource.GetName(), err)
 				continue
 			}
-			return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
+			return responses, fmt.Errorf("failed to resolve request.oldObject override for resource %s (%w)", resource.GetName(), err)
 		}
 		resp := engineapi.EngineResponse{
 			Resource:       *resource,
 			PolicyResponse: engineapi.PolicyResponse{},
 		}
-
-		for _, r := range engineResponse.Policies {
-			c.printTrace(out, r.Trace)
-			if r.Result.Name() == "" {
-				// a traced policy that did not apply, or that a match condition skipped: it is only
-				// returned for its trace and has no result, like the untraced run, which omits it
-				continue
+		for _, g := range groups {
+			op, object, oldObject := processor.AdmissionRequestShape(operation, resource, g.Override)
+			request := celengine.Request(
+				contextProvider,
+				resource.GroupVersionKind(),
+				gvr,
+				"",
+				resource.GetName(),
+				resource.GetNamespace(),
+				op,
+				user,
+				object,
+				oldObject,
+				false,
+				nil,
+			)
+			names := g.Names
+			engineResponse, err := engine.HandleValidating(context.TODO(), request, func(p policiesv1beta1.ImageValidatingPolicyLike) bool {
+				return slices.Contains(names, p.GetName())
+			})
+			if err != nil {
+				if c.ContinueOnFail {
+					fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
+					continue
+				}
+				return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
 			}
-			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
-			rc.AddValidatingPolicyResponse(c.AuditWarn, resp)
-			responses = append(responses, resp)
+
+			for _, r := range engineResponse.Policies {
+				c.printTrace(out, r.Trace)
+				if r.Result.Name() == "" {
+					// a traced policy that did not apply, or that a match condition skipped: it is only
+					// returned for its trace and has no result, like the untraced run, which omits it
+					continue
+				}
+				resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
+				resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
+				rc.AddValidatingPolicyResponse(c.AuditWarn, resp)
+				responses = append(responses, resp)
+			}
 		}
 	}
 

@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+metadata:
+  name: values
+policies:
+  - name: protect-pod-on-delete
+    resources:
+      - name: delete-with-override
+        values:
+          # the live resource has no "protected" label; this override
+          # supplies one anyway, to prove it is read from the values file
+          # and not from the resource being deleted.
+          request.oldObject:
+            metadata:
+              labels:
+                protected: "true"

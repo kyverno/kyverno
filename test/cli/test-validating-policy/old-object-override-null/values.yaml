@@ -1,0 +1,17 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+metadata:
+  name: values
+policies:
+  - name: no-paused-annotation
+    resources:
+      - name: paused-annotation-removed
+        values:
+          # an explicit null deletes the annotation key from the default
+          # oldObject (a copy of the resource, which still carries the
+          # annotation) instead of storing a JSON null, so has() below
+          # reports it as absent rather than present-with-null.
+          request.oldObject:
+            metadata:
+              annotations:
+                example.com/paused: null

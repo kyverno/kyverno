@@ -1,7 +1,10 @@
 package variables
 
 import (
+	"encoding/csv"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -9,6 +12,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
+
+// oldObjectKey is the values-file key that carries the request.oldObject
+// override, either as a single map (oldObjectKey) or folded in dotted form
+// (oldObjectKey + "." + <path>), e.g. request.oldObject.metadata.labels.x.
+const oldObjectKey = "request.oldObject"
 
 type Variables struct {
 	values    *v1alpha1.ValuesSpec
@@ -82,6 +90,116 @@ func (v Variables) GlobalOperation() string {
 		}
 	}
 	return ""
+}
+
+// OldObjectOverride resolves the request.oldObject override declared in the
+// values file for resourceName, scoped to one of policyNames, folding in any
+// dotted request.oldObject.<path> keys. It returns (nil, nil) if none is
+// declared, and an error if a declared request.oldObject isn't a map.
+func (v Variables) OldObjectOverride(policyNames []string, resourceName string) (map[string]interface{}, error) {
+	if v.values == nil {
+		return nil, nil
+	}
+	flat := map[string]interface{}{}
+	for k, val := range v.values.GlobalValues {
+		if isOldObjectKey(k) {
+			flat[k] = val
+		}
+	}
+	wanted := sets.New(policyNames...)
+	for _, p := range v.values.Policies {
+		if !wanted.Has(p.Name) {
+			continue
+		}
+		for _, r := range p.Resources {
+			if r.Name != resourceName {
+				continue
+			}
+			for k, val := range r.Values {
+				if isOldObjectKey(k) {
+					flat[k] = val
+				}
+			}
+		}
+	}
+	if len(flat) == 0 {
+		return nil, nil
+	}
+	keys := make([]string, 0, len(flat))
+	for k := range flat {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	override := map[string]interface{}{}
+	for _, k := range keys {
+		val := flat[k]
+		if k == oldObjectKey {
+			m, ok := val.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("%s for resource %q must be a map, got %T", oldObjectKey, resourceName, val)
+			}
+			foldOverride(override, m)
+			continue
+		}
+		if err := setDottedPath(override, strings.TrimPrefix(k, oldObjectKey+"."), val); err != nil {
+			return nil, err
+		}
+	}
+	return override, nil
+}
+
+func isOldObjectKey(k string) bool {
+	return k == oldObjectKey || strings.HasPrefix(k, oldObjectKey+".")
+}
+
+// foldOverride deep-merges src into dest: nested maps merge key by key, and
+// everything else, including an explicit null, replaces the dest entry
+// as-is, for mergeOldObject to interpret as a delete later.
+func foldOverride(dest, src map[string]interface{}) {
+	for k, v := range src {
+		if m, ok := v.(map[string]interface{}); ok {
+			if dm, ok := dest[k].(map[string]interface{}); ok {
+				foldOverride(dm, m)
+				continue
+			}
+			// A fresh map, so a later dotted key never writes into the values file's own map.
+			fresh := map[string]interface{}{}
+			foldOverride(fresh, m)
+			dest[k] = fresh
+			continue
+		}
+		dest[k] = v
+	}
+}
+
+// setDottedPath sets dest[p1][p2]...[pn] = val, creating intermediate maps as
+// needed, so a dotted request.oldObject.<path> key folds into the same shape
+// as the map form of request.oldObject.
+func setDottedPath(dest map[string]interface{}, dotted string, val interface{}) error {
+	// Split like the 1.19 JSON context did, so a quoted segment such as "app.example.com/tier" keeps its dots.
+	reader := csv.NewReader(strings.NewReader(dotted))
+	reader.Comma = '.'
+	parts, err := reader.Read()
+	if err != nil {
+		return fmt.Errorf("invalid key %s.%s: %w", oldObjectKey, dotted, err)
+	}
+	cur := dest
+	for _, part := range parts[:len(parts)-1] {
+		next, ok := cur[part].(map[string]interface{})
+		if !ok {
+			next = map[string]interface{}{}
+			cur[part] = next
+		}
+		cur = next
+	}
+	if m, ok := val.(map[string]interface{}); ok {
+		// A fresh map, as in foldOverride, so a deeper dotted key never writes into the values file's map.
+		fresh := map[string]interface{}{}
+		foldOverride(fresh, m)
+		val = fresh
+	}
+	cur[parts[len(parts)-1]] = val
+	return nil
 }
 
 func (v Variables) ComputeVariables(s *store.Store, policy, resource, kind string, kindMap sets.Set[string], variables ...string) (map[string]interface{}, error) {

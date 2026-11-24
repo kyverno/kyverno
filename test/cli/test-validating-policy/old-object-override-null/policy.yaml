@@ -1,0 +1,17 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: no-paused-annotation
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [UPDATE]
+      resources:   [pods]
+  validations:
+    - expression: >-
+        !(has(oldObject.metadata.annotations) && 'example.com/paused' in oldObject.metadata.annotations)
+      message: "the example.com/paused annotation must not be present on the old object"

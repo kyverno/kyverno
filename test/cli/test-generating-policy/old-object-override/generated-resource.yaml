@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tier-change-old
+  namespace: test-ns
+data:
+  a: b

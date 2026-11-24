@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: update-override-diff
+  namespace: test-ns
+  labels:
+    tier: new
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: update-no-override
+  namespace: test-ns
+  labels:
+    tier: new
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25

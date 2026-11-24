@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+metadata:
+  name: values
+policies:
+  - name: pol-a-tier-check
+    resources:
+      - name: p1
+        values:
+          # declared only under pol-a-tier-check; pol-b-tier-check has the
+          # identical CEL expression but no values entry here, so it must
+          # not inherit this override: overrides are scoped per policy.
+          request.oldObject:
+            metadata:
+              labels:
+                tier: old

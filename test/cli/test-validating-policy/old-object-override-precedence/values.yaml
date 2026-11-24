@@ -1,0 +1,31 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+metadata:
+  name: values
+globalValues:
+  request.operation: UPDATE
+  # applies to every resource that has no more specific, per-resource
+  # request.oldObject override declared under its matching policy. Sets
+  # only the "tier" field (field A).
+  request.oldObject:
+    metadata:
+      labels:
+        tier: global-old
+policies:
+  - name: detect-tier-change
+    resources:
+      - name: per-resource-override-replaces-global
+        values:
+          # Verified against the stock 1.19.2 CLI with an equivalent
+          # ClusterPolicy (mise x kyverno@1.19.2): a per-resource
+          # request.oldObject entirely REPLACES a global one, it does not
+          # merge with it. This override sets only "team" (field B); under
+          # replacement, the global's "tier" (field A) must NOT leak through
+          # onto this resource's oldObject, leaving oldObject.tier equal to
+          # the resource's own (unmodified) value. Under a (wrong) merge of
+          # the two oldObject layers, oldObject.tier would still be
+          # "global-old" and the policy's tier-equality check would fail.
+          request.oldObject:
+            metadata:
+              labels:
+                team: override-team

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: paused-annotation-removed
+  namespace: test-ns
+  annotations:
+    example.com/paused: "true"
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: paused-annotation-kept
+  namespace: test-ns
+  annotations:
+    example.com/paused: "true"
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25

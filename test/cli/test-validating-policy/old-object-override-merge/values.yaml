@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+metadata:
+  name: values
+policies:
+  - name: labels-only-override-keeps-spec
+    resources:
+      - name: labels-only-override
+        values:
+          # declares only metadata.labels; spec exists solely on the
+          # resource, never in this override, so it must still be present
+          # in oldObject (merged onto the resource copy, not replacing it).
+          request.oldObject:
+            metadata:
+              labels:
+                tier: old

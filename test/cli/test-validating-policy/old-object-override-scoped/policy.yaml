@@ -1,0 +1,33 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: pol-a-tier-check
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [UPDATE]
+      resources:   [pods]
+  validations:
+    - expression: object.metadata.labels.tier == oldObject.metadata.labels.tier
+      message: "tier label must not change between oldObject and object"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: pol-b-tier-check
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [UPDATE]
+      resources:   [pods]
+  validations:
+    - expression: object.metadata.labels.tier == oldObject.metadata.labels.tier
+      message: "tier label must not change between oldObject and object"

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: delete-with-override
+  namespace: test-ns
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: delete-no-override
+  namespace: test-ns
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25

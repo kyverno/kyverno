@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+metadata:
+  name: values
+policies:
+  - name: detect-tier-change
+    resources:
+      - name: update-override-diff
+        values:
+          # overrides the default oldObject (a plain copy of the resource)
+          # with a partial diff: everything except metadata.labels.tier keeps
+          # coming from the resource itself.
+          request.oldObject:
+            metadata:
+              labels:
+                tier: old

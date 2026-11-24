@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
@@ -672,6 +673,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				restMapper,
 				gceMap,
 				operation,
+				vars,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -808,6 +810,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				restMapper,
 				gceMap,
 				"",
+				vars,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
@@ -942,6 +945,7 @@ func applyImageValidatingPolicies(
 	restMapper meta.RESTMapper,
 	gceMap map[string]interface{},
 	operation string,
+	vars *variables.Variables,
 ) ([]engineapi.EngineResponse, error) {
 	var lister corev1listers.SecretLister
 	if dclient != nil {
@@ -1001,43 +1005,59 @@ func applyImageValidatingPolicies(
 		if userInfo != nil {
 			user = userInfo.AdmissionUserInfo
 		}
-		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
-		request := celengine.Request(
-			contextProvider,
-			resource.GroupVersionKind(),
-			gvr,
-			"",
-			resource.GetName(),
-			resource.GetNamespace(),
-			op,
-			user,
-			object,
-			oldObject,
-			false,
-			nil,
-		)
-		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
+		// One engine call per group of policies that resolve to the same
+		// request.oldObject override, so a policy that declares none (or a
+		// different one) never inherits another's; see GroupByOldObjectOverride.
+		groups, err := processor.GroupByOldObjectOverride(vars, processor.NamesOf(ivps), resource.GetName(), operation)
 		if err != nil {
 			if continueOnFail {
-				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
+				fmt.Printf("failed to resolve request.oldObject override for resource %s (%v)\n", resource.GetName(), err)
 				continue
 			}
-			return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
+			return responses, fmt.Errorf("failed to resolve request.oldObject override for resource %s (%w)", resource.GetName(), err)
 		}
 		resp := engineapi.EngineResponse{
 			Resource:       *resource,
 			PolicyResponse: engineapi.PolicyResponse{},
 		}
-
-		for _, r := range engineResponse.Policies {
-			if reflect.DeepEqual(r.Result, engineapi.RuleResponse{}) {
-				resp.PolicyResponse.Rules = []engineapi.RuleResponse{}
-			} else {
-				resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
+		for _, g := range groups {
+			op, object, oldObject := processor.AdmissionRequestShape(operation, resource, g.Override)
+			request := celengine.Request(
+				contextProvider,
+				resource.GroupVersionKind(),
+				gvr,
+				"",
+				resource.GetName(),
+				resource.GetNamespace(),
+				op,
+				user,
+				object,
+				oldObject,
+				false,
+				nil,
+			)
+			names := g.Names
+			engineResponse, err := engine.HandleValidating(context.TODO(), request, func(p policiesv1beta1.ImageValidatingPolicyLike) bool {
+				return slices.Contains(names, p.GetName())
+			})
+			if err != nil {
+				if continueOnFail {
+					fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
+					continue
+				}
+				return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
 			}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
-			rc.AddValidatingPolicyResponse(false, resp)
-			responses = append(responses, resp)
+
+			for _, r := range engineResponse.Policies {
+				if reflect.DeepEqual(r.Result, engineapi.RuleResponse{}) {
+					resp.PolicyResponse.Rules = []engineapi.RuleResponse{}
+				} else {
+					resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
+				}
+				resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
+				rc.AddValidatingPolicyResponse(false, resp)
+				responses = append(responses, resp)
+			}
 		}
 	}
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)

@@ -1,0 +1,14 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+metadata:
+  name: values
+policies:
+  - name: gen-on-tier-change
+    resources:
+      - name: p1
+        values:
+          # Without it, oldObject is a copy of the resource and the ConfigMap is tier-change-new.
+          request.oldObject:
+            metadata:
+              labels:
+                tier: old

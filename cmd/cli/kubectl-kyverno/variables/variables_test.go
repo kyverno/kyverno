@@ -275,3 +275,236 @@ func TestVariables_ComputeVariables(t *testing.T) {
 		})
 	}
 }
+
+func TestVariables_OldObjectOverride(t *testing.T) {
+	globalOverride := map[string]interface{}{"spec": map[string]interface{}{"replicas": int64(1)}}
+	perResourceOverrideA := map[string]interface{}{"spec": map[string]interface{}{"replicas": int64(2)}}
+	perResourceOverrideB := map[string]interface{}{"spec": map[string]interface{}{"replicas": int64(3)}}
+	tests := []struct {
+		name        string
+		values      *v1alpha1.ValuesSpec
+		policyNames []string
+		resource    string
+		want        map[string]interface{}
+		wantErr     bool
+	}{{
+		name:     "nil values",
+		values:   nil,
+		resource: "deployment",
+		want:     nil,
+	}, {
+		name:     "no override declared",
+		values:   &v1alpha1.ValuesSpec{},
+		resource: "deployment",
+		want:     nil,
+	}, {
+		name: "global override only",
+		values: &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{"request.oldObject": globalOverride},
+		},
+		resource: "deployment",
+		want:     globalOverride,
+	}, {
+		name: "per-resource override takes precedence over global",
+		values: &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{"request.oldObject": globalOverride},
+			Policies: []v1alpha1.Policy{{
+				Name: "pol-a",
+				Resources: []v1alpha1.Resource{{
+					Name:   "deployment",
+					Values: map[string]interface{}{"request.oldObject": perResourceOverrideA},
+				}},
+			}},
+		},
+		policyNames: []string{"pol-a"},
+		resource:    "deployment",
+		want:        perResourceOverrideA,
+	}, {
+		name: "duplicate resource entries: the last one wins, as in 1.19.2",
+		values: &v1alpha1.ValuesSpec{
+			Policies: []v1alpha1.Policy{{
+				Name: "pol-a",
+				Resources: []v1alpha1.Resource{
+					{Name: "deployment", Values: map[string]interface{}{"request.oldObject": perResourceOverrideA}},
+					{Name: "deployment", Values: map[string]interface{}{"request.oldObject": perResourceOverrideB}},
+				},
+			}},
+		},
+		policyNames: []string{"pol-a"},
+		resource:    "deployment",
+		want:        perResourceOverrideB,
+	}, {
+		name: "per-resource override for an unrelated policy is ignored",
+		values: &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{"request.oldObject": globalOverride},
+			Policies: []v1alpha1.Policy{{
+				Name: "pol-a",
+				Resources: []v1alpha1.Resource{{
+					Name:   "deployment",
+					Values: map[string]interface{}{"request.oldObject": perResourceOverrideA},
+				}},
+			}},
+		},
+		policyNames: []string{"pol-b"},
+		resource:    "deployment",
+		want:        globalOverride,
+	}, {
+		name: "last policy in declaration order wins when multiple policyNames declare an override",
+		values: &v1alpha1.ValuesSpec{
+			Policies: []v1alpha1.Policy{{
+				Name: "pol-a",
+				Resources: []v1alpha1.Resource{{
+					Name:   "deployment",
+					Values: map[string]interface{}{"request.oldObject": perResourceOverrideA},
+				}},
+			}, {
+				Name: "pol-b",
+				Resources: []v1alpha1.Resource{{
+					Name:   "deployment",
+					Values: map[string]interface{}{"request.oldObject": perResourceOverrideB},
+				}},
+			}},
+		},
+		policyNames: []string{"pol-a", "pol-b"},
+		resource:    "deployment",
+		want:        perResourceOverrideB,
+	}, {
+		name: "per-resource override for a different resource name is ignored",
+		values: &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{"request.oldObject": globalOverride},
+			Policies: []v1alpha1.Policy{{
+				Name: "pol-a",
+				Resources: []v1alpha1.Resource{{
+					Name:   "other-deployment",
+					Values: map[string]interface{}{"request.oldObject": perResourceOverrideA},
+				}},
+			}},
+		},
+		policyNames: []string{"pol-a"},
+		resource:    "deployment",
+		want:        globalOverride,
+	}, {
+		name: "a non-map request.oldObject is an error, not a silent fallback to global",
+		values: &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{"request.oldObject": globalOverride},
+			Policies: []v1alpha1.Policy{{
+				Name: "pol-a",
+				Resources: []v1alpha1.Resource{{
+					Name:   "deployment",
+					Values: map[string]interface{}{"request.oldObject": "not-a-map"},
+				}},
+			}},
+		},
+		policyNames: []string{"pol-a"},
+		resource:    "deployment",
+		wantErr:     true,
+	}, {
+		name: "an explicit null request.oldObject is an error",
+		values: &v1alpha1.ValuesSpec{
+			Policies: []v1alpha1.Policy{{
+				Name: "pol-a",
+				Resources: []v1alpha1.Resource{{
+					Name:   "deployment",
+					Values: map[string]interface{}{"request.oldObject": nil},
+				}},
+			}},
+		},
+		policyNames: []string{"pol-a"},
+		resource:    "deployment",
+		wantErr:     true,
+	}, {
+		name: "dotted keys fold into the nested override",
+		values: &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.oldObject.metadata.labels.x": "y",
+				"request.oldObject.spec.replicas":     int64(4),
+			},
+		},
+		resource: "deployment",
+		want: map[string]interface{}{
+			"metadata": map[string]interface{}{"labels": map[string]interface{}{"x": "y"}},
+			"spec":     map[string]interface{}{"replicas": int64(4)},
+		},
+	}, {
+		name: "a per-resource dotted key combines with, rather than replaces, the global map override",
+		values: &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{"request.oldObject": globalOverride},
+			Policies: []v1alpha1.Policy{{
+				Name: "pol-a",
+				Resources: []v1alpha1.Resource{{
+					Name:   "deployment",
+					Values: map[string]interface{}{"request.oldObject.metadata.labels.x": "y"},
+				}},
+			}},
+		},
+		policyNames: []string{"pol-a"},
+		resource:    "deployment",
+		want: map[string]interface{}{
+			"spec":     map[string]interface{}{"replicas": int64(1)},
+			"metadata": map[string]interface{}{"labels": map[string]interface{}{"x": "y"}},
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := Variables{values: tt.values}
+			got, err := v.OldObjectOverride(tt.policyNames, tt.resource)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestVariables_OldObjectOverrideDoesNotMutateValues(t *testing.T) {
+	v := Variables{values: &v1alpha1.ValuesSpec{
+		GlobalValues: map[string]interface{}{
+			"request.oldObject": map[string]interface{}{"metadata": map[string]interface{}{"labels": map[string]interface{}{"tier": "old"}}},
+		},
+		Policies: []v1alpha1.Policy{{
+			Name: "pol-a",
+			Resources: []v1alpha1.Resource{{
+				Name:   "p1",
+				Values: map[string]interface{}{"request.oldObject.metadata.labels.extra": "a-only"},
+			}},
+		}},
+	}}
+	got, err := v.OldObjectOverride([]string{"pol-a"}, "p1")
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"metadata": map[string]interface{}{"labels": map[string]interface{}{"tier": "old", "extra": "a-only"}}}, got)
+	// pol-a's dotted key must not have been written into the global map.
+	got, err = v.OldObjectOverride([]string{"pol-b"}, "p1")
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"metadata": map[string]interface{}{"labels": map[string]interface{}{"tier": "old"}}}, got)
+}
+
+func TestVariables_OldObjectOverrideQuotedDottedKey(t *testing.T) {
+	v := Variables{values: &v1alpha1.ValuesSpec{
+		GlobalValues: map[string]interface{}{`request.oldObject.metadata.labels."app.example.com/tier"`: "old"},
+	}}
+	got, err := v.OldObjectOverride(nil, "p1")
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"metadata": map[string]interface{}{"labels": map[string]interface{}{"app.example.com/tier": "old"}}}, got)
+}
+
+func TestVariables_OldObjectOverrideDottedMapNotMutated(t *testing.T) {
+	v := Variables{values: &v1alpha1.ValuesSpec{
+		GlobalValues: map[string]interface{}{
+			"request.oldObject.metadata.labels": map[string]interface{}{"tier": "old"},
+		},
+		Policies: []v1alpha1.Policy{{
+			Name: "pol-a",
+			Resources: []v1alpha1.Resource{{
+				Name:   "p1",
+				Values: map[string]interface{}{"request.oldObject.metadata.labels.extra": "a-only"},
+			}},
+		}},
+	}}
+	_, err := v.OldObjectOverride([]string{"pol-a"}, "p1")
+	assert.NoError(t, err)
+	got, err := v.OldObjectOverride([]string{"pol-b"}, "p2")
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"metadata": map[string]interface{}{"labels": map[string]interface{}{"tier": "old"}}}, got)
+}

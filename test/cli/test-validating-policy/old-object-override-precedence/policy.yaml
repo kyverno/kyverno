@@ -1,0 +1,21 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: detect-tier-change
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [UPDATE]
+      resources:   [pods]
+  validations:
+    - expression: >-
+        object.metadata.labels.tier == oldObject.metadata.labels.tier &&
+        (!('team' in oldObject.metadata.labels) || oldObject.metadata.labels.team == object.metadata.labels.team)
+      message: >-
+        tier label must not change between oldObject and object, and a
+        per-resource request.oldObject override must replace (not merge
+        with) a global one that sets a different field

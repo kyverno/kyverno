@@ -1,0 +1,24 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: old-object-override-dotted
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: detect-tier-change
+  operation: UPDATE
+  resources:
+  - dotted-override
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: detect-tier-change
+  operation: UPDATE
+  resources:
+  - dotted-no-override
+  result: pass

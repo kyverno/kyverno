@@ -1,0 +1,24 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: old-object-override-scoped
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: pol-a-tier-check
+  operation: UPDATE
+  resources:
+  - p1
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: pol-b-tier-check
+  operation: UPDATE
+  resources:
+  - p1
+  result: pass

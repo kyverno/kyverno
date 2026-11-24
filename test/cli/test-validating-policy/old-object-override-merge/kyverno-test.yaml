@@ -1,0 +1,17 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: old-object-override-merge
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: labels-only-override-keeps-spec
+  operation: UPDATE
+  resources:
+  - labels-only-override
+  result: pass

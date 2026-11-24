@@ -1,0 +1,13 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+metadata:
+  name: values
+policies:
+  - name: detect-tier-change
+    resources:
+      - name: dotted-override
+        values:
+          # dotted form of request.oldObject, as legacy ClusterPolicy values
+          # files used (test/cli/test/update/values.yaml): folded into the
+          # same nested override as the map form.
+          request.oldObject.metadata.labels.tier: old

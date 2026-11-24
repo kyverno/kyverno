@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: global-override-applies
+  namespace: test-ns
+  labels:
+    tier: new
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: per-resource-override-replaces-global
+  namespace: test-ns
+  labels:
+    tier: new
+    team: override-team
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25

@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Values
+metadata:
+  name: values
+policies:
+  - name: mark-tier-change
+    resources:
+      - name: p1
+        values:
+          # without this override, oldObject would be a plain copy of the
+          # resource (tier: new), the matchCondition would see no change,
+          # and the mutation would never run.
+          request.oldObject:
+            metadata:
+              labels:
+                tier: old

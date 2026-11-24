@@ -1,0 +1,22 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: old-object-override-precedence
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: detect-tier-change
+  resources:
+  - global-override-applies
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: detect-tier-change
+  resources:
+  - per-resource-override-replaces-global
+  result: pass

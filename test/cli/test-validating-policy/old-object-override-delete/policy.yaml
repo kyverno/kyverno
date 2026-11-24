@@ -1,0 +1,17 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: protect-pod-on-delete
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [DELETE]
+      resources:   [pods]
+  validations:
+    - expression: >-
+        !(has(oldObject.metadata.labels) && 'protected' in oldObject.metadata.labels && oldObject.metadata.labels['protected'] == 'true')
+      message: "protected pods cannot be deleted"

@@ -1,0 +1,17 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: gen-on-tier-change
+spec:
+  evaluation:
+    synchronize:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [UPDATE]
+      resources: [pods]
+  generate:
+  - expression: >
+      generator.Apply("test-ns", [{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "tier-change-" + string(oldObject.metadata.labels.tier)}, "data": {"a": "b"}}])

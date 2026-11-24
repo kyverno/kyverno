@@ -277,6 +277,10 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 		}
 		if resource.Object != nil {
+			oldObjectOverride, err := mutatingOldObjectOverride(p.Variables, mutatingPolicies, resource.GetName(), p.resolveOperation())
+			if err != nil {
+				return nil, err
+			}
 			tcm := mpolcompiler.NewStaticTypeConverterManager(p.openAPI())
 			nsResolver := p.getNamespaceResolver()
 			eng := mpolengine.NewEngine(provider, nsResolver, matching.NewMatcher(), tcm, contextProvider)
@@ -305,7 +309,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			// create engine request
-			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
+			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource, oldObjectOverride)
 			request := celengine.Request(
 				contextProvider,
 				gvk,
@@ -550,40 +554,49 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if p.UserInfo != nil {
 					user = p.UserInfo.AdmissionUserInfo
 				}
-				// create engine request
-				operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
-				request := celengine.Request(
-					contextProvider,
-					gvk,
-					gvr,
-					subresource,
-					resource.GetName(),
-					resource.GetNamespace(),
-					operation,
-					user,
-					object,
-					oldObject,
-					false,
-					nil,
-				)
-				reps, err := eng.Handle(ctx, request, nil)
+				// One engine Handle call per group of policies that resolve to the
+				// same request.oldObject override, so a policy that declares none (or
+				// a different one) never inherits another's; see GroupByOldObjectOverride.
+				resolvedOp := p.resolveOperation()
+				groups, err := GroupByOldObjectOverride(p.Variables, NamesOf(k8sPolicies), resource.GetName(), resolvedOp)
 				if err != nil {
-					return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
+					return nil, err
 				}
-				p.explain(reps.Policies)
-				for _, r := range reps.Policies {
-					if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
-						continue
+				for _, g := range groups {
+					operation, object, oldObject := AdmissionRequestShape(resolvedOp, &resource, g.Override)
+					request := celengine.Request(
+						contextProvider,
+						gvk,
+						gvr,
+						subresource,
+						resource.GetName(),
+						resource.GetNamespace(),
+						operation,
+						user,
+						object,
+						oldObject,
+						false,
+						nil,
+					)
+					reps, err := eng.Handle(ctx, request, namesPredicate[policiesv1beta1.ValidatingPolicyLike](g.Names))
+					if err != nil {
+						return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 					}
-					response := engineapi.EngineResponse{
-						Resource: *reps.Resource,
-						PolicyResponse: engineapi.PolicyResponse{
-							Rules: r.Rules,
-						},
+					p.explain(reps.Policies)
+					for _, r := range reps.Policies {
+						if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
+							continue
+						}
+						response := engineapi.EngineResponse{
+							Resource: *reps.Resource,
+							PolicyResponse: engineapi.PolicyResponse{
+								Rules: r.Rules,
+							},
+						}
+						response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
+						p.Rc.AddValidatingPolicyResponse(p.AuditWarn, response)
+						responses = append(responses, response)
 					}
-					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(p.AuditWarn, response)
-					responses = append(responses, response)
 				}
 			}
 			// Also evaluate JSON-mode policies against the K8s resource as raw JSON
@@ -733,23 +746,30 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if p.UserInfo != nil {
 				user = p.UserInfo.AdmissionUserInfo
 			}
-			// create engine request
-			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
-			request := celengine.Request(
-				contextProvider,
-				gvk,
-				gvr,
-				subresource,
-				resource.GetName(),
-				resource.GetNamespace(),
-				operation,
-				user,
-				object,
-				oldObject,
-				false,
-				nil,
-			)
+			resolvedOp := p.resolveOperation()
+			// one request per policy: each carries only that policy's own
+			// request.oldObject override, so it never leaks onto another
+			// generating policy evaluated against the same resource.
 			for _, policy := range compiledPolicies {
+				oldObjectOverride, err := resolveOldObjectOverride(p.Variables, policy.Policy.GetName(), resource.GetName(), resolvedOp)
+				if err != nil {
+					return nil, err
+				}
+				operation, object, oldObject := AdmissionRequestShape(resolvedOp, &resource, oldObjectOverride)
+				request := celengine.Request(
+					contextProvider,
+					gvk,
+					gvr,
+					subresource,
+					resource.GetName(),
+					resource.GetNamespace(),
+					operation,
+					user,
+					object,
+					oldObject,
+					false,
+					nil,
+				)
 				engineResponse, err := engine.Handle(context.TODO(), request, policy, false)
 				if err != nil {
 					return nil, err

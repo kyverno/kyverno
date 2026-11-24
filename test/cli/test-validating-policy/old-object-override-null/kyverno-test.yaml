@@ -1,0 +1,24 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: old-object-override-null
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+variables: values.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: no-paused-annotation
+  operation: UPDATE
+  resources:
+  - paused-annotation-removed
+  result: pass
+- isValidatingPolicy: true
+  kind: Pod
+  policy: no-paused-annotation
+  operation: UPDATE
+  resources:
+  - paused-annotation-kept
+  result: fail

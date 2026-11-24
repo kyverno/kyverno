@@ -1,0 +1,18 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: old-object-override
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+variables: values.yaml
+results:
+- isGeneratingPolicy: true
+  kind: Pod
+  policy: gen-on-tier-change
+  operation: UPDATE
+  generatedResource: generated-resource.yaml
+  resources:
+  - p1
+  result: pass
