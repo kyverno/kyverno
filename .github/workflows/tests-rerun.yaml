@@ -21,6 +21,10 @@
 #    if the second attempt passed, the record-flaky job lists the tests that
 #    failed on the first attempt in its job summary and on a single rolling
 #    issue labelled flaky-test.
+# 4. If the second attempt of a run on main failed too, the bisect job calls
+#    tests-bisect.yaml, which looks for the commit of the batch that broke the
+#    tests that fail on every Kubernetes version, and comments it on the
+#    tracking issue.
 #
 # A run is re-run at most once: only first attempts are re-run. Cancelled runs
 # are never re-run. When a newer Tests run on the same branch is queued,
@@ -146,6 +150,24 @@ jobs:
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: gh workflow run e2e-gate.yaml --ref "$DEFAULT_BRANCH"
+
+  bisect:
+    name: Bisect persistent failures
+    needs: rerun
+    if: >-
+      needs.rerun.outputs.conclusion == 'failure' &&
+      github.event.workflow_run.head_branch == 'main'
+    # The union of what the jobs of tests-bisect.yaml need; each job there
+    # grants itself only its own part.
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      packages: read
+      pull-requests: read
+    uses: ./.github/workflows/tests-bisect.yaml
+    with:
+      run-id: ${{ github.event.workflow_run.id }}
 
   record-flaky:
     name: Record flaky tests

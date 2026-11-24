@@ -1,0 +1,268 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Finds the commit that broke the E2E tests of a failed Tests run on main.
+#
+# Tests runs a batch of commits: those since the last green run. When a test
+# fails on every Kubernetes version it ran on, one of those commits likely
+# broke it. This workflow runs only the failing tests, on one Kubernetes
+# version, at commits of the batch, binary searches for the first bad one, and
+# comments it with its pull request on the open tracking issue.
+#
+# tests-rerun.yaml calls it once the automatic re-run of a failed Tests run
+# has failed again, so tests that pass on the re-run (flaky tests) are never
+# bisected: the re-run jobs replace the e2e-reports-* artifacts, and this
+# workflow reads the final ones. A workflow_run trigger on Tests wouldn't work:
+# the second attempt is started with GITHUB_TOKEN, so its completion doesn't
+# start other workflows.
+#
+# To try it, start it with Run workflow and the ID of a failed Tests run on
+# main that was re-run. Leave "comment" off to only get the job summary.
+#
+# Limits: the batch has 2 to MAX_COMMITS commits, at most MAX_TESTS tests fail
+# on every version, and the bisection runs one suite (the one with the most of
+# these failures) in at most MAX_STEPS steps, one at the head first. The tests
+# of the other suites are listed in the comment.
+
+name: Tests bisect
+
+on:
+  workflow_call:
+    inputs:
+      run-id:
+        description: ID of the failed Tests run
+        type: string
+        required: true
+      comment:
+        description: Comment the result on the open tracking issue
+        type: boolean
+        default: true
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: ID of a failed, re-run Tests run on main
+        type: string
+        required: true
+      comment:
+        description: Comment the result on the open tracking issue
+        type: boolean
+        default: false
+
+permissions: {}
+
+env:
+  MAX_COMMITS: 32
+  MAX_TESTS: 5
+  MAX_STEPS: 6
+
+jobs:
+  plan:
+    name: Plan bisection
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # actions: read lets the job read the run and download its reports
+      actions: read
+      # contents: read lets the job compare commits
+      contents: read
+    outputs:
+      bisect: ${{ steps.plan.outputs.bisect }}
+      plan: ${{ steps.plan.outputs.plan }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_ID: ${{ inputs.run-id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/e2e
+      - name: Plan
+        id: plan
+        run: |
+          set -euo pipefail
+
+          skip() {
+            echo "::notice::Not bisecting: $1"
+            printf '### Bisection skipped\n\n%s\n' "$1" >> "$GITHUB_STEP_SUMMARY"
+            echo "bisect=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || skip "the run ID \`$RUN_ID\` isn't a number."
+          info=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID" \
+            --jq '[.path, .head_branch, .run_attempt, (.conclusion // "none"), .head_sha, .created_at, .html_url] | @tsv')
+          IFS=$'\t' read -r path branch attempt conclusion head created url <<< "$info"
+          [ "$path" = .github/workflows/check-tests.yaml ] || skip "run $url isn't a Tests run."
+          [ "$branch" = main ] || skip "run $url is on \`$branch\`, not \`main\`."
+          [ "$conclusion" = failure ] || skip "run $url finished with \`$conclusion\`, not \`failure\`."
+          [ "$attempt" -ge 2 ] || skip "run $url wasn't re-run, so its failures may be flaky."
+
+          # The last green Tests run before this one, of either matrix: both
+          # test the latest Kubernetes version, which the bisection uses.
+          base=$(gh api "repos/$GH_REPO/actions/workflows/check-tests.yaml/runs?branch=main&status=success&per_page=50" \
+            --jq "[.workflow_runs[] | select(.created_at < \"$created\" and .head_sha != \"$head\")][0].head_sha // empty")
+          [ -n "$base" ] || skip "no green Tests run on \`main\` before $url."
+          compare=$(gh api "repos/$GH_REPO/compare/$base...$head?per_page=1" --jq '"\(.status) \(.ahead_by)"')
+          read -r status ahead <<< "$compare"
+          [ "$status" = ahead ] || skip "the last green commit \`$base\` isn't an ancestor of \`$head\`."
+          [ "$ahead" -ge 2 ] || skip "the batch has $ahead commit, so there's nothing to bisect."
+          [ "$ahead" -le "$MAX_COMMITS" ] || skip "the batch has $ahead commits, more than the limit of $MAX_COMMITS."
+
+          reports=$RUNNER_TEMP/reports
+          gh run download "$RUN_ID" --pattern 'e2e-reports-*' --dir "$reports" || skip "run $url has no E2E reports."
+          plan=$(python3 scripts/e2e/bisect.py select "$reports" --max-tests "$MAX_TESTS")
+          if [ "$(jq -r .bisect <<< "$plan")" != true ]; then
+            skip "$(jq -r .reason <<< "$plan")."
+          fi
+          plan=$(jq -c --arg base "$base" --arg head "$head" --arg run "$url" --argjson commits "$ahead" \
+            '. + {base: $base, head: $head, run: $run, commits: $commits}' <<< "$plan")
+          echo "plan=$plan" >> "$GITHUB_OUTPUT"
+          echo "bisect=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Bisection plan"
+            echo
+            echo "Run $url: $(jq -r .reason <<< "$plan"). Bisecting $ahead commits, \`${base:0:9}..${head:0:9}\`, on Kubernetes $(jq -r .k8s <<< "$plan")."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Builds and tests main commits, as the Tests workflow does, with the same
+  # token permissions as its conformance jobs. No other secret is used.
+  bisect:
+    name: Bisect
+    needs: plan
+    if: needs.plan.outputs.bisect == 'true'
+    runs-on: ubuntu-latest
+    # Each step builds the images, creates a cluster, and runs the tests in
+    # 15 to 20 minutes, and at most STEP_TIMEOUT. No step starts after
+    # DEADLINE, so the job ends before its timeout and still reports.
+    timeout-minutes: 260
+    concurrency:
+      group: tests-bisect-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      # packages: read is what the conformance jobs of Tests get
+      packages: read
+    outputs:
+      result: ${{ steps.bisect.outputs.result }}
+    env:
+      PLAN: ${{ needs.plan.outputs.plan }}
+      STEP_TIMEOUT: 2100
+      DEADLINE: 12600
+    steps:
+      - name: Checkout the head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ fromJSON(needs.plan.outputs.plan).head }}
+          fetch-depth: 0
+          persist-credentials: false
+      # The bisection script comes from this workflow's revision, not from the
+      # commits it checks out.
+      - name: Checkout the bisection script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: .bisect-harness
+          persist-credentials: false
+          sparse-checkout: scripts/e2e
+      - name: Keep the bisection script
+        run: |
+          mv .bisect-harness/scripts/e2e "$RUNNER_TEMP/harness"
+          rm -rf .bisect-harness
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Install tools
+        uses: ./.github/actions/tools/install
+        with:
+          helm: true
+          yq: true
+      - name: Install chainsaw
+        uses: ./.github/actions/tools/chainsaw
+      - name: Bisect
+        id: bisect
+        env:
+          # The conformance jobs of Tests pass it to chainsaw as well.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          out=$RUNNER_TEMP/result.json
+          python3 "$RUNNER_TEMP/harness/bisect.py" run \
+            --base "$(jq -r .base <<< "$PLAN")" --head "$(jq -r .head <<< "$PLAN")" \
+            --suite "$(jq -r .suite <<< "$PLAN")" --variant "$(jq -r .variant <<< "$PLAN")" \
+            --k8s "$(jq -r .k8s <<< "$PLAN")" --tests-json "$(jq -c .tests <<< "$PLAN")" \
+            --max-steps "$MAX_STEPS" --step-timeout "$STEP_TIMEOUT" --deadline "$DEADLINE" --out "$out"
+          echo "result=$(jq -c . "$out")" >> "$GITHUB_OUTPUT"
+
+  report:
+    name: Report
+    needs:
+      - plan
+      - bisect
+    if: always() && needs.plan.outputs.bisect == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # contents: read lets the job list the pull requests of a commit
+      contents: read
+      # issues: write lets the job comment on the tracking issue
+      issues: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_ID: ${{ inputs.run-id }}
+      PLAN: ${{ needs.plan.outputs.plan }}
+      RESULT: ${{ needs.bisect.outputs.result }}
+      BISECT_RESULT: ${{ needs.bisect.result }}
+      COMMENT: ${{ inputs.comment }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/e2e
+      - name: Report
+        run: |
+          set -euo pipefail
+
+          result=$RUNNER_TEMP/result.json
+          if [ -n "$RESULT" ]; then
+            printf '%s\n' "$RESULT" > "$result"
+          else
+            jq -n --arg r "$BISECT_RESULT" \
+              '{outcome: "inconclusive", suspects: [], steps: [], error: "the bisect job ended with \($r) before it wrote a result"}' > "$result"
+          fi
+
+          prs=$RUNNER_TEMP/prs.json
+          echo '[]' > "$prs"
+          if [ "$(jq -r .outcome "$result")" = found ]; then
+            sha=$(jq -r '.suspects[0]' "$result")
+            gh api "repos/$GH_REPO/commits/$sha/pulls" > "$prs" || echo '[]' > "$prs"
+          fi
+
+          body=$RUNNER_TEMP/comment.md
+          python3 scripts/e2e/bisect.py comment --result "$result" --plan "$PLAN" --prs "$prs" \
+            --run-url "$RUN_URL" --repo-url "$REPO_URL" > "$body"
+          cat "$body" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$COMMENT" != true ]; then
+            exit 0
+          fi
+
+          # The tracking issue that sync-issue of Tests keeps for main. This
+          # job only comments: it never opens, closes, or reopens an issue.
+          issue=$(gh api --paginate "repos/$GH_REPO/issues?state=open&labels=workflow-failure,e2e-failure&per_page=100" \
+            --jq '.[] | select((.body // "") | contains("<!-- workflow-failure:Tests:refs/heads/main -->")) | .number' | head -n 1)
+          if [ -z "$issue" ]; then
+            echo "::notice::No open tracking issue for main, so the result is only in the job summary."
+            exit 0
+          fi
+          marker="<!-- tests-bisect:$RUN_ID -->"
+          posted=$(gh api --paginate "repos/$GH_REPO/issues/$issue/comments?per_page=100" \
+            --jq "[.[] | select(.body | contains(\"$marker\"))] | length" | awk '{ n += $1 } END { print n + 0 }')
+          if [ "$posted" -gt 0 ]; then
+            echo "::notice::Issue #$issue already has the bisection of run $RUN_ID."
+            exit 0
+          fi
+          printf '\n%s\n' "$marker" >> "$body"
+          gh issue comment "$issue" --body-file "$body"

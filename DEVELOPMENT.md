@@ -373,18 +373,21 @@ directory under `test/conformance/chainsaw`, on the Kubernetes versions of the
 To run a suite the way CI does, run:
 
 ```console
-make test-e2e-local SUITE=<suite> [TEST=<regex>] [K8S=<version>] [VARIANT=<variant>]
+make test-e2e-local SUITE=<suite> [TEST=<regex>] [K8S=<version>] [VARIANT=<variant>] [E2E_REPORT_DIR=<dir>]
 ```
 
 - `SUITE` is the `tests-path` of a job in `.github/workflows/tests-conformance.yaml`, such as
   `validating-policies` or `tls-certificates/rsa-cert-manager`.
 - `TEST` is a regular expression for the names of the tests to run (`metadata.name` in `chainsaw-test.yaml`).
-  By default, every test of the suite runs.
+  By default, every test of the suite runs. Write `$` as `$$`, because `make` expands variables that you set on
+  the command line.
 - `K8S` is a Kubernetes version from the matrix, such as `1.36` or `v1.36.4`. By default, the latest version
   that CI tests the suite on is used.
 - `VARIANT` picks one job of a suite that CI runs with several settings: the `variant` input of that job. For
   example, the `rbac` suite runs with the `standard`, `default`, and `force-failure-policy-ignore` Kyverno
   configs. By default, the first one is used.
+- `E2E_REPORT_DIR` writes the Chainsaw JSON report to `<dir>/results.json`, the format that
+  `scripts/e2e/report.py` reads. The automatic E2E bisection uses it.
 
 For example:
 
