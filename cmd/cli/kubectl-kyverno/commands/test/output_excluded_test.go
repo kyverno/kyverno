@@ -76,8 +76,22 @@ func TestFormatResourceDisplay(t *testing.T) {
 			expectedName:      "test-pod",
 		},
 		{
+			name:              "namespace-first slash 4 parts (default/v1/Pod/test-pod)",
+			resourceKey:       "default/v1/Pod/test-pod",
+			expectedKind:      "v1/Pod",
+			expectedNamespace: "default",
+			expectedName:      "test-pod",
+		},
+		{
 			name:              "slash-separated 5 parts (apps/v1/Deployment/default/test-dep)",
 			resourceKey:       "apps/v1/Deployment/default/test-dep",
+			expectedKind:      "apps/v1/Deployment",
+			expectedNamespace: "default",
+			expectedName:      "test-dep",
+		},
+		{
+			name:              "namespace-first slash 5 parts (default/apps/v1/Deployment/test-dep)",
+			resourceKey:       "default/apps/v1/Deployment/test-dep",
 			expectedKind:      "apps/v1/Deployment",
 			expectedNamespace: "default",
 			expectedName:      "test-dep",
@@ -182,4 +196,62 @@ func TestCreateRowsAccordingToResultsResourceFormatting(t *testing.T) {
 		assert.Len(t, rows, 1)
 		assert.Equal(t, "rbac.authorization.k8s.io/v1/ClusterRole/admin", rows[0].Resource)
 	})
+}
+
+// TestResourceDisplayPathRoundTrip asserts that resourceDisplayPath emits correctly structured
+// paths and that formatResourceDisplay round-trips them preserving kind, namespace, and name.
+func TestResourceDisplayPathRoundTrip(t *testing.T) {
+	testCases := []struct {
+		name              string
+		canonicalKey      string
+		expectedPath      string
+		expectedKind      string
+		expectedNamespace string
+		expectedName      string
+	}{
+		{
+			name:              "namespaced core pod",
+			canonicalKey:      "v1,Pod,default,my-pod",
+			expectedPath:      "default/v1/Pod/my-pod",
+			expectedKind:      "v1/Pod",
+			expectedNamespace: "default",
+			expectedName:      "my-pod",
+		},
+		{
+			name:              "namespaced group deployment",
+			canonicalKey:      "apps/v1,Deployment,staging,my-deploy",
+			expectedPath:      "staging/apps/v1/Deployment/my-deploy",
+			expectedKind:      "apps/v1/Deployment",
+			expectedNamespace: "staging",
+			expectedName:      "my-deploy",
+		},
+		{
+			name:              "cluster-scoped group clusterrole",
+			canonicalKey:      "rbac.authorization.k8s.io/v1,ClusterRole,,admin",
+			expectedPath:      "rbac.authorization.k8s.io/v1/ClusterRole/admin",
+			expectedKind:      "rbac.authorization.k8s.io/v1/ClusterRole",
+			expectedNamespace: "",
+			expectedName:      "admin",
+		},
+		{
+			name:              "cluster-scoped core clusterrole",
+			canonicalKey:      "v1,ClusterRole,,cluster-admin",
+			expectedPath:      "v1/ClusterRole/cluster-admin",
+			expectedKind:      "v1/ClusterRole",
+			expectedNamespace: "",
+			expectedName:      "cluster-admin",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := resourceDisplayPath(tc.canonicalKey)
+			assert.Equal(t, tc.expectedPath, path, "display path mismatch")
+
+			kind, namespace, name := formatResourceDisplay(path)
+			assert.Equal(t, tc.expectedKind, kind, "kind round-trip mismatch")
+			assert.Equal(t, tc.expectedNamespace, namespace, "namespace round-trip mismatch")
+			assert.Equal(t, tc.expectedName, name, "name round-trip mismatch")
+		})
+	}
 }

@@ -467,11 +467,15 @@ func formatResourceDisplay(resource string) (string, string, string) {
 		return resourceParts[1], resourceParts[0], resourceParts[2]
 	case 4:
 		if isAPIVersion(resourceParts[1]) {
-			// cluster-scoped with group/version: group/version/kind/name
-			return resourceParts[0] + "/" + resourceParts[1] + "/" + resourceParts[2], "", resourceParts[3]
+			if strings.Contains(resourceParts[0], ".") {
+				// cluster-scoped with group/version: group/version/kind/name (e.g. rbac.authorization.k8s.io/v1/ClusterRole/admin)
+				return resourceParts[0] + "/" + resourceParts[1] + "/" + resourceParts[2], "", resourceParts[3]
+			}
+			// namespace-first with core version: namespace/version/kind/name (e.g. default/v1/Pod/my-pod, emitted by resourceDisplayPath)
+			return resourceParts[1] + "/" + resourceParts[2], resourceParts[0], resourceParts[3]
 		}
 		if isAPIVersion(resourceParts[0]) {
-			// namespaced with core version: version/kind/namespace/name
+			// version-first with namespace: version/kind/namespace/name (e.g. v1/Pod/default/test-pod)
 			return resourceParts[0] + "/" + resourceParts[1], resourceParts[2], resourceParts[3]
 		}
 		name := resourceParts[len(resourceParts)-1]
@@ -479,8 +483,13 @@ func formatResourceDisplay(resource string) (string, string, string) {
 		kind := strings.Join(resourceParts[:len(resourceParts)-2], "/")
 		return kind, namespace, name
 	default:
+		if len(resourceParts) == 5 && isAPIVersion(resourceParts[2]) {
+			// namespace-first with group/version: namespace/group/version/kind/name (e.g. default/apps/v1/Deployment/my-dep, emitted by resourceDisplayPath)
+			kind := resourceParts[1] + "/" + resourceParts[2] + "/" + resourceParts[3]
+			return kind, resourceParts[0], resourceParts[4]
+		}
 		if len(resourceParts) >= 5 && isAPIVersion(resourceParts[1]) {
-			// group/version/kind/namespace/name
+			// group/version/kind/namespace/name (e.g. apps/v1/Deployment/default/test-dep)
 			kind := strings.Join(resourceParts[:len(resourceParts)-2], "/")
 			namespace := resourceParts[len(resourceParts)-2]
 			name := resourceParts[len(resourceParts)-1]
