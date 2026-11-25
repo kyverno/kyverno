@@ -25,7 +25,7 @@ func NewMpolEngine(ctx context.Context, mgr ctrl.Manager, kubeClient kubernetes.
 // cmd/kyverno/main.go) so the controller watches and the lister share the manager's
 // cache, avoiding the dual-cache race described in issue #16989.
 func NewMpolEngineWithExceptions(ctx context.Context, mgr ctrl.Manager, kubeClient kubernetes.Interface, contextProvider libs.Context) (mpolengine.Engine, mpolengine.Provider, error) {
-	polexLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), "")
+	polexLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), "*")
 	return newMpolEngine(ctx, mgr, kubeClient, contextProvider, polexLister, true)
 }
 

@@ -64,6 +64,54 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 		return fmt.Errorf("failed to compute autogen configs for %s: %w", mpol.GetName(), err)
 	}
 	shouldDelete := reason != ""
+<<<<<<< HEAD
+=======
+	var celexceptions []policiesv1beta1.PolicyException
+	if !shouldDelete {
+		celexceptions, err = c.getCELExceptions(mpol.GetName(), mpol.GetKind(), mpol.GetNamespace())
+		if err != nil {
+			return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
+		}
+		c.requeueAtExpiry(mpol.GetName(), "MutatingPolicy", celexceptions)
+		if ok, msg := admissionpolicy.CanGenerateNativeMutatingPolicy(celexceptions); !ok {
+			shouldDelete = true
+			reason = "skip generating MutatingAdmissionPolicy: " + msg
+		}
+	}
+	mapName := "mpol-" + mpol.GetName()
+	mapBindingName := constructBindingName(mapName)
+
+	if shouldDelete {
+		switch version {
+		case admissionpolicy.MutatingAdmissionPolicyVersionV1:
+			return c.handleMAPV1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+		case admissionpolicy.MutatingAdmissionPolicyVersionV1beta1:
+			return c.handleMAPV1Beta1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+		case admissionpolicy.MutatingAdmissionPolicyVersionV1alpha1:
+			return c.handleMAPV1Alpha1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy, celexceptions)
+		default:
+			return fmt.Errorf("unsupported MutatingAdmissionPolicy version: %s", version)
+		}
+	}
+
+	// Expiry is armed before these permission checks, which return an error so the workqueue retains a retry.
+	// When generation or permission checks fail, also schedule a delayed retry to guarantee eventual recovery even if
+	// the workqueue's immediate retry budget is exhausted.
+	if !admissionpolicy.HasMutatingAdmissionPolicyPermissionForVersion(version, c.checker) {
+		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicies")
+		if err := c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies"); err != nil {
+			return err
+		}
+		return errors.New("insufficient permissions to generate MutatingAdmissionPolicies")
+	}
+	if !admissionpolicy.HasMutatingAdmissionPolicyBindingPermissionForVersion(version, c.checker) {
+		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicyBindings")
+		if err := c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicyBindings"); err != nil {
+			return err
+		}
+		return errors.New("insufficient permissions to generate MutatingAdmissionPolicyBindings")
+	}
+>>>>>>> 278c17b54 (fix(cel): scope PolicyExceptions to the policy namespace (#18697))
 
 	switch version {
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1:

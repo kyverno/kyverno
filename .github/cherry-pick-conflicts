@@ -1,0 +1,11 @@
+Source commit: 278c17b544ec7148eb6a7d2d5a4d7aeea28b8ffe
+Conflicted paths:
+CHANGELOG.md
+pkg/cel/policies/ivpol/engine/provider_test.go
+pkg/cel/policies/ivpol/engine/reconciler_test.go
+pkg/cel/policies/mpol/engine/mpol_gate_bench_test.go
+pkg/cel/policies/mpol/engine/provider_test.go
+pkg/cel/policies/mpol/engine/reconciler_test.go
+pkg/controllers/admissionpolicygenerator/generate-map.go
+pkg/controllers/admissionpolicygenerator/generate-vap.go
+pkg/controllers/admissionpolicygenerator/generate_map_test.go

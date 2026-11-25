@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: exclude-skipped
+  namespace: tenant-a
+spec:
+  policyRefs:
+  - name: "check-deployment-labels"
+    kind: NamespacedValidatingPolicy
+  matchConditions:
+    - name: "check-name"
+      expression: "object.metadata.name == 'skipped-by-own-namespace'"

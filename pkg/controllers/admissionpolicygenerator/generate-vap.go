@@ -57,9 +57,22 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 		if isAutogen {
 			shouldDelete = true
 			reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
+<<<<<<< HEAD
 		} else if ok, msg := admissionpolicy.CanGenerateNativePolicy(celexceptions); !ok {
 			shouldDelete = true
 			reason = "skip generating ValidatingAdmissionPolicy: " + msg
+=======
+		} else {
+			celexceptions, err = c.getCELExceptions(policy.GetName(), pol.GetKind(), pol.GetNamespace())
+			if err != nil {
+				return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
+			}
+			c.requeueAtExpiry(policy.GetName(), "ValidatingPolicy", celexceptions)
+			if ok, msg := admissionpolicy.CanGenerateNativePolicy(celexceptions); !ok {
+				shouldDelete = true
+				reason = "skip generating ValidatingAdmissionPolicy: " + msg
+			}
+>>>>>>> 278c17b54 (fix(cel): scope PolicyExceptions to the policy namespace (#18697))
 		}
 	} else {
 		reason = "skip generating ValidatingAdmissionPolicy: not enabled."
