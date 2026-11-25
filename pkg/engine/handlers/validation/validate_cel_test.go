@@ -24,8 +24,14 @@ import (
 
 // fakeClient implements engineapi.Client for testing.
 type fakeClient struct {
-	namespaces   map[string]*corev1.Namespace
-	getNamespace func(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Namespace, error)
+	namespaces         map[string]*corev1.Namespace
+	getNamespace       func(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Namespace, error)
+	parameter          *unstructured.Unstructured
+	parameterNamespace string
+	isNamespaced       bool
+	namespaceCalls     int
+	discoveryCalls     int
+	parameterReads     int
 }
 
 func newFakeClient() *fakeClient {
@@ -38,10 +44,12 @@ func newFakeClient() *fakeClient {
 				},
 			},
 		},
+		isNamespaced: true,
 	}
 }
 
 func (c *fakeClient) GetNamespace(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Namespace, error) {
+	c.namespaceCalls++
 	if c.getNamespace != nil {
 		return c.getNamespace(ctx, name, opts)
 	}
@@ -53,10 +61,16 @@ func (c *fakeClient) GetNamespace(ctx context.Context, name string, opts metav1.
 }
 
 func (c *fakeClient) GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	c.parameterReads++
+	c.parameterNamespace = namespace
+	if c.parameter != nil {
+		return c.parameter, nil
+	}
 	return nil, fmt.Errorf("not implemented")
 }
 
 func (c *fakeClient) ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	c.parameterReads++
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -65,7 +79,8 @@ func (c *fakeClient) GetResources(ctx context.Context, group, version, kind, sub
 }
 
 func (c *fakeClient) IsNamespaced(group, version, kind string) (bool, error) {
-	return true, nil
+	c.discoveryCalls++
+	return c.isNamespaced, nil
 }
 
 func (c *fakeClient) CanI(ctx context.Context, kind, namespace, verb, subresource, user string) (bool, string, error) {
@@ -80,8 +95,19 @@ func (c *fakeClient) RawAbsPath(ctx context.Context, path string, method string,
 func buildCELContext(t *testing.T, operation kyvernov1.AdmissionOperation, policyJSON, resourceJSON, oldResourceJSON string) *policycontext.PolicyContext {
 	t.Helper()
 
-	var cpol kyvernov1.ClusterPolicy
-	err := json.Unmarshal([]byte(policyJSON), &cpol)
+	var typeMeta metav1.TypeMeta
+	err := json.Unmarshal([]byte(policyJSON), &typeMeta)
+	require.NoError(t, err)
+	var policy kyvernov1.PolicyInterface
+	if typeMeta.Kind == "Policy" {
+		var pol kyvernov1.Policy
+		err = json.Unmarshal([]byte(policyJSON), &pol)
+		policy = &pol
+	} else {
+		var cpol kyvernov1.ClusterPolicy
+		err = json.Unmarshal([]byte(policyJSON), &cpol)
+		policy = &cpol
+	}
 	require.NoError(t, err)
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(resourceJSON))
@@ -97,7 +123,7 @@ func buildCELContext(t *testing.T, operation kyvernov1.AdmissionOperation, polic
 	require.NoError(t, err)
 
 	pc = pc.
-		WithPolicy(&cpol).
+		WithPolicy(policy).
 		WithNewResource(*resourceUnstructured).
 		WithResourceKind(podGVK, "").
 		WithRequestResource(podGVR)
@@ -836,7 +862,7 @@ func TestValidateCELHandler_ParamKindWithoutClient(t *testing.T) {
 		}
 	}`
 
-	// fakeClient does not implement param collection, so CollectParams should fail.
+	// fakeClient does not implement param collection, so CollectParamsForPolicy should fail.
 	handler, err := NewValidateCELHandler(newFakeClient(), false)
 	require.NoError(t, err)
 
@@ -857,6 +883,87 @@ func TestValidateCELHandler_ParamKindWithoutClient(t *testing.T) {
 	require.Len(t, responses, 1)
 	assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
 	assert.Contains(t, responses[0].Message(), "error in parameterized resource")
+}
+
+func TestValidateCELHandler_NamespacedPolicyConfinesParams(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rejects foreign namespace before reading", func(t *testing.T) {
+		t.Parallel()
+		client := newFakeClient()
+		handler, err := NewValidateCELHandler(client, false)
+		require.NoError(t, err)
+		pc := buildCELContext(t, kyvernov1.Create, namespacedCELParamPolicy("ConfigMap", "foreign-ns"), celPodResource, "")
+		rule := pc.Policy().GetSpec().Rules[0]
+
+		_, responses := handler.Process(context.Background(), logr.Discard(), pc, pc.NewResource(), rule, noopContextLoader, nil)
+		require.Len(t, responses, 1)
+		assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
+		assert.Contains(t, responses[0].Message(), "must match policy namespace")
+		assert.Zero(t, client.parameterReads)
+	})
+
+	t.Run("defaults to policy namespace", func(t *testing.T) {
+		t.Parallel()
+		client := newFakeClient()
+		client.parameter = &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      "params",
+				"namespace": "test-ns",
+			},
+		}}
+		handler, err := NewValidateCELHandler(client, false)
+		require.NoError(t, err)
+		pc := buildCELContext(t, kyvernov1.Create, namespacedCELParamPolicy("ConfigMap", ""), celPodResource, "")
+		rule := pc.Policy().GetSpec().Rules[0]
+
+		_, responses := handler.Process(context.Background(), logr.Discard(), pc, pc.NewResource(), rule, noopContextLoader, nil)
+		require.Len(t, responses, 1)
+		assert.Equal(t, engineapi.RuleStatusPass, responses[0].Status())
+		assert.Equal(t, "test-ns", client.parameterNamespace)
+	})
+
+	t.Run("rejects cluster scoped param kind", func(t *testing.T) {
+		t.Parallel()
+		client := newFakeClient()
+		client.isNamespaced = false
+		handler, err := NewValidateCELHandler(client, false)
+		require.NoError(t, err)
+		pc := buildCELContext(t, kyvernov1.Create, namespacedCELParamPolicy("Node", ""), celPodResource, "")
+		rule := pc.Policy().GetSpec().Rules[0]
+
+		_, responses := handler.Process(context.Background(), logr.Discard(), pc, pc.NewResource(), rule, noopContextLoader, nil)
+		require.Len(t, responses, 1)
+		assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
+		assert.Contains(t, responses[0].Message(), "cluster-scoped paramKind is not allowed")
+		assert.Zero(t, client.parameterReads)
+	})
+}
+
+func namespacedCELParamPolicy(paramKind, paramNamespace string) string {
+	namespaceField := ""
+	if paramNamespace != "" {
+		namespaceField = fmt.Sprintf(`"namespace": %q,`, paramNamespace)
+	}
+	return fmt.Sprintf(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "Policy",
+		"metadata": {"name": "cel-param", "namespace": "test-ns"},
+		"spec": {
+			"validationFailureAction": "Enforce",
+			"rules": [{
+				"name": "check-with-param",
+				"match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
+				"validate": {"cel": {
+					"paramKind": {"apiVersion": "v1", "kind": %q},
+					"paramRef": {"name": "params", %s "parameterNotFoundAction": "Deny"},
+					"expressions": [{"expression": "true", "message": "must pass"}]
+				}}
+			}]
+		}
+	}`, paramKind, namespaceField)
 }
 
 // Verify that the Validation type properly handles CEL field construction
@@ -893,4 +1000,35 @@ func TestCELValidationFieldExtraction(t *testing.T) {
 
 	assert.Equal(t, "rule-level fallback message", validations[0].Message, "empty message should be filled from rule.Validation.Message")
 	assert.Equal(t, "explicit message", validations[1].Message, "non-empty message should not be overwritten")
+}
+
+func TestValidateCELHandler_RejectsInvalidPolicyScopeBeforeClientAccess(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		policy kyvernov1.PolicyInterface
+		err    string
+	}{
+		{name: "nil policy", err: "policy scope must not be nil"},
+		{name: "typed nil policy", policy: (*kyvernov1.Policy)(nil), err: "policy scope must not be nil"},
+		{name: "namespaced policy without namespace", policy: &kyvernov1.Policy{}, err: "policy namespace must not be empty"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			client := newFakeClient()
+			handler, err := NewValidateCELHandler(client, true)
+			require.NoError(t, err)
+			pc := buildCELContext(t, kyvernov1.Create, namespacedCELParamPolicy("ConfigMap", "foreign-ns"), celPodResource, "")
+			rule := pc.Policy().GetSpec().Rules[0]
+			pc = pc.WithPolicy(test.policy)
+
+			_, responses := handler.Process(context.Background(), logr.Discard(), pc, pc.NewResource(), rule, noopContextLoader, nil)
+			require.Len(t, responses, 1)
+			assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
+			assert.Contains(t, responses[0].Message(), test.err)
+			assert.Zero(t, client.namespaceCalls)
+			assert.Zero(t, client.discoveryCalls)
+			assert.Zero(t, client.parameterReads)
+		})
+	}
 }

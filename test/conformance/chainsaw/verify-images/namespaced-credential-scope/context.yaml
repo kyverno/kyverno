@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: ($name)
+spec:
+  background: false
+  rules:
+  - name: check
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    context:
+    - name: image
+      imageRegistry:
+        reference: registry.invalid/image:tag
+        imageRegistryCredentials:
+          secrets:
+          - ($secret)
+    validate:
+      message: test
+      pattern:
+        metadata:
+          name: '*'
+  validationFailureAction: Enforce

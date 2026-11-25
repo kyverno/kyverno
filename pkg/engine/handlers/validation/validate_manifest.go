@@ -22,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineresources "github.com/kyverno/kyverno/pkg/engine/resources"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -102,6 +103,21 @@ func (h validateManifestHandler) verifyManifest(
 	policyContext engineapi.PolicyContext,
 	verifyRule kyvernov1.Manifests,
 ) (bool, string, error) {
+	// Attestor keys may contain a templated k8s:// namespace (e.g.
+	// request.namespace), which admission-time validation explicitly allows
+	// and defers to runtime. Resolve it before scoping or cosign reads the
+	// literal template as the namespace.
+	attestors, err := variables.SubstituteAllInType(logger, policyContext.JSONContext(), &verifyRule.Attestors)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to substitute variables in attestors: %w", err)
+	}
+	verifyRule.Attestors = *attestors
+
+	// The manifest verifier reads a k8s:// publicKeys reference with Kyverno's
+	// own credentials, so confine it before any shortcut or key lookup.
+	if err := internal.ScopeAttestorKeys(policyContext.Policy(), kyvernov1.ImageVerification{Attestors: verifyRule.Attestors}); err != nil {
+		return false, "", fmt.Errorf("invalid attestor key scope: %w", err)
+	}
 	// load AdmissionRequest
 	request, err := policyContext.JSONContext().Query("request")
 	if err != nil {
