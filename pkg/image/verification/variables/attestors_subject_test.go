@@ -52,7 +52,7 @@ func TestSubjectExpressionBecomesSubjectRegExp(t *testing.T) {
 	identity := got.Cosign.Keyless.Identities[0]
 	assert.Equal(t, `^https://github\.com/allowed/repo/.*$`, identity.SubjectRegExp)
 	assert.Empty(t, identity.Subject)
-	assert.Equal(t, "data.subject", identity.SubjectExpression)
+	assert.Empty(t, identity.SubjectExpression)
 }
 
 // TestSubjectExpressionPerIdentity checks that every identity keeps its own

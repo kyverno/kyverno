@@ -150,6 +150,50 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 	assert.Equal(t, out.Value(), int64(1))
 }
 
+func Test_impl_rejects_unresolved_inline_subject_expression(t *testing.T) {
+	attestors := []v1beta1.Attestor{{
+		Name: "keyless",
+		Cosign: &v1beta1.Cosign{
+			Keyless: &v1beta1.Keyless{
+				Identities: []v1beta1.Identity{{
+					Issuer:            "https://token.actions.githubusercontent.com",
+					SubjectExpression: `"^https://github.com/allowed/repo/.*$"`,
+				}},
+			},
+		},
+	}}
+	f := &IvFuncs{
+		Adapter: types.DefaultTypeAdapter,
+		logger:  logr.Discard(),
+		policy:  &v1beta1.ImageValidatingPolicy{},
+	}
+
+	tests := map[string]func() ref.Val{
+		"image signature": func() ref.Val {
+			return f.verify_image_signature_string_stringarray(
+				f.NativeToValue("example.com/image:latest"),
+				f.NativeToValue(attestors),
+			)
+		},
+		"attestation signature": func() ref.Val {
+			return f.verify_image_attestations_string_string_stringarray(
+				f.NativeToValue("example.com/image:latest"),
+				f.NativeToValue("sbom"),
+				f.NativeToValue(attestors),
+			)
+		},
+	}
+	for name, call := range tests {
+		t.Run(name, func(t *testing.T) {
+			out := call()
+			err, ok := out.Value().(error)
+			require.True(t, ok, "expected an error, got: %v", out.Value())
+			assert.Contains(t, err.Error(), "subjectExpression")
+			assert.Contains(t, err.Error(), "spec.attestors")
+		})
+	}
+}
+
 func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
 	attestors := []v1beta1.Attestor{
 		{

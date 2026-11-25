@@ -198,6 +198,10 @@ func (c *CompiledAttestor) Evaluate(ctx context.Context, data any) (v1beta1.Atte
 			return v1beta1.Attestor{}, fmt.Errorf("subject expression in compiled attestor: %s evaluated to an empty string", c.Key)
 		}
 		value.Cosign.Keyless.Identities[i].SubjectRegExp = result
+		// Keep the evaluated value distinguishable from an inline attestor
+		// that still needs compilation. Runtime verification rejects any
+		// remaining SubjectExpression.
+		value.Cosign.Keyless.Identities[i].SubjectExpression = ""
 	}
 
 	return *value, nil

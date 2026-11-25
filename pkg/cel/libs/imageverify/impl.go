@@ -170,6 +170,9 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		if len(scopeErrs) != 0 {
 			return types.WrapErr(scopeErrs.ToAggregate())
 		}
+		if errs := imagecredentials.ValidateResolvedAttestors(attestors); len(errs) != 0 {
+			return types.WrapErr(errs.ToAggregate())
+		}
 		count := 0
 		if match, err := matching.MatchImage(ctx, image, f.imgRules...); err != nil {
 			return types.WrapErr(err)
@@ -252,6 +255,9 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 		attestors, scopeErrs := imagecredentials.ScopeAttestors(f.policy, attestors)
 		if len(scopeErrs) != 0 {
 			return types.WrapErr(scopeErrs.ToAggregate())
+		}
+		if errs := imagecredentials.ValidateResolvedAttestors(attestors); len(errs) != 0 {
+			return types.WrapErr(errs.ToAggregate())
 		}
 		count := 0
 		if match, err := matching.MatchImage(ctx, image, f.imgRules...); err != nil {

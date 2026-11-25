@@ -76,6 +76,32 @@ func ScopeAttestors(policy policiesv1beta1.ImageValidatingPolicyLike, attestors 
 	return scoped, errs
 }
 
+// ValidateResolvedAttestors rejects subject expressions that reached runtime
+// without being compiled. Attestors declared in spec.attestors are compiled
+// and evaluated before they reach image verification, and Evaluate clears
+// SubjectExpression after resolving it. Attestors passed directly to the CEL
+// verification functions bypass that compilation path; accepting one would
+// silently leave the keyless identity unconstrained.
+func ValidateResolvedAttestors(attestors []policiesv1beta1.Attestor) field.ErrorList {
+	path := field.NewPath("attestors")
+	var errs field.ErrorList
+	for i := range attestors {
+		if attestors[i].Cosign == nil || attestors[i].Cosign.Keyless == nil {
+			continue
+		}
+		identitiesPath := path.Index(i).Child("cosign", "keyless", "identities")
+		for j, identity := range attestors[i].Cosign.Keyless.Identities {
+			if identity.SubjectExpression != "" {
+				errs = append(errs, field.Forbidden(
+					identitiesPath.Index(j).Child("subjectExpression"),
+					"must be declared in spec.attestors so it can be compiled and evaluated",
+				))
+			}
+		}
+	}
+	return errs
+}
+
 func validatePolicyNamespace(policy policiesv1beta1.ImageValidatingPolicyLike) field.ErrorList {
 	if policy == nil || (reflect.ValueOf(policy).Kind() == reflect.Pointer && reflect.ValueOf(policy).IsNil()) {
 		return field.ErrorList{field.Required(field.NewPath("policy"), "image verification policy must not be nil")}
