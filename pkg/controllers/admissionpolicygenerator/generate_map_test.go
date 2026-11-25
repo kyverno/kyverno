@@ -245,3 +245,178 @@ func (m *mockMAPBindingAlphaLister) List(selector labels.Selector) ([]*admission
 func (m *mockMAPBindingAlphaLister) Get(name string) (*admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
 	return nil, nil
 }
+<<<<<<< HEAD
+=======
+
+func newMAPTestController(
+	t *testing.T,
+	mpol *policiesv1beta1.MutatingPolicy,
+	existingMAP *admissionregistrationv1beta1.MutatingAdmissionPolicy,
+	existingBinding *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
+	polexs ...*policiesv1beta1.PolicyException,
+) (*controller, *kubefake.Clientset, *versionedfake.Clientset) {
+	t.Helper()
+	var kubeObjects []runtime.Object
+	if existingMAP != nil {
+		kubeObjects = append(kubeObjects, existingMAP)
+	}
+	if existingBinding != nil {
+		kubeObjects = append(kubeObjects, existingBinding)
+	}
+	kubeClient := kubefake.NewSimpleClientset(kubeObjects...)
+
+	var kyvernoObjects []runtime.Object
+	kyvernoObjects = append(kyvernoObjects, mpol)
+	for _, p := range polexs {
+		kyvernoObjects = append(kyvernoObjects, p)
+	}
+	kyvernoClient := versionedfake.NewSimpleClientset(kyvernoObjects...)
+
+	celpolexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	for _, p := range polexs {
+		require.NoError(t, celpolexIndexer.Add(p))
+	}
+	mapBetaIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	if existingMAP != nil {
+		require.NoError(t, mapBetaIndexer.Add(existingMAP))
+	}
+	mapBindingBetaIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	if existingBinding != nil {
+		require.NoError(t, mapBindingBetaIndexer.Add(existingBinding))
+	}
+
+	c := &controller{
+		client:          kubeClient,
+		kyvernoClient:   kyvernoClient,
+		discoveryClient: dclient.NewEmptyFakeClient().Discovery(),
+		eventGen:        event.NewFake(),
+		checker:         permissiveAuthChecker{},
+		polexEnabled:    true,
+		// "*" so the fixture's polex, which carries no namespace scoping intent of its own,
+		// is honoured by getCELExceptions; this test is about oversized-exception cleanup,
+		// not about exceptionNamespace scoping.
+		exceptionNamespace:   "*",
+		celpolexLister:       policiesv1beta1listers.NewPolicyExceptionLister(celpolexIndexer),
+		mapBetaLister:        admissionregistrationv1beta1listers.NewMutatingAdmissionPolicyLister(mapBetaIndexer),
+		mapbindingBetaLister: admissionregistrationv1beta1listers.NewMutatingAdmissionPolicyBindingLister(mapBindingBetaIndexer),
+	}
+	return c, kubeClient, kyvernoClient
+}
+
+func TestHandleMAPGeneration_ExistingMAPDeletedOnOversizedCELException(t *testing.T) {
+	ctx := context.Background()
+	cfg := mapGenEnabled()
+	cfg.PodControllers = &policiesv1beta1.PodControllersGenerationConfiguration{
+		Controllers: []string{},
+	}
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-mutate-pods",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			AutogenConfiguration: cfg,
+			MatchConstraints:     podsMatchConstraints(),
+		},
+		Status: policiesv1beta1.MutatingPolicyStatus{
+			Generated: true,
+		},
+	}
+
+	existingMAP := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mpol-test-mutate-pods",
+		},
+	}
+	existingBinding := &admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mpol-test-mutate-pods-binding",
+		},
+	}
+
+	hugeCond := `"` + strings.Repeat("a", 55000) + `" != ""`
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "oversized-polex",
+		},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{
+				{Name: "test-mutate-pods", Kind: "MutatingPolicy"},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: "c1", Expression: hugeCond},
+				{Name: "c2", Expression: hugeCond},
+			},
+		},
+	}
+
+	c, kubeClient, kyvernoClient := newMAPTestController(t, mpol, existingMAP, existingBinding, polex)
+	require.NoError(t, c.handleMAPGeneration(ctx, mpol))
+
+	// Pre-existing native MAP and binding must be deleted through the cleanup path
+	_, mapErr := kubeClient.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Get(ctx, "mpol-test-mutate-pods", metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(mapErr), "existing MutatingAdmissionPolicy must be deleted: got %v", mapErr)
+
+	_, bindingErr := kubeClient.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Get(ctx, "mpol-test-mutate-pods-binding", metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(bindingErr), "existing MutatingAdmissionPolicyBinding must be deleted: got %v", bindingErr)
+
+	// Status.Generated must be transitioned from true to false with the size limit reason
+	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, "test-mutate-pods", metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, updated.Status.Generated)
+	condStatus := updated.Status.GetConditionStatus()
+	assert.Contains(t, condStatus.Message, "skip generating MutatingAdmissionPolicy:")
+	assert.Contains(t, condStatus.Message, "exceeding the Kubernetes CEL code point limit (100000)")
+}
+
+func TestHandleMAPGeneration_CompensatingControlsPreserveMAP(t *testing.T) {
+	ctx := context.Background()
+	cfg := mapGenEnabled()
+	cfg.PodControllers = &policiesv1beta1.PodControllersGenerationConfiguration{
+		Controllers: []string{},
+	}
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-mutate-pods",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			AutogenConfiguration: cfg,
+			MatchConstraints:     podsMatchConstraints(),
+		},
+	}
+
+	// Exception carries compensating controls (validating-only), but under the size limit.
+	// MAP generation performs a size-only check and must NOT reject this exception.
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "exception-with-controls",
+		},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{
+				{Name: "test-mutate-pods", Kind: "MutatingPolicy"},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: "c1", Expression: "true"},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name != ''"},
+			},
+		},
+	}
+
+	c, kubeClient, kyvernoClient := newMAPTestController(t, mpol, nil, nil, polex)
+	require.NoError(t, c.handleMAPGeneration(ctx, mpol))
+
+	// Native MAP and binding SHOULD be created
+	_, mapErr := kubeClient.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Get(ctx, "mpol-test-mutate-pods", metav1.GetOptions{})
+	assert.NoError(t, mapErr, "MutatingAdmissionPolicy should be generated")
+
+	_, bindingErr := kubeClient.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Get(ctx, "mpol-test-mutate-pods-binding", metav1.GetOptions{})
+	assert.NoError(t, bindingErr, "MutatingAdmissionPolicyBinding should be generated")
+
+	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, "test-mutate-pods", metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, updated.Status.Generated)
+}
+>>>>>>> 278c17b54 (fix(cel): scope PolicyExceptions to the policy namespace (#18697))

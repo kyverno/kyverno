@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
@@ -146,7 +147,7 @@ func NewDpolDepsWithExceptions(
 	polexInformer := kyvernoFactory.Policies().V1beta1().PolicyExceptions()
 
 	compiler := dpolcompiler.NewCompiler()
-	provider := dpolengine.NewFetchProvider(compiler, dpolInformer.Lister(), ndpolInformer.Lister(), polexInformer.Lister(), true)
+	provider := dpolengine.NewFetchProvider(compiler, dpolInformer.Lister(), ndpolInformer.Lister(), celengine.NewPolicyExceptionLister(polexInformer.Lister(), "*"), true)
 
 	kubeFactory := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	nsLister := kubeFactory.Core().V1().Namespaces().Lister()

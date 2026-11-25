@@ -53,7 +53,7 @@ func TestHandle_ValidationIndexInProperties(t *testing.T) {
 		{Expression: "object.name != ''", Message: "index 3: would pass"},
 	})
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, nil, nil)
@@ -78,7 +78,7 @@ func TestHandle_ValidationIndexFirstExpression(t *testing.T) {
 		{Expression: "object.name != ''", Message: "index 1: would pass"},
 	})
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, nil, nil)
@@ -173,7 +173,7 @@ func buildDisallowLatestTagPolicyUsingRequest() *policiesv1beta1.ValidatingPolic
 
 func TestHandle_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) {
 	policy := buildDisallowLatestTagPolicyUsingRequest()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
@@ -223,7 +223,7 @@ func TestHandle_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) 
 
 func TestHandle_ExtractionMode_JobSet(t *testing.T) {
 	policy := buildDisallowLatestTagPolicy()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
@@ -276,7 +276,7 @@ func TestHandle_ExtractionMode_RefusedExceptionCarriesTemplatePath(t *testing.T)
 		t.Helper()
 		policy := buildDisallowLatestTagPolicy()
 		polex := buildException("default", "polex", policy.GetName(), control)
-		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{polex})
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{polex}, celengine.ExceptionScopeAll)
 		require.NoError(t, err)
 		eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 		req := celengine.Request(
@@ -349,7 +349,7 @@ func workloadWithReplicas(masterImage, workerImage string) *unstructured.Unstruc
 func TestHandle_ExtractionMode_MapKeyedTemplatesReportFirstSortedPath(t *testing.T) {
 	policy := buildDisallowLatestTagPolicy()
 	policy.Spec.AutogenConfiguration.PodControllers.Controllers = []string{"workloads.v1.example.com"}
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 
@@ -396,7 +396,7 @@ func TestHandle_ExtractionMode_TemplateNamespaceDoesNotEscapeMatchConditions(t *
 			policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{
 				{Name: "skip-system-namespaces", Expression: expression},
 			}
-			provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+			provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 			require.NoError(t, err)
 			eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 
@@ -480,7 +480,7 @@ func buildException(namespace, name, policyName string, validations ...admission
 
 func handle(t *testing.T, policy *policiesv1beta1.ValidatingPolicy, payload map[string]any, exceptions ...*policiesv1beta1.PolicyException) engineapi.RuleResponse {
 	t.Helper()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, exceptions)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, exceptions, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	resp, err := NewEngine(provider, nil, nil).Handle(
@@ -694,7 +694,7 @@ func TestNewProvider_CompensatingControlCompileErrorNamesTheException(t *testing
 
 	_, err := NewProvider(compiler.NewCompiler(),
 		[]policiesv1beta1.ValidatingPolicyLike{policy},
-		[]*policiesv1beta1.PolicyException{polex})
+		[]*policiesv1beta1.PolicyException{polex}, celengine.ExceptionScopeAll)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exception[prod/needs-ticket].spec.validations[0].expression")
 }
@@ -714,7 +714,7 @@ func TestNewProvider_CompensatingControlCannotReferencePolicyScopedIdentifiers(t
 
 			_, err := NewProvider(compiler.NewCompiler(),
 				[]policiesv1beta1.ValidatingPolicyLike{policy},
-				[]*policiesv1beta1.PolicyException{polex})
+				[]*policiesv1beta1.PolicyException{polex}, celengine.ExceptionScopeAll)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "exception[prod/needs-ticket].spec.validations[0].expression")
 		})
@@ -732,7 +732,7 @@ func TestHandle_ExtractionMode_AllTemplatesSkippedStillCarriesTrace(t *testing.T
 		Name:       "never",
 		Expression: "object.metadata.name != object.metadata.name", // always false
 	}}
-	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
@@ -782,7 +782,7 @@ func TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace(t *testing.T) {
 		Expression: "object.metadata.labels.owner == 'platform'",
 	}}
 	handle := func(traced bool) celengine.ValidatingPolicyResponse {
-		provider, err := NewProvider(compiler.NewCompilerWithTrace(traced), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+		provider, err := NewProvider(compiler.NewCompilerWithTrace(traced), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 		require.NoError(t, err)
 		eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 		req := celengine.Request(
@@ -877,7 +877,7 @@ func TestHandle_TracedExceptionFollowsReportResult(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{denyingPolicy()}, tt.exceptions)
+			provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{denyingPolicy()}, tt.exceptions, celengine.ExceptionScopeAll)
 			require.NoError(t, err)
 			resp, err := NewEngine(provider, nil, nil).Handle(
 				context.Background(),
@@ -984,7 +984,7 @@ func TestHandle_ExtractionMode_MultiTemplateTraceSelection(t *testing.T) {
 				Name:       "not-skipped-image",
 				Expression: "!object.spec.containers.exists(c, c.image.startsWith('skip/'))",
 			}}
-			provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+			provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 			require.NoError(t, err)
 			eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 
@@ -1035,7 +1035,7 @@ func TestHandle_JsonPayload_PredicateFilter(t *testing.T) {
 	policy1 := buildJSONPolicy("policy-1", nil)
 	policy2 := buildJSONPolicy("policy-2", nil)
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy1, policy2}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy1, policy2}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 
@@ -1123,7 +1123,7 @@ func TestHandle_SharedActivationBuilder_MultiplePolicies(t *testing.T) {
 		},
 	}
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{matchingPolicy1, matchingPolicy2, skippedPolicy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{matchingPolicy1, matchingPolicy2, skippedPolicy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
@@ -1260,7 +1260,7 @@ func TestHandle_SharedActivationBuilder_Failure(t *testing.T) {
 		},
 	}
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{matchingPolicy1, matchingPolicy2, skippedPolicy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{matchingPolicy1, matchingPolicy2, skippedPolicy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
