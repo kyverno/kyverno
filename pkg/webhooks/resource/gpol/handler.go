@@ -2,6 +2,7 @@ package gpol
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type handler struct {
@@ -53,93 +54,14 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 	}
 
 	go func(policies []string, request handlers.AdmissionRequest, logger logr.Logger) {
-		admissionRequest := request.AdmissionRequest
-		isBackgroundRequest := h.backgroundServiceAccountName != "" && request.UserInfo.Username == h.backgroundServiceAccountName
-		userInfo := kyvernov2.RequestInfo{
-			AdmissionUserInfo: *request.UserInfo.DeepCopy(),
-			Roles:             request.Roles,
-			ClusterRoles:      request.ClusterRoles,
-		}
-		for _, policy := range policies {
-			needPolicy := isBackgroundRequest || request.Operation != admissionv1.Create
-			var gpol *policiesv1beta1.GeneratingPolicy
-			if needPolicy {
-				var err error
-				gpol, err = h.gpolLister.Get(policy)
-				if err != nil {
-					logger.Error(err, "failed to get generating policy", "policy", policy)
-					continue
-				}
-				if isBackgroundRequest && skipBackgroundRequests(gpol) {
-					logger.V(4).Info("skipping background request for generating policy", "policy", policy)
-					continue
-				}
+		h.queuePolicies(ctx, logger, policies, request, func(name string) (policiesv1beta1.GeneratingPolicyLike, error) {
+			if h.gpolLister == nil {
+				return nil, errNoPolicyLister
 			}
-			trigger, oldTrigger, err := admissionutils.ExtractResources(nil, admissionRequest)
-			if err != nil {
-				logger.Error(err, "failed to extract resources from admission request")
-				break
-			}
-			if trigger.Object == nil {
-				trigger = oldTrigger
-			}
-			triggerSpec := kyverno.ResourceSpec{
-				APIVersion: trigger.GetAPIVersion(),
-				Kind:       trigger.GetKind(),
-				Namespace:  trigger.GetNamespace(),
-				Name:       trigger.GetName(),
-				UID:        trigger.GetUID(),
-			}
-			if request.Operation == admissionv1.Delete {
-				// in case of delete operation, if the policy matches the delete operation, we need to fire the generation
-				// otherwise, we need to delete the downstream resources
-				deleteDownstream := true
-				for _, rule := range gpol.Spec.MatchConstraints.ResourceRules {
-					for _, op := range rule.Operations {
-						if op == admissionregistrationv1.Delete {
-							deleteDownstream = false
-							break
-						}
-					}
-				}
-				if deleteDownstream {
-					// delete downstream on trigger deletion in case synchronization is enabled
-					if gpol.Spec.SynchronizationEnabled() {
-						logger.V(4).Info("creating the UR to delete downstream on trigger's deletion", "operation", request.Operation, "policy", policy, "trigger", triggerSpec.String())
-						urSpec := buildURSpecNew(kyvernov2.CELGenerate, policy, triggerSpec, true, false)
-						urSpec.Context = buildURContext(admissionRequest, userInfo)
-						if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
-							logger.Error(err, "failed to create update request for generate policy", "policy", policy)
-						} else {
-							logger.V(4).Info("update request created for generate policy", "policy", policy)
-						}
-					}
-				} else {
-					// fire generation on trigger deletion
-					logger.V(4).Info("creating the UR to generate downstream on trigger's deletion", "operation", request.Operation, "policy", policy, "trigger", triggerSpec.String())
-					urSpec := buildURSpecNew(kyvernov2.CELGenerate, policy, triggerSpec, false, false)
-					urSpec.Context = buildURContext(admissionRequest, userInfo)
-					if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
-						logger.Error(err, "failed to create update request for generate policy", "policy", policy)
-					} else {
-						logger.V(4).Info("update request created for generate policy", "policy", policy)
-					}
-				}
-			} else {
-				synchronize := false
-				if request.Operation == admissionv1.Update {
-					synchronize = gpol.Spec.SynchronizationEnabled()
-				}
-				logger.V(4).Info("creating the UR to generate downstream on trigger's operation", "operation", request.Operation, "policy", policy, "synchronize", synchronize)
-				urSpec := buildURSpecNew(kyvernov2.CELGenerate, policy, triggerSpec, false, synchronize)
-				urSpec.Context = buildURContext(admissionRequest, userInfo)
-				if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
-					logger.Error(err, "failed to create update request for generate policy", "policy", policy)
-				} else {
-					logger.V(4).Info("update request created for generate policy", "policy", policy)
-				}
-			}
-		}
+			return h.gpolLister.Get(name)
+		}, func(name string) string {
+			return name
+		})
 	}(policies, request, logger)
 
 	return admissionutils.Response(request.UID, nil)
@@ -160,96 +82,102 @@ func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, re
 		}
 	}
 
+	namespace := request.Namespace
 	go func(policies []string, request handlers.AdmissionRequest, logger logr.Logger, namespace string) {
-		admissionRequest := request.AdmissionRequest
-		isBackgroundRequest := h.backgroundServiceAccountName != "" && request.UserInfo.Username == h.backgroundServiceAccountName
-		userInfo := kyvernov2.RequestInfo{
-			AdmissionUserInfo: *request.UserInfo.DeepCopy(),
-			Roles:             request.Roles,
-			ClusterRoles:      request.ClusterRoles,
-		}
-		for _, policy := range policies {
-			needPolicy := isBackgroundRequest || request.Operation != admissionv1.Create
-			var ngpol *policiesv1beta1.NamespacedGeneratingPolicy
-			if needPolicy {
-				var err error
-				ngpol, err = h.ngpolLister.NamespacedGeneratingPolicies(namespace).Get(policy)
-				if err != nil {
-					logger.Error(err, "failed to get namespaced generating policy", "policy", policy, "namespace", namespace)
-					continue
-				}
-				if isBackgroundRequest && skipBackgroundRequests(ngpol) {
-					logger.V(4).Info("skipping background request for namespaced generating policy", "policy", policy, "namespace", namespace)
-					continue
-				}
+		h.queuePolicies(ctx, logger, policies, request, func(name string) (policiesv1beta1.GeneratingPolicyLike, error) {
+			if h.ngpolLister == nil {
+				return nil, errNoPolicyLister
 			}
-			trigger, oldTrigger, err := admissionutils.ExtractResources(nil, admissionRequest)
-			if err != nil {
-				logger.Error(err, "failed to extract resources from admission request")
-				break
-			}
-			if trigger.Object == nil {
-				trigger = oldTrigger
-			}
-			triggerSpec := kyverno.ResourceSpec{
-				APIVersion: trigger.GetAPIVersion(),
-				Kind:       trigger.GetKind(),
-				Namespace:  trigger.GetNamespace(),
-				Name:       trigger.GetName(),
-				UID:        trigger.GetUID(),
-			}
-			if request.Operation == admissionv1.Delete {
-				deleteDownstream := true
-				for _, rule := range ngpol.Spec.MatchConstraints.ResourceRules {
-					for _, op := range rule.Operations {
-						if op == admissionregistrationv1.Delete {
-							deleteDownstream = false
-							break
-						}
-					}
-				}
-				if deleteDownstream {
-					if ngpol.Spec.SynchronizationEnabled() {
-						logger.V(4).Info("creating the UR to delete downstream on trigger's deletion", "operation", request.Operation, "policy", policy, "namespace", namespace, "trigger", triggerSpec.String())
-						policyKey := namespace + "/" + policy
-						urSpec := buildURSpecNew(kyvernov2.CELGenerate, policyKey, triggerSpec, true, false)
-						urSpec.Context = buildURContext(admissionRequest, userInfo)
-						if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
-							logger.Error(err, "failed to create update request for namespaced generate policy", "policy", policy)
-						} else {
-							logger.V(4).Info("update request created for namespaced generate policy", "policy", policy)
-						}
-					}
-				} else {
-					logger.V(4).Info("creating the UR to generate downstream on trigger's deletion", "operation", request.Operation, "policy", policy, "namespace", namespace, "trigger", triggerSpec.String())
-					policyKey := namespace + "/" + policy
-					urSpec := buildURSpecNew(kyvernov2.CELGenerate, policyKey, triggerSpec, false, false)
-					urSpec.Context = buildURContext(admissionRequest, userInfo)
-					if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
-						logger.Error(err, "failed to create update request for namespaced generate policy", "policy", policy)
-					} else {
-						logger.V(4).Info("update request created for namespaced generate policy", "policy", policy)
-					}
-				}
-			} else {
-				synchronize := false
-				if request.Operation == admissionv1.Update {
-					synchronize = ngpol.Spec.SynchronizationEnabled()
-				}
-				logger.V(4).Info("creating the UR to generate downstream on trigger's operation", "operation", request.Operation, "policy", policy, "namespace", namespace)
-				policyKey := namespace + "/" + policy
-				urSpec := buildURSpecNew(kyvernov2.CELGenerate, policyKey, triggerSpec, false, synchronize)
-				urSpec.Context = buildURContext(admissionRequest, userInfo)
-				if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
-					logger.Error(err, "failed to create update request for namespaced generate policy", "policy", policy)
-				} else {
-					logger.V(4).Info("update request created for namespaced generate policy", "policy", policy)
-				}
-			}
-		}
-	}(policies, request, logger, request.Namespace)
+			return h.ngpolLister.NamespacedGeneratingPolicies(namespace).Get(name)
+		}, func(name string) string {
+			return namespace + "/" + name
+		})
+	}(policies, request, logger, namespace)
 
 	return admissionutils.Response(request.UID, nil)
+}
+
+var errNoPolicyLister = errors.New("generating policy lister is not configured")
+
+func (h *handler) queuePolicies(
+	ctx context.Context,
+	logger logr.Logger,
+	policies []string,
+	request handlers.AdmissionRequest,
+	load func(string) (policiesv1beta1.GeneratingPolicyLike, error),
+	policyKey func(string) string,
+) {
+	admissionRequest := request.AdmissionRequest
+	isBackgroundRequest := h.backgroundServiceAccountName != "" && request.UserInfo.Username == h.backgroundServiceAccountName
+	userInfo := kyvernov2.RequestInfo{
+		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
+		Roles:             request.Roles,
+		ClusterRoles:      request.ClusterRoles,
+	}
+	object, oldObject, err := admissionutils.ExtractResources(nil, admissionRequest)
+	if err != nil {
+		logger.Error(err, "failed to extract resources from admission request")
+		return
+	}
+	for _, name := range policies {
+		policy, err := load(name)
+		if err != nil {
+			logger.Error(err, "failed to get generating policy", "policy", name)
+			// A non-background CREATE used to queue without reading the policy.
+			// Keep that when the lister has not seen it yet. UPDATE and DELETE
+			// already required the policy, and a background CREATE is skipped
+			// when the policy cannot be loaded.
+			if !isBackgroundRequest && request.Operation == admissionv1.Create {
+				h.queueUpdateRequest(ctx, logger, policyKey(name), admissionRequest, userInfo, object, oldObject, admissionPlan{queue: true})
+			}
+			continue
+		}
+		if isBackgroundRequest && skipBackgroundRequests(policy) {
+			logger.V(4).Info("skipping background request for generating policy", "policy", name)
+			continue
+		}
+		plan := planGeneratingAdmission(policy, admissionRequest, object, oldObject)
+		if !plan.queue {
+			logger.V(4).Info("skipping update request; resource is not a trigger for this generating policy", "policy", name, "operation", request.Operation)
+			continue
+		}
+		h.queueUpdateRequest(ctx, logger, policyKey(name), admissionRequest, userInfo, object, oldObject, plan)
+	}
+}
+
+func (h *handler) queueUpdateRequest(
+	ctx context.Context,
+	logger logr.Logger,
+	policyKey string,
+	admissionRequest admissionv1.AdmissionRequest,
+	userInfo kyvernov2.RequestInfo,
+	object unstructured.Unstructured,
+	oldObject unstructured.Unstructured,
+	plan admissionPlan,
+) {
+	trigger := object
+	if trigger.Object == nil {
+		trigger = oldObject
+	}
+	triggerSpec := kyverno.ResourceSpec{
+		APIVersion: trigger.GetAPIVersion(),
+		Kind:       trigger.GetKind(),
+		Namespace:  trigger.GetNamespace(),
+		Name:       trigger.GetName(),
+		UID:        trigger.GetUID(),
+	}
+	if plan.deleteDownstream {
+		logger.V(4).Info("creating the UR to delete downstream on trigger's deletion", "operation", admissionRequest.Operation, "policy", policyKey, "trigger", triggerSpec.String())
+	} else {
+		logger.V(4).Info("creating the UR to generate downstream on trigger's operation", "operation", admissionRequest.Operation, "policy", policyKey, "synchronize", plan.synchronize, "trigger", triggerSpec.String())
+	}
+	urSpec := buildURSpecNew(kyvernov2.CELGenerate, policyKey, triggerSpec, plan.deleteDownstream, plan.synchronize)
+	urSpec.Context = buildURContext(admissionRequest, userInfo)
+	if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
+		logger.Error(err, "failed to create update request for generate policy", "policy", policyKey)
+		return
+	}
+	logger.V(4).Info("update request created for generate policy", "policy", policyKey)
 }
 
 func skipBackgroundRequests(policy policiesv1beta1.GeneratingPolicyLike) bool {

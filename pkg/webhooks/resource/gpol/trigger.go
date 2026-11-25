@@ -1,0 +1,292 @@
+package gpol
+
+import (
+	"context"
+	"slices"
+	"sync"
+
+	"github.com/google/cel-go/cel"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celutils "github.com/kyverno/sdk/extensions/cel/utils"
+	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apiserver/pkg/admission"
+)
+
+// admissionPlan is the UpdateRequest the admission handler should write for one
+// generating policy. queue is false when the object is neither a trigger nor a
+// trigger that just stopped matching.
+type admissionPlan struct {
+	queue            bool
+	deleteDownstream bool
+	synchronize      bool
+}
+
+// planGeneratingAdmission decides whether this admission is a trigger for policy.
+//
+// The webhook lets UPDATE and DELETE through for every resource of the kind so
+// synchronize can delete downstream objects when a trigger stops matching
+// (kyverno/kyverno#16832). resourceNames cannot be expressed on a webhook rule,
+// and those match conditions are wrapped so they only apply to CREATE. Both
+// checks happen here, before an UpdateRequest is written.
+//
+// A check that cannot be evaluated (a Kyverno-only CEL function, a namespace
+// selector) does not exclude the request. The background engine still matches
+// before it generates.
+func planGeneratingAdmission(
+	policy policiesv1beta1.GeneratingPolicyLike,
+	request admissionv1.AdmissionRequest,
+	object unstructured.Unstructured,
+	oldObject unstructured.Unstructured,
+) admissionPlan {
+	spec := policy.GetSpec()
+	if spec == nil {
+		return admissionPlan{queue: true}
+	}
+	sync := spec.SynchronizationEnabled()
+	constraints := policy.GetMatchConstraints()
+	conditions := policy.GetMatchConditions()
+
+	switch request.Operation {
+	case admissionv1.Create:
+		if triggerMatches(constraints, conditions, request, &object, &oldObject, true) {
+			return admissionPlan{queue: true}
+		}
+	case admissionv1.Update:
+		if triggerMatches(constraints, conditions, request, &object, &oldObject, true) {
+			return admissionPlan{queue: true, synchronize: sync}
+		}
+		// The live object no longer matches. If the previous object did, synchronize
+		// still has to delete the downstream resources it created for this trigger.
+		if sync && triggerMatches(constraints, conditions, request, &oldObject, &oldObject, false) {
+			return admissionPlan{queue: true, synchronize: true}
+		}
+	case admissionv1.Delete:
+		// DELETE carries the trigger in oldObject. Match that object, and do not
+		// require the policy to have listed DELETE: synchronize observes deletion
+		// of a trigger whose rule only names CREATE or UPDATE.
+		if !triggerMatches(constraints, conditions, request, &oldObject, &oldObject, false) {
+			return admissionPlan{}
+		}
+		if operationListed(constraints, admissionregistrationv1.Delete) {
+			return admissionPlan{queue: true}
+		}
+		if sync {
+			return admissionPlan{queue: true, deleteDownstream: true}
+		}
+	default:
+		if triggerMatches(constraints, conditions, request, &object, &oldObject, true) {
+			return admissionPlan{queue: true}
+		}
+	}
+	return admissionPlan{}
+}
+
+// triggerMatches reports whether candidate is a resource this policy generates
+// from. enforceOperation requires the admission operation to be one the rule
+// lists; synchronize passes false so a trigger deleted or updated out of its
+// rule is still recognized.
+func triggerMatches(
+	constraints admissionregistrationv1.MatchResources,
+	conditions []admissionregistrationv1.MatchCondition,
+	request admissionv1.AdmissionRequest,
+	candidate *unstructured.Unstructured,
+	oldObject *unstructured.Unstructured,
+	enforceOperation bool,
+) bool {
+	if candidate == nil {
+		candidate = &unstructured.Unstructured{}
+	}
+	if oldObject == nil {
+		oldObject = &unstructured.Unstructured{}
+	}
+	matchConstraints := constraints
+	if !enforceOperation {
+		matchConstraints = widenOperations(constraints, admissionregistrationv1.OperationType(request.Operation))
+	}
+	matched, err := constraintsMatch(&matchConstraints, request, candidate, oldObject)
+	if err != nil {
+		// A matcher failure is not proof that the resource is not a trigger.
+		matched = true
+	}
+	if !matched {
+		return false
+	}
+	return conditionsMatch(conditions, request, candidate, oldObject)
+}
+
+func operationListed(constraints admissionregistrationv1.MatchResources, operation admissionregistrationv1.OperationType) bool {
+	for _, rule := range constraints.ResourceRules {
+		if slices.Contains(rule.Operations, admissionregistrationv1.OperationAll) || slices.Contains(rule.Operations, operation) {
+			return true
+		}
+	}
+	return false
+}
+
+// widenOperations adds operation to every resource rule so a name and selector
+// check still runs when synchronize observes an operation the policy did not list.
+func widenOperations(in admissionregistrationv1.MatchResources, operation admissionregistrationv1.OperationType) admissionregistrationv1.MatchResources {
+	out := in.DeepCopy()
+	for i := range out.ResourceRules {
+		ops := out.ResourceRules[i].Operations
+		if slices.Contains(ops, admissionregistrationv1.OperationAll) || slices.Contains(ops, operation) {
+			continue
+		}
+		out.ResourceRules[i].Operations = append(append([]admissionregistrationv1.OperationType{}, ops...), operation)
+	}
+	return *out
+}
+
+func constraintsMatch(
+	constraints *admissionregistrationv1.MatchResources,
+	request admissionv1.AdmissionRequest,
+	object *unstructured.Unstructured,
+	oldObject *unstructured.Unstructured,
+) (bool, error) {
+	// The admission handler does not have namespace objects. Leave namespace
+	// selectors to the background engine instead of rejecting triggers whose
+	// namespace labels are simply unknown here.
+	if constraints != nil && constraints.NamespaceSelector != nil {
+		copied := constraints.DeepCopy()
+		copied.NamespaceSelector = nil
+		constraints = copied
+	}
+	name := request.Name
+	if name == "" {
+		name = object.GetName()
+	}
+	namespace := request.Namespace
+	if namespace == "" {
+		namespace = object.GetNamespace()
+	}
+	attr := admission.NewAttributesRecord(
+		object,
+		oldObject,
+		schema.GroupVersionKind(request.Kind),
+		namespace,
+		name,
+		schema.GroupVersionResource(request.Resource),
+		request.SubResource,
+		admission.Operation(request.Operation),
+		nil,
+		false,
+		admissionpolicy.NewUser(request.UserInfo),
+	)
+	return triggerMatcher.Match(&matching.MatchCriteria{Constraints: constraints}, attr, nil)
+}
+
+var triggerMatcher = matching.NewMatcher()
+
+// conditionsMatch is false only when a match condition evaluates to false.
+// A condition that cannot be compiled or evaluated here is ignored so a
+// Kyverno-only function cannot hide a real trigger from synchronize.
+func conditionsMatch(
+	conditions []admissionregistrationv1.MatchCondition,
+	request admissionv1.AdmissionRequest,
+	object *unstructured.Unstructured,
+	oldObject *unstructured.Unstructured,
+) bool {
+	if len(conditions) == 0 {
+		return true
+	}
+	activation, err := conditionActivation(request, object, oldObject)
+	if err != nil {
+		return true
+	}
+	for _, condition := range conditions {
+		program, ok := compileMatchCondition(condition.Expression)
+		if !ok {
+			continue
+		}
+		out, _, err := program.ContextEval(context.Background(), activation)
+		if err != nil {
+			continue
+		}
+		result, err := celutils.ConvertToNative[bool](out)
+		if err != nil {
+			continue
+		}
+		if !result {
+			return false
+		}
+	}
+	return true
+}
+
+func conditionActivation(request admissionv1.AdmissionRequest, object, oldObject runtime.Object) (map[string]any, error) {
+	objectVal, err := celutils.ObjectToResolveVal(object)
+	if err != nil {
+		return nil, err
+	}
+	oldVal, err := celutils.ObjectToResolveVal(oldObject)
+	if err != nil {
+		return nil, err
+	}
+	requestMap, err := compiler.BuildRawRequestMap(&request)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		compiler.NamespaceObjectKey: nil,
+		compiler.ObjectKey:          objectVal,
+		compiler.OldObjectKey:       oldVal,
+		compiler.RequestKey:         requestMap,
+	}, nil
+}
+
+var (
+	conditionEnvOnce sync.Once
+	conditionEnv     *cel.Env
+	conditionEnvErr  error
+
+	conditionPrograms sync.Mutex
+	conditionCache    = map[string]cel.Program{}
+	conditionMisses   = map[string]struct{}{}
+)
+
+func matchConditionEnv() (*cel.Env, error) {
+	conditionEnvOnce.Do(func() {
+		conditionEnv, conditionEnvErr = compiler.NewEnv(append(
+			compiler.DefaultEnvOptionsWithCompat(),
+			cel.Variable(compiler.NamespaceObjectKey, cel.DynType),
+			cel.Variable(compiler.ObjectKey, cel.DynType),
+			cel.Variable(compiler.OldObjectKey, cel.DynType),
+			cel.Variable(compiler.RequestKey, cel.DynType),
+		)...)
+	})
+	return conditionEnv, conditionEnvErr
+}
+
+func compileMatchCondition(expression string) (cel.Program, bool) {
+	conditionPrograms.Lock()
+	defer conditionPrograms.Unlock()
+	if program, ok := conditionCache[expression]; ok {
+		return program, true
+	}
+	if _, ok := conditionMisses[expression]; ok {
+		return nil, false
+	}
+	env, err := matchConditionEnv()
+	if err != nil {
+		conditionMisses[expression] = struct{}{}
+		return nil, false
+	}
+	program, errs := compiler.CompileMatchCondition(field.NewPath("spec").Child("matchConditions"), env, admissionregistrationv1.MatchCondition{
+		Name:       "match",
+		Expression: expression,
+	})
+	if len(errs) > 0 || program == nil {
+		conditionMisses[expression] = struct{}{}
+		return nil, false
+	}
+	conditionCache[expression] = program
+	return program, true
+}

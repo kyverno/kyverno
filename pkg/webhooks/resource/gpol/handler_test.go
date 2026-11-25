@@ -151,3 +151,36 @@ func TestGenerate_BackgroundRequestAllowedWhenDisabled(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	assert.Equal(t, int32(1), mock.called.Load(), "background request must be processed when explicitly disabled")
 }
+
+func TestGenerate_UnrelatedSecretDoesNotCreateUpdateRequest(t *testing.T) {
+	mock := &mockURGenerator{}
+	h := New(mock, &mockGeneratingPolicyLister{
+		policies: map[string]*policiesv1beta1.GeneratingPolicy{
+			"clone-example": cloneSecretPolicy(true, `object.metadata.namespace == "src"`),
+		},
+	}, nil, "")
+
+	ctx := context.WithValue(context.Background(), httprouter.ParamsKey, httprouter.Params{
+		{Key: "policies", Value: "/clone-example"},
+	})
+	raw := []byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"unrelated","namespace":"other"}}`)
+	req := handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       types.UID("test-uid"),
+			Operation: admissionv1.Update,
+			Name:      "unrelated",
+			Namespace: "other",
+			Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+			Resource:  metav1.GroupVersionResource{Version: "v1", Resource: "secrets"},
+			Object:    runtime.RawExtension{Raw: raw},
+			OldObject: runtime.RawExtension{Raw: raw},
+			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
+		},
+	}
+
+	resp := h.Generate(ctx, logr.Discard(), req, "", time.Now())
+	assert.True(t, resp.Allowed)
+
+	time.Sleep(200 * time.Millisecond)
+	assert.Equal(t, int32(0), mock.called.Load(), "an unrelated secret must not create an UpdateRequest")
+}

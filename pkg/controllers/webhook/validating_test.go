@@ -1157,6 +1157,61 @@ func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *te
 	}
 }
 
+func TestBuildWebhookRules_GeneratingPolicyKeepsKubernetesMatchConditions(t *testing.T) {
+	t.Parallel()
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "clone-example"},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+				SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{
+					Enabled: ptr.To(true),
+				},
+			},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					ResourceNames: []string{"source-secret"},
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"secrets"},
+						},
+					},
+				}},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "source-namespace",
+					Expression: `object.metadata.namespace == "src"`,
+				},
+				{
+					Name:       "load-source",
+					Expression: `resource.Get("v1", "secrets", "src", "source-secret") != null`,
+				},
+			},
+		},
+	}
+
+	webhooks := buildWebhookRules(
+		config.NewDefaultConfiguration(false),
+		"",
+		config.GeneratingPolicyWebhookName,
+		"/gpol",
+		0,
+		nil,
+		[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
+		NewExpressionCache(),
+	)
+
+	require.Len(t, webhooks, 1)
+	assert.Contains(t, webhooks[0].Name, "finegrained")
+	require.Len(t, webhooks[0].MatchConditions, 1)
+	assert.Equal(t, "source-namespace", webhooks[0].MatchConditions[0].Name)
+	assert.Equal(t, `request.operation != 'CREATE' || (object.metadata.namespace == "src")`, webhooks[0].MatchConditions[0].Expression)
+	assert.NotContains(t, webhooks[0].MatchConditions[0].Expression, "resource.Get")
+}
+
 func TestBuildWebhookRules_GeneratingPolicy_Autogen_TrailingComment(t *testing.T) {
 	for _, syncEnabled := range []bool{true, false} {
 		t.Run(fmt.Sprintf("syncEnabled=%v", syncEnabled), func(t *testing.T) {
