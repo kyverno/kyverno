@@ -13,7 +13,7 @@ import (
 
 func matchResource(logger logr.Logger, resource unstructured.Unstructured, rule kyvernov1.Rule, namespaceLabels map[string]string, policyNamespace string, operation kyvernov1.AdmissionOperation, jsonContext enginecontext.Interface) bool {
 	if rule.RawAnyAllConditions != nil {
-		preconditionsPassed, _, err := internal.CheckPreconditions(logger, jsonContext, rule.RawAnyAllConditions)
+		preconditionsPassed, _, err := internal.CheckPreconditions(logger, jsonContext, rule.GetAnyAllConditions())
 		if !preconditionsPassed || err != nil {
 			return false
 		}
