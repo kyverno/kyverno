@@ -1,3 +1,7 @@
+## Unreleased
+
+- fix(policy): scope background lists of namespaced triggers for generating and mutating policies to the policy namespace, while retaining matches for the policy's own Namespace (#18841)
+
 ## v1.13.0
 
 ### Note

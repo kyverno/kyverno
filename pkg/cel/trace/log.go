@@ -4,10 +4,16 @@ package trace
 const redacted = "(redacted)"
 
 // LogEntry is a Decision in the form it is written to a log: the same layers Render prints, as
-// one structured value instead of lines of text. It carries less than the Decision does, the same
-// way Render prints less: the per-node breakdown is kept only where something did not pass.
+// one structured value instead of lines of text. It is a Decision's JSON (see APIVersion) with
+// fields left out, under its own kind, DecisionLogEntry: the same names mean the same things, but
+// it carries less, the same way Render prints less. The per-node breakdown is kept only where
+// something did not pass, and the images and generations are left out.
 type LogEntry struct {
-	Scope       string          `json:"scope,omitempty"`
+	APIVersion  string          `json:"apiVersion"`
+	Kind        string          `json:"kind"`
+	Policy      PolicyRef       `json:"policy"`
+	Resource    *ResourceRef    `json:"resource,omitempty"`
+	Scope       ScopeTrace      `json:"scope,omitzero"`
 	Match       []LogExpression `json:"match,omitempty"`
 	Variables   []LogExpression `json:"variables,omitempty"`
 	Validations []LogExpression `json:"validations,omitempty"`
@@ -37,8 +43,8 @@ type LogNode struct {
 }
 
 // LogValues returns d as the key/value pairs of one structured log line: the policy, the verdict
-// and the trace itself as a LogEntry. The resource is left to the caller's logger, which in an
-// admission handler already carries the request. A nil decision returns nil.
+// and the trace itself as a LogEntry. The policy and verdict are also keys of their own, so a log
+// can be filtered on them without reading the trace. A nil decision returns nil.
 //
 // A trace holds values read from the resource, and a log is read by more people than the resource
 // is. So every value is cut to maxValueLen, and a value or error that may be Secret data is not
@@ -50,7 +56,11 @@ func LogValues(d *Decision) []any {
 	}
 	l := logFormat{newRedaction(d)}
 	entry := LogEntry{
-		Scope: d.Scope.Reason,
+		APIVersion: APIVersion,
+		Kind:       KindDecisionLogEntry,
+		Policy:     policyRef(d),
+		Resource:   resourceRef(d),
+		Scope:      d.Scope,
 		Verdict: LogExpression{
 			Status:     d.Verdict.Status,
 			Expression: d.Verdict.Source,
