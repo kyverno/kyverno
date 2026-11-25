@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: background-effective-revision
+spec:
+  concurrent: false
+  steps:
+  - name: create target before the background-only policy
+    try:
+    - create:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: background-effective-revision
+    - create:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: target
+            namespace: background-effective-revision
+            labels:
+              test.kyverno.io/effective-revision: "true"
+    - create:
+        file: policy.yaml
+    - assert:
+        resource:
+          apiVersion: wgpolicyk8s.io/v1alpha2
+          kind: PolicyReport
+          metadata:
+            namespace: background-effective-revision
+          scope:
+            kind: ConfigMap
+            name: target
+          results:
+          - policy: background-effective-revision
+            result: fail
+          summary:
+            fail: 1
+            pass: 0
+  - name: unrelated metadata produces no background report
+    try:
+    - script:
+        timeout: 45s
+        content: |
+          #!/bin/sh
+          set -eu
+          namespace=background-effective-revision
+          policy=background-effective-revision
+          uid=$(kubectl get configmap target -n "$namespace" -o jsonpath='{.metadata.uid}')
+          selector="audit.kyverno.io/resource.uid=$uid,audit.kyverno.io/source=background-scan"
+          # Aggregation consumes ephemeral reports. Observe API events rather
+          # than assuming the previous ephemeral report is still present.
+          kubectl wait --for=delete ephemeralreports -n "$namespace" -l "$selector" --timeout=30s
+          revision=$(kubectl get ephemeralreports -n "$namespace" -l "$selector" -o jsonpath='{.metadata.resourceVersion}')
+          generation=$(kubectl get validatingpolicy "$policy" -o jsonpath='{.metadata.generation}')
+          trace=$(mktemp)
+          trap 'rm -f "$trace"' EXIT
+          kubectl annotate validatingpolicy "$policy" example.com/unrelated=updated
+          test "$generation" = "$(kubectl get validatingpolicy "$policy" -o jsonpath='{.metadata.generation}')"
+          # Replay from the list revision to avoid missing fast report writes.
+          if timeout 10s kubectl get ephemeralreports -n "$namespace" -l "$selector" \
+              --watch-only --resource-version="$revision" --output-watch-events -o name > "$trace"; then
+            echo 'report watch ended unexpectedly' >&2
+            exit 1
+          else
+            status=$?
+            test "$status" -eq 124
+          fi
+          if test -s "$trace"; then
+            cat "$trace" >&2
+            echo 'metadata-only policy update produced a background report' >&2
+            exit 1
+          fi
+  - name: a specification change still replaces the finding
+    try:
+    - script:
+        content: |
+          #!/bin/sh
+          set -eu
+          kubectl patch validatingpolicy background-effective-revision --type=merge \
+            -p '{"spec":{"validations":[{"expression":"true","message":"updated finding"}]}}'
+    - assert:
+        resource:
+          apiVersion: wgpolicyk8s.io/v1alpha2
+          kind: PolicyReport
+          metadata:
+            namespace: background-effective-revision
+          scope:
+            kind: ConfigMap
+            name: target
+          results:
+          - policy: background-effective-revision
+            result: pass
+          summary:
+            fail: 0
+            pass: 1

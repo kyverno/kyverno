@@ -188,12 +188,27 @@ spec:
 
 **For CEL-based policies (`policies.kyverno.io`):**
 
+Each controller that evaluates CEL-based policies (admission, background, and reports) has its own
+`--exceptionNamespace` flag, set via `featuresOverride` per controller in the chart; it can differ between
+controllers. That flag decides whether the controller even looks at the exception, and that decision depends
+on which namespace `metadata.namespace` below names:
+
+| `--exceptionNamespace` | Where to put the exception |
+|---|---|
+| unset (default) | nowhere — exceptions are admitted but ignored at evaluation time everywhere; set the flag first. This is surfaced, not silent: a startup warning logs it, the PolicyException webhook warns on admission, and the chart refuses to render when `policyExceptions.enabled` is true and `namespace` is empty |
+| a concrete namespace, for example `kyverno` | that namespace, for both a cluster-scoped policy and a `Namespaced*Policy` |
+| `*` | the target policy's own namespace, for a `Namespaced*Policy`; any namespace, for a cluster-scoped policy |
+
+Under `*` there's no single namespace that reaches every `Namespaced*Policy` — the old advice to put the
+exception in the Kyverno namespace only works with a concrete `--exceptionNamespace`. For a `Namespaced*Policy`
+under `*`, the exception must live in that policy's own namespace.
+
 ```yaml
 apiVersion: policies.kyverno.io/v1alpha1
 kind: PolicyException
 metadata:
   name: emergency-cel-exception
-  namespace: <namespace>
+  namespace: <namespace>   # see the table above
 spec:
   policyRefs:
     - name: <policy-name>

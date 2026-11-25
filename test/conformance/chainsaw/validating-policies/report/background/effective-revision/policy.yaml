@@ -1,0 +1,24 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: background-effective-revision
+spec:
+  evaluation:
+    admission:
+      enabled: false
+    background:
+      enabled: true
+  validationActions:
+  - Audit
+  matchConstraints:
+    objectSelector:
+      matchLabels:
+        test.kyverno.io/effective-revision: "true"
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [configmaps]
+  validations:
+  - expression: "false"
+    message: initial finding

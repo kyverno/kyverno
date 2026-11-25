@@ -593,6 +593,28 @@ func (c *controller) reconcileReport(
 		}
 	}
 	exceptionsChanged := expected[celExceptionRevisionLabel] != actual[celExceptionRevisionLabel]
+	// A binding update scans its native policy as a whole. Use the same
+	// decision for retention so unchanged bindings cannot keep duplicate results.
+	rescan := map[string]bool{}
+	for _, policy := range policies {
+		label := reportutils.PolicyLabel(policy)
+		rescan[label] = full || exceptionsChanged || actual[label] != expected[label]
+		if policy.AsValidatingAdmissionPolicy() != nil {
+			for _, binding := range vapBindings {
+				if actual[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] != binding.GetResourceVersion() {
+					rescan[label] = true
+					break
+				}
+			}
+		} else if policy.AsMutatingAdmissionPolicy() != nil {
+			for _, binding := range mapBindings {
+				if actual[reportutils.MutatingAdmissionPolicyBindingLabel(&binding)] != binding.GetResourceVersion() {
+					rescan[label] = true
+					break
+				}
+			}
+		}
+	}
 	var ruleResults []openreportsv1alpha1.ReportResult
 	if !full {
 		policyNameToLabel := map[string]string{}
@@ -620,7 +642,7 @@ func (c *controller) reconcileReport(
 			policyNameToLabel[key] = reportutils.MutatingAdmissionPolicyBindingLabel(&binding)
 		}
 		for _, result := range observed.GetResults() {
-			if !exceptionsChanged && keepResultForEffectiveRevision(result, policyNameToLabel, expected, actual) {
+			if !rescan[policyNameToLabel[result.Policy]] && keepResultForEffectiveRevision(result, policyNameToLabel, expected, actual) {
 				ruleResults = append(ruleResults, result)
 			}
 		}
@@ -634,24 +656,8 @@ func (c *controller) reconcileReport(
 			continue
 		}
 
-		reevaluate := false
-		if policy.AsValidatingAdmissionPolicy() != nil {
-			for _, binding := range vapBindings {
-				if actual[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] != binding.GetResourceVersion() {
-					reevaluate = true
-					break
-				}
-			}
-		} else if policy.AsMutatingAdmissionPolicy() != nil {
-			for _, binding := range mapBindings {
-				if actual[reportutils.MutatingAdmissionPolicyBindingLabel(&binding)] != binding.GetResourceVersion() {
-					reevaluate = true
-					break
-				}
-			}
-		}
-		if full || exceptionsChanged || reevaluate || actual[reportutils.PolicyLabel(policy)] != reportutils.PolicyRevision(policy) {
-			scanner := utils.NewScanner(logger, c.config, c.client, c.gctxStore, c.mapper, c.secretLister, c.typeConverter)
+		if rescan[reportutils.PolicyLabel(policy)] {
+			scanner := utils.NewScanner(logger, c.config, c.client, c.gctxStore, c.mapper, c.secretLister, c.typeConverter, celengine.ExceptionScope(c.exceptionNamespace))
 			for _, result := range scanner.ScanResource(ctx, *target, gvr, "", ns, vapBindings, mapBindings, celexceptions, policy) {
 				if result.Error != nil {
 					return result.Error

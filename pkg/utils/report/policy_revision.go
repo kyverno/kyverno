@@ -31,9 +31,9 @@ func EffectivePolicyRevision(policy metav1.Object) string {
 	}
 	_, state.Excluded = policy.GetLabels()[kyverno.LabelExcludeReporting]
 	annotations := policy.GetAnnotations()
-	state.Category = annotations["policies.kyverno.io/category"]
-	state.Severity = annotations["policies.kyverno.io/severity"]
-	state.Scored = annotations["policies.kyverno.io/scored"]
+	state.Category = annotations[kyverno.AnnotationPolicyCategory]
+	state.Severity = annotations[kyverno.AnnotationPolicySeverity]
+	state.Scored = annotations[kyverno.AnnotationPolicyScored]
 
 	// Generated-state transitions and autogen targets change which evaluation
 	// runs, even when Kubernetes generation itself remains unchanged.

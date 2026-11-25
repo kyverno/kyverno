@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kyvernoreports "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -241,4 +242,19 @@ func printViolations(out io.Writer, rc *processor.ResultCounts) {
 		color.BoldRed(rc.Error),
 		color.BoldCyan(rc.Skip),
 	)
+}
+
+// printDecisions writes the decisions and the summary of their results as one JSON document.
+// runErr is the error apply stopped on, if it did: the document then holds the decisions made
+// before it, and rc is nil when apply stopped before it counted any result.
+func printDecisions(out io.Writer, decisions []*trace.Decision, rc *processor.ResultCounts, runErr error) error {
+	var summary *trace.Summary
+	if rc != nil {
+		summary = &trace.Summary{Pass: rc.Pass, Fail: rc.Fail, Warn: rc.Warn, Error: rc.Error, Skip: rc.Skip}
+	}
+	encoder := json.NewEncoder(out)
+	encoder.SetIndent("", "  ")
+	// CEL expressions are full of &&, which is not escaped for HTML
+	encoder.SetEscapeHTML(false)
+	return encoder.Encode(trace.NewDecisionList(decisions, summary, runErr))
 }

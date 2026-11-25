@@ -131,10 +131,11 @@ metadata, not archive bytes; it is not used as a substitute for those checksums.
 When deliberately updating an external dependency, review and update its pin
 together with `Chart.lock`; a missing or stale pin fails closed.
 
-The charts retain their existing registry defaults, including the
-`reg.kyverno.io` mirror, and global registry override behavior. Tests load both
-canonical and chart-reference aliases of the same staged images; remote
-verification also checks mirror references against the published GHCR digests.
+The charts retain their existing registry defaults (`ghcr.io` for Kyverno
+images) and global registry override behavior. Tests load both canonical and
+chart-reference aliases of the same staged images; if a chart value points to a
+registry mirror, remote verification also checks that mirror reference against
+the published GHCR digest.
 
 `release-candidate` retains the complete `.release` directory, sealed by
 `SHA256SUMS`. `release-workspace`, `kyverno.tar`, and `kubectl-kyverno` are test
