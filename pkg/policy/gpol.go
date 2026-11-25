@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 )
@@ -195,7 +196,7 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 					}
 					// MatchResources scope applies to the parent resource of a
 					// subresource. Skip unmatched scopes before issuing a LIST.
-					listNamespace := namespace
+					ownNamespace := false
 					if namespace != "" || scope != admissionregistrationv1.AllScopes {
 						mapping, err := pc.restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 						if err != nil {
@@ -212,10 +213,22 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 							if gvk.Group != "" || gvk.Kind != "Namespace" {
 								continue
 							}
-							listNamespace = ""
+							ownNamespace = true
 						}
 					}
-					resources, err := pc.client.ListResource(context.TODO(), groupVersion.String(), gvk.Kind, listNamespace, objectSelector)
+					var resources *unstructured.UnstructuredList
+					if ownNamespace {
+						// A resourceNames-restricted RBAC grant requires an exact name selector.
+						options := metav1.ListOptions{
+							FieldSelector: fields.OneTermEqualSelector("metadata.name", namespace).String(),
+						}
+						if objectSelector != nil {
+							options.LabelSelector = metav1.FormatLabelSelector(objectSelector)
+						}
+						resources, err = pc.client.GetDynamicInterface().Resource(baseGVR).List(context.TODO(), options)
+					} else {
+						resources, err = pc.client.ListResource(context.TODO(), groupVersion.String(), gvk.Kind, namespace, objectSelector)
+					}
 					if err != nil {
 						pc.log.Error(err, "failed to list resources", "groupVersion", groupVersion, "kind", gvk.Kind)
 						continue

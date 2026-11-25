@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/restmapper"
+	clienttesting "k8s.io/client-go/testing"
 )
 
 // newFakeRESTMapper builds APIGroupResources by hand instead of hitting a
@@ -654,6 +655,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 		resource             string
 		scope                *admissionregistrationv1.ScopeType
 		policyNamespace      string
+		objectSelector       *metav1.LabelSelector
 		wantNoList           bool
 		excludeCore          bool
 		excludeAlpha         bool
@@ -754,6 +756,11 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 			groups: []string{""}, versions: []string{"v1"}, resource: "namespaces", policyNamespace: "other-ns",
 		},
 		{
+			name:   "namespaced policy applies the object selector to its Namespace",
+			groups: []string{""}, versions: []string{"v1"}, resource: "namespaces", policyNamespace: "existing-ns",
+			objectSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"team": "a"}},
+		},
+		{
 			name:   "namespaced policy skips Nodes before listing",
 			groups: []string{""}, versions: []string{"v1"}, resource: "nodes", policyNamespace: "existing-ns",
 			wantNoList: true,
@@ -770,6 +777,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 				resource = "configmaps"
 			}
 			match := &admissionregistrationv1.MatchResources{
+				ObjectSelector: tc.objectSelector,
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 					ResourceNames: tc.resourceNames,
 					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -831,6 +839,15 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 			dynamicClient := client.GetDynamicInterface().(*dynamicfake.FakeDynamicClient)
 			dynamicClient.ClearActions()
 			triggers := pc.getGpolTriggers(match, tc.policyNamespace)
+			if resource == "namespaces" && tc.policyNamespace != "" {
+				actions := dynamicClient.Actions()
+				require.Len(t, actions, 1)
+				require.True(t, actions[0].Matches("list", "namespaces"))
+				list, ok := actions[0].(clienttesting.ListAction)
+				require.True(t, ok)
+				assert.Empty(t, list.GetNamespace())
+				assert.Equal(t, "metadata.name="+tc.policyNamespace, list.GetListRestrictions().Fields.String())
+			}
 			if tc.wantNoList {
 				for _, action := range dynamicClient.Actions() {
 					assert.False(t, action.Matches("list", resource), "unexpected LIST for %s", resource)
