@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -213,9 +215,8 @@ func TestGetResourceAccordingToResourcePath_NonExistentPath(t *testing.T) {
 
 func TestGetResourceAccordingToResourcePath_ClusterModePreservesSelectors(t *testing.T) {
 	// In cluster mode with a cluster client (cluster == true && dClient != nil),
-	// ResourcePaths are cluster resource selectors, not necessarily local files/directories.
-	// Non-existent local paths must not trigger os.Stat errors.
-	pod := &unstructured.Unstructured{
+	// ResourcePaths are cluster resource selectors, not local files/directories.
+	pod1 := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "Pod",
@@ -225,27 +226,60 @@ func TestGetResourceAccordingToResourcePath_ClusterModePreservesSelectors(t *tes
 			},
 		},
 	}
+	pod2 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "other-pod",
+				"namespace": "default",
+			},
+		},
+	}
 	dClient, err := dclient.NewFakeClient(
 		runtime.NewScheme(),
 		map[schema.GroupVersionResource]string{
 			{Group: "", Version: "v1", Resource: "pods"}: "PodList",
 		},
-		pod,
+		pod1,
+		pod2,
 	)
 	require.NoError(t, err)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
 		{Group: "", Version: "v1", Resource: "pods"},
 	}))
 
-	resources, err := GetResourceAccordingToResourcePath(
-		io.Discard, nil, []string{"my-test-pod", "manifests/other-pod.yaml"},
-		true, nil, dClient, "", false, false, "",
-		loader.ResourceOptions{}, false,
-	)
-	if err != nil {
-		assert.False(t, os.IsNotExist(err), "cluster mode with client should not attempt local file os.Stat")
+	policies := []engineapi.GenericPolicy{
+		engineapi.NewMutatingPolicy(&v1beta1.MutatingPolicy{
+			Spec: v1beta1.MutatingPolicySpec{
+				MatchConstraints: makeMatchResources("", "pods"),
+			},
+		}),
 	}
-	_ = resources
+
+	t.Run("multiple cluster selectors fetch matching resources", func(t *testing.T) {
+		resources, err := GetResourceAccordingToResourcePath(
+			io.Discard, nil, []string{"my-test-pod", "manifests/other-pod.yaml"},
+			true, policies, dClient, "", false, false, "",
+			loader.ResourceOptions{}, false,
+		)
+		require.NoError(t, err)
+		require.Len(t, resources, 2)
+		assert.Equal(t, "my-test-pod", resources[0].GetName())
+		assert.Equal(t, "other-pod", resources[1].GetName())
+	})
+
+	t.Run("missing cluster selector returns cluster not-found error instead of os.IsNotExist", func(t *testing.T) {
+		resources, err := GetResourceAccordingToResourcePath(
+			io.Discard, nil, []string{"my-test-pod", "manifests/missing-pod.yaml"},
+			true, policies, dClient, "", false, false, "",
+			loader.ResourceOptions{}, false,
+		)
+		require.Error(t, err)
+		assert.Nil(t, resources)
+		assert.False(t, os.IsNotExist(err), "cluster mode with client should not attempt local file os.Stat")
+		assert.Contains(t, err.Error(), "manifests/missing-pod.yaml not found in cluster")
+	})
 }
 
 func TestGetResourceAccordingToResourcePath_ClusterModeWithNilClientExpandsDirectory(t *testing.T) {

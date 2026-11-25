@@ -28,6 +28,10 @@ var examples = [][]string{
 		"kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resources/",
 	},
 	{
+		"# Apply on multiple folders of resources",
+		"kyverno apply /path/to/policy.yaml --resource=/path/to/resources1/ --resource=/path/to/resources2/",
+	},
+	{
 		"# Apply on a cluster",
 		"kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster",
 	},
