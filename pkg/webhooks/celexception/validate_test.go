@@ -183,9 +183,18 @@ func TestValidateUpdateAllowsValidExpression(t *testing.T) {
 	}
 }
 
+// namespacedPolicyException is policyException's counterpart referencing a namespaced policy
+// kind, used to exercise ValidateScopeReach's warning through the webhook.
+func namespacedPolicyException(expression string) *policiesv1beta1.PolicyException {
+	polex := policyException(expression)
+	polex.Spec.PolicyRefs[0].Kind = "NamespacedValidatingPolicy"
+	return polex
+}
+
 func TestValidateNamespace(t *testing.T) {
 	t.Parallel()
 	validException := policyException("object.metadata.name == 'allowed-pod'")
+	namespacedRefException := namespacedPolicyException("object.metadata.name == 'allowed-pod'")
 
 	tests := []struct {
 		name        string
@@ -224,7 +233,7 @@ func TestValidateNamespace(t *testing.T) {
 			request:     newAdmissionRequest(t, admissionv1.Create, validException, nil),
 			allowed:     true,
 			hasWarnings: true,
-			warningMsg:  "PolicyException resource namespace must match the defined namespace.",
+			warningMsg:  "PolicyException resource namespace must match the defined namespace; this exception is ignored.",
 		},
 		{
 			name: "wildcard namespace allows all namespaces without warning",
@@ -235,6 +244,17 @@ func TestValidateNamespace(t *testing.T) {
 			request:     newAdmissionRequest(t, admissionv1.Create, validException, nil),
 			allowed:     true,
 			hasWarnings: false,
+		},
+		{
+			name: "wildcard namespace warns about scope reach for a namespaced policy ref",
+			options: validation.ValidationOptions{
+				Enabled:   true,
+				Namespace: "*",
+			},
+			request:     newAdmissionRequest(t, admissionv1.Create, namespacedRefException, nil),
+			allowed:     true,
+			hasWarnings: true,
+			warningMsg:  "exceptionNamespace is \"*\": this exception only applies to NamespacedValidatingPolicy test-policy in namespace default, not to a policy of that name in another namespace.",
 		},
 		{
 			name: "unmarshal error denies request",

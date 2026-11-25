@@ -169,17 +169,11 @@ func NewProvider(
 	policies []policiesv1beta1.MutatingPolicyLike,
 	exceptions []*policiesv1beta1.PolicyException,
 	libCxt libs.Context,
+	scope engine.ExceptionScope,
 ) (Provider, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
-		var matchedExceptions []*policiesv1beta1.PolicyException
-		for _, polex := range exceptions {
-			for _, ref := range polex.Spec.PolicyRefs {
-				if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
-					matchedExceptions = append(matchedExceptions, polex)
-				}
-			}
-		}
+		matchedExceptions := scope.Select(exceptions, policy.GetKind(), policy.GetName(), policy.GetNamespace())
 		compiled, errs := compiler.Compile(policy, matchedExceptions)
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())

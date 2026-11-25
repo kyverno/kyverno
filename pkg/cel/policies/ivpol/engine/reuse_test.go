@@ -7,6 +7,7 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -125,7 +126,7 @@ func reusableEngine(provider Provider) *engineImpl {
 
 func TestProviderReusesCompilationAcrossAdmissions(t *testing.T) {
 	c := &countingCompiler{Compiler: eval.NewCompiler(nil)}
-	provider, err := NewProvider(c, []policiesv1beta1.ImageValidatingPolicyLike{reusablePolicy()}, nil)
+	provider, err := NewProvider(c, []policiesv1beta1.ImageValidatingPolicyLike{reusablePolicy()}, nil, engine.ExceptionScopeAll)
 	require.NoError(t, err)
 	entries, err := provider.Fetch(context.Background())
 	require.NoError(t, err)
@@ -183,7 +184,7 @@ func TestReconcileReplacesCompiledPolicies(t *testing.T) {
 }
 
 func BenchmarkReusedAdmission(b *testing.B) {
-	provider, err := NewProvider(eval.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{reusablePolicy()}, nil)
+	provider, err := NewProvider(eval.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{reusablePolicy()}, nil, engine.ExceptionScopeAll)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -204,6 +205,10 @@ type reusableExceptionLister struct {
 
 func (l *reusableExceptionLister) List(labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
 	return l.exceptions, nil
+}
+
+func (l *reusableExceptionLister) ListForPolicy(kind, name, namespace string) ([]*policiesv1beta1.PolicyException, error) {
+	return engine.ExceptionScopeAll.Select(l.exceptions, kind, name, namespace), nil
 }
 
 func TestReconcileRecompilesExceptions(t *testing.T) {
@@ -254,7 +259,7 @@ func BenchmarkHandleValidating_SharedActivation(b *testing.B) {
 				p.Name = fmt.Sprintf("policy-%d", i)
 				policies = append(policies, p)
 			}
-			provider, err := NewProvider(eval.NewCompiler(nil), policies, nil)
+			provider, err := NewProvider(eval.NewCompiler(nil), policies, nil, engine.ExceptionScopeAll)
 			if err != nil {
 				b.Fatal(err)
 			}

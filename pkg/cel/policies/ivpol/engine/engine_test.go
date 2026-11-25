@@ -1255,7 +1255,7 @@ func TestHandleValidating_OverlappingAutogenConfigurations_DenialNotMaskedByPass
 			if tc.mutate != nil {
 				tc.mutate(pol)
 			}
-			prov, err := NewProvider(iveval.NewCompilerWithTrace(nil, tc.traced), []policiesv1beta1.ImageValidatingPolicyLike{pol}, tc.exceptions)
+			prov, err := NewProvider(iveval.NewCompilerWithTrace(nil, tc.traced), []policiesv1beta1.ImageValidatingPolicyLike{pol}, tc.exceptions, engine.ExceptionScopeAll)
 			require.NoError(t, err)
 
 			eng := NewEngine(
