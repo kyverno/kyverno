@@ -1,3 +1,9 @@
+## Unreleased
+
+### Note
+
+- Changed `--exceptionNamespace` so that leaving it unset now accepts no `PolicyException` resources, instead of behaving like `*`. Set it to a concrete namespace to keep exceptions working; `*` also works, but under `*` a namespaced policy only accepts exceptions filed in its own namespace, not from an arbitrary shared namespace.
+
 ## v1.13.0
 
 ### Note

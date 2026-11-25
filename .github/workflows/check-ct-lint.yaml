@@ -48,6 +48,15 @@ jobs:
           helm repo update
       - name: Run chart-testing (lint)
         run: ct lint --all --check-version-increment=false --validate-maintainers=false
+      - name: Verify PolicyException namespace guard
+        # Asserts the chart refuses to render when policy exceptions are
+        # enabled without a namespace, including through each per-controller
+        # featuresOverride. The guard lives in the shared features helper, so
+        # a template refactor could silently drop it; this renders the chart
+        # and checks. It needs no cluster.
+        run: |
+          set -e
+          make verify-policyexceptions-namespace-guard
       - name: Verify podSecurityVersion rendering
         # Renders the policies at each PSA version gate and checks the
         # behavior against PSA for that version. Uses the helm on PATH.
