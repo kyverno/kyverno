@@ -91511,6 +91511,9 @@ spec:
             - --v=2
             - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=false
+            - --allowInsecureRegistry=false
+            - --registryCredentialHelpers=default,google,amazon,azure,github
+            - --registryResponseHeaderTimeout=0s
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           env:

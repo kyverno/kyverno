@@ -191,6 +191,9 @@ func TestRegistryResponseHeaderTimeoutAppliesToAllPaths(t *testing.T) {
 		rc := registryclient.New(registryclient.WithAllowInsecureRegistry(true))
 		_, err := rc.FetchImageDescriptor(ctx, imageRef)
 		require.Error(t, err)
+		require.NoError(t, ctx.Err())
+		assert.NotErrorIs(t, err, context.DeadlineExceeded)
 		assert.NotContains(t, err.Error(), "timeout awaiting response headers")
+		assert.Contains(t, err.Error(), "404")
 	})
 }
