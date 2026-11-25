@@ -1,6 +1,8 @@
 package admissionpolicygenerator
 
 import (
+	"time"
+
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -49,5 +51,20 @@ func (c *controller) enqueueCELException(obj *policiesv1beta1.PolicyException) {
 			}
 			c.enqueueMP(mpol)
 		}
+	}
+}
+
+// requeueAtExpiry arms the next deadline on every generation because the queue keeps
+// only the earliest delay for each policy key. Exceptions are filtered by getCELExceptions;
+// if one expires during generation, AddAfter's nonpositive delay queues it immediately.
+func (c *controller) requeueAtExpiry(name, kind string, exceptions []policiesv1beta1.PolicyException) {
+	var earliest time.Time
+	for _, exception := range exceptions {
+		if expiry := exception.Spec.ExpiresAt; expiry != nil && (earliest.IsZero() || expiry.Time.Before(earliest)) {
+			earliest = expiry.Time
+		}
+	}
+	if !earliest.IsZero() {
+		c.queue.AddAfter(kind+"/"+name, time.Until(earliest))
 	}
 }

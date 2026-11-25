@@ -32,11 +32,17 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          git fetch --no-tags origin "refs/pull/$PR_NUMBER/head"
-          if [[ "$(git rev-parse FETCH_HEAD)" != "$HEAD_SHA" ]]; then
-            echo "::error::PR head changed; the newer run must check the replacement commit"
-            exit 1
-          fi
+          # refs/pull/N/head can lag the event by a few seconds, so a run started right after a push may still see the
+          # previous commit. Retry before concluding that the head really changed; a genuine change never matches.
+          for attempt in 1 2 3 4 5 6; do
+            git fetch --no-tags origin "refs/pull/$PR_NUMBER/head"
+            [[ "$(git rev-parse FETCH_HEAD)" == "$HEAD_SHA" ]] && break
+            if [[ "$attempt" == 6 ]]; then
+              echo "::error::PR head changed; the newer run must check the replacement commit"
+              exit 1
+            fi
+            sleep 5
+          done
           python3 - <<'PY'
           import os
           import re

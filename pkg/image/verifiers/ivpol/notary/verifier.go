@@ -195,7 +195,13 @@ func (p *verifyPool) firstVerified(ctx context.Context, n int, verify func(ctx c
 	panics := make([]*verifyPanic, n)
 	var wg sync.WaitGroup
 	for i := range n {
-		release := p.acquire(own, i == 1)
+		release, err := p.acquire(ctxs[i], own, i == 1)
+		if err != nil {
+			mu.Lock()
+			errs[i] = err
+			mu.Unlock()
+			continue
+		}
 		// Cancelled if an earlier index has verified.
 		mu.Lock()
 		errs[i] = ctxs[i].Err()
@@ -236,24 +242,35 @@ func (p *verifyPool) firstVerified(ctx context.Context, n int, verify func(ctx c
 // acquire waits for a lane to verify on: the caller's own if it is free, else
 // whichever of it or a token from p.extra frees first. With hedge set, it
 // waits up to p.hedgeDelay for the caller's own lane alone before that.
-func (p *verifyPool) acquire(own chan struct{}, hedge bool) (release func()) {
+// If ctx is cancelled before or while waiting, acquire aborts and returns ctx.Err().
+func (p *verifyPool) acquire(ctx context.Context, own chan struct{}, hedge bool) (release func(), err error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	releaseOwn := func() { own <- struct{}{} }
 	select {
 	case <-own:
-		return releaseOwn
+		return releaseOwn, nil
 	default:
 	}
 	if hedge {
+		timer := time.NewTimer(p.hedgeDelay)
 		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
 		case <-own:
-			return releaseOwn
-		case <-time.After(p.hedgeDelay):
+			timer.Stop()
+			return releaseOwn, nil
+		case <-timer.C:
 		}
 	}
 	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case <-own:
-		return releaseOwn
+		return releaseOwn, nil
 	case p.extra <- struct{}{}:
-		return func() { <-p.extra }
+		return func() { <-p.extra }, nil
 	}
 }

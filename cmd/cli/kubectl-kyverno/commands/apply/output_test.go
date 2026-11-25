@@ -37,6 +37,9 @@ func TestResolveOutputFlags(t *testing.T) {
 		{name: "unknown format without reports", args: []string{"--output-format", "jsno"}, warning: "--output-format jsno has no effect"},
 		{name: "unknown report format falls back to yaml", args: []string{"-p", "--output-format", "jsno"}, warning: "unsupported output format \"jsno\"; using yaml"},
 		{name: "unknown exception format falls back to yaml", args: []string{"--generate-exceptions", "--output-format", "jsno"}, warning: "unsupported output format \"jsno\"; using yaml"},
+		{name: "explain as json", args: []string{"--explain", "--output-format", "json"}},
+		{name: "explain as yaml", args: []string{"--explain", "--output-format", "yaml"}, warning: "--output-format yaml has no effect"},
+		{name: "explain as json wins over table", args: []string{"--explain", "--output-format", "json", "-t"}, table: true, warning: "--table is ignored with --explain --output-format json"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -52,6 +55,7 @@ func TestResolveOutputFlags(t *testing.T) {
 			config.OutputFormat, _ = cmd.Flags().GetString("output-format")
 			config.PolicyReport, _ = cmd.Flags().GetBool("policy-report")
 			config.GenerateExceptions, _ = cmd.Flags().GetBool("generate-exceptions")
+			config.Explain, _ = cmd.Flags().GetBool("explain")
 			table, _ := cmd.Flags().GetBool("table")
 			details, _ := cmd.Flags().GetBool("detailed-results")
 			got, err := config.resolveOutputFlags(cmd, table, details)

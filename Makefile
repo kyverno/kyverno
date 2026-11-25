@@ -909,6 +909,35 @@ bench-baseline: ## Regenerate scripts/bench/thresholds.txt ceilings from a fresh
 	@./scripts/bench-baseline.sh bench-baseline-results.txt scripts/bench/thresholds.txt
 
 #############
+# E2E TESTS #
+#############
+
+# The settings CI uses for the conformance suite SUITE on Kubernetes version
+# K8S, read from the workflows by scripts/e2e/settings.sh. VARIANT picks one
+# job of a suite that CI runs with several settings, such as rbac.
+E2E_SETTING = $(shell VARIANT='$(VARIANT)' ./scripts/e2e/settings.sh '$(SUITE)' '$(K8S)' $(1) 2> /dev/null)
+E2E_OPENREPORTS_URL := https://raw.githubusercontent.com/openreports/reports-api/refs/heads/main/config/install.yaml
+# Some suites run kubectl evict. CI installs the plugin the same way.
+KUBECTL_EVICT := $(TOOLS_DIR)/kubectl-evict
+
+$(KUBECTL_EVICT):
+	@echo Install kubectl-evict... >&2
+	@GOBIN=$(TOOLS_DIR) go install github.com/ueokande/kubectl-evict@latest
+
+.PHONY: test-e2e-local
+test-e2e-local: $(HELM) ## Create a kind cluster, deploy Kyverno, and run a conformance suite like CI (SUITE=<suite> [TEST=<regex>] [K8S=<version>] [VARIANT=<variant>])
+	@VARIANT='$(VARIANT)' ./scripts/e2e/settings.sh '$(SUITE)' '$(K8S)'
+	@command -v chainsaw > /dev/null || { echo 'Install chainsaw first: https://kyverno.github.io/chainsaw/latest/quick-start/install/' >&2; exit 1; }
+	$(if $(filter true,$(call E2E_SETTING,install-kubectl-evict)),@$(MAKE) $(KUBECTL_EVICT))
+	@$(MAKE) kind-create-cluster KIND_VERSION='$(call E2E_SETTING,kind-version)' KIND_IMAGE='$(call E2E_SETTING,kind-image)' KIND_CONFIG='$(call E2E_SETTING,kind-config)'
+	$(if $(filter true,$(call E2E_SETTING,install-openreports)),kubectl apply -f $(E2E_OPENREPORTS_URL))
+	$(if $(filter true,$(call E2E_SETTING,install-cert-manager)),$(HELM) upgrade --install cert-manager cert-manager --repo https://charts.jetstack.io --namespace cert-manager --create-namespace --set crds.enabled=true --wait --timeout 300s)
+	@$(MAKE) kind-deploy-kyverno KIND_VERSION='$(call E2E_SETTING,kind-version)' USE_CONFIG='$(call E2E_SETTING,kyverno-configs)' EXPLICIT_INSTALL_SETTINGS='$(call E2E_SETTING,explicit-install-settings)'
+	kubectl apply --server-side --force-conflicts -R -f ./config/crds
+	kubectl wait --namespace kyverno --for=condition=ready pod --selector '!job-name' --timeout=60s
+	cd ./test/conformance/chainsaw/$(SUITE) && PATH="$(TOOLS_DIR):$$PATH" chainsaw test --config .chainsaw.yaml --include-test-regex '^chainsaw$$/$(TEST)'
+
+#############
 # CLI TESTS #
 #############
 
@@ -990,6 +1019,11 @@ verify-legacy-crd-snapshot: $(CRD_SPLICE)
 verify-background-controller-rbac: helm-setup-dependency-charts ## Verify the background controller holds everything the chart aggregates into admin/edit/view (no cluster needed)
 	@echo Verify background controller RBAC... >&2
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-background-controller-rbac.sh
+
+.PHONY: verify-policyexceptions-namespace-guard
+verify-policyexceptions-namespace-guard: helm-setup-dependency-charts ## Verify the chart refuses to render with policyExceptions.enabled=true and an empty namespace, globally and per controller featuresOverride (no cluster needed)
+	@echo Verify policyExceptions namespace guard... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-policyexceptions-namespace-guard.sh
 
 .PHONY: verify-policies-psa-version
 verify-policies-psa-version: $(HELM) ## Verify the policies chart renders the PSA behavior for each podSecurityVersion and the pss-psa-version CLI test policies are up to date (no cluster needed)

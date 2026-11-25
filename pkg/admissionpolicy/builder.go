@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -36,10 +37,10 @@ func BuildValidatingAdmissionPolicy(
 
 	if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		matchResources = *vpol.Spec.MatchConstraints
-		matchConditions = vpol.Spec.MatchConditions
-		validations = vpol.Spec.Validations
-		auditAnnotations = vpol.Spec.AuditAnnotations
-		variables = vpol.Spec.Variables
+		matchConditions = slices.Clone(vpol.Spec.MatchConditions)
+		validations = slices.Clone(vpol.Spec.Validations)
+		auditAnnotations = slices.Clone(vpol.Spec.AuditAnnotations)
+		variables = slices.Clone(vpol.Spec.Variables)
 
 		usedNames := make(map[string]bool)
 		for _, mc := range matchConditions {
@@ -48,7 +49,7 @@ func BuildValidatingAdmissionPolicy(
 		// convert celexceptions if exist
 		for _, exception := range exceptions {
 			if celpolex := exception.AsCELException(); celpolex != nil {
-				if mc := negateMatchConditions(celpolex.GetNamespace(), celpolex.GetName(), celpolex.Spec.MatchConditions); mc != nil {
+				if mc := exceptionExclusionCondition(celpolex); mc != nil {
 					if utf8.RuneCountInString(mc.Expression) > MaxCELCodePoints {
 						return fmt.Errorf("combined matchConditions for exception %s exceeds CEL code point limit (%d)", celpolex.GetName(), MaxCELCodePoints)
 					}
@@ -192,6 +193,34 @@ func negateMatchConditions(exceptionNamespace, exceptionName string, mcs []admis
 	for i, mc := range mcs {
 		exprs[i] = "(" + safeCELExpression(mc.Expression) + ")"
 	}
+	return &admissionregistrationv1.MatchCondition{
+		Name:       exceptionConditionName(exceptionNamespace, exceptionName),
+		Expression: "!(" + strings.Join(exprs, " && ") + ")",
+	}
+}
+
+// exceptionExclusionCondition returns the match condition that excludes requests
+// covered by an exception. An exception with no matchConditions, images, or
+// allowedValues is a blanket exemption: native policy match conditions are ANDed,
+// so an always-false condition makes the policy never apply, which is exactly
+// that exemption. Exceptions scoped by images or allowedValues contribute no
+// condition here, preserving their existing handling.
+func exceptionExclusionCondition(polex *policiesv1beta1.PolicyException) *admissionregistrationv1.MatchCondition {
+	if len(polex.Spec.MatchConditions) == 0 {
+		if len(polex.Spec.Images) > 0 || len(polex.Spec.AllowedValues) > 0 {
+			return nil
+		}
+		return &admissionregistrationv1.MatchCondition{
+			Name:       exceptionConditionName(polex.GetNamespace(), polex.GetName()),
+			Expression: "false",
+		}
+	}
+	return negateMatchConditions(polex.GetNamespace(), polex.GetName(), polex.Spec.MatchConditions)
+}
+
+// exceptionConditionName returns the deterministic name of the condition that
+// excludes requests covered by an exception.
+func exceptionConditionName(exceptionNamespace, exceptionName string) string {
 	key := exceptionName
 	if exceptionNamespace != "" {
 		key = exceptionNamespace + "/" + exceptionName
@@ -206,12 +235,7 @@ func negateMatchConditions(exceptionNamespace, exceptionName string, mcs []admis
 	if len(base) > 54 {
 		base = base[:54]
 	}
-	condName := fmt.Sprintf("%s-%s", strings.TrimRight(base, "-."), suffix)
-
-	return &admissionregistrationv1.MatchCondition{
-		Name:       condName,
-		Expression: "!(" + strings.Join(exprs, " && ") + ")",
-	}
+	return fmt.Sprintf("%s-%s", strings.TrimRight(base, "-."), suffix)
 }
 
 func allocateConditionName(used map[string]bool, name string) string {
@@ -255,8 +279,8 @@ func negateExceptionMatchConditions(existingNames []string, exceptions []policie
 	for _, name := range existingNames {
 		usedNames[name] = true
 	}
-	for _, exception := range exceptions {
-		if mc := negateMatchConditions(exception.GetNamespace(), exception.GetName(), exception.Spec.MatchConditions); mc != nil {
+	for i := range exceptions {
+		if mc := exceptionExclusionCondition(&exceptions[i]); mc != nil {
 			mc.Name = allocateConditionName(usedNames, mc.Name)
 			result = append(result, *mc)
 		}

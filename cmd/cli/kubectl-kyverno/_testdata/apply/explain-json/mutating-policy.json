@@ -1,0 +1,117 @@
+{
+  "apiVersion": "trace.kyverno.io/v1alpha1",
+  "kind": "DecisionList",
+  "items": [
+    {
+      "policy": {
+        "name": "test-mpol-jsonpatch",
+        "kind": "MutatingPolicy"
+      },
+      "resource": {
+        "kind": "Deployment",
+        "name": "dev-deploy-1",
+        "namespace": "default"
+      },
+      "scope": {
+        "applied": true,
+        "reason": "matched kind Deployment, namespace default, operation CREATE"
+      },
+      "match": [
+        {
+          "name": "is-dev-namespace",
+          "expression": "request.namespace == 'dev'",
+          "evaluated": [
+            {
+              "expression": "request.namespace == \"dev\"",
+              "value": "false"
+            },
+            {
+              "expression": "request.namespace",
+              "value": "default"
+            }
+          ],
+          "result": "false"
+        }
+      ],
+      "verdict": {
+        "status": "SKIP",
+        "message": "match condition \"is-dev-namespace\" did not pass, so the policy was skipped"
+      }
+    },
+    {
+      "policy": {
+        "name": "test-mpol-jsonpatch",
+        "kind": "MutatingPolicy"
+      },
+      "resource": {
+        "kind": "Deployment",
+        "name": "dev-deploy-2",
+        "namespace": "dev"
+      },
+      "scope": {
+        "applied": true,
+        "reason": "matched kind Deployment, namespace dev, operation CREATE"
+      },
+      "match": [
+        {
+          "name": "is-dev-namespace",
+          "expression": "request.namespace == 'dev'",
+          "evaluated": [
+            {
+              "expression": "request.namespace == \"dev\"",
+              "value": "true"
+            },
+            {
+              "expression": "request.namespace",
+              "value": "dev"
+            }
+          ],
+          "result": "true"
+        }
+      ],
+      "verdict": {
+        "status": "PASS"
+      },
+      "mutations": [
+        {
+          "name": "mutations[0] (jsonPatch)",
+          "expression": "has(object.metadata.labels) ?\n[\n  JSONPatch{\n    op: \"add\",\n    path: \"/metadata/labels/managed\",\n    value: \"true\"\n  }\n] :\n[\n  JSONPatch{\n    op: \"add\",\n    path: \"/metadata/labels\",\n    value: {\"managed\": \"true\"}\n  }\n]\n",
+          "evaluated": [
+            {
+              "expression": "has(object.metadata.labels) ? [JSONPatch{op: \"add\", path: \"/metadata/labels/managed\", value: \"true\"}] : [JSONPatch{op: \"add\", path: \"/metadata/labels\", value: {\"managed\": \"true\"}}]",
+              "value": "[&{add  /metadata/labels {managed: true}}]"
+            },
+            {
+              "expression": "has(object.metadata.labels)",
+              "value": "false"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[name:dev-deploy-2 namespace:dev]"
+            },
+            {
+              "expression": "[JSONPatch{op: \"add\", path: \"/metadata/labels\", value: {\"managed\": \"true\"}}]",
+              "value": "[&{add  /metadata/labels {managed: true}}]"
+            },
+            {
+              "expression": "JSONPatch{op: \"add\", path: \"/metadata/labels\", value: {\"managed\": \"true\"}}",
+              "value": "&{add  /metadata/labels {managed: true}}"
+            },
+            {
+              "expression": "{\"managed\": \"true\"}",
+              "value": "map[managed:true]"
+            }
+          ],
+          "result": "[&{add  /metadata/labels {managed: true}}]"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "pass": 1,
+    "fail": 0,
+    "warn": 0,
+    "error": 0,
+    "skip": 1
+  }
+}
