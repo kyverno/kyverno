@@ -57,12 +57,121 @@ type cachedEntry[T any] struct {
 	err           error
 }
 
-type providerCache struct {
-	lock sync.RWMutex
+type cacheSlot[T any] struct {
+	mu    sync.Mutex
+	entry *cachedEntry[T]
+}
 
-	vpol  map[string]*cachedEntry[vpolengine.Provider]
-	mpol  map[string]*cachedEntry[mpolengine.Provider]
-	ivpol map[string]*cachedEntry[ivpolengine.Provider]
+// providerStore coordinates concurrent lookups and cache fills per policy key.
+// Fast-path hits only take lock.RLock; misses serialize on a per-key slot.mu
+// without holding lock during compilation so unrelated keys, Evict, and Clear
+// never block on CEL compilation. Lock order is strictly slot.mu -> lock.
+type providerStore[T any] struct {
+	lock  sync.RWMutex
+	slots map[string]*cacheSlot[T]
+}
+
+func newProviderStore[T any]() *providerStore[T] {
+	return &providerStore[T]{
+		slots: make(map[string]*cacheSlot[T]),
+	}
+}
+
+func (s *providerStore[T]) getOrCompile(
+	key string,
+	rv string,
+	excKey string,
+	compile func() (T, error),
+) (T, error) {
+	// Fast path: check cached entry under read lock.
+	s.lock.RLock()
+	slot := s.slots[key]
+	if slot != nil {
+		if entry := slot.entry; entry != nil && entry.policyRV == rv && entry.exceptionsKey == excKey {
+			provider, err := entry.provider, entry.err
+			s.lock.RUnlock()
+			return provider, err
+		}
+	}
+	s.lock.RUnlock()
+
+	for {
+		s.lock.Lock()
+		slot = s.slots[key]
+		if slot == nil {
+			slot = &cacheSlot[T]{}
+			s.slots[key] = slot
+		}
+		s.lock.Unlock()
+
+		provider, err, done := s.tryFillSlot(slot, key, rv, excKey, compile)
+		if done {
+			return provider, err
+		}
+	}
+}
+
+func (s *providerStore[T]) tryFillSlot(
+	slot *cacheSlot[T],
+	key string,
+	rv string,
+	excKey string,
+	compile func() (T, error),
+) (T, error, bool) {
+	slot.mu.Lock()
+	defer slot.mu.Unlock()
+
+	// Confirm the slot is still active in the map (Evict/Clear may have detached it
+	// before slot.mu was acquired) and re-check in case another worker just filled it.
+	s.lock.RLock()
+	active := s.slots[key] == slot
+	var hit *cachedEntry[T]
+	if active && slot.entry != nil && slot.entry.policyRV == rv && slot.entry.exceptionsKey == excKey {
+		hit = slot.entry
+	}
+	s.lock.RUnlock()
+
+	if !active {
+		var zero T
+		return zero, nil, false
+	}
+	if hit != nil {
+		return hit.provider, hit.err, true
+	}
+
+	provider, err := compile()
+
+	s.lock.Lock()
+	// Only publish if Evict/Clear did not detach this slot while compiling.
+	if s.slots[key] == slot {
+		slot.entry = &cachedEntry[T]{
+			policyRV:      rv,
+			exceptionsKey: excKey,
+			provider:      provider,
+			err:           err,
+		}
+	}
+	s.lock.Unlock()
+
+	return provider, err, true
+}
+
+func (s *providerStore[T]) evict(key string) {
+	s.lock.Lock()
+	delete(s.slots, key)
+	s.lock.Unlock()
+}
+
+func (s *providerStore[T]) clear() {
+	s.lock.Lock()
+	s.slots = make(map[string]*cacheSlot[T])
+	s.lock.Unlock()
+}
+
+type providerCache struct {
+	vpol  *providerStore[vpolengine.Provider]
+	mpol  *providerStore[mpolengine.Provider]
+	ivpol *providerStore[ivpolengine.Provider]
 
 	vpolCompiler vpolcompiler.Compiler
 	mpolCompiler mpolcompiler.Compiler
@@ -71,9 +180,9 @@ type providerCache struct {
 // NewProviderCache constructs an empty, thread-safe ProviderCache.
 func NewProviderCache() ProviderCache {
 	return &providerCache{
-		vpol:         make(map[string]*cachedEntry[vpolengine.Provider]),
-		mpol:         make(map[string]*cachedEntry[mpolengine.Provider]),
-		ivpol:        make(map[string]*cachedEntry[ivpolengine.Provider]),
+		vpol:         newProviderStore[vpolengine.Provider](),
+		mpol:         newProviderStore[mpolengine.Provider](),
+		ivpol:        newProviderStore[ivpolengine.Provider](),
 		vpolCompiler: vpolcompiler.NewCompiler(),
 		mpolCompiler: mpolcompiler.NewCompiler(),
 	}
@@ -131,38 +240,34 @@ func matchExceptions(kind, name string, exceptions []*policiesv1beta1.PolicyExce
 	return matched, strings.Join(parts, ";")
 }
 
+func cacheLookupKey(
+	kind, namespace, name string,
+	meta metav1.Object,
+	exceptions []*policiesv1beta1.PolicyException,
+) (key, rv, excKey string, matched []*policiesv1beta1.PolicyException) {
+	key = policyIdentifier(kind, namespace, name)
+	rv = policyRevision(meta)
+	matched, excKey = matchExceptions(kind, name, exceptions)
+	return key, rv, excKey, matched
+}
+
 func (c *providerCache) GetValidatingPolicyProvider(
 	policy policiesv1beta1.ValidatingPolicyLike,
 	exceptions []*policiesv1beta1.PolicyException,
 ) (vpolengine.Provider, error) {
-	key := policyIdentifier(policy.GetKind(), policy.GetNamespace(), policy.GetName())
-	rv := policyRevision(policy)
-	matchedExceptions, excKey := matchExceptions(policy.GetKind(), policy.GetName(), exceptions)
-
-	c.lock.RLock()
-	entry, found := c.vpol[key]
-	if found && entry.policyRV == rv && entry.exceptionsKey == excKey {
-		provider, err := entry.provider, entry.err
-		c.lock.RUnlock()
-		return provider, err
-	}
-	c.lock.RUnlock()
-
-	if HookVpolCompiled != nil {
-		HookVpolCompiled()
-	}
-	provider, err := vpolengine.NewProvider(c.vpolCompiler, []policiesv1beta1.ValidatingPolicyLike{policy}, matchedExceptions)
-
-	c.lock.Lock()
-	c.vpol[key] = &cachedEntry[vpolengine.Provider]{
-		policyRV:      rv,
-		exceptionsKey: excKey,
-		provider:      provider,
-		err:           err,
-	}
-	c.lock.Unlock()
-
-	return provider, err
+	key, rv, excKey, matchedExceptions := cacheLookupKey(
+		policy.GetKind(),
+		policy.GetNamespace(),
+		policy.GetName(),
+		policy,
+		exceptions,
+	)
+	return c.vpol.getOrCompile(key, rv, excKey, func() (vpolengine.Provider, error) {
+		if HookVpolCompiled != nil {
+			HookVpolCompiled()
+		}
+		return vpolengine.NewProvider(c.vpolCompiler, []policiesv1beta1.ValidatingPolicyLike{policy}, matchedExceptions)
+	})
 }
 
 func (c *providerCache) GetMutatingPolicyProvider(
@@ -170,37 +275,22 @@ func (c *providerCache) GetMutatingPolicyProvider(
 	exceptions []*policiesv1beta1.PolicyException,
 	libCxt libs.Context,
 ) (mpolengine.Provider, error) {
-	key := policyIdentifier(policy.GetKind(), policy.GetNamespace(), policy.GetName())
-	rv := policyRevision(policy)
-	matchedExceptions, excKey := matchExceptions(policy.GetKind(), policy.GetName(), exceptions)
-
-	c.lock.RLock()
-	entry, found := c.mpol[key]
-	if found && entry.policyRV == rv && entry.exceptionsKey == excKey {
-		provider, err := entry.provider, entry.err
-		c.lock.RUnlock()
-		return provider, err
-	}
-	c.lock.RUnlock()
-
-	if HookMpolCompiled != nil {
-		HookMpolCompiled()
-	}
-	if libCxt == nil {
-		libCxt = libs.GetLibsCtx()
-	}
-	provider, err := mpolengine.NewProvider(c.mpolCompiler, []policiesv1beta1.MutatingPolicyLike{policy}, matchedExceptions, libCxt)
-
-	c.lock.Lock()
-	c.mpol[key] = &cachedEntry[mpolengine.Provider]{
-		policyRV:      rv,
-		exceptionsKey: excKey,
-		provider:      provider,
-		err:           err,
-	}
-	c.lock.Unlock()
-
-	return provider, err
+	key, rv, excKey, matchedExceptions := cacheLookupKey(
+		policy.GetKind(),
+		policy.GetNamespace(),
+		policy.GetName(),
+		policy,
+		exceptions,
+	)
+	return c.mpol.getOrCompile(key, rv, excKey, func() (mpolengine.Provider, error) {
+		if HookMpolCompiled != nil {
+			HookMpolCompiled()
+		}
+		if libCxt == nil {
+			libCxt = libs.GetLibsCtx()
+		}
+		return mpolengine.NewProvider(c.mpolCompiler, []policiesv1beta1.MutatingPolicyLike{policy}, matchedExceptions, libCxt)
+	})
 }
 
 func (c *providerCache) GetImageValidatingPolicyProvider(
@@ -208,50 +298,31 @@ func (c *providerCache) GetImageValidatingPolicyProvider(
 	exceptions []*policiesv1beta1.PolicyException,
 	secretLister corev1listers.SecretLister,
 ) (ivpolengine.Provider, error) {
-	key := policyIdentifier(policy.GetKind(), policy.GetNamespace(), policy.GetName())
-	rv := policyRevision(policy)
-	matchedExceptions, excKey := matchExceptions(policy.GetKind(), policy.GetName(), exceptions)
-
-	c.lock.RLock()
-	entry, found := c.ivpol[key]
-	if found && entry.policyRV == rv && entry.exceptionsKey == excKey {
-		provider, err := entry.provider, entry.err
-		c.lock.RUnlock()
-		return provider, err
-	}
-	c.lock.RUnlock()
-
-	if HookIvpolCompiled != nil {
-		HookIvpolCompiled()
-	}
-	compiler := iveval.NewCompiler(secretLister)
-	provider, err := ivpolengine.NewProvider(compiler, []policiesv1beta1.ImageValidatingPolicyLike{policy}, matchedExceptions)
-
-	c.lock.Lock()
-	c.ivpol[key] = &cachedEntry[ivpolengine.Provider]{
-		policyRV:      rv,
-		exceptionsKey: excKey,
-		provider:      provider,
-		err:           err,
-	}
-	c.lock.Unlock()
-
-	return provider, err
+	key, rv, excKey, matchedExceptions := cacheLookupKey(
+		policy.GetKind(),
+		policy.GetNamespace(),
+		policy.GetName(),
+		policy,
+		exceptions,
+	)
+	return c.ivpol.getOrCompile(key, rv, excKey, func() (ivpolengine.Provider, error) {
+		if HookIvpolCompiled != nil {
+			HookIvpolCompiled()
+		}
+		compiler := iveval.NewCompiler(secretLister)
+		return ivpolengine.NewProvider(compiler, []policiesv1beta1.ImageValidatingPolicyLike{policy}, matchedExceptions)
+	})
 }
 
 func (c *providerCache) Evict(kind, namespace, name string) {
 	key := policyIdentifier(kind, namespace, name)
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	delete(c.vpol, key)
-	delete(c.mpol, key)
-	delete(c.ivpol, key)
+	c.vpol.evict(key)
+	c.mpol.evict(key)
+	c.ivpol.evict(key)
 }
 
 func (c *providerCache) Clear() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.vpol = make(map[string]*cachedEntry[vpolengine.Provider])
-	c.mpol = make(map[string]*cachedEntry[mpolengine.Provider])
-	c.ivpol = make(map[string]*cachedEntry[ivpolengine.Provider])
+	c.vpol.clear()
+	c.mpol.clear()
+	c.ivpol.clear()
 }

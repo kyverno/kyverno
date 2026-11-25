@@ -2,6 +2,7 @@ package utils
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -304,6 +305,176 @@ func TestProviderCache_Concurrent(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestProviderCache_ConcurrentMissesCompileOnce(t *testing.T) {
+	const goroutines = 20
+
+	t.Run("ValidatingPolicy", func(t *testing.T) {
+		cache := NewProviderCache()
+		var compileCount atomic.Int32
+		HookVpolCompiled = func() { compileCount.Add(1) }
+		defer func() { HookVpolCompiled = nil }()
+
+		policy := newTestValidatingPolicy("concurrent-miss-vpol", "1")
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(goroutines)
+
+		for i := 0; i < goroutines; i++ {
+			go func() {
+				defer wg.Done()
+				<-start
+				p, err := cache.GetValidatingPolicyProvider(policy, nil)
+				assert.NoError(t, err)
+				assert.NotNil(t, p)
+			}()
+		}
+
+		close(start)
+		wg.Wait()
+		assert.Equal(t, int32(1), compileCount.Load(), "concurrent cold-cache lookups must compile validating policy once")
+	})
+
+	t.Run("MutatingPolicy", func(t *testing.T) {
+		cache := NewProviderCache()
+		var compileCount atomic.Int32
+		HookMpolCompiled = func() { compileCount.Add(1) }
+		defer func() { HookMpolCompiled = nil }()
+
+		policy := newTestMutatingPolicy("concurrent-miss-mpol", "1")
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(goroutines)
+
+		for i := 0; i < goroutines; i++ {
+			go func() {
+				defer wg.Done()
+				<-start
+				p, err := cache.GetMutatingPolicyProvider(policy, nil, nil)
+				assert.NoError(t, err)
+				assert.NotNil(t, p)
+			}()
+		}
+
+		close(start)
+		wg.Wait()
+		assert.Equal(t, int32(1), compileCount.Load(), "concurrent cold-cache lookups must compile mutating policy once")
+	})
+
+	t.Run("ImageValidatingPolicy", func(t *testing.T) {
+		cache := NewProviderCache()
+		var compileCount atomic.Int32
+		HookIvpolCompiled = func() { compileCount.Add(1) }
+		defer func() { HookIvpolCompiled = nil }()
+
+		policy := newTestImageValidatingPolicy("concurrent-miss-ivpol", "1")
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(goroutines)
+
+		for i := 0; i < goroutines; i++ {
+			go func() {
+				defer wg.Done()
+				<-start
+				p, err := cache.GetImageValidatingPolicyProvider(policy, nil, nil)
+				assert.NoError(t, err)
+				assert.NotNil(t, p)
+			}()
+		}
+
+		close(start)
+		wg.Wait()
+		assert.Equal(t, int32(1), compileCount.Load(), "concurrent cold-cache lookups must compile image validating policy once")
+	})
+}
+
+func TestProviderCache_InflightEvictDoesNotOverwriteNewerEntry(t *testing.T) {
+	cache := NewProviderCache()
+	var compileCount atomic.Int32
+	compile1Started := make(chan struct{})
+	allowCompile1Finish := make(chan struct{})
+
+	HookIvpolCompiled = func() {
+		if compileCount.Add(1) == 1 {
+			close(compile1Started)
+			<-allowCompile1Finish
+		}
+	}
+	defer func() { HookIvpolCompiled = nil }()
+
+	policyV1 := newTestImageValidatingPolicy("inflight-ivpol", "1")
+	policyV2 := newTestImageValidatingPolicy("inflight-ivpol", "2")
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		p, err := cache.GetImageValidatingPolicyProvider(policyV1, nil, nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, p)
+	}()
+
+	<-compile1Started
+	// Evict while v1 compilation is in flight, then populate v2.
+	cache.Evict(policyV1.GetKind(), policyV1.GetNamespace(), policyV1.GetName())
+
+	p2, err := cache.GetImageValidatingPolicyProvider(policyV2, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, p2)
+	assert.Equal(t, int32(2), compileCount.Load())
+
+	// Let v1 finish and ensure it does not overwrite v2 in the cache.
+	close(allowCompile1Finish)
+	wg.Wait()
+
+	p2Again, err := cache.GetImageValidatingPolicyProvider(policyV2, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, p2Again)
+	assert.Equal(t, int32(2), compileCount.Load(), "stale in-flight compilation must not overwrite newer cached entry")
+
+	fetched, err := p2Again.Fetch(t.Context())
+	require.NoError(t, err)
+	require.NotEmpty(t, fetched)
+	for _, pol := range fetched {
+		assert.Equal(t, "2", pol.Policy.GetResourceVersion())
+	}
+}
+
+func TestProviderCache_InflightEvictDoesNotResurrect(t *testing.T) {
+	cache := NewProviderCache()
+	var compileCount atomic.Int32
+	compile1Started := make(chan struct{})
+	allowCompile1Finish := make(chan struct{})
+
+	HookVpolCompiled = func() {
+		if compileCount.Add(1) == 1 {
+			close(compile1Started)
+			<-allowCompile1Finish
+		}
+	}
+	defer func() { HookVpolCompiled = nil }()
+
+	policy := newTestValidatingPolicy("evict-inflight-vpol", "1")
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		p, err := cache.GetValidatingPolicyProvider(policy, nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, p)
+	}()
+
+	<-compile1Started
+	cache.Evict(policy.GetKind(), policy.GetNamespace(), policy.GetName())
+	close(allowCompile1Finish)
+	wg.Wait()
+
+	// Next lookup must recompile because the in-flight compilation was evicted before completion.
+	_, err := cache.GetValidatingPolicyProvider(policy, nil)
+	require.NoError(t, err)
+	assert.Equal(t, int32(2), compileCount.Load(), "evicted in-flight compilation must not be resurrected in cache")
 }
 
 func TestScanner_ProviderCachingAcrossResources(t *testing.T) {
