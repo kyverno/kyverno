@@ -1,0 +1,13 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: map-regeneration-failure-fallback
+spec:
+  policyRefs:
+  - name: map-regeneration-failure-fallback
+    kind: MutatingPolicy
+  matchConditions:
+    # Kyverno evaluates resource.Get(), but the API server can't compile it in a MutatingAdmissionPolicy,
+    # so every regeneration that includes this exception is rejected
+    - name: team-namespaces
+      expression: "'team' in resource.Get('v1', 'namespaces', '', object.metadata.namespace).metadata.labels"

@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: regeneration-failure-fallback
+spec:
+  description: >-
+    A ValidatingPolicy is tightened, but its ValidatingAdmissionPolicy can no longer be regenerated because a
+    PolicyException calls resource.Get(), which the API server can't compile. Kyverno must enforce the
+    tightened policy instead of leaving the stale ValidatingAdmissionPolicy as the only enforcer, and admission
+    must go back to the ValidatingAdmissionPolicy once it can be regenerated.
+  concurrent: false
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../_step-templates/validating-policy-generated-vap-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: regeneration-failure-fallback
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
+  - name: tighten the policy
+    try:
+    - apply:
+        file: policy-tightened.yaml
+  - name: kyverno enforces the tightened rule
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          for i in $(seq 1 45); do
+            if out=$(kubectl create --dry-run=server -n "$NAMESPACE" -f no-team-deployment.yaml 2>&1); then
+              sleep 2
+              continue
+            fi
+            echo "$out"
+            exit 0
+          done
+          echo "a deployment without a team label is still admitted"
+          exit 1
+        check:
+          ($error == null): true
+          (contains($stdout, 'admission webhook')): true
+          (contains($stdout, 'Deployment labels must include a team')): true
+    catch:
+    - get:
+        apiVersion: policies.kyverno.io/v1beta1
+        kind: ValidatingPolicy
+        name: regeneration-failure-fallback
+        format: yaml
+  - name: policy status reports the fallback
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: ValidatingPolicy
+          metadata:
+            name: regeneration-failure-fallback
+          status:
+            (generated == `true`): false
+            conditionStatus:
+              (contains(message, 'failed to generate ValidatingAdmissionPolicy')): true
+  - name: delete the exception
+    try:
+    - delete:
+        ref:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: PolicyException
+          name: regeneration-failure-fallback
+  - name: wait for the ValidatingAdmissionPolicy to be regenerated
+    use:
+      template: ../../../_step-templates/validating-policy-generated-vap-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: regeneration-failure-fallback
+  - name: the regenerated ValidatingAdmissionPolicy enforces the tightened rule
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          for i in $(seq 1 45); do
+            out=$(kubectl create --dry-run=server -n "$NAMESPACE" -f no-team-deployment.yaml 2>&1) || true
+            case "$out" in
+              *"ValidatingAdmissionPolicy 'vpol-regeneration-failure-fallback'"*) echo "$out"; exit 0 ;;
+            esac
+            sleep 2
+          done
+          echo "$out"
+          exit 1
+        check:
+          ($error == null): true
+          (contains($stdout, 'Deployment labels must include a team')): true

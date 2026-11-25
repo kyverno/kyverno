@@ -1,0 +1,118 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: regeneration-failure-fallback
+spec:
+  description: >-
+    A MutatingPolicy gains a mutation, but its MutatingAdmissionPolicy can no longer be regenerated because a
+    PolicyException calls resource.Get(), which the API server can't compile. Kyverno must apply the new
+    mutation and remove the stale MutatingAdmissionPolicy, so the two don't mutate the same requests, and
+    admission must go back to the MutatingAdmissionPolicy once it can be regenerated.
+  concurrent: false
+  steps:
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: map-regeneration-failure-fallback
+          status:
+            generated: true
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
+  - name: extend the policy
+    try:
+    - apply:
+        file: policy-extended.yaml
+  - name: kyverno applies the new mutation
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          for i in $(seq 1 45); do
+            team=$(kubectl create --dry-run=server -n "$NAMESPACE" -f deployment.yaml -o jsonpath='{.metadata.labels.team}' 2>&1)
+            if [ "$team" = "platform" ]; then
+              echo "team=$team"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "the new mutation is not applied: team=$team"
+          exit 1
+        check:
+          ($error == null): true
+          (trim_space($stdout)): team=platform
+    catch:
+    - get:
+        apiVersion: policies.kyverno.io/v1beta1
+        kind: MutatingPolicy
+        name: map-regeneration-failure-fallback
+        format: yaml
+  - name: policy status reports the fallback and the stale MutatingAdmissionPolicy is removed
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: map-regeneration-failure-fallback
+          status:
+            (generated == `true`): false
+            conditionStatus:
+              (contains(message, 'failed to generate MutatingAdmissionPolicy')): true
+    - error:
+        resource:
+          apiVersion: admissionregistration.k8s.io/v1
+          kind: MutatingAdmissionPolicy
+          metadata:
+            name: mpol-map-regeneration-failure-fallback
+  - name: delete the exception
+    try:
+    - delete:
+        ref:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: PolicyException
+          name: map-regeneration-failure-fallback
+  - name: the MutatingAdmissionPolicy is regenerated with the new mutation
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: map-regeneration-failure-fallback
+          status:
+            generated: true
+    - assert:
+        resource:
+          apiVersion: admissionregistration.k8s.io/v1
+          kind: MutatingAdmissionPolicy
+          metadata:
+            name: mpol-map-regeneration-failure-fallback
+          spec:
+            (contains(mutations[0].jsonPatch.expression, 'team')): true
+  - name: the regenerated MutatingAdmissionPolicy applies the new mutation
+    try:
+    - script:
+        timeout: 2m
+        content: |
+          for i in $(seq 1 45); do
+            team=$(kubectl create --dry-run=server -n "$NAMESPACE" -f deployment.yaml -o jsonpath='{.metadata.labels.team}' 2>&1)
+            if [ "$team" = "platform" ]; then
+              echo "team=$team"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "the new mutation is not applied: team=$team"
+          exit 1
+        check:
+          ($error == null): true
+          (trim_space($stdout)): team=platform
