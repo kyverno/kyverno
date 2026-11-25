@@ -188,7 +188,7 @@ func printTestResult(
 		}
 		var resources []string
 		// The test specifies certain resources to check, results will be checked for those resources only
-		if test.Resources != nil {
+		if test.Resources != nil || len(test.ResourceSpecs) > 0 {
 			for _, r := range test.Resources {
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {

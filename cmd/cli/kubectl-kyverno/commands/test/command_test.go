@@ -2429,6 +2429,68 @@ results:
 	assert.NotContains(t, outAllFail, color.BoldGreen(0)+" tests passed")
 }
 
+func TestCommand_TestCaseSelectorNarrowsDeclaredResources(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	sourceDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "check-deployment-labels")
+
+	tmpDir := t.TempDir()
+	for _, file := range []string{"policy.yaml", "deployment1.yaml", "deployment2.yaml"} {
+		content, err := os.ReadFile(filepath.Join(sourceDir, file))
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, file), content, 0o600))
+	}
+
+	// A single result declares both deployments. The policy passes for
+	// good-deployment and fails for bad-deployment, so the reported counts show
+	// whether the selector narrowed the resources the result declares.
+	testYAML := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- deployment1.yaml
+- deployment2.yaml
+results:
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-deployment-labels
+  resources:
+  - bad-deployment
+  - good-deployment
+  result: pass
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kyverno-test.yaml"), []byte(testYAML), 0o600))
+
+	run := func(selector string) string {
+		cmd := Command()
+		out := bytes.NewBufferString("")
+		cmd.SetOut(out)
+		cmd.SetErr(io.Discard)
+		args := []string{tmpDir, "--remove-color"}
+		if selector != "" {
+			args = append(args, "--test-case-selector", selector)
+		}
+		cmd.SetArgs(args)
+		_ = cmd.Execute()
+		return out.String()
+	}
+
+	unfiltered := run("")
+	t.Logf("unfiltered output:\n%s", unfiltered)
+	filtered := run("policy=*,rule=*,resource=good-deployment")
+	t.Logf("filtered output:\n%s", filtered)
+	nothing := run("policy=*,rule=*,resource=missing-*")
+	t.Logf("nothing selected output:\n%s", nothing)
+
+	assert.Contains(t, unfiltered, "Test Summary: 1 tests passed and 1 tests failed")
+	assert.Contains(t, filtered, "Test Summary: 1 tests passed and 0 tests failed")
+	assert.Contains(t, nothing, "Test Summary: 0 tests passed and 0 tests failed")
+}
+
 func TestRunTest_WarningColor(t *testing.T) {
 	origNoColor := fatihcolor.NoColor
 	t.Cleanup(func() {
