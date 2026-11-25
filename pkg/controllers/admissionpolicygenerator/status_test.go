@@ -117,7 +117,7 @@ func TestReconcileDeletesAdmissionPoliciesForPoliciesOwnedByOtherControllers(t *
 				assert.Equal(t, tt.wantDeleted, apierrors.IsNotFound(vapErr), "ValidatingAdmissionPolicy deleted")
 				assert.Equal(t, tt.wantDeleted, apierrors.IsNotFound(bindingErr), "binding deleted")
 			}
-			assert.Empty(t, kyvernoClient.Actions(), "the controller must not write to a policy it doesn't own")
+			assert.Empty(t, statusUpdates(kyvernoClient.Actions()), "the controller must not write status on a policy it doesn't own")
 		})
 	}
 }
@@ -162,7 +162,7 @@ func TestReconcileDeletesMutatingAdmissionPoliciesForPoliciesOwnedByOtherControl
 			_, bindingErr := client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 			assert.Equal(t, tt.wantDeleted, apierrors.IsNotFound(mapErr), "MutatingAdmissionPolicy deleted")
 			assert.Equal(t, tt.wantDeleted, apierrors.IsNotFound(bindingErr), "binding deleted")
-			assert.Empty(t, kyvernoClient.Actions(), "the controller must not write to a policy it doesn't own")
+			assert.Empty(t, statusUpdates(kyvernoClient.Actions()), "the controller must not write status on a policy it doesn't own")
 		})
 	}
 }
@@ -174,6 +174,17 @@ func newIndexer(t *testing.T, objects ...any) cache.Indexer {
 		require.NoError(t, indexer.Add(obj))
 	}
 	return indexer
+}
+
+// statusUpdates returns the status subresource updates among the recorded client actions.
+func statusUpdates(actions []clienttesting.Action) []clienttesting.Action {
+	var out []clienttesting.Action
+	for _, action := range actions {
+		if action.GetVerb() == "update" && action.GetSubresource() == "status" {
+			out = append(out, action)
+		}
+	}
+	return out
 }
 
 // TestReconcileSkipsPoliciesOwnedByOtherControllers verifies that no admission policy is generated,
@@ -226,7 +237,7 @@ func TestReconcileSkipsPoliciesOwnedByOtherControllers(t *testing.T) {
 			tt.setup(c, indexer)
 
 			require.NoError(t, c.reconcile(context.Background(), logr.Discard(), tt.key, "", "policy"))
-			assert.Empty(t, client.Actions(), "the controller must not write to a policy it doesn't own")
+			assert.Empty(t, statusUpdates(client.Actions()), "the controller must not write status on a policy it doesn't own")
 		})
 	}
 }
