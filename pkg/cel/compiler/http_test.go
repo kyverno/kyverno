@@ -141,6 +141,19 @@ func TestHTTPContextSeparation(t *testing.T) {
 		// If it did not return, the dial is in progress, so the blocklist let it through.
 	})
 
+	t.Run("opted-in namespaced policies allow in-cluster service CIDRs", func(t *testing.T) {
+		t.Setenv("FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES", "true")
+
+		ctx := NewLazyCELHTTPContext("my-namespace")
+		require.NotNil(t, ctx)
+
+		returned, err := getWithoutWaitingForDial(ctx, "http://10.1.2.3")
+		if returned && err != nil {
+			assert.NotContains(t, err.Error(), "blocked")
+			assert.NotContains(t, err.Error(), "not allowed in namespaced policies")
+		}
+	})
+
 	t.Run("opted-in namespaced policies are checked against the blocklist, not the toggle", func(t *testing.T) {
 		t.Setenv("FLAG_ENABLE_HTTP_IN_NAMESPACED_POLICIES", "true")
 
