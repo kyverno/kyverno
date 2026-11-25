@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // eventCollector records the actual events emitted by the polling callback;
@@ -203,6 +206,90 @@ func TestDoCall_CancellationStopsRetries(t *testing.T) {
 }
 
 var _ apicall.Executor = (*cancelingExecutor)(nil)
+
+// backoffContext signals after the retry decision observed an active context.
+type backoffContext struct {
+	context.Context
+	once     sync.Once
+	executed atomic.Bool
+	waiting  chan struct{}
+}
+
+func (c *backoffContext) Err() error {
+	err := c.Context.Err()
+	if err == nil && c.executed.Load() {
+		c.once.Do(func() { close(c.waiting) })
+	}
+	return err
+}
+
+type failingExecutor struct {
+	calls     int
+	err       error
+	onExecute func()
+}
+
+func (c *failingExecutor) Execute(context.Context, *kyverno.APICall) ([]byte, error) {
+	c.calls++
+	if c.onExecute != nil {
+		c.onExecute()
+	}
+	return nil, c.err
+}
+
+func TestDoCall_CancellationInterruptsRetryBackoff(t *testing.T) {
+	parent, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx := &backoffContext{Context: parent, waiting: make(chan struct{})}
+	caller := &failingExecutor{err: errors.New("backend unavailable"), onExecute: func() { ctx.executed.Store(true) }}
+	result := make(chan error, 1)
+	go func() {
+		_, err := doCallWithBackoff(ctx, caller, kyverno.APICall{}, wait.Backoff{Duration: 10 * time.Second, Steps: 3})
+		result <- err
+	}()
+
+	select {
+	case <-ctx.waiting:
+	case <-time.After(5 * time.Second):
+		t.Fatal("retry decision did not observe an active context")
+	}
+	cancel()
+	select {
+	case err := <-result:
+		require.ErrorIs(t, err, context.Canceled)
+		require.Equal(t, 1, caller.calls)
+	case <-time.After(time.Second):
+		t.Fatal("retry backoff did not stop promptly after cancellation")
+	}
+}
+
+func TestDoCall_RetryExhaustionReturnsBackendError(t *testing.T) {
+	backendErr := errors.New("backend unavailable")
+	caller := &failingExecutor{err: backendErr}
+	_, err := doCallWithBackoff(context.Background(), caller, kyverno.APICall{}, wait.Backoff{Steps: 3})
+	require.ErrorIs(t, err, backendErr)
+	require.Equal(t, 3, caller.calls)
+}
+
+type recoveringExecutor struct {
+	calls int
+}
+
+func (c *recoveringExecutor) Execute(context.Context, *kyverno.APICall) ([]byte, error) {
+	c.calls++
+	if c.calls == 1 {
+		return nil, errors.New("temporary backend failure")
+	}
+	return []byte(`{"ok":true}`), nil
+}
+
+func TestDoCall_RetriesUntilSuccess(t *testing.T) {
+	caller := &recoveringExecutor{}
+	result, err := doCallWithBackoff(context.Background(), caller, kyverno.APICall{}, wait.Backoff{Steps: 3})
+	require.NoError(t, err)
+	require.Equal(t, []byte(`{"ok":true}`), result)
+	require.Equal(t, 2, caller.calls)
+}
 
 // A cancelled parent context must also suppress publication without Stop.
 func TestEntry_Publish_RejectsCancelledContext(t *testing.T) {

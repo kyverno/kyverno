@@ -228,27 +228,33 @@ func (e *entry) setData(ctx context.Context, data any, err error) {
 }
 
 func doCall(ctx context.Context, caller apicall.Executor, call kyverno.APICall, retryLimit int) (any, error) {
-	var result any
 	backoff := wait.Backoff{
 		Duration: retry.DefaultBackoff.Duration,
 		Factor:   retry.DefaultBackoff.Factor,
 		Jitter:   retry.DefaultBackoff.Jitter,
 		Steps:    retryLimit,
 	}
+	return doCallWithBackoff(ctx, caller, call, backoff)
+}
 
-	retryError := retry.OnError(backoff, func(err error) bool {
-		// Teardown must not retry a canceled request.
-		return err != nil && ctx.Err() == nil
-	}, func() error {
-		if err := ctx.Err(); err != nil {
-			return err
+func doCallWithBackoff(ctx context.Context, caller apicall.Executor, call kyverno.APICall, backoff wait.Backoff) (any, error) {
+	var result any
+	var lastErr error
+	err := wait.ExponentialBackoffWithContext(ctx, backoff, func(ctx context.Context) (bool, error) {
+		result, lastErr = caller.Execute(ctx, &call)
+		if lastErr == nil {
+			return true, nil
 		}
-		var exeErr error
-		result, exeErr = caller.Execute(ctx, &call)
-		return exeErr
+		if ctx.Err() != nil {
+			return false, lastErr
+		}
+		return false, nil
 	})
-
-	return result, retryError
+	// Preserve the final backend error when the retry limit is exhausted.
+	if err == wait.ErrWaitTimeout && lastErr != nil {
+		err = lastErr
+	}
+	return result, err
 }
 
 func updateStatus(ctx context.Context, gce *kyvernov2beta1.GlobalContextEntry, kyvernoClient versioned.Interface) error {
