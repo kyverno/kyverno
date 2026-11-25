@@ -30,6 +30,10 @@ spec:
     try:
     - apply:
         file: valid-v1beta1.yaml
+  - name: accept-cel-bind-create
+    try:
+    - apply:
+        file: valid-cel-bind-v1.yaml
   - name: reject-valid-to-invalid-update
     try:
     - script:

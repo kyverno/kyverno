@@ -1,12 +1,18 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
+	"github.com/go-logr/logr"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"gotest.tools/v3/assert"
 	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func Test_RedactPayload(t *testing.T) {
@@ -173,4 +179,135 @@ func Test_RedactPayload(t *testing.T) {
 			}
 		})
 	}
+}
+
+type testLogEntry struct {
+	level  int
+	msg    string
+	values map[string]any
+}
+
+type testSink struct {
+	maxLevel int
+	entries  *[]testLogEntry
+	values   map[string]any
+}
+
+func newTestLogger(maxLevel int) (logr.Logger, *[]testLogEntry) {
+	var entries []testLogEntry
+	sink := &testSink{
+		maxLevel: maxLevel,
+		entries:  &entries,
+		values:   make(map[string]any),
+	}
+	return logr.New(sink), &entries
+}
+
+func (s *testSink) Init(info logr.RuntimeInfo) {}
+
+func (s *testSink) Enabled(level int) bool {
+	return level <= s.maxLevel
+}
+
+func (s *testSink) Info(level int, msg string, keysAndValues ...any) {
+	entryValues := make(map[string]any, len(s.values)+len(keysAndValues)/2)
+	for k, v := range s.values {
+		entryValues[k] = v
+	}
+	for i := 0; i < len(keysAndValues); i += 2 {
+		if i+1 < len(keysAndValues) {
+			if key, ok := keysAndValues[i].(string); ok {
+				entryValues[key] = keysAndValues[i+1]
+			}
+		}
+	}
+	*s.entries = append(*s.entries, testLogEntry{
+		level:  level,
+		msg:    msg,
+		values: entryValues,
+	})
+}
+
+func (s *testSink) Error(err error, msg string, keysAndValues ...any) {
+	s.Info(0, msg, keysAndValues...)
+}
+
+func (s *testSink) WithValues(keysAndValues ...any) logr.LogSink {
+	newValues := make(map[string]any, len(s.values)+len(keysAndValues)/2)
+	for k, v := range s.values {
+		newValues[k] = v
+	}
+	for i := 0; i < len(keysAndValues); i += 2 {
+		if i+1 < len(keysAndValues) {
+			if key, ok := keysAndValues[i].(string); ok {
+				newValues[key] = keysAndValues[i+1]
+			}
+		}
+	}
+	return &testSink{
+		maxLevel: s.maxLevel,
+		entries:  s.entries,
+		values:   newValues,
+	}
+}
+
+func (s *testSink) WithName(name string) logr.LogSink {
+	return s
+}
+
+func TestWithDump(t *testing.T) {
+	dummyHandler := AdmissionHandler(func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+		return AdmissionResponse{
+			UID:     request.UID,
+			Allowed: true,
+		}
+	})
+
+	podJSON := []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"nginx","namespace":"default"}}`)
+	podReq := AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       types.UID("test-uid-1"),
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Name:      "nginx",
+			Namespace: "default",
+			Operation: admissionv1.Create,
+			Object:    runtime.RawExtension{Raw: podJSON},
+		},
+	}
+
+	t.Run("dumpPayload enabled at default verbosity (v=2)", func(t *testing.T) {
+		logger, entries := newTestLogger(2)
+		handler := dummyHandler.WithDump(true)
+		resp := handler(context.Background(), logger, podReq, time.Now())
+		assert.Assert(t, resp.Allowed)
+
+		var found bool
+		for _, e := range *entries {
+			if e.msg == "admission request dump" {
+				found = true
+				assert.Equal(t, 0, e.level)
+				reqVal, ok := e.values["admission.request"].(*admissionRequestPayload)
+				assert.Assert(t, ok)
+				assert.Equal(t, string(reqVal.UID), "test-uid-1")
+				assert.Equal(t, reqVal.Name, "nginx")
+
+				respVal, ok := e.values["admission.response"].(AdmissionResponse)
+				assert.Assert(t, ok)
+				assert.Assert(t, respVal.Allowed)
+			}
+		}
+		assert.Assert(t, found, "expected 'admission request dump' log entry at default verbosity (v=2)")
+	})
+
+	t.Run("dumpPayload disabled at default verbosity (v=2)", func(t *testing.T) {
+		logger, entries := newTestLogger(2)
+		handler := dummyHandler.WithDump(false)
+		resp := handler(context.Background(), logger, podReq, time.Now())
+		assert.Assert(t, resp.Allowed)
+
+		for _, e := range *entries {
+			assert.Assert(t, e.msg != "admission request dump", "dump log should not be emitted when dumpPayload is disabled")
+		}
+	})
 }

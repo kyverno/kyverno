@@ -1,0 +1,11 @@
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: cel-bind-exception
+spec:
+  policyRefs:
+  - name: test-policy
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: allowed-name
+    expression: cel.bind(allowedNames, ['exempt-configmap'], object.metadata.name in allowedNames)

@@ -1,0 +1,68 @@
+# A small copy of .github/workflows/tests-conformance.yaml for settings_test.sh.
+jobs:
+  kubernetes-matrix:
+    uses: ./.github/workflows/kubernetes-matrix.yaml
+  plain:
+    strategy:
+      matrix:
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
+    steps:
+      - uses: actions/checkout@0000000000000000000000000000000000000000
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          tests-path: plain
+  beta:
+    strategy:
+      matrix:
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.beta-versions) }}
+    steps:
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
+          kyverno-configs: standard,beta
+          tests-path: beta
+  stable:
+    strategy:
+      matrix:
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.stable-versions) }}
+    steps:
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          tests-path: stable
+          install-kubectl-evict: true
+  rbac:
+    strategy:
+      matrix:
+        kyverno-configs: [standard, default]
+        k8s-version: ${{ fromJSON(needs.kubernetes-matrix.outputs.versions) }}
+    steps:
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: ${{ matrix.kyverno-configs }}
+          tests-path: rbac
+          variant: ${{ matrix.kyverno-configs }}
+  certs:
+    strategy:
+      matrix:
+        k8s-version: ${{ fromJSON(inputs.release-candidate && needs.kubernetes-matrix.outputs.versions || needs.kubernetes-matrix.outputs.smoke-versions) }}
+        key-algorithm:
+          - name: rsa
+            test-dir: rsa-cert-manager
+            helm-settings: --set certManager.algorithm=RSA
+          - name: ecdsa
+            test-dir: ecdsa-cert-manager
+            helm-settings: --set certManager.algorithm=ECDSA --set certManager.size=256
+    steps:
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          tests-path: tls/${{ matrix.key-algorithm.test-dir }}
+          install-cert-manager: 'true'
+          explicit-install-settings: ${{ matrix.key-algorithm.helm-settings }}
+  not-conformance:
+    steps:
+      - run: echo this job doesn't use the conformance action
