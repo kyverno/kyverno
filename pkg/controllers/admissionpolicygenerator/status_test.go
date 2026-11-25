@@ -2,6 +2,7 @@ package admissionpolicygenerator
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -16,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	clienttesting "k8s.io/client-go/testing"
@@ -46,68 +48,123 @@ func TestUpdatePolicyStatusReturnsConflict(t *testing.T) {
 	}
 }
 
-// TestReconcileDeletesAdmissionPoliciesForPoliciesOwnedByOtherControllers verifies that, when a policy
-// changes owners, the admission policy and binding Kyverno generated for it are deleted, and no status
-// is written.
+// TestReconcileDeletesAdmissionPoliciesForPoliciesOwnedByOtherControllers verifies that, when a
+// ValidatingPolicy changes owners, the admission policy and binding Kyverno generated for it are
+// deleted, that a same-named object Kyverno didn't generate is kept, that a failed delete is returned
+// for retry, and that no status is ever written.
 func TestReconcileDeletesAdmissionPoliciesForPoliciesOwnedByOtherControllers(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	const policyUID = types.UID("policy-uid")
+	generated := []metav1.OwnerReference{{Kind: "ValidatingPolicy", Name: "policy", UID: policyUID}}
+	tests := []struct {
+		name string
+		// owners of the cached ValidatingAdmissionPolicy and binding
+		owners []metav1.OwnerReference
+		// inClient is false when the objects are cached but already gone from the API server
+		inClient bool
+		// failDelete is the resource whose first delete fails
+		failDelete  string
+		wantDeleted bool
+	}{
+		{name: "generated objects are deleted", owners: generated, inClient: true, wantDeleted: true},
+		{name: "objects generated for another policy are kept", owners: []metav1.OwnerReference{{Kind: "ValidatingPolicy", Name: "policy", UID: "other-uid"}}, inClient: true},
+		{name: "objects without owners are kept", inClient: true},
+		{name: "a NotFound delete after a cached lookup succeeds", owners: generated},
+		{name: "a failed policy delete is retried", owners: generated, inClient: true, failDelete: "validatingadmissionpolicies", wantDeleted: true},
+		{name: "a failed binding delete is retried", owners: generated, inClient: true, failDelete: "validatingadmissionpolicybindings", wantDeleted: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			vpol := &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "policy", UID: policyUID},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
+				},
+			}
+			vap := &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "vpol-policy", UID: "vap-uid", OwnerReferences: tt.owners}}
+			binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{ObjectMeta: metav1.ObjectMeta{Name: "vpol-policy-binding", UID: "binding-uid", OwnerReferences: tt.owners}}
+			client := kubefake.NewSimpleClientset()
+			if tt.inClient {
+				client = kubefake.NewSimpleClientset(vap, binding)
+			}
+			kyvernoClient := versionedfake.NewSimpleClientset(vpol)
+			c := &controller{
+				client:           client,
+				kyvernoClient:    kyvernoClient,
+				vpolLister:       policiesv1beta1listers.NewValidatingPolicyLister(newIndexer(t, vpol)),
+				vapLister:        admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(newIndexer(t, vap)),
+				vapbindingLister: admissionregistrationv1listers.NewValidatingAdmissionPolicyBindingLister(newIndexer(t, binding)),
+			}
 
-	t.Run("ValidatingPolicy", func(t *testing.T) {
-		t.Parallel()
-		vpol := &policiesv1beta1.ValidatingPolicy{
-			ObjectMeta: metav1.ObjectMeta{Name: "policy"},
-			Spec: policiesv1beta1.ValidatingPolicySpec{
-				EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: "Envoy"},
-			},
-		}
-		vap := &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "vpol-policy"}}
-		binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{ObjectMeta: metav1.ObjectMeta{Name: "vpol-policy-binding"}}
-		kyvernoClient := versionedfake.NewSimpleClientset(vpol)
-		client := kubefake.NewSimpleClientset(vap, binding)
-		c := &controller{
-			client:           client,
-			kyvernoClient:    kyvernoClient,
-			vpolLister:       policiesv1beta1listers.NewValidatingPolicyLister(newIndexer(t, vpol)),
-			vapLister:        admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(newIndexer(t, vap)),
-			vapbindingLister: admissionregistrationv1listers.NewValidatingAdmissionPolicyBindingLister(newIndexer(t, binding)),
-		}
+			if tt.failDelete != "" {
+				failing := true
+				client.PrependReactor("delete", tt.failDelete, func(clienttesting.Action) (bool, runtime.Object, error) {
+					if failing {
+						return true, nil, errors.New("delete failed")
+					}
+					return false, nil, nil
+				})
+				require.Error(t, c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/policy", "", "policy"), "a failed delete must be returned so the workqueue retries")
+				failing = false
+			}
+			require.NoError(t, c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/policy", "", "policy"))
 
-		require.NoError(t, c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/policy", "", "policy"))
-		_, err := client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vap.Name, metav1.GetOptions{})
-		assert.True(t, apierrors.IsNotFound(err), "the generated ValidatingAdmissionPolicy must be deleted")
-		_, err = client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-		assert.True(t, apierrors.IsNotFound(err), "the generated binding must be deleted")
-		assert.Empty(t, kyvernoClient.Actions(), "the controller must not write to a policy it doesn't own")
-	})
+			if tt.inClient {
+				_, vapErr := client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vap.Name, metav1.GetOptions{})
+				_, bindingErr := client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+				assert.Equal(t, tt.wantDeleted, apierrors.IsNotFound(vapErr), "ValidatingAdmissionPolicy deleted")
+				assert.Equal(t, tt.wantDeleted, apierrors.IsNotFound(bindingErr), "binding deleted")
+			}
+			assert.Empty(t, kyvernoClient.Actions(), "the controller must not write to a policy it doesn't own")
+		})
+	}
+}
 
-	t.Run("MutatingPolicy", func(t *testing.T) {
-		t.Parallel()
-		mpol := &policiesv1beta1.MutatingPolicy{
-			ObjectMeta: metav1.ObjectMeta{Name: "policy"},
-			Spec: policiesv1beta1.MutatingPolicySpec{
-				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "HTTP"},
-			},
-		}
-		mapol := &admissionregistrationv1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-policy"}}
-		binding := &admissionregistrationv1.MutatingAdmissionPolicyBinding{ObjectMeta: metav1.ObjectMeta{Name: "mpol-policy-binding"}}
-		kyvernoClient := versionedfake.NewSimpleClientset(mpol)
-		client := kubefake.NewSimpleClientset(mapol, binding)
-		c := &controller{
-			client:             client,
-			kyvernoClient:      kyvernoClient,
-			mpolLister:         policiesv1beta1listers.NewMutatingPolicyLister(newIndexer(t, mpol)),
-			mapV1Lister:        admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(newIndexer(t, mapol)),
-			mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(newIndexer(t, binding)),
-		}
+// TestReconcileDeletesMutatingAdmissionPoliciesForPoliciesOwnedByOtherControllers verifies the same
+// cleanup for a MutatingPolicy, and that a same-named object Kyverno didn't generate is kept.
+func TestReconcileDeletesMutatingAdmissionPoliciesForPoliciesOwnedByOtherControllers(t *testing.T) {
+	t.Parallel()
+	const policyUID = types.UID("policy-uid")
+	tests := []struct {
+		name        string
+		owners      []metav1.OwnerReference
+		wantDeleted bool
+	}{
+		{name: "generated objects are deleted", owners: []metav1.OwnerReference{{Kind: "MutatingPolicy", Name: "policy", UID: policyUID}}, wantDeleted: true},
+		{name: "objects not generated for the policy are kept"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			mpol := &policiesv1beta1.MutatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "policy", UID: policyUID},
+				Spec: policiesv1beta1.MutatingPolicySpec{
+					EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "HTTP"},
+				},
+			}
+			mapol := &admissionregistrationv1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-policy", OwnerReferences: tt.owners}}
+			binding := &admissionregistrationv1.MutatingAdmissionPolicyBinding{ObjectMeta: metav1.ObjectMeta{Name: "mpol-policy-binding", OwnerReferences: tt.owners}}
+			kyvernoClient := versionedfake.NewSimpleClientset(mpol)
+			client := kubefake.NewSimpleClientset(mapol, binding)
+			c := &controller{
+				client:             client,
+				kyvernoClient:      kyvernoClient,
+				mpolLister:         policiesv1beta1listers.NewMutatingPolicyLister(newIndexer(t, mpol)),
+				mapV1Lister:        admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(newIndexer(t, mapol)),
+				mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(newIndexer(t, binding)),
+			}
 
-		require.NoError(t, c.reconcile(ctx, logr.Discard(), "MutatingPolicy/policy", "", "policy"))
-		_, err := client.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapol.Name, metav1.GetOptions{})
-		assert.True(t, apierrors.IsNotFound(err), "the generated MutatingAdmissionPolicy must be deleted")
-		_, err = client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-		assert.True(t, apierrors.IsNotFound(err), "the generated binding must be deleted")
-		assert.Empty(t, kyvernoClient.Actions(), "the controller must not write to a policy it doesn't own")
-	})
+			require.NoError(t, c.reconcile(ctx, logr.Discard(), "MutatingPolicy/policy", "", "policy"))
+			_, mapErr := client.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapol.Name, metav1.GetOptions{})
+			_, bindingErr := client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+			assert.Equal(t, tt.wantDeleted, apierrors.IsNotFound(mapErr), "MutatingAdmissionPolicy deleted")
+			assert.Equal(t, tt.wantDeleted, apierrors.IsNotFound(bindingErr), "binding deleted")
+			assert.Empty(t, kyvernoClient.Actions(), "the controller must not write to a policy it doesn't own")
+		})
+	}
 }
 
 func newIndexer(t *testing.T, objects ...any) cache.Indexer {

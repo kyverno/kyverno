@@ -273,27 +273,29 @@ func variantOrder(policies []Policy) []string {
 // TestReconcile_SkipsPoliciesOwnedByOtherControllers verifies that the reconciler drops a policy and
 // its autogen variants from its cache when its evaluation mode belongs to another controller.
 func TestReconcile_SkipsPoliciesOwnedByOtherControllers(t *testing.T) {
-	ctx := context.Background()
-	fc := &fakeClient{policies: map[string]*policiesv1beta1.ImageValidatingPolicy{
-		"alpha": autogennablePolicy("alpha"),
-	}}
-	rec := newReconciler(iveval.NewCompiler(nil), fc, nil, false)
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "alpha"}}
-
-	_, err := rec.Reconcile(ctx, req)
-	require.NoError(t, err)
-	fetched, err := rec.Fetch(ctx)
-	require.NoError(t, err)
-	require.NotEmpty(t, fetched, "a Kubernetes-mode policy must be cached")
-
 	for _, mode := range []policiesv1beta1.EvaluationMode{"Envoy", "HTTP"} {
-		policy := autogennablePolicy("alpha")
-		policy.Spec.EvaluationConfiguration = &policiesv1beta1.EvaluationConfiguration{Mode: mode}
-		fc.policies["alpha"] = policy
-		_, err = rec.Reconcile(ctx, req)
-		require.NoError(t, err, "mode %s", mode)
-		fetched, err = rec.Fetch(ctx)
-		require.NoError(t, err)
-		assert.Empty(t, fetched, "mode %s: the policy and its autogen variants must be removed from the cache", mode)
+		t.Run(string(mode), func(t *testing.T) {
+			ctx := context.Background()
+			fc := &fakeClient{policies: map[string]*policiesv1beta1.ImageValidatingPolicy{
+				"alpha": autogennablePolicy("alpha"),
+			}}
+			rec := newReconciler(iveval.NewCompiler(nil), fc, nil, false)
+			req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "alpha"}}
+
+			_, err := rec.Reconcile(ctx, req)
+			require.NoError(t, err)
+			fetched, err := rec.Fetch(ctx)
+			require.NoError(t, err)
+			require.NotEmpty(t, fetched, "a Kubernetes-mode policy must be cached")
+
+			policy := autogennablePolicy("alpha")
+			policy.Spec.EvaluationConfiguration = &policiesv1beta1.EvaluationConfiguration{Mode: mode}
+			fc.policies["alpha"] = policy
+			_, err = rec.Reconcile(ctx, req)
+			require.NoError(t, err)
+			fetched, err = rec.Fetch(ctx)
+			require.NoError(t, err)
+			assert.Empty(t, fetched, "the policy and its autogen variants must be removed from the cache")
+		})
 	}
 }

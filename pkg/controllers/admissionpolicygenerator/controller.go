@@ -226,7 +226,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		// policies owned by another controller, such as Kyverno Authz, are never generated, and
 		// resources generated before the policy changed owners are removed
 		if !celpolicies.IsKyvernoOwned(vpol.Spec) {
-			return c.deleteGeneratedVAP(ctx, vpol.GetName())
+			return c.deleteGeneratedVAP(ctx, vpol.GetName(), vpol.GetUID())
 		}
 		policy = engineapi.NewValidatingPolicy(vpol)
 		err = c.handleVAPGeneration(ctx, policy)
@@ -243,7 +243,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 		if !celpolicies.IsKyvernoOwned(mpol.Spec) {
-			return c.deleteGeneratedMAP(ctx, mpol.GetName())
+			return c.deleteGeneratedMAP(ctx, mpol.GetName(), mpol.GetUID())
 		}
 		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
 		if !generateMutatingAdmissionPolicy {
