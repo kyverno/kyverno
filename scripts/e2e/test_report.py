@@ -142,10 +142,16 @@ class SummarizeTest(unittest.TestCase):
             for name in ("e2e-reports-assert-v1.34.11-0", "e2e-reports-rbac-default-v1.37.0-0"):
                 shutil.copytree(TESTDATA / name, Path(directory) / name)
             self.assertEqual(json.loads(run("counts", directory)),
-                             {"passed": 1, "failed": 1, "skipped": 0, "missing": 0})
-            # No reports at all, for example when a regex matched no test.
+                             {"passed": 1, "failed": 1, "skipped": 0, "missing": 0, "reports": 2})
+            # No reports at all, for example when the download failed.
             self.assertEqual(json.loads(run("counts", str(Path(directory) / "none"))),
-                             {"passed": 0, "failed": 0, "skipped": 0, "missing": 0})
+                             {"passed": 0, "failed": 0, "skipped": 0, "missing": 0, "reports": 0})
+            # A report without tests, for example when a regex matched no test.
+            empty = Path(directory) / "empty"
+            empty.mkdir()
+            (empty / "meta.json").write_text('{"suite": "mutate", "k8s": "v1.37.0", "outcome": "success"}')
+            (empty / "results.json").write_text('{"tests": []}')
+            self.assertEqual(json.loads(run("counts", directory))["reports"], 3)
 
     def test_reads_a_single_artifact_extracted_into_the_root(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -221,6 +227,53 @@ class WorkflowTest(unittest.TestCase):
                     checked += 1
                     self.assertIn(f"matrix.{dimension}", identity, f"job {name}: add matrix.{dimension} to variant")
         self.assertGreaterEqual(checked, 3)
+
+    BLANK = {"ACTIONS_RUNTIME_TOKEN": "", "ACTIONS_CACHE_URL": "", "ACTIONS_RESULTS_URL": ""}
+
+    def assert_isolated(self, steps, where):
+        for step in steps:
+            if "run" in step:
+                env = step.get("env") or {}
+                self.assertEqual({k: env.get(k) for k in self.BLANK}, self.BLANK,
+                                 f"{where}: step {step.get('name', step['run'][:40])!r} must blank the ACTIONS_* variables")
+
+    def test_steps_that_may_run_pr_code_blank_the_actions_service_variables(self):
+        """/conformance runs PR code in these steps, under the default branch's cache scope."""
+        root = HERE.parents[1]
+        workflow = yaml.safe_load((root / ".github/workflows/tests-conformance.yaml").read_text())
+        checked = 0
+        for name, job in workflow["jobs"].items():
+            steps = job.get("steps", [])
+            checked += len(steps)
+            self.assert_isolated(steps, f"tests-conformance.yaml job {name}")
+        action = yaml.safe_load((root / ".github/actions/tests/conformance/run/action.yaml").read_text())
+        self.assert_isolated(action["runs"]["steps"], "conformance run action")
+        comment = yaml.safe_load((root / ".github/workflows/comment-commands.yaml").read_text())
+        for name in ("conformance-images", "conformance-cli"):
+            self.assert_isolated(comment["jobs"][name]["steps"], f"comment-commands.yaml job {name}")
+        self.assertGreater(checked, 100)
+
+    def test_trusted_actions_replace_the_pr_copy_only_for_pr_comments(self):
+        root = HERE.parents[1]
+        workflow = yaml.safe_load((root / ".github/workflows/tests-conformance.yaml").read_text())
+        self.assertIs(workflow.get("on", workflow.get(True))["workflow_call"]["inputs"]["untrusted-ref"]["default"], False)
+        for name, job in workflow["jobs"].items():
+            if name == "kubernetes-matrix":
+                continue
+            steps = job["steps"]
+            names = [step.get("name") for step in steps]
+            self.assertIn("Use the CI actions of the workflow commit", names, name)
+            overlay = steps[names.index("Use the CI actions of the workflow commit")]
+            self.assertEqual(overlay["if"], "inputs.untrusted-ref", name)
+            self.assertIn("git checkout FETCH_HEAD -- .github/actions scripts/e2e", overlay["run"])
+            # It comes right after the checkout of the code under test, before any local action.
+            checkout = next(i for i, step in enumerate(steps) if step.get("uses", "").startswith("actions/checkout@"))
+            self.assertEqual(names.index("Use the CI actions of the workflow commit"), checkout + 1, name)
+        comment = yaml.safe_load((root / ".github/workflows/comment-commands.yaml").read_text())
+        self.assertIs(comment["jobs"]["conformance-tests"]["with"]["untrusted-ref"], True)
+        for name in ("release-validate.yaml", "check-tests.yaml"):
+            text = (root / ".github/workflows" / name).read_text()
+            self.assertNotIn("untrusted-ref", text, name)
 
 
 if __name__ == "__main__":

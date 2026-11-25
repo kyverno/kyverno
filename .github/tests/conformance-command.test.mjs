@@ -107,6 +107,19 @@ test('a regex accepts RE2-compatible syntax', async () => {
   }
 });
 
+test('the regex characters match the documented contract', async () => {
+  const { outputs } = await plan("/conformance mutate/a'b");
+  const listed = outputs.error.match(/digits, or `([^`]+)` characters/)[1];
+  assert.equal(listed, '._,:*+?^$()|[]{}/-');
+  // Every listed character is accepted somewhere in a valid regex.
+  const { outputs: ok } = await plan('/conformance mutate/^a._,:b(?:c|d)+?[e-f]{1,2}/g$');
+  assert.equal(ok.valid, 'true');
+  for (const c of [';', '"', '`', '\\', '<', '=', '!', '&', '#', '%', '~', '@']) {
+    const { outputs: bad } = await plan(`/conformance mutate/a${c}b`);
+    assert.equal(bad.valid, 'false', c);
+  }
+});
+
 test('a version alone runs every suite on that version', async () => {
   const { outputs } = await plan('/conformance v1.35');
   assert.deepEqual(groups(outputs), [['v1.35.8', ['assert', 'mutate', 'cel-http', 'generate-mutating-admission-policy', 'helm-tests']]]);
@@ -169,7 +182,7 @@ async function comment(environment) {
   const bodies = [];
   const github = { rest: { issues: { createComment: async ({ body }) => { bodies.push(body); } } } };
   const context = { repo: { owner: 'o', repo: 'r' }, issue: { number: 7 }, serverUrl: 'https://github.com', runId: 42 };
-  for (const key of ['VALID', 'ERROR', 'SHA', 'K8S_SUMMARY', 'DESCRIPTION', 'REGEX', 'COUNTS',
+  for (const key of ['DOWNLOAD', 'VALID', 'ERROR', 'SHA', 'K8S_SUMMARY', 'DESCRIPTION', 'REGEX', 'COUNTS',
     'IMAGES_RESULT', 'CLI_RESULT', 'TESTS_RESULT']) {
     process.env[key] = environment[key] ?? '';
   }
@@ -182,7 +195,7 @@ const success = { IMAGES_RESULT: 'success', CLI_RESULT: 'success', TESTS_RESULT:
 test('reports a pass with the tested commit, the counts, and a link to the run', async () => {
   const body = await comment({
     VALID: 'true', SHA: HEAD, K8S_SUMMARY: 'Kubernetes v1.37.0', DESCRIPTION: 'suite `mutate`',
-    COUNTS: '{"failed": 0, "missing": 0, "passed": 12, "skipped": 1}', ...success,
+    DOWNLOAD: 'success', COUNTS: '{"failed": 0, "missing": 0, "passed": 12, "reports": 4, "skipped": 1}', ...success,
   });
   assert.match(body, /passed for suite `mutate` on Kubernetes v1.37.0/);
   assert.ok(body.includes(`at ${HEAD}.`));
@@ -193,18 +206,41 @@ test('reports a pass with the tested commit, the counts, and a link to the run',
 test('reports a regex that matched no test', async () => {
   const body = await comment({
     VALID: 'true', SHA: HEAD, REGEX: 'nomatch', DESCRIPTION: 'tests matching `nomatch` in suite `mutate`',
-    COUNTS: '{"failed": 0, "missing": 0, "passed": 0, "skipped": 0}', ...success,
+    DOWNLOAD: 'success', COUNTS: '{"failed": 0, "missing": 0, "passed": 0, "reports": 3, "skipped": 0}', ...success,
   });
   assert.match(body, /:warning: Conformance ran no tests: no test matched the regex/);
   assert.doesNotMatch(body, /passed for/);
 });
 
+test('reports a regex that matched only quarantined tests', async () => {
+  const body = await comment({
+    VALID: 'true', SHA: HEAD, REGEX: 'flaky', DESCRIPTION: 'tests matching `flaky` in suite `mutate`',
+    DOWNLOAD: 'success', COUNTS: '{"failed": 0, "missing": 0, "passed": 0, "reports": 1, "skipped": 2}', ...success,
+  });
+  assert.match(body, /ran no tests: the regex matched 2 tests, all skipped \(quarantined\)/);
+});
+
+test('does not claim that no test matched when the reports are unavailable', async () => {
+  for (const environment of [
+    { DOWNLOAD: 'failure', COUNTS: '{"failed": 0, "missing": 0, "passed": 0, "reports": 0, "skipped": 0}' },
+    { DOWNLOAD: 'success', COUNTS: '{"failed": 0, "missing": 0, "passed": 0, "reports": 0, "skipped": 0}' },
+    { DOWNLOAD: 'success', COUNTS: '' },
+    { DOWNLOAD: 'success', COUNTS: 'not json' },
+  ]) {
+    const body = await comment({ VALID: 'true', SHA: HEAD, REGEX: 'x', DESCRIPTION: 'd', ...environment, ...success });
+    assert.match(body, /:white_check_mark: Conformance passed/);
+    assert.match(body, /Test counts are unavailable/);
+    assert.doesNotMatch(body, /no test matched/);
+  }
+});
+
 test('reports a pass of a suite without chainsaw reports', async () => {
   const body = await comment({
     VALID: 'true', SHA: HEAD, DESCRIPTION: 'suite `helm-tests`',
-    COUNTS: '{"failed": 0, "missing": 0, "passed": 0, "skipped": 0}', ...success,
+    DOWNLOAD: 'success', COUNTS: '{"failed": 0, "missing": 0, "passed": 0, "reports": 0, "skipped": 0}', ...success,
   });
   assert.match(body, /passed/);
+  assert.match(body, /Test counts are unavailable/);
 });
 
 test('reports a build failure', async () => {

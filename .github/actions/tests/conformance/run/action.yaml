@@ -58,6 +58,9 @@ inputs:
     default: ''
 runs:
   using: composite
+  # Every run step may execute code under test, a PR head for /conformance,
+  # so each one blanks the Actions cache and artifact service variables.
+  # scripts/e2e/test_report.py checks this.
   steps:
     # install tools
     - name: Install tools
@@ -84,6 +87,10 @@ runs:
     - name: Clean up the failed kind cluster
       if: steps.kind.outcome == 'failure'
       shell: bash
+      env:
+        ACTIONS_RUNTIME_TOKEN: ""
+        ACTIONS_CACHE_URL: ""
+        ACTIONS_RESULTS_URL: ""
       run: |
         kind delete cluster --name kind || true
         # give a GitHub releases outage a moment to pass before trying again
@@ -104,17 +111,29 @@ runs:
         name: kyverno.tar
     - name: Load kyverno images archive in kind cluster
       shell: bash
+      env:
+        ACTIONS_RUNTIME_TOKEN: ""
+        ACTIONS_CACHE_URL: ""
+        ACTIONS_RESULTS_URL: ""
       run: |
         set -e
         kind load image-archive kyverno.tar --name kind
     - name: Install OpenReports
       if: inputs.install-openreports == 'true'
       shell: bash
+      env:
+        ACTIONS_RUNTIME_TOKEN: ""
+        ACTIONS_CACHE_URL: ""
+        ACTIONS_RESULTS_URL: ""
       run: |
         kubectl apply -f https://raw.githubusercontent.com/openreports/reports-api/refs/heads/main/config/install.yaml
     - name: Install cert-manager
       if: inputs.install-cert-manager == 'true'
       shell: bash
+      env:
+        ACTIONS_RUNTIME_TOKEN: ""
+        ACTIONS_CACHE_URL: ""
+        ACTIONS_RESULTS_URL: ""
       run: |
         set -e
         helm repo add jetstack https://charts.jetstack.io
@@ -124,8 +143,6 @@ runs:
     - name: Install Kyverno
       shell: bash
       env:
-        # Runs code under test, a PR head for /conformance: keep the Actions
-        # cache and artifact service variables out of its environment.
         ACTIONS_RUNTIME_TOKEN: ""
         ACTIONS_CACHE_URL: ""
         ACTIONS_RESULTS_URL: ""
@@ -137,12 +154,20 @@ runs:
         make kind-install-kyverno
     - name: Apply latest CRDs from repository
       shell: bash
+      env:
+        ACTIONS_RUNTIME_TOKEN: ""
+        ACTIONS_CACHE_URL: ""
+        ACTIONS_RESULTS_URL: ""
       run: |
         set -e
         kubectl apply --server-side --force-conflicts -R -f ./config/crds
     - name: Install kubectl-evict
       if: inputs.install-kubectl-evict == 'true'
       shell: bash
+      env:
+        ACTIONS_RUNTIME_TOKEN: ""
+        ACTIONS_CACHE_URL: ""
+        ACTIONS_RESULTS_URL: ""
       run: |
         set -e
         GOBIN=$(go env GOPATH)/bin
@@ -162,6 +187,9 @@ runs:
       if: env.RELEASE_CANDIDATE != 'true'
       shell: bash
       env:
+        ACTIONS_RUNTIME_TOKEN: ""
+        ACTIONS_CACHE_URL: ""
+        ACTIONS_RESULTS_URL: ""
         QUARANTINE_FILE: ${{ inputs.quarantine-file }}
         TESTS_PATH: ${{ inputs.tests-path }}
       run: |
@@ -174,8 +202,6 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
         # Comes from a PR comment for /conformance, so it stays out of the script.
         CHAINSAW_TESTS: ${{ inputs.chainsaw-tests }}
-        # Runs code under test, a PR head for /conformance: keep the Actions
-        # cache and artifact service variables out of its environment.
         ACTIONS_RUNTIME_TOKEN: ""
         ACTIONS_CACHE_URL: ""
         ACTIONS_RESULTS_URL: ""
@@ -203,6 +229,9 @@ runs:
       if: always()
       shell: bash
       env:
+        ACTIONS_RUNTIME_TOKEN: ""
+        ACTIONS_CACHE_URL: ""
+        ACTIONS_RESULTS_URL: ""
         SUITE: ${{ inputs.tests-path }}
         K8S_VERSION: ${{ inputs.k8s-version }}
         SHARD: ${{ inputs.shard-index }}

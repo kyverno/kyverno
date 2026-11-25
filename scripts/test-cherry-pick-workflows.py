@@ -315,6 +315,13 @@ class CherryPickTests(unittest.TestCase):
             "always() && needs.route.outputs.conformance == 'true'",
         )
         self.assertEqual(set(jobs), {"route", "conformance-report", *gated, *planned})
+        # These jobs run PR code: no write grant may creep in.
+        self.assertEqual(jobs["conformance-images"]["permissions"], {"contents": "read"})
+        self.assertEqual(jobs["conformance-cli"]["permissions"], {"contents": "read"})
+        self.assertEqual(jobs["conformance-tests"]["permissions"], {"contents": "read", "packages": "read"})
+        self.assertEqual(jobs["conformance-plan"]["permissions"], {"contents": "read", "pull-requests": "read"})
+        self.assertEqual(jobs["conformance-acknowledge"]["permissions"], {"issues": "write"})
+        self.assertEqual(jobs["conformance-report"]["permissions"], {"contents": "read", "issues": "write"})
         prow_commands = {
             "prow-assign": "/assign /unassign",
             "prow": "/lgtm /milestone",

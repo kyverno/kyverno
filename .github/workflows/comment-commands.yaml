@@ -350,9 +350,10 @@ jobs:
             if (regex !== '' || slash > 0) {
               // The regex reaches chainsaw's --include-test-regex, which uses Go
               // RE2 syntax. Allow only a subset that RE2 and JavaScript agree on:
+              // 1 to 200 letters, digits, or ._,:*+?^$()|[]{}/- characters, so
               // no quotes, backslashes, spaces, flags, named groups, lookarounds,
-              // or backreferences, no nested repetition, and repeat counts up to
-              // 1000, the RE2 limit.
+              // or backreferences; (?: as the only (? group; no nested
+              // repetition; and repeat counts up to 1000, the RE2 limit.
               if (!/^[A-Za-z0-9._,:*+?^$()|[\]{}\/-]{1,200}$/.test(regex)) {
                 return reject('The test regex must be 1 to 200 letters, digits, or `._,:*+?^$()|[]{}/-` characters.');
               }
@@ -457,14 +458,17 @@ jobs:
           persist-credentials: false
       - name: Use the CI actions of the workflow commit
         env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
           WORKFLOW_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
-          rm -rf .github/actions
-          git checkout FETCH_HEAD -- .github/actions
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Install Ko
@@ -500,14 +504,17 @@ jobs:
           persist-credentials: false
       - name: Use the CI actions of the workflow commit
         env:
+          ACTIONS_RUNTIME_TOKEN: ""
+          ACTIONS_CACHE_URL: ""
+          ACTIONS_RESULTS_URL: ""
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
           WORKFLOW_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           git fetch --no-tags --depth=1 "$SERVER_URL/$REPOSITORY" "$WORKFLOW_SHA"
-          rm -rf .github/actions
-          git checkout FETCH_HEAD -- .github/actions
+          rm -rf .github/actions scripts/e2e
+          git checkout FETCH_HEAD -- .github/actions scripts/e2e
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Build
@@ -548,6 +555,7 @@ jobs:
       suites: ${{ matrix.suites }}
       chainsaw-tests: ${{ needs.conformance-plan.outputs.chainsaw-tests }}
       matrix: ${{ matrix.k8s }}
+      untrusted-ref: true
 
   # Never runs PR code: it reads the test reports as data with the report
   # script of the workflow commit.
@@ -575,6 +583,7 @@ jobs:
           sparse-checkout: |
             scripts/e2e
       - name: Download test reports
+        id: download
         if: needs.conformance-plan.outputs.valid == 'true'
         continue-on-error: true
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -584,6 +593,7 @@ jobs:
       - name: Count test results
         id: counts
         if: needs.conformance-plan.outputs.valid == 'true'
+        continue-on-error: true
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -591,8 +601,10 @@ jobs:
           echo "counts=$(python3 scripts/e2e/report.py counts e2e-reports)" >> "$GITHUB_OUTPUT"
           python3 scripts/e2e/report.py summarize e2e-reports --run-url "$RUN_URL" >> "$GITHUB_STEP_SUMMARY"
       - name: Comment result
+        if: always()
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
+          DOWNLOAD: ${{ steps.download.outcome }}
           VALID: ${{ needs.conformance-plan.outputs.valid }}
           ERROR: ${{ needs.conformance-plan.outputs.error }}
           SHA: ${{ needs.conformance-plan.outputs.sha }}
@@ -613,18 +625,25 @@ jobs:
                 ? `:x: \`/conformance\` was rejected: ${env.ERROR}`
                 : `:x: \`/conformance\` couldn't be validated. See the [workflow run](${run}).`;
             } else {
+              // Counts are known only when the reports were downloaded and read.
               let counts = null;
-              try {
-                counts = env.COUNTS ? JSON.parse(env.COUNTS) : null;
-              } catch {
-                counts = null;
+              if (env.DOWNLOAD === 'success') {
+                try {
+                  counts = env.COUNTS ? JSON.parse(env.COUNTS) : null;
+                } catch {
+                  counts = null;
+                }
               }
-              const ran = counts ? counts.passed + counts.failed : null;
               const results = [env.IMAGES_RESULT, env.CLI_RESULT, env.TESTS_RESULT];
+              const matched = counts ? counts.passed + counts.failed + counts.skipped : null;
+              const noMatch = env.REGEX && counts && counts.reports > 0 && matched === 0;
+              const allSkipped = env.REGEX && counts && matched > 0 && counts.passed + counts.failed === 0;
               let icon;
               let outcome;
-              if (results.every(r => r === 'success') && env.REGEX && ran === 0) {
+              if (results.every(r => r === 'success') && noMatch) {
                 [icon, outcome] = [':warning:', 'ran no tests: no test matched the regex'];
+              } else if (results.every(r => r === 'success') && allSkipped) {
+                [icon, outcome] = [':warning:', `ran no tests: the regex matched ${matched} tests, all skipped (quarantined)`];
               } else if (results.every(r => r === 'success')) {
                 [icon, outcome] = [':white_check_mark:', 'passed'];
               } else if (results.includes('cancelled')) {
@@ -632,9 +651,9 @@ jobs:
               } else {
                 [icon, outcome] = [':x:', 'failed'];
               }
-              const tally = counts
+              const tally = counts && counts.reports > 0
                 ? ` Test results: ${counts.passed} passed, ${counts.failed} failed, ${counts.skipped} skipped.`
-                : '';
+                : ' Test counts are unavailable: no test reports were downloaded or read.';
               body = `${icon} Conformance ${outcome} for ${env.DESCRIPTION} on ${env.K8S_SUMMARY} at ${env.SHA}.${tally} See the [workflow run](${run}).`;
             }
             await core.summary.addRaw(body).write();

@@ -22,7 +22,8 @@ setup.
   report.py counts DIR
       Reads the same reports and prints a JSON object with the number of
       passed, failed, and skipped test results across every job and shard,
-      and the number of jobs that failed without a report. The /conformance
+      the number of jobs that failed without a report, and the number of
+      chainsaw reports read. The /conformance
       PR comment command uses it to tell a pass from a regex that matched no
       test.
 
@@ -306,9 +307,13 @@ def summarize(args):
 
 
 def counts(args):
-    results, missing = collect(args.dir) if Path(args.dir).is_dir() else ([], [])
+    directory = Path(args.dir)
+    results, missing = collect(directory) if directory.is_dir() else ([], [])
     totals = {state: sum(r["status"] == state for r in results) for state in ("passed", "failed", "skipped")}
     totals["missing"] = len(missing)
+    # Jobs whose chainsaw report was read, even one with no tests in it.
+    totals["reports"] = len({*directory.glob(f"{REPORT}"), *directory.glob(f"*/{REPORT}")}) \
+        if directory.is_dir() else 0
     sys.stdout.write(json.dumps(totals, sort_keys=True) + "\n")
 
 
