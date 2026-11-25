@@ -806,7 +806,10 @@ func getResources(client dclient.Interface, policyNs string, isNamespacedPolicy 
 			groupVersion = version
 		}
 
-		resources, err := client.ListResource(context.TODO(), groupVersion, kind, namespace, match.Selector)
+		// Kubernetes label selectors don't support wildcard characters, so wildcarded
+		// matchLabels entries can't be sent to the API server as-is; they are dropped from
+		// the server-side selector and resourceMatches filters the results locally.
+		resources, err := client.ListResource(context.TODO(), groupVersion, kind, namespace, serverSideSelector(match.Selector))
 		if err != nil {
 			log.Error(err, "failed to list matched resource")
 			continue
