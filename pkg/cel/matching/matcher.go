@@ -131,10 +131,7 @@ func matchesGeneratedName(rule admissionregistrationv1.NamedRuleWithOperations, 
 		if matchedName == "" {
 			continue
 		}
-		if genName == matchedName {
-			return true
-		}
-		if strings.TrimSuffix(genName, "-") == strings.TrimSuffix(matchedName, "-") {
+		if strings.HasPrefix(genName, matchedName) {
 			return true
 		}
 	}

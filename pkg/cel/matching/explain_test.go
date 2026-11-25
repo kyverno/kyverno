@@ -170,11 +170,20 @@ func TestExplain(t *testing.T) {
 			wantReason: "matched kind Pod, namespace prod, operation CREATE",
 		},
 		{
-			name: "generateName spoofing prefix not covered by resourceRules",
+			name: "generateName prefix matching resourceRules allows admission",
 			constraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: namedPodRules([]string{"nginx"}, admissionregistrationv1.Create),
 			},
 			attr:       podAttrsWithGenerateName("prod", admission.Create, "", "nginx-malicious-"),
+			wantMatch:  true,
+			wantReason: "matched kind Pod, namespace prod, operation CREATE",
+		},
+		{
+			name: "generateName non-matching prefix not covered by resourceRules",
+			constraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: namedPodRules([]string{"nginx"}, admissionregistrationv1.Create),
+			},
+			attr:       podAttrsWithGenerateName("prod", admission.Create, "", "other-"),
 			wantMatch:  false,
 			wantReason: "is not covered by the policy's resourceRules",
 		},

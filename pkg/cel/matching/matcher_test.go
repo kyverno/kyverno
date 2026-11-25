@@ -347,7 +347,7 @@ func TestMatcher(t *testing.T) {
 			expectMatches: true,
 		},
 		{
-			name: "generateName delimiter boundary prevents partial prefix matching in resourceRules",
+			name: "generateName prefix matching preserved in resourceRules",
 			criteria: &v1.MatchResources{
 				NamespaceSelector: &metav1.LabelSelector{},
 				ObjectSelector:    &metav1.LabelSelector{},
@@ -368,7 +368,7 @@ func TestMatcher(t *testing.T) {
 					},
 				},
 				nil, gvk("apps", "v1", "Deployment"), "ns", "", gvr("apps", "v1", "deployments"), "", admission.Create, &metav1.CreateOptions{}, false, nil),
-			expectMatches: false,
+			expectMatches: true,
 		},
 		{
 			name: "exact name in excludeResourceRules excludes",
@@ -544,7 +544,7 @@ func Test_matchesResourceRules(t *testing.T) {
 			expected:           false,
 		},
 		{
-			name: "reject un-delimited prefix match (security bypass prevention)",
+			name: "allow prefix match when allowGeneratedName is true (preserves HasPrefix for resourceRules)",
 			object: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"metadata": map[string]interface{}{
@@ -554,10 +554,23 @@ func Test_matchesResourceRules(t *testing.T) {
 			},
 			resourceName:       "vault",
 			allowGeneratedName: true,
+			expected:           true,
+		},
+		{
+			name: "reject prefix match when allowGeneratedName is false (excludeResourceRules bypass prevention)",
+			object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"generateName": "vault-malicious-pod-",
+					},
+				},
+			},
+			resourceName:       "vault",
+			allowGeneratedName: false,
 			expected:           false,
 		},
 		{
-			name: "reject substring prefix without delimiter (test vs testing)",
+			name: "allow substring prefix when allowGeneratedName is true (preserves HasPrefix for resourceRules)",
 			object: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"metadata": map[string]interface{}{
@@ -567,7 +580,7 @@ func Test_matchesResourceRules(t *testing.T) {
 			},
 			resourceName:       "test",
 			allowGeneratedName: true,
-			expected:           false,
+			expected:           true,
 		},
 		{
 			name: "reject generatedName match when allowGeneratedName is false (e.g. exclusion rules)",
@@ -596,7 +609,7 @@ func Test_matchesResourceRules(t *testing.T) {
 			expected:           true,
 		},
 		{
-			name: "allow match when allowGeneratedName is true with trailing hyphen on rule only",
+			name: "reject when generateName is shorter than resourceName with trailing hyphen",
 			object: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"metadata": map[string]interface{}{
@@ -606,7 +619,7 @@ func Test_matchesResourceRules(t *testing.T) {
 			},
 			resourceName:       "vault-",
 			allowGeneratedName: true,
-			expected:           true,
+			expected:           false,
 		},
 		{
 			name: "allow match when allowGeneratedName is true with trailing hyphen on both",
@@ -635,7 +648,7 @@ func Test_matchesResourceRules(t *testing.T) {
 			expected:           true,
 		},
 		{
-			name: "reject multi-token non-prefix mismatch",
+			name: "allow multi-token prefix when allowGeneratedName is true (preserves HasPrefix for resourceRules)",
 			object: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"metadata": map[string]interface{}{
@@ -645,7 +658,7 @@ func Test_matchesResourceRules(t *testing.T) {
 			},
 			resourceName:       "app",
 			allowGeneratedName: true,
-			expected:           false,
+			expected:           true,
 		},
 		{
 			name: "reject empty generateName on empty attr name",
