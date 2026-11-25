@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Sync labels
+
+# Creates or updates label metadata (color/description) from .github/labels.yml,
+# including the lifecycle labels used by PR lifecycle. Run manually with
+# dry_run disabled before enabling readiness or stale mutations.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Preview label changes without writing them
+        type: boolean
+        default: true
+
+permissions: {}
+
+jobs:
+  sync-labels:
+    # The shared workflow holds several jobs, so the caller grants their union; this job's own token is limited to
+    # contents: read and issues: write.
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: read
+      actions: read
+    uses: kyverno/assistant/.github/workflows/pr-management.yml@945da6a2613b7eeebb64612b303004a5b5288c9d
+    with:
+      mode: sync-labels
+      dry-run: ${{ inputs.dry_run && 'true' || 'false' }}

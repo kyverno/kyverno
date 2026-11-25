@@ -1,0 +1,55 @@
+name: PR lifecycle
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  schedule:
+    - cron: "19 * * * *"
+    - cron: "29 6 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Lifecycle operation
+        type: choice
+        options: [readiness, stale]
+        default: readiness
+      dry_run:
+        description: Only preview changes (leave enabled until you have read a preview run)
+        type: boolean
+        default: true
+
+permissions: {}
+
+# The logic, the trusted checkout and the token of each job live in the shared workflow. Scheduled and PR-event runs
+# follow the repository variable PR_AUTOMATION_LIVE (preview unless it is exactly true); a manual run follows its checkbox.
+jobs:
+  readiness:
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'schedule' && github.event.schedule == '19 * * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'readiness')
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: read
+      actions: read
+    uses: kyverno/assistant/.github/workflows/pr-management.yml@945da6a2613b7eeebb64612b303004a5b5288c9d
+    with:
+      mode: readiness
+      dry-run: ${{ github.event_name == 'workflow_dispatch' && (inputs.dry_run && 'true' || 'false') || 'auto' }}
+
+  stale:
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '29 6 * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'stale')
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: read
+      actions: read
+    uses: kyverno/assistant/.github/workflows/pr-management.yml@945da6a2613b7eeebb64612b303004a5b5288c9d
+    with:
+      mode: stale
+      dry-run: ${{ github.event_name == 'workflow_dispatch' && (inputs.dry_run && 'true' || 'false') || 'auto' }}

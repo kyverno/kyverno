@@ -1,0 +1,15 @@
+# Readiness checks for this repository. The shared action already runs a built-in set (dco, ci, infra_checks,
+# conflicts, threads, unanswered), so this file only holds differences. Delete anything you do not need.
+# Built-in checks and the jq each runs: kyverno/assistant, .github/actions/pr-management/default-readiness-checks.yml
+#
+# Turn a built-in check off:
+# disable: [unanswered]
+#
+# Add a check, or replace a built-in one by giving it the same name. `test` and `message` are jq expressions
+# evaluated against the PR, with `$author` bound to its login.
+# needs_description:
+#   test: '(.body // "") | length < 20'
+#   message: '"describe what this PR changes and why"'
+#
+# Red checks that are not the author's to fix (so they never block) go in .github/pr-management.json:
+# "infra_checks": {"Upload coverage to Codecov": "the unit tests passed; only the upload failed"}
