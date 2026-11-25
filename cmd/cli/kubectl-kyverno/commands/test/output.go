@@ -467,12 +467,8 @@ func formatResourceDisplay(resource string) (string, string, string) {
 		return resourceParts[1], resourceParts[0], resourceParts[2]
 	case 4:
 		if isAPIVersion(resourceParts[1]) {
-			if strings.Contains(resourceParts[0], ".") {
-				// cluster-scoped with group/version: group/version/kind/name (e.g. rbac.authorization.k8s.io/v1/ClusterRole/admin)
-				return resourceParts[0] + "/" + resourceParts[1] + "/" + resourceParts[2], "", resourceParts[3]
-			}
-			// namespace-first with core version: namespace/version/kind/name (e.g. default/v1/Pod/my-pod, emitted by resourceDisplayPath)
-			return resourceParts[1] + "/" + resourceParts[2], resourceParts[0], resourceParts[3]
+			// cluster-scoped with group/version: group/version/kind/name (e.g. rbac.authorization.k8s.io/v1/ClusterRole/admin, apps/v1/Deployment/my-deploy, foo/v1/Widget/name)
+			return resourceParts[0] + "/" + resourceParts[1] + "/" + resourceParts[2], "", resourceParts[3]
 		}
 		if isAPIVersion(resourceParts[0]) {
 			// version-first with namespace: version/kind/namespace/name (e.g. v1/Pod/default/test-pod)
@@ -484,7 +480,7 @@ func formatResourceDisplay(resource string) (string, string, string) {
 		return kind, namespace, name
 	default:
 		if len(resourceParts) == 5 && isAPIVersion(resourceParts[2]) {
-			// namespace-first with group/version: namespace/group/version/kind/name (e.g. default/apps/v1/Deployment/my-dep, emitted by resourceDisplayPath)
+			// namespace-first with group/version: namespace/group/version/kind/name (e.g. staging/apps/v1/Deployment/my-deploy)
 			kind := resourceParts[1] + "/" + resourceParts[2] + "/" + resourceParts[3]
 			return kind, resourceParts[0], resourceParts[4]
 		}
@@ -504,14 +500,14 @@ func formatResourceDisplay(resource string) (string, string, string) {
 
 func resourceDisplayPath(resource string) string {
 	kind, namespace, name := formatResourceDisplay(resource)
-	if namespace != "" {
-		if kind != "" {
-			return namespace + "/" + kind + "/" + name
-		}
-		return namespace + "/" + name
-	}
 	if kind != "" {
+		if namespace != "" {
+			return kind + "/" + namespace + "/" + name
+		}
 		return kind + "/" + name
+	}
+	if namespace != "" {
+		return namespace + "/" + name
 	}
 	return name
 }
