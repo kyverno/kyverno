@@ -1,0 +1,115 @@
+{
+  "apiVersion": "trace.kyverno.io/v1alpha1",
+  "kind": "DecisionList",
+  "items": [
+    {
+      "policy": {
+        "name": "generate-cm",
+        "kind": "GeneratingPolicy"
+      },
+      "resource": {
+        "kind": "Namespace",
+        "name": "test-ns"
+      },
+      "scope": {
+        "applied": true,
+        "reason": "matched kind Namespace, cluster-scoped, operation CREATE"
+      },
+      "variables": [
+        {
+          "name": "nsName",
+          "expression": "object.metadata.name",
+          "evaluated": [
+            {
+              "expression": "object.metadata.name",
+              "value": "test-ns"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[name:test-ns]"
+            }
+          ],
+          "result": "test-ns"
+        },
+        {
+          "name": "configmap",
+          "expression": "[\n  {\n    \"kind\": dyn(\"ConfigMap\"),\n    \"apiVersion\": dyn(\"v1\"),\n    \"metadata\": dyn({\n      \"name\": \"zk-kafka-address\",\n      \"namespace\": string(variables.nsName),\n    }),\n    \"data\": dyn({\n      \"KAFKA_ADDRESS\": \"192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092\",\n      \"ZK_ADDRESS\": \"192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181\"\n    })\n  }\n]",
+          "evaluated": [
+            {
+              "expression": "[{\"kind\": dyn(\"ConfigMap\"), \"apiVersion\": dyn(\"v1\"), \"metadata\": dyn({\"name\": \"zk-kafka-address\", \"namespace\": string(variables.nsName)}), \"data\": dyn({\"KAFKA_ADDRESS\": \"192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092\", \"ZK_ADDRESS\": \"192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181\"})}]",
+              "value": "[map[apiVersion:v1 data:map[KAFKA_ADDRESS:192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092 ZK_ADDRESS:192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181] kind:ConfigMap metadata:map[name:zk-kafka-address namespace:test-ns]]]"
+            },
+            {
+              "expression": "{\"kind\": dyn(\"ConfigMap\"), \"apiVersion\": dyn(\"v1\"), \"metadata\": dyn({\"name\": \"zk-kafka-address\", \"namespace\": string(variables.nsName)}), \"data\": dyn({\"KAFKA_ADDRESS\": \"192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092\", \"ZK_ADDRESS\": \"192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181\"})}",
+              "value": "map[apiVersion:v1 data:map[KAFKA_ADDRESS:192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092 ZK_ADDRESS:192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181] kind:ConfigMap metadata:map[name:zk-kafka-address namespace:test-ns]]"
+            },
+            {
+              "expression": "dyn(\"ConfigMap\")",
+              "value": "ConfigMap"
+            },
+            {
+              "expression": "dyn(\"v1\")",
+              "value": "v1"
+            },
+            {
+              "expression": "dyn({\"name\": \"zk-kafka-address\", \"namespace\": string(variables.nsName)})",
+              "value": "map[name:zk-kafka-address namespace:test-ns]"
+            },
+            {
+              "expression": "{\"name\": \"zk-kafka-address\", \"namespace\": string(variables.nsName)}",
+              "value": "map[name:zk-kafka-address namespace:test-ns]"
+            },
+            {
+              "expression": "string(variables.nsName)",
+              "value": "test-ns"
+            },
+            {
+              "expression": "variables.nsName",
+              "value": "test-ns"
+            },
+            {
+              "expression": "dyn({\"KAFKA_ADDRESS\": \"192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092\", \"ZK_ADDRESS\": \"192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181\"})",
+              "value": "map[KAFKA_ADDRESS:192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092 ZK_ADDRESS:192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181]"
+            }
+          ],
+          "result": "[map[apiVersion:v1 data:map[KAFKA_ADDRESS:192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092 ZK_ADDRESS:192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181] kind:ConfigMap metadata:map[name:zk-kafka-address namespace:test-ns]]]"
+        }
+      ],
+      "verdict": {
+        "status": "PASS",
+        "message": "generated 1 resource"
+      },
+      "generations": [
+        {
+          "name": "generate[0] (expression)",
+          "expression": "generator.apply(variables.nsName, variables.configmap)",
+          "evaluated": [
+            {
+              "expression": "generator.apply(variables.nsName, variables.configmap)",
+              "value": "true"
+            },
+            {
+              "expression": "variables.nsName",
+              "value": "test-ns"
+            },
+            {
+              "expression": "variables.configmap",
+              "value": "[map[apiVersion:v1 data:map[KAFKA_ADDRESS:192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092 ZK_ADDRESS:192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181] kind:ConfigMap metadata:map[name:zk-kafka-address namespace:test-ns]]]"
+            }
+          ],
+          "result": "true",
+          "generated": [
+            "ConfigMap test-ns/zk-kafka-address"
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "pass": 1,
+    "fail": 0,
+    "warn": 0,
+    "error": 0,
+    "skip": 0
+  }
+}
