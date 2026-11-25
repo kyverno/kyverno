@@ -16,6 +16,8 @@ jobs:
     name: Cherry pick
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Holds the PR updater app secrets; its branch rules allow only main.
+    environment: pr-updater-app
     if: |
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/cherry-pick')

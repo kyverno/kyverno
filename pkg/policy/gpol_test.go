@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/restmapper"
 )
 
@@ -126,7 +127,7 @@ func TestGetGpolTriggers_WildcardAPIVersions(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
+	triggers := pc.getGpolTriggers(match, "")
 
 	// Wildcard must resolve to a single (preferred version) and list once,
 	// so each of the 2 distinct objects appears exactly once.
@@ -203,7 +204,7 @@ func TestGetGpolTriggers_SubresourceTrigger(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
+	triggers := pc.getGpolTriggers(match, "")
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "status", triggers[0].SubResource)
 }
@@ -270,7 +271,7 @@ func TestGetGpolTriggers_WildcardAPIVersions_Subresource(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
+	triggers := pc.getGpolTriggers(match, "")
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "status", triggers[0].SubResource)
 	assert.Equal(t, "my-pod", triggers[0].GetName())
@@ -338,7 +339,7 @@ func TestGetGpolTriggers_DeduplicateTriggers(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
+	triggers := pc.getGpolTriggers(match, "")
 	// Different admission subresources may have different mutation match conditions.
 	// Deduplicate repeated versions of the same context, not the base and status
 	// contexts of the same Kubernetes object.
@@ -399,7 +400,7 @@ func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
 		},
 	}
 
-	triggers := pc.getGpolTriggers(match)
+	triggers := pc.getGpolTriggers(match, "")
 
 	assert.Len(t, triggers, 1)
 }
@@ -491,8 +492,15 @@ func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
 			// policy must create only team-a's context. Base and status
 			// matches still collapse into a single context per parent.
 			wantTriggers := []string{"team-a/cert-a", "team-b/cert-b"}
+			wantNamespace := ""
 			if tc.namespaced {
 				wantTriggers = []string{"team-a/cert-a"}
+				wantNamespace = "team-a"
+			}
+			for _, action := range fakeClient.GetDynamicInterface().(*dynamicfake.FakeDynamicClient).Actions() {
+				if action.Matches("list", "certificates") {
+					assert.Equal(t, wantNamespace, action.GetNamespace())
+				}
 			}
 			contexts := generator.captured[0].Spec.RuleContext
 			require.Len(t, contexts, len(wantTriggers))
@@ -545,6 +553,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 	const customGroup = "example.test.io"
 	coreGVR := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
 	coreNamespaceGVR := schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}
+	coreNodeGVR := schema.GroupVersionResource{Version: "v1", Resource: "nodes"}
 	customAlphaGVR := schema.GroupVersionResource{Group: customGroup, Version: "v1alpha1", Resource: "configmaps"}
 	customV1GVR := schema.GroupVersionResource{Group: customGroup, Version: "v1", Resource: "configmaps"}
 
@@ -561,6 +570,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 				"v1": {
 					{Name: "configmaps", Namespaced: true, Kind: "ConfigMap"},
 					{Name: "namespaces", Namespaced: false, Kind: "Namespace"},
+					{Name: "nodes", Namespaced: false, Kind: "Node"},
 				},
 			},
 		},
@@ -599,6 +609,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 		map[schema.GroupVersionResource]string{
 			coreGVR:          "ConfigMapList",
 			coreNamespaceGVR: "NamespaceList",
+			coreNodeGVR:      "NodeList",
 			customAlphaGVR:   "ExampleConfigMapList",
 			customV1GVR:      "ExampleConfigMapList",
 		},
@@ -610,7 +621,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	discovery := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{coreGVR, coreNamespaceGVR, customAlphaGVR, customV1GVR})
+	discovery := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{coreGVR, coreNamespaceGVR, coreNodeGVR, customAlphaGVR, customV1GVR})
 	discovery.AddGVRToGVKMapping(coreGVR, coreGVR.GroupVersion().WithKind("ConfigMap"))
 	discovery.AddGVRToGVKMapping(coreNamespaceGVR, coreNamespaceGVR.GroupVersion().WithKind("Namespace"))
 	discovery.AddGVRToGVKMapping(customAlphaGVR, customAlphaGVR.GroupVersion().WithKind("ExampleConfigMap"))
@@ -642,6 +653,8 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 		resourceNames        []string
 		resource             string
 		scope                *admissionregistrationv1.ScopeType
+		policyNamespace      string
+		wantNoList           bool
 		excludeCore          bool
 		excludeAlpha         bool
 		excludeStatus        bool
@@ -732,6 +745,20 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 			groups: []string{"*"}, versions: []string{"v1"}, resource: "namespaces", scope: &namespacedScope,
 		},
 		{
+			name:   "namespaced policy can match its Namespace",
+			groups: []string{""}, versions: []string{"v1"}, resource: "namespaces", policyNamespace: "existing-ns",
+			wantNames: []string{"existing-ns"},
+		},
+		{
+			name:   "namespaced policy skips other Namespaces",
+			groups: []string{""}, versions: []string{"v1"}, resource: "namespaces", policyNamespace: "other-ns",
+		},
+		{
+			name:   "namespaced policy skips Nodes before listing",
+			groups: []string{""}, versions: []string{"v1"}, resource: "nodes", policyNamespace: "existing-ns",
+			wantNoList: true,
+		},
+		{
 			name:   "unserved version does not produce a trigger",
 			groups: []string{"*"}, versions: []string{"v2"},
 		},
@@ -801,7 +828,14 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 					},
 				}}
 			}
-			triggers := pc.getGpolTriggers(match)
+			dynamicClient := client.GetDynamicInterface().(*dynamicfake.FakeDynamicClient)
+			dynamicClient.ClearActions()
+			triggers := pc.getGpolTriggers(match, tc.policyNamespace)
+			if tc.wantNoList {
+				for _, action := range dynamicClient.Actions() {
+					assert.False(t, action.Matches("list", resource), "unexpected LIST for %s", resource)
+				}
+			}
 			gotNames := make([]string, 0, len(triggers))
 			for _, trigger := range triggers {
 				gotNames = append(gotNames, trigger.GetName())
@@ -839,7 +873,7 @@ func TestGetGpolTriggers_WildcardAPIGroups(t *testing.T) {
 				makeRule("v1alpha1", "configmaps/status"),
 			},
 		}
-		triggers := pc.getGpolTriggers(match)
+		triggers := pc.getGpolTriggers(match, "")
 		require.Len(t, triggers, 2)
 		versionsBySubresource := make(map[string]string, len(triggers))
 		for _, trigger := range triggers {

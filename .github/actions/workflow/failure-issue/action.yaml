@@ -11,6 +11,18 @@ inputs:
     description: 'needs context serialized as JSON (toJSON(needs))'
     required: false
     default: '{}'
+  commits:
+    description: >-
+      Markdown that lists the commits the run tested, for example those since
+      the last green run. It goes to the tracking issue body and, when the
+      issue already exists, to a new comment, so the issue keeps the list of
+      every failing run. It is truncated to fit the GitHub size limit.
+    required: false
+    default: ''
+  commits-url:
+    description: 'URL of the full list of commits, linked when the commits markdown is truncated'
+    required: false
+    default: ''
   labels:
     description: 'Extra labels for the tracking issue, comma-separated, in addition to workflow-failure'
     required: false
@@ -34,6 +46,8 @@ runs:
   steps:
     - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
       env:
+        COMMITS: ${{ inputs.commits }}
+        COMMITS_URL: ${{ inputs.commits-url }}
         EXTRA_LABELS: ${{ inputs.labels }}
         NOTE: ${{ inputs.note }}
         LATEST_RUN_ONLY: ${{ inputs.latest-run-only }}
@@ -245,6 +259,37 @@ runs:
             return [...lines, ''];
           }
 
+          // GitHub rejects an issue body or comment longer than this.
+          const BODY_LIMIT = 65536;
+          const commitsText = (process.env.COMMITS || '').trim();
+
+          /**
+           * The commits markdown, cut at a line boundary to fit the budget.
+           * A cut table keeps its header and the first (newest) rows, so it
+           * still renders.
+           *
+           * @param {number} budget
+           */
+          function fitCommits(budget) {
+            if (commitsText.length <= budget) {
+              return commitsText;
+            }
+            const url = process.env.COMMITS_URL;
+            const tail = url
+              ? `\n\n_The list is truncated. [Compare all commits](${url})._`
+              : '\n\n_The list is truncated._';
+            const kept = [];
+            let length = tail.length;
+            for (const line of commitsText.split('\n')) {
+              if (length + line.length + 1 > budget) {
+                break;
+              }
+              kept.push(line);
+              length += line.length + 1;
+            }
+            return kept.join('\n').trimEnd() + tail;
+          }
+
           const branch = context.ref;
           const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${runId}`;
           const headSha = context.sha;
@@ -342,6 +387,14 @@ runs:
             const title = `Workflow failed: ${workflowName} (${branch})`;
             const failedJobs = await listFailedJobs();
             const failedJobsSection = await formatFailedJobsSection(failedJobs);
+            // The commits get what the rest of the body leaves. The reserve
+            // covers the summary table, the footer, and the marker.
+            const commitsSection = commitsText
+              ? ['', '### Commits', '', fitCommits(BODY_LIMIT - 4000
+                - (process.env.NOTE || '').length
+                - formatNeedsResultsTable(needs).join('\n').length
+                - failedJobsSection.join('\n').length), '']
+              : [];
             const body = [
               '## Workflow failure',
               '',
@@ -357,6 +410,7 @@ runs:
               // Above the job results: those can run to tens of kilobytes.
               ...(process.env.NOTE && process.env.NOTE.trim() ? ['', process.env.NOTE.trim(), ''] : []),
               ...formatNeedsResultsTable(needs),
+              ...commitsSection,
               ...failedJobsSection,
               '---',
               '*This issue is maintained by the Workflow failure issue workflow. It will be closed when the workflow succeeds.*',
@@ -371,6 +425,19 @@ runs:
                 owner, repo, issue_number: existing.number, title, body
               });
               core.info(`Updated issue #${existing.number} for ${workflowName} (${branch}).`);
+              // The body only shows the latest run. A comment keeps the
+              // commits of each failing run in the issue history.
+              if (commitsText) {
+                const header = `The [${workflowName} run](${runUrl}) on \`${headSha}\` did not succeed (\`${conclusion}\`).\n\n### Commits\n\n`;
+                try {
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: existing.number,
+                    body: header + fitCommits(BODY_LIMIT - header.length)
+                  });
+                } catch (err) {
+                  core.warning(`Could not comment on issue #${existing.number} (${err.message || String(err)}).`);
+                }
+              }
               // An issue opened before the caller passed extra labels does not
               // carry them yet, and a label may have been removed by hand. Add
               // the missing ones rather than setting the full list, which

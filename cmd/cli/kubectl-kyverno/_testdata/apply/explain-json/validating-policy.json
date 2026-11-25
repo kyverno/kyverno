@@ -1,0 +1,115 @@
+{
+  "apiVersion": "trace.kyverno.io/v1alpha1",
+  "kind": "DecisionList",
+  "items": [
+    {
+      "policy": {
+        "name": "check-deployment-labels",
+        "kind": "ValidatingPolicy"
+      },
+      "resource": {
+        "kind": "Deployment",
+        "name": "bad-deployment",
+        "namespace": "default"
+      },
+      "scope": {
+        "applied": true,
+        "reason": "matched kind Deployment, namespace default, operation CREATE"
+      },
+      "variables": [
+        {
+          "name": "environment",
+          "expression": "has(object.metadata.labels) && 'env' in object.metadata.labels && object.metadata.labels['env'] == 'prod'",
+          "evaluated": [
+            {
+              "expression": "has(object.metadata.labels) && \"env\" in object.metadata.labels && object.metadata.labels[\"env\"] == \"prod\"",
+              "value": "false"
+            },
+            {
+              "expression": "has(object.metadata.labels) && \"env\" in object.metadata.labels",
+              "value": "true"
+            },
+            {
+              "expression": "has(object.metadata.labels)",
+              "value": "true"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[labels:map[app:nginx env:testing] name:bad-deployment namespace:default]"
+            },
+            {
+              "expression": "\"env\" in object.metadata.labels",
+              "value": "true"
+            },
+            {
+              "expression": "object.metadata.labels",
+              "value": "map[app:nginx env:testing]"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[labels:map[app:nginx env:testing] name:bad-deployment namespace:default]"
+            },
+            {
+              "expression": "object.metadata.labels[\"env\"] == \"prod\"",
+              "value": "false"
+            },
+            {
+              "expression": "object.metadata.labels[\"env\"]",
+              "value": "testing"
+            },
+            {
+              "expression": "object.metadata.labels",
+              "value": "map[app:nginx env:testing]"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[labels:map[app:nginx env:testing] name:bad-deployment namespace:default]"
+            }
+          ],
+          "result": "false"
+        }
+      ],
+      "validations": [
+        {
+          "index": 0,
+          "status": "FAIL",
+          "expression": "variables.environment == true",
+          "evaluated": [
+            {
+              "expression": "variables.environment == true",
+              "value": "false"
+            },
+            {
+              "expression": "variables.environment",
+              "value": "false"
+            }
+          ],
+          "result": "false"
+        }
+      ],
+      "verdict": {
+        "status": "FAIL",
+        "expression": "variables.environment == true",
+        "evaluated": [
+          {
+            "expression": "variables.environment == true",
+            "value": "false"
+          },
+          {
+            "expression": "variables.environment",
+            "value": "false"
+          }
+        ],
+        "result": "false",
+        "message": "Deployment labels must be env=prod"
+      }
+    }
+  ],
+  "summary": {
+    "pass": 0,
+    "fail": 1,
+    "warn": 0,
+    "error": 0,
+    "skip": 0
+  }
+}

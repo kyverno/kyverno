@@ -231,7 +231,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			}
 		}
 		if len(attestors) > 0 {
-			f.verifications.Record(image, count > 0)
+			f.verifications.Record(image, count == len(attestors))
 		}
 		return f.NativeToValue(count)
 	}
@@ -346,7 +346,7 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 			}
 		}
 		if len(attestors) > 0 {
-			f.verifications.Record(image, count > 0)
+			f.verifications.Record(image, count == len(attestors))
 		}
 		return f.NativeToValue(count)
 	}
