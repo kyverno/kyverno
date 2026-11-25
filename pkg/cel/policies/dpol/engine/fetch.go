@@ -56,7 +56,7 @@ func (r *fetchProvider) Get(ctx context.Context, namespace, name string) (Policy
 	// get exceptions that match the policy
 	var exceptions []*policiesv1beta1.PolicyException
 	if r.polexEnabled {
-		exceptions, err = engine.ListExceptions(r.polexLister, policy.GetKind(), policy.GetName())
+		exceptions, err = r.polexLister.ListForPolicy(policy.GetKind(), policy.GetName(), policy.GetNamespace())
 		if err != nil {
 			return Policy{}, err
 		}

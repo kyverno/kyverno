@@ -1,6 +1,7 @@
-// Tests for the scripts of .github/workflows/check-tests.yaml: the batch
-// summary, and the steps of sync-issue that decide what happens to the
-// tracking issue.
+// Tests for the full-matrix label of .github/workflows/check-tests.yaml: the
+// Plan the issue update step of sync-issue, and how the Sync issue step
+// passes its plan to the failure-issue action. The batch summary has its own
+// tests in check-tests-batch.test.mjs.
 // Run with: node .github/tests/check-tests.test.mjs
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -77,78 +78,29 @@ const withEnv = async (env, fn) => {
   }
 };
 
-// ── Test results ────────────────────────────────────────────────────────────
-
-const TEST_JOBS = ['images', 'cli', 'conformance-tests', 'conformance-policy-library-tests', 'k6-tests', 'perf'];
-/** The needs context: every test job passed unless `results` says otherwise. */
-const needs = (results = {}, batch = 'success') => ({
-  ...Object.fromEntries(TEST_JOBS.map(id => [id, { result: results[id] || 'success', outputs: {} }])),
-  batch: { result: batch, outputs: { 'issue-note': '### Suspect commits\n\n@alice' } },
-});
-
-async function testResults(needsContext) {
-  const c = core();
-  await withEnv({ NEEDS: JSON.stringify(needsContext) }, () =>
-    runScript(stepScript('Test results'), { core: c, process }));
-  return c.outputs;
-}
-
-test('test results: a failed, cancelled or skipped batch job never counts', async () => {
-  for (const batch of ['failure', 'cancelled', 'skipped', 'success']) {
-    const out = await testResults(needs({}, batch));
-    assert.deepEqual([out.failed, out.cancelled], ['false', 'false'], `batch ${batch}`);
-  }
-  // Nor does it hide what the tests did.
-  const failed = await testResults(needs({ 'conformance-tests': 'failure' }, 'cancelled'));
-  assert.deepEqual([failed.failed, failed.cancelled], ['true', 'false']);
-  const cancelled = await testResults(needs({ perf: 'cancelled' }, 'failure'));
-  assert.deepEqual([cancelled.failed, cancelled.cancelled], ['false', 'true']);
-});
-
-test('test results: every other needed job counts, also one added later', async () => {
-  const out = await testResults({ ...needs(), 'new-tests': { result: 'failure' } });
-  assert.equal(out.failed, 'true');
-  assert.equal((await testResults(needs({ images: 'failure', cli: 'cancelled' }))).cancelled, 'true');
-});
-
-test('test results: the job results table lists the test jobs only, without outputs', async () => {
-  const out = await testResults(needs({ 'k6-tests': 'failure' }, 'failure'));
-  assert.deepEqual(JSON.parse(out.needs), Object.fromEntries(
-    TEST_JOBS.map(id => [id, { result: id === 'k6-tests' ? 'failure' : 'success' }])));
-  assert.ok(!out.needs.includes('alice'));
-});
-
 // ── The workflow around the scripts ─────────────────────────────────────────
-
-test('sync-issue needs every test job and batch, and no step reads needs.*.result', () => {
-  const job = jobText('sync-issue');
-  const needed = /\n {4}needs:\n((?: {6}.*\n)+)/.exec(job)[1]
-    .split('\n').map(l => l.trim()).filter(l => l.startsWith('- ')).map(l => l.slice(2));
-  assert.deepEqual(needed, [...TEST_JOBS, 'batch']);
-  const [jobLevel, steps] = job.split('\n    steps:\n');
-  const code = steps.split('\n').filter(l => !l.trim().startsWith('#') && !l.trim().startsWith('//'));
-  assert.deepEqual(code.filter(l => l.includes('needs.*')), [], 'steps read the Test results outputs');
-  // The job condition does read it, so a cancelled batch job needs its own clause.
-  assert.ok(jobLevel.includes("needs.batch.result == 'cancelled'"));
-});
 
 test('sync-issue passes the planned values to the failure-issue action', () => {
   const job = jobText('sync-issue');
   const sync = job.slice(job.indexOf('- name: Sync issue'));
   assert.ok(sync.includes("if: steps.defer.outputs.deferred != 'true' && steps.plan.outputs.sync == 'true'"));
-  assert.ok(sync.includes("conclusion: ${{ steps.tests.outputs.failed == 'true' && 'failure' || job.status }}"));
-  assert.ok(sync.includes('needs: ${{ steps.tests.outputs.needs }}'));
   assert.ok(sync.includes("labels: e2e-failure${{ steps.plan.outputs.full-matrix == 'true' && ',full-matrix' || '' }}"));
-  assert.ok(sync.includes('${{ steps.plan.outputs.note }}'));
+  assert.ok(sync.includes('note: |\n            ${{ steps.plan.outputs.note }}\n'));
+  // The plan reads the same results as the conclusion passed to the action.
+  assert.ok(sync.includes("conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}"));
+  const plan = job.slice(job.indexOf('- name: Plan the issue update'), job.indexOf('- name: Sync issue'));
+  assert.ok(plan.includes("FAILED: ${{ contains(needs.*.result, 'failure') }}"));
+});
+
+test('a run cancelled without a failure does not reach the plan', () => {
+  // The plan treats every run that did not fail as passing.
+  assert.ok(jobText('sync-issue').includes("(contains(needs.*.result, 'failure') || !contains(needs.*.result, 'cancelled'))"));
 });
 
 test('the first attempt of a failing run still defers, by the step name tests-rerun.yaml looks for', () => {
   const job = jobText('sync-issue');
-  const defer = job.slice(job.indexOf('- name: Defer to the automatic re-run'), job.indexOf('- name: Plan the issue update'));
-  assert.ok(defer.includes('id: defer'));
-  assert.ok(defer.includes("github.run_attempt == '1' &&"));
-  assert.ok(defer.includes("steps.tests.outputs.failed == 'true' &&"));
-  assert.ok(defer.includes("steps.tests.outputs.cancelled != 'true'"));
+  const steps = [...job.matchAll(/\n {6}- name: (.+)/g)].map(m => m[1]);
+  assert.deepEqual(steps.slice(-3), ['Defer to the automatic re-run', 'Plan the issue update', 'Sync issue']);
   assert.ok(read('.github/workflows/tests-rerun.yaml').includes('select(.name == "Defer to the automatic re-run" and .conclusion == "success")'));
   // A deferred attempt plans nothing and leaves the issue alone.
   const plan = job.slice(job.indexOf('- name: Plan the issue update'), job.indexOf('- name: Sync issue'));
@@ -158,8 +110,9 @@ test('the first attempt of a failing run still defers, by the step name tests-re
 test('the job names in the plan script are the ones the workflow uses', () => {
   const plan = stepScript('Plan the issue update');
   const matrixJob = /const MATRIX_JOB = '(.+)';/.exec(plan)[1];
-  const batchJob = /const BATCH_JOB = '(.+)';/.exec(plan)[1];
-  assert.ok(jobText('batch').includes(`\n    name: ${batchJob}\n`));
+  const notTests = JSON.parse(/const NOT_TESTS = (\[.*\]);/.exec(plan)[1].replace(/'/g, '"'));
+  // The jobs that describe the run and aren't needed by sync-issue as tests.
+  assert.deepEqual(notTests, ['batch', 'summarize'].map(id => /\n {4}name: (.+)\n/.exec(jobText(id))[1]));
   // Only one job passes the matrix input on, and it is the one the script names.
   const passing = [...workflow.matchAll(/^ {2}([\w-]+):$/gm)].map(m => m[1])
     .filter(id => /\n {6}matrix: \$\{\{ inputs\.matrix/.test(jobText(id)));
@@ -177,7 +130,7 @@ const VERSIONS = ['v1.34.11', 'v1.35.8', 'v1.36.4', 'v1.37.0'];
 const job = (name, conclusion = 'success') => ({ name, status: 'completed', conclusion });
 /** The jobs of a full run, named as the jobs API names them. `failed` names the failed ones. */
 const fullRun = (failed = []) => [
-  'Batch summary', 'Build test images', 'Build test CLI', 'Performance benchmarks',
+  'Batch summary', 'Summarize E2E failures', 'Build test images', 'Build test CLI', 'Performance benchmarks',
   'K6 tests / k6 (simple)', 'K6 tests / summary',
   'Conformance tests / kubernetes-matrix / matrix',
   'Conformance tests (policy library) / kubernetes-matrix / matrix',
@@ -209,9 +162,8 @@ const HELD = [...PLAIN, 'full-matrix'];
  * @param emptyLists   labels whose list comes back empty although issues carry them
  */
 async function plan({
-  matrix = 'full', failed = false, cancelled = false, branch = 'main',
+  matrix = 'full', failed = false, branch = 'main',
   jobs = fullRun(), jobsError = false, open = [], emptyLists = [], listError = false,
-  batchNote = '### Suspect commits\n\n@alice: please check.', batchResult = 'success',
 }) {
   const c = core();
   const lists = [];
@@ -244,8 +196,7 @@ async function plan({
     ref: `refs/heads/${branch}`, serverUrl: 'https://github.com',
   };
   await withEnv({
-    MATRIX: matrix, FAILED: String(failed), CANCELLED: String(cancelled),
-    BATCH_NOTE: batchNote, BATCH_RESULT: batchResult,
+    MATRIX: matrix, FAILED: String(failed),
   }, () => runScript(stepScript('Plan the issue update'), { github, core: c, context, process }));
   return {
     sync: c.outputs.sync === 'true', fullMatrix: c.outputs['full-matrix'] === 'true',
@@ -298,9 +249,11 @@ test('jobs that read the beta, stable or smoke list follow the same rule', async
   assert.equal(await label('Conformance tests / v1.37.0 - cert-manager rsa'), false);
 });
 
-test('a failed batch job is not a test failure and does not change the label', async () => {
-  assert.equal((await plan(fails('Batch summary', 'Conformance tests / assert (v1.36.4)'))).fullMatrix, true);
-  assert.equal((await plan(fails('Batch summary', 'Conformance tests / assert (v1.37.0)'))).fullMatrix, false);
+test('a failed job that describes the run is not a test failure and does not change the label', async () => {
+  for (const name of ['Batch summary', 'Summarize E2E failures']) {
+    assert.equal((await plan(fails(name, 'Conformance tests / assert (v1.36.4)'))).fullMatrix, true, name);
+    assert.equal((await plan(fails(name, 'Conformance tests / assert (v1.37.0)'))).fullMatrix, false, name);
+  }
 });
 
 test('versions are compared as numbers', async () => {
@@ -417,16 +370,6 @@ test('reduced run passes, the issues cannot be read: left as it is', async () =>
   assert.ok(r.log.some(l => l.startsWith('warning:') && l.includes('Bad Gateway')));
 });
 
-test('a run cancelled without a test failure leaves the issue as it is', async () => {
-  for (const matrix of ['full', 'reduced']) {
-    const r = await plan({ matrix, cancelled: true, open: [issue(5, PLAIN)] });
-    assert.equal(r.sync, false);
-    assert.deepEqual([r.lists, r.jobReads], [[], 0]);
-  }
-  // A failure is recorded even if other jobs were then cancelled.
-  assert.equal((await plan({ failed: true, cancelled: true })).sync, true);
-});
-
 test('the second attempt is judged by the jobs that still fail after the re-run', async () => {
   // First attempt: a flaky job on the oldest version and a real failure in
   // between. The re-run fixed the flaky one; the jobs API lists the latest
@@ -448,22 +391,9 @@ test('release branch: no matrix input, so every run is full and closes the issue
   assert.ok(red.note.includes('on `release-1.20` with matrix `full`'));
 });
 
-test('a failing run puts the batch note first, a passing run has no note', async () => {
-  const red = await plan({ matrix: 'reduced', failed: true, batchNote: '### Suspect commits\n\n@alice @bob: check.' });
-  assert.ok(red.note.startsWith('### Suspect commits\n\n@alice @bob: check.\n\n### The `full-matrix` label'));
+test('a passing run has no note', async () => {
   for (const matrix of ['full', 'reduced']) {
-    const green = await plan({ matrix, open: [issue(5, PLAIN)], batchNote: '@alice' });
-    assert.equal(green.note, '');
-  }
-});
-
-test('a batch job that failed, was cancelled or skipped changes nothing but the note', async () => {
-  for (const batchResult of ['failure', 'cancelled', 'skipped']) {
-    const red = await plan({ ...fails('Conformance tests / assert (v1.35.8)'), batchNote: '', batchResult });
-    assert.deepEqual([red.sync, red.fullMatrix], [true, true], batchResult);
-    assert.ok(red.note.includes(`The Batch summary job of this run (\`${batchResult}\`) left no list of suspect commits.`));
-    assert.ok(!red.note.includes('@'));
-    const green = await plan({ matrix: 'reduced', open: [issue(5, PLAIN)], batchNote: '', batchResult });
+    const green = await plan({ matrix, open: [issue(5, PLAIN)] });
     assert.deepEqual([green.sync, green.note], [true, '']);
   }
 });
@@ -500,6 +430,7 @@ async function syncIssue(planned, open) {
     .replace('${{ inputs.needs }}', '{}');
   await withEnv({
     EXTRA_LABELS: `e2e-failure${planned.fullMatrix ? ',full-matrix' : ''}`,
+    COMMITS: '', COMMITS_URL: '',
     NOTE: `${planned.note}\n\n### Clearing the E2E Gate\n`,
   }, () => runScript(source, { github, core: core(), context, Buffer, process }));
   return calls;
@@ -511,9 +442,8 @@ test('the action adds full-matrix to an open issue and writes the note into its 
   assert.deepEqual(calls.addLabels.map(a => [a.issue_number, a.labels]), [[5, ['full-matrix']]]);
   const [{ issue_number, body }] = calls.update;
   assert.equal(issue_number, 5);
-  const [suspects, label, clearing] = ['### Suspect commits', '### The `full-matrix` label', '### Clearing the E2E Gate'].map(h => body.indexOf(h));
-  assert.ok(suspects >= 0 && suspects < label && label < clearing);
-  assert.ok(body.includes('@alice'));
+  const [label, clearing] = ['### The `full-matrix` label', '### Clearing the E2E Gate'].map(h => body.indexOf(h));
+  assert.ok(label >= 0 && label < clearing);
   assert.ok(body.includes('<!-- workflow-failure:Tests:refs/heads/main -->'));
 });
 
@@ -584,129 +514,4 @@ test('the conformance jobs read only the version lists the label knows', () => {
   for (const id of ['conformance-policy-library-tests', 'k6-tests']) {
     assert.ok(!jobText(id).includes('matrix:'), id);
   }
-});
-
-// ── Batch summary ───────────────────────────────────────────────────────────
-
-const sha = n => n.toString(16).padStart(9, '0').padEnd(40, 'f');
-const user = (login, type = 'User') => ({ login, type });
-/** A commit of the batch; `pr` is its merged pull request, if any. */
-const commit = (n, { pr = null, author = null, title = `change ${n}` } = {}) => ({
-  sha: sha(n), html_url: `https://github.com/o/r/commit/${sha(n)}`, author,
-  commit: { message: `${title}\n\nbody`, author: { name: 'Some Name' } }, pr,
-});
-const pull = (number, login, type = 'User') => ({
-  number, html_url: `https://github.com/o/r/pull/${number}`, merged_at: 'x', base: { ref: 'main' }, user: user(login, type),
-});
-
-/**
- * @param commits  oldest first, as the compare API returns them
- * @param green    the earlier green runs, newest first
- */
-async function batch({ matrix = 'reduced', commits = [], green = [{ id: 1, head_sha: sha(0), html_url: 'https://github.com/o/r/actions/runs/1', display_title: 'Tests on main (full)' }] }) {
-  const c = core();
-  const github = {
-    paginate: async (fn, args, map) => {
-      const response = await fn(args);
-      return map ? map(response, () => {}) : response.data;
-    },
-    rest: {
-      actions: { listWorkflowRuns: async () => ({ data: green }) },
-      repos: {
-        compareCommitsWithBasehead: async () => ({ data: { commits } }),
-        listPullRequestsAssociatedWithCommit: async a =>
-          ({ data: [commits.find(x => x.sha === a.commit_sha).pr].filter(Boolean) }),
-      },
-    },
-  };
-  const context = {
-    repo: { owner: 'o', repo: 'r' }, ref: 'refs/heads/main', sha: sha(999), runId: 77, serverUrl: 'https://github.com',
-  };
-  await withEnv({ MATRIX: matrix }, () =>
-    runScript(stepScript('Summarize batch'), { github, core: c, context, process }));
-  return { note: c.outputs['issue-note'], summary: c.summaryText };
-}
-
-test('batch: the issue note has the compare link, the pull requests and their authors', async () => {
-  const r = await batch({
-    commits: [commit(1, { pr: pull(11, 'alice') }), commit(2, { pr: pull(12, 'bob') })],
-  });
-  assert.ok(r.note.startsWith('### Suspect commits\n\n'));
-  assert.ok(r.note.includes(`[\`${sha(0).slice(0, 9)}..${sha(999).slice(0, 9)}\`](https://github.com/o/r/compare/${sha(0)}...${sha(999)})`));
-  assert.ok(r.note.includes('2 commits since the [last green run](https://github.com/o/r/actions/runs/1)'));
-  // Newest first.
-  assert.ok(r.note.includes('- #12 by bob\n- #11 by alice'));
-  assert.ok(r.note.includes('\n@bob @alice: this run failed after your changes landed.'));
-  // The job summary is still written.
-  assert.ok(r.summary.includes('change 1'));
-});
-
-test('batch: a full run names the last green full run', async () => {
-  const green = [
-    { id: 3, head_sha: sha(5), html_url: 'reduced-run', display_title: 'Tests on main (reduced)' },
-    { id: 2, head_sha: sha(0), html_url: 'full-run', display_title: 'Tests on main (full)' },
-  ];
-  const full = await batch({ matrix: 'full', green, commits: [commit(1, { pr: pull(11, 'alice') })] });
-  assert.ok(full.note.includes('since the [last green full run](full-run)'));
-  // A green full run also covers the reduced matrix, and so does a reduced one.
-  const reduced = await batch({ matrix: 'reduced', green, commits: [commit(1, { pr: pull(11, 'alice') })] });
-  assert.ok(reduced.note.includes('since the [last green run](reduced-run)'));
-});
-
-test('batch: bots are listed but not mentioned', async () => {
-  const r = await batch({
-    commits: [
-      commit(1, { pr: pull(11, 'kyverno-pr-updater[bot]', 'Bot') }),
-      commit(2, { pr: pull(12, 'alice') }),
-      commit(3, { author: user('dependabot[bot]', 'Bot') }),
-    ],
-  });
-  assert.ok(r.note.includes('- #11 by kyverno-pr-updater[bot]'));
-  assert.ok(r.note.includes(`- ${sha(3).slice(0, 9)} by dependabot[bot]`));
-  assert.deepEqual(r.note.match(/@[\w[\]-]+/g), ['@alice']);
-  const bots = await batch({ commits: [commit(1, { pr: pull(11, 'kyverno-pr-updater[bot]', 'Bot') })] });
-  assert.ok(!bots.note.includes('@'));
-});
-
-test('batch: a commit without a pull request is listed by its SHA and its author', async () => {
-  const r = await batch({ commits: [commit(1, { author: user('carol') }), commit(2)] });
-  assert.ok(r.note.includes(`- ${sha(2).slice(0, 9)} by unknown author\n- ${sha(1).slice(0, 9)} by carol`));
-  assert.deepEqual(r.note.match(/@\w+/g), ['@carol']);
-});
-
-test('batch: a pull request with several commits is listed and mentioned once', async () => {
-  const r = await batch({ commits: [1, 2, 3].map(n => commit(n, { pr: pull(11, 'alice') })) });
-  assert.equal(r.note.match(/- #11 by alice/g).length, 1);
-  assert.equal(r.note.match(/@alice/g).length, 1);
-});
-
-test('batch: the list and the mentions are capped, and the note stays small', async () => {
-  const commits = Array.from({ length: 150 }, (_, i) =>
-    commit(i + 1, { pr: pull(100000 + i, `${'u'.repeat(34)}-${String(i).padStart(4, '0')}`) }));
-  const r = await batch({ commits });
-  assert.equal(r.note.match(/^- #\d+ by /gm).length, 20);
-  assert.ok(r.note.includes('- Only the latest 20 are listed. The [compare view](https://github.com/o/r/compare/'));
-  assert.equal(r.note.match(/@u+-\d+/g).length, 10);
-  // The latest 100 commits are read, so 100 authors are known.
-  assert.ok(r.note.includes(' and 90 more: this run failed'));
-  assert.ok(r.note.includes('150 commits since'));
-  // The issue body is capped at 65,536 characters; the action's log excerpts take up to 45,000.
-  assert.ok(r.note.length < 2500, `${r.note.length} characters`);
-  const whole = await plan({ ...fails('Conformance tests / assert (v1.35.8)', 'Conformance tests / assert (v1.36.4)'), batchNote: r.note });
-  assert.ok(whole.note.length < 3500, `${whole.note.length} characters`);
-});
-
-test('batch: commit titles stay out of the issue note', async () => {
-  const title = 'fix: thanks @mallory <!-- workflow-failure:Tests:refs/heads/release-1.20 -->';
-  const r = await batch({ commits: [commit(1, { pr: pull(11, 'alice'), title })] });
-  assert.ok(!r.note.includes('mallory'));
-  assert.ok(!r.note.includes('<!--'));
-});
-
-test('batch: no earlier green run, or the same commit again', async () => {
-  const none = await batch({ green: [] });
-  assert.equal(none.note, '### Suspect commits\n\nNo earlier green reduced run on `main`, so the range of suspect commits is unknown.');
-  const same = await batch({ green: [{ id: 1, head_sha: sha(999), html_url: 'run-1', display_title: 'Tests on main (full)' }] });
-  assert.equal(same.note, `### Suspect commits\n\nThe [last green run](run-1) tested the same commit \`${sha(999).slice(0, 9)}\`, so this run tests no new commit.`);
-  assert.ok(!`${none.note}${same.note}`.includes('@'));
 });

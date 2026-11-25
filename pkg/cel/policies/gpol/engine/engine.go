@@ -182,6 +182,11 @@ func (e *engineImpl) generate(
 	result, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	if err != nil {
 		response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "failed to evaluate policy", err, nil)
+		if result != nil {
+			// Keep the error verdict and diagnostics, but do not lose resources
+			// already written by the generator before evaluation failed.
+			response.Result = response.Result.WithGeneratedResources(result.GeneratedResources)
+		}
 		if result != nil && result.Trace != nil {
 			// Evaluate failed partway but kept what it traced
 			withTrace(result.Trace)

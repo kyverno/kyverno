@@ -6,6 +6,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -202,6 +203,19 @@ func Test_Validate_NamespacedPolicyRejectsGlobalContextInAttestors(t *testing.T)
 			attestor: policiesv1beta1.Attestor{Name: "att", Cosign: &policiesv1beta1.Cosign{Key: &policiesv1beta1.Key{Expression: `globalContext.get("cluster-entry", "")`}}},
 		},
 		{
+			name: "cosign keyless identity subject expression",
+			attestor: policiesv1beta1.Attestor{
+				Name: "att",
+				Cosign: &policiesv1beta1.Cosign{
+					Keyless: &policiesv1beta1.Keyless{
+						Identities: []policiesv1beta1.Identity{
+							{SubjectExpression: `globalContext.get("cluster-entry", "")`},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:     "cosign certificate expression",
 			attestor: policiesv1beta1.Attestor{Name: "att", Cosign: &policiesv1beta1.Cosign{Certificate: &policiesv1beta1.Certificate{Certificate: gctxExpr}}},
 		},
@@ -234,6 +248,101 @@ func Test_Validate_NamespacedPolicyRejectsGlobalContextInAttestors(t *testing.T)
 		pol := basePolicy(tests[0].attestor)
 		pol.Namespace = ""
 		_, err := Validate(pol, nil)
+		assert.NoError(t, err)
+	})
+}
+
+func Test_Validate_NamespacedPolicyRejectsHTTPInAttestors(t *testing.T) {
+	basePolicy := func(attestor policiesv1beta1.Attestor) *policiesv1beta1.ImageValidatingPolicy {
+		return &policiesv1beta1.ImageValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "http-attestor", Namespace: "tenant-ns"},
+			Spec: policiesv1beta1.ImageValidatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+				Attestors: []policiesv1beta1.Attestor{attestor},
+				Validations: []admissionregistrationv1.Validation{
+					{Expression: `images.containers.map(image, verifyImageSignatures(image, [attestors.att])).all(e, e > 0)`},
+				},
+			},
+		}
+	}
+	httpExpr := &policiesv1beta1.StringOrExpression{Expression: `http.Get("http://example.com/data").body`}
+
+	tests := []struct {
+		name     string
+		attestor policiesv1beta1.Attestor
+	}{
+		{
+			name:     "cosign key expression",
+			attestor: policiesv1beta1.Attestor{Name: "att", Cosign: &policiesv1beta1.Cosign{Key: &policiesv1beta1.Key{Expression: `http.Get("http://example.com/data").body`}}},
+		},
+		{
+			name: "cosign keyless identity subject expression",
+			attestor: policiesv1beta1.Attestor{
+				Name: "att",
+				Cosign: &policiesv1beta1.Cosign{
+					Keyless: &policiesv1beta1.Keyless{
+						Identities: []policiesv1beta1.Identity{
+							{SubjectExpression: `http.Get("http://example.com/data").body`},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:     "cosign certificate expression",
+			attestor: policiesv1beta1.Attestor{Name: "att", Cosign: &policiesv1beta1.Cosign{Certificate: &policiesv1beta1.Certificate{Certificate: httpExpr}}},
+		},
+		{
+			name:     "cosign certificate chain expression",
+			attestor: policiesv1beta1.Attestor{Name: "att", Cosign: &policiesv1beta1.Cosign{Certificate: &policiesv1beta1.Certificate{CertificateChain: httpExpr}}},
+		},
+		{
+			name:     "cosign trusted root expression",
+			attestor: policiesv1beta1.Attestor{Name: "att", Cosign: &policiesv1beta1.Cosign{TrustedRoot: httpExpr}},
+		},
+		{
+			name:     "notary certs expression",
+			attestor: policiesv1beta1.Attestor{Name: "att", Notary: &policiesv1beta1.Notary{Certs: httpExpr}},
+		},
+		{
+			name:     "notary tsa certs expression",
+			attestor: policiesv1beta1.Attestor{Name: "att", Notary: &policiesv1beta1.Notary{TSACerts: httpExpr}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Validate(basePolicy(tt.attestor), nil)
+			assert.ErrorContains(t, err, "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable")
+		})
+	}
+
+	t.Run("cluster-scoped policy may use http in attestors", func(t *testing.T) {
+		pol := basePolicy(tests[0].attestor)
+		pol.Namespace = ""
+		_, err := Validate(pol, nil)
+		assert.NoError(t, err)
+	})
+
+	t.Run("namespaced policy with allowHTTPInNamespacedPolicies toggle enabled is allowed", func(t *testing.T) {
+		require.NoError(t, toggle.AllowHTTPInNamespacedPolicies.Parse("true"))
+		t.Cleanup(func() {
+			_ = toggle.AllowHTTPInNamespacedPolicies.Parse("false")
+		})
+		_, err := Validate(basePolicy(tests[0].attestor), nil)
 		assert.NoError(t, err)
 	})
 }

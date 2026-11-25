@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -82,7 +83,7 @@ func alwaysFailHandler(t *testing.T, action admissionregistrationv1.ValidationAc
 			}},
 		},
 	}
-	provider, err := vpolengine.NewProvider(vpolcompiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := vpolengine.NewProvider(vpolcompiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	engine := vpolengine.NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 	return New(engine, libs.NewFakeContextProvider(), fakekyvernoclient.NewSimpleClientset(), false, eventGen)
