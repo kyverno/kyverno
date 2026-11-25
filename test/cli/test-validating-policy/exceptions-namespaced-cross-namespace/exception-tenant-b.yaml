@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: exclude-foreign
+  namespace: tenant-b
+spec:
+  policyRefs:
+  - name: "check-deployment-labels"
+    kind: NamespacedValidatingPolicy
+  matchConditions:
+    - name: "check-name"
+      expression: "object.metadata.name == 'not-skipped-by-foreign-namespace'"

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: build-runner
+  namespace: ns-a
+spec:
+  containers:
+  - name: c
+    image: public.ecr.aws/docker/library/nginx:latest

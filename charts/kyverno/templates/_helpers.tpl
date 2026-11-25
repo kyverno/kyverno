@@ -86,6 +86,9 @@
   {{- end -}}
 {{- end -}}
 {{- with .policyExceptions -}}
+  {{- if and .enabled (not .namespace) -}}
+    {{- fail "policyExceptions.namespace must be set when policyExceptions.enabled is true (check features and every <controller>.featuresOverride): use the namespace that owns exceptions, or '*' to allow a PolicyException from any namespace to apply to a cluster-scoped policy (namespaced policies still only accept exceptions from their own namespace)" -}}
+  {{- end -}}
   {{- $flags = append $flags (print "--enablePolicyException=" .enabled) -}}
   {{- with .namespace -}}
     {{- $flags = append $flags (print "--exceptionNamespace=" .) -}}
