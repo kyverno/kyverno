@@ -28,9 +28,9 @@ This package implements the `kubectl-kyverno create user-info` CLI command, whic
 
 ## Render-Before-Write and Safety Guarantees
 
-- **Atomic Write & No Partial or Corrupted Output**:
-  - The command never creates or truncates target output files if validation fails or template execution encounters an error.
-  - File output is written to a temporary file in the destination directory (`os.OpenFile` with `0o644` so process umask applies) and atomically renamed into place, preventing partial writes or truncation of existing files.
+- **Render-Before-Write & Metadata Preservation**:
+  - Validation and template rendering run into an in-memory buffer before opening or writing the target path, ensuring validation or template errors never create or truncate an existing output file.
+  - File output uses `os.WriteFile(..., 0o644)` so newly created files respect process umask while overwrites retain the existing target inode's permissions, ownership, and ACLs.
 - **Concurrency & Global Immutability**:
   - Tests must never mutate package-level `templates.UserInfoTemplate` across tests. Use `commandWithTemplate` to test template execution failure paths to maintain `-race` cleanliness.
 - **Umask-Aware Permissions**:

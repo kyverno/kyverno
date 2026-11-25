@@ -2,11 +2,8 @@ package userinfo
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/template"
 
@@ -63,7 +60,7 @@ func commandWithTemplate(userinfoTemplate string) *cobra.Command {
 				return err
 			}
 			if path != "" {
-				return writeFileAtomic(path, buf.Bytes(), 0o644)
+				return os.WriteFile(path, buf.Bytes(), 0o644)
 			}
 			_, err = cmd.OutOrStdout().Write(buf.Bytes())
 			return err
@@ -76,36 +73,4 @@ func commandWithTemplate(userinfoTemplate string) *cobra.Command {
 	cmd.Flags().StringSliceVarP(&clusterRoles, "cluster-role", "c", nil, "Cluster role")
 	cmd.Flags().StringSliceVarP(&groups, "group", "g", nil, "Group")
 	return cmd
-}
-
-func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
-	dir := filepath.Dir(path)
-	base := filepath.Base(path)
-	var suffix [8]byte
-	if _, err := rand.Read(suffix[:]); err != nil {
-		return err
-	}
-	tmpPath := filepath.Join(dir, fmt.Sprintf(".%s.tmp.%s", base, hex.EncodeToString(suffix[:])))
-	f, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
-	if err != nil {
-		return err
-	}
-	cleanup := true
-	defer func() {
-		if cleanup {
-			_ = os.Remove(tmpPath)
-		}
-	}()
-	if _, err := f.Write(data); err != nil {
-		_ = f.Close()
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		return err
-	}
-	cleanup = false
-	return nil
 }
