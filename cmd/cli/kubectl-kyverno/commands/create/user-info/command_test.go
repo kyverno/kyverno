@@ -317,3 +317,39 @@ func TestCommandEmptyListsOmitted(t *testing.T) {
 	assert.Empty(t, userInfo.ClusterRoles)
 	assert.Empty(t, userInfo.AdmissionUserInfo.Groups)
 }
+
+func TestCommandAtomicOverwriteAndFailureRetention(t *testing.T) {
+	t.Run("overwrites existing file atomically", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		outPath := filepath.Join(tmpDir, "userinfo.yaml")
+		require.NoError(t, os.WriteFile(outPath, []byte("stale content"), 0o644))
+
+		cmd := Command()
+		cmd.SetErr(io.Discard)
+		cmd.SetArgs([]string{"--output", outPath, "--name", "updated-user"})
+		require.NoError(t, cmd.Execute())
+
+		data, err := os.ReadFile(outPath)
+		require.NoError(t, err)
+		var userInfo v1alpha1.UserInfo
+		require.NoError(t, yaml.UnmarshalStrict(data, &userInfo))
+		assert.Equal(t, "updated-user", userInfo.Name)
+	})
+
+	t.Run("write failure when target is a directory leaves no temp files", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		targetDir := filepath.Join(tmpDir, "existing-dir")
+		require.NoError(t, os.Mkdir(targetDir, 0o755))
+
+		cmd := Command()
+		cmd.SetErr(io.Discard)
+		cmd.SetArgs([]string{"--output", targetDir, "--name", "test-user"})
+		err := cmd.Execute()
+		require.Error(t, err)
+
+		entries, err := os.ReadDir(tmpDir)
+		require.NoError(t, err)
+		assert.Len(t, entries, 1)
+		assert.Equal(t, "existing-dir", entries[0].Name())
+	})
+}
