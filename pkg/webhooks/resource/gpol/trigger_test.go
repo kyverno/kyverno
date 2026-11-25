@@ -104,6 +104,46 @@ func TestPlanGeneratingAdmissionKeepsTriggerThatStopsMatching(t *testing.T) {
 	assert.False(t, plan.deleteDownstream)
 }
 
+func TestPlanGeneratingAdmissionDeleteKeepsTriggerWhenConditionReadsRequest(t *testing.T) {
+	t.Parallel()
+	policy := cloneSecretPolicy(true, `request.operation == "CREATE" && object.metadata.namespace == "src"`)
+	source := secretObject("src", "source-secret")
+
+	deleted := planGeneratingAdmission(policy, secretAdmission(admissionv1.Delete, "src", "source-secret"), unstructured.Unstructured{}, source)
+	assert.True(t, deleted.queue)
+	assert.True(t, deleted.deleteDownstream)
+	assert.False(t, deleted.synchronize)
+
+	updated := planGeneratingAdmission(policy, secretAdmission(admissionv1.Update, "src", "source-secret"), source, source)
+	assert.True(t, updated.queue)
+	assert.True(t, updated.synchronize)
+	assert.False(t, updated.deleteDownstream)
+
+	other := secretObject("other", "unrelated")
+	unrelated := planGeneratingAdmission(policy, secretAdmission(admissionv1.Delete, "other", "unrelated"), unstructured.Unstructured{}, other)
+	assert.False(t, unrelated.queue)
+}
+
+func TestConditionsMatchTreatsRequestAsInconclusiveOnCleanup(t *testing.T) {
+	t.Parallel()
+	conditions := []admissionregistrationv1.MatchCondition{{
+		Name:       "on-create",
+		Expression: `request.operation == "CREATE" && object.metadata.namespace == "src"`,
+	}}
+	source := secretObject("src", "source-secret")
+	request := secretAdmission(admissionv1.Delete, "src", "source-secret")
+
+	assert.False(t, conditionsMatch(conditions, request, &source, &source, false))
+	assert.True(t, conditionsMatch(conditions, request, &source, &source, true))
+
+	objectOnly := []admissionregistrationv1.MatchCondition{{
+		Name:       "source-namespace",
+		Expression: `object.metadata.namespace == "src"`,
+	}}
+	elsewhere := secretObject("other", "source-secret")
+	assert.False(t, conditionsMatch(objectOnly, secretAdmission(admissionv1.Delete, "other", "source-secret"), &elsewhere, &elsewhere, true))
+}
+
 func TestPlanGeneratingAdmissionIgnoresKyvernoOnlyMatchCondition(t *testing.T) {
 	t.Parallel()
 	policy := cloneSecretPolicy(true, `resource.Get("v1", "secrets", "src", "source-secret") != null && object.metadata.namespace == "src"`)

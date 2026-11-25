@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/google/cel-go/cel"
+	celast "github.com/google/cel-go/common/ast"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
@@ -56,23 +57,23 @@ func planGeneratingAdmission(
 
 	switch request.Operation {
 	case admissionv1.Create:
-		if triggerMatches(constraints, conditions, request, &object, &oldObject, true) {
+		if triggerMatches(constraints, conditions, request, &object, &oldObject, true, false) {
 			return admissionPlan{queue: true}
 		}
 	case admissionv1.Update:
-		if triggerMatches(constraints, conditions, request, &object, &oldObject, true) {
+		if triggerMatches(constraints, conditions, request, &object, &oldObject, true, false) {
 			return admissionPlan{queue: true, synchronize: sync}
 		}
 		// The live object no longer matches. If the previous object did, synchronize
 		// still has to delete the downstream resources it created for this trigger.
-		if sync && triggerMatches(constraints, conditions, request, &oldObject, &oldObject, false) {
+		if sync && triggerMatches(constraints, conditions, request, &oldObject, &oldObject, false, true) {
 			return admissionPlan{queue: true, synchronize: true}
 		}
 	case admissionv1.Delete:
 		// DELETE carries the trigger in oldObject. Match that object, and do not
 		// require the policy to have listed DELETE: synchronize observes deletion
 		// of a trigger whose rule only names CREATE or UPDATE.
-		if !triggerMatches(constraints, conditions, request, &oldObject, &oldObject, false) {
+		if !triggerMatches(constraints, conditions, request, &oldObject, &oldObject, false, true) {
 			return admissionPlan{}
 		}
 		if operationListed(constraints, admissionregistrationv1.Delete) {
@@ -82,7 +83,7 @@ func planGeneratingAdmission(
 			return admissionPlan{queue: true, deleteDownstream: true}
 		}
 	default:
-		if triggerMatches(constraints, conditions, request, &object, &oldObject, true) {
+		if triggerMatches(constraints, conditions, request, &object, &oldObject, true, false) {
 			return admissionPlan{queue: true}
 		}
 	}
@@ -92,7 +93,8 @@ func planGeneratingAdmission(
 // triggerMatches reports whether candidate is a resource this policy generates
 // from. enforceOperation requires the admission operation to be one the rule
 // lists; synchronize passes false so a trigger deleted or updated out of its
-// rule is still recognized.
+// rule is still recognized. cleanup is the synchronize path that looks at the
+// previous object while the admission operation is UPDATE or DELETE.
 func triggerMatches(
 	constraints admissionregistrationv1.MatchResources,
 	conditions []admissionregistrationv1.MatchCondition,
@@ -100,6 +102,7 @@ func triggerMatches(
 	candidate *unstructured.Unstructured,
 	oldObject *unstructured.Unstructured,
 	enforceOperation bool,
+	cleanup bool,
 ) bool {
 	if candidate == nil {
 		candidate = &unstructured.Unstructured{}
@@ -119,7 +122,7 @@ func triggerMatches(
 	if !matched {
 		return false
 	}
-	return conditionsMatch(conditions, request, candidate, oldObject)
+	return conditionsMatch(conditions, request, candidate, oldObject, cleanup)
 }
 
 func operationListed(constraints admissionregistrationv1.MatchResources, operation admissionregistrationv1.OperationType) bool {
@@ -188,11 +191,17 @@ var triggerMatcher = matching.NewMatcher()
 // conditionsMatch is false only when a match condition evaluates to false.
 // A condition that cannot be compiled or evaluated here is ignored so a
 // Kyverno-only function cannot hide a real trigger from synchronize.
+//
+// On the cleanup path the admission operation is no longer the one that
+// created the trigger. A condition that reads request is inconclusive there:
+// request.operation == "CREATE" was true when the downstream resources were
+// generated and is false on the delete that must remove them.
 func conditionsMatch(
 	conditions []admissionregistrationv1.MatchCondition,
 	request admissionv1.AdmissionRequest,
 	object *unstructured.Unstructured,
 	oldObject *unstructured.Unstructured,
+	cleanup bool,
 ) bool {
 	if len(conditions) == 0 {
 		return true
@@ -202,6 +211,9 @@ func conditionsMatch(
 		return true
 	}
 	for _, condition := range conditions {
+		if cleanup && referencesRequest(condition.Expression) {
+			continue
+		}
 		program, ok := compileMatchCondition(condition.Expression)
 		if !ok {
 			continue
@@ -263,6 +275,43 @@ func matchConditionEnv() (*cel.Env, error) {
 		)...)
 	})
 	return conditionEnv, conditionEnvErr
+}
+
+// referencesRequest reports whether expression reads the admission request.
+// An expression that cannot be parsed is treated as if it does, so cleanup
+// does not drop a trigger on a condition this pre-filter cannot understand.
+func referencesRequest(expression string) bool {
+	env, err := getRequestIdentParseEnv()
+	if err != nil {
+		return true
+	}
+	parsed, iss := env.Parse(expression)
+	if iss != nil && iss.Err() != nil {
+		return true
+	}
+	found := false
+	celast.PreOrderVisit(parsed.NativeRep().Expr(), celast.NewExprVisitor(func(node celast.Expr) {
+		if found || node == nil {
+			return
+		}
+		if node.Kind() == celast.IdentKind && node.AsIdent() == compiler.RequestKey {
+			found = true
+		}
+	}))
+	return found
+}
+
+var (
+	parsedRequestEnv     *cel.Env
+	errParsedRequestEnv  error
+	parsedRequestEnvOnce sync.Once
+)
+
+func getRequestIdentParseEnv() (*cel.Env, error) {
+	parsedRequestEnvOnce.Do(func() {
+		parsedRequestEnv, errParsedRequestEnv = cel.NewEnv(cel.OptionalTypes())
+	})
+	return parsedRequestEnv, errParsedRequestEnv
 }
 
 func compileMatchCondition(expression string) (cel.Program, bool) {
