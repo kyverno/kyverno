@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -42,6 +43,7 @@ type scanner struct {
 	gctxStore     gctxstore.Store
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
+	ivCache       imageverifycache.Client
 }
 
 type ScanResult struct {
@@ -71,6 +73,7 @@ func NewScanner(
 	mapper meta.RESTMapper,
 	secretLister corev1listers.SecretLister,
 	typeConverter patch.TypeConverterManager,
+	ivCache imageverifycache.Client,
 ) Scanner {
 	return &scanner{
 		logger:        logger,
@@ -80,6 +83,7 @@ func NewScanner(
 		mapper:        mapper,
 		secretLister:  secretLister,
 		typeConverter: typeConverter,
+		ivCache:       ivCache,
 	}
 }
 
@@ -238,7 +242,7 @@ func (s *scanner) ScanResource(
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
 				s.secretLister,
-				nil,
+				s.ivCache,
 				s.config,
 			), metrics.BackgroundScan)
 			request := celengine.Request(
