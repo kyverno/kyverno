@@ -43,7 +43,7 @@ spec:
   - name: unrelated metadata produces no background report
     try:
     - script:
-        timeout: 45s
+        timeout: 60s
         content: |
           #!/bin/sh
           set -eu
@@ -51,23 +51,45 @@ spec:
           policy=background-effective-revision
           uid=$(kubectl get configmap target -n "$namespace" -o jsonpath='{.metadata.uid}')
           selector="audit.kyverno.io/resource.uid=$uid,audit.kyverno.io/source=background-scan"
-          # Aggregation consumes ephemeral reports. Observe API events rather
-          # than assuming the previous ephemeral report is still present.
-          kubectl wait --for=delete ephemeralreports -n "$namespace" -l "$selector" --timeout=30s
-          revision=$(kubectl get ephemeralreports -n "$namespace" -l "$selector" -o jsonpath='{.metadata.resourceVersion}')
+          # Use a raw list so the server's collection revision is preserved.
+          # An empty list is already drained; do not require a report to exist.
+          collection="/apis/reports.kyverno.io/v1/namespaces/$namespace/ephemeralreports"
+          encoded_selector=$(jq -rn --arg selector "$selector" '$selector | @uri')
+          list_url="$collection?labelSelector=$encoded_selector"
+          deadline=$(($(date +%s) + 30))
+          while :; do
+            snapshot=$(kubectl --request-timeout=5s get --raw "$list_url")
+            count=$(printf '%s' "$snapshot" | jq -er '.items | length')
+            if [ "$count" -eq 0 ]; then
+              break
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo 'background reports did not drain' >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          revision=$(printf '%s' "$snapshot" | jq -er '.metadata.resourceVersion | strings | select(length > 0)')
+          encoded_revision=$(jq -rn --arg revision "$revision" '$revision | @uri')
           generation=$(kubectl get validatingpolicy "$policy" -o jsonpath='{.metadata.generation}')
           trace=$(mktemp)
           trap 'rm -f "$trace"' EXIT
           kubectl annotate validatingpolicy "$policy" example.com/unrelated=updated
           test "$generation" = "$(kubectl get validatingpolicy "$policy" -o jsonpath='{.metadata.generation}')"
-          # Replay from the list revision to avoid missing fast report writes.
-          if timeout 10s kubectl get ephemeralreports -n "$namespace" -l "$selector" \
-              --watch-only --resource-version="$revision" --output-watch-events -o name > "$trace"; then
-            echo 'report watch ended unexpectedly' >&2
+          # Replay from the empty list's revision, including reports created
+          # and deleted before the watch connects. Let the server close the
+          # stream normally; an outer timeout or an early close is a failure.
+          watch_url="$list_url&watch=true&resourceVersion=$encoded_revision&timeoutSeconds=10"
+          started=$(date +%s)
+          if ! timeout 15s kubectl get --raw "$watch_url" > "$trace"; then
+            cat "$trace" >&2
+            echo 'background report watch failed' >&2
             exit 1
-          else
-            status=$?
-            test "$status" -eq 124
+          fi
+          if [ "$(($(date +%s) - started))" -lt 9 ]; then
+            cat "$trace" >&2
+            echo 'background report watch ended early' >&2
+            exit 1
           fi
           if test -s "$trace"; then
             cat "$trace" >&2
