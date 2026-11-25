@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -69,7 +70,7 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			providerFunc, err := NewProvider(tt.compiler, tt.policies, tt.exceptions)
+			providerFunc, err := NewProvider(tt.compiler, tt.policies, tt.exceptions, celengine.ExceptionScopeAll)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("expected error=%v, got error=%v", tt.wantErr, err)
 			}

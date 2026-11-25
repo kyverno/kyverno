@@ -29,6 +29,7 @@ func (h *celExceptionHandlers) Validate(ctx context.Context, logger logr.Logger,
 		return admissionutils.Response(request.UID, err)
 	}
 	warnings := validation.ValidateNamespace(ctx, logger, polex.GetNamespace(), h.validationOptions)
+	warnings = append(warnings, validation.ValidateScopeReach(polex, h.validationOptions)...)
 	errs := polex.Validate()
 	preexistingExpressions := make(map[string]bool)
 	if oldPolex != nil {

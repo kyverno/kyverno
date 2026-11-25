@@ -41,7 +41,7 @@ func NewIvpolEngine(mgr ctrl.Manager, kubeClient kubernetes.Interface) (ivpoleng
 // Uses celengine.NewManagerPolicyExceptionLister so the controller watches and the lister
 // share the manager's cache, avoiding the dual-cache race.
 func NewIvpolEngineWithExceptions(mgr ctrl.Manager, kubeClient kubernetes.Interface) (ivpolengine.Engine, ivpolengine.Provider, error) {
-	polexLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), "")
+	polexLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), "*")
 
 	provider, err := ivpolengine.NewKubeProvider(mgr, polexLister, true)
 	if err != nil {

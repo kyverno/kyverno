@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -85,7 +86,7 @@ func buildGateAlwaysTruePolicies(b *testing.B, n int) Provider {
 			},
 		})
 	}
-	provider, err := NewProvider(compiler.NewCompiler(), policies, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), policies, nil, engine.ExceptionScopeAll)
 	require.NoError(b, err)
 	return provider
 }

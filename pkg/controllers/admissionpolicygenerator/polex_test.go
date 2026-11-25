@@ -209,7 +209,7 @@ func TestGetCELExceptionsIgnoresExpired(t *testing.T) {
 		polexEnabled:       true,
 		exceptionNamespace: "*",
 	}
-	got, err := c.getCELExceptions("vpol-1", "ValidatingPolicy")
+	got, err := c.getCELExceptions("vpol-1", "ValidatingPolicy", "")
 	assert.NoError(t, err)
 	assert.Len(t, got, 1)
 	assert.Equal(t, "active-exception", got[0].GetName())
@@ -273,13 +273,13 @@ func TestGetCELExceptions_DisabledFlag(t *testing.T) {
 	lister := newCELPolexLister(t, polex)
 
 	disabled := &controller{celpolexLister: lister, polexEnabled: false, exceptionNamespace: "*"}
-	got, err := disabled.getCELExceptions("vpol-1", "ValidatingPolicy")
+	got, err := disabled.getCELExceptions("vpol-1", "ValidatingPolicy", "")
 	assert.NoError(t, err)
 	assert.Nil(t, got)
 
 	// Positive control.
 	enabled := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: "*"}
-	got, err = enabled.getCELExceptions("vpol-1", "ValidatingPolicy")
+	got, err = enabled.getCELExceptions("vpol-1", "ValidatingPolicy", "")
 	assert.NoError(t, err)
 	assert.Len(t, got, 1)
 }
@@ -340,17 +340,22 @@ func TestGetCELExceptions_NamespaceScope(t *testing.T) {
 	lister := newCELPolexLister(t, polexA, polexB)
 
 	scoped := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: "ns-a"}
-	got, err := scoped.getCELExceptions("vpol-1", "ValidatingPolicy")
+	got, err := scoped.getCELExceptions("vpol-1", "ValidatingPolicy", "")
 	assert.NoError(t, err)
 	assert.Len(t, got, 1)
 	assert.Equal(t, "cel-polex-a", got[0].GetName())
 
-	for _, ns := range []string{"", "*"} {
-		clusterWide := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: ns}
-		got, err = clusterWide.getCELExceptions("vpol-1", "ValidatingPolicy")
-		assert.NoError(t, err)
-		assert.Len(t, got, 2, "exceptionNamespace %q must be cluster-wide on the CEL path", ns)
-	}
+	// "*" accepts an exception from any namespace for a cluster-scoped policy.
+	clusterWide := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: "*"}
+	got, err = clusterWide.getCELExceptions("vpol-1", "ValidatingPolicy", "")
+	assert.NoError(t, err)
+	assert.Len(t, got, 2)
+
+	// Unset accepts none.
+	unset := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: ""}
+	got, err = unset.getCELExceptions("vpol-1", "ValidatingPolicy", "")
+	assert.NoError(t, err)
+	assert.Empty(t, got)
 }
 
 // TestGetCELExceptions_KindGate is gate 4 (policy reference kind) for the CEL path, the
@@ -379,7 +384,7 @@ func TestGetCELExceptions_KindGate(t *testing.T) {
 	lister := newCELPolexLister(t, wrongKind, crossName, correct)
 	c := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: "*"}
 
-	got, err := c.getCELExceptions("vpol-1", "ValidatingPolicy")
+	got, err := c.getCELExceptions("vpol-1", "ValidatingPolicy", "")
 	assert.NoError(t, err)
 	assert.Len(t, got, 1, "only the correctly-kinded, correctly-named exception should be returned")
 	assert.Equal(t, "correct", got[0].GetName())

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -52,7 +54,7 @@ func newTestScanner(t *testing.T) Scanner {
 	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
 	assert.NoError(t, err)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil, nil)
+	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil, nil, celengine.ExceptionScopeAll)
 }
 
 // nilTypeConverterManager is a no-op TypeConverterManager for tests that exercise
@@ -73,7 +75,7 @@ func newTestScannerWithTypeConverter(t *testing.T) Scanner {
 	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
 	assert.NoError(t, err)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil, nilTypeConverterManager{})
+	return NewScanner(logging.GlobalLogger(), nil, config.NewDefaultConfiguration(false), nil, dClient, nil, nil, nil, nilTypeConverterManager{}, celengine.ExceptionScopeAll)
 }
 
 func newDeploymentResource() (unstructured.Unstructured, schema.GroupVersionResource) {
@@ -311,7 +313,7 @@ func TestScanResource_ImageVerify_DoesNotTrustPriorStageMetadata(t *testing.T) {
 		nil,
 	)
 
-	sc := NewScanner(logging.GlobalLogger(), e, cfg, jp, dClient, nil, nil, nil, nil)
+	sc := NewScanner(logging.GlobalLogger(), e, cfg, jp, dClient, nil, nil, nil, nil, celengine.ExceptionScopeAll)
 
 	var cpol kyvernov1.ClusterPolicy
 	require.NoError(t, json.Unmarshal([]byte(scanPriorStageMetadataPolicy), &cpol))
