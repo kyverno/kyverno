@@ -1,9 +1,27 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 
 name: Install k6
-description: Install k6
+description: Install k6 with the pinned xk6-kubernetes extension
 
 runs:
   using: composite
   steps:
-    - uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2 # v1.1.0
+    # scripts/k6/script.js imports k6/x/kubernetes. Stock k6 does not include
+    # it, so automatic extension resolution asks Grafana to build a custom
+    # binary and the job exits 107 on HTTP 429 before any load test runs.
+    # Build the pair the resolver selected (k6 v2.4.0 + xk6-kubernetes
+    # v0.12.3) and disable resolution so CI runs this binary.
+    - shell: bash
+      env:
+        XK6_VERSION: v1.5.1
+        K6_VERSION: v2.4.0
+        XK6_KUBERNETES_VERSION: v0.12.3
+      run: |
+        set -euo pipefail
+        go install "go.k6.io/xk6@${XK6_VERSION}"
+        bindir="$(go env GOPATH)/bin"
+        "${bindir}/xk6" build "${K6_VERSION}" \
+          --output "${bindir}/k6" \
+          --with "github.com/grafana/xk6-kubernetes@${XK6_KUBERNETES_VERSION}"
+        echo "${bindir}" >> "${GITHUB_PATH}"
+        echo "K6_AUTO_EXTENSION_RESOLUTION=false" >> "${GITHUB_ENV}"
