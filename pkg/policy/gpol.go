@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/ptr"
 )
 
 func (pc *policyController) createURForGeneratingPolicy(gpol *policiesv1beta1.GeneratingPolicy) error {
@@ -139,13 +140,14 @@ type gpolTrigger struct {
 // getGpolTriggers discovers existing matching resources for background
 // generation and trigger-based mutation. Discovery must resolve wildcard API
 // groups before listing, and matching/exclusions must precede deduplication.
-func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.MatchResources) []gpolTrigger {
+func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.MatchResources, namespace string) []gpolTrigger {
 	var triggers []gpolTrigger
 	seen := make(map[string]bool)
 	objectSelector := match.ObjectSelector
 	nsSelector := match.NamespaceSelector
 
 	for _, rule := range match.ResourceRules {
+		scope := ptr.Deref(rule.Scope, admissionregistrationv1.AllScopes)
 		for _, group := range rule.APIGroups {
 			for _, resource := range rule.Resources {
 				baseResource := resource
@@ -193,19 +195,27 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 					}
 					// MatchResources scope applies to the parent resource of a
 					// subresource. Skip unmatched scopes before issuing a LIST.
-					if rule.Scope != nil && *rule.Scope != admissionregistrationv1.AllScopes {
+					listNamespace := namespace
+					if namespace != "" || scope != admissionregistrationv1.AllScopes {
 						mapping, err := pc.restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 						if err != nil {
 							pc.log.Error(err, "failed to resolve trigger resource scope", "gvr", gvr)
 							continue
 						}
 						namespaced := mapping.Scope.Name() == meta.RESTScopeNameNamespace
-						if (*rule.Scope == admissionregistrationv1.NamespacedScope && !namespaced) ||
-							(*rule.Scope == admissionregistrationv1.ClusterScope && namespaced) {
+						if (scope == admissionregistrationv1.NamespacedScope && !namespaced) ||
+							(scope == admissionregistrationv1.ClusterScope && namespaced) {
 							continue
 						}
+						if namespace != "" && !namespaced {
+							// A namespaced policy can also match its own Namespace.
+							if gvk.Group != "" || gvk.Kind != "Namespace" {
+								continue
+							}
+							listNamespace = ""
+						}
 					}
-					resources, err := pc.client.ListResource(context.TODO(), groupVersion.String(), gvk.Kind, "", objectSelector)
+					resources, err := pc.client.ListResource(context.TODO(), groupVersion.String(), gvk.Kind, listNamespace, objectSelector)
 					if err != nil {
 						pc.log.Error(err, "failed to list resources", "groupVersion", groupVersion, "kind", gvk.Kind)
 						continue
@@ -232,7 +242,7 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 			}
 		}
 	}
-	return triggers
+	return filterTriggersByNamespace(triggers, namespace)
 }
 
 // resolveWildcardGroupTriggerGVRs expands a wildcard API group into concrete
@@ -289,7 +299,7 @@ func (pc *policyController) resolveWildcardGroupTriggerGVRs(versions []string, r
 // does not carry the admission SubResource into a RuleContext, unlike mutation.
 // Keep getGpolTriggers subresource-aware for MutatingPolicy callers.
 func (pc *policyController) getGeneratingPolicyTriggers(match *admissionregistrationv1.MatchResources, namespace string) []gpolTrigger {
-	return deduplicateGenerationTriggers(filterTriggersByNamespace(pc.getGpolTriggers(match), namespace))
+	return deduplicateGenerationTriggers(pc.getGpolTriggers(match, namespace))
 }
 
 // deduplicateGenerationTriggers retains the first eligible trigger for each
