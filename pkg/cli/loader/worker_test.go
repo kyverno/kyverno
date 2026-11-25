@@ -287,7 +287,12 @@ func TestWorkerPool_IdempotentCloseAndConcurrentSubmit(t *testing.T) {
 
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
-	resourceClient := createFakeClient().Resource(gvr).Namespace("default")
+	obj := &unstructured.Unstructured{}
+	obj.SetName("test-cm")
+	obj.SetNamespace("default")
+	obj.SetKind("ConfigMap")
+	obj.SetAPIVersion("v1")
+	resourceClient := createFakeClient(obj).Resource(gvr).Namespace("default")
 
 	done := make(chan struct{})
 	go func() {

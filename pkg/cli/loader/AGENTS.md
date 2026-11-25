@@ -22,13 +22,15 @@ This package implements concurrent cluster resource loading for the Kyverno CLI 
 - **Worker Context and Cancellation**:
   - `WorkerPool` workers run under a managed cancellable context (`wp.ctx`, `wp.cancel`).
   - Active Kubernetes list operations (`task.Client.List(ctx, ...)`) receive this context and are immediately aborted when cancellation is triggered.
-- **Graceful and Non-Blocking Shutdown**:
-  - `WorkerPool.Close(cancel)` triggers caller cancellation (`cancel()`), cancels worker context (`wp.Cancel()`), closes `taskQueue`, waits for in-flight worker goroutines to exit (`wp.wg.Wait()`), and closes `resultChan`.
+- **Graceful, Idempotent, and Race-Safe Shutdown**:
+  - `WorkerPool.Close(cancel)` is guarded by `sync.Once`: it triggers caller cancellation (`cancel()`), cancels the worker context (`wp.Cancel()`), marks the pool closed under `wp.mu` before closing `taskQueue`, waits for in-flight worker goroutines to exit (`wp.wg.Wait()`), and closes `resultChan`.
+  - `SubmitTask` holds `wp.mu.RLock()` while checking `wp.closed`, caller `ctx.Done()`, and `wp.ctx.Done()` (safely handling nil `wp.ctx` in test-constructed pools) so concurrent `SubmitTask` and `Close` calls cannot panic or race.
   - Because worker contexts are cancelled, workers blocked on network requests in `task.Client.List` do not hang indefinitely during shutdown.
 
 ## Timeout and Partial Result Contract
 
-- **Timer Reuse**:
+- **Caller Timeout & Timer Reuse**:
+  - `NewClusterLoader` preserves positive caller-supplied `ResourceOptions.Timeout` values and defaults non-positive values (`<= 0`) to `5 * time.Minute`.
   - Result collection in `executeTasks` uses a single `time.Timer` reset upon each received result. This bounds silence between consecutive results without accumulating timer allocations.
 - **`ContinueOnError` Behavior**:
   - When `ContinueOnError` is `false`: A timeout while awaiting task results immediately returns an error (`timeout waiting for task results`).

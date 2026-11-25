@@ -32,6 +32,34 @@ func TestNewClusterLoader(t *testing.T) {
 		_, err := NewClusterLoader(nil, ResourceOptions{})
 		assert.Error(t, err)
 	})
+
+	t.Run("preserves caller-supplied timeout", func(t *testing.T) {
+		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
+		_, cancel := context.WithCancel(context.Background())
+		loader, err := NewClusterLoader(client, ResourceOptions{
+			ResourceTypes: []schema.GroupVersionKind{{Kind: "Pod"}},
+			Concurrency:   2,
+			BatchSize:     100,
+			Timeout:       42 * time.Second,
+		})
+		require.NoError(t, err)
+		defer loader.Close(cancel)
+		assert.Equal(t, 42*time.Second, loader.resourceOptions.Timeout)
+	})
+
+	t.Run("defaults non-positive timeout to 5 minutes", func(t *testing.T) {
+		client, _ := dclient.NewFakeClient(runtime.NewScheme(), nil)
+		_, cancel := context.WithCancel(context.Background())
+		loader, err := NewClusterLoader(client, ResourceOptions{
+			ResourceTypes: []schema.GroupVersionKind{{Kind: "Pod"}},
+			Concurrency:   2,
+			BatchSize:     100,
+			Timeout:       0,
+		})
+		require.NoError(t, err)
+		defer loader.Close(cancel)
+		assert.Equal(t, 5*time.Minute, loader.resourceOptions.Timeout)
+	})
 }
 
 func TestClusterLoader_LoadResources(t *testing.T) {

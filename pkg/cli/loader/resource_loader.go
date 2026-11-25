@@ -48,7 +48,9 @@ func NewClusterLoader(client dclient.Interface, resourceOptions ResourceOptions)
 	if client == nil {
 		return nil, fmt.Errorf("dynamic client cannot be nil")
 	}
-	resourceOptions.Timeout = 5 * time.Minute
+	if resourceOptions.Timeout <= 0 {
+		resourceOptions.Timeout = 5 * time.Minute
+	}
 	cl := &ClusterLoader{
 		client:          client,
 		resourceOptions: resourceOptions,
