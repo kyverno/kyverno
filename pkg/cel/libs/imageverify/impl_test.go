@@ -162,23 +162,64 @@ func Test_impl_rejects_unresolved_inline_subject_expression(t *testing.T) {
 			},
 		},
 	}}
+	const (
+		taggedImage = "example.com/image:latest"
+		digestImage = "example.com/image@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+		attestation = "sbom"
+		predicate   = "https://example.com/sbom"
+	)
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	require.NoError(t, err)
+	stored, err := ivCache.Set(digestImage, attestors, nil, nil)
+	require.NoError(t, err)
+	require.True(t, stored)
+	attest := v1beta1.Attestation{Name: attestation, InToto: &v1beta1.InToto{Type: predicate}}
+	stored, err = ivCache.Set(
+		digestImage,
+		attestors,
+		&attest,
+		map[string][]byte{predicate: []byte(`{}`)},
+	)
+	require.NoError(t, err)
+	require.True(t, stored)
+
 	f := &IvFuncs{
 		Adapter: types.DefaultTypeAdapter,
 		logger:  logr.Discard(),
 		policy:  &v1beta1.ImageValidatingPolicy{},
+		ivCache: ivCache,
+		attestationList: map[string]v1beta1.Attestation{
+			attestation: attest,
+		},
 	}
 
 	tests := map[string]func() ref.Val{
-		"image signature": func() ref.Val {
+		"image signature without cache": func() ref.Val {
 			return f.verify_image_signature_string_stringarray(
-				f.NativeToValue("example.com/image:latest"),
+				f.NativeToValue(taggedImage),
 				f.NativeToValue(attestors),
 			)
 		},
-		"attestation signature": func() ref.Val {
+		"image signature with warm cache": func() ref.Val {
+			return f.verify_image_signature_string_stringarray(
+				f.NativeToValue(digestImage),
+				f.NativeToValue(attestors),
+			)
+		},
+		"attestation signature without cache": func() ref.Val {
 			return f.verify_image_attestations_string_string_stringarray(
-				f.NativeToValue("example.com/image:latest"),
-				f.NativeToValue("sbom"),
+				f.NativeToValue(taggedImage),
+				f.NativeToValue(attestation),
+				f.NativeToValue(attestors),
+			)
+		},
+		"attestation signature with warm cache": func() ref.Val {
+			return f.verify_image_attestations_string_string_stringarray(
+				f.NativeToValue(digestImage),
+				f.NativeToValue(attestation),
 				f.NativeToValue(attestors),
 			)
 		},
@@ -189,7 +230,7 @@ func Test_impl_rejects_unresolved_inline_subject_expression(t *testing.T) {
 			err, ok := out.Value().(error)
 			require.True(t, ok, "expected an error, got: %v", out.Value())
 			assert.Contains(t, err.Error(), "subjectExpression")
-			assert.Contains(t, err.Error(), "spec.attestors")
+			assert.Contains(t, err.Error(), "must be declared in spec.attestors")
 		})
 	}
 }
