@@ -176,3 +176,29 @@ func TestRequestBudgetPinning(t *testing.T) {
 		t.Fatalf("expected a resource error, got: %v", err)
 	}
 }
+
+// TestRequestBudgetRefusesBeforeEvalAfterExactSpend pins that once the request budget is
+// spent to exactly zero (a charge that fits exactly is allowed), ContextEval refuses the next
+// program before evaluating it, rather than running it and refusing only at Charge.
+func TestRequestBudgetRefusesBeforeEvalAfterExactSpend(t *testing.T) {
+	ctx, _ := requestbudget.Ensure(context.Background())
+	if err := requestbudget.Charge(ctx, 10_000_000); err != nil {
+		t.Fatalf("a charge equal to the whole budget must be allowed, got: %v", err)
+	}
+	env := regressionEnv(t)
+	ast, err := Compile(env, `object.name == "allowed"`)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	prg, err := NewProgram(env, ast)
+	if err != nil {
+		t.Fatalf("program: %v", err)
+	}
+	val, details, err := prg.ContextEval(ctx, map[string]any{"object": map[string]any{"name": "allowed"}})
+	if !IsResourceError(err) {
+		t.Fatalf("expected a resource error after an exact spend, got: %v", err)
+	}
+	if val != nil || details != nil {
+		t.Fatalf("expected refusal before evaluation (no value, no eval details), got val=%v details=%v", val, details)
+	}
+}

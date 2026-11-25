@@ -48,7 +48,8 @@ type budget struct {
 	mu        sync.Mutex
 	limit     uint64
 	remaining uint64
-	// exhaustedBy is the charge that first emptied the counter (0 until that happens).
+	// exhaustedBy is the charge that was first refused for exceeding the counter (0 until
+	// that happens; a charge that spends the counter to exactly zero still fits and is not it).
 	// Charge keeps reporting this one value on every subsequent call on an already-spent
 	// budget, rather than whatever small amount that later call happens to charge --
 	// otherwise the error a caller actually sees is often "charged 72, 0 remaining" from a
@@ -105,6 +106,11 @@ func Exhausted(ctx context.Context) error {
 	if b.exhaustedBy > 0 {
 		return fmt.Errorf("%w: already exhausted by an earlier charge of %d (of %d)", ErrBudgetExceeded, b.exhaustedBy, b.limit)
 	}
+	// A charge that spends the counter to exactly zero fits (Charge allows it) and leaves
+	// exhaustedBy unset, but nothing remains for the next program, so refuse it here too.
+	if b.remaining == 0 {
+		return fmt.Errorf("%w: no budget remains (of %d)", ErrBudgetExceeded, b.limit)
+	}
 	return nil
 }
 
@@ -138,7 +144,7 @@ func Charge(ctx context.Context, units uint64) error {
 	if b.exhaustedBy > 0 {
 		return fmt.Errorf("%w: charged %d of %d, already exhausted by an earlier charge of %d", ErrBudgetExceeded, units, b.limit, b.exhaustedBy)
 	}
-	if units >= b.remaining {
+	if units > b.remaining {
 		remaining := b.remaining
 		b.exhaustedBy = units
 		b.remaining = 0
