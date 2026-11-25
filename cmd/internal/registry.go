@@ -3,20 +3,32 @@ package internal
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+func setRegistryResponseHeaderTimeout(timeout time.Duration) error {
+	if timeout < 0 {
+		return fmt.Errorf("registryResponseHeaderTimeout must be non-negative, got %s", timeout)
+	}
+	regcreds.DefaultTransport.ResponseHeaderTimeout = timeout
+	return nil
+}
+
 func setupRegistryClient(ctx context.Context, logger logr.Logger, client kubernetes.Interface) (registryclient.Client, corev1listers.SecretLister) {
-	logger = logger.WithName("registry-client").WithValues("secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
+	logger = logger.WithName("registry-client").WithValues("secrets", imagePullSecrets, "insecure", allowInsecureRegistry, "responseHeaderTimeout", registryResponseHeaderTimeout)
 	logger.V(2).Info("setup registry client...")
+	checkError(logger, setRegistryResponseHeaderTimeout(registryResponseHeaderTimeout), "failed to configure registry transport")
 	ms := &multiLister{
 		listersMap: make(map[string]corev1listers.SecretLister),
 	}

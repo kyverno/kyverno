@@ -91335,6 +91335,7 @@ spec:
             - --protectGenerationLabels=true
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            - --registryResponseHeaderTimeout=0s
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           resources:
@@ -91812,6 +91813,7 @@ spec:
             - --enablePolicyException=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            - --registryResponseHeaderTimeout=0s
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME

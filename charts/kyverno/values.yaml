@@ -1034,6 +1034,8 @@ features:
     - amazon
     - azure
     - github
+    # -- Timeout for waiting for response headers from image registries. A value of 0s means no timeout.
+    responseHeaderTimeout: 0s
   ttlController:
     # -- Reconciliation interval for the label based cleanup manager
     reconciliationInterval: 1m
