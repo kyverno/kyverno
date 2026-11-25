@@ -357,11 +357,12 @@ runs:
            * The label-filtered list has returned no issues while one was open,
            * which produced a second tracking issue for the same branch, and it
            * cannot see an issue whose labels were all removed. This adds the
-           * tracking issues found in the unfiltered list.
+           * tracking issues found in the unfiltered list. It reads the list to
+           * the end: stopping early could miss the issue, so a failing run
+           * would open a duplicate and a passing run would leave it open.
            */
           async function addUnfiltered() {
-            const MAX_PAGES = 15;
-            for (let page = 1; page <= MAX_PAGES; page++) {
+            for (let page = 1; ; page++) {
               const { data } = await github.rest.issues.listForRepo({ ...listOptions, page });
               for (const i of data.filter(isTracked)) {
                 byNumber.set(i.number, i);

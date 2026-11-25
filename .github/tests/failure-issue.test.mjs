@@ -16,7 +16,7 @@ const wfRun = (run_number, conclusion, extra = {}) =>
   ({ run_number, head_branch: 'main', head_sha: 'f'.repeat(40), status: 'completed', conclusion, ...extra });
 
 async function run({
-  conclusion, labels = 'e2e-failure', note = '', latestRunOnly = 'false',
+  conclusion, labels = 'e2e-failure', note = '', commits = '', latestRunOnly = 'false',
   runPages = [[]], runsError = false, runNumber = 10,
   open = [], hiddenFromLabelList = false,
 }) {
@@ -55,7 +55,7 @@ async function run({
     ref: 'refs/heads/main', serverUrl: 's', sha: 'a'.repeat(40), actor: 'me',
   };
   Object.assign(process.env, {
-    EXTRA_LABELS: labels, NOTE: note, LATEST_RUN_ONLY: latestRunOnly,
+    EXTRA_LABELS: labels, NOTE: note, COMMITS: commits, COMMITS_URL: '', LATEST_RUN_ONLY: latestRunOnly,
     GITHUB_WORKFLOW_REF: 'o/r/.github/workflows/check-tests.yaml@refs/heads/main',
   });
   await runScript(source, { github, core, context, Buffer, CONCLUSION: conclusion });
@@ -136,6 +136,15 @@ test('failure updates the oldest tracking issue and closes the others as duplica
   assert.equal(r.calls.create.length, 0);
 });
 
+test('with duplicates, the commits comment goes only to the kept issue', async () => {
+  const r = await run({ conclusion: 'failure', commits: '| Commit | Title |\n| --- | --- |\n| b | two |', open: [issue(7, BOTH), issue(5, BOTH)] });
+  const commitsComments = r.calls.comment.filter(c => c.body.includes('### Commits'));
+  assert.deepEqual(commitsComments.map(c => c.issue_number), [5]);
+  const onDuplicate = r.calls.comment.filter(c => c.issue_number === 7);
+  assert.equal(onDuplicate.length, 1);
+  assert.ok(onDuplicate[0].body.startsWith('Duplicate of #5'));
+});
+
 test('an issue that lost the workflow-failure label is still found, and relabelled', async () => {
   const failing = await run({ conclusion: 'failure', open: [issue(5, ['e2e-failure'])] });
   assert.equal(failing.calls.create.length, 0);
@@ -165,6 +174,16 @@ test('the unfiltered list is read to the end, so an older tracking issue on a la
   assert.deepEqual(closed(r.calls), [5, 900]);
 });
 
+test('the unfiltered list has no page cap: a label-less issue behind more than 1,500 others is found', async () => {
+  const filler = Array.from({ length: 1600 }, (_, i) => issue(1000 + i, [], 'unrelated'));
+  const failing = await run({ conclusion: 'failure', open: [...filler, issue(5, [])], hiddenFromLabelList: true });
+  assert.equal(failing.calls.create.length, 0);
+  assert.equal(failing.calls.update[0].issue_number, 5);
+  assert.equal(failing.calls.lists.filter(l => l === '(unfiltered)').length, 17);
+  const passing = await run({ conclusion: 'success', open: [...filler, issue(5, [])], hiddenFromLabelList: true });
+  assert.deepEqual(closed(passing.calls), [5]);
+});
+
 test('nothing open: a failure creates the issue with every label, ignoring a pull request that quotes the marker', async () => {
   const r = await run({ conclusion: 'failure', open: [issue(3, BOTH, MARKER, { pull_request: {} })] });
   assert.equal(r.calls.create.length, 1);
@@ -183,12 +202,13 @@ test('callers without extra labels: a passing run makes one list request, a fail
   assert.deepEqual(failing.calls.create[0].labels, ['workflow-failure']);
 });
 
-test('the note sits between the summary table and the job results', async () => {
-  const r = await run({ conclusion: 'failure', note: '### Clearing the E2E Gate\ntext' });
+test('the note sits between the summary table and the commits and job results', async () => {
+  const r = await run({ conclusion: 'failure', note: '### Clearing the E2E Gate\ntext', commits: '| Commit | Title |' });
   const body = r.calls.create[0].body;
   const at = s => body.indexOf(s);
   assert.ok(at('| **Conclusion** |') < at('### Clearing the E2E Gate'));
-  assert.ok(at('### Clearing the E2E Gate') < at('\n---\n'));
+  assert.ok(at('### Clearing the E2E Gate') < at('### Commits'));
+  assert.ok(at('### Commits') < at('\n---\n'));
   assert.ok(at('\n---\n') < at(MARKER));
 });
 
