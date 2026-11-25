@@ -43,7 +43,7 @@ func TestHandle_RequestBudgetChargesThroughTheRealCompiler(t *testing.T) {
 	}
 	policy := buildJSONPolicy("test-request-budget", validations)
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 	eng := NewEngine(provider, nil, nil)
 

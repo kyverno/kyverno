@@ -518,13 +518,13 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				}
 			}
 			if len(k8sPolicies) > 0 && len(uniques) > 0 {
-				vpolProvider, vpolProviderErr = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions, celengine.ExceptionScopeAll)
+				vpolProvider, vpolProviderErr = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
 				if hookVpolProviderCreated != nil {
 					hookVpolProviderCreated()
 				}
 			}
 			if len(jsonPolicies) > 0 {
-				vpolJSONProvider, vpolJSONProviderErr = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions, celengine.ExceptionScopeAll)
+				vpolJSONProvider, vpolJSONProviderErr = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
 				if hookVpolProviderCreated != nil {
 					hookVpolProviderCreated()
 				}
@@ -542,7 +542,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				}
 			}
 			compiler := mpolcompiler.NewCompiler()
-			mpolProvider, mpolProviderErr = mpolengine.NewProvider(compiler, policies, celExceptions, contextProvider, celengine.ExceptionScopeAll)
+			mpolProvider, mpolProviderErr = mpolengine.NewProvider(compiler, policies, celExceptions, contextProvider)
 			if hookMpolProviderCreated != nil {
 				hookMpolProviderCreated()
 			}
@@ -554,7 +554,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			}
 		}
 		if len(results.DeletingPolicies) != 0 {
-			dpolProvider, dpolProviderErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions, celengine.ExceptionScopeAll)
+			dpolProvider, dpolProviderErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions)
 			if dpolProviderErr != nil {
 				return nil, dpolProviderErr
 			}
@@ -585,7 +585,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				}
 				if len(results.DeletingPolicies) != 0 {
 					var dpolErr error
-					dpolJSONProvider, dpolErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions, celengine.ExceptionScopeAll)
+					dpolJSONProvider, dpolErr = dpolengine.NewProvider(dpolcompiler.NewCompiler(), results.DeletingPolicies, celExceptions)
 					if dpolErr != nil {
 						return nil, dpolErr
 					}
@@ -971,7 +971,7 @@ func applyImageValidatingPolicies(
 	}
 
 	// Compilation captures the CLI library defaults, so initialize them first.
-	provider, err := ivpolengine.NewProvider(eval.NewCompiler(lister), ivps, celExceptions, celengine.ExceptionScopeAll)
+	provider, err := ivpolengine.NewProvider(eval.NewCompiler(lister), ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -1093,8 +1093,7 @@ func compileGeneratingPolicies(
 	compiler := gpolcompiler.NewCompiler()
 	out := make([]gpolengine.Policy, 0, len(policies))
 	for _, pol := range policies {
-		scopedExceptions := celengine.ExceptionScopeAll.Select(celExceptions, pol.GetKind(), pol.GetName(), pol.GetNamespace())
-		compiled, errs := compiler.Compile(pol, scopedExceptions)
+		compiled, errs := compiler.Compile(pol, celExceptions)
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
 		}
@@ -1150,7 +1149,7 @@ func applyDeletingPolicies(
 		provider = cachedDpolProvider
 	} else {
 		var err error
-		provider, err = dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions, celengine.ExceptionScopeAll)
+		provider, err = dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
 		if err != nil {
 			return nil, err
 		}

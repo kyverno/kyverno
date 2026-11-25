@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	namespacesDontMatch = "PolicyException resource namespace must match the defined namespace; this exception is ignored."
+	namespacesDontMatch = "PolicyException resource namespace must match the defined namespace."
 	DisabledPolex       = "PolicyException resources would not be processed until it is enabled."
-	polexNamespaceFlag  = "The exceptionNamespace flag is not set: this exception is ignored until --exceptionNamespace is set."
+	polexNamespaceFlag  = "The exceptionNamespace flag is not set"
 )
 
 type ValidationOptions struct {
@@ -34,25 +34,6 @@ func ValidateNamespace(ctx context.Context, logger logr.Logger, polexNs string, 
 		warnings = append(warnings, polexNamespaceFlag)
 	} else if opts.Namespace != "*" && opts.Namespace != polexNs {
 		warnings = append(warnings, namespacesDontMatch)
-	}
-	return warnings
-}
-
-// ValidateScopeReach warns when the operator's exceptionNamespace is "*" and polex references a
-// Namespaced* policy kind: under "*" there is no central namespace, so the exception only applies
-// to a policy of that name in polex's own namespace, not to a same-named policy elsewhere.
-func ValidateScopeReach(polex *policiesv1beta1.PolicyException, opts ValidationOptions) []string {
-	if !opts.Enabled || opts.Namespace != "*" {
-		return nil
-	}
-	var warnings []string
-	for _, ref := range polex.Spec.PolicyRefs {
-		if strings.HasPrefix(ref.Kind, "Namespaced") {
-			warnings = append(warnings, fmt.Sprintf(
-				"exceptionNamespace is \"*\": this exception only applies to %s %s in namespace %s, not to a policy of that name in another namespace.",
-				ref.Kind, ref.Name, polex.GetNamespace(),
-			))
-		}
 	}
 	return warnings
 }

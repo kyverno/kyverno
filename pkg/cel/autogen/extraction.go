@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"slices"
 	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -21,10 +22,20 @@ var BareNameResolver func(name string) *Config
 // a live cluster's RESTMapper. Ambiguous names (the same plural resource
 // name existing in more than one API group) fail closed: mapper.KindFor
 // returns an error in that case rather than guessing, and this returns nil.
+// Discovery matches resource names case-insensitively, so a Kind name such as
+// "Deployment" resolves there too. Such a name is not a resource name: copying
+// it into the target verbatim produces a rule that never matches (see #18833),
+// so only the canonical plural resource name is accepted and anything else
+// returns nil.
 func RESTMapperBareNameResolver(mapper meta.RESTMapper) func(name string) *Config {
 	return func(name string) *Config {
-		gvk, err := mapper.KindFor(schema.GroupVersionResource{Resource: name})
+		gvr := schema.GroupVersionResource{Resource: name}
+		gvk, err := mapper.KindFor(gvr)
 		if err != nil {
+			return nil
+		}
+		canonical, err := mapper.ResourceFor(gvr)
+		if err != nil || canonical.Resource != name {
 			return nil
 		}
 		return &Config{
@@ -76,8 +87,13 @@ const ExtractionReplacementsRef = "extract"
 // "jobsets.v1alpha2.jobset.x-k8s.io"), which needs no live cluster and so
 // works from the CLI's offline apply/test commands too; (3) BareNameResolver,
 // if one is set, so a bare name like "jobsets" resolves via live discovery
-// where a cluster is available. A name that matches none of these is
-// silently ignored, preserving the historical behavior for genuine typos.
+// where a cluster is available. Admission does not validate controller names,
+// so an already-stored value, or one passed by a caller that does not run
+// admission validation, can reach this function unchecked; step (3) is what
+// lets such a bare name still resolve for an already-stored policy. A name
+// that matches none of these steps is silently ignored and generates no rule,
+// so a Kind name such as "Deployment" is admitted and leaves the policy with
+// no controller rule for it (see #18833).
 func ResolveConfig(name string) *Config {
 	if config := ConfigsMap[name]; config != nil {
 		return config
@@ -91,6 +107,32 @@ func ResolveConfig(name string) *Config {
 	return nil
 }
 
+// ResolveMutatingConfig resolves a controller name for MutatingPolicy autogen.
+// It is ResolveConfig, except that an explicit canonical
+// "<resource>.<version>.<group>" form naming a built-in controller (e.g.
+// "deployments.v1.apps") resolves to that controller's ConfigsMap entry, the
+// same one its bare name resolves to. Extraction-mode mutation is not
+// implemented and the MutatingPolicy engine skips it outright, so leaving such
+// a name on the extraction path would silently never mutate the built-in
+// workload. ValidatingPolicy and ImageValidatingPolicy do support extraction
+// targets and keep using ResolveConfig unchanged. MutatingPolicy autogen can
+// still keep a remapped target on the extraction path when a mutation cannot be
+// rewritten for the pod template yet (JSONPatch, or an expression shape it does
+// not parse), so that the workload is skipped rather than mutated at the wrong
+// path - see pkg/cel/policies/mpol/autogen.
+func ResolveMutatingConfig(name string) *Config {
+	config := ResolveConfig(name)
+	if config == nil || config.ReplacementsRef != ExtractionReplacementsRef {
+		return config
+	}
+	if builtin := ConfigsMap[config.Target.Resource]; builtin != nil &&
+		builtin.Target.Group == config.Target.Group &&
+		builtin.Target.Version == config.Target.Version {
+		return builtin
+	}
+	return config
+}
+
 func parseCustomControllerConfig(name string) *Config {
 	parts := strings.SplitN(name, ".", 3)
 	if len(parts) != 3 {
@@ -98,6 +140,9 @@ func parseCustomControllerConfig(name string) *Config {
 	}
 	resource, version, group := parts[0], parts[1], parts[2]
 	if resource == "" || version == "" || group == "" {
+		return nil
+	}
+	if !isCanonicalResourceForVersion(resource, version, group) {
 		return nil
 	}
 	kind := guessKind(resource)
@@ -115,6 +160,71 @@ func parseCustomControllerConfig(name string) *Config {
 		},
 		ReplacementsRef: ExtractionReplacementsRef,
 	}
+}
+
+// isCanonicalResource reports whether resource is the canonical plural resource
+// name for group. This is an offline check rather than a mapper lookup, so it
+// works without a cluster: the resource must be all lowercase, and
+// when group is a built-in group it must be one of that group's canonical
+// plurals from ControllerNames. "Deployment.v1.apps" and "deployment.v1.apps"
+// both name a resource that does not exist, and a rule generated for either can
+// never match. For a group that is not built in, lowercase is the only check
+// possible without discovery: a singular custom resource such as
+// "jobset.v1alpha2.jobset.x-k8s.io" cannot be distinguished from a plural
+// offline, so it is accepted here.
+func isCanonicalResource(resource, group string) bool {
+	if resource != strings.ToLower(resource) {
+		return false
+	}
+	builtinGroup := false
+	for _, name := range ControllerNames() {
+		if ConfigsMap[name].Target.Group != group {
+			continue
+		}
+		builtinGroup = true
+		if resource == name {
+			return true
+		}
+	}
+	return !builtinGroup
+}
+
+// builtInHistoricalVersions lists, per built-in controller, the API versions its
+// group served before the version ConfigsMap targets today. There is no offline
+// API source to consult, so without this list an explicit name such as
+// "cronjobs.v1beta1.batch" or "deployments.*.apps" is rejected as nonexistent
+// and silently loses a controller rule that resolved, to its extraction target,
+// before the version check was added. Source: the Kubernetes API versions these
+// resources shipped in - apps/v1beta1 and apps/v1beta2 for the apps group, and
+// batch/v1beta1 for CronJob - which is what the offline CLI matched before. A
+// version that is neither the configured one, nor "*", nor listed here is still
+// rejected: Jobs only ever existed in batch/v1, so "jobs.v1beta1.batch"
+// generates no rule.
+var builtInHistoricalVersions = map[string][]string{
+	"cronjobs":     {"v1beta1"},
+	"daemonsets":   {"v1beta2"},
+	"deployments":  {"v1beta1", "v1beta2"},
+	"replicasets":  {"v1beta2"},
+	"statefulsets": {"v1beta1", "v1beta2"},
+}
+
+// isCanonicalResourceForVersion reports whether resource is canonical for the
+// group and, when the group is built in, whether version is one the resource
+// actually served: the version ConfigsMap configures, the "*" wildcard
+// (apiVersions: ["*"]), or a historical version from builtInHistoricalVersions.
+// Custom groups have no offline version source, so they retain the
+// lowercase-only check from isCanonicalResource. ResolveConfig uses this
+// stricter check, so an explicit form naming a built-in controller at a version
+// it never had (e.g. "deployments.v2.apps") generates no rule instead of one
+// that cannot match.
+func isCanonicalResourceForVersion(resource, version, group string) bool {
+	if !isCanonicalResource(resource, group) {
+		return false
+	}
+	if config := ConfigsMap[resource]; config != nil && config.Target.Group == group {
+		return version == "*" || version == config.Target.Version || slices.Contains(builtInHistoricalVersions[resource], version)
+	}
+	return true
 }
 
 // guessKind is a best-effort fallback for when no KindResolver is available

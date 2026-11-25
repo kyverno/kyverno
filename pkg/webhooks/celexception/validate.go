@@ -29,7 +29,6 @@ func (h *celExceptionHandlers) Validate(ctx context.Context, logger logr.Logger,
 		return admissionutils.Response(request.UID, err)
 	}
 	warnings := validation.ValidateNamespace(ctx, logger, polex.GetNamespace(), h.validationOptions)
-	warnings = append(warnings, validation.ValidateScopeReach(polex, h.validationOptions)...)
 	warnings = append(warnings, validation.ValidateCompensatingControls(&polex.Spec)...)
 	errs := polex.Validate()
 	errs = append(errs, validation.ValidateCompensatingControlExpressions(polex)...)

@@ -5,13 +5,11 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +42,7 @@ func newTestScanner(t *testing.T) Scanner {
 	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
 	assert.NoError(t, err)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	return NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nil, celengine.ExceptionScopeAll)
+	return NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nil)
 }
 
 // nilTypeConverterManager is a no-op TypeConverterManager for tests that exercise
@@ -58,19 +56,6 @@ func (nilTypeConverterManager) GetTypeConverter(schema.GroupVersionKind) managed
 
 func (nilTypeConverterManager) Run(context.Context) {}
 
-// newTestScannerWithScope is newTestScanner parametrized on exceptionScope, so a test can pin that
-// ScanResource forwards the scanner's own configured scope to NewProvider rather than some
-// independently hardcoded value.
-func newTestScannerWithScope(t *testing.T, scope celengine.ExceptionScope) Scanner {
-	t.Helper()
-	scheme := runtime.NewScheme()
-	assert.NoError(t, kubescheme.AddToScheme(scheme))
-	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
-	assert.NoError(t, err)
-	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	return NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nil, scope)
-}
-
 func newTestScannerWithTypeConverter(t *testing.T) Scanner {
 	t.Helper()
 	scheme := runtime.NewScheme()
@@ -78,7 +63,7 @@ func newTestScannerWithTypeConverter(t *testing.T) Scanner {
 	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
 	assert.NoError(t, err)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	return NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nilTypeConverterManager{}, celengine.ExceptionScopeAll)
+	return NewScanner(logging.GlobalLogger(), config.NewDefaultConfiguration(false), dClient, nil, nil, nil, nilTypeConverterManager{})
 }
 
 func newDeploymentResource() (unstructured.Unstructured, schema.GroupVersionResource) {
@@ -170,57 +155,6 @@ func TestScanResource_MutatingPolicy_MutateExisting(t *testing.T) {
 			assert.NotEmpty(t, sr.EngineResponse.PolicyResponse.Rules, "mutateExisting MutatingPolicy must be evaluated by the scanner, not silently skipped")
 		}
 	}
-}
-
-// TestScanResource_ExceptionScopeGatesExceptions pins that ScanResource's vpol path forwards the
-// scanner's own configured exceptionScope to NewProvider, rather than a hardcoded scope: under
-// ExceptionScopeAll a matching exception must reach the policy, and under ExceptionScopeNone (an
-// unset --exceptionNamespace) the same exception must be silently ignored.
-func TestScanResource_ExceptionScopeGatesExceptions(t *testing.T) {
-	vp := &policiesv1beta1.ValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "deny-all", ResourceVersion: "1"},
-		Spec: policiesv1beta1.ValidatingPolicySpec{
-			MatchConstraints: &admissionregistrationv1.MatchResources{
-				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{"CREATE"},
-						Rule:       admissionregistrationv1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"pods"}},
-					},
-				}},
-			},
-			Validations: []admissionregistrationv1.Validation{{Expression: "false", Message: "denied"}},
-		},
-	}
-	exception := &policiesv1beta1.PolicyException{
-		ObjectMeta: metav1.ObjectMeta{Name: "exempt"},
-		Spec: policiesv1beta1.PolicyExceptionSpec{
-			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "deny-all", Kind: "ValidatingPolicy"}},
-		},
-	}
-	policy := engineapi.NewValidatingPolicy(vp)
-	resource, gvr := newPodResource()
-
-	t.Run("ExceptionScopeAll applies the exception", func(t *testing.T) {
-		scanner := newTestScannerWithScope(t, celengine.ExceptionScopeAll)
-		results := scanner.ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, []*policiesv1beta1.PolicyException{exception}, policy)
-		require.Len(t, results, 1)
-		for _, sr := range results {
-			require.NotNil(t, sr.EngineResponse)
-			require.NotEmpty(t, sr.EngineResponse.PolicyResponse.Rules)
-			assert.NotEmpty(t, sr.EngineResponse.PolicyResponse.Rules[0].Exceptions(), "ExceptionScopeAll must let the matching exception reach the policy")
-		}
-	})
-
-	t.Run("ExceptionScopeNone ignores the exception", func(t *testing.T) {
-		scanner := newTestScannerWithScope(t, celengine.ExceptionScopeNone)
-		results := scanner.ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, []*policiesv1beta1.PolicyException{exception}, policy)
-		require.Len(t, results, 1)
-		for _, sr := range results {
-			require.NotNil(t, sr.EngineResponse)
-			require.NotEmpty(t, sr.EngineResponse.PolicyResponse.Rules)
-			assert.Empty(t, sr.EngineResponse.PolicyResponse.Rules[0].Exceptions(), "an unset --exceptionNamespace must silently ignore the exception, not apply it")
-		}
-	})
 }
 
 func TestFilterMatchConditionSkips(t *testing.T) {

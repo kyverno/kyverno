@@ -19,7 +19,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
@@ -105,7 +104,7 @@ func TestRegistryCallsStopWhenTheAdmissionRequestIsCancelled(t *testing.T) {
 			},
 		},
 	}
-	provider, err := ivpolengine.NewProvider(evaluator.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
+	provider, err := ivpolengine.NewProvider(evaluator.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 	namespaceResolver := func(s string) *corev1.Namespace {
 		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: s}}

@@ -10,7 +10,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
@@ -90,7 +89,7 @@ func labelHandler(t *testing.T, trace bool, expression string) *handler {
 			}},
 		},
 	}
-	provider, err := mpolengine.NewProvider(mpolcompiler.NewCompilerWithTrace(trace), []policiesv1beta1.MutatingPolicyLike{policy}, nil, libs.NewFakeContextProvider(), celengine.ExceptionScopeAll)
+	provider, err := mpolengine.NewProvider(mpolcompiler.NewCompilerWithTrace(trace), []policiesv1beta1.MutatingPolicyLike{policy}, nil, libs.NewFakeContextProvider())
 	require.NoError(t, err)
 	engine := mpolengine.NewEngine(
 		provider,

@@ -7,7 +7,6 @@ import (
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -155,7 +154,7 @@ func TestNewProvider_AutogenExceptionRewrite(t *testing.T) {
 		},
 	}
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{exception}, celengine.ExceptionScopeAll)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{exception})
 	require.NoError(t, err)
 
 	policies, err := provider(context.Background())
@@ -231,121 +230,6 @@ func TestNewProvider_AutogenExceptionRewrite(t *testing.T) {
 				}
 			} else {
 				assert.Empty(t, result.Exceptions, "the unprivileged daemonset should not be excepted")
-			}
-		})
-	}
-}
-
-// TestNewProvider_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions pins the namespace argument
-// NewProvider passes to scope.Select: under scope "*" a namespaced policy must only accept
-// exceptions filed in its own namespace, never a foreign one. It fails if NewProvider ever stops
-// passing policy.GetNamespace() through to the exception match.
-func TestNewProvider_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testing.T) {
-	policy := &policiesv1beta1.NamespacedValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "guard", Namespace: "tenant-a"},
-		Spec: policiesv1beta1.ValidatingPolicySpec{
-			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
-				Mode: policieskyvernoio.EvaluationModeJSON,
-			},
-			Validations: []admissionregistrationv1.Validation{
-				{Expression: "object.name == 'forbidden'", Message: "denied"},
-			},
-		},
-	}
-	ownException := &policiesv1beta1.PolicyException{
-		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
-		Spec: policiesv1beta1.PolicyExceptionSpec{
-			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedValidatingPolicy"}},
-		},
-	}
-	foreignException := &policiesv1beta1.PolicyException{
-		ObjectMeta: metav1.ObjectMeta{Name: "foreign", Namespace: "tenant-b"},
-		Spec: policiesv1beta1.PolicyExceptionSpec{
-			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedValidatingPolicy"}},
-		},
-	}
-
-	provider, err := NewProvider(
-		compiler.NewCompiler(),
-		[]policiesv1beta1.ValidatingPolicyLike{policy},
-		[]*policiesv1beta1.PolicyException{ownException, foreignException},
-		celengine.ExceptionScopeAll,
-	)
-	require.NoError(t, err)
-
-	policies, err := provider(context.Background())
-	require.NoError(t, err)
-	require.Len(t, policies, 1)
-
-	result, err := policies[0].CompiledPolicy.Evaluate(context.Background(), map[string]any{"name": "forbidden"}, nil, nil, nil, nil, nil)
-	require.NoError(t, err)
-	require.Len(t, result.Exceptions, 1, "tenant-a's policy must only see its own namespace's exception")
-	assert.Equal(t, "tenant-a", result.Exceptions[0].GetNamespace())
-	assert.Equal(t, "own", result.Exceptions[0].GetName())
-}
-
-// TestNewProvider_ScopeGatesExceptionSelection pins the scope argument NewProvider passes to
-// scope.Select: it must not be ignored or hardcoded to ExceptionScopeAll. ExceptionScopeNone must
-// select nothing, and a concrete scope must select only the exception filed in that (central)
-// namespace, even though the policy's own namespace would otherwise qualify.
-func TestNewProvider_ScopeGatesExceptionSelection(t *testing.T) {
-	policy := &policiesv1beta1.NamespacedValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "guard", Namespace: "tenant-a"},
-		Spec: policiesv1beta1.ValidatingPolicySpec{
-			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
-				Mode: policieskyvernoio.EvaluationModeJSON,
-			},
-			Validations: []admissionregistrationv1.Validation{
-				{Expression: "object.name == 'forbidden'", Message: "denied"},
-			},
-		},
-	}
-	ownException := &policiesv1beta1.PolicyException{
-		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
-		Spec: policiesv1beta1.PolicyExceptionSpec{
-			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedValidatingPolicy"}},
-		},
-	}
-	centralException := &policiesv1beta1.PolicyException{
-		ObjectMeta: metav1.ObjectMeta{Name: "central", Namespace: "central-ns"},
-		Spec: policiesv1beta1.PolicyExceptionSpec{
-			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedValidatingPolicy"}},
-		},
-	}
-
-	tests := []struct {
-		name          string
-		scope         celengine.ExceptionScope
-		expectedNames []string
-	}{
-		{name: "scope none selects nothing", scope: celengine.ExceptionScopeNone},
-		{name: "concrete scope selects only the central namespace's exception", scope: celengine.ExceptionScope("central-ns"), expectedNames: []string{"central"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			provider, err := NewProvider(
-				compiler.NewCompiler(),
-				[]policiesv1beta1.ValidatingPolicyLike{policy},
-				[]*policiesv1beta1.PolicyException{ownException, centralException},
-				tt.scope,
-			)
-			require.NoError(t, err)
-
-			policies, err := provider(context.Background())
-			require.NoError(t, err)
-			require.Len(t, policies, 1)
-
-			result, err := policies[0].CompiledPolicy.Evaluate(context.Background(), map[string]any{"name": "forbidden"}, nil, nil, nil, nil, nil)
-			require.NoError(t, err)
-
-			if len(tt.expectedNames) == 0 {
-				assert.Empty(t, result.Exceptions)
-				return
-			}
-			require.Len(t, result.Exceptions, len(tt.expectedNames))
-			for i, name := range tt.expectedNames {
-				assert.Equal(t, name, result.Exceptions[i].GetName())
 			}
 		})
 	}

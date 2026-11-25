@@ -1,7 +1,6 @@
 features:
   policyExceptions:
     enabled: true
-    # "*" is the conformance configuration so tests can create exceptions in any namespace; not a recommendation.
     namespace: "*"
   omitEvents:
     eventTypes: []

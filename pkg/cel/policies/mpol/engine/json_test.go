@@ -67,7 +67,7 @@ func TestJSONMutation(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{jsonMutationPolicy("test", tc.expression)}, nil, nil, celengine.ExceptionScopeAll)
+			provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{jsonMutationPolicy("test", tc.expression)}, nil, nil)
 			require.NoError(t, err)
 			engine := NewEngine(provider, nil, nil, nil, nil)
 			input := jsonObject(t, tc.input)
@@ -95,7 +95,7 @@ func TestJSONMutationReusesProviderAndSnapshots(t *testing.T) {
 	)
 	first.Spec.Variables = []admissionregistrationv1.Variable{{Name: "count", Expression: "object.count"}}
 	second := jsonMutationPolicy("second", `[JSONPatch{op:"add",path:"/result",value:object.count*2}]`)
-	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.MutatingPolicyLike{first, second}, nil, nil, celengine.ExceptionScopeAll)
+	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.MutatingPolicyLike{first, second}, nil, nil)
 	require.NoError(t, err)
 	first.Spec.Mutations[0].JSONPatch.Expression = "invalid("
 	engine := NewEngine(provider, nil, nil, nil, nil)
@@ -118,7 +118,7 @@ func TestJSONMutationRefreshesVariables(t *testing.T) {
 	)
 	policy.Spec.Variables = []admissionregistrationv1.Variable{{Name: "count", Expression: "object.count"}}
 	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "has-count", Expression: "variables.count == 1"}}
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil, celengine.ExceptionScopeAll)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
 	require.NoError(t, err)
 	response, err := NewEngine(provider, nil, nil, nil, nil).Handle(
 		context.Background(),
@@ -147,7 +147,7 @@ func TestJSONMutationTracing(t *testing.T) {
 			policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "selected", Expression: tc.condition}}
 			var plain *EngineResponse
 			for _, tracing := range []bool{false, true} {
-				provider, err := NewProvider(compiler.NewCompilerWithTrace(tracing), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil, celengine.ExceptionScopeAll)
+				provider, err := NewProvider(compiler.NewCompilerWithTrace(tracing), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
 				require.NoError(t, err)
 				engine := NewEngine(provider, nil, nil, nil, nil)
 				response, err := engine.Handle(context.Background(), celengine.RequestFromJSON(nil, jsonObject(t, `{"count":1}`)), nil)
@@ -204,7 +204,7 @@ func TestJSONSkippedPoliciesDoNotHavePatchedSnapshots(t *testing.T) {
 				if tc.condition != "" {
 					policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "excluded", Expression: tc.condition}}
 				}
-				provider, err := NewProvider(compiler.NewCompilerWithTrace(tracing), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil, celengine.ExceptionScopeAll)
+				provider, err := NewProvider(compiler.NewCompilerWithTrace(tracing), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
 				require.NoError(t, err)
 				input := jsonObject(t, `{}`)
 				response, err := NewEngine(provider, nil, nil, nil, nil).Handle(
@@ -225,7 +225,7 @@ func TestJSONSkippedPoliciesDoNotHavePatchedSnapshots(t *testing.T) {
 func TestJSONMutationBudgetAndCancellation(t *testing.T) {
 	t.Parallel()
 	policy := jsonMutationPolicy("test", `[JSONPatch{op:"add",path:"/ok",value:true}]`)
-	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil, celengine.ExceptionScopeAll)
+	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
 	require.NoError(t, err)
 	engine := NewEngine(provider, nil, nil, nil, nil)
 	t.Run("caller budget", func(t *testing.T) {
@@ -258,7 +258,7 @@ func TestJSONModeDoesNotGenerateAutogenPolicies(t *testing.T) {
 			},
 		}},
 	}
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil, celengine.ExceptionScopeAll)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
 	require.NoError(t, err)
 	require.Len(t, provider.Fetch(context.Background(), false), 1)
 }
@@ -274,7 +274,7 @@ func TestJSONMutationAdmissionUsesNormalMatching(t *testing.T) {
 			},
 		}},
 	}
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil, celengine.ExceptionScopeAll)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
 	require.NoError(t, err)
 	engine := NewEngine(provider, nil, matching.NewMatcher(), nil, nil)
 	request := celengine.EngineRequest{Request: admissionv1.AdmissionRequest{

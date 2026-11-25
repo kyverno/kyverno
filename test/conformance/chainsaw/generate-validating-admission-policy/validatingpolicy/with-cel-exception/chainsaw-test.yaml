@@ -55,15 +55,3 @@ spec:
     try:
     - assert:
         file: validatingwebhookconfiguration.yaml
-  - name: create exception in a second, unrelated namespace
-    try:
-    - create:
-        file: second-namespace.yaml
-    - create:
-        file: exception-second-ns.yaml
-    - sleep:
-        duration: 10s
-  - name: generated vap still carries the second-namespace exception
-    try:
-    - assert:
-        file: validatingadmissionpolicy-with-second-exception.yaml

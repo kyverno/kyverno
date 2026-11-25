@@ -139,7 +139,7 @@ func initKubeconfigFlags(qps float64, burst int, eventsQPS float64, eventsBurst 
 }
 
 func initPolicyExceptionsFlags() {
-	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions from. Unset ('') accepts none, so PolicyExceptions are ignored. A concrete namespace accepts exceptions from that namespace only, and is also the central namespace that may except any policy. '*' allows a PolicyException from any namespace to apply to a cluster-scoped policy; a namespaced policy still only accepts exceptions from its own namespace.")
+	flag.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions. If it is set to '*', exceptions are allowed in all namespaces.")
 	flag.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
 }
 
@@ -301,9 +301,6 @@ func initFlags(config Configuration, opts ...Option) {
 }
 
 func showWarnings(config Configuration, logger logr.Logger) {
-	if enablePolicyException && exceptionNamespace == "" {
-		logger.Error(nil, "--exceptionNamespace is not set: PolicyExceptions are ignored. Set it to the namespace that owns exceptions; '*' allows a PolicyException from any namespace to apply to a cluster-scoped policy")
-	}
 }
 
 func ParseFlags(config Configuration, opts ...Option) {

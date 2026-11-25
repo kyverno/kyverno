@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,23 +22,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// fakeClient serves a fixed set of ImageValidatingPolicies by name, and NamespacedImageValidatingPolicies
-// by "namespace/name", so the reconciler can be driven without an API server.
+// fakeClient serves a fixed set of ImageValidatingPolicies by name so the reconciler can be driven
+// without an API server.
 type fakeClient struct {
 	client.Client
-	policies   map[string]*policiesv1beta1.ImageValidatingPolicy
-	nsPolicies map[string]*policiesv1beta1.NamespacedImageValidatingPolicy
+	policies map[string]*policiesv1beta1.ImageValidatingPolicy
 }
 
 func (f *fakeClient) Get(_ context.Context, key client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
-	switch o := obj.(type) {
-	case *policiesv1beta1.ImageValidatingPolicy:
-		if p, ok := f.policies[key.Name]; ok {
-			*o = *p
-			return nil
-		}
-	case *policiesv1beta1.NamespacedImageValidatingPolicy:
-		if p, ok := f.nsPolicies[key.Namespace+"/"+key.Name]; ok {
+	if p, ok := f.policies[key.Name]; ok {
+		if o, ok := obj.(*policiesv1beta1.ImageValidatingPolicy); ok {
 			*o = *p
 			return nil
 		}
@@ -269,54 +261,6 @@ func TestReconcile_AutogenVariantDeterministicOrdering(t *testing.T) {
 	}
 }
 
-// namespacedAutogennablePolicy is autogennablePolicy's NamespacedImageValidatingPolicy counterpart.
-func namespacedAutogennablePolicy(name, namespace string) *policiesv1beta1.NamespacedImageValidatingPolicy {
-	cluster := autogennablePolicy(name)
-	return &policiesv1beta1.NamespacedImageValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Spec:       cluster.Spec,
-	}
-}
-
-// TestReconcile_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions pins the namespace argument passed
-// to ListForPolicy: under scope "*" a namespaced policy must only accept exceptions filed in its own
-// namespace, never a foreign one, even though "*" otherwise accepts exceptions from every namespace.
-// This is a regression test for an argument-plumbing bug, not a scope-semantics test (see
-// pkg/cel/engine/exception_test.go for that) — it fails if Reconcile ever stops passing
-// policy.GetNamespace() through to the exception lookup.
-func TestReconcile_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testing.T) {
-	ctx := context.Background()
-	policy := namespacedAutogennablePolicy("guard", "tenant-a")
-	ownException := &policiesv1beta1.PolicyException{
-		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
-		Spec: policiesv1beta1.PolicyExceptionSpec{
-			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedImageValidatingPolicy"}},
-		},
-	}
-	foreignException := &policiesv1beta1.PolicyException{
-		ObjectMeta: metav1.ObjectMeta{Name: "foreign", Namespace: "tenant-b"},
-		Spec: policiesv1beta1.PolicyExceptionSpec{
-			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedImageValidatingPolicy"}},
-		},
-	}
-	lister := &reusableExceptionLister{exceptions: []*policiesv1beta1.PolicyException{ownException, foreignException}}
-	fc := &fakeClient{nsPolicies: map[string]*policiesv1beta1.NamespacedImageValidatingPolicy{
-		"tenant-a/guard": policy,
-	}}
-	rec := newReconciler(iveval.NewCompiler(nil), fc, lister, true)
-
-	_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "tenant-a", Name: "guard"}})
-	require.NoError(t, err)
-
-	fetched, err := rec.Fetch(ctx)
-	require.NoError(t, err)
-	require.NotEmpty(t, fetched)
-	for _, p := range fetched {
-		require.Len(t, p.Exceptions, 1, "tenant-a's policy must only see its own namespace's exception")
-		assert.Equal(t, "tenant-a", p.Exceptions[0].GetNamespace())
-	}
-}
-
 func variantOrder(policies []Policy) []string {
 	var order []string
 	for _, p := range policies {
@@ -335,10 +279,6 @@ type mockPolexLister struct {
 
 func (m *mockPolexLister) List(_ labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
 	return m.exceptions, nil
-}
-
-func (m *mockPolexLister) ListForPolicy(kind, name, namespace string) ([]*policiesv1beta1.PolicyException, error) {
-	return celengine.ExceptionScopeAll.Select(m.exceptions, kind, name, namespace), nil
 }
 
 type ivpolCompileCall struct {

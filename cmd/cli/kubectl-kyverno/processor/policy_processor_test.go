@@ -12,7 +12,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
@@ -302,7 +301,7 @@ spec:
 
 		compiler := vpolcompiler.NewCompilerWithTrace(false)
 		vpolLikes := []policiesv1beta1.ValidatingPolicyLike{&vpol}
-		provider, err := vpolengine.NewProvider(compiler, vpolLikes, nil, celengine.ExceptionScopeAll)
+		provider, err := vpolengine.NewProvider(compiler, vpolLikes, nil)
 		assert.NilError(t, err)
 
 		spy := &spyVpolProvider{inner: provider}
@@ -379,7 +378,7 @@ spec:
 
 		compiler := vpolcompiler.NewCompilerWithTrace(false)
 		jsonVpolLikes := []policiesv1beta1.ValidatingPolicyLike{&jsonVpol}
-		provider, err := vpolengine.NewProvider(compiler, jsonVpolLikes, nil, celengine.ExceptionScopeAll)
+		provider, err := vpolengine.NewProvider(compiler, jsonVpolLikes, nil)
 		assert.NilError(t, err)
 
 		spy := &spyVpolProvider{inner: provider}
@@ -449,7 +448,7 @@ spec:
 
 		contextProvider := libs.NewFakeContextProvider()
 		compiler := mpolcompiler.NewCompilerWithTrace(false)
-		provider, err := mpolengine.NewProvider(compiler, loaded.MutatingPolicies, nil, contextProvider, celengine.ExceptionScopeAll)
+		provider, err := mpolengine.NewProvider(compiler, loaded.MutatingPolicies, nil, contextProvider)
 		assert.NilError(t, err)
 
 		spy := &spyMpolProvider{inner: provider}

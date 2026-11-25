@@ -40,11 +40,18 @@ func (f ProviderFunc) Fetch(ctx context.Context) ([]Policy, error) {
 	return f(ctx)
 }
 
-func NewProvider(compiler eval.Compiler, policies []policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException, scope engine.ExceptionScope) (ProviderFunc, error) {
+func NewProvider(compiler eval.Compiler, policies []policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (ProviderFunc, error) {
 	compiled := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
 		p := policy
-		matchedExceptions := scope.Select(exceptions, p.GetKind(), p.GetName(), p.GetNamespace())
+		var matchedExceptions []*policiesv1beta1.PolicyException
+		for _, polex := range exceptions {
+			for _, ref := range polex.Spec.PolicyRefs {
+				if ref.Name == p.GetName() && ref.Kind == p.GetKind() {
+					matchedExceptions = append(matchedExceptions, polex)
+				}
+			}
+		}
 		program, errs := compiler.Compile(p, matchedExceptions)
 		if len(errs) != 0 {
 			return nil, errs.ToAggregate()

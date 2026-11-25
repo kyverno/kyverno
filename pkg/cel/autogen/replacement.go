@@ -38,14 +38,56 @@ func ApplyCEL(data []byte, replacements ...Replacement) []byte {
 // It is syntax-aware and skips CEL string literals, rewrites bracket and dot selectors
 // for spec, metadata.labels, and metadata.annotations, and preserves controller metadata fields.
 func ApplyMutatingCEL(data []byte, config string) []byte {
-	specRepl := "spec.template.spec"
-	metaRepl := "spec.template.metadata"
-	if config == "cronjobs" {
-		specRepl = "spec.jobTemplate.spec.template.spec"
-		metaRepl = "spec.jobTemplate.spec.template.metadata"
-	}
+	specRepl, metaRepl := mutatingTemplatePaths(config)
 	roots := [][]byte{[]byte("object"), []byte("oldObject"), []byte("Object")}
 	return rewriteMutatingCEL(data, roots, specRepl, metaRepl)
+}
+
+// QualifyMutatingMetadataType rewrites the dynamic object type name of a
+// metadata constructor - Object.metadata{...} - to the pod template's type name
+// for config, e.g. Object.spec.template.metadata{...}. Only type names need
+// this: ApplyMutatingCEL already rewrites the selector form
+// Object.metadata.labels, but a constructor is followed by '{' rather than a
+// selector, so it keeps its unwrapped name. The ApplyConfiguration compiler
+// requires every nested constructor's type name to match its field path from
+// the root, and metadata sits under spec.template (deeper for a CronJob) once
+// the pod-shaped mutation is wrapped.
+func QualifyMutatingMetadataType(data []byte, config string) []byte {
+	_, metaRepl := mutatingTemplatePaths(config)
+	root := []byte("Object")
+	to := []byte("Object." + metaRepl)
+	return transformCEL(data, func(data []byte, i int) (int, []byte, bool) {
+		if !bytes.HasPrefix(data[i:], root) || !isValidBoundary(data, i) {
+			return 0, nil, false
+		}
+		// CEL permits whitespace around the dot, so go through the same
+		// selector scanner the rewrite paths use instead of matching the literal
+		// "Object.metadata". Optional traversal is not a type name.
+		selectorLen, optional, matched := scanDotSelector(data[i+len(root):], "metadata")
+		if !matched || optional {
+			return 0, nil, false
+		}
+		after := data[i+len(root)+selectorLen:]
+		// A type name is only carried by a constructor, so require '{' (after
+		// optional whitespace). Selector forms are left to ApplyMutatingCEL.
+		idx := 0
+		for idx < len(after) && isWhitespaceByte(after[idx]) {
+			idx++
+		}
+		if idx >= len(after) || after[idx] != '{' {
+			return 0, nil, false
+		}
+		return len(root) + selectorLen, to, true
+	})
+}
+
+// mutatingTemplatePaths returns the workload pod template paths that a
+// pod-shaped mutating expression is rewritten to for config.
+func mutatingTemplatePaths(config string) (specRepl, metaRepl string) {
+	if config == AutogenCronjobs {
+		return "spec.jobTemplate.spec.template.spec", "spec.jobTemplate.spec.template.metadata"
+	}
+	return "spec.template.spec", "spec.template.metadata"
 }
 
 // rewriteField replaces occurrences of `roots` + `fromField` with `roots` + `toField`.

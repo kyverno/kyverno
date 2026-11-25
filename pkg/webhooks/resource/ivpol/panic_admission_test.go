@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -82,7 +81,7 @@ func TestPanicInPolicyDeniesAdmissionWithoutCrashing(t *testing.T) {
 			Validations:          []admissionregistrationv1.Validation{{Expression: "true"}},
 		},
 	}
-	provider, err := ivpolengine.NewProvider(panickingCompiler{panicMsg: "injected panic while evaluating policy"}, []policiesv1beta1.ImageValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
+	provider, err := ivpolengine.NewProvider(panickingCompiler{panicMsg: "injected panic while evaluating policy"}, []policiesv1beta1.ImageValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 	namespaceResolver := func(s string) *corev1.Namespace {
 		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: s}}

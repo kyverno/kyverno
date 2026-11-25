@@ -176,7 +176,7 @@ func Test_ImageVerifyEngine_PanicInOnePolicyDoesNotCrashController(t *testing.T)
 // is contained the same way.
 func Test_ImageVerifyEngine_PanicInExtractionModePolicyIsContained(t *testing.T) {
 	pol := buildExtractionModeRequestPolicy()
-	provider, err := NewProvider(panickingCompiler{panicMsg: "injected panic while fetching ghcr.io/a/app:v1"}, []policiesv1beta1.ImageValidatingPolicyLike{pol}, nil, engine.ExceptionScopeAll)
+	provider, err := NewProvider(panickingCompiler{panicMsg: "injected panic while fetching ghcr.io/a/app:v1"}, []policiesv1beta1.ImageValidatingPolicyLike{pol}, nil)
 	require.NoError(t, err)
 	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
 	const image = "ghcr.io/a/app:v1"

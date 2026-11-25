@@ -85,7 +85,7 @@ func buildGateAlwaysTruePolicies(b *testing.B, n int) Provider {
 			},
 		})
 	}
-	provider, err := NewProvider(compiler.NewCompiler(), policies, nil, celengine.ExceptionScopeAll)
+	provider, err := NewProvider(compiler.NewCompiler(), policies, nil)
 	require.NoError(b, err)
 	return provider
 }

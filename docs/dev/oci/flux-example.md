@@ -96,10 +96,9 @@ while allowing every request unconditionally. Don't omit it.
 # the condition scopes the exemption to one named resource: a pod with the same missing label but a different
 # name is still denied. The namespace condition's expression syntax is copied from
 # test/conformance/chainsaw/validating-policies/exceptions/empty-policy-ref/exception.yaml
-# ("object.metadata.namespace == '<ns>'"); both conditions are ANDed here because, for a cluster-scoped
-# policy like require-team-label, Kyverno accepts an exception only from a namespace the operator's
-# --exceptionNamespace flag allows (pkg/cel/engine/exception.go) -- not from every namespace -- so the
-# matchConditions still carry the exemption's actual scope to one Pod.
+# ("object.metadata.namespace == '<ns>'"); both conditions are ANDed here because Kyverno selects a
+# PolicyException by its policyRefs alone, with no namespace filter (pkg/cel/engine/exception.go), so the
+# exception's own metadata.namespace does not limit what it exempts.
 apiVersion: policies.kyverno.io/v1beta1
 kind: PolicyException
 metadata:
@@ -114,18 +113,12 @@ spec:
       expression: "object.metadata.name == 'legacy-workload' && object.metadata.namespace == 'team-a'"
 ```
 
-`metadata.namespace: team-a` says where this `PolicyException` object lives, and whether Kyverno considers it
-at all depends on the admission controller's `--exceptionNamespace` flag:
-
-| `--exceptionNamespace` | Which namespaces a cluster-scoped policy, like `require-team-label`, accepts exceptions from |
-|---|---|
-| unset (default) | none — the exception is ignored |
-| a concrete namespace, for example `kyverno` | only that namespace |
-| `*` | every namespace |
-
-So this exception only takes effect when the flag is set to `team-a` or to `*`. Once it is accepted,
-`matchConditions` still narrows it further: without the `&&` above, it would exempt every Pod named
-`legacy-workload`, not just the one in `team-a`.
+`metadata.namespace: team-a` says where this `PolicyException` object lives, not what it exempts: Kyverno
+looks exceptions up by `policyRefs` alone, with no namespace filter, so a `PolicyException` in any namespace
+applies wherever its referenced policy applies. Without `matchConditions`, this object would exempt every Pod
+named `legacy-workload` in **every** namespace, not just `team-a`. The `&&` above is what actually narrows the
+exemption to one Pod in one namespace; without it, the namespace the object lives in is irrelevant to its
+reach, despite how the name and placement of this file suggest otherwise.
 
 These two files are deliberately minimal so the bundle is pushable and the example runs end to end; they aren't
 a template for a real policy or exception. `policies.kyverno.io/v1beta1` is the CRD's storage version; a plain

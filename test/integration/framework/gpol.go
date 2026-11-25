@@ -61,7 +61,7 @@ func NewGpolPolexLister(ctx context.Context, kyvernoClient kyvernoclient.Interfa
 	polexLister := factory.Policies().V1beta1().PolicyExceptions().Lister()
 	factory.Start(ctx.Done())
 	factory.WaitForCacheSync(ctx.Done())
-	return celengine.NewPolicyExceptionLister(polexLister, "*")
+	return polexLister
 }
 
 // NewGpolEngineWithExceptions creates a gpol engine and provider with PolicyException support.

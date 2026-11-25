@@ -214,7 +214,7 @@ func TestEvaluate(t *testing.T) {
 		pols := []policiesv1beta1.MutatingPolicyLike{}
 		polexs := []*policiesv1beta1.PolicyException{}
 
-		provider, err := NewProvider(compiler.NewCompiler(), pols, polexs, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		provider, err := NewProvider(compiler.NewCompiler(), pols, polexs, libs.NewFakeContextProvider())
 
 		assert.NoError(t, err)
 		engine := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
@@ -269,7 +269,7 @@ func TestEvaluate(t *testing.T) {
 
 		pols := []policiesv1beta1.MutatingPolicyLike{mpol}
 
-		provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider())
 
 		assert.NoError(t, err)
 		engine := NewEngine(
@@ -324,7 +324,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider())
 		assert.NoError(t, err)
 		engine := NewEngine(
 			provider,
@@ -383,7 +383,7 @@ func TestEvaluate(t *testing.T) {
 				}},
 			},
 		}
-		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider())
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -444,7 +444,7 @@ func TestEvaluate(t *testing.T) {
 				}},
 			},
 		}
-		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider())
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -521,7 +521,7 @@ func TestEvaluate(t *testing.T) {
 
 		// The resource does not satisfy spec.matchConditions: mutateExisting/background
 		// evaluation must skip it just like admission-time evaluation would.
-		providerSkip, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{newPolicy()}, nil, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		providerSkip, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{newPolicy()}, nil, libs.NewFakeContextProvider())
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -531,7 +531,7 @@ func TestEvaluate(t *testing.T) {
 		assert.Nil(t, respSkip.PatchedResource, "matchConditions should have excluded this resource from mutateExisting")
 
 		// The resource satisfies spec.matchConditions: it should be mutated.
-		providerMatch, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{newPolicy()}, nil, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		providerMatch, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{newPolicy()}, nil, libs.NewFakeContextProvider())
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -617,7 +617,7 @@ func TestEvaluate(t *testing.T) {
 
 		pols := []policiesv1beta1.MutatingPolicyLike{mpol1, mpol2}
 
-		provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider())
 		assert.NoError(t, err)
 
 		engine := NewEngine(
@@ -712,7 +712,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol1, mpol2}, nil, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol1, mpol2}, nil, libs.NewFakeContextProvider())
 		assert.NoError(t, err)
 
 		engine := NewEngine(
@@ -807,7 +807,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol1, mpol2}, nil, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol1, mpol2}, nil, libs.NewFakeContextProvider())
 		assert.NoError(t, err)
 
 		engine := NewEngine(
@@ -1039,7 +1039,7 @@ func TestHandle(t *testing.T) {
 				tc.policies,
 				nil,
 				libs.NewFakeContextProvider(),
-				engine.ExceptionScopeAll)
+			)
 			assert.NoError(t, err)
 
 			// Create engine
@@ -1125,7 +1125,7 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 		pols := []policiesv1beta1.MutatingPolicyLike{}
 		polexs := []*policiesv1beta1.PolicyException{}
 
-		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs, libs.NewFakeContextProvider())
 
 		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
 
@@ -1152,7 +1152,7 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 
 		pols := []policiesv1beta1.MutatingPolicyLike{}
 		polexs := []*policiesv1beta1.PolicyException{}
-		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		provider, _ := NewProvider(compiler.NewCompiler(), pols, polexs, libs.NewFakeContextProvider())
 
 		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
 

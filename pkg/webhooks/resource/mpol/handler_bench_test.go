@@ -9,7 +9,6 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
@@ -154,7 +153,6 @@ func buildGateMutateHandlerPolicy(b *testing.B) mpolengine.Provider {
 		[]policiesv1beta1.MutatingPolicyLike{mpol},
 		nil,
 		libs.NewFakeContextProvider(),
-		celengine.ExceptionScopeAll,
 	)
 	require.NoError(b, err)
 	return provider
