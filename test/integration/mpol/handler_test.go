@@ -44,8 +44,11 @@ func TestMain(m *testing.M) {
 	}
 
 	// Use exception-enabled engine for all tests. When no PolicyExceptions exist,
-	// behavior is identical to the non-exception engine (ListExceptions returns nil).
-	engine, provider, err = framework.NewMpolEngineWithExceptions(context.Background(), testEnv.Mgr, testEnv.KubeClient, testEnv.ContextProvider)
+	// behavior is identical to the non-exception engine (ListForPolicy returns nil).
+	// Observe the real PolicyException watch through the suite manager's cache.
+	watchObserver = &indexedWatchClient{Client: testEnv.Mgr.GetClient()}
+	observedManager := &indexedWatchManager{Manager: testEnv.Mgr, observed: watchObserver}
+	engine, provider, err = framework.NewMpolEngineWithExceptions(context.Background(), observedManager, testEnv.KubeClient, testEnv.ContextProvider)
 	if err != nil {
 		testEnv.Stop()
 		panic(err)

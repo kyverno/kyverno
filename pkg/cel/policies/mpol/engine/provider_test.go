@@ -406,7 +406,7 @@ func TestPolicyExceptionHandler_RequeuesNamespacedPoliciesWithNamespace(t *testi
 		&policiesv1beta1.NamespacedMutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "add-label", Namespace: "team-a"}},
 		&policiesv1beta1.NamespacedMutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "add-label", Namespace: "team-b"}},
 		&policiesv1beta1.NamespacedMutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "other", Namespace: "team-a"}},
-	).Build()
+	).WithIndex(&policiesv1beta1.NamespacedMutatingPolicy{}, celengine.NamespacedPolicyNameIndex, celengine.IndexPolicyName).Build()
 	polex := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "exempt", Namespace: "team-a"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
