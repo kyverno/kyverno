@@ -372,7 +372,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | crds.migration.extraArgs | object | `{}` | Additional CLI flags passed to the migration job |
 | crds.migration.resources | list | `["globalcontextentries.kyverno.io","updaterequests.kyverno.io","deletingpolicies.policies.kyverno.io","generatingpolicies.policies.kyverno.io","imagevalidatingpolicies.policies.kyverno.io","mutatingpolicies.policies.kyverno.io","namespaceddeletingpolicies.policies.kyverno.io","namespacedgeneratingpolicies.policies.kyverno.io","namespacedimagevalidatingpolicies.policies.kyverno.io","namespacedmutatingpolicies.policies.kyverno.io","namespacedvalidatingpolicies.policies.kyverno.io","policyexceptions.policies.kyverno.io","validatingpolicies.policies.kyverno.io"]` | Resources to migrate |
 | crds.migration.image.registry | string | `nil` | Image registry |
-| crds.migration.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| crds.migration.image.defaultRegistry | string | `"ghcr.io"` |  |
 | crds.migration.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
 | crds.migration.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | crds.migration.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -560,7 +560,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | admissionController.caCertificates.volume | object | `{}` | Volume to be mounted for CA certificates Not used when `.Values.admissionController.caCertificates.data` is defined |
 | admissionController.imagePullSecrets | list | `[]` | Image pull secrets |
 | admissionController.initContainer.image.registry | string | `nil` | Image registry |
-| admissionController.initContainer.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| admissionController.initContainer.image.defaultRegistry | string | `"ghcr.io"` |  |
 | admissionController.initContainer.image.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | admissionController.initContainer.image.tag | string | `nil` | Image tag If missing, defaults to image.tag |
 | admissionController.initContainer.image.pullPolicy | string | `nil` | Image pull policy If missing, defaults to image.pullPolicy |
@@ -570,7 +570,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | admissionController.initContainer.extraArgs | object | `{}` | Additional container args. |
 | admissionController.initContainer.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.container.image.registry | string | `nil` | Image registry |
-| admissionController.container.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| admissionController.container.image.defaultRegistry | string | `"ghcr.io"` |  |
 | admissionController.container.image.repository | string | `"kyverno/kyverno"` | Image repository |
 | admissionController.container.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | admissionController.container.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -641,7 +641,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | backgroundController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | backgroundController.image.registry | string | `nil` | Image registry |
-| backgroundController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| backgroundController.image.defaultRegistry | string | `"ghcr.io"` |  |
 | backgroundController.image.repository | string | `"kyverno/background-controller"` | Image repository |
 | backgroundController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | backgroundController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -749,7 +749,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | cleanupController.certManager.tls.duration | string | `"8760h"` | Duration of the TLS certificate (default 1 year) |
 | cleanupController.certManager.tls.renewBefore | string | `"720h"` | Time before expiry to renew the TLS certificate (default 30 days) |
 | cleanupController.image.registry | string | `nil` | Image registry |
-| cleanupController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| cleanupController.image.defaultRegistry | string | `"ghcr.io"` |  |
 | cleanupController.image.repository | string | `"kyverno/cleanup-controller"` | Image repository |
 | cleanupController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -847,7 +847,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | reportsController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
 | reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role (granted get/list/watch). Required for background-scan/PolicyReport coverage of custom workload CRDs (e.g. Argo Rollout, JobSet) referenced by a CEL policy's `spec.autogen.podControllers.controllers` - Kyverno cannot self-grant RBAC for arbitrary CRDs, so list/watch access for each such CRD must be added here. |
 | reportsController.image.registry | string | `nil` | Image registry |
-| reportsController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| reportsController.image.defaultRegistry | string | `"ghcr.io"` |  |
 | reportsController.image.repository | string | `"kyverno/reports-controller"` | Image repository |
 | reportsController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | reportsController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
@@ -1014,7 +1014,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | upgrade.legacyPolicyCheck.ttlSecondsAfterFinished | int | `300` | Seconds after the hook Job finishes before it (and its Pod) are auto-deleted. A failed Job's logs stay available until then. Set to 0 or null to keep it indefinitely. |
 | upgrade.legacyPolicyCheck.activeDeadlineSeconds | int | `120` | Maximum seconds the hook Job may run before it is failed, so a stalled or unreachable API server can't hang the install/upgrade. Set to 0 or null to disable. |
 | upgrade.legacyPolicyCheck.image.registry | string | `nil` | Image registry |
-| upgrade.legacyPolicyCheck.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| upgrade.legacyPolicyCheck.image.defaultRegistry | string | `"ghcr.io"` |  |
 | upgrade.legacyPolicyCheck.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
 | upgrade.legacyPolicyCheck.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | upgrade.legacyPolicyCheck.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |

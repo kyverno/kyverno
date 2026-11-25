@@ -1,0 +1,276 @@
+{
+  "apiVersion": "trace.kyverno.io/v1alpha1",
+  "kind": "DecisionList",
+  "items": [
+    {
+      "policy": {
+        "name": "check-images",
+        "kind": "ImageValidatingPolicy"
+      },
+      "resource": {
+        "kind": "Pod",
+        "name": "with-team",
+        "namespace": "prod"
+      },
+      "scope": {
+        "applied": true,
+        "reason": "matched kind Pod, namespace prod, operation CREATE"
+      },
+      "match": [
+        {
+          "name": "not-kube-system",
+          "expression": "object.metadata.namespace != 'kube-system'",
+          "evaluated": [
+            {
+              "expression": "object.metadata.namespace != \"kube-system\"",
+              "value": "true"
+            },
+            {
+              "expression": "object.metadata.namespace",
+              "value": "prod"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[labels:map[team:payments] name:with-team namespace:prod]"
+            }
+          ],
+          "result": "true"
+        }
+      ],
+      "variables": [
+        {
+          "name": "team",
+          "expression": "object.metadata.?labels.?team.orValue('')",
+          "evaluated": [
+            {
+              "expression": "object.metadata.?labels.?team.orValue(\"\")",
+              "value": "payments"
+            },
+            {
+              "expression": "object.metadata.?labels.?team",
+              "value": "payments"
+            },
+            {
+              "expression": "object.metadata.?labels",
+              "value": "map[team:payments]"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[labels:map[team:payments] name:with-team namespace:prod]"
+            }
+          ],
+          "result": "payments"
+        }
+      ],
+      "validations": [
+        {
+          "index": 0,
+          "status": "PASS",
+          "expression": "images.containers.all(i, i.startsWith('registry.example.com/'))",
+          "evaluated": [
+            {
+              "expression": "images.containers",
+              "value": "[]"
+            }
+          ],
+          "result": "true"
+        },
+        {
+          "index": 1,
+          "status": "PASS",
+          "expression": "variables.team != ''",
+          "evaluated": [
+            {
+              "expression": "variables.team != \"\"",
+              "value": "true"
+            },
+            {
+              "expression": "variables.team",
+              "value": "payments"
+            }
+          ],
+          "result": "true"
+        }
+      ],
+      "images": {
+        "found": [
+          {
+            "category": "containers",
+            "image": "docker.io/library/nginx:1.27",
+            "checked": false
+          }
+        ]
+      },
+      "verdict": {
+        "status": "PASS",
+        "expression": "variables.team != ''",
+        "evaluated": [
+          {
+            "expression": "variables.team != \"\"",
+            "value": "true"
+          },
+          {
+            "expression": "variables.team",
+            "value": "payments"
+          }
+        ],
+        "result": "true"
+      }
+    },
+    {
+      "policy": {
+        "name": "check-images",
+        "kind": "ImageValidatingPolicy"
+      },
+      "resource": {
+        "kind": "Pod",
+        "name": "no-team",
+        "namespace": "prod"
+      },
+      "scope": {
+        "applied": true,
+        "reason": "matched kind Pod, namespace prod, operation CREATE"
+      },
+      "match": [
+        {
+          "name": "not-kube-system",
+          "expression": "object.metadata.namespace != 'kube-system'",
+          "evaluated": [
+            {
+              "expression": "object.metadata.namespace != \"kube-system\"",
+              "value": "true"
+            },
+            {
+              "expression": "object.metadata.namespace",
+              "value": "prod"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[name:no-team namespace:prod]"
+            }
+          ],
+          "result": "true"
+        }
+      ],
+      "variables": [
+        {
+          "name": "team",
+          "expression": "object.metadata.?labels.?team.orValue('')",
+          "evaluated": [
+            {
+              "expression": "object.metadata.?labels.?team.orValue(\"\")"
+            },
+            {
+              "expression": "object.metadata.?labels.?team",
+              "value": "<nil>"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[name:no-team namespace:prod]"
+            }
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "index": 0,
+          "status": "PASS",
+          "expression": "images.containers.all(i, i.startsWith('registry.example.com/'))",
+          "evaluated": [
+            {
+              "expression": "images.containers",
+              "value": "[]"
+            }
+          ],
+          "result": "true"
+        },
+        {
+          "index": 1,
+          "status": "FAIL",
+          "expression": "variables.team != ''",
+          "evaluated": [
+            {
+              "expression": "variables.team != \"\"",
+              "value": "false"
+            },
+            {
+              "expression": "variables.team"
+            }
+          ],
+          "result": "false"
+        }
+      ],
+      "images": {
+        "found": [
+          {
+            "category": "containers",
+            "image": "docker.io/library/nginx:1.27",
+            "checked": false
+          }
+        ]
+      },
+      "verdict": {
+        "status": "FAIL",
+        "expression": "variables.team != ''",
+        "evaluated": [
+          {
+            "expression": "variables.team != \"\"",
+            "value": "false"
+          },
+          {
+            "expression": "variables.team"
+          }
+        ],
+        "result": "false",
+        "message": "pods need a team label"
+      }
+    },
+    {
+      "policy": {
+        "name": "check-images",
+        "kind": "ImageValidatingPolicy"
+      },
+      "resource": {
+        "kind": "Pod",
+        "name": "system",
+        "namespace": "kube-system"
+      },
+      "scope": {
+        "applied": true,
+        "reason": "matched kind Pod, namespace kube-system, operation CREATE"
+      },
+      "match": [
+        {
+          "name": "not-kube-system",
+          "expression": "object.metadata.namespace != 'kube-system'",
+          "evaluated": [
+            {
+              "expression": "object.metadata.namespace != \"kube-system\"",
+              "value": "false"
+            },
+            {
+              "expression": "object.metadata.namespace",
+              "value": "kube-system"
+            },
+            {
+              "expression": "object.metadata",
+              "value": "map[name:system namespace:kube-system]"
+            }
+          ],
+          "result": "false"
+        }
+      ],
+      "verdict": {
+        "status": "SKIP",
+        "message": "match condition \"not-kube-system\" did not pass, so the policy was skipped"
+      }
+    }
+  ],
+  "summary": {
+    "pass": 1,
+    "fail": 1,
+    "warn": 0,
+    "error": 0,
+    "skip": 0
+  }
+}
