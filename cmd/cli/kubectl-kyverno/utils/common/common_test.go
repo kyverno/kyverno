@@ -177,6 +177,49 @@ func TestGetResourceAccordingToResourcePath_MixedURLAndDirectory(t *testing.T) {
 	})
 }
 
+func TestGetResourceAccordingToResourcePath_InvalidOrUnreachableURL(t *testing.T) {
+	notFoundServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	defer notFoundServer.Close()
+
+	tmpDir := t.TempDir()
+	validDir := filepath.Join(tmpDir, "valid-dir")
+	require.NoError(t, os.Mkdir(validDir, 0o755))
+	cm := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cm-valid\n  namespace: default\n"
+	require.NoError(t, os.WriteFile(filepath.Join(validDir, "cm.yaml"), []byte(cm), 0o644))
+
+	testCases := []struct {
+		name  string
+		paths []string
+	}{
+		{
+			name:  "http 404 url alone",
+			paths: []string{notFoundServer.URL + "/missing.yaml"},
+		},
+		{
+			name:  "valid directory followed by http 404 url",
+			paths: []string{validDir, notFoundServer.URL + "/missing.yaml"},
+		},
+		{
+			name:  "malformed http url",
+			paths: []string{"http://[::1]:namedport/resource.yaml"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resources, err := GetResourceAccordingToResourcePath(
+				io.Discard, nil, tc.paths,
+				false, nil, nil, "", false, false, "",
+				loader.ResourceOptions{}, false,
+			)
+			require.Error(t, err)
+			assert.Nil(t, resources)
+		})
+	}
+}
+
 func TestGetResourceAccordingToResourcePath_NonExistentPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	validDir := filepath.Join(tmpDir, "valid-dir")

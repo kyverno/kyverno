@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -71,6 +72,9 @@ func (rf *ResourceFetcher) getFromLocalFiles() ([]*unstructured.Unstructured, er
 	for _, path := range rf.ResourcePaths {
 		resourceBytes, err := resource.GetFileBytes(path)
 		if err != nil {
+			if source.IsHttp(path) {
+				return nil, err
+			}
 			if rf.PolicyReport {
 				log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", path), "error", err)
 			} else {
