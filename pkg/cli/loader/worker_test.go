@@ -276,3 +276,29 @@ func TestWorkerPool_CloseCancelsInFlightRequest(t *testing.T) {
 		assert.ErrorIs(t, res.Error, context.Canceled)
 	}
 }
+
+func TestWorkerPool_IdempotentCloseAndConcurrentSubmit(t *testing.T) {
+	logger := logrus.New()
+	wp := NewWorkerPool(WorkerPoolConfig{
+		Workers:   2,
+		QueueSize: 4,
+		Logger:    logger,
+	})
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 20; i++ {
+			wp.SubmitTask(context.Background(), LoadTask{ID: "concurrent-task"})
+		}
+	}()
+
+	wp.Close(nil)
+	wp.Close(nil)
+	<-done
+
+	_, ok := <-wp.GetResults()
+	for ok {
+		_, ok = <-wp.GetResults()
+	}
+}

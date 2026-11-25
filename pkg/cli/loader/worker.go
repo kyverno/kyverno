@@ -17,6 +17,9 @@ type WorkerPool struct {
 	taskQueue  chan LoadTask
 	resultChan chan LoadTaskResult
 	wg         sync.WaitGroup
+	mu         sync.RWMutex
+	closed     bool
+	closeOnce  sync.Once
 	logger     *logrus.Logger
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -128,8 +131,21 @@ func (wp *WorkerPool) processTask(ctx context.Context, task LoadTask) LoadTaskRe
 }
 
 func (wp *WorkerPool) SubmitTask(ctx context.Context, task LoadTask) {
+	wp.mu.RLock()
+	defer wp.mu.RUnlock()
+	if wp.closed {
+		wp.logger.Debug("worker pool is closed; ignoring submitted task: ", task.ID)
+		return
+	}
+	var wpDone <-chan struct{}
+	if wp.ctx != nil {
+		wpDone = wp.ctx.Done()
+	}
 	select {
 	case <-ctx.Done():
+		wp.logger.Debug("worker pool is closed; ignoring submitted task: ", task.ID)
+		return
+	case <-wpDone:
 		wp.logger.Debug("worker pool is closed; ignoring submitted task: ", task.ID)
 		return
 	default:
@@ -153,11 +169,16 @@ func (wp *WorkerPool) Cancel() {
 }
 
 func (wp *WorkerPool) Close(cancel context.CancelFunc) {
-	if cancel != nil {
-		cancel()
-	}
-	wp.Cancel()
-	close(wp.taskQueue)
-	wp.wg.Wait()
-	close(wp.resultChan)
+	wp.closeOnce.Do(func() {
+		if cancel != nil {
+			cancel()
+		}
+		wp.Cancel()
+		wp.mu.Lock()
+		wp.closed = true
+		close(wp.taskQueue)
+		wp.mu.Unlock()
+		wp.wg.Wait()
+		close(wp.resultChan)
+	})
 }
