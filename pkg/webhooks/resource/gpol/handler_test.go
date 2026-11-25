@@ -181,6 +181,13 @@ func TestGenerate_UnrelatedSecretDoesNotCreateUpdateRequest(t *testing.T) {
 	resp := h.Generate(ctx, logr.Discard(), req, "", time.Now())
 	assert.True(t, resp.Allowed)
 
-	time.Sleep(200 * time.Millisecond)
+	h.queuePolicies(ctx, logr.Discard(), []string{"clone-example"}, req, func(name string) (policiesv1beta1.GeneratingPolicyLike, error) {
+		if h.gpolLister == nil {
+			return nil, errNoPolicyLister
+		}
+		return h.gpolLister.Get(name)
+	}, func(name string) string {
+		return name
+	})
 	assert.Equal(t, int32(0), mock.called.Load(), "an unrelated secret must not create an UpdateRequest")
 }

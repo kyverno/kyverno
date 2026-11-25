@@ -136,7 +136,7 @@ func (h *handler) queuePolicies(
 			logger.V(4).Info("skipping background request for generating policy", "policy", name)
 			continue
 		}
-		plan := planGeneratingAdmission(policy, admissionRequest, object, oldObject)
+		plan := planGeneratingAdmission(ctx, policy, admissionRequest, object, oldObject)
 		if !plan.queue {
 			logger.V(4).Info("skipping update request; resource is not a trigger for this generating policy", "policy", name, "operation", request.Operation)
 			continue

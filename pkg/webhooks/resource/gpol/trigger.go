@@ -42,6 +42,7 @@ type admissionPlan struct {
 // selector) does not exclude the request. The background engine still matches
 // before it generates.
 func planGeneratingAdmission(
+	ctx context.Context,
 	policy policiesv1beta1.GeneratingPolicyLike,
 	request admissionv1.AdmissionRequest,
 	object unstructured.Unstructured,
@@ -57,23 +58,23 @@ func planGeneratingAdmission(
 
 	switch request.Operation {
 	case admissionv1.Create:
-		if triggerMatches(constraints, conditions, request, &object, &oldObject, true, false) {
+		if triggerMatches(ctx, constraints, conditions, request, &object, &oldObject, true, false) {
 			return admissionPlan{queue: true}
 		}
 	case admissionv1.Update:
-		if triggerMatches(constraints, conditions, request, &object, &oldObject, true, false) {
+		if triggerMatches(ctx, constraints, conditions, request, &object, &oldObject, true, false) {
 			return admissionPlan{queue: true, synchronize: sync}
 		}
 		// The live object no longer matches. If the previous object did, synchronize
 		// still has to delete the downstream resources it created for this trigger.
-		if sync && triggerMatches(constraints, conditions, request, &oldObject, &oldObject, false, true) {
+		if sync && triggerMatches(ctx, constraints, conditions, request, &oldObject, &oldObject, false, true) {
 			return admissionPlan{queue: true, synchronize: true}
 		}
 	case admissionv1.Delete:
 		// DELETE carries the trigger in oldObject. Match that object, and do not
 		// require the policy to have listed DELETE: synchronize observes deletion
 		// of a trigger whose rule only names CREATE or UPDATE.
-		if !triggerMatches(constraints, conditions, request, &oldObject, &oldObject, false, true) {
+		if !triggerMatches(ctx, constraints, conditions, request, &oldObject, &oldObject, false, true) {
 			return admissionPlan{}
 		}
 		if operationListed(constraints, admissionregistrationv1.Delete) {
@@ -83,7 +84,7 @@ func planGeneratingAdmission(
 			return admissionPlan{queue: true, deleteDownstream: true}
 		}
 	default:
-		if triggerMatches(constraints, conditions, request, &object, &oldObject, true, false) {
+		if triggerMatches(ctx, constraints, conditions, request, &object, &oldObject, true, false) {
 			return admissionPlan{queue: true}
 		}
 	}
@@ -96,6 +97,7 @@ func planGeneratingAdmission(
 // rule is still recognized. cleanup is the synchronize path that looks at the
 // previous object while the admission operation is UPDATE or DELETE.
 func triggerMatches(
+	ctx context.Context,
 	constraints admissionregistrationv1.MatchResources,
 	conditions []admissionregistrationv1.MatchCondition,
 	request admissionv1.AdmissionRequest,
@@ -122,7 +124,7 @@ func triggerMatches(
 	if !matched {
 		return false
 	}
-	return conditionsMatch(conditions, request, candidate, oldObject, cleanup)
+	return conditionsMatch(ctx, conditions, request, candidate, oldObject, cleanup)
 }
 
 func operationListed(constraints admissionregistrationv1.MatchResources, operation admissionregistrationv1.OperationType) bool {
@@ -197,6 +199,7 @@ var triggerMatcher = matching.NewMatcher()
 // request.operation == "CREATE" was true when the downstream resources were
 // generated and is false on the delete that must remove them.
 func conditionsMatch(
+	ctx context.Context,
 	conditions []admissionregistrationv1.MatchCondition,
 	request admissionv1.AdmissionRequest,
 	object *unstructured.Unstructured,
@@ -210,6 +213,9 @@ func conditionsMatch(
 	if err != nil {
 		return true
 	}
+	// The worker outlives the HTTP request. Drop cancellation and keep the
+	// request cost budget that admission already attached to ctx.
+	evalCtx := context.WithoutCancel(ctx)
 	for _, condition := range conditions {
 		if cleanup && referencesRequest(condition.Expression) {
 			continue
@@ -218,7 +224,7 @@ func conditionsMatch(
 		if !ok {
 			continue
 		}
-		out, _, err := program.ContextEval(context.Background(), activation)
+		out, _, err := program.ContextEval(evalCtx, activation)
 		if err != nil {
 			continue
 		}
@@ -234,30 +240,40 @@ func conditionsMatch(
 }
 
 func conditionActivation(request admissionv1.AdmissionRequest, object, oldObject runtime.Object) (map[string]any, error) {
-	objectVal, err := celutils.ObjectToResolveVal(object)
+	name := request.Name
+	namespace := request.Namespace
+	if u, ok := object.(*unstructured.Unstructured); ok && u != nil {
+		if name == "" {
+			name = u.GetName()
+		}
+		if namespace == "" {
+			namespace = u.GetNamespace()
+		}
+	}
+	attr := admission.NewAttributesRecord(
+		object,
+		oldObject,
+		schema.GroupVersionKind(request.Kind),
+		namespace,
+		name,
+		schema.GroupVersionResource(request.Resource),
+		request.SubResource,
+		admission.Operation(request.Operation),
+		nil,
+		false,
+		admissionpolicy.NewUser(request.UserInfo),
+	)
+	activation, err := compiler.PrepareK8sActivation(attr, &request, nil, nil, compiler.BuildRawRequestMap)
 	if err != nil {
 		return nil, err
 	}
-	oldVal, err := celutils.ObjectToResolveVal(oldObject)
-	if err != nil {
-		return nil, err
-	}
-	requestMap, err := compiler.BuildRawRequestMap(&request)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{
-		compiler.NamespaceObjectKey: nil,
-		compiler.ObjectKey:          objectVal,
-		compiler.OldObjectKey:       oldVal,
-		compiler.RequestKey:         requestMap,
-	}, nil
+	return activation.ToMap(), nil
 }
 
 var (
 	conditionEnvOnce sync.Once
 	conditionEnv     *cel.Env
-	conditionEnvErr  error
+	errConditionEnv  error
 
 	conditionPrograms sync.Mutex
 	conditionCache    = map[string]cel.Program{}
@@ -266,7 +282,7 @@ var (
 
 func matchConditionEnv() (*cel.Env, error) {
 	conditionEnvOnce.Do(func() {
-		conditionEnv, conditionEnvErr = compiler.NewEnv(append(
+		conditionEnv, errConditionEnv = compiler.NewEnv(append(
 			compiler.DefaultEnvOptionsWithCompat(),
 			cel.Variable(compiler.NamespaceObjectKey, cel.DynType),
 			cel.Variable(compiler.ObjectKey, cel.DynType),
@@ -274,7 +290,7 @@ func matchConditionEnv() (*cel.Env, error) {
 			cel.Variable(compiler.RequestKey, cel.DynType),
 		)...)
 	})
-	return conditionEnv, conditionEnvErr
+	return conditionEnv, errConditionEnv
 }
 
 // referencesRequest reports whether expression reads the admission request.

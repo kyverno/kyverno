@@ -1,6 +1,7 @@
 package gpol
 
 import (
+	"context"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -83,7 +84,7 @@ func TestPlanGeneratingAdmissionSkipsUnrelatedSecrets(t *testing.T) {
 			if namespace == "" {
 				namespace = tt.oldObject.GetNamespace()
 			}
-			plan := planGeneratingAdmission(policy, secretAdmission(tt.operation, namespace, name), tt.object, tt.oldObject)
+			plan := planGeneratingAdmission(context.Background(), policy, secretAdmission(tt.operation, namespace, name), tt.object, tt.oldObject)
 			assert.Equal(t, tt.wantQueue, plan.queue)
 			assert.Equal(t, tt.wantDelete, plan.deleteDownstream)
 			assert.Equal(t, tt.wantSynchronize, plan.synchronize)
@@ -93,15 +94,21 @@ func TestPlanGeneratingAdmissionSkipsUnrelatedSecrets(t *testing.T) {
 
 func TestPlanGeneratingAdmissionKeepsTriggerThatStopsMatching(t *testing.T) {
 	t.Parallel()
-	policy := cloneSecretPolicy(true, `object.metadata.labels.keep == "yes"`)
+	expression := `object.metadata.labels.keep == "yes"`
 	oldObject := secretObject("src", "source-secret")
 	object := secretObject("src", "source-secret")
-	unstructured.RemoveNestedField(object.Object, "metadata", "labels", "keep")
+	// A missing key is a CEL error, which this pre-filter treats as a match.
+	// "no" evaluates false, so only the previous object reaches the cleanup path.
+	assert.NoError(t, unstructured.SetNestedField(object.Object, "no", "metadata", "labels", "keep"))
+	request := secretAdmission(admissionv1.Update, "src", "source-secret")
 
-	plan := planGeneratingAdmission(policy, secretAdmission(admissionv1.Update, "src", "source-secret"), object, oldObject)
+	plan := planGeneratingAdmission(context.Background(), cloneSecretPolicy(true, expression), request, object, oldObject)
 	assert.True(t, plan.queue)
 	assert.True(t, plan.synchronize)
 	assert.False(t, plan.deleteDownstream)
+
+	unsynced := planGeneratingAdmission(context.Background(), cloneSecretPolicy(false, expression), request, object, oldObject)
+	assert.False(t, unsynced.queue)
 }
 
 func TestPlanGeneratingAdmissionDeleteKeepsTriggerWhenConditionReadsRequest(t *testing.T) {
@@ -109,18 +116,18 @@ func TestPlanGeneratingAdmissionDeleteKeepsTriggerWhenConditionReadsRequest(t *t
 	policy := cloneSecretPolicy(true, `request.operation == "CREATE" && object.metadata.namespace == "src"`)
 	source := secretObject("src", "source-secret")
 
-	deleted := planGeneratingAdmission(policy, secretAdmission(admissionv1.Delete, "src", "source-secret"), unstructured.Unstructured{}, source)
+	deleted := planGeneratingAdmission(context.Background(), policy, secretAdmission(admissionv1.Delete, "src", "source-secret"), unstructured.Unstructured{}, source)
 	assert.True(t, deleted.queue)
 	assert.True(t, deleted.deleteDownstream)
 	assert.False(t, deleted.synchronize)
 
-	updated := planGeneratingAdmission(policy, secretAdmission(admissionv1.Update, "src", "source-secret"), source, source)
+	updated := planGeneratingAdmission(context.Background(), policy, secretAdmission(admissionv1.Update, "src", "source-secret"), source, source)
 	assert.True(t, updated.queue)
 	assert.True(t, updated.synchronize)
 	assert.False(t, updated.deleteDownstream)
 
 	other := secretObject("other", "unrelated")
-	unrelated := planGeneratingAdmission(policy, secretAdmission(admissionv1.Delete, "other", "unrelated"), unstructured.Unstructured{}, other)
+	unrelated := planGeneratingAdmission(context.Background(), policy, secretAdmission(admissionv1.Delete, "other", "unrelated"), unstructured.Unstructured{}, other)
 	assert.False(t, unrelated.queue)
 }
 
@@ -133,25 +140,25 @@ func TestConditionsMatchTreatsRequestAsInconclusiveOnCleanup(t *testing.T) {
 	source := secretObject("src", "source-secret")
 	request := secretAdmission(admissionv1.Delete, "src", "source-secret")
 
-	assert.False(t, conditionsMatch(conditions, request, &source, &source, false))
-	assert.True(t, conditionsMatch(conditions, request, &source, &source, true))
+	assert.False(t, conditionsMatch(context.Background(), conditions, request, &source, &source, false))
+	assert.True(t, conditionsMatch(context.Background(), conditions, request, &source, &source, true))
 
 	objectOnly := []admissionregistrationv1.MatchCondition{{
 		Name:       "source-namespace",
 		Expression: `object.metadata.namespace == "src"`,
 	}}
 	elsewhere := secretObject("other", "source-secret")
-	assert.False(t, conditionsMatch(objectOnly, secretAdmission(admissionv1.Delete, "other", "source-secret"), &elsewhere, &elsewhere, true))
+	assert.False(t, conditionsMatch(context.Background(), objectOnly, secretAdmission(admissionv1.Delete, "other", "source-secret"), &elsewhere, &elsewhere, true))
 }
 
 func TestPlanGeneratingAdmissionIgnoresKyvernoOnlyMatchCondition(t *testing.T) {
 	t.Parallel()
 	policy := cloneSecretPolicy(true, `resource.Get("v1", "secrets", "src", "source-secret") != null && object.metadata.namespace == "src"`)
 
-	matched := planGeneratingAdmission(policy, secretAdmission(admissionv1.Create, "src", "source-secret"), secretObject("src", "source-secret"), unstructured.Unstructured{})
+	matched := planGeneratingAdmission(context.Background(), policy, secretAdmission(admissionv1.Create, "src", "source-secret"), secretObject("src", "source-secret"), unstructured.Unstructured{})
 	assert.True(t, matched.queue, "a Kyverno-only function must not hide a trigger the rest of the condition accepts")
 
-	unrelated := planGeneratingAdmission(policy, secretAdmission(admissionv1.Update, "other", "unrelated"), secretObject("other", "unrelated"), secretObject("other", "unrelated"))
+	unrelated := planGeneratingAdmission(context.Background(), policy, secretAdmission(admissionv1.Update, "other", "unrelated"), secretObject("other", "unrelated"), secretObject("other", "unrelated"))
 	assert.False(t, unrelated.queue)
 }
 
