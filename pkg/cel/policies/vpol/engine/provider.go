@@ -32,19 +32,13 @@ func NewProvider(
 	compiler vpolcompiler.Compiler,
 	policies []policiesv1beta1.ValidatingPolicyLike,
 	exceptions []*policiesv1beta1.PolicyException,
+	scope engine.ExceptionScope,
 ) (ProviderFunc, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
 		spec := policy.GetValidatingPolicySpec()
 		actions := sets.New(spec.ValidationActions()...)
-		var matchedExceptions []*policiesv1beta1.PolicyException
-		for _, polex := range exceptions {
-			for _, ref := range polex.Spec.PolicyRefs {
-				if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
-					matchedExceptions = append(matchedExceptions, polex)
-				}
-			}
-		}
+		matchedExceptions := scope.Select(exceptions, policy.GetKind(), policy.GetName(), policy.GetNamespace())
 		compiled, errs := compiler.Compile(policy, matchedExceptions)
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())

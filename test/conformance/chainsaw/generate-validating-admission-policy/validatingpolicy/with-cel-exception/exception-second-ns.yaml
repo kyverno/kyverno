@@ -1,0 +1,12 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: check-deployment-name-from-ns-b
+  namespace: vap-exception-ns-b
+spec:
+  policyRefs:
+  - name: "check-deployment-labels"
+    kind: ValidatingPolicy
+  matchConditions:
+    - name: "check-name-from-ns-b"
+      expression: "object.metadata.name == 'skipped-deployment-from-ns-b'"

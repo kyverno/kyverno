@@ -472,7 +472,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.logging.verbosity | int | `2` | Logging verbosity |
 | features.omitEvents.eventTypes | list | `["PolicyApplied","PolicySkipped"]` | Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`) |
 | features.policyExceptions.enabled | bool | `false` | Enables the feature |
-| features.policyExceptions.namespace | string | `""` | Restrict policy exceptions to a single namespace Set to "*" to allow exceptions in all namespaces |
+| features.policyExceptions.namespace | string | `""` | The namespace that owns exceptions. A concrete namespace (recommended) accepts exceptions from that namespace only, and is also the central namespace that may except any cluster-scoped or namespaced policy. "*" allows a PolicyException from any namespace to apply to a cluster-scoped policy; a namespaced policy still only accepts exceptions from its own namespace. Leaving this empty accepts no exceptions, so rendering fails if enabled is true and namespace is empty. |
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
 | features.protectGenerationLabels.enabled | bool | `true` | Enables generation label protection webhook |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |

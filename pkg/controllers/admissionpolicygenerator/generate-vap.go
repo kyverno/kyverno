@@ -43,7 +43,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 	var reason string
 	if wantVap {
 		var err error
-		celexceptions, err = c.getCELExceptions(policy.GetName(), pol.GetKind())
+		celexceptions, err = c.getCELExceptions(policy.GetName(), pol.GetKind(), pol.GetNamespace())
 		if err != nil {
 			return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
 		}
