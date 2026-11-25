@@ -153,23 +153,3 @@ func filterPolicies(ivpols []*CompiledImageValidatingPolicy, isK8s bool) []*Comp
 	}
 	return filteredPolicies
 }
-
-// MatchExceptions returns all exceptions from the supplied list that reference the given policy.
-func MatchExceptions(
-	policy policiesv1beta1.ImageValidatingPolicyLike,
-	exceptions []*policiesv1beta1.PolicyException,
-) []*policiesv1beta1.PolicyException {
-	var matched []*policiesv1beta1.PolicyException
-	for _, polex := range exceptions {
-		if polex.IsExpired() {
-			continue
-		}
-		for _, ref := range polex.Spec.PolicyRefs {
-			if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
-				matched = append(matched, polex)
-				break
-			}
-		}
-	}
-	return matched
-}

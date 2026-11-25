@@ -1,0 +1,21 @@
+# Binds a name to a variable that holds a Secret's data, with cel.bind and optMap: --explain must
+# not print the value of that name either, but still prints the team label it is checked with.
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-bound-password
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  variables:
+  - name: password
+    expression: "resource.Get('v1', 'secrets', 'kyverno', 'db-credentials').data.password"
+  validations:
+  - expression: "optional.of(variables.password).optMap(p, p != '').orValue(false) == true"
+    message: "the password is set"
+  - expression: "cel.bind(pw, variables.password, object.metadata.labels.team == 'payments' && pw == 'hunter2')"
+    message: "the password is not the expected one"

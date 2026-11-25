@@ -3435,4 +3435,133 @@ results:
 		assert.Equal(t, engineapi.RuleStatusFail, enforcedRule.Status())
 		assert.Empty(t, enforcedRule.Exceptions())
 	})
+
+	t.Run("PolicyException in foreign namespace does not exempt NamespacedImageValidatingPolicy on JSON payload", func(t *testing.T) {
+		const nivpolYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedImageValidatingPolicy
+metadata:
+  name: nivpol-cross-ns
+  namespace: tenant-a
+spec:
+  evaluation:
+    mode: JSON
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  matchImageReferences:
+  - glob: "ghcr.io/*"
+  images:
+  - name: app
+    expression: "[object.app]"
+  attestors:
+  - name: notary
+    notary:
+      certs:
+        value: |-
+` + testNotaryCert + `
+  validations:
+  - expression: "images.app.size() == 0"
+    message: "no images allowed"
+`
+		const foreignPolexYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-foreign-ns
+  namespace: tenant-b
+spec:
+  policyRefs:
+  - name: nivpol-cross-ns
+    kind: NamespacedImageValidatingPolicy
+`
+		const ownPolexYAML = `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: ex-own-ns
+  namespace: tenant-a
+spec:
+  policyRefs:
+  - name: nivpol-cross-ns
+    kind: NamespacedImageValidatingPolicy
+`
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.yaml"), []byte(nivpolYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "foreign-polex.yaml"), []byte(foreignPolexYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "own-polex.yaml"), []byte(ownPolexYAML), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "payload.json"), []byte(payloadJSON), 0o600))
+
+		// 1. Foreign-namespace exception must NOT exempt the policy -> result: fail
+		const testForeignYAML = `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-foreign-ns-exception
+policies:
+  - policy.yaml
+exceptions:
+  - foreign-polex.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - kind: NamespacedImageValidatingPolicy
+    policy: tenant-a/nivpol-cross-ns
+    resources:
+      - payload.json
+    result: fail
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test-foreign.yaml"), []byte(testForeignYAML), 0o600))
+
+		testCasesForeign := test.LoadTest(nil, filepath.Join(dir, "kyverno-test-foreign.yaml"))
+		require.Len(t, testCasesForeign, 1)
+		testResponseForeign, err := runTest(context.TODO(), &bytes.Buffer{}, testCasesForeign[0], false)
+		require.NoError(t, err)
+		responsesForeign := testResponseForeign.Trigger["payload.json"]
+		require.Len(t, responsesForeign, 1)
+
+		respForeign := responsesForeign[0]
+		assert.Equal(t, "NamespacedImageValidatingPolicy", respForeign.Policy().GetKind())
+		assert.Equal(t, "nivpol-cross-ns", respForeign.Policy().GetName())
+		assert.Equal(t, "tenant-a", respForeign.Policy().GetNamespace())
+		require.Len(t, respForeign.PolicyResponse.Rules, 1)
+		ruleForeign := respForeign.PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusFail, ruleForeign.Status())
+		assert.Empty(t, ruleForeign.Exceptions())
+
+		// 2. Same-namespace exception DOES exempt the policy -> result: skip
+		const testOwnYAML = `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-own-ns-exception
+policies:
+  - policy.yaml
+exceptions:
+  - own-polex.yaml
+jsonPayloads:
+  - payload.json
+results:
+  - kind: NamespacedImageValidatingPolicy
+    policy: tenant-a/nivpol-cross-ns
+    resources:
+      - payload.json
+    result: skip
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "kyverno-test-own.yaml"), []byte(testOwnYAML), 0o600))
+
+		testCasesOwn := test.LoadTest(nil, filepath.Join(dir, "kyverno-test-own.yaml"))
+		require.Len(t, testCasesOwn, 1)
+		testResponseOwn, err := runTest(context.TODO(), &bytes.Buffer{}, testCasesOwn[0], false)
+		require.NoError(t, err)
+		responsesOwn := testResponseOwn.Trigger["payload.json"]
+		require.Len(t, responsesOwn, 1)
+
+		respOwn := responsesOwn[0]
+		assert.Equal(t, "NamespacedImageValidatingPolicy", respOwn.Policy().GetKind())
+		assert.Equal(t, "nivpol-cross-ns", respOwn.Policy().GetName())
+		assert.Equal(t, "tenant-a", respOwn.Policy().GetNamespace())
+		require.Len(t, respOwn.PolicyResponse.Rules, 1)
+		ruleOwn := respOwn.PolicyResponse.Rules[0]
+		assert.Equal(t, engineapi.RuleStatusSkip, ruleOwn.Status())
+		assert.Contains(t, ruleOwn.Message(), "tenant-a/ex-own-ns")
+		require.Len(t, ruleOwn.Exceptions(), 1)
+		assert.Equal(t, "ex-own-ns", ruleOwn.Exceptions()[0].GetName())
+		assert.Equal(t, "tenant-a", ruleOwn.Exceptions()[0].GetNamespace())
+	})
 }

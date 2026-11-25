@@ -132,6 +132,8 @@ type ApplyCommandConfig struct {
 	ShowPerformance           bool
 	CrdPaths                  []string
 	deprecationWarnings       []string
+	// decisions are the decision traces kept for printDecisions with --explain --output-format json
+	decisions []*trace.Decision
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -169,6 +171,9 @@ func Command() *cobra.Command {
 			table, err = applyCommandConfig.resolveOutputFlags(cmd, table, detailedResults)
 			if err != nil {
 				return err
+			}
+			if applyCommandConfig.explainJSON() {
+				return applyCommandConfig.explainAsJSON(cmd)
 			}
 			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
 			if err != nil {
@@ -246,7 +251,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.ValuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().StringVarP(&applyCommandConfig.ContextPath, "context-file", "", "", "File containing context data for CEL policies")
 	cmd.Flags().BoolVarP(&applyCommandConfig.PolicyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
-	cmd.Flags().StringVarP(&applyCommandConfig.OutputFormat, "output-format", "", "yaml", "Output format: json or yaml for policy reports/exceptions, or table for evaluation results")
+	cmd.Flags().StringVarP(&applyCommandConfig.OutputFormat, "output-format", "", "yaml", "Output format: json or yaml for policy reports/exceptions, json for --explain, or table for evaluation results")
 	cmd.Flags().StringVarP(&applyCommandConfig.Namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
 	cmd.Flags().BoolVar(&applyCommandConfig.RegistryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
@@ -255,7 +260,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
 	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
-	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy, MutatingPolicy, GeneratingPolicy, ImageValidatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, the images it checked, and its validations, the mutations it ran, the generate entries it ran or its delete conditions. The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive")
+	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy, MutatingPolicy, GeneratingPolicy, ImageValidatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, the images it checked, and its validations, the mutations it ran, the generate entries it ran or its delete conditions. The trace prints the values the expressions read, including resource fields and variables; values that may come from a Secret are shown as (redacted), but treat the output as sensitive. With --output-format json, the traces and the summary are written as one JSON document (a trace.kyverno.io/v1alpha1 DecisionList), and everything else apply prints goes to standard error; if apply stops on an error, the document holds the decisions made before it and the error")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "Treat audit-only ValidatingPolicy and ImageValidatingPolicy violations as warnings (counted as warn; by default exit 0)")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
@@ -640,7 +645,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 						}
 					}
 					if len(k8sPolicies) > 0 && len(resources) > 0 {
-						vpolProvider, err = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
+						vpolProvider, err = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions, celengine.ExceptionScopeAll)
 						if err != nil {
 							if !c.ContinueOnFail {
 								return &rc, resources, responses, err
@@ -650,7 +655,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 						}
 					}
 					if len(jsonPolicies) > 0 {
-						vpolJSONProvider, err = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
+						vpolJSONProvider, err = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions, celengine.ExceptionScopeAll)
 						if err != nil {
 							if !c.ContinueOnFail {
 								return &rc, resources, responses, err
@@ -669,7 +674,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 						}
 						return len(resources) == 0
 					})
-					mpolProvider, err = mpolengine.NewProvider(compiler, toCompile, celExceptions, contextProvider)
+					mpolProvider, err = mpolengine.NewProvider(compiler, toCompile, celExceptions, contextProvider, celengine.ExceptionScopeAll)
 					if err != nil {
 						if !c.ContinueOnFail {
 							return &rc, resources, responses, err
@@ -714,6 +719,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
 			Explain:                           c.Explain,
+			TraceSink:                         c.traceSink(),
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
@@ -763,6 +769,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
 			Explain:                           c.Explain,
+			TraceSink:                         c.traceSink(),
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
@@ -841,7 +848,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	}
 
 	// Compilation captures the CLI library defaults, so initialize them first.
-	provider, err := ivpolengine.NewProvider(eval.NewCompilerWithTrace(lister, c.Explain), ivps, celExceptions)
+	provider, err := ivpolengine.NewProvider(eval.NewCompilerWithTrace(lister, c.Explain), ivps, celExceptions, celengine.ExceptionScopeAll)
 	if err != nil {
 		return nil, err
 	}
@@ -889,7 +896,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
-				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
+				fmt.Fprintf(out, "failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
 				continue
 			}
 			return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
@@ -921,8 +928,13 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		key := celpolicies.PolicyKey(p)
 		pMap[key] = p
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{
-			Policy:     p,
-			Exceptions: eval.MatchExceptions(p, celExceptions),
+			Policy: p,
+			Exceptions: celengine.ExceptionScopeAll.Select(
+				celExceptions,
+				p.GetKind(),
+				p.GetName(),
+				p.GetNamespace(),
+			),
 		})
 	}
 
@@ -936,7 +948,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		}
 		if err != nil {
 			if c.ContinueOnFail {
-				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
+				fmt.Fprintf(out, "failed to apply image validating policies on JSON payload: %v\n", err)
 				continue
 			}
 			return responses, fmt.Errorf("failed to apply image validating policies on JSON payload: %w", err)
@@ -1006,10 +1018,59 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	return responses, nil
 }
 
-// printTrace prints one decision trace. It prints nothing unless --explain is set and the policy
-// was traced, so it is safe to call for every response.
+// explainJSON reports whether the traces are written as one JSON document, with --explain
+// --output-format json.
+func (c *ApplyCommandConfig) explainJSON() bool {
+	return c.Explain && c.OutputFormat == "json"
+}
+
+// traceSink returns what the policy processor hands each decision trace to instead of printing
+// it: printTrace with --explain --output-format json, nothing otherwise.
+func (c *ApplyCommandConfig) traceSink() func(*trace.Decision) {
+	if !c.explainJSON() {
+		return nil
+	}
+	return func(d *trace.Decision) { c.printTrace(nil, d) }
+}
+
+// explainAsJSON runs apply with --explain --output-format json. Standard output then carries only
+// the decisions and the summary, as one trace.DecisionList, so that it can be parsed; everything
+// apply prints otherwise, its warnings, the mutated and generated resources and why it exits,
+// goes to standard error instead. When apply stops on an error, the list still holds the
+// decisions made before it, and the error, rather than standard output being left empty; the
+// command fails with the error as it does without --output-format json. Arguments that cannot
+// be used together are rejected before anything is written, as they are without it.
+func (c *ApplyCommandConfig) explainAsJSON(cmd *cobra.Command) error {
+	if err := c.checkArguments(); err != nil {
+		return err
+	}
+	// the decisions of an earlier run of the same command are not this run's
+	c.decisions = nil
+	stderr := cmd.ErrOrStderr()
+	rc, _, skipInvalidPolicies, _, err := c.applyCommandHelper(cmd.Context(), stderr)
+	if err != nil {
+		if printErr := printDecisions(cmd.OutOrStdout(), c.decisions, rc, err); printErr != nil {
+			return printErr
+		}
+		return err
+	}
+	cmd.SilenceErrors = true
+	printSkippedAndInvalidPolicies(stderr, skipInvalidPolicies)
+	if err := printDecisions(cmd.OutOrStdout(), c.decisions, rc, nil); err != nil {
+		return err
+	}
+	return exit(stderr, rc, c.warnExitCode, c.warnNoPassed)
+}
+
+// printTrace prints one decision trace, or with --output-format json keeps it for printDecisions.
+// It does nothing unless --explain is set and the policy was traced, so it is safe to call for
+// every response.
 func (c *ApplyCommandConfig) printTrace(out io.Writer, d *trace.Decision) {
 	if !c.Explain || d == nil {
+		return
+	}
+	if c.explainJSON() {
+		c.decisions = append(c.decisions, d)
 		return
 	}
 	trace.Render(out, d)
@@ -1050,7 +1111,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	}
 
 	// Compilation captures the CLI library defaults, so initialize them first.
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions)
+	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions, celengine.ExceptionScopeAll)
 	if err != nil {
 		return nil, err
 	}
@@ -1073,10 +1134,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			resp, err := engine.Handle(context.TODO(), dpol, *resource)
 			// before the error and not-matched branches below, so their traces are printed too;
 			// Trace is only ever set when the policy was compiled with --explain
-			if resp.Trace != nil {
-				trace.Render(out, resp.Trace)
-				fmt.Fprintln(out)
-			}
+			c.printTrace(out, resp.Trace)
 			if err != nil {
 				response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)
 				response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
@@ -1087,7 +1145,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 				rc.AddValidatingPolicyResponse(c.AuditWarn, response)
 
 				if c.ContinueOnFail {
-					fmt.Printf("failed to apply deleting policies on %s: %v\n", payloadType, err)
+					fmt.Fprintf(out, "failed to apply deleting policies on %s: %v\n", payloadType, err)
 					continue
 				}
 				return responses, fmt.Errorf("failed to apply deleting policies on %s: %w", payloadType, err)
