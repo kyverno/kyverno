@@ -1,0 +1,12 @@
+{
+  "resolved_label": "possibly-resolved",
+  "needs_info_labels": ["cannot reproduce", "waiting for status update"],
+  "exempt_labels": ["no-stale", "hold", "security", "release-critical", "release-high", "workflow-failure"],
+  "queue_labels": [
+    "triage:critical-review",
+    "triage:needs-repro",
+    "triage:verify-closure",
+    "triage:scope-review",
+    "triage:decision"
+  ]
+}
