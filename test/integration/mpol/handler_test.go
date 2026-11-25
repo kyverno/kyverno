@@ -15,6 +15,7 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	mpol "github.com/kyverno/kyverno/pkg/webhooks/resource/mpol"
 	"github.com/kyverno/kyverno/test/integration/framework"
 	"github.com/stretchr/testify/assert"
@@ -183,6 +184,7 @@ func (allReportsEnabled) MutateExistingReportsEnabled() bool        { return tru
 func (allReportsEnabled) ImageVerificationReportsEnabled() bool     { return true }
 func (allReportsEnabled) GenerateReportsEnabled() bool              { return true }
 func (allReportsEnabled) IsStatusAllowed(engineapi.RuleStatus) bool { return true }
+func (allReportsEnabled) IsResultAllowed(openreportsv1alpha1.Result) bool { return true }
 
 // Regression test for the report label prefix bug where MutatingPolicy reports
 // were mislabeled under the ValidatingAdmissionPolicy prefix. Verifies the

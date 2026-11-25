@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
@@ -26,6 +27,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
+	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -36,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
+	informers "k8s.io/client-go/informers"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1informers "k8s.io/client-go/informers/admissionregistration/v1beta1"
@@ -81,6 +84,8 @@ type controller struct {
 	mapAlphaBindingLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyBindingLister
 	bgscanrLister         cache.GenericLister
 	cbgscanrLister        cache.GenericLister
+	polrLister            cache.GenericLister
+	cpolrLister           cache.GenericLister
 	nsLister              corev1listers.NamespaceLister
 	secretLister          corev1listers.SecretLister
 
@@ -95,6 +100,7 @@ type controller struct {
 	config             config.Configuration
 	eventGen           event.Interface
 	policyReports      bool
+	policyReportGV     schema.GroupVersion
 	gctxStore          gctxstore.Store
 	exceptionNamespace string
 
@@ -105,6 +111,7 @@ type controller struct {
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
+	orClient openreportsclient.OpenreportsV1alpha1Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
@@ -135,6 +142,17 @@ func NewController(
 ) controllers.Controller {
 	ephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("ephemeralreports"))
 	cephrInformer := metadataFactory.ForResource(reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"))
+	var (
+		polrInformer  informers.GenericInformer
+		cpolrInformer informers.GenericInformer
+	)
+	if policyReports && orClient != nil {
+		polrInformer = metadataFactory.ForResource(openreportsv1alpha1.SchemeGroupVersion.WithResource("reports"))
+		cpolrInformer = metadataFactory.ForResource(openreportsv1alpha1.SchemeGroupVersion.WithResource("clusterreports"))
+	} else if policyReports {
+		polrInformer = metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
+		cpolrInformer = metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
+	}
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: ControllerName},
@@ -156,6 +174,19 @@ func NewController(
 		mapper:             mapper,
 		secretLister:       secretLister,
 		typeConverter:      typeConverter,
+	}
+	if policyReports {
+		if orClient != nil {
+			c.policyReportGV = openreportsv1alpha1.SchemeGroupVersion
+		} else {
+			c.policyReportGV = policyreportv1alpha2.SchemeGroupVersion
+		}
+	}
+	if polrInformer != nil {
+		c.polrLister = polrInformer.Lister()
+	}
+	if cpolrInformer != nil {
+		c.cpolrLister = cpolrInformer.Lister()
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -688,10 +719,66 @@ func (c *controller) reconcileReport(
 	return nil
 }
 
+func (c *controller) hasPolicyReport(ctx context.Context, namespace, name string) bool {
+	if c.polrLister == nil && c.cpolrLister == nil {
+		return true
+	}
+	kind := "Report"
+	if namespace == "" {
+		kind = "ClusterReport"
+		if c.cpolrLister != nil {
+			if _, err := c.cpolrLister.Get(name); err == nil {
+				return true
+			} else if !apierrors.IsNotFound(err) {
+				return true
+			}
+		}
+	} else {
+		if c.polrLister != nil {
+			if _, err := c.polrLister.ByNamespace(namespace).Get(name); err == nil {
+				return true
+			} else if !apierrors.IsNotFound(err) {
+				return true
+			}
+		}
+	}
+	if c.client == nil || c.policyReportGV.Empty() {
+		return false
+	}
+	if c.policyReportGV == openreportsv1alpha1.SchemeGroupVersion {
+		if namespace == "" {
+			kind = "ClusterReport"
+		} else {
+			kind = "Report"
+		}
+	} else {
+		if namespace == "" {
+			kind = "ClusterPolicyReport"
+		} else {
+			kind = "PolicyReport"
+		}
+	}
+	_, err := c.client.GetResource(ctx, c.policyReportGV.String(), kind, namespace, name)
+	return err == nil || !apierrors.IsNotFound(err)
+}
+
 func (c *controller) storeReport(ctx context.Context, observed, desired reportsv1.ReportInterface) error {
 	var err error
 	hasReport := observed.GetResourceVersion() != ""
-	wantsReport := desired != nil && len(desired.GetResults()) != 0
+	wantsReport := false
+	if desired != nil && len(desired.GetResults()) != 0 {
+		hasAllowedResults := false
+		for _, res := range desired.GetResults() {
+			if reportutils.IsResultAllowed(res.Result) {
+				hasAllowedResults = true
+				break
+			}
+		}
+		uid := string(reportutils.GetResourceUid(desired))
+		if hasAllowedResults || c.hasPolicyReport(ctx, desired.GetNamespace(), uid) {
+			wantsReport = true
+		}
+	}
 	if !hasReport && !wantsReport {
 		return nil
 	} else if !hasReport && wantsReport {

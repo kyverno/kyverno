@@ -293,9 +293,6 @@ func addPodSecurityProperties(pss *engineapi.PodSecurityChecks, result *openrepo
 func EngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
-		if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
-			continue
-		}
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		results = append(results, result)
 	}
@@ -306,9 +303,6 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []openrepo
 func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
-		if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
-			continue
-		}
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if target, _, _ := ruleResult.PatchedTarget(); target != nil {
 			addProperty("patched-target", getResourceInfo(target.GroupVersionKind(), target.GetName(), target.GetNamespace()), &result)
@@ -324,9 +318,6 @@ func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) 
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if generatedResources := ruleResult.GeneratedResources(); len(generatedResources) != 0 {
-			if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
-				continue
-			}
 			property := make([]string, 0, len(generatedResources))
 			for _, r := range generatedResources {
 				property = append(property, getResourceInfo(r.GroupVersionKind(), r.GetName(), r.GetNamespace()))
@@ -363,38 +354,54 @@ func SplitResultsByPolicy(logger logr.Logger, results []openreportsv1alpha1.Repo
 	return resultsMap
 }
 
+// SetResults sorts and sets the given report results and computes their summary on the report.
 func SetResults(report reportsv1.ReportInterface, results ...openreportsv1alpha1.ReportResult) {
 	SortReportResults(results)
 	report.SetResults(results)
 	report.SetSummary(CalculateSummary(results))
 }
 
+// SetResponses sets validating engine responses on the report, filtering out results not allowed by reporting configuration.
 func SetResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
 	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
-		ruleResults = append(ruleResults, EngineResponseToReportResults(result)...)
+		for _, r := range EngineResponseToReportResults(result) {
+			if IsResultAllowed(r.Result) {
+				ruleResults = append(ruleResults, r)
+			}
+		}
 	}
 	SetResults(report, ruleResults...)
 }
 
+// SetMutationResponses sets mutating engine responses on the report, filtering out results not allowed by reporting configuration.
 func SetMutationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
 	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
-		ruleResults = append(ruleResults, MutationEngineResponseToReportResults(result)...)
+		for _, r := range MutationEngineResponseToReportResults(result) {
+			if IsResultAllowed(r.Result) {
+				ruleResults = append(ruleResults, r)
+			}
+		}
 	}
 	SetResults(report, ruleResults...)
 }
 
+// SetGenerationResponses sets generation engine responses on the report, filtering out results not allowed by reporting configuration.
 func SetGenerationResponses(report reportsv1.ReportInterface, engineResponses ...engineapi.EngineResponse) {
 	ruleResults := make([]openreportsv1alpha1.ReportResult, 0, len(engineResponses))
 	for _, result := range engineResponses {
 		pol := result.Policy()
 		SetPolicyLabel(report, pol)
-		ruleResults = append(ruleResults, GenerationEngineResponseToReportResults(result)...)
+		for _, r := range GenerationEngineResponseToReportResults(result) {
+			if IsResultAllowed(r.Result) {
+				ruleResults = append(ruleResults, r)
+			}
+		}
 	}
 	SetResults(report, ruleResults...)
 }

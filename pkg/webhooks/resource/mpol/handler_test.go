@@ -17,6 +17,7 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -47,6 +48,7 @@ func (m *mockReportsConfig) MutateExistingReportsEnabled() bool          { retur
 func (m *mockReportsConfig) ImageVerificationReportsEnabled() bool       { return false }
 func (m *mockReportsConfig) GenerateReportsEnabled() bool                { return false }
 func (m *mockReportsConfig) IsStatusAllowed(_ engineapi.RuleStatus) bool { return false }
+func (m *mockReportsConfig) IsResultAllowed(_ openreportsv1alpha1.Result) bool { return false }
 
 type mockEngine struct {
 	matchedPolicies []string

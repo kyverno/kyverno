@@ -111,6 +111,9 @@ func AggregateResults(maps Maps, uid types.UID, reports ...reportsv1.ReportInter
 	MergeReports(maps, accumulator, uid, reports...)
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(accumulator))
 	for _, result := range accumulator {
+		if !reportutils.IsResultAllowed(result.Result) {
+			continue
+		}
 		results = append(results, result)
 	}
 	return results
