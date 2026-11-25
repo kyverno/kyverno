@@ -29,13 +29,14 @@ In the process of submitting your PRs, please read and abide by the template pro
 
 ### The E2E Gate status
 
-The `Tests` workflow (the conformance/e2e suite, the k6 tests and the performance benchmarks) is too slow to run on every pull request, so it runs after merge, on a schedule on `main` and the release branches. When any part of it fails there, a tracking issue labelled `e2e-failure` is opened, and every open pull request to that branch shows a red **E2E Gate** status until the branch passes again.
+The `Tests` workflow (the conformance/e2e suite, the k6 tests and the performance benchmarks) is too slow to run on every pull request, so it runs after merge, in scheduled batches on `main` and the release branches. A failed run is re-run once automatically. When any part of it still fails, a tracking issue labelled `e2e-failure` is opened, and every open pull request to that branch shows a red **E2E Gate** status until the branch passes again.
 
 If your pull request shows a red E2E Gate:
 
 - It is not caused by your pull request, and you don't need to do anything. The status reports the state of the branch you are targeting, not your changes.
 - "Details" links to the tracking issue, which lists the failing jobs and explains how the gate clears.
 - It turns green by itself, without a push, when the `Tests` workflow passes on the branch or the tracking issue is closed.
+- To investigate a failure yourself, see [Running conformance tests](DEVELOPMENT.md#running-conformance-tests) in the development guide.
 
 The pull request that fixes the branch needs to get through while the gate is red. A maintainer adds the `e2e-gate-bypass` label to it, which turns its E2E Gate green.
 
