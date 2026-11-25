@@ -29,6 +29,14 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 			continue
 		}
 
+		// Skip checks that the requested version predates. Check.Versions is sorted by increasing
+		// minimum version, so the first entry is the release the control was introduced in, and
+		// upstream only registers a check from that release onwards. Without this, pinning
+		// podSecurity.version to an older release still enforces controls that did not exist yet.
+		if level.Version.Older(check.Versions[0].MinimumVersion) {
+			continue
+		}
+
 		selectedCheck := check.Versions[0]
 		for i := 1; i < len(check.Versions); i++ {
 			nextCheck := check.Versions[i]
