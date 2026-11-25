@@ -285,11 +285,21 @@ func TestWorkerPool_IdempotentCloseAndConcurrentSubmit(t *testing.T) {
 		Logger:    logger,
 	})
 
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	resourceClient := createFakeClient().Resource(gvr).Namespace("default")
+
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		for i := 0; i < 20; i++ {
-			wp.SubmitTask(context.Background(), LoadTask{ID: "concurrent-task"})
+			wp.SubmitTask(context.Background(), LoadTask{
+				ID:        "concurrent-task",
+				GVK:       gvk,
+				GVR:       gvr,
+				Namespace: "default",
+				Client:    resourceClient,
+			})
 		}
 	}()
 
@@ -297,8 +307,6 @@ func TestWorkerPool_IdempotentCloseAndConcurrentSubmit(t *testing.T) {
 	wp.Close(nil)
 	<-done
 
-	_, ok := <-wp.GetResults()
-	for ok {
-		_, ok = <-wp.GetResults()
+	for range wp.GetResults() {
 	}
 }
