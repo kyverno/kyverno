@@ -247,6 +247,8 @@ func Test_ApplyPoliciesOnResource_NamespacedGeneratingPolicy(t *testing.T) {
 			assert.Equal(t, len(responses), 1)
 			assert.Equal(t, responses[0].Policy().GetName(), tc.policy.Name)
 			assert.Equal(t, responses[0].Policy().GetNamespace(), tc.policy.Namespace)
+			assert.Equal(t, responses[0].Policy().GetKind(), "NamespacedGeneratingPolicy")
+			assert.Assert(t, responses[0].Policy().IsNamespaced())
 			assert.Equal(t, responses[0].IsSuccessful(), tc.wantIsSuccessful)
 			assert.Equal(t, len(responses[0].PolicyResponse.Rules), tc.wantRulesCount)
 

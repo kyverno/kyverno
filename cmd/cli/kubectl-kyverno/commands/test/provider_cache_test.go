@@ -696,6 +696,8 @@ metadata:
 	require.NotEmpty(t, resp.Trigger[key])
 	assert.Equal(t, "generate-cm-namespaced", resp.Trigger[key][0].Policy().GetName())
 	assert.Equal(t, "test-ns", resp.Trigger[key][0].Policy().GetNamespace())
+	assert.Equal(t, "NamespacedGeneratingPolicy", resp.Trigger[key][0].Policy().GetKind())
+	assert.True(t, resp.Trigger[key][0].Policy().IsNamespaced())
 	assert.True(t, resp.Trigger[key][0].IsSuccessful())
 
 	require.NotEmpty(t, resp.Trigger[key][0].PolicyResponse.Rules)
