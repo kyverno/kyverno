@@ -193,8 +193,25 @@ func (c *controller) syncUpdateRequest(key string) error {
 
 	if ur.Status.State == kyvernov2.Pending {
 		if err := c.processUR(ur); err != nil {
-			// Wrap with %w so handleErr can still recognise a NotFound and
-			// drop the key instead of rate-limiting ten pointless retries.
+			// A NotFound out of processUR is ambiguous. It can mean the UR
+			// itself vanished mid-processing (a concurrent terminal delete
+			// turned a status write into a 404), but processors also return
+			// raw NotFound errors for other resources: an expression-based
+			// mpol surfaces a missing target unchanged. handleErr drops the
+			// key on any NotFound, so exposing the second kind here would
+			// strand a live UR in Pending with no status update or retry.
+			// Only a confirmed UR-gone earns the %w wrap; the lister cache
+			// tells the two apart. When the cache still has the UR the
+			// NotFound belongs to another resource, so the error goes back
+			// without %w and handleErr rate-limits a retry instead.
+			if apierrors.IsNotFound(err) {
+				if _, getErr := c.urLister.Get(urName); apierrors.IsNotFound(getErr) {
+					// Wrap with %w so handleErr can still recognise a NotFound and
+					// drop the key instead of rate-limiting ten pointless retries.
+					return fmt.Errorf("failed to process UR %s: %w", key, err)
+				}
+				return fmt.Errorf("failed to process UR %s: %v", key, err)
+			}
 			return fmt.Errorf("failed to process UR %s: %w", key, err)
 		}
 	}

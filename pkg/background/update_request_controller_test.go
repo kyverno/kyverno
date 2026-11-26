@@ -619,10 +619,12 @@ func (q *recordingRateLimitingQueue) AddRateLimited(item any) {
 
 // TestSyncUpdateRequest_ProcessURNotFoundForgetsKey exercises the full chain
 // TestHandleErr_WrappedNotFoundForgetsKey only simulates: the lister serves a
-// Pending request, but processUR's status write hits a Get that returns
-// NotFound (another worker already cleaned it up). The error must travel
-// through syncUpdateRequest's %w wrap and still make handleErr drop the key.
-// If the wrap ever degrades to %v, this test catches it.
+// Pending request, then the request vanishes mid-processing (another worker's
+// terminal delete lands before processUR's status write, and the informer
+// cache drops it too). The status write 404s, the cache no longer has the
+// request, and the error must travel through syncUpdateRequest's %w wrap so
+// handleErr drops the key. If the wrap ever degrades to %v here, this test
+// catches it.
 func TestSyncUpdateRequest_ProcessURNotFoundForgetsKey(t *testing.T) {
 	ur := newTestUpdateRequest("gone-ur", kyvernov2.Pending, kyvernov2.RequestType("bogus"))
 
@@ -630,8 +632,17 @@ func TestSyncUpdateRequest_ProcessURNotFoundForgetsKey(t *testing.T) {
 	assert.NoError(t, indexer.Add(ur))
 	urLister := kyvernov2listers.NewUpdateRequestLister(indexer).UpdateRequests(config.KyvernoNamespace())
 
-	// The API no longer has the request: processUR's status write 404s.
+	// The request vanishes between the lister read at the top of
+	// syncUpdateRequest and the status write inside processUR: the API
+	// delete lands and the cache no longer serves it either.
 	fakeClient := fake.NewSimpleClientset()
+	fakeClient.PrependReactor("get", "updaterequests", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		assert.NoError(t, indexer.Delete(ur))
+		return true, nil, apierrors.NewNotFound(
+			schema.GroupResource{Group: "kyverno.io", Resource: "updaterequests"},
+			"gone-ur",
+		)
+	})
 
 	queue := &recordingRateLimitingQueue{TypedRateLimitingInterface: newTestQueue()}
 	c := &controller{
@@ -644,10 +655,52 @@ func TestSyncUpdateRequest_ProcessURNotFoundForgetsKey(t *testing.T) {
 	key := config.KyvernoNamespace() + "/gone-ur"
 	err := c.syncUpdateRequest(key)
 	assert.Error(t, err)
-	assert.True(t, apierrors.IsNotFound(err), "the NotFound cause must survive syncUpdateRequest's wrap, got %v", err)
+	assert.True(t, apierrors.IsNotFound(err), "the NotFound cause must survive syncUpdateRequest's wrap when the request is gone, got %v", err)
 
 	c.handleErr(err, key)
 	assert.False(t, queue.addRateLimitedCalled, "a vanished request must not be rate-limited")
 	assert.Equal(t, 0, c.queue.NumRequeues(key), "a vanished request must be dropped, not rate-limited")
 	assert.Equal(t, 0, c.queue.Len(), "nothing should be requeued for a deleted request")
+}
+
+// TestSyncUpdateRequest_UnprovenNotFoundRetries locks in the other half of
+// the NotFound contract: a NotFound out of processUR that does NOT prove the
+// request is gone must not be classified as UR-gone. Processors return raw
+// NotFound errors for other resources (an expression-based mpol surfaces a
+// missing target unchanged), and the lister cache can lag a real delete.
+// Wrapping those with %w would make handleErr Forget the key and strand a
+// live request in Pending with no status update or retry.
+func TestSyncUpdateRequest_UnprovenNotFoundRetries(t *testing.T) {
+	ur := newTestUpdateRequest("live-ur", kyvernov2.Pending, kyvernov2.RequestType("bogus"))
+
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	assert.NoError(t, indexer.Add(ur))
+	urLister := kyvernov2listers.NewUpdateRequestLister(indexer).UpdateRequests(config.KyvernoNamespace())
+
+	// processUR's status write 404s while the cache still holds the request:
+	// the NotFound does not prove the request is gone.
+	fakeClient := fake.NewSimpleClientset()
+	fakeClient.PrependReactor("get", "updaterequests", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, nil, apierrors.NewNotFound(
+			schema.GroupResource{Group: "kyverno.io", Resource: "updaterequests"},
+			"live-ur",
+		)
+	})
+
+	queue := &recordingRateLimitingQueue{TypedRateLimitingInterface: newTestQueue()}
+	c := &controller{
+		kyvernoClient: fakeClient,
+		urLister:      urLister,
+		queue:         queue,
+	}
+	t.Cleanup(c.queue.ShutDown)
+
+	key := config.KyvernoNamespace() + "/live-ur"
+	err := c.syncUpdateRequest(key)
+	assert.Error(t, err)
+	assert.False(t, apierrors.IsNotFound(err), "an unproven NotFound must not classify as UR-gone, got %v", err)
+
+	c.handleErr(err, key)
+	assert.True(t, queue.addRateLimitedCalled, "a live request must be retried, not dropped")
+	assert.Equal(t, 1, c.queue.NumRequeues(key), "a live request keeps its rate-limited retry")
 }
