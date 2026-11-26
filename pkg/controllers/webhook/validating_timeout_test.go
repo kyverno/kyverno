@@ -13,9 +13,9 @@ import (
 )
 
 // vpolForTimeout builds a ValidatingPolicy without any match conditions, so it is
-// grouped into a basic webhook unless it carries a per-policy timeout (which makes
-// it fine-grained).
-func vpolForTimeout(name string, timeout *int32) engineapi.GenericPolicy {
+// grouped into a basic webhook unless it carries a per-policy timeout or an Exact
+// match policy (which makes it fine-grained).
+func vpolForTimeout(name string, timeout *int32, matchPolicy *admissionregistrationv1.MatchPolicyType) engineapi.GenericPolicy {
 	spec := policiesv1beta1.ValidatingPolicySpec{
 		FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
 		MatchConstraints: &admissionregistrationv1.MatchResources{
@@ -35,6 +35,9 @@ func vpolForTimeout(name string, timeout *int32) engineapi.GenericPolicy {
 	}
 	if timeout != nil {
 		spec.WebhookConfiguration = &policiesv1beta1.WebhookConfiguration{TimeoutSeconds: timeout}
+	}
+	if matchPolicy != nil {
+		spec.MatchConstraints.MatchPolicy = matchPolicy
 	}
 	return engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -71,7 +74,41 @@ func TestBuildWebhookRulesAppliesDefaultTimeout(t *testing.T) {
 				0,
 				tt.defaultTimeout,
 				nil,
-				[]engineapi.GenericPolicy{vpolForTimeout("test-webhook-timeout", tt.policyTimeout)},
+				[]engineapi.GenericPolicy{vpolForTimeout("test-webhook-timeout", tt.policyTimeout, nil)},
+				NewExpressionCache(),
+			)
+			assert.NotEmpty(t, webhooks)
+			for _, webhook := range webhooks {
+				assert.Equal(t, tt.expected, *webhook.TimeoutSeconds, "webhook %s", webhook.Name)
+			}
+		})
+	}
+}
+
+// TestBuildWebhookRulesFineGrainedExactMatchPolicyTimeout ensures fine-grained policies
+// that enter the fine-grained path via MatchPolicy=Exact (no per-policy timeout) still
+// receive the default controller timeout.
+func TestBuildWebhookRulesFineGrainedExactMatchPolicyTimeout(t *testing.T) {
+	cfg := config.NewDefaultConfiguration(false)
+	tests := []struct {
+		name           string
+		defaultTimeout int32
+		expected       int32
+	}{
+		{name: "Exact match fine-grained uses default", defaultTimeout: 1, expected: 1},
+		{name: "Exact match fine-grained is capped", defaultTimeout: 60, expected: 30},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			webhooks := buildWebhookRules(
+				cfg,
+				"",
+				config.ValidatingPolicyWebhookName,
+				"/vpol",
+				0,
+				tt.defaultTimeout,
+				nil,
+				[]engineapi.GenericPolicy{vpolForTimeout("exact-match-policy", nil, ptr.To(admissionregistrationv1.Exact))},
 				NewExpressionCache(),
 			)
 			assert.NotEmpty(t, webhooks)
@@ -94,7 +131,7 @@ func TestBuildWebhookRulesBasicGroupMaxTimeout(t *testing.T) {
 		0,
 		20,
 		nil,
-		[]engineapi.GenericPolicy{vpolForTimeout("one", nil), vpolForTimeout("two", nil)},
+		[]engineapi.GenericPolicy{vpolForTimeout("one", nil, nil), vpolForTimeout("two", nil, nil)},
 		NewExpressionCache(),
 	)
 	// both policies resolve to the same selectors, so they share one webhook
