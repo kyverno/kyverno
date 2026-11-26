@@ -60,7 +60,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 			shouldDelete = true
 			reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
 		} else {
-			celexceptions, err = c.getCELExceptions(policy.GetName(), pol.GetKind())
+			celexceptions, err = c.getCELExceptions(policy.GetName(), pol.GetKind(), pol.GetNamespace())
 			if err != nil {
 				return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
 			}

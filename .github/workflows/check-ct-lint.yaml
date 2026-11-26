@@ -83,6 +83,15 @@ jobs:
         run: |
           set -e
           make verify-background-controller-rbac
+      - name: Verify PolicyException namespace guard
+        # Asserts the chart refuses to render when policy exceptions are
+        # enabled without a namespace, including through each per-controller
+        # featuresOverride. The guard lives in the shared features helper, so
+        # a template refactor could silently drop it; this renders the chart
+        # and checks. It needs no cluster.
+        run: |
+          set -e
+          make verify-policyexceptions-namespace-guard
       - name: Verify scale-to-zero release scope
         run: bash scripts/verify-scale-to-zero-hook.sh
       - name: Verify restrict-sysctls allow-list

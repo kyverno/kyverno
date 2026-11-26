@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
@@ -153,7 +154,7 @@ func traceTestHandler(t *testing.T, trace bool) (*handler, *recordedEvents) {
 	for _, p := range policies {
 		likes = append(likes, p)
 	}
-	provider, err := ivpolengine.NewProvider(evaluator.NewCompilerWithTrace(nil, trace), likes, nil)
+	provider, err := ivpolengine.NewProvider(evaluator.NewCompilerWithTrace(nil, trace), likes, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	namespaceResolver := func(string) *corev1.Namespace { return nil }
 	engine := ivpolengine.NewEngine(provider, namespaceResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
