@@ -26,4 +26,13 @@ spec:
   - template:
       interpolate: cel
       value: |
-        (( variables.revision ))
+        apiVersion: apps/v1
+        kind: ControllerRevision
+        metadata: (( variables.revision.metadata ))
+        revision: (( variables.revision.revision ))
+        data:
+          previous: (( variables.revision.data.previous ))
+          label: (( variables.revision.data.label ))
+          static:
+            replicas: 3
+            created: 2026-01-02T03:04:05Z

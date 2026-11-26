@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -280,6 +281,7 @@ metadata:
 	}
 }
 
+// TestRenderCollectionIntegers verifies exact signed integers and errors in nested CEL collections.
 func TestRenderCollectionIntegers(t *testing.T) {
 	t.Parallel()
 	const sequence = int64(1<<53 + 1)
@@ -336,6 +338,36 @@ func TestRenderCollectionIntegers(t *testing.T) {
 	}
 }
 
+// collectionTypeOnlyValue reports a collection type without implementing its traits.
+type collectionTypeOnlyValue struct {
+	ref.Val
+	collectionType ref.Type
+}
+
+func (v collectionTypeOnlyValue) Type() ref.Type {
+	return v.collectionType
+}
+
+// TestCelJSONValueMissingCollectionTraits verifies that malformed collection values return errors.
+func TestCelJSONValueMissingCollectionTraits(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		typ  ref.Type
+	}{
+		{name: "map", typ: types.MapType},
+		{name: "list", typ: types.ListType},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			value := collectionTypeOnlyValue{Val: types.String("not a collection"), collectionType: tc.typ}
+			_, err := celJSONValue(value)
+			require.ErrorContains(t, err, "unsupported "+tc.name+" value")
+		})
+	}
+}
+
+// TestCelJSONValueError verifies that CEL evaluation errors are not converted to data.
 func TestCelJSONValueError(t *testing.T) {
 	t.Parallel()
 	_, err := celJSONValue(types.NewErr("nested CEL evaluation failed"))

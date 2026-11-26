@@ -393,8 +393,8 @@ func celValueToNative(val ref.Val) (any, error) {
 	return celJSONValue(val)
 }
 
-// Walk collections before converting their leaves. structpb.Value encodes
-// large CEL integers as decimal strings, including when nested in a map or list.
+// celJSONValue walks collections before converting their leaves because
+// structpb.Value encodes large CEL integers as decimal strings.
 func celJSONValue(val ref.Val) (any, error) {
 	if types.IsError(val) {
 		return nil, fmt.Errorf("%v", val)
@@ -415,7 +415,10 @@ func celJSONValue(val ref.Val) (any, error) {
 		}
 		return int64(v), nil
 	case types.MapType:
-		v := val.(traits.Mapper)
+		v, ok := val.(traits.Mapper)
+		if !ok {
+			return nil, fmt.Errorf("unsupported map value of type %T", val)
+		}
 		out := make(map[string]any, v.Size().(types.Int))
 		for it := v.Iterator(); it.HasNext() == types.True; {
 			key := it.Next()
@@ -431,7 +434,10 @@ func celJSONValue(val ref.Val) (any, error) {
 		}
 		return out, nil
 	case types.ListType:
-		v := val.(traits.Lister)
+		v, ok := val.(traits.Lister)
+		if !ok {
+			return nil, fmt.Errorf("unsupported list value of type %T", val)
+		}
 		out := make([]any, 0, v.Size().(types.Int))
 		for it := v.Iterator(); it.HasNext() == types.True; {
 			value, err := celJSONValue(it.Next())

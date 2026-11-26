@@ -49,11 +49,17 @@ spec:
           metadata:
             name: sample
             namespace: template-preserve-int64
+          data:
+            label: "9007199254740993"
+            static:
+              replicas: 3
+              created: "2026-01-02T03:04:05Z"
     - script:
         content: |
-          kubectl get controllerrevision sample -n template-preserve-int64 -o json | python3 -c '
-          import json, sys
-          obj = json.load(sys.stdin)
-          assert type(obj["revision"]) is int and obj["revision"] == 9007199254740993, obj
-          assert obj["data"]["previous"] == [9007199254740992], obj
-          assert obj["data"]["label"] == "9007199254740993", obj'
+          set -eu
+          actual="$(kubectl get controllerrevision sample -n template-preserve-int64 -o 'jsonpath={.revision}|{.data.previous[0]}|{.data.label}|{.data.static.replicas}|{.data.static.created}')"
+          expected='9007199254740993|9007199254740992|9007199254740993|3|2026-01-02T03:04:05Z'
+          if [ "$actual" != "$expected" ]; then
+            printf 'expected %s, got %s\n' "$expected" "$actual" >&2
+            exit 1
+          fi
