@@ -85,6 +85,18 @@ entries and compiles **already-stored** expressions (from the exception's previo
 Tightening CEL validation rules later won't retroactively break an already-admitted `PolicyException` unless its
 expression text itself changes.
 
+## `ExceptionScope` is the only exception matcher
+
+`pkg/cel/engine.ExceptionScope` (`exception.go`) is the sole namespace-matching logic for
+`PolicyException` lookups across every policy kind's engine — don't write a second matcher. It
+derives from the owning controller's `--exceptionNamespace` flag (a per-binary flag that can differ between
+the admission, background, and reports controllers): unset (`""`) accepts no
+exceptions, a concrete namespace accepts exceptions from itself only, and `"*"` accepts
+exceptions from every namespace. For a namespaced policy specifically, that acceptance is further
+narrowed: the exception must additionally come from the policy's own namespace, or from the scope's
+configured central namespace when one is set — a namespaced policy under `"*"` never accepts an
+exception from an arbitrary third namespace, only its own.
+
 ## Recent activity worth knowing about
 
 CEL engine dependency itself has had a security fix (`2e9ef352e`, bumping `cel-go` for `GHSA-gcjh-h69q-9w9g` — the

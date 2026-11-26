@@ -75,7 +75,7 @@ func TestJSONMutationAdmissionFailurePolicy(t *testing.T) {
 						}},
 					},
 				}
-				provider, err := mpolengine.NewProvider(mpolcompiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil)
+				provider, err := mpolengine.NewProvider(mpolcompiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, nil, celengine.ExceptionScopeAll)
 				require.NoError(t, err)
 				engine := mpolengine.NewEngine(provider, nil, matching.NewMatcher(), nil, nil)
 				request := celengine.RequestFromAdmission(nil, admissionv1.AdmissionRequest{

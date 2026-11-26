@@ -227,22 +227,14 @@ reviews:
           describes differently, quote the stale passage and suggest the correction. Advisory only.
 
   post_merge_actions:
-    - name: "Update CHANGELOG"
-      enabled: true
-      prompt: |
-        If this PR contains a user-facing change (new feature, bug fix, behavioral change, API change,
-        deprecation), append an entry under a `## Unreleased` section at the very top of CHANGELOG.md (create that
-        section if it doesn't exist yet — CHANGELOG.md today is organized as committed `## vX.Y.Z` sections only),
-        formatted as: `- <type>(<scope>): <description> (#<PR number>)`. Skip dependency bumps, test-only changes,
-        and CI-only changes. Do not modify anything else in the file.
     - name: "Doc drift detector"
       enabled: true
       prompt: |
         Check the PR diff for behavioral changes: new policy fields, changed admission webhook behavior, new CEL
         functions, changed CLI flags, or modified API types under pkg/engine/, pkg/webhooks/, pkg/cel/, or api/.
         If behavioral changes exist without corresponding changes to docs/ or a companion PR to kyverno/website,
-        open a follow-up PR creating a stub documentation file at the appropriate path with a TODO comment and the
-        original PR number for context.
+        do not open a PR or create any files. Report it in your result comment on this PR: one short bullet per
+        gap, naming the behavior change and where the docs likely need updating.
 
         Separately, check whether the changed package's AGENTS.md (or REVIEW.md/ARCHITECTURE.md, if relevant) now
         describes the *old* behavior inaccurately — these are read as ground truth by both CodeRabbit and Copilot

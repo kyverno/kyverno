@@ -168,6 +168,94 @@ func TestReconcile_ExtractionMode(t *testing.T) {
 	assert.True(t, sawJobSetVariant, "expected a jobsets autogen variant")
 }
 
+// reconcilerTestExceptionLister is a fixed-set celengine.PolicyExceptionLister that filters through the
+// real celengine.ExceptionScopeAll.Select, so it exercises actual namespace-matching logic rather than
+// stubbing it out.
+type reconcilerTestExceptionLister struct {
+	exceptions []*policiesv1beta1.PolicyException
+}
+
+func (l *reconcilerTestExceptionLister) List(labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
+	return l.exceptions, nil
+}
+
+func (l *reconcilerTestExceptionLister) ListForPolicy(kind, name, namespace string) ([]*policiesv1beta1.PolicyException, error) {
+	return celengine.ExceptionScopeAll.Select(l.exceptions, kind, name, namespace), nil
+}
+
+// TestReconcile_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions pins the namespace argument passed
+// to ListForPolicy: under scope "*" a namespaced policy must only accept exceptions filed in its own
+// namespace, never a foreign one. It fails if Reconcile ever stops passing policy.GetNamespace()
+// through to the exception lookup.
+func TestReconcile_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testing.T) {
+	ctx := context.Background()
+	policy := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "guard", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule:       admissionregistrationv1.Rule{APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}},
+					},
+				}},
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"env": "test"}}}`,
+				},
+			}},
+		},
+	}
+	ownException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedMutatingPolicy"}},
+		},
+	}
+	foreignException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "foreign", Namespace: "tenant-b"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedMutatingPolicy"}},
+		},
+	}
+	lister := &reconcilerTestExceptionLister{exceptions: []*policiesv1beta1.PolicyException{ownException, foreignException}}
+	rec := newReconciler(&fakeClient{nmpol: policy}, compiler.NewCompiler(), lister, true)
+
+	_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "tenant-a", Name: "guard"}})
+	require.NoError(t, err)
+
+	eng := NewEngine(
+		rec,
+		func(ns string) *corev1.Namespace { return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}} },
+		matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{},
+	)
+	// The request must be in tenant-a: a NamespacedMutatingPolicy only matches requests in its own
+	// namespace. Handle (the admission path), not Evaluate (the mutate-existing path), is what
+	// drives Fetch(ctx, false), so it is the path reconciler.go's ListForPolicy argument actually
+	// serves in production.
+	requestObject := `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nginx","namespace":"tenant-a"}}`
+	req := celengine.EngineRequest{
+		Request: admissionv1.AdmissionRequest{
+			Kind:      metav1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+			Resource:  metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+			Namespace: "tenant-a",
+			Name:      "nginx",
+			Operation: admissionv1.Create,
+			Object:    runtime.RawExtension{Raw: []byte(requestObject)},
+		},
+	}
+	resp, err := eng.Handle(ctx, req, predicate)
+	require.NoError(t, err)
+	require.Len(t, resp.Policies, 1)
+	require.Len(t, resp.Policies[0].Rules, 1)
+	rule := resp.Policies[0].Rules[0]
+	require.Len(t, rule.Exceptions(), 1, "tenant-a's policy must only see its own namespace's exception")
+	assert.Equal(t, "tenant-a", rule.Exceptions()[0].GetNamespace())
+	assert.Equal(t, "own", rule.Exceptions()[0].GetName())
+}
+
 func TestReconcile_JSONModeDoesNotGenerateAutogenPolicies(t *testing.T) {
 	ctx := context.Background()
 	policy := jsonMutationPolicy("json-pod", `[JSONPatch{op:"add",path:"/metadata/labels/mutated",value:"yes"}]`)
@@ -449,6 +537,10 @@ type mockPolexLister struct {
 
 func (m *mockPolexLister) List(_ labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
 	return m.exceptions, nil
+}
+
+func (m *mockPolexLister) ListForPolicy(kind, name, namespace string) ([]*policiesv1beta1.PolicyException, error) {
+	return celengine.ExceptionScopeAll.Select(m.exceptions, kind, name, namespace), nil
 }
 
 type compileCall struct {

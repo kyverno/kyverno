@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+  namespace: prod
+  labels:
+    team: payments
+spec:
+  containers:
+  - name: web
+    image: docker.io/library/nginx:1.27

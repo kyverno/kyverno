@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -147,7 +148,7 @@ func TestReconcile_NoReconcileNeeded_StillRearmed(t *testing.T) {
 	cq := &captureQueue{TypedRateLimitingInterface: baseQ}
 
 	ctrl := &controller{
-		celpolexListener: policiesv1beta1listers.NewPolicyExceptionLister(celpolexIndexer),
+		celpolexListener: celengine.NewPolicyExceptionLister(policiesv1beta1listers.NewPolicyExceptionLister(celpolexIndexer), "*"),
 		bgscanrLister: cache.NewGenericLister(
 			reportIndexer,
 			schema.GroupVersionResource{Group: "reports.kyverno.io", Version: "v1", Resource: "ephemeralreports"}.GroupResource(),

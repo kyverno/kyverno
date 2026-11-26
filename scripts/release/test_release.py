@@ -114,19 +114,49 @@ class Versions(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Missing rendered"):
             release.verify_images("kind: ConfigMap", metadata)
 
-    def test_preserved_chart_registry_mirrors_use_the_exact_application_tag(self):
+    def test_default_chart_registry_uses_the_exact_application_tag(self):
         metadata = release.plan("v1.20.2-rc3", SHA, MAPPING)
         metadata["chart_images"] = release.chart_image_references(
             release.read(ROOT / "charts/kyverno/values.yaml"), metadata
         )
-        self.assertEqual(metadata["chart_images"]["backgroundController.image"],
-                         "reg.kyverno.io/kyverno/background-controller:v1.20.2-rc3")
+        self.assertEqual(set(metadata["chart_images"]), set(release.IMAGE_VALUES))
+        for keys, name in release.IMAGE_VALUES.items():
+            with self.subTest(image=keys):
+                self.assertEqual(metadata["chart_images"][keys],
+                                 f"ghcr.io/kyverno/{name}:v1.20.2-rc3")
         rendered = yaml.safe_dump({"containers": [
             {"image": reference} for reference in metadata["chart_images"].values()
         ]})
         self.assertEqual(release.verify_images(rendered, metadata), set(release.IMAGES))
         with self.assertRaisesRegex(ValueError, "Stale image"):
             release.verify_images(rendered.replace("v1.20.2-rc3", "latest"), metadata)
+
+    def test_chart_registry_mirrors_use_the_exact_application_tag(self):
+        def override(values, key):
+            values = yaml.safe_load(yaml.safe_dump(values))
+            if key == "global":
+                values.setdefault("global", {}).setdefault("image", {})["registry"] = "mirror.example"
+            else:
+                target = values
+                for part in key.split("."):
+                    target = target[part]
+                target["registry"] = "mirror.example"
+            return values
+
+        values = release.read(ROOT / "charts/kyverno/values.yaml")
+        for key in ("global", "backgroundController.image"):
+            with self.subTest(override=key):
+                metadata = release.plan("v1.20.2-rc3", SHA, MAPPING)
+                metadata["chart_images"] = release.chart_image_references(override(values, key), metadata)
+                mirror = metadata["chart_images"]["backgroundController.image"]
+                self.assertEqual(mirror, "mirror.example/kyverno/background-controller:v1.20.2-rc3")
+                self.assertNotEqual(mirror, metadata["images"]["background-controller"])
+                rendered = yaml.safe_dump({"containers": [
+                    {"image": reference} for reference in metadata["chart_images"].values()
+                ]})
+                self.assertEqual(release.verify_images(rendered, metadata), set(release.IMAGES))
+                with self.assertRaisesRegex(ValueError, "Stale image"):
+                    release.verify_images(rendered.replace(mirror, mirror.rsplit(":", 1)[0] + ":latest"), metadata)
 
     def test_every_repeated_image_is_verified_without_rejecting_dependency_images(self):
         metadata = release.plan("v1.20.2-rc3", SHA, MAPPING)
