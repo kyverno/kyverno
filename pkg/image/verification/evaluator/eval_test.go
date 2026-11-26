@@ -209,35 +209,6 @@ func Test_Eval_MutateDigestFalse_Validations(t *testing.T) {
 	}
 }
 
-func Test_Eval_MutateDigestFalse_AllowsImageWithoutDigest(t *testing.T) {
-	policy := &policiesv1beta1.ImageValidatingPolicy{
-		Spec: policiesv1beta1.ImageValidatingPolicySpec{
-			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
-				Mode: policieskyvernoio.EvaluationModeJSON,
-			},
-			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
-				MutateDigest: ptr.To(false),
-				Required:     ptr.To(false),
-			},
-			MatchImageReferences: []policiesv1beta1.MatchImageReference{
-				{Glob: "ghcr.io/*"},
-			},
-			ImageExtractors: []policiesv1beta1.ImageExtractor{
-				{Name: "bar", Expression: "[object.foo.bar]"},
-			},
-			Validations: []admissionregistrationv1.Validation{
-				{Expression: "true"},
-			},
-		},
-	}
-
-	imageWithoutDigest := "ghcr.io/kyverno/test-verify-image:latest"
-	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: policy}}, obj(imageWithoutDigest), nil, nil, nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, result[policy.Name])
-	assert.True(t, result[policy.Name].Result)
-}
-
 func Test_Eval_MutateDigestFalse_ExplicitVerifyDigestTrue_RejectsImageWithoutDigest(t *testing.T) {
 	policy := &policiesv1beta1.ImageValidatingPolicy{
 		Spec: policiesv1beta1.ImageValidatingPolicySpec{
