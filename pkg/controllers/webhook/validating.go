@@ -327,10 +327,9 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 	return webhooks
 }
 
-// policyWebhookTimeout returns the timeout for a policy's webhook: the maximum of the
-// admission controller's default timeout (the --webhookTimeout flag) and the timeout
-// configured on the policy, capped at the maximum the API server accepts. This mirrors
-// the max-merge semantics used for ClusterPolicy webhooks (see mergeWebhook).
+// policyWebhookTimeout returns the effective timeout for a policy's webhook: the larger of the
+// admission controller's default timeout (the --webhookTimeout flag) and the policy timeout,
+// capped at the maximum the API server accepts.
 func policyWebhookTimeout(defaultTimeout int32, p policiesv1beta1.GenericPolicy) int32 {
 	timeout := defaultTimeout
 	if p != nil {
