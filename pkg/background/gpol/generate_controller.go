@@ -95,11 +95,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger.V(2).Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
 	var failures []error
-	// One cost budget for the whole update request, established outside the loop. Inside
-	// it, every iteration would start from a fresh context and so get its own ceiling,
-	// which bounds each rule context rather than the request that contains them.
-	ctx, releaseBudget := requestbudget.EnsureBackground(context.TODO())
-	defer releaseBudget()
+	ctx := context.TODO()
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		if ur.Spec.RuleContext[i].DeleteDownstream {
 			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
@@ -171,7 +167,15 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		// Covers engine.Handle's write and the SyncWatchers call below that
 		// catches the watcher cache up; keyed like the labels the engine stamps.
 		endGenerate := c.watchManager.BeginGenerate(ur.Spec.GetPolicyKey(), trigger.GetUID())
-		gpolResponse, err := c.engine.Handle(ctx, request, policy, ur.Spec.RuleContext[i].CacheRestore)
+		// Scope the background CEL cost budget per RuleContext (per trigger) rather
+		// than sharing one across the entire UpdateRequest. generateExisting, policy
+		// sync, and cache restore batch up to generateBatchSize triggers into one UR;
+		// triggers are evaluated sequentially, so bounding each trigger individually
+		// still caps per-evaluation memory identically to ScanResource and admission
+		// without exhausting the budget mid-batch.
+		triggerCtx, releaseBudget := requestbudget.EnsureBackground(ctx)
+		gpolResponse, err := c.engine.Handle(triggerCtx, request, policy, ur.Spec.RuleContext[i].CacheRestore)
+		releaseBudget()
 		if err != nil {
 			endGenerate()
 			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
