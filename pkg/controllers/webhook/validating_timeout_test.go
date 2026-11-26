@@ -59,6 +59,7 @@ func TestBuildWebhookRulesAppliesDefaultTimeout(t *testing.T) {
 		{name: "larger flag than policy timeout wins", defaultTimeout: 30, policyTimeout: ptr.To[int32](5), expected: 30},
 		{name: "larger policy timeout than flag wins", defaultTimeout: 1, policyTimeout: ptr.To[int32](20), expected: 20},
 		{name: "timeout is capped at thirty seconds", defaultTimeout: 60, expected: 30},
+		{name: "policy timeout caps at thirty", defaultTimeout: 1, policyTimeout: ptr.To[int32](60), expected: 30},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

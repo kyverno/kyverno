@@ -429,6 +429,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "invalid HTTP flag configuration: %v\n", err)
 		os.Exit(1)
 	}
+	// Validate the webhook timeout flag: Kubernetes requires TimeoutSeconds >= 1.
+	if webhookTimeout < 1 {
+		fmt.Fprintf(os.Stderr, "invalid webhookTimeout flag: %d (must be >= 1, default %d)\n", webhookTimeout, webhookcontroller.DefaultWebhookTimeout)
+		os.Exit(1)
+	}
 	var wg wait.Group
 	func() {
 		// setup

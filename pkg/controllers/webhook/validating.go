@@ -204,11 +204,6 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 		// basic webhooks aggregate policies that do not set a per-policy timeout, so the
 		// admission controller's default timeout (the --webhookTimeout flag) applies
 		webhookTimeout := capTimeout(defaultTimeout)
-		for _, policy := range basic {
-			if timeout := policyWebhookTimeout(defaultTimeout, extractGenericPolicy(policy)); timeout > webhookTimeout {
-				webhookTimeout = timeout
-			}
-		}
 		webhookIgnore := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-ignore" + group.suffix,
 			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
