@@ -1,6 +1,13 @@
 ## Unreleased
 
 - fix(policy): scope background lists of namespaced triggers for generating and mutating policies to the policy namespace, while retaining matches for the policy's own Namespace (#18841)
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:3c451babf12bd3ac28448358cfa957eaf22875d3e15b7c17a01c32e0c4dbde74 -->
+
+- fix(cli): prevent panics when `kyverno apply` and `kyverno test` process a `NamespacedGeneratingPolicy` (#18820)
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ### Note
 
