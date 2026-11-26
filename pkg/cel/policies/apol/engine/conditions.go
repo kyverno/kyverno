@@ -81,6 +81,11 @@ func (e *engine) EvaluateConditions(ctx context.Context, decision *authorization
 		if err != nil {
 			return false, err
 		}
+		// Check again after spending: the last condition can exhaust the budget,
+		// and its result must not decide the request.
+		if err := ev.stopped(ctx); err != nil {
+			return false, err
+		}
 		b, ok := out.(types.Bool)
 		if !ok {
 			return false, fmt.Errorf("condition returned non-boolean %v", out)

@@ -535,6 +535,21 @@ func TestCostExhaustion(t *testing.T) {
 		got := e.EvaluateConditions(context.Background(), &d, admission(`{"spec":{"containers":[{"name":"a"},{"name":"b"},{"name":"c"},{"name":"d"}]}}`, ""))
 		require.Equal(t, typeDeny, got.Type, "%+v", got)
 	})
+	t.Run("conditions review budget exhausted by the final condition", func(t *testing.T) {
+		t.Parallel()
+		rules := []policiesv1alpha1.AuthorizingRule{rule("a", allowE, "object.spec.containers.exists(c, c.name == 'd')")}
+		obj := admission(`{"spec":{"containers":[{"name":"a"},{"name":"b"},{"name":"c"},{"name":"d"}]}}`, "")
+		e := engineWith(t, StaticProvider(compileAll(t, policy("p", nil, rules...))...), WithLimits(Limits{TotalCostLimit: 3}))
+		d := e.Authorize(context.Background(), sar("create", "dev"), true)
+		require.Equal(t, typeMap, d.Type)
+		got := e.EvaluateConditions(context.Background(), &d, obj)
+		require.NotEqual(t, typeAllow, got.Type, "%+v", got)
+		require.Contains(t, fmt.Sprintf("%+v", got), "budget")
+		// With the default budget the same condition allows the request.
+		e = newEngine(t, policy("p", nil, rules...))
+		d = e.Authorize(context.Background(), sar("create", "dev"), true)
+		require.Equal(t, typeAllow, e.EvaluateConditions(context.Background(), &d, obj).Type)
+	})
 }
 
 func TestCancellation(t *testing.T) {
