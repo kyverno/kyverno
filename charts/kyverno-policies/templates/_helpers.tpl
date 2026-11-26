@@ -113,6 +113,33 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
+{{/* Native VAPs are served in admissionregistration.k8s.io/v1 from Kubernetes v1.30.
+     Reject unsupported clusters instead of silently disabling Pod-controller checks.
+     Identity and custom match exclusions are unsafe without workload-template admission:
+     an excluded controller could create a Pod bypassing the policy. */}}
+{{- define "kyverno-policies.pssNativeVAP" -}}
+{{- $root := .ctx -}}
+{{- if $root.Values.generateValidatingAdmissionPolicy -}}
+  {{- if not (semverCompare ">=1.30.0-0" $root.Capabilities.KubeVersion.Version) -}}
+    {{- fail "generateValidatingAdmissionPolicy requires Kubernetes v1.30 or newer" -}}
+  {{- end -}}
+  {{- if not ($root.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy") -}}
+    {{- fail "generateValidatingAdmissionPolicy requires the served admissionregistration.k8s.io/v1 ValidatingAdmissionPolicy API" -}}
+  {{- end -}}
+  {{- /* Per-policy exclusion settings replace global settings. Validate only the
+        effective exclusions for this rendered PSS policy, not unused policies. */ -}}
+  {{- $config := include "kyverno-policies.policyVpolExclude" (dict "name" .name "values" $root.Values) | fromYaml | default dict -}}
+  {{- if or (gt (len ($config.excludeSubjects | default list)) 0) (gt (len ($config.matchConditions | default list)) 0) (gt (len ($config.excludeResourceRules | default list)) 0) -}}
+    {{- fail "generateValidatingAdmissionPolicy cannot be combined with subject, custom match-condition, or resource-rule exclusions; excluded controllers could bypass Pod admission" -}}
+  {{- end -}}
+autogen:
+  podControllers:
+    enabled: false
+  validatingAdmissionPolicy:
+    enabled: true
+{{- end -}}
+{{- end -}}
+
 {{/* Get validationActions from validationFailureAction for ValidatingPolicy */}}
 {{/* Maps: Audit -> Audit, Enforce -> Deny */}}
 {{- define "kyverno-policies.validationActions" -}}
@@ -188,7 +215,7 @@ matchConditions:
      Supported kinds: User, Group, ServiceAccount.
      - User:           request.userInfo.username == '<name>'
      - Group:          '<name>' in request.userInfo.groups
-     - ServiceAccount: (parseServiceAccount(request.userInfo.username).Namespace == '<ns>' && parseServiceAccount(request.userInfo.username).Name == '<name>')
+     - ServiceAccount: request.userInfo.username == 'system:serviceaccount:<ns>:<name>'
 */}}
 {{- define "kyverno-policies.celSubjectFragment" -}}
 {{- $kind := .kind | required "excludeSubjects entries must have a 'kind' (User, Group, or ServiceAccount)" -}}
@@ -199,7 +226,7 @@ matchConditions:
   '{{ $name }}' in request.userInfo.groups
 {{- else if eq $kind "ServiceAccount" -}}
   {{- $ns := .namespace | required "excludeSubjects ServiceAccount entries must have a 'namespace'" -}}
-  (parseServiceAccount(request.userInfo.username).Namespace == '{{ $ns }}' && parseServiceAccount(request.userInfo.username).Name == '{{ $name }}')
+  request.userInfo.username == 'system:serviceaccount:{{ $ns }}:{{ $name }}'
 {{- else -}}
   {{- fail (printf "excludeSubjects: unsupported kind '%s' — must be User, Group, or ServiceAccount" $kind) -}}
 {{- end -}}

@@ -218,14 +218,32 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
 		}
-		generateValidatingAdmissionPolicy := toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy()
-		if !generateValidatingAdmissionPolicy {
-			if !vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() {
-				if c.vapLister == nil || c.vapbindingLister == nil {
-					return nil
-				}
-			} else {
-				logger.Info("generating ValidatingAdmissionPolicy explicitly enabled in policy", "policy", vpol.GetName())
+		if !toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy() && vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() {
+			logger.Info("generating ValidatingAdmissionPolicy explicitly enabled in policy", "policy", vpol.GetName())
+		}
+		// Explicit per-policy generation must work even when the global toggle is
+		// disabled. When both are off, skip idle policies but still reconcile
+		// previously generated native resources (including after a restart).
+		if !toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy() && !vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() {
+			// No native VAP API means there are no served resources to clean up,
+			// but a previously generated policy must return to webhook enforcement.
+			if c.vapLister == nil || c.vapbindingLister == nil {
+				return c.handleVAPGeneration(ctx, engineapi.NewValidatingPolicy(vpol))
+			}
+			vapName := "vpol-" + vpol.Name
+			observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
+			observedBinding, bindingErr := c.getValidatingAdmissionPolicyBinding(constructBindingName(vapName))
+			if vapErr != nil && !apierrors.IsNotFound(vapErr) {
+				return vapErr
+			}
+			if bindingErr != nil && !apierrors.IsNotFound(bindingErr) {
+				return bindingErr
+			}
+			policy := engineapi.NewValidatingPolicy(vpol)
+			hasOwnedVAP := vapErr == nil && isOwnedByValidatingPolicy(observedVAP, policy)
+			hasOwnedBinding := bindingErr == nil && isOwnedByValidatingPolicy(observedBinding, policy)
+			if !hasOwnedVAP && !hasOwnedBinding && !vpol.Status.Generated {
+				return nil
 			}
 		}
 		policy = engineapi.NewValidatingPolicy(vpol)

@@ -20,13 +20,14 @@ metadata:
     {{- include "kyverno-policies.customAnnotations" (dict "name" $name "values" .Values) | nindent 4 }}
   labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
+  {{- include "kyverno-policies.pssNativeVAP" (dict "ctx" . "name" $name) | nindent 2 }}
   failurePolicy: {{ .Values.failurePolicy }}
   matchConstraints:
     resourceRules:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
     {{- with (include "kyverno-policies.policyVpolExclude" (dict "name" $name "values" .Values) | fromYaml) }}
     {{- with .excludeResourceRules }}
     excludeResourceRules:

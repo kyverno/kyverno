@@ -2,6 +2,17 @@
 # For more info https://kyverno.io/policies/pod-security.
 podSecurityStandard: baseline
 
+# -- Enable native Kubernetes ValidatingAdmissionPolicies for built-in PSS checks only
+# on Kubernetes v1.30+ clusters serving the admissionregistration.k8s.io/v1 VAP API.
+# Defaults to false to preserve Pod-controller template admission checks.
+# Native mode disables Pod-controller autogen: Pods and ephemeral-container updates
+# are checked at Pod admission, but workload templates are not checked on creation.
+# Subject exclusions, custom match conditions, and exclude resource rules are rejected
+# in native mode to prevent excluded controllers from bypassing Pod admission.
+# Kyverno's admission-policy controller needs native VAP permissions; this per-policy
+# opt-in also works when the global VAP generator flag is disabled.
+generateValidatingAdmissionPolicy: false
+
 # -- Pod Security Standard severity (`low`, `medium`, `high`).
 podSecuritySeverity: medium
 

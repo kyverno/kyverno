@@ -19,8 +19,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
@@ -39,6 +41,16 @@ type permissiveAuthChecker struct{}
 
 func (permissiveAuthChecker) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*checker.AuthResult, error) {
 	return &checker.AuthResult{Allowed: true}, nil
+}
+
+// vpolOwnerReferences mirrors the owner references assigned by the generator.
+func vpolOwnerReferences(policy *policiesv1beta1.ValidatingPolicy) []metav1.OwnerReference {
+	return []metav1.OwnerReference{{
+		APIVersion: policiesv1beta1.GroupVersion.String(),
+		Kind:       "ValidatingPolicy",
+		Name:       policy.Name,
+		UID:        policy.UID,
+	}}
 }
 
 // newVAPTestController builds a controller backed by fake clientsets and empty listers.
@@ -83,8 +95,10 @@ func newVAPTestController(t *testing.T, vpol *policiesv1beta1.ValidatingPolicy, 
 // and VAP generation enabled.
 func disallowPrivilegeEscalationVpol(statusAutogenConfigs map[string]policiesv1beta1.ValidatingPolicyAutogen) *policiesv1beta1.ValidatingPolicy {
 	return &policiesv1beta1.ValidatingPolicy{
+		TypeMeta: metav1.TypeMeta{APIVersion: policiesv1beta1.GroupVersion.String(), Kind: "ValidatingPolicy"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "disallow-privilege-escalation",
+			UID:  "pss-native-vap-test-owner",
 		},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
 			AutogenConfiguration: &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
@@ -217,10 +231,10 @@ func TestReconcile_ValidatingPolicy_PerPolicyVAPGeneration(t *testing.T) {
 				vpol.Status.Generated = true
 				existingKubeObjects = append(existingKubeObjects,
 					&admissionregistrationv1.ValidatingAdmissionPolicy{
-						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name},
+						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name, OwnerReferences: vpolOwnerReferences(vpol)},
 					},
 					&admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name + "-binding"},
+						ObjectMeta: metav1.ObjectMeta{Name: "vpol-" + vpol.Name + "-binding", OwnerReferences: vpolOwnerReferences(vpol)},
 					},
 				)
 			}
@@ -249,40 +263,286 @@ func TestReconcile_ValidatingPolicy_PerPolicyVAPGeneration(t *testing.T) {
 // TestReconcile_ValidatingPolicy_VAPListersUnavailable verifies that when VAP listers are unavailable
 // (e.g. cluster does not support the VAP API), reconcile does not retry or fail.
 func TestReconcile_ValidatingPolicy_VAPListersUnavailable(t *testing.T) {
+	const unavailable = "skip generating ValidatingAdmissionPolicy: no ValidatingAdmissionPolicy API/informers are available."
+	const requested = "skip generating ValidatingAdmissionPolicy: requested but no ValidatingAdmissionPolicy API/informers are available."
 	tests := []struct {
-		name          string
-		vapGenEnabled bool
-		wantMessage   string
-	}{{
-		name:          "VAP generation disabled and VAP listers unavailable",
-		vapGenEnabled: false,
-	}, {
-		name:          "VAP generation enabled and VAP listers unavailable",
-		vapGenEnabled: true,
-		wantMessage:   "skip generating ValidatingAdmissionPolicy: requested but no ValidatingAdmissionPolicy API/informers are available.",
-	}}
+		name           string
+		globalEnabled  bool
+		vapGenEnabled  bool
+		generated      bool
+		missingVAP     bool
+		missingBinding bool
+		wantMessage    string
+	}{
+		{name: "idle disabled policy", missingVAP: true, missingBinding: true},
+		{name: "explicit opt-in", vapGenEnabled: true, missingVAP: true, missingBinding: true, wantMessage: requested},
+		{name: "previously generated now disabled", generated: true, missingVAP: true, missingBinding: true, wantMessage: unavailable},
+		{name: "previously generated still enabled", vapGenEnabled: true, generated: true, missingVAP: true, missingBinding: true, wantMessage: requested},
+		{name: "global toggle enabled", globalEnabled: true, generated: true, missingVAP: true, missingBinding: true, wantMessage: unavailable},
+		{name: "only VAP lister missing", generated: true, missingVAP: true, wantMessage: unavailable},
+		{name: "only binding lister missing", generated: true, missingBinding: true, wantMessage: unavailable},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := toggle.NewContext(context.Background(), fakeVAPToggle{
 				Toggles:                           toggle.FromContext(context.Background()),
-				generateValidatingAdmissionPolicy: false,
+				generateValidatingAdmissionPolicy: tt.globalEnabled,
 			})
 			vpol := disallowPrivilegeEscalationVpol(nil)
 			vpol.Spec.AutogenConfiguration.PodControllers.Controllers = []string{}
 			vpol.Spec.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled = ptr.To(tt.vapGenEnabled)
+			vpol.Status.Generated = tt.generated
+			vpol.Status.GetConditionStatus().Message = "existing status"
 
-			c, _, kyvernoClient := newVAPTestController(t, vpol)
-			c.vapLister = nil
-			c.vapbindingLister = nil
+			c, kubeClient, kyvernoClient := newVAPTestController(t, vpol)
+			if tt.missingVAP {
+				c.vapLister = nil
+			}
+			if tt.missingBinding {
+				c.vapbindingLister = nil
+			}
 
 			require.NoError(t, c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name))
-
+			assert.Empty(t, kubeClient.Actions(), "unavailable API must not be accessed")
+			if tt.wantMessage == "" {
+				assert.Empty(t, kyvernoClient.Actions(), "idle policy must not write status")
+			}
 			updated, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, vpol.Name, metav1.GetOptions{})
 			require.NoError(t, err)
 			assert.False(t, updated.Status.Generated)
 			if tt.wantMessage != "" {
 				assert.Equal(t, tt.wantMessage, updated.Status.GetConditionStatus().Message)
+			} else {
+				assert.Equal(t, vpol.Status, updated.Status)
 			}
 		})
 	}
+}
+
+// disabledVAPGenerationToggle simulates the global feature flag being disabled,
+// while retaining the rest of the current feature-toggle configuration.
+type disabledVAPGenerationToggle struct{ toggle.Toggles }
+
+func (disabledVAPGenerationToggle) GenerateValidatingAdmissionPolicy() bool { return false }
+
+// TestReconcileVAPExplicitOptIn tests the per-policy override at the controller
+// reconcile entrypoint, where the global generation toggle is checked.
+func TestReconcileVAPExplicitOptIn(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		perPolicy bool
+	}{
+		{name: "explicitly enabled with global flag off", perPolicy: true},
+		{name: "disabled with global flag off", perPolicy: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := disallowPrivilegeEscalationVpol(nil)
+			policy.Spec.AutogenConfiguration.PodControllers.Controllers = []string{}
+			policy.Spec.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled = ptr.To(tt.perPolicy)
+
+			c, kubeClient, _ := newVAPTestController(t, policy)
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			require.NoError(t, indexer.Add(policy))
+			c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(indexer)
+
+			baseCtx := context.Background()
+			ctx := toggle.NewContext(baseCtx, disabledVAPGenerationToggle{Toggles: toggle.FromContext(baseCtx)})
+			require.NoError(t, c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/"+policy.Name, "", policy.Name))
+			_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "vpol-"+policy.Name, metav1.GetOptions{})
+			if tt.perPolicy {
+				require.NoError(t, err, "explicit per-policy opt-in must override the global default")
+			} else {
+				assert.True(t, apierrors.IsNotFound(err), "disabled policy must not generate a VAP: %v", err)
+			}
+		})
+	}
+}
+
+// TestReconcileVAPDisabledCleanup checks the persisted-resource cleanup path
+// when the global default and the policy-specific VAP opt-in are both disabled.
+// It also covers resources left after a restart, incomplete cleanup, stale
+// generated status, and no-op reconciliation of an idle policy.
+func TestReconcileVAPDisabledCleanup(t *testing.T) {
+	tests := []struct {
+		name            string
+		seedVAP         bool
+		seedBinding     bool
+		generatedStatus bool
+		cacheOnly       bool
+	}{
+		{name: "nothing to clean up"},
+		{name: "stale generated status", generatedStatus: true},
+		{name: "orphaned VAP", seedVAP: true},
+		{name: "orphaned binding", seedBinding: true},
+		{name: "both resources after restart", seedVAP: true, seedBinding: true},
+		{name: "stale informer cache after deletion", seedVAP: true, seedBinding: true, cacheOnly: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			baseCtx := context.Background()
+			ctx := toggle.NewContext(baseCtx, disabledVAPGenerationToggle{Toggles: toggle.FromContext(baseCtx)})
+			policy := disallowPrivilegeEscalationVpol(nil)
+			policy.Spec.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled = ptr.To(false)
+			policy.Status.Generated = tt.generatedStatus
+
+			c, kubeClient, kyvernoClient := newVAPTestController(t, policy)
+			policyIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			require.NoError(t, policyIndexer.Add(policy))
+			c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(policyIndexer)
+
+			vapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			vapName := "vpol-" + policy.Name
+			bindingName := vapName + "-binding"
+			if tt.seedVAP {
+				vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: vapName, OwnerReferences: vpolOwnerReferences(policy)},
+				}
+				if !tt.cacheOnly {
+					_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(ctx, vap, metav1.CreateOptions{})
+					require.NoError(t, err)
+				}
+				require.NoError(t, vapIndexer.Add(vap))
+			}
+			if tt.seedBinding {
+				binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+					ObjectMeta: metav1.ObjectMeta{Name: bindingName, OwnerReferences: vpolOwnerReferences(policy)},
+				}
+				if !tt.cacheOnly {
+					_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Create(ctx, binding, metav1.CreateOptions{})
+					require.NoError(t, err)
+				}
+				require.NoError(t, bindingIndexer.Add(binding))
+			}
+			c.vapLister = admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(vapIndexer)
+			c.vapbindingLister = admissionregistrationv1listers.NewValidatingAdmissionPolicyBindingLister(bindingIndexer)
+
+			require.NoError(t, c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/"+policy.Name, "", policy.Name))
+			_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vapName, metav1.GetOptions{})
+			_, bindingErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+			assert.True(t, apierrors.IsNotFound(vapErr), "stale VAP must be removed: %v", vapErr)
+			assert.True(t, apierrors.IsNotFound(bindingErr), "stale binding must be removed: %v", bindingErr)
+
+			// An untouched, ungenerated policy must not incur status writes.
+			if !tt.seedVAP && !tt.seedBinding && !tt.generatedStatus {
+				assert.Empty(t, kyvernoClient.Actions(), "idle disabled policy should be skipped")
+			} else {
+				assert.NotEmpty(t, kyvernoClient.Actions(), "cleanup must update the generated status")
+			}
+			stored, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
+			require.NoError(t, err)
+			assert.False(t, stored.Status.Generated, "native generation must be marked disabled")
+		})
+	}
+}
+
+// TestReconcileVAPExplicitOptOutAfterGeneration verifies that disabling the
+// per-policy opt-in deletes an already-created VAP and binding, even when the
+// global generation switch is disabled for the entire lifecycle.
+func TestReconcileVAPExplicitOptOutAfterGeneration(t *testing.T) {
+	baseCtx := context.Background()
+	ctx := toggle.NewContext(baseCtx, disabledVAPGenerationToggle{Toggles: toggle.FromContext(baseCtx)})
+	policy := disallowPrivilegeEscalationVpol(nil)
+	policy.Spec.AutogenConfiguration.PodControllers.Controllers = []string{}
+	policy.Spec.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled = ptr.To(true)
+	c, kubeClient, kyvernoClient := newVAPTestController(t, policy)
+
+	policyIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, policyIndexer.Add(policy))
+	c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(policyIndexer)
+	key := "ValidatingPolicy/" + policy.Name
+
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), key, "", policy.Name))
+	vapName := "vpol-" + policy.Name
+	bindingName := vapName + "-binding"
+	vap, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vapName, metav1.GetOptions{})
+	require.NoError(t, err)
+	binding, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	require.NoError(t, err)
+	stored, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.True(t, stored.Status.Generated)
+
+	// Simulate informer updates after the native objects have been persisted.
+	vapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, vapIndexer.Add(vap))
+	require.NoError(t, bindingIndexer.Add(binding))
+	c.vapLister = admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(vapIndexer)
+	c.vapbindingLister = admissionregistrationv1listers.NewValidatingAdmissionPolicyBindingLister(bindingIndexer)
+
+	disabled := stored.DeepCopy()
+	disabled.Spec.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled = ptr.To(false)
+	_, err = kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Update(ctx, disabled, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	require.NoError(t, policyIndexer.Update(disabled))
+
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), key, "", policy.Name))
+	_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vapName, metav1.GetOptions{})
+	_, bindingErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(vapErr), "previously generated VAP must be removed: %v", vapErr)
+	assert.True(t, apierrors.IsNotFound(bindingErr), "previously generated binding must be removed: %v", bindingErr)
+	stored, err = kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, stored.Status.Generated)
+}
+
+// TestReconcileVAPCleanupStatusConflictRecovery verifies that cleanup errors are
+// propagated, and the next reconciliation recovers despite stale resource listers.
+// Deletion must not leave the generated flag stuck after a transient conflict.
+func TestReconcileVAPCleanupStatusConflictRecovery(t *testing.T) {
+	baseCtx := context.Background()
+	ctx := toggle.NewContext(baseCtx, disabledVAPGenerationToggle{Toggles: toggle.FromContext(baseCtx)})
+	policy := disallowPrivilegeEscalationVpol(nil)
+	policy.Spec.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled = ptr.To(false)
+	policy.Status.Generated = true
+
+	vapName := "vpol-" + policy.Name
+	bindingName := vapName + "-binding"
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: vapName, OwnerReferences: vpolOwnerReferences(policy)},
+	}
+	binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName, OwnerReferences: vpolOwnerReferences(policy)},
+	}
+	c, kubeClient, kyvernoClient := newVAPTestController(t, policy, vap, binding)
+
+	policyIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, policyIndexer.Add(policy))
+	c.vpolLister = policiesv1beta1listers.NewValidatingPolicyLister(policyIndexer)
+
+	conflictCount := 0
+	kyvernoClient.PrependReactor("update", "validatingpolicies", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		update, ok := action.(k8stesting.UpdateAction)
+		if !ok || update.GetSubresource() != "status" || conflictCount != 0 {
+			return false, nil, nil
+		}
+		conflictCount++
+		return true, nil, apierrors.NewConflict(
+			schema.GroupResource{Group: "policies.kyverno.io", Resource: "validatingpolicies"},
+			policy.Name, assert.AnError,
+		)
+	})
+
+	key := "ValidatingPolicy/" + policy.Name
+	err := c.reconcile(ctx, logr.Discard(), key, "", policy.Name)
+	require.True(t, apierrors.IsConflict(err), "status-write conflict must reach the reconciler: %v", err)
+	assert.Equal(t, 1, conflictCount, "conflict injection must execute exactly once")
+
+	_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vapName, metav1.GetOptions{})
+	_, bindingErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(vapErr), "VAP should already be deleted: %v", vapErr)
+	assert.True(t, apierrors.IsNotFound(bindingErr), "binding should already be deleted: %v", bindingErr)
+
+	stored, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.True(t, stored.Status.Generated, "failed status update must not claim cleanup succeeded")
+
+	// The lister may still contain both deleted resources, but a retry should
+	// tolerate Delete NotFound and persist the final generated=false status.
+	require.NoError(t, policyIndexer.Update(stored))
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), key, "", policy.Name))
+	stored, err = kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, stored.Status.Generated, "retry must clear the generated flag")
 }

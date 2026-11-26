@@ -951,3 +951,28 @@ func TestBuildValidatingAdmissionPolicy_DoesNotWriteIntoSourceSliceCapacity(t *t
 	assert.Equal(t, admissionregistrationv1.Variable{}, vars[:cap(vars)][1],
 		"append must not write into the source policy's backing array")
 }
+
+func TestBuildValidatingAdmissionPolicyPreservesFailurePolicy(t *testing.T) {
+	for _, failure := range []admissionregistrationv1.FailurePolicyType{
+		admissionregistrationv1.Fail,
+		admissionregistrationv1.Ignore,
+	} {
+		t.Run(string(failure), func(t *testing.T) {
+			policy := &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "pss-policy"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					FailurePolicy:    &failure,
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations:      []admissionregistrationv1.Validation{{Expression: "true"}},
+				},
+			}
+			vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "vpol-pss-policy"},
+			}
+
+			require.NoError(t, BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(policy), nil))
+			assert.Equal(t, &failure, vap.Spec.FailurePolicy)
+			assert.Equal(t, policy.Spec.Validations, vap.Spec.Validations)
+		})
+	}
+}

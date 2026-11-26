@@ -35,7 +35,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   variables:
     - name: allContainers
       expression: >-
@@ -94,7 +94,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   validations:
     - expression: >-
         object.spec.?hostUsers.orValue(true) == false ||
@@ -151,7 +151,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   validations:
     - expression: >-
         (!has(object.spec.securityContext) ||
@@ -217,7 +217,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   validations:
     - expression: >-
         !has(object.spec.securityContext) ||
@@ -261,7 +261,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   validations:
     - expression: >-
         object.spec.?hostUsers.orValue(true) == false ||
@@ -323,7 +323,7 @@ spec:
     - apiGroups: [""]
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
-      resources: [pods]
+      resources: [pods, pods/ephemeralcontainers]
   variables:
     - name: ctnrs
       expression: >-
