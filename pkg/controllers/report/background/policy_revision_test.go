@@ -177,20 +177,22 @@ func TestNeedsReconcile_CELExceptionRevision(t *testing.T) {
 	first := &policiesv1beta1.PolicyException{ObjectMeta: metav1.ObjectMeta{
 		Namespace: namespace, Name: "exception", UID: "exception-uid", ResourceVersion: "10",
 	}}
+	first.Spec.PolicyRefs = []policiesv1beta1.PolicyRef{{Kind: "ValidatingPolicy", Name: policy.GetName()}}
+	exceptionLabel := celExceptionPolicyLabel(policy)
 	report := &reportsv1.EphemeralReport{ObjectMeta: metav1.ObjectMeta{
 		Namespace: namespace, Name: uid,
 		Labels: map[string]string{
 			reportutils.LabelResourceHash:   hash,
 			reportutils.PolicyLabel(policy): reportutils.PolicyRevision(policy),
-			celExceptionRevisionLabel:       celExceptionRevision([]*policiesv1beta1.PolicyException{first}),
 		},
 		Annotations: map[string]string{annotationLastScanTime: time.Now().Format(time.RFC3339)},
 	}}
+	report.Labels[exceptionLabel] = celExceptionRevision([]*policiesv1beta1.PolicyException{first})
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	if err := indexer.Add(report); err != nil {
 		t.Fatal(err)
 	}
-	ctrl := &controller{forceDelay: time.Hour,
+	ctrl := &controller{forceDelay: time.Hour, exceptionNamespace: "*",
 		bgscanrLister: cache.NewGenericLister(indexer,
 			schema.GroupVersionResource{Group: "reports.kyverno.io", Version: "v1", Resource: "ephemeralreports"}.GroupResource()),
 	}
@@ -207,9 +209,23 @@ func TestNeedsReconcile_CELExceptionRevision(t *testing.T) {
 	check("updated exception", []*policiesv1beta1.PolicyException{second}, true)
 	check("deleted exception", nil, true)
 	// Emulate successful partial reconcile persisting the new exception label.
-	report.Labels[celExceptionRevisionLabel] = celExceptionRevision([]*policiesv1beta1.PolicyException{second})
+	report.Labels[exceptionLabel] = celExceptionRevision([]*policiesv1beta1.PolicyException{second})
 	if err := indexer.Update(report); err != nil {
 		t.Fatal(err)
 	}
 	check("updated exception already processed", []*policiesv1beta1.PolicyException{second}, false)
+
+	unrelated := second.DeepCopy()
+	unrelated.Name = "unrelated"
+	unrelated.Spec.PolicyRefs[0].Name = "another-policy"
+	check("unrelated exception added", []*policiesv1beta1.PolicyException{second, unrelated}, false)
+
+	// A report-wide legacy fingerprint cannot identify which old CEL results
+	// depended on an exception. Reconcile once even when no exception remains.
+	delete(report.Labels, exceptionLabel)
+	report.Labels[celExceptionRevisionLabel] = celExceptionRevision([]*policiesv1beta1.PolicyException{second})
+	if err := indexer.Update(report); err != nil {
+		t.Fatal(err)
+	}
+	check("legacy revision with removed exception", nil, true)
 }

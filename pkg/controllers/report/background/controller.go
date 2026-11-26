@@ -510,18 +510,12 @@ func (c *controller) needsReconcileWithExceptions(
 		}
 	}
 	// if a policy or an exception changed, we need a partial reconcile
-	expected := map[string]string{}
-	for _, policy := range policies {
-		expected[reportutils.PolicyLabel(policy)] = reportutils.PolicyRevision(policy)
-	}
+	expected := c.policyRevisions(policies, celexceptions)
 	for _, binding := range vapBindings {
 		expected[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
 	}
 	for _, binding := range mapBindings {
 		expected[reportutils.MutatingAdmissionPolicyBindingLabel(&binding)] = binding.GetResourceVersion()
-	}
-	if revision := celExceptionRevision(celexceptions); revision != "" {
-		expected[celExceptionRevisionLabel] = revision
 	}
 	actual := map[string]string{}
 	for key, value := range reportMetadata.GetLabels() {
@@ -573,18 +567,12 @@ func (c *controller) reconcileReport(
 		observed = reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid)
 	}
 	// build desired report
-	expected := map[string]string{}
-	for _, policy := range policies {
-		expected[reportutils.PolicyLabel(policy)] = reportutils.PolicyRevision(policy)
-	}
+	expected := c.policyRevisions(policies, celexceptions)
 	for _, binding := range vapBindings {
 		expected[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] = binding.GetResourceVersion()
 	}
 	for _, binding := range mapBindings {
 		expected[reportutils.MutatingAdmissionPolicyBindingLabel(&binding)] = binding.GetResourceVersion()
-	}
-	if revision := celExceptionRevision(celexceptions); revision != "" {
-		expected[celExceptionRevisionLabel] = revision
 	}
 	actual := map[string]string{}
 	for key, value := range observed.GetLabels() {
@@ -592,13 +580,12 @@ func (c *controller) reconcileReport(
 			actual[key] = value
 		}
 	}
-	exceptionsChanged := expected[celExceptionRevisionLabel] != actual[celExceptionRevisionLabel]
 	// A binding update scans its native policy as a whole. Use the same
 	// decision for retention so unchanged bindings cannot keep duplicate results.
 	rescan := map[string]bool{}
 	for _, policy := range policies {
 		label := reportutils.PolicyLabel(policy)
-		rescan[label] = full || exceptionsChanged || actual[label] != expected[label]
+		rescan[label] = full || actual[label] != expected[label] || policyExceptionRevisionChanged(policy, expected, actual)
 		if policy.AsValidatingAdmissionPolicy() != nil {
 			for _, binding := range vapBindings {
 				if actual[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] != binding.GetResourceVersion() {
@@ -674,17 +661,9 @@ func (c *controller) reconcileReport(
 			delete(desired.GetLabels(), key)
 		}
 	}
-	for _, policy := range policies {
-		reportutils.SetPolicyLabel(desired, policy)
-	}
-	for _, binding := range vapBindings {
-		reportutils.SetValidatingAdmissionPolicyBindingLabel(desired, binding)
-	}
-	for _, binding := range mapBindings {
-		reportutils.SetMutatingAdmissionPolicyBindingLabel(desired, binding)
-	}
-	if revision := celExceptionRevision(celexceptions); revision != "" {
-		controllerutils.SetLabel(desired, celExceptionRevisionLabel, revision)
+	// Persist the exact revisions used for reconciliation and retention.
+	for label, revision := range expected {
+		controllerutils.SetLabel(desired, label, revision)
 	}
 	reportutils.SetResourceVersionLabels(desired, target)
 	reportutils.SetResults(desired, ruleResults...)

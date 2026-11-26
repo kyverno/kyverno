@@ -212,6 +212,15 @@ func TestReconcileReport_ExceptionRevisionAndFailedRetry(t *testing.T) {
 	second := revisionValidatingPolicy("second")
 	policies := []engineapi.GenericPolicy{engineapi.NewValidatingPolicy(first), engineapi.NewValidatingPolicy(second)}
 	f := newRevisionReconcileFixture(t, "", policies...)
+	// Start from legacy results so both policies are evaluated during the first
+	// reconcile. Subsequent exception changes must only evaluate the target.
+	observed := f.stored(t)
+	for _, policy := range policies {
+		observed.GetLabels()[reportutils.PolicyLabel(policy)] = policy.GetResourceVersion()
+	}
+	_, err := reportutils.UpdateReport(t.Context(), observed, f.client, nil)
+	require.NoError(t, err)
+	f.stored(t)
 	exception := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "exception", UID: "exception-uid", ResourceVersion: "10"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
@@ -240,7 +249,9 @@ func TestReconcileReport_ExceptionRevisionAndFailedRetry(t *testing.T) {
 
 	require.NoError(t, f.reconcile(t, []*policiesv1beta1.PolicyException{updated}, policies...))
 	refreshed := f.stored(t)
-	require.Equal(t, celExceptionRevision([]*policiesv1beta1.PolicyException{updated}), refreshed.GetLabels()[celExceptionRevisionLabel])
+	require.Equal(t, celExceptionRevision([]*policiesv1beta1.PolicyException{updated}), refreshed.GetLabels()[celExceptionPolicyLabel(policies[0])])
+	require.NotContains(t, refreshed.GetLabels(), celExceptionPolicyLabel(policies[1]))
+	require.Equal(t, scansBefore+2, f.events.scans, "retry must not rescan the unrelated policy")
 	require.Len(t, refreshed.GetResults(), 2, "updated results must replace the previous ones")
 	require.EqualValues(t, 1, reportutils.CalculateSummary(refreshed.GetResults()).Skip)
 	require.EqualValues(t, 1, reportutils.CalculateSummary(refreshed.GetResults()).Fail)
@@ -249,7 +260,8 @@ func TestReconcileReport_ExceptionRevisionAndFailedRetry(t *testing.T) {
 	// Deleting the final exception invalidates a previous skip and removes its label.
 	require.NoError(t, f.reconcile(t, nil, policies...))
 	deleted := f.stored(t)
-	require.NotContains(t, deleted.GetLabels(), celExceptionRevisionLabel)
+	require.NotContains(t, deleted.GetLabels(), celExceptionPolicyLabel(policies[0]))
+	require.Equal(t, scansBefore+3, f.events.scans, "deletion must only rescan the target policy")
 	require.Len(t, deleted.GetResults(), 2)
 	require.EqualValues(t, 2, reportutils.CalculateSummary(deleted.GetResults()).Fail)
 	require.Equal(t, 2, f.writes())
@@ -283,16 +295,28 @@ func TestReconcileReport_ChangedNativeBindingDoesNotDuplicateResults(t *testing.
 				PolicyName: vap.Name, ValidationActions: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
 			}},
 	}
+	var exceptions []*policiesv1beta1.PolicyException
 	reconcile := func() {
 		t.Helper()
 		require.NoError(t, f.ctrl.reconcileReport(t.Context(), "", "report", false, f.target.GetUID(),
 			f.target.GroupVersionKind(), schema.GroupVersionResource{Version: "v1", Resource: "namespaces"},
-			reportresource.Resource{Name: f.target.GetName()}, nil, bindings, nil,
+			reportresource.Resource{Name: f.target.GetName()}, exceptions, bindings, nil,
 			engineapi.NewValidatingAdmissionPolicy(vap.DeepCopy())))
 	}
 	reconcile()
 	initial := f.stored(t).GetResults()
 	require.NotEmpty(t, initial)
+	exceptions = []*policiesv1beta1.PolicyException{{
+		ObjectMeta: metav1.ObjectMeta{Name: "unrelated", UID: "exception-uid", ResourceVersion: "40"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "unrelated", Kind: "ValidatingPolicy"}},
+		},
+	}}
+	scansBefore, writesBefore := f.events.scans, f.writes()
+	reconcile()
+	require.Equal(t, scansBefore, f.events.scans, "CEL exception must not rescan native policy")
+	require.Equal(t, writesBefore, f.writes(), "CEL exception must not rewrite native-only report")
+	require.Equal(t, initial, f.stored(t).GetResults())
 	bindings[0].ResourceVersion = "21"
 	reconcile()
 	results := f.stored(t).GetResults()

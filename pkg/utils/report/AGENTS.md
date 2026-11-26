@@ -12,6 +12,10 @@
 - Native ValidatingAdmissionPolicy and MutatingAdmissionPolicy keep their
   resourceVersion revisions, as do their bindings. Do not silently extend the
   CEL revision scheme to additional policy kinds.
+- Background CEL exception revisions are tracked separately per policy, using
+  the scanner's exception scope and policy kind, name, and namespace. Changes
+  must not rescan unrelated CEL or native policies. A legacy report-wide
+  exception revision requires a conservative one-time CEL refresh.
 - Revisions must be deterministic Kubernetes label values (at most 63
   characters). A legacy resourceVersion label requires one successful refresh;
   replace stale results rather than appending duplicates. Failed scans must not

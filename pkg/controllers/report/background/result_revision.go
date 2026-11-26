@@ -7,11 +7,52 @@ import (
 	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 )
 
+// celExceptionRevisionLabel is the legacy, report-wide exception revision.
+// Refresh CEL results once when migrating it, since its previous membership is unknown.
 const celExceptionRevisionLabel = reportutils.LabelPrefixPolicyException + "background-revision"
+
+// celExceptionPolicyLabel identifies a CEL policy by kind, namespace and name.
+// Hashing keeps the label name within Kubernetes' 63-character limit.
+func celExceptionPolicyLabel(policy engineapi.GenericPolicy) string {
+	if policy.AsValidatingPolicyLike() == nil && policy.AsMutatingPolicyLike() == nil && policy.AsImageValidatingPolicyLike() == nil {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(policy.GetKind() + "/" + policy.GetNamespace() + "/" + policy.GetName()))
+	return celExceptionRevisionLabel + fmt.Sprintf("-%x", sum[:12])
+}
+
+// policyRevisions uses the same exception scope as the scanner's CEL providers.
+// Native admission policies do not consume CEL exceptions.
+func (c *controller) policyRevisions(policies []engineapi.GenericPolicy, exceptions []*policiesv1beta1.PolicyException) map[string]string {
+	revisions := make(map[string]string)
+	scope := celengine.ExceptionScope(c.exceptionNamespace)
+	for _, policy := range policies {
+		revisions[reportutils.PolicyLabel(policy)] = reportutils.PolicyRevision(policy)
+		if label := celExceptionPolicyLabel(policy); label != "" {
+			var matching []*policiesv1beta1.PolicyException
+			for _, exception := range exceptions {
+				if exception != nil && scope.Applies(exception, policy.GetKind(), policy.GetName(), policy.GetNamespace()) {
+					matching = append(matching, exception)
+				}
+			}
+			if revision := celExceptionRevision(matching); revision != "" {
+				revisions[label] = revision
+			}
+		}
+	}
+	return revisions
+}
+
+func policyExceptionRevisionChanged(policy engineapi.GenericPolicy, expected, actual map[string]string) bool {
+	label := celExceptionPolicyLabel(policy)
+	return label != "" && (expected[label] != actual[label] || actual[celExceptionRevisionLabel] != "")
+}
 
 // celExceptionRevision fingerprints the active exception set, including
 // additions and removals. A stable ordering prevents informer-list order from
