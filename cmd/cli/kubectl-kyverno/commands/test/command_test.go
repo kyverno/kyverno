@@ -1381,6 +1381,7 @@ func Test_OperationConnect(t *testing.T) {
 					assert.Equal(t, "test-pod", response.Resource.GetName())
 					assert.Equal(t, "test-ns", response.Resource.GetNamespace())
 					assert.Equal(t, "Pod", response.Resource.GetKind())
+					assert.NotEmpty(t, response.Resource.Object["spec"], "CONNECT response must preserve input resource fields including spec")
 					if response.Policy().GetName() != tc.policy {
 						continue
 					}

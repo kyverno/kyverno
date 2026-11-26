@@ -343,7 +343,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					continue
 				}
 				resourceVal := resource
-				if reps.Resource != nil && reps.Resource.Object != nil {
+				if p.resolveOperation() != "CONNECT" && reps.Resource != nil && reps.Resource.Object != nil {
 					resourceVal = *reps.Resource
 				}
 				patched := resourceVal
@@ -595,7 +595,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						continue
 					}
 					resourceVal := resource
-					if reps.Resource != nil && reps.Resource.Object != nil {
+					if p.resolveOperation() != "CONNECT" && reps.Resource != nil && reps.Resource.Object != nil {
 						resourceVal = *reps.Resource
 					}
 					response := engineapi.EngineResponse{
@@ -637,7 +637,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						continue
 					}
 					resourceVal := resource
-					if reps.Resource != nil && reps.Resource.Object != nil {
+					if p.resolveOperation() != "CONNECT" && reps.Resource != nil && reps.Resource.Object != nil {
 						resourceVal = *reps.Resource
 					}
 					response := engineapi.EngineResponse{
@@ -790,7 +790,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						fmt.Fprintln(p.Out)
 					}
 					trigger := resource
-					if engineResponse.Trigger != nil && engineResponse.Trigger.Object != nil {
+					if p.resolveOperation() != "CONNECT" && engineResponse.Trigger != nil && engineResponse.Trigger.Object != nil {
 						trigger = *engineResponse.Trigger
 					}
 					if res.Result == nil {
