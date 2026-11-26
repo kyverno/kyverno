@@ -27,13 +27,14 @@ func setupRuntimeProbes(
 	kyvernoClient kyvernoclient.Interface,
 	kyvernoInformer kyvernoinformers.SharedInformerFactory,
 	kyvernoDeployment appsv1informers.DeploymentInformer,
+	clk clock.Clock,
 	serverIP string,
 	renewBefore time.Duration,
 	caSecretName string,
 	tlsSecretName string,
 	keyAlgorithm tls.KeyAlgorithm,
 ) (tls.CertRenewer, runtimeutils.Runtime) {
-	informerHealth := health.NewTracker(logger.WithName("informer-health"), clock.RealClock{})
+	informerHealth := health.NewTracker(logger.WithName("informer-health"), clk)
 	registerCleanupInformers(kyvernoInformer, kyvernoClient, informerHealth)
 	certRenewer := tls.NewCertRenewer(
 		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),

@@ -47,6 +47,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/utils/clock"
 )
 
 const (
@@ -165,6 +166,7 @@ func main() {
 			setup.KyvernoClient,
 			kyvernoInformer,
 			kyvernoDeployment,
+			clock.RealClock{},
 			serverIP,
 			renewBefore,
 			caSecretName,

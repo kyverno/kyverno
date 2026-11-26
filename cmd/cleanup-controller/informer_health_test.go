@@ -14,7 +14,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernoclientfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/informers/health"
@@ -154,10 +153,22 @@ func TestCleanupWatchReadiness(t *testing.T) {
 
 func TestSetupRuntimeProbes(t *testing.T) {
 	t.Parallel()
+	var failedRequests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		failedRequests.Add(1)
+		http.Error(w, "apiserver unavailable", http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
 	kubeClient := fake.NewSimpleClientset()
-	kyvernoClient := kyvernoclientfake.NewSimpleClientset()
+	kyvernoClient, err := kyvernoclient.NewForConfig(&rest.Config{Host: srv.URL, QPS: 100, Burst: 100})
+	require.NoError(t, err)
 	kyvernoInformer := kyvernoinformers.NewSharedInformerFactory(kyvernoClient, 0)
 	deployment := informers.NewSharedInformerFactory(kubeClient, 0).Apps().V1().Deployments()
+	fakeClock := clocktesting.NewFakeClock(time.Now())
 
 	certRenewer, rt := setupRuntimeProbes(
 		logr.Discard(),
@@ -165,6 +176,7 @@ func TestSetupRuntimeProbes(t *testing.T) {
 		kyvernoClient,
 		kyvernoInformer,
 		deployment,
+		fakeClock,
 		"",
 		time.Hour,
 		"kyverno-cleanup-controller-ca",
@@ -173,6 +185,34 @@ func TestSetupRuntimeProbes(t *testing.T) {
 	)
 	require.NotNil(t, certRenewer)
 	require.NotNil(t, rt)
-	require.True(t, rt.IsLive(t.Context()))
-	require.False(t, rt.IsReady(t.Context()))
+	require.True(t, rt.IsLive(ctx))
+	// Missing certificates initially keep readiness false.
+	require.False(t, rt.IsReady(ctx))
+
+	// Seed valid CA and TLS certificates and confirm readiness becomes true.
+	if err := certRenewer.RenewCA(ctx); err != nil {
+		require.ErrorContains(t, err, "kyverno-cleanup-controller-tls")
+	}
+	require.NoError(t, certRenewer.RenewTLS(ctx))
+	certValidator, ok := certRenewer.(tls.CertValidator)
+	require.True(t, ok)
+	valid, err := certValidator.ValidateCert(ctx)
+	require.NoError(t, err)
+	require.True(t, valid)
+	require.True(t, rt.IsReady(ctx))
+
+	// Start the tracked informer against the failing server; once the grace period
+	// elapses, readiness must fail even though certificates remain valid.
+	_ = kyvernoInformer.Kyverno().V2beta1().GlobalContextEntries().Informer()
+	kyvernoInformer.Start(ctx.Done())
+	defer kyvernoInformer.Shutdown()
+	defer cancel()
+
+	require.Eventually(t, func() bool { return failedRequests.Load() > 0 }, 10*time.Second, 10*time.Millisecond)
+	fakeClock.Step(health.GracePeriod)
+	valid, err = certValidator.ValidateCert(ctx)
+	require.NoError(t, err)
+	require.True(t, valid)
+	require.False(t, rt.IsReady(ctx))
+	require.True(t, rt.IsLive(ctx))
 }
