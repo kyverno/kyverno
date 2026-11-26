@@ -36,6 +36,7 @@ func secretEnv(t *testing.T, namespace string) *cel.Env {
 	env, err := cel.NewEnv(
 		cel.OptionalTypes(),
 		ext.Encoders(),
+		ext.Bindings(),
 		cel.Variable("object", cel.DynType),
 		cel.Variable("variables", cel.MapType(cel.StringType, cel.DynType)),
 		resource.Lib(resource.Context{ContextInterface: cluster}, namespace, resource.Latest()),
@@ -350,4 +351,68 @@ func nodeValues(et ExpressionTrace) []string {
 		values = append(values, n.Value)
 	}
 	return values
+}
+
+// TestRedaction_BoundNamesAreHidden: cel.bind and optMap bind a name to a value, and a node that
+// uses the name reads what the value reads. So the name, and anything worked out from it, is
+// hidden when the bound value may be Secret data, in the CLI output, the admission log and the
+// JSON alike; a name bound to anything else is still shown.
+func TestRedaction_BoundNamesAreHidden(t *testing.T) {
+	const secretRead = "resource.Get('v1', 'secrets', 'kyverno', 'db-credentials')"
+	// the policy reads the Secret into variables, which an expression then binds names to
+	password := evaluated(t, secretRead+".data.password", nil)
+	creds := evaluated(t, secretRead+".data", nil)
+	mode := evaluated(t, "resource.Get('v1', 'configmaps', 'kyverno', 'settings').data.mode", nil)
+	values := map[string]any{"password": password.Result, "creds": map[string]any{"password": password.Result}, "mode": mode.Result}
+	tests := []struct {
+		name       string
+		expression string
+		// shown is a value that does not come from a Secret and must still be shown
+		shown string
+	}{{
+		name:       "cel.bind",
+		expression: "cel.bind(pw, variables.password, pw != '' && pw.size() > 32)",
+	}, {
+		name:       "cel.bind of a name bound from another",
+		expression: "cel.bind(c, variables.creds, cel.bind(pw, c.password, pw != '' && pw.size() > 32))",
+	}, {
+		name:       "optMap",
+		expression: "optional.of(variables.password).optMap(pw, pw != '' && pw.size() > 32).orValue(false)",
+	}, {
+		name:       "a name bound to a ConfigMap's value beside one bound to a Secret's",
+		expression: "cel.bind(m, variables.mode, cel.bind(pw, variables.password, m == 'strict' && pw == 'hunter2'))",
+		shown:      "strict",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			check := evaluated(t, tt.expression, values)
+			require.Equal(t, "false", check.Result)
+			d := &Decision{
+				PolicyName:   "check-password",
+				PolicyKind:   "ValidatingPolicy",
+				ResourceKind: "Pod",
+				ResourceName: "web",
+				Variables: []NamedExpressionTrace{
+					{Name: "password", ExpressionTrace: password},
+					{Name: "creds", ExpressionTrace: creds},
+					{Name: "mode", ExpressionTrace: mode},
+				},
+				Verdict: VerdictTrace{Status: VerdictFail, Message: "the password is too short", ExpressionTrace: check},
+			}
+			var rendered bytes.Buffer
+			Render(&rendered, d)
+			entry, _ := logged(t, d)
+			logLine, err := json.Marshal(entry)
+			require.NoError(t, err)
+			written, err := json.Marshal(d)
+			require.NoError(t, err)
+			for name, output := range map[string]string{"render": rendered.String(), "log": string(logLine), "json": string(written)} {
+				assert.NotContains(t, output, "czNjcjN0LXA0c3M=", "%s: the Secret's data", name)
+				if tt.shown != "" {
+					assert.Contains(t, output, tt.shown, "%s: a value that does not come from a Secret is shown", name)
+				}
+			}
+			t.Log(rendered.String())
+		})
+	}
 }

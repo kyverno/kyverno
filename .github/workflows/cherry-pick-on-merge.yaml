@@ -3,8 +3,13 @@ name: Cherry-pick on PR merge
 permissions:
   contents: read
 
+# pull_request_target runs the copy of this workflow on the default branch, so
+# the job can use the pr-updater-app environment, whose branch rules allow only
+# main. It also gets secrets for pull requests from forks. The job never checks
+# out or runs code from the pull request: it checks out the default branch and
+# cherry-picks the merge commit, which is already on the base branch.
 on:
-  pull_request:
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [closed]
 
 jobs:
@@ -15,6 +20,8 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Holds the PR updater app secrets; its branch rules allow only main.
+    environment: pr-updater-app
     permissions:
       contents: read
       issues: write

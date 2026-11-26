@@ -1,0 +1,16 @@
+# The condition reads a label the pod does not have, so evaluating it fails. With
+# --continue-on-fail apply reports the error and carries on.
+apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: delete-by-team
+spec:
+  conditions:
+  - name: team
+    expression: object.metadata.labels.team == "payments"
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      resources: [pods]
+  schedule: '*/1 * * * *'

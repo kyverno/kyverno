@@ -28,8 +28,10 @@ func (c *ApplyCommandConfig) resolveOutputFlags(cmd *cobra.Command, table, detai
 	}
 	if table && structured {
 		warn("--table is ignored when --policy-report or --generate-exceptions is set")
-	} else if formatChanged && c.OutputFormat != "table" && !structured {
-		warn(fmt.Sprintf("--output-format %s has no effect without --policy-report or --generate-exceptions", c.OutputFormat))
+	} else if table && c.explainJSON() {
+		warn("--table is ignored with --explain --output-format json")
+	} else if formatChanged && c.OutputFormat != "table" && !structured && !c.explainJSON() {
+		warn(fmt.Sprintf("--output-format %s has no effect without --policy-report or --generate-exceptions, or json with --explain", c.OutputFormat))
 	}
 	if detailedResults && (!table || structured) {
 		warn("--detailed-results has no effect without table output")

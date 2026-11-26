@@ -91265,7 +91265,7 @@ spec:
       automountServiceAccountToken: true
       initContainers:
         - name: kyverno-pre
-          image: "reg.kyverno.io/kyverno/kyvernopre:latest"
+          image: "ghcr.io/kyverno/kyvernopre:latest"
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
@@ -91313,7 +91313,7 @@ spec:
             value: kyverno-svc
       containers:
         - name: kyverno
-          image: "reg.kyverno.io/kyverno/kyverno:latest"
+          image: "ghcr.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
             - --caSecretName=kyverno-svc.kyverno.svc.kyverno-tls-ca
@@ -91500,7 +91500,7 @@ spec:
       automountServiceAccountToken: true
       containers:
         - name: controller
-          image: "reg.kyverno.io/kyverno/background-controller:latest"
+          image: "ghcr.io/kyverno/background-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
@@ -91629,7 +91629,7 @@ spec:
       automountServiceAccountToken: true
       containers:
         - name: controller
-          image: "reg.kyverno.io/kyverno/cleanup-controller:latest"
+          image: "ghcr.io/kyverno/cleanup-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443
@@ -91792,7 +91792,7 @@ spec:
       automountServiceAccountToken: true
       containers:
         - name: controller
-          image: "reg.kyverno.io/kyverno/reports-controller:latest"
+          image: "ghcr.io/kyverno/reports-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9443

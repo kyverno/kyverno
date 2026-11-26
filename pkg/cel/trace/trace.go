@@ -2,6 +2,7 @@ package trace
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"cel.dev/cel-go/cel"
@@ -12,27 +13,30 @@ import (
 )
 
 type NodeTrace struct {
-	Expression string
-	Value      string
-	Error      string
+	Expression string `json:"expression"`
+	Value      string `json:"value,omitempty"`
+	Error      string `json:"error,omitempty"`
 	// Inputs is what this sub-expression reads, so its value can be hidden when it may be Secret
 	// data.
-	Inputs Inputs
+	Inputs Inputs `json:"-"`
 }
 
+// ExpressionTrace is one traced expression. Its JSON names are the ones LogEntry uses, so a
+// logged trace reads as a Decision with fields left out: Source is the expression, Nodes what it
+// evaluated.
 type ExpressionTrace struct {
-	Source string
-	Nodes  []NodeTrace
-	Result string
+	Source string      `json:"expression,omitempty"`
+	Nodes  []NodeTrace `json:"evaluated,omitempty"`
+	Result string      `json:"result,omitempty"`
 	// LoopValuesOmitted is set when nodes inside a loop body (all, exists, exists_one, map,
 	// filter) ran but were left out of Nodes; see Build for why.
-	LoopValuesOmitted bool
+	LoopValuesOmitted bool `json:"loopValuesOmitted,omitempty"`
 	// NoBreakdown is set, by the caller, when Nodes were deliberately not collected for this
 	// expression, and says why, so the missing breakdown is not mistaken for an empty one.
-	NoBreakdown string
+	NoBreakdown string `json:"noBreakdown,omitempty"`
 	// Inputs is what the expression reads, so its result can be hidden when it may be Secret
 	// data. It is filled in even when Nodes are not.
-	Inputs Inputs
+	Inputs Inputs `json:"-"`
 }
 
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
@@ -45,7 +49,8 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 	}
 	native := ast.NativeRep()
 	references := native.ReferenceMap()
-	et.Inputs = inputsOf(native.Expr(), references)
+	bound := boundInputs(native.Expr(), references)
+	et.Inputs = inputsOf(native.Expr(), references, bound)
 	if details == nil {
 		return et
 	}
@@ -125,7 +130,7 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 			// noise to a reader. The macro call itself renders without them and is kept.
 			return
 		}
-		nt := NodeTrace{Expression: text, Inputs: inputsOf(e, references)}
+		nt := NodeTrace{Expression: text, Inputs: inputsOf(e, references, bound)}
 		if types.IsError(val) {
 			nt.Error = stringify(val)
 		} else {
@@ -158,6 +163,11 @@ func referencesMacroInternal(e celast.Expr) bool {
 // dereferences a struct pointer passed directly to Sprintf), but not once it is nested inside a
 // slice (fmt does not dereference a pointer found while formatting a compound value's elements).
 // Recursing element by element gives each one that same direct, top-level Sprintf treatment.
+//
+// Maps are recursed into the same way, and written as fmt writes a Go map, map[k:v ...] with the
+// keys sorted. fmt sorts only the outermost map: a map nested in it is still a CEL value, which
+// writes itself as {k: v, ...} in Go's random map order, so the same value could be written
+// differently from one run to the next.
 func stringify(v ref.Val) string {
 	if v == nil {
 		return ""
@@ -176,17 +186,36 @@ func stringify(v ref.Val) string {
 		sb.WriteByte(']')
 		return sb.String()
 	}
+	if mapper, ok := v.(traits.Mapper); ok {
+		type entry struct{ key, value string }
+		var entries []entry
+		for it := mapper.Iterator(); it.HasNext() == types.True; {
+			key := it.Next()
+			entries = append(entries, entry{key: stringify(key), value: stringify(mapper.Get(key))})
+		}
+		slices.SortFunc(entries, func(a, b entry) int { return strings.Compare(a.key, b.key) })
+		var sb strings.Builder
+		sb.WriteString("map[")
+		for i, e := range entries {
+			if i > 0 {
+				sb.WriteString(" ")
+			}
+			sb.WriteString(e.key + ":" + e.value)
+		}
+		sb.WriteByte(']')
+		return sb.String()
+	}
 	return fmt.Sprintf("%v", v.Value())
 }
 
 type NamedExpressionTrace struct {
-	Name string
+	Name string `json:"name,omitempty"`
 	ExpressionTrace
 }
 
 type ScopeTrace struct {
-	Applied bool
-	Reason  string
+	Applied bool   `json:"applied"`
+	Reason  string `json:"reason,omitempty"`
 }
 
 const (
@@ -204,56 +233,58 @@ const (
 // ImagesTrace lists the images an ImageValidatingPolicy's image extractors found on the
 // resource. Found is empty when extraction ran and found nothing.
 type ImagesTrace struct {
-	Found []ImageTrace
+	Found []ImageTrace `json:"found"`
 }
 
 // ImageTrace is one image found on the resource. Category is the image extractor that found it
 // (e.g. containers); Checked is whether the policy's matchImageReferences kept it, which is what
 // decides whether the policy's validations see it at all.
 type ImageTrace struct {
-	Category string
-	Image    string
-	Checked  bool
+	Category string `json:"category"`
+	Image    string `json:"image"`
+	Checked  bool   `json:"checked"`
 }
 
 // ValidationTrace is one validation's own outcome. Index is its position in the policy's
 // validations, since validations have no names.
 type ValidationTrace struct {
-	Index  int
-	Status string
+	Index  int    `json:"index"`
+	Status string `json:"status,omitempty"`
 	ExpressionTrace
 }
 
 type VerdictTrace struct {
-	Status string
+	Status string `json:"status,omitempty"`
 	ExpressionTrace
-	Message string
+	Message string `json:"message,omitempty"`
 }
 
+// Decision is the trace of how one policy reached its result for one resource. In JSON (see
+// MarshalJSON) the policy and resource fields are written as policy and resource objects.
 type Decision struct {
-	PolicyName        string
-	PolicyKind        string
-	ResourceKind      string
-	ResourceName      string
-	ResourceNamespace string
+	PolicyName        string `json:"-"`
+	PolicyKind        string `json:"-"`
+	ResourceKind      string `json:"-"`
+	ResourceName      string `json:"-"`
+	ResourceNamespace string `json:"-"`
 
-	Scope     ScopeTrace
-	Match     []NamedExpressionTrace
-	Variables []NamedExpressionTrace
+	Scope     ScopeTrace             `json:"scope,omitzero"`
+	Match     []NamedExpressionTrace `json:"match,omitempty"`
+	Variables []NamedExpressionTrace `json:"variables,omitempty"`
 	// Validations lists every validation in order: the ones that ran with their own status, then
 	// any after a failure as VerdictNotRun. Verdict still carries the deciding one in full.
-	Validations []ValidationTrace
+	Validations []ValidationTrace `json:"validations,omitempty"`
 	// Images is what an ImageValidatingPolicy found to check; nil for every other policy kind.
-	Images  *ImagesTrace
-	Verdict VerdictTrace
+	Images  *ImagesTrace `json:"images,omitempty"`
+	Verdict VerdictTrace `json:"verdict"`
 	// Mutations holds one entry per mutation expression that actually ran, in order. Unlike
 	// Verdict (vpol's single deciding validation), a MutatingPolicy has no one expression that
 	// "decides" the outcome -- every mutation that runs contributes to the result, so this is a
 	// list rather than a single ExpressionTrace. Empty for policy kinds with no mutations (vpol).
-	Mutations []MutationTrace
+	Mutations []MutationTrace `json:"mutations,omitempty"`
 	// Generations holds one entry per generate item of a GeneratingPolicy that ran, in order,
 	// for the same reason Mutations is a list. Empty for other policy kinds.
-	Generations []GenerationTrace
+	Generations []GenerationTrace `json:"generations,omitempty"`
 }
 
 // GenerationTrace is the trace of one generate item that ran. Name identifies it, e.g.
@@ -262,23 +293,23 @@ type Decision struct {
 // the item produced, as "Kind namespace/name" (or "Kind name" when cluster-scoped), because an
 // expression's own result is only the boolean returned by generator.Apply.
 type GenerationTrace struct {
-	Name string
+	Name string `json:"name,omitempty"`
 	ExpressionTrace
-	Generated []string
+	Generated []string `json:"generated,omitempty"`
 	// Error is set when this item failed outright, as MutationTrace.Error is.
-	Error string
+	Error string `json:"error,omitempty"`
 }
 
 // MutationTrace is the trace of one mutation expression that ran. Name identifies it, e.g.
 // "mutations[0] (applyConfiguration)".
 type MutationTrace struct {
-	Name string
+	Name string `json:"name,omitempty"`
 	ExpressionTrace
 	// Error is set when evaluating or applying this specific mutation failed outright (the
 	// Go-level error Patch() returned), distinct from a Nodes[i].Error, which marks a single
 	// failing sub-expression inside an otherwise-evaluated CEL expression.
-	Error string
+	Error string `json:"error,omitempty"`
 	// NotApplied is set when the mutation ran but its patch was deliberately not applied, and
 	// says why, so a mutation that changed nothing is not read as one that did.
-	NotApplied string
+	NotApplied string `json:"notApplied,omitempty"`
 }

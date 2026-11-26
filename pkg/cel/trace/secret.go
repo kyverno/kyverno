@@ -34,8 +34,9 @@ var resourceCallPrefixes = []string{"resource_get_", "resource_list_", "list_res
 
 // inputsOf returns what e reads. references is the AST's reference map, which holds the overload
 // IDs of a checked AST; an AST that was only parsed has none, and the resource calls are then
-// recognized by their name.
-func inputsOf(e celast.Expr, references map[int64]*celast.ReferenceInfo) Inputs {
+// recognized by their name. bound is what each name bound in the expression reads (see
+// boundInputs), which a use of the name reads too.
+func inputsOf(e celast.Expr, references map[int64]*celast.ReferenceInfo, bound map[string]Inputs) Inputs {
 	var in Inputs
 	// named holds the variables identifiers that a read by name uses, such as the one in
 	// variables.password; any other use of the identifier reads variables without naming them.
@@ -55,9 +56,69 @@ func inputsOf(e celast.Expr, references map[int64]*celast.ReferenceInfo) Inputs 
 			if _, ok := named[n.ID()]; !ok && n.AsIdent() == "variables" {
 				in.AnyVariable = true
 			}
+			if b, ok := bound[n.AsIdent()]; ok {
+				in.merge(b)
+			}
 		}
 	}))
 	return in
+}
+
+// boundInputs returns, for each name the expression e binds, what the value bound to it reads.
+// cel.bind(name, value, body) and x.optMap(name, body) expand into a comprehension whose
+// accumulator is the name and whose initial value is the value, and a loop such as all() or map()
+// binds its variable to the items of the list it loops over. A node that uses the name reads what
+// that value reads, though the name alone does not show it: pw in cel.bind(pw, variables.password,
+// pw == ”) reads the password. Names are matched by name, not by scope, so a name that two
+// comprehensions bind reads what either value reads: that can hide a value that is not Secret
+// data, never show one that is.
+func boundInputs(e celast.Expr, references map[int64]*celast.ReferenceInfo) map[string]Inputs {
+	var comprehensions []celast.ComprehensionExpr
+	celast.PreOrderVisit(e, celast.NewExprVisitor(func(n celast.Expr) {
+		if n.Kind() == celast.ComprehensionKind {
+			comprehensions = append(comprehensions, n.AsComprehension())
+		}
+	}))
+	bound := map[string]Inputs{}
+	// a value can use a name another comprehension binds, so this repeats until nothing changes
+	for changed := true; changed; {
+		changed = false
+		bind := func(name string, values ...celast.Expr) {
+			in := bound[name]
+			for _, value := range values {
+				if in.merge(inputsOf(value, references, bound)) {
+					changed = true
+				}
+			}
+			bound[name] = in
+		}
+		for _, c := range comprehensions {
+			bind(c.AccuVar(), c.AccuInit(), c.IterRange())
+			bind(c.IterVar(), c.IterRange())
+			if c.HasIterVar2() {
+				bind(c.IterVar2(), c.IterRange())
+			}
+		}
+	}
+	return bound
+}
+
+// merge adds what other reads to in, and reports whether that changed in.
+func (in *Inputs) merge(other Inputs) bool {
+	changed := false
+	if other.Secret && !in.Secret {
+		in.Secret, changed = true, true
+	}
+	if other.AnyVariable && !in.AnyVariable {
+		in.AnyVariable, changed = true, true
+	}
+	for _, name := range other.Variables {
+		if !slices.Contains(in.Variables, name) {
+			in.Variables = append(in.Variables, name)
+			changed = true
+		}
+	}
+	return changed
 }
 
 func (in *Inputs) addVariable(name string) {
@@ -257,4 +318,64 @@ func expressions(d *Decision) []ExpressionTrace {
 		all = append(all, g.ExpressionTrace)
 	}
 	return all
+}
+
+// decision returns a copy of d with every value and error that may be Secret data replaced, as
+// Render and LogValues show them. d itself is not changed.
+func (r redaction) decision(d *Decision) *Decision {
+	shown := *d
+	shown.Match = r.named(d.Match)
+	shown.Variables = r.named(d.Variables)
+	if d.Validations != nil {
+		shown.Validations = make([]ValidationTrace, len(d.Validations))
+		for i, v := range d.Validations {
+			v.ExpressionTrace = r.expression(v.ExpressionTrace)
+			shown.Validations[i] = v
+		}
+	}
+	shown.Verdict.ExpressionTrace = r.expression(d.Verdict.ExpressionTrace)
+	shown.Verdict.Message = r.message(d.Verdict)
+	if d.Mutations != nil {
+		shown.Mutations = make([]MutationTrace, len(d.Mutations))
+		for i, m := range d.Mutations {
+			m.ExpressionTrace = r.expression(m.ExpressionTrace)
+			m.Error = r.errorText(m.Inputs, m.Error)
+			shown.Mutations[i] = m
+		}
+	}
+	if d.Generations != nil {
+		shown.Generations = make([]GenerationTrace, len(d.Generations))
+		for i, g := range d.Generations {
+			g.ExpressionTrace = r.expression(g.ExpressionTrace)
+			g.Error = r.errorText(g.Inputs, g.Error)
+			shown.Generations[i] = g
+		}
+	}
+	return &shown
+}
+
+func (r redaction) named(traces []NamedExpressionTrace) []NamedExpressionTrace {
+	if traces == nil {
+		return nil
+	}
+	shown := make([]NamedExpressionTrace, len(traces))
+	for i, n := range traces {
+		n.ExpressionTrace = r.expression(n.ExpressionTrace)
+		shown[i] = n
+	}
+	return shown
+}
+
+func (r redaction) expression(et ExpressionTrace) ExpressionTrace {
+	et.Result = r.value(et.Inputs, et.Result)
+	if et.Nodes != nil {
+		nodes := make([]NodeTrace, len(et.Nodes))
+		for i, n := range et.Nodes {
+			n.Value = r.value(n.Inputs, n.Value)
+			n.Error = r.errorText(n.Inputs, n.Error)
+			nodes[i] = n
+		}
+		et.Nodes = nodes
+	}
+	return et
 }
