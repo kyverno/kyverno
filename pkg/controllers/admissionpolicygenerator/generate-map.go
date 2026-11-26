@@ -67,7 +67,7 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	shouldDelete := reason != ""
 	var celexceptions []policiesv1beta1.PolicyException
 	if !shouldDelete {
-		celexceptions, err = c.getCELExceptions(mpol.GetName(), mpol.GetKind())
+		celexceptions, err = c.getCELExceptions(mpol.GetName(), mpol.GetKind(), mpol.GetNamespace())
 		if err != nil {
 			return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 		}

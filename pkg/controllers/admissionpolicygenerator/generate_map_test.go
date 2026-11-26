@@ -295,12 +295,16 @@ func newMAPTestController(
 	}
 
 	c := &controller{
-		client:               kubeClient,
-		kyvernoClient:        kyvernoClient,
-		discoveryClient:      dclient.NewEmptyFakeClient().Discovery(),
-		eventGen:             event.NewFake(),
-		checker:              permissiveAuthChecker{},
-		polexEnabled:         true,
+		client:          kubeClient,
+		kyvernoClient:   kyvernoClient,
+		discoveryClient: dclient.NewEmptyFakeClient().Discovery(),
+		eventGen:        event.NewFake(),
+		checker:         permissiveAuthChecker{},
+		polexEnabled:    true,
+		// "*" so the fixture's polex, which carries no namespace scoping intent of its own,
+		// is honoured by getCELExceptions; this test is about oversized-exception cleanup,
+		// not about exceptionNamespace scoping.
+		exceptionNamespace:   "*",
 		celpolexLister:       policiesv1beta1listers.NewPolicyExceptionLister(celpolexIndexer),
 		mapBetaLister:        admissionregistrationv1beta1listers.NewMutatingAdmissionPolicyLister(mapBetaIndexer),
 		mapbindingBetaLister: admissionregistrationv1beta1listers.NewMutatingAdmissionPolicyBindingLister(mapBindingBetaIndexer),
