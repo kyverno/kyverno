@@ -201,11 +201,9 @@ func TestPSSNativeVAPAdmissionDecisions(t *testing.T) {
 					binding, err := client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, nativeName+"-binding", metav1.GetOptions{})
 					require.NoError(t, err)
 					require.Equal(t, []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}, binding.Spec.ValidationActions)
-					status := evaluatePSSNativeCEL(t, vap, binding, validPod)
-					assert.NotEqual(t, engineapi.RuleStatusFail, status, "PSS-compliant Pod should not be denied")
-					assert.NotEqual(t, engineapi.RuleStatusError, status, "PSS-compliant Pod must compile and evaluate without errors")
+					assert.Equal(t, engineapi.RuleStatusPass, evaluatePSSNativeCEL(t, vap, binding, validPod), "PSS-compliant Pod must pass validation")
 					verifyPSSNativeSubresourceUpdateMatch(t, vap, validEphemeralPod)
-					assert.NotEqual(t, engineapi.RuleStatusFail, evaluatePSSNativeCEL(t, vap, binding, validEphemeralPod), "compliant ephemeral container should not be denied")
+					assert.Equal(t, engineapi.RuleStatusPass, evaluatePSSNativeCEL(t, vap, binding, validEphemeralPod), "compliant ephemeral container must pass validation")
 
 					// A positive-only check would not detect a vacuous always-true
 					// translation. Each PSS policy must reject its own violation.

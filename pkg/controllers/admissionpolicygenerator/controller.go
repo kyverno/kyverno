@@ -230,15 +230,18 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 				return nil
 			}
 			vapName := "vpol-" + vpol.Name
-			_, vapErr := c.getValidatingAdmissionPolicy(vapName)
-			_, bindingErr := c.getValidatingAdmissionPolicyBinding(constructBindingName(vapName))
+			observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
+			observedBinding, bindingErr := c.getValidatingAdmissionPolicyBinding(constructBindingName(vapName))
 			if vapErr != nil && !apierrors.IsNotFound(vapErr) {
 				return vapErr
 			}
 			if bindingErr != nil && !apierrors.IsNotFound(bindingErr) {
 				return bindingErr
 			}
-			if apierrors.IsNotFound(vapErr) && apierrors.IsNotFound(bindingErr) && !vpol.Status.Generated {
+			policy := engineapi.NewValidatingPolicy(vpol)
+			hasOwnedVAP := vapErr == nil && isOwnedByValidatingPolicy(observedVAP, policy)
+			hasOwnedBinding := bindingErr == nil && isOwnedByValidatingPolicy(observedBinding, policy)
+			if !hasOwnedVAP && !hasOwnedBinding && !vpol.Status.Generated {
 				return nil
 			}
 		}
