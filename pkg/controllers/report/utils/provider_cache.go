@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
@@ -32,18 +33,21 @@ type ProviderCache interface {
 	GetValidatingPolicyProvider(
 		policy policiesv1beta1.ValidatingPolicyLike,
 		exceptions []*policiesv1beta1.PolicyException,
+		scope celengine.ExceptionScope,
 	) (vpolengine.Provider, error)
 
 	GetMutatingPolicyProvider(
 		policy policiesv1beta1.MutatingPolicyLike,
 		exceptions []*policiesv1beta1.PolicyException,
 		libCxt libs.Context,
+		scope celengine.ExceptionScope,
 	) (mpolengine.Provider, error)
 
 	GetImageValidatingPolicyProvider(
 		policy policiesv1beta1.ImageValidatingPolicyLike,
 		exceptions []*policiesv1beta1.PolicyException,
 		secretLister corev1listers.SecretLister,
+		scope celengine.ExceptionScope,
 	) (ivpolengine.Provider, error)
 
 	Evict(kind, namespace, name string)
@@ -209,29 +213,31 @@ func policyRevision(meta metav1.Object) string {
 	return ""
 }
 
-func matchExceptions(kind, name string, exceptions []*policiesv1beta1.PolicyException) ([]*policiesv1beta1.PolicyException, string) {
+func matchExceptions(
+	kind, namespace, name string,
+	exceptions []*policiesv1beta1.PolicyException,
+	scope celengine.ExceptionScope,
+) ([]*policiesv1beta1.PolicyException, string) {
 	var matched []*policiesv1beta1.PolicyException
 	var parts []string
 	for _, polex := range exceptions {
 		if polex == nil {
 			continue
 		}
-		for _, ref := range polex.Spec.PolicyRefs {
-			if ref.Name == name && ref.Kind == kind {
-				matched = append(matched, polex)
-				rv := polex.GetResourceVersion()
-				if rv == "" {
-					if gen := polex.GetGeneration(); gen != 0 {
-						rv = fmt.Sprintf("gen:%d", gen)
-					} else {
-						b, _ := json.Marshal(polex.Spec)
-						rv = fmt.Sprintf("hash:%x", sha256.Sum256(b))
-					}
-				}
-				parts = append(parts, fmt.Sprintf("%s/%s@%s", polex.GetNamespace(), polex.GetName(), rv))
-				break
+		if !scope.Applies(polex, kind, name, namespace) {
+			continue
+		}
+		matched = append(matched, polex)
+		rv := polex.GetResourceVersion()
+		if rv == "" {
+			if gen := polex.GetGeneration(); gen != 0 {
+				rv = fmt.Sprintf("gen:%d", gen)
+			} else {
+				b, _ := json.Marshal(polex.Spec)
+				rv = fmt.Sprintf("hash:%x", sha256.Sum256(b))
 			}
 		}
+		parts = append(parts, fmt.Sprintf("%s/%s@%s", polex.GetNamespace(), polex.GetName(), rv))
 	}
 	if len(parts) == 0 {
 		return matched, ""
@@ -244,16 +250,18 @@ func cacheLookupKey(
 	kind, namespace, name string,
 	meta metav1.Object,
 	exceptions []*policiesv1beta1.PolicyException,
+	scope celengine.ExceptionScope,
 ) (key, rv, excKey string, matched []*policiesv1beta1.PolicyException) {
 	key = policyIdentifier(kind, namespace, name)
 	rv = policyRevision(meta)
-	matched, excKey = matchExceptions(kind, name, exceptions)
+	matched, excKey = matchExceptions(kind, namespace, name, exceptions, scope)
 	return key, rv, excKey, matched
 }
 
 func (c *providerCache) GetValidatingPolicyProvider(
 	policy policiesv1beta1.ValidatingPolicyLike,
 	exceptions []*policiesv1beta1.PolicyException,
+	scope celengine.ExceptionScope,
 ) (vpolengine.Provider, error) {
 	key, rv, excKey, matchedExceptions := cacheLookupKey(
 		policy.GetKind(),
@@ -261,12 +269,13 @@ func (c *providerCache) GetValidatingPolicyProvider(
 		policy.GetName(),
 		policy,
 		exceptions,
+		scope,
 	)
 	return c.vpol.getOrCompile(key, rv, excKey, func() (vpolengine.Provider, error) {
 		if HookVpolCompiled != nil {
 			HookVpolCompiled()
 		}
-		return vpolengine.NewProvider(c.vpolCompiler, []policiesv1beta1.ValidatingPolicyLike{policy}, matchedExceptions)
+		return vpolengine.NewProvider(c.vpolCompiler, []policiesv1beta1.ValidatingPolicyLike{policy}, matchedExceptions, scope)
 	})
 }
 
@@ -274,6 +283,7 @@ func (c *providerCache) GetMutatingPolicyProvider(
 	policy policiesv1beta1.MutatingPolicyLike,
 	exceptions []*policiesv1beta1.PolicyException,
 	libCxt libs.Context,
+	scope celengine.ExceptionScope,
 ) (mpolengine.Provider, error) {
 	key, rv, excKey, matchedExceptions := cacheLookupKey(
 		policy.GetKind(),
@@ -281,6 +291,7 @@ func (c *providerCache) GetMutatingPolicyProvider(
 		policy.GetName(),
 		policy,
 		exceptions,
+		scope,
 	)
 	return c.mpol.getOrCompile(key, rv, excKey, func() (mpolengine.Provider, error) {
 		if HookMpolCompiled != nil {
@@ -289,7 +300,7 @@ func (c *providerCache) GetMutatingPolicyProvider(
 		if libCxt == nil {
 			libCxt = libs.GetLibsCtx()
 		}
-		return mpolengine.NewProvider(c.mpolCompiler, []policiesv1beta1.MutatingPolicyLike{policy}, matchedExceptions, libCxt)
+		return mpolengine.NewProvider(c.mpolCompiler, []policiesv1beta1.MutatingPolicyLike{policy}, matchedExceptions, libCxt, scope)
 	})
 }
 
@@ -297,6 +308,7 @@ func (c *providerCache) GetImageValidatingPolicyProvider(
 	policy policiesv1beta1.ImageValidatingPolicyLike,
 	exceptions []*policiesv1beta1.PolicyException,
 	secretLister corev1listers.SecretLister,
+	scope celengine.ExceptionScope,
 ) (ivpolengine.Provider, error) {
 	key, rv, excKey, matchedExceptions := cacheLookupKey(
 		policy.GetKind(),
@@ -304,13 +316,14 @@ func (c *providerCache) GetImageValidatingPolicyProvider(
 		policy.GetName(),
 		policy,
 		exceptions,
+		scope,
 	)
 	return c.ivpol.getOrCompile(key, rv, excKey, func() (ivpolengine.Provider, error) {
 		if HookIvpolCompiled != nil {
 			HookIvpolCompiled()
 		}
 		compiler := iveval.NewCompiler(secretLister)
-		return ivpolengine.NewProvider(compiler, []policiesv1beta1.ImageValidatingPolicyLike{policy}, matchedExceptions)
+		return ivpolengine.NewProvider(compiler, []policiesv1beta1.ImageValidatingPolicyLike{policy}, matchedExceptions, scope)
 	})
 }
 

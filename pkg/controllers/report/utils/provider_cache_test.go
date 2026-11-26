@@ -4,13 +4,21 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -135,26 +143,26 @@ func TestProviderCache_ValidatingPolicy_HitAndMiss(t *testing.T) {
 	policy := newTestValidatingPolicy("test-vpol", "100")
 
 	// 1. Initial lookup -> cache miss, compiles
-	provider1, err := cache.GetValidatingPolicyProvider(policy, nil)
+	provider1, err := cache.GetValidatingPolicyProvider(policy, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, provider1)
 	assert.Equal(t, 1, compileCount, "first lookup must compile policy")
 
 	// 2. Second lookup with same policy and revision -> cache hit, does not recompile
-	provider2, err := cache.GetValidatingPolicyProvider(policy, nil)
+	provider2, err := cache.GetValidatingPolicyProvider(policy, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, provider2)
 	assert.Equal(t, 1, compileCount, "second lookup with same revision must be a cache hit")
 
 	// 3. Update ResourceVersion -> cache miss, recompiles
 	policyUpdated := newTestValidatingPolicy("test-vpol", "101")
-	provider3, err := cache.GetValidatingPolicyProvider(policyUpdated, nil)
+	provider3, err := cache.GetValidatingPolicyProvider(policyUpdated, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, provider3)
 	assert.Equal(t, 2, compileCount, "updating policy resourceVersion must trigger recompilation")
 
 	// 4. Repeated lookup with new ResourceVersion -> cache hit
-	provider4, err := cache.GetValidatingPolicyProvider(policyUpdated, nil)
+	provider4, err := cache.GetValidatingPolicyProvider(policyUpdated, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, provider4)
 	assert.Equal(t, 2, compileCount, "subsequent lookup with updated revision must be a cache hit")
@@ -171,36 +179,133 @@ func TestProviderCache_ValidatingPolicy_ExceptionChanges(t *testing.T) {
 	polexUnrelated := newTestPolicyException("polex-other", "default", "50", "ValidatingPolicy", "other-policy")
 
 	// 1. Initial compile with polex1
-	_, err := cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1})
+	_, err := cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1}, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	assert.Equal(t, 1, compileCount)
 
 	// 2. Lookup with same polex1 -> hit
-	_, err = cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1})
+	_, err = cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1}, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	assert.Equal(t, 1, compileCount)
 
 	// 3. Lookup with polex1 and unrelated exception -> hit (unrelated exception does not affect key)
-	_, err = cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1, polexUnrelated})
+	_, err = cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1, polexUnrelated}, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	assert.Equal(t, 1, compileCount, "unrelated policy exception must not invalidate cache")
 
 	// 4. Modify matching exception resourceVersion -> recompile
 	polex1Updated := newTestPolicyException("polex-1", "default", "11", "ValidatingPolicy", "test-vpol-exc")
-	_, err = cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1Updated})
+	_, err = cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1Updated}, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	assert.Equal(t, 2, compileCount, "matching exception resourceVersion update must trigger recompilation")
 
 	// 5. Add second matching exception -> recompile
 	polex2 := newTestPolicyException("polex-2", "default", "20", "ValidatingPolicy", "test-vpol-exc")
-	_, err = cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1Updated, polex2})
+	_, err = cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1Updated, polex2}, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	assert.Equal(t, 3, compileCount, "adding matching exception must trigger recompilation")
 
 	// 6. Remove matching exception -> recompile
-	_, err = cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1Updated})
+	_, err = cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex1Updated}, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	assert.Equal(t, 4, compileCount, "removing matching exception must trigger recompilation")
+}
+
+func TestProviderCache_ValidatingPolicy_ExpiredExceptionInvalidatesCache(t *testing.T) {
+	cache := NewProviderCache()
+	var compileCount int
+	HookVpolCompiled = func() { compileCount++ }
+	defer func() { HookVpolCompiled = nil }()
+
+	policy := newTestValidatingPolicy("test-vpol-exp", "100")
+	future := metav1.NewTime(time.Now().Add(time.Hour))
+	polex := newTestPolicyException("polex-exp", "default", "10", "ValidatingPolicy", "test-vpol-exp")
+	polex.Spec.ExpiresAt = &future
+
+	pod := unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]any{
+				"name":      "forbidden",
+				"namespace": "default",
+			},
+		},
+	}
+	podGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	req := celengine.Request(
+		libs.GetLibsCtx(),
+		pod.GroupVersionKind(),
+		podGVR,
+		"",
+		pod.GetName(),
+		pod.GetNamespace(),
+		admissionv1.Create,
+		authenticationv1.UserInfo{},
+		&pod,
+		nil,
+		false,
+		nil,
+	)
+
+	// 1. Active exception -> compiles with exception.
+	p1, err := cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex}, celengine.ExceptionScopeAll)
+	require.NoError(t, err)
+	assert.Equal(t, 1, compileCount)
+	resp1, err := vpolengine.NewEngine(p1, func(string) *corev1.Namespace { return nil }, matching.NewMatcher()).Handle(t.Context(), req, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, resp1.Policies)
+	require.Len(t, resp1.Policies[0].Rules, 1)
+	assert.NotEmpty(t, resp1.Policies[0].Rules[0].Exceptions())
+
+	// 2. Cache hit while still active.
+	_, err = cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polex}, celengine.ExceptionScopeAll)
+	require.NoError(t, err)
+	assert.Equal(t, 1, compileCount)
+
+	// 3. Exception expires without a ResourceVersion bump -> must invalidate and recompile without the expired exception.
+	past := metav1.NewTime(time.Now().Add(-time.Hour))
+	polexExpired := polex.DeepCopy()
+	polexExpired.Spec.ExpiresAt = &past
+
+	p2, err := cache.GetValidatingPolicyProvider(policy, []*policiesv1beta1.PolicyException{polexExpired}, celengine.ExceptionScopeAll)
+	require.NoError(t, err)
+	assert.Equal(t, 2, compileCount, "expired PolicyException must invalidate cache without a ResourceVersion bump")
+	resp2, err := vpolengine.NewEngine(p2, func(string) *corev1.Namespace { return nil }, matching.NewMatcher()).Handle(t.Context(), req, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, resp2.Policies)
+	require.Len(t, resp2.Policies[0].Rules, 1)
+	assert.Empty(t, resp2.Policies[0].Rules[0].Exceptions(), "recompiled provider must not include expired exception")
+}
+
+func TestProviderCache_ValidatingPolicy_ExceptionScopeNamespaceIsolation(t *testing.T) {
+	cache := NewProviderCache()
+	var compileCount int
+	HookVpolCompiled = func() { compileCount++ }
+	defer func() { HookVpolCompiled = nil }()
+
+	policyA := &policiesv1beta1.NamespacedValidatingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "NamespacedValidatingPolicy",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "shared-name",
+			Namespace:       "ns-a",
+			ResourceVersion: "100",
+		},
+		Spec: newTestValidatingPolicy("shared-name", "100").Spec,
+	}
+	polexA := newTestPolicyException("polex-a", "ns-a", "10", "NamespacedValidatingPolicy", "shared-name")
+	polexB := newTestPolicyException("polex-b", "ns-b", "20", "NamespacedValidatingPolicy", "shared-name")
+
+	_, err := cache.GetValidatingPolicyProvider(policyA, []*policiesv1beta1.PolicyException{polexA}, celengine.ExceptionScopeAll)
+	require.NoError(t, err)
+	assert.Equal(t, 1, compileCount)
+
+	// Adding or updating a foreign-namespace exception for a same-named policy must not churn ns-a's cache key.
+	_, err = cache.GetValidatingPolicyProvider(policyA, []*policiesv1beta1.PolicyException{polexA, polexB}, celengine.ExceptionScopeAll)
+	require.NoError(t, err)
+	assert.Equal(t, 1, compileCount, "foreign-namespace exception must not invalidate namespaced policy cache")
 }
 
 func TestProviderCache_MutatingPolicy_HitAndMiss(t *testing.T) {
@@ -212,20 +317,20 @@ func TestProviderCache_MutatingPolicy_HitAndMiss(t *testing.T) {
 	policy := newTestMutatingPolicy("test-mpol", "200")
 
 	// 1. Initial lookup -> cache miss
-	provider1, err := cache.GetMutatingPolicyProvider(policy, nil, nil)
+	provider1, err := cache.GetMutatingPolicyProvider(policy, nil, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, provider1)
 	assert.Equal(t, 1, compileCount)
 
 	// 2. Second lookup -> cache hit
-	provider2, err := cache.GetMutatingPolicyProvider(policy, nil, nil)
+	provider2, err := cache.GetMutatingPolicyProvider(policy, nil, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, provider2)
 	assert.Equal(t, 1, compileCount)
 
 	// 3. Update ResourceVersion -> recompile
 	policyUpdated := newTestMutatingPolicy("test-mpol", "201")
-	provider3, err := cache.GetMutatingPolicyProvider(policyUpdated, nil, nil)
+	provider3, err := cache.GetMutatingPolicyProvider(policyUpdated, nil, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, provider3)
 	assert.Equal(t, 2, compileCount)
@@ -240,20 +345,20 @@ func TestProviderCache_ImageValidatingPolicy_HitAndMiss(t *testing.T) {
 	policy := newTestImageValidatingPolicy("test-ivpol", "300")
 
 	// 1. Initial lookup -> cache miss
-	provider1, err := cache.GetImageValidatingPolicyProvider(policy, nil, nil)
+	provider1, err := cache.GetImageValidatingPolicyProvider(policy, nil, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, provider1)
 	assert.Equal(t, 1, compileCount)
 
 	// 2. Second lookup -> cache hit
-	provider2, err := cache.GetImageValidatingPolicyProvider(policy, nil, nil)
+	provider2, err := cache.GetImageValidatingPolicyProvider(policy, nil, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, provider2)
 	assert.Equal(t, 1, compileCount)
 
 	// 3. Update ResourceVersion -> recompile
 	policyUpdated := newTestImageValidatingPolicy("test-ivpol", "301")
-	provider3, err := cache.GetImageValidatingPolicyProvider(policyUpdated, nil, nil)
+	provider3, err := cache.GetImageValidatingPolicyProvider(policyUpdated, nil, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, provider3)
 	assert.Equal(t, 2, compileCount)
@@ -266,7 +371,7 @@ func TestProviderCache_EvictAndClear(t *testing.T) {
 	defer func() { HookVpolCompiled = nil }()
 
 	policy := newTestValidatingPolicy("test-vpol-evict", "1")
-	_, err := cache.GetValidatingPolicyProvider(policy, nil)
+	_, err := cache.GetValidatingPolicyProvider(policy, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	assert.Equal(t, 1, vpolCompileCount)
 
@@ -274,13 +379,13 @@ func TestProviderCache_EvictAndClear(t *testing.T) {
 	cache.Evict(policy.GetKind(), policy.GetNamespace(), policy.GetName())
 
 	// Next lookup should recompile
-	_, err = cache.GetValidatingPolicyProvider(policy, nil)
+	_, err = cache.GetValidatingPolicyProvider(policy, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	assert.Equal(t, 2, vpolCompileCount, "evicted policy must be recompiled on next lookup")
 
 	// Clear whole cache
 	cache.Clear()
-	_, err = cache.GetValidatingPolicyProvider(policy, nil)
+	_, err = cache.GetValidatingPolicyProvider(policy, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	assert.Equal(t, 3, vpolCompileCount, "clearing cache must force recompilation")
 }
@@ -297,7 +402,7 @@ func TestProviderCache_Concurrent(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 10; j++ {
-				p, err := cache.GetValidatingPolicyProvider(policy, nil)
+				p, err := cache.GetValidatingPolicyProvider(policy, nil, celengine.ExceptionScopeAll)
 				assert.NoError(t, err)
 				assert.NotNil(t, p)
 			}
@@ -325,7 +430,7 @@ func TestProviderCache_ConcurrentMissesCompileOnce(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				<-start
-				p, err := cache.GetValidatingPolicyProvider(policy, nil)
+				p, err := cache.GetValidatingPolicyProvider(policy, nil, celengine.ExceptionScopeAll)
 				assert.NoError(t, err)
 				assert.NotNil(t, p)
 			}()
@@ -351,7 +456,7 @@ func TestProviderCache_ConcurrentMissesCompileOnce(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				<-start
-				p, err := cache.GetMutatingPolicyProvider(policy, nil, nil)
+				p, err := cache.GetMutatingPolicyProvider(policy, nil, nil, celengine.ExceptionScopeAll)
 				assert.NoError(t, err)
 				assert.NotNil(t, p)
 			}()
@@ -377,7 +482,7 @@ func TestProviderCache_ConcurrentMissesCompileOnce(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				<-start
-				p, err := cache.GetImageValidatingPolicyProvider(policy, nil, nil)
+				p, err := cache.GetImageValidatingPolicyProvider(policy, nil, nil, celengine.ExceptionScopeAll)
 				assert.NoError(t, err)
 				assert.NotNil(t, p)
 			}()
@@ -410,7 +515,7 @@ func TestProviderCache_InflightEvictDoesNotOverwriteNewerEntry(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		p, err := cache.GetImageValidatingPolicyProvider(policyV1, nil, nil)
+		p, err := cache.GetImageValidatingPolicyProvider(policyV1, nil, nil, celengine.ExceptionScopeAll)
 		assert.NoError(t, err)
 		assert.NotNil(t, p)
 	}()
@@ -419,7 +524,7 @@ func TestProviderCache_InflightEvictDoesNotOverwriteNewerEntry(t *testing.T) {
 	// Evict while v1 compilation is in flight, then populate v2.
 	cache.Evict(policyV1.GetKind(), policyV1.GetNamespace(), policyV1.GetName())
 
-	p2, err := cache.GetImageValidatingPolicyProvider(policyV2, nil, nil)
+	p2, err := cache.GetImageValidatingPolicyProvider(policyV2, nil, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, p2)
 	assert.Equal(t, int32(2), compileCount.Load())
@@ -428,7 +533,7 @@ func TestProviderCache_InflightEvictDoesNotOverwriteNewerEntry(t *testing.T) {
 	close(allowCompile1Finish)
 	wg.Wait()
 
-	p2Again, err := cache.GetImageValidatingPolicyProvider(policyV2, nil, nil)
+	p2Again, err := cache.GetImageValidatingPolicyProvider(policyV2, nil, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	require.NotNil(t, p2Again)
 	assert.Equal(t, int32(2), compileCount.Load(), "stale in-flight compilation must not overwrite newer cached entry")
@@ -461,7 +566,7 @@ func TestProviderCache_InflightEvictDoesNotResurrect(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		p, err := cache.GetValidatingPolicyProvider(policy, nil)
+		p, err := cache.GetValidatingPolicyProvider(policy, nil, celengine.ExceptionScopeAll)
 		assert.NoError(t, err)
 		assert.NotNil(t, p)
 	}()
@@ -472,7 +577,7 @@ func TestProviderCache_InflightEvictDoesNotResurrect(t *testing.T) {
 	wg.Wait()
 
 	// Next lookup must recompile because the in-flight compilation was evicted before completion.
-	_, err := cache.GetValidatingPolicyProvider(policy, nil)
+	_, err := cache.GetValidatingPolicyProvider(policy, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	assert.Equal(t, int32(2), compileCount.Load(), "evicted in-flight compilation must not be resurrected in cache")
 }
