@@ -31,10 +31,11 @@ var (
 )
 
 // cosignPubKey is the public key for ghcr.io/kyverno/test-verify-image:signed, the same key used by
-// the in-tree cosign verifier tests. Policies here verify against it. The hermetic tests never reach
-// a registry, so verification of the unsigned or unreachable images they use fails and the policies
-// behave as configured (deny or warn); the registry-tagged tests use this key against the real signed
-// image.
+// the in-tree cosign verifier tests. Policies here verify against it. The tests in this file never
+// reach an external registry, so verification of the unsigned or unreachable images they use fails
+// and the policies behave as configured (deny or warn); hermetic signed-image checks against an
+// in-process registry live in keyless_test.go, and live external registry checks live in
+// registry_test.go.
 const cosignPubKey = `-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
 5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
@@ -206,6 +207,23 @@ func mutatePod(t *testing.T, policyName, podName, namespace, image string) admis
 	return mutatePodRaw(t, policyName, podName, namespace, podRawWithImage(t, podName, namespace, image))
 }
 
+// validatePod runs the validating webhook route for a pod carrying the given image and returns
+// whether the request was admitted, any warnings, and the denial message. Verification happens
+// entirely in this phase (issue #16336): a signed image is admitted, an unsigned or untrusted one is
+// denied.
+func validatePod(t *testing.T, policyName, podName, namespace, image string) (bool, []string, string) {
+	t.Helper()
+	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
+	raw := podRawWithImage(t, podName, namespace, image)
+	ctx := framework.ContextWithPolicies(context.Background(), policyName)
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest(podName, namespace, raw), "", time.Now())
+	var message string
+	if resp.Result != nil {
+		message = resp.Result.Message
+	}
+	return resp.Allowed, resp.Warnings, message
+}
+
 // podRawWithImages builds a Pod whose containers run the given images, in order, so a test can mix
 // resolvable and unresolvable references in one resource.
 func podRawWithImages(t *testing.T, name, namespace string, images ...string) []byte {
@@ -244,8 +262,8 @@ func TestValidate_UnverifiableImage_FailsClosed(t *testing.T) {
 // TestValidate_StampedOutcomeIsNotTrusted proves the annotation-trust hardening from #16336: the
 // validating phase does its own image verification and never trusts a pre-stamped
 // image-verification-outcomes annotation. A pod forges a passing outcome for an image that does not
-// actually verify, and it is still denied. (A genuinely signed image being admitted is covered by
-// the registry-tagged tests, which can reach a registry to complete the signature check.)
+// actually verify, and it is still denied. (Genuinely signed images being admitted are covered
+// hermetically in keyless_test.go and against live registries in registry_test.go.)
 func TestValidate_StampedOutcomeIsNotTrusted(t *testing.T) {
 	createIvpolWithCleanup(t, newIvpol("reverify-stamped"))
 	waitForPolicyReady(t, "reverify-stamped", "")

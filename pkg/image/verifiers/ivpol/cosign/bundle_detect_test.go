@@ -10,24 +10,16 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
-	"net/http"
-	"net/http/httptest"
 	"runtime"
-	"strings"
 	"sync/atomic"
 	"testing"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/random"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/static"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/test/integration/framework/imagetest"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/oci/mutate"
@@ -40,82 +32,30 @@ import (
 )
 
 const (
-	testBundleMediaType = "application/vnd.dev.sigstore.bundle.v0.3+json"
-	testEmptyConfigType = "application/vnd.oci.empty.v1+json"
+	testBundleMediaType = imagetest.BundleMediaType
 
 	// validBundle is the smallest content that cosign accepts as a v0.3 sigstore bundle.
 	validBundle = `{"mediaType":"application/vnd.dev.sigstore.bundle.v0.3+json","verificationMaterial":{"publicKey":{"hint":"x"}},"messageSignature":{"messageDigest":{"algorithm":"SHA2_256","digest":"YQ=="},"signature":"YQ=="}}`
 )
 
-type testTaggable struct {
-	raw []byte
-	mt  types.MediaType
-}
-
-func (t testTaggable) RawManifest() ([]byte, error)        { return t.raw, nil }
-func (t testTaggable) MediaType() (types.MediaType, error) { return t.mt, nil }
-
 // newBundleRegistry starts an in-process OCI registry with referrers support and
 // counts blob GETs so a test can assert that detection never reads a layer.
 func newBundleRegistry(t *testing.T) (name.Repository, *atomic.Int64) {
 	t.Helper()
-	var blobGets atomic.Int64
-	inner := registry.New(registry.WithReferrersSupport(true))
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/blobs/sha256:") {
-			blobGets.Add(1)
-		}
-		inner.ServeHTTP(w, r)
-	}))
-	t.Cleanup(srv.Close)
-	repo, err := name.NewRepository(strings.TrimPrefix(srv.URL, "http://") + "/test/img")
-	require.NoError(t, err)
-	return repo, &blobGets
+	reg := imagetest.NewRegistry(t)
+	return reg.Repo, reg.BlobGets
 }
 
 // pushSubject writes a small random image under the given tag and returns its digest.
 func pushSubject(t *testing.T, repo name.Repository, tag string) v1.Descriptor {
 	t.Helper()
-	img, err := random.Image(256, 1)
-	require.NoError(t, err)
-	require.NoError(t, remote.Write(repo.Tag(tag), img))
-	d, err := img.Digest()
-	require.NoError(t, err)
-	sz, err := img.Size()
-	require.NoError(t, err)
-	return v1.Descriptor{MediaType: types.OCIManifestSchema1, Digest: d, Size: sz}
+	return imagetest.PushSubject(t, repo, tag)
 }
 
 // pushReferrer attaches a single-layer referrer manifest to subject.
 func pushReferrer(t *testing.T, repo name.Repository, subject v1.Descriptor, layerData []byte, layerMediaType, artifactType string) {
 	t.Helper()
-	layer := static.NewLayer(layerData, types.MediaType(layerMediaType))
-	require.NoError(t, remote.WriteLayer(repo, layer))
-	layerDigest, err := layer.Digest()
-	require.NoError(t, err)
-
-	cfg := static.NewLayer([]byte("{}"), types.MediaType(testEmptyConfigType))
-	require.NoError(t, remote.WriteLayer(repo, cfg))
-	cfgDigest, err := cfg.Digest()
-	require.NoError(t, err)
-
-	m := v1.Manifest{
-		SchemaVersion: 2,
-		MediaType:     types.OCIManifestSchema1,
-		ArtifactType:  artifactType,
-		Config:        v1.Descriptor{MediaType: types.MediaType(testEmptyConfigType), Digest: cfgDigest, Size: 2},
-		Layers: []v1.Descriptor{{
-			MediaType: types.MediaType(layerMediaType),
-			Digest:    layerDigest,
-			Size:      int64(len(layerData)),
-		}},
-		Subject: &subject,
-	}
-	raw, err := json.Marshal(m)
-	require.NoError(t, err)
-	h, _, err := v1.SHA256(bytes.NewReader(raw))
-	require.NoError(t, err)
-	require.NoError(t, remote.Put(repo.Digest(h.String()), testTaggable{raw: raw, mt: types.OCIManifestSchema1}))
+	imagetest.PushReferrer(t, repo, subject, layerData, layerMediaType, artifactType)
 }
 
 // gzipPaddedBundle returns a valid v0.3 bundle padded with n bytes of JSON
