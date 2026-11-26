@@ -181,7 +181,21 @@ func TestPSSNativeVAP(t *testing.T) {
 	})
 
 	t.Run("rejects-missing-vap-api", func(t *testing.T) {
-		cmd := exec.Command(helm, "template", "verify-pss", chart,
+		// Helm appends --api-versions to its default capabilities, so the flag
+		// cannot simulate an absent API. Render the real helper in a small
+		// chart with an explicitly empty, typed API version set instead.
+		fixture := t.TempDir()
+		templates := filepath.Join(fixture, "templates")
+		require.NoError(t, os.MkdirAll(templates, 0o755))
+		helpers, err := os.ReadFile(filepath.Join(chart, "templates", "_helpers.tpl"))
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(templates, "_helpers.tpl"), helpers, 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(fixture, "Chart.yaml"), []byte("apiVersion: v2\nname: pss-capabilities-test\nversion: 0.1.0\n"), 0o600))
+		const probe = `{{- $capabilities := dict "KubeVersion" .Capabilities.KubeVersion "APIVersions" (slice .Capabilities.APIVersions 0 0) -}}
+{{ include "kyverno-policies.pssNativeVAP" (dict "ctx" (dict "Values" .Values "Capabilities" $capabilities) "name" "disallow-host-path") }}
+`
+		require.NoError(t, os.WriteFile(filepath.Join(templates, "probe.yaml"), []byte(probe), 0o600))
+		cmd := exec.Command(helm, "template", "verify-pss", fixture,
 			"--kube-version", "v1.37.0",
 			"--set", "generateValidatingAdmissionPolicy=true")
 		output, err := cmd.CombinedOutput()

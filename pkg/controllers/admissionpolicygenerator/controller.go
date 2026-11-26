@@ -225,9 +225,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		// disabled. When both are off, skip idle policies but still reconcile
 		// previously generated native resources (including after a restart).
 		if !toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy() && !vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() {
-			// No native VAP API means there are no served resources to clean up.
+			// No native VAP API means there are no served resources to clean up,
+			// but a previously generated policy must return to webhook enforcement.
 			if c.vapLister == nil || c.vapbindingLister == nil {
-				return nil
+				return c.handleVAPGeneration(ctx, engineapi.NewValidatingPolicy(vpol))
 			}
 			vapName := "vpol-" + vpol.Name
 			observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)

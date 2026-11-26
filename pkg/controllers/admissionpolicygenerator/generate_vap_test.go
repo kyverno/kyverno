@@ -263,39 +263,57 @@ func TestReconcile_ValidatingPolicy_PerPolicyVAPGeneration(t *testing.T) {
 // TestReconcile_ValidatingPolicy_VAPListersUnavailable verifies that when VAP listers are unavailable
 // (e.g. cluster does not support the VAP API), reconcile does not retry or fail.
 func TestReconcile_ValidatingPolicy_VAPListersUnavailable(t *testing.T) {
+	const unavailable = "skip generating ValidatingAdmissionPolicy: no ValidatingAdmissionPolicy API/informers are available."
+	const requested = "skip generating ValidatingAdmissionPolicy: requested but no ValidatingAdmissionPolicy API/informers are available."
 	tests := []struct {
-		name          string
-		vapGenEnabled bool
-		wantMessage   string
-	}{{
-		name:          "VAP generation disabled and VAP listers unavailable",
-		vapGenEnabled: false,
-	}, {
-		name:          "VAP generation enabled and VAP listers unavailable",
-		vapGenEnabled: true,
-		wantMessage:   "skip generating ValidatingAdmissionPolicy: requested but no ValidatingAdmissionPolicy API/informers are available.",
-	}}
+		name           string
+		globalEnabled  bool
+		vapGenEnabled  bool
+		generated      bool
+		missingVAP     bool
+		missingBinding bool
+		wantMessage    string
+	}{
+		{name: "idle disabled policy", missingVAP: true, missingBinding: true},
+		{name: "explicit opt-in", vapGenEnabled: true, missingVAP: true, missingBinding: true, wantMessage: requested},
+		{name: "previously generated now disabled", generated: true, missingVAP: true, missingBinding: true, wantMessage: unavailable},
+		{name: "previously generated still enabled", vapGenEnabled: true, generated: true, missingVAP: true, missingBinding: true, wantMessage: requested},
+		{name: "global toggle enabled", globalEnabled: true, generated: true, missingVAP: true, missingBinding: true, wantMessage: unavailable},
+		{name: "only VAP lister missing", generated: true, missingVAP: true, wantMessage: unavailable},
+		{name: "only binding lister missing", generated: true, missingBinding: true, wantMessage: unavailable},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := toggle.NewContext(context.Background(), fakeVAPToggle{
 				Toggles:                           toggle.FromContext(context.Background()),
-				generateValidatingAdmissionPolicy: false,
+				generateValidatingAdmissionPolicy: tt.globalEnabled,
 			})
 			vpol := disallowPrivilegeEscalationVpol(nil)
 			vpol.Spec.AutogenConfiguration.PodControllers.Controllers = []string{}
 			vpol.Spec.AutogenConfiguration.ValidatingAdmissionPolicy.Enabled = ptr.To(tt.vapGenEnabled)
+			vpol.Status.Generated = tt.generated
+			vpol.Status.GetConditionStatus().Message = "existing status"
 
-			c, _, kyvernoClient := newVAPTestController(t, vpol)
-			c.vapLister = nil
-			c.vapbindingLister = nil
+			c, kubeClient, kyvernoClient := newVAPTestController(t, vpol)
+			if tt.missingVAP {
+				c.vapLister = nil
+			}
+			if tt.missingBinding {
+				c.vapbindingLister = nil
+			}
 
 			require.NoError(t, c.reconcile(ctx, logr.Discard(), "ValidatingPolicy/"+vpol.Name, "", vpol.Name))
-
+			assert.Empty(t, kubeClient.Actions(), "unavailable API must not be accessed")
+			if tt.wantMessage == "" {
+				assert.Empty(t, kyvernoClient.Actions(), "idle policy must not write status")
+			}
 			updated, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, vpol.Name, metav1.GetOptions{})
 			require.NoError(t, err)
 			assert.False(t, updated.Status.Generated)
 			if tt.wantMessage != "" {
 				assert.Equal(t, tt.wantMessage, updated.Status.GetConditionStatus().Message)
+			} else {
+				assert.Equal(t, vpol.Status, updated.Status)
 			}
 		})
 	}
