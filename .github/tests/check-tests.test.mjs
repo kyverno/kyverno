@@ -256,6 +256,34 @@ test('a failed job that describes the run is not a test failure and does not cha
   }
 });
 
+// The batch job is needed by sync-issue for its outputs, so its result is in
+// needs.*.result too: a run in which only it failed counts as failed there.
+const reducedRun = (failed = []) => fullRun(failed).filter(j => !/v1\.3[56]\./.test(j.name));
+
+test('only a job that describes the run failed: the issue is left as it is, in both matrices', async () => {
+  for (const [matrix, jobs] of [['full', fullRun], ['reduced', reducedRun]]) {
+    for (const failed of [['Batch summary'], ['Batch summary', 'Summarize E2E failures']]) {
+      for (const open of [[], [issue(5, PLAIN)], [issue(5, HELD)]]) {
+        const r = await plan({ matrix, failed: true, jobs: jobs(failed), open });
+        const what = `${matrix} run, ${failed.join(' and ')} failed, ${open.length ? open[0].labels.map(l => l.name).join(',') : 'no'} issue`;
+        // Neither recorded as a test failure nor taken as a pass that closes the issue.
+        assert.deepEqual([r.sync, r.fullMatrix, r.note], [false, false, ''], what);
+        assert.equal(r.jobReads, 1, what);
+        assert.deepEqual(r.lists, [], what);
+        const notice = r.log.find(l => l.startsWith('notice:'));
+        assert.ok(notice && notice.includes(`Only ${failed.join(', ')} failed`) && notice.includes('as it is'), what);
+      }
+    }
+  }
+});
+
+test('only the batch job may have failed, but the jobs cannot be read: the plan still fails closed', async () => {
+  const full = await plan({ failed: true, jobs: fullRun(['Batch summary']), jobsError: true });
+  assert.deepEqual([full.sync, full.fullMatrix], [true, true]);
+  const reduced = await plan({ matrix: 'reduced', failed: true, jobs: reducedRun(['Batch summary']), jobsError: true });
+  assert.deepEqual([reduced.sync, reduced.fullMatrix], [true, false]);
+});
+
 test('versions are compared as numbers', async () => {
   const jobs = ['v1.9.3', 'v1.10.1', 'v1.11.0'].map(v => job(`Conformance tests / assert (${v})`));
   jobs[1].conclusion = 'failure';
@@ -271,9 +299,10 @@ test('the jobs of a failing full run cannot be read: the issue gets the label, t
   assert.ok(unreadable.log.some(l => l.startsWith('warning:') && l.includes('Bad Gateway')));
   assert.match(unreadable.note, /jobs of this run could not be read/);
   assert.match(unreadable.note, /with matrix `full`/);
-  // A reduced run doesn't read the jobs, so an unreadable list changes nothing there.
+  // A reduced run never adds the label, so there the failure is recorded as usual.
   const reduced = await plan({ matrix: 'reduced', failed: true, jobsError: true });
-  assert.deepEqual([reduced.sync, reduced.fullMatrix, reduced.jobReads], [true, false, 0]);
+  assert.deepEqual([reduced.sync, reduced.fullMatrix, reduced.jobReads], [true, false, 1]);
+  assert.ok(reduced.log.some(l => l.startsWith('warning:') && l.includes('Bad Gateway')));
 });
 
 test('no failed job in the list: no label, and the failure is still recorded', async () => {
@@ -293,7 +322,6 @@ test('a reduced run that fails never adds the label, and updates an issue that h
   const jobs = fullRun(['Conformance tests / assert (v1.34.11)']).filter(j => !/v1\.3[56]\./.test(j.name));
   const r = await plan({ matrix: 'reduced', failed: true, jobs, open: [issue(5, HELD)] });
   assert.deepEqual([r.sync, r.fullMatrix], [true, false]);
-  assert.equal(r.jobReads, 0);
   // The action never removes a label, so the issue keeps full-matrix. The
   // note explains the label in every failure body, whoever set it.
   assert.ok(r.note.includes('### The `full-matrix` label'));

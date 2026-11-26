@@ -364,6 +364,10 @@ jobs:
       # - A full run fails and its jobs can't be read: the issue gets full-matrix
       #   too. Not knowing which jobs failed must not let a passing reduced run
       #   close the issue.
+      # - A run fails, every test job passed, and the jobs that failed only
+      #   describe the run (the batch job, for example): the issue is left as
+      #   it is, in both matrices. It isn't a test failure, and it isn't a
+      #   passing run either.
       # - A reduced run fails while the issue has full-matrix: the issue is
       #   updated as usual. The action only adds labels, so the label stays
       #   and the issue still needs a passing full run.
@@ -415,12 +419,7 @@ jobs:
              * The versions come from the job names, so they aren't listed a
              * second time. A job without a version runs in both matrices.
              */
-            async function failedOnlyOutsideReduced() {
-              // Small pages: a page of 100 jobs has timed out at GitHub's
-              // gateway on runs with hundreds of jobs.
-              const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
-                owner, repo, run_id: context.runId, filter: 'latest', per_page: 30
-              });
+            function failedOnlyOutsideReduced(jobs) {
               const inMatrix = job => job.name.startsWith(`${MATRIX_JOB} / `);
               const versions = [...new Set(jobs.filter(inMatrix).map(job => versionOf(job.name)).filter(Boolean))]
                 .sort(byVersion);
@@ -462,20 +461,38 @@ jobs:
             let fullMatrix = false;
             let note = '';
 
+            // The jobs of a failing run, or null when they can't be read.
+            let jobs = null;
             if (process.env.FAILED === 'true') {
-              let outside = null;
-              let unread = false;
-              if (matrix === 'full') {
-                try {
-                  outside = await failedOnlyOutsideReduced();
-                } catch (err) {
-                  // Not knowing which jobs failed counts as a failure that
-                  // reduced runs may skip: without the label, the next
-                  // passing reduced run would close the issue.
-                  unread = true;
-                  core.warning(`Could not list the jobs of this run (${err.message || String(err)}), so it is unknown whether reduced runs have the jobs that failed. The tracking issue gets the ${FULL_MATRIX} label to be safe.`);
-                }
+              try {
+                // Small pages: a page of 100 jobs has timed out at GitHub's
+                // gateway on runs with hundreds of jobs.
+                jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                  owner, repo, run_id: context.runId, filter: 'latest', per_page: 30
+                });
+              } catch (err) {
+                core.warning(matrix === 'full'
+                  ? `Could not list the jobs of this run (${err.message || String(err)}), so it is unknown whether reduced runs have the jobs that failed. The tracking issue gets the ${FULL_MATRIX} label to be safe.`
+                  : `Could not list the jobs of this run (${err.message || String(err)}), so the failure is recorded in the tracking issue.`);
               }
+            }
+            const failedJobs = (jobs || []).filter(j => j.conclusion === 'failure');
+            const onlyNotTests = failedJobs.length > 0 && failedJobs.every(j => NOT_TESTS.includes(j.name));
+
+            if (process.env.FAILED === 'true' && onlyNotTests) {
+              // Every test job passed, but the run failed, for example when
+              // the batch job failed to start. That is no test failure to
+              // record, and no passing run that may close the issue either.
+              sync = false;
+              core.notice(
+                `Only ${failedJobs.map(j => j.name).join(', ')} failed, which ${failedJobs.length > 1 ? 'describe the run and are not tests' : 'describes the run and is not a test'}, so this run leaves the tracking issue of ${branch} as it is.`,
+                { title: 'Tracking issue left as it is' });
+            } else if (process.env.FAILED === 'true') {
+              // Not knowing which jobs failed counts as a failure that
+              // reduced runs may skip: without the label, the next passing
+              // reduced run would close the issue.
+              const unread = matrix === 'full' && jobs === null;
+              const outside = matrix === 'full' && jobs !== null ? failedOnlyOutsideReduced(jobs) : null;
               fullMatrix = unread || outside !== null;
               if (outside !== null) {
                 core.notice(`Every failed job is on ${outside.join(', ')}, which reduced runs skip, so the tracking issue gets the ${FULL_MATRIX} label.`);

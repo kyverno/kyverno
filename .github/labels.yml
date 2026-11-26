@@ -521,7 +521,7 @@ e2e-failure:
 
 full-matrix:
   color: D93F0B
-  description: The e2e-failure is only on Kubernetes versions that reduced runs skip; a full run clears it
+  description: Failed only on versions reduced runs skip, or the failed jobs are unknown; a full run clears it
 
 e2e-gate-bypass:
   color: FBCA04
