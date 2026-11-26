@@ -14,9 +14,11 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernoclientfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/informers/health"
+	"github.com/kyverno/kyverno/pkg/tls"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -148,4 +150,29 @@ func TestCleanupWatchReadiness(t *testing.T) {
 		current, err := gce.Lister().Get("test-gce")
 		return err == nil && current.ResourceVersion == "2" && probe(config.ReadinessServicePath) == http.StatusOK
 	}, 15*time.Second, 10*time.Millisecond)
+}
+
+func TestSetupRuntimeProbes(t *testing.T) {
+	t.Parallel()
+	kubeClient := fake.NewSimpleClientset()
+	kyvernoClient := kyvernoclientfake.NewSimpleClientset()
+	kyvernoInformer := kyvernoinformers.NewSharedInformerFactory(kyvernoClient, 0)
+	deployment := informers.NewSharedInformerFactory(kubeClient, 0).Apps().V1().Deployments()
+
+	certRenewer, rt := setupRuntimeProbes(
+		logr.Discard(),
+		kubeClient,
+		kyvernoClient,
+		kyvernoInformer,
+		deployment,
+		"",
+		time.Hour,
+		"kyverno-cleanup-controller-ca",
+		"kyverno-cleanup-controller-tls",
+		tls.RSA,
+	)
+	require.NotNil(t, certRenewer)
+	require.NotNil(t, rt)
+	require.True(t, rt.IsLive(t.Context()))
+	require.False(t, rt.IsReady(t.Context()))
 }
