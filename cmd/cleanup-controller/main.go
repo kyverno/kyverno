@@ -33,6 +33,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/informers"
+	"github.com/kyverno/kyverno/pkg/informers/health"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -40,6 +41,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
+	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -47,6 +49,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/utils/clock"
 )
 
 const (
@@ -62,18 +65,7 @@ var (
 
 // TODO:
 // - helm review labels / selectors
-// - implement probes
 // - supports certs in cronjob
-
-type probes struct{}
-
-func (probes) IsReady(context.Context) bool {
-	return true
-}
-
-func (probes) IsLive(context.Context) bool {
-	return true
-}
 
 func main() {
 	var (
@@ -170,6 +162,29 @@ func main() {
 		// informer factories
 		kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+		informerHealth := health.NewTracker(setup.Logger.WithName("informer-health"), clock.RealClock{})
+		registerCleanupInformers(kyvernoInformer, setup.KyvernoClient, informerHealth)
+		certRenewer := tls.NewCertRenewer(
+			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+			tls.CertRenewalInterval,
+			tls.CAValidityDuration,
+			tls.TLSValidityDuration,
+			renewBefore,
+			serverIP,
+			config.KyvernoServiceName(),
+			config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
+			config.KyvernoNamespace(),
+			caSecretName,
+			tlsSecretName,
+			keyAlgorithm,
+		)
+		runtime := runtimeutils.NewRuntime(
+			setup.Logger.WithName("runtime-checks"),
+			serverIP,
+			kyvernoDeployment,
+			certRenewer,
+			informerHealth.Ready,
+		)
 		// listers
 		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 		// kyverno_legacy_policies_total gauge: CleanupPolicy and ClusterCleanupPolicy,
@@ -257,20 +272,6 @@ func main() {
 				)
 
 				// controllers
-				renewer := tls.NewCertRenewer(
-					setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-					tls.CertRenewalInterval,
-					tls.CAValidityDuration,
-					tls.TLSValidityDuration,
-					renewBefore,
-					serverIP,
-					config.KyvernoServiceName(),
-					config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
-					config.KyvernoNamespace(),
-					caSecretName,
-					tlsSecretName,
-					keyAlgorithm,
-				)
 				var certController internal.Controller
 				if !disableCertManagerController {
 					certController = internal.NewController(
@@ -278,7 +279,7 @@ func main() {
 						certmanager.NewController(
 							caSecret,
 							tlsSecret,
-							renewer,
+							certRenewer,
 							caSecretName,
 							tlsSecretName,
 							config.KyvernoNamespace(),
@@ -436,7 +437,7 @@ func main() {
 			webhooks.DebugModeOptions{
 				DumpPayload: dumpPayload,
 			},
-			probes{},
+			runtime,
 			setup.Configuration,
 		)
 		// start server
