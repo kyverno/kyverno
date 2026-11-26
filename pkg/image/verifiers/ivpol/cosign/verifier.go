@@ -436,9 +436,12 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 		logger.Error(err, "image verification failed")
 		return err
 	} else if !verified {
-		err := fmt.Errorf("cosign bundle verification failed")
-		logger.Error(err, "image verification failed")
-		return err
+		ignoreTlog := attestor.Cosign.CTLog != nil && attestor.Cosign.CTLog.InsecureIgnoreTlog
+		if !ignoreTlog {
+			err := fmt.Errorf("cosign bundle verification failed")
+			logger.Error(err, "image verification failed")
+			return err
+		}
 	}
 
 	checkedTypes := []string{}
