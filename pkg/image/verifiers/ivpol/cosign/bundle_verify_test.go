@@ -26,6 +26,7 @@ import (
 	ocistatic "github.com/sigstore/cosign/v3/pkg/oci/static"
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	sgbundle "github.com/sigstore/sigstore-go/pkg/bundle"
+	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/sign"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/dsse"
@@ -492,4 +493,46 @@ func Test_V2Attestation_Keyed_IgnoreTlog(t *testing.T) {
 
 		require.Error(t, v.VerifyAttestationSignature(context.Background(), img, attestation, attestor))
 	})
+
+	t.Run("missing tlog still fails when insecureIgnoreTlog is false even if insecureIgnoreSCT is true", func(t *testing.T) {
+		vs, _ := newPrivateSigstore(t)
+		tr, err := root.NewTrustedRoot(root.TrustedRootMediaType01, vs.FulcioCertificateAuthorities(), vs.CTLogs(), vs.TimestampingAuthorities(), vs.RekorLogs())
+		require.NoError(t, err)
+		trJSON := trustedRootJSON(t, tr)
+
+		repo, _ := newBundleRegistry(t)
+		pushSubject(t, repo, "subject")
+		pubPEM := attestV2(t, repo, "subject", "", predicateType, `{"bomFormat":"CycloneDX"}`)
+
+		tufCalls := stubTufUnreachable(t)
+		img := fetchTestImage(t, repo.Tag("subject").String())
+		v := NewVerifier(nil, logr.Discard())
+		attestor := &v1beta1.Attestor{
+			Name: "keyed-tlog-required",
+			Cosign: &v1beta1.Cosign{
+				Key:         &v1beta1.Key{Data: pubPEM},
+				TrustedRoot: &v1beta1.StringOrExpression{Value: trJSON},
+				CTLog: &v1beta1.CTLog{
+					InsecureIgnoreTlog: false,
+					InsecureIgnoreSCT:  true,
+				},
+			},
+		}
+		attestation := &v1beta1.Attestation{Name: "sbom", InToto: &v1beta1.InToto{Type: predicateType}}
+
+		err = v.VerifyAttestationSignature(context.Background(), img, attestation, attestor)
+		require.Error(t, err)
+		assert.Zero(t, tufCalls.Load())
+	})
+}
+
+func Test_ShouldIgnoreUnverifiedBundle(t *testing.T) {
+	assert.False(t, shouldIgnoreUnverifiedBundle(nil))
+	assert.False(t, shouldIgnoreUnverifiedBundle(&v1beta1.Cosign{}))
+	assert.False(t, shouldIgnoreUnverifiedBundle(&v1beta1.Cosign{
+		CTLog: &v1beta1.CTLog{InsecureIgnoreTlog: false, InsecureIgnoreSCT: true},
+	}))
+	assert.True(t, shouldIgnoreUnverifiedBundle(&v1beta1.Cosign{
+		CTLog: &v1beta1.CTLog{InsecureIgnoreTlog: true},
+	}))
 }
