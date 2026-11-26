@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: validate-rejects-unknown-kind
+spec:
+  concurrent: false
+  steps:
+    - try:
+      - script:
+          # A single file, not ".": a ConfigMap is a recognized core resource, so policy.Load
+          # returns an explicit "policy type not supported" error for it (processDocumentItem),
+          # not the "produced no results" path that fires only when policy.Load contributes
+          # nothing at all for a file (e.g. a non-Kyverno CRD with no scheme entry).
+          content: |
+            KYVERNO_EXPERIMENTAL=true kyverno oci validate policy.yaml
+          check:
+            ($error != null): true
+            (contains($stderr, 'policy type not supported')): true
