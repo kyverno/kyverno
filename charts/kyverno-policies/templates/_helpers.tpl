@@ -117,11 +117,12 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 The value uses Kind names (`none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`).
 Nothing is rendered when it is empty, so Kyverno generates rules for all the pod controllers. Only `none` renders an
 empty list. An unknown name fails the render so that a typo cannot silently turn autogen off. `ReplicationController`
-is accepted but ignored, because ValidatingPolicy autogen does not support it. A boolean fails the render too, since
-`false` would otherwise read as empty and leave autogen on. */}}
+is accepted but ignored, because ValidatingPolicy autogen does not support it. Any value that is not a string (a
+boolean, a number, a list or a map) fails the render too, since a falsey one such as `false`, `0` or `[]` would
+otherwise read as empty and leave autogen on for all the pod controllers. */}}
 {{- define "kyverno-policies.vpolAutogen" -}}
-{{- if kindIs "bool" .Values.autogenControllers }}
-{{- fail (printf "autogenControllers: a boolean (%v) is not supported, use `none` to turn autogen off or a comma-separated list of DaemonSet, Deployment, ReplicaSet, StatefulSet, Job and CronJob" .Values.autogenControllers) }}
+{{- if not (or (kindIs "invalid" .Values.autogenControllers) (kindIs "string" .Values.autogenControllers)) }}
+{{- fail (printf "autogenControllers: a %s (%v) is not supported, it must be a string: `none` to turn autogen off or a comma-separated list of DaemonSet, Deployment, ReplicaSet, StatefulSet, Job and CronJob" (kindOf .Values.autogenControllers) .Values.autogenControllers) }}
 {{- end }}
 {{- with .Values.autogenControllers }}
 {{- $supported := list "daemonsets" "deployments" "replicasets" "statefulsets" "jobs" "cronjobs" }}

@@ -88,13 +88,14 @@ check_fails() {
   log "  OK   \"$1\" fails to render"
 }
 
-# check_fails_bool requires that rendering with the unquoted boolean autogenControllers=$1 fails.
-check_fails_bool() {
+# check_fails_raw requires that rendering with the unquoted YAML value autogenControllers: $1
+# fails. It covers values that are not strings (booleans, numbers, lists, maps).
+check_fails_raw() {
   printf 'autogenControllers: %s\n' "$1" >"${TMP_DIR}/values.yaml"
   if render -f "${TMP_DIR}/values.yaml" >/dev/null 2>&1; then
-    fail "autogenControllers=$1 (boolean) should fail to render"
+    fail "autogenControllers: $1 (not a string) should fail to render"
   fi
-  log "  OK   boolean $1 fails to render"
+  log "  OK   non-string $1 fails to render"
 }
 
 log "rendering ${CHART_DIR}"
@@ -109,6 +110,11 @@ check_fails "Deployment,"
 check_fails ",Deployment"
 check_fails "Deployment,,Job"
 check_fails "ReplicationController"
-check_fails_bool false
-check_fails_bool true
+check_fails_raw false
+check_fails_raw true
+check_fails_raw 0
+check_fails_raw 1
+check_fails_raw '[]'
+check_fails_raw '[Deployment]'
+check_fails_raw '{}'
 log "all checks passed"
