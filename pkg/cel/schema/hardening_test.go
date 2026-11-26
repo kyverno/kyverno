@@ -53,6 +53,7 @@ func TestProfileRejectsUnsupportedKeywords(t *testing.T) {
 		"remote ref":         `{type: object, properties: {a: {$ref: "https://example.com/s.json"}}}`,
 		"conditional":        `{type: object, if: {required: [a]}}`,
 		"nested prefixItems": `{type: object, properties: {a: {type: array, prefixItems: [{type: string}]}}}`,
+		"tuple items":        `{type: object, properties: {entries: {type: array, items: [{type: object, if: {required: [admin]}, then: {required: [approval]}}]}}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -166,28 +167,6 @@ func TestEventsMissingCandidateCoverage(t *testing.T) {
 	require.NotEqual(t, string(b), broken)
 	_, err = load(t, broken, schema.Options{})
 	assert.ErrorContains(t, err, `schema "deploy-event-v1" has no required enforcing policy`)
-}
-
-func TestAuditOnlyPolicyDoesNotBlock(t *testing.T) {
-	t.Parallel()
-	y := bindingYAML("Deny", "", "requiredPolicies: [{name: p}]", "") + `
----
-apiVersion: policies.kyverno.io/v1
-kind: ValidatingPolicy
-metadata: {name: audit-only}
-spec:
-  evaluation: {mode: Schema, schemaRef: {name: s}}
-  validationActions: [Audit]
-  validations:
-    - expression: "false"
-`
-	reg, err := load(t, y, schema.Options{})
-	require.NoError(t, err)
-	srv := httptest.NewServer(reg)
-	defer srv.Close()
-	_, out := post(t, srv, "/x", `{}`)
-	assert.Equal(t, "denied", out["decision"])
-	assert.Equal(t, "p: nope", out["reason"], "only the enforcing policy appears in the denial")
 }
 
 func TestLimits(t *testing.T) {

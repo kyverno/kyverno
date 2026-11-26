@@ -18,6 +18,25 @@ import (
 
 var logger = logging.WithName("payload-schema")
 
+// DefaultReadTimeout bounds how long a client may take to send a whole request,
+// body included. Without it a client can send the headers, one byte of body and
+// then stall, holding a connection and a goroutine for as long as it likes.
+const DefaultReadTimeout = 10 * time.Second
+
+// NewServer returns an http.Server with every timeout set, so a slow or silent
+// client cannot hold connections open. Pass DefaultReadTimeout unless a test
+// needs something shorter.
+func NewServer(addr string, h http.Handler, readTimeout time.Duration) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           h,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+}
+
 // Decision is the aggregated verdict exposed to a binding's bodyExpression
 // as `decision`.
 type Decision struct {

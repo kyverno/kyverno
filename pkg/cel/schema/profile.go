@@ -53,6 +53,12 @@ func walkSchema(n any, ptr string) error {
 				}
 			}
 		case k == "items" || k == "additionalProperties" || k == "not":
+			// Tuple-form items (an array of schemas) is not in the profile. Walking
+			// only the object form would let an unsupported keyword inside a tuple
+			// element pass unseen and then be silently dropped.
+			if _, tuple := v.([]any); tuple && k == "items" {
+				return fmt.Errorf("tuple-form items is not supported at %s; use a single items schema", here)
+			}
 			if err := walkSchema(v, here); err != nil {
 				return err
 			}

@@ -11,11 +11,12 @@ spec:
   exposure:
     include: ["/request/**"]
     exclude: []
-  # args[0] must be the nono shim; without that check an unprefixed
-  # ["delete", ...] would be mistaken for the shim and its verb dropped.
-  # isMutatingKubectl scans every remaining argument on purpose: it can
-  # over-deny (a verb-named operand), never under-deny.
-  computed: [{"name": "shimOk", "expression": "has(object.request.args) && size(object.request.args) > 0 && object.request.args[0].endsWith('nono-shim')"}, {"name": "argv", "expression": "!has(object.request.args) || size(object.request.args) <= 1 ? [] : object.request.args.slice(1, size(object.request.args))"}, {"name": "isMutatingKubectl", "expression": "object.request.capability_type == 'command' && object.request.command == 'kubectl' && derived.argv.exists(a, a in ['apply','delete','scale','patch','edit','create','replace','rollout'])"}]
+  # kubectl is an ALLOWLIST, not a denylist: a verb we forgot to list (cordon,
+  # exec, drain, ...) must be refused, not granted. args[0] must be the nono shim,
+  # and the verb must come straight after it. Global flags before the verb are not
+  # supported on purpose: "-n get delete pod x" would fool a "first word" check.
+  # This over-denies (kubectl -n prod get pods is refused), never under-denies.
+  computed: [{"name": "shimOk", "expression": "has(object.request.args) && size(object.request.args) > 0 && object.request.args[0].endsWith('nono-shim')"}, {"name": "argv", "expression": "!has(object.request.args) || size(object.request.args) <= 1 ? [] : object.request.args.slice(1, size(object.request.args))"}, {"name": "isKubectl", "expression": "object.request.capability_type == 'command' && (object.request.command == 'kubectl' || object.request.command.endsWith('/kubectl'))"}, {"name": "isReadOnlyKubectl", "expression": "derived.shimOk && size(derived.argv) > 0 && derived.argv[0] in ['get','describe','logs','top','explain','api-resources','api-versions','version','cluster-info']"}]
 ---
 apiVersion: policies.kyverno.io/v1
 kind: ValidatingPolicy
@@ -26,11 +27,8 @@ spec:
     mode: Schema
     schemaRef: {name: nono-approval-v1}
   validations:
-    - expression: >-
-        object.request.capability_type != 'command' ||
-        object.request.command != 'kubectl' ||
-        (derived.shimOk && !derived.isMutatingKubectl)
-      message: kubectl is restricted to read-only subcommands behind the nono shim
+    - expression: "!derived.isKubectl || derived.isReadOnlyKubectl"
+      message: "kubectl is limited to read-only subcommands (get, describe, logs, top, ...) directly after the nono shim"
 ---
 apiVersion: policies.kyverno.io/v1
 kind: ValidatingPolicy

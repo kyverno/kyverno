@@ -9,9 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-	"time"
 
 	"github.com/kyverno/kyverno/pkg/cel/schema"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -34,7 +32,7 @@ func main() {
 		log.Fatal("-client-ca requires -tls-cert and -tls-key: client certificates only exist over TLS")
 	}
 	var opts schema.Options
-	srv := &http.Server{Addr: *addr, ReadHeaderTimeout: 5 * time.Second}
+	srv := schema.NewServer(*addr, nil, schema.DefaultReadTimeout)
 	if *clientCA != "" {
 		pem, err := os.ReadFile(*clientCA)
 		if err != nil {

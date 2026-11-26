@@ -152,3 +152,63 @@ func TestRejectedRequestSkipsTemplate(t *testing.T) {
 	assert.Equal(t, "denied", out["decision"])
 	assert.Contains(t, out["reason"], "duplicate object key")
 }
+
+// An Audit policy is observational: whatever it does, it must never change the
+// decision the enforcing policy reached, in either direction.
+func TestAuditPolicyNeverChangesTheDecision(t *testing.T) {
+	t.Parallel()
+	const (
+		pass      = `"true"`
+		fail      = `"false"`
+		evalError = `"object.a == 'x'"` // the payload has no "a", so this errors at runtime
+	)
+	tests := []struct {
+		name, enforcing, audit string
+		decision, reason       string
+	}{
+		{"enforcing passes, audit passes", pass, pass, "granted", ""},
+		{"enforcing passes, audit fails", pass, fail, "granted", ""},
+		{"enforcing passes, audit errors", pass, evalError, "granted", ""},
+		{"enforcing fails, audit passes", fail, pass, "denied", "enf: nope"},
+		{"enforcing fails, audit fails", fail, fail, "denied", "enf: nope"},
+		{"enforcing fails, audit errors", fail, evalError, "denied", "enf: nope"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			y := schemaYAML("s", `{type: object, properties: {a: {type: string}}}`) + `
+---
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata: {name: enf}
+spec:
+  evaluation: {mode: Schema, schemaRef: {name: s}}
+  validations:
+    - expression: ` + tc.enforcing + `
+      message: nope
+---
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata: {name: audit-only}
+spec:
+  evaluation: {mode: Schema, schemaRef: {name: s}}
+  validationActions: [Audit]
+  validations:
+    - expression: ` + tc.audit + `
+      message: audit says no
+` + binding("b", "[POST]", "/x", "")
+			y = strings.Replace(y, "requiredPolicies: [{name: p}]", "requiredPolicies: [{name: enf}]", 1)
+			reg, err := load(t, y, schema.Options{})
+			require.NoError(t, err)
+			srv := httptest.NewServer(reg)
+			defer srv.Close()
+			_, out := post(t, srv, "/x", `{}`)
+			assert.Equal(t, tc.decision, out["decision"])
+			if tc.reason == "" {
+				assert.NotContains(t, out, "reason")
+			} else {
+				assert.Equal(t, tc.reason, out["reason"], "the audit policy's message must not leak into the denial")
+			}
+		})
+	}
+}

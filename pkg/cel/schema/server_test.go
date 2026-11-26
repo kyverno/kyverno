@@ -2,12 +2,16 @@ package schema_test
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kyverno/kyverno/pkg/cel/schema"
 	"github.com/stretchr/testify/assert"
@@ -39,6 +43,8 @@ func TestApproveNono(t *testing.T) {
 	tests := map[string]string{
 		"kubectl-get.json":                "granted",
 		"kubectl-delete-ns.json":          "denied",
+		"kubectl-cordon.json":             "denied",
+		"kubectl-exec.json":               "denied",
 		"endpoint.json":                   "granted",
 		"invalid-missing-request-id.json": "denied",
 		"invalid-pid-type.json":           "denied",
@@ -145,4 +151,32 @@ spec:
 	write(base + "object.a")
 	_, err = schema.LoadDir(dir, schema.Options{})
 	assert.ErrorContains(t, err, "must return bool")
+}
+
+// A client that sends headers and one byte of body, then goes silent, must not
+// hold the connection open for ever.
+func TestStalledBodyIsCutOff(t *testing.T) {
+	t.Parallel()
+	reg, err := schema.LoadDir("examples", schema.Options{})
+	require.NoError(t, err)
+	srv := schema.NewServer("", reg, 300*time.Millisecond)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	go func() { _ = srv.Serve(ln) }()
+	t.Cleanup(func() { _ = srv.Close() })
+
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	require.NoError(t, err)
+	defer conn.Close()
+	_, err = conn.Write([]byte("POST /approve HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{"))
+	require.NoError(t, err)
+
+	start := time.Now()
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(5*time.Second)))
+	_, err = io.ReadAll(conn)
+	var ne net.Error
+	if errors.As(err, &ne) && ne.Timeout() {
+		t.Fatal("server kept a stalled connection open past its read timeout")
+	}
+	assert.Less(t, time.Since(start), 3*time.Second)
 }

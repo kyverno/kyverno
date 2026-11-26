@@ -21,8 +21,9 @@ kube-openapi's validator for payload validation.
    the schema model "needs no null checks" does not hold; computed fields need
    `has()` guards.
 3. kube-openapi's validator rejects `1.0` for `type: integer` when given
-   `json.Number` (`TestIntegralFloatPidKnownGap`). Needs a conforming validator or
-   pre-validation normalization.
+   `json.Number`. Fixed in the spike by rewriting integral values for integer-typed
+   nodes before validation (`numbers.go`); numbers then become int64 or float64 by
+   the *declared* type, not by the value. A conforming validator is still open.
 
 4. Stock CEL has no list `sum()`; `ext.Math()` offers `math.greatest` only, and
    Kyverno's math lib has no list reduction either. Aggregates over payload
@@ -55,10 +56,45 @@ audit-only policies never block; empty principals or
 `requireApplicablePolicy: false` rejected when authorization is on.
 `ValidatingPolicy.validationActions` (Deny/Audit/Warn).
 
-Known simplifications: `maxCELCost` is parsed but NOT enforced; `timeoutMillis`
-is checked between validations, not inside a running CEL program; no
-`status` conditions (digest is only logged); no hot reload; principal comes from
-the first URI SAN or the CN of a verified client cert.
+Known simplifications: `limits.maxCELCost` is rejected at load (the repository's
+per-program cost limit and per-request budget always apply; no per-binding
+override); no `status` conditions (digest is only logged); no hot reload;
+principal comes from the first URI SAN or the CN of a verified client cert.
+
+## Repository rules the spike now follows
+- Every CEL program is built with `compiler.NewProgram` and run with `ContextEval`
+  on a context from `requestbudget.Ensure` (`TestNoUnbudgetedCELEvaluationPaths`).
+  `timeoutMillis` is a real context deadline, so it interrupts a running expression.
+- Envs come from `compiler.NewEnv`. Response bodies use `DynamicResourceEnvOptions`
+  because `{"allowed": true, "schema": decision.schema}` is a mixed-type literal.
+- Logging is structured (`pkg/logging`), not the standard `log` package.
+
+## Review-driven fixes
+- nono kubectl is an allowlist, not a denylist. The first version blocked a list of
+  mutating verbs, so `cordon`, `exec`, `drain`, `label` and `cp` were all granted. Now
+  only `get`, `describe`, `logs`, `top`, `explain`, `api-resources`, `api-versions`,
+  `version` and `cluster-info` pass, `args[0]` must be the shim (`endsWith('nono-shim')`)
+  and the verb must come directly after it. Global flags before the verb are refused on
+  purpose (`-n get delete pod x` fools a "first word" check). This over-denies, never
+  under-denies. Both the shim name and the allowlist are assumptions to confirm against
+  the real nono. A full path to kubectl (`/usr/bin/kubectl`) is covered too. Endpoint
+  requests require `method` and `path`, command requests `command` (schema `oneOf`).
+- Duplicate JSON keys and over-deep nesting are rejected before schema selection.
+- Exposure: an explicitly empty `include` exposes nothing (nil means everything);
+  `*` and `**` path wildcards work.
+- Routes are keyed by method and path; an unknown method is a 404, not a 405.
+- Failures before a typed object exists (bad JSON, no schema, validation failure)
+  get a fixed denial body and never run the binding's `bodyExpression`. A binding
+  whose template gives the same output for allowed and denied is rejected at load.
+- `response.statusCode` is validated; `-client-ca` without `-tls-cert` fails fast.
+- A bare `derived.x` (typed `dyn`) is accepted as a boolean validation.
+- Tuple-form `items` (an array of schemas) is rejected: the profile check did not look
+  inside it, so an unsupported keyword there was silently dropped.
+- `NewServer` sets `ReadTimeout`, `WriteTimeout` and `IdleTimeout`. Before, only the
+  header read had a deadline, so a client could send one byte of body and stall for ever
+  (`TestStalledBodyIsCutOff`).
+- Audit policies never change a decision, whether they pass, fail or error
+  (`TestAuditPolicyNeverChangesTheDecision`).
 
 mTLS demo: see `examples/` resources plus
 `go run ./pkg/cel/schema/spike -tls-cert server.crt -tls-key server.key -client-ca ca.crt`

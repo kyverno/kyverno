@@ -28,8 +28,7 @@ func nonoSchema(t *testing.T) *schema.Schema {
 	return s
 }
 
-const readOnlyKubectl = `object.request.capability_type != 'command' ||
-  object.request.command != 'kubectl' || (derived.shimOk && !derived.isMutatingKubectl)`
+const readOnlyKubectl = `!derived.isKubectl || derived.isReadOnlyKubectl`
 
 func TestNonoDecision(t *testing.T) {
 	t.Parallel()
@@ -43,6 +42,9 @@ func TestNonoDecision(t *testing.T) {
 		{"kubectl-delete-ns.json", false},
 		// args[0] is not the shim, so "delete" must not be mistaken for it.
 		{"kubectl-delete-unprefixed.json", false},
+		// Not on any denylist, and still not read-only.
+		{"kubectl-cordon.json", false},
+		{"kubectl-exec.json", false},
 		{"endpoint.json", true},
 	}
 	for _, tc := range tests {
@@ -171,4 +173,49 @@ func TestParseJSONLimits(t *testing.T) {
 	}
 	_, err = schema.ParseJSON(deep, 64)
 	assert.ErrorContains(t, err, "maxDepth")
+}
+
+// The kubectl policy is an allowlist: only listed verbs, directly after the shim.
+func TestKubectlAllowlist(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := nonoSchema(t)
+	const shim = `"/usr/local/bin/nono-shim"`
+	mk := func(command, args string) []byte {
+		return []byte(`{"backend":"k","request":{"capability_type":"command","request_id":"r","session_id":"s","command":"` + command + `","args":[` + args + `]}}`)
+	}
+	tests := []struct {
+		name, command, args string
+		allowed             bool
+	}{
+		{"get", "kubectl", shim + `,"get","pods"`, true},
+		{"describe", "kubectl", shim + `,"describe","pod","x"`, true},
+		{"logs", "kubectl", shim + `,"logs","pod1","-f"`, true},
+		{"version", "kubectl", shim + `,"version","--client"`, true},
+		{"delete", "kubectl", shim + `,"delete","ns","x"`, false},
+		{"cordon", "kubectl", shim + `,"cordon","node-a"`, false},
+		{"drain", "kubectl", shim + `,"drain","node-a"`, false},
+		{"exec", "kubectl", shim + `,"exec","pod1","--","sh"`, false},
+		{"label", "kubectl", shim + `,"label","pod1","a=b"`, false},
+		{"cp", "kubectl", shim + `,"cp","pod1:/etc/passwd","/tmp/x"`, false},
+		{"unknown verb", "kubectl", shim + `,"frobnicate"`, false},
+		{"no verb", "kubectl", shim, false},
+		{"flag before the verb", "kubectl", shim + `,"-n","prod","get","pods"`, false},
+		// "get" here is the value of -n, so a first-word check would call this read-only.
+		{"flag value looks like a verb", "kubectl", shim + `,"-n","get","delete","pod","x"`, false},
+		{"no shim", "kubectl", `"get","pods"`, false},
+		{"full path to kubectl", "/usr/bin/kubectl", shim + `,"cordon","node-a"`, false},
+		{"full path, read-only", "/usr/bin/kubectl", shim + `,"get","pods"`, true},
+		{"other command is not covered by this policy", "ls", shim + `,"-la"`, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p, err := s.Decode(ctx, mk(tc.command, tc.args))
+			require.NoError(t, err)
+			got, err := s.Evaluate(ctx, readOnlyKubectl, p)
+			require.NoError(t, err)
+			assert.Equal(t, tc.allowed, got)
+		})
+	}
 }
