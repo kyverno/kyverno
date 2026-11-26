@@ -1,0 +1,21 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: vpol-negative-objectselector
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - isValidatingPolicy: true
+    policy: deny-all
+    kind: ConfigMap
+    resources:
+      - opted-out
+    result: skip
+  - isValidatingPolicy: true
+    policy: deny-all
+    kind: ConfigMap
+    resources:
+      - selected
+    result: fail

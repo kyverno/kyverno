@@ -1160,4 +1160,234 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 
 		assert.Nil(t, resp)
 	})
+
+	t.Run("negative objectSelector excludes matching resource on CREATE", func(t *testing.T) {
+		trueBool := true
+		policy := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "mutate-existing-policy",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+						Enabled: &trueBool,
+					},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{"CREATE"},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"configmaps"},
+								},
+							},
+						},
+					},
+					ObjectSelector: &metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      "skip",
+								Operator: metav1.LabelSelectorOpNotIn,
+								Values:   []string{"true"},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{policy}, nil, libs.NewFakeContextProvider(), engine.ExceptionScopeAll)
+		assert.NoError(t, err)
+
+		eng := NewEngine(provider, nsResolver, matcher, typeConverter, &libs.FakeContextProvider{})
+
+		// Request for opted-out configmap with skip="true"
+		optedOutReq := engine.EngineRequest{
+			Request: admissionv1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+				Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+				Namespace: "default",
+				Name:      "opted-out",
+				Operation: admissionv1.Create,
+				Object: runtime.RawExtension{
+					Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"opted-out","namespace":"default","labels":{"skip":"true"}}}`),
+				},
+			},
+		}
+		matchedOptedOut := eng.MatchedMutateExistingPolicies(ctx, optedOutReq)
+		assert.Empty(t, matchedOptedOut)
+
+		// Request for selected configmap without skip label
+		selectedReq := engine.EngineRequest{
+			Request: admissionv1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+				Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+				Namespace: "default",
+				Name:      "selected",
+				Operation: admissionv1.Create,
+				Object: runtime.RawExtension{
+					Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"selected","namespace":"default"}}`),
+				},
+			},
+		}
+		matchedSelected := eng.MatchedMutateExistingPolicies(ctx, selectedReq)
+		assert.Contains(t, matchedSelected, "mutate-existing-policy")
+	})
 }
+
+func TestHandle_NegativeObjectSelectorOnCreate(t *testing.T) {
+	policy := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "skip-opted-out",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{"CREATE"},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+				ObjectSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      "skip",
+							Operator: metav1.LabelSelectorOpNotIn,
+							Values:   []string{"true"},
+						},
+					},
+				},
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{
+				{
+					PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+					ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+						Expression: `Object{metadata: Object.metadata{labels: {"mutated": "true"}}}`,
+					},
+				},
+			},
+		},
+	}
+
+	provider, err := NewProvider(
+		compiler.NewCompiler(),
+		[]policiesv1beta1.MutatingPolicyLike{policy},
+		nil,
+		libs.NewFakeContextProvider(),
+		engine.ExceptionScopeAll,
+	)
+	assert.NoError(t, err)
+
+	eng := NewEngine(
+		provider,
+		func(ns string) *corev1.Namespace {
+			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+		},
+		matching.NewMatcher(),
+		&fakeTypeConverter{},
+		&libs.FakeContextProvider{},
+	)
+
+	t.Run("resource with skip=true is excluded on CREATE", func(t *testing.T) {
+		req := engine.EngineRequest{
+			Request: admissionv1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+				Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+				Namespace: "default",
+				Name:      "opted-out",
+				Operation: admissionv1.Create,
+				Object: runtime.RawExtension{
+					Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"opted-out","namespace":"default","labels":{"skip":"true"}}}`),
+				},
+			},
+		}
+
+		resp, err := eng.Handle(context.Background(), req, nil)
+		assert.NoError(t, err)
+		assert.Len(t, resp.Policies, 1)
+		assert.Empty(t, resp.Policies[0].Rules)
+		assert.Nil(t, resp.PatchedResource)
+	})
+
+	t.Run("resource without skip label is matched and mutated on CREATE", func(t *testing.T) {
+		req := engine.EngineRequest{
+			Request: admissionv1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+				Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+				Namespace: "default",
+				Name:      "selected",
+				Operation: admissionv1.Create,
+				Object: runtime.RawExtension{
+					Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"selected","namespace":"default"}}`),
+				},
+			},
+		}
+
+		resp, err := eng.Handle(context.Background(), req, nil)
+		assert.NoError(t, err)
+		assert.Len(t, resp.Policies, 1)
+		assert.Len(t, resp.Policies[0].Rules, 1)
+		assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Rules[0].Status())
+		assert.NotNil(t, resp.PatchedResource)
+		labels, found, _ := unstructured.NestedMap(resp.PatchedResource.Object, "metadata", "labels")
+		assert.True(t, found)
+		assert.Equal(t, "true", labels["mutated"])
+	})
+
+	t.Run("resource with skip=true is excluded with DoesNotExist on CREATE", func(t *testing.T) {
+		dnePolicy := policy.DeepCopy()
+		dnePolicy.Name = "skip-opted-out-dne"
+		dnePolicy.Spec.MatchConstraints.ObjectSelector.MatchExpressions = []metav1.LabelSelectorRequirement{
+			{
+				Key:      "skip",
+				Operator: metav1.LabelSelectorOpDoesNotExist,
+			},
+		}
+		dneProvider, err := NewProvider(
+			compiler.NewCompiler(),
+			[]policiesv1beta1.MutatingPolicyLike{dnePolicy},
+			nil,
+			libs.NewFakeContextProvider(),
+			engine.ExceptionScopeAll,
+		)
+		assert.NoError(t, err)
+		dneEng := NewEngine(
+			dneProvider,
+			func(ns string) *corev1.Namespace {
+				return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+			},
+			matching.NewMatcher(),
+			&fakeTypeConverter{},
+			&libs.FakeContextProvider{},
+		)
+
+		req := engine.EngineRequest{
+			Request: admissionv1.AdmissionRequest{
+				Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+				Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+				Namespace: "default",
+				Name:      "opted-out",
+				Operation: admissionv1.Create,
+				Object: runtime.RawExtension{
+					Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"opted-out","namespace":"default","labels":{"skip":"true"}}}`),
+				},
+			},
+		}
+
+		resp, err := dneEng.Handle(context.Background(), req, nil)
+		assert.NoError(t, err)
+		assert.Len(t, resp.Policies, 1)
+		assert.Empty(t, resp.Policies[0].Rules)
+		assert.Nil(t, resp.PatchedResource)
+	})
+}
+
