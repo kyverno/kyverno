@@ -28,6 +28,9 @@ func convertRules(rules []admissionregistrationv1beta1.NamedRuleWithOperations) 
 }
 
 func convertRulesToBeta(rules []admissionregistrationv1.NamedRuleWithOperations) []admissionregistrationv1beta1.NamedRuleWithOperations {
+	if len(rules) == 0 {
+		return nil
+	}
 	v1beta1Rules := make([]admissionregistrationv1beta1.NamedRuleWithOperations, 0, len(rules))
 	for _, r := range rules {
 		v1beta1Rules = append(v1beta1Rules, admissionregistrationv1beta1.NamedRuleWithOperations(r))
