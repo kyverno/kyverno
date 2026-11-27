@@ -30,6 +30,9 @@ kyverno apply [flags]
   # Apply on a folder of resources
   kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resources/
 
+  # Apply on multiple folders of resources
+  kyverno apply /path/to/policy.yaml --resource=/path/to/resources1/ --resource=/path/to/resources2/
+
   # Apply on a cluster
   kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
 
@@ -80,8 +83,8 @@ kyverno apply [flags]
   -p, --policy-report                      Generates policy report when passed (default policyviolation)
       --registry                           If set to true, access the image registry using local docker credentials to populate external data
       --remove-color                       Remove any color from output
-  -r, --resource strings                   Path to resource files
-      --resources strings                  Path to resource files
+  -r, --resource strings                   Path to resource files or directories
+      --resources strings                  Path to resource files or directories
   -s, --set strings                        Variables that are required
       --show-performance                   Show resource loading performance metrics
   -i, --stdin                              Optional mutate policy parameter to pipe directly through to kubectl
