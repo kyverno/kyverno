@@ -29,6 +29,7 @@ import (
 type fakeVpolClient struct {
 	client.Client
 	policy     *policiesv1beta1.ValidatingPolicy
+	nsPolicy   *policiesv1beta1.NamespacedValidatingPolicy
 	exceptions []policiesv1beta1.PolicyException
 }
 
@@ -36,6 +37,12 @@ func (f *fakeVpolClient) Get(_ context.Context, key client.ObjectKey, obj client
 	if f.policy != nil && key.Name == f.policy.Name {
 		if o, ok := obj.(*policiesv1beta1.ValidatingPolicy); ok {
 			*o = *f.policy
+			return nil
+		}
+	}
+	if f.nsPolicy != nil && key.Name == f.nsPolicy.Name && key.Namespace == f.nsPolicy.Namespace {
+		if o, ok := obj.(*policiesv1beta1.NamespacedValidatingPolicy); ok {
+			*o = *f.nsPolicy
 			return nil
 		}
 	}
@@ -72,6 +79,10 @@ func (f *fakeClient) Get(_ context.Context, key client.ObjectKey, obj client.Obj
 type staleExceptionLister struct{}
 
 func (staleExceptionLister) List(labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
+	return nil, nil
+}
+
+func (staleExceptionLister) ListForPolicy(kind, name, namespace string) ([]*policiesv1beta1.PolicyException, error) {
 	return nil, nil
 }
 
@@ -182,7 +193,7 @@ func TestReconcile_ManagerCacheExceptionLister_SeesException(t *testing.T) {
 		exceptions: []policiesv1beta1.PolicyException{fullExemption("exempt-all", policy.Name)},
 	}
 
-	polexLister := celengine.NewManagerPolicyExceptionLister(fc, "")
+	polexLister := celengine.NewManagerPolicyExceptionLister(fc, "*")
 	rec := newReconciler(compiler.NewCompiler(), fc, polexLister, true)
 	_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: policy.Name}})
 	require.NoError(t, err)
@@ -238,4 +249,63 @@ func TestReconcile_ExtractionMode(t *testing.T) {
 	}
 	assert.True(t, sawDeploymentVariant, "expected a deployments autogen variant")
 	assert.True(t, sawJobSetVariant, "expected a jobsets autogen variant")
+}
+
+func namespacedDenyMissingTeamLabelPolicy(name, namespace string) *policiesv1beta1.NamespacedValidatingPolicy {
+	return &policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeJSON,
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "has(object.team)", Message: "object must carry a team field"},
+			},
+		},
+	}
+}
+
+func polexIn(namespace, name, policyName string) policiesv1beta1.PolicyException {
+	return policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{
+				Name: policyName,
+				Kind: policieskyvernoio.NamespacedValidatingPolicyKind,
+			}},
+		},
+	}
+}
+
+// TestReconcile_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions pins the namespace
+// argument passed to ListForPolicy. Dropping it makes a foreign namespace's exception
+// apply to this policy, which is the behaviour this guards against.
+func TestReconcile_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testing.T) {
+	ctx := context.Background()
+	policy := namespacedDenyMissingTeamLabelPolicy("require-team", "tenant-a")
+	fc := &fakeVpolClient{
+		nsPolicy: policy,
+		exceptions: []policiesv1beta1.PolicyException{
+			polexIn("tenant-a", "own", "require-team"),
+			polexIn("tenant-b", "foreign", "require-team"),
+		},
+	}
+
+	polexLister := celengine.NewManagerPolicyExceptionLister(fc, "*")
+	rec := newReconciler(compiler.NewCompiler(), fc, polexLister, true)
+	_, err := rec.Reconcile(ctx, reconcile.Request{
+		NamespacedName: types.NamespacedName{Namespace: "tenant-a", Name: "require-team"},
+	})
+	require.NoError(t, err)
+
+	eng := NewEngine(rec, nil, nil)
+	payload := &unstructured.Unstructured{Object: map[string]any{"name": "no-team-field"}}
+	resp, err := eng.Handle(ctx, celengine.RequestFromJSON(nil, payload), nil)
+	require.NoError(t, err)
+	require.Len(t, resp.Policies, 1)
+	require.Len(t, resp.Policies[0].Rules, 1)
+	rule := resp.Policies[0].Rules[0]
+	require.Len(t, rule.Exceptions(), 1, "tenant-a's policy must only see its own namespace's exception")
+	require.Equal(t, "tenant-a", rule.Exceptions()[0].GetNamespace())
+	require.Equal(t, "own", rule.Exceptions()[0].GetName())
 }

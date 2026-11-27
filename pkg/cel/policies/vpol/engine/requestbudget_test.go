@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -43,7 +44,7 @@ func TestHandle_RequestBudgetChargesThroughTheRealCompiler(t *testing.T) {
 	}
 	policy := buildJSONPolicy("test-request-budget", validations)
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, engine.ExceptionScopeAll)
 	require.NoError(t, err)
 	eng := NewEngine(provider, nil, nil)
 

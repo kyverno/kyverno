@@ -31,6 +31,10 @@ func (f fakePolexLister) List(selector labels.Selector) ([]*policiesv1beta1.Poli
 	return nil, fmt.Errorf("forced List error for testing")
 }
 
+func (f fakePolexLister) ListForPolicy(kind, name, namespace string) ([]*policiesv1beta1.PolicyException, error) {
+	return nil, fmt.Errorf("forced List error for testing")
+}
+
 type fakePolexNsLister struct{}
 
 func (f fakePolexNsLister) List(selector labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
@@ -61,7 +65,7 @@ func TestGet(t *testing.T) {
 	polexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	polexIndexer.Add(exception)
 
-	polexListers := policiesv1beta1listers.NewPolicyExceptionLister(polexIndexer).PolicyExceptions("")
+	polexListers := engine.NewPolicyExceptionLister(policiesv1beta1listers.NewPolicyExceptionLister(polexIndexer), "*")
 	dpolListers := policiesv1beta1listers.NewDeletingPolicyLister(dpolIndexer)
 
 	tests := []struct {

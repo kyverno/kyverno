@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -125,7 +127,7 @@ func TestReconcile_ClampPastNextExecution(t *testing.T) {
 	cq := &captureQueue{TypedRateLimitingInterface: baseQ}
 
 	compiler := enginecompiler.NewCompiler()
-	provFunc, err := dpolengine.NewProvider(compiler, []policiesv1beta1.DeletingPolicyLike{&pol}, nil)
+	provFunc, err := dpolengine.NewProvider(compiler, []policiesv1beta1.DeletingPolicyLike{&pol}, nil, celengine.ExceptionScopeAll)
 	if err != nil {
 		t.Fatalf("provider init failed: %v", err)
 	}

@@ -5,9 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/logging"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"gotest.tools/v3/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_Validate(t *testing.T) {
@@ -118,4 +120,57 @@ func TestValidateGlobLengthsAcceptsRuleNameAtLimit(t *testing.T) {
 
 	err = ValidateGlobLengths(polex)
 	assert.NilError(t, err)
+}
+
+func Test_ValidateScopeReach(t *testing.T) {
+	namespacedRef := []policiesv1beta1.PolicyRef{{Name: "require-team-label", Kind: "NamespacedValidatingPolicy"}}
+	clusterRef := []policiesv1beta1.PolicyRef{{Name: "cluster-require-owner-label", Kind: "ValidatingPolicy"}}
+
+	testCases := []struct {
+		name string
+		opts ValidationOptions
+		refs []policiesv1beta1.PolicyRef
+		want int
+	}{
+		{
+			name: "disabled: no warning regardless of scope",
+			opts: ValidationOptions{Enabled: false, Namespace: "*"},
+			refs: namespacedRef,
+			want: 0,
+		},
+		{
+			name: "concrete scope: no warning, central namespace covers the exception",
+			opts: ValidationOptions{Enabled: true, Namespace: "kyverno"},
+			refs: namespacedRef,
+			want: 0,
+		},
+		{
+			name: "unset scope: no warning here, ValidateNamespace already covers it",
+			opts: ValidationOptions{Enabled: true, Namespace: ""},
+			refs: namespacedRef,
+			want: 0,
+		},
+		{
+			name: "all-namespaces scope targeting a namespaced policy: warns, no central namespace exists",
+			opts: ValidationOptions{Enabled: true, Namespace: "*"},
+			refs: namespacedRef,
+			want: 1,
+		},
+		{
+			name: "all-namespaces scope targeting a cluster-scoped policy: no warning, documented reach",
+			opts: ValidationOptions{Enabled: true, Namespace: "*"},
+			refs: clusterRef,
+			want: 0,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			polex := &policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "tenant-b"},
+				Spec:       policiesv1beta1.PolicyExceptionSpec{PolicyRefs: tc.refs},
+			}
+			warnings := ValidateScopeReach(polex, tc.opts)
+			assert.Equal(t, tc.want, len(warnings))
+		})
+	}
 }

@@ -688,7 +688,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if len(ivps) == 0 {
 		return nil, nil
 	}
-	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
+	provider, err := ivpolengine.NewProvider(ivps, celExceptions, celengine.ExceptionScopeAll)
 	if err != nil {
 		return nil, err
 	}
@@ -830,7 +830,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	dclient dclient.Interface,
 	payloadType string,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
+	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions, celengine.ExceptionScopeAll)
 	if err != nil {
 		return nil, err
 	}

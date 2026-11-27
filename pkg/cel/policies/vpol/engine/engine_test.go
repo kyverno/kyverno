@@ -6,6 +6,7 @@ import (
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/engine"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -45,7 +46,7 @@ func TestHandle_ValidationIndexInProperties(t *testing.T) {
 		{Expression: "object.name != ''", Message: "index 3: would pass"},
 	})
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, engine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, nil, nil)
@@ -70,7 +71,7 @@ func TestHandle_ValidationIndexFirstExpression(t *testing.T) {
 		{Expression: "object.name != ''", Message: "index 1: would pass"},
 	})
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, engine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, nil, nil)
@@ -165,7 +166,7 @@ func buildDisallowLatestTagPolicyUsingRequest() *policiesv1beta1.ValidatingPolic
 
 func TestHandle_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) {
 	policy := buildDisallowLatestTagPolicyUsingRequest()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, engine.ExceptionScopeAll)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
@@ -215,7 +216,7 @@ func TestHandle_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) 
 
 func TestHandle_ExtractionMode_JobSet(t *testing.T) {
 	policy := buildDisallowLatestTagPolicy()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, engine.ExceptionScopeAll)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
