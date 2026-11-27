@@ -118,6 +118,11 @@ func canonicalizeAttestor(attestor v1beta1.Attestor) v1beta1.Attestor {
 		if material.Cosign.TrustedRoot != nil {
 			material.Cosign.TrustedRoot.Expression = ""
 		}
+		if material.Cosign.Keyless != nil {
+			for i := range material.Cosign.Keyless.Identities {
+				material.Cosign.Keyless.Identities[i].SubjectExpression = ""
+			}
+		}
 	}
 	if material.Notary != nil {
 		if material.Notary.Certs != nil {

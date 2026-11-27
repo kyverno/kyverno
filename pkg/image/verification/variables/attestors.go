@@ -20,6 +20,8 @@ type CompiledAttestor struct {
 	notaryCertProg    cel.Program
 	notaryTSACertProg cel.Program
 	trustedRootProg   cel.Program
+	// subjectProgs aligns with Keyless.Identities. A nil entry has no subjectExpression.
+	subjectProgs []cel.Program
 }
 
 func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([]*CompiledAttestor, field.ErrorList) {
@@ -76,6 +78,28 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 					return nil, append(allErrs, field.Invalid(path, att.Cosign.TrustedRoot, err.Error()))
 				}
 				compiledAtt.trustedRootProg = prg
+			}
+			if att.Cosign.Keyless != nil {
+				progs := make([]cel.Program, len(att.Cosign.Keyless.Identities))
+				for j, id := range att.Cosign.Keyless.Identities {
+					if id.SubjectExpression == "" {
+						continue
+					}
+					idPath := path.Child("cosign", "keyless", "identities").Index(j).Child("subjectExpression")
+					if id.SubjectRegExp != "" {
+						return nil, append(allErrs, field.Invalid(idPath, id.SubjectExpression, "subjectExpression and subjectRegExp are mutually exclusive"))
+					}
+					ast, iss := env.Compile(id.SubjectExpression)
+					if iss.Err() != nil {
+						return nil, append(allErrs, field.Invalid(idPath, id.SubjectExpression, iss.Err().Error()))
+					}
+					prg, err := celcompiler.NewProgram(env, ast)
+					if err != nil {
+						return nil, append(allErrs, field.Invalid(idPath, id.SubjectExpression, err.Error()))
+					}
+					progs[j] = prg
+				}
+				compiledAtt.subjectProgs = progs
 			}
 		} else if att.IsNotary() {
 			if att.Notary.Certs != nil && att.Notary.Certs.Expression != "" {
@@ -154,6 +178,21 @@ func (c *CompiledAttestor) Evaluate(ctx context.Context, data any) (v1beta1.Atte
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert trustedRoot in compiled attestor: %s, error: %w", c.Key, err)
 		}
 		value.Cosign.TrustedRoot.Value = result
+	}
+
+	for i, prog := range c.subjectProgs {
+		if prog == nil {
+			continue
+		}
+		result, err := evalProgramString(ctx, c.Key, prog, data)
+		if err != nil {
+			return v1beta1.Attestor{}, fmt.Errorf("failed to evaluate subjectExpression in compiled attestor: %s, error: %w", c.Key, err)
+		}
+		// An empty subject is not a constraint. Cosign treats that as a match for any subject.
+		if result == "" {
+			return v1beta1.Attestor{}, fmt.Errorf("subjectExpression evaluated to an empty subject in attestor %s", c.Key)
+		}
+		value.Cosign.Keyless.Identities[i].SubjectRegExp = result
 	}
 
 	return *value, nil

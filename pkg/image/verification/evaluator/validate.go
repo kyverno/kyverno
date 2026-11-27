@@ -130,6 +130,13 @@ func attestorExpressions(att policiesv1beta1.Attestor) []string {
 		if att.Cosign.TrustedRoot != nil && att.Cosign.TrustedRoot.Expression != "" {
 			exprs = append(exprs, att.Cosign.TrustedRoot.Expression)
 		}
+		if att.Cosign.Keyless != nil {
+			for _, id := range att.Cosign.Keyless.Identities {
+				if id.SubjectExpression != "" {
+					exprs = append(exprs, id.SubjectExpression)
+				}
+			}
+		}
 	}
 	if att.Notary != nil {
 		if att.Notary.Certs != nil && att.Notary.Certs.Expression != "" {

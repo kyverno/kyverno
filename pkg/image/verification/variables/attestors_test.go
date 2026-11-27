@@ -11,6 +11,79 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+func TestEvaluateSubjectExpression(t *testing.T) {
+	t.Parallel()
+	env, err := cel.NewEnv(cel.Variable("repo", cel.StringType))
+	assert.NoError(t, err)
+
+	attestors := []v1beta1.Attestor{{
+		Name: "keyless",
+		Cosign: &v1beta1.Cosign{
+			Keyless: &v1beta1.Keyless{
+				Identities: []v1beta1.Identity{{
+					Issuer:            "https://token.actions.githubusercontent.com",
+					SubjectExpression: `"^https://github.com/" + repo + "/"`,
+				}},
+			},
+		},
+	}}
+
+	compiled, errs := CompileAttestors(field.NewPath("spec", "attestors"), attestors, env)
+	assert.Nil(t, errs)
+	assert.Len(t, compiled, 1)
+
+	got, err := compiled[0].Evaluate(context.Background(), map[string]any{"repo": "allowed/repo"})
+	assert.NoError(t, err)
+	assert.Equal(t, `^https://github.com/allowed/repo/`, got.Cosign.Keyless.Identities[0].SubjectRegExp)
+	assert.Equal(t, "https://token.actions.githubusercontent.com", got.Cosign.Keyless.Identities[0].Issuer)
+}
+
+func TestEvaluateSubjectExpressionEmpty(t *testing.T) {
+	t.Parallel()
+	env, err := cel.NewEnv()
+	assert.NoError(t, err)
+
+	attestors := []v1beta1.Attestor{{
+		Name: "keyless",
+		Cosign: &v1beta1.Cosign{
+			Keyless: &v1beta1.Keyless{
+				Identities: []v1beta1.Identity{{
+					Issuer:            "https://token.actions.githubusercontent.com",
+					SubjectExpression: `""`,
+				}},
+			},
+		},
+	}}
+
+	compiled, errs := CompileAttestors(field.NewPath("spec", "attestors"), attestors, env)
+	assert.Nil(t, errs)
+
+	_, err = compiled[0].Evaluate(context.Background(), map[string]any{})
+	assert.Error(t, err)
+}
+
+func TestCompileSubjectExpressionRejectsSubjectRegExp(t *testing.T) {
+	t.Parallel()
+	env, err := cel.NewEnv()
+	assert.NoError(t, err)
+
+	attestors := []v1beta1.Attestor{{
+		Name: "keyless",
+		Cosign: &v1beta1.Cosign{
+			Keyless: &v1beta1.Keyless{
+				Identities: []v1beta1.Identity{{
+					SubjectRegExp:     `^https://github.com/allowed/repo/`,
+					SubjectExpression: `"^https://github.com/allowed/repo/"`,
+				}},
+			},
+		},
+	}}
+
+	compiled, errs := CompileAttestors(field.NewPath("spec", "attestors"), attestors, env)
+	assert.Nil(t, compiled)
+	assert.NotNil(t, errs)
+}
+
 func Test_Attestors(t *testing.T) {
 	tests := []struct {
 		name       string
