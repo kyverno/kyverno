@@ -148,6 +148,46 @@ func Test_WithFilter(t *testing.T) {
 		wantAllowed:     true,
 		wantInnerCalled: false,
 	}, {
+		name:   "filtered kyverno resource - EphemeralReport",
+		config: &mockConfiguration{},
+		request: newTestAdmissionRequest("test-uid", metav1.GroupVersionKind{
+			Group:   "reports.kyverno.io",
+			Version: "v1",
+			Kind:    "EphemeralReport",
+		}, admissionv1.Create, ""),
+		wantAllowed:     true,
+		wantInnerCalled: false,
+	}, {
+		name:   "filtered kyverno resource - ClusterEphemeralReport",
+		config: &mockConfiguration{},
+		request: newTestAdmissionRequest("test-uid", metav1.GroupVersionKind{
+			Group:   "reports.kyverno.io",
+			Version: "v1",
+			Kind:    "ClusterEphemeralReport",
+		}, admissionv1.Create, ""),
+		wantAllowed:     true,
+		wantInnerCalled: false,
+	}, {
+		name:   "not filtered - foreign group EphemeralReport",
+		config: &mockConfiguration{},
+		request: newTestAdmissionRequest("test-uid", metav1.GroupVersionKind{
+			Group:   "example.com",
+			Version: "v1",
+			Kind:    "EphemeralReport",
+		}, admissionv1.Create, ""),
+		wantAllowed:     false,
+		wantInnerCalled: true,
+	}, {
+		name:   "not filtered - foreign group ClusterEphemeralReport",
+		config: &mockConfiguration{},
+		request: newTestAdmissionRequest("test-uid", metav1.GroupVersionKind{
+			Group:   "example.com",
+			Version: "v1",
+			Kind:    "ClusterEphemeralReport",
+		}, admissionv1.Create, ""),
+		wantAllowed:     false,
+		wantInnerCalled: true,
+	}, {
 		name:   "not filtered - regular Pod",
 		config: &mockConfiguration{},
 		request: newTestAdmissionRequest("test-uid", metav1.GroupVersionKind{
