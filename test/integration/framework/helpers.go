@@ -242,6 +242,15 @@ func PodAdmissionRequestWithOp(name, namespace string, op admissionv1.Operation,
 	return req
 }
 
+// PodUpdateAdmissionRequest builds an UPDATE admission request for a Pod carrying both the
+// incoming object and the stored oldObject, as the API server sends them, so policies that
+// compare oldObject with object (immutable fields, transition rules) can be exercised.
+func PodUpdateAdmissionRequest(name, namespace string, oldRaw, newRaw []byte) handlers.AdmissionRequest {
+	req := PodAdmissionRequestWithOp(name, namespace, admissionv1.Update, newRaw)
+	req.OldObject = runtime.RawExtension{Raw: oldRaw}
+	return req
+}
+
 // NamespaceAdmissionRequest builds a CREATE admission request for a cluster-scoped Namespace.
 // Mirrors the shape of PodAdmissionRequest for use as a trigger in gpol sync-clone tests.
 func NamespaceAdmissionRequest(name string, raw []byte) handlers.AdmissionRequest {

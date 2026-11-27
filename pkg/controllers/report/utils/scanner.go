@@ -35,13 +35,14 @@ import (
 )
 
 type scanner struct {
-	logger        logr.Logger
-	config        config.Configuration
-	client        dclient.Interface
-	secretLister  corev1listers.SecretLister
-	gctxStore     gctxstore.Store
-	mapper        meta.RESTMapper
-	typeConverter patch.TypeConverterManager
+	logger         logr.Logger
+	config         config.Configuration
+	client         dclient.Interface
+	secretLister   corev1listers.SecretLister
+	gctxStore      gctxstore.Store
+	mapper         meta.RESTMapper
+	typeConverter  patch.TypeConverterManager
+	exceptionScope celengine.ExceptionScope
 }
 
 type ScanResult struct {
@@ -71,15 +72,17 @@ func NewScanner(
 	mapper meta.RESTMapper,
 	secretLister corev1listers.SecretLister,
 	typeConverter patch.TypeConverterManager,
+	exceptionScope celengine.ExceptionScope,
 ) Scanner {
 	return &scanner{
-		logger:        logger,
-		config:        config,
-		client:        client,
-		gctxStore:     gctxStore,
-		mapper:        mapper,
-		secretLister:  secretLister,
-		typeConverter: typeConverter,
+		logger:         logger,
+		config:         config,
+		client:         client,
+		gctxStore:      gctxStore,
+		mapper:         mapper,
+		secretLister:   secretLister,
+		typeConverter:  typeConverter,
+		exceptionScope: exceptionScope,
 	}
 }
 
@@ -127,7 +130,7 @@ func (s *scanner) ScanResource(
 	for i, policy := range vpols {
 		if pol := policy.AsValidatingPolicyLike(); pol != nil {
 			compiler := vpolcompiler.NewCompiler()
-			provider, err := vpolengine.NewProvider(compiler, []policiesv1beta1.ValidatingPolicyLike{pol}, exceptions)
+			provider, err := vpolengine.NewProvider(compiler, []policiesv1beta1.ValidatingPolicyLike{pol}, exceptions, s.exceptionScope)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&vpols[i]] = ScanResult{nil, err}
@@ -172,7 +175,7 @@ func (s *scanner) ScanResource(
 	for i, policy := range mpols {
 		if pol := policy.AsMutatingPolicyLike(); pol != nil {
 			compiler := mpolcompiler.NewCompiler()
-			provider, err := mpolengine.NewProvider(compiler, []policiesv1beta1.MutatingPolicyLike{pol}, exceptions, libs.GetLibsCtx())
+			provider, err := mpolengine.NewProvider(compiler, []policiesv1beta1.MutatingPolicyLike{pol}, exceptions, libs.GetLibsCtx(), s.exceptionScope)
 			if err != nil {
 				logger.Error(err, "failed to create policy provider")
 				results[&mpols[i]] = ScanResult{nil, err}
@@ -227,7 +230,7 @@ func (s *scanner) ScanResource(
 
 	for i, policy := range ivpols {
 		if pol := policy.AsImageValidatingPolicyLike(); pol != nil {
-			provider, err := ivpolengine.NewProvider(iveval.NewCompiler(s.secretLister), []policiesv1beta1.ImageValidatingPolicyLike{pol}, exceptions)
+			provider, err := ivpolengine.NewProvider(iveval.NewCompiler(s.secretLister), []policiesv1beta1.ImageValidatingPolicyLike{pol}, exceptions, s.exceptionScope)
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")
 				results[&ivpols[i]] = ScanResult{nil, err}
