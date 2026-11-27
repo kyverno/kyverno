@@ -41,6 +41,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
@@ -73,6 +74,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/metadata"
+	"k8s.io/client-go/tools/cache"
 )
 
 type SkippedInvalidPolicies struct {
@@ -923,8 +925,17 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 	for i := range ivps {
 		p := ivps[i]
-		pMap[p.GetName()] = p
-		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
+		key := celpolicies.PolicyKey(p)
+		pMap[key] = p
+		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{
+			Policy: p,
+			Exceptions: celengine.ExceptionScopeAll.Select(
+				celExceptions,
+				p.GetKind(),
+				p.GetName(),
+				p.GetNamespace(),
+			),
+		})
 	}
 
 	for _, json := range jsonPayloads {
@@ -942,29 +953,64 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			}
 			return responses, fmt.Errorf("failed to apply image validating policies on JSON payload: %w", err)
 		}
-		resp := engineapi.EngineResponse{
-			Resource:       *json,
-			PolicyResponse: engineapi.PolicyResponse{},
-		}
 		for p, rslt := range result {
 			if rslt == nil || rslt.Skipped {
 				// a match condition excluded the payload, so there is nothing to report
 				continue
 			}
+			policy := pMap[p]
+			ruleName := policy.GetName()
+			resp := engineapi.EngineResponse{
+				Resource:       *json,
+				PolicyResponse: engineapi.PolicyResponse{},
+			}
 			if rslt.Error != nil {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
 					*engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy for JSON", rslt.Error, nil),
 				}
+			} else if len(rslt.Exceptions) > 0 {
+				var keys []string
+				exceptions := make([]engineapi.GenericException, 0, len(rslt.Exceptions))
+				var conversionErr error
+				for _, polex := range rslt.Exceptions {
+					exKey, err := cache.MetaNamespaceKeyFunc(polex)
+					if err != nil {
+						conversionErr = err
+						break
+					}
+					keys = append(keys, exKey)
+					exceptions = append(exceptions, engineapi.NewCELPolicyException(polex))
+				}
+				if conversionErr != nil {
+					resp.PolicyResponse.Rules = []engineapi.RuleResponse{
+						*engineapi.RuleError(
+							"exception",
+							engineapi.ImageVerify,
+							"failed to compute exception key",
+							conversionErr,
+							nil,
+						),
+					}
+				} else {
+					resp.PolicyResponse.Rules = []engineapi.RuleResponse{
+						*engineapi.RuleSkip(
+							"exception",
+							engineapi.ImageVerify,
+							"rule is skipped due to policy exception: "+strings.Join(keys, ", "),
+							nil,
+						).WithExceptions(exceptions),
+					}
+				}
 			} else if rslt.Result {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RulePass(p, engineapi.ImageVerify, "success", nil),
+					*engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", nil),
 				}
 			} else {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
-					*engineapi.RuleFail(p, engineapi.ImageVerify, rslt.Message, rslt.AuditAnnotations),
+					*engineapi.RuleFail(ruleName, engineapi.ImageVerify, rslt.Message, rslt.AuditAnnotations),
 				}
 			}
-			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(pMap[p]))
+			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(policy))
 			rc.AddValidatingPolicyResponse(c.AuditWarn, resp)
 			responses = append(responses, resp)
 		}

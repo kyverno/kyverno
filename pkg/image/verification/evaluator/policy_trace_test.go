@@ -420,3 +420,48 @@ func TestEvaluateWithTrace_ErrorKeepsThePartialTrace(t *testing.T) {
 	assert.Equal(t, trace.VerdictError, got.Trace.Verdict.Status)
 	assert.Equal(t, policy.Name, got.Trace.PolicyName)
 }
+
+func jsonNamespacedTracePolicy(name, namespace string, required bool, validations ...admissionregistrationv1.Validation) *policiesv1beta1.NamespacedImageValidatingPolicy {
+	return &policiesv1beta1.NamespacedImageValidatingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: policiesv1beta1.GroupVersion.String(),
+			Kind:       "NamespacedImageValidatingPolicy",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration:  &policiesv1beta1.EvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{VerifyDigest: ptr.To(false), Required: ptr.To(required)},
+			MatchImageReferences:     []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			ImageExtractors:          []policiesv1beta1.ImageExtractor{{Name: "app", Expression: "[object.app]"}},
+			Validations:              validations,
+		},
+	}
+}
+
+func TestEvaluateWithTrace_NamespacedPolicyKeyIsolation(t *testing.T) {
+	// Two NamespacedImageValidatingPolicy resources sharing the same metadata.name across different namespaces
+	// must not collide or overwrite each other in the evaluation results.
+	policyA := jsonNamespacedTracePolicy("check-app", "tenant-a", false, admissionregistrationv1.Validation{Expression: "true"})
+	policyB := jsonNamespacedTracePolicy("check-app", "tenant-b", false, admissionregistrationv1.Validation{Expression: "false"})
+	ivpols := []*CompiledImageValidatingPolicy{
+		{Policy: policyA},
+		{Policy: policyB},
+	}
+	payload := map[string]any{"app": "ghcr.io/x/app:1.0"}
+
+	results, err := evaluateWith(context.Background(), countingImages{gets: &atomic.Int32{}}, ivpols, payload, nil, nil, nil, true)
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+
+	resA := results["tenant-a/check-app"]
+	resB := results["tenant-b/check-app"]
+	require.NotNil(t, resA)
+	require.NotNil(t, resB)
+
+	assert.True(t, resA.Result)
+	assert.False(t, resB.Result)
+	require.NotNil(t, resA.Trace)
+	require.NotNil(t, resB.Trace)
+	assert.Equal(t, trace.VerdictPass, resA.Trace.Verdict.Status)
+	assert.Equal(t, trace.VerdictFail, resB.Trace.Verdict.Status)
+}
