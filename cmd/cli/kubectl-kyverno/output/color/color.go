@@ -71,7 +71,13 @@ func Resource(kind, namespace, name string) string {
 		}
 	}
 	if namespace == "" {
+		if kind == "" {
+			return color.BoldFgCyan.Sprint(name)
+		}
 		return color.BoldFgCyan.Sprint(kind) + "/" + color.BoldFgCyan.Sprint(name)
+	}
+	if kind == "" {
+		return color.BoldFgCyan.Sprint(namespace) + "/" + color.BoldFgCyan.Sprint(name)
 	}
 	return color.BoldFgCyan.Sprint(namespace) + "/" + color.BoldFgCyan.Sprint(kind) + "/" + color.BoldFgCyan.Sprint(name)
 }

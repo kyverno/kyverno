@@ -119,6 +119,21 @@ func TestResource(t *testing.T) {
 		namespace:    "namespace",
 		resourceName: "resource",
 		want:         "namespace/Pod/resource",
+	}, {
+		kind:         "",
+		namespace:    "",
+		resourceName: "resource",
+		want:         "resource",
+	}, {
+		kind:         "",
+		namespace:    "namespace",
+		resourceName: "resource",
+		want:         "namespace/resource",
+	}, {
+		kind:         "Pod",
+		namespace:    "",
+		resourceName: "namespace/resource",
+		want:         "namespace/Pod/resource",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

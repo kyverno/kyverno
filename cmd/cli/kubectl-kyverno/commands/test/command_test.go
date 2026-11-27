@@ -2466,3 +2466,89 @@ func TestRunTest_WarningColor(t *testing.T) {
 	assert.Contains(t, outNoColor, "warning: found duplicated resource")
 	assert.False(t, ansiRegex.MatchString(outNoColor), "expected warning to not contain ANSI codes when color disabled")
 }
+
+func TestPrintTestResult_GenerateRuleUsesGeneratedResourceMetadata(t *testing.T) {
+	origNoColor := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = origNoColor
+		color.Init(origNoColor)
+	})
+	color.Init(true)
+
+	trigger := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Namespace",
+			"metadata": map[string]interface{}{
+				"name": "team-ns",
+			},
+		},
+	}
+	generated := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      "generated-cm",
+				"namespace": "target-ns",
+			},
+			"data": map[string]interface{}{
+				"env": "prod",
+			},
+		},
+	}
+
+	rule := *engineapi.RulePass("generate-cm", engineapi.Generation, "generated", nil).
+		WithGeneratedResources([]*unstructured.Unstructured{generated})
+
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gen-configmap",
+		},
+	}
+
+	resp := engineapi.NewEngineResponse(*trigger, engineapi.NewGeneratingPolicy(gpol), nil).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule},
+	})
+
+	responses := &TestResponse{
+		Trigger: map[string][]engineapi.EngineResponse{
+			generateResourceKey(trigger): {resp},
+		},
+		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+		Target:             map[string][]engineapi.EngineResponse{},
+		SkippedPolicies:    map[string]string{},
+		DeletingPolicies:   map[string]struct{}{},
+	}
+
+	fs := memfs.New()
+	f, err := fs.Create("generated.yaml")
+	require.NoError(t, err)
+	_, err = f.Write([]byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: generated-cm\n  namespace: target-ns\ndata:\n  env: prod\n"))
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	testResults := []v1alpha1.TestResult{
+		{
+			TestResultBase: v1alpha1.TestResultBase{
+				Policy:            "gen-configmap",
+				Rule:              "generate-cm",
+				Result:            openreportsv1alpha1.Result(openreports.StatusPass),
+				GeneratedResource: "generated.yaml",
+			},
+			TestResultData: v1alpha1.TestResultData{
+				Resources: []string{"team-ns"},
+			},
+		},
+	}
+
+	rc := &resultCounts{}
+	var resultsTable table.Table
+	err = printTestResult(testResults, responses, rc, &resultsTable, fs, "", true)
+	require.NoError(t, err)
+	assert.Equal(t, 1, rc.Pass)
+	assert.Equal(t, 0, rc.Fail)
+	require.Len(t, resultsTable.RawRows, 1)
+	assert.Equal(t, "Pass", resultsTable.RawRows[0].Result)
+	assert.Equal(t, "target-ns/v1/ConfigMap/generated-cm", resultsTable.RawRows[0].Resource)
+}

@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -294,19 +295,19 @@ func printTestResult(
 								continue
 							}
 
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, resourceDisplayPath(resource))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, resource)
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
 							if len(generatedResources) == 0 {
 								ok, message, reason := checkRuleResultOnly(test, response, rule)
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, resourceDisplayPath(resource))
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, resource)
 								rows = append(rows, resourceRows...)
 							}
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 
-								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, r.GetName())
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, generateResourceKey(r))
 								rows = append(rows, resourceRows...)
 							}
 						}
@@ -364,7 +365,7 @@ func printTestResult(
 					}
 					apiVersion, kind, ns, name := nameParts[0], nameParts[1], nameParts[2], nameParts[3]
 
-					displayResource := resourceDisplayPath(resource)
+					displayResource := resource
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
 					if r != nil && rule != nil && (test.Rule == "" || (response.Policy() != nil && isRulelessPolicyKind(response.Policy().GetKind())) || len(lookupRuleResponses(test, *rule)) > 0) {
 						ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
@@ -392,7 +393,7 @@ func printTestResult(
 			if len(rows) == 0 && !resourceSkipped {
 				policyName := strings.Split(test.Policy, "/")[len(strings.Split(test.Policy, "/"))-1]
 
-				resourcePath, resourceName := formatResourceDisplay(resource)
+				kind, namespace, name := formatResourceDisplay(resource)
 
 				var row table.Row
 				if _, wasSkippedDuringValidation := responses.SkippedPolicies[policyName]; wasSkippedDuringValidation {
@@ -401,7 +402,7 @@ func printTestResult(
 							ID:        testCount,
 							Policy:    color.Policy("", test.Policy),
 							Rule:      color.Rule(test.Rule),
-							Resource:  color.Resource(resourcePath, "", resourceName),
+							Resource:  color.Resource(kind, namespace, name),
 							Result:    color.ResultSkip(),
 							Reason:    color.InvalidPolicy(),
 							IsFailure: false,
@@ -415,7 +416,7 @@ func printTestResult(
 							ID:        testCount,
 							Policy:    color.Policy("", test.Policy),
 							Rule:      color.Rule(test.Rule),
-							Resource:  color.Resource(resourcePath, "", resourceName),
+							Resource:  color.Resource(kind, namespace, name),
 							IsFailure: true,
 							Result:    color.ResultFail(),
 							Reason:    color.NotFound(),
@@ -434,29 +435,85 @@ func printTestResult(
 	return nil
 }
 
-func formatResourceDisplay(resource string) (string, string) {
-	nameParts := strings.SplitN(resource, ",", 4)
-	if len(nameParts) == 4 {
-		if nameParts[2] != "" {
-			return nameParts[0] + "/" + nameParts[1] + "/" + nameParts[2], nameParts[3]
+var apiVersionRegex = regexp.MustCompile(`^v\d+(?:alpha\d+|beta\d+)?$`)
+
+func isAPIVersion(s string) bool {
+	return apiVersionRegex.MatchString(s)
+}
+
+func formatResourceDisplay(resource string) (string, string, string) {
+	if strings.Contains(resource, ",") {
+		nameParts := strings.SplitN(resource, ",", 4)
+		if len(nameParts) == 4 {
+			kind := nameParts[1]
+			if nameParts[0] != "" {
+				kind = nameParts[0] + "/" + kind
+			}
+			return kind, nameParts[2], nameParts[3]
 		}
-		return nameParts[0] + "/" + nameParts[1], nameParts[3]
 	}
-	resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
-	resourceParts := strings.Split(resourceGVKAndName, "/")
-	return strings.Join(resourceParts[:len(resourceParts)-1], "/"), resourceParts[len(resourceParts)-1]
+	resourceParts := strings.Split(resource, "/")
+	switch len(resourceParts) {
+	case 0:
+		return "", "", ""
+	case 1:
+		return "", "", resourceParts[0]
+	case 2:
+		return resourceParts[0], "", resourceParts[1]
+	case 3:
+		if isAPIVersion(resourceParts[0]) {
+			return resourceParts[0] + "/" + resourceParts[1], "", resourceParts[2]
+		}
+		return resourceParts[1], resourceParts[0], resourceParts[2]
+	case 4:
+		if isAPIVersion(resourceParts[1]) {
+			// cluster-scoped with group/version: group/version/kind/name (e.g. rbac.authorization.k8s.io/v1/ClusterRole/admin, apps/v1/Deployment/my-deploy, foo/v1/Widget/name)
+			return resourceParts[0] + "/" + resourceParts[1] + "/" + resourceParts[2], "", resourceParts[3]
+		}
+		if isAPIVersion(resourceParts[0]) {
+			// version-first with namespace: version/kind/namespace/name (e.g. v1/Pod/default/test-pod)
+			return resourceParts[0] + "/" + resourceParts[1], resourceParts[2], resourceParts[3]
+		}
+		name := resourceParts[len(resourceParts)-1]
+		namespace := resourceParts[len(resourceParts)-2]
+		kind := strings.Join(resourceParts[:len(resourceParts)-2], "/")
+		return kind, namespace, name
+	default:
+		if len(resourceParts) == 5 && isAPIVersion(resourceParts[2]) {
+			// namespace-first with group/version: namespace/group/version/kind/name (e.g. staging/apps/v1/Deployment/my-deploy)
+			kind := resourceParts[1] + "/" + resourceParts[2] + "/" + resourceParts[3]
+			return kind, resourceParts[0], resourceParts[4]
+		}
+		if len(resourceParts) >= 5 && isAPIVersion(resourceParts[1]) {
+			// group/version/kind/namespace/name (e.g. apps/v1/Deployment/default/test-dep)
+			kind := strings.Join(resourceParts[:len(resourceParts)-2], "/")
+			namespace := resourceParts[len(resourceParts)-2]
+			name := resourceParts[len(resourceParts)-1]
+			return kind, namespace, name
+		}
+		name := resourceParts[len(resourceParts)-1]
+		namespace := resourceParts[len(resourceParts)-2]
+		kind := strings.Join(resourceParts[:len(resourceParts)-2], "/")
+		return kind, namespace, name
+	}
 }
 
 func resourceDisplayPath(resource string) string {
-	path, name := formatResourceDisplay(resource)
-	if path == "" {
-		return name
+	kind, namespace, name := formatResourceDisplay(resource)
+	if kind != "" {
+		if namespace != "" {
+			return kind + "/" + namespace + "/" + name
+		}
+		return kind + "/" + name
 	}
-	return path + "/" + name
+	if namespace != "" {
+		return namespace + "/" + name
+	}
+	return name
 }
 
 func createExcludedRow(test v1alpha1.TestResult, testCount int, resource string, skipped bool) table.Row {
-	resourcePath, resourceName := formatResourceDisplay(resource)
+	kind, namespace, name := formatResourceDisplay(resource)
 
 	result := color.ResultPass()
 	if skipped {
@@ -469,9 +526,9 @@ func createExcludedRow(test v1alpha1.TestResult, testCount int, resource string,
 			Policy: color.Policy("", test.Policy),
 			Rule:   color.Rule(test.Rule),
 			Resource: color.Resource(
-				resourcePath,
-				"",
-				resourceName,
+				kind,
+				namespace,
+				name,
 			),
 			Result:    result,
 			Reason:    color.Excluded(),
@@ -482,14 +539,14 @@ func createExcludedRow(test v1alpha1.TestResult, testCount int, resource string,
 }
 
 func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, ruleName string, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
-	resourceParts := strings.Split(resourceGVKAndName, "/")
+	kind, namespace, name := formatResourceDisplay(resourceGVKAndName)
 	rows := []table.Row{}
 	row := table.Row{
 		RowCompact: table.RowCompact{
 			ID:        *globalTestCounter,
 			Policy:    color.Policy("", test.Policy),
 			Rule:      color.Rule(ruleName),
-			Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+			Resource:  color.Resource(kind, namespace, name),
 			Reason:    reason,
 			IsFailure: !success,
 		},
@@ -516,7 +573,7 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 				ID:        *globalTestCounter,
 				Policy:    color.Policy("", test.Policy),
 				Rule:      color.Rule(test.Rule),
-				Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]), // todo: handle namespace
+				Resource:  color.Resource(kind, namespace, name),
 				Result:    color.ResultPass(),
 				Reason:    color.Excluded(),
 				IsFailure: false,
