@@ -1,0 +1,26 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: vpol-http-post-token-bad-auth
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    objectSelector:
+      matchLabels:
+        token-test: bad-auth
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE"]
+  variables:
+    - name: response
+      expression: >-
+       http.post(
+        "http://test-api-token-service.default.svc.cluster.local/",
+        {"labels": object.metadata.labels}, {"Content-Type": "application/json", "Authorization": "Bearer <redacted>"})
+  validations:
+    - expression: variables.response.tokenValid == true && variables.response.explicitHeaderReceived == true
+      messageExpression: >-
+       'CEL http.post must not accept an explicit Authorization header in place of the projected token: tokenValid=' + string(variables.response.tokenValid) + ' explicitHeaderReceived=' + string(variables.response.explicitHeaderReceived)
