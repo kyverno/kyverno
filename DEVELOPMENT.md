@@ -531,7 +531,7 @@ or
 
 ```console
 # generate policy reports CRDs
-make codegen-crds-report
+make codegen-crds-policyreport
 ```
 
 This will output CRDs manifests [/config/crds](./config/crds).
