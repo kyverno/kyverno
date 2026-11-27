@@ -104,12 +104,14 @@ func TestNewProvider_NamespacedPolicyOnlyAcceptsOwnNamespaceExceptions(t *testin
 		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedDeletingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 	foreignException := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "foreign", Namespace: "tenant-b"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedDeletingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 
@@ -143,12 +145,14 @@ func TestNewProvider_ScopeGatesExceptionSelection(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "own", Namespace: "tenant-a"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedDeletingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 	centralException := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "central", Namespace: "central-ns"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "guard", Kind: "NamespacedDeletingPolicy"}},
+			Namespaces: []string{"tenant-a"},
 		},
 	}
 

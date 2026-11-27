@@ -4,6 +4,8 @@ metadata:
   name: foreign-exception
   namespace: ns-b
 spec:
+  namespaces:
+  - ns-a
   policyRefs:
   - name: require-team-label
     kind: NamespacedValidatingPolicy

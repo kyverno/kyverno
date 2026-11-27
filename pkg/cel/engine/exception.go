@@ -12,6 +12,7 @@ import (
 
 // ExceptionScope is the --exceptionNamespace value. "" accepts no exception, "*" accepts every
 // namespace, anything else accepts exactly that namespace and treats it as the central one.
+// A namespaced policy additionally needs its namespace in the exception's spec.namespaces.
 type ExceptionScope string
 
 const (
@@ -20,7 +21,7 @@ const (
 )
 
 // Applies reports whether polex may apply to the policy identified by kind, name and
-// namespace (empty for a cluster-scoped policy).
+// namespace (empty for a cluster-scoped policy, which ignores spec.namespaces).
 func (s ExceptionScope) Applies(polex *policiesv1beta1.PolicyException, kind, name, namespace string) bool {
 	if polex.IsExpired() {
 		return false
@@ -41,6 +42,10 @@ func (s ExceptionScope) Applies(polex *policiesv1beta1.PolicyException, kind, na
 		if string(s) != polex.GetNamespace() {
 			return false
 		}
+	}
+	// spec.namespaces only narrows the reach granted above; it never widens it.
+	if namespace != "" && !slices.Contains(polex.Spec.Namespaces, namespace) {
+		return false
 	}
 	return slices.ContainsFunc(polex.Spec.PolicyRefs, func(ref policiesv1beta1.PolicyRef) bool {
 		return ref.Name == name && ref.Kind == kind

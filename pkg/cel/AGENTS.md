@@ -95,7 +95,10 @@ exceptions, a concrete namespace accepts exceptions from itself only, and `"*"` 
 exceptions from every namespace. For a namespaced policy specifically, that acceptance is further
 narrowed: the exception must additionally come from the policy's own namespace, or from the scope's
 configured central namespace when one is set — a namespaced policy under `"*"` never accepts an
-exception from an arbitrary third namespace, only its own.
+exception from an arbitrary third namespace, only its own. On top of that, a namespaced policy
+only takes an exception whose `spec.namespaces` lists the policy's namespace (omitted means it never
+applies; admission rejects a `Namespaced*` ref without it). The field only narrows reach, and
+cluster-scoped policies ignore it.
 
 ## Recent activity worth knowing about
 

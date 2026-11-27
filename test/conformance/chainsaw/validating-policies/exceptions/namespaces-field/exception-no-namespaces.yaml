@@ -1,0 +1,9 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: missing-namespaces
+  namespace: ns-a
+spec:
+  policyRefs:
+  - name: require-team-label
+    kind: NamespacedValidatingPolicy

@@ -3,6 +3,7 @@ package exception
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -74,6 +75,70 @@ func Test_Validate(t *testing.T) {
 			assert.NilError(t, err)
 			warnings := ValidateNamespace(context.Background(), logging.GlobalLogger(), meta.GetNamespace(), c.args.opts)
 			assert.Assert(t, len(warnings) == c.want)
+		})
+	}
+}
+
+func Test_ValidateScopeReach_Namespaces(t *testing.T) {
+	polex := func(ns string, namespaces ...string) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "polex", Namespace: ns},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "vpol-1", Kind: "NamespacedValidatingPolicy"}},
+				Namespaces: namespaces,
+			},
+		}
+	}
+	all := ValidationOptions{Enabled: true, Namespace: "*"}
+	testCases := []struct {
+		name  string
+		polex *policiesv1beta1.PolicyException
+		opts  ValidationOptions
+		want  []string
+	}{{
+		name:  "no namespaces means no warning",
+		polex: polex("a"),
+		opts:  all,
+	}, {
+		name:  "own namespace only means no warning",
+		polex: polex("a", "a"),
+		opts:  all,
+	}, {
+		name:  "foreign entry warns under wildcard",
+		polex: polex("a", "a", "b", "c"),
+		opts:  all,
+		want: []string{
+			"exceptionNamespace is \"*\": spec.namespaces entry b has no effect, this exception only applies to namespaced policies in namespace a.",
+			"exceptionNamespace is \"*\": spec.namespaces entry c has no effect, this exception only applies to namespaced policies in namespace a.",
+		},
+	}, {
+		name: "foreign entry does not warn when every ref is cluster-scoped",
+		polex: &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "a"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "vpol-1", Kind: "ValidatingPolicy"}},
+				Namespaces: []string{"b"},
+			},
+		},
+		opts: all,
+	}, {
+		name:  "foreign entry does not warn under a central namespace",
+		polex: polex("central", "b"),
+		opts:  ValidationOptions{Enabled: true, Namespace: "central"},
+	}, {
+		name:  "disabled does not warn",
+		polex: polex("a", "b"),
+		opts:  ValidationOptions{Enabled: false, Namespace: "*"},
+	}}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got []string
+			for _, w := range ValidateScopeReach(tc.polex, tc.opts) {
+				if strings.Contains(w, "spec.namespaces") {
+					got = append(got, w)
+				}
+			}
+			assert.DeepEqual(t, tc.want, got)
 		})
 	}
 }

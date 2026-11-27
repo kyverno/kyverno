@@ -4,6 +4,8 @@ metadata:
   name: exclude-foreign
   namespace: tenant-b
 spec:
+  namespaces:
+  - tenant-a
   policyRefs:
   - name: "check-deployment-labels"
     kind: NamespacedValidatingPolicy

@@ -188,6 +188,7 @@ func TestValidateUpdateAllowsValidExpression(t *testing.T) {
 func namespacedPolicyException(expression string) *policiesv1beta1.PolicyException {
 	polex := policyException(expression)
 	polex.Spec.PolicyRefs[0].Kind = "NamespacedValidatingPolicy"
+	polex.Spec.Namespaces = []string{polex.Namespace}
 	return polex
 }
 
@@ -195,6 +196,10 @@ func TestValidateNamespace(t *testing.T) {
 	t.Parallel()
 	validException := policyException("object.metadata.name == 'allowed-pod'")
 	namespacedRefException := namespacedPolicyException("object.metadata.name == 'allowed-pod'")
+	noNamespacesException := namespacedPolicyException("object.metadata.name == 'allowed-pod'")
+	noNamespacesException.Spec.Namespaces = nil
+	foreignListedException := namespacedPolicyException("object.metadata.name == 'allowed-pod'")
+	foreignListedException.Spec.Namespaces = []string{"default", "other"}
 
 	tests := []struct {
 		name        string
@@ -204,6 +209,26 @@ func TestValidateNamespace(t *testing.T) {
 		hasWarnings bool
 		warningMsg  string
 	}{
+		{
+			name: "namespaced policy ref without spec.namespaces is rejected",
+			options: validation.ValidationOptions{
+				Enabled:   true,
+				Namespace: "default",
+			},
+			request: newAdmissionRequest(t, admissionv1.Create, noNamespacesException, nil),
+			allowed: false,
+		},
+		{
+			name: "wildcard namespace warns about a spec.namespaces entry other than the exception namespace",
+			options: validation.ValidationOptions{
+				Enabled:   true,
+				Namespace: "*",
+			},
+			request:     newAdmissionRequest(t, admissionv1.Create, foreignListedException, nil),
+			allowed:     true,
+			hasWarnings: true,
+			warningMsg:  "exceptionNamespace is \"*\": spec.namespaces entry other has no effect, this exception only applies to namespaced policies in namespace default.",
+		},
 		{
 			name: "valid exception with matching namespace",
 			options: validation.ValidationOptions{

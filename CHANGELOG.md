@@ -12,6 +12,7 @@
 ### Note
 
 - Changed `--exceptionNamespace` so that leaving it unset now accepts no `PolicyException` resources, instead of behaving like `*`. Set it to a concrete namespace to keep exceptions working; `*` also works, but under `*` a namespaced policy only accepts exceptions filed in its own namespace, not from an arbitrary shared namespace.
+- Breaking: a `policies.kyverno.io` `PolicyException` that references a `Namespaced*Policy` kind must now set `spec.namespaces` to include the policy's namespace. Admission rejects such an exception without it, and existing ones without it stop applying. Cluster-scoped policy references ignore the field. Upgrade the CRDs before the controllers: an old CRD prunes `spec.namespaces`.
 
 ## v1.13.0
 

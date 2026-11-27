@@ -4,6 +4,8 @@ metadata:
   name: ns-b-own-exception
   namespace: ns-b
 spec:
+  namespaces:
+  - ns-b
   policyRefs:
   - name: require-team-label
     kind: NamespacedValidatingPolicy

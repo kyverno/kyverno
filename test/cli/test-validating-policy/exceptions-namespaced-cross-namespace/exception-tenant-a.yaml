@@ -4,6 +4,8 @@ metadata:
   name: exclude-skipped
   namespace: tenant-a
 spec:
+  namespaces:
+  - tenant-a
   policyRefs:
   - name: "check-deployment-labels"
     kind: NamespacedValidatingPolicy
