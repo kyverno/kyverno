@@ -50,6 +50,10 @@ type Engine interface {
 
 type NamespaceResolver = engine.NamespaceResolver
 
+// newActivationBuilder constructs the ActivationBuilder for an admission review.
+// Overridden in tests to verify memoized activation assembly behavior.
+var newActivationBuilder = celcompiler.NewActivationBuilder
+
 type engineImpl struct {
 	provider        Provider
 	nsResolver      NamespaceResolver
@@ -234,6 +238,8 @@ func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, 
 	return response, patches, nil
 }
 
+// handleMutation applies image digest mutation for matching policies during admission review,
+// reusing the shared activation builder across evaluations when supported by the compiled policy.
 func (e *engineImpl) handleMutation(
 	ctx context.Context,
 	policies []Policy,
@@ -256,6 +262,7 @@ func (e *engineImpl) handleMutation(
 	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
 		return celcompiler.BuildRawRequestMap(request)
 	})
+	activationBuilder := newActivationBuilder(attr, request, namespace, requestMapFn, celcompiler.BuildRawRequestMap)
 
 	var patches []jsonpatch.JsonPatchOperation
 	var responses []eval.ImageVerifyPolicyResponse
@@ -300,7 +307,12 @@ func (e *engineImpl) handleMutation(
 			})
 			continue
 		}
-		polPatches, err := compiled.MutateDigest(ctx, ictx, nil, nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
+		var polPatches []jsonpatch.JsonPatchOperation
+		if aware, ok := compiled.(eval.ActivationAwareCompiledPolicy); ok {
+			polPatches, err = aware.MutateDigestWithActivation(ctx, ictx, nil, nil, attr, request, namespace, resource, activationBuilder, requestMapFn, e.configuration, libctx)
+		} else {
+			polPatches, err = compiled.MutateDigest(ctx, ictx, nil, nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
+		}
 		if err != nil {
 			// Record the failure as a policy result and carry on with the remaining
 			// policies rather than returning an error, which would abandon their
@@ -606,6 +618,8 @@ func withTraceHeader(d *trace.Decision, pol Policy, attr admission.Attributes) *
 	return d
 }
 
+// evaluatePolicies evaluates matching image validation policies concurrently against
+// the admission request, sharing memoized Kubernetes activation data across non-extraction policies.
 func (e *engineImpl) evaluatePolicies(
 	ctx context.Context,
 	policies []Policy,
@@ -622,6 +636,7 @@ func (e *engineImpl) evaluatePolicies(
 	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
 		return celcompiler.BuildRawRequestMap(request)
 	})
+	activationBuilder := newActivationBuilder(attr, request, namespace, requestMapFn, celcompiler.BuildRawRequestMap)
 	// Shared by every policy evaluated below, so required sees cross-policy evidence.
 	verifications := imageverify.NewImageVerificationResults()
 
@@ -699,6 +714,8 @@ func (e *engineImpl) evaluatePolicies(
 
 			if ivpol.ExtractionMode {
 				evaluation.result, evaluation.err = e.evaluateExtractedIv(ctx, evaluation.compiled, ictx, e.ivCache, verifications, attr, request, namespace, libctx)
+			} else if aware, ok := evaluation.compiled.(eval.ActivationAwareCompiledPolicy); ok {
+				evaluation.result, evaluation.err = aware.EvaluateWithActivation(ctx, ictx, e.ivCache, verifications, attr, request, namespace, true, activationBuilder, requestMapFn, libctx)
 			} else {
 				evaluation.result, evaluation.err = evaluation.compiled.Evaluate(ctx, ictx, e.ivCache, verifications, attr, request, namespace, true, requestMapFn, libctx)
 			}

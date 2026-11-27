@@ -62,6 +62,7 @@ var (
 	HookFallbackVpolCompiled     func()
 	HookFallbackVpolJSONCompiled func()
 	HookFallbackMpolCompiled     func()
+	HookFallbackGpolCompiled     func()
 	HookFallbackContextCreated   func()
 )
 
@@ -89,36 +90,41 @@ type PolicyProcessor struct {
 	Variables          *variables.Variables
 	ParameterResources []runtime.Object
 	// TODO
-	ContextFs            billy.Filesystem
-	ContextPath          string
-	GlobalContextEntries map[string]interface{}
-	Cluster              bool
-	UserInfo             *kyvernov2.RequestInfo
-	PolicyReport         bool
-	NamespaceSelectorMap map[string]map[string]string
-	NamespaceResolver    celengine.NamespaceResolver
-	Stdin                bool
-	Rc                   *ResultCounts
-	PrintPatchResource   bool
-	Client               dclient.Interface
-	AuditWarn            bool
-	Subresources         []v1alpha1.Subresource
-	Out                  io.Writer
-	CrdPaths             []string
-	CrdPreloaded         bool
-	ConfigMapResolver    engineapi.ConfigmapResolver
-	RESTMapper           meta.RESTMapper
-	ContextProvider      libs.Context
-	VpolProvider         vpolengine.Provider
-	VpolProviderErr      error
-	VpolJSONProvider     vpolengine.Provider
-	VpolJSONProviderErr  error
-	MpolProvider         mpolengine.Provider
-	MpolProviderErr      error
+	ContextFs               billy.Filesystem
+	ContextPath             string
+	GlobalContextEntries    map[string]interface{}
+	Cluster                 bool
+	UserInfo                *kyvernov2.RequestInfo
+	PolicyReport            bool
+	NamespaceSelectorMap    map[string]map[string]string
+	NamespaceResolver       celengine.NamespaceResolver
+	Stdin                   bool
+	Rc                      *ResultCounts
+	PrintPatchResource      bool
+	Client                  dclient.Interface
+	AuditWarn               bool
+	Subresources            []v1alpha1.Subresource
+	Out                     io.Writer
+	CrdPaths                []string
+	CrdPreloaded            bool
+	ConfigMapResolver       engineapi.ConfigmapResolver
+	RESTMapper              meta.RESTMapper
+	ContextProvider         libs.Context
+	VpolProvider            vpolengine.Provider
+	VpolProviderErr         error
+	VpolJSONProvider        vpolengine.Provider
+	VpolJSONProviderErr     error
+	MpolProvider            mpolengine.Provider
+	MpolProviderErr         error
+	GpolCompiledPolicies    []gpolengine.Policy
+	GpolCompiledPoliciesErr error
 	// Explain compiles validating and mutating policies with tracing on and prints, for each
 	// policy, how it arrived at its result (scope, match conditions, variables, the validations
 	// or mutations it ran, and verdict).
 	Explain bool
+	// TraceSink, when set, is handed each decision trace instead of it being printed, so the
+	// caller can write the traces as JSON.
+	TraceSink func(*trace.Decision)
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -235,7 +241,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				HookFallbackMpolCompiled()
 			}
 			var err error
-			provider, err = mpolengine.NewProvider(compiler, mutatingPolicies, p.CELExceptions, contextProvider)
+			provider, err = mpolengine.NewProvider(compiler, mutatingPolicies, p.CELExceptions, contextProvider, celengine.ExceptionScopeAll)
 			if err != nil {
 				return nil, err
 			}
@@ -515,7 +521,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						HookFallbackVpolCompiled()
 					}
 					var err error
-					provider, err = vpolengine.NewProvider(compiler, k8sPolicies, p.CELExceptions)
+					provider, err = vpolengine.NewProvider(compiler, k8sPolicies, p.CELExceptions, celengine.ExceptionScopeAll)
 					if err != nil {
 						return nil, err
 					}
@@ -579,7 +585,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						},
 					}
 					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
+					p.Rc.AddValidatingPolicyResponse(p.AuditWarn, response)
 					responses = append(responses, response)
 				}
 			}
@@ -594,7 +600,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						HookFallbackVpolJSONCompiled()
 					}
 					var err error
-					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
+					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions, celengine.ExceptionScopeAll)
 					if err != nil {
 						return nil, err
 					}
@@ -617,7 +623,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						},
 					}
 					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
+					p.Rc.AddValidatingPolicyResponse(p.AuditWarn, response)
 					responses = append(responses, response)
 				}
 			}
@@ -637,7 +643,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						HookFallbackVpolJSONCompiled()
 					}
 					var err error
-					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
+					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions, celengine.ExceptionScopeAll)
 					if err != nil {
 						return nil, err
 					}
@@ -657,7 +663,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						},
 					}
 					response = response.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-					p.Rc.AddValidatingPolicyResponse(response)
+					p.Rc.AddValidatingPolicyResponse(p.AuditWarn, response)
 					responses = append(responses, response)
 				}
 			}
@@ -680,17 +686,29 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			libs.LibraryContext = contextProvider
 		}
 
-		compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
-		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
-		for _, pol := range p.GeneratingPolicies {
-			compiled, errs := compiler.Compile(pol, p.CELExceptions)
-			if len(errs) > 0 {
-				return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
+		var compiledPolicies []gpolengine.Policy
+		if p.GpolCompiledPoliciesErr != nil {
+			return nil, p.GpolCompiledPoliciesErr
+		}
+		if p.GpolCompiledPolicies != nil {
+			compiledPolicies = p.GpolCompiledPolicies
+		} else {
+			if HookFallbackGpolCompiled != nil {
+				HookFallbackGpolCompiled()
 			}
-			compiledPolicies = append(compiledPolicies, gpolengine.Policy{
-				Policy:         engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
-				CompiledPolicy: compiled,
-			})
+			compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
+			compiledPolicies = make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
+			for _, pol := range p.GeneratingPolicies {
+				matchedExceptions := celengine.ExceptionScopeAll.Select(p.CELExceptions, pol.GetKind(), pol.GetName(), pol.GetNamespace())
+				compiled, errs := compiler.Compile(pol, matchedExceptions)
+				if len(errs) > 0 {
+					return nil, fmt.Errorf("failed to compile policy %s (%w)", pol.GetName(), errs.ToAggregate())
+				}
+				compiledPolicies = append(compiledPolicies, gpolengine.Policy{
+					Policy:         pol,
+					CompiledPolicy: compiled,
+				})
+			}
 		}
 		if resource.Object != nil {
 			engine := gpolengine.NewEngine(p.getNamespaceResolver(), matching.NewMatcher())
@@ -743,10 +761,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				for _, res := range engineResponse.Policies {
 					// before the no-result branch below, so a skipped policy's trace is printed too
 					if p.Explain && res.Trace != nil {
-						// the generate output of the previous resource ends without a newline
-						fmt.Fprintln(p.Out)
-						trace.Render(p.Out, res.Trace)
-						fmt.Fprintln(p.Out)
+						p.printTrace(res.Trace)
 					}
 					if res.Result == nil {
 						generateResponse := engineapi.EngineResponse{
@@ -1241,11 +1256,20 @@ func (p *PolicyProcessor) explain(policies []celengine.ValidatingPolicyResponse)
 		return
 	}
 	for _, d := range selectTraces(policies) {
-		// start on a fresh line: the mutate output printed before a trace ends without one
-		fmt.Fprintln(p.Out)
-		trace.Render(p.Out, d)
-		fmt.Fprintln(p.Out)
+		p.printTrace(d)
 	}
+}
+
+// printTrace prints one decision trace, or hands it to TraceSink when that is set.
+func (p *PolicyProcessor) printTrace(d *trace.Decision) {
+	if p.TraceSink != nil {
+		p.TraceSink(d)
+		return
+	}
+	// start on a fresh line: the mutate or generate output printed before a trace ends without one
+	fmt.Fprintln(p.Out)
+	trace.Render(p.Out, d)
+	fmt.Fprintln(p.Out)
 }
 
 // selectTraces picks one trace per policy. A policy's autogenerated variants (Deployment,
@@ -1287,10 +1311,7 @@ func (p *PolicyProcessor) explainMutations(policies []mpolengine.MutatingPolicyR
 		return
 	}
 	for _, d := range selectTracesMutations(policies) {
-		// start on a fresh line: the mutate output printed before a trace ends without one
-		fmt.Fprintln(p.Out)
-		trace.Render(p.Out, d)
-		fmt.Fprintln(p.Out)
+		p.printTrace(d)
 	}
 }
 

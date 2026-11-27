@@ -336,3 +336,91 @@ func Test_NewPolicyExceptionEvents_NoPatchedResource(t *testing.T) {
 		assert.NotContains(t, e.Message, "resource  was skipped")
 	}
 }
+
+func Test_NewBackgroundFailedEvent_GeneratingPolicy(t *testing.T) {
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "generate-secret",
+			UID:  "gpol-uid",
+		},
+	}
+	policy := engineapi.NewGeneratingPolicy(gpol)
+	res := kyverno.ResourceSpec{
+		APIVersion: "v1",
+		Kind:       "Secret",
+		Namespace:  "default",
+		Name:       "my-secret",
+		UID:        "sec-uid",
+	}
+	err := errors.New("failed to generate secret")
+
+	events := NewBackgroundFailedEvent(err, policy, "gen-rule", GeneratePolicyController, res)
+
+	assert.Len(t, events, 1)
+	assert.Equal(t, "policies.kyverno.io/v1beta1", events[0].Regarding.APIVersion)
+	assert.Equal(t, "GeneratingPolicy", events[0].Regarding.Kind)
+	assert.Equal(t, "generate-secret", events[0].Regarding.Name)
+	assert.Equal(t, "gpol-uid", string(events[0].Regarding.UID))
+	assert.Equal(t, PolicyError, events[0].Reason)
+	assert.Equal(t, GeneratePolicyController, events[0].Source)
+	assert.Equal(t, None, events[0].Action)
+	assert.Contains(t, events[0].Message, "generate-secret/gen-rule error: failed to generate secret")
+}
+
+func Test_NewBackgroundSuccessEvent_GeneratingPolicy(t *testing.T) {
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "generate-cm",
+			UID:  "gpol-uid-2",
+		},
+	}
+	policy := engineapi.NewGeneratingPolicy(gpol)
+	resources := []kyverno.ResourceSpec{
+		{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+			Namespace:  "default",
+			Name:       "my-cm",
+			UID:        "cm-uid",
+		},
+	}
+
+	events := NewBackgroundSuccessEvent(GeneratePolicyController, policy, resources)
+
+	assert.Len(t, events, 1)
+	assert.Equal(t, "policies.kyverno.io/v1beta1", events[0].Regarding.APIVersion)
+	assert.Equal(t, "GeneratingPolicy", events[0].Regarding.Kind)
+	assert.Equal(t, "generate-cm", events[0].Regarding.Name)
+	assert.Equal(t, PolicyApplied, events[0].Reason)
+	assert.Equal(t, ResourceGenerated, events[0].Action)
+	assert.Equal(t, "resource generated", events[0].Message)
+}
+
+func Test_NewBackgroundSuccessEvent_MutateExistingController(t *testing.T) {
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mutate-existing",
+			UID:  "mpol-uid",
+		},
+	}
+	policy := engineapi.NewMutatingPolicy(mpol)
+	resources := []kyverno.ResourceSpec{
+		{
+			APIVersion: "v1",
+			Kind:       "Pod",
+			Namespace:  "default",
+			Name:       "my-pod",
+			UID:        "pod-uid",
+		},
+	}
+
+	events := NewBackgroundSuccessEvent(MutateExistingController, policy, resources)
+
+	assert.Len(t, events, 1)
+	assert.Equal(t, "policies.kyverno.io/v1beta1", events[0].Regarding.APIVersion)
+	assert.Equal(t, "MutatingPolicy", events[0].Regarding.Kind)
+	assert.Equal(t, "mutate-existing", events[0].Regarding.Name)
+	assert.Equal(t, PolicyApplied, events[0].Reason)
+	assert.Equal(t, ResourceMutated, events[0].Action)
+	assert.Equal(t, "resource mutated", events[0].Message)
+}

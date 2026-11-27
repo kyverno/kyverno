@@ -6,7 +6,6 @@ import (
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/config"
 	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -32,7 +31,10 @@ func NewIvpolEngine(mgr ctrl.Manager, kubeClient kubernetes.Interface) (ivpoleng
 		return nil, nil, err
 	}
 
-	nsResolver := func(ns string) *corev1.Namespace { return nil }
+	nsResolver, err := namespaceResolverForManager(mgr)
+	if err != nil {
+		return nil, nil, err
+	}
 	engine := ivpolengine.NewEngine(provider, nsResolver, matching.NewMatcher(), secretLister(kubeClient), nil, config.NewDefaultConfiguration(false))
 	return engine, provider, nil
 }
@@ -41,14 +43,17 @@ func NewIvpolEngine(mgr ctrl.Manager, kubeClient kubernetes.Interface) (ivpoleng
 // Uses celengine.NewManagerPolicyExceptionLister so the controller watches and the lister
 // share the manager's cache, avoiding the dual-cache race.
 func NewIvpolEngineWithExceptions(mgr ctrl.Manager, kubeClient kubernetes.Interface) (ivpolengine.Engine, ivpolengine.Provider, error) {
-	polexLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), "")
+	polexLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), "*")
 
 	provider, err := ivpolengine.NewKubeProvider(iveval.NewCompiler(secretLister(kubeClient)), mgr, polexLister, true)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	nsResolver := func(ns string) *corev1.Namespace { return nil }
+	nsResolver, err := namespaceResolverForManager(mgr)
+	if err != nil {
+		return nil, nil, err
+	}
 	engine := ivpolengine.NewEngine(provider, nsResolver, matching.NewMatcher(), secretLister(kubeClient), nil, config.NewDefaultConfiguration(false))
 	return engine, provider, nil
 }

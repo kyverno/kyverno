@@ -137,7 +137,7 @@ func TestGetCELExceptionsIgnoresExpired(t *testing.T) {
 		polexEnabled:       true,
 		exceptionNamespace: "*",
 	}
-	got, err := c.getCELExceptions("vpol-1", "ValidatingPolicy")
+	got, err := c.getCELExceptions("vpol-1", "ValidatingPolicy", "")
 	assert.NoError(t, err)
 	assert.Len(t, got, 1)
 	assert.Equal(t, "active-exception", got[0].GetName())
@@ -164,12 +164,12 @@ func TestGetCELExceptionsFiltersByKind(t *testing.T) {
 		exceptionNamespace: "*",
 	}
 
-	got, err := c.getCELExceptions("shared-name", "ValidatingPolicy")
+	got, err := c.getCELExceptions("shared-name", "ValidatingPolicy", "")
 	assert.NoError(t, err)
 	assert.Len(t, got, 1)
 	assert.Equal(t, "vpol-exception", got[0].GetName())
 
-	got, err = c.getCELExceptions("shared-name", "MutatingPolicy")
+	got, err = c.getCELExceptions("shared-name", "MutatingPolicy", "")
 	assert.NoError(t, err)
 	assert.Len(t, got, 1)
 	assert.Equal(t, "mpol-exception", got[0].GetName())
@@ -200,19 +200,20 @@ func TestGetCELExceptions_DisabledFlag(t *testing.T) {
 	lister := newCELPolexLister(t, polex)
 
 	disabled := &controller{celpolexLister: lister, polexEnabled: false, exceptionNamespace: "*"}
-	got, err := disabled.getCELExceptions("vpol-1", "ValidatingPolicy")
+	got, err := disabled.getCELExceptions("vpol-1", "ValidatingPolicy", "")
 	assert.NoError(t, err)
 	assert.Nil(t, got)
 
 	// Positive control: the same exception, with the flag enabled, IS returned.
 	enabled := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: "*"}
-	got, err = enabled.getCELExceptions("vpol-1", "ValidatingPolicy")
+	got, err = enabled.getCELExceptions("vpol-1", "ValidatingPolicy", "")
 	assert.NoError(t, err)
 	assert.Len(t, got, 1)
 }
 
-// TestGetCELExceptions_NamespaceScope also documents that the CEL path reads both "" and
-// "*" as cluster-wide, matching engine.NewPolicyExceptionLister.
+// TestGetCELExceptions_NamespaceScope documents the trust table for a cluster-scoped policy:
+// "ns-a" accepts only ns-a's exceptions, "*" accepts every namespace, and "" (unset) accepts
+// none -- it no longer behaves like "*".
 func TestGetCELExceptions_NamespaceScope(t *testing.T) {
 	polexA := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "cel-polex-a", Namespace: "ns-a"},
@@ -229,15 +230,43 @@ func TestGetCELExceptions_NamespaceScope(t *testing.T) {
 	lister := newCELPolexLister(t, polexA, polexB)
 
 	scoped := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: "ns-a"}
-	got, err := scoped.getCELExceptions("vpol-1", "ValidatingPolicy")
+	got, err := scoped.getCELExceptions("vpol-1", "ValidatingPolicy", "")
 	assert.NoError(t, err)
 	assert.Len(t, got, 1)
 	assert.Equal(t, "cel-polex-a", got[0].GetName())
 
-	for _, ns := range []string{"", "*"} {
-		clusterWide := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: ns}
-		got, err = clusterWide.getCELExceptions("vpol-1", "ValidatingPolicy")
-		assert.NoError(t, err)
-		assert.Len(t, got, 2, "exceptionNamespace %q must be cluster-wide on the CEL path", ns)
+	all := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: "*"}
+	got, err = all.getCELExceptions("vpol-1", "ValidatingPolicy", "")
+	assert.NoError(t, err)
+	assert.Len(t, got, 2, "exceptionNamespace \"*\" must accept every namespace for a cluster-scoped policy")
+
+	unset := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: ""}
+	got, err = unset.getCELExceptions("vpol-1", "ValidatingPolicy", "")
+	assert.NoError(t, err)
+	assert.Len(t, got, 0, "exceptionNamespace \"\" must accept nothing")
+}
+
+// TestGetCELExceptions_NamespacedPolicy pins that under "*" a namespaced policy still only
+// takes exceptions from its own namespace: "*" means every namespace may except, not that
+// one namespace's exception reaches every other namespace's same-named policy.
+func TestGetCELExceptions_NamespacedPolicy(t *testing.T) {
+	polexA := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "cel-polex-a", Namespace: "ns-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "nvpol-1", Kind: "NamespacedValidatingPolicy"}},
+		},
 	}
+	polexB := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "cel-polex-b", Namespace: "ns-b"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "nvpol-1", Kind: "NamespacedValidatingPolicy"}},
+		},
+	}
+	lister := newCELPolexLister(t, polexA, polexB)
+
+	c := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: "*"}
+	got, err := c.getCELExceptions("nvpol-1", "NamespacedValidatingPolicy", "ns-a")
+	assert.NoError(t, err)
+	assert.Len(t, got, 1)
+	assert.Equal(t, "cel-polex-a", got[0].GetName())
 }

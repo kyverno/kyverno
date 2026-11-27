@@ -1,0 +1,21 @@
+# A small copy of .github/actions/tests/conformance/run/action.yaml for settings_test.sh.
+name: Runs E2E Tests
+inputs:
+  k8s-version:
+    required: true
+  kind-config:
+    default: ./scripts/config/kind/default.yaml
+  kyverno-configs:
+    default: standard
+  tests-path:
+    default: '.'
+  variant:
+    default: ''
+  install-cert-manager:
+    default: 'false'
+  install-kubectl-evict:
+    default: 'false'
+  install-openreports:
+    default: 'false'
+  explicit-install-settings:
+    default: ''

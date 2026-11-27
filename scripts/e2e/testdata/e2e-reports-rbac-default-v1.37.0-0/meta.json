@@ -1,0 +1,9 @@
+{
+  "suite": "rbac",
+  "variant": "default",
+  "k8s": "v1.37.0",
+  "shard": "0",
+  "outcome": "failure",
+  "jobUrl": "https://github.com/kyverno/kyverno/actions/runs/1/job/31",
+  "report": true
+}

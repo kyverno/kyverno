@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -63,6 +64,10 @@ func (c *capturedLog) decisions() []map[string]any {
 // trace is what --enableDecisionTraces sets: whether the policy is compiled for tracing.
 func teamLabelHandler(t *testing.T, trace bool) *handler {
 	t.Helper()
+	// audit() reads the process-wide reporting config. Install one for this
+	// test and restore the previous value, so the test does not depend on
+	// whichever test ran first.
+	useReportingConfig(t)
 	policy := &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "require-platform-team"},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
@@ -89,7 +94,7 @@ func teamLabelHandler(t *testing.T, trace bool) *handler {
 			}},
 		},
 	}
-	provider, err := vpolengine.NewProvider(vpolcompiler.NewCompilerWithTrace(trace), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := vpolengine.NewProvider(vpolcompiler.NewCompilerWithTrace(trace), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	engine := vpolengine.NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 	return New(engine, libs.NewFakeContextProvider(), fakekyvernoclient.NewSimpleClientset(), false, event.NewFake())

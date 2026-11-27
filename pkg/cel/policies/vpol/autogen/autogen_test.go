@@ -21,6 +21,67 @@ func TestGenerateRuleForControllers(t *testing.T) {
 		generatedRule map[string]policiesv1beta1.ValidatingPolicyAutogen
 	}{
 		{
+			name:        "autogen rule for deployments with CEL optional traversal",
+			controllers: sets.New("deployments"),
+			policySpec: []byte(`{
+				"matchConstraints": {
+					"resourceRules": [
+						{
+							"apiGroups": [
+								""
+							],
+							"apiVersions": [
+								"v1"
+							],
+							"operations": [
+								"CREATE",
+								"UPDATE"
+							],
+							"resources": [
+								"pods"
+							]
+						}
+					]
+				},
+				"validations": [
+					{
+						"expression": "object.?spec.?containers.orValue([]).all(c, !c.image.endsWith(':latest'))"
+					}
+				]
+			}`),
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
+				autogen.AutogenDefaults: {
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "object.?spec.template.spec.?containers.orValue([]).all(c, !c.image.endsWith(':latest'))",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:        "autogen rule for deployments",
 			controllers: sets.New("deployments"),
 			policySpec: []byte(`{
@@ -500,6 +561,96 @@ func TestGenerateRuleForControllers(t *testing.T) {
 						Validations: []admissionregistrationv1.Validation{
 							{
 								Expression: "object.spec.containers.all(c, !c.image.endsWith(':latest'))",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:        "string literals containing selector patterns are not rewritten",
+			controllers: sets.New("deployments"),
+			policySpec: []byte(`{
+				"matchConstraints": {
+					"resourceRules": [
+						{
+							"apiGroups": [""],
+							"apiVersions": ["v1"],
+							"operations": ["CREATE","UPDATE"],
+							"resources": ["pods"]
+						}
+					]
+				},
+				"matchConditions": [
+					{
+						"name": "check-env",
+						"expression": "object.metadata.labels['env'] == 'object.spec' && object.metadata.labels['tier'] != \"object[?'spec']\""
+					}
+				],
+				"variables": [
+					{
+						"name": "customVar",
+						"expression": "object.spec.containers.filter(c, c.name != 'object.spec' && c.image != \"object.spec\")"
+					}
+				],
+				"validations": [
+					{
+						"expression": "object.spec.containers.all(c, c.name != 'object.spec' && c.image != \"object[?'spec']\")",
+						"messageExpression": "\"container in \" + object.metadata.name + \" violates rule for 'object.spec'\""
+					}
+				],
+				"auditAnnotations": [
+					{
+						"key": "eval",
+						"valueExpression": "object.metadata.name + ' - evaluated for object.spec'"
+					}
+				]
+			}`),
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
+				autogen.AutogenDefaults: {
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+						MatchConditions: []admissionregistrationv1.MatchCondition{
+							{
+								Name:       "check-env",
+								Expression: "object.spec.template.metadata.labels['env'] == 'object.spec' && object.spec.template.metadata.labels['tier'] != \"object[?'spec']\"",
+							},
+						},
+						Variables: []admissionregistrationv1.Variable{
+							{
+								Name:       "customVar",
+								Expression: "object.spec.template.spec.containers.filter(c, c.name != 'object.spec' && c.image != \"object.spec\")",
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression:        "object.spec.template.spec.containers.all(c, c.name != 'object.spec' && c.image != \"object[?'spec']\")",
+								MessageExpression: "\"container in \" + object.metadata.name + \" violates rule for 'object.spec'\"",
+							},
+						},
+						AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
+							{
+								Key:             "eval",
+								ValueExpression: "object.metadata.name + ' - evaluated for object.spec'",
 							},
 						},
 					},

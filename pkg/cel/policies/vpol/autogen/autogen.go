@@ -2,7 +2,6 @@ package autogen
 
 import (
 	"cmp"
-	"encoding/json"
 	"maps"
 	"slices"
 
@@ -39,43 +38,9 @@ func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1
 
 // RewriteExceptions rewrites PolicyException match conditions and validations using the same
 // spec field-path replacements applied to the policy spec for the given autogen
-// config, so exceptions match against the autogen'd controller's shape
-// instead of the original Pod-shaped policy. Controller metadata paths are preserved:
-// metadata replacements are not applied, so expressions such as `object.metadata.name`
-// keep referring to the controller itself rather than its pod template.
+// config, delegating to the unified implementation in pkg/cel/autogen.
 func RewriteExceptions(exceptions []*policiesv1beta1.PolicyException, config string) ([]*policiesv1beta1.PolicyException, error) {
-	replacements := slices.DeleteFunc(slices.Clone(autogen.ReplacementsMap[config]), func(r autogen.Replacement) bool {
-		return r.From == "metadata"
-	})
-	if len(replacements) == 0 || len(exceptions) == 0 {
-		return exceptions, nil
-	}
-
-	out := make([]*policiesv1beta1.PolicyException, 0, len(exceptions))
-	for _, polex := range exceptions {
-		polex := polex.DeepCopy()
-
-		for i := range polex.Spec.MatchConditions {
-			expr := polex.Spec.MatchConditions[i].Expression
-			if expr != "" {
-				polex.Spec.MatchConditions[i].Expression = string(autogen.ApplyCEL([]byte(expr), replacements...))
-			}
-		}
-
-		for i := range polex.Spec.Validations {
-			expr := polex.Spec.Validations[i].Expression
-			if expr != "" {
-				polex.Spec.Validations[i].Expression = string(autogen.ApplyCEL([]byte(expr), replacements...))
-			}
-			msgExpr := polex.Spec.Validations[i].MessageExpression
-			if msgExpr != "" {
-				polex.Spec.Validations[i].MessageExpression = string(autogen.ApplyCEL([]byte(msgExpr), replacements...))
-			}
-		}
-
-		out = append(out, polex)
-	}
-	return out, nil
+	return autogen.RewriteExceptions(exceptions, config)
 }
 
 func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {
@@ -93,13 +58,31 @@ func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, confi
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
 		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
-		bytes, err := json.Marshal(spec)
-		if err != nil {
-			return nil, err
-		}
-		bytes = autogen.Apply(bytes, autogen.ReplacementsMap[config]...)
-		if err := json.Unmarshal(bytes, spec); err != nil {
-			return nil, err
+		replacements := autogen.ReplacementsMap[config]
+		if len(replacements) > 0 {
+			for i := range spec.MatchConditions {
+				if spec.MatchConditions[i].Expression != "" {
+					spec.MatchConditions[i].Expression = string(autogen.ApplyCEL([]byte(spec.MatchConditions[i].Expression), replacements...))
+				}
+			}
+			for i := range spec.Variables {
+				if spec.Variables[i].Expression != "" {
+					spec.Variables[i].Expression = string(autogen.ApplyCEL([]byte(spec.Variables[i].Expression), replacements...))
+				}
+			}
+			for i := range spec.Validations {
+				if spec.Validations[i].Expression != "" {
+					spec.Validations[i].Expression = string(autogen.ApplyCEL([]byte(spec.Validations[i].Expression), replacements...))
+				}
+				if spec.Validations[i].MessageExpression != "" {
+					spec.Validations[i].MessageExpression = string(autogen.ApplyCEL([]byte(spec.Validations[i].MessageExpression), replacements...))
+				}
+			}
+			for i := range spec.AuditAnnotations {
+				if spec.AuditAnnotations[i].ValueExpression != "" {
+					spec.AuditAnnotations[i].ValueExpression = string(autogen.ApplyCEL([]byte(spec.AuditAnnotations[i].ValueExpression), replacements...))
+				}
+			}
 		}
 		slices.SortFunc(targets, func(a, b policiesv1beta1.Target) int {
 			if x := cmp.Compare(a.Group, b.Group); x != 0 {

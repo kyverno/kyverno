@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,7 +20,7 @@ import (
 
 func newLegacyPolicy(kind, namespace, name string, conditions ...any) *unstructured.Unstructured {
 	obj := &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "kyverno.io/v1",
+		"apiVersion": deprecations.LegacyPolicyResources[kind].GroupVersion().String(),
 		"kind":       kind,
 		"metadata":   map[string]any{"name": name},
 	}}
@@ -46,8 +47,10 @@ func unsupportedCondition() map[string]any {
 
 func newLegacyDynamicClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
-		{Group: "kyverno.io", Version: "v1", Resource: "clusterpolicies"}: "ClusterPolicyList",
-		{Group: "kyverno.io", Version: "v1", Resource: "policies"}:        "PolicyList",
+		{Group: "kyverno.io", Version: "v1", Resource: "clusterpolicies"}:        "ClusterPolicyList",
+		{Group: "kyverno.io", Version: "v1", Resource: "policies"}:               "PolicyList",
+		{Group: "kyverno.io", Version: "v2", Resource: "cleanuppolicies"}:        "CleanupPolicyList",
+		{Group: "kyverno.io", Version: "v2", Resource: "clustercleanuppolicies"}: "ClusterCleanupPolicyList",
 	}, objects...)
 }
 
@@ -73,12 +76,14 @@ func TestMarkLegacyStatuses_ReplacesAllConditions(t *testing.T) {
 			map[string]any{"type": "Other", "status": "True", "reason": "X", "message": "x", "lastTransitionTime": "2025-01-01T00:00:00Z"}),
 		newLegacyPolicy("Policy", "default", "ns-policy", staleReadyCondition()),
 		newLegacyPolicy("ClusterPolicy", "", "no-status"),
+		newLegacyPolicy("CleanupPolicy", "default", "ns-cleanup", staleReadyCondition()),
+		newLegacyPolicy("ClusterCleanupPolicy", "", "cluster-cleanup", staleReadyCondition()),
 	)
 	patches := recordPatches(client)
 
 	now := time.Date(2026, 11, 5, 0, 0, 0, 0, time.UTC)
 	require.NoError(t, markLegacyStatuses(context.Background(), client, now))
-	require.Len(t, *patches, 3)
+	require.Len(t, *patches, 5)
 
 	for _, p := range *patches {
 		assert.Equal(t, "status", p.subresource, "must only write the status subresource")
@@ -94,11 +99,18 @@ func TestMarkLegacyStatuses_ReplacesAllConditions(t *testing.T) {
 		assert.Equal(t, "2026-11-05T00:00:00Z", c["lastTransitionTime"])
 	}
 
-	// The patched object really ends up with only the new condition.
-	gvr := schema.GroupVersionResource{Group: "kyverno.io", Version: "v1", Resource: "clusterpolicies"}
-	obj, err := client.Resource(gvr).Get(context.Background(), "require-team-label", metav1.GetOptions{})
-	require.NoError(t, err)
-	assert.True(t, hasLegacyUnsupportedStatus(obj))
+	// The patched objects really end up with only the new condition.
+	for _, ref := range []struct{ kind, namespace, name string }{
+		{"ClusterPolicy", "", "require-team-label"},
+		{"Policy", "default", "ns-policy"},
+		{"CleanupPolicy", "default", "ns-cleanup"},
+		{"ClusterCleanupPolicy", "", "cluster-cleanup"},
+	} {
+		gvr := deprecations.LegacyPolicyResources[ref.kind]
+		obj, err := client.Resource(gvr).Namespace(ref.namespace).Get(context.Background(), ref.name, metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.True(t, hasLegacyUnsupportedStatus(obj), "%s %s/%s", ref.kind, ref.namespace, ref.name)
+	}
 }
 
 func TestMarkLegacyStatuses_SkipsAlreadyMarked(t *testing.T) {
@@ -106,6 +118,8 @@ func TestMarkLegacyStatuses_SkipsAlreadyMarked(t *testing.T) {
 	client := newLegacyDynamicClient(
 		newLegacyPolicy("ClusterPolicy", "", "done", unsupportedCondition()),
 		newLegacyPolicy("Policy", "default", "done", unsupportedCondition()),
+		newLegacyPolicy("CleanupPolicy", "default", "done", unsupportedCondition()),
+		newLegacyPolicy("ClusterCleanupPolicy", "", "done", unsupportedCondition()),
 	)
 	patches := recordPatches(client)
 

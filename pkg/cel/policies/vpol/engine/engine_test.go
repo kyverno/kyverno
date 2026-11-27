@@ -2,12 +2,14 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -22,7 +24,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/admission"
 )
 
 // buildJSONPolicy creates a ValidatingPolicy in JSON evaluation mode with the
@@ -49,7 +53,7 @@ func TestHandle_ValidationIndexInProperties(t *testing.T) {
 		{Expression: "object.name != ''", Message: "index 3: would pass"},
 	})
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, nil, nil)
@@ -74,7 +78,7 @@ func TestHandle_ValidationIndexFirstExpression(t *testing.T) {
 		{Expression: "object.name != ''", Message: "index 1: would pass"},
 	})
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, nil, nil)
@@ -169,7 +173,7 @@ func buildDisallowLatestTagPolicyUsingRequest() *policiesv1beta1.ValidatingPolic
 
 func TestHandle_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) {
 	policy := buildDisallowLatestTagPolicyUsingRequest()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
@@ -219,7 +223,7 @@ func TestHandle_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) 
 
 func TestHandle_ExtractionMode_JobSet(t *testing.T) {
 	policy := buildDisallowLatestTagPolicy()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
@@ -272,7 +276,7 @@ func TestHandle_ExtractionMode_RefusedExceptionCarriesTemplatePath(t *testing.T)
 		t.Helper()
 		policy := buildDisallowLatestTagPolicy()
 		polex := buildException("default", "polex", policy.GetName(), control)
-		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{polex})
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{polex}, celengine.ExceptionScopeAll)
 		require.NoError(t, err)
 		eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 		req := celengine.Request(
@@ -345,7 +349,7 @@ func workloadWithReplicas(masterImage, workerImage string) *unstructured.Unstruc
 func TestHandle_ExtractionMode_MapKeyedTemplatesReportFirstSortedPath(t *testing.T) {
 	policy := buildDisallowLatestTagPolicy()
 	policy.Spec.AutogenConfiguration.PodControllers.Controllers = []string{"workloads.v1.example.com"}
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 
@@ -392,7 +396,7 @@ func TestHandle_ExtractionMode_TemplateNamespaceDoesNotEscapeMatchConditions(t *
 			policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{
 				{Name: "skip-system-namespaces", Expression: expression},
 			}
-			provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+			provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 			require.NoError(t, err)
 			eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 
@@ -476,7 +480,7 @@ func buildException(namespace, name, policyName string, validations ...admission
 
 func handle(t *testing.T, policy *policiesv1beta1.ValidatingPolicy, payload map[string]any, exceptions ...*policiesv1beta1.PolicyException) engineapi.RuleResponse {
 	t.Helper()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, exceptions)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, exceptions, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 
 	resp, err := NewEngine(provider, nil, nil).Handle(
@@ -690,7 +694,7 @@ func TestNewProvider_CompensatingControlCompileErrorNamesTheException(t *testing
 
 	_, err := NewProvider(compiler.NewCompiler(),
 		[]policiesv1beta1.ValidatingPolicyLike{policy},
-		[]*policiesv1beta1.PolicyException{polex})
+		[]*policiesv1beta1.PolicyException{polex}, celengine.ExceptionScopeAll)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exception[prod/needs-ticket].spec.validations[0].expression")
 }
@@ -710,7 +714,7 @@ func TestNewProvider_CompensatingControlCannotReferencePolicyScopedIdentifiers(t
 
 			_, err := NewProvider(compiler.NewCompiler(),
 				[]policiesv1beta1.ValidatingPolicyLike{policy},
-				[]*policiesv1beta1.PolicyException{polex})
+				[]*policiesv1beta1.PolicyException{polex}, celengine.ExceptionScopeAll)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "exception[prod/needs-ticket].spec.validations[0].expression")
 		})
@@ -728,7 +732,7 @@ func TestHandle_ExtractionMode_AllTemplatesSkippedStillCarriesTrace(t *testing.T
 		Name:       "never",
 		Expression: "object.metadata.name != object.metadata.name", // always false
 	}}
-	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
@@ -778,7 +782,7 @@ func TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace(t *testing.T) {
 		Expression: "object.metadata.labels.owner == 'platform'",
 	}}
 	handle := func(traced bool) celengine.ValidatingPolicyResponse {
-		provider, err := NewProvider(compiler.NewCompilerWithTrace(traced), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+		provider, err := NewProvider(compiler.NewCompilerWithTrace(traced), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 		require.NoError(t, err)
 		eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 		req := celengine.Request(
@@ -814,6 +818,9 @@ func TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace(t *testing.T) {
 	assert.Equal(t, engineapi.RuleStatusError, untraced.Rules[0].Status())
 	assert.Equal(t, untraced.Rules[0].Status(), traced.Rules[0].Status())
 	assert.Equal(t, untraced.Rules[0].Message(), traced.Rules[0].Message())
+	assert.Contains(t, untraced.Rules[0].Message(), "failed to evaluate policy")
+	assert.NotContains(t, untraced.Rules[0].Message(), "failed to load context")
+	assert.Contains(t, untraced.Rules[0].Message(), "no such key: labels")
 	assert.Nil(t, untraced.Trace)
 
 	// with tracing, the failing condition is kept instead of a bare ERROR
@@ -873,7 +880,7 @@ func TestHandle_TracedExceptionFollowsReportResult(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{denyingPolicy()}, tt.exceptions)
+			provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{denyingPolicy()}, tt.exceptions, celengine.ExceptionScopeAll)
 			require.NoError(t, err)
 			resp, err := NewEngine(provider, nil, nil).Handle(
 				context.Background(),
@@ -980,7 +987,7 @@ func TestHandle_ExtractionMode_MultiTemplateTraceSelection(t *testing.T) {
 				Name:       "not-skipped-image",
 				Expression: "!object.spec.containers.exists(c, c.image.startsWith('skip/'))",
 			}}
-			provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+			provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{policy}, nil, celengine.ExceptionScopeAll)
 			require.NoError(t, err)
 			eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 
@@ -1031,7 +1038,7 @@ func TestHandle_JsonPayload_PredicateFilter(t *testing.T) {
 	policy1 := buildJSONPolicy("policy-1", nil)
 	policy2 := buildJSONPolicy("policy-2", nil)
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy1, policy2}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy1, policy2}, nil, celengine.ExceptionScopeAll)
 	require.NoError(t, err)
 	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 
@@ -1056,4 +1063,266 @@ func TestHandle_JsonPayload_PredicateFilter(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, resp.Policies, 2)
 	})
+}
+
+// TestHandle_SharedActivationBuilder_MultiplePolicies verifies that multiple matching
+// policies share a single ActivationBuilder instance during evaluation and activation
+// assembly is performed at most once, while policies skipped by matching criteria do not
+// assemble activation data.
+func TestHandle_SharedActivationBuilder_MultiplePolicies(t *testing.T) {
+	podMatchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			},
+		},
+	}
+
+	matchingPolicy1 := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "matching-1"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: podMatchConstraints,
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'test-pod'"},
+			},
+		},
+	}
+	matchingPolicy2 := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "matching-2"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: podMatchConstraints,
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'test-pod'"},
+			},
+		},
+	}
+	skippedPolicy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "skipped"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'never-reached'"},
+			},
+		},
+	}
+
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{matchingPolicy1, matchingPolicy2, skippedPolicy}, nil, celengine.ExceptionScopeAll)
+	require.NoError(t, err)
+
+	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+	pod := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]any{
+				"name":      "test-pod",
+				"namespace": "default",
+			},
+		},
+	}
+	req := celengine.Request(
+		nil,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		"",
+		"test-pod",
+		"default",
+		admissionv1.Create,
+		authenticationv1.UserInfo{},
+		pod,
+		nil,
+		false,
+		nil,
+	)
+
+	var builderInstantiations int
+	var builderInvocations int
+	var assemblyInvocations int
+
+	orig := newActivationBuilder
+	newActivationBuilder = func(
+		attr admission.Attributes,
+		request *admissionv1.AdmissionRequest,
+		namespace runtime.Object,
+		requestMapFn func() (map[string]any, error),
+		fallback celcompiler.RequestMapBuilder,
+	) celcompiler.ActivationBuilder {
+		builderInstantiations++
+		countedRequestMapFn := func() (map[string]any, error) {
+			assemblyInvocations++
+			if requestMapFn != nil {
+				return requestMapFn()
+			}
+			return nil, nil
+		}
+		realBuilder := orig(attr, request, namespace, countedRequestMapFn, fallback)
+		return func() (celcompiler.ActivationData, error) {
+			builderInvocations++
+			return realBuilder()
+		}
+	}
+	defer func() { newActivationBuilder = orig }()
+
+	resp, err := eng.Handle(context.Background(), req, nil)
+	require.NoError(t, err)
+
+	var evaluated []string
+	for _, p := range resp.Policies {
+		if len(p.Rules) > 0 {
+			evaluated = append(evaluated, p.Policy.GetName())
+			assert.Equal(t, engineapi.RuleStatusPass, p.Rules[0].Status())
+		}
+	}
+	assert.ElementsMatch(t, []string{"matching-1", "matching-2"}, evaluated)
+
+	assert.Equal(t, 1, builderInstantiations, "Handle must instantiate activation builder exactly once across the admission review")
+	assert.Equal(t, 2, builderInvocations, "activation builder should be called once per matching policy (2 matching, 1 skipped)")
+	assert.Equal(t, 1, assemblyInvocations, "activation assembly must execute exactly once through Handle across matching policies")
+}
+
+// TestHandle_SharedActivationBuilder_Failure verifies that when activation assembly
+// fails (via an injected failing request-map function), the failure is memoized across
+// matching policies by the original activation builder without any extra sync.OnceValues wrapper.
+// The injected function executes exactly once, and all matching policies report RuleStatusError
+// with the injected error.
+func TestHandle_SharedActivationBuilder_Failure(t *testing.T) {
+	podMatchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			},
+		},
+	}
+
+	matchingPolicy1 := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "matching-1"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: podMatchConstraints,
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'test-pod'"},
+			},
+		},
+	}
+	matchingPolicy2 := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "matching-2"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: podMatchConstraints,
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'test-pod'"},
+			},
+		},
+	}
+	skippedPolicy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "skipped"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.metadata.name == 'never-reached'"},
+			},
+		},
+	}
+
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{matchingPolicy1, matchingPolicy2, skippedPolicy}, nil, celengine.ExceptionScopeAll)
+	require.NoError(t, err)
+
+	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+	pod := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]any{
+				"name":      "test-pod",
+				"namespace": "default",
+			},
+		},
+	}
+	req := celengine.Request(
+		nil,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		"",
+		"test-pod",
+		"default",
+		admissionv1.Create,
+		authenticationv1.UserInfo{},
+		pod,
+		nil,
+		false,
+		nil,
+	)
+
+	var requestMapInvocations int
+	injectedErr := errors.New("simulated activation failure")
+
+	orig := newActivationBuilder
+	newActivationBuilder = func(
+		attr admission.Attributes,
+		request *admissionv1.AdmissionRequest,
+		namespace runtime.Object,
+		requestMapFn func() (map[string]any, error),
+		fallback celcompiler.RequestMapBuilder,
+	) celcompiler.ActivationBuilder {
+		failingRequestMapFn := func() (map[string]any, error) {
+			requestMapInvocations++
+			return nil, injectedErr
+		}
+		return orig(attr, request, namespace, failingRequestMapFn, fallback)
+	}
+	defer func() { newActivationBuilder = orig }()
+
+	resp, err := eng.Handle(context.Background(), req, nil)
+	require.NoError(t, err)
+
+	var evaluated []string
+	for _, p := range resp.Policies {
+		if len(p.Rules) > 0 {
+			evaluated = append(evaluated, p.Policy.GetName())
+			assert.Equal(t, engineapi.RuleStatusError, p.Rules[0].Status())
+			assert.Contains(t, p.Rules[0].Message(), injectedErr.Error())
+		}
+	}
+	assert.ElementsMatch(t, []string{"matching-1", "matching-2"}, evaluated)
+	assert.Equal(t, 1, requestMapInvocations, "injected failing request-map function must run exactly once across matching policies")
 }

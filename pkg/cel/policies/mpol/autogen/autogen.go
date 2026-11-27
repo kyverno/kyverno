@@ -3,7 +3,6 @@ package autogen
 import (
 	"cmp"
 	"maps"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -12,16 +11,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-var (
-	specRe                = regexp.MustCompile(`\b(object|oldObject|Object)\.spec`)
-	metadataLabelsRe      = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.labels`)
-	metadataAnnotationsRe = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.annotations`)
-)
-
 // ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
 // callers of this package (e.g. the engine provider) don't need to import
 // pkg/cel/autogen directly just to check it.
 const ExtractionReplacementsRef = autogen.ExtractionReplacementsRef
+
+// RewriteExceptions rewrites PolicyException match conditions and validations using the same
+// spec field-path replacements applied to the policy spec for the given autogen
+// config, delegating to the unified implementation in pkg/cel/autogen.
+func RewriteExceptions(exceptions []*policiesv1beta1.PolicyException, config string) ([]*policiesv1beta1.PolicyException, error) {
+	return autogen.RewriteExceptions(exceptions, config)
+}
 
 func Autogen(policy policiesv1beta1.MutatingPolicyLike) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
 	if policy == nil {
@@ -71,6 +71,13 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 		// expressions to the built-in flat shape, which is wrong for
 		// whatever custom CRD this config actually targets.
 		if config != autogen.ExtractionReplacementsRef {
+			for i := range spec.Variables {
+				if spec.Variables[i].Expression != "" {
+					convertedExpr := string(autogen.ApplyMutatingCEL([]byte(spec.Variables[i].Expression), config))
+					spec.Variables[i].Expression = convertedExpr
+				}
+			}
+
 			for i := range spec.MatchConditions {
 				if spec.MatchConditions[i].Expression != "" {
 					convertedExpr := convertPodToTemplateExpression(spec.MatchConditions[i].Expression, config)
@@ -112,21 +119,7 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 
 // convertPodToTemplateExpression converts pod mutation expressions to template expressions
 func convertPodToTemplateExpression(expression string, config string) string {
-	var specReplacement string
-	var metadataReplacement string
-
-	switch config {
-	case "cronjobs":
-		specReplacement = "spec.jobTemplate.spec.template.spec"
-		metadataReplacement = "spec.jobTemplate.spec.template.metadata"
-	default:
-		specReplacement = "spec.template.spec"
-		metadataReplacement = "spec.template.metadata"
-	}
-
-	expression = specRe.ReplaceAllString(expression, "${1}."+specReplacement)
-	expression = metadataLabelsRe.ReplaceAllString(expression, "${1}."+metadataReplacement+".labels")
-	expression = metadataAnnotationsRe.ReplaceAllString(expression, "${1}."+metadataReplacement+".annotations")
+	expression = string(autogen.ApplyMutatingCEL([]byte(expression), config))
 
 	// Detect the root "Object{...}" constructor, tolerating optional whitespace
 	// between "Object" and "{" (e.g. "Object {"), which is valid CEL.
@@ -137,21 +130,7 @@ func convertPodToTemplateExpression(expression string, config string) string {
 			return expression
 		}
 
-		braceCount := 1
-		endIndex := 0
-		for i, char := range content {
-			if char == '{' {
-				braceCount++
-			} else if char == '}' {
-				braceCount--
-				if braceCount == 0 {
-					endIndex = i
-					break
-				}
-			}
-		}
-
-		if endIndex > 0 {
+		if endIndex, ok := autogen.ScanBalancedBraces(content); ok {
 			innerContent := content[:endIndex]
 			remainingContent := content[endIndex+1:]
 

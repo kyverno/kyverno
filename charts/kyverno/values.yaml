@@ -95,7 +95,7 @@ upgrade:
     image:
       # -- (string) Image registry
       registry: ~
-      defaultRegistry: reg.kyverno.io
+      defaultRegistry: ghcr.io
       # -- (string) Image repository
       repository: kyverno/kyverno-cli
       # -- (string) Image tag
@@ -268,12 +268,7 @@ crds:
 
     # -- Resources to migrate
     resources:
-      - cleanuppolicies.kyverno.io
-      - clustercleanuppolicies.kyverno.io
-      - clusterpolicies.kyverno.io
       - globalcontextentries.kyverno.io
-      - policies.kyverno.io
-      - policyexceptions.kyverno.io
       - updaterequests.kyverno.io
       # policies.kyverno.io
       - deletingpolicies.policies.kyverno.io
@@ -291,7 +286,7 @@ crds:
     image:
       # -- (string) Image registry
       registry: ~
-      defaultRegistry: reg.kyverno.io
+      defaultRegistry: ghcr.io
       # -- (string) Image repository
       repository: kyverno/kyverno-cli
       # -- (string) Image tag
@@ -1020,8 +1015,12 @@ features:
   policyExceptions:
     # -- Enables the feature
     enabled: false
-    # -- Restrict policy exceptions to a single namespace
-    # Set to "*" to allow exceptions in all namespaces
+    # -- The namespace that owns exceptions. A concrete namespace (recommended) accepts
+    # exceptions from that namespace only, and is also the central namespace that may except
+    # any cluster-scoped or namespaced policy. "*" allows a PolicyException from any namespace
+    # to apply to a cluster-scoped policy; a namespaced policy still only accepts exceptions
+    # from its own namespace. Leaving this empty accepts no exceptions, so rendering fails if
+    # enabled is true and namespace is empty.
     namespace: ''
   protectManagedResources:
     # -- Enables the feature
@@ -1376,7 +1375,7 @@ admissionController:
     image:
       # -- Image registry
       registry: ~
-      defaultRegistry: reg.kyverno.io
+      defaultRegistry: ghcr.io
       # -- Image repository
       repository: kyverno/kyvernopre
       # -- (string) Image tag
@@ -1425,7 +1424,7 @@ admissionController:
     image:
       # -- Image registry
       registry: ~
-      defaultRegistry: reg.kyverno.io
+      defaultRegistry: ghcr.io
       # -- Image repository
       repository: kyverno/kyverno
       # -- (string) Image tag
@@ -1700,7 +1699,7 @@ backgroundController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: reg.kyverno.io
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/background-controller
     # -- Image tag
@@ -2076,7 +2075,7 @@ cleanupController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: reg.kyverno.io
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/cleanup-controller
     # -- (string) Image tag
@@ -2456,7 +2455,7 @@ reportsController:
   image:
     # -- Image registry
     registry: ~
-    defaultRegistry: reg.kyverno.io
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/reports-controller
     # -- (string) Image tag
